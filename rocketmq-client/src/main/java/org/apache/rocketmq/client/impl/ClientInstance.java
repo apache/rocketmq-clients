@@ -34,6 +34,7 @@ import org.apache.rocketmq.client.remoting.RPCClient;
 import org.apache.rocketmq.client.remoting.RPCClientImpl;
 import org.apache.rocketmq.client.remoting.RPCTarget;
 import org.apache.rocketmq.client.route.BrokerData;
+import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.proto.HealthCheckRequest;
 import org.apache.rocketmq.proto.HealthCheckResponse;
 import org.apache.rocketmq.proto.HeartbeatRequest;
@@ -43,7 +44,6 @@ import org.apache.rocketmq.proto.RouteInfoRequest;
 import org.apache.rocketmq.proto.RouteInfoResponse;
 import org.apache.rocketmq.proto.SendMessageRequest;
 import org.apache.rocketmq.proto.SendMessageResponse;
-import org.apache.rocketmq.proto.TopicRouteData;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.apache.rocketmq.utility.UtilAll;
 
@@ -65,9 +65,7 @@ public class ClientInstance {
   private final ConcurrentMap<String, ProducerObserver> producerObserverTable;
   private final ConcurrentMap<String, ConsumerObserver> consumerObserverTable;
 
-  private final ConcurrentHashMap<
-          String /* Topic */, org.apache.rocketmq.client.route.TopicRouteData>
-      topicRouteTable;
+  private final ConcurrentHashMap<String /* Topic */, TopicRouteData> topicRouteTable;
 
   private final String clientId;
   private final AtomicReference<ServiceState> state;
@@ -292,7 +290,7 @@ public class ClientInstance {
     }
     for (String topic : topics) {
       boolean needNotify = false;
-      org.apache.rocketmq.client.route.TopicRouteData after;
+      TopicRouteData after;
 
       try {
         after = fetchTopicRouteData(topic);
@@ -301,7 +299,7 @@ public class ClientInstance {
         continue;
       }
 
-      final org.apache.rocketmq.client.route.TopicRouteData before = topicRouteTable.get(topic);
+      final TopicRouteData before = topicRouteTable.get(topic);
       if (!after.equals(before)) {
         topicRouteTable.put(topic, after);
         needNotify = true;
@@ -538,8 +536,7 @@ public class ClientInstance {
    * @throws MQClientException throw exception when failed to fetch topic route info from remote.
    *     e.g. topic does not exist.
    */
-  private org.apache.rocketmq.client.route.TopicRouteData fetchTopicRouteData(String topic)
-      throws MQClientException {
+  private TopicRouteData fetchTopicRouteData(String topic) throws MQClientException {
     int retryTimes = getNameServerNum();
     RouteInfoRequest request = RouteInfoRequest.newBuilder().addTopic(topic).build();
     boolean roundRobin = false;
@@ -550,12 +547,12 @@ public class ClientInstance {
         roundRobin = true;
         continue;
       }
-      Map<String, TopicRouteData> routeEntries = response.getRouteMap();
-      TopicRouteData topicRouteData = routeEntries.get(topic);
+      Map<String, org.apache.rocketmq.proto.TopicRouteData> routeEntries = response.getRouteMap();
+      org.apache.rocketmq.proto.TopicRouteData topicRouteData = routeEntries.get(topic);
       if (null == topicRouteData) {
         throw new MQClientException("Topic does not exist.");
       }
-      return new org.apache.rocketmq.client.route.TopicRouteData(topicRouteData);
+      return new TopicRouteData(topicRouteData);
     }
     throw new MQClientException("Failed to fetch topic route.");
   }
@@ -569,9 +566,8 @@ public class ClientInstance {
    * @throws MQClientException throw exception when failed to fetch topic route info from remote.
    *     e.g. topic does not exist.
    */
-  public org.apache.rocketmq.client.route.TopicRouteData getTopicRouteInfo(String topic)
-      throws MQClientException {
-    org.apache.rocketmq.client.route.TopicRouteData topicRouteData = topicRouteTable.get(topic);
+  public TopicRouteData getTopicRouteInfo(String topic) throws MQClientException {
+    TopicRouteData topicRouteData = topicRouteTable.get(topic);
     if (null != topicRouteData) {
       return topicRouteData;
     }
