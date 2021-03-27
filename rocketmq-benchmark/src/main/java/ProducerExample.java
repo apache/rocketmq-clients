@@ -12,7 +12,7 @@ public class ProducerExample {
     producer.setNamesrvAddr("11.167.164.105:9876");
     producer.start();
 
-    for (int i = 0; i < 1; i++) {
+    for (int i = 0; i < 32; i++) {
       try {
         Message msg =
             new Message(

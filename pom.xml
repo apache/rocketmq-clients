@@ -34,7 +34,7 @@
         <grpc.version>1.35.0</grpc.version>
         <protoc.version>3.12.0</protoc.version>
         <commons-lang3.version>3.12.0</commons-lang3.version>
-        <jna-platform.version>5.5.0</jna-platform.version>
+        <jna-platform.version>5.7.0</jna-platform.version>
         <lombk.version>1.18.16</lombk.version>
         <testng.version>7.4.0</testng.version>
         <!-- plugin -->
@@ -147,7 +147,6 @@
                 <groupId>org.testng</groupId>
                 <artifactId>testng</artifactId>
                 <version>${testng.version}</version>
-                <scope>test</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
