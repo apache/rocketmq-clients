@@ -31,6 +31,7 @@
         <slf4j.version>1.7.30</slf4j.version>
         <logback.version>1.2.3</logback.version>
         <guava.version>28.2-jre</guava.version>
+        <apachehttpclient.version>4.5.13</apachehttpclient.version>
         <grpc.version>1.35.0</grpc.version>
         <protoc.version>3.12.0</protoc.version>
         <commons-lang3.version>3.12.0</commons-lang3.version>
@@ -106,6 +107,12 @@
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>
                 <version>${guava.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpclient</artifactId>
+                <version>${apachehttpclient.version}</version>
             </dependency>
 
             <dependency>

@@ -3,7 +3,8 @@
     <appender name="ConsoleAppender" class="ch.qos.logback.core.ConsoleAppender">
         <append>true</append>
         <encoder>
-            <pattern>%d{yyy-MM-dd HH:mm:ss,GMT+8} %p %t - %m%n</pattern>
+            <pattern>%d{yyy-MM-dd HH:mm:ss,GMT+8} %highlight(%-5p) %magenta([%t]) %boldGreen([%logger{12}#%M:%L]) - %m%n
+            </pattern>
             <charset class="java.nio.charset.Charset">UTF-8</charset>
         </encoder>
     </appender>

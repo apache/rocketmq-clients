@@ -6,7 +6,9 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public enum SystemProperty {
-  NAMESRV_ADDR_PROPERTY("rocketmq.namesrv.addr"),
+  NAME_SERVER_ADDR("rocketmq.namesrv.addr"),
+  NAME_SERVER_DOMAIN("rocketmq.namesrv.domain"),
+  NAME_SERVER_SUB_GROUP("rocketmq.namesrv.domain.subgroup"),
 
   TLS_SERVER_MODE("tls.server.mode"),
   TLS_ENABLE("tls.enable"),

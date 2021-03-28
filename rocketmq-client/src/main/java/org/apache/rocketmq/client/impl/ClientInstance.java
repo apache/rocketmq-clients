@@ -57,7 +57,7 @@ public class ClientInstance {
 
   private final ClientConfig clientConfig;
   private final ConcurrentMap<MQRPCTarget, RPCClient> clientTable;
-  private final ThreadPoolExecutor asyncExecutor;
+  private final ThreadPoolExecutor callbackExecutor;
 
   private final List<String> nameServerList;
   private final ReadWriteLock nameServerLock;
@@ -73,13 +73,14 @@ public class ClientInstance {
   public ClientInstance(ClientConfig clientConfig, String clientId) {
     this.clientConfig = clientConfig;
     this.clientTable = new ConcurrentHashMap<>();
-    this.asyncExecutor =
+    this.callbackExecutor =
         new ThreadPoolExecutor(
             1,
             Runtime.getRuntime().availableProcessors(),
             60,
             TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(MAX_ASYNC_QUEUE_TASK_NUM));
+            new LinkedBlockingQueue<>(MAX_ASYNC_QUEUE_TASK_NUM),
+            new ThreadFactoryImpl("ClientCallbackThread_"));
 
     this.nameServerList = clientConfig.getNameServerList();
     this.nameServerLock = new ReentrantReadWriteLock();
@@ -165,9 +166,46 @@ public class ClientInstance {
     state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
   }
 
-  private void logStats() {}
+  public void shutdown() {
+    if (!producerObserverTable.isEmpty()) {
+      log.info(
+          "Not all producerObserver has unregistered, producerObserver num={}",
+          producerObserverTable.size());
+      return;
+    }
+    if (!consumerObserverTable.isEmpty()) {
+      log.info(
+          "Not all consumerObserver has unregistered, consumerObserver num={}",
+          consumerObserverTable.size());
+      return;
+    }
+    state.compareAndSet(ServiceState.STARTING, ServiceState.STOPPING);
+    state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING);
+    final ServiceState serviceState = state.get();
+    if (ServiceState.STOPPING == serviceState) {
+      scheduler.shutdown();
+      callbackExecutor.shutdown();
+      state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
+      return;
+    }
+    log.warn("Failed to shutdown client instance, unexpected state={}.", serviceState);
+  }
+
+  private void logStats() {
+    final ServiceState serviceState = state.get();
+    if (ServiceState.STARTED != serviceState && ServiceState.STARTING != serviceState) {
+      log.warn("Unexpected client instance state={}", serviceState);
+      return;
+    }
+  }
 
   private void doHeartbeat() {
+    final ServiceState serviceState = state.get();
+    if (ServiceState.STARTED != serviceState && ServiceState.STARTING != serviceState) {
+      log.warn("Unexpected client instance state={}", serviceState);
+      return;
+    }
+
     log.debug("Start to send heartbeat for a new round.");
 
     final HeartbeatRequest.Builder builder = HeartbeatRequest.newBuilder();
@@ -214,6 +252,11 @@ public class ClientInstance {
   }
 
   private void restoreIsolatedTarget() {
+    final ServiceState serviceState = state.get();
+    if (ServiceState.STARTED != serviceState && ServiceState.STARTING != serviceState) {
+      log.warn("Unexpected client instance state={}", serviceState);
+      return;
+    }
     clientTable.forEach(
         (RPCTarget, rpcClient) -> {
           if (!rpcClient.isIsolated()) {
@@ -233,6 +276,12 @@ public class ClientInstance {
   }
 
   private void cleanOutdatedClient() {
+    final ServiceState serviceState = state.get();
+    if (ServiceState.STARTED != serviceState && ServiceState.STARTING != serviceState) {
+      log.warn("Unexpected client instance state={}", serviceState);
+      return;
+    }
+
     Set<String> currentTargets = new HashSet<>();
     nameServerLock.readLock().lock();
     try {
@@ -262,8 +311,6 @@ public class ClientInstance {
             });
   }
 
-  public void shutdown() {}
-
   public void setNameServerList(List<String> nameServerList) {
     nameServerLock.writeLock().lock();
     try {
@@ -284,6 +331,11 @@ public class ClientInstance {
   }
 
   private void updateRouteInfo() {
+    final ServiceState serviceState = state.get();
+    if (ServiceState.STARTED != serviceState && ServiceState.STARTING != serviceState) {
+      log.warn("Unexpected client instance state={}", serviceState);
+      return;
+    }
     final Set<String> topics = new HashSet<>(topicRouteTable.keySet());
     if (topics.isEmpty()) {
       return;
@@ -385,7 +437,7 @@ public class ClientInstance {
       return rpcClient;
     }
 
-    rpcClient = new RPCClientImpl(rpcTarget, asyncExecutor);
+    rpcClient = new RPCClientImpl(rpcTarget, callbackExecutor);
     clientTable.put(rpcTarget, rpcClient);
     return rpcClient;
   }
@@ -447,7 +499,8 @@ public class ClientInstance {
           String messageId = response.getMessageId();
 
           if (ServiceState.STARTED != state) {
-            log.info("Client instance has stopped, state={}, msgId={}", state, messageId);
+            log.info("Client instance is not be started, state={}, msgId={}", state, messageId);
+            return;
           }
 
           if (null != throwable) {

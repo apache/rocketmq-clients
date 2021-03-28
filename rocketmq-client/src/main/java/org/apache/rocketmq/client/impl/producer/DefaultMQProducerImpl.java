@@ -101,10 +101,16 @@ public class DefaultMQProducerImpl implements ProducerObserver {
   }
 
   public void shutdown() {
-    if (ServiceState.STARTED == state.get()) {
+    state.compareAndSet(ServiceState.STARTING, ServiceState.STOPPING);
+    state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING);
+    final ServiceState serviceState = state.get();
+    if (ServiceState.STOPPING == serviceState) {
       clientInstance.unregisterProducerObserver(defaultMQProducer.getProducerGroup());
-      state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPED);
+      clientInstance.shutdown();
+      state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
+      return;
     }
+    log.warn("Failed to shutdown producer, unexpected state={}.", serviceState);
   }
 
   public boolean hasBeenStarted() {
