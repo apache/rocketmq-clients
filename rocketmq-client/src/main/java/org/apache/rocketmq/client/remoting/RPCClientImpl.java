@@ -1,10 +1,16 @@
 package org.apache.rocketmq.client.remoting;
 
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.proto.AckMessageRequest;
 import org.apache.rocketmq.proto.AckMessageResponse;
 import org.apache.rocketmq.proto.ChangeInvisibleTimeRequest;
@@ -19,36 +25,56 @@ import org.apache.rocketmq.proto.QueryAssignmentRequest;
 import org.apache.rocketmq.proto.QueryAssignmentResponse;
 import org.apache.rocketmq.proto.RocketMQGrpc;
 import org.apache.rocketmq.proto.RocketMQGrpc.RocketMQBlockingStub;
+import org.apache.rocketmq.proto.RocketMQGrpc.RocketMQFutureStub;
 import org.apache.rocketmq.proto.RocketMQGrpc.RocketMQStub;
 import org.apache.rocketmq.proto.RouteInfoRequest;
 import org.apache.rocketmq.proto.RouteInfoResponse;
 import org.apache.rocketmq.proto.SendMessageRequest;
 import org.apache.rocketmq.proto.SendMessageResponse;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
+@Slf4j
 public class RPCClientImpl implements RPCClient {
+
   private static final long DEFAULT_TIMEOUT_MILLIS = 3 * 1000;
+
   /**
    * Usage of {@link RPCClientImpl#fetchTopicRouteInfo(RouteInfoRequest)} are usually invokes the
    * first call of gRPC, which need warm up in most case.
    */
   private static final long FETCH_TOPIC_ROUTE_INFO_TIMEOUT_MILLIS = 15 * 1000;
 
-  private final RPCTarget RPCTarget;
+  private final RPCTarget rpcTarget;
   private final ManagedChannel channel;
 
   private final RocketMQBlockingStub blockingStub;
   private final RocketMQStub asyncStub;
-  private final RocketMQGrpc.RocketMQFutureStub futureStub;
+  private final RocketMQFutureStub futureStub;
 
-  public RPCClientImpl(RPCTarget RPCTarget, ThreadPoolExecutor asyncExecutor) {
-    this.RPCTarget = RPCTarget;
+  private ThreadPoolExecutor sendMessageAsyncExecutor;
+  private Semaphore sendMessageAsyncSemaphore;
 
-    final String target = RPCTarget.getTarget();
+  private RPCClientImpl(RPCTarget rpcTarget) {
+    this.rpcTarget = rpcTarget;
+
+    final String target = rpcTarget.getTarget();
     this.channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
 
     this.blockingStub = RocketMQGrpc.newBlockingStub(channel);
-    this.asyncStub = RocketMQGrpc.newStub(channel).withExecutor(asyncExecutor);
-    this.futureStub = RocketMQGrpc.newFutureStub(channel).withExecutor(asyncExecutor);
+    this.asyncStub = RocketMQGrpc.newStub(channel);
+    this.futureStub = RocketMQGrpc.newFutureStub(channel);
+  }
+
+  public RPCClientImpl(RPCTarget rpcTarget, ThreadPoolExecutor sendMessageAsyncExecutor) {
+    this(rpcTarget);
+
+    this.sendMessageAsyncExecutor = sendMessageAsyncExecutor;
+    this.sendMessageAsyncSemaphore =
+        new Semaphore(getThreadParallelCount(sendMessageAsyncExecutor));
+  }
+
+  private int getThreadParallelCount(ThreadPoolExecutor executor) {
+    return executor.getMaximumPoolSize() + executor.getQueue().remainingCapacity();
   }
 
   @Override
@@ -60,12 +86,12 @@ public class RPCClientImpl implements RPCClient {
 
   @Override
   public void setIsolated(boolean isolated) {
-    RPCTarget.setIsolated(isolated);
+    rpcTarget.setIsolated(isolated);
   }
 
   @Override
   public boolean isIsolated() {
-    return RPCTarget.isIsolated();
+    return rpcTarget.isIsolated();
   }
 
   @Override
@@ -87,23 +113,40 @@ public class RPCClientImpl implements RPCClient {
       InvocationContext<SendMessageResponse> context,
       long duration,
       TimeUnit unit) {
-    RocketMQStub stub = asyncStub.withDeadlineAfter(duration, unit);
-    StreamObserver<SendMessageResponse> observer =
-        new StreamObserver<SendMessageResponse>() {
-          @Override
-          public void onNext(SendMessageResponse response) {
-            context.onSuccess(response);
-          }
+    try {
+      sendMessageAsyncSemaphore.acquire();
+      final RocketMQFutureStub stub =
+          futureStub.withExecutor(sendMessageAsyncExecutor).withDeadlineAfter(duration, unit);
+      final ListenableFuture<SendMessageResponse> future = stub.sendMessage(request);
+      Futures.addCallback(
+          future,
+          new FutureCallback<SendMessageResponse>() {
+            @Override
+            public void onSuccess(@Nullable SendMessageResponse response) {
+              try {
+                context.onSuccess(response);
+              } finally {
+                sendMessageAsyncSemaphore.release();
+              }
+            }
 
-          @Override
-          public void onError(Throwable t) {
-            context.onException(t);
-          }
-
-          @Override
-          public void onCompleted() {}
-        };
-    stub.sendMessage(request, observer);
+            @Override
+            public void onFailure(Throwable t) {
+              try {
+                context.onException(t);
+              } finally {
+                sendMessageAsyncSemaphore.release();
+              }
+            }
+          },
+          MoreExecutors.directExecutor());
+    } catch (Throwable t) {
+      try {
+        context.onException(t);
+      } finally {
+        sendMessageAsyncSemaphore.release();
+      }
+    }
   }
 
   @Override

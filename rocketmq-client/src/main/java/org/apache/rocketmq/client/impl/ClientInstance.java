@@ -57,6 +57,7 @@ public class ClientInstance {
 
   private final ClientConfig clientConfig;
   private final ConcurrentMap<MQRPCTarget, RPCClient> clientTable;
+
   private final ThreadPoolExecutor callbackExecutor;
 
   private final List<String> nameServerList;
@@ -75,7 +76,7 @@ public class ClientInstance {
     this.clientTable = new ConcurrentHashMap<>();
     this.callbackExecutor =
         new ThreadPoolExecutor(
-            1,
+            Runtime.getRuntime().availableProcessors(),
             Runtime.getRuntime().availableProcessors(),
             60,
             TimeUnit.SECONDS,
@@ -496,10 +497,9 @@ public class ClientInstance {
     BiConsumer<SendMessageResponse, Throwable> biConsumer =
         ((response, throwable) -> {
           ServiceState state = this.state.get();
-          String messageId = response.getMessageId();
 
           if (ServiceState.STARTED != state) {
-            log.info("Client instance is not be started, state={}, msgId={}", state, messageId);
+            log.info("Client instance is not be started, state={}", state);
             return;
           }
 
@@ -507,7 +507,6 @@ public class ClientInstance {
             sendCallback.onException(throwable);
             return;
           }
-
           MessageQueue messageQueue = new MessageQueue();
           messageQueue.setQueueId(response.getQueueId());
           messageQueue.setTopic(request.getMessage().getTopic());

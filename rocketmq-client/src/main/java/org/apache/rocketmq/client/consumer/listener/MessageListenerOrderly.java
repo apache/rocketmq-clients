@@ -1,3 +1,9 @@
 package org.apache.rocketmq.client.consumer.listener;
 
-public class MessageListenerOrderly {}
+import java.util.List;
+import org.apache.rocketmq.client.message.MessageExt;
+
+public interface MessageListenerOrderly extends MessageListener {
+  ConsumeOrderlyStatus consumeMessage(
+      final List<MessageExt> messages, final ConsumeOrderlyContext context);
+}

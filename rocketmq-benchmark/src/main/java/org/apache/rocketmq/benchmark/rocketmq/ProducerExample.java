@@ -1,24 +1,23 @@
-package org.apache.rocketmq.benchmark;
+package org.apache.rocketmq.benchmark.rocketmq;
 
+import com.google.common.base.Stopwatch;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
-import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
 
 @Slf4j
-public class AsyncProducerExample {
+public class ProducerExample {
   public static void main(String[] args) throws MQClientException, InterruptedException {
-    DefaultMQProducer producer = new DefaultMQProducer("default_producer_group");
+    DefaultMQProducer producer = new DefaultMQProducer("TestGroup");
     producer.setNamesrvAddr("11.167.164.105:9876");
     producer.start();
 
     int messageNum = 32;
-    CountDownLatch latch = new CountDownLatch(messageNum);
-
+    final Stopwatch started = Stopwatch.createStarted();
     for (int i = 0; i < messageNum; i++) {
       try {
         Message msg =
@@ -26,28 +25,15 @@ public class AsyncProducerExample {
                 "TestTopic" /* Topic */,
                 "TagA" /* Tag */,
                 ("Hello RocketMQ " + i).getBytes(StandardCharsets.UTF_8) /* Message body */);
-        producer.send(
-            msg,
-            new SendCallback() {
-              @Override
-              public void onSuccess(SendResult sendResult) {
-                log.info("{}", sendResult);
-                latch.countDown();
-              }
-
-              @Override
-              public void onException(Throwable e) {
-                log.error("", e);
-                latch.countDown();
-              }
-            });
+        SendResult sendResult = producer.send(msg);
+        log.info("{}", sendResult);
       } catch (Exception e) {
-        log.error("", e);
-        latch.countDown();
+        e.printStackTrace();
         Thread.sleep(1000);
       }
     }
-    latch.await();
+    final long elapsed = started.elapsed(TimeUnit.MILLISECONDS);
+    log.info("Sending {} message(s) costs {}ms", messageNum, elapsed);
     producer.shutdown();
   }
 }

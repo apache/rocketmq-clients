@@ -2,7 +2,9 @@ package org.apache.rocketmq.client.message;
 
 import java.net.SocketAddress;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
+@EqualsAndHashCode(callSuper = true)
 @Data
 public class MessageExt extends Message {
   private String brokerName;

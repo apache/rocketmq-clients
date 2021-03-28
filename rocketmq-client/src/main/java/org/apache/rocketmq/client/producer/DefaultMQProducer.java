@@ -22,7 +22,7 @@ import org.apache.rocketmq.client.message.MessageQueue;
 public class DefaultMQProducer extends ClientConfig {
 
   /** Wrapping internal implementations for virtually all methods presented in this class. */
-  protected final transient DefaultMQProducerImpl impl;
+  protected final DefaultMQProducerImpl impl;
 
   public String getProducerGroup() {
     return this.getGroupName();

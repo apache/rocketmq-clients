@@ -1,64 +1,71 @@
 package org.apache.rocketmq.client.consumer;
 
 import java.util.Set;
+import lombok.Getter;
+import lombok.Setter;
+import org.apache.rocketmq.client.constant.ConsumeFromWhere;
 import org.apache.rocketmq.client.consumer.listener.MessageListener;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
 import org.apache.rocketmq.client.exception.MQBrokerException;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.RemotingException;
+import org.apache.rocketmq.client.impl.ClientConfig;
+import org.apache.rocketmq.client.impl.consumer.DefaultMQPushConsumerImpl;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
 
-public class DefaultMQPushConsumer implements MQPushConsumer {
-  @Override
+public class DefaultMQPushConsumer extends ClientConfig {
+
+  /** Wrapping internal implementations for virtually all methods presented in this class. */
+  protected final DefaultMQPushConsumerImpl impl;
+
+  private MessageListener messageListener;
+  @Getter @Setter private ConsumeFromWhere consumeFromWhere;
+
   public void start() throws MQClientException {}
 
-  @Override
   public void shutdown() {}
 
-  @Override
-  public void registerMessageListener(MessageListener messageListener) {}
+  public DefaultMQPushConsumer(final String consumerGroup) {
+    this.setGroupName(consumerGroup);
+    this.consumeFromWhere = ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET;
+    this.impl = new DefaultMQPushConsumerImpl(this);
+  }
 
-  @Override
-  public void registerMessageListener(MessageListenerConcurrently messageListenerConcurrently) {}
+  public void registerMessageListener(MessageListenerConcurrently messageListenerConcurrently) {
+    this.messageListener = messageListenerConcurrently;
+    this.impl.registerMessageListener(messageListenerConcurrently);
+  }
 
-  @Override
-  public void registerMessageListener(MessageListenerOrderly messageListenerOrderly) {}
+  public void registerMessageListener(MessageListenerOrderly messageListenerOrderly) {
+    this.messageListener = messageListenerOrderly;
+    this.impl.registerMessageListener(messageListenerOrderly);
+  }
 
-  @Override
-  public void subscribe(String s, String s1) throws MQClientException {}
+  public void subscribe(String topic, String subExpression) throws MQClientException {}
 
-  @Override
-  public void subscribe(String s, String s1, String s2) throws MQClientException {}
+  public void subscribe(String topic, String fullClassName, String filterClassSource)
+      throws MQClientException {}
 
-  @Override
-  public void subscribe(String s, MessageSelector messageSelector) throws MQClientException {}
+  public void subscribe(String topic, MessageSelector messageSelector) throws MQClientException {}
 
-  @Override
-  public void unsubscribe(String s) {}
+  public void unsubscribe(String topic) {}
 
-  @Override
   public void updateCorePoolSize(int i) {}
 
-  @Override
   public void allowCoreThreadTimeOut(boolean b) {}
 
-  @Override
   public void suspend() {}
 
-  @Override
   public void resume() {}
 
-  @Override
   public void sendMessageBack(MessageExt messageExt, int i)
       throws RemotingException, MQBrokerException, InterruptedException, MQClientException {}
 
-  @Override
   public void sendMessageBack(MessageExt messageExt, int i, String s)
       throws RemotingException, MQBrokerException, InterruptedException, MQClientException {}
 
-  @Override
   public Set<MessageQueue> fetchSubscribeMessageQueues(String s) throws MQClientException {
     return null;
   }

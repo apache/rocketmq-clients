@@ -388,6 +388,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
     return null;
   }
 
+  // Not implemented yet.
   public void setCallbackExecutor(final ExecutorService callbackExecutor) {}
 
   @Override
