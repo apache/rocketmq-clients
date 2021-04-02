@@ -1,5 +1,6 @@
 package org.apache.rocketmq.client.message;
 
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -11,7 +12,7 @@ import org.apache.rocketmq.client.constant.TopicPrefix;
 public class MessageBatch extends Message implements Iterable<Message> {
   private final List<Message> messages;
 
-  public byte[] encode() {
+  public byte[] encode() throws UnsupportedEncodingException {
     return MessageCodec.encodeMessages(messages);
   }
 

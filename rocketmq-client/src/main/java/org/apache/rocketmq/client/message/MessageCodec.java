@@ -1,7 +1,9 @@
 package org.apache.rocketmq.client.message;
 
+import org.apache.rocketmq.client.misc.MixAll;
+
+import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -26,12 +28,12 @@ public class MessageCodec {
     return sb.toString();
   }
 
-  public static byte[] encodeMessage(Message message) {
+  public static byte[] encodeMessage(Message message) throws UnsupportedEncodingException {
     // only need flag, body, properties
     byte[] body = message.getBody();
     int bodyLen = body.length;
     String properties = messageProperties2String(message.getProperties());
-    byte[] propertiesBytes = properties.getBytes(StandardCharsets.UTF_8);
+    byte[] propertiesBytes = properties.getBytes(MixAll.DEFAULT_CHARSET);
     // note properties length must not more than Short.MAX
     short propertiesLength = (short) propertiesBytes.length;
     int sysFlag = message.getFlag();
@@ -69,7 +71,7 @@ public class MessageCodec {
     return byteBuffer.array();
   }
 
-  public static byte[] encodeMessages(List<Message> messages) {
+  public static byte[] encodeMessages(List<Message> messages) throws UnsupportedEncodingException {
     // TO DO refactor, accumulate in one buffer, avoid copies
     List<byte[]> encodedMessages = new ArrayList<byte[]>(messages.size());
     int allSize = 0;

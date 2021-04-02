@@ -1,12 +1,12 @@
 package org.apache.rocketmq.benchmark.rocketmq;
 
 import com.google.common.base.Stopwatch;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.message.Message;
+import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
@@ -20,7 +20,7 @@ public class AsyncProducerExample {
 
     int messageNum = 100000;
     final Stopwatch started = Stopwatch.createStarted();
-    CountDownLatch latch = new CountDownLatch(messageNum);
+    final CountDownLatch latch = new CountDownLatch(messageNum);
 
     for (int i = 0; i < messageNum; i++) {
       try {
@@ -28,7 +28,7 @@ public class AsyncProducerExample {
             new Message(
                 "TestTopic" /* Topic */,
                 "TagA" /* Tag */,
-                ("Hello RocketMQ " + i).getBytes(StandardCharsets.UTF_8) /* Message body */);
+                ("Hello RocketMQ " + i).getBytes(MixAll.DEFAULT_CHARSET) /* Message body */);
         producer.send(
             msg,
             new SendCallback() {
@@ -50,7 +50,6 @@ public class AsyncProducerExample {
         Thread.sleep(1000);
       }
     }
-    //    final boolean await = latch.await(15, TimeUnit.SECONDS);
     latch.await();
     final long elapsed = started.elapsed(TimeUnit.MILLISECONDS);
     log.info(

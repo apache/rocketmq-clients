@@ -31,7 +31,7 @@ public class ClientConfig {
   private LanguageCode language;
 
   public ClientConfig() {
-    this.nameServerList = new ArrayList<>();
+    this.nameServerList = new ArrayList<String>();
     this.clientIP = RemotingUtil.getLocalAddress();
     this.instanceName = System.getProperty("rocketmq.client.name", "DEFAULT");
     this.useTLS = TLSSystemConfig.tlsEnable;

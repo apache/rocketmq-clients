@@ -9,37 +9,31 @@ public interface QueueDataOrBuilder extends
 
   /**
    * <code>string broker_name = 1;</code>
-   * @return The brokerName.
    */
   java.lang.String getBrokerName();
   /**
    * <code>string broker_name = 1;</code>
-   * @return The bytes for brokerName.
    */
   com.google.protobuf.ByteString
       getBrokerNameBytes();
 
   /**
    * <code>int32 read_queue_number = 2;</code>
-   * @return The readQueueNumber.
    */
   int getReadQueueNumber();
 
   /**
    * <code>int32 write_queue_number = 3;</code>
-   * @return The writeQueueNumber.
    */
   int getWriteQueueNumber();
 
   /**
    * <code>int32 permission = 4;</code>
-   * @return The permission.
    */
   int getPermission();
 
   /**
    * <code>int32 topic_system_flag = 5;</code>
-   * @return The topicSystemFlag.
    */
   int getTopicSystemFlag();
 }

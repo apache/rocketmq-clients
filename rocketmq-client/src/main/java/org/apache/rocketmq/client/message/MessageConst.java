@@ -48,7 +48,7 @@ public class MessageConst {
 
   public static final String KEY_SEPARATOR = " ";
 
-  public static final HashSet<String> MSG_SYS_PROPERTY_SET = new HashSet<>();
+  public static final HashSet<String> MSG_SYS_PROPERTY_SET = new HashSet<String>();
 
   static {
     MSG_SYS_PROPERTY_SET.add(PROPERTY_TRACE_SWITCH);

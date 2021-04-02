@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ClientManager {
 
   private static final ConcurrentHashMap<String /* Client Id */, ClientInstance>
-      clientInstanceTable = new ConcurrentHashMap<>();
+      clientInstanceTable = new ConcurrentHashMap<String, ClientInstance>();
 
   private ClientManager() {}
 

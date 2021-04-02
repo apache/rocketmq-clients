@@ -7,6 +7,7 @@ import java.util.Map;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
+import org.apache.rocketmq.proto.FilterServerAddress;
 
 @Getter
 @EqualsAndHashCode
@@ -19,22 +20,22 @@ public class TopicRouteData {
 
   public TopicRouteData(org.apache.rocketmq.proto.TopicRouteData topicRouteData) {
     this.orderTopicConfiguration = topicRouteData.getOrderTopicConfiguration();
-    this.queueDataList = new ArrayList<>();
+    this.queueDataList = new ArrayList<QueueData>();
     for (org.apache.rocketmq.proto.QueueData queueData : topicRouteData.getQueueDataList()) {
       this.queueDataList.add(new QueueData(queueData));
     }
-    this.brokerDataList = new ArrayList<>();
+    this.brokerDataList = new ArrayList<BrokerData>();
     for (org.apache.rocketmq.proto.BrokerData brokerData : topicRouteData.getBrokerDataList()) {
       this.brokerDataList.add(new BrokerData(brokerData));
     }
-    topicRouteData
-        .getFilterServerAddressesMap()
-        .forEach(
-            (brokerAddress, filterServerAddress) -> {
-              List<String> addressList = new ArrayList<>();
-              filterServerTable.put(brokerAddress, addressList);
-              ProtocolStringList list = filterServerAddress.getAddressList();
-              addressList.addAll(list);
-            });
+    for (Map.Entry<String, FilterServerAddress> entry :
+        topicRouteData.getFilterServerAddressesMap().entrySet()) {
+      final String brokerAddress = entry.getKey();
+      final FilterServerAddress filterServerAddress = entry.getValue();
+      List<String> addressList = new ArrayList<String>();
+      filterServerTable.put(brokerAddress, addressList);
+      final ProtocolStringList list = filterServerAddress.getAddressList();
+      addressList.addAll(list);
+    }
   }
 }

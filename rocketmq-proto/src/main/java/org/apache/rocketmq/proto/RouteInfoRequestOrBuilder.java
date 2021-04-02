@@ -9,25 +9,19 @@ public interface RouteInfoRequestOrBuilder extends
 
   /**
    * <code>repeated string topic = 1;</code>
-   * @return A list containing the topic.
    */
   java.util.List<java.lang.String>
       getTopicList();
   /**
    * <code>repeated string topic = 1;</code>
-   * @return The count of topic.
    */
   int getTopicCount();
   /**
    * <code>repeated string topic = 1;</code>
-   * @param index The index of the element to return.
-   * @return The topic at the given index.
    */
   java.lang.String getTopic(int index);
   /**
    * <code>repeated string topic = 1;</code>
-   * @param index The index of the value to return.
-   * @return The bytes of the topic at the given index.
    */
   com.google.protobuf.ByteString
       getTopicBytes(int index);

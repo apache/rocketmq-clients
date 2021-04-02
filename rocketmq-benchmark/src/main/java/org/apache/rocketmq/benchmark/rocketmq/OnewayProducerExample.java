@@ -1,11 +1,11 @@
 package org.apache.rocketmq.benchmark.rocketmq;
 
 import com.google.common.base.Stopwatch;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.message.Message;
+import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 
 @Slf4j
@@ -23,7 +23,7 @@ public class OnewayProducerExample {
             new Message(
                 "TestTopic" /* Topic */,
                 "TagA" /* Tag */,
-                ("Hello RocketMQ " + i).getBytes(StandardCharsets.UTF_8) /* Message body */);
+                ("Hello RocketMQ " + i).getBytes(MixAll.DEFAULT_CHARSET) /* Message body */);
         producer.sendOneway(msg);
       } catch (Exception e) {
         e.printStackTrace();

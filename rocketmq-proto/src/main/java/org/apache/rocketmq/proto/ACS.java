@@ -438,10 +438,18 @@ public final class ACS {
       "\n\031org.apache.rocketmq.protoB\003ACSP\001\240\001\001\330\001\001" +
       "b\006proto3"
     };
-    descriptor = com.google.protobuf.Descriptors.FileDescriptor
+    com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
+        new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
+          public com.google.protobuf.ExtensionRegistry assignDescriptors(
+              com.google.protobuf.Descriptors.FileDescriptor root) {
+            descriptor = root;
+            return null;
+          }
+        };
+    com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
-        });
+        }, assigner);
     internal_static_rocketmq_rpc_api_RouteInfoRequest_descriptor =
       getDescriptor().getMessageTypes().get(0);
     internal_static_rocketmq_rpc_api_RouteInfoRequest_fieldAccessorTable = new

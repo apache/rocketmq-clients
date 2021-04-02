@@ -1,11 +1,11 @@
 package org.apache.rocketmq.benchmark.rocketmq;
 
 import com.google.common.base.Stopwatch;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.message.Message;
+import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.client.producer.SendResult;
 
@@ -16,7 +16,7 @@ public class ProducerExample {
     producer.setNamesrvAddr("11.167.164.105:9876");
     producer.start();
 
-    int messageNum = 32;
+    int messageNum = 1000;
     final Stopwatch started = Stopwatch.createStarted();
     for (int i = 0; i < messageNum; i++) {
       try {
@@ -24,7 +24,7 @@ public class ProducerExample {
             new Message(
                 "TestTopic" /* Topic */,
                 "TagA" /* Tag */,
-                ("Hello RocketMQ " + i).getBytes(StandardCharsets.UTF_8) /* Message body */);
+                ("Hello RocketMQ " + i).getBytes(MixAll.DEFAULT_CHARSET) /* Message body */);
         SendResult sendResult = producer.send(msg);
         log.info("{}", sendResult);
       } catch (Exception e) {

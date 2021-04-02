@@ -9,12 +9,10 @@ public interface MessageQueueAssignmentOrBuilder extends
 
   /**
    * <code>.rocketmq.rpc.api.MessageQueue message_queue = 1;</code>
-   * @return Whether the messageQueue field is set.
    */
   boolean hasMessageQueue();
   /**
    * <code>.rocketmq.rpc.api.MessageQueue message_queue = 1;</code>
-   * @return The messageQueue.
    */
   org.apache.rocketmq.proto.MessageQueue getMessageQueue();
   /**
@@ -24,12 +22,10 @@ public interface MessageQueueAssignmentOrBuilder extends
 
   /**
    * <code>.rocketmq.rpc.api.MessageRequestMode mode = 2;</code>
-   * @return The enum numeric value on the wire for mode.
    */
   int getModeValue();
   /**
    * <code>.rocketmq.rpc.api.MessageRequestMode mode = 2;</code>
-   * @return The mode.
    */
   org.apache.rocketmq.proto.MessageRequestMode getMode();
 

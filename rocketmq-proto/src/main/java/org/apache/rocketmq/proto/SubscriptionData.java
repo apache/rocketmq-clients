@@ -6,7 +6,7 @@ package org.apache.rocketmq.proto;
 /**
  * Protobuf type {@code rocketmq.rpc.api.SubscriptionData}
  */
-public final class SubscriptionData extends
+public  final class SubscriptionData extends
     com.google.protobuf.GeneratedMessageV3 implements
     // @@protoc_insertion_point(message_implements:rocketmq.rpc.api.SubscriptionData)
     SubscriptionDataOrBuilder {
@@ -18,17 +18,12 @@ private static final long serialVersionUID = 0L;
   private SubscriptionData() {
     topic_ = "";
     subString_ = "";
+    subVersion_ = 0L;
     expressionType_ = 0;
     tagSet_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-    codeSet_ = emptyIntList();
+    codeSet_ = java.util.Collections.emptyList();
+    classFilterMode_ = false;
     filterClassSource_ = "";
-  }
-
-  @java.lang.Override
-  @SuppressWarnings({"unused"})
-  protected java.lang.Object newInstance(
-      UnusedPrivateParameter unused) {
-    return new SubscriptionData();
   }
 
   @java.lang.Override
@@ -55,6 +50,13 @@ private static final long serialVersionUID = 0L;
           case 0:
             done = true;
             break;
+          default: {
+            if (!parseUnknownFieldProto3(
+                input, unknownFields, extensionRegistry, tag)) {
+              done = true;
+            }
+            break;
+          }
           case 10: {
             java.lang.String s = input.readStringRequireUtf8();
 
@@ -80,39 +82,39 @@ private static final long serialVersionUID = 0L;
           }
           case 42: {
             java.lang.String s = input.readStringRequireUtf8();
-            if (!((mutable_bitField0_ & 0x00000001) != 0)) {
+            if (!((mutable_bitField0_ & 0x00000010) == 0x00000010)) {
               tagSet_ = new com.google.protobuf.LazyStringArrayList();
-              mutable_bitField0_ |= 0x00000001;
+              mutable_bitField0_ |= 0x00000010;
             }
             tagSet_.add(s);
             break;
           }
           case 48: {
-            if (!((mutable_bitField0_ & 0x00000002) != 0)) {
-              codeSet_ = newIntList();
-              mutable_bitField0_ |= 0x00000002;
+            if (!((mutable_bitField0_ & 0x00000020) == 0x00000020)) {
+              codeSet_ = new java.util.ArrayList<java.lang.Integer>();
+              mutable_bitField0_ |= 0x00000020;
             }
-            codeSet_.addInt(input.readInt32());
+            codeSet_.add(input.readInt32());
             break;
           }
           case 50: {
             int length = input.readRawVarint32();
             int limit = input.pushLimit(length);
-            if (!((mutable_bitField0_ & 0x00000002) != 0) && input.getBytesUntilLimit() > 0) {
-              codeSet_ = newIntList();
-              mutable_bitField0_ |= 0x00000002;
+            if (!((mutable_bitField0_ & 0x00000020) == 0x00000020) && input.getBytesUntilLimit() > 0) {
+              codeSet_ = new java.util.ArrayList<java.lang.Integer>();
+              mutable_bitField0_ |= 0x00000020;
             }
             while (input.getBytesUntilLimit() > 0) {
-              codeSet_.addInt(input.readInt32());
+              codeSet_.add(input.readInt32());
             }
             input.popLimit(limit);
             break;
           }
           case 58: {
-            if (!((mutable_bitField0_ & 0x00000004) != 0)) {
+            if (!((mutable_bitField0_ & 0x00000040) == 0x00000040)) {
               properties_ = com.google.protobuf.MapField.newMapField(
                   PropertiesDefaultEntryHolder.defaultEntry);
-              mutable_bitField0_ |= 0x00000004;
+              mutable_bitField0_ |= 0x00000040;
             }
             com.google.protobuf.MapEntry<java.lang.String, java.lang.String>
             properties__ = input.readMessage(
@@ -132,13 +134,6 @@ private static final long serialVersionUID = 0L;
             filterClassSource_ = s;
             break;
           }
-          default: {
-            if (!parseUnknownField(
-                input, unknownFields, extensionRegistry, tag)) {
-              done = true;
-            }
-            break;
-          }
         }
       }
     } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -147,11 +142,11 @@ private static final long serialVersionUID = 0L;
       throw new com.google.protobuf.InvalidProtocolBufferException(
           e).setUnfinishedMessage(this);
     } finally {
-      if (((mutable_bitField0_ & 0x00000001) != 0)) {
+      if (((mutable_bitField0_ & 0x00000010) == 0x00000010)) {
         tagSet_ = tagSet_.getUnmodifiableView();
       }
-      if (((mutable_bitField0_ & 0x00000002) != 0)) {
-        codeSet_.makeImmutable(); // C
+      if (((mutable_bitField0_ & 0x00000020) == 0x00000020)) {
+        codeSet_ = java.util.Collections.unmodifiableList(codeSet_);
       }
       this.unknownFields = unknownFields.build();
       makeExtensionsImmutable();
@@ -163,7 +158,6 @@ private static final long serialVersionUID = 0L;
   }
 
   @SuppressWarnings({"rawtypes"})
-  @java.lang.Override
   protected com.google.protobuf.MapField internalGetMapField(
       int number) {
     switch (number) {
@@ -174,7 +168,6 @@ private static final long serialVersionUID = 0L;
             "Invalid map field number: " + number);
     }
   }
-  @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
     return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_SubscriptionData_fieldAccessorTable
@@ -217,8 +210,6 @@ private static final long serialVersionUID = 0L;
     }
 
     /**
-     * @param value The numeric wire value of the corresponding enum entry.
-     * @return The enum associated with the given numeric wire value.
      * @deprecated Use {@link #forNumber(int)} instead.
      */
     @java.lang.Deprecated
@@ -226,10 +217,6 @@ private static final long serialVersionUID = 0L;
       return forNumber(value);
     }
 
-    /**
-     * @param value The numeric wire value of the corresponding enum entry.
-     * @return The enum associated with the given numeric wire value.
-     */
     public static ExpressionType forNumber(int value) {
       switch (value) {
         case 0: return TAG;
@@ -252,10 +239,6 @@ private static final long serialVersionUID = 0L;
 
     public final com.google.protobuf.Descriptors.EnumValueDescriptor
         getValueDescriptor() {
-      if (this == UNRECOGNIZED) {
-        throw new java.lang.IllegalStateException(
-            "Can't get the descriptor of an unrecognized enum value.");
-      }
       return getDescriptor().getValues().get(ordinal());
     }
     public final com.google.protobuf.Descriptors.EnumDescriptor
@@ -290,13 +273,12 @@ private static final long serialVersionUID = 0L;
     // @@protoc_insertion_point(enum_scope:rocketmq.rpc.api.SubscriptionData.ExpressionType)
   }
 
+  private int bitField0_;
   public static final int TOPIC_FIELD_NUMBER = 1;
   private volatile java.lang.Object topic_;
   /**
    * <code>string topic = 1;</code>
-   * @return The topic.
    */
-  @java.lang.Override
   public java.lang.String getTopic() {
     java.lang.Object ref = topic_;
     if (ref instanceof java.lang.String) {
@@ -311,9 +293,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <code>string topic = 1;</code>
-   * @return The bytes for topic.
    */
-  @java.lang.Override
   public com.google.protobuf.ByteString
       getTopicBytes() {
     java.lang.Object ref = topic_;
@@ -332,9 +312,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object subString_;
   /**
    * <code>string sub_string = 2;</code>
-   * @return The subString.
    */
-  @java.lang.Override
   public java.lang.String getSubString() {
     java.lang.Object ref = subString_;
     if (ref instanceof java.lang.String) {
@@ -349,9 +327,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <code>string sub_string = 2;</code>
-   * @return The bytes for subString.
    */
-  @java.lang.Override
   public com.google.protobuf.ByteString
       getSubStringBytes() {
     java.lang.Object ref = subString_;
@@ -370,9 +346,7 @@ private static final long serialVersionUID = 0L;
   private long subVersion_;
   /**
    * <code>int64 sub_version = 3;</code>
-   * @return The subVersion.
    */
-  @java.lang.Override
   public long getSubVersion() {
     return subVersion_;
   }
@@ -381,17 +355,14 @@ private static final long serialVersionUID = 0L;
   private int expressionType_;
   /**
    * <code>.rocketmq.rpc.api.SubscriptionData.ExpressionType expression_type = 4;</code>
-   * @return The enum numeric value on the wire for expressionType.
    */
-  @java.lang.Override public int getExpressionTypeValue() {
+  public int getExpressionTypeValue() {
     return expressionType_;
   }
   /**
    * <code>.rocketmq.rpc.api.SubscriptionData.ExpressionType expression_type = 4;</code>
-   * @return The expressionType.
    */
-  @java.lang.Override public org.apache.rocketmq.proto.SubscriptionData.ExpressionType getExpressionType() {
-    @SuppressWarnings("deprecation")
+  public org.apache.rocketmq.proto.SubscriptionData.ExpressionType getExpressionType() {
     org.apache.rocketmq.proto.SubscriptionData.ExpressionType result = org.apache.rocketmq.proto.SubscriptionData.ExpressionType.valueOf(expressionType_);
     return result == null ? org.apache.rocketmq.proto.SubscriptionData.ExpressionType.UNRECOGNIZED : result;
   }
@@ -400,7 +371,6 @@ private static final long serialVersionUID = 0L;
   private com.google.protobuf.LazyStringList tagSet_;
   /**
    * <code>repeated string tag_set = 5;</code>
-   * @return A list containing the tagSet.
    */
   public com.google.protobuf.ProtocolStringList
       getTagSetList() {
@@ -408,23 +378,18 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <code>repeated string tag_set = 5;</code>
-   * @return The count of tagSet.
    */
   public int getTagSetCount() {
     return tagSet_.size();
   }
   /**
    * <code>repeated string tag_set = 5;</code>
-   * @param index The index of the element to return.
-   * @return The tagSet at the given index.
    */
   public java.lang.String getTagSet(int index) {
     return tagSet_.get(index);
   }
   /**
    * <code>repeated string tag_set = 5;</code>
-   * @param index The index of the value to return.
-   * @return The bytes of the tagSet at the given index.
    */
   public com.google.protobuf.ByteString
       getTagSetBytes(int index) {
@@ -432,30 +397,25 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int CODE_SET_FIELD_NUMBER = 6;
-  private com.google.protobuf.Internal.IntList codeSet_;
+  private java.util.List<java.lang.Integer> codeSet_;
   /**
    * <code>repeated int32 code_set = 6;</code>
-   * @return A list containing the codeSet.
    */
-  @java.lang.Override
   public java.util.List<java.lang.Integer>
       getCodeSetList() {
     return codeSet_;
   }
   /**
    * <code>repeated int32 code_set = 6;</code>
-   * @return The count of codeSet.
    */
   public int getCodeSetCount() {
     return codeSet_.size();
   }
   /**
    * <code>repeated int32 code_set = 6;</code>
-   * @param index The index of the element to return.
-   * @return The codeSet at the given index.
    */
   public int getCodeSet(int index) {
-    return codeSet_.getInt(index);
+    return codeSet_.get(index);
   }
   private int codeSetMemoizedSerializedSize = -1;
 
@@ -489,7 +449,6 @@ private static final long serialVersionUID = 0L;
    * <code>map&lt;string, string&gt; properties = 7;</code>
    */
 
-  @java.lang.Override
   public boolean containsProperties(
       java.lang.String key) {
     if (key == null) { throw new java.lang.NullPointerException(); }
@@ -498,7 +457,6 @@ private static final long serialVersionUID = 0L;
   /**
    * Use {@link #getPropertiesMap()} instead.
    */
-  @java.lang.Override
   @java.lang.Deprecated
   public java.util.Map<java.lang.String, java.lang.String> getProperties() {
     return getPropertiesMap();
@@ -506,7 +464,6 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>map&lt;string, string&gt; properties = 7;</code>
    */
-  @java.lang.Override
 
   public java.util.Map<java.lang.String, java.lang.String> getPropertiesMap() {
     return internalGetProperties().getMap();
@@ -514,7 +471,6 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>map&lt;string, string&gt; properties = 7;</code>
    */
-  @java.lang.Override
 
   public java.lang.String getPropertiesOrDefault(
       java.lang.String key,
@@ -527,7 +483,6 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>map&lt;string, string&gt; properties = 7;</code>
    */
-  @java.lang.Override
 
   public java.lang.String getPropertiesOrThrow(
       java.lang.String key) {
@@ -544,9 +499,7 @@ private static final long serialVersionUID = 0L;
   private boolean classFilterMode_;
   /**
    * <code>bool class_filter_mode = 8;</code>
-   * @return The classFilterMode.
    */
-  @java.lang.Override
   public boolean getClassFilterMode() {
     return classFilterMode_;
   }
@@ -555,9 +508,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object filterClassSource_;
   /**
    * <code>string filter_class_source = 9;</code>
-   * @return The filterClassSource.
    */
-  @java.lang.Override
   public java.lang.String getFilterClassSource() {
     java.lang.Object ref = filterClassSource_;
     if (ref instanceof java.lang.String) {
@@ -572,9 +523,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <code>string filter_class_source = 9;</code>
-   * @return The bytes for filterClassSource.
    */
-  @java.lang.Override
   public com.google.protobuf.ByteString
       getFilterClassSourceBytes() {
     java.lang.Object ref = filterClassSource_;
@@ -590,7 +539,6 @@ private static final long serialVersionUID = 0L;
   }
 
   private byte memoizedIsInitialized = -1;
-  @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
     if (isInitialized == 1) return true;
@@ -600,7 +548,6 @@ private static final long serialVersionUID = 0L;
     return true;
   }
 
-  @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
     getSerializedSize();
@@ -624,7 +571,7 @@ private static final long serialVersionUID = 0L;
       output.writeUInt32NoTag(codeSetMemoizedSerializedSize);
     }
     for (int i = 0; i < codeSet_.size(); i++) {
-      output.writeInt32NoTag(codeSet_.getInt(i));
+      output.writeInt32NoTag(codeSet_.get(i));
     }
     com.google.protobuf.GeneratedMessageV3
       .serializeStringMapTo(
@@ -641,7 +588,6 @@ private static final long serialVersionUID = 0L;
     unknownFields.writeTo(output);
   }
 
-  @java.lang.Override
   public int getSerializedSize() {
     int size = memoizedSize;
     if (size != -1) return size;
@@ -673,7 +619,7 @@ private static final long serialVersionUID = 0L;
       int dataSize = 0;
       for (int i = 0; i < codeSet_.size(); i++) {
         dataSize += com.google.protobuf.CodedOutputStream
-          .computeInt32SizeNoTag(codeSet_.getInt(i));
+          .computeInt32SizeNoTag(codeSet_.get(i));
       }
       size += dataSize;
       if (!getCodeSetList().isEmpty()) {
@@ -715,25 +661,26 @@ private static final long serialVersionUID = 0L;
     }
     org.apache.rocketmq.proto.SubscriptionData other = (org.apache.rocketmq.proto.SubscriptionData) obj;
 
-    if (!getTopic()
-        .equals(other.getTopic())) return false;
-    if (!getSubString()
-        .equals(other.getSubString())) return false;
-    if (getSubVersion()
-        != other.getSubVersion()) return false;
-    if (expressionType_ != other.expressionType_) return false;
-    if (!getTagSetList()
-        .equals(other.getTagSetList())) return false;
-    if (!getCodeSetList()
-        .equals(other.getCodeSetList())) return false;
-    if (!internalGetProperties().equals(
-        other.internalGetProperties())) return false;
-    if (getClassFilterMode()
-        != other.getClassFilterMode()) return false;
-    if (!getFilterClassSource()
-        .equals(other.getFilterClassSource())) return false;
-    if (!unknownFields.equals(other.unknownFields)) return false;
-    return true;
+    boolean result = true;
+    result = result && getTopic()
+        .equals(other.getTopic());
+    result = result && getSubString()
+        .equals(other.getSubString());
+    result = result && (getSubVersion()
+        == other.getSubVersion());
+    result = result && expressionType_ == other.expressionType_;
+    result = result && getTagSetList()
+        .equals(other.getTagSetList());
+    result = result && getCodeSetList()
+        .equals(other.getCodeSetList());
+    result = result && internalGetProperties().equals(
+        other.internalGetProperties());
+    result = result && (getClassFilterMode()
+        == other.getClassFilterMode());
+    result = result && getFilterClassSource()
+        .equals(other.getFilterClassSource());
+    result = result && unknownFields.equals(other.unknownFields);
+    return result;
   }
 
   @java.lang.Override
@@ -844,7 +791,6 @@ private static final long serialVersionUID = 0L;
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
-  @java.lang.Override
   public Builder newBuilderForType() { return newBuilder(); }
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
@@ -852,7 +798,6 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder(org.apache.rocketmq.proto.SubscriptionData prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
-  @java.lang.Override
   public Builder toBuilder() {
     return this == DEFAULT_INSTANCE
         ? new Builder() : new Builder().mergeFrom(this);
@@ -898,7 +843,6 @@ private static final long serialVersionUID = 0L;
               "Invalid map field number: " + number);
       }
     }
-    @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_SubscriptionData_fieldAccessorTable
@@ -921,7 +865,6 @@ private static final long serialVersionUID = 0L;
               .alwaysUseFieldBuilders) {
       }
     }
-    @java.lang.Override
     public Builder clear() {
       super.clear();
       topic_ = "";
@@ -933,9 +876,9 @@ private static final long serialVersionUID = 0L;
       expressionType_ = 0;
 
       tagSet_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-      bitField0_ = (bitField0_ & ~0x00000001);
-      codeSet_ = emptyIntList();
-      bitField0_ = (bitField0_ & ~0x00000002);
+      bitField0_ = (bitField0_ & ~0x00000010);
+      codeSet_ = java.util.Collections.emptyList();
+      bitField0_ = (bitField0_ & ~0x00000020);
       internalGetMutableProperties().clear();
       classFilterMode_ = false;
 
@@ -944,18 +887,15 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_SubscriptionData_descriptor;
     }
 
-    @java.lang.Override
     public org.apache.rocketmq.proto.SubscriptionData getDefaultInstanceForType() {
       return org.apache.rocketmq.proto.SubscriptionData.getDefaultInstance();
     }
 
-    @java.lang.Override
     public org.apache.rocketmq.proto.SubscriptionData build() {
       org.apache.rocketmq.proto.SubscriptionData result = buildPartial();
       if (!result.isInitialized()) {
@@ -964,65 +904,59 @@ private static final long serialVersionUID = 0L;
       return result;
     }
 
-    @java.lang.Override
     public org.apache.rocketmq.proto.SubscriptionData buildPartial() {
       org.apache.rocketmq.proto.SubscriptionData result = new org.apache.rocketmq.proto.SubscriptionData(this);
       int from_bitField0_ = bitField0_;
+      int to_bitField0_ = 0;
       result.topic_ = topic_;
       result.subString_ = subString_;
       result.subVersion_ = subVersion_;
       result.expressionType_ = expressionType_;
-      if (((bitField0_ & 0x00000001) != 0)) {
+      if (((bitField0_ & 0x00000010) == 0x00000010)) {
         tagSet_ = tagSet_.getUnmodifiableView();
-        bitField0_ = (bitField0_ & ~0x00000001);
+        bitField0_ = (bitField0_ & ~0x00000010);
       }
       result.tagSet_ = tagSet_;
-      if (((bitField0_ & 0x00000002) != 0)) {
-        codeSet_.makeImmutable();
-        bitField0_ = (bitField0_ & ~0x00000002);
+      if (((bitField0_ & 0x00000020) == 0x00000020)) {
+        codeSet_ = java.util.Collections.unmodifiableList(codeSet_);
+        bitField0_ = (bitField0_ & ~0x00000020);
       }
       result.codeSet_ = codeSet_;
       result.properties_ = internalGetProperties();
       result.properties_.makeImmutable();
       result.classFilterMode_ = classFilterMode_;
       result.filterClassSource_ = filterClassSource_;
+      result.bitField0_ = to_bitField0_;
       onBuilt();
       return result;
     }
 
-    @java.lang.Override
     public Builder clone() {
-      return super.clone();
+      return (Builder) super.clone();
     }
-    @java.lang.Override
     public Builder setField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return super.setField(field, value);
+      return (Builder) super.setField(field, value);
     }
-    @java.lang.Override
     public Builder clearField(
         com.google.protobuf.Descriptors.FieldDescriptor field) {
-      return super.clearField(field);
+      return (Builder) super.clearField(field);
     }
-    @java.lang.Override
     public Builder clearOneof(
         com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-      return super.clearOneof(oneof);
+      return (Builder) super.clearOneof(oneof);
     }
-    @java.lang.Override
     public Builder setRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         int index, java.lang.Object value) {
-      return super.setRepeatedField(field, index, value);
+      return (Builder) super.setRepeatedField(field, index, value);
     }
-    @java.lang.Override
     public Builder addRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return super.addRepeatedField(field, value);
+      return (Builder) super.addRepeatedField(field, value);
     }
-    @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof org.apache.rocketmq.proto.SubscriptionData) {
         return mergeFrom((org.apache.rocketmq.proto.SubscriptionData)other);
@@ -1051,7 +985,7 @@ private static final long serialVersionUID = 0L;
       if (!other.tagSet_.isEmpty()) {
         if (tagSet_.isEmpty()) {
           tagSet_ = other.tagSet_;
-          bitField0_ = (bitField0_ & ~0x00000001);
+          bitField0_ = (bitField0_ & ~0x00000010);
         } else {
           ensureTagSetIsMutable();
           tagSet_.addAll(other.tagSet_);
@@ -1061,7 +995,7 @@ private static final long serialVersionUID = 0L;
       if (!other.codeSet_.isEmpty()) {
         if (codeSet_.isEmpty()) {
           codeSet_ = other.codeSet_;
-          bitField0_ = (bitField0_ & ~0x00000002);
+          bitField0_ = (bitField0_ & ~0x00000020);
         } else {
           ensureCodeSetIsMutable();
           codeSet_.addAll(other.codeSet_);
@@ -1082,12 +1016,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    @java.lang.Override
     public final boolean isInitialized() {
       return true;
     }
 
-    @java.lang.Override
     public Builder mergeFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -1110,7 +1042,6 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object topic_ = "";
     /**
      * <code>string topic = 1;</code>
-     * @return The topic.
      */
     public java.lang.String getTopic() {
       java.lang.Object ref = topic_;
@@ -1126,7 +1057,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string topic = 1;</code>
-     * @return The bytes for topic.
      */
     public com.google.protobuf.ByteString
         getTopicBytes() {
@@ -1143,8 +1073,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string topic = 1;</code>
-     * @param value The topic to set.
-     * @return This builder for chaining.
      */
     public Builder setTopic(
         java.lang.String value) {
@@ -1158,7 +1086,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string topic = 1;</code>
-     * @return This builder for chaining.
      */
     public Builder clearTopic() {
       
@@ -1168,8 +1095,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string topic = 1;</code>
-     * @param value The bytes for topic to set.
-     * @return This builder for chaining.
      */
     public Builder setTopicBytes(
         com.google.protobuf.ByteString value) {
@@ -1186,7 +1111,6 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object subString_ = "";
     /**
      * <code>string sub_string = 2;</code>
-     * @return The subString.
      */
     public java.lang.String getSubString() {
       java.lang.Object ref = subString_;
@@ -1202,7 +1126,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string sub_string = 2;</code>
-     * @return The bytes for subString.
      */
     public com.google.protobuf.ByteString
         getSubStringBytes() {
@@ -1219,8 +1142,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string sub_string = 2;</code>
-     * @param value The subString to set.
-     * @return This builder for chaining.
      */
     public Builder setSubString(
         java.lang.String value) {
@@ -1234,7 +1155,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string sub_string = 2;</code>
-     * @return This builder for chaining.
      */
     public Builder clearSubString() {
       
@@ -1244,8 +1164,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string sub_string = 2;</code>
-     * @param value The bytes for subString to set.
-     * @return This builder for chaining.
      */
     public Builder setSubStringBytes(
         com.google.protobuf.ByteString value) {
@@ -1262,16 +1180,12 @@ private static final long serialVersionUID = 0L;
     private long subVersion_ ;
     /**
      * <code>int64 sub_version = 3;</code>
-     * @return The subVersion.
      */
-    @java.lang.Override
     public long getSubVersion() {
       return subVersion_;
     }
     /**
      * <code>int64 sub_version = 3;</code>
-     * @param value The subVersion to set.
-     * @return This builder for chaining.
      */
     public Builder setSubVersion(long value) {
       
@@ -1281,7 +1195,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>int64 sub_version = 3;</code>
-     * @return This builder for chaining.
      */
     public Builder clearSubVersion() {
       
@@ -1293,36 +1206,27 @@ private static final long serialVersionUID = 0L;
     private int expressionType_ = 0;
     /**
      * <code>.rocketmq.rpc.api.SubscriptionData.ExpressionType expression_type = 4;</code>
-     * @return The enum numeric value on the wire for expressionType.
      */
-    @java.lang.Override public int getExpressionTypeValue() {
+    public int getExpressionTypeValue() {
       return expressionType_;
     }
     /**
      * <code>.rocketmq.rpc.api.SubscriptionData.ExpressionType expression_type = 4;</code>
-     * @param value The enum numeric value on the wire for expressionType to set.
-     * @return This builder for chaining.
      */
     public Builder setExpressionTypeValue(int value) {
-      
       expressionType_ = value;
       onChanged();
       return this;
     }
     /**
      * <code>.rocketmq.rpc.api.SubscriptionData.ExpressionType expression_type = 4;</code>
-     * @return The expressionType.
      */
-    @java.lang.Override
     public org.apache.rocketmq.proto.SubscriptionData.ExpressionType getExpressionType() {
-      @SuppressWarnings("deprecation")
       org.apache.rocketmq.proto.SubscriptionData.ExpressionType result = org.apache.rocketmq.proto.SubscriptionData.ExpressionType.valueOf(expressionType_);
       return result == null ? org.apache.rocketmq.proto.SubscriptionData.ExpressionType.UNRECOGNIZED : result;
     }
     /**
      * <code>.rocketmq.rpc.api.SubscriptionData.ExpressionType expression_type = 4;</code>
-     * @param value The expressionType to set.
-     * @return This builder for chaining.
      */
     public Builder setExpressionType(org.apache.rocketmq.proto.SubscriptionData.ExpressionType value) {
       if (value == null) {
@@ -1335,7 +1239,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>.rocketmq.rpc.api.SubscriptionData.ExpressionType expression_type = 4;</code>
-     * @return This builder for chaining.
      */
     public Builder clearExpressionType() {
       
@@ -1346,14 +1249,13 @@ private static final long serialVersionUID = 0L;
 
     private com.google.protobuf.LazyStringList tagSet_ = com.google.protobuf.LazyStringArrayList.EMPTY;
     private void ensureTagSetIsMutable() {
-      if (!((bitField0_ & 0x00000001) != 0)) {
+      if (!((bitField0_ & 0x00000010) == 0x00000010)) {
         tagSet_ = new com.google.protobuf.LazyStringArrayList(tagSet_);
-        bitField0_ |= 0x00000001;
+        bitField0_ |= 0x00000010;
        }
     }
     /**
      * <code>repeated string tag_set = 5;</code>
-     * @return A list containing the tagSet.
      */
     public com.google.protobuf.ProtocolStringList
         getTagSetList() {
@@ -1361,23 +1263,18 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>repeated string tag_set = 5;</code>
-     * @return The count of tagSet.
      */
     public int getTagSetCount() {
       return tagSet_.size();
     }
     /**
      * <code>repeated string tag_set = 5;</code>
-     * @param index The index of the element to return.
-     * @return The tagSet at the given index.
      */
     public java.lang.String getTagSet(int index) {
       return tagSet_.get(index);
     }
     /**
      * <code>repeated string tag_set = 5;</code>
-     * @param index The index of the value to return.
-     * @return The bytes of the tagSet at the given index.
      */
     public com.google.protobuf.ByteString
         getTagSetBytes(int index) {
@@ -1385,9 +1282,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>repeated string tag_set = 5;</code>
-     * @param index The index to set the value at.
-     * @param value The tagSet to set.
-     * @return This builder for chaining.
      */
     public Builder setTagSet(
         int index, java.lang.String value) {
@@ -1401,8 +1295,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>repeated string tag_set = 5;</code>
-     * @param value The tagSet to add.
-     * @return This builder for chaining.
      */
     public Builder addTagSet(
         java.lang.String value) {
@@ -1416,8 +1308,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>repeated string tag_set = 5;</code>
-     * @param values The tagSet to add.
-     * @return This builder for chaining.
      */
     public Builder addAllTagSet(
         java.lang.Iterable<java.lang.String> values) {
@@ -1429,18 +1319,15 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>repeated string tag_set = 5;</code>
-     * @return This builder for chaining.
      */
     public Builder clearTagSet() {
       tagSet_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-      bitField0_ = (bitField0_ & ~0x00000001);
+      bitField0_ = (bitField0_ & ~0x00000010);
       onChanged();
       return this;
     }
     /**
      * <code>repeated string tag_set = 5;</code>
-     * @param value The bytes of the tagSet to add.
-     * @return This builder for chaining.
      */
     public Builder addTagSetBytes(
         com.google.protobuf.ByteString value) {
@@ -1454,65 +1341,53 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private com.google.protobuf.Internal.IntList codeSet_ = emptyIntList();
+    private java.util.List<java.lang.Integer> codeSet_ = java.util.Collections.emptyList();
     private void ensureCodeSetIsMutable() {
-      if (!((bitField0_ & 0x00000002) != 0)) {
-        codeSet_ = mutableCopy(codeSet_);
-        bitField0_ |= 0x00000002;
+      if (!((bitField0_ & 0x00000020) == 0x00000020)) {
+        codeSet_ = new java.util.ArrayList<java.lang.Integer>(codeSet_);
+        bitField0_ |= 0x00000020;
        }
     }
     /**
      * <code>repeated int32 code_set = 6;</code>
-     * @return A list containing the codeSet.
      */
     public java.util.List<java.lang.Integer>
         getCodeSetList() {
-      return ((bitField0_ & 0x00000002) != 0) ?
-               java.util.Collections.unmodifiableList(codeSet_) : codeSet_;
+      return java.util.Collections.unmodifiableList(codeSet_);
     }
     /**
      * <code>repeated int32 code_set = 6;</code>
-     * @return The count of codeSet.
      */
     public int getCodeSetCount() {
       return codeSet_.size();
     }
     /**
      * <code>repeated int32 code_set = 6;</code>
-     * @param index The index of the element to return.
-     * @return The codeSet at the given index.
      */
     public int getCodeSet(int index) {
-      return codeSet_.getInt(index);
+      return codeSet_.get(index);
     }
     /**
      * <code>repeated int32 code_set = 6;</code>
-     * @param index The index to set the value at.
-     * @param value The codeSet to set.
-     * @return This builder for chaining.
      */
     public Builder setCodeSet(
         int index, int value) {
       ensureCodeSetIsMutable();
-      codeSet_.setInt(index, value);
+      codeSet_.set(index, value);
       onChanged();
       return this;
     }
     /**
      * <code>repeated int32 code_set = 6;</code>
-     * @param value The codeSet to add.
-     * @return This builder for chaining.
      */
     public Builder addCodeSet(int value) {
       ensureCodeSetIsMutable();
-      codeSet_.addInt(value);
+      codeSet_.add(value);
       onChanged();
       return this;
     }
     /**
      * <code>repeated int32 code_set = 6;</code>
-     * @param values The codeSet to add.
-     * @return This builder for chaining.
      */
     public Builder addAllCodeSet(
         java.lang.Iterable<? extends java.lang.Integer> values) {
@@ -1524,11 +1399,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>repeated int32 code_set = 6;</code>
-     * @return This builder for chaining.
      */
     public Builder clearCodeSet() {
-      codeSet_ = emptyIntList();
-      bitField0_ = (bitField0_ & ~0x00000002);
+      codeSet_ = java.util.Collections.emptyList();
+      bitField0_ = (bitField0_ & ~0x00000020);
       onChanged();
       return this;
     }
@@ -1563,7 +1437,6 @@ private static final long serialVersionUID = 0L;
      * <code>map&lt;string, string&gt; properties = 7;</code>
      */
 
-    @java.lang.Override
     public boolean containsProperties(
         java.lang.String key) {
       if (key == null) { throw new java.lang.NullPointerException(); }
@@ -1572,7 +1445,6 @@ private static final long serialVersionUID = 0L;
     /**
      * Use {@link #getPropertiesMap()} instead.
      */
-    @java.lang.Override
     @java.lang.Deprecated
     public java.util.Map<java.lang.String, java.lang.String> getProperties() {
       return getPropertiesMap();
@@ -1580,7 +1452,6 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>map&lt;string, string&gt; properties = 7;</code>
      */
-    @java.lang.Override
 
     public java.util.Map<java.lang.String, java.lang.String> getPropertiesMap() {
       return internalGetProperties().getMap();
@@ -1588,7 +1459,6 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>map&lt;string, string&gt; properties = 7;</code>
      */
-    @java.lang.Override
 
     public java.lang.String getPropertiesOrDefault(
         java.lang.String key,
@@ -1601,7 +1471,6 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>map&lt;string, string&gt; properties = 7;</code>
      */
-    @java.lang.Override
 
     public java.lang.String getPropertiesOrThrow(
         java.lang.String key) {
@@ -1664,16 +1533,12 @@ private static final long serialVersionUID = 0L;
     private boolean classFilterMode_ ;
     /**
      * <code>bool class_filter_mode = 8;</code>
-     * @return The classFilterMode.
      */
-    @java.lang.Override
     public boolean getClassFilterMode() {
       return classFilterMode_;
     }
     /**
      * <code>bool class_filter_mode = 8;</code>
-     * @param value The classFilterMode to set.
-     * @return This builder for chaining.
      */
     public Builder setClassFilterMode(boolean value) {
       
@@ -1683,7 +1548,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>bool class_filter_mode = 8;</code>
-     * @return This builder for chaining.
      */
     public Builder clearClassFilterMode() {
       
@@ -1695,7 +1559,6 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object filterClassSource_ = "";
     /**
      * <code>string filter_class_source = 9;</code>
-     * @return The filterClassSource.
      */
     public java.lang.String getFilterClassSource() {
       java.lang.Object ref = filterClassSource_;
@@ -1711,7 +1574,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string filter_class_source = 9;</code>
-     * @return The bytes for filterClassSource.
      */
     public com.google.protobuf.ByteString
         getFilterClassSourceBytes() {
@@ -1728,8 +1590,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string filter_class_source = 9;</code>
-     * @param value The filterClassSource to set.
-     * @return This builder for chaining.
      */
     public Builder setFilterClassSource(
         java.lang.String value) {
@@ -1743,7 +1603,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string filter_class_source = 9;</code>
-     * @return This builder for chaining.
      */
     public Builder clearFilterClassSource() {
       
@@ -1753,8 +1612,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string filter_class_source = 9;</code>
-     * @param value The bytes for filterClassSource to set.
-     * @return This builder for chaining.
      */
     public Builder setFilterClassSourceBytes(
         com.google.protobuf.ByteString value) {
@@ -1767,13 +1624,11 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
-    @java.lang.Override
     public final Builder setUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
-      return super.setUnknownFields(unknownFields);
+      return super.setUnknownFieldsProto3(unknownFields);
     }
 
-    @java.lang.Override
     public final Builder mergeUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.mergeUnknownFields(unknownFields);
@@ -1795,7 +1650,6 @@ private static final long serialVersionUID = 0L;
 
   private static final com.google.protobuf.Parser<SubscriptionData>
       PARSER = new com.google.protobuf.AbstractParser<SubscriptionData>() {
-    @java.lang.Override
     public SubscriptionData parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -1813,7 +1667,6 @@ private static final long serialVersionUID = 0L;
     return PARSER;
   }
 
-  @java.lang.Override
   public org.apache.rocketmq.proto.SubscriptionData getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }

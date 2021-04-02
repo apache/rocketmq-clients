@@ -9,90 +9,110 @@ import org.testng.annotations.Test;
 
 public class ValidatorsTest {
 
+  private void checkIllegalTopic(String topic) {
+    try {
+      Validators.topicCheck(topic);
+      Assert.fail();
+    } catch (MQClientException ignore) {
+    }
+  }
+
   @Test
   public void testTopicCheck() throws MQClientException {
     Validators.topicCheck("abc");
     // Blank case 1.
-    Assert.expectThrows(MQClientException.class, () -> Validators.topicCheck(" "));
-    Assert.expectThrows(MQClientException.class, () -> Validators.topicCheck(" abc "));
-    Assert.expectThrows(MQClientException.class, () -> Validators.topicCheck(" abc"));
-    Assert.expectThrows(MQClientException.class, () -> Validators.topicCheck("abc "));
-    // Blank case 2.
-    Assert.expectThrows(MQClientException.class, () -> Validators.topicCheck("abc\t"));
-    Assert.expectThrows(MQClientException.class, () -> Validators.topicCheck("abc\n"));
-    Assert.expectThrows(MQClientException.class, () -> Validators.topicCheck("abc\f"));
-    Assert.expectThrows(MQClientException.class, () -> Validators.topicCheck("abc\r"));
+    checkIllegalTopic(" ");
+    checkIllegalTopic(" abc ");
+    checkIllegalTopic("abc ");
+    // Blank case 2
+    checkIllegalTopic("abc\t");
+    checkIllegalTopic("abc\t");
+    checkIllegalTopic("abc\n");
+    checkIllegalTopic("abc\f");
+    checkIllegalTopic("abc\r");
     // Illegal case.
-    Assert.expectThrows(MQClientException.class, () -> Validators.topicCheck("[abc]"));
-    // To long case.
+    checkIllegalTopic("[abc]");
+    // Too long case.
     final String tooLongTopic = StringUtils.repeat("a", Validators.TOPIC_MAX_LENGTH + 1);
-    Assert.expectThrows(MQClientException.class, () -> Validators.topicCheck(tooLongTopic));
+    checkIllegalTopic(tooLongTopic);
     // Equals to default topic.
-    Assert.expectThrows(
-        MQClientException.class, () -> Validators.topicCheck(SystemTopic.DEFAULT_TOPIC.getTopic()));
+    checkIllegalTopic(SystemTopic.DEFAULT_TOPIC.getTopic());
+  }
+
+  private void checkIllegalConsumerGroup(String consumerGroup) {
+    try {
+      Validators.consumerGroupCheck(consumerGroup);
+      Assert.fail();
+    } catch (MQClientException ignore) {
+    }
   }
 
   @Test
   public void testConsumerGroupCheck() throws MQClientException {
     Validators.consumerGroupCheck("abc");
     // Blank case 1.
-    Assert.expectThrows(MQClientException.class, () -> Validators.consumerGroupCheck(" "));
-    Assert.expectThrows(MQClientException.class, () -> Validators.consumerGroupCheck(" abc "));
-    Assert.expectThrows(MQClientException.class, () -> Validators.consumerGroupCheck(" abc"));
-    Assert.expectThrows(MQClientException.class, () -> Validators.consumerGroupCheck("abc "));
-    // Blank case 2.
-    Assert.expectThrows(MQClientException.class, () -> Validators.consumerGroupCheck("abc\t"));
-    Assert.expectThrows(MQClientException.class, () -> Validators.consumerGroupCheck("abc\n"));
-    Assert.expectThrows(MQClientException.class, () -> Validators.consumerGroupCheck("abc\f"));
-    Assert.expectThrows(MQClientException.class, () -> Validators.consumerGroupCheck("abc\r"));
+    checkIllegalConsumerGroup(" ");
+    checkIllegalConsumerGroup(" abc ");
+    checkIllegalConsumerGroup("abc ");
+    // Blank case 2
+    checkIllegalConsumerGroup("abc\t");
+    checkIllegalConsumerGroup("abc\t");
+    checkIllegalConsumerGroup("abc\n");
+    checkIllegalConsumerGroup("abc\f");
+    checkIllegalConsumerGroup("abc\r");
     // Illegal case.
-    Assert.expectThrows(MQClientException.class, () -> Validators.consumerGroupCheck("[abc]"));
-    // To long case.
+    checkIllegalConsumerGroup("[abc]");
+    // Too long case.
     final String tooLongConsumerGroup =
         StringUtils.repeat("a", Validators.CONSUMER_GROUP_MAX_LENGTH + 1);
-    Assert.expectThrows(
-        MQClientException.class, () -> Validators.consumerGroupCheck(tooLongConsumerGroup));
+    checkIllegalConsumerGroup(tooLongConsumerGroup);
+  }
+
+  private void checkIllegalMessage(final Message message, final int bodyMaxSize) {
+    try {
+      Validators.messageCheck(message, bodyMaxSize);
+      Assert.fail();
+    } catch (MQClientException ignore) {
+    }
   }
 
   @Test
   public void testMessageCheck() throws MQClientException {
     int bodyMaxSize = 3;
-    Assert.expectThrows(MQClientException.class, () -> Validators.messageCheck(null, bodyMaxSize));
+
     {
       final Message message = new Message();
       message.setTopic("abc");
       message.setBody(new byte[bodyMaxSize]);
       Validators.messageCheck(message, bodyMaxSize);
     }
+    // Null case.
+    checkIllegalMessage(null, bodyMaxSize);
     // Topic is blank.
     {
       final Message message = new Message();
       message.setTopic("");
-      Assert.expectThrows(
-          MQClientException.class, () -> Validators.messageCheck(message, bodyMaxSize));
+      checkIllegalMessage(message, bodyMaxSize);
     }
     // Body is null.
     {
       final Message message = new Message();
       message.setTopic("abc");
-      Assert.expectThrows(
-          MQClientException.class, () -> Validators.messageCheck(message, bodyMaxSize));
+      checkIllegalMessage(message, bodyMaxSize);
     }
     // Body length is zero.
     {
       final Message message = new Message();
       message.setTopic("abc");
       message.setBody(new byte[0]);
-      Assert.expectThrows(
-          MQClientException.class, () -> Validators.messageCheck(message, bodyMaxSize));
+      checkIllegalMessage(message, bodyMaxSize);
     }
     // Body length exceeds.
     {
       final Message message = new Message();
       message.setTopic("abc");
       message.setBody(new byte[bodyMaxSize + 1]);
-      Assert.expectThrows(
-          MQClientException.class, () -> Validators.messageCheck(message, bodyMaxSize));
+      checkIllegalMessage(message, bodyMaxSize);
     }
   }
 }

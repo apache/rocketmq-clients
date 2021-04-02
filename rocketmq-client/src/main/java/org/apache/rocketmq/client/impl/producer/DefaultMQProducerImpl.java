@@ -45,9 +45,9 @@ public class DefaultMQProducerImpl implements ProducerObserver {
 
   public DefaultMQProducerImpl(DefaultMQProducer defaultMQProducer) {
     this.defaultMQProducer = defaultMQProducer;
-    this.topicPublishInfoTable = new ConcurrentHashMap<>();
+    this.topicPublishInfoTable = new ConcurrentHashMap<String, TopicPublishInfo>();
 
-    this.state = new AtomicReference<>(ServiceState.CREATED);
+    this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
   }
 
   // Not yet implemented.

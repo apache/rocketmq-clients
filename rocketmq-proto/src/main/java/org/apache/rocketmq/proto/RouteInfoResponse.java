@@ -6,7 +6,7 @@ package org.apache.rocketmq.proto;
 /**
  * Protobuf type {@code rocketmq.rpc.api.RouteInfoResponse}
  */
-public final class RouteInfoResponse extends
+public  final class RouteInfoResponse extends
     com.google.protobuf.GeneratedMessageV3 implements
     // @@protoc_insertion_point(message_implements:rocketmq.rpc.api.RouteInfoResponse)
     RouteInfoResponseOrBuilder {
@@ -18,13 +18,6 @@ private static final long serialVersionUID = 0L;
   private RouteInfoResponse() {
     code_ = 0;
     remark_ = "";
-  }
-
-  @java.lang.Override
-  @SuppressWarnings({"unused"})
-  protected java.lang.Object newInstance(
-      UnusedPrivateParameter unused) {
-    return new RouteInfoResponse();
   }
 
   @java.lang.Override
@@ -51,6 +44,13 @@ private static final long serialVersionUID = 0L;
           case 0:
             done = true;
             break;
+          default: {
+            if (!parseUnknownFieldProto3(
+                input, unknownFields, extensionRegistry, tag)) {
+              done = true;
+            }
+            break;
+          }
           case 8: {
             int rawValue = input.readEnum();
 
@@ -64,23 +64,16 @@ private static final long serialVersionUID = 0L;
             break;
           }
           case 26: {
-            if (!((mutable_bitField0_ & 0x00000001) != 0)) {
+            if (!((mutable_bitField0_ & 0x00000004) == 0x00000004)) {
               route_ = com.google.protobuf.MapField.newMapField(
                   RouteDefaultEntryHolder.defaultEntry);
-              mutable_bitField0_ |= 0x00000001;
+              mutable_bitField0_ |= 0x00000004;
             }
             com.google.protobuf.MapEntry<java.lang.String, org.apache.rocketmq.proto.TopicRouteData>
             route__ = input.readMessage(
                 RouteDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
             route_.getMutableMap().put(
                 route__.getKey(), route__.getValue());
-            break;
-          }
-          default: {
-            if (!parseUnknownField(
-                input, unknownFields, extensionRegistry, tag)) {
-              done = true;
-            }
             break;
           }
         }
@@ -101,7 +94,6 @@ private static final long serialVersionUID = 0L;
   }
 
   @SuppressWarnings({"rawtypes"})
-  @java.lang.Override
   protected com.google.protobuf.MapField internalGetMapField(
       int number) {
     switch (number) {
@@ -112,7 +104,6 @@ private static final long serialVersionUID = 0L;
             "Invalid map field number: " + number);
     }
   }
-  @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
     return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_RouteInfoResponse_fieldAccessorTable
@@ -120,21 +111,19 @@ private static final long serialVersionUID = 0L;
             org.apache.rocketmq.proto.RouteInfoResponse.class, org.apache.rocketmq.proto.RouteInfoResponse.Builder.class);
   }
 
+  private int bitField0_;
   public static final int CODE_FIELD_NUMBER = 1;
   private int code_;
   /**
    * <code>.rocketmq.rpc.api.ResponseCode code = 1;</code>
-   * @return The enum numeric value on the wire for code.
    */
-  @java.lang.Override public int getCodeValue() {
+  public int getCodeValue() {
     return code_;
   }
   /**
    * <code>.rocketmq.rpc.api.ResponseCode code = 1;</code>
-   * @return The code.
    */
-  @java.lang.Override public org.apache.rocketmq.proto.ResponseCode getCode() {
-    @SuppressWarnings("deprecation")
+  public org.apache.rocketmq.proto.ResponseCode getCode() {
     org.apache.rocketmq.proto.ResponseCode result = org.apache.rocketmq.proto.ResponseCode.valueOf(code_);
     return result == null ? org.apache.rocketmq.proto.ResponseCode.UNRECOGNIZED : result;
   }
@@ -143,9 +132,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object remark_;
   /**
    * <code>string remark = 2;</code>
-   * @return The remark.
    */
-  @java.lang.Override
   public java.lang.String getRemark() {
     java.lang.Object ref = remark_;
     if (ref instanceof java.lang.String) {
@@ -160,9 +147,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <code>string remark = 2;</code>
-   * @return The bytes for remark.
    */
-  @java.lang.Override
   public com.google.protobuf.ByteString
       getRemarkBytes() {
     java.lang.Object ref = remark_;
@@ -207,7 +192,6 @@ private static final long serialVersionUID = 0L;
    * <code>map&lt;string, .rocketmq.rpc.api.TopicRouteData&gt; route = 3;</code>
    */
 
-  @java.lang.Override
   public boolean containsRoute(
       java.lang.String key) {
     if (key == null) { throw new java.lang.NullPointerException(); }
@@ -216,7 +200,6 @@ private static final long serialVersionUID = 0L;
   /**
    * Use {@link #getRouteMap()} instead.
    */
-  @java.lang.Override
   @java.lang.Deprecated
   public java.util.Map<java.lang.String, org.apache.rocketmq.proto.TopicRouteData> getRoute() {
     return getRouteMap();
@@ -224,7 +207,6 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>map&lt;string, .rocketmq.rpc.api.TopicRouteData&gt; route = 3;</code>
    */
-  @java.lang.Override
 
   public java.util.Map<java.lang.String, org.apache.rocketmq.proto.TopicRouteData> getRouteMap() {
     return internalGetRoute().getMap();
@@ -232,7 +214,6 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>map&lt;string, .rocketmq.rpc.api.TopicRouteData&gt; route = 3;</code>
    */
-  @java.lang.Override
 
   public org.apache.rocketmq.proto.TopicRouteData getRouteOrDefault(
       java.lang.String key,
@@ -245,7 +226,6 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>map&lt;string, .rocketmq.rpc.api.TopicRouteData&gt; route = 3;</code>
    */
-  @java.lang.Override
 
   public org.apache.rocketmq.proto.TopicRouteData getRouteOrThrow(
       java.lang.String key) {
@@ -259,7 +239,6 @@ private static final long serialVersionUID = 0L;
   }
 
   private byte memoizedIsInitialized = -1;
-  @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
     if (isInitialized == 1) return true;
@@ -269,7 +248,6 @@ private static final long serialVersionUID = 0L;
     return true;
   }
 
-  @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
     if (code_ != org.apache.rocketmq.proto.ResponseCode.SUCCESS.getNumber()) {
@@ -287,7 +265,6 @@ private static final long serialVersionUID = 0L;
     unknownFields.writeTo(output);
   }
 
-  @java.lang.Override
   public int getSerializedSize() {
     int size = memoizedSize;
     if (size != -1) return size;
@@ -325,13 +302,14 @@ private static final long serialVersionUID = 0L;
     }
     org.apache.rocketmq.proto.RouteInfoResponse other = (org.apache.rocketmq.proto.RouteInfoResponse) obj;
 
-    if (code_ != other.code_) return false;
-    if (!getRemark()
-        .equals(other.getRemark())) return false;
-    if (!internalGetRoute().equals(
-        other.internalGetRoute())) return false;
-    if (!unknownFields.equals(other.unknownFields)) return false;
-    return true;
+    boolean result = true;
+    result = result && code_ == other.code_;
+    result = result && getRemark()
+        .equals(other.getRemark());
+    result = result && internalGetRoute().equals(
+        other.internalGetRoute());
+    result = result && unknownFields.equals(other.unknownFields);
+    return result;
   }
 
   @java.lang.Override
@@ -424,7 +402,6 @@ private static final long serialVersionUID = 0L;
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
-  @java.lang.Override
   public Builder newBuilderForType() { return newBuilder(); }
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
@@ -432,7 +409,6 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder(org.apache.rocketmq.proto.RouteInfoResponse prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
-  @java.lang.Override
   public Builder toBuilder() {
     return this == DEFAULT_INSTANCE
         ? new Builder() : new Builder().mergeFrom(this);
@@ -478,7 +454,6 @@ private static final long serialVersionUID = 0L;
               "Invalid map field number: " + number);
       }
     }
-    @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_RouteInfoResponse_fieldAccessorTable
@@ -501,7 +476,6 @@ private static final long serialVersionUID = 0L;
               .alwaysUseFieldBuilders) {
       }
     }
-    @java.lang.Override
     public Builder clear() {
       super.clear();
       code_ = 0;
@@ -512,18 +486,15 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_RouteInfoResponse_descriptor;
     }
 
-    @java.lang.Override
     public org.apache.rocketmq.proto.RouteInfoResponse getDefaultInstanceForType() {
       return org.apache.rocketmq.proto.RouteInfoResponse.getDefaultInstance();
     }
 
-    @java.lang.Override
     public org.apache.rocketmq.proto.RouteInfoResponse build() {
       org.apache.rocketmq.proto.RouteInfoResponse result = buildPartial();
       if (!result.isInitialized()) {
@@ -532,51 +503,45 @@ private static final long serialVersionUID = 0L;
       return result;
     }
 
-    @java.lang.Override
     public org.apache.rocketmq.proto.RouteInfoResponse buildPartial() {
       org.apache.rocketmq.proto.RouteInfoResponse result = new org.apache.rocketmq.proto.RouteInfoResponse(this);
       int from_bitField0_ = bitField0_;
+      int to_bitField0_ = 0;
       result.code_ = code_;
       result.remark_ = remark_;
       result.route_ = internalGetRoute();
       result.route_.makeImmutable();
+      result.bitField0_ = to_bitField0_;
       onBuilt();
       return result;
     }
 
-    @java.lang.Override
     public Builder clone() {
-      return super.clone();
+      return (Builder) super.clone();
     }
-    @java.lang.Override
     public Builder setField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return super.setField(field, value);
+      return (Builder) super.setField(field, value);
     }
-    @java.lang.Override
     public Builder clearField(
         com.google.protobuf.Descriptors.FieldDescriptor field) {
-      return super.clearField(field);
+      return (Builder) super.clearField(field);
     }
-    @java.lang.Override
     public Builder clearOneof(
         com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-      return super.clearOneof(oneof);
+      return (Builder) super.clearOneof(oneof);
     }
-    @java.lang.Override
     public Builder setRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         int index, java.lang.Object value) {
-      return super.setRepeatedField(field, index, value);
+      return (Builder) super.setRepeatedField(field, index, value);
     }
-    @java.lang.Override
     public Builder addRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return super.addRepeatedField(field, value);
+      return (Builder) super.addRepeatedField(field, value);
     }
-    @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof org.apache.rocketmq.proto.RouteInfoResponse) {
         return mergeFrom((org.apache.rocketmq.proto.RouteInfoResponse)other);
@@ -602,12 +567,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    @java.lang.Override
     public final boolean isInitialized() {
       return true;
     }
 
-    @java.lang.Override
     public Builder mergeFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -630,36 +593,27 @@ private static final long serialVersionUID = 0L;
     private int code_ = 0;
     /**
      * <code>.rocketmq.rpc.api.ResponseCode code = 1;</code>
-     * @return The enum numeric value on the wire for code.
      */
-    @java.lang.Override public int getCodeValue() {
+    public int getCodeValue() {
       return code_;
     }
     /**
      * <code>.rocketmq.rpc.api.ResponseCode code = 1;</code>
-     * @param value The enum numeric value on the wire for code to set.
-     * @return This builder for chaining.
      */
     public Builder setCodeValue(int value) {
-      
       code_ = value;
       onChanged();
       return this;
     }
     /**
      * <code>.rocketmq.rpc.api.ResponseCode code = 1;</code>
-     * @return The code.
      */
-    @java.lang.Override
     public org.apache.rocketmq.proto.ResponseCode getCode() {
-      @SuppressWarnings("deprecation")
       org.apache.rocketmq.proto.ResponseCode result = org.apache.rocketmq.proto.ResponseCode.valueOf(code_);
       return result == null ? org.apache.rocketmq.proto.ResponseCode.UNRECOGNIZED : result;
     }
     /**
      * <code>.rocketmq.rpc.api.ResponseCode code = 1;</code>
-     * @param value The code to set.
-     * @return This builder for chaining.
      */
     public Builder setCode(org.apache.rocketmq.proto.ResponseCode value) {
       if (value == null) {
@@ -672,7 +626,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>.rocketmq.rpc.api.ResponseCode code = 1;</code>
-     * @return This builder for chaining.
      */
     public Builder clearCode() {
       
@@ -684,7 +637,6 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object remark_ = "";
     /**
      * <code>string remark = 2;</code>
-     * @return The remark.
      */
     public java.lang.String getRemark() {
       java.lang.Object ref = remark_;
@@ -700,7 +652,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string remark = 2;</code>
-     * @return The bytes for remark.
      */
     public com.google.protobuf.ByteString
         getRemarkBytes() {
@@ -717,8 +668,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string remark = 2;</code>
-     * @param value The remark to set.
-     * @return This builder for chaining.
      */
     public Builder setRemark(
         java.lang.String value) {
@@ -732,7 +681,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string remark = 2;</code>
-     * @return This builder for chaining.
      */
     public Builder clearRemark() {
       
@@ -742,8 +690,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string remark = 2;</code>
-     * @param value The bytes for remark to set.
-     * @return This builder for chaining.
      */
     public Builder setRemarkBytes(
         com.google.protobuf.ByteString value) {
@@ -787,7 +733,6 @@ private static final long serialVersionUID = 0L;
      * <code>map&lt;string, .rocketmq.rpc.api.TopicRouteData&gt; route = 3;</code>
      */
 
-    @java.lang.Override
     public boolean containsRoute(
         java.lang.String key) {
       if (key == null) { throw new java.lang.NullPointerException(); }
@@ -796,7 +741,6 @@ private static final long serialVersionUID = 0L;
     /**
      * Use {@link #getRouteMap()} instead.
      */
-    @java.lang.Override
     @java.lang.Deprecated
     public java.util.Map<java.lang.String, org.apache.rocketmq.proto.TopicRouteData> getRoute() {
       return getRouteMap();
@@ -804,7 +748,6 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>map&lt;string, .rocketmq.rpc.api.TopicRouteData&gt; route = 3;</code>
      */
-    @java.lang.Override
 
     public java.util.Map<java.lang.String, org.apache.rocketmq.proto.TopicRouteData> getRouteMap() {
       return internalGetRoute().getMap();
@@ -812,7 +755,6 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>map&lt;string, .rocketmq.rpc.api.TopicRouteData&gt; route = 3;</code>
      */
-    @java.lang.Override
 
     public org.apache.rocketmq.proto.TopicRouteData getRouteOrDefault(
         java.lang.String key,
@@ -825,7 +767,6 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>map&lt;string, .rocketmq.rpc.api.TopicRouteData&gt; route = 3;</code>
      */
-    @java.lang.Override
 
     public org.apache.rocketmq.proto.TopicRouteData getRouteOrThrow(
         java.lang.String key) {
@@ -884,13 +825,11 @@ private static final long serialVersionUID = 0L;
           .putAll(values);
       return this;
     }
-    @java.lang.Override
     public final Builder setUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
-      return super.setUnknownFields(unknownFields);
+      return super.setUnknownFieldsProto3(unknownFields);
     }
 
-    @java.lang.Override
     public final Builder mergeUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.mergeUnknownFields(unknownFields);
@@ -912,7 +851,6 @@ private static final long serialVersionUID = 0L;
 
   private static final com.google.protobuf.Parser<RouteInfoResponse>
       PARSER = new com.google.protobuf.AbstractParser<RouteInfoResponse>() {
-    @java.lang.Override
     public RouteInfoResponse parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -930,7 +868,6 @@ private static final long serialVersionUID = 0L;
     return PARSER;
   }
 
-  @java.lang.Override
   public org.apache.rocketmq.proto.RouteInfoResponse getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }

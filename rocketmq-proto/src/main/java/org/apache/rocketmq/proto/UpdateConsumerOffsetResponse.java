@@ -6,7 +6,7 @@ package org.apache.rocketmq.proto;
 /**
  * Protobuf type {@code rocketmq.rpc.api.UpdateConsumerOffsetResponse}
  */
-public final class UpdateConsumerOffsetResponse extends
+public  final class UpdateConsumerOffsetResponse extends
     com.google.protobuf.GeneratedMessageV3 implements
     // @@protoc_insertion_point(message_implements:rocketmq.rpc.api.UpdateConsumerOffsetResponse)
     UpdateConsumerOffsetResponseOrBuilder {
@@ -16,13 +16,6 @@ private static final long serialVersionUID = 0L;
     super(builder);
   }
   private UpdateConsumerOffsetResponse() {
-  }
-
-  @java.lang.Override
-  @SuppressWarnings({"unused"})
-  protected java.lang.Object newInstance(
-      UnusedPrivateParameter unused) {
-    return new UpdateConsumerOffsetResponse();
   }
 
   @java.lang.Override
@@ -49,7 +42,7 @@ private static final long serialVersionUID = 0L;
             done = true;
             break;
           default: {
-            if (!parseUnknownField(
+            if (!parseUnknownFieldProto3(
                 input, unknownFields, extensionRegistry, tag)) {
               done = true;
             }
@@ -72,7 +65,6 @@ private static final long serialVersionUID = 0L;
     return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_UpdateConsumerOffsetResponse_descriptor;
   }
 
-  @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
     return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_UpdateConsumerOffsetResponse_fieldAccessorTable
@@ -81,7 +73,6 @@ private static final long serialVersionUID = 0L;
   }
 
   private byte memoizedIsInitialized = -1;
-  @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
     if (isInitialized == 1) return true;
@@ -91,13 +82,11 @@ private static final long serialVersionUID = 0L;
     return true;
   }
 
-  @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
     unknownFields.writeTo(output);
   }
 
-  @java.lang.Override
   public int getSerializedSize() {
     int size = memoizedSize;
     if (size != -1) return size;
@@ -118,8 +107,9 @@ private static final long serialVersionUID = 0L;
     }
     org.apache.rocketmq.proto.UpdateConsumerOffsetResponse other = (org.apache.rocketmq.proto.UpdateConsumerOffsetResponse) obj;
 
-    if (!unknownFields.equals(other.unknownFields)) return false;
-    return true;
+    boolean result = true;
+    result = result && unknownFields.equals(other.unknownFields);
+    return result;
   }
 
   @java.lang.Override
@@ -204,7 +194,6 @@ private static final long serialVersionUID = 0L;
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
-  @java.lang.Override
   public Builder newBuilderForType() { return newBuilder(); }
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
@@ -212,7 +201,6 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder(org.apache.rocketmq.proto.UpdateConsumerOffsetResponse prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
-  @java.lang.Override
   public Builder toBuilder() {
     return this == DEFAULT_INSTANCE
         ? new Builder() : new Builder().mergeFrom(this);
@@ -236,7 +224,6 @@ private static final long serialVersionUID = 0L;
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_UpdateConsumerOffsetResponse_descriptor;
     }
 
-    @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_UpdateConsumerOffsetResponse_fieldAccessorTable
@@ -259,24 +246,20 @@ private static final long serialVersionUID = 0L;
               .alwaysUseFieldBuilders) {
       }
     }
-    @java.lang.Override
     public Builder clear() {
       super.clear();
       return this;
     }
 
-    @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_UpdateConsumerOffsetResponse_descriptor;
     }
 
-    @java.lang.Override
     public org.apache.rocketmq.proto.UpdateConsumerOffsetResponse getDefaultInstanceForType() {
       return org.apache.rocketmq.proto.UpdateConsumerOffsetResponse.getDefaultInstance();
     }
 
-    @java.lang.Override
     public org.apache.rocketmq.proto.UpdateConsumerOffsetResponse build() {
       org.apache.rocketmq.proto.UpdateConsumerOffsetResponse result = buildPartial();
       if (!result.isInitialized()) {
@@ -285,46 +268,38 @@ private static final long serialVersionUID = 0L;
       return result;
     }
 
-    @java.lang.Override
     public org.apache.rocketmq.proto.UpdateConsumerOffsetResponse buildPartial() {
       org.apache.rocketmq.proto.UpdateConsumerOffsetResponse result = new org.apache.rocketmq.proto.UpdateConsumerOffsetResponse(this);
       onBuilt();
       return result;
     }
 
-    @java.lang.Override
     public Builder clone() {
-      return super.clone();
+      return (Builder) super.clone();
     }
-    @java.lang.Override
     public Builder setField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return super.setField(field, value);
+      return (Builder) super.setField(field, value);
     }
-    @java.lang.Override
     public Builder clearField(
         com.google.protobuf.Descriptors.FieldDescriptor field) {
-      return super.clearField(field);
+      return (Builder) super.clearField(field);
     }
-    @java.lang.Override
     public Builder clearOneof(
         com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-      return super.clearOneof(oneof);
+      return (Builder) super.clearOneof(oneof);
     }
-    @java.lang.Override
     public Builder setRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         int index, java.lang.Object value) {
-      return super.setRepeatedField(field, index, value);
+      return (Builder) super.setRepeatedField(field, index, value);
     }
-    @java.lang.Override
     public Builder addRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return super.addRepeatedField(field, value);
+      return (Builder) super.addRepeatedField(field, value);
     }
-    @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof org.apache.rocketmq.proto.UpdateConsumerOffsetResponse) {
         return mergeFrom((org.apache.rocketmq.proto.UpdateConsumerOffsetResponse)other);
@@ -341,12 +316,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    @java.lang.Override
     public final boolean isInitialized() {
       return true;
     }
 
-    @java.lang.Override
     public Builder mergeFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -364,13 +337,11 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
-    @java.lang.Override
     public final Builder setUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
-      return super.setUnknownFields(unknownFields);
+      return super.setUnknownFieldsProto3(unknownFields);
     }
 
-    @java.lang.Override
     public final Builder mergeUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.mergeUnknownFields(unknownFields);
@@ -392,7 +363,6 @@ private static final long serialVersionUID = 0L;
 
   private static final com.google.protobuf.Parser<UpdateConsumerOffsetResponse>
       PARSER = new com.google.protobuf.AbstractParser<UpdateConsumerOffsetResponse>() {
-    @java.lang.Override
     public UpdateConsumerOffsetResponse parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -410,7 +380,6 @@ private static final long serialVersionUID = 0L;
     return PARSER;
   }
 
-  @java.lang.Override
   public org.apache.rocketmq.proto.UpdateConsumerOffsetResponse getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }

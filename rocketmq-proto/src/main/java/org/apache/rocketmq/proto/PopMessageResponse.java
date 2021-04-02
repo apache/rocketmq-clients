@@ -6,7 +6,7 @@ package org.apache.rocketmq.proto;
 /**
  * Protobuf type {@code rocketmq.rpc.api.PopMessageResponse}
  */
-public final class PopMessageResponse extends
+public  final class PopMessageResponse extends
     com.google.protobuf.GeneratedMessageV3 implements
     // @@protoc_insertion_point(message_implements:rocketmq.rpc.api.PopMessageResponse)
     PopMessageResponseOrBuilder {
@@ -18,14 +18,12 @@ private static final long serialVersionUID = 0L;
   private PopMessageResponse() {
     code_ = 0;
     remark_ = "";
+    popTime_ = 0L;
+    invisibleTime_ = 0L;
+    reviveQueueId_ = 0;
+    restNumber_ = 0L;
     messages_ = java.util.Collections.emptyList();
-  }
-
-  @java.lang.Override
-  @SuppressWarnings({"unused"})
-  protected java.lang.Object newInstance(
-      UnusedPrivateParameter unused) {
-    return new PopMessageResponse();
+    termId_ = 0L;
   }
 
   @java.lang.Override
@@ -52,6 +50,13 @@ private static final long serialVersionUID = 0L;
           case 0:
             done = true;
             break;
+          default: {
+            if (!parseUnknownFieldProto3(
+                input, unknownFields, extensionRegistry, tag)) {
+              done = true;
+            }
+            break;
+          }
           case 8: {
             int rawValue = input.readEnum();
 
@@ -85,9 +90,9 @@ private static final long serialVersionUID = 0L;
             break;
           }
           case 58: {
-            if (!((mutable_bitField0_ & 0x00000001) != 0)) {
+            if (!((mutable_bitField0_ & 0x00000040) == 0x00000040)) {
               messages_ = new java.util.ArrayList<org.apache.rocketmq.proto.MessageExt>();
-              mutable_bitField0_ |= 0x00000001;
+              mutable_bitField0_ |= 0x00000040;
             }
             messages_.add(
                 input.readMessage(org.apache.rocketmq.proto.MessageExt.parser(), extensionRegistry));
@@ -98,13 +103,6 @@ private static final long serialVersionUID = 0L;
             termId_ = input.readInt64();
             break;
           }
-          default: {
-            if (!parseUnknownField(
-                input, unknownFields, extensionRegistry, tag)) {
-              done = true;
-            }
-            break;
-          }
         }
       }
     } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -113,7 +111,7 @@ private static final long serialVersionUID = 0L;
       throw new com.google.protobuf.InvalidProtocolBufferException(
           e).setUnfinishedMessage(this);
     } finally {
-      if (((mutable_bitField0_ & 0x00000001) != 0)) {
+      if (((mutable_bitField0_ & 0x00000040) == 0x00000040)) {
         messages_ = java.util.Collections.unmodifiableList(messages_);
       }
       this.unknownFields = unknownFields.build();
@@ -125,7 +123,6 @@ private static final long serialVersionUID = 0L;
     return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_PopMessageResponse_descriptor;
   }
 
-  @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
     return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_PopMessageResponse_fieldAccessorTable
@@ -133,21 +130,19 @@ private static final long serialVersionUID = 0L;
             org.apache.rocketmq.proto.PopMessageResponse.class, org.apache.rocketmq.proto.PopMessageResponse.Builder.class);
   }
 
+  private int bitField0_;
   public static final int CODE_FIELD_NUMBER = 1;
   private int code_;
   /**
    * <code>.rocketmq.rpc.api.ResponseCode code = 1;</code>
-   * @return The enum numeric value on the wire for code.
    */
-  @java.lang.Override public int getCodeValue() {
+  public int getCodeValue() {
     return code_;
   }
   /**
    * <code>.rocketmq.rpc.api.ResponseCode code = 1;</code>
-   * @return The code.
    */
-  @java.lang.Override public org.apache.rocketmq.proto.ResponseCode getCode() {
-    @SuppressWarnings("deprecation")
+  public org.apache.rocketmq.proto.ResponseCode getCode() {
     org.apache.rocketmq.proto.ResponseCode result = org.apache.rocketmq.proto.ResponseCode.valueOf(code_);
     return result == null ? org.apache.rocketmq.proto.ResponseCode.UNRECOGNIZED : result;
   }
@@ -156,9 +151,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object remark_;
   /**
    * <code>string remark = 2;</code>
-   * @return The remark.
    */
-  @java.lang.Override
   public java.lang.String getRemark() {
     java.lang.Object ref = remark_;
     if (ref instanceof java.lang.String) {
@@ -173,9 +166,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <code>string remark = 2;</code>
-   * @return The bytes for remark.
    */
-  @java.lang.Override
   public com.google.protobuf.ByteString
       getRemarkBytes() {
     java.lang.Object ref = remark_;
@@ -194,9 +185,7 @@ private static final long serialVersionUID = 0L;
   private long popTime_;
   /**
    * <code>int64 pop_time = 3;</code>
-   * @return The popTime.
    */
-  @java.lang.Override
   public long getPopTime() {
     return popTime_;
   }
@@ -205,9 +194,7 @@ private static final long serialVersionUID = 0L;
   private long invisibleTime_;
   /**
    * <code>int64 invisible_time = 4;</code>
-   * @return The invisibleTime.
    */
-  @java.lang.Override
   public long getInvisibleTime() {
     return invisibleTime_;
   }
@@ -216,9 +203,7 @@ private static final long serialVersionUID = 0L;
   private int reviveQueueId_;
   /**
    * <code>int32 revive_queue_id = 5;</code>
-   * @return The reviveQueueId.
    */
-  @java.lang.Override
   public int getReviveQueueId() {
     return reviveQueueId_;
   }
@@ -227,9 +212,7 @@ private static final long serialVersionUID = 0L;
   private long restNumber_;
   /**
    * <code>int64 rest_number = 6;</code>
-   * @return The restNumber.
    */
-  @java.lang.Override
   public long getRestNumber() {
     return restNumber_;
   }
@@ -239,14 +222,12 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>repeated .rocketmq.rpc.api.MessageExt messages = 7;</code>
    */
-  @java.lang.Override
   public java.util.List<org.apache.rocketmq.proto.MessageExt> getMessagesList() {
     return messages_;
   }
   /**
    * <code>repeated .rocketmq.rpc.api.MessageExt messages = 7;</code>
    */
-  @java.lang.Override
   public java.util.List<? extends org.apache.rocketmq.proto.MessageExtOrBuilder> 
       getMessagesOrBuilderList() {
     return messages_;
@@ -254,21 +235,18 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>repeated .rocketmq.rpc.api.MessageExt messages = 7;</code>
    */
-  @java.lang.Override
   public int getMessagesCount() {
     return messages_.size();
   }
   /**
    * <code>repeated .rocketmq.rpc.api.MessageExt messages = 7;</code>
    */
-  @java.lang.Override
   public org.apache.rocketmq.proto.MessageExt getMessages(int index) {
     return messages_.get(index);
   }
   /**
    * <code>repeated .rocketmq.rpc.api.MessageExt messages = 7;</code>
    */
-  @java.lang.Override
   public org.apache.rocketmq.proto.MessageExtOrBuilder getMessagesOrBuilder(
       int index) {
     return messages_.get(index);
@@ -278,15 +256,12 @@ private static final long serialVersionUID = 0L;
   private long termId_;
   /**
    * <code>int64 term_id = 8;</code>
-   * @return The termId.
    */
-  @java.lang.Override
   public long getTermId() {
     return termId_;
   }
 
   private byte memoizedIsInitialized = -1;
-  @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
     if (isInitialized == 1) return true;
@@ -296,7 +271,6 @@ private static final long serialVersionUID = 0L;
     return true;
   }
 
-  @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
     if (code_ != org.apache.rocketmq.proto.ResponseCode.SUCCESS.getNumber()) {
@@ -326,7 +300,6 @@ private static final long serialVersionUID = 0L;
     unknownFields.writeTo(output);
   }
 
-  @java.lang.Override
   public int getSerializedSize() {
     int size = memoizedSize;
     if (size != -1) return size;
@@ -378,23 +351,24 @@ private static final long serialVersionUID = 0L;
     }
     org.apache.rocketmq.proto.PopMessageResponse other = (org.apache.rocketmq.proto.PopMessageResponse) obj;
 
-    if (code_ != other.code_) return false;
-    if (!getRemark()
-        .equals(other.getRemark())) return false;
-    if (getPopTime()
-        != other.getPopTime()) return false;
-    if (getInvisibleTime()
-        != other.getInvisibleTime()) return false;
-    if (getReviveQueueId()
-        != other.getReviveQueueId()) return false;
-    if (getRestNumber()
-        != other.getRestNumber()) return false;
-    if (!getMessagesList()
-        .equals(other.getMessagesList())) return false;
-    if (getTermId()
-        != other.getTermId()) return false;
-    if (!unknownFields.equals(other.unknownFields)) return false;
-    return true;
+    boolean result = true;
+    result = result && code_ == other.code_;
+    result = result && getRemark()
+        .equals(other.getRemark());
+    result = result && (getPopTime()
+        == other.getPopTime());
+    result = result && (getInvisibleTime()
+        == other.getInvisibleTime());
+    result = result && (getReviveQueueId()
+        == other.getReviveQueueId());
+    result = result && (getRestNumber()
+        == other.getRestNumber());
+    result = result && getMessagesList()
+        .equals(other.getMessagesList());
+    result = result && (getTermId()
+        == other.getTermId());
+    result = result && unknownFields.equals(other.unknownFields);
+    return result;
   }
 
   @java.lang.Override
@@ -501,7 +475,6 @@ private static final long serialVersionUID = 0L;
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
-  @java.lang.Override
   public Builder newBuilderForType() { return newBuilder(); }
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
@@ -509,7 +482,6 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder(org.apache.rocketmq.proto.PopMessageResponse prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
-  @java.lang.Override
   public Builder toBuilder() {
     return this == DEFAULT_INSTANCE
         ? new Builder() : new Builder().mergeFrom(this);
@@ -533,7 +505,6 @@ private static final long serialVersionUID = 0L;
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_PopMessageResponse_descriptor;
     }
 
-    @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_PopMessageResponse_fieldAccessorTable
@@ -557,7 +528,6 @@ private static final long serialVersionUID = 0L;
         getMessagesFieldBuilder();
       }
     }
-    @java.lang.Override
     public Builder clear() {
       super.clear();
       code_ = 0;
@@ -574,7 +544,7 @@ private static final long serialVersionUID = 0L;
 
       if (messagesBuilder_ == null) {
         messages_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000001);
+        bitField0_ = (bitField0_ & ~0x00000040);
       } else {
         messagesBuilder_.clear();
       }
@@ -583,18 +553,15 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_PopMessageResponse_descriptor;
     }
 
-    @java.lang.Override
     public org.apache.rocketmq.proto.PopMessageResponse getDefaultInstanceForType() {
       return org.apache.rocketmq.proto.PopMessageResponse.getDefaultInstance();
     }
 
-    @java.lang.Override
     public org.apache.rocketmq.proto.PopMessageResponse build() {
       org.apache.rocketmq.proto.PopMessageResponse result = buildPartial();
       if (!result.isInitialized()) {
@@ -603,10 +570,10 @@ private static final long serialVersionUID = 0L;
       return result;
     }
 
-    @java.lang.Override
     public org.apache.rocketmq.proto.PopMessageResponse buildPartial() {
       org.apache.rocketmq.proto.PopMessageResponse result = new org.apache.rocketmq.proto.PopMessageResponse(this);
       int from_bitField0_ = bitField0_;
+      int to_bitField0_ = 0;
       result.code_ = code_;
       result.remark_ = remark_;
       result.popTime_ = popTime_;
@@ -614,52 +581,46 @@ private static final long serialVersionUID = 0L;
       result.reviveQueueId_ = reviveQueueId_;
       result.restNumber_ = restNumber_;
       if (messagesBuilder_ == null) {
-        if (((bitField0_ & 0x00000001) != 0)) {
+        if (((bitField0_ & 0x00000040) == 0x00000040)) {
           messages_ = java.util.Collections.unmodifiableList(messages_);
-          bitField0_ = (bitField0_ & ~0x00000001);
+          bitField0_ = (bitField0_ & ~0x00000040);
         }
         result.messages_ = messages_;
       } else {
         result.messages_ = messagesBuilder_.build();
       }
       result.termId_ = termId_;
+      result.bitField0_ = to_bitField0_;
       onBuilt();
       return result;
     }
 
-    @java.lang.Override
     public Builder clone() {
-      return super.clone();
+      return (Builder) super.clone();
     }
-    @java.lang.Override
     public Builder setField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return super.setField(field, value);
+      return (Builder) super.setField(field, value);
     }
-    @java.lang.Override
     public Builder clearField(
         com.google.protobuf.Descriptors.FieldDescriptor field) {
-      return super.clearField(field);
+      return (Builder) super.clearField(field);
     }
-    @java.lang.Override
     public Builder clearOneof(
         com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-      return super.clearOneof(oneof);
+      return (Builder) super.clearOneof(oneof);
     }
-    @java.lang.Override
     public Builder setRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         int index, java.lang.Object value) {
-      return super.setRepeatedField(field, index, value);
+      return (Builder) super.setRepeatedField(field, index, value);
     }
-    @java.lang.Override
     public Builder addRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return super.addRepeatedField(field, value);
+      return (Builder) super.addRepeatedField(field, value);
     }
-    @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof org.apache.rocketmq.proto.PopMessageResponse) {
         return mergeFrom((org.apache.rocketmq.proto.PopMessageResponse)other);
@@ -694,7 +655,7 @@ private static final long serialVersionUID = 0L;
         if (!other.messages_.isEmpty()) {
           if (messages_.isEmpty()) {
             messages_ = other.messages_;
-            bitField0_ = (bitField0_ & ~0x00000001);
+            bitField0_ = (bitField0_ & ~0x00000040);
           } else {
             ensureMessagesIsMutable();
             messages_.addAll(other.messages_);
@@ -707,7 +668,7 @@ private static final long serialVersionUID = 0L;
             messagesBuilder_.dispose();
             messagesBuilder_ = null;
             messages_ = other.messages_;
-            bitField0_ = (bitField0_ & ~0x00000001);
+            bitField0_ = (bitField0_ & ~0x00000040);
             messagesBuilder_ = 
               com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
                  getMessagesFieldBuilder() : null;
@@ -724,12 +685,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    @java.lang.Override
     public final boolean isInitialized() {
       return true;
     }
 
-    @java.lang.Override
     public Builder mergeFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -752,36 +711,27 @@ private static final long serialVersionUID = 0L;
     private int code_ = 0;
     /**
      * <code>.rocketmq.rpc.api.ResponseCode code = 1;</code>
-     * @return The enum numeric value on the wire for code.
      */
-    @java.lang.Override public int getCodeValue() {
+    public int getCodeValue() {
       return code_;
     }
     /**
      * <code>.rocketmq.rpc.api.ResponseCode code = 1;</code>
-     * @param value The enum numeric value on the wire for code to set.
-     * @return This builder for chaining.
      */
     public Builder setCodeValue(int value) {
-      
       code_ = value;
       onChanged();
       return this;
     }
     /**
      * <code>.rocketmq.rpc.api.ResponseCode code = 1;</code>
-     * @return The code.
      */
-    @java.lang.Override
     public org.apache.rocketmq.proto.ResponseCode getCode() {
-      @SuppressWarnings("deprecation")
       org.apache.rocketmq.proto.ResponseCode result = org.apache.rocketmq.proto.ResponseCode.valueOf(code_);
       return result == null ? org.apache.rocketmq.proto.ResponseCode.UNRECOGNIZED : result;
     }
     /**
      * <code>.rocketmq.rpc.api.ResponseCode code = 1;</code>
-     * @param value The code to set.
-     * @return This builder for chaining.
      */
     public Builder setCode(org.apache.rocketmq.proto.ResponseCode value) {
       if (value == null) {
@@ -794,7 +744,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>.rocketmq.rpc.api.ResponseCode code = 1;</code>
-     * @return This builder for chaining.
      */
     public Builder clearCode() {
       
@@ -806,7 +755,6 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object remark_ = "";
     /**
      * <code>string remark = 2;</code>
-     * @return The remark.
      */
     public java.lang.String getRemark() {
       java.lang.Object ref = remark_;
@@ -822,7 +770,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string remark = 2;</code>
-     * @return The bytes for remark.
      */
     public com.google.protobuf.ByteString
         getRemarkBytes() {
@@ -839,8 +786,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string remark = 2;</code>
-     * @param value The remark to set.
-     * @return This builder for chaining.
      */
     public Builder setRemark(
         java.lang.String value) {
@@ -854,7 +799,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string remark = 2;</code>
-     * @return This builder for chaining.
      */
     public Builder clearRemark() {
       
@@ -864,8 +808,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string remark = 2;</code>
-     * @param value The bytes for remark to set.
-     * @return This builder for chaining.
      */
     public Builder setRemarkBytes(
         com.google.protobuf.ByteString value) {
@@ -882,16 +824,12 @@ private static final long serialVersionUID = 0L;
     private long popTime_ ;
     /**
      * <code>int64 pop_time = 3;</code>
-     * @return The popTime.
      */
-    @java.lang.Override
     public long getPopTime() {
       return popTime_;
     }
     /**
      * <code>int64 pop_time = 3;</code>
-     * @param value The popTime to set.
-     * @return This builder for chaining.
      */
     public Builder setPopTime(long value) {
       
@@ -901,7 +839,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>int64 pop_time = 3;</code>
-     * @return This builder for chaining.
      */
     public Builder clearPopTime() {
       
@@ -913,16 +850,12 @@ private static final long serialVersionUID = 0L;
     private long invisibleTime_ ;
     /**
      * <code>int64 invisible_time = 4;</code>
-     * @return The invisibleTime.
      */
-    @java.lang.Override
     public long getInvisibleTime() {
       return invisibleTime_;
     }
     /**
      * <code>int64 invisible_time = 4;</code>
-     * @param value The invisibleTime to set.
-     * @return This builder for chaining.
      */
     public Builder setInvisibleTime(long value) {
       
@@ -932,7 +865,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>int64 invisible_time = 4;</code>
-     * @return This builder for chaining.
      */
     public Builder clearInvisibleTime() {
       
@@ -944,16 +876,12 @@ private static final long serialVersionUID = 0L;
     private int reviveQueueId_ ;
     /**
      * <code>int32 revive_queue_id = 5;</code>
-     * @return The reviveQueueId.
      */
-    @java.lang.Override
     public int getReviveQueueId() {
       return reviveQueueId_;
     }
     /**
      * <code>int32 revive_queue_id = 5;</code>
-     * @param value The reviveQueueId to set.
-     * @return This builder for chaining.
      */
     public Builder setReviveQueueId(int value) {
       
@@ -963,7 +891,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>int32 revive_queue_id = 5;</code>
-     * @return This builder for chaining.
      */
     public Builder clearReviveQueueId() {
       
@@ -975,16 +902,12 @@ private static final long serialVersionUID = 0L;
     private long restNumber_ ;
     /**
      * <code>int64 rest_number = 6;</code>
-     * @return The restNumber.
      */
-    @java.lang.Override
     public long getRestNumber() {
       return restNumber_;
     }
     /**
      * <code>int64 rest_number = 6;</code>
-     * @param value The restNumber to set.
-     * @return This builder for chaining.
      */
     public Builder setRestNumber(long value) {
       
@@ -994,7 +917,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>int64 rest_number = 6;</code>
-     * @return This builder for chaining.
      */
     public Builder clearRestNumber() {
       
@@ -1006,9 +928,9 @@ private static final long serialVersionUID = 0L;
     private java.util.List<org.apache.rocketmq.proto.MessageExt> messages_ =
       java.util.Collections.emptyList();
     private void ensureMessagesIsMutable() {
-      if (!((bitField0_ & 0x00000001) != 0)) {
+      if (!((bitField0_ & 0x00000040) == 0x00000040)) {
         messages_ = new java.util.ArrayList<org.apache.rocketmq.proto.MessageExt>(messages_);
-        bitField0_ |= 0x00000001;
+        bitField0_ |= 0x00000040;
        }
     }
 
@@ -1158,7 +1080,7 @@ private static final long serialVersionUID = 0L;
     public Builder clearMessages() {
       if (messagesBuilder_ == null) {
         messages_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000001);
+        bitField0_ = (bitField0_ & ~0x00000040);
         onChanged();
       } else {
         messagesBuilder_.clear();
@@ -1235,7 +1157,7 @@ private static final long serialVersionUID = 0L;
         messagesBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
             org.apache.rocketmq.proto.MessageExt, org.apache.rocketmq.proto.MessageExt.Builder, org.apache.rocketmq.proto.MessageExtOrBuilder>(
                 messages_,
-                ((bitField0_ & 0x00000001) != 0),
+                ((bitField0_ & 0x00000040) == 0x00000040),
                 getParentForChildren(),
                 isClean());
         messages_ = null;
@@ -1246,16 +1168,12 @@ private static final long serialVersionUID = 0L;
     private long termId_ ;
     /**
      * <code>int64 term_id = 8;</code>
-     * @return The termId.
      */
-    @java.lang.Override
     public long getTermId() {
       return termId_;
     }
     /**
      * <code>int64 term_id = 8;</code>
-     * @param value The termId to set.
-     * @return This builder for chaining.
      */
     public Builder setTermId(long value) {
       
@@ -1265,7 +1183,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>int64 term_id = 8;</code>
-     * @return This builder for chaining.
      */
     public Builder clearTermId() {
       
@@ -1273,13 +1190,11 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
-    @java.lang.Override
     public final Builder setUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
-      return super.setUnknownFields(unknownFields);
+      return super.setUnknownFieldsProto3(unknownFields);
     }
 
-    @java.lang.Override
     public final Builder mergeUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.mergeUnknownFields(unknownFields);
@@ -1301,7 +1216,6 @@ private static final long serialVersionUID = 0L;
 
   private static final com.google.protobuf.Parser<PopMessageResponse>
       PARSER = new com.google.protobuf.AbstractParser<PopMessageResponse>() {
-    @java.lang.Override
     public PopMessageResponse parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -1319,7 +1233,6 @@ private static final long serialVersionUID = 0L;
     return PARSER;
   }
 
-  @java.lang.Override
   public org.apache.rocketmq.proto.PopMessageResponse getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }

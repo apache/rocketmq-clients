@@ -4,7 +4,6 @@ import java.util.Set;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.rocketmq.client.constant.ConsumeFromWhere;
-import org.apache.rocketmq.client.consumer.listener.MessageListener;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
 import org.apache.rocketmq.client.exception.MQBrokerException;
@@ -20,10 +19,23 @@ public class DefaultMQPushConsumer extends ClientConfig {
   /** Wrapping internal implementations for virtually all methods presented in this class. */
   protected final DefaultMQPushConsumerImpl impl;
 
-  private MessageListener messageListener;
   @Getter @Setter private ConsumeFromWhere consumeFromWhere;
 
-  public void start() throws MQClientException {}
+  public String getConsumerGroup() {
+    return this.getGroupName();
+  }
+
+  public void setConsumerGroup(String consumerGroup) {
+    if (impl.hasBeenStarted()) {
+      throw new RuntimeException("Please set consumerGroup before consumer started.");
+    }
+    setGroupName(consumerGroup);
+  }
+
+  public void start() throws MQClientException {
+    this.setGroupName(withNamespace(this.getGroupName()));
+    this.impl.start();
+  }
 
   public void shutdown() {}
 
@@ -34,12 +46,10 @@ public class DefaultMQPushConsumer extends ClientConfig {
   }
 
   public void registerMessageListener(MessageListenerConcurrently messageListenerConcurrently) {
-    this.messageListener = messageListenerConcurrently;
     this.impl.registerMessageListener(messageListenerConcurrently);
   }
 
   public void registerMessageListener(MessageListenerOrderly messageListenerOrderly) {
-    this.messageListener = messageListenerOrderly;
     this.impl.registerMessageListener(messageListenerOrderly);
   }
 

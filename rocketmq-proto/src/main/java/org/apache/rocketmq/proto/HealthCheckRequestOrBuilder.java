@@ -9,24 +9,20 @@ public interface HealthCheckRequestOrBuilder extends
 
   /**
    * <code>string client_host = 1;</code>
-   * @return The clientHost.
    */
   java.lang.String getClientHost();
   /**
    * <code>string client_host = 1;</code>
-   * @return The bytes for clientHost.
    */
   com.google.protobuf.ByteString
       getClientHostBytes();
 
   /**
    * <code>string broker_name = 2;</code>
-   * @return The brokerName.
    */
   java.lang.String getBrokerName();
   /**
    * <code>string broker_name = 2;</code>
-   * @return The bytes for brokerName.
    */
   com.google.protobuf.ByteString
       getBrokerNameBytes();

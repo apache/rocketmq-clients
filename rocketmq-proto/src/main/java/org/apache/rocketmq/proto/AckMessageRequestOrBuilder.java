@@ -9,60 +9,50 @@ public interface AckMessageRequestOrBuilder extends
 
   /**
    * <code>string consumer_group = 1;</code>
-   * @return The consumerGroup.
    */
   java.lang.String getConsumerGroup();
   /**
    * <code>string consumer_group = 1;</code>
-   * @return The bytes for consumerGroup.
    */
   com.google.protobuf.ByteString
       getConsumerGroupBytes();
 
   /**
    * <code>string topic = 2;</code>
-   * @return The topic.
    */
   java.lang.String getTopic();
   /**
    * <code>string topic = 2;</code>
-   * @return The bytes for topic.
    */
   com.google.protobuf.ByteString
       getTopicBytes();
 
   /**
    * <code>int32 queue_id = 3;</code>
-   * @return The queueId.
    */
   int getQueueId();
 
   /**
    * <code>string extra_info = 4;</code>
-   * @return The extraInfo.
    */
   java.lang.String getExtraInfo();
   /**
    * <code>string extra_info = 4;</code>
-   * @return The bytes for extraInfo.
    */
   com.google.protobuf.ByteString
       getExtraInfoBytes();
 
   /**
    * <code>int64 offset = 5;</code>
-   * @return The offset.
    */
   long getOffset();
 
   /**
    * <code>string broker_name = 6;</code>
-   * @return The brokerName.
    */
   java.lang.String getBrokerName();
   /**
    * <code>string broker_name = 6;</code>
-   * @return The bytes for brokerName.
    */
   com.google.protobuf.ByteString
       getBrokerNameBytes();

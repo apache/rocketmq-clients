@@ -4,4 +4,6 @@ import org.apache.rocketmq.proto.ConsumeData;
 
 public interface ConsumerObserver {
   ConsumeData prepareHeartbeatData();
+
+  void scanLoadAssignments();
 }

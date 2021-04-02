@@ -9,19 +9,16 @@ public interface MessageOrBuilder extends
 
   /**
    * <code>string topic = 1;</code>
-   * @return The topic.
    */
   java.lang.String getTopic();
   /**
    * <code>string topic = 1;</code>
-   * @return The bytes for topic.
    */
   com.google.protobuf.ByteString
       getTopicBytes();
 
   /**
    * <code>int32 flag = 2;</code>
-   * @return The flag.
    */
   int getFlag();
 
@@ -61,7 +58,6 @@ public interface MessageOrBuilder extends
 
   /**
    * <code>bytes body = 4;</code>
-   * @return The body.
    */
   com.google.protobuf.ByteString getBody();
 }

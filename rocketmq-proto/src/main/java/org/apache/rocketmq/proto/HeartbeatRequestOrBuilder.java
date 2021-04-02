@@ -9,12 +9,10 @@ public interface HeartbeatRequestOrBuilder extends
 
   /**
    * <code>string client_id = 1;</code>
-   * @return The clientId.
    */
   java.lang.String getClientId();
   /**
    * <code>string client_id = 1;</code>
-   * @return The bytes for clientId.
    */
   com.google.protobuf.ByteString
       getClientIdBytes();
@@ -45,12 +43,10 @@ public interface HeartbeatRequestOrBuilder extends
 
   /**
    * <code>.rocketmq.rpc.api.HeartbeatRequest.LanguageCode language_code = 3;</code>
-   * @return The enum numeric value on the wire for languageCode.
    */
   int getLanguageCodeValue();
   /**
    * <code>.rocketmq.rpc.api.HeartbeatRequest.LanguageCode language_code = 3;</code>
-   * @return The languageCode.
    */
   org.apache.rocketmq.proto.HeartbeatRequest.LanguageCode getLanguageCode();
 
@@ -80,12 +76,10 @@ public interface HeartbeatRequestOrBuilder extends
 
   /**
    * <code>string broker_name = 5;</code>
-   * @return The brokerName.
    */
   java.lang.String getBrokerName();
   /**
    * <code>string broker_name = 5;</code>
-   * @return The bytes for brokerName.
    */
   com.google.protobuf.ByteString
       getBrokerNameBytes();

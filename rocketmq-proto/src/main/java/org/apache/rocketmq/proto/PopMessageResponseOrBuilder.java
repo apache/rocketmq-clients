@@ -9,48 +9,40 @@ public interface PopMessageResponseOrBuilder extends
 
   /**
    * <code>.rocketmq.rpc.api.ResponseCode code = 1;</code>
-   * @return The enum numeric value on the wire for code.
    */
   int getCodeValue();
   /**
    * <code>.rocketmq.rpc.api.ResponseCode code = 1;</code>
-   * @return The code.
    */
   org.apache.rocketmq.proto.ResponseCode getCode();
 
   /**
    * <code>string remark = 2;</code>
-   * @return The remark.
    */
   java.lang.String getRemark();
   /**
    * <code>string remark = 2;</code>
-   * @return The bytes for remark.
    */
   com.google.protobuf.ByteString
       getRemarkBytes();
 
   /**
    * <code>int64 pop_time = 3;</code>
-   * @return The popTime.
    */
   long getPopTime();
 
   /**
    * <code>int64 invisible_time = 4;</code>
-   * @return The invisibleTime.
    */
   long getInvisibleTime();
 
   /**
    * <code>int32 revive_queue_id = 5;</code>
-   * @return The reviveQueueId.
    */
   int getReviveQueueId();
 
   /**
    * <code>int64 rest_number = 6;</code>
-   * @return The restNumber.
    */
   long getRestNumber();
 
@@ -80,7 +72,6 @@ public interface PopMessageResponseOrBuilder extends
 
   /**
    * <code>int64 term_id = 8;</code>
-   * @return The termId.
    */
   long getTermId();
 }

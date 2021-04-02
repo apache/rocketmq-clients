@@ -4,9 +4,10 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.protobuf.MessageOrBuilder;
+import io.grpc.Channel;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
-import io.grpc.stub.StreamObserver;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -19,8 +20,6 @@ import org.apache.rocketmq.proto.HealthCheckRequest;
 import org.apache.rocketmq.proto.HealthCheckResponse;
 import org.apache.rocketmq.proto.HeartbeatRequest;
 import org.apache.rocketmq.proto.HeartbeatResponse;
-import org.apache.rocketmq.proto.PopMessageRequest;
-import org.apache.rocketmq.proto.PopMessageResponse;
 import org.apache.rocketmq.proto.QueryAssignmentRequest;
 import org.apache.rocketmq.proto.QueryAssignmentResponse;
 import org.apache.rocketmq.proto.RocketMQGrpc;
@@ -31,7 +30,8 @@ import org.apache.rocketmq.proto.RouteInfoRequest;
 import org.apache.rocketmq.proto.RouteInfoResponse;
 import org.apache.rocketmq.proto.SendMessageRequest;
 import org.apache.rocketmq.proto.SendMessageResponse;
-import org.checkerframework.checker.nullness.qual.Nullable;
+
+import javax.annotation.Nullable;
 
 @Slf4j
 public class RPCClientImpl implements RPCClient {
@@ -50,27 +50,36 @@ public class RPCClientImpl implements RPCClient {
   private final RocketMQBlockingStub blockingStub;
   private final RocketMQStub asyncStub;
   private final RocketMQFutureStub futureStub;
+  /** Default callback executor. */
+  private ThreadPoolExecutor callbackExecutor;
 
-  private ThreadPoolExecutor sendMessageAsyncExecutor;
-  private Semaphore sendMessageAsyncSemaphore;
+  private Semaphore callbackSemaphore;
+
+  private ThreadPoolExecutor sendCallbackExecutor;
+  private Semaphore sendCallbackSemaphore;
 
   private RPCClientImpl(RPCTarget rpcTarget) {
     this.rpcTarget = rpcTarget;
-
     final String target = rpcTarget.getTarget();
     this.channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
 
     this.blockingStub = RocketMQGrpc.newBlockingStub(channel);
     this.asyncStub = RocketMQGrpc.newStub(channel);
     this.futureStub = RocketMQGrpc.newFutureStub(channel);
+    this.sendCallbackExecutor = null;
+    this.sendCallbackSemaphore = null;
   }
 
-  public RPCClientImpl(RPCTarget rpcTarget, ThreadPoolExecutor sendMessageAsyncExecutor) {
+  public RPCClientImpl(RPCTarget rpcTarget, ThreadPoolExecutor callbackExecutor) {
     this(rpcTarget);
 
-    this.sendMessageAsyncExecutor = sendMessageAsyncExecutor;
-    this.sendMessageAsyncSemaphore =
-        new Semaphore(getThreadParallelCount(sendMessageAsyncExecutor));
+    this.callbackExecutor = callbackExecutor;
+    this.callbackSemaphore = new Semaphore(getThreadParallelCount(callbackExecutor));
+  }
+
+  public void setSendCallbackExecutor(ThreadPoolExecutor sendCallbackExecutor) {
+    this.sendCallbackExecutor = sendCallbackExecutor;
+    this.sendCallbackSemaphore = new Semaphore(getThreadParallelCount(sendCallbackExecutor));
   }
 
   private int getThreadParallelCount(ThreadPoolExecutor executor) {
@@ -110,13 +119,19 @@ public class RPCClientImpl implements RPCClient {
   @Override
   public void sendMessage(
       SendMessageRequest request,
-      InvocationContext<SendMessageResponse> context,
+      final SendMessageResponseCallback callback,
       long duration,
       TimeUnit unit) {
+
+    boolean customizedExecutor = null != sendCallbackExecutor && null != sendCallbackSemaphore;
+    final ThreadPoolExecutor executor =
+        customizedExecutor ? sendCallbackExecutor : callbackExecutor;
+    final Semaphore semaphore = customizedExecutor ? sendCallbackSemaphore : callbackSemaphore;
+
     try {
-      sendMessageAsyncSemaphore.acquire();
+      semaphore.acquire();
       final RocketMQFutureStub stub =
-          futureStub.withExecutor(sendMessageAsyncExecutor).withDeadlineAfter(duration, unit);
+          futureStub.withExecutor(executor).withDeadlineAfter(duration, unit);
       final ListenableFuture<SendMessageResponse> future = stub.sendMessage(request);
       Futures.addCallback(
           future,
@@ -124,27 +139,27 @@ public class RPCClientImpl implements RPCClient {
             @Override
             public void onSuccess(@Nullable SendMessageResponse response) {
               try {
-                context.onSuccess(response);
+                callback.onSuccess(response);
               } finally {
-                sendMessageAsyncSemaphore.release();
+                semaphore.release();
               }
             }
 
             @Override
             public void onFailure(Throwable t) {
               try {
-                context.onException(t);
+                callback.onException(t);
               } finally {
-                sendMessageAsyncSemaphore.release();
+                semaphore.release();
               }
             }
           },
           MoreExecutors.directExecutor());
     } catch (Throwable t) {
       try {
-        context.onException(t);
+        callback.onException(t);
       } finally {
-        sendMessageAsyncSemaphore.release();
+        semaphore.release();
       }
     }
   }
@@ -163,27 +178,28 @@ public class RPCClientImpl implements RPCClient {
         .healthCheck(request);
   }
 
-  @Override
-  public void popMessage(PopMessageRequest request, InvocationContext<PopMessageResponse> context) {
-    StreamObserver<PopMessageResponse> observer =
-        new StreamObserver<PopMessageResponse>() {
-          @Override
-          public void onNext(PopMessageResponse response) {
-            context.onSuccess(response);
-          }
-
-          @Override
-          public void onError(Throwable t) {
-            context.onException(t);
-          }
-
-          @Override
-          public void onCompleted() {}
-        };
-    asyncStub
-        .withDeadlineAfter(DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-        .popMessage(request, observer);
-  }
+  //  @Override
+  //  public void popMessage(PopMessageRequest request,
+  // SendMessageResponseCallback<PopMessageResponse> context) {
+  //    StreamObserver<PopMessageResponse> observer =
+  //        new StreamObserver<PopMessageResponse>() {
+  //          @Override
+  //          public void onNext(PopMessageResponse response) {
+  //            context.onSuccess(response);
+  //          }
+  //
+  //          @Override
+  //          public void onError(Throwable t) {
+  //            context.onException(t);
+  //          }
+  //
+  //          @Override
+  //          public void onCompleted() {}
+  //        };
+  //    asyncStub
+  //        .withDeadlineAfter(DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+  //        .popMessage(request, observer);
+  //  }
 
   @Override
   public AckMessageResponse ackMessage(AckMessageRequest request) {
@@ -192,27 +208,28 @@ public class RPCClientImpl implements RPCClient {
         .ackMessage(request);
   }
 
-  @Override
-  public void ackMessage(AckMessageRequest request, InvocationContext<AckMessageResponse> context) {
-    StreamObserver<AckMessageResponse> observer =
-        new StreamObserver<AckMessageResponse>() {
-          @Override
-          public void onNext(AckMessageResponse response) {
-            context.onSuccess(response);
-          }
-
-          @Override
-          public void onError(Throwable t) {
-            context.onException(t);
-          }
-
-          @Override
-          public void onCompleted() {}
-        };
-    asyncStub
-        .withDeadlineAfter(DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-        .ackMessage(request, observer);
-  }
+  //  @Override
+  //  public void ackMessage(AckMessageRequest request,
+  // SendMessageResponseCallback<AckMessageResponse> context) {
+  //    StreamObserver<AckMessageResponse> observer =
+  //        new StreamObserver<AckMessageResponse>() {
+  //          @Override
+  //          public void onNext(AckMessageResponse response) {
+  //            context.onSuccess(response);
+  //          }
+  //
+  //          @Override
+  //          public void onError(Throwable t) {
+  //            context.onException(t);
+  //          }
+  //
+  //          @Override
+  //          public void onCompleted() {}
+  //        };
+  //    asyncStub
+  //        .withDeadlineAfter(DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+  //        .ackMessage(request, observer);
+  //  }
 
   @Override
   public ChangeInvisibleTimeResponse changeInvisibleTime(ChangeInvisibleTimeRequest request) {

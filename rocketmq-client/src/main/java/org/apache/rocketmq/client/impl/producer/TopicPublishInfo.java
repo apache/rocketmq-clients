@@ -20,11 +20,11 @@ import org.apache.rocketmq.utility.UtilAll;
 @Slf4j
 @Getter
 public class TopicPublishInfo {
-  private boolean isOrderTopic;
-  private String topic;
+  private final boolean isOrderTopic;
+  private final String topic;
   private List<MessageQueue> messageQueueList;
   private TopicRouteData topicRouteData;
-  private ThreadLocal<Integer> sendQueueIndex;
+  private final ThreadLocal<Integer> sendQueueIndex;
 
   public TopicPublishInfo(String topic, TopicRouteData topicRouteData) {
     this.isOrderTopic = false;
@@ -32,7 +32,7 @@ public class TopicPublishInfo {
 
     this.refreshTopicRoute(topicRouteData);
 
-    this.sendQueueIndex = new ThreadLocal<>();
+    this.sendQueueIndex = new ThreadLocal<Integer>();
     this.sendQueueIndex.set(Math.abs(new Random().nextInt()));
   }
 
@@ -42,7 +42,7 @@ public class TopicPublishInfo {
   }
 
   private List<MessageQueue> filterWritableMessageQueueList(TopicRouteData topicRouteData) {
-    List<MessageQueue> writableMessageQueueList = new ArrayList<>();
+    List<MessageQueue> writableMessageQueueList = new ArrayList<MessageQueue>();
     final String orderTopicConfiguration = topicRouteData.getOrderTopicConfiguration();
     if (StringUtils.isNotEmpty(orderTopicConfiguration)) {
       final String[] brokers = orderTopicConfiguration.split(";");
@@ -63,7 +63,8 @@ public class TopicPublishInfo {
     final List<BrokerData> brokerDataList = topicRouteData.getBrokerDataList();
     final List<QueueData> queueDataList = topicRouteData.getQueueDataList();
 
-    final Map<String /* brokerName */, BrokerData> brokerDataMap = new HashMap<>();
+    final Map<String /* brokerName */, BrokerData> brokerDataMap =
+        new HashMap<String, BrokerData>();
     for (BrokerData brokerData : brokerDataList) {
       brokerDataMap.put(brokerData.getBrokerName(), brokerData);
     }
@@ -92,14 +93,14 @@ public class TopicPublishInfo {
   }
 
   private int getNextSendQueueIndex() {
-    Integer integer = sendQueueIndex.get();
-    if (null == integer) {
-      integer = -1;
+    Integer index = sendQueueIndex.get();
+    if (null == index) {
+      index = -1;
     }
-    integer += 1;
-    integer = Math.abs(integer);
-    sendQueueIndex.set(integer);
-    return integer;
+    index += 1;
+    index = Math.abs(index);
+    sendQueueIndex.set(index);
+    return index;
   }
 
   /**

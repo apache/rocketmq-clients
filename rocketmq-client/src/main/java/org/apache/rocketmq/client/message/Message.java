@@ -45,7 +45,7 @@ public class Message {
 
   public String getProperty(final String name) {
     if (null == this.properties) {
-      this.properties = new HashMap<>();
+      this.properties = new HashMap<String, String>();
     }
     return this.properties.get(name);
   }

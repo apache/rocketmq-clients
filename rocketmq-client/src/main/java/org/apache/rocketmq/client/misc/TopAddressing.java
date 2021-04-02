@@ -1,7 +1,6 @@
 package org.apache.rocketmq.client.misc;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -43,8 +42,8 @@ public class TopAddressing {
     final HttpGet httpGet = new HttpGet(wsAddress);
     final HttpResponse response = httpClient.execute(httpGet);
     final HttpEntity entity = response.getEntity();
-    final String body = EntityUtils.toString(entity, StandardCharsets.UTF_8);
+    final String body = EntityUtils.toString(entity, MixAll.DEFAULT_CHARSET);
     final String[] nameServerAddresses = body.split(";");
-    return new ArrayList<>(Arrays.asList(nameServerAddresses));
+    return new ArrayList<String>(Arrays.asList(nameServerAddresses));
   }
 }

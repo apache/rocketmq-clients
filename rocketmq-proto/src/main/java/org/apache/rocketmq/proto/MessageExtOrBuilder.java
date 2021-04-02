@@ -9,12 +9,10 @@ public interface MessageExtOrBuilder extends
 
   /**
    * <code>.rocketmq.rpc.api.Message base = 1;</code>
-   * @return Whether the base field is set.
    */
   boolean hasBase();
   /**
    * <code>.rocketmq.rpc.api.Message base = 1;</code>
-   * @return The base.
    */
   org.apache.rocketmq.proto.Message getBase();
   /**
@@ -24,12 +22,10 @@ public interface MessageExtOrBuilder extends
 
   /**
    * <code>.rocketmq.rpc.api.MessageExt.Extension extension = 2;</code>
-   * @return Whether the extension field is set.
    */
   boolean hasExtension();
   /**
    * <code>.rocketmq.rpc.api.MessageExt.Extension extension = 2;</code>
-   * @return The extension.
    */
   org.apache.rocketmq.proto.MessageExt.Extension getExtension();
   /**

@@ -16,42 +16,36 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.BiConsumer;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.CommunicationMode;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.impl.consumer.ConsumerObserver;
+import org.apache.rocketmq.client.impl.consumer.TopicAssignmentInfo;
 import org.apache.rocketmq.client.impl.producer.ProducerObserver;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.client.producer.SendStatus;
-import org.apache.rocketmq.client.remoting.InvocationContext;
 import org.apache.rocketmq.client.remoting.RPCClient;
 import org.apache.rocketmq.client.remoting.RPCClientImpl;
 import org.apache.rocketmq.client.remoting.RPCTarget;
+import org.apache.rocketmq.client.remoting.SendMessageResponseCallback;
 import org.apache.rocketmq.client.route.BrokerData;
 import org.apache.rocketmq.client.route.TopicRouteData;
-import org.apache.rocketmq.proto.HealthCheckRequest;
-import org.apache.rocketmq.proto.HealthCheckResponse;
-import org.apache.rocketmq.proto.HeartbeatRequest;
-import org.apache.rocketmq.proto.HeartbeatResponse;
-import org.apache.rocketmq.proto.ResponseCode;
-import org.apache.rocketmq.proto.RouteInfoRequest;
-import org.apache.rocketmq.proto.RouteInfoResponse;
-import org.apache.rocketmq.proto.SendMessageRequest;
-import org.apache.rocketmq.proto.SendMessageResponse;
+import org.apache.rocketmq.proto.*;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.apache.rocketmq.utility.UtilAll;
 
 @Slf4j
 public class ClientInstance {
-  private static final int MAX_ASYNC_QUEUE_TASK_NUM = 1000;
+  private static final int MAX_ASYNC_QUEUE_TASK_NUM = 1024;
   private static final AtomicInteger nameServerIndex = new AtomicInteger(0);
 
+  @Getter
   private final ScheduledExecutorService scheduler =
       new ScheduledThreadPoolExecutor(2, new ThreadFactoryImpl("ClientInstanceScheduler_"));
 
@@ -68,30 +62,30 @@ public class ClientInstance {
 
   private final ConcurrentHashMap<String /* Topic */, TopicRouteData> topicRouteTable;
 
-  private final String clientId;
+  @Getter private final String clientId;
   private final AtomicReference<ServiceState> state;
 
   public ClientInstance(ClientConfig clientConfig, String clientId) {
     this.clientConfig = clientConfig;
-    this.clientTable = new ConcurrentHashMap<>();
+    this.clientTable = new ConcurrentHashMap<MQRPCTarget, RPCClient>();
     this.callbackExecutor =
         new ThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors(),
             Runtime.getRuntime().availableProcessors(),
             60,
             TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(MAX_ASYNC_QUEUE_TASK_NUM),
+            new LinkedBlockingQueue<Runnable>(MAX_ASYNC_QUEUE_TASK_NUM),
             new ThreadFactoryImpl("ClientCallbackThread_"));
 
     this.nameServerList = clientConfig.getNameServerList();
     this.nameServerLock = new ReentrantReadWriteLock();
-    this.topicRouteTable = new ConcurrentHashMap<>();
+    this.topicRouteTable = new ConcurrentHashMap<String, TopicRouteData>();
 
-    this.producerObserverTable = new ConcurrentHashMap<>();
-    this.consumerObserverTable = new ConcurrentHashMap<>();
+    this.producerObserverTable = new ConcurrentHashMap<String, ProducerObserver>();
+    this.consumerObserverTable = new ConcurrentHashMap<String, ConsumerObserver>();
 
     this.clientId = clientId;
-    this.state = new AtomicReference<>(ServiceState.CREATED);
+    this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
   }
 
   public void start() throws MQClientException {
@@ -105,11 +99,14 @@ public class ClientInstance {
     }
 
     scheduler.scheduleWithFixedDelay(
-        () -> {
-          try {
-            updateRouteInfo();
-          } catch (Throwable t) {
-            log.error("Exception occurs while scheduling update route info.", t);
+        new Runnable() {
+          @Override
+          public void run() {
+            try {
+              updateRouteInfo();
+            } catch (Throwable t) {
+              log.error("Exception occurs while updating route info.", t);
+            }
           }
         },
         10 * 1000,
@@ -117,11 +114,29 @@ public class ClientInstance {
         TimeUnit.MILLISECONDS);
 
     scheduler.scheduleWithFixedDelay(
-        () -> {
-          try {
-            restoreIsolatedTarget();
-          } catch (Throwable t) {
-            log.error("Exception occurs while scheduling health check.", t);
+        new Runnable() {
+          @Override
+          public void run() {
+            try {
+              scanConsumersLoadAssignments();
+            } catch (Throwable t) {
+              log.error("Exception occurs while scanning load assignments of consumers.", t);
+            }
+          }
+        },
+        0,
+        5 * 1000,
+        TimeUnit.MILLISECONDS);
+
+    scheduler.scheduleWithFixedDelay(
+        new Runnable() {
+          @Override
+          public void run() {
+            try {
+              restoreIsolatedTarget();
+            } catch (Throwable t) {
+              log.error("Exception occurs while restoring isolated target.", t);
+            }
           }
         },
         5 * 1000,
@@ -129,11 +144,14 @@ public class ClientInstance {
         TimeUnit.MILLISECONDS);
 
     scheduler.scheduleWithFixedDelay(
-        () -> {
-          try {
-            cleanOutdatedClient();
-          } catch (Throwable t) {
-            log.error("Exception occurs while clean outdated client.", t);
+        new Runnable() {
+          @Override
+          public void run() {
+            try {
+              cleanOutdatedClient();
+            } catch (Throwable t) {
+              log.error("Exception occurs while cleaning outdated client.", t);
+            }
           }
         },
         30 * 1000,
@@ -141,11 +159,14 @@ public class ClientInstance {
         TimeUnit.MILLISECONDS);
 
     scheduler.scheduleWithFixedDelay(
-        () -> {
-          try {
-            doHeartbeat();
-          } catch (Throwable t) {
-            log.error("Exception occurs while heartbeat.", t);
+        new Runnable() {
+          @Override
+          public void run() {
+            try {
+              doHeartbeat();
+            } catch (Throwable t) {
+              log.error("Exception occurs while heartbeat.", t);
+            }
           }
         },
         0,
@@ -153,11 +174,14 @@ public class ClientInstance {
         TimeUnit.MILLISECONDS);
 
     scheduler.scheduleWithFixedDelay(
-        () -> {
-          try {
-            logStats();
-          } catch (Throwable t) {
-            log.error("Exception occurs while stats", t);
+        new Runnable() {
+          @Override
+          public void run() {
+            try {
+              logStats();
+            } catch (Throwable t) {
+              log.error("Exception occurs while logging stats.", t);
+            }
           }
         },
         10 * 1000,
@@ -170,13 +194,13 @@ public class ClientInstance {
   public void shutdown() {
     if (!producerObserverTable.isEmpty()) {
       log.info(
-          "Not all producerObserver has unregistered, producerObserver num={}",
+          "Not all producerObserver has been unregistered, producerObserver num={}",
           producerObserverTable.size());
       return;
     }
     if (!consumerObserverTable.isEmpty()) {
       log.info(
-          "Not all consumerObserver has unregistered, consumerObserver num={}",
+          "Not all consumerObserver has been unregistered, consumerObserver num={}",
           consumerObserverTable.size());
       return;
     }
@@ -213,43 +237,38 @@ public class ClientInstance {
     builder.setClientId(clientId);
     builder.setLanguageCode(HeartbeatRequest.LanguageCode.JAVA);
 
-    producerObserverTable
-        .values()
-        .forEach(
-            producerObserver ->
-                builder.addProducerDataSet(producerObserver.prepareHeartbeatData()));
+    for (ProducerObserver producerObserver : producerObserverTable.values()) {
+      builder.addProducerDataSet(producerObserver.prepareHeartbeatData());
+    }
 
-    consumerObserverTable
-        .values()
-        .forEach(
-            consumerObserver -> builder.addConsumeDataSet(consumerObserver.prepareHeartbeatData()));
+    for (ConsumerObserver consumerObserver : consumerObserverTable.values()) {
+      builder.addConsumeDataSet(consumerObserver.prepareHeartbeatData());
+    }
 
     final HeartbeatRequest request = builder.build();
 
-    Set<MQRPCTarget> filteredTarget = new HashSet<>();
-    clientTable.forEach(
-        (rpcTarget, rpcClient) -> {
-          if (!rpcTarget.needHeartbeat) {
-            return;
-          }
-          filteredTarget.add(rpcTarget);
-        });
-    filteredTarget.forEach(
-        rpcTarget -> {
-          final RPCClient rpcClient = clientTable.get(rpcTarget);
-          if (null == rpcClient) {
-            return;
-          }
-          final HeartbeatResponse response = rpcClient.heartbeat(request);
-          final ResponseCode code = response.getCode();
-          final String target = rpcTarget.getTarget();
-          if (ResponseCode.SUCCESS != code) {
-            log.warn(
-                "Failed to send heartbeat to target, responseCode={}, target={}", code, target);
-          } else {
-            log.debug("Send heartbeat to target successfully, target={}", target);
-          }
-        });
+    Set<MQRPCTarget> filteredTarget = new HashSet<MQRPCTarget>();
+    for (MQRPCTarget rpcTarget : clientTable.keySet()) {
+      if (!rpcTarget.needHeartbeat) {
+        return;
+      }
+      filteredTarget.add(rpcTarget);
+    }
+
+    for (MQRPCTarget rpcTarget : filteredTarget) {
+      final RPCClient rpcClient = clientTable.get(rpcTarget);
+      if (null == rpcClient) {
+        continue;
+      }
+      final HeartbeatResponse response = rpcClient.heartbeat(request);
+      final ResponseCode code = response.getCode();
+      final String target = rpcTarget.getTarget();
+      if (ResponseCode.SUCCESS != code) {
+        log.warn("Failed to send heartbeat to target, responseCode={}, target={}", code, target);
+        continue;
+      }
+      log.debug("Send heartbeat to target successfully, target={}", target);
+    }
   }
 
   private void restoreIsolatedTarget() {
@@ -258,22 +277,24 @@ public class ClientInstance {
       log.warn("Unexpected client instance state={}", serviceState);
       return;
     }
-    clientTable.forEach(
-        (RPCTarget, rpcClient) -> {
-          if (!rpcClient.isIsolated()) {
-            return;
-          }
-          final String target = RPCTarget.getTarget();
-          HealthCheckRequest request =
-              HealthCheckRequest.newBuilder().setClientHost(target).build();
-          final HealthCheckResponse response = rpcClient.healthCheck(request);
-          if (ResponseCode.SUCCESS == response.getCode()) {
-            RPCTarget.setIsolated(false);
-            log.info("Isolated target[{}] has been restored", target);
-          } else {
-            log.debug("Isolated target[{}] was not restored", target);
-          }
-        });
+
+    for (Map.Entry<MQRPCTarget, RPCClient> entry : clientTable.entrySet()) {
+      final MQRPCTarget rpcTarget = entry.getKey();
+      final RPCClient rpcClient = entry.getValue();
+      if (!rpcClient.isIsolated()) {
+        continue;
+      }
+      final String target = rpcTarget.getTarget();
+      final HealthCheckRequest request =
+          HealthCheckRequest.newBuilder().setClientHost(target).build();
+      final HealthCheckResponse response = rpcClient.healthCheck(request);
+      if (ResponseCode.SUCCESS == response.getCode()) {
+        rpcTarget.setIsolated(false);
+        log.info("Isolated target={} has been restored", target);
+        continue;
+      }
+      log.debug("Isolated target={} was not restored", target);
+    }
   }
 
   private void cleanOutdatedClient() {
@@ -283,33 +304,28 @@ public class ClientInstance {
       return;
     }
 
-    Set<String> currentTargets = new HashSet<>();
+    Set<String> currentTargets = new HashSet<String>();
     nameServerLock.readLock().lock();
     try {
       currentTargets.addAll(nameServerList);
     } finally {
       nameServerLock.readLock().unlock();
     }
-    topicRouteTable.forEach(
-        (topic, topicRouteData) -> {
-          final List<BrokerData> brokerDataList = topicRouteData.getBrokerDataList();
-          for (BrokerData brokerData : brokerDataList) {
-            final HashMap<Long, String> brokerAddressTable = brokerData.getBrokerAddressTable();
-            brokerAddressTable
-                .values()
-                .forEach(
-                    target ->
-                        currentTargets.add(UtilAll.shiftTargetPort(target, MixAll.SHIFT_PORT)));
-          }
-        });
-    clientTable
-        .keySet()
-        .forEach(
-            RPCTarget -> {
-              if (!currentTargets.contains(RPCTarget.getTarget())) {
-                clientTable.remove(RPCTarget);
-              }
-            });
+    for (TopicRouteData topicRouteData : topicRouteTable.values()) {
+      final List<BrokerData> brokerDataList = topicRouteData.getBrokerDataList();
+      for (BrokerData brokerData : brokerDataList) {
+        final HashMap<Long, String> brokerAddressTable = brokerData.getBrokerAddressTable();
+        for (String target : brokerAddressTable.values()) {
+          currentTargets.add(UtilAll.shiftTargetPort(target, MixAll.SHIFT_PORT));
+        }
+      }
+    }
+
+    for (MQRPCTarget rpcTarget : clientTable.keySet()) {
+      if (!currentTargets.contains(rpcTarget.getTarget())) {
+        clientTable.remove(rpcTarget);
+      }
+    }
   }
 
   public void setNameServerList(List<String> nameServerList) {
@@ -331,13 +347,14 @@ public class ClientInstance {
     }
   }
 
+  /** Update topic route info from name server and notify observer if changed. */
   private void updateRouteInfo() {
     final ServiceState serviceState = state.get();
     if (ServiceState.STARTED != serviceState && ServiceState.STARTING != serviceState) {
       log.warn("Unexpected client instance state={}", serviceState);
       return;
     }
-    final Set<String> topics = new HashSet<>(topicRouteTable.keySet());
+    final Set<String> topics = new HashSet<String>(topicRouteTable.keySet());
     if (topics.isEmpty()) {
       return;
     }
@@ -365,9 +382,22 @@ public class ClientInstance {
       }
 
       if (needNotify) {
-        producerObserverTable.forEach(
-            (producerGroup, observer) -> observer.onTopicRouteChanged(topic, after));
+        for (ProducerObserver producerObserver : producerObserverTable.values()) {
+          producerObserver.onTopicRouteChanged(topic, after);
+        }
       }
+    }
+  }
+
+  /** Scan load assignments for all consumers. */
+  private void scanConsumersLoadAssignments() {
+    final ServiceState serviceState = state.get();
+    if (ServiceState.STARTED != serviceState && ServiceState.STARTING != serviceState) {
+      log.warn("Unexpected client instance state={}", serviceState);
+      return;
+    }
+    for (ConsumerObserver consumerObserver : consumerObserverTable.values()) {
+      consumerObserver.scanLoadAssignments();
     }
   }
 
@@ -457,7 +487,7 @@ public class ClientInstance {
   }
 
   public Set<String> getAvailableTargets() {
-    Set<String> targetSet = new HashSet<>();
+    Set<String> targetSet = new HashSet<String>();
     for (RPCTarget RPCTarget : clientTable.keySet()) {
       if (RPCTarget.isIsolated()) {
         continue;
@@ -468,7 +498,7 @@ public class ClientInstance {
   }
 
   public Set<String> getIsolatedTargets() {
-    Set<String> targetSet = new HashSet<>();
+    Set<String> targetSet = new HashSet<String>();
     for (RPCTarget RPCTarget : clientTable.keySet()) {
       if (!RPCTarget.isIsolated()) {
         continue;
@@ -494,34 +524,9 @@ public class ClientInstance {
       SendCallback sendCallback,
       long duration,
       TimeUnit unit) {
-    BiConsumer<SendMessageResponse, Throwable> biConsumer =
-        ((response, throwable) -> {
-          ServiceState state = this.state.get();
-
-          if (ServiceState.STARTED != state) {
-            log.info("Client instance is not be started, state={}", state);
-            return;
-          }
-
-          if (null != throwable) {
-            sendCallback.onException(throwable);
-            return;
-          }
-          MessageQueue messageQueue = new MessageQueue();
-          messageQueue.setQueueId(response.getQueueId());
-          messageQueue.setTopic(request.getMessage().getTopic());
-          messageQueue.setBrokerName(request.getBrokerName());
-          SendResult sendResult;
-          try {
-            sendResult = processSendResponse(messageQueue, response);
-          } catch (MQServerException e) {
-            sendCallback.onException(e);
-            return;
-          }
-          sendCallback.onSuccess(sendResult);
-        });
-    InvocationContext<SendMessageResponse> context = new InvocationContext<>(biConsumer);
-    getRPCClient(target).sendMessage(request, context, duration, unit);
+    final SendMessageResponseCallback callback =
+        new SendMessageResponseCallback(request, state, sendCallback);
+    getRPCClient(target).sendMessage(request, callback, duration, unit);
   }
 
   public SendMessageResponse sendClientAPI(
@@ -580,6 +585,21 @@ public class ClientInstance {
     return rpcClient.fetchTopicRouteInfo(request);
   }
 
+  public TopicAssignmentInfo queryLoadAssignment(String target, QueryAssignmentRequest request)
+      throws MQServerException {
+    final RPCClient rpcClient = this.getRPCClient(target);
+    final QueryAssignmentResponse response = rpcClient.queryAssignment(request);
+    final ResponseCode code = response.getCode();
+    if (ResponseCode.SUCCESS != code) {
+      throw new MQServerException(
+          "Failed to query load assignment from remote target, target="
+              + target
+              + ", code="
+              + code);
+    }
+    return new TopicAssignmentInfo(response.getMessageQueueAssignmentsList());
+  }
+
   /**
    * Get topic route info from remote,
    *
@@ -628,7 +648,7 @@ public class ClientInstance {
     return topicRouteTable.get(topic);
   }
 
-  public SendResult processSendResponse(MessageQueue mq, SendMessageResponse response)
+  public static SendResult processSendResponse(MessageQueue mq, SendMessageResponse response)
       throws MQServerException {
     SendStatus sendStatus;
     final ResponseCode code = response.getCode();

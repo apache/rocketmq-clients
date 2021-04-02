@@ -14,6 +14,6 @@ public class BrokerData {
   public BrokerData(org.apache.rocketmq.proto.BrokerData brokerData) {
     this.cluster = brokerData.getCluster();
     this.brokerName = brokerData.getBrokerName();
-    this.brokerAddressTable = new HashMap<>(brokerData.getAddressesMap());
+    this.brokerAddressTable = new HashMap<Long, String>(brokerData.getAddressesMap());
   }
 }

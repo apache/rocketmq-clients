@@ -6,7 +6,7 @@ package org.apache.rocketmq.proto;
 /**
  * Protobuf type {@code rocketmq.rpc.api.AckMessageRequest}
  */
-public final class AckMessageRequest extends
+public  final class AckMessageRequest extends
     com.google.protobuf.GeneratedMessageV3 implements
     // @@protoc_insertion_point(message_implements:rocketmq.rpc.api.AckMessageRequest)
     AckMessageRequestOrBuilder {
@@ -18,15 +18,10 @@ private static final long serialVersionUID = 0L;
   private AckMessageRequest() {
     consumerGroup_ = "";
     topic_ = "";
+    queueId_ = 0;
     extraInfo_ = "";
+    offset_ = 0L;
     brokerName_ = "";
-  }
-
-  @java.lang.Override
-  @SuppressWarnings({"unused"})
-  protected java.lang.Object newInstance(
-      UnusedPrivateParameter unused) {
-    return new AckMessageRequest();
   }
 
   @java.lang.Override
@@ -42,6 +37,7 @@ private static final long serialVersionUID = 0L;
     if (extensionRegistry == null) {
       throw new java.lang.NullPointerException();
     }
+    int mutable_bitField0_ = 0;
     com.google.protobuf.UnknownFieldSet.Builder unknownFields =
         com.google.protobuf.UnknownFieldSet.newBuilder();
     try {
@@ -52,6 +48,13 @@ private static final long serialVersionUID = 0L;
           case 0:
             done = true;
             break;
+          default: {
+            if (!parseUnknownFieldProto3(
+                input, unknownFields, extensionRegistry, tag)) {
+              done = true;
+            }
+            break;
+          }
           case 10: {
             java.lang.String s = input.readStringRequireUtf8();
 
@@ -86,13 +89,6 @@ private static final long serialVersionUID = 0L;
             brokerName_ = s;
             break;
           }
-          default: {
-            if (!parseUnknownField(
-                input, unknownFields, extensionRegistry, tag)) {
-              done = true;
-            }
-            break;
-          }
         }
       }
     } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -110,7 +106,6 @@ private static final long serialVersionUID = 0L;
     return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_AckMessageRequest_descriptor;
   }
 
-  @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
     return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_AckMessageRequest_fieldAccessorTable
@@ -122,9 +117,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object consumerGroup_;
   /**
    * <code>string consumer_group = 1;</code>
-   * @return The consumerGroup.
    */
-  @java.lang.Override
   public java.lang.String getConsumerGroup() {
     java.lang.Object ref = consumerGroup_;
     if (ref instanceof java.lang.String) {
@@ -139,9 +132,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <code>string consumer_group = 1;</code>
-   * @return The bytes for consumerGroup.
    */
-  @java.lang.Override
   public com.google.protobuf.ByteString
       getConsumerGroupBytes() {
     java.lang.Object ref = consumerGroup_;
@@ -160,9 +151,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object topic_;
   /**
    * <code>string topic = 2;</code>
-   * @return The topic.
    */
-  @java.lang.Override
   public java.lang.String getTopic() {
     java.lang.Object ref = topic_;
     if (ref instanceof java.lang.String) {
@@ -177,9 +166,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <code>string topic = 2;</code>
-   * @return The bytes for topic.
    */
-  @java.lang.Override
   public com.google.protobuf.ByteString
       getTopicBytes() {
     java.lang.Object ref = topic_;
@@ -198,9 +185,7 @@ private static final long serialVersionUID = 0L;
   private int queueId_;
   /**
    * <code>int32 queue_id = 3;</code>
-   * @return The queueId.
    */
-  @java.lang.Override
   public int getQueueId() {
     return queueId_;
   }
@@ -209,9 +194,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object extraInfo_;
   /**
    * <code>string extra_info = 4;</code>
-   * @return The extraInfo.
    */
-  @java.lang.Override
   public java.lang.String getExtraInfo() {
     java.lang.Object ref = extraInfo_;
     if (ref instanceof java.lang.String) {
@@ -226,9 +209,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <code>string extra_info = 4;</code>
-   * @return The bytes for extraInfo.
    */
-  @java.lang.Override
   public com.google.protobuf.ByteString
       getExtraInfoBytes() {
     java.lang.Object ref = extraInfo_;
@@ -247,9 +228,7 @@ private static final long serialVersionUID = 0L;
   private long offset_;
   /**
    * <code>int64 offset = 5;</code>
-   * @return The offset.
    */
-  @java.lang.Override
   public long getOffset() {
     return offset_;
   }
@@ -258,9 +237,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object brokerName_;
   /**
    * <code>string broker_name = 6;</code>
-   * @return The brokerName.
    */
-  @java.lang.Override
   public java.lang.String getBrokerName() {
     java.lang.Object ref = brokerName_;
     if (ref instanceof java.lang.String) {
@@ -275,9 +252,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <code>string broker_name = 6;</code>
-   * @return The bytes for brokerName.
    */
-  @java.lang.Override
   public com.google.protobuf.ByteString
       getBrokerNameBytes() {
     java.lang.Object ref = brokerName_;
@@ -293,7 +268,6 @@ private static final long serialVersionUID = 0L;
   }
 
   private byte memoizedIsInitialized = -1;
-  @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
     if (isInitialized == 1) return true;
@@ -303,7 +277,6 @@ private static final long serialVersionUID = 0L;
     return true;
   }
 
-  @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
     if (!getConsumerGroupBytes().isEmpty()) {
@@ -327,7 +300,6 @@ private static final long serialVersionUID = 0L;
     unknownFields.writeTo(output);
   }
 
-  @java.lang.Override
   public int getSerializedSize() {
     int size = memoizedSize;
     if (size != -1) return size;
@@ -368,20 +340,21 @@ private static final long serialVersionUID = 0L;
     }
     org.apache.rocketmq.proto.AckMessageRequest other = (org.apache.rocketmq.proto.AckMessageRequest) obj;
 
-    if (!getConsumerGroup()
-        .equals(other.getConsumerGroup())) return false;
-    if (!getTopic()
-        .equals(other.getTopic())) return false;
-    if (getQueueId()
-        != other.getQueueId()) return false;
-    if (!getExtraInfo()
-        .equals(other.getExtraInfo())) return false;
-    if (getOffset()
-        != other.getOffset()) return false;
-    if (!getBrokerName()
-        .equals(other.getBrokerName())) return false;
-    if (!unknownFields.equals(other.unknownFields)) return false;
-    return true;
+    boolean result = true;
+    result = result && getConsumerGroup()
+        .equals(other.getConsumerGroup());
+    result = result && getTopic()
+        .equals(other.getTopic());
+    result = result && (getQueueId()
+        == other.getQueueId());
+    result = result && getExtraInfo()
+        .equals(other.getExtraInfo());
+    result = result && (getOffset()
+        == other.getOffset());
+    result = result && getBrokerName()
+        .equals(other.getBrokerName());
+    result = result && unknownFields.equals(other.unknownFields);
+    return result;
   }
 
   @java.lang.Override
@@ -479,7 +452,6 @@ private static final long serialVersionUID = 0L;
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
-  @java.lang.Override
   public Builder newBuilderForType() { return newBuilder(); }
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
@@ -487,7 +459,6 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder(org.apache.rocketmq.proto.AckMessageRequest prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
-  @java.lang.Override
   public Builder toBuilder() {
     return this == DEFAULT_INSTANCE
         ? new Builder() : new Builder().mergeFrom(this);
@@ -511,7 +482,6 @@ private static final long serialVersionUID = 0L;
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_AckMessageRequest_descriptor;
     }
 
-    @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_AckMessageRequest_fieldAccessorTable
@@ -534,7 +504,6 @@ private static final long serialVersionUID = 0L;
               .alwaysUseFieldBuilders) {
       }
     }
-    @java.lang.Override
     public Builder clear() {
       super.clear();
       consumerGroup_ = "";
@@ -552,18 +521,15 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_AckMessageRequest_descriptor;
     }
 
-    @java.lang.Override
     public org.apache.rocketmq.proto.AckMessageRequest getDefaultInstanceForType() {
       return org.apache.rocketmq.proto.AckMessageRequest.getDefaultInstance();
     }
 
-    @java.lang.Override
     public org.apache.rocketmq.proto.AckMessageRequest build() {
       org.apache.rocketmq.proto.AckMessageRequest result = buildPartial();
       if (!result.isInitialized()) {
@@ -572,7 +538,6 @@ private static final long serialVersionUID = 0L;
       return result;
     }
 
-    @java.lang.Override
     public org.apache.rocketmq.proto.AckMessageRequest buildPartial() {
       org.apache.rocketmq.proto.AckMessageRequest result = new org.apache.rocketmq.proto.AckMessageRequest(this);
       result.consumerGroup_ = consumerGroup_;
@@ -585,39 +550,32 @@ private static final long serialVersionUID = 0L;
       return result;
     }
 
-    @java.lang.Override
     public Builder clone() {
-      return super.clone();
+      return (Builder) super.clone();
     }
-    @java.lang.Override
     public Builder setField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return super.setField(field, value);
+      return (Builder) super.setField(field, value);
     }
-    @java.lang.Override
     public Builder clearField(
         com.google.protobuf.Descriptors.FieldDescriptor field) {
-      return super.clearField(field);
+      return (Builder) super.clearField(field);
     }
-    @java.lang.Override
     public Builder clearOneof(
         com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-      return super.clearOneof(oneof);
+      return (Builder) super.clearOneof(oneof);
     }
-    @java.lang.Override
     public Builder setRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         int index, java.lang.Object value) {
-      return super.setRepeatedField(field, index, value);
+      return (Builder) super.setRepeatedField(field, index, value);
     }
-    @java.lang.Override
     public Builder addRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return super.addRepeatedField(field, value);
+      return (Builder) super.addRepeatedField(field, value);
     }
-    @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof org.apache.rocketmq.proto.AckMessageRequest) {
         return mergeFrom((org.apache.rocketmq.proto.AckMessageRequest)other);
@@ -656,12 +614,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    @java.lang.Override
     public final boolean isInitialized() {
       return true;
     }
 
-    @java.lang.Override
     public Builder mergeFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -683,7 +639,6 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object consumerGroup_ = "";
     /**
      * <code>string consumer_group = 1;</code>
-     * @return The consumerGroup.
      */
     public java.lang.String getConsumerGroup() {
       java.lang.Object ref = consumerGroup_;
@@ -699,7 +654,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string consumer_group = 1;</code>
-     * @return The bytes for consumerGroup.
      */
     public com.google.protobuf.ByteString
         getConsumerGroupBytes() {
@@ -716,8 +670,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string consumer_group = 1;</code>
-     * @param value The consumerGroup to set.
-     * @return This builder for chaining.
      */
     public Builder setConsumerGroup(
         java.lang.String value) {
@@ -731,7 +683,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string consumer_group = 1;</code>
-     * @return This builder for chaining.
      */
     public Builder clearConsumerGroup() {
       
@@ -741,8 +692,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string consumer_group = 1;</code>
-     * @param value The bytes for consumerGroup to set.
-     * @return This builder for chaining.
      */
     public Builder setConsumerGroupBytes(
         com.google.protobuf.ByteString value) {
@@ -759,7 +708,6 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object topic_ = "";
     /**
      * <code>string topic = 2;</code>
-     * @return The topic.
      */
     public java.lang.String getTopic() {
       java.lang.Object ref = topic_;
@@ -775,7 +723,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string topic = 2;</code>
-     * @return The bytes for topic.
      */
     public com.google.protobuf.ByteString
         getTopicBytes() {
@@ -792,8 +739,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string topic = 2;</code>
-     * @param value The topic to set.
-     * @return This builder for chaining.
      */
     public Builder setTopic(
         java.lang.String value) {
@@ -807,7 +752,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string topic = 2;</code>
-     * @return This builder for chaining.
      */
     public Builder clearTopic() {
       
@@ -817,8 +761,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string topic = 2;</code>
-     * @param value The bytes for topic to set.
-     * @return This builder for chaining.
      */
     public Builder setTopicBytes(
         com.google.protobuf.ByteString value) {
@@ -835,16 +777,12 @@ private static final long serialVersionUID = 0L;
     private int queueId_ ;
     /**
      * <code>int32 queue_id = 3;</code>
-     * @return The queueId.
      */
-    @java.lang.Override
     public int getQueueId() {
       return queueId_;
     }
     /**
      * <code>int32 queue_id = 3;</code>
-     * @param value The queueId to set.
-     * @return This builder for chaining.
      */
     public Builder setQueueId(int value) {
       
@@ -854,7 +792,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>int32 queue_id = 3;</code>
-     * @return This builder for chaining.
      */
     public Builder clearQueueId() {
       
@@ -866,7 +803,6 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object extraInfo_ = "";
     /**
      * <code>string extra_info = 4;</code>
-     * @return The extraInfo.
      */
     public java.lang.String getExtraInfo() {
       java.lang.Object ref = extraInfo_;
@@ -882,7 +818,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string extra_info = 4;</code>
-     * @return The bytes for extraInfo.
      */
     public com.google.protobuf.ByteString
         getExtraInfoBytes() {
@@ -899,8 +834,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string extra_info = 4;</code>
-     * @param value The extraInfo to set.
-     * @return This builder for chaining.
      */
     public Builder setExtraInfo(
         java.lang.String value) {
@@ -914,7 +847,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string extra_info = 4;</code>
-     * @return This builder for chaining.
      */
     public Builder clearExtraInfo() {
       
@@ -924,8 +856,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string extra_info = 4;</code>
-     * @param value The bytes for extraInfo to set.
-     * @return This builder for chaining.
      */
     public Builder setExtraInfoBytes(
         com.google.protobuf.ByteString value) {
@@ -942,16 +872,12 @@ private static final long serialVersionUID = 0L;
     private long offset_ ;
     /**
      * <code>int64 offset = 5;</code>
-     * @return The offset.
      */
-    @java.lang.Override
     public long getOffset() {
       return offset_;
     }
     /**
      * <code>int64 offset = 5;</code>
-     * @param value The offset to set.
-     * @return This builder for chaining.
      */
     public Builder setOffset(long value) {
       
@@ -961,7 +887,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>int64 offset = 5;</code>
-     * @return This builder for chaining.
      */
     public Builder clearOffset() {
       
@@ -973,7 +898,6 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object brokerName_ = "";
     /**
      * <code>string broker_name = 6;</code>
-     * @return The brokerName.
      */
     public java.lang.String getBrokerName() {
       java.lang.Object ref = brokerName_;
@@ -989,7 +913,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string broker_name = 6;</code>
-     * @return The bytes for brokerName.
      */
     public com.google.protobuf.ByteString
         getBrokerNameBytes() {
@@ -1006,8 +929,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string broker_name = 6;</code>
-     * @param value The brokerName to set.
-     * @return This builder for chaining.
      */
     public Builder setBrokerName(
         java.lang.String value) {
@@ -1021,7 +942,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string broker_name = 6;</code>
-     * @return This builder for chaining.
      */
     public Builder clearBrokerName() {
       
@@ -1031,8 +951,6 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string broker_name = 6;</code>
-     * @param value The bytes for brokerName to set.
-     * @return This builder for chaining.
      */
     public Builder setBrokerNameBytes(
         com.google.protobuf.ByteString value) {
@@ -1045,13 +963,11 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
-    @java.lang.Override
     public final Builder setUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
-      return super.setUnknownFields(unknownFields);
+      return super.setUnknownFieldsProto3(unknownFields);
     }
 
-    @java.lang.Override
     public final Builder mergeUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.mergeUnknownFields(unknownFields);
@@ -1073,7 +989,6 @@ private static final long serialVersionUID = 0L;
 
   private static final com.google.protobuf.Parser<AckMessageRequest>
       PARSER = new com.google.protobuf.AbstractParser<AckMessageRequest>() {
-    @java.lang.Override
     public AckMessageRequest parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -1091,7 +1006,6 @@ private static final long serialVersionUID = 0L;
     return PARSER;
   }
 
-  @java.lang.Override
   public org.apache.rocketmq.proto.AckMessageRequest getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }

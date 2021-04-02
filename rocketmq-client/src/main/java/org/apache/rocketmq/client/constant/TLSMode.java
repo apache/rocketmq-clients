@@ -18,7 +18,7 @@ public enum TLSMode {
   /** SSL is required, aka, non SSL connection will be rejected. */
   ENFORCING("enforcing");
 
-  private static final Map<String, TLSMode> LOOK_UP = new HashMap<>();
+  private static final Map<String, TLSMode> LOOK_UP = new HashMap<String, TLSMode>();
 
   static {
     for (TLSMode i : EnumSet.allOf(TLSMode.class)) {
