@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 IMAGE_TAG="v$(date +%Y%m%d_%H%M%S)"
 REMOTE_REGISTRY="aaronai/rocketmq_java"
 

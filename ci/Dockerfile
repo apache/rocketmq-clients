@@ -56,5 +56,3 @@ RUN mkdir -p $HOME/protoc; \
 
 # compile and install customized protobuffer-java.
 RUN mvn clean install -DskipTests -f $HOME/protobuf-rocketmq-v$PROTOBUFFER_VERSION/java/pom.xml
-
-WORKDIR $HOME

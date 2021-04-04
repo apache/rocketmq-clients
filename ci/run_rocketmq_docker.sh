@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 IMAGE_NAME="aaronai/rocketmq_java"
 IMAGE_TAG="latest"
 export ROCKETMQ_BUILD_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
