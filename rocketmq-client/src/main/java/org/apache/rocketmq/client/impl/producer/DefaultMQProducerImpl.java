@@ -311,7 +311,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
         clientInstance.sendClientAPI(
             target, mode, request, sendCallback, timeoutMillis, TimeUnit.MILLISECONDS);
 
-    return clientInstance.processSendResponse(mq, response);
+    return ClientInstance.processSendResponse(mq, response);
   }
 
   public SendResult sendDefaultImpl(
