@@ -1,11 +1,7 @@
 package org.apache.rocketmq.client.constant;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+public class EnvVariable {
+  public static final String NAME_SERVER_ADDR = "NAMESRV_ADDR";
 
-@Getter
-@AllArgsConstructor
-public enum EnvVariable {
-  NAMESRV_ADDR("NAMESRV_ADDR");
-  private final String name;
+  private EnvVariable() {}
 }

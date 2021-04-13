@@ -1,13 +1,9 @@
 package org.apache.rocketmq.client.constant;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+public class TopicPrefix {
 
-@Getter
-@AllArgsConstructor
-public enum TopicPrefix {
-  RETRY_TOPIC_PREFIX("%RETRY%"),
-  DLQ_TOPIC_PREFIX("%DLQ%");
+  public static final String RETRY_TOPIC_PREFIX = "%RETRY%";
+  public static final String DLQ_TOPIC_PREFIX = "%DLQ%";
 
-  private final String topicPrefix;
+  private TopicPrefix() {}
 }

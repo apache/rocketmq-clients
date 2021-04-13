@@ -36,7 +36,7 @@ public class DefaultMQProducer extends ClientConfig {
   }
 
   /** Just for testing or demo program */
-  private String createTopicKey = SystemTopic.DEFAULT_TOPIC.getTopic();
+  private String createTopicKey = SystemTopic.DEFAULT_TOPIC;
 
   /** Number of queues to create per default topic. */
   private volatile int defaultTopicQueueNums = 4;

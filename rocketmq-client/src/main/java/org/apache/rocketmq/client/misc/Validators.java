@@ -34,7 +34,7 @@ public class Validators {
       throw new MQClientException(
           "Topic's length exceeds the threshold, masSize=" + TOPIC_MAX_LENGTH + " bytes");
     }
-    if (topic.equals(SystemTopic.DEFAULT_TOPIC.getTopic())) {
+    if (topic.equals(SystemTopic.DEFAULT_TOPIC)) {
       throw new MQClientException("Topic is conflict with the system default topic.");
     }
   }

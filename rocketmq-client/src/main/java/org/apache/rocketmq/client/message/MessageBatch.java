@@ -30,7 +30,7 @@ public class MessageBatch extends Message implements Iterable<Message> {
       if (message.getDelayTimeLevel() > 0) {
         throw new UnsupportedOperationException("TimeDelayLevel in not supported for batching");
       }
-      if (message.getTopic().startsWith(TopicPrefix.RETRY_TOPIC_PREFIX.getTopicPrefix())) {
+      if (message.getTopic().startsWith(TopicPrefix.RETRY_TOPIC_PREFIX)) {
         throw new UnsupportedOperationException("Retry topic is not supported for batching");
       }
       if (first == null) {

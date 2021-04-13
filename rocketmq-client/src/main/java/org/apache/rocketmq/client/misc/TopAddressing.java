@@ -27,10 +27,9 @@ public class TopAddressing {
 
   private String getWSAddress() {
     final String wsDomain =
-        System.getProperty(SystemProperty.NAME_SERVER_DOMAIN.getName(), DEFAULT_NAME_SERVER_DOMAIN);
+        System.getProperty(SystemProperty.NAME_SERVER_DOMAIN, DEFAULT_NAME_SERVER_DOMAIN);
     final String wsSubGroup =
-        System.getProperty(
-            SystemProperty.NAME_SERVER_SUB_GROUP.getName(), DEFAULT_NAME_SERVER_SUB_GROUP);
+        System.getProperty(SystemProperty.NAME_SERVER_SUB_GROUP, DEFAULT_NAME_SERVER_SUB_GROUP);
     String wsAddress = "http://" + wsDomain + ":8080/rocketmq/" + wsSubGroup;
     if (wsDomain.indexOf(":") > 0) {
       wsAddress = "http://" + wsDomain + "/rocketmq/" + wsSubGroup;

@@ -8,18 +8,15 @@ import org.apache.rocketmq.client.constant.TopicPrefix;
 public class ResourceUtil {
   public static final char NAMESPACE_SEPARATOR = '%';
 
-  private static final int RETRY_TOPIC_PREFIX_LENGTH =
-      TopicPrefix.RETRY_TOPIC_PREFIX.getTopicPrefix().length();
-  private static final int DLQ_TOPIC_PREFIX_LENGTH =
-      TopicPrefix.DLQ_TOPIC_PREFIX.getTopicPrefix().length();
+  private static final int RETRY_TOPIC_PREFIX_LENGTH = TopicPrefix.RETRY_TOPIC_PREFIX.length();
+  private static final int DLQ_TOPIC_PREFIX_LENGTH = TopicPrefix.DLQ_TOPIC_PREFIX.length();
 
   public static boolean isSystemTopic(String topic) {
-    return topic.startsWith(SystemTopic.DEFAULT_TOPIC.getTopic());
+    return topic.startsWith(SystemTopic.DEFAULT_TOPIC);
   }
 
   public static boolean isSystemConsumerGroup(String consumerGroup) {
-    return consumerGroup.startsWith(
-        ConsumerGroupPrefix.CID_RMQ_SYS_PREFIX.getConsumerGroupPrefix());
+    return consumerGroup.startsWith(ConsumerGroupPrefix.CID_RMQ_SYS_PREFIX);
   }
 
   private static boolean isSystemResource(String resource) {
@@ -35,21 +32,21 @@ public class ResourceUtil {
       return true;
     }
 
-    return SystemTopic.DEFAULT_TOPIC.getTopic().equals(resource);
+    return SystemTopic.DEFAULT_TOPIC.equals(resource);
   }
 
   public static boolean isRetryTopic(String resource) {
     if (StringUtils.isEmpty(resource)) {
       return false;
     }
-    return resource.startsWith(TopicPrefix.RETRY_TOPIC_PREFIX.getTopicPrefix());
+    return resource.startsWith(TopicPrefix.RETRY_TOPIC_PREFIX);
   }
 
   public static boolean isDLQTopic(String resource) {
     if (StringUtils.isEmpty(resource)) {
       return false;
     }
-    return resource.startsWith(TopicPrefix.DLQ_TOPIC_PREFIX.getTopicPrefix());
+    return resource.startsWith(TopicPrefix.DLQ_TOPIC_PREFIX);
   }
 
   public static boolean isAlreadyWithNamespace(String resource, String namespace) {
@@ -87,23 +84,23 @@ public class ResourceUtil {
 
     if (isRetryTopic(resource)) {
       builder.append(resource.substring(RETRY_TOPIC_PREFIX_LENGTH));
-      return builder.insert(0, TopicPrefix.RETRY_TOPIC_PREFIX.getTopicPrefix()).toString();
+      return builder.insert(0, TopicPrefix.RETRY_TOPIC_PREFIX).toString();
     }
 
     if (isDLQTopic(resource)) {
       builder.append(resource.substring(DLQ_TOPIC_PREFIX_LENGTH));
-      return builder.insert(0, TopicPrefix.DLQ_TOPIC_PREFIX.getTopicPrefix()).toString();
+      return builder.insert(0, TopicPrefix.DLQ_TOPIC_PREFIX).toString();
     }
 
     return builder.append(resource).toString();
   }
 
   public static String jointWithRetryTopicPrefix(String consumerGroup) {
-    return TopicPrefix.RETRY_TOPIC_PREFIX.getTopicPrefix() + consumerGroup;
+    return TopicPrefix.RETRY_TOPIC_PREFIX + consumerGroup;
   }
 
   public static String jointWithDLQTopicPrefix(String consumerGroup) {
-    return TopicPrefix.DLQ_TOPIC_PREFIX.getTopicPrefix() + consumerGroup;
+    return TopicPrefix.DLQ_TOPIC_PREFIX + consumerGroup;
   }
 
   public static String unwrapWithNamespace(String namespace, String resource) {

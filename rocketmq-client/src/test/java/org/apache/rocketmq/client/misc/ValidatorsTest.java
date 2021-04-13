@@ -36,7 +36,7 @@ public class ValidatorsTest {
     final String tooLongTopic = StringUtils.repeat("a", Validators.TOPIC_MAX_LENGTH + 1);
     checkIllegalTopic(tooLongTopic);
     // Equals to default topic.
-    checkIllegalTopic(SystemTopic.DEFAULT_TOPIC.getTopic());
+    checkIllegalTopic(SystemTopic.DEFAULT_TOPIC);
   }
 
   private void checkIllegalConsumerGroup(String consumerGroup) {

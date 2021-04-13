@@ -1,12 +1,7 @@
 package org.apache.rocketmq.client.constant;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+public class ConsumerGroupPrefix {
+  public static final String CID_RMQ_SYS_PREFIX = "CID_RMQ_SYS_";
 
-@Getter
-@AllArgsConstructor
-public enum ConsumerGroupPrefix {
-  CID_RMQ_SYS_PREFIX("CID_RMQ_SYS_");
-
-  private final String consumerGroupPrefix;
+  private ConsumerGroupPrefix() {}
 }

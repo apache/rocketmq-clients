@@ -1,12 +1,7 @@
 package org.apache.rocketmq.client.constant;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+public class SystemTopic {
+  public static final String DEFAULT_TOPIC = "TBW102";
 
-@Getter
-@AllArgsConstructor
-public enum SystemTopic {
-  DEFAULT_TOPIC("TBW102");
-
-  private final String topic;
+  private SystemTopic() {}
 }

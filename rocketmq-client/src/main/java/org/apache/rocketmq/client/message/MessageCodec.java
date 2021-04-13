@@ -1,12 +1,11 @@
 package org.apache.rocketmq.client.message;
 
-import org.apache.rocketmq.client.misc.MixAll;
-
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.apache.rocketmq.client.misc.MixAll;
 
 public class MessageCodec {
   public static final char NAME_VALUE_SEPARATOR = 1;

@@ -4,13 +4,12 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.protobuf.MessageOrBuilder;
-import io.grpc.Channel;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.proto.AckMessageRequest;
 import org.apache.rocketmq.proto.AckMessageResponse;
@@ -30,8 +29,6 @@ import org.apache.rocketmq.proto.RouteInfoRequest;
 import org.apache.rocketmq.proto.RouteInfoResponse;
 import org.apache.rocketmq.proto.SendMessageRequest;
 import org.apache.rocketmq.proto.SendMessageResponse;
-
-import javax.annotation.Nullable;
 
 @Slf4j
 public class RPCClientImpl implements RPCClient {

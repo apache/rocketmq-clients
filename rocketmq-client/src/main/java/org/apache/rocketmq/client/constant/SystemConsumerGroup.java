@@ -1,11 +1,7 @@
 package org.apache.rocketmq.client.constant;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+public class SystemConsumerGroup {
+  public static final String DEFAULT_CONSUMER_GROUP = "DEFAULT_CONSUMER";
 
-@Getter
-@AllArgsConstructor
-public enum SystemConsumerGroup {
-  DEFAULT_CONSUMER_GROUP("DEFAULT_CONSUMER");
-  private final String groupId;
+  private SystemConsumerGroup() {}
 }
