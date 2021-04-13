@@ -5,6 +5,7 @@ import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.util.Enumeration;
+import java.util.concurrent.ThreadPoolExecutor;
 
 public class UtilAll {
 
@@ -106,5 +107,9 @@ public class UtilAll {
     final String[] split = target.split(":");
     final String port = String.valueOf(Integer.parseInt(split[1]) + offset);
     return split[0] + ":" + port;
+  }
+
+  public static int getThreadParallelCount(ThreadPoolExecutor executor) {
+    return executor.getMaximumPoolSize() + executor.getQueue().remainingCapacity();
   }
 }

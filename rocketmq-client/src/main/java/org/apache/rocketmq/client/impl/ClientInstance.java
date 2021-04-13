@@ -1,5 +1,9 @@
 package org.apache.rocketmq.client.impl;
 
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -11,12 +15,14 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.CommunicationMode;
@@ -57,6 +63,13 @@ public class ClientInstance {
   private static final int MAX_ASYNC_QUEUE_TASK_NUM = 1024;
   private static final AtomicInteger nameServerIndex = new AtomicInteger(0);
 
+  private static final long RPC_DEFAULT_TIMEOUT_MILLIS = 3 * 1000;
+  /**
+   * Usage of {@link RPCClientImpl#fetchTopicRouteInfo(RouteInfoRequest, long, TimeUnit)} are
+   * usually invokes the first call of gRPC, which need warm up in most case.
+   */
+  private static final long FETCH_TOPIC_ROUTE_INFO_TIMEOUT_MILLIS = 15 * 1000;
+
   @Getter
   private final ScheduledExecutorService scheduler =
       new ScheduledThreadPoolExecutor(2, new ThreadFactoryImpl("ClientInstanceScheduler_"));
@@ -65,6 +78,10 @@ public class ClientInstance {
   private final ConcurrentMap<MQRPCTarget, RPCClient> clientTable;
 
   private final ThreadPoolExecutor callbackExecutor;
+  private final Semaphore callbackSemaphore;
+
+  private ThreadPoolExecutor sendCallbackExecutor;
+  private Semaphore sendCallbackSemaphore;
 
   private final List<String> nameServerList;
   private final ReadWriteLock nameServerLock;
@@ -90,6 +107,10 @@ public class ClientInstance {
             TimeUnit.SECONDS,
             new LinkedBlockingQueue<Runnable>(MAX_ASYNC_QUEUE_TASK_NUM),
             new ThreadFactoryImpl("ClientCallbackThread_"));
+    this.callbackSemaphore = new Semaphore(UtilAll.getThreadParallelCount(callbackExecutor));
+
+    this.sendCallbackExecutor = null;
+    this.sendCallbackSemaphore = null;
 
     this.nameServerList = clientConfig.getNameServerList();
     this.nameServerLock = new ReentrantReadWriteLock();
@@ -103,6 +124,12 @@ public class ClientInstance {
 
     this.clientId = clientId;
     this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
+  }
+
+  public void setSendCallbackExecutor(ThreadPoolExecutor sendCallbackExecutor) {
+    this.sendCallbackExecutor = sendCallbackExecutor;
+    this.sendCallbackSemaphore =
+        new Semaphore(UtilAll.getThreadParallelCount(sendCallbackExecutor));
   }
 
   private void updateNameServerListFromTopAddressing() throws IOException {
@@ -302,7 +329,8 @@ public class ClientInstance {
       if (null == rpcClient) {
         continue;
       }
-      final HeartbeatResponse response = rpcClient.heartbeat(request);
+      final HeartbeatResponse response =
+          rpcClient.heartbeat(request, RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
       final ResponseCode code = response.getCode();
       final String target = rpcTarget.getTarget();
       if (ResponseCode.SUCCESS != code) {
@@ -329,7 +357,8 @@ public class ClientInstance {
       final String target = rpcTarget.getTarget();
       final HealthCheckRequest request =
           HealthCheckRequest.newBuilder().setClientHost(target).build();
-      final HealthCheckResponse response = rpcClient.healthCheck(request);
+      final HealthCheckResponse response =
+          rpcClient.healthCheck(request, RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
       if (ResponseCode.SUCCESS == response.getCode()) {
         rpcTarget.setIsolated(false);
         log.info("Isolated target={} has been restored", target);
@@ -568,7 +597,46 @@ public class ClientInstance {
       TimeUnit unit) {
     final SendMessageResponseCallback callback =
         new SendMessageResponseCallback(request, state, sendCallback);
-    getRPCClient(target).sendMessage(request, callback, duration, unit);
+
+    boolean customizedExecutor = null != sendCallbackExecutor && null != sendCallbackSemaphore;
+    final ThreadPoolExecutor executor =
+        customizedExecutor ? sendCallbackExecutor : callbackExecutor;
+    final Semaphore semaphore = customizedExecutor ? sendCallbackSemaphore : callbackSemaphore;
+
+    try {
+      semaphore.acquire();
+      final ListenableFuture<SendMessageResponse> future =
+          getRPCClient(target).sendMessage(request, executor, duration, unit);
+      Futures.addCallback(
+          future,
+          new FutureCallback<SendMessageResponse>() {
+            @Override
+            public void onSuccess(@Nullable SendMessageResponse response) {
+              try {
+                callback.onSuccess(response);
+              } finally {
+                semaphore.release();
+              }
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+              try {
+                callback.onException(t);
+              } finally {
+                semaphore.release();
+              }
+            }
+          },
+          MoreExecutors.directExecutor());
+
+    } catch (Throwable t) {
+      try {
+        callback.onException(t);
+      } finally {
+        semaphore.release();
+      }
+    }
   }
 
   public SendMessageResponse sendClientAPI(
@@ -624,13 +692,15 @@ public class ClientInstance {
 
   private RouteInfoResponse fetchTopicRouteInfo(String target, RouteInfoRequest request) {
     RPCClient rpcClient = this.getRPCClient(target, false);
-    return rpcClient.fetchTopicRouteInfo(request);
+    return rpcClient.fetchTopicRouteInfo(
+        request, FETCH_TOPIC_ROUTE_INFO_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
   }
 
   public TopicAssignmentInfo queryLoadAssignment(String target, QueryAssignmentRequest request)
       throws MQServerException {
     final RPCClient rpcClient = this.getRPCClient(target);
-    final QueryAssignmentResponse response = rpcClient.queryAssignment(request);
+    final QueryAssignmentResponse response =
+        rpcClient.queryAssignment(request, RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
     final ResponseCode code = response.getCode();
     if (ResponseCode.SUCCESS != code) {
       throw new MQServerException(

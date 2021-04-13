@@ -1,15 +1,12 @@
 package org.apache.rocketmq.client.remoting;
 
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.proto.AckMessageRequest;
 import org.apache.rocketmq.proto.AckMessageResponse;
@@ -32,14 +29,6 @@ import org.apache.rocketmq.proto.SendMessageResponse;
 
 @Slf4j
 public class RPCClientImpl implements RPCClient {
-
-  private static final long DEFAULT_TIMEOUT_MILLIS = 3 * 1000;
-
-  /**
-   * Usage of {@link RPCClientImpl#fetchTopicRouteInfo(RouteInfoRequest)} are usually invokes the
-   * first call of gRPC, which need warm up in most case.
-   */
-  private static final long FETCH_TOPIC_ROUTE_INFO_TIMEOUT_MILLIS = 15 * 1000;
 
   private final RPCTarget rpcTarget;
   private final ManagedChannel channel;
@@ -70,8 +59,8 @@ public class RPCClientImpl implements RPCClient {
   public RPCClientImpl(RPCTarget rpcTarget, ThreadPoolExecutor callbackExecutor) {
     this(rpcTarget);
 
-    this.callbackExecutor = callbackExecutor;
-    this.callbackSemaphore = new Semaphore(getThreadParallelCount(callbackExecutor));
+    //    this.callbackExecutor = callbackExecutor;
+    //    this.callbackSemaphore = new Semaphore(getThreadParallelCount(callbackExecutor));
   }
 
   public void setSendCallbackExecutor(ThreadPoolExecutor sendCallbackExecutor) {
@@ -101,78 +90,26 @@ public class RPCClientImpl implements RPCClient {
   }
 
   @Override
-  public RouteInfoResponse getRouteInfo(RouteInfoRequest request) {
-    return blockingStub
-        .withDeadlineAfter(DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-        .fetchTopicRouteInfo(request);
-  }
-
-  @Override
   public SendMessageResponse sendMessage(SendMessageRequest request, long duration, TimeUnit unit) {
     RocketMQBlockingStub stub = blockingStub.withDeadlineAfter(duration, unit);
     return stub.sendMessage(request);
   }
 
   @Override
-  public void sendMessage(
-      SendMessageRequest request,
-      final SendMessageResponseCallback callback,
-      long duration,
-      TimeUnit unit) {
-
-    boolean customizedExecutor = null != sendCallbackExecutor && null != sendCallbackSemaphore;
-    final ThreadPoolExecutor executor =
-        customizedExecutor ? sendCallbackExecutor : callbackExecutor;
-    final Semaphore semaphore = customizedExecutor ? sendCallbackSemaphore : callbackSemaphore;
-
-    try {
-      semaphore.acquire();
-      final RocketMQFutureStub stub =
-          futureStub.withExecutor(executor).withDeadlineAfter(duration, unit);
-      final ListenableFuture<SendMessageResponse> future = stub.sendMessage(request);
-      Futures.addCallback(
-          future,
-          new FutureCallback<SendMessageResponse>() {
-            @Override
-            public void onSuccess(@Nullable SendMessageResponse response) {
-              try {
-                callback.onSuccess(response);
-              } finally {
-                semaphore.release();
-              }
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-              try {
-                callback.onException(t);
-              } finally {
-                semaphore.release();
-              }
-            }
-          },
-          MoreExecutors.directExecutor());
-    } catch (Throwable t) {
-      try {
-        callback.onException(t);
-      } finally {
-        semaphore.release();
-      }
-    }
+  public ListenableFuture<SendMessageResponse> sendMessage(
+      SendMessageRequest request, Executor executor, long duration, TimeUnit unit) {
+    return futureStub.withExecutor(executor).withDeadlineAfter(duration, unit).sendMessage(request);
   }
 
   @Override
-  public QueryAssignmentResponse queryAssignment(QueryAssignmentRequest request) {
-    return blockingStub
-        .withDeadlineAfter(DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-        .queryAssignment(request);
+  public QueryAssignmentResponse queryAssignment(
+      QueryAssignmentRequest request, long duration, TimeUnit unit) {
+    return blockingStub.withDeadlineAfter(duration, unit).queryAssignment(request);
   }
 
   @Override
-  public HealthCheckResponse healthCheck(HealthCheckRequest request) {
-    return blockingStub
-        .withDeadlineAfter(DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-        .healthCheck(request);
+  public HealthCheckResponse healthCheck(HealthCheckRequest request, long duration, TimeUnit unit) {
+    return blockingStub.withDeadlineAfter(duration, unit).healthCheck(request);
   }
 
   //  @Override
@@ -199,10 +136,8 @@ public class RPCClientImpl implements RPCClient {
   //  }
 
   @Override
-  public AckMessageResponse ackMessage(AckMessageRequest request) {
-    return blockingStub
-        .withDeadlineAfter(DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-        .ackMessage(request);
+  public AckMessageResponse ackMessage(AckMessageRequest request, long duration, TimeUnit unit) {
+    return blockingStub.withDeadlineAfter(duration, unit).ackMessage(request);
   }
 
   //  @Override
@@ -229,23 +164,19 @@ public class RPCClientImpl implements RPCClient {
   //  }
 
   @Override
-  public ChangeInvisibleTimeResponse changeInvisibleTime(ChangeInvisibleTimeRequest request) {
-    return blockingStub
-        .withDeadlineAfter(DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-        .changeInvisibleTime(request);
+  public ChangeInvisibleTimeResponse changeInvisibleTime(
+      ChangeInvisibleTimeRequest request, long duration, TimeUnit unit) {
+    return blockingStub.withDeadlineAfter(duration, unit).changeInvisibleTime(request);
   }
 
   @Override
-  public HeartbeatResponse heartbeat(HeartbeatRequest request) {
-    return blockingStub
-        .withDeadlineAfter(DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-        .heartbeat(request);
+  public HeartbeatResponse heartbeat(HeartbeatRequest request, long duration, TimeUnit unit) {
+    return blockingStub.withDeadlineAfter(duration, unit).heartbeat(request);
   }
 
   @Override
-  public RouteInfoResponse fetchTopicRouteInfo(RouteInfoRequest request) {
-    return blockingStub
-        .withDeadlineAfter(FETCH_TOPIC_ROUTE_INFO_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-        .fetchTopicRouteInfo(request);
+  public RouteInfoResponse fetchTopicRouteInfo(
+      RouteInfoRequest request, long duration, TimeUnit unit) {
+    return blockingStub.withDeadlineAfter(duration, unit).fetchTopicRouteInfo(request);
   }
 }

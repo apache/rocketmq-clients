@@ -1,5 +1,7 @@
 package org.apache.rocketmq.client.remoting;
 
+import com.google.common.util.concurrent.ListenableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.proto.AckMessageRequest;
 import org.apache.rocketmq.proto.AckMessageResponse;
@@ -23,33 +25,30 @@ public interface RPCClient {
 
   boolean isIsolated();
 
-  RouteInfoResponse getRouteInfo(RouteInfoRequest request);
-
   SendMessageResponse sendMessage(SendMessageRequest request, long duration, TimeUnit unit);
 
-  void sendMessage(
-      SendMessageRequest request,
-      SendMessageResponseCallback callback,
-      long duration,
-      TimeUnit unit);
+  ListenableFuture<SendMessageResponse> sendMessage(
+      SendMessageRequest request, Executor executor, long duration, TimeUnit unit);
 
-  QueryAssignmentResponse queryAssignment(QueryAssignmentRequest request);
+  QueryAssignmentResponse queryAssignment(
+      QueryAssignmentRequest request, long duration, TimeUnit unit);
 
-  HealthCheckResponse healthCheck(HealthCheckRequest request);
+  HealthCheckResponse healthCheck(HealthCheckRequest request, long duration, TimeUnit unit);
 
   //  void popMessage(
   //      PopMessageRequest request, SendMessageResponseCallback<PopMessageResponse>
   // sendMessageResponseCallback);
 
-  AckMessageResponse ackMessage(AckMessageRequest request);
+  AckMessageResponse ackMessage(AckMessageRequest request, long duration, TimeUnit unit);
 
   //  void ackMessage(
   //      AckMessageRequest request, SendMessageResponseCallback<AckMessageResponse>
   // sendMessageResponseCallback);
 
-  ChangeInvisibleTimeResponse changeInvisibleTime(ChangeInvisibleTimeRequest request);
+  ChangeInvisibleTimeResponse changeInvisibleTime(
+      ChangeInvisibleTimeRequest request, long duration, TimeUnit unit);
 
-  HeartbeatResponse heartbeat(HeartbeatRequest request);
+  HeartbeatResponse heartbeat(HeartbeatRequest request, long duration, TimeUnit unit);
 
-  RouteInfoResponse fetchTopicRouteInfo(RouteInfoRequest request);
+  RouteInfoResponse fetchTopicRouteInfo(RouteInfoRequest request, long duration, TimeUnit unit);
 }
