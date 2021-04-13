@@ -1,5 +1,6 @@
 package org.apache.rocketmq.client.impl;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -27,6 +28,7 @@ import org.apache.rocketmq.client.impl.consumer.TopicAssignmentInfo;
 import org.apache.rocketmq.client.impl.producer.ProducerObserver;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
+import org.apache.rocketmq.client.misc.TopAddressing;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.client.producer.SendStatus;
@@ -57,6 +59,8 @@ public class ClientInstance {
   private final List<String> nameServerList;
   private final ReadWriteLock nameServerLock;
 
+  private final TopAddressing topAddressing;
+
   private final ConcurrentMap<String, ProducerObserver> producerObserverTable;
   private final ConcurrentMap<String, ConsumerObserver> consumerObserverTable;
 
@@ -79,13 +83,21 @@ public class ClientInstance {
 
     this.nameServerList = clientConfig.getNameServerList();
     this.nameServerLock = new ReentrantReadWriteLock();
-    this.topicRouteTable = new ConcurrentHashMap<String, TopicRouteData>();
+
+    this.topAddressing = new TopAddressing();
 
     this.producerObserverTable = new ConcurrentHashMap<String, ProducerObserver>();
     this.consumerObserverTable = new ConcurrentHashMap<String, ConsumerObserver>();
 
+    this.topicRouteTable = new ConcurrentHashMap<String, TopicRouteData>();
+
     this.clientId = clientId;
     this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
+  }
+
+  private void updateNameServerListFromTopAddressing() throws IOException {
+    final List<String> nameServerList = topAddressing.fetchNameServerAddresses();
+    this.setNameServerList(nameServerList);
   }
 
   public void start() throws MQClientException {
@@ -94,8 +106,28 @@ public class ClientInstance {
           "The client instance has attempted to be stared before, state=" + state.get());
     }
 
+    // Only for internal usage of Alibaba group.
     if (nameServerListIsEmpty()) {
-      //
+      try {
+        updateNameServerListFromTopAddressing();
+      } catch (Throwable t) {
+        throw new MQClientException(
+            "Failed to fetch name server list from top address while starting.", t);
+      }
+      scheduler.scheduleWithFixedDelay(
+          new Runnable() {
+            @Override
+            public void run() {
+              try {
+                updateNameServerListFromTopAddressing();
+              } catch (Throwable t) {
+                log.error("Exception occurs while update name server list from top addressing", t);
+              }
+            }
+          },
+          3 * 1000,
+          30 * 1000,
+          TimeUnit.MILLISECONDS);
     }
 
     scheduler.scheduleWithFixedDelay(
@@ -328,7 +360,7 @@ public class ClientInstance {
     }
   }
 
-  public void setNameServerList(List<String> nameServerList) {
+  private void setNameServerList(List<String> nameServerList) {
     nameServerLock.writeLock().lock();
     try {
       this.nameServerList.clear();
