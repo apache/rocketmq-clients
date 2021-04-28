@@ -3,9 +3,11 @@ package org.apache.rocketmq.client.message;
 import java.net.SocketAddress;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
+@NoArgsConstructor
 public class MessageExt extends Message {
   private String brokerName;
 
@@ -27,5 +29,12 @@ public class MessageExt extends Message {
 
   private long preparedTransactionOffset;
 
+  private long decodedTimestamp;
+  private long expiredTimestamp;
+
   private MessageVersion version;
+
+  public boolean isExpired(long tolerance) {
+    return System.currentTimeMillis() + tolerance > expiredTimestamp;
+  }
 }

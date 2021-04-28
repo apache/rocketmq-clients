@@ -1,5 +1,8 @@
 package org.apache.rocketmq.client.consumer.filter;
 
+import lombok.Getter;
+
+@Getter
 public class FilterExpression {
   private String expression;
   private ExpressionType expressionType;

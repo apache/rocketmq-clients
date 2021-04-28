@@ -6,4 +6,6 @@ public interface ConsumerObserver {
   ConsumeData prepareHeartbeatData();
 
   void scanLoadAssignments();
+
+  void logStats();
 }

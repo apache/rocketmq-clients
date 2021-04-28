@@ -4,8 +4,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.proto.AckMessageRequest;
@@ -16,6 +14,8 @@ import org.apache.rocketmq.proto.HealthCheckRequest;
 import org.apache.rocketmq.proto.HealthCheckResponse;
 import org.apache.rocketmq.proto.HeartbeatRequest;
 import org.apache.rocketmq.proto.HeartbeatResponse;
+import org.apache.rocketmq.proto.PopMessageRequest;
+import org.apache.rocketmq.proto.PopMessageResponse;
 import org.apache.rocketmq.proto.QueryAssignmentRequest;
 import org.apache.rocketmq.proto.QueryAssignmentResponse;
 import org.apache.rocketmq.proto.RocketMQGrpc;
@@ -36,40 +36,18 @@ public class RPCClientImpl implements RPCClient {
   private final RocketMQBlockingStub blockingStub;
   private final RocketMQStub asyncStub;
   private final RocketMQFutureStub futureStub;
-  /** Default callback executor. */
-  private ThreadPoolExecutor callbackExecutor;
 
-  private Semaphore callbackSemaphore;
-
-  private ThreadPoolExecutor sendCallbackExecutor;
-  private Semaphore sendCallbackSemaphore;
-
-  private RPCClientImpl(RPCTarget rpcTarget) {
+  public RPCClientImpl(RPCTarget rpcTarget) {
     this.rpcTarget = rpcTarget;
-    final String target = rpcTarget.getTarget();
-    this.channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
+    this.channel =
+        ManagedChannelBuilder.forTarget(rpcTarget.getTarget())
+            .disableRetry()
+            .usePlaintext()
+            .build();
 
     this.blockingStub = RocketMQGrpc.newBlockingStub(channel);
     this.asyncStub = RocketMQGrpc.newStub(channel);
     this.futureStub = RocketMQGrpc.newFutureStub(channel);
-    this.sendCallbackExecutor = null;
-    this.sendCallbackSemaphore = null;
-  }
-
-  public RPCClientImpl(RPCTarget rpcTarget, ThreadPoolExecutor callbackExecutor) {
-    this(rpcTarget);
-
-    //    this.callbackExecutor = callbackExecutor;
-    //    this.callbackSemaphore = new Semaphore(getThreadParallelCount(callbackExecutor));
-  }
-
-  public void setSendCallbackExecutor(ThreadPoolExecutor sendCallbackExecutor) {
-    this.sendCallbackExecutor = sendCallbackExecutor;
-    this.sendCallbackSemaphore = new Semaphore(getThreadParallelCount(sendCallbackExecutor));
-  }
-
-  private int getThreadParallelCount(ThreadPoolExecutor executor) {
-    return executor.getMaximumPoolSize() + executor.getQueue().remainingCapacity();
   }
 
   @Override
@@ -91,8 +69,7 @@ public class RPCClientImpl implements RPCClient {
 
   @Override
   public SendMessageResponse sendMessage(SendMessageRequest request, long duration, TimeUnit unit) {
-    RocketMQBlockingStub stub = blockingStub.withDeadlineAfter(duration, unit);
-    return stub.sendMessage(request);
+    return blockingStub.withDeadlineAfter(duration, unit).sendMessage(request);
   }
 
   @Override
@@ -112,56 +89,22 @@ public class RPCClientImpl implements RPCClient {
     return blockingStub.withDeadlineAfter(duration, unit).healthCheck(request);
   }
 
-  //  @Override
-  //  public void popMessage(PopMessageRequest request,
-  // SendMessageResponseCallback<PopMessageResponse> context) {
-  //    StreamObserver<PopMessageResponse> observer =
-  //        new StreamObserver<PopMessageResponse>() {
-  //          @Override
-  //          public void onNext(PopMessageResponse response) {
-  //            context.onSuccess(response);
-  //          }
-  //
-  //          @Override
-  //          public void onError(Throwable t) {
-  //            context.onException(t);
-  //          }
-  //
-  //          @Override
-  //          public void onCompleted() {}
-  //        };
-  //    asyncStub
-  //        .withDeadlineAfter(DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-  //        .popMessage(request, observer);
-  //  }
+  @Override
+  public ListenableFuture<PopMessageResponse> popMessage(
+      PopMessageRequest request, Executor executor, long duration, TimeUnit unit) {
+    return futureStub.withExecutor(executor).withDeadlineAfter(duration, unit).popMessage(request);
+  }
 
   @Override
   public AckMessageResponse ackMessage(AckMessageRequest request, long duration, TimeUnit unit) {
     return blockingStub.withDeadlineAfter(duration, unit).ackMessage(request);
   }
 
-  //  @Override
-  //  public void ackMessage(AckMessageRequest request,
-  // SendMessageResponseCallback<AckMessageResponse> context) {
-  //    StreamObserver<AckMessageResponse> observer =
-  //        new StreamObserver<AckMessageResponse>() {
-  //          @Override
-  //          public void onNext(AckMessageResponse response) {
-  //            context.onSuccess(response);
-  //          }
-  //
-  //          @Override
-  //          public void onError(Throwable t) {
-  //            context.onException(t);
-  //          }
-  //
-  //          @Override
-  //          public void onCompleted() {}
-  //        };
-  //    asyncStub
-  //        .withDeadlineAfter(DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-  //        .ackMessage(request, observer);
-  //  }
+  @Override
+  public ListenableFuture<AckMessageResponse> ackMessage(
+      AckMessageRequest request, Executor executor, long duration, TimeUnit unit) {
+    return futureStub.withExecutor(executor).withDeadlineAfter(duration, unit).ackMessage(request);
+  }
 
   @Override
   public ChangeInvisibleTimeResponse changeInvisibleTime(

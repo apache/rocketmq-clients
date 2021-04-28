@@ -5,11 +5,21 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.apache.rocketmq.client.constant.SystemProperty;
 import org.apache.rocketmq.client.misc.MixAll;
 
 public class MessageCodec {
   public static final char NAME_VALUE_SEPARATOR = 1;
   public static final char PROPERTY_SEPARATOR = 2;
+
+  public static final int DEFAULT_MESSAGE_COMPRESSION_LEVEL = 5;
+  public static final int MESSAGE_COMPRESSION_LEVEL =
+      Integer.parseInt(
+          System.getProperty(
+              SystemProperty.MESSAGE_COMPRESSION_LEVEL,
+              Integer.toString(DEFAULT_MESSAGE_COMPRESSION_LEVEL)));
+
+  private MessageCodec() {}
 
   public static String messageProperties2String(Map<String, String> properties) {
     StringBuilder sb = new StringBuilder();

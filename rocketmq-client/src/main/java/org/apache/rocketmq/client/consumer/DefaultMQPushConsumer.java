@@ -21,6 +21,12 @@ public class DefaultMQPushConsumer extends ClientConfig {
 
   @Getter @Setter private ConsumeFromWhere consumeFromWhere;
 
+  @Getter private int consumeThreadMin = 20;
+
+  @Getter private int consumeThreadMax = 64;
+
+  @Getter @Setter private int consumeMessageBatchMaxSize = 1;
+
   public String getConsumerGroup() {
     return this.getGroupName();
   }
@@ -37,7 +43,9 @@ public class DefaultMQPushConsumer extends ClientConfig {
     this.impl.start();
   }
 
-  public void shutdown() {}
+  public void shutdown() {
+    this.impl.shutdown();
+  }
 
   public DefaultMQPushConsumer(final String consumerGroup) {
     this.setGroupName(consumerGroup);
@@ -53,30 +61,72 @@ public class DefaultMQPushConsumer extends ClientConfig {
     this.impl.registerMessageListener(messageListenerOrderly);
   }
 
-  public void subscribe(String topic, String subExpression) throws MQClientException {}
+  public void subscribe(String topic, String subscribeExpression) throws MQClientException {
+    this.impl.subscribe(topic, subscribeExpression);
+  }
 
+  // Not yet implemented
   public void subscribe(String topic, String fullClassName, String filterClassSource)
       throws MQClientException {}
 
+  // Not yet implemented
   public void subscribe(String topic, MessageSelector messageSelector) throws MQClientException {}
 
+  // Not yet implemented
   public void unsubscribe(String topic) {}
 
+  // Not yet implemented
   public void updateCorePoolSize(int i) {}
 
+  // Not yet implemented
   public void allowCoreThreadTimeOut(boolean b) {}
 
+  // Not yet implemented
   public void suspend() {}
 
+  // Not yet implemented
   public void resume() {}
 
+  // Not yet implemented
   public void sendMessageBack(MessageExt messageExt, int i)
       throws RemotingException, MQBrokerException, InterruptedException, MQClientException {}
 
+  // Not yet implemented
   public void sendMessageBack(MessageExt messageExt, int i, String s)
       throws RemotingException, MQBrokerException, InterruptedException, MQClientException {}
 
+  // Not yet implemented
   public Set<MessageQueue> fetchSubscribeMessageQueues(String s) throws MQClientException {
     return null;
+  }
+
+  /**
+   * Set maximum thread count of consume thread pool.
+   *
+   * <p>Also, if consumeThreadMax is less than consumeThreadMin, set consumeThreadMin equal to
+   * consumeThreadMax.
+   *
+   * @param consumeThreadMax max consuming thread num.
+   */
+  public void setConsumeThreadMax(int consumeThreadMax) {
+    this.consumeThreadMax = consumeThreadMax;
+    if (this.consumeThreadMax < this.consumeThreadMin) {
+      this.consumeThreadMin = consumeThreadMax;
+    }
+  }
+
+  /**
+   * Set minimum thread count of consume thread pool.
+   *
+   * <p>Also, if consumeThreadMax is less than consumeThreadMin, set consumeThreadMax equal to
+   * consumeThreadMin.
+   *
+   * @param consumeThreadMin min consuming thread num.
+   */
+  public void setConsumeThreadMin(int consumeThreadMin) {
+    this.consumeThreadMin = consumeThreadMin;
+    if (this.consumeThreadMax < this.consumeThreadMin) {
+      this.consumeThreadMax = consumeThreadMin;
+    }
   }
 }

@@ -1,12 +1,16 @@
 package org.apache.rocketmq.client.impl.consumer;
 
 import java.util.*;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.proto.MessageQueueAssignment;
 
 @Slf4j
+@ToString
+@EqualsAndHashCode
 public class TopicAssignmentInfo {
   private static final ThreadLocal<Integer> queryBrokerIndex = new ThreadLocal<Integer>();
 

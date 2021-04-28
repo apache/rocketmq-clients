@@ -5,6 +5,8 @@ public class SystemProperty {
   public static final String NAME_SERVER_DOMAIN = "rocketmq.namesrv.domain";
   public static final String NAME_SERVER_SUB_GROUP = "rocketmq.namesrv.domain.subgroup";
 
+  public static final String MESSAGE_COMPRESSION_LEVEL = "rocketmq.message.compressLevel";
+
   public static final String TLS_SERVER_MODE = "tls.server.mode";
   public static final String TLS_ENABLE = "tls.enable";
   public static final String TLS_CONFIG_FILE = "tls.config.file";

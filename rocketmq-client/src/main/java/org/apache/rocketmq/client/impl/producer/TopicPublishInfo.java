@@ -9,6 +9,7 @@ import java.util.Set;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.route.BrokerData;
@@ -109,7 +110,7 @@ public class TopicPublishInfo {
    * @param brokerName provided broker name.
    * @return target address.
    */
-  public String resolveTarget(String brokerName) {
+  public String resolveTarget(String brokerName) throws MQClientException {
     for (BrokerData brokerData : topicRouteData.getBrokerDataList()) {
       if (!brokerData.getBrokerName().equals(brokerName)) {
         continue;
@@ -117,12 +118,17 @@ public class TopicPublishInfo {
       final HashMap<Long, String> brokerAddressTable = brokerData.getBrokerAddressTable();
       String target = brokerAddressTable.get(MixAll.MASTER_BROKER_ID);
       if (null == target) {
-        return null;
+        log.error(
+            "Unexpected case, failed to resolve target address for master node, topic={}, brokerName={}",
+            topic,
+            brokerName);
+        throw new MQClientException("Failed to resolve target");
       }
       target = UtilAll.shiftTargetPort(target, MixAll.SHIFT_PORT);
       return target;
     }
-    return null;
+    log.error("Failed to resolve target address from brokerName=" + brokerName);
+    throw new MQClientException("Failed to resolve target");
   }
 
   public MessageQueue selectOneMessageQueue(Set<String> isolatedTargets) {
@@ -130,9 +136,14 @@ public class TopicPublishInfo {
     for (int i = 0; i < messageQueueList.size(); i++) {
       selectedMessageQueue =
           messageQueueList.get(getNextSendQueueIndex() % messageQueueList.size());
-      final String target = resolveTarget(selectedMessageQueue.getBrokerName());
-      if (!isolatedTargets.contains(target)) {
-        return selectedMessageQueue;
+      final String brokerName = selectedMessageQueue.getBrokerName();
+      try {
+        String target = resolveTarget(brokerName);
+        if (!isolatedTargets.contains(target)) {
+          return selectedMessageQueue;
+        }
+      } catch (MQClientException e) {
+        log.error("Exception occurs while selecting mq for sending, brokerName={}", brokerName);
       }
     }
     selectedMessageQueue = messageQueueList.get(getNextSendQueueIndex() % messageQueueList.size());

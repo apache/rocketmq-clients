@@ -1,11 +1,17 @@
 package org.apache.rocketmq.utility;
 
 import com.sun.jna.platform.win32.Kernel32;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.SocketAddress;
 import java.util.Enumeration;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.zip.DeflaterOutputStream;
+import java.util.zip.InflaterInputStream;
 
 public class UtilAll {
 
@@ -80,7 +86,7 @@ public class UtilAll {
    */
   public static boolean ipClassCheck(byte[] ipBytes) {
     if (ipBytes.length != 4) {
-      throw new RuntimeException("illegal ipv4 bytes");
+      throw new RuntimeException("Illegal ipv4 bytes");
     }
     if (ipBytes[0] >= (byte) 1 && ipBytes[0] <= (byte) 126) {
       if (ipBytes[1] == (byte) 255 && ipBytes[2] == (byte) 255 && ipBytes[3] == (byte) 255) {
@@ -111,5 +117,60 @@ public class UtilAll {
 
   public static int getThreadParallelCount(ThreadPoolExecutor executor) {
     return executor.getMaximumPoolSize() + executor.getQueue().remainingCapacity();
+  }
+
+  public static byte[] compressByteArray(final byte[] src, final int level) throws IOException {
+    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length);
+    java.util.zip.Deflater defeater = new java.util.zip.Deflater(level);
+    DeflaterOutputStream deflaterOutputStream =
+        new DeflaterOutputStream(byteArrayOutputStream, defeater);
+    try {
+      deflaterOutputStream.write(src);
+      deflaterOutputStream.finish();
+      deflaterOutputStream.close();
+
+      return byteArrayOutputStream.toByteArray();
+    } finally {
+      try {
+        byteArrayOutputStream.close();
+      } catch (IOException ignore) {
+      }
+      defeater.end();
+    }
+  }
+
+  public static byte[] uncompressByteArray(final byte[] src) throws IOException {
+    byte[] uncompressData = new byte[src.length];
+
+    ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(src);
+    InflaterInputStream inflaterInputStream = new InflaterInputStream(byteArrayInputStream);
+    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length);
+
+    try {
+      int length;
+      while ((length = inflaterInputStream.read(uncompressData, 0, uncompressData.length)) > 0) {
+        byteArrayOutputStream.write(uncompressData, 0, length);
+      }
+      byteArrayOutputStream.flush();
+
+      return byteArrayOutputStream.toByteArray();
+    } finally {
+      try {
+        byteArrayInputStream.close();
+      } catch (IOException ignore) {
+      }
+      try {
+        inflaterInputStream.close();
+      } catch (IOException ignore) {
+      }
+      try {
+        byteArrayOutputStream.close();
+      } catch (IOException ignore) {
+      }
+    }
+  }
+
+  public static SocketAddress host2SocketAddress(String host) {
+    return null;
   }
 }

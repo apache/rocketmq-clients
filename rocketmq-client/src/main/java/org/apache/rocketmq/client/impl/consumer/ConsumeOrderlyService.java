@@ -27,6 +27,9 @@ public class ConsumeOrderlyService implements ConsumeService {
   public void shutdown() {}
 
   @Override
+  public void dispatch(ProcessQueue processQueue) {}
+
+  @Override
   public void submitConsumeTask(
       List<MessageExt> messageExtList, ProcessQueue processQueue, MessageQueue messageQueue) {}
 

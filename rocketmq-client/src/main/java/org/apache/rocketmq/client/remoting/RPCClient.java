@@ -11,6 +11,8 @@ import org.apache.rocketmq.proto.HealthCheckRequest;
 import org.apache.rocketmq.proto.HealthCheckResponse;
 import org.apache.rocketmq.proto.HeartbeatRequest;
 import org.apache.rocketmq.proto.HeartbeatResponse;
+import org.apache.rocketmq.proto.PopMessageRequest;
+import org.apache.rocketmq.proto.PopMessageResponse;
 import org.apache.rocketmq.proto.QueryAssignmentRequest;
 import org.apache.rocketmq.proto.QueryAssignmentResponse;
 import org.apache.rocketmq.proto.RouteInfoRequest;
@@ -35,15 +37,13 @@ public interface RPCClient {
 
   HealthCheckResponse healthCheck(HealthCheckRequest request, long duration, TimeUnit unit);
 
-  //  void popMessage(
-  //      PopMessageRequest request, SendMessageResponseCallback<PopMessageResponse>
-  // sendMessageResponseCallback);
+  ListenableFuture<PopMessageResponse> popMessage(
+      PopMessageRequest request, Executor executor, long duration, TimeUnit unit);
 
   AckMessageResponse ackMessage(AckMessageRequest request, long duration, TimeUnit unit);
 
-  //  void ackMessage(
-  //      AckMessageRequest request, SendMessageResponseCallback<AckMessageResponse>
-  // sendMessageResponseCallback);
+  ListenableFuture<AckMessageResponse> ackMessage(
+      AckMessageRequest request, Executor executor, long duration, TimeUnit unit);
 
   ChangeInvisibleTimeResponse changeInvisibleTime(
       ChangeInvisibleTimeRequest request, long duration, TimeUnit unit);

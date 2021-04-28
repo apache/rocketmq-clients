@@ -11,7 +11,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.CommunicationMode;
-import org.apache.rocketmq.client.constant.MessageSysFlag;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.exception.MQBrokerException;
 import org.apache.rocketmq.client.exception.MQClientException;
@@ -24,6 +23,7 @@ import org.apache.rocketmq.client.message.MessageBatch;
 import org.apache.rocketmq.client.message.MessageClientIdUtils;
 import org.apache.rocketmq.client.message.MessageConst;
 import org.apache.rocketmq.client.message.MessageQueue;
+import org.apache.rocketmq.client.message.MessageSystemFlag;
 import org.apache.rocketmq.client.misc.Validators;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.client.producer.MessageQueueSelector;
@@ -74,7 +74,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
   }
 
   /**
-   * Start the producer, please do not start producer repeatedly.
+   * Start the producer, not allowed to start producer repeatedly.
    *
    * @throws MQClientException the mq client exception.
    */
@@ -151,11 +151,11 @@ public class DefaultMQProducerImpl implements ProducerObserver {
     messageBuilder.putAllProperties(properties);
     messageBuilder.setFlag(message.getFlag());
 
-    int sysFlag = MessageSysFlag.EMPTY_FLAG;
+    int sysFlag = MessageSystemFlag.EMPTY_FLAG;
     final boolean transaction_flag =
         Boolean.parseBoolean(properties.get(MessageConst.PROPERTY_TRANSACTION_PREPARED));
     if (transaction_flag) {
-      sysFlag = MessageSysFlag.setTransactionPreparedFlag(MessageSysFlag.EMPTY_FLAG);
+      sysFlag = MessageSystemFlag.setTransactionPreparedFlag(MessageSystemFlag.EMPTY_FLAG);
     }
     requestBuilder.setSysFlag(sysFlag);
     requestBuilder.setQueueId(mq.getQueueId());
@@ -301,9 +301,6 @@ public class DefaultMQProducerImpl implements ProducerObserver {
       throws MQClientException, MQServerException {
     TopicPublishInfo publicInfo = getPublicInfo(message.getTopic());
     final String target = publicInfo.resolveTarget(mq.getBrokerName());
-    if (null == target) {
-      throw new MQClientException("Failed to parse target address from topic route");
-    }
     messagePretreated(message);
     final SendMessageRequest request = wrapSendMessageRequest(message, mq);
 
@@ -395,6 +392,9 @@ public class DefaultMQProducerImpl implements ProducerObserver {
   public ProducerData prepareHeartbeatData() {
     return ProducerData.newBuilder().setGroupName(defaultMQProducer.getGroupName()).build();
   }
+
+  @Override
+  public void logStats() {}
 
   @Override
   public void onTopicRouteChanged(String topic, TopicRouteData topicRouteData) {

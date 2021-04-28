@@ -1,10 +1,12 @@
 package org.apache.rocketmq.client.impl;
 
+import com.google.common.base.Function;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -27,12 +29,17 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.CommunicationMode;
 import org.apache.rocketmq.client.constant.ServiceState;
+import org.apache.rocketmq.client.consumer.PopResult;
+import org.apache.rocketmq.client.consumer.PopStatus;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.impl.consumer.ConsumerObserver;
 import org.apache.rocketmq.client.impl.consumer.TopicAssignmentInfo;
 import org.apache.rocketmq.client.impl.producer.ProducerObserver;
+import org.apache.rocketmq.client.message.MessageConst;
+import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
+import org.apache.rocketmq.client.message.MessageSystemFlag;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.misc.TopAddressing;
 import org.apache.rocketmq.client.producer.SendCallback;
@@ -44,10 +51,17 @@ import org.apache.rocketmq.client.remoting.RPCTarget;
 import org.apache.rocketmq.client.remoting.SendMessageResponseCallback;
 import org.apache.rocketmq.client.route.BrokerData;
 import org.apache.rocketmq.client.route.TopicRouteData;
+import org.apache.rocketmq.proto.AckMessageRequest;
+import org.apache.rocketmq.proto.AckMessageResponse;
+import org.apache.rocketmq.proto.ChangeInvisibleTimeRequest;
+import org.apache.rocketmq.proto.ChangeInvisibleTimeResponse;
 import org.apache.rocketmq.proto.HealthCheckRequest;
 import org.apache.rocketmq.proto.HealthCheckResponse;
 import org.apache.rocketmq.proto.HeartbeatRequest;
 import org.apache.rocketmq.proto.HeartbeatResponse;
+import org.apache.rocketmq.proto.Message;
+import org.apache.rocketmq.proto.PopMessageRequest;
+import org.apache.rocketmq.proto.PopMessageResponse;
 import org.apache.rocketmq.proto.QueryAssignmentRequest;
 import org.apache.rocketmq.proto.QueryAssignmentResponse;
 import org.apache.rocketmq.proto.ResponseCode;
@@ -72,7 +86,7 @@ public class ClientInstance {
 
   @Getter
   private final ScheduledExecutorService scheduler =
-      new ScheduledThreadPoolExecutor(2, new ThreadFactoryImpl("ClientInstanceScheduler_"));
+      new ScheduledThreadPoolExecutor(4, new ThreadFactoryImpl("ClientInstanceScheduler_"));
 
   private final ClientConfig clientConfig;
   private final ConcurrentMap<MQRPCTarget, RPCClient> clientTable;
@@ -158,7 +172,8 @@ public class ClientInstance {
               try {
                 updateNameServerListFromTopAddressing();
               } catch (Throwable t) {
-                log.error("Exception occurs while update name server list from top addressing", t);
+                log.error(
+                    "Exception occurs while updating name server list from top addressing", t);
               }
             }
           },
@@ -193,7 +208,7 @@ public class ClientInstance {
             }
           }
         },
-        0,
+        1000,
         5 * 1000,
         TimeUnit.MILLISECONDS);
 
@@ -253,8 +268,8 @@ public class ClientInstance {
             }
           }
         },
-        10 * 1000,
-        60 * 1000,
+        1000,
+        1000,
         TimeUnit.MILLISECONDS);
 
     state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
@@ -290,6 +305,12 @@ public class ClientInstance {
     if (ServiceState.STARTED != serviceState && ServiceState.STARTING != serviceState) {
       log.warn("Unexpected client instance state={}", serviceState);
       return;
+    }
+    for (ProducerObserver producerObserver : producerObserverTable.values()) {
+      producerObserver.logStats();
+    }
+    for (ConsumerObserver consumerObserver : consumerObserverTable.values()) {
+      consumerObserver.logStats();
     }
   }
 
@@ -539,7 +560,7 @@ public class ClientInstance {
       return rpcClient;
     }
 
-    rpcClient = new RPCClientImpl(rpcTarget, callbackExecutor);
+    rpcClient = new RPCClientImpl(rpcTarget);
     clientTable.put(rpcTarget, rpcClient);
     return rpcClient;
   }
@@ -643,14 +664,6 @@ public class ClientInstance {
       String target,
       CommunicationMode mode,
       SendMessageRequest request,
-      SendCallback sendCallback) {
-    return this.sendClientAPI(target, mode, request, sendCallback, 3, TimeUnit.SECONDS);
-  }
-
-  public SendMessageResponse sendClientAPI(
-      String target,
-      CommunicationMode mode,
-      SendMessageRequest request,
       SendCallback sendCallback,
       long duration,
       TimeUnit unit) {
@@ -662,6 +675,48 @@ public class ClientInstance {
       default:
         sendAsync(target, request, sendCallback, duration, unit);
         return SendMessageResponse.newBuilder().setCode(ResponseCode.SUCCESS).build();
+    }
+  }
+
+  public ListenableFuture<PopResult> popMessageAsync(
+      final String target, final PopMessageRequest request, long duration, TimeUnit unit) {
+    final ListenableFuture<PopMessageResponse> future =
+        getRPCClient(target).popMessage(request, callbackExecutor, duration, unit);
+    return Futures.transform(
+        future,
+        new Function<PopMessageResponse, PopResult>() {
+          @Override
+          public PopResult apply(PopMessageResponse response) {
+            return processPopResponse(target, response);
+          }
+        });
+  }
+
+  public void ackMessage(final String target, final AckMessageRequest request)
+      throws MQClientException {
+    final AckMessageResponse response =
+        getRPCClient(target).ackMessage(request, RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+    final ResponseCode code = response.getCode();
+    if (ResponseCode.SUCCESS != code) {
+      log.error("Failed to ack message, target={}, request={}.", target, request);
+      throw new MQClientException("Failed to ack message.");
+    }
+  }
+
+  public void ackMessageAsync(final String target, final AckMessageRequest request) {
+    getRPCClient(target)
+        .ackMessage(request, callbackExecutor, RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+  }
+
+  public void changeInvisibleTime(final String target, final ChangeInvisibleTimeRequest request)
+      throws MQClientException {
+    final ChangeInvisibleTimeResponse response =
+        getRPCClient(target)
+            .changeInvisibleTime(request, RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+    final ResponseCode code = response.getCode();
+    if (ResponseCode.SUCCESS != code) {
+      log.error("Failed to change invisible time, target={}, request={}.", target, request);
+      throw new MQClientException("Failed to change invisible time.");
     }
   }
 
@@ -760,6 +815,32 @@ public class ClientInstance {
     return topicRouteTable.get(topic);
   }
 
+  public String resolveTarget(String topic, String brokerName) throws MQClientException {
+    final TopicRouteData topicRouteInfo = getTopicRouteInfo(topic);
+    final List<BrokerData> brokerDataList = topicRouteInfo.getBrokerDataList();
+    for (BrokerData brokerData : brokerDataList) {
+      if (!brokerData.getBrokerName().equals(brokerName)) {
+        continue;
+      }
+      final HashMap<Long, String> brokerAddressTable = brokerData.getBrokerAddressTable();
+      String target = brokerAddressTable.get(MixAll.MASTER_BROKER_ID);
+      if (null == target) {
+        log.error(
+            "Failed to resolve target address for master node, topic={}, brokerName={}",
+            topic,
+            brokerName);
+        throw new MQClientException("Failed to resolve master node.");
+      }
+      target = UtilAll.shiftTargetPort(target, MixAll.SHIFT_PORT);
+      return target;
+    }
+    log.error(
+        "Failed to resolve target address, brokerName does not exist, topic={}, brokerName={}",
+        topic,
+        brokerName);
+    throw new MQClientException("Failed to resolve master node from brokerName.");
+  }
+
   public static SendResult processSendResponse(MessageQueue mq, SendMessageResponse response)
       throws MQServerException {
     SendStatus sendStatus;
@@ -778,15 +859,104 @@ public class ClientInstance {
         sendStatus = SendStatus.SLAVE_NOT_AVAILABLE;
         break;
       default:
-        throw new MQServerException(code, "Unknown server error");
+        throw new MQServerException(code, "Unknown server error while sending message.");
     }
-    SendResult sendResult = new SendResult();
-    sendResult.setSendStatus(sendStatus);
-    sendResult.setMsgId(response.getMessageId());
-    sendResult.setQueueOffset(response.getQueueOffset());
-    sendResult.setMessageQueue(mq);
-    sendResult.setTransactionId(response.getTransactionId());
-    return sendResult;
+    return new SendResult(
+        sendStatus,
+        response.getMessageId(),
+        mq,
+        response.getQueueOffset(),
+        response.getTransactionId());
+  }
+
+  // TODO: handle the case that the topic does not exist.
+  public static PopResult processPopResponse(String target, PopMessageResponse response) {
+    PopStatus popStatus;
+    final ResponseCode code = response.getCode();
+    switch (code) {
+      case SUCCESS:
+        popStatus = PopStatus.FOUND;
+        break;
+      case POLLING_FULL:
+        popStatus = PopStatus.POLLING_FULL;
+        break;
+      case POLLING_TIMEOUT:
+        popStatus = PopStatus.NO_NEW_MSG;
+        break;
+      case PULL_NOT_FOUND:
+        popStatus = PopStatus.POLLING_NOT_FOUND;
+        break;
+      default:
+        popStatus = PopStatus.SERVICE_UNSTABLE;
+        log.warn(
+            "Pop response indicated server-side error, brokerAddress={}, code={}, remark={}",
+            target,
+            response.getCode(),
+            response.getRemark());
+    }
+
+    List<MessageExt> messageList = new ArrayList<MessageExt>();
+    if (PopStatus.FOUND == popStatus) {
+      final List<org.apache.rocketmq.proto.MessageExt> msgList = response.getMessagesList();
+      for (org.apache.rocketmq.proto.MessageExt msg : msgList) {
+        try {
+          MessageExt message = new MessageExt();
+          final Message base = msg.getBase();
+
+          message.setTopic(base.getTopic());
+          message.setFlag(base.getFlag());
+
+          byte[] body = base.getBody().toByteArray();
+          final org.apache.rocketmq.proto.MessageExt.Extension extension = msg.getExtension();
+          int systemFlag = extension.getSysFlag();
+          if (MessageSystemFlag.isBodyCompressed(systemFlag)) {
+            body = UtilAll.uncompressByteArray(body);
+            systemFlag = MessageSystemFlag.clearBodyCompressedFlag(systemFlag);
+          }
+          message.setBody(body);
+          message.setSysFlag(systemFlag);
+
+          for (Map.Entry<String, String> entry : base.getPropertiesMap().entrySet()) {
+            message.putProperty(entry.getKey(), entry.getValue());
+          }
+          message.putProperty(MessageConst.PROPERTY_ACK_HOST_ADDRESS, target);
+
+          message.setQueueOffset(extension.getQueueOffset());
+          message.setCommitLogOffset(extension.getCommitLogOffset());
+          message.setBornTimestamp(extension.getBornTimestamp());
+          message.setStoreTimestamp(extension.getStoreTimestamp());
+          message.setPreparedTransactionOffset(extension.getPreparedTransactionOffset());
+          message.setQueueId(extension.getQueueId());
+          message.setStoreSize(extension.getStoreSize());
+          message.setBodyCRC(extension.getBodyCrc());
+          message.setReconsumeTimes(extension.getReconsumeTimes());
+
+          message.setDecodedTimestamp(System.currentTimeMillis());
+
+          final long invisibleTime = response.getInvisibleTime();
+          message.setExpiredTimestamp(System.currentTimeMillis() + invisibleTime);
+          message.setBornHost(UtilAll.host2SocketAddress(extension.getBornHost()));
+          message.setStoreHost(UtilAll.host2SocketAddress(extension.getStoreHost()));
+          message.setMsgId(extension.getMessageId());
+
+          messageList.add(message);
+        } catch (Throwable t) {
+          log.error(
+              "Failed to parse message from protocol buffer, msgId={}",
+              msg.getExtension().getMessageId(),
+              t);
+        }
+      }
+    }
+
+    return new PopResult(
+        target,
+        popStatus,
+        response.getTermId(),
+        response.getPopTime(),
+        response.getInvisibleTime(),
+        response.getRestNumber(),
+        messageList);
   }
 
   static class MQRPCTarget extends RPCTarget {

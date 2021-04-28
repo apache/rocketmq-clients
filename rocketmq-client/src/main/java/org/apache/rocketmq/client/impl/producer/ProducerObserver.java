@@ -7,4 +7,6 @@ public interface ProducerObserver {
   void onTopicRouteChanged(String topic, TopicRouteData topicRouteData);
 
   ProducerData prepareHeartbeatData();
+
+  void logStats();
 }

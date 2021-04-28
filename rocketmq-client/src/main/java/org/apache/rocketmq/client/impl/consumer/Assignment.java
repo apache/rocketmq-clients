@@ -1,8 +1,10 @@
 package org.apache.rocketmq.client.impl.consumer;
 
 import java.util.Map;
+import lombok.Data;
 import org.apache.rocketmq.client.message.MessageQueue;
 
+@Data
 public class Assignment {
   private final MessageQueue messageQueue;
   private final MessageRequestMode messageRequestMode;
