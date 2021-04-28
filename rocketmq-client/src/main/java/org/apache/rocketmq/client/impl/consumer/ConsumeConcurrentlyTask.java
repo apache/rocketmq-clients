@@ -42,7 +42,7 @@ public class ConsumeConcurrentlyTask implements Runnable {
         case CONSUME_SUCCESS:
           try {
             processQueue.getConsumerImpl().consumeSuccessNum.incrementAndGet();
-            //            processQueue.ackMessage(messageExt);
+            processQueue.ackMessage(messageExt);
           } catch (Throwable t) {
             log.warn(
                 "Failed to ACK message, mq={}, msgId={}",

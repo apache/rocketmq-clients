@@ -27,6 +27,8 @@ public class DefaultMQPushConsumer extends ClientConfig {
 
   @Getter @Setter private int consumeMessageBatchMaxSize = 1;
 
+  @Getter @Setter private boolean ackMessageAsync = true;
+
   public String getConsumerGroup() {
     return this.getGroupName();
   }

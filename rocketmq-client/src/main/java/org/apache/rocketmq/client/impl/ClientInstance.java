@@ -704,8 +704,22 @@ public class ClientInstance {
   }
 
   public void ackMessageAsync(final String target, final AckMessageRequest request) {
-    getRPCClient(target)
-        .ackMessage(request, callbackExecutor, RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+    final ListenableFuture<AckMessageResponse> future =
+        getRPCClient(target)
+            .ackMessage(
+                request, callbackExecutor, RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+    Futures.addCallback(
+        future,
+        new FutureCallback<AckMessageResponse>() {
+          @Override
+          public void onSuccess(@Nullable AckMessageResponse result) {}
+
+          @Override
+          public void onFailure(Throwable t) {
+            log.warn(
+                "Failed to ack message asynchronously,target={}, request={}", target, request, t);
+          }
+        });
   }
 
   public void changeInvisibleTime(final String target, final ChangeInvisibleTimeRequest request)

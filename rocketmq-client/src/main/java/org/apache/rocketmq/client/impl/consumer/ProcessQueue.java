@@ -215,6 +215,11 @@ public class ProcessQueue {
     final AckMessageRequest request = wrapAckMessageRequest(messageExt);
     final ClientInstance clientInstance = consumerImpl.getClientInstance();
     final String target = messageExt.getProperty(MessageConst.PROPERTY_ACK_HOST_ADDRESS);
+
+    if (consumerImpl.getDefaultMQPushConsumer().isAckMessageAsync()) {
+      clientInstance.ackMessageAsync(target, request);
+      return;
+    }
     clientInstance.ackMessage(target, request);
   }
 
