@@ -14,7 +14,7 @@ import org.apache.rocketmq.client.message.MessageExt;
 public class PushConsumerExample {
   public static AtomicLong CONSUME_TIMES = new AtomicLong(0);
 
-  public static void main(String[] args) throws MQClientException {
+  public static void main(String[] args) throws MQClientException, InterruptedException {
     DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("TestGroup");
     consumer.setNamesrvAddr("11.167.164.105:9876");
     consumer.subscribe("TestTopic", "*");
@@ -33,5 +33,8 @@ public class PushConsumerExample {
         });
     consumer.start();
     log.info("Consumer started.");
+    Thread.sleep(60 * 1000);
+    consumer.shutdown();
+    log.info("Consumer is shutdown.");
   }
 }

@@ -75,14 +75,14 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
     this.consumeFailureNum = new AtomicLong(0);
   }
 
-  private ConsumeService generateConsumeService() {
+  private ConsumeService generateConsumeService() throws MQClientException {
     if (null != messageListenerConcurrently) {
       return new ConsumeConcurrentlyService(this, messageListenerConcurrently);
     }
     if (null != messageListenerOrderly) {
       return new ConsumeOrderlyService(this, messageListenerOrderly);
     }
-    return null;
+    throw new MQClientException("No message listener registered.");
   }
 
   public void start() throws MQClientException {
@@ -96,9 +96,7 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
     clientInstance = ClientManager.getClientInstance(defaultMQPushConsumer);
 
     consumeService = this.generateConsumeService();
-    if (null != consumeService) {
-      consumeService.start();
-    }
+    consumeService.start();
 
     final boolean registerResult = clientInstance.registerConsumerObserver(consumerGroup, this);
     if (!registerResult) {
@@ -113,7 +111,22 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
     state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
   }
 
-  public void shutdown() {}
+  public void shutdown() throws MQClientException {
+    state.compareAndSet(ServiceState.STARTING, ServiceState.STOPPING);
+    state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING);
+    final ServiceState serviceState = state.get();
+    if (ServiceState.STOPPING == serviceState) {
+      clientInstance.unregisterConsumerObserver(defaultMQPushConsumer.getConsumerGroup());
+      clientInstance.shutdown();
+
+      consumeService.shutdown();
+      if (state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED)) {
+        log.info("Shutdown DefaultMQPushConsumerImpl successfully.");
+        return;
+      }
+    }
+    throw new MQClientException("Failed to shutdown consumer, state=" + state.get());
+  }
 
   private QueryAssignmentRequest wrapQueryAssignmentRequest(String topic) {
     return QueryAssignmentRequest.newBuilder()

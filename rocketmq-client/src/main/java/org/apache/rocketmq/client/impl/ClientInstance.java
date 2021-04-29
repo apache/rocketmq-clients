@@ -275,7 +275,7 @@ public class ClientInstance {
     state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
   }
 
-  public void shutdown() {
+  public void shutdown() throws MQClientException {
     if (!producerObserverTable.isEmpty()) {
       log.info(
           "Not all producerObserver has been unregistered, producerObserver num={}",
@@ -294,10 +294,12 @@ public class ClientInstance {
     if (ServiceState.STOPPING == serviceState) {
       scheduler.shutdown();
       callbackExecutor.shutdown();
-      state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
-      return;
+      if (state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED)) {
+        log.info("Shutdown ClientInstance successfully");
+        return;
+      }
     }
-    log.warn("Failed to shutdown client instance, unexpected state={}.", serviceState);
+    throw new MQClientException("Failed to shutdown consumer, state=" + state.get());
   }
 
   private void logStats() {

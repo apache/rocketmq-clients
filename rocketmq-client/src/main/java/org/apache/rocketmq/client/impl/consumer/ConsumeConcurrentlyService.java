@@ -51,14 +51,18 @@ public class ConsumeConcurrentlyService implements ConsumeService {
 
   @Override
   public void shutdown() throws MQClientException {
-    if (!state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING)) {
-      throw new MQClientException(
-          "ConsumerConcurrentlyService has not been started before stopping, state=" + state.get());
+    state.compareAndSet(ServiceState.CREATED, ServiceState.STOPPING);
+    state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING);
+    final ServiceState serviceState = state.get();
+    if (ServiceState.STOPPING == serviceState) {
+      consumeExecutor.shutdown();
+      if (state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED)) {
+        log.info("Shutdown ConsumeConcurrentlyService successfully.");
+        return;
+      }
     }
-    consumeExecutor.shutdown();
-    if (state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED)) {
-      log.info("ConsumerCurrentlyService has been stopped.");
-    }
+    throw new MQClientException(
+        "Failed to shutdown ConsumeConcurrentlyService, state=" + state.get());
   }
 
   @Override

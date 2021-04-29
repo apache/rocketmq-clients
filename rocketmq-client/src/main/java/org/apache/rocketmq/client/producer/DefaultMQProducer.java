@@ -106,7 +106,7 @@ public class DefaultMQProducer extends ClientConfig {
   }
 
   /** This method shuts down this producer instance and releases related resources. */
-  public void shutdown() {
+  public void shutdown() throws MQClientException {
     this.impl.shutdown();
   }
 

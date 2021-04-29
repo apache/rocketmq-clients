@@ -45,7 +45,7 @@ public class DefaultMQPushConsumer extends ClientConfig {
     this.impl.start();
   }
 
-  public void shutdown() {
+  public void shutdown() throws MQClientException {
     this.impl.shutdown();
   }
 
