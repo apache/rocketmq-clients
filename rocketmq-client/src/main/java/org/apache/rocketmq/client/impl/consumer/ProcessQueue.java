@@ -47,8 +47,8 @@ public class ProcessQueue {
 
   private final TreeMap<Long, MessageExt> cachedMessages;
   private final ReentrantReadWriteLock cachedMessagesLock;
-  @Getter private final AtomicLong cachedMsgCount;
-  @Getter private final AtomicLong cachedMsgSize;
+  private final AtomicLong cachedMsgCount;
+  private final AtomicLong cachedMsgSize;
 
   private final AtomicLong termId;
 
@@ -344,5 +344,13 @@ public class ProcessQueue {
     builder.setOrder(false);
     builder.setTermId(termId.get());
     return builder.build();
+  }
+
+  public long getCachedMsgCount() {
+    return cachedMsgCount.get();
+  }
+
+  public long getCachedMsgSize() {
+    return cachedMsgSize.get();
   }
 }

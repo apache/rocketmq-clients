@@ -93,11 +93,10 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
           "The producer has attempted to be started before, consumerGroup=" + consumerGroup);
     }
 
-    clientInstance = ClientManager.getClientInstance(defaultMQPushConsumer);
-
     consumeService = this.generateConsumeService();
     consumeService.start();
 
+    clientInstance = ClientManager.getClientInstance(defaultMQPushConsumer);
     final boolean registerResult = clientInstance.registerConsumerObserver(consumerGroup, this);
     if (!registerResult) {
       throw new MQClientException(
@@ -116,10 +115,14 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
     state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING);
     final ServiceState serviceState = state.get();
     if (ServiceState.STOPPING == serviceState) {
-      clientInstance.unregisterConsumerObserver(defaultMQPushConsumer.getConsumerGroup());
-      clientInstance.shutdown();
+      if (null != clientInstance) {
+        clientInstance.unregisterConsumerObserver(defaultMQPushConsumer.getConsumerGroup());
+        clientInstance.shutdown();
+      }
 
-      consumeService.shutdown();
+      if (null != consumeService) {
+        consumeService.shutdown();
+      }
       if (state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED)) {
         log.info("Shutdown DefaultMQPushConsumerImpl successfully.");
         return;
@@ -283,8 +286,12 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
     return topicAssignmentInfo;
   }
 
-  public void subscribe(final String topic, final String subscribeExpression) {
+  public void subscribe(final String topic, final String subscribeExpression)
+      throws MQClientException {
     FilterExpression filterExpression = new FilterExpression(subscribeExpression);
+    if (!filterExpression.verifyExpression()) {
+      throw new MQClientException("SubscribeExpression is illegal");
+    }
     filterExpressionTable.put(topic, filterExpression);
   }
 

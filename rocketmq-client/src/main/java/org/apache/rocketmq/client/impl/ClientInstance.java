@@ -151,7 +151,10 @@ public class ClientInstance {
     this.setNameServerList(nameServerList);
   }
 
-  public void start() throws MQClientException {
+  public synchronized void start() throws MQClientException {
+    if (ServiceState.STARTED == state.get()) {
+      return;
+    }
     if (!state.compareAndSet(ServiceState.CREATED, ServiceState.STARTING)) {
       throw new MQClientException(
           "The client instance has attempted to be stared before, state=" + state.get());
@@ -275,7 +278,10 @@ public class ClientInstance {
     state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
   }
 
-  public void shutdown() throws MQClientException {
+  public synchronized void shutdown() throws MQClientException {
+    if (ServiceState.STOPPED == state.get()) {
+      return;
+    }
     if (!producerObserverTable.isEmpty()) {
       log.info(
           "Not all producerObserver has been unregistered, producerObserver num={}",
@@ -295,6 +301,7 @@ public class ClientInstance {
       scheduler.shutdown();
       callbackExecutor.shutdown();
       if (state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED)) {
+        ClientManager.removeClientInstance(clientId);
         log.info("Shutdown ClientInstance successfully");
         return;
       }

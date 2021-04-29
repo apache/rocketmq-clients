@@ -33,13 +33,6 @@ public class DefaultMQPushConsumer extends ClientConfig {
     return this.getGroupName();
   }
 
-  public void setConsumerGroup(String consumerGroup) {
-    if (impl.hasBeenStarted()) {
-      throw new RuntimeException("Please set consumerGroup before consumer started.");
-    }
-    setGroupName(consumerGroup);
-  }
-
   public void start() throws MQClientException {
     this.setGroupName(withNamespace(this.getGroupName()));
     this.impl.start();

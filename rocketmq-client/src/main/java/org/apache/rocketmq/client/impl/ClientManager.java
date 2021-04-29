@@ -23,4 +23,8 @@ public class ClientManager {
     }
     return clientInstance;
   }
+
+  public static void removeClientInstance(final String clientId) {
+    clientInstanceTable.remove(clientId);
+  }
 }
