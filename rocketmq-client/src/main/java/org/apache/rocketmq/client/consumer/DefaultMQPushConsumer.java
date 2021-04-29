@@ -29,6 +29,13 @@ public class DefaultMQPushConsumer extends ClientConfig {
 
   @Getter @Setter private boolean ackMessageAsync = true;
 
+  public void setConsumerGroup(String consumerGroup) {
+    if (impl.hasBeenStarted()) {
+      throw new RuntimeException("Please set consumerGroup before consumer started.");
+    }
+    setGroupName(consumerGroup);
+  }
+
   public String getConsumerGroup() {
     return this.getGroupName();
   }
@@ -67,8 +74,9 @@ public class DefaultMQPushConsumer extends ClientConfig {
   // Not yet implemented
   public void subscribe(String topic, MessageSelector messageSelector) throws MQClientException {}
 
-  // Not yet implemented
-  public void unsubscribe(String topic) {}
+  public void unsubscribe(String topic) {
+    this.impl.unsubscribe(withNamespace(topic));
+  }
 
   // Not yet implemented
   public void updateCorePoolSize(int i) {}

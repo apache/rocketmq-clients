@@ -267,25 +267,6 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
     processQueue.popMessage();
   }
 
-  TopicAssignmentInfo getTopicAssignmentInfo(String topic)
-      throws MQClientException, MQServerException {
-    TopicAssignmentInfo topicAssignmentInfo = cachedTopicAssignmentTable.get(topic);
-    if (null != topicAssignmentInfo) {
-      return topicAssignmentInfo;
-    }
-    log.info(
-        "Load assignment of topic={} is not cached, try to acquire it from load balancer", topic);
-    topicAssignmentInfo = queryLoadAssignment(topic);
-    log.info(
-        "Fetch load assignment of topic={} first time, load assignment={}",
-        topic,
-        topicAssignmentInfo);
-    if (null != topicAssignmentInfo && !cachedTopicAssignmentTable.isEmpty()) {
-      cachedTopicAssignmentTable.put(topic, topicAssignmentInfo);
-    }
-    return topicAssignmentInfo;
-  }
-
   public void subscribe(final String topic, final String subscribeExpression)
       throws MQClientException {
     FilterExpression filterExpression = new FilterExpression(subscribeExpression);

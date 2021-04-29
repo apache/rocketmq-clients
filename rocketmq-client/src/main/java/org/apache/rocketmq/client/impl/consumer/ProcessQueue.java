@@ -36,6 +36,8 @@ public class ProcessQueue {
       MixAll.DEFAULT_MAX_CACHED_MESSAGES_COUNT_PER_MESSAGE_QUEUE;
   private static final long MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE =
       MixAll.DEFAULT_MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE;
+  private static final long MAX_POP_MESSAGE_INTERVAL_MILLIS =
+      MixAll.DEFAULT_MAX_POP_MESSAGE_INTERVAL_MILLIS;
 
   private static final long POP_TIME_DELAY_TIME_MILLIS_WHEN_FLOW_CONTROL = 3000L;
 
@@ -49,6 +51,9 @@ public class ProcessQueue {
   private final ReentrantReadWriteLock cachedMessagesLock;
   private final AtomicLong cachedMsgCount;
   private final AtomicLong cachedMsgSize;
+
+  private volatile long lastPopTimestamp;
+  private volatile long lastThrottledTimestamp;
 
   private final AtomicLong termId;
 
@@ -67,10 +72,35 @@ public class ProcessQueue {
     this.cachedMsgCount = new AtomicLong(0L);
     this.cachedMsgSize = new AtomicLong(0L);
 
+    this.lastPopTimestamp = -1L;
+    this.lastThrottledTimestamp = -1L;
+
     this.termId = new AtomicLong(1);
   }
 
   public boolean isPopExpired() {
+    final long popDuration = System.currentTimeMillis() - lastPopTimestamp;
+    if (popDuration > MAX_POP_MESSAGE_INTERVAL_MILLIS && lastPopTimestamp >= 0) {
+      log.warn(
+          "ProcessQueue is expired, duration from last pop={}ms, lastPopTimestamp={}, currentTimestamp={}, mq={}",
+          popDuration,
+          lastPopTimestamp,
+          System.currentTimeMillis(),
+          messageQueue.simpleName());
+      return true;
+    }
+
+    final long throttledDuration = System.currentTimeMillis() - lastThrottledTimestamp;
+    if (throttledDuration > MAX_POP_MESSAGE_INTERVAL_MILLIS && lastThrottledTimestamp >= 0) {
+      log.warn(
+          "ProcessQueue is expired, duration from last throttle={}ms, lastPopTimestamp={}, currentTimestamp={}, mq={}",
+          throttledDuration,
+          lastThrottledTimestamp,
+          System.currentTimeMillis(),
+          messageQueue.simpleName());
+      return true;
+    }
+
     return false;
   }
 
@@ -160,6 +190,9 @@ public class ProcessQueue {
       log.warn(
           "Process queue flow control is triggered, would pop message later, mq={}.",
           messageQueue.simpleName());
+
+      lastThrottledTimestamp = System.currentTimeMillis();
+
       popMessageLater();
       return;
     }
@@ -236,6 +269,9 @@ public class ProcessQueue {
       final String target =
           clientInstance.resolveTarget(messageQueue.getTopic(), messageQueue.getBrokerName());
       final PopMessageRequest request = wrapPopMessageRequest();
+
+      lastPopTimestamp = System.currentTimeMillis();
+
       final ListenableFuture<PopResult> future =
           clientInstance.popMessageAsync(
               target, request, LONG_POLLING_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
