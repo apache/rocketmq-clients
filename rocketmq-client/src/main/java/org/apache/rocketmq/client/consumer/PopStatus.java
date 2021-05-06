@@ -5,5 +5,7 @@ public enum PopStatus {
   NO_NEW_MSG,
   POLLING_FULL,
   POLLING_NOT_FOUND,
-  SERVICE_UNSTABLE;
+  SERVICE_UNSTABLE,
+  // Only for unit test.
+  STATUS_FOR_TEST;
 }

@@ -1,5 +1,6 @@
 package org.apache.rocketmq.client.impl.consumer;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -30,14 +31,14 @@ import org.apache.rocketmq.proto.PopMessageRequest;
 
 @Slf4j
 public class ProcessQueue {
-  private static final long LONG_POLLING_TIMEOUT_MILLIS =
-      MixAll.DEFAULT_LONG_POLLING_TIMEOUT_MILLIS;
-  private static final long MAX_CACHED_MESSAGES_COUNT_PER_MESSAGE_QUEUE =
+  public static final long LONG_POLLING_TIMEOUT_MILLIS = MixAll.DEFAULT_LONG_POLLING_TIMEOUT_MILLIS;
+  public static final long MAX_CACHED_MESSAGES_COUNT_PER_MESSAGE_QUEUE =
       MixAll.DEFAULT_MAX_CACHED_MESSAGES_COUNT_PER_MESSAGE_QUEUE;
-  private static final long MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE =
+  public static final long MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE =
       MixAll.DEFAULT_MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE;
-  private static final long MAX_POP_MESSAGE_INTERVAL_MILLIS =
+  public static final long MAX_POP_MESSAGE_INTERVAL_MILLIS =
       MixAll.DEFAULT_MAX_POP_MESSAGE_INTERVAL_MILLIS;
+  public static final long MESSAGE_EXPIRED_TOLERANCE_MILLIS = 10;
 
   private static final long POP_TIME_DELAY_TIME_MILLIS_WHEN_FLOW_CONTROL = 3000L;
 
@@ -72,38 +73,34 @@ public class ProcessQueue {
     this.cachedMsgCount = new AtomicLong(0L);
     this.cachedMsgSize = new AtomicLong(0L);
 
-    this.lastPopTimestamp = -1L;
-    this.lastThrottledTimestamp = -1L;
+    this.lastPopTimestamp = System.currentTimeMillis();
+    this.lastThrottledTimestamp = System.currentTimeMillis();
 
     this.termId = new AtomicLong(1);
   }
 
   public boolean isPopExpired() {
     final long popDuration = System.currentTimeMillis() - lastPopTimestamp;
-    if (popDuration > MAX_POP_MESSAGE_INTERVAL_MILLIS && lastPopTimestamp >= 0) {
-      log.warn(
-          "ProcessQueue is expired, duration from last pop={}ms, lastPopTimestamp={}, currentTimestamp={}, mq={}",
-          popDuration,
-          lastPopTimestamp,
-          System.currentTimeMillis(),
-          messageQueue.simpleName());
-      return true;
+    if (popDuration < MAX_POP_MESSAGE_INTERVAL_MILLIS) {
+      return false;
     }
 
     final long throttledDuration = System.currentTimeMillis() - lastThrottledTimestamp;
-    if (throttledDuration > MAX_POP_MESSAGE_INTERVAL_MILLIS && lastThrottledTimestamp >= 0) {
-      log.warn(
-          "ProcessQueue is expired, duration from last throttle={}ms, lastPopTimestamp={}, currentTimestamp={}, mq={}",
-          throttledDuration,
-          lastThrottledTimestamp,
-          System.currentTimeMillis(),
-          messageQueue.simpleName());
-      return true;
+    if (throttledDuration < MAX_POP_MESSAGE_INTERVAL_MILLIS) {
+      return false;
     }
 
-    return false;
+    log.warn(
+        "ProcessQueue is expired, duration from last pop={}ms, duration from last throttle={}ms, lastPopTimestamp={}, lastThrottledTimestamp={}, currentTimestamp={}",
+        popDuration,
+        throttledDuration,
+        lastPopTimestamp,
+        lastThrottledTimestamp,
+        System.currentTimeMillis());
+    return true;
   }
 
+  @VisibleForTesting
   public void cacheMessages(List<MessageExt> messageList) {
     cachedMessagesLock.writeLock().lock();
     try {
@@ -177,7 +174,8 @@ public class ProcessQueue {
     }
   }
 
-  private void prepareNextPop(long currentTermId, String target) {
+  @VisibleForTesting
+  public void prepareNextPop(long currentTermId, String target) {
     if (!leaseNextTerm(currentTermId, target)) {
       log.debug("No need to prepare for next pop, mq={}", messageQueue.simpleName());
       return;
@@ -199,7 +197,7 @@ public class ProcessQueue {
     popMessage();
   }
 
-  private void popMessageLater() {
+  public void popMessageLater() {
     final ScheduledExecutorService scheduler = consumerImpl.getClientInstance().getScheduler();
     scheduler.schedule(
         new Runnable() {
@@ -235,7 +233,7 @@ public class ProcessQueue {
   }
 
   public void ackMessage(MessageExt messageExt) throws MQClientException {
-    if (messageExt.isExpired(10)) {
+    if (messageExt.isExpired(MESSAGE_EXPIRED_TOLERANCE_MILLIS)) {
       log.warn(
           "Message is already expired, skip ACK, topic={}, msgId={}, decodedTimestamp={}, currentTimestamp={}, expiredTimestamp={}",
           messageExt.getTopic(),
@@ -280,13 +278,22 @@ public class ProcessQueue {
           new FutureCallback<PopResult>() {
             @Override
             public void onSuccess(PopResult popResult) {
-              ProcessQueue.this.handlePopResult(popResult);
+              try {
+                ProcessQueue.this.handlePopResult(popResult);
+              } catch (Throwable t) {
+                // Should never reach here.
+                log.error(
+                    "Unexpected exception occurs while handle pop result, would pop message later, mq={}",
+                    messageQueue,
+                    t);
+                popMessageLater();
+              }
             }
 
             @Override
             public void onFailure(Throwable t) {
               log.error(
-                  "Unexpected error while popping message, would pop message later, mq={}",
+                  "Exception occurs while popping message, would pop message later, mq={}",
                   messageQueue,
                   t);
               popMessageLater();

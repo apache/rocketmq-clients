@@ -1,5 +1,6 @@
 package org.apache.rocketmq.client.remoting;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -45,6 +46,15 @@ public class RPCClientImpl implements RPCClient {
             .usePlaintext()
             .build();
 
+    this.blockingStub = RocketMQGrpc.newBlockingStub(channel);
+    this.asyncStub = RocketMQGrpc.newStub(channel);
+    this.futureStub = RocketMQGrpc.newFutureStub(channel);
+  }
+
+  @VisibleForTesting
+  public RPCClientImpl(ManagedChannel channel) {
+    this.rpcTarget = null;
+    this.channel = channel;
     this.blockingStub = RocketMQGrpc.newBlockingStub(channel);
     this.asyncStub = RocketMQGrpc.newStub(channel);
     this.futureStub = RocketMQGrpc.newFutureStub(channel);

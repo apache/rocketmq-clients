@@ -9,10 +9,12 @@ public interface TopicRouteDataOrBuilder extends
 
   /**
    * <code>string order_topic_configuration = 1;</code>
+   * @return The orderTopicConfiguration.
    */
   java.lang.String getOrderTopicConfiguration();
   /**
    * <code>string order_topic_configuration = 1;</code>
+   * @return The bytes for orderTopicConfiguration.
    */
   com.google.protobuf.ByteString
       getOrderTopicConfigurationBytes();

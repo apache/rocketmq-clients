@@ -6,7 +6,7 @@ package org.apache.rocketmq.proto;
 /**
  * Protobuf type {@code rocketmq.rpc.api.HeartbeatRequest}
  */
-public  final class HeartbeatRequest extends
+public final class HeartbeatRequest extends
     com.google.protobuf.GeneratedMessageV3 implements
     // @@protoc_insertion_point(message_implements:rocketmq.rpc.api.HeartbeatRequest)
     HeartbeatRequestOrBuilder {
@@ -21,6 +21,13 @@ private static final long serialVersionUID = 0L;
     languageCode_ = 0;
     producerDataSet_ = java.util.Collections.emptyList();
     brokerName_ = "";
+  }
+
+  @java.lang.Override
+  @SuppressWarnings({"unused"})
+  protected java.lang.Object newInstance(
+      UnusedPrivateParameter unused) {
+    return new HeartbeatRequest();
   }
 
   @java.lang.Override
@@ -47,13 +54,6 @@ private static final long serialVersionUID = 0L;
           case 0:
             done = true;
             break;
-          default: {
-            if (!parseUnknownFieldProto3(
-                input, unknownFields, extensionRegistry, tag)) {
-              done = true;
-            }
-            break;
-          }
           case 10: {
             java.lang.String s = input.readStringRequireUtf8();
 
@@ -61,9 +61,9 @@ private static final long serialVersionUID = 0L;
             break;
           }
           case 18: {
-            if (!((mutable_bitField0_ & 0x00000002) == 0x00000002)) {
+            if (!((mutable_bitField0_ & 0x00000001) != 0)) {
               consumeDataSet_ = new java.util.ArrayList<org.apache.rocketmq.proto.ConsumeData>();
-              mutable_bitField0_ |= 0x00000002;
+              mutable_bitField0_ |= 0x00000001;
             }
             consumeDataSet_.add(
                 input.readMessage(org.apache.rocketmq.proto.ConsumeData.parser(), extensionRegistry));
@@ -76,9 +76,9 @@ private static final long serialVersionUID = 0L;
             break;
           }
           case 34: {
-            if (!((mutable_bitField0_ & 0x00000008) == 0x00000008)) {
+            if (!((mutable_bitField0_ & 0x00000002) != 0)) {
               producerDataSet_ = new java.util.ArrayList<org.apache.rocketmq.proto.ProducerData>();
-              mutable_bitField0_ |= 0x00000008;
+              mutable_bitField0_ |= 0x00000002;
             }
             producerDataSet_.add(
                 input.readMessage(org.apache.rocketmq.proto.ProducerData.parser(), extensionRegistry));
@@ -90,6 +90,13 @@ private static final long serialVersionUID = 0L;
             brokerName_ = s;
             break;
           }
+          default: {
+            if (!parseUnknownField(
+                input, unknownFields, extensionRegistry, tag)) {
+              done = true;
+            }
+            break;
+          }
         }
       }
     } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -98,10 +105,10 @@ private static final long serialVersionUID = 0L;
       throw new com.google.protobuf.InvalidProtocolBufferException(
           e).setUnfinishedMessage(this);
     } finally {
-      if (((mutable_bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((mutable_bitField0_ & 0x00000001) != 0)) {
         consumeDataSet_ = java.util.Collections.unmodifiableList(consumeDataSet_);
       }
-      if (((mutable_bitField0_ & 0x00000008) == 0x00000008)) {
+      if (((mutable_bitField0_ & 0x00000002) != 0)) {
         producerDataSet_ = java.util.Collections.unmodifiableList(producerDataSet_);
       }
       this.unknownFields = unknownFields.build();
@@ -113,6 +120,7 @@ private static final long serialVersionUID = 0L;
     return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_HeartbeatRequest_descriptor;
   }
 
+  @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
     return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_HeartbeatRequest_fieldAccessorTable
@@ -235,6 +243,8 @@ private static final long serialVersionUID = 0L;
     }
 
     /**
+     * @param value The numeric wire value of the corresponding enum entry.
+     * @return The enum associated with the given numeric wire value.
      * @deprecated Use {@link #forNumber(int)} instead.
      */
     @java.lang.Deprecated
@@ -242,6 +252,10 @@ private static final long serialVersionUID = 0L;
       return forNumber(value);
     }
 
+    /**
+     * @param value The numeric wire value of the corresponding enum entry.
+     * @return The enum associated with the given numeric wire value.
+     */
     public static LanguageCode forNumber(int value) {
       switch (value) {
         case 0: return JAVA;
@@ -274,6 +288,10 @@ private static final long serialVersionUID = 0L;
 
     public final com.google.protobuf.Descriptors.EnumValueDescriptor
         getValueDescriptor() {
+      if (this == UNRECOGNIZED) {
+        throw new java.lang.IllegalStateException(
+            "Can't get the descriptor of an unrecognized enum value.");
+      }
       return getDescriptor().getValues().get(ordinal());
     }
     public final com.google.protobuf.Descriptors.EnumDescriptor
@@ -308,12 +326,13 @@ private static final long serialVersionUID = 0L;
     // @@protoc_insertion_point(enum_scope:rocketmq.rpc.api.HeartbeatRequest.LanguageCode)
   }
 
-  private int bitField0_;
   public static final int CLIENT_ID_FIELD_NUMBER = 1;
   private volatile java.lang.Object clientId_;
   /**
    * <code>string client_id = 1;</code>
+   * @return The clientId.
    */
+  @java.lang.Override
   public java.lang.String getClientId() {
     java.lang.Object ref = clientId_;
     if (ref instanceof java.lang.String) {
@@ -328,7 +347,9 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <code>string client_id = 1;</code>
+   * @return The bytes for clientId.
    */
+  @java.lang.Override
   public com.google.protobuf.ByteString
       getClientIdBytes() {
     java.lang.Object ref = clientId_;
@@ -348,12 +369,14 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>repeated .rocketmq.rpc.api.ConsumeData consume_data_set = 2;</code>
    */
+  @java.lang.Override
   public java.util.List<org.apache.rocketmq.proto.ConsumeData> getConsumeDataSetList() {
     return consumeDataSet_;
   }
   /**
    * <code>repeated .rocketmq.rpc.api.ConsumeData consume_data_set = 2;</code>
    */
+  @java.lang.Override
   public java.util.List<? extends org.apache.rocketmq.proto.ConsumeDataOrBuilder> 
       getConsumeDataSetOrBuilderList() {
     return consumeDataSet_;
@@ -361,18 +384,21 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>repeated .rocketmq.rpc.api.ConsumeData consume_data_set = 2;</code>
    */
+  @java.lang.Override
   public int getConsumeDataSetCount() {
     return consumeDataSet_.size();
   }
   /**
    * <code>repeated .rocketmq.rpc.api.ConsumeData consume_data_set = 2;</code>
    */
+  @java.lang.Override
   public org.apache.rocketmq.proto.ConsumeData getConsumeDataSet(int index) {
     return consumeDataSet_.get(index);
   }
   /**
    * <code>repeated .rocketmq.rpc.api.ConsumeData consume_data_set = 2;</code>
    */
+  @java.lang.Override
   public org.apache.rocketmq.proto.ConsumeDataOrBuilder getConsumeDataSetOrBuilder(
       int index) {
     return consumeDataSet_.get(index);
@@ -382,14 +408,17 @@ private static final long serialVersionUID = 0L;
   private int languageCode_;
   /**
    * <code>.rocketmq.rpc.api.HeartbeatRequest.LanguageCode language_code = 3;</code>
+   * @return The enum numeric value on the wire for languageCode.
    */
-  public int getLanguageCodeValue() {
+  @java.lang.Override public int getLanguageCodeValue() {
     return languageCode_;
   }
   /**
    * <code>.rocketmq.rpc.api.HeartbeatRequest.LanguageCode language_code = 3;</code>
+   * @return The languageCode.
    */
-  public org.apache.rocketmq.proto.HeartbeatRequest.LanguageCode getLanguageCode() {
+  @java.lang.Override public org.apache.rocketmq.proto.HeartbeatRequest.LanguageCode getLanguageCode() {
+    @SuppressWarnings("deprecation")
     org.apache.rocketmq.proto.HeartbeatRequest.LanguageCode result = org.apache.rocketmq.proto.HeartbeatRequest.LanguageCode.valueOf(languageCode_);
     return result == null ? org.apache.rocketmq.proto.HeartbeatRequest.LanguageCode.UNRECOGNIZED : result;
   }
@@ -399,12 +428,14 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>repeated .rocketmq.rpc.api.ProducerData producer_data_set = 4;</code>
    */
+  @java.lang.Override
   public java.util.List<org.apache.rocketmq.proto.ProducerData> getProducerDataSetList() {
     return producerDataSet_;
   }
   /**
    * <code>repeated .rocketmq.rpc.api.ProducerData producer_data_set = 4;</code>
    */
+  @java.lang.Override
   public java.util.List<? extends org.apache.rocketmq.proto.ProducerDataOrBuilder> 
       getProducerDataSetOrBuilderList() {
     return producerDataSet_;
@@ -412,18 +443,21 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>repeated .rocketmq.rpc.api.ProducerData producer_data_set = 4;</code>
    */
+  @java.lang.Override
   public int getProducerDataSetCount() {
     return producerDataSet_.size();
   }
   /**
    * <code>repeated .rocketmq.rpc.api.ProducerData producer_data_set = 4;</code>
    */
+  @java.lang.Override
   public org.apache.rocketmq.proto.ProducerData getProducerDataSet(int index) {
     return producerDataSet_.get(index);
   }
   /**
    * <code>repeated .rocketmq.rpc.api.ProducerData producer_data_set = 4;</code>
    */
+  @java.lang.Override
   public org.apache.rocketmq.proto.ProducerDataOrBuilder getProducerDataSetOrBuilder(
       int index) {
     return producerDataSet_.get(index);
@@ -433,7 +467,9 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object brokerName_;
   /**
    * <code>string broker_name = 5;</code>
+   * @return The brokerName.
    */
+  @java.lang.Override
   public java.lang.String getBrokerName() {
     java.lang.Object ref = brokerName_;
     if (ref instanceof java.lang.String) {
@@ -448,7 +484,9 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <code>string broker_name = 5;</code>
+   * @return The bytes for brokerName.
    */
+  @java.lang.Override
   public com.google.protobuf.ByteString
       getBrokerNameBytes() {
     java.lang.Object ref = brokerName_;
@@ -464,6 +502,7 @@ private static final long serialVersionUID = 0L;
   }
 
   private byte memoizedIsInitialized = -1;
+  @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
     if (isInitialized == 1) return true;
@@ -473,6 +512,7 @@ private static final long serialVersionUID = 0L;
     return true;
   }
 
+  @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
     if (!getClientIdBytes().isEmpty()) {
@@ -493,6 +533,7 @@ private static final long serialVersionUID = 0L;
     unknownFields.writeTo(output);
   }
 
+  @java.lang.Override
   public int getSerializedSize() {
     int size = memoizedSize;
     if (size != -1) return size;
@@ -531,18 +572,17 @@ private static final long serialVersionUID = 0L;
     }
     org.apache.rocketmq.proto.HeartbeatRequest other = (org.apache.rocketmq.proto.HeartbeatRequest) obj;
 
-    boolean result = true;
-    result = result && getClientId()
-        .equals(other.getClientId());
-    result = result && getConsumeDataSetList()
-        .equals(other.getConsumeDataSetList());
-    result = result && languageCode_ == other.languageCode_;
-    result = result && getProducerDataSetList()
-        .equals(other.getProducerDataSetList());
-    result = result && getBrokerName()
-        .equals(other.getBrokerName());
-    result = result && unknownFields.equals(other.unknownFields);
-    return result;
+    if (!getClientId()
+        .equals(other.getClientId())) return false;
+    if (!getConsumeDataSetList()
+        .equals(other.getConsumeDataSetList())) return false;
+    if (languageCode_ != other.languageCode_) return false;
+    if (!getProducerDataSetList()
+        .equals(other.getProducerDataSetList())) return false;
+    if (!getBrokerName()
+        .equals(other.getBrokerName())) return false;
+    if (!unknownFields.equals(other.unknownFields)) return false;
+    return true;
   }
 
   @java.lang.Override
@@ -641,6 +681,7 @@ private static final long serialVersionUID = 0L;
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
+  @java.lang.Override
   public Builder newBuilderForType() { return newBuilder(); }
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
@@ -648,6 +689,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder(org.apache.rocketmq.proto.HeartbeatRequest prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
+  @java.lang.Override
   public Builder toBuilder() {
     return this == DEFAULT_INSTANCE
         ? new Builder() : new Builder().mergeFrom(this);
@@ -671,6 +713,7 @@ private static final long serialVersionUID = 0L;
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_HeartbeatRequest_descriptor;
     }
 
+    @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_HeartbeatRequest_fieldAccessorTable
@@ -695,13 +738,14 @@ private static final long serialVersionUID = 0L;
         getProducerDataSetFieldBuilder();
       }
     }
+    @java.lang.Override
     public Builder clear() {
       super.clear();
       clientId_ = "";
 
       if (consumeDataSetBuilder_ == null) {
         consumeDataSet_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000002);
+        bitField0_ = (bitField0_ & ~0x00000001);
       } else {
         consumeDataSetBuilder_.clear();
       }
@@ -709,7 +753,7 @@ private static final long serialVersionUID = 0L;
 
       if (producerDataSetBuilder_ == null) {
         producerDataSet_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000002);
       } else {
         producerDataSetBuilder_.clear();
       }
@@ -718,15 +762,18 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_HeartbeatRequest_descriptor;
     }
 
+    @java.lang.Override
     public org.apache.rocketmq.proto.HeartbeatRequest getDefaultInstanceForType() {
       return org.apache.rocketmq.proto.HeartbeatRequest.getDefaultInstance();
     }
 
+    @java.lang.Override
     public org.apache.rocketmq.proto.HeartbeatRequest build() {
       org.apache.rocketmq.proto.HeartbeatRequest result = buildPartial();
       if (!result.isInitialized()) {
@@ -735,15 +782,15 @@ private static final long serialVersionUID = 0L;
       return result;
     }
 
+    @java.lang.Override
     public org.apache.rocketmq.proto.HeartbeatRequest buildPartial() {
       org.apache.rocketmq.proto.HeartbeatRequest result = new org.apache.rocketmq.proto.HeartbeatRequest(this);
       int from_bitField0_ = bitField0_;
-      int to_bitField0_ = 0;
       result.clientId_ = clientId_;
       if (consumeDataSetBuilder_ == null) {
-        if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        if (((bitField0_ & 0x00000001) != 0)) {
           consumeDataSet_ = java.util.Collections.unmodifiableList(consumeDataSet_);
-          bitField0_ = (bitField0_ & ~0x00000002);
+          bitField0_ = (bitField0_ & ~0x00000001);
         }
         result.consumeDataSet_ = consumeDataSet_;
       } else {
@@ -751,46 +798,52 @@ private static final long serialVersionUID = 0L;
       }
       result.languageCode_ = languageCode_;
       if (producerDataSetBuilder_ == null) {
-        if (((bitField0_ & 0x00000008) == 0x00000008)) {
+        if (((bitField0_ & 0x00000002) != 0)) {
           producerDataSet_ = java.util.Collections.unmodifiableList(producerDataSet_);
-          bitField0_ = (bitField0_ & ~0x00000008);
+          bitField0_ = (bitField0_ & ~0x00000002);
         }
         result.producerDataSet_ = producerDataSet_;
       } else {
         result.producerDataSet_ = producerDataSetBuilder_.build();
       }
       result.brokerName_ = brokerName_;
-      result.bitField0_ = to_bitField0_;
       onBuilt();
       return result;
     }
 
+    @java.lang.Override
     public Builder clone() {
-      return (Builder) super.clone();
+      return super.clone();
     }
+    @java.lang.Override
     public Builder setField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return (Builder) super.setField(field, value);
+      return super.setField(field, value);
     }
+    @java.lang.Override
     public Builder clearField(
         com.google.protobuf.Descriptors.FieldDescriptor field) {
-      return (Builder) super.clearField(field);
+      return super.clearField(field);
     }
+    @java.lang.Override
     public Builder clearOneof(
         com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-      return (Builder) super.clearOneof(oneof);
+      return super.clearOneof(oneof);
     }
+    @java.lang.Override
     public Builder setRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         int index, java.lang.Object value) {
-      return (Builder) super.setRepeatedField(field, index, value);
+      return super.setRepeatedField(field, index, value);
     }
+    @java.lang.Override
     public Builder addRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return (Builder) super.addRepeatedField(field, value);
+      return super.addRepeatedField(field, value);
     }
+    @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof org.apache.rocketmq.proto.HeartbeatRequest) {
         return mergeFrom((org.apache.rocketmq.proto.HeartbeatRequest)other);
@@ -810,7 +863,7 @@ private static final long serialVersionUID = 0L;
         if (!other.consumeDataSet_.isEmpty()) {
           if (consumeDataSet_.isEmpty()) {
             consumeDataSet_ = other.consumeDataSet_;
-            bitField0_ = (bitField0_ & ~0x00000002);
+            bitField0_ = (bitField0_ & ~0x00000001);
           } else {
             ensureConsumeDataSetIsMutable();
             consumeDataSet_.addAll(other.consumeDataSet_);
@@ -823,7 +876,7 @@ private static final long serialVersionUID = 0L;
             consumeDataSetBuilder_.dispose();
             consumeDataSetBuilder_ = null;
             consumeDataSet_ = other.consumeDataSet_;
-            bitField0_ = (bitField0_ & ~0x00000002);
+            bitField0_ = (bitField0_ & ~0x00000001);
             consumeDataSetBuilder_ = 
               com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
                  getConsumeDataSetFieldBuilder() : null;
@@ -839,7 +892,7 @@ private static final long serialVersionUID = 0L;
         if (!other.producerDataSet_.isEmpty()) {
           if (producerDataSet_.isEmpty()) {
             producerDataSet_ = other.producerDataSet_;
-            bitField0_ = (bitField0_ & ~0x00000008);
+            bitField0_ = (bitField0_ & ~0x00000002);
           } else {
             ensureProducerDataSetIsMutable();
             producerDataSet_.addAll(other.producerDataSet_);
@@ -852,7 +905,7 @@ private static final long serialVersionUID = 0L;
             producerDataSetBuilder_.dispose();
             producerDataSetBuilder_ = null;
             producerDataSet_ = other.producerDataSet_;
-            bitField0_ = (bitField0_ & ~0x00000008);
+            bitField0_ = (bitField0_ & ~0x00000002);
             producerDataSetBuilder_ = 
               com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
                  getProducerDataSetFieldBuilder() : null;
@@ -870,10 +923,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    @java.lang.Override
     public final boolean isInitialized() {
       return true;
     }
 
+    @java.lang.Override
     public Builder mergeFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -896,6 +951,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object clientId_ = "";
     /**
      * <code>string client_id = 1;</code>
+     * @return The clientId.
      */
     public java.lang.String getClientId() {
       java.lang.Object ref = clientId_;
@@ -911,6 +967,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string client_id = 1;</code>
+     * @return The bytes for clientId.
      */
     public com.google.protobuf.ByteString
         getClientIdBytes() {
@@ -927,6 +984,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string client_id = 1;</code>
+     * @param value The clientId to set.
+     * @return This builder for chaining.
      */
     public Builder setClientId(
         java.lang.String value) {
@@ -940,6 +999,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string client_id = 1;</code>
+     * @return This builder for chaining.
      */
     public Builder clearClientId() {
       
@@ -949,6 +1009,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string client_id = 1;</code>
+     * @param value The bytes for clientId to set.
+     * @return This builder for chaining.
      */
     public Builder setClientIdBytes(
         com.google.protobuf.ByteString value) {
@@ -965,9 +1027,9 @@ private static final long serialVersionUID = 0L;
     private java.util.List<org.apache.rocketmq.proto.ConsumeData> consumeDataSet_ =
       java.util.Collections.emptyList();
     private void ensureConsumeDataSetIsMutable() {
-      if (!((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (!((bitField0_ & 0x00000001) != 0)) {
         consumeDataSet_ = new java.util.ArrayList<org.apache.rocketmq.proto.ConsumeData>(consumeDataSet_);
-        bitField0_ |= 0x00000002;
+        bitField0_ |= 0x00000001;
        }
     }
 
@@ -1117,7 +1179,7 @@ private static final long serialVersionUID = 0L;
     public Builder clearConsumeDataSet() {
       if (consumeDataSetBuilder_ == null) {
         consumeDataSet_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000002);
+        bitField0_ = (bitField0_ & ~0x00000001);
         onChanged();
       } else {
         consumeDataSetBuilder_.clear();
@@ -1194,7 +1256,7 @@ private static final long serialVersionUID = 0L;
         consumeDataSetBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
             org.apache.rocketmq.proto.ConsumeData, org.apache.rocketmq.proto.ConsumeData.Builder, org.apache.rocketmq.proto.ConsumeDataOrBuilder>(
                 consumeDataSet_,
-                ((bitField0_ & 0x00000002) == 0x00000002),
+                ((bitField0_ & 0x00000001) != 0),
                 getParentForChildren(),
                 isClean());
         consumeDataSet_ = null;
@@ -1205,27 +1267,36 @@ private static final long serialVersionUID = 0L;
     private int languageCode_ = 0;
     /**
      * <code>.rocketmq.rpc.api.HeartbeatRequest.LanguageCode language_code = 3;</code>
+     * @return The enum numeric value on the wire for languageCode.
      */
-    public int getLanguageCodeValue() {
+    @java.lang.Override public int getLanguageCodeValue() {
       return languageCode_;
     }
     /**
      * <code>.rocketmq.rpc.api.HeartbeatRequest.LanguageCode language_code = 3;</code>
+     * @param value The enum numeric value on the wire for languageCode to set.
+     * @return This builder for chaining.
      */
     public Builder setLanguageCodeValue(int value) {
+      
       languageCode_ = value;
       onChanged();
       return this;
     }
     /**
      * <code>.rocketmq.rpc.api.HeartbeatRequest.LanguageCode language_code = 3;</code>
+     * @return The languageCode.
      */
+    @java.lang.Override
     public org.apache.rocketmq.proto.HeartbeatRequest.LanguageCode getLanguageCode() {
+      @SuppressWarnings("deprecation")
       org.apache.rocketmq.proto.HeartbeatRequest.LanguageCode result = org.apache.rocketmq.proto.HeartbeatRequest.LanguageCode.valueOf(languageCode_);
       return result == null ? org.apache.rocketmq.proto.HeartbeatRequest.LanguageCode.UNRECOGNIZED : result;
     }
     /**
      * <code>.rocketmq.rpc.api.HeartbeatRequest.LanguageCode language_code = 3;</code>
+     * @param value The languageCode to set.
+     * @return This builder for chaining.
      */
     public Builder setLanguageCode(org.apache.rocketmq.proto.HeartbeatRequest.LanguageCode value) {
       if (value == null) {
@@ -1238,6 +1309,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>.rocketmq.rpc.api.HeartbeatRequest.LanguageCode language_code = 3;</code>
+     * @return This builder for chaining.
      */
     public Builder clearLanguageCode() {
       
@@ -1249,9 +1321,9 @@ private static final long serialVersionUID = 0L;
     private java.util.List<org.apache.rocketmq.proto.ProducerData> producerDataSet_ =
       java.util.Collections.emptyList();
     private void ensureProducerDataSetIsMutable() {
-      if (!((bitField0_ & 0x00000008) == 0x00000008)) {
+      if (!((bitField0_ & 0x00000002) != 0)) {
         producerDataSet_ = new java.util.ArrayList<org.apache.rocketmq.proto.ProducerData>(producerDataSet_);
-        bitField0_ |= 0x00000008;
+        bitField0_ |= 0x00000002;
        }
     }
 
@@ -1401,7 +1473,7 @@ private static final long serialVersionUID = 0L;
     public Builder clearProducerDataSet() {
       if (producerDataSetBuilder_ == null) {
         producerDataSet_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000002);
         onChanged();
       } else {
         producerDataSetBuilder_.clear();
@@ -1478,7 +1550,7 @@ private static final long serialVersionUID = 0L;
         producerDataSetBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
             org.apache.rocketmq.proto.ProducerData, org.apache.rocketmq.proto.ProducerData.Builder, org.apache.rocketmq.proto.ProducerDataOrBuilder>(
                 producerDataSet_,
-                ((bitField0_ & 0x00000008) == 0x00000008),
+                ((bitField0_ & 0x00000002) != 0),
                 getParentForChildren(),
                 isClean());
         producerDataSet_ = null;
@@ -1489,6 +1561,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object brokerName_ = "";
     /**
      * <code>string broker_name = 5;</code>
+     * @return The brokerName.
      */
     public java.lang.String getBrokerName() {
       java.lang.Object ref = brokerName_;
@@ -1504,6 +1577,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string broker_name = 5;</code>
+     * @return The bytes for brokerName.
      */
     public com.google.protobuf.ByteString
         getBrokerNameBytes() {
@@ -1520,6 +1594,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string broker_name = 5;</code>
+     * @param value The brokerName to set.
+     * @return This builder for chaining.
      */
     public Builder setBrokerName(
         java.lang.String value) {
@@ -1533,6 +1609,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string broker_name = 5;</code>
+     * @return This builder for chaining.
      */
     public Builder clearBrokerName() {
       
@@ -1542,6 +1619,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string broker_name = 5;</code>
+     * @param value The bytes for brokerName to set.
+     * @return This builder for chaining.
      */
     public Builder setBrokerNameBytes(
         com.google.protobuf.ByteString value) {
@@ -1554,11 +1633,13 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+    @java.lang.Override
     public final Builder setUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
-      return super.setUnknownFieldsProto3(unknownFields);
+      return super.setUnknownFields(unknownFields);
     }
 
+    @java.lang.Override
     public final Builder mergeUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.mergeUnknownFields(unknownFields);
@@ -1580,6 +1661,7 @@ private static final long serialVersionUID = 0L;
 
   private static final com.google.protobuf.Parser<HeartbeatRequest>
       PARSER = new com.google.protobuf.AbstractParser<HeartbeatRequest>() {
+    @java.lang.Override
     public HeartbeatRequest parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -1597,6 +1679,7 @@ private static final long serialVersionUID = 0L;
     return PARSER;
   }
 
+  @java.lang.Override
   public org.apache.rocketmq.proto.HeartbeatRequest getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }

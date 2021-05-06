@@ -6,7 +6,7 @@ package org.apache.rocketmq.proto;
 /**
  * Protobuf type {@code rocketmq.rpc.api.TopicRouteData}
  */
-public  final class TopicRouteData extends
+public final class TopicRouteData extends
     com.google.protobuf.GeneratedMessageV3 implements
     // @@protoc_insertion_point(message_implements:rocketmq.rpc.api.TopicRouteData)
     TopicRouteDataOrBuilder {
@@ -19,6 +19,13 @@ private static final long serialVersionUID = 0L;
     orderTopicConfiguration_ = "";
     queueData_ = java.util.Collections.emptyList();
     brokerData_ = java.util.Collections.emptyList();
+  }
+
+  @java.lang.Override
+  @SuppressWarnings({"unused"})
+  protected java.lang.Object newInstance(
+      UnusedPrivateParameter unused) {
+    return new TopicRouteData();
   }
 
   @java.lang.Override
@@ -45,13 +52,6 @@ private static final long serialVersionUID = 0L;
           case 0:
             done = true;
             break;
-          default: {
-            if (!parseUnknownFieldProto3(
-                input, unknownFields, extensionRegistry, tag)) {
-              done = true;
-            }
-            break;
-          }
           case 10: {
             java.lang.String s = input.readStringRequireUtf8();
 
@@ -59,34 +59,41 @@ private static final long serialVersionUID = 0L;
             break;
           }
           case 18: {
-            if (!((mutable_bitField0_ & 0x00000002) == 0x00000002)) {
+            if (!((mutable_bitField0_ & 0x00000001) != 0)) {
               queueData_ = new java.util.ArrayList<org.apache.rocketmq.proto.QueueData>();
-              mutable_bitField0_ |= 0x00000002;
+              mutable_bitField0_ |= 0x00000001;
             }
             queueData_.add(
                 input.readMessage(org.apache.rocketmq.proto.QueueData.parser(), extensionRegistry));
             break;
           }
           case 26: {
-            if (!((mutable_bitField0_ & 0x00000004) == 0x00000004)) {
+            if (!((mutable_bitField0_ & 0x00000002) != 0)) {
               brokerData_ = new java.util.ArrayList<org.apache.rocketmq.proto.BrokerData>();
-              mutable_bitField0_ |= 0x00000004;
+              mutable_bitField0_ |= 0x00000002;
             }
             brokerData_.add(
                 input.readMessage(org.apache.rocketmq.proto.BrokerData.parser(), extensionRegistry));
             break;
           }
           case 34: {
-            if (!((mutable_bitField0_ & 0x00000008) == 0x00000008)) {
+            if (!((mutable_bitField0_ & 0x00000004) != 0)) {
               filterServerAddresses_ = com.google.protobuf.MapField.newMapField(
                   FilterServerAddressesDefaultEntryHolder.defaultEntry);
-              mutable_bitField0_ |= 0x00000008;
+              mutable_bitField0_ |= 0x00000004;
             }
             com.google.protobuf.MapEntry<java.lang.String, org.apache.rocketmq.proto.FilterServerAddress>
             filterServerAddresses__ = input.readMessage(
                 FilterServerAddressesDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
             filterServerAddresses_.getMutableMap().put(
                 filterServerAddresses__.getKey(), filterServerAddresses__.getValue());
+            break;
+          }
+          default: {
+            if (!parseUnknownField(
+                input, unknownFields, extensionRegistry, tag)) {
+              done = true;
+            }
             break;
           }
         }
@@ -97,10 +104,10 @@ private static final long serialVersionUID = 0L;
       throw new com.google.protobuf.InvalidProtocolBufferException(
           e).setUnfinishedMessage(this);
     } finally {
-      if (((mutable_bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((mutable_bitField0_ & 0x00000001) != 0)) {
         queueData_ = java.util.Collections.unmodifiableList(queueData_);
       }
-      if (((mutable_bitField0_ & 0x00000004) == 0x00000004)) {
+      if (((mutable_bitField0_ & 0x00000002) != 0)) {
         brokerData_ = java.util.Collections.unmodifiableList(brokerData_);
       }
       this.unknownFields = unknownFields.build();
@@ -113,6 +120,7 @@ private static final long serialVersionUID = 0L;
   }
 
   @SuppressWarnings({"rawtypes"})
+  @java.lang.Override
   protected com.google.protobuf.MapField internalGetMapField(
       int number) {
     switch (number) {
@@ -123,6 +131,7 @@ private static final long serialVersionUID = 0L;
             "Invalid map field number: " + number);
     }
   }
+  @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
     return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_TopicRouteData_fieldAccessorTable
@@ -130,12 +139,13 @@ private static final long serialVersionUID = 0L;
             org.apache.rocketmq.proto.TopicRouteData.class, org.apache.rocketmq.proto.TopicRouteData.Builder.class);
   }
 
-  private int bitField0_;
   public static final int ORDER_TOPIC_CONFIGURATION_FIELD_NUMBER = 1;
   private volatile java.lang.Object orderTopicConfiguration_;
   /**
    * <code>string order_topic_configuration = 1;</code>
+   * @return The orderTopicConfiguration.
    */
+  @java.lang.Override
   public java.lang.String getOrderTopicConfiguration() {
     java.lang.Object ref = orderTopicConfiguration_;
     if (ref instanceof java.lang.String) {
@@ -150,7 +160,9 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <code>string order_topic_configuration = 1;</code>
+   * @return The bytes for orderTopicConfiguration.
    */
+  @java.lang.Override
   public com.google.protobuf.ByteString
       getOrderTopicConfigurationBytes() {
     java.lang.Object ref = orderTopicConfiguration_;
@@ -170,12 +182,14 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>repeated .rocketmq.rpc.api.QueueData queue_data = 2;</code>
    */
+  @java.lang.Override
   public java.util.List<org.apache.rocketmq.proto.QueueData> getQueueDataList() {
     return queueData_;
   }
   /**
    * <code>repeated .rocketmq.rpc.api.QueueData queue_data = 2;</code>
    */
+  @java.lang.Override
   public java.util.List<? extends org.apache.rocketmq.proto.QueueDataOrBuilder> 
       getQueueDataOrBuilderList() {
     return queueData_;
@@ -183,18 +197,21 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>repeated .rocketmq.rpc.api.QueueData queue_data = 2;</code>
    */
+  @java.lang.Override
   public int getQueueDataCount() {
     return queueData_.size();
   }
   /**
    * <code>repeated .rocketmq.rpc.api.QueueData queue_data = 2;</code>
    */
+  @java.lang.Override
   public org.apache.rocketmq.proto.QueueData getQueueData(int index) {
     return queueData_.get(index);
   }
   /**
    * <code>repeated .rocketmq.rpc.api.QueueData queue_data = 2;</code>
    */
+  @java.lang.Override
   public org.apache.rocketmq.proto.QueueDataOrBuilder getQueueDataOrBuilder(
       int index) {
     return queueData_.get(index);
@@ -205,12 +222,14 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>repeated .rocketmq.rpc.api.BrokerData broker_data = 3;</code>
    */
+  @java.lang.Override
   public java.util.List<org.apache.rocketmq.proto.BrokerData> getBrokerDataList() {
     return brokerData_;
   }
   /**
    * <code>repeated .rocketmq.rpc.api.BrokerData broker_data = 3;</code>
    */
+  @java.lang.Override
   public java.util.List<? extends org.apache.rocketmq.proto.BrokerDataOrBuilder> 
       getBrokerDataOrBuilderList() {
     return brokerData_;
@@ -218,18 +237,21 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>repeated .rocketmq.rpc.api.BrokerData broker_data = 3;</code>
    */
+  @java.lang.Override
   public int getBrokerDataCount() {
     return brokerData_.size();
   }
   /**
    * <code>repeated .rocketmq.rpc.api.BrokerData broker_data = 3;</code>
    */
+  @java.lang.Override
   public org.apache.rocketmq.proto.BrokerData getBrokerData(int index) {
     return brokerData_.get(index);
   }
   /**
    * <code>repeated .rocketmq.rpc.api.BrokerData broker_data = 3;</code>
    */
+  @java.lang.Override
   public org.apache.rocketmq.proto.BrokerDataOrBuilder getBrokerDataOrBuilder(
       int index) {
     return brokerData_.get(index);
@@ -265,6 +287,7 @@ private static final long serialVersionUID = 0L;
    * <code>map&lt;string, .rocketmq.rpc.api.FilterServerAddress&gt; filter_server_addresses = 4;</code>
    */
 
+  @java.lang.Override
   public boolean containsFilterServerAddresses(
       java.lang.String key) {
     if (key == null) { throw new java.lang.NullPointerException(); }
@@ -273,6 +296,7 @@ private static final long serialVersionUID = 0L;
   /**
    * Use {@link #getFilterServerAddressesMap()} instead.
    */
+  @java.lang.Override
   @java.lang.Deprecated
   public java.util.Map<java.lang.String, org.apache.rocketmq.proto.FilterServerAddress> getFilterServerAddresses() {
     return getFilterServerAddressesMap();
@@ -280,6 +304,7 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>map&lt;string, .rocketmq.rpc.api.FilterServerAddress&gt; filter_server_addresses = 4;</code>
    */
+  @java.lang.Override
 
   public java.util.Map<java.lang.String, org.apache.rocketmq.proto.FilterServerAddress> getFilterServerAddressesMap() {
     return internalGetFilterServerAddresses().getMap();
@@ -287,6 +312,7 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>map&lt;string, .rocketmq.rpc.api.FilterServerAddress&gt; filter_server_addresses = 4;</code>
    */
+  @java.lang.Override
 
   public org.apache.rocketmq.proto.FilterServerAddress getFilterServerAddressesOrDefault(
       java.lang.String key,
@@ -299,6 +325,7 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>map&lt;string, .rocketmq.rpc.api.FilterServerAddress&gt; filter_server_addresses = 4;</code>
    */
+  @java.lang.Override
 
   public org.apache.rocketmq.proto.FilterServerAddress getFilterServerAddressesOrThrow(
       java.lang.String key) {
@@ -312,6 +339,7 @@ private static final long serialVersionUID = 0L;
   }
 
   private byte memoizedIsInitialized = -1;
+  @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
     if (isInitialized == 1) return true;
@@ -321,6 +349,7 @@ private static final long serialVersionUID = 0L;
     return true;
   }
 
+  @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
     if (!getOrderTopicConfigurationBytes().isEmpty()) {
@@ -341,6 +370,7 @@ private static final long serialVersionUID = 0L;
     unknownFields.writeTo(output);
   }
 
+  @java.lang.Override
   public int getSerializedSize() {
     int size = memoizedSize;
     if (size != -1) return size;
@@ -382,17 +412,16 @@ private static final long serialVersionUID = 0L;
     }
     org.apache.rocketmq.proto.TopicRouteData other = (org.apache.rocketmq.proto.TopicRouteData) obj;
 
-    boolean result = true;
-    result = result && getOrderTopicConfiguration()
-        .equals(other.getOrderTopicConfiguration());
-    result = result && getQueueDataList()
-        .equals(other.getQueueDataList());
-    result = result && getBrokerDataList()
-        .equals(other.getBrokerDataList());
-    result = result && internalGetFilterServerAddresses().equals(
-        other.internalGetFilterServerAddresses());
-    result = result && unknownFields.equals(other.unknownFields);
-    return result;
+    if (!getOrderTopicConfiguration()
+        .equals(other.getOrderTopicConfiguration())) return false;
+    if (!getQueueDataList()
+        .equals(other.getQueueDataList())) return false;
+    if (!getBrokerDataList()
+        .equals(other.getBrokerDataList())) return false;
+    if (!internalGetFilterServerAddresses().equals(
+        other.internalGetFilterServerAddresses())) return false;
+    if (!unknownFields.equals(other.unknownFields)) return false;
+    return true;
   }
 
   @java.lang.Override
@@ -491,6 +520,7 @@ private static final long serialVersionUID = 0L;
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
+  @java.lang.Override
   public Builder newBuilderForType() { return newBuilder(); }
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
@@ -498,6 +528,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder(org.apache.rocketmq.proto.TopicRouteData prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
+  @java.lang.Override
   public Builder toBuilder() {
     return this == DEFAULT_INSTANCE
         ? new Builder() : new Builder().mergeFrom(this);
@@ -543,6 +574,7 @@ private static final long serialVersionUID = 0L;
               "Invalid map field number: " + number);
       }
     }
+    @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_TopicRouteData_fieldAccessorTable
@@ -567,19 +599,20 @@ private static final long serialVersionUID = 0L;
         getBrokerDataFieldBuilder();
       }
     }
+    @java.lang.Override
     public Builder clear() {
       super.clear();
       orderTopicConfiguration_ = "";
 
       if (queueDataBuilder_ == null) {
         queueData_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000002);
+        bitField0_ = (bitField0_ & ~0x00000001);
       } else {
         queueDataBuilder_.clear();
       }
       if (brokerDataBuilder_ == null) {
         brokerData_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000002);
       } else {
         brokerDataBuilder_.clear();
       }
@@ -587,15 +620,18 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_TopicRouteData_descriptor;
     }
 
+    @java.lang.Override
     public org.apache.rocketmq.proto.TopicRouteData getDefaultInstanceForType() {
       return org.apache.rocketmq.proto.TopicRouteData.getDefaultInstance();
     }
 
+    @java.lang.Override
     public org.apache.rocketmq.proto.TopicRouteData build() {
       org.apache.rocketmq.proto.TopicRouteData result = buildPartial();
       if (!result.isInitialized()) {
@@ -604,24 +640,24 @@ private static final long serialVersionUID = 0L;
       return result;
     }
 
+    @java.lang.Override
     public org.apache.rocketmq.proto.TopicRouteData buildPartial() {
       org.apache.rocketmq.proto.TopicRouteData result = new org.apache.rocketmq.proto.TopicRouteData(this);
       int from_bitField0_ = bitField0_;
-      int to_bitField0_ = 0;
       result.orderTopicConfiguration_ = orderTopicConfiguration_;
       if (queueDataBuilder_ == null) {
-        if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        if (((bitField0_ & 0x00000001) != 0)) {
           queueData_ = java.util.Collections.unmodifiableList(queueData_);
-          bitField0_ = (bitField0_ & ~0x00000002);
+          bitField0_ = (bitField0_ & ~0x00000001);
         }
         result.queueData_ = queueData_;
       } else {
         result.queueData_ = queueDataBuilder_.build();
       }
       if (brokerDataBuilder_ == null) {
-        if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        if (((bitField0_ & 0x00000002) != 0)) {
           brokerData_ = java.util.Collections.unmodifiableList(brokerData_);
-          bitField0_ = (bitField0_ & ~0x00000004);
+          bitField0_ = (bitField0_ & ~0x00000002);
         }
         result.brokerData_ = brokerData_;
       } else {
@@ -629,37 +665,43 @@ private static final long serialVersionUID = 0L;
       }
       result.filterServerAddresses_ = internalGetFilterServerAddresses();
       result.filterServerAddresses_.makeImmutable();
-      result.bitField0_ = to_bitField0_;
       onBuilt();
       return result;
     }
 
+    @java.lang.Override
     public Builder clone() {
-      return (Builder) super.clone();
+      return super.clone();
     }
+    @java.lang.Override
     public Builder setField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return (Builder) super.setField(field, value);
+      return super.setField(field, value);
     }
+    @java.lang.Override
     public Builder clearField(
         com.google.protobuf.Descriptors.FieldDescriptor field) {
-      return (Builder) super.clearField(field);
+      return super.clearField(field);
     }
+    @java.lang.Override
     public Builder clearOneof(
         com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-      return (Builder) super.clearOneof(oneof);
+      return super.clearOneof(oneof);
     }
+    @java.lang.Override
     public Builder setRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         int index, java.lang.Object value) {
-      return (Builder) super.setRepeatedField(field, index, value);
+      return super.setRepeatedField(field, index, value);
     }
+    @java.lang.Override
     public Builder addRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return (Builder) super.addRepeatedField(field, value);
+      return super.addRepeatedField(field, value);
     }
+    @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof org.apache.rocketmq.proto.TopicRouteData) {
         return mergeFrom((org.apache.rocketmq.proto.TopicRouteData)other);
@@ -679,7 +721,7 @@ private static final long serialVersionUID = 0L;
         if (!other.queueData_.isEmpty()) {
           if (queueData_.isEmpty()) {
             queueData_ = other.queueData_;
-            bitField0_ = (bitField0_ & ~0x00000002);
+            bitField0_ = (bitField0_ & ~0x00000001);
           } else {
             ensureQueueDataIsMutable();
             queueData_.addAll(other.queueData_);
@@ -692,7 +734,7 @@ private static final long serialVersionUID = 0L;
             queueDataBuilder_.dispose();
             queueDataBuilder_ = null;
             queueData_ = other.queueData_;
-            bitField0_ = (bitField0_ & ~0x00000002);
+            bitField0_ = (bitField0_ & ~0x00000001);
             queueDataBuilder_ = 
               com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
                  getQueueDataFieldBuilder() : null;
@@ -705,7 +747,7 @@ private static final long serialVersionUID = 0L;
         if (!other.brokerData_.isEmpty()) {
           if (brokerData_.isEmpty()) {
             brokerData_ = other.brokerData_;
-            bitField0_ = (bitField0_ & ~0x00000004);
+            bitField0_ = (bitField0_ & ~0x00000002);
           } else {
             ensureBrokerDataIsMutable();
             brokerData_.addAll(other.brokerData_);
@@ -718,7 +760,7 @@ private static final long serialVersionUID = 0L;
             brokerDataBuilder_.dispose();
             brokerDataBuilder_ = null;
             brokerData_ = other.brokerData_;
-            bitField0_ = (bitField0_ & ~0x00000004);
+            bitField0_ = (bitField0_ & ~0x00000002);
             brokerDataBuilder_ = 
               com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
                  getBrokerDataFieldBuilder() : null;
@@ -734,10 +776,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    @java.lang.Override
     public final boolean isInitialized() {
       return true;
     }
 
+    @java.lang.Override
     public Builder mergeFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -760,6 +804,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object orderTopicConfiguration_ = "";
     /**
      * <code>string order_topic_configuration = 1;</code>
+     * @return The orderTopicConfiguration.
      */
     public java.lang.String getOrderTopicConfiguration() {
       java.lang.Object ref = orderTopicConfiguration_;
@@ -775,6 +820,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string order_topic_configuration = 1;</code>
+     * @return The bytes for orderTopicConfiguration.
      */
     public com.google.protobuf.ByteString
         getOrderTopicConfigurationBytes() {
@@ -791,6 +837,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string order_topic_configuration = 1;</code>
+     * @param value The orderTopicConfiguration to set.
+     * @return This builder for chaining.
      */
     public Builder setOrderTopicConfiguration(
         java.lang.String value) {
@@ -804,6 +852,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string order_topic_configuration = 1;</code>
+     * @return This builder for chaining.
      */
     public Builder clearOrderTopicConfiguration() {
       
@@ -813,6 +862,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string order_topic_configuration = 1;</code>
+     * @param value The bytes for orderTopicConfiguration to set.
+     * @return This builder for chaining.
      */
     public Builder setOrderTopicConfigurationBytes(
         com.google.protobuf.ByteString value) {
@@ -829,9 +880,9 @@ private static final long serialVersionUID = 0L;
     private java.util.List<org.apache.rocketmq.proto.QueueData> queueData_ =
       java.util.Collections.emptyList();
     private void ensureQueueDataIsMutable() {
-      if (!((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (!((bitField0_ & 0x00000001) != 0)) {
         queueData_ = new java.util.ArrayList<org.apache.rocketmq.proto.QueueData>(queueData_);
-        bitField0_ |= 0x00000002;
+        bitField0_ |= 0x00000001;
        }
     }
 
@@ -981,7 +1032,7 @@ private static final long serialVersionUID = 0L;
     public Builder clearQueueData() {
       if (queueDataBuilder_ == null) {
         queueData_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000002);
+        bitField0_ = (bitField0_ & ~0x00000001);
         onChanged();
       } else {
         queueDataBuilder_.clear();
@@ -1058,7 +1109,7 @@ private static final long serialVersionUID = 0L;
         queueDataBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
             org.apache.rocketmq.proto.QueueData, org.apache.rocketmq.proto.QueueData.Builder, org.apache.rocketmq.proto.QueueDataOrBuilder>(
                 queueData_,
-                ((bitField0_ & 0x00000002) == 0x00000002),
+                ((bitField0_ & 0x00000001) != 0),
                 getParentForChildren(),
                 isClean());
         queueData_ = null;
@@ -1069,9 +1120,9 @@ private static final long serialVersionUID = 0L;
     private java.util.List<org.apache.rocketmq.proto.BrokerData> brokerData_ =
       java.util.Collections.emptyList();
     private void ensureBrokerDataIsMutable() {
-      if (!((bitField0_ & 0x00000004) == 0x00000004)) {
+      if (!((bitField0_ & 0x00000002) != 0)) {
         brokerData_ = new java.util.ArrayList<org.apache.rocketmq.proto.BrokerData>(brokerData_);
-        bitField0_ |= 0x00000004;
+        bitField0_ |= 0x00000002;
        }
     }
 
@@ -1221,7 +1272,7 @@ private static final long serialVersionUID = 0L;
     public Builder clearBrokerData() {
       if (brokerDataBuilder_ == null) {
         brokerData_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000002);
         onChanged();
       } else {
         brokerDataBuilder_.clear();
@@ -1298,7 +1349,7 @@ private static final long serialVersionUID = 0L;
         brokerDataBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
             org.apache.rocketmq.proto.BrokerData, org.apache.rocketmq.proto.BrokerData.Builder, org.apache.rocketmq.proto.BrokerDataOrBuilder>(
                 brokerData_,
-                ((bitField0_ & 0x00000004) == 0x00000004),
+                ((bitField0_ & 0x00000002) != 0),
                 getParentForChildren(),
                 isClean());
         brokerData_ = null;
@@ -1336,6 +1387,7 @@ private static final long serialVersionUID = 0L;
      * <code>map&lt;string, .rocketmq.rpc.api.FilterServerAddress&gt; filter_server_addresses = 4;</code>
      */
 
+    @java.lang.Override
     public boolean containsFilterServerAddresses(
         java.lang.String key) {
       if (key == null) { throw new java.lang.NullPointerException(); }
@@ -1344,6 +1396,7 @@ private static final long serialVersionUID = 0L;
     /**
      * Use {@link #getFilterServerAddressesMap()} instead.
      */
+    @java.lang.Override
     @java.lang.Deprecated
     public java.util.Map<java.lang.String, org.apache.rocketmq.proto.FilterServerAddress> getFilterServerAddresses() {
       return getFilterServerAddressesMap();
@@ -1351,6 +1404,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>map&lt;string, .rocketmq.rpc.api.FilterServerAddress&gt; filter_server_addresses = 4;</code>
      */
+    @java.lang.Override
 
     public java.util.Map<java.lang.String, org.apache.rocketmq.proto.FilterServerAddress> getFilterServerAddressesMap() {
       return internalGetFilterServerAddresses().getMap();
@@ -1358,6 +1412,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>map&lt;string, .rocketmq.rpc.api.FilterServerAddress&gt; filter_server_addresses = 4;</code>
      */
+    @java.lang.Override
 
     public org.apache.rocketmq.proto.FilterServerAddress getFilterServerAddressesOrDefault(
         java.lang.String key,
@@ -1370,6 +1425,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>map&lt;string, .rocketmq.rpc.api.FilterServerAddress&gt; filter_server_addresses = 4;</code>
      */
+    @java.lang.Override
 
     public org.apache.rocketmq.proto.FilterServerAddress getFilterServerAddressesOrThrow(
         java.lang.String key) {
@@ -1428,11 +1484,13 @@ private static final long serialVersionUID = 0L;
           .putAll(values);
       return this;
     }
+    @java.lang.Override
     public final Builder setUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
-      return super.setUnknownFieldsProto3(unknownFields);
+      return super.setUnknownFields(unknownFields);
     }
 
+    @java.lang.Override
     public final Builder mergeUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.mergeUnknownFields(unknownFields);
@@ -1454,6 +1512,7 @@ private static final long serialVersionUID = 0L;
 
   private static final com.google.protobuf.Parser<TopicRouteData>
       PARSER = new com.google.protobuf.AbstractParser<TopicRouteData>() {
+    @java.lang.Override
     public TopicRouteData parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -1471,6 +1530,7 @@ private static final long serialVersionUID = 0L;
     return PARSER;
   }
 
+  @java.lang.Override
   public org.apache.rocketmq.proto.TopicRouteData getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }

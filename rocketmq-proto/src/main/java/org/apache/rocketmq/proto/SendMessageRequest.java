@@ -6,7 +6,7 @@ package org.apache.rocketmq.proto;
 /**
  * Protobuf type {@code rocketmq.rpc.api.SendMessageRequest}
  */
-public  final class SendMessageRequest extends
+public final class SendMessageRequest extends
     com.google.protobuf.GeneratedMessageV3 implements
     // @@protoc_insertion_point(message_implements:rocketmq.rpc.api.SendMessageRequest)
     SendMessageRequestOrBuilder {
@@ -18,16 +18,14 @@ private static final long serialVersionUID = 0L;
   private SendMessageRequest() {
     producerGroup_ = "";
     defaultTopic_ = "";
-    defaultTopicQueueNumber_ = 0;
-    queueId_ = 0;
-    systemFlag_ = 0;
-    bornTimestamp_ = 0L;
-    reconsumeTimes_ = 0;
-    unitMode_ = false;
-    batch_ = false;
-    maxReconsumeTime_ = 0;
-    sysFlag_ = 0;
     brokerName_ = "";
+  }
+
+  @java.lang.Override
+  @SuppressWarnings({"unused"})
+  protected java.lang.Object newInstance(
+      UnusedPrivateParameter unused) {
+    return new SendMessageRequest();
   }
 
   @java.lang.Override
@@ -43,7 +41,6 @@ private static final long serialVersionUID = 0L;
     if (extensionRegistry == null) {
       throw new java.lang.NullPointerException();
     }
-    int mutable_bitField0_ = 0;
     com.google.protobuf.UnknownFieldSet.Builder unknownFields =
         com.google.protobuf.UnknownFieldSet.newBuilder();
     try {
@@ -54,13 +51,6 @@ private static final long serialVersionUID = 0L;
           case 0:
             done = true;
             break;
-          default: {
-            if (!parseUnknownFieldProto3(
-                input, unknownFields, extensionRegistry, tag)) {
-              done = true;
-            }
-            break;
-          }
           case 10: {
             java.lang.String s = input.readStringRequireUtf8();
 
@@ -137,6 +127,13 @@ private static final long serialVersionUID = 0L;
             brokerName_ = s;
             break;
           }
+          default: {
+            if (!parseUnknownField(
+                input, unknownFields, extensionRegistry, tag)) {
+              done = true;
+            }
+            break;
+          }
         }
       }
     } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -154,6 +151,7 @@ private static final long serialVersionUID = 0L;
     return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_SendMessageRequest_descriptor;
   }
 
+  @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
     return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_SendMessageRequest_fieldAccessorTable
@@ -165,7 +163,9 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object producerGroup_;
   /**
    * <code>string producer_group = 1;</code>
+   * @return The producerGroup.
    */
+  @java.lang.Override
   public java.lang.String getProducerGroup() {
     java.lang.Object ref = producerGroup_;
     if (ref instanceof java.lang.String) {
@@ -180,7 +180,9 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <code>string producer_group = 1;</code>
+   * @return The bytes for producerGroup.
    */
+  @java.lang.Override
   public com.google.protobuf.ByteString
       getProducerGroupBytes() {
     java.lang.Object ref = producerGroup_;
@@ -199,7 +201,9 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object defaultTopic_;
   /**
    * <code>string default_topic = 2;</code>
+   * @return The defaultTopic.
    */
+  @java.lang.Override
   public java.lang.String getDefaultTopic() {
     java.lang.Object ref = defaultTopic_;
     if (ref instanceof java.lang.String) {
@@ -214,7 +218,9 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <code>string default_topic = 2;</code>
+   * @return The bytes for defaultTopic.
    */
+  @java.lang.Override
   public com.google.protobuf.ByteString
       getDefaultTopicBytes() {
     java.lang.Object ref = defaultTopic_;
@@ -233,7 +239,9 @@ private static final long serialVersionUID = 0L;
   private int defaultTopicQueueNumber_;
   /**
    * <code>int32 default_topic_queue_number = 3;</code>
+   * @return The defaultTopicQueueNumber.
    */
+  @java.lang.Override
   public int getDefaultTopicQueueNumber() {
     return defaultTopicQueueNumber_;
   }
@@ -242,7 +250,9 @@ private static final long serialVersionUID = 0L;
   private int queueId_;
   /**
    * <code>int32 queue_id = 4;</code>
+   * @return The queueId.
    */
+  @java.lang.Override
   public int getQueueId() {
     return queueId_;
   }
@@ -251,7 +261,9 @@ private static final long serialVersionUID = 0L;
   private int systemFlag_;
   /**
    * <code>int32 system_flag = 5;</code>
+   * @return The systemFlag.
    */
+  @java.lang.Override
   public int getSystemFlag() {
     return systemFlag_;
   }
@@ -260,7 +272,9 @@ private static final long serialVersionUID = 0L;
   private long bornTimestamp_;
   /**
    * <code>int64 born_timestamp = 6;</code>
+   * @return The bornTimestamp.
    */
+  @java.lang.Override
   public long getBornTimestamp() {
     return bornTimestamp_;
   }
@@ -269,7 +283,9 @@ private static final long serialVersionUID = 0L;
   private int reconsumeTimes_;
   /**
    * <code>int32 reconsume_times = 7;</code>
+   * @return The reconsumeTimes.
    */
+  @java.lang.Override
   public int getReconsumeTimes() {
     return reconsumeTimes_;
   }
@@ -278,7 +294,9 @@ private static final long serialVersionUID = 0L;
   private boolean unitMode_;
   /**
    * <code>bool unit_mode = 8;</code>
+   * @return The unitMode.
    */
+  @java.lang.Override
   public boolean getUnitMode() {
     return unitMode_;
   }
@@ -287,7 +305,9 @@ private static final long serialVersionUID = 0L;
   private boolean batch_;
   /**
    * <code>bool batch = 9;</code>
+   * @return The batch.
    */
+  @java.lang.Override
   public boolean getBatch() {
     return batch_;
   }
@@ -296,7 +316,9 @@ private static final long serialVersionUID = 0L;
   private int maxReconsumeTime_;
   /**
    * <code>int32 max_reconsume_time = 10;</code>
+   * @return The maxReconsumeTime.
    */
+  @java.lang.Override
   public int getMaxReconsumeTime() {
     return maxReconsumeTime_;
   }
@@ -305,7 +327,9 @@ private static final long serialVersionUID = 0L;
   private int sysFlag_;
   /**
    * <code>int32 sys_flag = 11;</code>
+   * @return The sysFlag.
    */
+  @java.lang.Override
   public int getSysFlag() {
     return sysFlag_;
   }
@@ -314,19 +338,24 @@ private static final long serialVersionUID = 0L;
   private org.apache.rocketmq.proto.Message message_;
   /**
    * <code>.rocketmq.rpc.api.Message message = 12;</code>
+   * @return Whether the message field is set.
    */
+  @java.lang.Override
   public boolean hasMessage() {
     return message_ != null;
   }
   /**
    * <code>.rocketmq.rpc.api.Message message = 12;</code>
+   * @return The message.
    */
+  @java.lang.Override
   public org.apache.rocketmq.proto.Message getMessage() {
     return message_ == null ? org.apache.rocketmq.proto.Message.getDefaultInstance() : message_;
   }
   /**
    * <code>.rocketmq.rpc.api.Message message = 12;</code>
    */
+  @java.lang.Override
   public org.apache.rocketmq.proto.MessageOrBuilder getMessageOrBuilder() {
     return getMessage();
   }
@@ -335,7 +364,9 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object brokerName_;
   /**
    * <code>string broker_name = 13;</code>
+   * @return The brokerName.
    */
+  @java.lang.Override
   public java.lang.String getBrokerName() {
     java.lang.Object ref = brokerName_;
     if (ref instanceof java.lang.String) {
@@ -350,7 +381,9 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <code>string broker_name = 13;</code>
+   * @return The bytes for brokerName.
    */
+  @java.lang.Override
   public com.google.protobuf.ByteString
       getBrokerNameBytes() {
     java.lang.Object ref = brokerName_;
@@ -366,6 +399,7 @@ private static final long serialVersionUID = 0L;
   }
 
   private byte memoizedIsInitialized = -1;
+  @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
     if (isInitialized == 1) return true;
@@ -375,6 +409,7 @@ private static final long serialVersionUID = 0L;
     return true;
   }
 
+  @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
     if (!getProducerGroupBytes().isEmpty()) {
@@ -419,6 +454,7 @@ private static final long serialVersionUID = 0L;
     unknownFields.writeTo(output);
   }
 
+  @java.lang.Override
   public int getSerializedSize() {
     int size = memoizedSize;
     if (size != -1) return size;
@@ -488,38 +524,37 @@ private static final long serialVersionUID = 0L;
     }
     org.apache.rocketmq.proto.SendMessageRequest other = (org.apache.rocketmq.proto.SendMessageRequest) obj;
 
-    boolean result = true;
-    result = result && getProducerGroup()
-        .equals(other.getProducerGroup());
-    result = result && getDefaultTopic()
-        .equals(other.getDefaultTopic());
-    result = result && (getDefaultTopicQueueNumber()
-        == other.getDefaultTopicQueueNumber());
-    result = result && (getQueueId()
-        == other.getQueueId());
-    result = result && (getSystemFlag()
-        == other.getSystemFlag());
-    result = result && (getBornTimestamp()
-        == other.getBornTimestamp());
-    result = result && (getReconsumeTimes()
-        == other.getReconsumeTimes());
-    result = result && (getUnitMode()
-        == other.getUnitMode());
-    result = result && (getBatch()
-        == other.getBatch());
-    result = result && (getMaxReconsumeTime()
-        == other.getMaxReconsumeTime());
-    result = result && (getSysFlag()
-        == other.getSysFlag());
-    result = result && (hasMessage() == other.hasMessage());
+    if (!getProducerGroup()
+        .equals(other.getProducerGroup())) return false;
+    if (!getDefaultTopic()
+        .equals(other.getDefaultTopic())) return false;
+    if (getDefaultTopicQueueNumber()
+        != other.getDefaultTopicQueueNumber()) return false;
+    if (getQueueId()
+        != other.getQueueId()) return false;
+    if (getSystemFlag()
+        != other.getSystemFlag()) return false;
+    if (getBornTimestamp()
+        != other.getBornTimestamp()) return false;
+    if (getReconsumeTimes()
+        != other.getReconsumeTimes()) return false;
+    if (getUnitMode()
+        != other.getUnitMode()) return false;
+    if (getBatch()
+        != other.getBatch()) return false;
+    if (getMaxReconsumeTime()
+        != other.getMaxReconsumeTime()) return false;
+    if (getSysFlag()
+        != other.getSysFlag()) return false;
+    if (hasMessage() != other.hasMessage()) return false;
     if (hasMessage()) {
-      result = result && getMessage()
-          .equals(other.getMessage());
+      if (!getMessage()
+          .equals(other.getMessage())) return false;
     }
-    result = result && getBrokerName()
-        .equals(other.getBrokerName());
-    result = result && unknownFields.equals(other.unknownFields);
-    return result;
+    if (!getBrokerName()
+        .equals(other.getBrokerName())) return false;
+    if (!unknownFields.equals(other.unknownFields)) return false;
+    return true;
   }
 
   @java.lang.Override
@@ -635,6 +670,7 @@ private static final long serialVersionUID = 0L;
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
+  @java.lang.Override
   public Builder newBuilderForType() { return newBuilder(); }
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
@@ -642,6 +678,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder(org.apache.rocketmq.proto.SendMessageRequest prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
+  @java.lang.Override
   public Builder toBuilder() {
     return this == DEFAULT_INSTANCE
         ? new Builder() : new Builder().mergeFrom(this);
@@ -665,6 +702,7 @@ private static final long serialVersionUID = 0L;
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_SendMessageRequest_descriptor;
     }
 
+    @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_SendMessageRequest_fieldAccessorTable
@@ -687,6 +725,7 @@ private static final long serialVersionUID = 0L;
               .alwaysUseFieldBuilders) {
       }
     }
+    @java.lang.Override
     public Builder clear() {
       super.clear();
       producerGroup_ = "";
@@ -722,15 +761,18 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_SendMessageRequest_descriptor;
     }
 
+    @java.lang.Override
     public org.apache.rocketmq.proto.SendMessageRequest getDefaultInstanceForType() {
       return org.apache.rocketmq.proto.SendMessageRequest.getDefaultInstance();
     }
 
+    @java.lang.Override
     public org.apache.rocketmq.proto.SendMessageRequest build() {
       org.apache.rocketmq.proto.SendMessageRequest result = buildPartial();
       if (!result.isInitialized()) {
@@ -739,6 +781,7 @@ private static final long serialVersionUID = 0L;
       return result;
     }
 
+    @java.lang.Override
     public org.apache.rocketmq.proto.SendMessageRequest buildPartial() {
       org.apache.rocketmq.proto.SendMessageRequest result = new org.apache.rocketmq.proto.SendMessageRequest(this);
       result.producerGroup_ = producerGroup_;
@@ -762,32 +805,39 @@ private static final long serialVersionUID = 0L;
       return result;
     }
 
+    @java.lang.Override
     public Builder clone() {
-      return (Builder) super.clone();
+      return super.clone();
     }
+    @java.lang.Override
     public Builder setField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return (Builder) super.setField(field, value);
+      return super.setField(field, value);
     }
+    @java.lang.Override
     public Builder clearField(
         com.google.protobuf.Descriptors.FieldDescriptor field) {
-      return (Builder) super.clearField(field);
+      return super.clearField(field);
     }
+    @java.lang.Override
     public Builder clearOneof(
         com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-      return (Builder) super.clearOneof(oneof);
+      return super.clearOneof(oneof);
     }
+    @java.lang.Override
     public Builder setRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         int index, java.lang.Object value) {
-      return (Builder) super.setRepeatedField(field, index, value);
+      return super.setRepeatedField(field, index, value);
     }
+    @java.lang.Override
     public Builder addRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return (Builder) super.addRepeatedField(field, value);
+      return super.addRepeatedField(field, value);
     }
+    @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof org.apache.rocketmq.proto.SendMessageRequest) {
         return mergeFrom((org.apache.rocketmq.proto.SendMessageRequest)other);
@@ -846,10 +896,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    @java.lang.Override
     public final boolean isInitialized() {
       return true;
     }
 
+    @java.lang.Override
     public Builder mergeFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -871,6 +923,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object producerGroup_ = "";
     /**
      * <code>string producer_group = 1;</code>
+     * @return The producerGroup.
      */
     public java.lang.String getProducerGroup() {
       java.lang.Object ref = producerGroup_;
@@ -886,6 +939,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string producer_group = 1;</code>
+     * @return The bytes for producerGroup.
      */
     public com.google.protobuf.ByteString
         getProducerGroupBytes() {
@@ -902,6 +956,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string producer_group = 1;</code>
+     * @param value The producerGroup to set.
+     * @return This builder for chaining.
      */
     public Builder setProducerGroup(
         java.lang.String value) {
@@ -915,6 +971,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string producer_group = 1;</code>
+     * @return This builder for chaining.
      */
     public Builder clearProducerGroup() {
       
@@ -924,6 +981,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string producer_group = 1;</code>
+     * @param value The bytes for producerGroup to set.
+     * @return This builder for chaining.
      */
     public Builder setProducerGroupBytes(
         com.google.protobuf.ByteString value) {
@@ -940,6 +999,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object defaultTopic_ = "";
     /**
      * <code>string default_topic = 2;</code>
+     * @return The defaultTopic.
      */
     public java.lang.String getDefaultTopic() {
       java.lang.Object ref = defaultTopic_;
@@ -955,6 +1015,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string default_topic = 2;</code>
+     * @return The bytes for defaultTopic.
      */
     public com.google.protobuf.ByteString
         getDefaultTopicBytes() {
@@ -971,6 +1032,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string default_topic = 2;</code>
+     * @param value The defaultTopic to set.
+     * @return This builder for chaining.
      */
     public Builder setDefaultTopic(
         java.lang.String value) {
@@ -984,6 +1047,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string default_topic = 2;</code>
+     * @return This builder for chaining.
      */
     public Builder clearDefaultTopic() {
       
@@ -993,6 +1057,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string default_topic = 2;</code>
+     * @param value The bytes for defaultTopic to set.
+     * @return This builder for chaining.
      */
     public Builder setDefaultTopicBytes(
         com.google.protobuf.ByteString value) {
@@ -1009,12 +1075,16 @@ private static final long serialVersionUID = 0L;
     private int defaultTopicQueueNumber_ ;
     /**
      * <code>int32 default_topic_queue_number = 3;</code>
+     * @return The defaultTopicQueueNumber.
      */
+    @java.lang.Override
     public int getDefaultTopicQueueNumber() {
       return defaultTopicQueueNumber_;
     }
     /**
      * <code>int32 default_topic_queue_number = 3;</code>
+     * @param value The defaultTopicQueueNumber to set.
+     * @return This builder for chaining.
      */
     public Builder setDefaultTopicQueueNumber(int value) {
       
@@ -1024,6 +1094,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>int32 default_topic_queue_number = 3;</code>
+     * @return This builder for chaining.
      */
     public Builder clearDefaultTopicQueueNumber() {
       
@@ -1035,12 +1106,16 @@ private static final long serialVersionUID = 0L;
     private int queueId_ ;
     /**
      * <code>int32 queue_id = 4;</code>
+     * @return The queueId.
      */
+    @java.lang.Override
     public int getQueueId() {
       return queueId_;
     }
     /**
      * <code>int32 queue_id = 4;</code>
+     * @param value The queueId to set.
+     * @return This builder for chaining.
      */
     public Builder setQueueId(int value) {
       
@@ -1050,6 +1125,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>int32 queue_id = 4;</code>
+     * @return This builder for chaining.
      */
     public Builder clearQueueId() {
       
@@ -1061,12 +1137,16 @@ private static final long serialVersionUID = 0L;
     private int systemFlag_ ;
     /**
      * <code>int32 system_flag = 5;</code>
+     * @return The systemFlag.
      */
+    @java.lang.Override
     public int getSystemFlag() {
       return systemFlag_;
     }
     /**
      * <code>int32 system_flag = 5;</code>
+     * @param value The systemFlag to set.
+     * @return This builder for chaining.
      */
     public Builder setSystemFlag(int value) {
       
@@ -1076,6 +1156,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>int32 system_flag = 5;</code>
+     * @return This builder for chaining.
      */
     public Builder clearSystemFlag() {
       
@@ -1087,12 +1168,16 @@ private static final long serialVersionUID = 0L;
     private long bornTimestamp_ ;
     /**
      * <code>int64 born_timestamp = 6;</code>
+     * @return The bornTimestamp.
      */
+    @java.lang.Override
     public long getBornTimestamp() {
       return bornTimestamp_;
     }
     /**
      * <code>int64 born_timestamp = 6;</code>
+     * @param value The bornTimestamp to set.
+     * @return This builder for chaining.
      */
     public Builder setBornTimestamp(long value) {
       
@@ -1102,6 +1187,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>int64 born_timestamp = 6;</code>
+     * @return This builder for chaining.
      */
     public Builder clearBornTimestamp() {
       
@@ -1113,12 +1199,16 @@ private static final long serialVersionUID = 0L;
     private int reconsumeTimes_ ;
     /**
      * <code>int32 reconsume_times = 7;</code>
+     * @return The reconsumeTimes.
      */
+    @java.lang.Override
     public int getReconsumeTimes() {
       return reconsumeTimes_;
     }
     /**
      * <code>int32 reconsume_times = 7;</code>
+     * @param value The reconsumeTimes to set.
+     * @return This builder for chaining.
      */
     public Builder setReconsumeTimes(int value) {
       
@@ -1128,6 +1218,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>int32 reconsume_times = 7;</code>
+     * @return This builder for chaining.
      */
     public Builder clearReconsumeTimes() {
       
@@ -1139,12 +1230,16 @@ private static final long serialVersionUID = 0L;
     private boolean unitMode_ ;
     /**
      * <code>bool unit_mode = 8;</code>
+     * @return The unitMode.
      */
+    @java.lang.Override
     public boolean getUnitMode() {
       return unitMode_;
     }
     /**
      * <code>bool unit_mode = 8;</code>
+     * @param value The unitMode to set.
+     * @return This builder for chaining.
      */
     public Builder setUnitMode(boolean value) {
       
@@ -1154,6 +1249,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>bool unit_mode = 8;</code>
+     * @return This builder for chaining.
      */
     public Builder clearUnitMode() {
       
@@ -1165,12 +1261,16 @@ private static final long serialVersionUID = 0L;
     private boolean batch_ ;
     /**
      * <code>bool batch = 9;</code>
+     * @return The batch.
      */
+    @java.lang.Override
     public boolean getBatch() {
       return batch_;
     }
     /**
      * <code>bool batch = 9;</code>
+     * @param value The batch to set.
+     * @return This builder for chaining.
      */
     public Builder setBatch(boolean value) {
       
@@ -1180,6 +1280,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>bool batch = 9;</code>
+     * @return This builder for chaining.
      */
     public Builder clearBatch() {
       
@@ -1191,12 +1292,16 @@ private static final long serialVersionUID = 0L;
     private int maxReconsumeTime_ ;
     /**
      * <code>int32 max_reconsume_time = 10;</code>
+     * @return The maxReconsumeTime.
      */
+    @java.lang.Override
     public int getMaxReconsumeTime() {
       return maxReconsumeTime_;
     }
     /**
      * <code>int32 max_reconsume_time = 10;</code>
+     * @param value The maxReconsumeTime to set.
+     * @return This builder for chaining.
      */
     public Builder setMaxReconsumeTime(int value) {
       
@@ -1206,6 +1311,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>int32 max_reconsume_time = 10;</code>
+     * @return This builder for chaining.
      */
     public Builder clearMaxReconsumeTime() {
       
@@ -1217,12 +1323,16 @@ private static final long serialVersionUID = 0L;
     private int sysFlag_ ;
     /**
      * <code>int32 sys_flag = 11;</code>
+     * @return The sysFlag.
      */
+    @java.lang.Override
     public int getSysFlag() {
       return sysFlag_;
     }
     /**
      * <code>int32 sys_flag = 11;</code>
+     * @param value The sysFlag to set.
+     * @return This builder for chaining.
      */
     public Builder setSysFlag(int value) {
       
@@ -1232,6 +1342,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>int32 sys_flag = 11;</code>
+     * @return This builder for chaining.
      */
     public Builder clearSysFlag() {
       
@@ -1240,17 +1351,19 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private org.apache.rocketmq.proto.Message message_ = null;
+    private org.apache.rocketmq.proto.Message message_;
     private com.google.protobuf.SingleFieldBuilderV3<
         org.apache.rocketmq.proto.Message, org.apache.rocketmq.proto.Message.Builder, org.apache.rocketmq.proto.MessageOrBuilder> messageBuilder_;
     /**
      * <code>.rocketmq.rpc.api.Message message = 12;</code>
+     * @return Whether the message field is set.
      */
     public boolean hasMessage() {
       return messageBuilder_ != null || message_ != null;
     }
     /**
      * <code>.rocketmq.rpc.api.Message message = 12;</code>
+     * @return The message.
      */
     public org.apache.rocketmq.proto.Message getMessage() {
       if (messageBuilder_ == null) {
@@ -1360,6 +1473,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object brokerName_ = "";
     /**
      * <code>string broker_name = 13;</code>
+     * @return The brokerName.
      */
     public java.lang.String getBrokerName() {
       java.lang.Object ref = brokerName_;
@@ -1375,6 +1489,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string broker_name = 13;</code>
+     * @return The bytes for brokerName.
      */
     public com.google.protobuf.ByteString
         getBrokerNameBytes() {
@@ -1391,6 +1506,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string broker_name = 13;</code>
+     * @param value The brokerName to set.
+     * @return This builder for chaining.
      */
     public Builder setBrokerName(
         java.lang.String value) {
@@ -1404,6 +1521,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string broker_name = 13;</code>
+     * @return This builder for chaining.
      */
     public Builder clearBrokerName() {
       
@@ -1413,6 +1531,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>string broker_name = 13;</code>
+     * @param value The bytes for brokerName to set.
+     * @return This builder for chaining.
      */
     public Builder setBrokerNameBytes(
         com.google.protobuf.ByteString value) {
@@ -1425,11 +1545,13 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+    @java.lang.Override
     public final Builder setUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
-      return super.setUnknownFieldsProto3(unknownFields);
+      return super.setUnknownFields(unknownFields);
     }
 
+    @java.lang.Override
     public final Builder mergeUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.mergeUnknownFields(unknownFields);
@@ -1451,6 +1573,7 @@ private static final long serialVersionUID = 0L;
 
   private static final com.google.protobuf.Parser<SendMessageRequest>
       PARSER = new com.google.protobuf.AbstractParser<SendMessageRequest>() {
+    @java.lang.Override
     public SendMessageRequest parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -1468,6 +1591,7 @@ private static final long serialVersionUID = 0L;
     return PARSER;
   }
 
+  @java.lang.Override
   public org.apache.rocketmq.proto.SendMessageRequest getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }

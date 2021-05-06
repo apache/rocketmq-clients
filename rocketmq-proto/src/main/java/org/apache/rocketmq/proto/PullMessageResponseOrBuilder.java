@@ -9,21 +9,25 @@ public interface PullMessageResponseOrBuilder extends
 
   /**
    * <code>int64 suggest_broker_id = 1;</code>
+   * @return The suggestBrokerId.
    */
   long getSuggestBrokerId();
 
   /**
    * <code>int64 next_begin_offset = 2;</code>
+   * @return The nextBeginOffset.
    */
   long getNextBeginOffset();
 
   /**
    * <code>int64 min_offset = 3;</code>
+   * @return The minOffset.
    */
   long getMinOffset();
 
   /**
    * <code>int64 max_offset = 4;</code>
+   * @return The maxOffset.
    */
   long getMaxOffset();
 

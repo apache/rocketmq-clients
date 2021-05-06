@@ -9,38 +9,46 @@ public interface ConsumeDataOrBuilder extends
 
   /**
    * <code>string group_name = 1;</code>
+   * @return The groupName.
    */
   java.lang.String getGroupName();
   /**
    * <code>string group_name = 1;</code>
+   * @return The bytes for groupName.
    */
   com.google.protobuf.ByteString
       getGroupNameBytes();
 
   /**
    * <code>.rocketmq.rpc.api.ConsumeType consume_type = 2;</code>
+   * @return The enum numeric value on the wire for consumeType.
    */
   int getConsumeTypeValue();
   /**
    * <code>.rocketmq.rpc.api.ConsumeType consume_type = 2;</code>
+   * @return The consumeType.
    */
   org.apache.rocketmq.proto.ConsumeType getConsumeType();
 
   /**
    * <code>.rocketmq.rpc.api.MessageModel message_model = 3;</code>
+   * @return The enum numeric value on the wire for messageModel.
    */
   int getMessageModelValue();
   /**
    * <code>.rocketmq.rpc.api.MessageModel message_model = 3;</code>
+   * @return The messageModel.
    */
   org.apache.rocketmq.proto.MessageModel getMessageModel();
 
   /**
    * <code>.rocketmq.rpc.api.ConsumeFrom consume_from = 4;</code>
+   * @return The enum numeric value on the wire for consumeFrom.
    */
   int getConsumeFromValue();
   /**
    * <code>.rocketmq.rpc.api.ConsumeFrom consume_from = 4;</code>
+   * @return The consumeFrom.
    */
   org.apache.rocketmq.proto.ConsumeFrom getConsumeFrom();
 
@@ -70,6 +78,7 @@ public interface ConsumeDataOrBuilder extends
 
   /**
    * <code>bool unit_mode = 6;</code>
+   * @return The unitMode.
    */
   boolean getUnitMode();
 }

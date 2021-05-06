@@ -9,20 +9,24 @@ public interface BrokerDataOrBuilder extends
 
   /**
    * <code>string cluster = 1;</code>
+   * @return The cluster.
    */
   java.lang.String getCluster();
   /**
    * <code>string cluster = 1;</code>
+   * @return The bytes for cluster.
    */
   com.google.protobuf.ByteString
       getClusterBytes();
 
   /**
    * <code>string broker_name = 2;</code>
+   * @return The brokerName.
    */
   java.lang.String getBrokerName();
   /**
    * <code>string broker_name = 2;</code>
+   * @return The bytes for brokerName.
    */
   com.google.protobuf.ByteString
       getBrokerNameBytes();

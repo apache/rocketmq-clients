@@ -9,59 +9,71 @@ public interface QueryAssignmentRequestOrBuilder extends
 
   /**
    * <code>string topic = 1;</code>
+   * @return The topic.
    */
   java.lang.String getTopic();
   /**
    * <code>string topic = 1;</code>
+   * @return The bytes for topic.
    */
   com.google.protobuf.ByteString
       getTopicBytes();
 
   /**
    * <code>string consumer_group = 2;</code>
+   * @return The consumerGroup.
    */
   java.lang.String getConsumerGroup();
   /**
    * <code>string consumer_group = 2;</code>
+   * @return The bytes for consumerGroup.
    */
   com.google.protobuf.ByteString
       getConsumerGroupBytes();
 
   /**
    * <code>string client_id = 3;</code>
+   * @return The clientId.
    */
   java.lang.String getClientId();
   /**
    * <code>string client_id = 3;</code>
+   * @return The bytes for clientId.
    */
   com.google.protobuf.ByteString
       getClientIdBytes();
 
   /**
    * <code>string strategy_name = 4;</code>
+   * @return The strategyName.
    */
   java.lang.String getStrategyName();
   /**
    * <code>string strategy_name = 4;</code>
+   * @return The bytes for strategyName.
    */
   com.google.protobuf.ByteString
       getStrategyNameBytes();
 
   /**
    * <code>.rocketmq.rpc.api.MessageModel message_model = 5;</code>
+   * @return The enum numeric value on the wire for messageModel.
    */
   int getMessageModelValue();
   /**
    * <code>.rocketmq.rpc.api.MessageModel message_model = 5;</code>
+   * @return The messageModel.
    */
   org.apache.rocketmq.proto.MessageModel getMessageModel();
 
   /**
    * <code>string broker_name = 6;</code>
+   * @return The brokerName.
    */
   java.lang.String getBrokerName();
   /**
    * <code>string broker_name = 6;</code>
+   * @return The bytes for brokerName.
    */
   com.google.protobuf.ByteString
       getBrokerNameBytes();

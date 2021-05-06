@@ -6,7 +6,7 @@ package org.apache.rocketmq.proto;
 /**
  * Protobuf type {@code rocketmq.rpc.api.MessageQueueAssignment}
  */
-public  final class MessageQueueAssignment extends
+public final class MessageQueueAssignment extends
     com.google.protobuf.GeneratedMessageV3 implements
     // @@protoc_insertion_point(message_implements:rocketmq.rpc.api.MessageQueueAssignment)
     MessageQueueAssignmentOrBuilder {
@@ -17,6 +17,13 @@ private static final long serialVersionUID = 0L;
   }
   private MessageQueueAssignment() {
     mode_ = 0;
+  }
+
+  @java.lang.Override
+  @SuppressWarnings({"unused"})
+  protected java.lang.Object newInstance(
+      UnusedPrivateParameter unused) {
+    return new MessageQueueAssignment();
   }
 
   @java.lang.Override
@@ -43,13 +50,6 @@ private static final long serialVersionUID = 0L;
           case 0:
             done = true;
             break;
-          default: {
-            if (!parseUnknownFieldProto3(
-                input, unknownFields, extensionRegistry, tag)) {
-              done = true;
-            }
-            break;
-          }
           case 10: {
             org.apache.rocketmq.proto.MessageQueue.Builder subBuilder = null;
             if (messageQueue_ != null) {
@@ -70,16 +70,23 @@ private static final long serialVersionUID = 0L;
             break;
           }
           case 26: {
-            if (!((mutable_bitField0_ & 0x00000004) == 0x00000004)) {
+            if (!((mutable_bitField0_ & 0x00000001) != 0)) {
               attachments_ = com.google.protobuf.MapField.newMapField(
                   AttachmentsDefaultEntryHolder.defaultEntry);
-              mutable_bitField0_ |= 0x00000004;
+              mutable_bitField0_ |= 0x00000001;
             }
             com.google.protobuf.MapEntry<java.lang.String, java.lang.String>
             attachments__ = input.readMessage(
                 AttachmentsDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
             attachments_.getMutableMap().put(
                 attachments__.getKey(), attachments__.getValue());
+            break;
+          }
+          default: {
+            if (!parseUnknownField(
+                input, unknownFields, extensionRegistry, tag)) {
+              done = true;
+            }
             break;
           }
         }
@@ -100,6 +107,7 @@ private static final long serialVersionUID = 0L;
   }
 
   @SuppressWarnings({"rawtypes"})
+  @java.lang.Override
   protected com.google.protobuf.MapField internalGetMapField(
       int number) {
     switch (number) {
@@ -110,6 +118,7 @@ private static final long serialVersionUID = 0L;
             "Invalid map field number: " + number);
     }
   }
+  @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
     return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_MessageQueueAssignment_fieldAccessorTable
@@ -117,24 +126,28 @@ private static final long serialVersionUID = 0L;
             org.apache.rocketmq.proto.MessageQueueAssignment.class, org.apache.rocketmq.proto.MessageQueueAssignment.Builder.class);
   }
 
-  private int bitField0_;
   public static final int MESSAGE_QUEUE_FIELD_NUMBER = 1;
   private org.apache.rocketmq.proto.MessageQueue messageQueue_;
   /**
    * <code>.rocketmq.rpc.api.MessageQueue message_queue = 1;</code>
+   * @return Whether the messageQueue field is set.
    */
+  @java.lang.Override
   public boolean hasMessageQueue() {
     return messageQueue_ != null;
   }
   /**
    * <code>.rocketmq.rpc.api.MessageQueue message_queue = 1;</code>
+   * @return The messageQueue.
    */
+  @java.lang.Override
   public org.apache.rocketmq.proto.MessageQueue getMessageQueue() {
     return messageQueue_ == null ? org.apache.rocketmq.proto.MessageQueue.getDefaultInstance() : messageQueue_;
   }
   /**
    * <code>.rocketmq.rpc.api.MessageQueue message_queue = 1;</code>
    */
+  @java.lang.Override
   public org.apache.rocketmq.proto.MessageQueueOrBuilder getMessageQueueOrBuilder() {
     return getMessageQueue();
   }
@@ -143,14 +156,17 @@ private static final long serialVersionUID = 0L;
   private int mode_;
   /**
    * <code>.rocketmq.rpc.api.MessageRequestMode mode = 2;</code>
+   * @return The enum numeric value on the wire for mode.
    */
-  public int getModeValue() {
+  @java.lang.Override public int getModeValue() {
     return mode_;
   }
   /**
    * <code>.rocketmq.rpc.api.MessageRequestMode mode = 2;</code>
+   * @return The mode.
    */
-  public org.apache.rocketmq.proto.MessageRequestMode getMode() {
+  @java.lang.Override public org.apache.rocketmq.proto.MessageRequestMode getMode() {
+    @SuppressWarnings("deprecation")
     org.apache.rocketmq.proto.MessageRequestMode result = org.apache.rocketmq.proto.MessageRequestMode.valueOf(mode_);
     return result == null ? org.apache.rocketmq.proto.MessageRequestMode.UNRECOGNIZED : result;
   }
@@ -185,6 +201,7 @@ private static final long serialVersionUID = 0L;
    * <code>map&lt;string, string&gt; attachments = 3;</code>
    */
 
+  @java.lang.Override
   public boolean containsAttachments(
       java.lang.String key) {
     if (key == null) { throw new java.lang.NullPointerException(); }
@@ -193,6 +210,7 @@ private static final long serialVersionUID = 0L;
   /**
    * Use {@link #getAttachmentsMap()} instead.
    */
+  @java.lang.Override
   @java.lang.Deprecated
   public java.util.Map<java.lang.String, java.lang.String> getAttachments() {
     return getAttachmentsMap();
@@ -200,6 +218,7 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>map&lt;string, string&gt; attachments = 3;</code>
    */
+  @java.lang.Override
 
   public java.util.Map<java.lang.String, java.lang.String> getAttachmentsMap() {
     return internalGetAttachments().getMap();
@@ -207,6 +226,7 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>map&lt;string, string&gt; attachments = 3;</code>
    */
+  @java.lang.Override
 
   public java.lang.String getAttachmentsOrDefault(
       java.lang.String key,
@@ -219,6 +239,7 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>map&lt;string, string&gt; attachments = 3;</code>
    */
+  @java.lang.Override
 
   public java.lang.String getAttachmentsOrThrow(
       java.lang.String key) {
@@ -232,6 +253,7 @@ private static final long serialVersionUID = 0L;
   }
 
   private byte memoizedIsInitialized = -1;
+  @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
     if (isInitialized == 1) return true;
@@ -241,6 +263,7 @@ private static final long serialVersionUID = 0L;
     return true;
   }
 
+  @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
     if (messageQueue_ != null) {
@@ -258,6 +281,7 @@ private static final long serialVersionUID = 0L;
     unknownFields.writeTo(output);
   }
 
+  @java.lang.Override
   public int getSerializedSize() {
     int size = memoizedSize;
     if (size != -1) return size;
@@ -296,17 +320,16 @@ private static final long serialVersionUID = 0L;
     }
     org.apache.rocketmq.proto.MessageQueueAssignment other = (org.apache.rocketmq.proto.MessageQueueAssignment) obj;
 
-    boolean result = true;
-    result = result && (hasMessageQueue() == other.hasMessageQueue());
+    if (hasMessageQueue() != other.hasMessageQueue()) return false;
     if (hasMessageQueue()) {
-      result = result && getMessageQueue()
-          .equals(other.getMessageQueue());
+      if (!getMessageQueue()
+          .equals(other.getMessageQueue())) return false;
     }
-    result = result && mode_ == other.mode_;
-    result = result && internalGetAttachments().equals(
-        other.internalGetAttachments());
-    result = result && unknownFields.equals(other.unknownFields);
-    return result;
+    if (mode_ != other.mode_) return false;
+    if (!internalGetAttachments().equals(
+        other.internalGetAttachments())) return false;
+    if (!unknownFields.equals(other.unknownFields)) return false;
+    return true;
   }
 
   @java.lang.Override
@@ -401,6 +424,7 @@ private static final long serialVersionUID = 0L;
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
+  @java.lang.Override
   public Builder newBuilderForType() { return newBuilder(); }
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
@@ -408,6 +432,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder(org.apache.rocketmq.proto.MessageQueueAssignment prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
+  @java.lang.Override
   public Builder toBuilder() {
     return this == DEFAULT_INSTANCE
         ? new Builder() : new Builder().mergeFrom(this);
@@ -453,6 +478,7 @@ private static final long serialVersionUID = 0L;
               "Invalid map field number: " + number);
       }
     }
+    @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_MessageQueueAssignment_fieldAccessorTable
@@ -475,6 +501,7 @@ private static final long serialVersionUID = 0L;
               .alwaysUseFieldBuilders) {
       }
     }
+    @java.lang.Override
     public Builder clear() {
       super.clear();
       if (messageQueueBuilder_ == null) {
@@ -489,15 +516,18 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_MessageQueueAssignment_descriptor;
     }
 
+    @java.lang.Override
     public org.apache.rocketmq.proto.MessageQueueAssignment getDefaultInstanceForType() {
       return org.apache.rocketmq.proto.MessageQueueAssignment.getDefaultInstance();
     }
 
+    @java.lang.Override
     public org.apache.rocketmq.proto.MessageQueueAssignment build() {
       org.apache.rocketmq.proto.MessageQueueAssignment result = buildPartial();
       if (!result.isInitialized()) {
@@ -506,10 +536,10 @@ private static final long serialVersionUID = 0L;
       return result;
     }
 
+    @java.lang.Override
     public org.apache.rocketmq.proto.MessageQueueAssignment buildPartial() {
       org.apache.rocketmq.proto.MessageQueueAssignment result = new org.apache.rocketmq.proto.MessageQueueAssignment(this);
       int from_bitField0_ = bitField0_;
-      int to_bitField0_ = 0;
       if (messageQueueBuilder_ == null) {
         result.messageQueue_ = messageQueue_;
       } else {
@@ -518,37 +548,43 @@ private static final long serialVersionUID = 0L;
       result.mode_ = mode_;
       result.attachments_ = internalGetAttachments();
       result.attachments_.makeImmutable();
-      result.bitField0_ = to_bitField0_;
       onBuilt();
       return result;
     }
 
+    @java.lang.Override
     public Builder clone() {
-      return (Builder) super.clone();
+      return super.clone();
     }
+    @java.lang.Override
     public Builder setField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return (Builder) super.setField(field, value);
+      return super.setField(field, value);
     }
+    @java.lang.Override
     public Builder clearField(
         com.google.protobuf.Descriptors.FieldDescriptor field) {
-      return (Builder) super.clearField(field);
+      return super.clearField(field);
     }
+    @java.lang.Override
     public Builder clearOneof(
         com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-      return (Builder) super.clearOneof(oneof);
+      return super.clearOneof(oneof);
     }
+    @java.lang.Override
     public Builder setRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         int index, java.lang.Object value) {
-      return (Builder) super.setRepeatedField(field, index, value);
+      return super.setRepeatedField(field, index, value);
     }
+    @java.lang.Override
     public Builder addRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return (Builder) super.addRepeatedField(field, value);
+      return super.addRepeatedField(field, value);
     }
+    @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof org.apache.rocketmq.proto.MessageQueueAssignment) {
         return mergeFrom((org.apache.rocketmq.proto.MessageQueueAssignment)other);
@@ -573,10 +609,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    @java.lang.Override
     public final boolean isInitialized() {
       return true;
     }
 
+    @java.lang.Override
     public Builder mergeFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -596,17 +634,19 @@ private static final long serialVersionUID = 0L;
     }
     private int bitField0_;
 
-    private org.apache.rocketmq.proto.MessageQueue messageQueue_ = null;
+    private org.apache.rocketmq.proto.MessageQueue messageQueue_;
     private com.google.protobuf.SingleFieldBuilderV3<
         org.apache.rocketmq.proto.MessageQueue, org.apache.rocketmq.proto.MessageQueue.Builder, org.apache.rocketmq.proto.MessageQueueOrBuilder> messageQueueBuilder_;
     /**
      * <code>.rocketmq.rpc.api.MessageQueue message_queue = 1;</code>
+     * @return Whether the messageQueue field is set.
      */
     public boolean hasMessageQueue() {
       return messageQueueBuilder_ != null || messageQueue_ != null;
     }
     /**
      * <code>.rocketmq.rpc.api.MessageQueue message_queue = 1;</code>
+     * @return The messageQueue.
      */
     public org.apache.rocketmq.proto.MessageQueue getMessageQueue() {
       if (messageQueueBuilder_ == null) {
@@ -716,27 +756,36 @@ private static final long serialVersionUID = 0L;
     private int mode_ = 0;
     /**
      * <code>.rocketmq.rpc.api.MessageRequestMode mode = 2;</code>
+     * @return The enum numeric value on the wire for mode.
      */
-    public int getModeValue() {
+    @java.lang.Override public int getModeValue() {
       return mode_;
     }
     /**
      * <code>.rocketmq.rpc.api.MessageRequestMode mode = 2;</code>
+     * @param value The enum numeric value on the wire for mode to set.
+     * @return This builder for chaining.
      */
     public Builder setModeValue(int value) {
+      
       mode_ = value;
       onChanged();
       return this;
     }
     /**
      * <code>.rocketmq.rpc.api.MessageRequestMode mode = 2;</code>
+     * @return The mode.
      */
+    @java.lang.Override
     public org.apache.rocketmq.proto.MessageRequestMode getMode() {
+      @SuppressWarnings("deprecation")
       org.apache.rocketmq.proto.MessageRequestMode result = org.apache.rocketmq.proto.MessageRequestMode.valueOf(mode_);
       return result == null ? org.apache.rocketmq.proto.MessageRequestMode.UNRECOGNIZED : result;
     }
     /**
      * <code>.rocketmq.rpc.api.MessageRequestMode mode = 2;</code>
+     * @param value The mode to set.
+     * @return This builder for chaining.
      */
     public Builder setMode(org.apache.rocketmq.proto.MessageRequestMode value) {
       if (value == null) {
@@ -749,6 +798,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>.rocketmq.rpc.api.MessageRequestMode mode = 2;</code>
+     * @return This builder for chaining.
      */
     public Builder clearMode() {
       
@@ -787,6 +837,7 @@ private static final long serialVersionUID = 0L;
      * <code>map&lt;string, string&gt; attachments = 3;</code>
      */
 
+    @java.lang.Override
     public boolean containsAttachments(
         java.lang.String key) {
       if (key == null) { throw new java.lang.NullPointerException(); }
@@ -795,6 +846,7 @@ private static final long serialVersionUID = 0L;
     /**
      * Use {@link #getAttachmentsMap()} instead.
      */
+    @java.lang.Override
     @java.lang.Deprecated
     public java.util.Map<java.lang.String, java.lang.String> getAttachments() {
       return getAttachmentsMap();
@@ -802,6 +854,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>map&lt;string, string&gt; attachments = 3;</code>
      */
+    @java.lang.Override
 
     public java.util.Map<java.lang.String, java.lang.String> getAttachmentsMap() {
       return internalGetAttachments().getMap();
@@ -809,6 +862,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>map&lt;string, string&gt; attachments = 3;</code>
      */
+    @java.lang.Override
 
     public java.lang.String getAttachmentsOrDefault(
         java.lang.String key,
@@ -821,6 +875,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>map&lt;string, string&gt; attachments = 3;</code>
      */
+    @java.lang.Override
 
     public java.lang.String getAttachmentsOrThrow(
         java.lang.String key) {
@@ -879,11 +934,13 @@ private static final long serialVersionUID = 0L;
           .putAll(values);
       return this;
     }
+    @java.lang.Override
     public final Builder setUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
-      return super.setUnknownFieldsProto3(unknownFields);
+      return super.setUnknownFields(unknownFields);
     }
 
+    @java.lang.Override
     public final Builder mergeUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.mergeUnknownFields(unknownFields);
@@ -905,6 +962,7 @@ private static final long serialVersionUID = 0L;
 
   private static final com.google.protobuf.Parser<MessageQueueAssignment>
       PARSER = new com.google.protobuf.AbstractParser<MessageQueueAssignment>() {
+    @java.lang.Override
     public MessageQueueAssignment parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -922,6 +980,7 @@ private static final long serialVersionUID = 0L;
     return PARSER;
   }
 
+  @java.lang.Override
   public org.apache.rocketmq.proto.MessageQueueAssignment getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }

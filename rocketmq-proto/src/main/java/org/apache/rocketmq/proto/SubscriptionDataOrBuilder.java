@@ -9,67 +9,84 @@ public interface SubscriptionDataOrBuilder extends
 
   /**
    * <code>string topic = 1;</code>
+   * @return The topic.
    */
   java.lang.String getTopic();
   /**
    * <code>string topic = 1;</code>
+   * @return The bytes for topic.
    */
   com.google.protobuf.ByteString
       getTopicBytes();
 
   /**
    * <code>string sub_string = 2;</code>
+   * @return The subString.
    */
   java.lang.String getSubString();
   /**
    * <code>string sub_string = 2;</code>
+   * @return The bytes for subString.
    */
   com.google.protobuf.ByteString
       getSubStringBytes();
 
   /**
    * <code>int64 sub_version = 3;</code>
+   * @return The subVersion.
    */
   long getSubVersion();
 
   /**
    * <code>.rocketmq.rpc.api.SubscriptionData.ExpressionType expression_type = 4;</code>
+   * @return The enum numeric value on the wire for expressionType.
    */
   int getExpressionTypeValue();
   /**
    * <code>.rocketmq.rpc.api.SubscriptionData.ExpressionType expression_type = 4;</code>
+   * @return The expressionType.
    */
   org.apache.rocketmq.proto.SubscriptionData.ExpressionType getExpressionType();
 
   /**
    * <code>repeated string tag_set = 5;</code>
+   * @return A list containing the tagSet.
    */
   java.util.List<java.lang.String>
       getTagSetList();
   /**
    * <code>repeated string tag_set = 5;</code>
+   * @return The count of tagSet.
    */
   int getTagSetCount();
   /**
    * <code>repeated string tag_set = 5;</code>
+   * @param index The index of the element to return.
+   * @return The tagSet at the given index.
    */
   java.lang.String getTagSet(int index);
   /**
    * <code>repeated string tag_set = 5;</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the tagSet at the given index.
    */
   com.google.protobuf.ByteString
       getTagSetBytes(int index);
 
   /**
    * <code>repeated int32 code_set = 6;</code>
+   * @return A list containing the codeSet.
    */
   java.util.List<java.lang.Integer> getCodeSetList();
   /**
    * <code>repeated int32 code_set = 6;</code>
+   * @return The count of codeSet.
    */
   int getCodeSetCount();
   /**
    * <code>repeated int32 code_set = 6;</code>
+   * @param index The index of the element to return.
+   * @return The codeSet at the given index.
    */
   int getCodeSet(int index);
 
@@ -109,15 +126,18 @@ public interface SubscriptionDataOrBuilder extends
 
   /**
    * <code>bool class_filter_mode = 8;</code>
+   * @return The classFilterMode.
    */
   boolean getClassFilterMode();
 
   /**
    * <code>string filter_class_source = 9;</code>
+   * @return The filterClassSource.
    */
   java.lang.String getFilterClassSource();
   /**
    * <code>string filter_class_source = 9;</code>
+   * @return The bytes for filterClassSource.
    */
   com.google.protobuf.ByteString
       getFilterClassSourceBytes();

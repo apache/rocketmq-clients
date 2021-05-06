@@ -184,11 +184,8 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
             cachedTopicAssignmentTable.put(topic, remoteTopicAssignmentInfo);
           }
         } catch (Throwable t) {
-          // Should never reach here.
           log.error(
-              "BUG !!! unexpected error occurs while scanning the load assignments for topic={}",
-              topic,
-              t);
+              "Unexpected error occurs while scanning the load assignments for topic={}", topic, t);
         }
       }
     } catch (Throwable t) {
@@ -228,16 +225,23 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
         continue;
       }
 
+      if (null == processQueue) {
+        log.warn("BUG!!! processQueue is null unexpectedly, mq={}", messageQueue);
+        continue;
+      }
+
       if (!newMessageQueueSet.contains(messageQueue)) {
         log.info(
             "Stop to pop message queue according to the latest load assignments, message queue={}",
             messageQueue);
         processQueueTable.remove(messageQueue);
+        processQueue.setDropped(true);
         continue;
       }
-      if (null == processQueue || processQueue.isPopExpired()) {
-        log.warn("ProcessQueue is expired to pop, message queue={}", messageQueue);
-        processQueueTable.remove(messageQueue);
+
+      if (processQueue.isPopExpired()) {
+        log.warn("ProcessQueue is expired to pop, mq={}", messageQueue);
+        processQueue.setDropped(true);
         continue;
       }
       activeMessageQueueSet.add(messageQueue);
@@ -246,7 +250,7 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
     for (MessageQueue messageQueue : newMessageQueueSet) {
       if (!activeMessageQueueSet.contains(messageQueue)) {
         log.info(
-            "Start to pop message queue according to the latest load assignments, message queue={}",
+            "Start to pop message queue according to the latest load assignments, mq={}",
             messageQueue);
         popMessagePromptly(messageQueue, filterExpression);
       }

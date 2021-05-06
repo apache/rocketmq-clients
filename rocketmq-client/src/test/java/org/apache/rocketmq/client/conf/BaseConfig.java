@@ -16,6 +16,8 @@ public class BaseConfig {
   protected int dummyQueueId0 = 1;
   protected int dummyQueueId1 = 2;
 
+  protected long dummyQueueOffset = 0;
+
   protected MessageQueue dummyMessageQueue =
       new MessageQueue(dummyTopic, dummyBrokerName, dummyQueueId);
   protected MessageQueue dummyMessageQueue0 =
@@ -36,4 +38,13 @@ public class BaseConfig {
   protected String dummyTagExpression = FilterExpression.TAG_EXPRESSION_SUB_ALL;
   protected String dummyTag0 = "TestTagA";
   protected String dummyTag1 = "TestTagB";
+
+  protected String dummyTarget = "127.0.0.1:10911";
+
+  protected long dummyTermId = 1;
+  protected long dummyPopTimestamp = 1619772316494L;
+  protected long dummyInvisibleTime = 30 * 1000L;
+  protected long dummyRestNum = 32;
+
+  protected String dummyMsgExtraInfo = "ExtraInfo";
 }

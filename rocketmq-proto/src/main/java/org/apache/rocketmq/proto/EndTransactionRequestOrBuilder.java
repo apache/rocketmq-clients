@@ -9,64 +9,77 @@ public interface EndTransactionRequestOrBuilder extends
 
   /**
    * <code>string producer_group = 1;</code>
+   * @return The producerGroup.
    */
   java.lang.String getProducerGroup();
   /**
    * <code>string producer_group = 1;</code>
+   * @return The bytes for producerGroup.
    */
   com.google.protobuf.ByteString
       getProducerGroupBytes();
 
   /**
    * <code>int64 transaction_state_table_offset = 2;</code>
+   * @return The transactionStateTableOffset.
    */
   long getTransactionStateTableOffset();
 
   /**
    * <code>int64 commit_log_offset = 3;</code>
+   * @return The commitLogOffset.
    */
   long getCommitLogOffset();
 
   /**
    * <code>.rocketmq.rpc.api.EndTransactionRequest.Resolution resolution = 4;</code>
+   * @return The enum numeric value on the wire for resolution.
    */
   int getResolutionValue();
   /**
    * <code>.rocketmq.rpc.api.EndTransactionRequest.Resolution resolution = 4;</code>
+   * @return The resolution.
    */
   org.apache.rocketmq.proto.EndTransactionRequest.Resolution getResolution();
 
   /**
    * <code>bool from_transaction_check = 5;</code>
+   * @return The fromTransactionCheck.
    */
   boolean getFromTransactionCheck();
 
   /**
    * <code>string msg_id = 6;</code>
+   * @return The msgId.
    */
   java.lang.String getMsgId();
   /**
    * <code>string msg_id = 6;</code>
+   * @return The bytes for msgId.
    */
   com.google.protobuf.ByteString
       getMsgIdBytes();
 
   /**
    * <code>string transaction_id = 7;</code>
+   * @return The transactionId.
    */
   java.lang.String getTransactionId();
   /**
    * <code>string transaction_id = 7;</code>
+   * @return The bytes for transactionId.
    */
   com.google.protobuf.ByteString
       getTransactionIdBytes();
 
   /**
    * <code>string broker_name = 8;</code>
+   * @return The brokerName.
    */
   java.lang.String getBrokerName();
   /**
    * <code>string broker_name = 8;</code>
+   * @return The bytes for brokerName.
    */
   com.google.protobuf.ByteString
       getBrokerNameBytes();

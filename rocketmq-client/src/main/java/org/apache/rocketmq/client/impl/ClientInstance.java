@@ -805,17 +805,30 @@ public class ClientInstance {
     for (int i = 0; i < retryTimes; i++) {
       String target = selectNameServer(roundRobin);
       RouteInfoResponse response = fetchTopicRouteInfo(target, request);
-      if (ResponseCode.SUCCESS != response.getCode()) {
+      final ResponseCode code = response.getCode();
+      if (ResponseCode.SUCCESS != code) {
+        log.warn(
+            "Failed to fetch topic route, topic={}, times={}, responseCode={}, nameServerAddress={}",
+            topic,
+            i,
+            code,
+            target);
         roundRobin = true;
         continue;
       }
       Map<String, org.apache.rocketmq.proto.TopicRouteData> routeEntries = response.getRouteMap();
       org.apache.rocketmq.proto.TopicRouteData topicRouteData = routeEntries.get(topic);
       if (null == topicRouteData) {
+        log.warn(
+            "Topic route is null unexpectedly , topic={}, times={}, nameServerAddress={}",
+            topic,
+            i,
+            target);
         throw new MQClientException("Topic does not exist.");
       }
       return new TopicRouteData(topicRouteData);
     }
+    log.error("Failed to fetch topic route finally, topic={}", topic);
     throw new MQClientException("Failed to fetch topic route.");
   }
 

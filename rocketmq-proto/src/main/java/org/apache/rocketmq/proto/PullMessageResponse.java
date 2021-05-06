@@ -6,7 +6,7 @@ package org.apache.rocketmq.proto;
 /**
  * Protobuf type {@code rocketmq.rpc.api.PullMessageResponse}
  */
-public  final class PullMessageResponse extends
+public final class PullMessageResponse extends
     com.google.protobuf.GeneratedMessageV3 implements
     // @@protoc_insertion_point(message_implements:rocketmq.rpc.api.PullMessageResponse)
     PullMessageResponseOrBuilder {
@@ -16,11 +16,14 @@ private static final long serialVersionUID = 0L;
     super(builder);
   }
   private PullMessageResponse() {
-    suggestBrokerId_ = 0L;
-    nextBeginOffset_ = 0L;
-    minOffset_ = 0L;
-    maxOffset_ = 0L;
     messages_ = java.util.Collections.emptyList();
+  }
+
+  @java.lang.Override
+  @SuppressWarnings({"unused"})
+  protected java.lang.Object newInstance(
+      UnusedPrivateParameter unused) {
+    return new PullMessageResponse();
   }
 
   @java.lang.Override
@@ -47,13 +50,6 @@ private static final long serialVersionUID = 0L;
           case 0:
             done = true;
             break;
-          default: {
-            if (!parseUnknownFieldProto3(
-                input, unknownFields, extensionRegistry, tag)) {
-              done = true;
-            }
-            break;
-          }
           case 8: {
 
             suggestBrokerId_ = input.readInt64();
@@ -75,12 +71,19 @@ private static final long serialVersionUID = 0L;
             break;
           }
           case 42: {
-            if (!((mutable_bitField0_ & 0x00000010) == 0x00000010)) {
+            if (!((mutable_bitField0_ & 0x00000001) != 0)) {
               messages_ = new java.util.ArrayList<org.apache.rocketmq.proto.MessageExt>();
-              mutable_bitField0_ |= 0x00000010;
+              mutable_bitField0_ |= 0x00000001;
             }
             messages_.add(
                 input.readMessage(org.apache.rocketmq.proto.MessageExt.parser(), extensionRegistry));
+            break;
+          }
+          default: {
+            if (!parseUnknownField(
+                input, unknownFields, extensionRegistry, tag)) {
+              done = true;
+            }
             break;
           }
         }
@@ -91,7 +94,7 @@ private static final long serialVersionUID = 0L;
       throw new com.google.protobuf.InvalidProtocolBufferException(
           e).setUnfinishedMessage(this);
     } finally {
-      if (((mutable_bitField0_ & 0x00000010) == 0x00000010)) {
+      if (((mutable_bitField0_ & 0x00000001) != 0)) {
         messages_ = java.util.Collections.unmodifiableList(messages_);
       }
       this.unknownFields = unknownFields.build();
@@ -103,6 +106,7 @@ private static final long serialVersionUID = 0L;
     return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_PullMessageResponse_descriptor;
   }
 
+  @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
     return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_PullMessageResponse_fieldAccessorTable
@@ -110,12 +114,13 @@ private static final long serialVersionUID = 0L;
             org.apache.rocketmq.proto.PullMessageResponse.class, org.apache.rocketmq.proto.PullMessageResponse.Builder.class);
   }
 
-  private int bitField0_;
   public static final int SUGGEST_BROKER_ID_FIELD_NUMBER = 1;
   private long suggestBrokerId_;
   /**
    * <code>int64 suggest_broker_id = 1;</code>
+   * @return The suggestBrokerId.
    */
+  @java.lang.Override
   public long getSuggestBrokerId() {
     return suggestBrokerId_;
   }
@@ -124,7 +129,9 @@ private static final long serialVersionUID = 0L;
   private long nextBeginOffset_;
   /**
    * <code>int64 next_begin_offset = 2;</code>
+   * @return The nextBeginOffset.
    */
+  @java.lang.Override
   public long getNextBeginOffset() {
     return nextBeginOffset_;
   }
@@ -133,7 +140,9 @@ private static final long serialVersionUID = 0L;
   private long minOffset_;
   /**
    * <code>int64 min_offset = 3;</code>
+   * @return The minOffset.
    */
+  @java.lang.Override
   public long getMinOffset() {
     return minOffset_;
   }
@@ -142,7 +151,9 @@ private static final long serialVersionUID = 0L;
   private long maxOffset_;
   /**
    * <code>int64 max_offset = 4;</code>
+   * @return The maxOffset.
    */
+  @java.lang.Override
   public long getMaxOffset() {
     return maxOffset_;
   }
@@ -152,12 +163,14 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>repeated .rocketmq.rpc.api.MessageExt messages = 5;</code>
    */
+  @java.lang.Override
   public java.util.List<org.apache.rocketmq.proto.MessageExt> getMessagesList() {
     return messages_;
   }
   /**
    * <code>repeated .rocketmq.rpc.api.MessageExt messages = 5;</code>
    */
+  @java.lang.Override
   public java.util.List<? extends org.apache.rocketmq.proto.MessageExtOrBuilder> 
       getMessagesOrBuilderList() {
     return messages_;
@@ -165,24 +178,28 @@ private static final long serialVersionUID = 0L;
   /**
    * <code>repeated .rocketmq.rpc.api.MessageExt messages = 5;</code>
    */
+  @java.lang.Override
   public int getMessagesCount() {
     return messages_.size();
   }
   /**
    * <code>repeated .rocketmq.rpc.api.MessageExt messages = 5;</code>
    */
+  @java.lang.Override
   public org.apache.rocketmq.proto.MessageExt getMessages(int index) {
     return messages_.get(index);
   }
   /**
    * <code>repeated .rocketmq.rpc.api.MessageExt messages = 5;</code>
    */
+  @java.lang.Override
   public org.apache.rocketmq.proto.MessageExtOrBuilder getMessagesOrBuilder(
       int index) {
     return messages_.get(index);
   }
 
   private byte memoizedIsInitialized = -1;
+  @java.lang.Override
   public final boolean isInitialized() {
     byte isInitialized = memoizedIsInitialized;
     if (isInitialized == 1) return true;
@@ -192,6 +209,7 @@ private static final long serialVersionUID = 0L;
     return true;
   }
 
+  @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
     if (suggestBrokerId_ != 0L) {
@@ -212,6 +230,7 @@ private static final long serialVersionUID = 0L;
     unknownFields.writeTo(output);
   }
 
+  @java.lang.Override
   public int getSerializedSize() {
     int size = memoizedSize;
     if (size != -1) return size;
@@ -252,19 +271,18 @@ private static final long serialVersionUID = 0L;
     }
     org.apache.rocketmq.proto.PullMessageResponse other = (org.apache.rocketmq.proto.PullMessageResponse) obj;
 
-    boolean result = true;
-    result = result && (getSuggestBrokerId()
-        == other.getSuggestBrokerId());
-    result = result && (getNextBeginOffset()
-        == other.getNextBeginOffset());
-    result = result && (getMinOffset()
-        == other.getMinOffset());
-    result = result && (getMaxOffset()
-        == other.getMaxOffset());
-    result = result && getMessagesList()
-        .equals(other.getMessagesList());
-    result = result && unknownFields.equals(other.unknownFields);
-    return result;
+    if (getSuggestBrokerId()
+        != other.getSuggestBrokerId()) return false;
+    if (getNextBeginOffset()
+        != other.getNextBeginOffset()) return false;
+    if (getMinOffset()
+        != other.getMinOffset()) return false;
+    if (getMaxOffset()
+        != other.getMaxOffset()) return false;
+    if (!getMessagesList()
+        .equals(other.getMessagesList())) return false;
+    if (!unknownFields.equals(other.unknownFields)) return false;
+    return true;
   }
 
   @java.lang.Override
@@ -365,6 +383,7 @@ private static final long serialVersionUID = 0L;
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
+  @java.lang.Override
   public Builder newBuilderForType() { return newBuilder(); }
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
@@ -372,6 +391,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder(org.apache.rocketmq.proto.PullMessageResponse prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
+  @java.lang.Override
   public Builder toBuilder() {
     return this == DEFAULT_INSTANCE
         ? new Builder() : new Builder().mergeFrom(this);
@@ -395,6 +415,7 @@ private static final long serialVersionUID = 0L;
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_PullMessageResponse_descriptor;
     }
 
+    @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_PullMessageResponse_fieldAccessorTable
@@ -418,6 +439,7 @@ private static final long serialVersionUID = 0L;
         getMessagesFieldBuilder();
       }
     }
+    @java.lang.Override
     public Builder clear() {
       super.clear();
       suggestBrokerId_ = 0L;
@@ -430,22 +452,25 @@ private static final long serialVersionUID = 0L;
 
       if (messagesBuilder_ == null) {
         messages_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000001);
       } else {
         messagesBuilder_.clear();
       }
       return this;
     }
 
+    @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
       return org.apache.rocketmq.proto.ACS.internal_static_rocketmq_rpc_api_PullMessageResponse_descriptor;
     }
 
+    @java.lang.Override
     public org.apache.rocketmq.proto.PullMessageResponse getDefaultInstanceForType() {
       return org.apache.rocketmq.proto.PullMessageResponse.getDefaultInstance();
     }
 
+    @java.lang.Override
     public org.apache.rocketmq.proto.PullMessageResponse build() {
       org.apache.rocketmq.proto.PullMessageResponse result = buildPartial();
       if (!result.isInitialized()) {
@@ -454,54 +479,60 @@ private static final long serialVersionUID = 0L;
       return result;
     }
 
+    @java.lang.Override
     public org.apache.rocketmq.proto.PullMessageResponse buildPartial() {
       org.apache.rocketmq.proto.PullMessageResponse result = new org.apache.rocketmq.proto.PullMessageResponse(this);
       int from_bitField0_ = bitField0_;
-      int to_bitField0_ = 0;
       result.suggestBrokerId_ = suggestBrokerId_;
       result.nextBeginOffset_ = nextBeginOffset_;
       result.minOffset_ = minOffset_;
       result.maxOffset_ = maxOffset_;
       if (messagesBuilder_ == null) {
-        if (((bitField0_ & 0x00000010) == 0x00000010)) {
+        if (((bitField0_ & 0x00000001) != 0)) {
           messages_ = java.util.Collections.unmodifiableList(messages_);
-          bitField0_ = (bitField0_ & ~0x00000010);
+          bitField0_ = (bitField0_ & ~0x00000001);
         }
         result.messages_ = messages_;
       } else {
         result.messages_ = messagesBuilder_.build();
       }
-      result.bitField0_ = to_bitField0_;
       onBuilt();
       return result;
     }
 
+    @java.lang.Override
     public Builder clone() {
-      return (Builder) super.clone();
+      return super.clone();
     }
+    @java.lang.Override
     public Builder setField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return (Builder) super.setField(field, value);
+      return super.setField(field, value);
     }
+    @java.lang.Override
     public Builder clearField(
         com.google.protobuf.Descriptors.FieldDescriptor field) {
-      return (Builder) super.clearField(field);
+      return super.clearField(field);
     }
+    @java.lang.Override
     public Builder clearOneof(
         com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-      return (Builder) super.clearOneof(oneof);
+      return super.clearOneof(oneof);
     }
+    @java.lang.Override
     public Builder setRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         int index, java.lang.Object value) {
-      return (Builder) super.setRepeatedField(field, index, value);
+      return super.setRepeatedField(field, index, value);
     }
+    @java.lang.Override
     public Builder addRepeatedField(
         com.google.protobuf.Descriptors.FieldDescriptor field,
         java.lang.Object value) {
-      return (Builder) super.addRepeatedField(field, value);
+      return super.addRepeatedField(field, value);
     }
+    @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
       if (other instanceof org.apache.rocketmq.proto.PullMessageResponse) {
         return mergeFrom((org.apache.rocketmq.proto.PullMessageResponse)other);
@@ -529,7 +560,7 @@ private static final long serialVersionUID = 0L;
         if (!other.messages_.isEmpty()) {
           if (messages_.isEmpty()) {
             messages_ = other.messages_;
-            bitField0_ = (bitField0_ & ~0x00000010);
+            bitField0_ = (bitField0_ & ~0x00000001);
           } else {
             ensureMessagesIsMutable();
             messages_.addAll(other.messages_);
@@ -542,7 +573,7 @@ private static final long serialVersionUID = 0L;
             messagesBuilder_.dispose();
             messagesBuilder_ = null;
             messages_ = other.messages_;
-            bitField0_ = (bitField0_ & ~0x00000010);
+            bitField0_ = (bitField0_ & ~0x00000001);
             messagesBuilder_ = 
               com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
                  getMessagesFieldBuilder() : null;
@@ -556,10 +587,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    @java.lang.Override
     public final boolean isInitialized() {
       return true;
     }
 
+    @java.lang.Override
     public Builder mergeFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -582,12 +615,16 @@ private static final long serialVersionUID = 0L;
     private long suggestBrokerId_ ;
     /**
      * <code>int64 suggest_broker_id = 1;</code>
+     * @return The suggestBrokerId.
      */
+    @java.lang.Override
     public long getSuggestBrokerId() {
       return suggestBrokerId_;
     }
     /**
      * <code>int64 suggest_broker_id = 1;</code>
+     * @param value The suggestBrokerId to set.
+     * @return This builder for chaining.
      */
     public Builder setSuggestBrokerId(long value) {
       
@@ -597,6 +634,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>int64 suggest_broker_id = 1;</code>
+     * @return This builder for chaining.
      */
     public Builder clearSuggestBrokerId() {
       
@@ -608,12 +646,16 @@ private static final long serialVersionUID = 0L;
     private long nextBeginOffset_ ;
     /**
      * <code>int64 next_begin_offset = 2;</code>
+     * @return The nextBeginOffset.
      */
+    @java.lang.Override
     public long getNextBeginOffset() {
       return nextBeginOffset_;
     }
     /**
      * <code>int64 next_begin_offset = 2;</code>
+     * @param value The nextBeginOffset to set.
+     * @return This builder for chaining.
      */
     public Builder setNextBeginOffset(long value) {
       
@@ -623,6 +665,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>int64 next_begin_offset = 2;</code>
+     * @return This builder for chaining.
      */
     public Builder clearNextBeginOffset() {
       
@@ -634,12 +677,16 @@ private static final long serialVersionUID = 0L;
     private long minOffset_ ;
     /**
      * <code>int64 min_offset = 3;</code>
+     * @return The minOffset.
      */
+    @java.lang.Override
     public long getMinOffset() {
       return minOffset_;
     }
     /**
      * <code>int64 min_offset = 3;</code>
+     * @param value The minOffset to set.
+     * @return This builder for chaining.
      */
     public Builder setMinOffset(long value) {
       
@@ -649,6 +696,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>int64 min_offset = 3;</code>
+     * @return This builder for chaining.
      */
     public Builder clearMinOffset() {
       
@@ -660,12 +708,16 @@ private static final long serialVersionUID = 0L;
     private long maxOffset_ ;
     /**
      * <code>int64 max_offset = 4;</code>
+     * @return The maxOffset.
      */
+    @java.lang.Override
     public long getMaxOffset() {
       return maxOffset_;
     }
     /**
      * <code>int64 max_offset = 4;</code>
+     * @param value The maxOffset to set.
+     * @return This builder for chaining.
      */
     public Builder setMaxOffset(long value) {
       
@@ -675,6 +727,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <code>int64 max_offset = 4;</code>
+     * @return This builder for chaining.
      */
     public Builder clearMaxOffset() {
       
@@ -686,9 +739,9 @@ private static final long serialVersionUID = 0L;
     private java.util.List<org.apache.rocketmq.proto.MessageExt> messages_ =
       java.util.Collections.emptyList();
     private void ensureMessagesIsMutable() {
-      if (!((bitField0_ & 0x00000010) == 0x00000010)) {
+      if (!((bitField0_ & 0x00000001) != 0)) {
         messages_ = new java.util.ArrayList<org.apache.rocketmq.proto.MessageExt>(messages_);
-        bitField0_ |= 0x00000010;
+        bitField0_ |= 0x00000001;
        }
     }
 
@@ -838,7 +891,7 @@ private static final long serialVersionUID = 0L;
     public Builder clearMessages() {
       if (messagesBuilder_ == null) {
         messages_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000001);
         onChanged();
       } else {
         messagesBuilder_.clear();
@@ -915,18 +968,20 @@ private static final long serialVersionUID = 0L;
         messagesBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
             org.apache.rocketmq.proto.MessageExt, org.apache.rocketmq.proto.MessageExt.Builder, org.apache.rocketmq.proto.MessageExtOrBuilder>(
                 messages_,
-                ((bitField0_ & 0x00000010) == 0x00000010),
+                ((bitField0_ & 0x00000001) != 0),
                 getParentForChildren(),
                 isClean());
         messages_ = null;
       }
       return messagesBuilder_;
     }
+    @java.lang.Override
     public final Builder setUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
-      return super.setUnknownFieldsProto3(unknownFields);
+      return super.setUnknownFields(unknownFields);
     }
 
+    @java.lang.Override
     public final Builder mergeUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
       return super.mergeUnknownFields(unknownFields);
@@ -948,6 +1003,7 @@ private static final long serialVersionUID = 0L;
 
   private static final com.google.protobuf.Parser<PullMessageResponse>
       PARSER = new com.google.protobuf.AbstractParser<PullMessageResponse>() {
+    @java.lang.Override
     public PullMessageResponse parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
@@ -965,6 +1021,7 @@ private static final long serialVersionUID = 0L;
     return PARSER;
   }
 
+  @java.lang.Override
   public org.apache.rocketmq.proto.PullMessageResponse getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
