@@ -1,7 +1,9 @@
 package org.apache.rocketmq.client.conf;
 
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
+import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageQueue;
+import org.apache.rocketmq.client.misc.MixAll;
 
 public class BaseConfig {
   protected String dummyTopic = "TestTopic";
@@ -17,6 +19,8 @@ public class BaseConfig {
   protected int dummyQueueId1 = 2;
 
   protected long dummyQueueOffset = 0;
+
+  protected String dummyMsgId = "1EE10C774F0D18B4AAC24CAB60130000";
 
   protected MessageQueue dummyMessageQueue =
       new MessageQueue(dummyTopic, dummyBrokerName, dummyQueueId);
@@ -47,4 +51,6 @@ public class BaseConfig {
   protected long dummyRestNum = 32;
 
   protected String dummyMsgExtraInfo = "ExtraInfo";
+
+  protected String dummyTransactionId = "123456";
 }

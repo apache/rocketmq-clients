@@ -294,7 +294,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
         defaultMQProducer.getSendMsgTimeout());
   }
 
-  public SendResult sendKernelImpl(
+  private SendResult sendKernelImpl(
       Message message,
       MessageQueue mq,
       CommunicationMode mode,

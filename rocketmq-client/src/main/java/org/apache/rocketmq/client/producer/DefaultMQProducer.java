@@ -101,7 +101,7 @@ public class DefaultMQProducer extends ClientConfig {
    * @throws MQClientException if there is any unexpected error.
    */
   public void start() throws MQClientException {
-    this.setProducerGroup(withNamespace(this.getProducerGroup()));
+    this.setGroupName(withNamespace(this.getProducerGroup()));
     this.impl.start();
   }
 

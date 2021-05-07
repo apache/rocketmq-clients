@@ -68,6 +68,38 @@ public class DefaultMQPushConsumerTest extends BaseConfig {
   }
 
   @Test
+  public void testStartRepeatedly() throws MQClientException {
+    DefaultMQPushConsumer consumer =
+        initPushConsumer(dummyConsumerGroup, dummyNameServerAddr, dummyTopic);
+    consumer.start();
+    try {
+      consumer.start();
+      Assert.fail();
+    } catch (MQClientException e) {
+      Assert.assertTrue(
+          e.getErrorMessage().contains("The producer has attempted to be started before"));
+    } finally {
+      consumer.shutdown();
+    }
+  }
+
+  @Test
+  public void testSetGroupAfterStart() throws MQClientException {
+    DefaultMQPushConsumer consumer =
+            initPushConsumer(dummyConsumerGroup, dummyNameServerAddr, dummyTopic);
+    consumer.start();
+    try {
+      consumer.setConsumerGroup(dummyConsumerGroup);
+      Assert.fail();
+    } catch (Throwable e) {
+      Assert.assertTrue(
+              e.getMessage().contains("Please set consumerGroup before consumer started"));
+    } finally{
+      consumer.shutdown();
+    }
+  }
+
+  @Test
   public void testStartMultiConsumers() throws MQClientException {
     {
       final DefaultMQPushConsumer consumer0 =

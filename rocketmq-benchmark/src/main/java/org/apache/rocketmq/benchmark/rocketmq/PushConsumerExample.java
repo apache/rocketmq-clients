@@ -17,7 +17,7 @@ public class PushConsumerExample {
   public static void main(String[] args) throws MQClientException, InterruptedException {
     DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("TestGroup");
     consumer.setNamesrvAddr("11.167.164.105:9876");
-    consumer.subscribe("TestTopicXXX", "*");
+    consumer.subscribe("TestTopic", "*");
     consumer.registerMessageListener(
         new MessageListenerConcurrently() {
           @Override
