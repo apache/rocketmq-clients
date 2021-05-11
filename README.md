@@ -1,21 +1,32 @@
 ## Introduction
 
-The current repository is a thin SDK for rocketmq based on [gRPC](https://grpc.io/), which replaces the communication layer
-of the fat SDK.
+The current repository is a thin SDK for rocketmq based on [gRPC](https://grpc.io/), which replaces the communication
+layer of the fat SDK.
 
-## Contributing guide
+## Requirements
 
-Before starting your work, here is what you should pay attention to.
-
-1. Code style, see [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html). You can
-   install [google-java-format](https://plugins.jetbrains.com/plugin/8527-google-java-format) plugin in Intellij IDEA to manage your code style, or execute the script
-   below before each commit.
-    ```bash
-    mvn spotless:apply    
-    ```
-
-2. Test
+1. Runtime: JRE>=6
+2. Build: JDK>=9 (**JDK11 is strongly recommended.**)
 
 ## Build
+
+The latest thin SDK support Java6 or higher. In order to achieve this goal, we customize gRPC and Protocol Buffer, it
+could be referred below:
+
+* [Customized gRPC](http://gitlab.alibaba-inc.com/rocketmq-client/grpc-java)
+* [Customized Protocol Buffer](http://gitlab.alibaba-inc.com/rocketmq-client/protobuf)
+
+We recommend building the SDK using docker, which has installed the whole dependencies.
+
+```bash
+./ci/run_rocketmq_docker.sh 'mvn clean package'
+```
+
+Customized gRPC and Protocol Buffer should be installed ahead of time by executing the script below If you intend to
+build using local environment:
+
+```bash
+./ci/install_deps.sh
+```
 
 ## CI/CD
