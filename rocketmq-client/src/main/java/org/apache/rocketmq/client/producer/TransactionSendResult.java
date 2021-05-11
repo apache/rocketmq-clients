@@ -7,16 +7,16 @@ import org.apache.rocketmq.client.message.MessageQueue;
 @Getter
 @Setter
 public class TransactionSendResult extends SendResult {
-  private LocalTransactionState localTransactionState;
-  private String errorMessage;
-  private RuntimeException runtimeException;
+    private LocalTransactionState localTransactionState;
+    private String errorMessage;
+    private RuntimeException runtimeException;
 
-  public TransactionSendResult(
-      SendStatus sendStatus,
-      String msgId,
-      MessageQueue messageQueue,
-      long queueOffset,
-      String transactionId) {
-    super(sendStatus, msgId, messageQueue, queueOffset, transactionId);
-  }
+    public TransactionSendResult(
+            SendStatus sendStatus,
+            String msgId,
+            MessageQueue messageQueue,
+            long queueOffset,
+            String transactionId) {
+        super(sendStatus, msgId, messageQueue, queueOffset, transactionId);
+    }
 }

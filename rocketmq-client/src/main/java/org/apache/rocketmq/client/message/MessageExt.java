@@ -9,32 +9,32 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 public class MessageExt extends Message {
-  private String brokerName;
+    private String brokerName;
 
-  private int queueId;
+    private int queueId;
 
-  private int storeSize;
+    private int storeSize;
 
-  private long queueOffset;
-  private int sysFlag;
-  private long bornTimestamp;
-  private SocketAddress bornHost;
+    private long queueOffset;
+    private int sysFlag;
+    private long bornTimestamp;
+    private SocketAddress bornHost;
 
-  private long storeTimestamp;
-  private SocketAddress storeHost;
-  private String msgId;
-  private long commitLogOffset;
-  private int bodyCRC;
-  private int reconsumeTimes;
+    private long storeTimestamp;
+    private SocketAddress storeHost;
+    private String msgId;
+    private long commitLogOffset;
+    private int bodyCRC;
+    private int reconsumeTimes;
 
-  private long preparedTransactionOffset;
+    private long preparedTransactionOffset;
 
-  private long decodedTimestamp;
-  private long expiredTimestamp;
+    private long decodedTimestamp;
+    private long expiredTimestamp;
 
-  private MessageVersion version;
+    private MessageVersion version;
 
-  public boolean isExpired(long tolerance) {
-    return System.currentTimeMillis() + tolerance > expiredTimestamp;
-  }
+    public boolean isExpired(long tolerance) {
+        return System.currentTimeMillis() + tolerance > expiredTimestamp;
+    }
 }

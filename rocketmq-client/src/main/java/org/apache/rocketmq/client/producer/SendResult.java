@@ -9,9 +9,9 @@ import org.apache.rocketmq.client.message.MessageQueue;
 @ToString
 @AllArgsConstructor
 public class SendResult {
-  private final SendStatus sendStatus;
-  private final String msgId;
-  private final MessageQueue messageQueue;
-  private final long queueOffset;
-  private final String transactionId;
+    private final SendStatus sendStatus;
+    private final String msgId;
+    private final MessageQueue messageQueue;
+    private final long queueOffset;
+    private final String transactionId;
 }

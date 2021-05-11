@@ -5,6 +5,6 @@ import org.apache.rocketmq.client.message.MessageExt;
 
 public interface MessageListenerConcurrently {
 
-  ConsumeConcurrentlyStatus consumeMessage(
-      final List<MessageExt> messages, final ConsumeConcurrentlyContext context);
+    ConsumeConcurrentlyStatus consumeMessage(
+            final List<MessageExt> messages, final ConsumeConcurrentlyContext context);
 }

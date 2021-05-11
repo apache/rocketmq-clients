@@ -9,17 +9,19 @@ import org.testng.annotations.Test;
 
 public class TopAddressingTest {
 
-  TopAddressing topAddressing = new TopAddressing();
+    TopAddressing topAddressing = new TopAddressing();
 
-  @BeforeMethod
-  public void setUp() {}
+    @BeforeMethod
+    public void setUp() {
+    }
 
-  @AfterMethod
-  public void tearDown() {}
+    @AfterMethod
+    public void tearDown() {
+    }
 
-  @Test
-  public void testFetchNameServerAddresses() throws IOException {
-    final List<String> nameServerAddresses = topAddressing.fetchNameServerAddresses();
-    Assert.assertFalse(nameServerAddresses.isEmpty());
-  }
+    @Test
+    public void testFetchNameServerAddresses() throws IOException {
+        final List<String> nameServerAddresses = topAddressing.fetchNameServerAddresses();
+        Assert.assertFalse(nameServerAddresses.isEmpty());
+    }
 }

@@ -31,105 +31,105 @@ import org.apache.rocketmq.proto.SendMessageResponse;
 @Slf4j
 public class RPCClientImpl implements RPCClient {
 
-  private final RPCTarget rpcTarget;
-  private final ManagedChannel channel;
+    private final RpcTarget rpcTarget;
+    private final ManagedChannel channel;
 
-  private final RocketMQBlockingStub blockingStub;
-  private final RocketMQStub asyncStub;
-  private final RocketMQFutureStub futureStub;
+    private final RocketMQBlockingStub blockingStub;
+    private final RocketMQStub asyncStub;
+    private final RocketMQFutureStub futureStub;
 
-  public RPCClientImpl(RPCTarget rpcTarget) {
-    this.rpcTarget = rpcTarget;
-    this.channel =
-        ManagedChannelBuilder.forTarget(rpcTarget.getTarget())
-            .disableRetry()
-            .usePlaintext()
-            .build();
+    public RPCClientImpl(RpcTarget rpcTarget) {
+        this.rpcTarget = rpcTarget;
+        this.channel =
+                ManagedChannelBuilder.forTarget(rpcTarget.getTarget())
+                                     .disableRetry()
+                                     .usePlaintext()
+                                     .build();
 
-    this.blockingStub = RocketMQGrpc.newBlockingStub(channel);
-    this.asyncStub = RocketMQGrpc.newStub(channel);
-    this.futureStub = RocketMQGrpc.newFutureStub(channel);
-  }
-
-  @VisibleForTesting
-  public RPCClientImpl(ManagedChannel channel) {
-    this.rpcTarget = null;
-    this.channel = channel;
-    this.blockingStub = RocketMQGrpc.newBlockingStub(channel);
-    this.asyncStub = RocketMQGrpc.newStub(channel);
-    this.futureStub = RocketMQGrpc.newFutureStub(channel);
-  }
-
-  @Override
-  public void shutdown() {
-    if (null != channel) {
-      channel.shutdown();
+        this.blockingStub = RocketMQGrpc.newBlockingStub(channel);
+        this.asyncStub = RocketMQGrpc.newStub(channel);
+        this.futureStub = RocketMQGrpc.newFutureStub(channel);
     }
-  }
 
-  @Override
-  public void setIsolated(boolean isolated) {
-    rpcTarget.setIsolated(isolated);
-  }
+    @VisibleForTesting
+    public RPCClientImpl(ManagedChannel channel) {
+        this.rpcTarget = null;
+        this.channel = channel;
+        this.blockingStub = RocketMQGrpc.newBlockingStub(channel);
+        this.asyncStub = RocketMQGrpc.newStub(channel);
+        this.futureStub = RocketMQGrpc.newFutureStub(channel);
+    }
 
-  @Override
-  public boolean isIsolated() {
-    return rpcTarget.isIsolated();
-  }
+    @Override
+    public void shutdown() {
+        if (null != channel) {
+            channel.shutdown();
+        }
+    }
 
-  @Override
-  public SendMessageResponse sendMessage(SendMessageRequest request, long duration, TimeUnit unit) {
-    return blockingStub.withDeadlineAfter(duration, unit).sendMessage(request);
-  }
+    @Override
+    public void setIsolated(boolean isolated) {
+        rpcTarget.setIsolated(isolated);
+    }
 
-  @Override
-  public ListenableFuture<SendMessageResponse> sendMessage(
-      SendMessageRequest request, Executor executor, long duration, TimeUnit unit) {
-    return futureStub.withExecutor(executor).withDeadlineAfter(duration, unit).sendMessage(request);
-  }
+    @Override
+    public boolean isIsolated() {
+        return rpcTarget.isIsolated();
+    }
 
-  @Override
-  public QueryAssignmentResponse queryAssignment(
-      QueryAssignmentRequest request, long duration, TimeUnit unit) {
-    return blockingStub.withDeadlineAfter(duration, unit).queryAssignment(request);
-  }
+    @Override
+    public SendMessageResponse sendMessage(SendMessageRequest request, long duration, TimeUnit unit) {
+        return blockingStub.withDeadlineAfter(duration, unit).sendMessage(request);
+    }
 
-  @Override
-  public HealthCheckResponse healthCheck(HealthCheckRequest request, long duration, TimeUnit unit) {
-    return blockingStub.withDeadlineAfter(duration, unit).healthCheck(request);
-  }
+    @Override
+    public ListenableFuture<SendMessageResponse> sendMessage(
+            SendMessageRequest request, Executor executor, long duration, TimeUnit unit) {
+        return futureStub.withExecutor(executor).withDeadlineAfter(duration, unit).sendMessage(request);
+    }
 
-  @Override
-  public ListenableFuture<PopMessageResponse> popMessage(
-      PopMessageRequest request, Executor executor, long duration, TimeUnit unit) {
-    return futureStub.withExecutor(executor).withDeadlineAfter(duration, unit).popMessage(request);
-  }
+    @Override
+    public QueryAssignmentResponse queryAssignment(
+            QueryAssignmentRequest request, long duration, TimeUnit unit) {
+        return blockingStub.withDeadlineAfter(duration, unit).queryAssignment(request);
+    }
 
-  @Override
-  public AckMessageResponse ackMessage(AckMessageRequest request, long duration, TimeUnit unit) {
-    return blockingStub.withDeadlineAfter(duration, unit).ackMessage(request);
-  }
+    @Override
+    public HealthCheckResponse healthCheck(HealthCheckRequest request, long duration, TimeUnit unit) {
+        return blockingStub.withDeadlineAfter(duration, unit).healthCheck(request);
+    }
 
-  @Override
-  public ListenableFuture<AckMessageResponse> ackMessage(
-      AckMessageRequest request, Executor executor, long duration, TimeUnit unit) {
-    return futureStub.withExecutor(executor).withDeadlineAfter(duration, unit).ackMessage(request);
-  }
+    @Override
+    public ListenableFuture<PopMessageResponse> popMessage(
+            PopMessageRequest request, Executor executor, long duration, TimeUnit unit) {
+        return futureStub.withExecutor(executor).withDeadlineAfter(duration, unit).popMessage(request);
+    }
 
-  @Override
-  public ChangeInvisibleTimeResponse changeInvisibleTime(
-      ChangeInvisibleTimeRequest request, long duration, TimeUnit unit) {
-    return blockingStub.withDeadlineAfter(duration, unit).changeInvisibleTime(request);
-  }
+    @Override
+    public AckMessageResponse ackMessage(AckMessageRequest request, long duration, TimeUnit unit) {
+        return blockingStub.withDeadlineAfter(duration, unit).ackMessage(request);
+    }
 
-  @Override
-  public HeartbeatResponse heartbeat(HeartbeatRequest request, long duration, TimeUnit unit) {
-    return blockingStub.withDeadlineAfter(duration, unit).heartbeat(request);
-  }
+    @Override
+    public ListenableFuture<AckMessageResponse> ackMessage(
+            AckMessageRequest request, Executor executor, long duration, TimeUnit unit) {
+        return futureStub.withExecutor(executor).withDeadlineAfter(duration, unit).ackMessage(request);
+    }
 
-  @Override
-  public RouteInfoResponse fetchTopicRouteInfo(
-      RouteInfoRequest request, long duration, TimeUnit unit) {
-    return blockingStub.withDeadlineAfter(duration, unit).fetchTopicRouteInfo(request);
-  }
+    @Override
+    public ChangeInvisibleTimeResponse changeInvisibleTime(
+            ChangeInvisibleTimeRequest request, long duration, TimeUnit unit) {
+        return blockingStub.withDeadlineAfter(duration, unit).changeInvisibleTime(request);
+    }
+
+    @Override
+    public HeartbeatResponse heartbeat(HeartbeatRequest request, long duration, TimeUnit unit) {
+        return blockingStub.withDeadlineAfter(duration, unit).heartbeat(request);
+    }
+
+    @Override
+    public RouteInfoResponse fetchTopicRouteInfo(
+            RouteInfoRequest request, long duration, TimeUnit unit) {
+        return blockingStub.withDeadlineAfter(duration, unit).fetchTopicRouteInfo(request);
+    }
 }

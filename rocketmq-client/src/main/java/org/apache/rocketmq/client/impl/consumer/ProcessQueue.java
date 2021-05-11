@@ -31,369 +31,377 @@ import org.apache.rocketmq.proto.PopMessageRequest;
 
 @Slf4j
 public class ProcessQueue {
-  public static final long LONG_POLLING_TIMEOUT_MILLIS = MixAll.DEFAULT_LONG_POLLING_TIMEOUT_MILLIS;
-  public static final long MAX_CACHED_MESSAGES_COUNT_PER_MESSAGE_QUEUE =
-      MixAll.DEFAULT_MAX_CACHED_MESSAGES_COUNT_PER_MESSAGE_QUEUE;
-  public static final long MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE =
-      MixAll.DEFAULT_MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE;
-  public static final long MAX_POP_MESSAGE_INTERVAL_MILLIS =
-      MixAll.DEFAULT_MAX_POP_MESSAGE_INTERVAL_MILLIS;
-  public static final long MESSAGE_EXPIRED_TOLERANCE_MILLIS = 10;
+    public static final long LONG_POLLING_TIMEOUT_MILLIS = MixAll.DEFAULT_LONG_POLLING_TIMEOUT_MILLIS;
+    public static final long MAX_CACHED_MESSAGES_COUNT_PER_MESSAGE_QUEUE =
+            MixAll.DEFAULT_MAX_CACHED_MESSAGES_COUNT_PER_MESSAGE_QUEUE;
+    public static final long MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE =
+            MixAll.DEFAULT_MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE;
+    public static final long MAX_POP_MESSAGE_INTERVAL_MILLIS =
+            MixAll.DEFAULT_MAX_POP_MESSAGE_INTERVAL_MILLIS;
+    public static final long MESSAGE_EXPIRED_TOLERANCE_MILLIS = 10;
 
-  private static final long POP_TIME_DELAY_TIME_MILLIS_WHEN_FLOW_CONTROL = 3000L;
+    private static final long POP_TIME_DELAY_TIME_MILLIS_WHEN_FLOW_CONTROL = 3000L;
 
-  @Setter @Getter private volatile boolean dropped;
-  @Getter private final MessageQueue messageQueue;
-  private final FilterExpression filterExpression;
+    @Setter
+    @Getter
+    private volatile boolean dropped;
+    @Getter
+    private final MessageQueue messageQueue;
+    private final FilterExpression filterExpression;
 
-  @Getter private final DefaultMQPushConsumerImpl consumerImpl;
+    @Getter
+    private final DefaultMQPushConsumerImpl consumerImpl;
 
-  private final TreeMap<Long, MessageExt> cachedMessages;
-  private final ReentrantReadWriteLock cachedMessagesLock;
-  private final AtomicLong cachedMsgCount;
-  private final AtomicLong cachedMsgSize;
+    private final TreeMap<Long, MessageExt> cachedMessages;
+    private final ReentrantReadWriteLock cachedMessagesLock;
+    private final AtomicLong cachedMsgCount;
+    private final AtomicLong cachedMsgSize;
 
-  private volatile long lastPopTimestamp;
-  private volatile long lastThrottledTimestamp;
+    private volatile long lastPopTimestamp;
+    private volatile long lastThrottledTimestamp;
 
-  private final AtomicLong termId;
+    private final AtomicLong termId;
 
-  public ProcessQueue(
-      DefaultMQPushConsumerImpl consumerImpl,
-      MessageQueue messageQueue,
-      FilterExpression filterExpression) {
-    this.consumerImpl = consumerImpl;
-    this.messageQueue = messageQueue;
-    this.filterExpression = filterExpression;
-    this.dropped = false;
+    public ProcessQueue(
+            DefaultMQPushConsumerImpl consumerImpl,
+            MessageQueue messageQueue,
+            FilterExpression filterExpression) {
+        this.consumerImpl = consumerImpl;
+        this.messageQueue = messageQueue;
+        this.filterExpression = filterExpression;
+        this.dropped = false;
 
-    this.cachedMessages = new TreeMap<Long, MessageExt>();
-    this.cachedMessagesLock = new ReentrantReadWriteLock();
+        this.cachedMessages = new TreeMap<Long, MessageExt>();
+        this.cachedMessagesLock = new ReentrantReadWriteLock();
 
-    this.cachedMsgCount = new AtomicLong(0L);
-    this.cachedMsgSize = new AtomicLong(0L);
+        this.cachedMsgCount = new AtomicLong(0L);
+        this.cachedMsgSize = new AtomicLong(0L);
 
-    this.lastPopTimestamp = System.currentTimeMillis();
-    this.lastThrottledTimestamp = System.currentTimeMillis();
+        this.lastPopTimestamp = System.currentTimeMillis();
+        this.lastThrottledTimestamp = System.currentTimeMillis();
 
-    this.termId = new AtomicLong(1);
-  }
-
-  public boolean isPopExpired() {
-    final long popDuration = System.currentTimeMillis() - lastPopTimestamp;
-    if (popDuration < MAX_POP_MESSAGE_INTERVAL_MILLIS) {
-      return false;
+        this.termId = new AtomicLong(1);
     }
 
-    final long throttledDuration = System.currentTimeMillis() - lastThrottledTimestamp;
-    if (throttledDuration < MAX_POP_MESSAGE_INTERVAL_MILLIS) {
-      return false;
-    }
-
-    log.warn(
-        "ProcessQueue is expired, duration from last pop={}ms, duration from last throttle={}ms, lastPopTimestamp={}, lastThrottledTimestamp={}, currentTimestamp={}",
-        popDuration,
-        throttledDuration,
-        lastPopTimestamp,
-        lastThrottledTimestamp,
-        System.currentTimeMillis());
-    return true;
-  }
-
-  @VisibleForTesting
-  public void cacheMessages(List<MessageExt> messageList) {
-    cachedMessagesLock.writeLock().lock();
-    try {
-      for (MessageExt message : messageList) {
-        if (null == cachedMessages.put(message.getQueueOffset(), message)) {
-          cachedMsgCount.incrementAndGet();
-          cachedMsgSize.addAndGet(null == message.getBody() ? 0 : message.getBody().length);
+    public boolean isPopExpired() {
+        final long popDuration = System.currentTimeMillis() - lastPopTimestamp;
+        if (popDuration < MAX_POP_MESSAGE_INTERVAL_MILLIS) {
+            return false;
         }
-      }
-    } finally {
-      cachedMessagesLock.writeLock().unlock();
-    }
-  }
 
-  public List<MessageExt> getCachedMessages() {
-    cachedMessagesLock.readLock().lock();
-    try {
-      return new ArrayList<MessageExt>(cachedMessages.values());
-    } finally {
-      cachedMessagesLock.readLock().unlock();
-    }
-  }
-
-  public void removeCachedMessages(List<MessageExt> messageExtList) {
-    cachedMessagesLock.writeLock().lock();
-    try {
-      for (MessageExt messageExt : messageExtList) {
-        final MessageExt removed = cachedMessages.remove(messageExt.getQueueOffset());
-        if (null != removed) {
-          cachedMsgCount.decrementAndGet();
-          cachedMsgSize.addAndGet(null == removed.getBody() ? 0 : -removed.getBody().length);
+        final long throttledDuration = System.currentTimeMillis() - lastThrottledTimestamp;
+        if (throttledDuration < MAX_POP_MESSAGE_INTERVAL_MILLIS) {
+            return false;
         }
-      }
-    } finally {
-      cachedMessagesLock.writeLock().unlock();
-    }
-  }
 
-  private void handlePopResult(PopResult popResult) {
-    final PopStatus popStatus = popResult.getPopStatus();
-    final List<MessageExt> msgFoundList = popResult.getMsgFoundList();
-
-    switch (popStatus) {
-      case FOUND:
-        cacheMessages(msgFoundList);
-
-        consumerImpl.popTimes.getAndAdd(1);
-        consumerImpl.popMsgCount.getAndAdd(msgFoundList.size());
-
-        consumerImpl.getConsumeService().dispatch(this);
-      case NO_NEW_MSG:
-      case POLLING_FULL:
-      case POLLING_NOT_FOUND:
-      case SERVICE_UNSTABLE:
-        log.debug(
-            "Pop message from target={} with status={}, mq={}, message count={}",
-            popResult.getTarget(),
-            popStatus,
-            messageQueue.simpleName(),
-            msgFoundList.size());
-        prepareNextPop(popResult.getTermId(), popResult.getTarget());
-        break;
-      default:
         log.warn(
-            "Pop message from target={} with unknown status={}, mq={}, message count={}",
-            popResult.getTarget(),
-            popStatus,
-            messageQueue.simpleName(),
-            msgFoundList.size());
-        prepareNextPop(popResult.getTermId(), popResult.getTarget());
+                "ProcessQueue is expired, duration from last pop={}ms, duration from last throttle={}ms, " +
+                "lastPopTimestamp={}, lastThrottledTimestamp={}, currentTimestamp={}",
+                popDuration,
+                throttledDuration,
+                lastPopTimestamp,
+                lastThrottledTimestamp,
+                System.currentTimeMillis());
+        return true;
     }
-  }
 
-  @VisibleForTesting
-  public void prepareNextPop(long currentTermId, String target) {
-    if (!leaseNextTerm(currentTermId, target)) {
-      log.debug("No need to prepare for next pop, mq={}", messageQueue.simpleName());
-      return;
+    @VisibleForTesting
+    public void cacheMessages(List<MessageExt> messageList) {
+        cachedMessagesLock.writeLock().lock();
+        try {
+            for (MessageExt message : messageList) {
+                if (null == cachedMessages.put(message.getQueueOffset(), message)) {
+                    cachedMsgCount.incrementAndGet();
+                    cachedMsgSize.addAndGet(null == message.getBody() ? 0 : message.getBody().length);
+                }
+            }
+        } finally {
+            cachedMessagesLock.writeLock().unlock();
+        }
     }
-    if (this.isDropped()) {
-      log.debug("Process queue has been dropped, mq={}.", messageQueue.simpleName());
-      return;
+
+    public List<MessageExt> getCachedMessages() {
+        cachedMessagesLock.readLock().lock();
+        try {
+            return new ArrayList<MessageExt>(cachedMessages.values());
+        } finally {
+            cachedMessagesLock.readLock().unlock();
+        }
     }
-    if (this.isPopThrottled()) {
-      log.warn(
-          "Process queue flow control is triggered, would pop message later, mq={}.",
-          messageQueue.simpleName());
 
-      lastThrottledTimestamp = System.currentTimeMillis();
-
-      popMessageLater();
-      return;
+    public void removeCachedMessages(List<MessageExt> messageExtList) {
+        cachedMessagesLock.writeLock().lock();
+        try {
+            for (MessageExt messageExt : messageExtList) {
+                final MessageExt removed = cachedMessages.remove(messageExt.getQueueOffset());
+                if (null != removed) {
+                    cachedMsgCount.decrementAndGet();
+                    cachedMsgSize.addAndGet(null == removed.getBody() ? 0 : -removed.getBody().length);
+                }
+            }
+        } finally {
+            cachedMessagesLock.writeLock().unlock();
+        }
     }
-    popMessage();
-  }
 
-  public void popMessageLater() {
-    final ScheduledExecutorService scheduler = consumerImpl.getClientInstance().getScheduler();
-    scheduler.schedule(
-        new Runnable() {
-          @Override
-          public void run() {
-            popMessage();
-          }
-        },
-        POP_TIME_DELAY_TIME_MILLIS_WHEN_FLOW_CONTROL,
-        TimeUnit.MILLISECONDS);
-  }
+    private void handlePopResult(PopResult popResult) {
+        final PopStatus popStatus = popResult.getPopStatus();
+        final List<MessageExt> msgFoundList = popResult.getMsgFoundList();
 
-  private boolean isPopThrottled() {
-    final long actualCachedMsgCount = cachedMsgCount.get();
-    if (MAX_CACHED_MESSAGES_COUNT_PER_MESSAGE_QUEUE <= actualCachedMsgCount) {
-      log.warn(
-          "Process queue cached message count exceeds the threshold, max count={}, cached count={}, mq={}",
-          MAX_CACHED_MESSAGES_COUNT_PER_MESSAGE_QUEUE,
-          actualCachedMsgCount,
-          messageQueue.simpleName());
-      return true;
+        switch (popStatus) {
+            case FOUND:
+                cacheMessages(msgFoundList);
+
+                consumerImpl.popTimes.getAndAdd(1);
+                consumerImpl.popMsgCount.getAndAdd(msgFoundList.size());
+
+                consumerImpl.getConsumeService().dispatch(this);
+                // fall through on purpose.
+            case NO_NEW_MSG:
+            case POLLING_FULL:
+            case POLLING_NOT_FOUND:
+            case SERVICE_UNSTABLE:
+                log.debug(
+                        "Pop message from target={} with status={}, mq={}, message count={}",
+                        popResult.getTarget(),
+                        popStatus,
+                        messageQueue.simpleName(),
+                        msgFoundList.size());
+                prepareNextPop(popResult.getTermId(), popResult.getTarget());
+                break;
+            default:
+                log.warn(
+                        "Pop message from target={} with unknown status={}, mq={}, message count={}",
+                        popResult.getTarget(),
+                        popStatus,
+                        messageQueue.simpleName(),
+                        msgFoundList.size());
+                prepareNextPop(popResult.getTermId(), popResult.getTarget());
+        }
     }
-    final long actualCachedMsgSize = cachedMsgSize.get();
-    if (MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE <= actualCachedMsgSize) {
-      log.warn(
-          "Process queue cached message size exceeds the threshold, max size={}, cached size={}, mq={}",
-          MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE,
-          actualCachedMsgSize,
-          messageQueue.simpleName());
-      return true;
+
+    @VisibleForTesting
+    public void prepareNextPop(long currentTermId, String target) {
+        if (!leaseNextTerm(currentTermId, target)) {
+            log.debug("No need to prepare for next pop, mq={}", messageQueue.simpleName());
+            return;
+        }
+        if (this.isDropped()) {
+            log.debug("Process queue has been dropped, mq={}.", messageQueue.simpleName());
+            return;
+        }
+        if (this.isPopThrottled()) {
+            log.warn(
+                    "Process queue flow control is triggered, would pop message later, mq={}.",
+                    messageQueue.simpleName());
+
+            lastThrottledTimestamp = System.currentTimeMillis();
+
+            popMessageLater();
+            return;
+        }
+        popMessage();
     }
-    return false;
-  }
 
-  public void ackMessage(MessageExt messageExt) throws MQClientException {
-    if (messageExt.isExpired(MESSAGE_EXPIRED_TOLERANCE_MILLIS)) {
-      log.warn(
-          "Message is already expired, skip ACK, topic={}, msgId={}, decodedTimestamp={}, currentTimestamp={}, expiredTimestamp={}",
-          messageExt.getTopic(),
-          messageExt.getMsgId(),
-          messageExt.getDecodedTimestamp(),
-          System.currentTimeMillis(),
-          messageExt.getExpiredTimestamp());
-      return;
+    public void popMessageLater() {
+        final ScheduledExecutorService scheduler = consumerImpl.getClientInstance().getScheduler();
+        scheduler.schedule(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        popMessage();
+                    }
+                },
+                POP_TIME_DELAY_TIME_MILLIS_WHEN_FLOW_CONTROL,
+                TimeUnit.MILLISECONDS);
     }
-    final AckMessageRequest request = wrapAckMessageRequest(messageExt);
-    final ClientInstance clientInstance = consumerImpl.getClientInstance();
-    final String target = messageExt.getProperty(MessageConst.PROPERTY_ACK_HOST_ADDRESS);
 
-    if (consumerImpl.getDefaultMQPushConsumer().isAckMessageAsync()) {
-      clientInstance.ackMessageAsync(target, request);
-      return;
+    private boolean isPopThrottled() {
+        final long actualCachedMsgCount = cachedMsgCount.get();
+        if (MAX_CACHED_MESSAGES_COUNT_PER_MESSAGE_QUEUE <= actualCachedMsgCount) {
+            log.warn(
+                    "Process queue cached message count exceeds the threshold, max count={}, cached count={}, mq={}",
+                    MAX_CACHED_MESSAGES_COUNT_PER_MESSAGE_QUEUE,
+                    actualCachedMsgCount,
+                    messageQueue.simpleName());
+            return true;
+        }
+        final long actualCachedMsgSize = cachedMsgSize.get();
+        if (MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE <= actualCachedMsgSize) {
+            log.warn(
+                    "Process queue cached message size exceeds the threshold, max size={}, cached size={}, mq={}",
+                    MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE,
+                    actualCachedMsgSize,
+                    messageQueue.simpleName());
+            return true;
+        }
+        return false;
     }
-    clientInstance.ackMessage(target, request);
-  }
 
-  public void negativeAckMessage(MessageExt messageExt) throws MQClientException {
-    final ChangeInvisibleTimeRequest request = wrapChangeInvisibleTimeRequest(messageExt);
-    final ClientInstance clientInstance = consumerImpl.getClientInstance();
-    final String target = messageExt.getProperty(MessageConst.PROPERTY_ACK_HOST_ADDRESS);
-    clientInstance.changeInvisibleTime(target, request);
-  }
+    public void ackMessage(MessageExt messageExt) throws MQClientException {
+        if (messageExt.isExpired(MESSAGE_EXPIRED_TOLERANCE_MILLIS)) {
+            log.warn(
+                    "Message is already expired, skip ACK, topic={}, msgId={}, decodedTimestamp={}, " +
+                    "currentTimestamp={}, expiredTimestamp={}",
+                    messageExt.getTopic(),
+                    messageExt.getMsgId(),
+                    messageExt.getDecodedTimestamp(),
+                    System.currentTimeMillis(),
+                    messageExt.getExpiredTimestamp());
+            return;
+        }
+        final AckMessageRequest request = wrapAckMessageRequest(messageExt);
+        final ClientInstance clientInstance = consumerImpl.getClientInstance();
+        final String target = messageExt.getProperty(MessageConst.PROPERTY_ACK_HOST_ADDRESS);
 
-  public void popMessage() {
-    try {
-      final ClientInstance clientInstance = consumerImpl.getClientInstance();
-      final String target =
-          clientInstance.resolveTarget(messageQueue.getTopic(), messageQueue.getBrokerName());
-      final PopMessageRequest request = wrapPopMessageRequest();
+        if (consumerImpl.getDefaultMQPushConsumer().isAckMessageAsync()) {
+            clientInstance.ackMessageAsync(target, request);
+            return;
+        }
+        clientInstance.ackMessage(target, request);
+    }
 
-      lastPopTimestamp = System.currentTimeMillis();
+    public void negativeAckMessage(MessageExt messageExt) throws MQClientException {
+        final ChangeInvisibleTimeRequest request = wrapChangeInvisibleTimeRequest(messageExt);
+        final ClientInstance clientInstance = consumerImpl.getClientInstance();
+        final String target = messageExt.getProperty(MessageConst.PROPERTY_ACK_HOST_ADDRESS);
+        clientInstance.changeInvisibleTime(target, request);
+    }
 
-      final ListenableFuture<PopResult> future =
-          clientInstance.popMessageAsync(
-              target, request, LONG_POLLING_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
-      Futures.addCallback(
-          future,
-          new FutureCallback<PopResult>() {
-            @Override
-            public void onSuccess(PopResult popResult) {
-              try {
-                ProcessQueue.this.handlePopResult(popResult);
-              } catch (Throwable t) {
-                // Should never reach here.
-                log.error(
-                    "Unexpected exception occurs while handle pop result, would pop message later, mq={}",
+    public void popMessage() {
+        try {
+            final ClientInstance clientInstance = consumerImpl.getClientInstance();
+            final String target =
+                    clientInstance.resolveTarget(messageQueue.getTopic(), messageQueue.getBrokerName());
+            final PopMessageRequest request = wrapPopMessageRequest();
+
+            lastPopTimestamp = System.currentTimeMillis();
+
+            final ListenableFuture<PopResult> future =
+                    clientInstance.popMessageAsync(
+                            target, request, LONG_POLLING_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            Futures.addCallback(
+                    future,
+                    new FutureCallback<PopResult>() {
+                        @Override
+                        public void onSuccess(PopResult popResult) {
+                            try {
+                                ProcessQueue.this.handlePopResult(popResult);
+                            } catch (Throwable t) {
+                                // Should never reach here.
+                                log.error(
+                                        "Unexpected exception occurs while handle pop result, would pop message " +
+                                        "later, mq={}",
+                                        messageQueue,
+                                        t);
+                                popMessageLater();
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(Throwable t) {
+                            log.error(
+                                    "Exception occurs while popping message, would pop message later, mq={}",
+                                    messageQueue,
+                                    t);
+                            popMessageLater();
+                        }
+                    },
+                    MoreExecutors.directExecutor());
+        } catch (Throwable t) {
+            log.error(
+                    "Exception raised while popping message, would pop message later, mq={}.",
                     messageQueue,
                     t);
-                popMessageLater();
-              }
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-              log.error(
-                  "Exception occurs while popping message, would pop message later, mq={}",
-                  messageQueue,
-                  t);
-              popMessageLater();
-            }
-          },
-          MoreExecutors.directExecutor());
-    } catch (Throwable t) {
-      log.error(
-          "Exception raised while popping message, would pop message later, mq={}.",
-          messageQueue,
-          t);
-      popMessageLater();
-    }
-  }
-
-  private boolean leaseNextTerm(long currentTermId, String target) {
-    if (0 >= currentTermId) {
-      log.warn("Version of target is too old, mq={}, target={}", messageQueue.simpleName(), target);
-    }
-    if (currentTermId < termId.get()) {
-      return false;
-    }
-    final boolean acquired = termId.compareAndSet(currentTermId, currentTermId + 1);
-    if (acquired) {
-      log.debug("Lease acquired, mq={}, new termId={}", messageQueue.simpleName(), termId.get());
-    }
-    return acquired;
-  }
-
-  private AckMessageRequest wrapAckMessageRequest(MessageExt messageExt) {
-    return AckMessageRequest.newBuilder()
-        .setConsumerGroup(consumerImpl.getDefaultMQPushConsumer().getConsumerGroup())
-        .setTopic(messageExt.getTopic())
-        .setQueueId(messageExt.getQueueId())
-        .setOffset(messageExt.getQueueOffset())
-        .setExtraInfo(messageExt.getProperty(MessageConst.PROPERTY_POP_CK))
-        .build();
-  }
-
-  private ChangeInvisibleTimeRequest wrapChangeInvisibleTimeRequest(MessageExt messageExt) {
-    return ChangeInvisibleTimeRequest.newBuilder()
-        .setConsumerGroup(consumerImpl.getDefaultMQPushConsumer().getConsumerGroup())
-        .setTopic(messageExt.getTopic())
-        .setQueueId(messageExt.getQueueId())
-        .setOffset(messageExt.getQueueOffset())
-        .setExtraInfo(messageExt.getProperty(MessageConst.PROPERTY_POP_CK))
-        .setInvisibleTime(MixAll.DEFAULT_INVISIBLE_TIME_MILLIS)
-        .build();
-  }
-
-  private PopMessageRequest wrapPopMessageRequest() {
-    final PopMessageRequest.Builder builder =
-        PopMessageRequest.newBuilder()
-            .setConsumerGroup(consumerImpl.getDefaultMQPushConsumer().getConsumerGroup())
-            .setTopic(messageQueue.getTopic())
-            .setBrokerName(messageQueue.getBrokerName())
-            .setQueueId(messageQueue.getQueueId())
-            .setMaxMessageNumber(MixAll.DEFAULT_MAX_MESSAGE_NUMBER_PRE_BATCH)
-            .setInvisibleTime(MixAll.DEFAULT_INVISIBLE_TIME_MILLIS)
-            .setPollTime(MixAll.DEFAULT_POLL_TIME_MILLIS)
-            .setBornTimestamp(System.currentTimeMillis())
-            .setExpression(filterExpression.getExpression());
-
-    final ExpressionType expressionType = filterExpression.getExpressionType();
-    switch (expressionType) {
-      case SQL92:
-        builder.setExpressionType(ExpressionType.SQL92.getType());
-        break;
-      case TAG:
-        builder.setExpressionType(ExpressionType.TAG.getType());
-        break;
-      default:
-        log.error(
-            "Unknown filter expression type={}, expression string={}",
-            expressionType,
-            filterExpression.getExpression());
+            popMessageLater();
+        }
     }
 
-    switch (consumerImpl.getDefaultMQPushConsumer().getConsumeFromWhere()) {
-      case CONSUME_FROM_LAST_OFFSET:
-        builder.setInitialMode(PopMessageRequest.ConsumeInitialMode.MAX);
-        break;
-      case CONSUME_FROM_FIRST_OFFSET:
-        builder.setInitialMode(PopMessageRequest.ConsumeInitialMode.MIN);
-        break;
-      default:
-        log.warn("Unknown initial consume mode, fall back to max mode.");
-        builder.setInitialMode(PopMessageRequest.ConsumeInitialMode.MAX);
+    private boolean leaseNextTerm(long currentTermId, String target) {
+        if (0 >= currentTermId) {
+            log.warn("Version of target is too old, mq={}, target={}", messageQueue.simpleName(), target);
+        }
+        if (currentTermId < termId.get()) {
+            return false;
+        }
+        final boolean acquired = termId.compareAndSet(currentTermId, currentTermId + 1);
+        if (acquired) {
+            log.debug("Lease acquired, mq={}, new termId={}", messageQueue.simpleName(), termId.get());
+        }
+        return acquired;
     }
 
-    builder.setOrder(false);
-    builder.setTermId(termId.get());
-    return builder.build();
-  }
+    private AckMessageRequest wrapAckMessageRequest(MessageExt messageExt) {
+        return AckMessageRequest.newBuilder()
+                                .setConsumerGroup(consumerImpl.getDefaultMQPushConsumer().getConsumerGroup())
+                                .setTopic(messageExt.getTopic())
+                                .setQueueId(messageExt.getQueueId())
+                                .setOffset(messageExt.getQueueOffset())
+                                .setExtraInfo(messageExt.getProperty(MessageConst.PROPERTY_POP_CK))
+                                .build();
+    }
 
-  public long getCachedMsgCount() {
-    return cachedMsgCount.get();
-  }
+    private ChangeInvisibleTimeRequest wrapChangeInvisibleTimeRequest(MessageExt messageExt) {
+        return ChangeInvisibleTimeRequest.newBuilder()
+                                         .setConsumerGroup(consumerImpl.getDefaultMQPushConsumer().getConsumerGroup())
+                                         .setTopic(messageExt.getTopic())
+                                         .setQueueId(messageExt.getQueueId())
+                                         .setOffset(messageExt.getQueueOffset())
+                                         .setExtraInfo(messageExt.getProperty(MessageConst.PROPERTY_POP_CK))
+                                         .setInvisibleTime(MixAll.DEFAULT_INVISIBLE_TIME_MILLIS)
+                                         .build();
+    }
 
-  public long getCachedMsgSize() {
-    return cachedMsgSize.get();
-  }
+    private PopMessageRequest wrapPopMessageRequest() {
+        final PopMessageRequest.Builder builder =
+                PopMessageRequest.newBuilder()
+                                 .setConsumerGroup(consumerImpl.getDefaultMQPushConsumer().getConsumerGroup())
+                                 .setTopic(messageQueue.getTopic())
+                                 .setBrokerName(messageQueue.getBrokerName())
+                                 .setQueueId(messageQueue.getQueueId())
+                                 .setMaxMessageNumber(MixAll.DEFAULT_MAX_MESSAGE_NUMBER_PRE_BATCH)
+                                 .setInvisibleTime(MixAll.DEFAULT_INVISIBLE_TIME_MILLIS)
+                                 .setPollTime(MixAll.DEFAULT_POLL_TIME_MILLIS)
+                                 .setBornTimestamp(System.currentTimeMillis())
+                                 .setExpression(filterExpression.getExpression());
+
+        final ExpressionType expressionType = filterExpression.getExpressionType();
+        switch (expressionType) {
+            case SQL92:
+                builder.setExpressionType(ExpressionType.SQL92.getType());
+                break;
+            case TAG:
+                builder.setExpressionType(ExpressionType.TAG.getType());
+                break;
+            default:
+                log.error(
+                        "Unknown filter expression type={}, expression string={}",
+                        expressionType,
+                        filterExpression.getExpression());
+        }
+
+        switch (consumerImpl.getDefaultMQPushConsumer().getConsumeFromWhere()) {
+            case CONSUME_FROM_LAST_OFFSET:
+                builder.setInitialMode(PopMessageRequest.ConsumeInitialMode.MAX);
+                break;
+            case CONSUME_FROM_FIRST_OFFSET:
+                builder.setInitialMode(PopMessageRequest.ConsumeInitialMode.MIN);
+                break;
+            default:
+                log.warn("Unknown initial consume mode, fall back to max mode.");
+                builder.setInitialMode(PopMessageRequest.ConsumeInitialMode.MAX);
+        }
+
+        builder.setOrder(false);
+        builder.setTermId(termId.get());
+        return builder.build();
+    }
+
+    public long getCachedMsgCount() {
+        return cachedMsgCount.get();
+    }
+
+    public long getCachedMsgSize() {
+        return cachedMsgSize.get();
+    }
 }

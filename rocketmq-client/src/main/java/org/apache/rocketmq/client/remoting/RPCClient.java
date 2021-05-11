@@ -21,34 +21,34 @@ import org.apache.rocketmq.proto.SendMessageRequest;
 import org.apache.rocketmq.proto.SendMessageResponse;
 
 public interface RPCClient {
-  void shutdown();
+    void shutdown();
 
-  void setIsolated(boolean isolated);
+    void setIsolated(boolean isolated);
 
-  boolean isIsolated();
+    boolean isIsolated();
 
-  SendMessageResponse sendMessage(SendMessageRequest request, long duration, TimeUnit unit);
+    SendMessageResponse sendMessage(SendMessageRequest request, long duration, TimeUnit unit);
 
-  ListenableFuture<SendMessageResponse> sendMessage(
-      SendMessageRequest request, Executor executor, long duration, TimeUnit unit);
+    ListenableFuture<SendMessageResponse> sendMessage(
+            SendMessageRequest request, Executor executor, long duration, TimeUnit unit);
 
-  QueryAssignmentResponse queryAssignment(
-      QueryAssignmentRequest request, long duration, TimeUnit unit);
+    QueryAssignmentResponse queryAssignment(
+            QueryAssignmentRequest request, long duration, TimeUnit unit);
 
-  HealthCheckResponse healthCheck(HealthCheckRequest request, long duration, TimeUnit unit);
+    HealthCheckResponse healthCheck(HealthCheckRequest request, long duration, TimeUnit unit);
 
-  ListenableFuture<PopMessageResponse> popMessage(
-      PopMessageRequest request, Executor executor, long duration, TimeUnit unit);
+    ListenableFuture<PopMessageResponse> popMessage(
+            PopMessageRequest request, Executor executor, long duration, TimeUnit unit);
 
-  AckMessageResponse ackMessage(AckMessageRequest request, long duration, TimeUnit unit);
+    AckMessageResponse ackMessage(AckMessageRequest request, long duration, TimeUnit unit);
 
-  ListenableFuture<AckMessageResponse> ackMessage(
-      AckMessageRequest request, Executor executor, long duration, TimeUnit unit);
+    ListenableFuture<AckMessageResponse> ackMessage(
+            AckMessageRequest request, Executor executor, long duration, TimeUnit unit);
 
-  ChangeInvisibleTimeResponse changeInvisibleTime(
-      ChangeInvisibleTimeRequest request, long duration, TimeUnit unit);
+    ChangeInvisibleTimeResponse changeInvisibleTime(
+            ChangeInvisibleTimeRequest request, long duration, TimeUnit unit);
 
-  HeartbeatResponse heartbeat(HeartbeatRequest request, long duration, TimeUnit unit);
+    HeartbeatResponse heartbeat(HeartbeatRequest request, long duration, TimeUnit unit);
 
-  RouteInfoResponse fetchTopicRouteInfo(RouteInfoRequest request, long duration, TimeUnit unit);
+    RouteInfoResponse fetchTopicRouteInfo(RouteInfoRequest request, long duration, TimeUnit unit);
 }

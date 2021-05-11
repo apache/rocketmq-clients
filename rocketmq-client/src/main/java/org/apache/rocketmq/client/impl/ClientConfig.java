@@ -17,84 +17,98 @@ import org.apache.rocketmq.utility.RemotingUtil;
 
 public class ClientConfig {
 
-  @Getter @Setter private List<String> nameServerList;
-  @Getter @Setter private String clientIP;
-  @Getter @Setter private String groupName;
-  private String unitName;
-  @Getter @Setter private String instanceName;
-  @Getter @Setter String namespace;
+    @Getter
+    @Setter
+    private List<String> nameServerList;
+    @Getter
+    @Setter
+    private String clientIP;
+    @Getter
+    @Setter
+    private String groupName;
+    private String unitName;
+    @Getter
+    @Setter
+    private String instanceName;
+    @Getter
+    @Setter
+    private String namespace;
 
-  @Getter @Setter private long routeUpdatePeriodMillis = 30 * 1000;
-  @Getter @Setter private long heartbeatPeriodMillis = 30 * 1000;
+    @Getter
+    @Setter
+    private long routeUpdatePeriodMillis = 30 * 1000;
+    @Getter
+    @Setter
+    private long heartbeatPeriodMillis = 30 * 1000;
 
-  private boolean useTLS;
-  private LanguageCode language;
+    private boolean useTLS;
+    private LanguageCode language;
 
-  public ClientConfig() {
-    this.nameServerList = new ArrayList<String>();
-    this.clientIP = RemotingUtil.getLocalAddress();
-    this.instanceName = System.getProperty("rocketmq.client.name", "DEFAULT");
-    this.useTLS = TLSSystemConfig.tlsEnable;
-    this.language = LanguageCode.JAVA;
-  }
-
-  public void setNamesrvAddr(String nameServerStr) {
-    final String[] nameServerList = nameServerStr.split(";");
-    this.nameServerList = Arrays.asList(nameServerList);
-  }
-
-  public String buildClientId() {
-    StringBuilder sb = new StringBuilder();
-    sb.append(clientIP);
-    sb.append("@");
-    sb.append(instanceName);
-    if (StringUtils.isNotBlank(unitName)) {
-      sb.append("@");
-      sb.append(unitName);
-    }
-    return sb.toString();
-  }
-
-  public String withNamespace(String resource) {
-    return ResourceUtil.wrapWithNamespace(namespace, resource);
-  }
-
-  public Set<String> withNamespace(Set<String> resourceSet) {
-    Set<String> resourceWithNamespace = new HashSet<String>();
-    for (String resource : resourceSet) {
-      resourceWithNamespace.add(withNamespace(resource));
-    }
-    return resourceWithNamespace;
-  }
-
-  public String unwrapWithNamespace(String resource) {
-    return ResourceUtil.unwrapWithNamespace(resource, namespace);
-  }
-
-  public Set<String> unwrapWithNamespace(Set<String> resourceSet) {
-    Set<String> newResourceSet = new HashSet<String>();
-    for (String resource : resourceSet) {
-      newResourceSet.add(unwrapWithNamespace(resource));
-    }
-    return newResourceSet;
-  }
-
-  public MessageQueue queueWrapWithNamespace(MessageQueue queue) {
-    if (StringUtils.isEmpty(namespace)) {
-      return queue;
+    public ClientConfig() {
+        this.nameServerList = new ArrayList<String>();
+        this.clientIP = RemotingUtil.getLocalAddress();
+        this.instanceName = System.getProperty("rocketmq.client.name", "DEFAULT");
+        this.useTLS = TLSSystemConfig.tlsEnable;
+        this.language = LanguageCode.JAVA;
     }
 
-    return new MessageQueue(
-        withNamespace(queue.getTopic()), queue.getBrokerName(), queue.getQueueId());
-  }
+    public void setNamesrvAddr(String nameServerStr) {
+        final String[] nameServerList = nameServerStr.split(";");
+        this.nameServerList = Arrays.asList(nameServerList);
+    }
 
-  public Collection<MessageQueue> queuesWithNamespace(Collection<MessageQueue> queues) {
-    if (StringUtils.isEmpty(namespace)) {
-      return queues;
+    public String buildClientId() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(clientIP);
+        sb.append("@");
+        sb.append(instanceName);
+        if (StringUtils.isNotBlank(unitName)) {
+            sb.append("@");
+            sb.append(unitName);
+        }
+        return sb.toString();
     }
-    for (MessageQueue queue : queues) {
-      queue.setTopic(withNamespace(queue.getTopic()));
+
+    public String withNamespace(String resource) {
+        return ResourceUtil.wrapWithNamespace(namespace, resource);
     }
-    return queues;
-  }
+
+    public Set<String> withNamespace(Set<String> resourceSet) {
+        Set<String> resourceWithNamespace = new HashSet<String>();
+        for (String resource : resourceSet) {
+            resourceWithNamespace.add(withNamespace(resource));
+        }
+        return resourceWithNamespace;
+    }
+
+    public String unwrapWithNamespace(String resource) {
+        return ResourceUtil.unwrapWithNamespace(resource, namespace);
+    }
+
+    public Set<String> unwrapWithNamespace(Set<String> resourceSet) {
+        Set<String> newResourceSet = new HashSet<String>();
+        for (String resource : resourceSet) {
+            newResourceSet.add(unwrapWithNamespace(resource));
+        }
+        return newResourceSet;
+    }
+
+    public MessageQueue queueWrapWithNamespace(MessageQueue queue) {
+        if (StringUtils.isEmpty(namespace)) {
+            return queue;
+        }
+
+        return new MessageQueue(
+                withNamespace(queue.getTopic()), queue.getBrokerName(), queue.getQueueId());
+    }
+
+    public Collection<MessageQueue> queuesWithNamespace(Collection<MessageQueue> queues) {
+        if (StringUtils.isEmpty(namespace)) {
+            return queues;
+        }
+        for (MessageQueue queue : queues) {
+            queue.setTopic(withNamespace(queue.getTopic()));
+        }
+        return queues;
+    }
 }

@@ -4,9 +4,9 @@ import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.proto.ProducerData;
 
 public interface ProducerObserver {
-  void onTopicRouteChanged(String topic, TopicRouteData topicRouteData);
+    void onTopicRouteChanged(String topic, TopicRouteData topicRouteData);
 
-  ProducerData prepareHeartbeatData();
+    ProducerData prepareHeartbeatData();
 
-  void logStats();
+    void logStats();
 }

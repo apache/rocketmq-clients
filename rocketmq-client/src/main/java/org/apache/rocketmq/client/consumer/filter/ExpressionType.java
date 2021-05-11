@@ -6,8 +6,8 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public enum ExpressionType {
-  SQL92("SQL92"),
-  TAG("TAG");
+    SQL92("SQL92"),
+    TAG("TAG");
 
-  private final String type;
+    private final String type;
 }

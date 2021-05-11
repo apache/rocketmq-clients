@@ -10,11 +10,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class MessageQueue {
-  private String topic;
-  private String brokerName;
-  private int queueId;
+    private String topic;
+    private String brokerName;
+    private int queueId;
 
-  public String simpleName() {
-    return topic + "." + brokerName + "." + queueId;
-  }
+    public String simpleName() {
+        return topic + "." + brokerName + "." + queueId;
+    }
 }

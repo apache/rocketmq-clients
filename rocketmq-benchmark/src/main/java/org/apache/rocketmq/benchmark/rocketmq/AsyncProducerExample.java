@@ -13,50 +13,52 @@ import org.apache.rocketmq.client.producer.SendResult;
 
 @Slf4j
 public class AsyncProducerExample {
-  public static void main(String[] args) throws MQClientException, InterruptedException {
-    DefaultMQProducer producer = new DefaultMQProducer("TestGroup");
-    producer.setNamesrvAddr("11.167.164.105:9876");
-    producer.start();
-
-    int messageNum = 100000;
-    final Stopwatch started = Stopwatch.createStarted();
-    final CountDownLatch latch = new CountDownLatch(messageNum);
-
-    for (int i = 0; i < messageNum; i++) {
-      try {
-        Message msg =
-            new Message(
-                "TestTopic" /* Topic */,
-                "TagA" /* Tag */,
-                ("Hello RocketMQ " + i).getBytes(MixAll.DEFAULT_CHARSET) /* Message body */);
-        producer.send(
-            msg,
-            new SendCallback() {
-              @Override
-              public void onSuccess(SendResult sendResult) {
-                log.info("{}", sendResult);
-                latch.countDown();
-              }
-
-              @Override
-              public void onException(Throwable e) {
-                log.error("", e);
-                latch.countDown();
-              }
-            });
-      } catch (Exception e) {
-        log.error("Unexpected error", e);
-        latch.countDown();
-        Thread.sleep(1000);
-      }
+    private AsyncProducerExample() {
     }
-    latch.await();
-    final long elapsed = started.elapsed(TimeUnit.MILLISECONDS);
-    log.info(
-        "Sending {} message(s) costs {}ms, latch counter={}",
-        messageNum,
-        elapsed,
-        latch.getCount());
-    producer.shutdown();
-  }
+
+    public static void main(String[] args) throws MQClientException, InterruptedException {
+        DefaultMQProducer producer = new DefaultMQProducer("TestGroup");
+        producer.setNamesrvAddr("11.167.164.105:9876");
+        producer.start();
+
+        int messageNum = 100000;
+        final Stopwatch started = Stopwatch.createStarted();
+        final CountDownLatch latch = new CountDownLatch(messageNum);
+
+        for (int i = 0; i < messageNum; i++) {
+            try {
+                Message msg = new Message(
+                        "TestTopic" /* Topic */,
+                        "TagA" /* Tag */,
+                        ("Hello RocketMQ " + i).getBytes(MixAll.DEFAULT_CHARSET) /* Message body */);
+                producer.send(
+                        msg,
+                        new SendCallback() {
+                            @Override
+                            public void onSuccess(SendResult sendResult) {
+                                log.info("{}", sendResult);
+                                latch.countDown();
+                            }
+
+                            @Override
+                            public void onException(Throwable e) {
+                                log.error("", e);
+                                latch.countDown();
+                            }
+                        });
+            } catch (Exception e) {
+                log.error("Unexpected error", e);
+                latch.countDown();
+                Thread.sleep(1000);
+            }
+        }
+        latch.await();
+        final long elapsed = started.elapsed(TimeUnit.MILLISECONDS);
+        log.info(
+                "Sending {} message(s) costs {}ms, latch counter={}",
+                messageNum,
+                elapsed,
+                latch.getCount());
+        producer.shutdown();
+    }
 }

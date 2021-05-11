@@ -6,8 +6,8 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public enum MessageRequestMode {
-  PULL(0),
-  POP(1);
+    PULL(0),
+    POP(1);
 
-  private final int mode;
+    private final int mode;
 }

@@ -13,36 +13,36 @@ import org.apache.http.util.EntityUtils;
 import org.apache.rocketmq.client.constant.SystemProperty;
 
 public class TopAddressing {
-  private static final String DEFAULT_NAME_SERVER_DOMAIN = "jmenv.tbsite.net";
-  private static final String DEFAULT_NAME_SERVER_SUB_GROUP = "nsaddr";
+    private static final String DEFAULT_NAME_SERVER_DOMAIN = "jmenv.tbsite.net";
+    private static final String DEFAULT_NAME_SERVER_SUB_GROUP = "nsaddr";
 
-  private final HttpClient httpClient;
-  private final String wsAddress;
-  private String unitName;
+    private final HttpClient httpClient;
+    private final String wsAddress;
+    private String unitName;
 
-  public TopAddressing() {
-    this.httpClient = HttpClients.createDefault();
-    this.wsAddress = getWSAddress();
-  }
-
-  private String getWSAddress() {
-    final String wsDomain =
-        System.getProperty(SystemProperty.NAME_SERVER_DOMAIN, DEFAULT_NAME_SERVER_DOMAIN);
-    final String wsSubGroup =
-        System.getProperty(SystemProperty.NAME_SERVER_SUB_GROUP, DEFAULT_NAME_SERVER_SUB_GROUP);
-    String wsAddress = "http://" + wsDomain + ":8080/rocketmq/" + wsSubGroup;
-    if (wsDomain.indexOf(":") > 0) {
-      wsAddress = "http://" + wsDomain + "/rocketmq/" + wsSubGroup;
+    public TopAddressing() {
+        this.httpClient = HttpClients.createDefault();
+        this.wsAddress = getWSAddress();
     }
-    return wsAddress;
-  }
 
-  public List<String> fetchNameServerAddresses() throws IOException {
-    final HttpGet httpGet = new HttpGet(wsAddress);
-    final HttpResponse response = httpClient.execute(httpGet);
-    final HttpEntity entity = response.getEntity();
-    final String body = EntityUtils.toString(entity, MixAll.DEFAULT_CHARSET);
-    final String[] nameServerAddresses = body.split(";");
-    return new ArrayList<String>(Arrays.asList(nameServerAddresses));
-  }
+    private String getWSAddress() {
+        final String wsDomain =
+                System.getProperty(SystemProperty.NAME_SERVER_DOMAIN, DEFAULT_NAME_SERVER_DOMAIN);
+        final String wsSubGroup =
+                System.getProperty(SystemProperty.NAME_SERVER_SUB_GROUP, DEFAULT_NAME_SERVER_SUB_GROUP);
+        String wsAddress = "http://" + wsDomain + ":8080/rocketmq/" + wsSubGroup;
+        if (wsDomain.indexOf(":") > 0) {
+            wsAddress = "http://" + wsDomain + "/rocketmq/" + wsSubGroup;
+        }
+        return wsAddress;
+    }
+
+    public List<String> fetchNameServerAddresses() throws IOException {
+        final HttpGet httpGet = new HttpGet(wsAddress);
+        final HttpResponse response = httpClient.execute(httpGet);
+        final HttpEntity entity = response.getEntity();
+        final String body = EntityUtils.toString(entity, MixAll.DEFAULT_CHARSET);
+        final String[] nameServerAddresses = body.split(";");
+        return new ArrayList<String>(Arrays.asList(nameServerAddresses));
+    }
 }

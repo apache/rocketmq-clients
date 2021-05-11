@@ -10,28 +10,30 @@ import org.apache.rocketmq.client.producer.DefaultMQProducer;
 
 @Slf4j
 public class OnewayProducerExample {
-  public static void main(String[] args) throws MQClientException, InterruptedException {
-    DefaultMQProducer producer = new DefaultMQProducer("TestGroup");
-    producer.setNamesrvAddr("11.167.164.105:9876");
-    producer.start();
-
-    int messageNum = 32;
-    final Stopwatch started = Stopwatch.createStarted();
-    for (int i = 0; i < messageNum; i++) {
-      try {
-        Message msg =
-            new Message(
-                "TestTopic" /* Topic */,
-                "TagA" /* Tag */,
-                ("Hello RocketMQ " + i).getBytes(MixAll.DEFAULT_CHARSET) /* Message body */);
-        producer.sendOneway(msg);
-      } catch (Exception e) {
-        e.printStackTrace();
-        Thread.sleep(1000);
-      }
+    private OnewayProducerExample() {
     }
-    final long elapsed = started.elapsed(TimeUnit.MILLISECONDS);
-    log.info("Sending {} message(s) costs {}ms", messageNum, elapsed);
-    producer.shutdown();
-  }
+
+    public static void main(String[] args) throws MQClientException, InterruptedException {
+        DefaultMQProducer producer = new DefaultMQProducer("TestGroup");
+        producer.setNamesrvAddr("11.167.164.105:9876");
+        producer.start();
+
+        int messageNum = 32;
+        final Stopwatch started = Stopwatch.createStarted();
+        for (int i = 0; i < messageNum; i++) {
+            try {
+                Message msg = new Message(
+                        "TestTopic" /* Topic */,
+                        "TagA" /* Tag */,
+                        ("Hello RocketMQ " + i).getBytes(MixAll.DEFAULT_CHARSET) /* Message body */);
+                producer.sendOneway(msg);
+            } catch (Exception e) {
+                e.printStackTrace();
+                Thread.sleep(1000);
+            }
+        }
+        final long elapsed = started.elapsed(TimeUnit.MILLISECONDS);
+        log.info("Sending {} message(s) costs {}ms", messageNum, elapsed);
+        producer.shutdown();
+    }
 }
