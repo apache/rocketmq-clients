@@ -22,7 +22,7 @@ public class ClientConfig {
   @Getter @Setter private String groupName;
   private String unitName;
   @Getter @Setter private String instanceName;
-  protected String namespace;
+  @Getter @Setter String namespace;
 
   @Getter @Setter private long routeUpdatePeriodMillis = 30 * 1000;
   @Getter @Setter private long heartbeatPeriodMillis = 30 * 1000;

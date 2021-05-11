@@ -89,6 +89,11 @@ public class DefaultMQProducer extends ClientConfig {
    * @param producerGroup Producer group, see the name-sake field.
    */
   public DefaultMQProducer(final String producerGroup) {
+    this(null, producerGroup);
+  }
+
+  public DefaultMQProducer(final String namespace, final String producerGroup) {
+    this.setNamespace(namespace);
     this.setGroupName(producerGroup);
     this.impl = new DefaultMQProducerImpl(this);
   }
