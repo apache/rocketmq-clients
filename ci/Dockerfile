@@ -1,6 +1,9 @@
 FROM ubuntu:bionic
 MAINTAINER aiyangkun <yangkun.ayk@alibaba-inc.com>
 
+ENV http_proxy=http://30.57.177.111:3128
+ENV https_proxy=http://30.57.177.111:3128
+
 # install essential package.
 RUN apt update; \
     apt install sudo -y; \
@@ -14,7 +17,6 @@ RUN useradd -m rocketmq
 RUN adduser rocketmq sudo
 RUN echo 'rocketmq:Rocketmq!666' | chpasswd
 
-USER rocketmq
 ARG HOME=/home/rocketmq
 
 # declare the package version.

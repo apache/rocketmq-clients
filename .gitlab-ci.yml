@@ -1,0 +1,10 @@
+stages:
+  - maven_build
+
+before_script:
+  - ./ci/run_rocketmq_docker.sh 'mvn clean'
+
+job1:
+  stage: maven_build
+  script:
+    - ./ci/run_rocketmq_docker.sh 'mvn clean package'
