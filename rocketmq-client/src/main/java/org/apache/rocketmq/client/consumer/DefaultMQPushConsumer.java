@@ -31,6 +31,11 @@ public class DefaultMQPushConsumer extends ClientConfig {
     @Getter
     private int consumeThreadMax = 64;
 
+    // TODO
+    @Getter
+    @Setter
+    private int maxReconsumeTimes = -1;
+
     @Getter
     @Setter
     private int consumeMessageBatchMaxSize = 1;
@@ -40,6 +45,11 @@ public class DefaultMQPushConsumer extends ClientConfig {
     private boolean ackMessageAsync = true;
 
     public DefaultMQPushConsumer(final String consumerGroup) {
+        this(null, consumerGroup);
+    }
+
+    public DefaultMQPushConsumer(final String namespace, final String consumerGroup) {
+        this.setNamespace(namespace);
         this.setGroupName(consumerGroup);
         this.consumeFromWhere = ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET;
         this.impl = new DefaultMQPushConsumerImpl(this);

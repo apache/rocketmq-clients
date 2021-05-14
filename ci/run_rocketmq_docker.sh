@@ -9,9 +9,10 @@ export ROCKETMQ_BUILD_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
 SOURCE_DIR="${PWD}"
 DOCKER_HOME="/home/rocketmq"
 SOURCE_MOUNT_DEST="${DOCKER_HOME}/rocketmq-java"
+GID="$(id -g)"
 
 START_COMMAND=("/bin/bash" "-c" "bash -c 'cd /home/rocketmq/rocketmq-java && $*'")
-docker run --rm \
+docker run --rm --user="$UID":"$GID"\
   -v "${SOURCE_DIR}":"${SOURCE_MOUNT_DEST}" \
   "${ROCKETMQ_BUILD_IMAGE}" \
   "${START_COMMAND[@]}"

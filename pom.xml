@@ -13,7 +13,7 @@
         <module>ons</module>
         <module>rocketmq-proto</module>
         <module>rocketmq-shade</module>
-        <module>rocketmq-benchmark</module>
+        <module>rocketmq-example</module>
         <module>rocketmq-admin</module>
         <module>rocketmq-utility</module>
         <module>rocketmq-client</module>
@@ -67,7 +67,7 @@
 
             <dependency>
                 <groupId>${project.groupId}</groupId>
-                <artifactId>rocketmq-benchmark</artifactId>
+                <artifactId>rocketmq-example</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
