@@ -31,8 +31,8 @@
         <logback.version>1.2.3</logback.version>
         <guava.version>20.0</guava.version>
         <apachehttpclient.version>4.5.13</apachehttpclient.version>
-        <grpc.version>1.35.0</grpc.version>
-        <protoc.version>3.12.0</protoc.version>
+        <grpc-base.version>1.35.0</grpc-base.version>
+        <protocol-buffer-base.version>3.12.0</protocol-buffer-base.version>
         <annotaion-api.version>1.3.2</annotaion-api.version>
         <commons-lang3.version>3.5</commons-lang3.version>
         <jna-platform.version>5.7.0</jna-platform.version>
@@ -122,19 +122,19 @@
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-netty-shaded</artifactId>
-                <version>${grpc.version}</version>
+                <version>${grpc-base.version}-rocketmq</version>
             </dependency>
 
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-protobuf</artifactId>
-                <version>${grpc.version}</version>
+                <version>${grpc-base.version}-rocketmq</version>
             </dependency>
 
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-stub</artifactId>
-                <version>${grpc.version}</version>
+                <version>${grpc-base.version}-rocketmq</version>
             </dependency>
 
             <dependency>

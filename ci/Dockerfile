@@ -38,23 +38,23 @@ RUN mkdir -p $HOME/gradle; \
 # add maven and gradle to PATH.
 ENV PATH=$HOME/maven/apache-maven-$MAVEN_VERSION/bin:$HOME/gradle/gradle-$GRADLE_VERSION/bin:$PATH
 
-# download grpc-java.
-RUN wget -P $HOME https://github.com/aaron-ai/grpc-java/archive/refs/tags/rocketmq-v$GRPC_VERSION.tar.gz; \
-    tar -zxf $HOME/rocketmq-v$GRPC_VERSION.tar.gz -C $HOME && rm $HOME/rocketmq-v$GRPC_VERSION.tar.gz
-
-# compile and install customized grpc-java.
-RUN chmod +x $HOME/grpc-java-rocketmq-v$GRPC_VERSION/prepare_for_rmq.sh
-RUN $HOME/grpc-java-rocketmq-v$GRPC_VERSION/prepare_for_rmq.sh
-
 # download customized protobuffer-java.
-RUN wget -P $HOME https://github.com/aaron-ai/protobuf/archive/refs/tags/rocketmq-v$PROTOBUFFER_VERSION.tar.gz; \
-    tar -zxf $HOME/rocketmq-v$PROTOBUFFER_VERSION.tar.gz -C $HOME && rm $HOME/rocketmq-v$PROTOBUFFER_VERSION.tar.gz
+RUN wget -P $HOME https://github.com/aaron-ai/protobuf/archive/refs/tags/$PROTOBUFFER_VERSION-rocketmq.tar.gz; \
+    tar -zxf $HOME/$PROTOBUFFER_VERSION-rocketmq.tar.gz -C $HOME && rm $HOME/$PROTOBUFFER_VERSION-rocketmq.tar.gz
 
 # install protoc.
 RUN mkdir -p $HOME/protoc; \
     wget -P $HOME/protoc https://github.com/protocolbuffers/protobuf/releases/download/v$PROTOBUFFER_VERSION/protoc-$PROTOBUFFER_VERSION-linux-x86_64.zip; \
     unzip $HOME/protoc/protoc-$PROTOBUFFER_VERSION-linux-x86_64.zip -d $HOME/protoc; \
-    cp $HOME/protoc/bin/protoc $HOME/protobuf-rocketmq-v$PROTOBUFFER_VERSION/src/
+    cp $HOME/protoc/bin/protoc $HOME/protobuf-$PROTOBUFFER_VERSION-rocketmq/src/
 
 # compile and install customized protobuffer-java.
-RUN mvn clean install -DskipTests -f $HOME/protobuf-rocketmq-v$PROTOBUFFER_VERSION/java/pom.xml
+RUN mvn clean install -DskipTests -f $HOME/protobuf-$PROTOBUFFER_VERSION-rocketmq/java/pom.xml
+
+# download grpc-java.
+RUN wget -P $HOME https://github.com/aaron-ai/grpc-java/archive/refs/tags/$GRPC_VERSION-rocketmq.tar.gz; \
+    tar -zxf $HOME/$GRPC_VERSION-rocketmq.tar.gz -C $HOME && rm $HOME/$GRPC_VERSION-rocketmq.tar.gz
+
+# compile and install customized grpc-java.
+RUN chmod +x $HOME/grpc-java-$GRPC_VERSION-rocketmq/prepare_for_rmq.sh
+RUN $HOME/grpc-java-$GRPC_VERSION-rocketmq/prepare_for_rmq.sh
