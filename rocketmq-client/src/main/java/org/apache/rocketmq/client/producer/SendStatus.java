@@ -5,20 +5,16 @@ public enum SendStatus {
      * Send message successfully.
      */
     SEND_OK,
+
+    @Deprecated
+    SEND_FAILURE,
     /**
      * Only master is a available.
      */
+    @Deprecated
     SLAVE_NOT_AVAILABLE,
+    @Deprecated
     FLUSH_DISK_TIMEOUT,
+    @Deprecated
     FLUSH_SLAVE_TIMEOUT;
-
-    public boolean isSuccess() {
-        switch (this) {
-            case SEND_OK:
-            case SLAVE_NOT_AVAILABLE:
-                return true;
-            default:
-                return false;
-        }
-    }
 }

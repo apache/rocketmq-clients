@@ -1,39 +1,36 @@
 package org.apache.rocketmq.client.impl.consumer;
 
+import apache.rocketmq.v1.LoadAssignment;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.message.MessageQueue;
-import org.apache.rocketmq.proto.MessageQueueAssignment;
 
 @Slf4j
 @ToString
 @EqualsAndHashCode
 public class TopicAssignmentInfo {
-    private static final ThreadLocal<Integer> queryBrokerIndex = new ThreadLocal<Integer>();
+    private static final ThreadLocal<Integer> partitionIndex = new ThreadLocal<Integer>();
 
     @Getter
     private final List<Assignment> assignmentList;
 
     static {
-        queryBrokerIndex.set(Math.abs(new Random().nextInt()));
+        partitionIndex.set(Math.abs(new Random().nextInt()));
     }
 
-    public TopicAssignmentInfo(List<MessageQueueAssignment> messageQueueAssignmentList) {
+    public TopicAssignmentInfo(List<LoadAssignment> loadAssignmentList) {
         this.assignmentList = new ArrayList<Assignment>();
 
-        for (MessageQueueAssignment item : messageQueueAssignmentList) {
+        for (LoadAssignment item : loadAssignmentList) {
             MessageQueue messageQueue =
-                    new MessageQueue(
-                            item.getMessageQueue().getTopic(),
-                            item.getMessageQueue().getBrokerName(),
-                            item.getMessageQueue().getQueueId());
+                    new MessageQueue(item.getPartition().getTopic().getName(),
+                                     item.getPartition().getBroker().getName(),
+                                     item.getPartition().getId());
 
             MessageRequestMode mode = MessageRequestMode.POP;
             switch (item.getMode()) {
@@ -46,19 +43,18 @@ public class TopicAssignmentInfo {
                 default:
                     log.warn("Unknown message request mode={}, default to pop.", item.getMode());
             }
-            Map<String, String> attachments = new HashMap<String, String>(item.getAttachmentsMap());
-            assignmentList.add(new Assignment(messageQueue, mode, attachments));
+            assignmentList.add(new Assignment(messageQueue, mode));
         }
     }
 
-    public static int getNextQueryBrokerIndex() {
-        Integer index = queryBrokerIndex.get();
+    public static int getNextPartitionIndex() {
+        Integer index = partitionIndex.get();
         if (null == index) {
             index = -1;
         }
         index += 1;
         index = Math.abs(index);
-        queryBrokerIndex.set(index);
+        partitionIndex.set(index);
         return index;
     }
 

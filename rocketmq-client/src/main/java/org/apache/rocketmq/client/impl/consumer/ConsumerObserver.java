@@ -1,9 +1,10 @@
 package org.apache.rocketmq.client.impl.consumer;
 
-import org.apache.rocketmq.proto.ConsumeData;
+
+import apache.rocketmq.v1.HeartbeatEntry;
 
 public interface ConsumerObserver {
-    ConsumeData prepareHeartbeatData();
+    HeartbeatEntry prepareHeartbeatData();
 
     void scanLoadAssignments();
 

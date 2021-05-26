@@ -120,6 +120,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java-util</artifactId>
+                <version>${protocol-buffer-base.version}-rocketmq-SNAPSHOT</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-netty-shaded</artifactId>
                 <version>${grpc-base.version}-rocketmq-SNAPSHOT</version>
@@ -227,7 +233,8 @@
                 </executions>
                 <configuration>
                     <excludes>
-                        <exclude>**/proto/*</exclude>
+                        <exclude>**/apache/rocketmq/v1/*</exclude>
+                        <exclude>**/com/google/v1/*</exclude>
                     </excludes>
                     <rules>
                         <rule>
@@ -284,7 +291,7 @@
                     <consoleOutput>true</consoleOutput>
                     <encoding>UTF-8</encoding>
                     <configLocation>checkstyle.xml</configLocation>
-                    <excludes>**/proto/**/*</excludes>
+                    <excludes>**/apache/rocketmq/v1/*,**/com/google/rpc/*</excludes>
                 </configuration>
                 <executions>
                     <execution>

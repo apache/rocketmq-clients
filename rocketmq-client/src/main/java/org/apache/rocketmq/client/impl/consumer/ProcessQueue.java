@@ -1,5 +1,8 @@
 package org.apache.rocketmq.client.impl.consumer;
 
+import apache.rocketmq.v1.AckMessageRequest;
+import apache.rocketmq.v1.NackMessageRequest;
+import apache.rocketmq.v1.ReceiveMessageRequest;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -17,17 +20,12 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.PopResult;
 import org.apache.rocketmq.client.consumer.PopStatus;
-import org.apache.rocketmq.client.consumer.filter.ExpressionType;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.impl.ClientInstance;
-import org.apache.rocketmq.client.message.MessageConst;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
-import org.apache.rocketmq.proto.AckMessageRequest;
-import org.apache.rocketmq.proto.ChangeInvisibleTimeRequest;
-import org.apache.rocketmq.proto.PopMessageRequest;
 
 @Slf4j
 public class ProcessQueue {
@@ -242,17 +240,17 @@ public class ProcessQueue {
         if (messageExt.isExpired(MESSAGE_EXPIRED_TOLERANCE_MILLIS)) {
             log.warn(
                     "Message is already expired, skip ACK, topic={}, msgId={}, decodedTimestamp={}, " +
-                    "currentTimestamp={}, expiredTimestamp={}",
+                    "currentTimestamp={}",
                     messageExt.getTopic(),
                     messageExt.getMsgId(),
                     messageExt.getDecodedTimestamp(),
-                    System.currentTimeMillis(),
-                    messageExt.getExpiredTimestamp());
+                    System.currentTimeMillis());
             return;
         }
         final AckMessageRequest request = wrapAckMessageRequest(messageExt);
         final ClientInstance clientInstance = consumerImpl.getClientInstance();
-        final String target = messageExt.getProperty(MessageConst.PROPERTY_ACK_HOST_ADDRESS);
+        final String target = null;
+        //        final String target = messageExt.getProperty(MessageConst.PROPERTY_ACK_HOST_ADDRESS);
 
         if (consumerImpl.getDefaultMQPushConsumer().isAckMessageAsync()) {
             clientInstance.ackMessageAsync(target, request);
@@ -262,23 +260,23 @@ public class ProcessQueue {
     }
 
     public void negativeAckMessage(MessageExt messageExt) throws MQClientException {
-        final ChangeInvisibleTimeRequest request = wrapChangeInvisibleTimeRequest(messageExt);
-        final ClientInstance clientInstance = consumerImpl.getClientInstance();
-        final String target = messageExt.getProperty(MessageConst.PROPERTY_ACK_HOST_ADDRESS);
-        clientInstance.changeInvisibleTime(target, request);
+        //        final ChangeInvisibleTimeRequest request = wrapChangeInvisibleTimeRequest(messageExt);
+        //        final ClientInstance clientInstance = consumerImpl.getClientInstance();
+        //        final String target = messageExt.getProperty(MessageConst.PROPERTY_ACK_HOST_ADDRESS);
+        //        clientInstance.changeInvisibleTime(target, request);
     }
 
     public void popMessage() {
         try {
             final ClientInstance clientInstance = consumerImpl.getClientInstance();
             final String target =
-                    clientInstance.resolveTarget(messageQueue.getTopic(), messageQueue.getBrokerName());
-            final PopMessageRequest request = wrapPopMessageRequest();
+                    clientInstance.resolveEndpoint(messageQueue.getTopic(), messageQueue.getBrokerName());
+            final ReceiveMessageRequest request = wrapPopMessageRequest();
 
             lastPopTimestamp = System.currentTimeMillis();
 
             final ListenableFuture<PopResult> future =
-                    clientInstance.popMessageAsync(
+                    clientInstance.receiveMessageAsync(
                             target, request, LONG_POLLING_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
             Futures.addCallback(
                     future,
@@ -332,69 +330,78 @@ public class ProcessQueue {
     }
 
     private AckMessageRequest wrapAckMessageRequest(MessageExt messageExt) {
-        return AckMessageRequest.newBuilder()
-                                .setConsumerGroup(consumerImpl.getDefaultMQPushConsumer().getConsumerGroup())
-                                .setTopic(messageExt.getTopic())
-                                .setQueueId(messageExt.getQueueId())
-                                .setOffset(messageExt.getQueueOffset())
-                                .setExtraInfo(messageExt.getProperty(MessageConst.PROPERTY_POP_CK))
-                                .build();
+        return null;
+        //        return AckMessageRequest.newBuilder()
+        //                                .setConsumerGroup(consumerImpl.getDefaultMQPushConsumer().getConsumerGroup())
+        //                                .setTopic(messageExt.getTopic())
+        //                                .setQueueId(messageExt.getQueueId())
+        //                                .setOffset(messageExt.getQueueOffset())
+        //                                .setExtraInfo(messageExt.getProperty(MessageConst.PROPERTY_POP_CK))
+        //                                .build();
     }
 
-    private ChangeInvisibleTimeRequest wrapChangeInvisibleTimeRequest(MessageExt messageExt) {
-        return ChangeInvisibleTimeRequest.newBuilder()
-                                         .setConsumerGroup(consumerImpl.getDefaultMQPushConsumer().getConsumerGroup())
-                                         .setTopic(messageExt.getTopic())
-                                         .setQueueId(messageExt.getQueueId())
-                                         .setOffset(messageExt.getQueueOffset())
-                                         .setExtraInfo(messageExt.getProperty(MessageConst.PROPERTY_POP_CK))
-                                         .setInvisibleTime(MixAll.DEFAULT_INVISIBLE_TIME_MILLIS)
-                                         .build();
+    private NackMessageRequest wrapChangeInvisibleTimeRequest(MessageExt messageExt) {
+        return null;
+        //        return NackMessageRequest.newBuilder()
+        //                                         .setConsumerGroup(consumerImpl.getDefaultMQPushConsumer()
+        //                                         .getConsumerGroup())
+        //                                         .setTopic(messageExt.getTopic())
+        //                                         .setQueueId(messageExt.getQueueId())
+        //                                         .setOffset(messageExt.getQueueOffset())
+        //                                         .setExtraInfo(messageExt.getProperty(MessageConst.PROPERTY_POP_CK))
+        //                                         .setInvisibleTime(MixAll.DEFAULT_INVISIBLE_TIME_MILLIS)
+        //                                         .build();
     }
 
-    private PopMessageRequest wrapPopMessageRequest() {
-        final PopMessageRequest.Builder builder =
-                PopMessageRequest.newBuilder()
-                                 .setConsumerGroup(consumerImpl.getDefaultMQPushConsumer().getConsumerGroup())
-                                 .setTopic(messageQueue.getTopic())
-                                 .setBrokerName(messageQueue.getBrokerName())
-                                 .setQueueId(messageQueue.getQueueId())
-                                 .setMaxMessageNumber(MixAll.DEFAULT_MAX_MESSAGE_NUMBER_PRE_BATCH)
-                                 .setInvisibleTime(MixAll.DEFAULT_INVISIBLE_TIME_MILLIS)
-                                 .setPollTime(MixAll.DEFAULT_POLL_TIME_MILLIS)
-                                 .setBornTimestamp(System.currentTimeMillis())
-                                 .setExpression(filterExpression.getExpression());
-
-        final ExpressionType expressionType = filterExpression.getExpressionType();
-        switch (expressionType) {
-            case SQL92:
-                builder.setExpressionType(ExpressionType.SQL92.getType());
-                break;
-            case TAG:
-                builder.setExpressionType(ExpressionType.TAG.getType());
-                break;
-            default:
-                log.error(
-                        "Unknown filter expression type={}, expression string={}",
-                        expressionType,
-                        filterExpression.getExpression());
-        }
-
-        switch (consumerImpl.getDefaultMQPushConsumer().getConsumeFromWhere()) {
-            case CONSUME_FROM_LAST_OFFSET:
-                builder.setInitialMode(PopMessageRequest.ConsumeInitialMode.MAX);
-                break;
-            case CONSUME_FROM_FIRST_OFFSET:
-                builder.setInitialMode(PopMessageRequest.ConsumeInitialMode.MIN);
-                break;
-            default:
-                log.warn("Unknown initial consume mode, fall back to max mode.");
-                builder.setInitialMode(PopMessageRequest.ConsumeInitialMode.MAX);
-        }
-
-        builder.setOrder(false);
-        builder.setTermId(termId.get());
-        return builder.build();
+    private ReceiveMessageRequest wrapPopMessageRequest() {
+        return null;
+        //        final ReceiveMessageRequest.Builder builder =
+        //                ReceiveMessageRequest.newBuilder()
+        //                                 .setConsumerGroup(consumerImpl.getDefaultMQPushConsumer().getConsumerGroup())
+        //                                 .setTopic(messageQueue.getTopic())
+        //                                 .setBrokerName(messageQueue.getBrokerName())
+        //                                 .setQueueId(messageQueue.getQueueId())
+        //                                 .setMaxMessageNumber(MixAll.DEFAULT_MAX_MESSAGE_NUMBER_PRE_BATCH)
+        //                                 .setInvisibleTime(MixAll.DEFAULT_INVISIBLE_TIME_MILLIS)
+        //                                 .setPollTime(MixAll.DEFAULT_POLL_TIME_MILLIS)
+        //                                 .setBornTimestamp(System.currentTimeMillis())
+        //                                 .setExpression(filterExpression.getExpression());
+        //
+        //        final ExpressionType expressionType = filterExpression.getExpressionType();
+        //
+        //        apache.rocketmq.v1.FilterExpression.Builder expressionBuilder =
+        //                apache.rocketmq.v1.FilterExpression.newBuilder();
+        //        expressionBuilder.setExpression(filterExpression.getExpression());
+        //
+        //        switch (expressionType) {
+        //            case SQL92:
+        //                expressionBuilder.setType(FilterType.SQL);
+        //                break;
+        //            case TAG:
+        //                expressionBuilder.setType(FilterType.TAG);
+        //                break;
+        //            default:
+        //                log.error(
+        //                        "Unknown filter expression type={}, expression string={}",
+        //                        expressionType,
+        //                        filterExpression.getExpression());
+        //        }
+        //
+        //        switch (consumerImpl.getDefaultMQPushConsumer().getConsumeFromWhere()) {
+        //            case CONSUME_FROM_LAST_OFFSET:
+        //                builder.setInitialMode(PopMessageRequest.ConsumeInitialMode.MAX);
+        //                break;
+        //            case CONSUME_FROM_FIRST_OFFSET:
+        //                builder.setInitialMode(PopMessageRequest.ConsumeInitialMode.MIN);
+        //                break;
+        //            default:
+        //                log.warn("Unknown initial consume mode, fall back to max mode.");
+        //                builder.setInitialMode(PopMessageRequest.ConsumeInitialMode.MAX);
+        //        }
+        //
+        //        builder.setOrder(false);
+        //        builder.setTermId(termId.get());
+        //        return builder.build();
     }
 
     public long getCachedMsgCount() {

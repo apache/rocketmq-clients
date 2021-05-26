@@ -11,10 +11,16 @@ public class PopResult {
     private final String target;
     private final PopStatus popStatus;
 
-    private final long termId;
+    private final String requestId;
     private final long popTimestamp;
-    private final long invisibleTime;
-    private final long restNum;
+    private final long invisibleDuration;
 
     private final List<MessageExt> msgFoundList;
+
+    public long getTermId() {
+        if (requestId.isEmpty()) {
+            return 0;
+        }
+        return Long.parseLong(requestId, 16);
+    }
 }

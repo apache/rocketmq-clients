@@ -1,90 +1,85 @@
 package org.apache.rocketmq.client.message;
 
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import lombok.Data;
-import lombok.Getter;
+import lombok.EqualsAndHashCode;
+import org.apache.commons.lang3.StringUtils;
 
-@Data
+
+@EqualsAndHashCode
 public class Message {
-    private String topic;
-    private int flag;
-    private byte[] body;
-
-    @Getter
-    private final Map<String, String> properties;
-
-    public Message() {
-        this.properties = new HashMap<String, String>();
-    }
-
-    public Message(
-            String topic, String tags, String keys, int flag, byte[] body, boolean waitStoreMsgOK) {
-        this.topic = topic;
-        this.flag = flag;
-        this.body = body;
-
-        this.properties = new HashMap<String, String>();
-
-        if (tags != null && tags.length() > 0) {
-            this.setTags(tags);
-        }
-
-        if (keys != null && keys.length() > 0) {
-            this.setKeys(keys);
-        }
-
-        this.setWaitStoreMsgOK(waitStoreMsgOK);
-    }
+    final MessageImpl impl;
 
     public Message(String topic, String tags, byte[] body) {
-        this(topic, tags, "", 0, body, true);
+        this.impl = new MessageImpl(topic);
+        this.impl.setBody(body);
+        this.impl.getSystemAttribute().setTag(tags);
     }
 
-    public void putProperty(final String name, final String value) {
-        this.properties.put(name, value);
+    public Message(MessageImpl impl) {
+        this.impl = impl;
     }
 
-    public String getProperty(final String name) {
-        return this.properties.get(name);
+    public void setTopic(String topic) {
+        this.impl.setTopic(topic);
+    }
+
+    public String getTopic() {
+        return this.impl.getTopic();
     }
 
     public void setTags(String tags) {
-        this.putProperty(MessageConst.PROPERTY_TAGS, tags);
+        String[] split = tags.split("\\|\\|");
+        for (int i = 0; i < split.length; i++) {
+            split[i] = split[i].trim();
+        }
+        this.impl.getSystemAttribute().setTag(StringUtils.join(split, "||"));
+    }
+
+    public String getTags() {
+        return this.impl.getSystemAttribute().getTag();
+    }
+
+    public void putUserProperty(final String name, final String value) {
+        this.impl.getUserAttribute().put(name, value);
+    }
+
+    public String getUserProperty(final String name) {
+        return this.impl.getUserAttribute().get(name);
     }
 
     public void setKeys(String keys) {
-        this.putProperty(MessageConst.PROPERTY_KEYS, keys);
+        final List<String> keyList = this.impl.getSystemAttribute().getKeys();
+        keyList.clear();
+        keyList.add(keys.trim());
     }
 
     public void setKeys(Collection<String> keys) {
-        StringBuilder sb = new StringBuilder();
-        for (String k : keys) {
-            sb.append(k);
-            sb.append(MessageConst.KEY_SEPARATOR);
+        final List<String> keyList = this.impl.getSystemAttribute().getKeys();
+        keyList.clear();
+        for (String key : keys) {
+            keyList.add(key.trim());
         }
-
-        this.setKeys(sb.toString().trim());
     }
 
     public int getDelayTimeLevel() {
-        String t = this.getProperty(MessageConst.PROPERTY_DELAY_TIME_LEVEL);
-        if (null != t) {
-            return Integer.parseInt(t);
-        }
-        return 0;
+        return this.impl.getSystemAttribute().getDelayLevel();
     }
 
-    public boolean isWaitStoreMsgOK() {
-        String result = this.getProperty(MessageConst.PROPERTY_WAIT_STORE_MSG_OK);
-        if (null == result) {
-            return true;
-        }
-        return Boolean.parseBoolean(result);
+    public void setDelayTimeLevel(int level) {
+        this.impl.getSystemAttribute().setDelayLevel(level);
     }
 
-    public void setWaitStoreMsgOK(boolean waitStoreMsgOK) {
-        this.putProperty(MessageConst.PROPERTY_WAIT_STORE_MSG_OK, Boolean.toString(waitStoreMsgOK));
+    public void setBody(byte[] body) {
+        this.impl.setBody(body);
+    }
+
+    public byte[] getBody() {
+        return this.impl.getBody();
+    }
+
+    public Map<String, String> getUserProperties() {
+        return this.impl.getUserAttribute();
     }
 }

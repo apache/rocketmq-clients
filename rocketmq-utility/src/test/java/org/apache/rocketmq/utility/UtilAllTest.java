@@ -23,7 +23,7 @@ public class UtilAllTest {
 
     @Test
     public void testGetIP() {
-        final byte[] bytes = UtilAll.getIP();
+        final byte[] bytes = UtilAll.getIpv4AddressBytes();
         Assert.assertTrue(UtilAll.ipClassCheck(bytes));
     }
 
@@ -33,12 +33,4 @@ public class UtilAllTest {
         Assert.assertTrue(UtilAll.ipClassCheck(convertIPToBytes("1.0.0.1")));
     }
 
-    @Test
-    public void testShiftTargetPort() {
-        String target = "127.0.0.1:10911";
-        int offset = 10;
-        String expectedTarget = "127.0.0.1:10921";
-        final String shiftedTarget = UtilAll.shiftTargetPort(target, offset);
-        Assert.assertEquals(shiftedTarget, expectedTarget);
-    }
 }

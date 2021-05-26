@@ -1,27 +1,33 @@
 package org.apache.rocketmq.client.remoting;
 
+import apache.rocketmq.v1.AckMessageRequest;
+import apache.rocketmq.v1.AckMessageResponse;
+import apache.rocketmq.v1.HealthCheckRequest;
+import apache.rocketmq.v1.HealthCheckResponse;
+import apache.rocketmq.v1.HeartbeatRequest;
+import apache.rocketmq.v1.HeartbeatResponse;
+import apache.rocketmq.v1.NackMessageRequest;
+import apache.rocketmq.v1.NackMessageResponse;
+import apache.rocketmq.v1.QueryAssignmentRequest;
+import apache.rocketmq.v1.QueryAssignmentResponse;
+import apache.rocketmq.v1.QueryRouteRequest;
+import apache.rocketmq.v1.QueryRouteResponse;
+import apache.rocketmq.v1.ReceiveMessageRequest;
+import apache.rocketmq.v1.ReceiveMessageResponse;
+import apache.rocketmq.v1.SendMessageRequest;
+import apache.rocketmq.v1.SendMessageResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
-import org.apache.rocketmq.proto.AckMessageRequest;
-import org.apache.rocketmq.proto.AckMessageResponse;
-import org.apache.rocketmq.proto.ChangeInvisibleTimeRequest;
-import org.apache.rocketmq.proto.ChangeInvisibleTimeResponse;
-import org.apache.rocketmq.proto.HealthCheckRequest;
-import org.apache.rocketmq.proto.HealthCheckResponse;
-import org.apache.rocketmq.proto.HeartbeatRequest;
-import org.apache.rocketmq.proto.HeartbeatResponse;
-import org.apache.rocketmq.proto.PopMessageRequest;
-import org.apache.rocketmq.proto.PopMessageResponse;
-import org.apache.rocketmq.proto.QueryAssignmentRequest;
-import org.apache.rocketmq.proto.QueryAssignmentResponse;
-import org.apache.rocketmq.proto.RouteInfoRequest;
-import org.apache.rocketmq.proto.RouteInfoResponse;
-import org.apache.rocketmq.proto.SendMessageRequest;
-import org.apache.rocketmq.proto.SendMessageResponse;
 
 public interface RPCClient {
     void shutdown();
+
+    void setArn(String arn);
+
+    void setTenantId(String tenantId);
+
+    void setAccessCredential(AccessCredential accessCredential);
 
     void setIsolated(boolean isolated);
 
@@ -37,18 +43,18 @@ public interface RPCClient {
 
     HealthCheckResponse healthCheck(HealthCheckRequest request, long duration, TimeUnit unit);
 
-    ListenableFuture<PopMessageResponse> popMessage(
-            PopMessageRequest request, Executor executor, long duration, TimeUnit unit);
+    ListenableFuture<ReceiveMessageResponse> receiveMessage(
+            ReceiveMessageRequest request, Executor executor, long duration, TimeUnit unit);
 
     AckMessageResponse ackMessage(AckMessageRequest request, long duration, TimeUnit unit);
 
     ListenableFuture<AckMessageResponse> ackMessage(
             AckMessageRequest request, Executor executor, long duration, TimeUnit unit);
 
-    ChangeInvisibleTimeResponse changeInvisibleTime(
-            ChangeInvisibleTimeRequest request, long duration, TimeUnit unit);
+    NackMessageResponse nackMessage(NackMessageRequest request, long duration, TimeUnit unit);
+
 
     HeartbeatResponse heartbeat(HeartbeatRequest request, long duration, TimeUnit unit);
 
-    RouteInfoResponse fetchTopicRouteInfo(RouteInfoRequest request, long duration, TimeUnit unit);
+    QueryRouteResponse queryRoute(QueryRouteRequest request, long duration, TimeUnit unit);
 }

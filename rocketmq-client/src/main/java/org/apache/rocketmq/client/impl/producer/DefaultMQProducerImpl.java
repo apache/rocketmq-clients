@@ -1,7 +1,17 @@
 package org.apache.rocketmq.client.impl.producer;
 
+import static com.google.protobuf.util.Timestamps.fromMillis;
+
+import apache.rocketmq.v1.HeartbeatEntry;
+import apache.rocketmq.v1.MessageType;
+import apache.rocketmq.v1.ProducerGroup;
+import apache.rocketmq.v1.RequestCommon;
+import apache.rocketmq.v1.Resource;
+import apache.rocketmq.v1.SendMessageRequest;
+import apache.rocketmq.v1.SendMessageResponse;
+import apache.rocketmq.v1.SystemAttribute;
+import apache.rocketmq.v1.TransactionPhase;
 import com.google.protobuf.ByteString;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -17,24 +27,20 @@ import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.exception.RemotingException;
 import org.apache.rocketmq.client.impl.ClientInstance;
-import org.apache.rocketmq.client.impl.ClientManager;
+import org.apache.rocketmq.client.impl.ClientInstanceManager;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageBatch;
-import org.apache.rocketmq.client.message.MessageClientIdUtils;
 import org.apache.rocketmq.client.message.MessageConst;
+import org.apache.rocketmq.client.message.MessageIdUtils;
 import org.apache.rocketmq.client.message.MessageQueue;
-import org.apache.rocketmq.client.message.MessageSystemFlag;
 import org.apache.rocketmq.client.misc.Validators;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.client.producer.MessageQueueSelector;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
-import org.apache.rocketmq.client.producer.SendStatus;
-import org.apache.rocketmq.client.producer.TransactionCheckListener;
 import org.apache.rocketmq.client.route.TopicRouteData;
-import org.apache.rocketmq.proto.ProducerData;
-import org.apache.rocketmq.proto.SendMessageRequest;
-import org.apache.rocketmq.proto.SendMessageResponse;
+import org.apache.rocketmq.utility.UtilAll;
+
 
 @Slf4j
 public class DefaultMQProducerImpl implements ProducerObserver {
@@ -50,30 +56,6 @@ public class DefaultMQProducerImpl implements ProducerObserver {
         this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
     }
 
-    // Not yet implemented.
-    public Set<String> getPublishTopicList() {
-        return null;
-    }
-
-    // Not yet implemented.
-    public boolean isPublishTopicNeedUpdate(String s) {
-        return false;
-    }
-
-    // Not yet implemented.
-    public TransactionCheckListener checkListener() {
-        return null;
-    }
-
-    // Not yet implemented.
-    public void removeTopicPublishInfo(String s) {
-    }
-
-    // Not yet implemented.
-    public boolean isUnitMode() {
-        return false;
-    }
-
     /**
      * Start the producer, not allowed to start producer repeatedly.
      *
@@ -87,7 +69,8 @@ public class DefaultMQProducerImpl implements ProducerObserver {
                     "The producer has attempted to be started before, producerGroup=" + producerGroup);
         }
 
-        clientInstance = ClientManager.getClientInstance(defaultMQProducer);
+        clientInstance = ClientInstanceManager.getInstance().getClientInstance(defaultMQProducer);
+
         final boolean registerResult = clientInstance.registerProducerObserver(producerGroup, this);
         if (!registerResult) {
             throw new MQClientException(
@@ -106,7 +89,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
         state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING);
         final ServiceState serviceState = state.get();
         if (ServiceState.STOPPING == serviceState) {
-            clientInstance.unregisterProducerObserver(defaultMQProducer.getProducerGroup());
+            clientInstance.unregisterProducerObserver(this.getProducerGroup());
             clientInstance.shutdown();
             if (state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED)) {
                 log.info("Shutdown DefaultMQProducerImpl successfully");
@@ -121,15 +104,11 @@ public class DefaultMQProducerImpl implements ProducerObserver {
         return ServiceState.CREATED != serviceState;
     }
 
-    // Not yet implemented.
-    public List<MessageQueue> fetchPublishMessageQueues(String topic) throws MQClientException {
-        return null;
-    }
 
     // TODO: compress message here.
     private void messagePretreated(Message message) {
         if (!(message instanceof MessageBatch)) {
-            MessageClientIdUtils.setMessageId(message);
+            MessageIdUtils.setMessageId(message);
             if (this.defaultMQProducer.isAddExtendUniqInfo()) {
                 // TODO: MessageClientIdUtils.setExtendUniqInfo(msg,this.defaultMQProducer.getRandomSign());
             }
@@ -137,34 +116,47 @@ public class DefaultMQProducerImpl implements ProducerObserver {
     }
 
     private SendMessageRequest wrapSendMessageRequest(Message message, MessageQueue mq) {
-        final SendMessageRequest.Builder requestBuilder = SendMessageRequest.newBuilder();
-        org.apache.rocketmq.proto.Message.Builder messageBuilder =
-                org.apache.rocketmq.proto.Message.newBuilder()
-                                                 .setTopic(message.getTopic())
-                                                 .setBody(ByteString.copyFrom(message.getBody()));
 
-        requestBuilder.setBornTimestamp(System.currentTimeMillis());
-        requestBuilder.setProducerGroup(defaultMQProducer.getProducerGroup());
-        if (defaultMQProducer.isUseDefaultTopicIfNotFound()) {
-            requestBuilder.setDefaultTopic(defaultMQProducer.getCreateTopicKey());
-            requestBuilder.setDefaultTopicQueueNumber(defaultMQProducer.getDefaultTopicQueueNums());
-        }
+        final Resource topicResource =
+                Resource.newBuilder().setArn(this.getArn()).setName(message.getTopic()).build();
 
-        final Map<String, String> properties = message.getProperties();
-        messageBuilder.putAllProperties(properties);
-        messageBuilder.setFlag(message.getFlag());
+        final Resource groupResource =
+                Resource.newBuilder().setName(this.getProducerGroup()).setName(this.getArn()).build();
 
-        int sysFlag = MessageSystemFlag.EMPTY_FLAG;
-        final boolean transaction_flag =
+        final Map<String, String> properties = message.getUserProperties();
+
+        final boolean transactionFlag =
                 Boolean.parseBoolean(properties.get(MessageConst.PROPERTY_TRANSACTION_PREPARED));
-        if (transaction_flag) {
-            sysFlag = MessageSystemFlag.setTransactionPreparedFlag(MessageSystemFlag.EMPTY_FLAG);
-        }
-        requestBuilder.setSysFlag(sysFlag);
-        requestBuilder.setQueueId(mq.getQueueId());
-        requestBuilder.setBrokerName(mq.getBrokerName());
 
-        return requestBuilder.setMessage(messageBuilder.build()).build();
+        final SystemAttribute.Builder systemAttributeBuilder =
+                SystemAttribute.newBuilder()
+                               .setBornTimestamp(fromMillis(System.currentTimeMillis()))
+                               .setPublisherGroup(groupResource)
+                               .setMessageId(MessageIdUtils.getMessageId(message))
+                               .setBornHost(UtilAll.getIpv4Address())
+                               .setPartitionId(mq.getQueueId());
+
+        if (transactionFlag) {
+            systemAttributeBuilder.setTransactionPhase(TransactionPhase.PREPARE);
+            systemAttributeBuilder.setMessageType(MessageType.TRANSACTION);
+        }
+
+        final SystemAttribute systemAttribute = systemAttributeBuilder.build();
+
+        final RequestCommon requestCommon = ClientInstance.generateRequestCommon();
+
+        final apache.rocketmq.v1.Message msg =
+                apache.rocketmq.v1.Message.newBuilder()
+                                          .setTopic(topicResource)
+                                          .setSystemAttribute(systemAttribute)
+                                          .putAllUserAttribute(message.getUserProperties())
+                                          .setBody(ByteString.copyFrom(message.getBody()))
+                                          .build();
+
+        final SendMessageRequest request =
+                SendMessageRequest.newBuilder().setCommon(requestCommon).setMessage(msg).build();
+        log.debug("SendMessageRequest: \n{}", request);
+        return request;
     }
 
     private TopicPublishInfo getPublicInfo(String topic) throws MQClientException {
@@ -178,7 +170,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
         return topicPublishInfo;
     }
 
-    private MessageQueue selectOneMessageQueue(TopicPublishInfo topicPublishInfo) {
+    private MessageQueue selectOneMessageQueue(TopicPublishInfo topicPublishInfo) throws MQClientException {
         final Set<String> isolatedTargets = clientInstance.getIsolatedTargets();
         return topicPublishInfo.selectOneMessageQueue(isolatedTargets);
     }
@@ -246,13 +238,13 @@ public class DefaultMQProducerImpl implements ProducerObserver {
     }
 
     public void sendOneway(Message message)
-            throws MQClientException, RemotingException, InterruptedException {
+            throws MQClientException {
         sendDefaultImpl(
                 message, CommunicationMode.ONE_WAY, null, defaultMQProducer.getSendMsgTimeout());
     }
 
     public void sendOneway(Message message, MessageQueue mq)
-            throws MQClientException, RemotingException, InterruptedException, MQServerException {
+            throws MQClientException, MQServerException {
         ensureRunning();
         sendKernelImpl(
                 message, mq, CommunicationMode.ONE_WAY, null, defaultMQProducer.getSendMsgTimeout());
@@ -285,7 +277,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
     }
 
     public void sendOneway(Message message, MessageQueueSelector selector, Object arg)
-            throws MQClientException, RemotingException, InterruptedException {
+            throws MQClientException {
         sendSelectImpl(
                 message,
                 selector,
@@ -311,29 +303,25 @@ public class DefaultMQProducerImpl implements ProducerObserver {
                 clientInstance.sendClientAPI(
                         target, mode, request, sendCallback, timeoutMillis, TimeUnit.MILLISECONDS);
 
-        return ClientInstance.processSendResponse(mq, response);
+        return ClientInstance.processSendResponse(response);
     }
 
     public SendResult sendDefaultImpl(
             Message message, CommunicationMode mode, SendCallback sendCallback, long timeoutMillis)
             throws MQClientException {
         ensureRunning();
-        final TopicPublishInfo publicInfo = getPublicInfo(message.getTopic());
-        SendResult sendResult;
+        final String topic = message.getTopic();
+        final TopicPublishInfo publicInfo = getPublicInfo(topic);
         final int totalSendTimes = getTotalSendTimes(mode);
-        for (int time = 0; time < totalSendTimes; time++) {
+        for (int time = 1; time <= totalSendTimes; time++) {
             final MessageQueue messageQueue = selectOneMessageQueue(publicInfo);
             if (null == messageQueue) {
                 throw new MQClientException("Failed to select a message queue for sending.");
             }
             try {
-                sendResult = sendKernelImpl(message, messageQueue, mode, sendCallback, timeoutMillis);
-                final SendStatus sendStatus = sendResult.getSendStatus();
-                if (sendStatus.isSuccess()) {
-                    return sendResult;
-                }
+                return sendKernelImpl(message, messageQueue, mode, sendCallback, timeoutMillis);
             } catch (Throwable t) {
-                log.warn("Exception occurs while sending message.", t);
+                log.warn("Exception occurs while sending message, topic={}, time={}.", topic, time, t);
 
                 final String target = publicInfo.resolveTarget(messageQueue.getBrokerName());
                 clientInstance.setTargetIsolated(target, true);
@@ -393,8 +381,14 @@ public class DefaultMQProducerImpl implements ProducerObserver {
     }
 
     @Override
-    public ProducerData prepareHeartbeatData() {
-        return ProducerData.newBuilder().setGroupName(defaultMQProducer.getGroupName()).build();
+    public HeartbeatEntry prepareHeartbeatData() {
+        Resource groupResource =
+                Resource.newBuilder().setArn(this.getArn()).setName(this.getProducerGroup()).build();
+        ProducerGroup producerGroup = ProducerGroup.newBuilder().setGroup(groupResource).build();
+        return HeartbeatEntry.newBuilder()
+                             .setClientId(defaultMQProducer.getClientId())
+                             .setProducerGroup(producerGroup)
+                             .build();
     }
 
     @Override
@@ -410,5 +404,13 @@ public class DefaultMQProducerImpl implements ProducerObserver {
             return;
         }
         topicPublishInfo.refreshTopicRoute(topicRouteData);
+    }
+
+    private String getProducerGroup() {
+        return defaultMQProducer.getProducerGroup();
+    }
+
+    private String getArn() {
+        return defaultMQProducer.getArn();
     }
 }

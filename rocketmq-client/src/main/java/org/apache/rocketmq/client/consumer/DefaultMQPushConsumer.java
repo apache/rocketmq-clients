@@ -45,12 +45,7 @@ public class DefaultMQPushConsumer extends ClientConfig {
     private boolean ackMessageAsync = true;
 
     public DefaultMQPushConsumer(final String consumerGroup) {
-        this(null, consumerGroup);
-    }
-
-    public DefaultMQPushConsumer(final String namespace, final String consumerGroup) {
-        this.setNamespace(namespace);
-        this.setGroupName(consumerGroup);
+        super(consumerGroup);
         this.consumeFromWhere = ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET;
         this.impl = new DefaultMQPushConsumerImpl(this);
     }
@@ -67,7 +62,6 @@ public class DefaultMQPushConsumer extends ClientConfig {
     }
 
     public void start() throws MQClientException {
-        this.setGroupName(withNamespace(this.getGroupName()));
         this.impl.start();
     }
 
@@ -97,7 +91,7 @@ public class DefaultMQPushConsumer extends ClientConfig {
     }
 
     public void unsubscribe(String topic) {
-        this.impl.unsubscribe(withNamespace(topic));
+        this.impl.unsubscribe(topic);
     }
 
     // Not yet implemented
@@ -159,5 +153,9 @@ public class DefaultMQPushConsumer extends ClientConfig {
         if (this.consumeThreadMax < this.consumeThreadMin) {
             this.consumeThreadMax = consumeThreadMin;
         }
+    }
+
+    public String getNamespace() {
+        return null;
     }
 }

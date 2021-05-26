@@ -8,10 +8,14 @@ import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketAddress;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Enumeration;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.zip.CRC32;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
+import javax.xml.bind.DatatypeConverter;
 
 public class UtilAll {
 
@@ -40,7 +44,7 @@ public class UtilAll {
         return new String(hexChars);
     }
 
-    public static byte[] getIP() {
+    public static byte[] getIpv4AddressBytes() {
         try {
             final Enumeration<NetworkInterface> networkInterfaces =
                     NetworkInterface.getNetworkInterfaces();
@@ -78,6 +82,11 @@ public class UtilAll {
         }
     }
 
+    public static String getIpv4Address() {
+        final byte[] src = getIpv4AddressBytes();
+        return (src[0] & 0xff) + "." + (src[1] & 0xff) + "." + (src[2] & 0xff) + "." + (src[3] & 0xff);
+    }
+
     /**
      * Check ip is a valid address which belong to class A/B/C or not.
      *
@@ -110,12 +119,6 @@ public class UtilAll {
             return ipBytes[3] != (byte) 0;
         }
         return false;
-    }
-
-    public static String shiftTargetPort(String target, int offset) {
-        final String[] split = target.split(":");
-        final String port = String.valueOf(Integer.parseInt(split[1]) + offset);
-        return split[0] + ":" + port;
     }
 
     public static int getThreadParallelCount(ThreadPoolExecutor executor) {
@@ -179,6 +182,24 @@ public class UtilAll {
 
     public static SocketAddress host2SocketAddress(String host) {
         return null;
+    }
+
+    public static String getCrc32CheckSum(byte[] array) {
+        CRC32 crc32 = new CRC32();
+        crc32.update(array);
+        return Long.toHexString(crc32.getValue());
+    }
+
+    public static String getMd5CheckSum(byte[] array) throws NoSuchAlgorithmException {
+        final MessageDigest digest = MessageDigest.getInstance("MD5");
+        digest.update(array);
+        return DatatypeConverter.printHexBinary(digest.digest());
+    }
+
+    public static String getSha1CheckSum(byte[] array) throws NoSuchAlgorithmException {
+        final MessageDigest digest = MessageDigest.getInstance("SHA-1");
+        digest.update(array);
+        return DatatypeConverter.printHexBinary(digest.digest());
     }
 
 

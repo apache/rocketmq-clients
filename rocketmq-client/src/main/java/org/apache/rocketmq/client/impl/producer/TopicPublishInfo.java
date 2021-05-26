@@ -1,22 +1,17 @@
 package org.apache.rocketmq.client.impl.producer;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
-import org.apache.rocketmq.client.route.BrokerData;
-import org.apache.rocketmq.client.route.QueueData;
+import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
-import org.apache.rocketmq.utility.PermissionHelper;
-import org.apache.rocketmq.utility.UtilAll;
 
 @Slf4j
 @Getter
@@ -43,54 +38,21 @@ public class TopicPublishInfo {
     }
 
     private List<MessageQueue> filterWritableMessageQueueList(TopicRouteData topicRouteData) {
-        List<MessageQueue> writableMessageQueueList = new ArrayList<MessageQueue>();
-        final String orderTopicConfiguration = topicRouteData.getOrderTopicConfiguration();
-        if (StringUtils.isNotEmpty(orderTopicConfiguration)) {
-            final String[] brokers = orderTopicConfiguration.split(";");
-            for (String broker : brokers) {
-                final String[] items = broker.split(":");
-                if (2 != items.length) {
-                    continue;
-                }
-                final String brokerName = items[0];
-                final int queueNum = Integer.parseInt(items[1]);
-                for (int queueId = 0; queueId < queueNum; queueId++) {
-                    writableMessageQueueList.add(new MessageQueue(topic, brokerName, queueId));
-                }
-            }
-            return writableMessageQueueList;
-        }
+        Set<MessageQueue> writableMessageQueueList = new HashSet<MessageQueue>();
 
-        final List<BrokerData> brokerDataList = topicRouteData.getBrokerDataList();
-        final List<QueueData> queueDataList = topicRouteData.getQueueDataList();
-
-        final Map<String /* brokerName */, BrokerData> brokerDataMap =
-                new HashMap<String, BrokerData>();
-        for (BrokerData brokerData : brokerDataList) {
-            brokerDataMap.put(brokerData.getBrokerName(), brokerData);
+        final List<Partition> partitions = topicRouteData.getPartitions();
+        for (Partition partition : partitions) {
+            if (MixAll.MASTER_BROKER_ID != partition.getBrokerId()) {
+                continue;
+            }
+            if (!partition.getPermission().isWritable()) {
+                continue;
+            }
+            final MessageQueue messageQueue = new MessageQueue(partition.getTopicName(), partition.getBrokerName(),
+                                                               partition.getPartitionId());
+            writableMessageQueueList.add(messageQueue);
         }
-        for (QueueData queueData : queueDataList) {
-            final String brokerName = queueData.getBrokerName();
-            if (!PermissionHelper.isWriteable(queueData.getPermission())) {
-                log.debug(
-                        "Topic was filtered cause not writable, topic={}, brokerName={}", topic, brokerName);
-                continue;
-            }
-            // For each queue data, we need to ensure that master broker exists.
-            final BrokerData brokerData = brokerDataMap.get(brokerName);
-            if (null == brokerData) {
-                continue;
-            }
-            final String brokerAddress = brokerData.getBrokerAddressTable().get(MixAll.MASTER_BROKER_ID);
-            if (null == brokerAddress) {
-                continue;
-            }
-            final int writeQueueNum = queueData.getWriteQueueNum();
-            for (int queueId = 0; queueId < writeQueueNum; queueId++) {
-                writableMessageQueueList.add(new MessageQueue(topic, brokerName, queueId));
-            }
-        }
-        return writableMessageQueueList;
+        return new ArrayList<MessageQueue>(writableMessageQueueList);
     }
 
     private int getNextSendQueueIndex() {
@@ -111,28 +73,25 @@ public class TopicPublishInfo {
      * @return target address.
      */
     public String resolveTarget(String brokerName) throws MQClientException {
-        for (BrokerData brokerData : topicRouteData.getBrokerDataList()) {
-            if (!brokerData.getBrokerName().equals(brokerName)) {
+        final List<Partition> partitions = topicRouteData.getPartitions();
+        for (Partition partition : partitions) {
+            if (!brokerName.equals(partition.getBrokerName())) {
                 continue;
             }
-            final HashMap<Long, String> brokerAddressTable = brokerData.getBrokerAddressTable();
-            String target = brokerAddressTable.get(MixAll.MASTER_BROKER_ID);
-            if (null == target) {
-                log.error(
-                        "Unexpected case, failed to resolve target address for master node, topic={}, brokerName={}",
-                        topic,
-                        brokerName);
-                throw new MQClientException("Failed to resolve target");
+            if (MixAll.MASTER_BROKER_ID != partition.getBrokerId()) {
+                continue;
             }
-            target = UtilAll.shiftTargetPort(target, MixAll.SHIFT_PORT);
-            return target;
+            return partition.selectEndpoint();
         }
         log.error("Failed to resolve target address from brokerName=" + brokerName);
         throw new MQClientException("Failed to resolve target");
     }
 
-    public MessageQueue selectOneMessageQueue(Set<String> isolatedTargets) {
+    public MessageQueue selectOneMessageQueue(Set<String> isolatedTargets) throws MQClientException {
         MessageQueue selectedMessageQueue;
+        if (messageQueueList.isEmpty()) {
+            throw new MQClientException("No writable message queue is available");
+        }
         for (int i = 0; i < messageQueueList.size(); i++) {
             selectedMessageQueue =
                     messageQueueList.get(getNextSendQueueIndex() % messageQueueList.size());

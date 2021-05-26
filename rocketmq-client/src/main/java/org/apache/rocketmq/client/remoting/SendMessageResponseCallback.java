@@ -2,17 +2,16 @@ package org.apache.rocketmq.client.remoting;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import apache.rocketmq.v1.SendMessageRequest;
+import apache.rocketmq.v1.SendMessageResponse;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.impl.ClientInstance;
-import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
-import org.apache.rocketmq.proto.SendMessageRequest;
-import org.apache.rocketmq.proto.SendMessageResponse;
 
 @Slf4j
 @Setter
@@ -36,12 +35,9 @@ public class SendMessageResponseCallback {
                 log.info("Client is not be started, state={}", state);
                 return;
             }
-            MessageQueue messageQueue =
-                    new MessageQueue(
-                            request.getMessage().getTopic(), request.getBrokerName(), response.getQueueId());
             SendResult sendResult;
             try {
-                sendResult = ClientInstance.processSendResponse(messageQueue, response);
+                sendResult = ClientInstance.processSendResponse(response);
             } catch (MQServerException e) {
                 sendCallback.onException(e);
                 return;

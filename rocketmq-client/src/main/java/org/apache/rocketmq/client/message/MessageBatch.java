@@ -5,12 +5,15 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import lombok.AllArgsConstructor;
 import org.apache.rocketmq.client.constant.TopicPrefix;
 
-@AllArgsConstructor
 public class MessageBatch extends Message implements Iterable<Message> {
     private final List<Message> messages;
+
+    public MessageBatch(MessageImpl impl) {
+        super(impl);
+        this.messages = new ArrayList<Message>();
+    }
 
     public byte[] encode() throws UnsupportedEncodingException {
         return MessageCodec.encodeMessages(messages);
@@ -40,17 +43,18 @@ public class MessageBatch extends Message implements Iterable<Message> {
                     throw new UnsupportedOperationException(
                             "The topic of the messages in one batch should be the " + "same");
                 }
-                if (first.isWaitStoreMsgOK() != message.isWaitStoreMsgOK()) {
-                    throw new UnsupportedOperationException(
-                            "The waitStoreMsgOK of the messages in one batch should " + "the same");
-                }
+                //                if (first.isWaitStoreMsgOK() != message.isWaitStoreMsgOK()) {
+                //                    throw new UnsupportedOperationException(
+                //                            "The waitStoreMsgOK of the messages in one batch should " + "the same");
+                //                }
             }
             messageList.add(message);
         }
-        MessageBatch messageBatch = new MessageBatch(messageList);
+        //        MessageBatch messageBatch = new MessageBatch(messageList);
 
-        messageBatch.setTopic(first.getTopic());
-        messageBatch.setWaitStoreMsgOK(first.isWaitStoreMsgOK());
-        return messageBatch;
+        //        messageBatch.setTopic(first.getTopic());
+        //        messageBatch.setWaitStoreMsgOK(first.isWaitStoreMsgOK());
+        //        return messageBatch;
+        return null;
     }
 }

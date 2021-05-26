@@ -1,40 +1,61 @@
 package org.apache.rocketmq.client.message;
 
-import java.net.SocketAddress;
-import lombok.Data;
+
 import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
-@EqualsAndHashCode(callSuper = true)
-@Data
-@NoArgsConstructor
-public class MessageExt extends Message {
-    private String brokerName;
+@EqualsAndHashCode
+public class MessageExt {
+    private final MessageImpl impl;
 
-    private int queueId;
+    public MessageExt(MessageImpl impl) {
+        this.impl = impl;
+    }
 
-    private int storeSize;
+    public byte[] getBody() {
+        return this.impl.getBody();
+    }
 
-    private long queueOffset;
-    private int sysFlag;
-    private long bornTimestamp;
-    private SocketAddress bornHost;
+    public String getTopic() {
+        return this.impl.getTopic();
+    }
 
-    private long storeTimestamp;
-    private SocketAddress storeHost;
-    private String msgId;
-    private long commitLogOffset;
-    private int bodyCRC;
-    private int reconsumeTimes;
+    public String getTags() {
+        return this.impl.getSystemAttribute().getTag();
+    }
 
-    private long preparedTransactionOffset;
+    public String getKeys() {
+        throw new UnsupportedOperationException();
+    }
 
-    private long decodedTimestamp;
-    private long expiredTimestamp;
+    public int getDelayTimeLevel() {
+        return this.impl.getSystemAttribute().getDelayLevel();
+    }
 
-    private MessageVersion version;
+    public int getQueueId() {
+        return this.impl.getSystemAttribute().getPartitionId();
+    }
+
+    public long getBornTimestamp() {
+        return this.impl.getSystemAttribute().getBornTimestamp();
+    }
+
+    public long getBornHost() {
+        return this.impl.getSystemAttribute().getBornTimestamp();
+    }
 
     public boolean isExpired(long tolerance) {
-        return System.currentTimeMillis() + tolerance > expiredTimestamp;
+        throw new UnsupportedOperationException();
+    }
+
+    public long getQueueOffset() {
+        return this.impl.getSystemAttribute().getPartitionOffset();
+    }
+
+    public String getMsgId() {
+        return this.impl.getSystemAttribute().getMessageId();
+    }
+
+    public long getDecodedTimestamp() {
+        return this.impl.getSystemAttribute().getDecodedTimestamp();
     }
 }

@@ -20,7 +20,7 @@ public class DefaultMQPushConsumerTest extends BaseConfig {
     private DefaultMQPushConsumer initPushConsumer(
             String consumerGroup, String nameServerAddr, String topic) throws MQClientException {
         final DefaultMQPushConsumer consumer = new DefaultMQPushConsumer(consumerGroup);
-        consumer.setNamesrvAddr(nameServerAddr);
+//        consumer.setNamesrvAddr(nameServerAddr);
         consumer.subscribe(topic, "*");
         consumer.registerMessageListener(
                 new MessageListenerConcurrently() {

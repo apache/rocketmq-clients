@@ -17,6 +17,6 @@ public class TransactionSendResult extends SendResult {
             MessageQueue messageQueue,
             long queueOffset,
             String transactionId) {
-        super(sendStatus, msgId, messageQueue, queueOffset, transactionId);
+        super(msgId);
     }
 }

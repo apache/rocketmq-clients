@@ -1,7 +1,19 @@
 package org.apache.rocketmq.client.impl.consumer;
 
+import apache.rocketmq.v1.ConsumeMessageType;
+import apache.rocketmq.v1.ConsumeModel;
+import apache.rocketmq.v1.ConsumePolicy;
+import apache.rocketmq.v1.ConsumerGroup;
+import apache.rocketmq.v1.DeadLetterPolicy;
+import apache.rocketmq.v1.FilterType;
+import apache.rocketmq.v1.HeartbeatEntry;
+import apache.rocketmq.v1.QueryAssignmentRequest;
+import apache.rocketmq.v1.Resource;
+import apache.rocketmq.v1.SubscriptionEntry;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -9,7 +21,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.client.constant.LoadBalanceStrategy;
+import org.apache.rocketmq.client.constant.ConsumeFromWhere;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
 import org.apache.rocketmq.client.consumer.MessageSelector;
@@ -19,18 +31,10 @@ import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.impl.ClientInstance;
-import org.apache.rocketmq.client.impl.ClientManager;
+import org.apache.rocketmq.client.impl.ClientInstanceManager;
 import org.apache.rocketmq.client.message.MessageQueue;
-import org.apache.rocketmq.client.misc.MixAll;
-import org.apache.rocketmq.client.route.BrokerData;
+import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
-import org.apache.rocketmq.proto.ConsumeData;
-import org.apache.rocketmq.proto.ConsumeFrom;
-import org.apache.rocketmq.proto.ConsumeType;
-import org.apache.rocketmq.proto.MessageModel;
-import org.apache.rocketmq.proto.QueryAssignmentRequest;
-import org.apache.rocketmq.proto.SubscriptionData;
-import org.apache.rocketmq.utility.UtilAll;
 
 @Slf4j
 public class DefaultMQPushConsumerImpl implements ConsumerObserver {
@@ -99,7 +103,7 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
         consumeService = this.generateConsumeService();
         consumeService.start();
 
-        clientInstance = ClientManager.getClientInstance(defaultMQPushConsumer);
+        clientInstance = ClientInstanceManager.getInstance().getClientInstance(defaultMQPushConsumer);
         final boolean registerResult = clientInstance.registerConsumerObserver(consumerGroup, this);
         if (!registerResult) {
             throw new MQClientException(
@@ -135,13 +139,12 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
     }
 
     private QueryAssignmentRequest wrapQueryAssignmentRequest(String topic) {
+        Resource topicResource = Resource.newBuilder().setArn(getNamespace()).setName(topic).build();
         return QueryAssignmentRequest.newBuilder()
-                                     .setTopic(topic)
-                                     .setConsumerGroup(defaultMQPushConsumer.getGroupName())
-                                     .setClientId(clientInstance.getClientId())
-                                     .setStrategyName(LoadBalanceStrategy.DEFAULT_STRATEGY)
-                                     .setMessageModel(MessageModel.CLUSTERING)
-                                     .build();
+                                     .setCommon(ClientInstance.generateRequestCommon())
+                                     .setTopic(topicResource).setGroup(getGroupResource())
+                                     .setClientId(defaultMQPushConsumer.getClientId())
+                                     .setConsumeModel(ConsumeModel.CLUSTERING).build();
     }
 
     @Override
@@ -306,16 +309,13 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
 
     private String selectTargetForQuery(String topic) throws MQClientException, MQServerException {
         final TopicRouteData topicRouteData = clientInstance.getTopicRouteInfo(topic);
-        final List<BrokerData> brokerDataList = topicRouteData.getBrokerDataList();
-        if (brokerDataList.isEmpty()) {
-            // Should never reach here.
-            throw new MQServerException("No broker could be selected.");
-        }
 
-        final BrokerData brokerData =
-                brokerDataList.get(TopicAssignmentInfo.getNextQueryBrokerIndex() % brokerDataList.size());
-        String target = brokerData.getBrokerAddressTable().get(MixAll.MASTER_BROKER_ID);
-        return UtilAll.shiftTargetPort(target, MixAll.SHIFT_PORT);
+        final List<Partition> partitions = topicRouteData.getPartitions();
+        if (partitions.isEmpty()) {
+            throw new MQServerException("No partition available.");
+        }
+        final Partition partition = partitions.get(TopicAssignmentInfo.getNextPartitionIndex() % partitions.size());
+        return partition.selectEndpoint();
     }
 
     private TopicAssignmentInfo queryLoadAssignment(String topic)
@@ -328,35 +328,73 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
     }
 
     @Override
-    public ConsumeData prepareHeartbeatData() {
-        final ConsumeData.Builder builder =
-                ConsumeData.newBuilder()
-                           .setGroupName(defaultMQPushConsumer.getGroupName())
-                           .setConsumeType(ConsumeType.PASSIVE)
-                           .setConsumeFrom(ConsumeFrom.LAST_OFFSET)
-                           .setMessageModel(MessageModel.CLUSTERING)
-                           .setUnitMode(false);
+    public HeartbeatEntry prepareHeartbeatData() {
+        Resource groupResource =
+                Resource.newBuilder()
+                        .setArn(defaultMQPushConsumer.getNamespace())
+                        .setName(defaultMQPushConsumer.getConsumerGroup()).build();
 
-        for (String topic : filterExpressionTable.keySet()) {
-            final FilterExpression filterExpression = filterExpressionTable.get(topic);
+        List<SubscriptionEntry> subscriptionEntries = new ArrayList<SubscriptionEntry>();
+        for (Map.Entry<String, FilterExpression> entry : filterExpressionTable.entrySet()) {
+            final String topic = entry.getKey();
+            final FilterExpression filterExpression = entry.getValue();
 
-            final SubscriptionData.Builder subscriptionBuilder =
-                    SubscriptionData.newBuilder()
-                                    .setTopic(topic)
-                                    .setSubString(filterExpression.getExpression())
-                                    .setSubVersion(filterExpression.getVersion());
-
+            Resource topicResource = Resource.newBuilder().setArn(getNamespace()).setName(topic).build();
+            final apache.rocketmq.v1.FilterExpression.Builder builder =
+                    apache.rocketmq.v1.FilterExpression.newBuilder().setExpression(filterExpression.getExpression());
             switch (filterExpression.getExpressionType()) {
                 case TAG:
-                    subscriptionBuilder.setExpressionType(SubscriptionData.ExpressionType.TAG);
+                    builder.setType(FilterType.TAG);
                     break;
                 case SQL92:
                 default:
-                    subscriptionBuilder.setExpressionType(SubscriptionData.ExpressionType.SQL);
+                    builder.setType(FilterType.SQL);
             }
-            final SubscriptionData subscriptionData = subscriptionBuilder.build();
-            builder.addSubscriptionDataSet(subscriptionData);
+            final apache.rocketmq.v1.FilterExpression expression = builder.build();
+            SubscriptionEntry subscriptionEntry =
+                    SubscriptionEntry.newBuilder().setTopic(topicResource).setExpression(expression).build();
+            subscriptionEntries.add(subscriptionEntry);
         }
-        return builder.build();
+
+        // TODO
+        DeadLetterPolicy deadLetterPolicy = DeadLetterPolicy.newBuilder().setMaxDeliveryAttempts(0).build();
+
+        final ConsumerGroup.Builder builder =
+                ConsumerGroup.newBuilder()
+                             .setGroup(groupResource)
+                             .addAllSubscriptions(subscriptionEntries)
+                             .setConsumeModel(ConsumeModel.CLUSTERING)
+                             .setDeadLetterPolicy(deadLetterPolicy)
+                             .setConsumeType(ConsumeMessageType.POP);
+
+        final ConsumeFromWhere consumeFromWhere = defaultMQPushConsumer.getConsumeFromWhere();
+        switch (consumeFromWhere) {
+            case CONSUME_FROM_FIRST_OFFSET:
+                builder.setConsumePolicy(ConsumePolicy.PLAYBACK);
+                break;
+            case CONSUME_FROM_TIMESTAMP:
+                builder.setConsumePolicy(ConsumePolicy.TARGET_TIMESTAMP);
+                break;
+            case CONSUME_FROM_LAST_OFFSET:
+            default:
+                builder.setConsumePolicy(ConsumePolicy.RESUME);
+        }
+        final ConsumerGroup consumerGroup = builder.build();
+        return HeartbeatEntry.newBuilder()
+                             .setClientId(defaultMQPushConsumer.getClientId())
+                             .setConsumerGroup(consumerGroup)
+                             .build();
+    }
+
+    private String getProducerGroup() {
+        return defaultMQPushConsumer.getConsumerGroup();
+    }
+
+    private String getNamespace() {
+        return defaultMQPushConsumer.getNamespace();
+    }
+
+    private Resource getGroupResource() {
+        return Resource.newBuilder().setArn(getNamespace()).setName(getProducerGroup()).build();
     }
 }

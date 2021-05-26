@@ -1,12 +1,10 @@
 package org.apache.rocketmq.client.message;
 
 import java.io.UnsupportedEncodingException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.apache.rocketmq.client.constant.SystemProperty;
-import org.apache.rocketmq.client.misc.MixAll;
 
 public class MessageCodec {
     public static final char NAME_VALUE_SEPARATOR = 1;
@@ -39,46 +37,7 @@ public class MessageCodec {
     }
 
     public static byte[] encodeMessage(Message message) throws UnsupportedEncodingException {
-        // only need flag, body, properties
-        byte[] body = message.getBody();
-        int bodyLen = body.length;
-        String properties = messageProperties2String(message.getProperties());
-        byte[] propertiesBytes = properties.getBytes(MixAll.DEFAULT_CHARSET);
-        // note properties length must not more than Short.MAX
-        short propertiesLength = (short) propertiesBytes.length;
-        int sysFlag = message.getFlag();
-        int storeSize =
-                4 // 1 TOTALSIZE
-                + 4 // 2 MAGICCOD
-                + 4 // 3 BODYCRC
-                + 4 // 4 FLAG
-                + 4
-                + bodyLen // 4 BODY
-                + 2
-                + propertiesLength;
-        ByteBuffer byteBuffer = ByteBuffer.allocate(storeSize);
-        // 1 TOTALSIZE
-        byteBuffer.putInt(storeSize);
-
-        // 2 MAGICCODE
-        byteBuffer.putInt(0);
-
-        // 3 BODYCRC
-        byteBuffer.putInt(0);
-
-        // 4 FLAG
-        int flag = message.getFlag();
-        byteBuffer.putInt(flag);
-
-        // 5 BODY
-        byteBuffer.putInt(bodyLen);
-        byteBuffer.put(body);
-
-        // 6 properties
-        byteBuffer.putShort(propertiesLength);
-        byteBuffer.put(propertiesBytes);
-
-        return byteBuffer.array();
+        throw new UnsupportedOperationException();
     }
 
     public static byte[] encodeMessages(List<Message> messages) throws UnsupportedEncodingException {
