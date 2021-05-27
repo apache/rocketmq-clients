@@ -22,16 +22,25 @@ public class UtilAll {
     private static final String OS_NAME = System.getProperty("os.name");
     private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
 
+    private static byte[] IPV4_ADDRESS = null;
+    private static int PROCESS_ID = -1;
+
     private UtilAll() {
     }
 
     public static int processId() {
+        if (PROCESS_ID > 0) {
+            return PROCESS_ID;
+        }
         // For windows.
         if (OS_NAME.toLowerCase().contains("windows")) {
-            return Kernel32.INSTANCE.GetCurrentProcessId();
+            PROCESS_ID = Kernel32.INSTANCE.GetCurrentProcessId();
         }
         // For unix.
-        return CLibrary.INSTANCE.getpid();
+        else {
+            PROCESS_ID = CLibrary.INSTANCE.getpid();
+        }
+        return PROCESS_ID;
     }
 
     public static String bytes2string(byte[] src) {
@@ -45,6 +54,9 @@ public class UtilAll {
     }
 
     public static byte[] getIpv4AddressBytes() {
+        if (null != IPV4_ADDRESS) {
+            return IPV4_ADDRESS;
+        }
         try {
             final Enumeration<NetworkInterface> networkInterfaces =
                     NetworkInterface.getNetworkInterfaces();
@@ -64,6 +76,7 @@ public class UtilAll {
                         continue;
                     }
                     if (!address.isSiteLocalAddress()) {
+                        IPV4_ADDRESS = ipBytes;
                         return ipBytes;
                     }
 
@@ -73,6 +86,7 @@ public class UtilAll {
                 }
             }
             if (null != internalIP) {
+                IPV4_ADDRESS = internalIP;
                 return internalIP;
             } else {
                 throw new RuntimeException("Can not get local ip");

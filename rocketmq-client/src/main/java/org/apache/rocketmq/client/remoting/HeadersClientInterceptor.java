@@ -10,8 +10,10 @@ import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
+@Slf4j
 public class HeadersClientInterceptor implements ClientInterceptor {
 
     private static final String TENANT_ID_KEY = "x-mq-tenant-id";
@@ -100,7 +102,19 @@ public class HeadersClientInterceptor implements ClientInterceptor {
                     public void onHeaders(Metadata headers) {
                         super.onHeaders(headers);
                     }
+
+                    @Override
+                    public void onMessage(RespT response) {
+                        log.debug("gRPC response:\n{}", response);
+                        super.onMessage(response);
+                    }
                 }, headers);
+            }
+
+            @Override
+            public void sendMessage(ReqT request) {
+                log.debug("gRPC request: \n{}", request);
+                super.sendMessage(request);
             }
         };
     }

@@ -731,7 +731,7 @@ public class ClientInstance {
         final Status status = response.getCommon().getStatus();
         final Code code = Code.forNumber(status.getCode());
         if (Code.OK != code) {
-            log.error("Failed to ack message, target={}, request={}, status={}.", target, request, status);
+            log.error("Failed to ack message, target={}, status={}.", target, status);
             throw new MQClientException("Failed to ack message.");
         }
     }
@@ -751,7 +751,7 @@ public class ClientInstance {
                     @Override
                     public void onFailure(Throwable t) {
                         log.warn(
-                                "Failed to ack message asynchronously,target={}, request={}", target, request, t);
+                                "Failed to ack message asynchronously, target={}", target, t);
                     }
                 });
     }
@@ -764,7 +764,7 @@ public class ClientInstance {
         final Status status = response.getCommon().getStatus();
         final int code = status.getCode();
         if (Code.OK_VALUE != code) {
-            log.error("Failed to change invisible time, target={}, request={}, status={}.", target, request, status);
+            log.error("Failed to change invisible time, target={}, status={}.", target, status);
             throw new MQClientException("Failed to change invisible time.");
         }
     }
@@ -836,13 +836,12 @@ public class ClientInstance {
             final Code code = Code.forNumber(status.getCode());
             if (Code.OK != code) {
                 log.warn(
-                        "Failed to fetch topic route, topic={}, time={}, responseCode={}, nameServerAddress={}, "
-                        + "request={}, response={}", topic, time, code, target, request, response);
+                        "Failed to fetch topic route, topic={}, time={}, responseCode={}, nameServerAddress={}",
+                        topic, time, code, target);
                 roundRobin = true;
                 continue;
             }
-            log.debug("Fetch topic route successfully, topic={}, time={}, nameServerAddress={}, request={}, "
-                      + "response={}", topic, time, target, request, response);
+            log.debug("Fetch topic route successfully, topic={}, time={}, nameServerAddress={} ", topic, time, target);
 
             final List<Partition> partitionsList = response.getPartitionsList();
 
