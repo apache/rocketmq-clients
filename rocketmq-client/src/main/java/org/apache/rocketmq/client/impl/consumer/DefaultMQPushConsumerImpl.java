@@ -138,7 +138,7 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
     }
 
     private QueryAssignmentRequest wrapQueryAssignmentRequest(String topic) {
-        Resource topicResource = Resource.newBuilder().setArn(getNamespace()).setName(topic).build();
+        Resource topicResource = Resource.newBuilder().setArn(this.getArn()).setName(topic).build();
         return QueryAssignmentRequest.newBuilder()
                                      .setCommon(ClientInstance.generateRequestCommon())
                                      .setTopic(topicResource).setGroup(getGroupResource())
@@ -326,7 +326,7 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
     public HeartbeatEntry prepareHeartbeatData() {
         Resource groupResource =
                 Resource.newBuilder()
-                        .setArn(defaultMQPushConsumer.getNamespace())
+                        .setArn(this.getArn())
                         .setName(defaultMQPushConsumer.getConsumerGroup()).build();
 
         List<SubscriptionEntry> subscriptionEntries = new ArrayList<SubscriptionEntry>();
@@ -334,7 +334,7 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
             final String topic = entry.getKey();
             final FilterExpression filterExpression = entry.getValue();
 
-            Resource topicResource = Resource.newBuilder().setArn(getNamespace()).setName(topic).build();
+            Resource topicResource = Resource.newBuilder().setArn(this.getArn()).setName(topic).build();
             final apache.rocketmq.v1.FilterExpression.Builder builder =
                     apache.rocketmq.v1.FilterExpression.newBuilder().setExpression(filterExpression.getExpression());
             switch (filterExpression.getExpressionType()) {
@@ -385,11 +385,11 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
         return defaultMQPushConsumer.getConsumerGroup();
     }
 
-    private String getNamespace() {
-        return defaultMQPushConsumer.getNamespace();
+    private String getArn() {
+        return defaultMQPushConsumer.getArn();
     }
 
     private Resource getGroupResource() {
-        return Resource.newBuilder().setArn(getNamespace()).setName(getProducerGroup()).build();
+        return Resource.newBuilder().setArn(getArn()).setName(getProducerGroup()).build();
     }
 }

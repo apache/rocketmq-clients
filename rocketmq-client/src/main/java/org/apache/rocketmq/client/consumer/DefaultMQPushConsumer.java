@@ -84,9 +84,4 @@ public class DefaultMQPushConsumer extends ClientConfig {
     public void unsubscribe(String topic) {
         this.impl.unsubscribe(topic);
     }
-
-
-    public String getNamespace() {
-        return null;
-    }
 }

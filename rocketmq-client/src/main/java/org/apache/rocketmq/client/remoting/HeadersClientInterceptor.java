@@ -60,7 +60,9 @@ public class HeadersClientInterceptor implements ClientInterceptor {
             return;
         }
 
+        // TODO: fix regionId here.
         String regionId = "cn-hangzhou";
+        // TODO: fix serviceName here.
         String serviceName = "aone";
 
         final String authorization = ALGORITHM_KEY

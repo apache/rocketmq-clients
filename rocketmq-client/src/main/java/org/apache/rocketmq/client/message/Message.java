@@ -63,6 +63,14 @@ public class Message {
         }
     }
 
+    public String getKeys() {
+        StringBuilder keys = new StringBuilder();
+        for (String key : this.impl.getSystemAttribute().getKeys()) {
+            keys.append(key).append(MessageConst.KEY_SEPARATOR);
+        }
+        return keys.toString().trim();
+    }
+
     public int getDelayTimeLevel() {
         return this.impl.getSystemAttribute().getDelayLevel();
     }

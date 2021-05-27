@@ -5,5 +5,5 @@ public enum ServiceState {
     STARTING,
     STARTED,
     STOPPING,
-    STOPPED;
+    STOPPED
 }

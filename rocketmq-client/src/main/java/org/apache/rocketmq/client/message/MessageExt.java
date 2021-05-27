@@ -1,6 +1,7 @@
 package org.apache.rocketmq.client.message;
 
 
+import java.util.Map;
 import lombok.EqualsAndHashCode;
 
 @EqualsAndHashCode
@@ -31,6 +32,10 @@ public class MessageExt {
         return this.impl.getSystemAttribute().getDelayLevel();
     }
 
+    public long getDeliveryTimestamp() {
+        return this.impl.getSystemAttribute().getDeliveryTimestamp();
+    }
+
     public int getQueueId() {
         return this.impl.getSystemAttribute().getPartitionId();
     }
@@ -39,8 +44,8 @@ public class MessageExt {
         return this.impl.getSystemAttribute().getBornTimestamp();
     }
 
-    public long getBornHost() {
-        return this.impl.getSystemAttribute().getBornTimestamp();
+    public String getBornHost() {
+        return this.impl.getSystemAttribute().getBornHost();
     }
 
     public boolean isExpired(long tolerance) {
@@ -57,5 +62,13 @@ public class MessageExt {
 
     public long getDecodedTimestamp() {
         return this.impl.getSystemAttribute().getDecodedTimestamp();
+    }
+
+    public int getReconsumeTimes() {
+        return this.impl.getSystemAttribute().getDeliveryCount();
+    }
+
+    public Map<String, String> getUserProperties() {
+        return this.impl.getUserAttribute();
     }
 }
