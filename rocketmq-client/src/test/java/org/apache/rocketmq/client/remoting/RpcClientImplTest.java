@@ -1,7 +1,5 @@
 package org.apache.rocketmq.client.remoting;
 
-import static org.testng.Assert.*;
-
 import apache.rocketmq.v1.Message;
 import apache.rocketmq.v1.QueryRouteRequest;
 import apache.rocketmq.v1.QueryRouteResponse;
@@ -15,11 +13,11 @@ import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.impl.ClientInstance;
 import org.testng.annotations.Test;
 
-public class RpcClientImplTest {
+public class RPCClientImplTest {
 
     @Test
     public void testQueryRoute() {
-        final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget("11.165.223.199:9876"));
+        final RPCClientImpl rpcClient = new RPCClientImpl(new RpcTarget("11.165.223.199:9876"));
 
         Resource topicResource = Resource.newBuilder().setName("yc001").build();
 
@@ -31,7 +29,7 @@ public class RpcClientImplTest {
 
     @Test
     public void testSendMessage() throws UnsupportedEncodingException {
-        final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget("11.158.159.57:8081"));
+        final RPCClientImpl rpcClient = new RPCClientImpl(new RpcTarget("11.158.159.57:8081"));
         rpcClient.setAccessCredential(new AccessCredential("LTAInDOvOPEkCj67","UniBnf6GKgUS1Y5l3Ce0rmgQhhKyZd"));
 
         rpcClient.setArn("MQ_INST_1973281269661160_BXmPlOA6");

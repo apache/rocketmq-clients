@@ -24,7 +24,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ConsumeFromWhere;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
-import org.apache.rocketmq.client.consumer.MessageSelector;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
@@ -284,10 +283,6 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
             throw new MQClientException("SubscribeExpression is illegal");
         }
         filterExpressionTable.put(topic, filterExpression);
-    }
-
-    // Not yet implemented.
-    public void subscribe(final String topic, final MessageSelector messageSelector) {
     }
 
     public void unsubscribe(final String topic) {

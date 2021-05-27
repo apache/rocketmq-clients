@@ -25,9 +25,15 @@ public interface RPCClient {
 
     void setArn(String arn);
 
+    String getArn();
+
     void setTenantId(String tenantId);
 
+    String getTenantId();
+
     void setAccessCredential(AccessCredential accessCredential);
+
+    AccessCredential getAccessCredential();
 
     void setIsolated(boolean isolated);
 

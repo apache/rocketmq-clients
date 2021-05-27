@@ -1,7 +1,6 @@
 package org.apache.rocketmq.client.producer;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import lombok.Getter;
 import lombok.Setter;

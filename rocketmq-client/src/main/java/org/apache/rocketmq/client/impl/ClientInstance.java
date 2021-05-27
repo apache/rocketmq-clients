@@ -74,7 +74,7 @@ import org.apache.rocketmq.client.misc.TopAddressing;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.client.remoting.RPCClient;
-import org.apache.rocketmq.client.remoting.RpcClientImpl;
+import org.apache.rocketmq.client.remoting.RPCClientImpl;
 import org.apache.rocketmq.client.remoting.RpcTarget;
 import org.apache.rocketmq.client.remoting.SendMessageResponseCallback;
 import org.apache.rocketmq.client.route.TopicRouteData;
@@ -88,7 +88,7 @@ public class ClientInstance {
 
     private static final long RPC_DEFAULT_TIMEOUT_MILLIS = 3 * 1000;
     /**
-     * Usage of {@link RpcClientImpl#queryRoute(QueryRouteRequest, long, TimeUnit)} are
+     * Usage of {@link RPCClientImpl#queryRoute(QueryRouteRequest, long, TimeUnit)} are
      * usually invokes the first call of gRPC, which need warm up in most case.
      */
     private static final long FETCH_TOPIC_ROUTE_INFO_TIMEOUT_MILLIS = 15 * 1000;
@@ -586,7 +586,7 @@ public class ClientInstance {
             return rpcClient;
         }
 
-        rpcClient = new RpcClientImpl(rpcTarget);
+        rpcClient = new RPCClientImpl(rpcTarget);
         rpcClient.setArn(clientInstanceConfig.getArn());
         rpcClient.setTenantId(tenantId);
         rpcClient.setAccessCredential(clientInstanceConfig.getAccessCredential());

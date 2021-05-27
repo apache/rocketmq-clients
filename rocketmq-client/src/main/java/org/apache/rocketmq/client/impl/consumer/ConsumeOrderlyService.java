@@ -1,6 +1,5 @@
 package org.apache.rocketmq.client.impl.consumer;
 
-import com.google.common.util.concurrent.RateLimiter;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.rocketmq.client.constant.ServiceState;
@@ -35,15 +34,5 @@ public class ConsumeOrderlyService implements ConsumeService {
     @Override
     public void submitConsumeTask(
             List<MessageExt> messageExtList, ProcessQueue processQueue, MessageQueue messageQueue) {
-    }
-
-    @Override
-    public boolean hasConsumeRateLimiter(String topic) {
-        return false;
-    }
-
-    @Override
-    public RateLimiter rateLimiter(String topic) {
-        return null;
     }
 }
