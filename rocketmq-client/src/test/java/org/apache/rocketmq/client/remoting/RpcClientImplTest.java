@@ -1,6 +1,9 @@
 package org.apache.rocketmq.client.remoting;
 
+import apache.rocketmq.v1.ConsumeModel;
 import apache.rocketmq.v1.Message;
+import apache.rocketmq.v1.QueryAssignmentRequest;
+import apache.rocketmq.v1.QueryAssignmentResponse;
 import apache.rocketmq.v1.QueryRouteRequest;
 import apache.rocketmq.v1.QueryRouteResponse;
 import apache.rocketmq.v1.Resource;
@@ -30,7 +33,7 @@ public class RPCClientImplTest {
     @Test
     public void testSendMessage() throws UnsupportedEncodingException {
         final RPCClientImpl rpcClient = new RPCClientImpl(new RpcTarget("11.158.159.57:8081"));
-        rpcClient.setAccessCredential(new AccessCredential("LTAInDOvOPEkCj67","UniBnf6GKgUS1Y5l3Ce0rmgQhhKyZd"));
+        rpcClient.setAccessCredential(new AccessCredential("LTAInDOvOPEkCj67", "UniBnf6GKgUS1Y5l3Ce0rmgQhhKyZd"));
 
         rpcClient.setArn("MQ_INST_1973281269661160_BXmPlOA6");
 
@@ -45,6 +48,26 @@ public class RPCClientImplTest {
                 SendMessageRequest.newBuilder().setCommon(ClientInstance.generateRequestCommon()).setMessage(msg).build();
 
         final SendMessageResponse response = rpcClient.sendMessage(request, 3, TimeUnit.SECONDS);
+        System.out.println(response);
+    }
+
+    @Test
+    public void testQueryAssignment() {
+        final RPCClientImpl rpcClient = new RPCClientImpl(new RpcTarget("11.158.159.57:8081"));
+        rpcClient.setAccessCredential(new AccessCredential("LTAInDOvOPEkCj67", "UniBnf6GKgUS1Y5l3Ce0rmgQhhKyZd"));
+        rpcClient.setTenantId("");
+        rpcClient.setArn("MQ_INST_1973281269661160_BXmPlOA6");
+
+
+        final Resource topicResource = Resource.newBuilder().setArn("MQ_INST_1973281269661160_BXmPlOA6").setName(
+                "yc001").build();
+        final Resource groupResource = Resource.newBuilder().setArn("MQ_INST_1973281269661160_BXmPlOA6").setName(
+                "GID_groupa").build();
+
+
+        QueryAssignmentRequest request =
+                QueryAssignmentRequest.newBuilder().setClientId("123").setTopic(topicResource).setGroup(groupResource).setConsumeModel(ConsumeModel.CLUSTERING).setCommon(ClientInstance.generateRequestCommon()).build();
+        final QueryAssignmentResponse response = rpcClient.queryAssignment(request, 3, TimeUnit.SECONDS);
         System.out.println(response);
     }
 

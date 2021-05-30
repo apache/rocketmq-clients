@@ -48,8 +48,7 @@ public class TopicPublishInfo {
             if (!partition.getPermission().isWritable()) {
                 continue;
             }
-            final MessageQueue messageQueue = new MessageQueue(partition.getTopicName(), partition.getBrokerName(),
-                                                               partition.getPartitionId());
+            final MessageQueue messageQueue = new MessageQueue(partition);
             writableMessageQueueList.add(messageQueue);
         }
         return new ArrayList<MessageQueue>(writableMessageQueueList);

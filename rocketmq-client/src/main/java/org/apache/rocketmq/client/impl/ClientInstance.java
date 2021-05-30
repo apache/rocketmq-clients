@@ -97,7 +97,6 @@ public class ClientInstance {
     @Setter
     private String tenantId = "";
 
-
     @Getter
     private final ScheduledExecutorService scheduler =
             new ScheduledThreadPoolExecutor(4, new ThreadFactoryImpl("ClientInstanceScheduler_"));
@@ -745,7 +744,9 @@ public class ClientInstance {
                 future,
                 new FutureCallback<AckMessageResponse>() {
                     @Override
-                    public void onSuccess(@Nullable AckMessageResponse result) {
+                    public void onSuccess(AckMessageResponse result) {
+                        // TODO: check status here.
+                        final Status status = result.getCommon().getStatus();
                     }
 
                     @Override
@@ -764,8 +765,8 @@ public class ClientInstance {
         final Status status = response.getCommon().getStatus();
         final int code = status.getCode();
         if (Code.OK_VALUE != code) {
-            log.error("Failed to change invisible time, target={}, status={}.", target, status);
-            throw new MQClientException("Failed to change invisible time.");
+            log.error("Failed to nack message, target={}, status={}.", target, status);
+            throw new MQClientException("Failed to nack message.");
         }
     }
 
@@ -802,8 +803,8 @@ public class ClientInstance {
     public TopicAssignmentInfo queryLoadAssignment(String target, QueryAssignmentRequest request)
             throws MQServerException {
         final RPCClient rpcClient = this.getRPCClient(target);
-        final QueryAssignmentResponse response =
-                rpcClient.queryAssignment(request, RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        QueryAssignmentResponse response = rpcClient.queryAssignment(request, RPC_DEFAULT_TIMEOUT_MILLIS,
+                                                                     TimeUnit.MILLISECONDS);
         final Status status = response.getCommon().getStatus();
         final int code = status.getCode();
         if (Code.OK_VALUE != code) {
@@ -940,6 +941,8 @@ public class ClientInstance {
                 try {
                     MessageImpl impl = new MessageImpl(msg.getTopic().getName());
                     final SystemAttribute systemAttribute = msg.getSystemAttribute();
+                    // Target
+                    impl.getSystemAttribute().setTargetEndpoint(target);
                     // Tag
                     impl.getSystemAttribute().setTag(systemAttribute.getTag());
                     // Key

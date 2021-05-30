@@ -24,8 +24,9 @@ public class SystemAttribute {
     private int deliveryCount;
     private String publisherGroup;
     private String traceContext;
-
+    // Would set after receiving the message.
     private long decodedTimestamp;
+    private String targetEndpoint;
 
     public SystemAttribute() {
         this.keys = new ArrayList<String>();

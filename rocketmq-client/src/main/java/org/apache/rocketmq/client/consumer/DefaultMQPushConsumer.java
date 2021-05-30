@@ -30,10 +30,10 @@ public class DefaultMQPushConsumer extends ClientConfig {
     @Getter
     private int consumeThreadMax = 64;
 
-    // TODO
+    // TODO: provide default max re-consume times here.
     @Getter
     @Setter
-    private int maxReconsumeTimes = -1;
+    private int maxReconsumeTimes = 16;
 
     @Getter
     @Setter

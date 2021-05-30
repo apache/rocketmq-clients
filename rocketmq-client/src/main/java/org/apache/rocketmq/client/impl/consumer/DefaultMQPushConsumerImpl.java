@@ -35,6 +35,7 @@ import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
 
+
 @Slf4j
 public class DefaultMQPushConsumerImpl implements ConsumerObserver {
 
@@ -351,7 +352,7 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
             subscriptionEntries.add(subscriptionEntry);
         }
 
-        // TODO
+        // TODO: fix max delivery attempts here.
         DeadLetterPolicy deadLetterPolicy = DeadLetterPolicy.newBuilder().setMaxDeliveryAttempts(0).build();
 
         final ConsumerGroup.Builder builder =

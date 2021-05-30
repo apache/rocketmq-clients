@@ -25,6 +25,7 @@ public class Partition {
     private final List<String> endpoints;
 
     @EqualsAndHashCode.Exclude
+    @ToString.Exclude
     private final ThreadLocal<Integer> endpointIndex;
 
     public Partition(apache.rocketmq.v1.Partition partition) {

@@ -35,9 +35,7 @@ public class UtilAll {
         // For windows.
         if (OS_NAME.toLowerCase().contains("windows")) {
             PROCESS_ID = Kernel32.INSTANCE.GetCurrentProcessId();
-        }
-        // For unix.
-        else {
+        } else {
             PROCESS_ID = CLibrary.INSTANCE.getpid();
         }
         return PROCESS_ID;

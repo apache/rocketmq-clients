@@ -25,7 +25,11 @@ public class MessageExt {
     }
 
     public String getKeys() {
-        throw new UnsupportedOperationException();
+        StringBuilder keys = new StringBuilder();
+        for (String key : this.impl.getSystemAttribute().getKeys()) {
+            keys.append(key).append(MessageConst.KEY_SEPARATOR);
+        }
+        return keys.toString().trim();
     }
 
     public int getDelayTimeLevel() {
@@ -66,6 +70,15 @@ public class MessageExt {
 
     public int getReconsumeTimes() {
         return this.impl.getSystemAttribute().getDeliveryCount();
+    }
+
+    public String getReceiptHandle() {
+        return this.impl.getSystemAttribute().getReceiptHandle();
+    }
+
+    // TODO: hide targetEndpoint here.
+    public String getTargetEndpoint() {
+        return this.impl.getSystemAttribute().getTargetEndpoint();
     }
 
     public Map<String, String> getUserProperties() {

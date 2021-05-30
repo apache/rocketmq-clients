@@ -17,10 +17,12 @@ public class PopResult {
 
     private final List<MessageExt> msgFoundList;
 
+    // TODO: Fix termId here.
     public long getTermId() {
-        if (requestId.isEmpty()) {
-            return 0;
-        }
-        return Long.parseLong(requestId, 16);
+        return 1;
+        //        if (requestId.isEmpty()) {
+        //            return 0;
+        //        }
+        //        return Long.parseLong(requestId, 16);
     }
 }

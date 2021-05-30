@@ -105,7 +105,7 @@ public class HeadersClientInterceptor implements ClientInterceptor {
 
                     @Override
                     public void onMessage(RespT response) {
-                        log.debug("gRPC response:\n{}", response);
+                        log.debug("gRPC response: {}\n{}", response.getClass().getName(), response);
                         super.onMessage(response);
                     }
                 }, headers);
@@ -113,7 +113,7 @@ public class HeadersClientInterceptor implements ClientInterceptor {
 
             @Override
             public void sendMessage(ReqT request) {
-                log.debug("gRPC request: \n{}", request);
+                log.debug("gRPC request: {}\n{}", request.getClass().getName(), request);
                 super.sendMessage(request);
             }
         };

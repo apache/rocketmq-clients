@@ -9,6 +9,7 @@ import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.message.MessageQueue;
+import org.apache.rocketmq.client.route.Partition;
 
 @Slf4j
 @ToString
@@ -28,9 +29,7 @@ public class TopicAssignmentInfo {
 
         for (LoadAssignment item : loadAssignmentList) {
             MessageQueue messageQueue =
-                    new MessageQueue(item.getPartition().getTopic().getName(),
-                                     item.getPartition().getBroker().getName(),
-                                     item.getPartition().getId());
+                    new MessageQueue(new Partition(item.getPartition()));
 
             MessageRequestMode mode = MessageRequestMode.POP;
             switch (item.getMode()) {
