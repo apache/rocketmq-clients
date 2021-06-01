@@ -72,6 +72,8 @@ public class RPCClientImpl implements RPCClient {
 
         this.blockingStub = MessagingServiceGrpc.newBlockingStub(channel);
         this.futureStub = MessagingServiceGrpc.newFutureStub(channel);
+
+
     }
 
     @Override

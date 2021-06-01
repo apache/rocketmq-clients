@@ -46,10 +46,10 @@ public interface BrokerOrBuilder extends
    * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
    * </pre>
    *
-   * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
+   * <code>.apache.rocketmq.v1.Endpoints endpoints = 3;</code>
+   * @return Whether the endpoints field is set.
    */
-  java.util.List<apache.rocketmq.v1.Endpoint> 
-      getEndpointsList();
+  boolean hasEndpoints();
   /**
    * <pre>
    * Address of the broker, complying with the following scheme
@@ -58,9 +58,10 @@ public interface BrokerOrBuilder extends
    * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
    * </pre>
    *
-   * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
+   * <code>.apache.rocketmq.v1.Endpoints endpoints = 3;</code>
+   * @return The endpoints.
    */
-  apache.rocketmq.v1.Endpoint getEndpoints(int index);
+  apache.rocketmq.v1.Endpoints getEndpoints();
   /**
    * <pre>
    * Address of the broker, complying with the following scheme
@@ -69,31 +70,7 @@ public interface BrokerOrBuilder extends
    * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
    * </pre>
    *
-   * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
+   * <code>.apache.rocketmq.v1.Endpoints endpoints = 3;</code>
    */
-  int getEndpointsCount();
-  /**
-   * <pre>
-   * Address of the broker, complying with the following scheme
-   * 1. dns:[//authority/]host[:port]
-   * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
-   * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
-   * </pre>
-   *
-   * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
-   */
-  java.util.List<? extends apache.rocketmq.v1.EndpointOrBuilder> 
-      getEndpointsOrBuilderList();
-  /**
-   * <pre>
-   * Address of the broker, complying with the following scheme
-   * 1. dns:[//authority/]host[:port]
-   * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
-   * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
-   * </pre>
-   *
-   * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
-   */
-  apache.rocketmq.v1.EndpointOrBuilder getEndpointsOrBuilder(
-      int index);
+  apache.rocketmq.v1.EndpointsOrBuilder getEndpointsOrBuilder();
 }

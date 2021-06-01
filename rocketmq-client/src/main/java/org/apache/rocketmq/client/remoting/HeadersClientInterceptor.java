@@ -20,7 +20,12 @@ public class HeadersClientInterceptor implements ClientInterceptor {
     private static final String ARN_KEY = "x-mq-arn";
     private static final String AUTHORIZATION = "authorization";
     private static final String DATE_TIME_KEY = "x-mq-date-time";
-    private static final String TRACE_ID_KEY = "x-mq-trace-id";
+
+    private static final String REQUEST_ID_KEY = "x-mq-request-id";
+    private static final String MQ_LANGUAGE = "x-mq-language";
+    private static final String SDK_VERSION = "x-mq-sdk-version";
+    private static final String SDK_PROTOCOL_VERSION = "x-mq-protocol-version";
+
     private static final String ALGORITHM_KEY = "MQv2-HMAC-SHA1";
     private static final String CREDENTIAL_KEY = "Credential";
     private static final String SIGNED_HEADERS_KEY = "SignedHeaders";

@@ -20,7 +20,7 @@ public enum ConsumeMessageType
   /**
    * <pre>
    * Offsets are implicitly managed by brokers. Clients generally perform stateless pop requests from
-   * logical queues pertatining to the specified topic.
+   * logical queues pertaining to the specified topic.
    * </pre>
    *
    * <code>POP = 1;</code>
@@ -41,7 +41,7 @@ public enum ConsumeMessageType
   /**
    * <pre>
    * Offsets are implicitly managed by brokers. Clients generally perform stateless pop requests from
-   * logical queues pertatining to the specified topic.
+   * logical queues pertaining to the specified topic.
    * </pre>
    *
    * <code>POP = 1;</code>

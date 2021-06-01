@@ -8,32 +8,17 @@ public interface QueryRouteRequestOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   * @return Whether the common field is set.
-   */
-  boolean hasCommon();
-  /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   * @return The common.
-   */
-  apache.rocketmq.v1.RequestCommon getCommon();
-  /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   */
-  apache.rocketmq.v1.RequestCommonOrBuilder getCommonOrBuilder();
-
-  /**
-   * <code>.apache.rocketmq.v1.Resource topic = 2;</code>
+   * <code>.apache.rocketmq.v1.Resource topic = 1;</code>
    * @return Whether the topic field is set.
    */
   boolean hasTopic();
   /**
-   * <code>.apache.rocketmq.v1.Resource topic = 2;</code>
+   * <code>.apache.rocketmq.v1.Resource topic = 1;</code>
    * @return The topic.
    */
   apache.rocketmq.v1.Resource getTopic();
   /**
-   * <code>.apache.rocketmq.v1.Resource topic = 2;</code>
+   * <code>.apache.rocketmq.v1.Resource topic = 1;</code>
    */
   apache.rocketmq.v1.ResourceOrBuilder getTopicOrBuilder();
 }

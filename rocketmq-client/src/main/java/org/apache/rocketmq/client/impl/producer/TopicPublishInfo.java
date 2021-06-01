@@ -80,7 +80,7 @@ public class TopicPublishInfo {
             if (MixAll.MASTER_BROKER_ID != partition.getBrokerId()) {
                 continue;
             }
-            return partition.selectEndpoint();
+            return partition.getTarget();
         }
         log.error("Failed to resolve target address from brokerName=" + brokerName);
         throw new MQClientException("Failed to resolve target");

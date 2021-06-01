@@ -17,6 +17,7 @@ private static final long serialVersionUID = 0L;
   }
   private SendMessageResponse() {
     messageId_ = "";
+    transactionId_ = "";
   }
 
   @java.lang.Override
@@ -66,6 +67,12 @@ private static final long serialVersionUID = 0L;
             java.lang.String s = input.readStringRequireUtf8();
 
             messageId_ = s;
+            break;
+          }
+          case 26: {
+            java.lang.String s = input.readStringRequireUtf8();
+
+            transactionId_ = s;
             break;
           }
           default: {
@@ -164,6 +171,44 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int TRANSACTION_ID_FIELD_NUMBER = 3;
+  private volatile java.lang.Object transactionId_;
+  /**
+   * <code>string transaction_id = 3;</code>
+   * @return The transactionId.
+   */
+  @java.lang.Override
+  public java.lang.String getTransactionId() {
+    java.lang.Object ref = transactionId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      transactionId_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string transaction_id = 3;</code>
+   * @return The bytes for transactionId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getTransactionIdBytes() {
+    java.lang.Object ref = transactionId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      transactionId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -184,6 +229,9 @@ private static final long serialVersionUID = 0L;
     if (!getMessageIdBytes().isEmpty()) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 2, messageId_);
     }
+    if (!getTransactionIdBytes().isEmpty()) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 3, transactionId_);
+    }
     unknownFields.writeTo(output);
   }
 
@@ -199,6 +247,9 @@ private static final long serialVersionUID = 0L;
     }
     if (!getMessageIdBytes().isEmpty()) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, messageId_);
+    }
+    if (!getTransactionIdBytes().isEmpty()) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, transactionId_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -222,6 +273,8 @@ private static final long serialVersionUID = 0L;
     }
     if (!getMessageId()
         .equals(other.getMessageId())) return false;
+    if (!getTransactionId()
+        .equals(other.getTransactionId())) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -239,6 +292,8 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + MESSAGE_ID_FIELD_NUMBER;
     hash = (53 * hash) + getMessageId().hashCode();
+    hash = (37 * hash) + TRANSACTION_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getTransactionId().hashCode();
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -380,6 +435,8 @@ private static final long serialVersionUID = 0L;
       }
       messageId_ = "";
 
+      transactionId_ = "";
+
       return this;
     }
 
@@ -412,6 +469,7 @@ private static final long serialVersionUID = 0L;
         result.common_ = commonBuilder_.build();
       }
       result.messageId_ = messageId_;
+      result.transactionId_ = transactionId_;
       onBuilt();
       return result;
     }
@@ -465,6 +523,10 @@ private static final long serialVersionUID = 0L;
       }
       if (!other.getMessageId().isEmpty()) {
         messageId_ = other.messageId_;
+        onChanged();
+      }
+      if (!other.getTransactionId().isEmpty()) {
+        transactionId_ = other.transactionId_;
         onChanged();
       }
       this.mergeUnknownFields(other.unknownFields);
@@ -687,6 +749,82 @@ private static final long serialVersionUID = 0L;
   checkByteStringIsUtf8(value);
       
       messageId_ = value;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object transactionId_ = "";
+    /**
+     * <code>string transaction_id = 3;</code>
+     * @return The transactionId.
+     */
+    public java.lang.String getTransactionId() {
+      java.lang.Object ref = transactionId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        transactionId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string transaction_id = 3;</code>
+     * @return The bytes for transactionId.
+     */
+    public com.google.protobuf.ByteString
+        getTransactionIdBytes() {
+      java.lang.Object ref = transactionId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        transactionId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string transaction_id = 3;</code>
+     * @param value The transactionId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTransactionId(
+        java.lang.String value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  
+      transactionId_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string transaction_id = 3;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTransactionId() {
+      
+      transactionId_ = getDefaultInstance().getTransactionId();
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string transaction_id = 3;</code>
+     * @param value The bytes for transactionId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTransactionIdBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  checkByteStringIsUtf8(value);
+      
+      transactionId_ = value;
       onChanged();
       return this;
     }

@@ -51,19 +51,6 @@ private static final long serialVersionUID = 0L;
             done = true;
             break;
           case 10: {
-            apache.rocketmq.v1.RequestCommon.Builder subBuilder = null;
-            if (common_ != null) {
-              subBuilder = common_.toBuilder();
-            }
-            common_ = input.readMessage(apache.rocketmq.v1.RequestCommon.parser(), extensionRegistry);
-            if (subBuilder != null) {
-              subBuilder.mergeFrom(common_);
-              common_ = subBuilder.buildPartial();
-            }
-
-            break;
-          }
-          case 18: {
             if (!((mutable_bitField0_ & 0x00000001) != 0)) {
               heartbeats_ = new java.util.ArrayList<apache.rocketmq.v1.HeartbeatEntry>();
               mutable_bitField0_ |= 0x00000001;
@@ -107,43 +94,17 @@ private static final long serialVersionUID = 0L;
             apache.rocketmq.v1.HeartbeatRequest.class, apache.rocketmq.v1.HeartbeatRequest.Builder.class);
   }
 
-  public static final int COMMON_FIELD_NUMBER = 1;
-  private apache.rocketmq.v1.RequestCommon common_;
-  /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   * @return Whether the common field is set.
-   */
-  @java.lang.Override
-  public boolean hasCommon() {
-    return common_ != null;
-  }
-  /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   * @return The common.
-   */
-  @java.lang.Override
-  public apache.rocketmq.v1.RequestCommon getCommon() {
-    return common_ == null ? apache.rocketmq.v1.RequestCommon.getDefaultInstance() : common_;
-  }
-  /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   */
-  @java.lang.Override
-  public apache.rocketmq.v1.RequestCommonOrBuilder getCommonOrBuilder() {
-    return getCommon();
-  }
-
-  public static final int HEARTBEATS_FIELD_NUMBER = 2;
+  public static final int HEARTBEATS_FIELD_NUMBER = 1;
   private java.util.List<apache.rocketmq.v1.HeartbeatEntry> heartbeats_;
   /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
    */
   @java.lang.Override
   public java.util.List<apache.rocketmq.v1.HeartbeatEntry> getHeartbeatsList() {
     return heartbeats_;
   }
   /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
    */
   @java.lang.Override
   public java.util.List<? extends apache.rocketmq.v1.HeartbeatEntryOrBuilder> 
@@ -151,21 +112,21 @@ private static final long serialVersionUID = 0L;
     return heartbeats_;
   }
   /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
    */
   @java.lang.Override
   public int getHeartbeatsCount() {
     return heartbeats_.size();
   }
   /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
    */
   @java.lang.Override
   public apache.rocketmq.v1.HeartbeatEntry getHeartbeats(int index) {
     return heartbeats_.get(index);
   }
   /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
    */
   @java.lang.Override
   public apache.rocketmq.v1.HeartbeatEntryOrBuilder getHeartbeatsOrBuilder(
@@ -187,11 +148,8 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (common_ != null) {
-      output.writeMessage(1, getCommon());
-    }
     for (int i = 0; i < heartbeats_.size(); i++) {
-      output.writeMessage(2, heartbeats_.get(i));
+      output.writeMessage(1, heartbeats_.get(i));
     }
     unknownFields.writeTo(output);
   }
@@ -202,13 +160,9 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (common_ != null) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(1, getCommon());
-    }
     for (int i = 0; i < heartbeats_.size(); i++) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(2, heartbeats_.get(i));
+        .computeMessageSize(1, heartbeats_.get(i));
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -225,11 +179,6 @@ private static final long serialVersionUID = 0L;
     }
     apache.rocketmq.v1.HeartbeatRequest other = (apache.rocketmq.v1.HeartbeatRequest) obj;
 
-    if (hasCommon() != other.hasCommon()) return false;
-    if (hasCommon()) {
-      if (!getCommon()
-          .equals(other.getCommon())) return false;
-    }
     if (!getHeartbeatsList()
         .equals(other.getHeartbeatsList())) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
@@ -243,10 +192,6 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    if (hasCommon()) {
-      hash = (37 * hash) + COMMON_FIELD_NUMBER;
-      hash = (53 * hash) + getCommon().hashCode();
-    }
     if (getHeartbeatsCount() > 0) {
       hash = (37 * hash) + HEARTBEATS_FIELD_NUMBER;
       hash = (53 * hash) + getHeartbeatsList().hashCode();
@@ -385,12 +330,6 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
-      if (commonBuilder_ == null) {
-        common_ = null;
-      } else {
-        common_ = null;
-        commonBuilder_ = null;
-      }
       if (heartbeatsBuilder_ == null) {
         heartbeats_ = java.util.Collections.emptyList();
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -424,11 +363,6 @@ private static final long serialVersionUID = 0L;
     public apache.rocketmq.v1.HeartbeatRequest buildPartial() {
       apache.rocketmq.v1.HeartbeatRequest result = new apache.rocketmq.v1.HeartbeatRequest(this);
       int from_bitField0_ = bitField0_;
-      if (commonBuilder_ == null) {
-        result.common_ = common_;
-      } else {
-        result.common_ = commonBuilder_.build();
-      }
       if (heartbeatsBuilder_ == null) {
         if (((bitField0_ & 0x00000001) != 0)) {
           heartbeats_ = java.util.Collections.unmodifiableList(heartbeats_);
@@ -486,9 +420,6 @@ private static final long serialVersionUID = 0L;
 
     public Builder mergeFrom(apache.rocketmq.v1.HeartbeatRequest other) {
       if (other == apache.rocketmq.v1.HeartbeatRequest.getDefaultInstance()) return this;
-      if (other.hasCommon()) {
-        mergeCommon(other.getCommon());
-      }
       if (heartbeatsBuilder_ == null) {
         if (!other.heartbeats_.isEmpty()) {
           if (heartbeats_.isEmpty()) {
@@ -545,125 +476,6 @@ private static final long serialVersionUID = 0L;
     }
     private int bitField0_;
 
-    private apache.rocketmq.v1.RequestCommon common_;
-    private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.RequestCommon, apache.rocketmq.v1.RequestCommon.Builder, apache.rocketmq.v1.RequestCommonOrBuilder> commonBuilder_;
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     * @return Whether the common field is set.
-     */
-    public boolean hasCommon() {
-      return commonBuilder_ != null || common_ != null;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     * @return The common.
-     */
-    public apache.rocketmq.v1.RequestCommon getCommon() {
-      if (commonBuilder_ == null) {
-        return common_ == null ? apache.rocketmq.v1.RequestCommon.getDefaultInstance() : common_;
-      } else {
-        return commonBuilder_.getMessage();
-      }
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    public Builder setCommon(apache.rocketmq.v1.RequestCommon value) {
-      if (commonBuilder_ == null) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        common_ = value;
-        onChanged();
-      } else {
-        commonBuilder_.setMessage(value);
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    public Builder setCommon(
-        apache.rocketmq.v1.RequestCommon.Builder builderForValue) {
-      if (commonBuilder_ == null) {
-        common_ = builderForValue.build();
-        onChanged();
-      } else {
-        commonBuilder_.setMessage(builderForValue.build());
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    public Builder mergeCommon(apache.rocketmq.v1.RequestCommon value) {
-      if (commonBuilder_ == null) {
-        if (common_ != null) {
-          common_ =
-            apache.rocketmq.v1.RequestCommon.newBuilder(common_).mergeFrom(value).buildPartial();
-        } else {
-          common_ = value;
-        }
-        onChanged();
-      } else {
-        commonBuilder_.mergeFrom(value);
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    public Builder clearCommon() {
-      if (commonBuilder_ == null) {
-        common_ = null;
-        onChanged();
-      } else {
-        common_ = null;
-        commonBuilder_ = null;
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    public apache.rocketmq.v1.RequestCommon.Builder getCommonBuilder() {
-      
-      onChanged();
-      return getCommonFieldBuilder().getBuilder();
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    public apache.rocketmq.v1.RequestCommonOrBuilder getCommonOrBuilder() {
-      if (commonBuilder_ != null) {
-        return commonBuilder_.getMessageOrBuilder();
-      } else {
-        return common_ == null ?
-            apache.rocketmq.v1.RequestCommon.getDefaultInstance() : common_;
-      }
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.RequestCommon, apache.rocketmq.v1.RequestCommon.Builder, apache.rocketmq.v1.RequestCommonOrBuilder> 
-        getCommonFieldBuilder() {
-      if (commonBuilder_ == null) {
-        commonBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            apache.rocketmq.v1.RequestCommon, apache.rocketmq.v1.RequestCommon.Builder, apache.rocketmq.v1.RequestCommonOrBuilder>(
-                getCommon(),
-                getParentForChildren(),
-                isClean());
-        common_ = null;
-      }
-      return commonBuilder_;
-    }
-
     private java.util.List<apache.rocketmq.v1.HeartbeatEntry> heartbeats_ =
       java.util.Collections.emptyList();
     private void ensureHeartbeatsIsMutable() {
@@ -677,7 +489,7 @@ private static final long serialVersionUID = 0L;
         apache.rocketmq.v1.HeartbeatEntry, apache.rocketmq.v1.HeartbeatEntry.Builder, apache.rocketmq.v1.HeartbeatEntryOrBuilder> heartbeatsBuilder_;
 
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
      */
     public java.util.List<apache.rocketmq.v1.HeartbeatEntry> getHeartbeatsList() {
       if (heartbeatsBuilder_ == null) {
@@ -687,7 +499,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
      */
     public int getHeartbeatsCount() {
       if (heartbeatsBuilder_ == null) {
@@ -697,7 +509,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
      */
     public apache.rocketmq.v1.HeartbeatEntry getHeartbeats(int index) {
       if (heartbeatsBuilder_ == null) {
@@ -707,7 +519,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
      */
     public Builder setHeartbeats(
         int index, apache.rocketmq.v1.HeartbeatEntry value) {
@@ -724,7 +536,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
      */
     public Builder setHeartbeats(
         int index, apache.rocketmq.v1.HeartbeatEntry.Builder builderForValue) {
@@ -738,7 +550,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
      */
     public Builder addHeartbeats(apache.rocketmq.v1.HeartbeatEntry value) {
       if (heartbeatsBuilder_ == null) {
@@ -754,7 +566,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
      */
     public Builder addHeartbeats(
         int index, apache.rocketmq.v1.HeartbeatEntry value) {
@@ -771,7 +583,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
      */
     public Builder addHeartbeats(
         apache.rocketmq.v1.HeartbeatEntry.Builder builderForValue) {
@@ -785,7 +597,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
      */
     public Builder addHeartbeats(
         int index, apache.rocketmq.v1.HeartbeatEntry.Builder builderForValue) {
@@ -799,7 +611,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
      */
     public Builder addAllHeartbeats(
         java.lang.Iterable<? extends apache.rocketmq.v1.HeartbeatEntry> values) {
@@ -814,7 +626,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
      */
     public Builder clearHeartbeats() {
       if (heartbeatsBuilder_ == null) {
@@ -827,7 +639,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
      */
     public Builder removeHeartbeats(int index) {
       if (heartbeatsBuilder_ == null) {
@@ -840,14 +652,14 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
      */
     public apache.rocketmq.v1.HeartbeatEntry.Builder getHeartbeatsBuilder(
         int index) {
       return getHeartbeatsFieldBuilder().getBuilder(index);
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
      */
     public apache.rocketmq.v1.HeartbeatEntryOrBuilder getHeartbeatsOrBuilder(
         int index) {
@@ -857,7 +669,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
      */
     public java.util.List<? extends apache.rocketmq.v1.HeartbeatEntryOrBuilder> 
          getHeartbeatsOrBuilderList() {
@@ -868,14 +680,14 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
      */
     public apache.rocketmq.v1.HeartbeatEntry.Builder addHeartbeatsBuilder() {
       return getHeartbeatsFieldBuilder().addBuilder(
           apache.rocketmq.v1.HeartbeatEntry.getDefaultInstance());
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
      */
     public apache.rocketmq.v1.HeartbeatEntry.Builder addHeartbeatsBuilder(
         int index) {
@@ -883,7 +695,7 @@ private static final long serialVersionUID = 0L;
           index, apache.rocketmq.v1.HeartbeatEntry.getDefaultInstance());
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
      */
     public java.util.List<apache.rocketmq.v1.HeartbeatEntry.Builder> 
          getHeartbeatsBuilderList() {

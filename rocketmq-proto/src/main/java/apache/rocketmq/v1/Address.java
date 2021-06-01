@@ -4,27 +4,26 @@
 package apache.rocketmq.v1;
 
 /**
- * Protobuf type {@code apache.rocketmq.v1.Endpoint}
+ * Protobuf type {@code apache.rocketmq.v1.Address}
  */
-public final class Endpoint extends
+public final class Address extends
     com.google.protobuf.GeneratedMessageV3 implements
-    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.Endpoint)
-    EndpointOrBuilder {
+    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.Address)
+    AddressOrBuilder {
 private static final long serialVersionUID = 0L;
-  // Use Endpoint.newBuilder() to construct.
-  private Endpoint(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+  // Use Address.newBuilder() to construct.
+  private Address(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
-  private Endpoint() {
-    schema_ = 0;
-    address_ = "";
+  private Address() {
+    host_ = "";
   }
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
   protected java.lang.Object newInstance(
       UnusedPrivateParameter unused) {
-    return new Endpoint();
+    return new Address();
   }
 
   @java.lang.Override
@@ -32,7 +31,7 @@ private static final long serialVersionUID = 0L;
   getUnknownFields() {
     return this.unknownFields;
   }
-  private Endpoint(
+  private Address(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
@@ -50,19 +49,13 @@ private static final long serialVersionUID = 0L;
           case 0:
             done = true;
             break;
-          case 8: {
-            int rawValue = input.readEnum();
-
-            schema_ = rawValue;
-            break;
-          }
-          case 18: {
+          case 10: {
             java.lang.String s = input.readStringRequireUtf8();
 
-            address_ = s;
+            host_ = s;
             break;
           }
-          case 24: {
+          case 16: {
 
             port_ = input.readInt32();
             break;
@@ -88,78 +81,59 @@ private static final long serialVersionUID = 0L;
   }
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_Endpoint_descriptor;
+    return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_Address_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_Endpoint_fieldAccessorTable
+    return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_Address_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            apache.rocketmq.v1.Endpoint.class, apache.rocketmq.v1.Endpoint.Builder.class);
+            apache.rocketmq.v1.Address.class, apache.rocketmq.v1.Address.Builder.class);
   }
 
-  public static final int SCHEMA_FIELD_NUMBER = 1;
-  private int schema_;
+  public static final int HOST_FIELD_NUMBER = 1;
+  private volatile java.lang.Object host_;
   /**
-   * <code>.apache.rocketmq.v1.Schema schema = 1;</code>
-   * @return The enum numeric value on the wire for schema.
-   */
-  @java.lang.Override public int getSchemaValue() {
-    return schema_;
-  }
-  /**
-   * <code>.apache.rocketmq.v1.Schema schema = 1;</code>
-   * @return The schema.
-   */
-  @java.lang.Override public apache.rocketmq.v1.Schema getSchema() {
-    @SuppressWarnings("deprecation")
-    apache.rocketmq.v1.Schema result = apache.rocketmq.v1.Schema.valueOf(schema_);
-    return result == null ? apache.rocketmq.v1.Schema.UNRECOGNIZED : result;
-  }
-
-  public static final int ADDRESS_FIELD_NUMBER = 2;
-  private volatile java.lang.Object address_;
-  /**
-   * <code>string address = 2;</code>
-   * @return The address.
+   * <code>string host = 1;</code>
+   * @return The host.
    */
   @java.lang.Override
-  public java.lang.String getAddress() {
-    java.lang.Object ref = address_;
+  public java.lang.String getHost() {
+    java.lang.Object ref = host_;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
       com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
-      address_ = s;
+      host_ = s;
       return s;
     }
   }
   /**
-   * <code>string address = 2;</code>
-   * @return The bytes for address.
+   * <code>string host = 1;</code>
+   * @return The bytes for host.
    */
   @java.lang.Override
   public com.google.protobuf.ByteString
-      getAddressBytes() {
-    java.lang.Object ref = address_;
+      getHostBytes() {
+    java.lang.Object ref = host_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
-      address_ = b;
+      host_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
     }
   }
 
-  public static final int PORT_FIELD_NUMBER = 3;
+  public static final int PORT_FIELD_NUMBER = 2;
   private int port_;
   /**
-   * <code>int32 port = 3;</code>
+   * <code>int32 port = 2;</code>
    * @return The port.
    */
   @java.lang.Override
@@ -181,14 +155,11 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (schema_ != apache.rocketmq.v1.Schema.IPv4.getNumber()) {
-      output.writeEnum(1, schema_);
-    }
-    if (!getAddressBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 2, address_);
+    if (!getHostBytes().isEmpty()) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 1, host_);
     }
     if (port_ != 0) {
-      output.writeInt32(3, port_);
+      output.writeInt32(2, port_);
     }
     unknownFields.writeTo(output);
   }
@@ -199,16 +170,12 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (schema_ != apache.rocketmq.v1.Schema.IPv4.getNumber()) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeEnumSize(1, schema_);
-    }
-    if (!getAddressBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, address_);
+    if (!getHostBytes().isEmpty()) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, host_);
     }
     if (port_ != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(3, port_);
+        .computeInt32Size(2, port_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -220,14 +187,13 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof apache.rocketmq.v1.Endpoint)) {
+    if (!(obj instanceof apache.rocketmq.v1.Address)) {
       return super.equals(obj);
     }
-    apache.rocketmq.v1.Endpoint other = (apache.rocketmq.v1.Endpoint) obj;
+    apache.rocketmq.v1.Address other = (apache.rocketmq.v1.Address) obj;
 
-    if (schema_ != other.schema_) return false;
-    if (!getAddress()
-        .equals(other.getAddress())) return false;
+    if (!getHost()
+        .equals(other.getHost())) return false;
     if (getPort()
         != other.getPort()) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
@@ -241,10 +207,8 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    hash = (37 * hash) + SCHEMA_FIELD_NUMBER;
-    hash = (53 * hash) + schema_;
-    hash = (37 * hash) + ADDRESS_FIELD_NUMBER;
-    hash = (53 * hash) + getAddress().hashCode();
+    hash = (37 * hash) + HOST_FIELD_NUMBER;
+    hash = (53 * hash) + getHost().hashCode();
     hash = (37 * hash) + PORT_FIELD_NUMBER;
     hash = (53 * hash) + getPort();
     hash = (29 * hash) + unknownFields.hashCode();
@@ -252,69 +216,69 @@ private static final long serialVersionUID = 0L;
     return hash;
   }
 
-  public static apache.rocketmq.v1.Endpoint parseFrom(
+  public static apache.rocketmq.v1.Address parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.Endpoint parseFrom(
+  public static apache.rocketmq.v1.Address parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.Endpoint parseFrom(
+  public static apache.rocketmq.v1.Address parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.Endpoint parseFrom(
+  public static apache.rocketmq.v1.Address parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.Endpoint parseFrom(byte[] data)
+  public static apache.rocketmq.v1.Address parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.Endpoint parseFrom(
+  public static apache.rocketmq.v1.Address parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.Endpoint parseFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.Address parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.Endpoint parseFrom(
+  public static apache.rocketmq.v1.Address parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.Endpoint parseDelimitedFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.Address parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.Endpoint parseDelimitedFrom(
+  public static apache.rocketmq.v1.Address parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.Endpoint parseFrom(
+  public static apache.rocketmq.v1.Address parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.Endpoint parseFrom(
+  public static apache.rocketmq.v1.Address parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -327,7 +291,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(apache.rocketmq.v1.Endpoint prototype) {
+  public static Builder newBuilder(apache.rocketmq.v1.Address prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -343,26 +307,26 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
-   * Protobuf type {@code apache.rocketmq.v1.Endpoint}
+   * Protobuf type {@code apache.rocketmq.v1.Address}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.Endpoint)
-      apache.rocketmq.v1.EndpointOrBuilder {
+      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.Address)
+      apache.rocketmq.v1.AddressOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_Endpoint_descriptor;
+      return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_Address_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_Endpoint_fieldAccessorTable
+      return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_Address_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              apache.rocketmq.v1.Endpoint.class, apache.rocketmq.v1.Endpoint.Builder.class);
+              apache.rocketmq.v1.Address.class, apache.rocketmq.v1.Address.Builder.class);
     }
 
-    // Construct using apache.rocketmq.v1.Endpoint.newBuilder()
+    // Construct using apache.rocketmq.v1.Address.newBuilder()
     private Builder() {
       maybeForceBuilderInitialization();
     }
@@ -380,9 +344,7 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
-      schema_ = 0;
-
-      address_ = "";
+      host_ = "";
 
       port_ = 0;
 
@@ -392,17 +354,17 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_Endpoint_descriptor;
+      return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_Address_descriptor;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.Endpoint getDefaultInstanceForType() {
-      return apache.rocketmq.v1.Endpoint.getDefaultInstance();
+    public apache.rocketmq.v1.Address getDefaultInstanceForType() {
+      return apache.rocketmq.v1.Address.getDefaultInstance();
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.Endpoint build() {
-      apache.rocketmq.v1.Endpoint result = buildPartial();
+    public apache.rocketmq.v1.Address build() {
+      apache.rocketmq.v1.Address result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -410,10 +372,9 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.Endpoint buildPartial() {
-      apache.rocketmq.v1.Endpoint result = new apache.rocketmq.v1.Endpoint(this);
-      result.schema_ = schema_;
-      result.address_ = address_;
+    public apache.rocketmq.v1.Address buildPartial() {
+      apache.rocketmq.v1.Address result = new apache.rocketmq.v1.Address(this);
+      result.host_ = host_;
       result.port_ = port_;
       onBuilt();
       return result;
@@ -453,21 +414,18 @@ private static final long serialVersionUID = 0L;
     }
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof apache.rocketmq.v1.Endpoint) {
-        return mergeFrom((apache.rocketmq.v1.Endpoint)other);
+      if (other instanceof apache.rocketmq.v1.Address) {
+        return mergeFrom((apache.rocketmq.v1.Address)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(apache.rocketmq.v1.Endpoint other) {
-      if (other == apache.rocketmq.v1.Endpoint.getDefaultInstance()) return this;
-      if (other.schema_ != 0) {
-        setSchemaValue(other.getSchemaValue());
-      }
-      if (!other.getAddress().isEmpty()) {
-        address_ = other.address_;
+    public Builder mergeFrom(apache.rocketmq.v1.Address other) {
+      if (other == apache.rocketmq.v1.Address.getDefaultInstance()) return this;
+      if (!other.getHost().isEmpty()) {
+        host_ = other.host_;
         onChanged();
       }
       if (other.getPort() != 0) {
@@ -488,11 +446,11 @@ private static final long serialVersionUID = 0L;
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      apache.rocketmq.v1.Endpoint parsedMessage = null;
+      apache.rocketmq.v1.Address parsedMessage = null;
       try {
         parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        parsedMessage = (apache.rocketmq.v1.Endpoint) e.getUnfinishedMessage();
+        parsedMessage = (apache.rocketmq.v1.Address) e.getUnfinishedMessage();
         throw e.unwrapIOException();
       } finally {
         if (parsedMessage != null) {
@@ -502,139 +460,85 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int schema_ = 0;
+    private java.lang.Object host_ = "";
     /**
-     * <code>.apache.rocketmq.v1.Schema schema = 1;</code>
-     * @return The enum numeric value on the wire for schema.
+     * <code>string host = 1;</code>
+     * @return The host.
      */
-    @java.lang.Override public int getSchemaValue() {
-      return schema_;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.Schema schema = 1;</code>
-     * @param value The enum numeric value on the wire for schema to set.
-     * @return This builder for chaining.
-     */
-    public Builder setSchemaValue(int value) {
-      
-      schema_ = value;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.Schema schema = 1;</code>
-     * @return The schema.
-     */
-    @java.lang.Override
-    public apache.rocketmq.v1.Schema getSchema() {
-      @SuppressWarnings("deprecation")
-      apache.rocketmq.v1.Schema result = apache.rocketmq.v1.Schema.valueOf(schema_);
-      return result == null ? apache.rocketmq.v1.Schema.UNRECOGNIZED : result;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.Schema schema = 1;</code>
-     * @param value The schema to set.
-     * @return This builder for chaining.
-     */
-    public Builder setSchema(apache.rocketmq.v1.Schema value) {
-      if (value == null) {
-        throw new NullPointerException();
-      }
-      
-      schema_ = value.getNumber();
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.Schema schema = 1;</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearSchema() {
-      
-      schema_ = 0;
-      onChanged();
-      return this;
-    }
-
-    private java.lang.Object address_ = "";
-    /**
-     * <code>string address = 2;</code>
-     * @return The address.
-     */
-    public java.lang.String getAddress() {
-      java.lang.Object ref = address_;
+    public java.lang.String getHost() {
+      java.lang.Object ref = host_;
       if (!(ref instanceof java.lang.String)) {
         com.google.protobuf.ByteString bs =
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
-        address_ = s;
+        host_ = s;
         return s;
       } else {
         return (java.lang.String) ref;
       }
     }
     /**
-     * <code>string address = 2;</code>
-     * @return The bytes for address.
+     * <code>string host = 1;</code>
+     * @return The bytes for host.
      */
     public com.google.protobuf.ByteString
-        getAddressBytes() {
-      java.lang.Object ref = address_;
+        getHostBytes() {
+      java.lang.Object ref = host_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        address_ = b;
+        host_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
     /**
-     * <code>string address = 2;</code>
-     * @param value The address to set.
+     * <code>string host = 1;</code>
+     * @param value The host to set.
      * @return This builder for chaining.
      */
-    public Builder setAddress(
+    public Builder setHost(
         java.lang.String value) {
       if (value == null) {
     throw new NullPointerException();
   }
   
-      address_ = value;
+      host_ = value;
       onChanged();
       return this;
     }
     /**
-     * <code>string address = 2;</code>
+     * <code>string host = 1;</code>
      * @return This builder for chaining.
      */
-    public Builder clearAddress() {
+    public Builder clearHost() {
       
-      address_ = getDefaultInstance().getAddress();
+      host_ = getDefaultInstance().getHost();
       onChanged();
       return this;
     }
     /**
-     * <code>string address = 2;</code>
-     * @param value The bytes for address to set.
+     * <code>string host = 1;</code>
+     * @param value The bytes for host to set.
      * @return This builder for chaining.
      */
-    public Builder setAddressBytes(
+    public Builder setHostBytes(
         com.google.protobuf.ByteString value) {
       if (value == null) {
     throw new NullPointerException();
   }
   checkByteStringIsUtf8(value);
       
-      address_ = value;
+      host_ = value;
       onChanged();
       return this;
     }
 
     private int port_ ;
     /**
-     * <code>int32 port = 3;</code>
+     * <code>int32 port = 2;</code>
      * @return The port.
      */
     @java.lang.Override
@@ -642,7 +546,7 @@ private static final long serialVersionUID = 0L;
       return port_;
     }
     /**
-     * <code>int32 port = 3;</code>
+     * <code>int32 port = 2;</code>
      * @param value The port to set.
      * @return This builder for chaining.
      */
@@ -653,7 +557,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>int32 port = 3;</code>
+     * <code>int32 port = 2;</code>
      * @return This builder for chaining.
      */
     public Builder clearPort() {
@@ -675,41 +579,41 @@ private static final long serialVersionUID = 0L;
     }
 
 
-    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.Endpoint)
+    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.Address)
   }
 
-  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.Endpoint)
-  private static final apache.rocketmq.v1.Endpoint DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.Address)
+  private static final apache.rocketmq.v1.Address DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new apache.rocketmq.v1.Endpoint();
+    DEFAULT_INSTANCE = new apache.rocketmq.v1.Address();
   }
 
-  public static apache.rocketmq.v1.Endpoint getDefaultInstance() {
+  public static apache.rocketmq.v1.Address getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<Endpoint>
-      PARSER = new com.google.protobuf.AbstractParser<Endpoint>() {
+  private static final com.google.protobuf.Parser<Address>
+      PARSER = new com.google.protobuf.AbstractParser<Address>() {
     @java.lang.Override
-    public Endpoint parsePartialFrom(
+    public Address parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
-      return new Endpoint(input, extensionRegistry);
+      return new Address(input, extensionRegistry);
     }
   };
 
-  public static com.google.protobuf.Parser<Endpoint> parser() {
+  public static com.google.protobuf.Parser<Address> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<Endpoint> getParserForType() {
+  public com.google.protobuf.Parser<Address> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public apache.rocketmq.v1.Endpoint getDefaultInstanceForType() {
+  public apache.rocketmq.v1.Address getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

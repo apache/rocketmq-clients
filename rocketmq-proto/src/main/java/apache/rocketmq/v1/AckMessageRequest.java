@@ -52,19 +52,6 @@ private static final long serialVersionUID = 0L;
             done = true;
             break;
           case 10: {
-            apache.rocketmq.v1.RequestCommon.Builder subBuilder = null;
-            if (common_ != null) {
-              subBuilder = common_.toBuilder();
-            }
-            common_ = input.readMessage(apache.rocketmq.v1.RequestCommon.parser(), extensionRegistry);
-            if (subBuilder != null) {
-              subBuilder.mergeFrom(common_);
-              common_ = subBuilder.buildPartial();
-            }
-
-            break;
-          }
-          case 18: {
             apache.rocketmq.v1.Resource.Builder subBuilder = null;
             if (group_ != null) {
               subBuilder = group_.toBuilder();
@@ -77,7 +64,7 @@ private static final long serialVersionUID = 0L;
 
             break;
           }
-          case 26: {
+          case 18: {
             apache.rocketmq.v1.Resource.Builder subBuilder = null;
             if (topic_ != null) {
               subBuilder = topic_.toBuilder();
@@ -90,19 +77,19 @@ private static final long serialVersionUID = 0L;
 
             break;
           }
-          case 34: {
+          case 26: {
             java.lang.String s = input.readStringRequireUtf8();
 
             clientId_ = s;
             break;
           }
-          case 42: {
+          case 34: {
             java.lang.String s = input.readStringRequireUtf8();
 
             receiptHandle_ = s;
             break;
           }
-          case 50: {
+          case 42: {
             java.lang.String s = input.readStringRequireUtf8();
 
             messageId_ = s;
@@ -140,36 +127,10 @@ private static final long serialVersionUID = 0L;
             apache.rocketmq.v1.AckMessageRequest.class, apache.rocketmq.v1.AckMessageRequest.Builder.class);
   }
 
-  public static final int COMMON_FIELD_NUMBER = 1;
-  private apache.rocketmq.v1.RequestCommon common_;
-  /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   * @return Whether the common field is set.
-   */
-  @java.lang.Override
-  public boolean hasCommon() {
-    return common_ != null;
-  }
-  /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   * @return The common.
-   */
-  @java.lang.Override
-  public apache.rocketmq.v1.RequestCommon getCommon() {
-    return common_ == null ? apache.rocketmq.v1.RequestCommon.getDefaultInstance() : common_;
-  }
-  /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   */
-  @java.lang.Override
-  public apache.rocketmq.v1.RequestCommonOrBuilder getCommonOrBuilder() {
-    return getCommon();
-  }
-
-  public static final int GROUP_FIELD_NUMBER = 2;
+  public static final int GROUP_FIELD_NUMBER = 1;
   private apache.rocketmq.v1.Resource group_;
   /**
-   * <code>.apache.rocketmq.v1.Resource group = 2;</code>
+   * <code>.apache.rocketmq.v1.Resource group = 1;</code>
    * @return Whether the group field is set.
    */
   @java.lang.Override
@@ -177,7 +138,7 @@ private static final long serialVersionUID = 0L;
     return group_ != null;
   }
   /**
-   * <code>.apache.rocketmq.v1.Resource group = 2;</code>
+   * <code>.apache.rocketmq.v1.Resource group = 1;</code>
    * @return The group.
    */
   @java.lang.Override
@@ -185,17 +146,17 @@ private static final long serialVersionUID = 0L;
     return group_ == null ? apache.rocketmq.v1.Resource.getDefaultInstance() : group_;
   }
   /**
-   * <code>.apache.rocketmq.v1.Resource group = 2;</code>
+   * <code>.apache.rocketmq.v1.Resource group = 1;</code>
    */
   @java.lang.Override
   public apache.rocketmq.v1.ResourceOrBuilder getGroupOrBuilder() {
     return getGroup();
   }
 
-  public static final int TOPIC_FIELD_NUMBER = 3;
+  public static final int TOPIC_FIELD_NUMBER = 2;
   private apache.rocketmq.v1.Resource topic_;
   /**
-   * <code>.apache.rocketmq.v1.Resource topic = 3;</code>
+   * <code>.apache.rocketmq.v1.Resource topic = 2;</code>
    * @return Whether the topic field is set.
    */
   @java.lang.Override
@@ -203,7 +164,7 @@ private static final long serialVersionUID = 0L;
     return topic_ != null;
   }
   /**
-   * <code>.apache.rocketmq.v1.Resource topic = 3;</code>
+   * <code>.apache.rocketmq.v1.Resource topic = 2;</code>
    * @return The topic.
    */
   @java.lang.Override
@@ -211,17 +172,17 @@ private static final long serialVersionUID = 0L;
     return topic_ == null ? apache.rocketmq.v1.Resource.getDefaultInstance() : topic_;
   }
   /**
-   * <code>.apache.rocketmq.v1.Resource topic = 3;</code>
+   * <code>.apache.rocketmq.v1.Resource topic = 2;</code>
    */
   @java.lang.Override
   public apache.rocketmq.v1.ResourceOrBuilder getTopicOrBuilder() {
     return getTopic();
   }
 
-  public static final int CLIENT_ID_FIELD_NUMBER = 4;
+  public static final int CLIENT_ID_FIELD_NUMBER = 3;
   private volatile java.lang.Object clientId_;
   /**
-   * <code>string client_id = 4;</code>
+   * <code>string client_id = 3;</code>
    * @return The clientId.
    */
   @java.lang.Override
@@ -238,7 +199,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string client_id = 4;</code>
+   * <code>string client_id = 3;</code>
    * @return The bytes for clientId.
    */
   @java.lang.Override
@@ -256,10 +217,10 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int RECEIPT_HANDLE_FIELD_NUMBER = 5;
+  public static final int RECEIPT_HANDLE_FIELD_NUMBER = 4;
   private volatile java.lang.Object receiptHandle_;
   /**
-   * <code>string receipt_handle = 5;</code>
+   * <code>string receipt_handle = 4;</code>
    * @return The receiptHandle.
    */
   @java.lang.Override
@@ -276,7 +237,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string receipt_handle = 5;</code>
+   * <code>string receipt_handle = 4;</code>
    * @return The bytes for receiptHandle.
    */
   @java.lang.Override
@@ -294,10 +255,10 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int MESSAGE_ID_FIELD_NUMBER = 6;
+  public static final int MESSAGE_ID_FIELD_NUMBER = 5;
   private volatile java.lang.Object messageId_;
   /**
-   * <code>string message_id = 6;</code>
+   * <code>string message_id = 5;</code>
    * @return The messageId.
    */
   @java.lang.Override
@@ -314,7 +275,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string message_id = 6;</code>
+   * <code>string message_id = 5;</code>
    * @return The bytes for messageId.
    */
   @java.lang.Override
@@ -346,23 +307,20 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (common_ != null) {
-      output.writeMessage(1, getCommon());
-    }
     if (group_ != null) {
-      output.writeMessage(2, getGroup());
+      output.writeMessage(1, getGroup());
     }
     if (topic_ != null) {
-      output.writeMessage(3, getTopic());
+      output.writeMessage(2, getTopic());
     }
     if (!getClientIdBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 4, clientId_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 3, clientId_);
     }
     if (!getReceiptHandleBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 5, receiptHandle_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 4, receiptHandle_);
     }
     if (!getMessageIdBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 6, messageId_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 5, messageId_);
     }
     unknownFields.writeTo(output);
   }
@@ -373,26 +331,22 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (common_ != null) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(1, getCommon());
-    }
     if (group_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(2, getGroup());
+        .computeMessageSize(1, getGroup());
     }
     if (topic_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(3, getTopic());
+        .computeMessageSize(2, getTopic());
     }
     if (!getClientIdBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, clientId_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, clientId_);
     }
     if (!getReceiptHandleBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, receiptHandle_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, receiptHandle_);
     }
     if (!getMessageIdBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, messageId_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, messageId_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -409,11 +363,6 @@ private static final long serialVersionUID = 0L;
     }
     apache.rocketmq.v1.AckMessageRequest other = (apache.rocketmq.v1.AckMessageRequest) obj;
 
-    if (hasCommon() != other.hasCommon()) return false;
-    if (hasCommon()) {
-      if (!getCommon()
-          .equals(other.getCommon())) return false;
-    }
     if (hasGroup() != other.hasGroup()) return false;
     if (hasGroup()) {
       if (!getGroup()
@@ -441,10 +390,6 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    if (hasCommon()) {
-      hash = (37 * hash) + COMMON_FIELD_NUMBER;
-      hash = (53 * hash) + getCommon().hashCode();
-    }
     if (hasGroup()) {
       hash = (37 * hash) + GROUP_FIELD_NUMBER;
       hash = (53 * hash) + getGroup().hashCode();
@@ -592,12 +537,6 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
-      if (commonBuilder_ == null) {
-        common_ = null;
-      } else {
-        common_ = null;
-        commonBuilder_ = null;
-      }
       if (groupBuilder_ == null) {
         group_ = null;
       } else {
@@ -642,11 +581,6 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public apache.rocketmq.v1.AckMessageRequest buildPartial() {
       apache.rocketmq.v1.AckMessageRequest result = new apache.rocketmq.v1.AckMessageRequest(this);
-      if (commonBuilder_ == null) {
-        result.common_ = common_;
-      } else {
-        result.common_ = commonBuilder_.build();
-      }
       if (groupBuilder_ == null) {
         result.group_ = group_;
       } else {
@@ -708,9 +642,6 @@ private static final long serialVersionUID = 0L;
 
     public Builder mergeFrom(apache.rocketmq.v1.AckMessageRequest other) {
       if (other == apache.rocketmq.v1.AckMessageRequest.getDefaultInstance()) return this;
-      if (other.hasCommon()) {
-        mergeCommon(other.getCommon());
-      }
       if (other.hasGroup()) {
         mergeGroup(other.getGroup());
       }
@@ -758,137 +689,18 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private apache.rocketmq.v1.RequestCommon common_;
-    private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.RequestCommon, apache.rocketmq.v1.RequestCommon.Builder, apache.rocketmq.v1.RequestCommonOrBuilder> commonBuilder_;
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     * @return Whether the common field is set.
-     */
-    public boolean hasCommon() {
-      return commonBuilder_ != null || common_ != null;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     * @return The common.
-     */
-    public apache.rocketmq.v1.RequestCommon getCommon() {
-      if (commonBuilder_ == null) {
-        return common_ == null ? apache.rocketmq.v1.RequestCommon.getDefaultInstance() : common_;
-      } else {
-        return commonBuilder_.getMessage();
-      }
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    public Builder setCommon(apache.rocketmq.v1.RequestCommon value) {
-      if (commonBuilder_ == null) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        common_ = value;
-        onChanged();
-      } else {
-        commonBuilder_.setMessage(value);
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    public Builder setCommon(
-        apache.rocketmq.v1.RequestCommon.Builder builderForValue) {
-      if (commonBuilder_ == null) {
-        common_ = builderForValue.build();
-        onChanged();
-      } else {
-        commonBuilder_.setMessage(builderForValue.build());
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    public Builder mergeCommon(apache.rocketmq.v1.RequestCommon value) {
-      if (commonBuilder_ == null) {
-        if (common_ != null) {
-          common_ =
-            apache.rocketmq.v1.RequestCommon.newBuilder(common_).mergeFrom(value).buildPartial();
-        } else {
-          common_ = value;
-        }
-        onChanged();
-      } else {
-        commonBuilder_.mergeFrom(value);
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    public Builder clearCommon() {
-      if (commonBuilder_ == null) {
-        common_ = null;
-        onChanged();
-      } else {
-        common_ = null;
-        commonBuilder_ = null;
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    public apache.rocketmq.v1.RequestCommon.Builder getCommonBuilder() {
-      
-      onChanged();
-      return getCommonFieldBuilder().getBuilder();
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    public apache.rocketmq.v1.RequestCommonOrBuilder getCommonOrBuilder() {
-      if (commonBuilder_ != null) {
-        return commonBuilder_.getMessageOrBuilder();
-      } else {
-        return common_ == null ?
-            apache.rocketmq.v1.RequestCommon.getDefaultInstance() : common_;
-      }
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.RequestCommon, apache.rocketmq.v1.RequestCommon.Builder, apache.rocketmq.v1.RequestCommonOrBuilder> 
-        getCommonFieldBuilder() {
-      if (commonBuilder_ == null) {
-        commonBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            apache.rocketmq.v1.RequestCommon, apache.rocketmq.v1.RequestCommon.Builder, apache.rocketmq.v1.RequestCommonOrBuilder>(
-                getCommon(),
-                getParentForChildren(),
-                isClean());
-        common_ = null;
-      }
-      return commonBuilder_;
-    }
-
     private apache.rocketmq.v1.Resource group_;
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> groupBuilder_;
     /**
-     * <code>.apache.rocketmq.v1.Resource group = 2;</code>
+     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
      * @return Whether the group field is set.
      */
     public boolean hasGroup() {
       return groupBuilder_ != null || group_ != null;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource group = 2;</code>
+     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
      * @return The group.
      */
     public apache.rocketmq.v1.Resource getGroup() {
@@ -899,7 +711,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource group = 2;</code>
+     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
      */
     public Builder setGroup(apache.rocketmq.v1.Resource value) {
       if (groupBuilder_ == null) {
@@ -915,7 +727,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource group = 2;</code>
+     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
      */
     public Builder setGroup(
         apache.rocketmq.v1.Resource.Builder builderForValue) {
@@ -929,7 +741,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource group = 2;</code>
+     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
      */
     public Builder mergeGroup(apache.rocketmq.v1.Resource value) {
       if (groupBuilder_ == null) {
@@ -947,7 +759,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource group = 2;</code>
+     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
      */
     public Builder clearGroup() {
       if (groupBuilder_ == null) {
@@ -961,7 +773,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource group = 2;</code>
+     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
      */
     public apache.rocketmq.v1.Resource.Builder getGroupBuilder() {
       
@@ -969,7 +781,7 @@ private static final long serialVersionUID = 0L;
       return getGroupFieldBuilder().getBuilder();
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource group = 2;</code>
+     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
      */
     public apache.rocketmq.v1.ResourceOrBuilder getGroupOrBuilder() {
       if (groupBuilder_ != null) {
@@ -980,7 +792,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource group = 2;</code>
+     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> 
@@ -1000,14 +812,14 @@ private static final long serialVersionUID = 0L;
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> topicBuilder_;
     /**
-     * <code>.apache.rocketmq.v1.Resource topic = 3;</code>
+     * <code>.apache.rocketmq.v1.Resource topic = 2;</code>
      * @return Whether the topic field is set.
      */
     public boolean hasTopic() {
       return topicBuilder_ != null || topic_ != null;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource topic = 3;</code>
+     * <code>.apache.rocketmq.v1.Resource topic = 2;</code>
      * @return The topic.
      */
     public apache.rocketmq.v1.Resource getTopic() {
@@ -1018,7 +830,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource topic = 3;</code>
+     * <code>.apache.rocketmq.v1.Resource topic = 2;</code>
      */
     public Builder setTopic(apache.rocketmq.v1.Resource value) {
       if (topicBuilder_ == null) {
@@ -1034,7 +846,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource topic = 3;</code>
+     * <code>.apache.rocketmq.v1.Resource topic = 2;</code>
      */
     public Builder setTopic(
         apache.rocketmq.v1.Resource.Builder builderForValue) {
@@ -1048,7 +860,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource topic = 3;</code>
+     * <code>.apache.rocketmq.v1.Resource topic = 2;</code>
      */
     public Builder mergeTopic(apache.rocketmq.v1.Resource value) {
       if (topicBuilder_ == null) {
@@ -1066,7 +878,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource topic = 3;</code>
+     * <code>.apache.rocketmq.v1.Resource topic = 2;</code>
      */
     public Builder clearTopic() {
       if (topicBuilder_ == null) {
@@ -1080,7 +892,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource topic = 3;</code>
+     * <code>.apache.rocketmq.v1.Resource topic = 2;</code>
      */
     public apache.rocketmq.v1.Resource.Builder getTopicBuilder() {
       
@@ -1088,7 +900,7 @@ private static final long serialVersionUID = 0L;
       return getTopicFieldBuilder().getBuilder();
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource topic = 3;</code>
+     * <code>.apache.rocketmq.v1.Resource topic = 2;</code>
      */
     public apache.rocketmq.v1.ResourceOrBuilder getTopicOrBuilder() {
       if (topicBuilder_ != null) {
@@ -1099,7 +911,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource topic = 3;</code>
+     * <code>.apache.rocketmq.v1.Resource topic = 2;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> 
@@ -1117,7 +929,7 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object clientId_ = "";
     /**
-     * <code>string client_id = 4;</code>
+     * <code>string client_id = 3;</code>
      * @return The clientId.
      */
     public java.lang.String getClientId() {
@@ -1133,7 +945,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string client_id = 4;</code>
+     * <code>string client_id = 3;</code>
      * @return The bytes for clientId.
      */
     public com.google.protobuf.ByteString
@@ -1150,7 +962,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string client_id = 4;</code>
+     * <code>string client_id = 3;</code>
      * @param value The clientId to set.
      * @return This builder for chaining.
      */
@@ -1165,7 +977,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string client_id = 4;</code>
+     * <code>string client_id = 3;</code>
      * @return This builder for chaining.
      */
     public Builder clearClientId() {
@@ -1175,7 +987,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string client_id = 4;</code>
+     * <code>string client_id = 3;</code>
      * @param value The bytes for clientId to set.
      * @return This builder for chaining.
      */
@@ -1193,7 +1005,7 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object receiptHandle_ = "";
     /**
-     * <code>string receipt_handle = 5;</code>
+     * <code>string receipt_handle = 4;</code>
      * @return The receiptHandle.
      */
     public java.lang.String getReceiptHandle() {
@@ -1209,7 +1021,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string receipt_handle = 5;</code>
+     * <code>string receipt_handle = 4;</code>
      * @return The bytes for receiptHandle.
      */
     public com.google.protobuf.ByteString
@@ -1226,7 +1038,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string receipt_handle = 5;</code>
+     * <code>string receipt_handle = 4;</code>
      * @param value The receiptHandle to set.
      * @return This builder for chaining.
      */
@@ -1241,7 +1053,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string receipt_handle = 5;</code>
+     * <code>string receipt_handle = 4;</code>
      * @return This builder for chaining.
      */
     public Builder clearReceiptHandle() {
@@ -1251,7 +1063,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string receipt_handle = 5;</code>
+     * <code>string receipt_handle = 4;</code>
      * @param value The bytes for receiptHandle to set.
      * @return This builder for chaining.
      */
@@ -1269,7 +1081,7 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object messageId_ = "";
     /**
-     * <code>string message_id = 6;</code>
+     * <code>string message_id = 5;</code>
      * @return The messageId.
      */
     public java.lang.String getMessageId() {
@@ -1285,7 +1097,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string message_id = 6;</code>
+     * <code>string message_id = 5;</code>
      * @return The bytes for messageId.
      */
     public com.google.protobuf.ByteString
@@ -1302,7 +1114,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string message_id = 6;</code>
+     * <code>string message_id = 5;</code>
      * @param value The messageId to set.
      * @return This builder for chaining.
      */
@@ -1317,7 +1129,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string message_id = 6;</code>
+     * <code>string message_id = 5;</code>
      * @return This builder for chaining.
      */
     public Builder clearMessageId() {
@@ -1327,7 +1139,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string message_id = 6;</code>
+     * <code>string message_id = 5;</code>
      * @param value The bytes for messageId to set.
      * @return This builder for chaining.
      */

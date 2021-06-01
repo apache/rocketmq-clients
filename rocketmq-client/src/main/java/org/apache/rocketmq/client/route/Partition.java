@@ -1,11 +1,9 @@
 package org.apache.rocketmq.client.route;
 
-import apache.rocketmq.v1.Endpoint;
+import apache.rocketmq.v1.Address;
+import apache.rocketmq.v1.Endpoints;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Random;
-import java.util.Set;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
@@ -22,11 +20,8 @@ public class Partition {
 
     private final String brokerName;
     private final int brokerId;
+    private final String target;
     private final List<String> endpoints;
-
-    @EqualsAndHashCode.Exclude
-    @ToString.Exclude
-    private final ThreadLocal<Integer> endpointIndex;
 
     public Partition(apache.rocketmq.v1.Partition partition) {
 
@@ -54,30 +49,26 @@ public class Partition {
         this.brokerId = partition.getBroker().getId();
         this.endpoints = new ArrayList<String>();
 
-        Set<String> endpointSet = new HashSet<String>();
-        final List<Endpoint> endpointList = partition.getBroker().getEndpointsList();
-        for (Endpoint endpoint : endpointList) {
-            final String address = endpoint.getAddress();
-            final int port = endpoint.getPort();
-            endpointSet.add(address + ":" + port);
+        final Endpoints endpoints = partition.getBroker().getEndpoints();
+        final apache.rocketmq.v1.Schema schema = endpoints.getSchema();
+        StringBuilder targetBuilder = new StringBuilder();
+        switch (schema) {
+            case IPv4:
+                targetBuilder.append(Schema.IPV4.getPrefix());
+                break;
+            case IPv6:
+                targetBuilder.append(Schema.IPV6.getPrefix());
+                break;
+            case DOMAIN_NAME:
+            default:
+                targetBuilder.append(Schema.DOMAIN.getPrefix());
+                break;
         }
-        this.endpoints.addAll(endpointSet);
-        this.endpointIndex = new ThreadLocal<Integer>();
-        this.endpointIndex.set(Math.abs(new Random().nextInt()));
-    }
-
-    private int getNextEndpointIndex() {
-        Integer index = endpointIndex.get();
-        if (null == index) {
-            index = -1;
+        for (Address address : endpoints.getAddressesList()) {
+            targetBuilder.append(address.getHost());
+            targetBuilder.append(":");
+            targetBuilder.append(address.getPort());
         }
-        index += 1;
-        index = Math.abs(index);
-        endpointIndex.set(index);
-        return index;
-    }
-
-    public String selectEndpoint() {
-        return endpoints.get(getNextEndpointIndex() % endpoints.size());
+        this.target = targetBuilder.toString();
     }
 }

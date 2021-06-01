@@ -50,19 +50,6 @@ private static final long serialVersionUID = 0L;
             done = true;
             break;
           case 10: {
-            apache.rocketmq.v1.RequestCommon.Builder subBuilder = null;
-            if (common_ != null) {
-              subBuilder = common_.toBuilder();
-            }
-            common_ = input.readMessage(apache.rocketmq.v1.RequestCommon.parser(), extensionRegistry);
-            if (subBuilder != null) {
-              subBuilder.mergeFrom(common_);
-              common_ = subBuilder.buildPartial();
-            }
-
-            break;
-          }
-          case 18: {
             java.lang.String s = input.readStringRequireUtf8();
 
             clientHost_ = s;
@@ -100,36 +87,10 @@ private static final long serialVersionUID = 0L;
             apache.rocketmq.v1.HealthCheckRequest.class, apache.rocketmq.v1.HealthCheckRequest.Builder.class);
   }
 
-  public static final int COMMON_FIELD_NUMBER = 1;
-  private apache.rocketmq.v1.RequestCommon common_;
-  /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   * @return Whether the common field is set.
-   */
-  @java.lang.Override
-  public boolean hasCommon() {
-    return common_ != null;
-  }
-  /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   * @return The common.
-   */
-  @java.lang.Override
-  public apache.rocketmq.v1.RequestCommon getCommon() {
-    return common_ == null ? apache.rocketmq.v1.RequestCommon.getDefaultInstance() : common_;
-  }
-  /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   */
-  @java.lang.Override
-  public apache.rocketmq.v1.RequestCommonOrBuilder getCommonOrBuilder() {
-    return getCommon();
-  }
-
-  public static final int CLIENT_HOST_FIELD_NUMBER = 2;
+  public static final int CLIENT_HOST_FIELD_NUMBER = 1;
   private volatile java.lang.Object clientHost_;
   /**
-   * <code>string client_host = 2;</code>
+   * <code>string client_host = 1;</code>
    * @return The clientHost.
    */
   @java.lang.Override
@@ -146,7 +107,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string client_host = 2;</code>
+   * <code>string client_host = 1;</code>
    * @return The bytes for clientHost.
    */
   @java.lang.Override
@@ -178,11 +139,8 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (common_ != null) {
-      output.writeMessage(1, getCommon());
-    }
     if (!getClientHostBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 2, clientHost_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 1, clientHost_);
     }
     unknownFields.writeTo(output);
   }
@@ -193,12 +151,8 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (common_ != null) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(1, getCommon());
-    }
     if (!getClientHostBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, clientHost_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, clientHost_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -215,11 +169,6 @@ private static final long serialVersionUID = 0L;
     }
     apache.rocketmq.v1.HealthCheckRequest other = (apache.rocketmq.v1.HealthCheckRequest) obj;
 
-    if (hasCommon() != other.hasCommon()) return false;
-    if (hasCommon()) {
-      if (!getCommon()
-          .equals(other.getCommon())) return false;
-    }
     if (!getClientHost()
         .equals(other.getClientHost())) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
@@ -233,10 +182,6 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    if (hasCommon()) {
-      hash = (37 * hash) + COMMON_FIELD_NUMBER;
-      hash = (53 * hash) + getCommon().hashCode();
-    }
     hash = (37 * hash) + CLIENT_HOST_FIELD_NUMBER;
     hash = (53 * hash) + getClientHost().hashCode();
     hash = (29 * hash) + unknownFields.hashCode();
@@ -372,12 +317,6 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
-      if (commonBuilder_ == null) {
-        common_ = null;
-      } else {
-        common_ = null;
-        commonBuilder_ = null;
-      }
       clientHost_ = "";
 
       return this;
@@ -406,11 +345,6 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public apache.rocketmq.v1.HealthCheckRequest buildPartial() {
       apache.rocketmq.v1.HealthCheckRequest result = new apache.rocketmq.v1.HealthCheckRequest(this);
-      if (commonBuilder_ == null) {
-        result.common_ = common_;
-      } else {
-        result.common_ = commonBuilder_.build();
-      }
       result.clientHost_ = clientHost_;
       onBuilt();
       return result;
@@ -460,9 +394,6 @@ private static final long serialVersionUID = 0L;
 
     public Builder mergeFrom(apache.rocketmq.v1.HealthCheckRequest other) {
       if (other == apache.rocketmq.v1.HealthCheckRequest.getDefaultInstance()) return this;
-      if (other.hasCommon()) {
-        mergeCommon(other.getCommon());
-      }
       if (!other.getClientHost().isEmpty()) {
         clientHost_ = other.clientHost_;
         onChanged();
@@ -496,128 +427,9 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private apache.rocketmq.v1.RequestCommon common_;
-    private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.RequestCommon, apache.rocketmq.v1.RequestCommon.Builder, apache.rocketmq.v1.RequestCommonOrBuilder> commonBuilder_;
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     * @return Whether the common field is set.
-     */
-    public boolean hasCommon() {
-      return commonBuilder_ != null || common_ != null;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     * @return The common.
-     */
-    public apache.rocketmq.v1.RequestCommon getCommon() {
-      if (commonBuilder_ == null) {
-        return common_ == null ? apache.rocketmq.v1.RequestCommon.getDefaultInstance() : common_;
-      } else {
-        return commonBuilder_.getMessage();
-      }
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    public Builder setCommon(apache.rocketmq.v1.RequestCommon value) {
-      if (commonBuilder_ == null) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        common_ = value;
-        onChanged();
-      } else {
-        commonBuilder_.setMessage(value);
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    public Builder setCommon(
-        apache.rocketmq.v1.RequestCommon.Builder builderForValue) {
-      if (commonBuilder_ == null) {
-        common_ = builderForValue.build();
-        onChanged();
-      } else {
-        commonBuilder_.setMessage(builderForValue.build());
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    public Builder mergeCommon(apache.rocketmq.v1.RequestCommon value) {
-      if (commonBuilder_ == null) {
-        if (common_ != null) {
-          common_ =
-            apache.rocketmq.v1.RequestCommon.newBuilder(common_).mergeFrom(value).buildPartial();
-        } else {
-          common_ = value;
-        }
-        onChanged();
-      } else {
-        commonBuilder_.mergeFrom(value);
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    public Builder clearCommon() {
-      if (commonBuilder_ == null) {
-        common_ = null;
-        onChanged();
-      } else {
-        common_ = null;
-        commonBuilder_ = null;
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    public apache.rocketmq.v1.RequestCommon.Builder getCommonBuilder() {
-      
-      onChanged();
-      return getCommonFieldBuilder().getBuilder();
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    public apache.rocketmq.v1.RequestCommonOrBuilder getCommonOrBuilder() {
-      if (commonBuilder_ != null) {
-        return commonBuilder_.getMessageOrBuilder();
-      } else {
-        return common_ == null ?
-            apache.rocketmq.v1.RequestCommon.getDefaultInstance() : common_;
-      }
-    }
-    /**
-     * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-     */
-    private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.RequestCommon, apache.rocketmq.v1.RequestCommon.Builder, apache.rocketmq.v1.RequestCommonOrBuilder> 
-        getCommonFieldBuilder() {
-      if (commonBuilder_ == null) {
-        commonBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            apache.rocketmq.v1.RequestCommon, apache.rocketmq.v1.RequestCommon.Builder, apache.rocketmq.v1.RequestCommonOrBuilder>(
-                getCommon(),
-                getParentForChildren(),
-                isClean());
-        common_ = null;
-      }
-      return commonBuilder_;
-    }
-
     private java.lang.Object clientHost_ = "";
     /**
-     * <code>string client_host = 2;</code>
+     * <code>string client_host = 1;</code>
      * @return The clientHost.
      */
     public java.lang.String getClientHost() {
@@ -633,7 +445,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string client_host = 2;</code>
+     * <code>string client_host = 1;</code>
      * @return The bytes for clientHost.
      */
     public com.google.protobuf.ByteString
@@ -650,7 +462,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string client_host = 2;</code>
+     * <code>string client_host = 1;</code>
      * @param value The clientHost to set.
      * @return This builder for chaining.
      */
@@ -665,7 +477,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string client_host = 2;</code>
+     * <code>string client_host = 1;</code>
      * @return This builder for chaining.
      */
     public Builder clearClientHost() {
@@ -675,7 +487,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string client_host = 2;</code>
+     * <code>string client_host = 1;</code>
      * @param value The bytes for clientHost to set.
      * @return This builder for chaining.
      */

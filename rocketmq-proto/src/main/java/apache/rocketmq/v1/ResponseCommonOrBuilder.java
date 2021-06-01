@@ -8,104 +8,92 @@ public interface ResponseCommonOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>string request_id = 1;</code>
-   * @return The requestId.
-   */
-  java.lang.String getRequestId();
-  /**
-   * <code>string request_id = 1;</code>
-   * @return The bytes for requestId.
-   */
-  com.google.protobuf.ByteString
-      getRequestIdBytes();
-
-  /**
-   * <code>.google.rpc.Status status = 2;</code>
+   * <code>.google.rpc.Status status = 1;</code>
    * @return Whether the status field is set.
    */
   boolean hasStatus();
   /**
-   * <code>.google.rpc.Status status = 2;</code>
+   * <code>.google.rpc.Status status = 1;</code>
    * @return The status.
    */
   com.google.rpc.Status getStatus();
   /**
-   * <code>.google.rpc.Status status = 2;</code>
+   * <code>.google.rpc.Status status = 1;</code>
    */
   com.google.rpc.StatusOrBuilder getStatusOrBuilder();
 
   /**
-   * <code>.google.rpc.RequestInfo request_info = 3;</code>
+   * <code>.google.rpc.RequestInfo request_info = 2;</code>
    * @return Whether the requestInfo field is set.
    */
   boolean hasRequestInfo();
   /**
-   * <code>.google.rpc.RequestInfo request_info = 3;</code>
+   * <code>.google.rpc.RequestInfo request_info = 2;</code>
    * @return The requestInfo.
    */
   com.google.rpc.RequestInfo getRequestInfo();
   /**
-   * <code>.google.rpc.RequestInfo request_info = 3;</code>
+   * <code>.google.rpc.RequestInfo request_info = 2;</code>
    */
   com.google.rpc.RequestInfoOrBuilder getRequestInfoOrBuilder();
 
   /**
-   * <code>.google.rpc.Help help = 4;</code>
+   * <code>.google.rpc.Help help = 3;</code>
    * @return Whether the help field is set.
    */
   boolean hasHelp();
   /**
-   * <code>.google.rpc.Help help = 4;</code>
+   * <code>.google.rpc.Help help = 3;</code>
    * @return The help.
    */
   com.google.rpc.Help getHelp();
   /**
-   * <code>.google.rpc.Help help = 4;</code>
+   * <code>.google.rpc.Help help = 3;</code>
    */
   com.google.rpc.HelpOrBuilder getHelpOrBuilder();
 
   /**
-   * <code>.google.rpc.RetryInfo retry_info = 5;</code>
+   * <code>.google.rpc.RetryInfo retry_info = 4;</code>
    * @return Whether the retryInfo field is set.
    */
   boolean hasRetryInfo();
   /**
-   * <code>.google.rpc.RetryInfo retry_info = 5;</code>
+   * <code>.google.rpc.RetryInfo retry_info = 4;</code>
    * @return The retryInfo.
    */
   com.google.rpc.RetryInfo getRetryInfo();
   /**
-   * <code>.google.rpc.RetryInfo retry_info = 5;</code>
+   * <code>.google.rpc.RetryInfo retry_info = 4;</code>
    */
   com.google.rpc.RetryInfoOrBuilder getRetryInfoOrBuilder();
 
   /**
-   * <code>.google.rpc.DebugInfo debug_info = 6;</code>
+   * <code>.google.rpc.DebugInfo debug_info = 5;</code>
    * @return Whether the debugInfo field is set.
    */
   boolean hasDebugInfo();
   /**
-   * <code>.google.rpc.DebugInfo debug_info = 6;</code>
+   * <code>.google.rpc.DebugInfo debug_info = 5;</code>
    * @return The debugInfo.
    */
   com.google.rpc.DebugInfo getDebugInfo();
   /**
-   * <code>.google.rpc.DebugInfo debug_info = 6;</code>
+   * <code>.google.rpc.DebugInfo debug_info = 5;</code>
    */
   com.google.rpc.DebugInfoOrBuilder getDebugInfoOrBuilder();
 
   /**
-   * <code>.google.rpc.ErrorInfo error_info = 7;</code>
+   * <code>.google.rpc.ErrorInfo error_info = 6;</code>
    * @return Whether the errorInfo field is set.
    */
   boolean hasErrorInfo();
   /**
-   * <code>.google.rpc.ErrorInfo error_info = 7;</code>
+   * <code>.google.rpc.ErrorInfo error_info = 6;</code>
    * @return The errorInfo.
    */
   com.google.rpc.ErrorInfo getErrorInfo();
   /**
-   * <code>.google.rpc.ErrorInfo error_info = 7;</code>
+   * <code>.google.rpc.ErrorInfo error_info = 6;</code>
    */
   com.google.rpc.ErrorInfoOrBuilder getErrorInfoOrBuilder();
 }

@@ -8,40 +8,25 @@ public interface HeartbeatRequestOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   * @return Whether the common field is set.
-   */
-  boolean hasCommon();
-  /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   * @return The common.
-   */
-  apache.rocketmq.v1.RequestCommon getCommon();
-  /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   */
-  apache.rocketmq.v1.RequestCommonOrBuilder getCommonOrBuilder();
-
-  /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
    */
   java.util.List<apache.rocketmq.v1.HeartbeatEntry> 
       getHeartbeatsList();
   /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
    */
   apache.rocketmq.v1.HeartbeatEntry getHeartbeats(int index);
   /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
    */
   int getHeartbeatsCount();
   /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
    */
   java.util.List<? extends apache.rocketmq.v1.HeartbeatEntryOrBuilder> 
       getHeartbeatsOrBuilderList();
   /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
    */
   apache.rocketmq.v1.HeartbeatEntryOrBuilder getHeartbeatsOrBuilder(
       int index);

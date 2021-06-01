@@ -11,7 +11,6 @@ public class PopResult {
     private final String target;
     private final PopStatus popStatus;
 
-    private final String requestId;
     private final long popTimestamp;
     private final long invisibleDuration;
 

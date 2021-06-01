@@ -17,7 +17,6 @@ private static final long serialVersionUID = 0L;
   }
   private Broker() {
     name_ = "";
-    endpoints_ = java.util.Collections.emptyList();
   }
 
   @java.lang.Override
@@ -40,7 +39,6 @@ private static final long serialVersionUID = 0L;
     if (extensionRegistry == null) {
       throw new java.lang.NullPointerException();
     }
-    int mutable_bitField0_ = 0;
     com.google.protobuf.UnknownFieldSet.Builder unknownFields =
         com.google.protobuf.UnknownFieldSet.newBuilder();
     try {
@@ -63,12 +61,16 @@ private static final long serialVersionUID = 0L;
             break;
           }
           case 26: {
-            if (!((mutable_bitField0_ & 0x00000001) != 0)) {
-              endpoints_ = new java.util.ArrayList<apache.rocketmq.v1.Endpoint>();
-              mutable_bitField0_ |= 0x00000001;
+            apache.rocketmq.v1.Endpoints.Builder subBuilder = null;
+            if (endpoints_ != null) {
+              subBuilder = endpoints_.toBuilder();
             }
-            endpoints_.add(
-                input.readMessage(apache.rocketmq.v1.Endpoint.parser(), extensionRegistry));
+            endpoints_ = input.readMessage(apache.rocketmq.v1.Endpoints.parser(), extensionRegistry);
+            if (subBuilder != null) {
+              subBuilder.mergeFrom(endpoints_);
+              endpoints_ = subBuilder.buildPartial();
+            }
+
             break;
           }
           default: {
@@ -86,9 +88,6 @@ private static final long serialVersionUID = 0L;
       throw new com.google.protobuf.InvalidProtocolBufferException(
           e).setUnfinishedMessage(this);
     } finally {
-      if (((mutable_bitField0_ & 0x00000001) != 0)) {
-        endpoints_ = java.util.Collections.unmodifiableList(endpoints_);
-      }
       this.unknownFields = unknownFields.build();
       makeExtensionsImmutable();
     }
@@ -169,7 +168,7 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int ENDPOINTS_FIELD_NUMBER = 3;
-  private java.util.List<apache.rocketmq.v1.Endpoint> endpoints_;
+  private apache.rocketmq.v1.Endpoints endpoints_;
   /**
    * <pre>
    * Address of the broker, complying with the following scheme
@@ -178,11 +177,12 @@ private static final long serialVersionUID = 0L;
    * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
    * </pre>
    *
-   * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
+   * <code>.apache.rocketmq.v1.Endpoints endpoints = 3;</code>
+   * @return Whether the endpoints field is set.
    */
   @java.lang.Override
-  public java.util.List<apache.rocketmq.v1.Endpoint> getEndpointsList() {
-    return endpoints_;
+  public boolean hasEndpoints() {
+    return endpoints_ != null;
   }
   /**
    * <pre>
@@ -192,12 +192,12 @@ private static final long serialVersionUID = 0L;
    * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
    * </pre>
    *
-   * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
+   * <code>.apache.rocketmq.v1.Endpoints endpoints = 3;</code>
+   * @return The endpoints.
    */
   @java.lang.Override
-  public java.util.List<? extends apache.rocketmq.v1.EndpointOrBuilder> 
-      getEndpointsOrBuilderList() {
-    return endpoints_;
+  public apache.rocketmq.v1.Endpoints getEndpoints() {
+    return endpoints_ == null ? apache.rocketmq.v1.Endpoints.getDefaultInstance() : endpoints_;
   }
   /**
    * <pre>
@@ -207,40 +207,11 @@ private static final long serialVersionUID = 0L;
    * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
    * </pre>
    *
-   * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
+   * <code>.apache.rocketmq.v1.Endpoints endpoints = 3;</code>
    */
   @java.lang.Override
-  public int getEndpointsCount() {
-    return endpoints_.size();
-  }
-  /**
-   * <pre>
-   * Address of the broker, complying with the following scheme
-   * 1. dns:[//authority/]host[:port]
-   * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
-   * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
-   * </pre>
-   *
-   * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
-   */
-  @java.lang.Override
-  public apache.rocketmq.v1.Endpoint getEndpoints(int index) {
-    return endpoints_.get(index);
-  }
-  /**
-   * <pre>
-   * Address of the broker, complying with the following scheme
-   * 1. dns:[//authority/]host[:port]
-   * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
-   * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
-   * </pre>
-   *
-   * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
-   */
-  @java.lang.Override
-  public apache.rocketmq.v1.EndpointOrBuilder getEndpointsOrBuilder(
-      int index) {
-    return endpoints_.get(index);
+  public apache.rocketmq.v1.EndpointsOrBuilder getEndpointsOrBuilder() {
+    return getEndpoints();
   }
 
   private byte memoizedIsInitialized = -1;
@@ -263,8 +234,8 @@ private static final long serialVersionUID = 0L;
     if (id_ != 0) {
       output.writeInt32(2, id_);
     }
-    for (int i = 0; i < endpoints_.size(); i++) {
-      output.writeMessage(3, endpoints_.get(i));
+    if (endpoints_ != null) {
+      output.writeMessage(3, getEndpoints());
     }
     unknownFields.writeTo(output);
   }
@@ -282,9 +253,9 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(2, id_);
     }
-    for (int i = 0; i < endpoints_.size(); i++) {
+    if (endpoints_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(3, endpoints_.get(i));
+        .computeMessageSize(3, getEndpoints());
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -305,8 +276,11 @@ private static final long serialVersionUID = 0L;
         .equals(other.getName())) return false;
     if (getId()
         != other.getId()) return false;
-    if (!getEndpointsList()
-        .equals(other.getEndpointsList())) return false;
+    if (hasEndpoints() != other.hasEndpoints()) return false;
+    if (hasEndpoints()) {
+      if (!getEndpoints()
+          .equals(other.getEndpoints())) return false;
+    }
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -322,9 +296,9 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getName().hashCode();
     hash = (37 * hash) + ID_FIELD_NUMBER;
     hash = (53 * hash) + getId();
-    if (getEndpointsCount() > 0) {
+    if (hasEndpoints()) {
       hash = (37 * hash) + ENDPOINTS_FIELD_NUMBER;
-      hash = (53 * hash) + getEndpointsList().hashCode();
+      hash = (53 * hash) + getEndpoints().hashCode();
     }
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
@@ -454,7 +428,6 @@ private static final long serialVersionUID = 0L;
     private void maybeForceBuilderInitialization() {
       if (com.google.protobuf.GeneratedMessageV3
               .alwaysUseFieldBuilders) {
-        getEndpointsFieldBuilder();
       }
     }
     @java.lang.Override
@@ -465,10 +438,10 @@ private static final long serialVersionUID = 0L;
       id_ = 0;
 
       if (endpointsBuilder_ == null) {
-        endpoints_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000001);
+        endpoints_ = null;
       } else {
-        endpointsBuilder_.clear();
+        endpoints_ = null;
+        endpointsBuilder_ = null;
       }
       return this;
     }
@@ -496,14 +469,9 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public apache.rocketmq.v1.Broker buildPartial() {
       apache.rocketmq.v1.Broker result = new apache.rocketmq.v1.Broker(this);
-      int from_bitField0_ = bitField0_;
       result.name_ = name_;
       result.id_ = id_;
       if (endpointsBuilder_ == null) {
-        if (((bitField0_ & 0x00000001) != 0)) {
-          endpoints_ = java.util.Collections.unmodifiableList(endpoints_);
-          bitField0_ = (bitField0_ & ~0x00000001);
-        }
         result.endpoints_ = endpoints_;
       } else {
         result.endpoints_ = endpointsBuilder_.build();
@@ -563,31 +531,8 @@ private static final long serialVersionUID = 0L;
       if (other.getId() != 0) {
         setId(other.getId());
       }
-      if (endpointsBuilder_ == null) {
-        if (!other.endpoints_.isEmpty()) {
-          if (endpoints_.isEmpty()) {
-            endpoints_ = other.endpoints_;
-            bitField0_ = (bitField0_ & ~0x00000001);
-          } else {
-            ensureEndpointsIsMutable();
-            endpoints_.addAll(other.endpoints_);
-          }
-          onChanged();
-        }
-      } else {
-        if (!other.endpoints_.isEmpty()) {
-          if (endpointsBuilder_.isEmpty()) {
-            endpointsBuilder_.dispose();
-            endpointsBuilder_ = null;
-            endpoints_ = other.endpoints_;
-            bitField0_ = (bitField0_ & ~0x00000001);
-            endpointsBuilder_ = 
-              com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
-                 getEndpointsFieldBuilder() : null;
-          } else {
-            endpointsBuilder_.addAllMessages(other.endpoints_);
-          }
-        }
+      if (other.hasEndpoints()) {
+        mergeEndpoints(other.getEndpoints());
       }
       this.mergeUnknownFields(other.unknownFields);
       onChanged();
@@ -617,7 +562,6 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
-    private int bitField0_;
 
     private java.lang.Object name_ = "";
     /**
@@ -761,34 +705,63 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private java.util.List<apache.rocketmq.v1.Endpoint> endpoints_ =
-      java.util.Collections.emptyList();
-    private void ensureEndpointsIsMutable() {
-      if (!((bitField0_ & 0x00000001) != 0)) {
-        endpoints_ = new java.util.ArrayList<apache.rocketmq.v1.Endpoint>(endpoints_);
-        bitField0_ |= 0x00000001;
-       }
+    private apache.rocketmq.v1.Endpoints endpoints_;
+    private com.google.protobuf.SingleFieldBuilderV3<
+        apache.rocketmq.v1.Endpoints, apache.rocketmq.v1.Endpoints.Builder, apache.rocketmq.v1.EndpointsOrBuilder> endpointsBuilder_;
+    /**
+     * <pre>
+     * Address of the broker, complying with the following scheme
+     * 1. dns:[//authority/]host[:port]
+     * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
+     * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
+     * </pre>
+     *
+     * <code>.apache.rocketmq.v1.Endpoints endpoints = 3;</code>
+     * @return Whether the endpoints field is set.
+     */
+    public boolean hasEndpoints() {
+      return endpointsBuilder_ != null || endpoints_ != null;
     }
+    /**
+     * <pre>
+     * Address of the broker, complying with the following scheme
+     * 1. dns:[//authority/]host[:port]
+     * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
+     * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
+     * </pre>
+     *
+     * <code>.apache.rocketmq.v1.Endpoints endpoints = 3;</code>
+     * @return The endpoints.
+     */
+    public apache.rocketmq.v1.Endpoints getEndpoints() {
+      if (endpointsBuilder_ == null) {
+        return endpoints_ == null ? apache.rocketmq.v1.Endpoints.getDefaultInstance() : endpoints_;
+      } else {
+        return endpointsBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * Address of the broker, complying with the following scheme
+     * 1. dns:[//authority/]host[:port]
+     * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
+     * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
+     * </pre>
+     *
+     * <code>.apache.rocketmq.v1.Endpoints endpoints = 3;</code>
+     */
+    public Builder setEndpoints(apache.rocketmq.v1.Endpoints value) {
+      if (endpointsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        endpoints_ = value;
+        onChanged();
+      } else {
+        endpointsBuilder_.setMessage(value);
+      }
 
-    private com.google.protobuf.RepeatedFieldBuilderV3<
-        apache.rocketmq.v1.Endpoint, apache.rocketmq.v1.Endpoint.Builder, apache.rocketmq.v1.EndpointOrBuilder> endpointsBuilder_;
-
-    /**
-     * <pre>
-     * Address of the broker, complying with the following scheme
-     * 1. dns:[//authority/]host[:port]
-     * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
-     * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
-     * </pre>
-     *
-     * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
-     */
-    public java.util.List<apache.rocketmq.v1.Endpoint> getEndpointsList() {
-      if (endpointsBuilder_ == null) {
-        return java.util.Collections.unmodifiableList(endpoints_);
-      } else {
-        return endpointsBuilder_.getMessageList();
-      }
+      return this;
     }
     /**
      * <pre>
@@ -798,54 +771,42 @@ private static final long serialVersionUID = 0L;
      * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
      * </pre>
      *
-     * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
-     */
-    public int getEndpointsCount() {
-      if (endpointsBuilder_ == null) {
-        return endpoints_.size();
-      } else {
-        return endpointsBuilder_.getCount();
-      }
-    }
-    /**
-     * <pre>
-     * Address of the broker, complying with the following scheme
-     * 1. dns:[//authority/]host[:port]
-     * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
-     * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
-     * </pre>
-     *
-     * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
-     */
-    public apache.rocketmq.v1.Endpoint getEndpoints(int index) {
-      if (endpointsBuilder_ == null) {
-        return endpoints_.get(index);
-      } else {
-        return endpointsBuilder_.getMessage(index);
-      }
-    }
-    /**
-     * <pre>
-     * Address of the broker, complying with the following scheme
-     * 1. dns:[//authority/]host[:port]
-     * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
-     * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
-     * </pre>
-     *
-     * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
+     * <code>.apache.rocketmq.v1.Endpoints endpoints = 3;</code>
      */
     public Builder setEndpoints(
-        int index, apache.rocketmq.v1.Endpoint value) {
+        apache.rocketmq.v1.Endpoints.Builder builderForValue) {
       if (endpointsBuilder_ == null) {
-        if (value == null) {
-          throw new NullPointerException();
+        endpoints_ = builderForValue.build();
+        onChanged();
+      } else {
+        endpointsBuilder_.setMessage(builderForValue.build());
+      }
+
+      return this;
+    }
+    /**
+     * <pre>
+     * Address of the broker, complying with the following scheme
+     * 1. dns:[//authority/]host[:port]
+     * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
+     * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
+     * </pre>
+     *
+     * <code>.apache.rocketmq.v1.Endpoints endpoints = 3;</code>
+     */
+    public Builder mergeEndpoints(apache.rocketmq.v1.Endpoints value) {
+      if (endpointsBuilder_ == null) {
+        if (endpoints_ != null) {
+          endpoints_ =
+            apache.rocketmq.v1.Endpoints.newBuilder(endpoints_).mergeFrom(value).buildPartial();
+        } else {
+          endpoints_ = value;
         }
-        ensureEndpointsIsMutable();
-        endpoints_.set(index, value);
         onChanged();
       } else {
-        endpointsBuilder_.setMessage(index, value);
+        endpointsBuilder_.mergeFrom(value);
       }
+
       return this;
     }
     /**
@@ -856,148 +817,17 @@ private static final long serialVersionUID = 0L;
      * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
      * </pre>
      *
-     * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
-     */
-    public Builder setEndpoints(
-        int index, apache.rocketmq.v1.Endpoint.Builder builderForValue) {
-      if (endpointsBuilder_ == null) {
-        ensureEndpointsIsMutable();
-        endpoints_.set(index, builderForValue.build());
-        onChanged();
-      } else {
-        endpointsBuilder_.setMessage(index, builderForValue.build());
-      }
-      return this;
-    }
-    /**
-     * <pre>
-     * Address of the broker, complying with the following scheme
-     * 1. dns:[//authority/]host[:port]
-     * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
-     * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
-     * </pre>
-     *
-     * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
-     */
-    public Builder addEndpoints(apache.rocketmq.v1.Endpoint value) {
-      if (endpointsBuilder_ == null) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        ensureEndpointsIsMutable();
-        endpoints_.add(value);
-        onChanged();
-      } else {
-        endpointsBuilder_.addMessage(value);
-      }
-      return this;
-    }
-    /**
-     * <pre>
-     * Address of the broker, complying with the following scheme
-     * 1. dns:[//authority/]host[:port]
-     * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
-     * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
-     * </pre>
-     *
-     * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
-     */
-    public Builder addEndpoints(
-        int index, apache.rocketmq.v1.Endpoint value) {
-      if (endpointsBuilder_ == null) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        ensureEndpointsIsMutable();
-        endpoints_.add(index, value);
-        onChanged();
-      } else {
-        endpointsBuilder_.addMessage(index, value);
-      }
-      return this;
-    }
-    /**
-     * <pre>
-     * Address of the broker, complying with the following scheme
-     * 1. dns:[//authority/]host[:port]
-     * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
-     * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
-     * </pre>
-     *
-     * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
-     */
-    public Builder addEndpoints(
-        apache.rocketmq.v1.Endpoint.Builder builderForValue) {
-      if (endpointsBuilder_ == null) {
-        ensureEndpointsIsMutable();
-        endpoints_.add(builderForValue.build());
-        onChanged();
-      } else {
-        endpointsBuilder_.addMessage(builderForValue.build());
-      }
-      return this;
-    }
-    /**
-     * <pre>
-     * Address of the broker, complying with the following scheme
-     * 1. dns:[//authority/]host[:port]
-     * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
-     * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
-     * </pre>
-     *
-     * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
-     */
-    public Builder addEndpoints(
-        int index, apache.rocketmq.v1.Endpoint.Builder builderForValue) {
-      if (endpointsBuilder_ == null) {
-        ensureEndpointsIsMutable();
-        endpoints_.add(index, builderForValue.build());
-        onChanged();
-      } else {
-        endpointsBuilder_.addMessage(index, builderForValue.build());
-      }
-      return this;
-    }
-    /**
-     * <pre>
-     * Address of the broker, complying with the following scheme
-     * 1. dns:[//authority/]host[:port]
-     * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
-     * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
-     * </pre>
-     *
-     * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
-     */
-    public Builder addAllEndpoints(
-        java.lang.Iterable<? extends apache.rocketmq.v1.Endpoint> values) {
-      if (endpointsBuilder_ == null) {
-        ensureEndpointsIsMutable();
-        com.google.protobuf.AbstractMessageLite.Builder.addAll(
-            values, endpoints_);
-        onChanged();
-      } else {
-        endpointsBuilder_.addAllMessages(values);
-      }
-      return this;
-    }
-    /**
-     * <pre>
-     * Address of the broker, complying with the following scheme
-     * 1. dns:[//authority/]host[:port]
-     * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
-     * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
-     * </pre>
-     *
-     * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
+     * <code>.apache.rocketmq.v1.Endpoints endpoints = 3;</code>
      */
     public Builder clearEndpoints() {
       if (endpointsBuilder_ == null) {
-        endpoints_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000001);
+        endpoints_ = null;
         onChanged();
       } else {
-        endpointsBuilder_.clear();
+        endpoints_ = null;
+        endpointsBuilder_ = null;
       }
+
       return this;
     }
     /**
@@ -1008,17 +838,12 @@ private static final long serialVersionUID = 0L;
      * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
      * </pre>
      *
-     * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
+     * <code>.apache.rocketmq.v1.Endpoints endpoints = 3;</code>
      */
-    public Builder removeEndpoints(int index) {
-      if (endpointsBuilder_ == null) {
-        ensureEndpointsIsMutable();
-        endpoints_.remove(index);
-        onChanged();
-      } else {
-        endpointsBuilder_.remove(index);
-      }
-      return this;
+    public apache.rocketmq.v1.Endpoints.Builder getEndpointsBuilder() {
+      
+      onChanged();
+      return getEndpointsFieldBuilder().getBuilder();
     }
     /**
      * <pre>
@@ -1028,45 +853,14 @@ private static final long serialVersionUID = 0L;
      * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
      * </pre>
      *
-     * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
+     * <code>.apache.rocketmq.v1.Endpoints endpoints = 3;</code>
      */
-    public apache.rocketmq.v1.Endpoint.Builder getEndpointsBuilder(
-        int index) {
-      return getEndpointsFieldBuilder().getBuilder(index);
-    }
-    /**
-     * <pre>
-     * Address of the broker, complying with the following scheme
-     * 1. dns:[//authority/]host[:port]
-     * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
-     * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
-     * </pre>
-     *
-     * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
-     */
-    public apache.rocketmq.v1.EndpointOrBuilder getEndpointsOrBuilder(
-        int index) {
-      if (endpointsBuilder_ == null) {
-        return endpoints_.get(index);  } else {
-        return endpointsBuilder_.getMessageOrBuilder(index);
-      }
-    }
-    /**
-     * <pre>
-     * Address of the broker, complying with the following scheme
-     * 1. dns:[//authority/]host[:port]
-     * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
-     * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
-     * </pre>
-     *
-     * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
-     */
-    public java.util.List<? extends apache.rocketmq.v1.EndpointOrBuilder> 
-         getEndpointsOrBuilderList() {
+    public apache.rocketmq.v1.EndpointsOrBuilder getEndpointsOrBuilder() {
       if (endpointsBuilder_ != null) {
-        return endpointsBuilder_.getMessageOrBuilderList();
+        return endpointsBuilder_.getMessageOrBuilder();
       } else {
-        return java.util.Collections.unmodifiableList(endpoints_);
+        return endpoints_ == null ?
+            apache.rocketmq.v1.Endpoints.getDefaultInstance() : endpoints_;
       }
     }
     /**
@@ -1077,49 +871,15 @@ private static final long serialVersionUID = 0L;
      * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
      * </pre>
      *
-     * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
+     * <code>.apache.rocketmq.v1.Endpoints endpoints = 3;</code>
      */
-    public apache.rocketmq.v1.Endpoint.Builder addEndpointsBuilder() {
-      return getEndpointsFieldBuilder().addBuilder(
-          apache.rocketmq.v1.Endpoint.getDefaultInstance());
-    }
-    /**
-     * <pre>
-     * Address of the broker, complying with the following scheme
-     * 1. dns:[//authority/]host[:port]
-     * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
-     * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
-     * </pre>
-     *
-     * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
-     */
-    public apache.rocketmq.v1.Endpoint.Builder addEndpointsBuilder(
-        int index) {
-      return getEndpointsFieldBuilder().addBuilder(
-          index, apache.rocketmq.v1.Endpoint.getDefaultInstance());
-    }
-    /**
-     * <pre>
-     * Address of the broker, complying with the following scheme
-     * 1. dns:[//authority/]host[:port]
-     * 2. ipv4:address[:port][,address[:port],...] – IPv4 addresses
-     * 3. ipv6:address[:port][,address[:port],...] – IPv6 addresses
-     * </pre>
-     *
-     * <code>repeated .apache.rocketmq.v1.Endpoint endpoints = 3;</code>
-     */
-    public java.util.List<apache.rocketmq.v1.Endpoint.Builder> 
-         getEndpointsBuilderList() {
-      return getEndpointsFieldBuilder().getBuilderList();
-    }
-    private com.google.protobuf.RepeatedFieldBuilderV3<
-        apache.rocketmq.v1.Endpoint, apache.rocketmq.v1.Endpoint.Builder, apache.rocketmq.v1.EndpointOrBuilder> 
+    private com.google.protobuf.SingleFieldBuilderV3<
+        apache.rocketmq.v1.Endpoints, apache.rocketmq.v1.Endpoints.Builder, apache.rocketmq.v1.EndpointsOrBuilder> 
         getEndpointsFieldBuilder() {
       if (endpointsBuilder_ == null) {
-        endpointsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
-            apache.rocketmq.v1.Endpoint, apache.rocketmq.v1.Endpoint.Builder, apache.rocketmq.v1.EndpointOrBuilder>(
-                endpoints_,
-                ((bitField0_ & 0x00000001) != 0),
+        endpointsBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+            apache.rocketmq.v1.Endpoints, apache.rocketmq.v1.Endpoints.Builder, apache.rocketmq.v1.EndpointsOrBuilder>(
+                getEndpoints(),
                 getParentForChildren(),
                 isClean());
         endpoints_ = null;

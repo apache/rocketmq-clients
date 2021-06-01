@@ -15,7 +15,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.util.Durations;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.TreeMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -238,16 +237,7 @@ public class ProcessQueue {
     }
 
     public void ackMessage(MessageExt messageExt) throws MQClientException {
-//        if (messageExt.isExpired(MESSAGE_EXPIRED_TOLERANCE_MILLIS)) {
-//            log.warn(
-//                    "Message is already expired, skip ACK, topic={}, msgId={}, decodedTimestamp={}, " +
-//                    "currentTimestamp={}",
-//                    messageExt.getTopic(),
-//                    messageExt.getMsgId(),
-//                    messageExt.getDecodedTimestamp(),
-//                    System.currentTimeMillis());
-//            return;
-//        }
+        // TODO: check message is expired or not.
         final AckMessageRequest request = wrapAckMessageRequest(messageExt);
         final ClientInstance clientInstance = consumerImpl.getClientInstance();
         final String target = messageExt.getTargetEndpoint();
@@ -268,7 +258,7 @@ public class ProcessQueue {
     public void popMessage() {
         try {
             final ClientInstance clientInstance = consumerImpl.getClientInstance();
-            final String target = messageQueue.getPartition().selectEndpoint();
+            final String target = messageQueue.getPartition().getTarget();
             final ReceiveMessageRequest request = wrapPopMessageRequest();
 
             lastPopTimestamp = System.currentTimeMillis();
@@ -394,8 +384,7 @@ public class ProcessQueue {
                                      .setInvisibleDuration(Durations.fromMillis(MixAll.DEFAULT_INVISIBLE_TIME_MILLIS))
                                      .setAwaitTime(Durations.fromMillis(MixAll.DEFAULT_POLL_TIME_MILLIS))
                                      // TODO: fix consume policy here.
-                                     .setConsumePolicy(ConsumePolicy.RESUME)
-                                     .setCommon(ClientInstance.generateRequestCommon());
+                                     .setConsumePolicy(ConsumePolicy.RESUME);
 
         final ExpressionType expressionType = filterExpression.getExpressionType();
 

@@ -141,7 +141,6 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
     private QueryAssignmentRequest wrapQueryAssignmentRequest(String topic) {
         Resource topicResource = Resource.newBuilder().setArn(this.getArn()).setName(topic).build();
         return QueryAssignmentRequest.newBuilder()
-                                     .setCommon(ClientInstance.generateRequestCommon())
                                      .setTopic(topicResource).setGroup(getGroupResource())
                                      .setClientId(defaultMQPushConsumer.getClientId())
                                      .setConsumeModel(ConsumeModel.CLUSTERING).build();
@@ -311,7 +310,7 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
             throw new MQServerException("No partition available.");
         }
         final Partition partition = partitions.get(TopicAssignmentInfo.getNextPartitionIndex() % partitions.size());
-        return partition.selectEndpoint();
+        return partition.getTarget();
     }
 
     private TopicAssignmentInfo queryLoadAssignment(String topic)

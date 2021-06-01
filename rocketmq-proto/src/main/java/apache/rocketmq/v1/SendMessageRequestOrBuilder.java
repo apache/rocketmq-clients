@@ -8,32 +8,17 @@ public interface SendMessageRequestOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   * @return Whether the common field is set.
-   */
-  boolean hasCommon();
-  /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   * @return The common.
-   */
-  apache.rocketmq.v1.RequestCommon getCommon();
-  /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   */
-  apache.rocketmq.v1.RequestCommonOrBuilder getCommonOrBuilder();
-
-  /**
-   * <code>.apache.rocketmq.v1.Message message = 2;</code>
+   * <code>.apache.rocketmq.v1.Message message = 1;</code>
    * @return Whether the message field is set.
    */
   boolean hasMessage();
   /**
-   * <code>.apache.rocketmq.v1.Message message = 2;</code>
+   * <code>.apache.rocketmq.v1.Message message = 1;</code>
    * @return The message.
    */
   apache.rocketmq.v1.Message getMessage();
   /**
-   * <code>.apache.rocketmq.v1.Message message = 2;</code>
+   * <code>.apache.rocketmq.v1.Message message = 1;</code>
    */
   apache.rocketmq.v1.MessageOrBuilder getMessageOrBuilder();
 }

@@ -7,7 +7,6 @@ import apache.rocketmq.v1.HealthCheckRequest;
 import apache.rocketmq.v1.HealthCheckResponse;
 import apache.rocketmq.v1.HeartbeatRequest;
 import apache.rocketmq.v1.HeartbeatResponse;
-import apache.rocketmq.v1.Language;
 import apache.rocketmq.v1.Message;
 import apache.rocketmq.v1.NackMessageRequest;
 import apache.rocketmq.v1.NackMessageResponse;
@@ -18,7 +17,6 @@ import apache.rocketmq.v1.QueryRouteRequest;
 import apache.rocketmq.v1.QueryRouteResponse;
 import apache.rocketmq.v1.ReceiveMessageRequest;
 import apache.rocketmq.v1.ReceiveMessageResponse;
-import apache.rocketmq.v1.RequestCommon;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.ResponseCommon;
 import apache.rocketmq.v1.SendMessageRequest;
@@ -149,11 +147,6 @@ public class ClientInstance {
         this.topicRouteTable = new ConcurrentHashMap<String, TopicRouteData>();
 
         this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
-    }
-
-    public static RequestCommon generateRequestCommon() {
-        return RequestCommon.newBuilder().setLanguage(Language.JAVA).setClientVersion("2.0.0").setProtocolVersion(
-                "v1").setRequestId("TestRequestId").build();
     }
 
     public void setSendCallbackExecutor(ThreadPoolExecutor sendCallbackExecutor) {
@@ -829,7 +822,7 @@ public class ClientInstance {
         boolean roundRobin = false;
         for (int time = 1; time <= retryTimes; time++) {
             final QueryRouteRequest request =
-                    QueryRouteRequest.newBuilder().setCommon(generateRequestCommon()).setTopic(topicResource).build();
+                    QueryRouteRequest.newBuilder().setTopic(topicResource).build();
 
             String target = selectNameServer(roundRobin);
             QueryRouteResponse response = queryRoute(target, request);
@@ -887,7 +880,7 @@ public class ClientInstance {
             if (MixAll.MASTER_BROKER_ID != partition.getBrokerId()) {
                 continue;
             }
-            return partition.selectEndpoint();
+            return partition.getTarget();
         }
         log.error("Failed to resolve endpoint, brokerName does not exist, topic={}, brokerName={}", topic, brokerName);
         throw new MQClientException("Failed to resolve master node from brokerName.");
@@ -1105,7 +1098,6 @@ public class ClientInstance {
         return new PopResult(
                 target,
                 popStatus,
-                response.getCommon().getRequestId(),
                 Timestamps.toMillis(response.getDeliveryTimestamp()),
                 Durations.toMillis(response.getInvisibleDuration()),
                 msgFoundList);

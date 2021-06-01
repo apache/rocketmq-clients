@@ -5,7 +5,6 @@ import static com.google.protobuf.util.Timestamps.fromMillis;
 import apache.rocketmq.v1.HeartbeatEntry;
 import apache.rocketmq.v1.MessageType;
 import apache.rocketmq.v1.ProducerGroup;
-import apache.rocketmq.v1.RequestCommon;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
@@ -143,7 +142,6 @@ public class DefaultMQProducerImpl implements ProducerObserver {
 
         final SystemAttribute systemAttribute = systemAttributeBuilder.build();
 
-        final RequestCommon requestCommon = ClientInstance.generateRequestCommon();
 
         final apache.rocketmq.v1.Message msg =
                 apache.rocketmq.v1.Message.newBuilder()
@@ -154,7 +152,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
                                           .build();
 
         final SendMessageRequest request =
-                SendMessageRequest.newBuilder().setCommon(requestCommon).setMessage(msg).build();
+                SendMessageRequest.newBuilder().setMessage(msg).build();
         log.debug("SendMessageRequest: \n{}", request);
         return request;
     }

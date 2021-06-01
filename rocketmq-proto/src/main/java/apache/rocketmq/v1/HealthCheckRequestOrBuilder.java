@@ -8,27 +8,12 @@ public interface HealthCheckRequestOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   * @return Whether the common field is set.
-   */
-  boolean hasCommon();
-  /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   * @return The common.
-   */
-  apache.rocketmq.v1.RequestCommon getCommon();
-  /**
-   * <code>.apache.rocketmq.v1.RequestCommon common = 1;</code>
-   */
-  apache.rocketmq.v1.RequestCommonOrBuilder getCommonOrBuilder();
-
-  /**
-   * <code>string client_host = 2;</code>
+   * <code>string client_host = 1;</code>
    * @return The clientHost.
    */
   java.lang.String getClientHost();
   /**
-   * <code>string client_host = 2;</code>
+   * <code>string client_host = 1;</code>
    * @return The bytes for clientHost.
    */
   com.google.protobuf.ByteString

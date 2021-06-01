@@ -25,7 +25,7 @@ public class RPCClientImplTest {
         Resource topicResource = Resource.newBuilder().setName("yc001").build();
 
         QueryRouteRequest request =
-                QueryRouteRequest.newBuilder().setCommon(ClientInstance.generateRequestCommon()).setTopic(topicResource).build();
+                QueryRouteRequest.newBuilder().setTopic(topicResource).build();
         final QueryRouteResponse response = rpcClient.queryRoute(request, 3, TimeUnit.SECONDS);
         System.out.println(response);
     }
@@ -45,7 +45,7 @@ public class RPCClientImplTest {
                         "Hello", "UTF-8")).build();
 
         SendMessageRequest request =
-                SendMessageRequest.newBuilder().setCommon(ClientInstance.generateRequestCommon()).setMessage(msg).build();
+                SendMessageRequest.newBuilder().setMessage(msg).build();
 
         final SendMessageResponse response = rpcClient.sendMessage(request, 3, TimeUnit.SECONDS);
         System.out.println(response);
@@ -66,7 +66,7 @@ public class RPCClientImplTest {
 
 
         QueryAssignmentRequest request =
-                QueryAssignmentRequest.newBuilder().setClientId("123").setTopic(topicResource).setGroup(groupResource).setConsumeModel(ConsumeModel.CLUSTERING).setCommon(ClientInstance.generateRequestCommon()).build();
+                QueryAssignmentRequest.newBuilder().setClientId("123").setTopic(topicResource).setGroup(groupResource).setConsumeModel(ConsumeModel.CLUSTERING).build();
         final QueryAssignmentResponse response = rpcClient.queryAssignment(request, 3, TimeUnit.SECONDS);
         System.out.println(response);
     }

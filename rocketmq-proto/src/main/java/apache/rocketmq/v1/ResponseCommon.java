@@ -16,7 +16,6 @@ private static final long serialVersionUID = 0L;
     super(builder);
   }
   private ResponseCommon() {
-    requestId_ = "";
   }
 
   @java.lang.Override
@@ -50,12 +49,6 @@ private static final long serialVersionUID = 0L;
             done = true;
             break;
           case 10: {
-            java.lang.String s = input.readStringRequireUtf8();
-
-            requestId_ = s;
-            break;
-          }
-          case 18: {
             com.google.rpc.Status.Builder subBuilder = null;
             if (status_ != null) {
               subBuilder = status_.toBuilder();
@@ -68,7 +61,7 @@ private static final long serialVersionUID = 0L;
 
             break;
           }
-          case 26: {
+          case 18: {
             com.google.rpc.RequestInfo.Builder subBuilder = null;
             if (requestInfo_ != null) {
               subBuilder = requestInfo_.toBuilder();
@@ -81,7 +74,7 @@ private static final long serialVersionUID = 0L;
 
             break;
           }
-          case 34: {
+          case 26: {
             com.google.rpc.Help.Builder subBuilder = null;
             if (help_ != null) {
               subBuilder = help_.toBuilder();
@@ -94,7 +87,7 @@ private static final long serialVersionUID = 0L;
 
             break;
           }
-          case 42: {
+          case 34: {
             com.google.rpc.RetryInfo.Builder subBuilder = null;
             if (retryInfo_ != null) {
               subBuilder = retryInfo_.toBuilder();
@@ -107,7 +100,7 @@ private static final long serialVersionUID = 0L;
 
             break;
           }
-          case 50: {
+          case 42: {
             com.google.rpc.DebugInfo.Builder subBuilder = null;
             if (debugInfo_ != null) {
               subBuilder = debugInfo_.toBuilder();
@@ -120,7 +113,7 @@ private static final long serialVersionUID = 0L;
 
             break;
           }
-          case 58: {
+          case 50: {
             com.google.rpc.ErrorInfo.Builder subBuilder = null;
             if (errorInfo_ != null) {
               subBuilder = errorInfo_.toBuilder();
@@ -165,48 +158,10 @@ private static final long serialVersionUID = 0L;
             apache.rocketmq.v1.ResponseCommon.class, apache.rocketmq.v1.ResponseCommon.Builder.class);
   }
 
-  public static final int REQUEST_ID_FIELD_NUMBER = 1;
-  private volatile java.lang.Object requestId_;
-  /**
-   * <code>string request_id = 1;</code>
-   * @return The requestId.
-   */
-  @java.lang.Override
-  public java.lang.String getRequestId() {
-    java.lang.Object ref = requestId_;
-    if (ref instanceof java.lang.String) {
-      return (java.lang.String) ref;
-    } else {
-      com.google.protobuf.ByteString bs = 
-          (com.google.protobuf.ByteString) ref;
-      java.lang.String s = bs.toStringUtf8();
-      requestId_ = s;
-      return s;
-    }
-  }
-  /**
-   * <code>string request_id = 1;</code>
-   * @return The bytes for requestId.
-   */
-  @java.lang.Override
-  public com.google.protobuf.ByteString
-      getRequestIdBytes() {
-    java.lang.Object ref = requestId_;
-    if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
-      requestId_ = b;
-      return b;
-    } else {
-      return (com.google.protobuf.ByteString) ref;
-    }
-  }
-
-  public static final int STATUS_FIELD_NUMBER = 2;
+  public static final int STATUS_FIELD_NUMBER = 1;
   private com.google.rpc.Status status_;
   /**
-   * <code>.google.rpc.Status status = 2;</code>
+   * <code>.google.rpc.Status status = 1;</code>
    * @return Whether the status field is set.
    */
   @java.lang.Override
@@ -214,7 +169,7 @@ private static final long serialVersionUID = 0L;
     return status_ != null;
   }
   /**
-   * <code>.google.rpc.Status status = 2;</code>
+   * <code>.google.rpc.Status status = 1;</code>
    * @return The status.
    */
   @java.lang.Override
@@ -222,17 +177,17 @@ private static final long serialVersionUID = 0L;
     return status_ == null ? com.google.rpc.Status.getDefaultInstance() : status_;
   }
   /**
-   * <code>.google.rpc.Status status = 2;</code>
+   * <code>.google.rpc.Status status = 1;</code>
    */
   @java.lang.Override
   public com.google.rpc.StatusOrBuilder getStatusOrBuilder() {
     return getStatus();
   }
 
-  public static final int REQUEST_INFO_FIELD_NUMBER = 3;
+  public static final int REQUEST_INFO_FIELD_NUMBER = 2;
   private com.google.rpc.RequestInfo requestInfo_;
   /**
-   * <code>.google.rpc.RequestInfo request_info = 3;</code>
+   * <code>.google.rpc.RequestInfo request_info = 2;</code>
    * @return Whether the requestInfo field is set.
    */
   @java.lang.Override
@@ -240,7 +195,7 @@ private static final long serialVersionUID = 0L;
     return requestInfo_ != null;
   }
   /**
-   * <code>.google.rpc.RequestInfo request_info = 3;</code>
+   * <code>.google.rpc.RequestInfo request_info = 2;</code>
    * @return The requestInfo.
    */
   @java.lang.Override
@@ -248,17 +203,17 @@ private static final long serialVersionUID = 0L;
     return requestInfo_ == null ? com.google.rpc.RequestInfo.getDefaultInstance() : requestInfo_;
   }
   /**
-   * <code>.google.rpc.RequestInfo request_info = 3;</code>
+   * <code>.google.rpc.RequestInfo request_info = 2;</code>
    */
   @java.lang.Override
   public com.google.rpc.RequestInfoOrBuilder getRequestInfoOrBuilder() {
     return getRequestInfo();
   }
 
-  public static final int HELP_FIELD_NUMBER = 4;
+  public static final int HELP_FIELD_NUMBER = 3;
   private com.google.rpc.Help help_;
   /**
-   * <code>.google.rpc.Help help = 4;</code>
+   * <code>.google.rpc.Help help = 3;</code>
    * @return Whether the help field is set.
    */
   @java.lang.Override
@@ -266,7 +221,7 @@ private static final long serialVersionUID = 0L;
     return help_ != null;
   }
   /**
-   * <code>.google.rpc.Help help = 4;</code>
+   * <code>.google.rpc.Help help = 3;</code>
    * @return The help.
    */
   @java.lang.Override
@@ -274,17 +229,17 @@ private static final long serialVersionUID = 0L;
     return help_ == null ? com.google.rpc.Help.getDefaultInstance() : help_;
   }
   /**
-   * <code>.google.rpc.Help help = 4;</code>
+   * <code>.google.rpc.Help help = 3;</code>
    */
   @java.lang.Override
   public com.google.rpc.HelpOrBuilder getHelpOrBuilder() {
     return getHelp();
   }
 
-  public static final int RETRY_INFO_FIELD_NUMBER = 5;
+  public static final int RETRY_INFO_FIELD_NUMBER = 4;
   private com.google.rpc.RetryInfo retryInfo_;
   /**
-   * <code>.google.rpc.RetryInfo retry_info = 5;</code>
+   * <code>.google.rpc.RetryInfo retry_info = 4;</code>
    * @return Whether the retryInfo field is set.
    */
   @java.lang.Override
@@ -292,7 +247,7 @@ private static final long serialVersionUID = 0L;
     return retryInfo_ != null;
   }
   /**
-   * <code>.google.rpc.RetryInfo retry_info = 5;</code>
+   * <code>.google.rpc.RetryInfo retry_info = 4;</code>
    * @return The retryInfo.
    */
   @java.lang.Override
@@ -300,17 +255,17 @@ private static final long serialVersionUID = 0L;
     return retryInfo_ == null ? com.google.rpc.RetryInfo.getDefaultInstance() : retryInfo_;
   }
   /**
-   * <code>.google.rpc.RetryInfo retry_info = 5;</code>
+   * <code>.google.rpc.RetryInfo retry_info = 4;</code>
    */
   @java.lang.Override
   public com.google.rpc.RetryInfoOrBuilder getRetryInfoOrBuilder() {
     return getRetryInfo();
   }
 
-  public static final int DEBUG_INFO_FIELD_NUMBER = 6;
+  public static final int DEBUG_INFO_FIELD_NUMBER = 5;
   private com.google.rpc.DebugInfo debugInfo_;
   /**
-   * <code>.google.rpc.DebugInfo debug_info = 6;</code>
+   * <code>.google.rpc.DebugInfo debug_info = 5;</code>
    * @return Whether the debugInfo field is set.
    */
   @java.lang.Override
@@ -318,7 +273,7 @@ private static final long serialVersionUID = 0L;
     return debugInfo_ != null;
   }
   /**
-   * <code>.google.rpc.DebugInfo debug_info = 6;</code>
+   * <code>.google.rpc.DebugInfo debug_info = 5;</code>
    * @return The debugInfo.
    */
   @java.lang.Override
@@ -326,17 +281,17 @@ private static final long serialVersionUID = 0L;
     return debugInfo_ == null ? com.google.rpc.DebugInfo.getDefaultInstance() : debugInfo_;
   }
   /**
-   * <code>.google.rpc.DebugInfo debug_info = 6;</code>
+   * <code>.google.rpc.DebugInfo debug_info = 5;</code>
    */
   @java.lang.Override
   public com.google.rpc.DebugInfoOrBuilder getDebugInfoOrBuilder() {
     return getDebugInfo();
   }
 
-  public static final int ERROR_INFO_FIELD_NUMBER = 7;
+  public static final int ERROR_INFO_FIELD_NUMBER = 6;
   private com.google.rpc.ErrorInfo errorInfo_;
   /**
-   * <code>.google.rpc.ErrorInfo error_info = 7;</code>
+   * <code>.google.rpc.ErrorInfo error_info = 6;</code>
    * @return Whether the errorInfo field is set.
    */
   @java.lang.Override
@@ -344,7 +299,7 @@ private static final long serialVersionUID = 0L;
     return errorInfo_ != null;
   }
   /**
-   * <code>.google.rpc.ErrorInfo error_info = 7;</code>
+   * <code>.google.rpc.ErrorInfo error_info = 6;</code>
    * @return The errorInfo.
    */
   @java.lang.Override
@@ -352,7 +307,7 @@ private static final long serialVersionUID = 0L;
     return errorInfo_ == null ? com.google.rpc.ErrorInfo.getDefaultInstance() : errorInfo_;
   }
   /**
-   * <code>.google.rpc.ErrorInfo error_info = 7;</code>
+   * <code>.google.rpc.ErrorInfo error_info = 6;</code>
    */
   @java.lang.Override
   public com.google.rpc.ErrorInfoOrBuilder getErrorInfoOrBuilder() {
@@ -373,26 +328,23 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (!getRequestIdBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 1, requestId_);
-    }
     if (status_ != null) {
-      output.writeMessage(2, getStatus());
+      output.writeMessage(1, getStatus());
     }
     if (requestInfo_ != null) {
-      output.writeMessage(3, getRequestInfo());
+      output.writeMessage(2, getRequestInfo());
     }
     if (help_ != null) {
-      output.writeMessage(4, getHelp());
+      output.writeMessage(3, getHelp());
     }
     if (retryInfo_ != null) {
-      output.writeMessage(5, getRetryInfo());
+      output.writeMessage(4, getRetryInfo());
     }
     if (debugInfo_ != null) {
-      output.writeMessage(6, getDebugInfo());
+      output.writeMessage(5, getDebugInfo());
     }
     if (errorInfo_ != null) {
-      output.writeMessage(7, getErrorInfo());
+      output.writeMessage(6, getErrorInfo());
     }
     unknownFields.writeTo(output);
   }
@@ -403,32 +355,29 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (!getRequestIdBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, requestId_);
-    }
     if (status_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(2, getStatus());
+        .computeMessageSize(1, getStatus());
     }
     if (requestInfo_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(3, getRequestInfo());
+        .computeMessageSize(2, getRequestInfo());
     }
     if (help_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(4, getHelp());
+        .computeMessageSize(3, getHelp());
     }
     if (retryInfo_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(5, getRetryInfo());
+        .computeMessageSize(4, getRetryInfo());
     }
     if (debugInfo_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(6, getDebugInfo());
+        .computeMessageSize(5, getDebugInfo());
     }
     if (errorInfo_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(7, getErrorInfo());
+        .computeMessageSize(6, getErrorInfo());
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -445,8 +394,6 @@ private static final long serialVersionUID = 0L;
     }
     apache.rocketmq.v1.ResponseCommon other = (apache.rocketmq.v1.ResponseCommon) obj;
 
-    if (!getRequestId()
-        .equals(other.getRequestId())) return false;
     if (hasStatus() != other.hasStatus()) return false;
     if (hasStatus()) {
       if (!getStatus()
@@ -488,8 +435,6 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    hash = (37 * hash) + REQUEST_ID_FIELD_NUMBER;
-    hash = (53 * hash) + getRequestId().hashCode();
     if (hasStatus()) {
       hash = (37 * hash) + STATUS_FIELD_NUMBER;
       hash = (53 * hash) + getStatus().hashCode();
@@ -647,8 +592,6 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
-      requestId_ = "";
-
       if (statusBuilder_ == null) {
         status_ = null;
       } else {
@@ -711,7 +654,6 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public apache.rocketmq.v1.ResponseCommon buildPartial() {
       apache.rocketmq.v1.ResponseCommon result = new apache.rocketmq.v1.ResponseCommon(this);
-      result.requestId_ = requestId_;
       if (statusBuilder_ == null) {
         result.status_ = status_;
       } else {
@@ -790,10 +732,6 @@ private static final long serialVersionUID = 0L;
 
     public Builder mergeFrom(apache.rocketmq.v1.ResponseCommon other) {
       if (other == apache.rocketmq.v1.ResponseCommon.getDefaultInstance()) return this;
-      if (!other.getRequestId().isEmpty()) {
-        requestId_ = other.requestId_;
-        onChanged();
-      }
       if (other.hasStatus()) {
         mergeStatus(other.getStatus());
       }
@@ -841,94 +779,18 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private java.lang.Object requestId_ = "";
-    /**
-     * <code>string request_id = 1;</code>
-     * @return The requestId.
-     */
-    public java.lang.String getRequestId() {
-      java.lang.Object ref = requestId_;
-      if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        requestId_ = s;
-        return s;
-      } else {
-        return (java.lang.String) ref;
-      }
-    }
-    /**
-     * <code>string request_id = 1;</code>
-     * @return The bytes for requestId.
-     */
-    public com.google.protobuf.ByteString
-        getRequestIdBytes() {
-      java.lang.Object ref = requestId_;
-      if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        requestId_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-    /**
-     * <code>string request_id = 1;</code>
-     * @param value The requestId to set.
-     * @return This builder for chaining.
-     */
-    public Builder setRequestId(
-        java.lang.String value) {
-      if (value == null) {
-    throw new NullPointerException();
-  }
-  
-      requestId_ = value;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>string request_id = 1;</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearRequestId() {
-      
-      requestId_ = getDefaultInstance().getRequestId();
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>string request_id = 1;</code>
-     * @param value The bytes for requestId to set.
-     * @return This builder for chaining.
-     */
-    public Builder setRequestIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) {
-    throw new NullPointerException();
-  }
-  checkByteStringIsUtf8(value);
-      
-      requestId_ = value;
-      onChanged();
-      return this;
-    }
-
     private com.google.rpc.Status status_;
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.rpc.Status, com.google.rpc.Status.Builder, com.google.rpc.StatusOrBuilder> statusBuilder_;
     /**
-     * <code>.google.rpc.Status status = 2;</code>
+     * <code>.google.rpc.Status status = 1;</code>
      * @return Whether the status field is set.
      */
     public boolean hasStatus() {
       return statusBuilder_ != null || status_ != null;
     }
     /**
-     * <code>.google.rpc.Status status = 2;</code>
+     * <code>.google.rpc.Status status = 1;</code>
      * @return The status.
      */
     public com.google.rpc.Status getStatus() {
@@ -939,7 +801,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.google.rpc.Status status = 2;</code>
+     * <code>.google.rpc.Status status = 1;</code>
      */
     public Builder setStatus(com.google.rpc.Status value) {
       if (statusBuilder_ == null) {
@@ -955,7 +817,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.Status status = 2;</code>
+     * <code>.google.rpc.Status status = 1;</code>
      */
     public Builder setStatus(
         com.google.rpc.Status.Builder builderForValue) {
@@ -969,7 +831,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.Status status = 2;</code>
+     * <code>.google.rpc.Status status = 1;</code>
      */
     public Builder mergeStatus(com.google.rpc.Status value) {
       if (statusBuilder_ == null) {
@@ -987,7 +849,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.Status status = 2;</code>
+     * <code>.google.rpc.Status status = 1;</code>
      */
     public Builder clearStatus() {
       if (statusBuilder_ == null) {
@@ -1001,7 +863,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.Status status = 2;</code>
+     * <code>.google.rpc.Status status = 1;</code>
      */
     public com.google.rpc.Status.Builder getStatusBuilder() {
       
@@ -1009,7 +871,7 @@ private static final long serialVersionUID = 0L;
       return getStatusFieldBuilder().getBuilder();
     }
     /**
-     * <code>.google.rpc.Status status = 2;</code>
+     * <code>.google.rpc.Status status = 1;</code>
      */
     public com.google.rpc.StatusOrBuilder getStatusOrBuilder() {
       if (statusBuilder_ != null) {
@@ -1020,7 +882,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.google.rpc.Status status = 2;</code>
+     * <code>.google.rpc.Status status = 1;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.rpc.Status, com.google.rpc.Status.Builder, com.google.rpc.StatusOrBuilder> 
@@ -1040,14 +902,14 @@ private static final long serialVersionUID = 0L;
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.rpc.RequestInfo, com.google.rpc.RequestInfo.Builder, com.google.rpc.RequestInfoOrBuilder> requestInfoBuilder_;
     /**
-     * <code>.google.rpc.RequestInfo request_info = 3;</code>
+     * <code>.google.rpc.RequestInfo request_info = 2;</code>
      * @return Whether the requestInfo field is set.
      */
     public boolean hasRequestInfo() {
       return requestInfoBuilder_ != null || requestInfo_ != null;
     }
     /**
-     * <code>.google.rpc.RequestInfo request_info = 3;</code>
+     * <code>.google.rpc.RequestInfo request_info = 2;</code>
      * @return The requestInfo.
      */
     public com.google.rpc.RequestInfo getRequestInfo() {
@@ -1058,7 +920,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.google.rpc.RequestInfo request_info = 3;</code>
+     * <code>.google.rpc.RequestInfo request_info = 2;</code>
      */
     public Builder setRequestInfo(com.google.rpc.RequestInfo value) {
       if (requestInfoBuilder_ == null) {
@@ -1074,7 +936,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.RequestInfo request_info = 3;</code>
+     * <code>.google.rpc.RequestInfo request_info = 2;</code>
      */
     public Builder setRequestInfo(
         com.google.rpc.RequestInfo.Builder builderForValue) {
@@ -1088,7 +950,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.RequestInfo request_info = 3;</code>
+     * <code>.google.rpc.RequestInfo request_info = 2;</code>
      */
     public Builder mergeRequestInfo(com.google.rpc.RequestInfo value) {
       if (requestInfoBuilder_ == null) {
@@ -1106,7 +968,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.RequestInfo request_info = 3;</code>
+     * <code>.google.rpc.RequestInfo request_info = 2;</code>
      */
     public Builder clearRequestInfo() {
       if (requestInfoBuilder_ == null) {
@@ -1120,7 +982,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.RequestInfo request_info = 3;</code>
+     * <code>.google.rpc.RequestInfo request_info = 2;</code>
      */
     public com.google.rpc.RequestInfo.Builder getRequestInfoBuilder() {
       
@@ -1128,7 +990,7 @@ private static final long serialVersionUID = 0L;
       return getRequestInfoFieldBuilder().getBuilder();
     }
     /**
-     * <code>.google.rpc.RequestInfo request_info = 3;</code>
+     * <code>.google.rpc.RequestInfo request_info = 2;</code>
      */
     public com.google.rpc.RequestInfoOrBuilder getRequestInfoOrBuilder() {
       if (requestInfoBuilder_ != null) {
@@ -1139,7 +1001,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.google.rpc.RequestInfo request_info = 3;</code>
+     * <code>.google.rpc.RequestInfo request_info = 2;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.rpc.RequestInfo, com.google.rpc.RequestInfo.Builder, com.google.rpc.RequestInfoOrBuilder> 
@@ -1159,14 +1021,14 @@ private static final long serialVersionUID = 0L;
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.rpc.Help, com.google.rpc.Help.Builder, com.google.rpc.HelpOrBuilder> helpBuilder_;
     /**
-     * <code>.google.rpc.Help help = 4;</code>
+     * <code>.google.rpc.Help help = 3;</code>
      * @return Whether the help field is set.
      */
     public boolean hasHelp() {
       return helpBuilder_ != null || help_ != null;
     }
     /**
-     * <code>.google.rpc.Help help = 4;</code>
+     * <code>.google.rpc.Help help = 3;</code>
      * @return The help.
      */
     public com.google.rpc.Help getHelp() {
@@ -1177,7 +1039,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.google.rpc.Help help = 4;</code>
+     * <code>.google.rpc.Help help = 3;</code>
      */
     public Builder setHelp(com.google.rpc.Help value) {
       if (helpBuilder_ == null) {
@@ -1193,7 +1055,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.Help help = 4;</code>
+     * <code>.google.rpc.Help help = 3;</code>
      */
     public Builder setHelp(
         com.google.rpc.Help.Builder builderForValue) {
@@ -1207,7 +1069,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.Help help = 4;</code>
+     * <code>.google.rpc.Help help = 3;</code>
      */
     public Builder mergeHelp(com.google.rpc.Help value) {
       if (helpBuilder_ == null) {
@@ -1225,7 +1087,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.Help help = 4;</code>
+     * <code>.google.rpc.Help help = 3;</code>
      */
     public Builder clearHelp() {
       if (helpBuilder_ == null) {
@@ -1239,7 +1101,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.Help help = 4;</code>
+     * <code>.google.rpc.Help help = 3;</code>
      */
     public com.google.rpc.Help.Builder getHelpBuilder() {
       
@@ -1247,7 +1109,7 @@ private static final long serialVersionUID = 0L;
       return getHelpFieldBuilder().getBuilder();
     }
     /**
-     * <code>.google.rpc.Help help = 4;</code>
+     * <code>.google.rpc.Help help = 3;</code>
      */
     public com.google.rpc.HelpOrBuilder getHelpOrBuilder() {
       if (helpBuilder_ != null) {
@@ -1258,7 +1120,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.google.rpc.Help help = 4;</code>
+     * <code>.google.rpc.Help help = 3;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.rpc.Help, com.google.rpc.Help.Builder, com.google.rpc.HelpOrBuilder> 
@@ -1278,14 +1140,14 @@ private static final long serialVersionUID = 0L;
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.rpc.RetryInfo, com.google.rpc.RetryInfo.Builder, com.google.rpc.RetryInfoOrBuilder> retryInfoBuilder_;
     /**
-     * <code>.google.rpc.RetryInfo retry_info = 5;</code>
+     * <code>.google.rpc.RetryInfo retry_info = 4;</code>
      * @return Whether the retryInfo field is set.
      */
     public boolean hasRetryInfo() {
       return retryInfoBuilder_ != null || retryInfo_ != null;
     }
     /**
-     * <code>.google.rpc.RetryInfo retry_info = 5;</code>
+     * <code>.google.rpc.RetryInfo retry_info = 4;</code>
      * @return The retryInfo.
      */
     public com.google.rpc.RetryInfo getRetryInfo() {
@@ -1296,7 +1158,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.google.rpc.RetryInfo retry_info = 5;</code>
+     * <code>.google.rpc.RetryInfo retry_info = 4;</code>
      */
     public Builder setRetryInfo(com.google.rpc.RetryInfo value) {
       if (retryInfoBuilder_ == null) {
@@ -1312,7 +1174,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.RetryInfo retry_info = 5;</code>
+     * <code>.google.rpc.RetryInfo retry_info = 4;</code>
      */
     public Builder setRetryInfo(
         com.google.rpc.RetryInfo.Builder builderForValue) {
@@ -1326,7 +1188,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.RetryInfo retry_info = 5;</code>
+     * <code>.google.rpc.RetryInfo retry_info = 4;</code>
      */
     public Builder mergeRetryInfo(com.google.rpc.RetryInfo value) {
       if (retryInfoBuilder_ == null) {
@@ -1344,7 +1206,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.RetryInfo retry_info = 5;</code>
+     * <code>.google.rpc.RetryInfo retry_info = 4;</code>
      */
     public Builder clearRetryInfo() {
       if (retryInfoBuilder_ == null) {
@@ -1358,7 +1220,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.RetryInfo retry_info = 5;</code>
+     * <code>.google.rpc.RetryInfo retry_info = 4;</code>
      */
     public com.google.rpc.RetryInfo.Builder getRetryInfoBuilder() {
       
@@ -1366,7 +1228,7 @@ private static final long serialVersionUID = 0L;
       return getRetryInfoFieldBuilder().getBuilder();
     }
     /**
-     * <code>.google.rpc.RetryInfo retry_info = 5;</code>
+     * <code>.google.rpc.RetryInfo retry_info = 4;</code>
      */
     public com.google.rpc.RetryInfoOrBuilder getRetryInfoOrBuilder() {
       if (retryInfoBuilder_ != null) {
@@ -1377,7 +1239,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.google.rpc.RetryInfo retry_info = 5;</code>
+     * <code>.google.rpc.RetryInfo retry_info = 4;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.rpc.RetryInfo, com.google.rpc.RetryInfo.Builder, com.google.rpc.RetryInfoOrBuilder> 
@@ -1397,14 +1259,14 @@ private static final long serialVersionUID = 0L;
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.rpc.DebugInfo, com.google.rpc.DebugInfo.Builder, com.google.rpc.DebugInfoOrBuilder> debugInfoBuilder_;
     /**
-     * <code>.google.rpc.DebugInfo debug_info = 6;</code>
+     * <code>.google.rpc.DebugInfo debug_info = 5;</code>
      * @return Whether the debugInfo field is set.
      */
     public boolean hasDebugInfo() {
       return debugInfoBuilder_ != null || debugInfo_ != null;
     }
     /**
-     * <code>.google.rpc.DebugInfo debug_info = 6;</code>
+     * <code>.google.rpc.DebugInfo debug_info = 5;</code>
      * @return The debugInfo.
      */
     public com.google.rpc.DebugInfo getDebugInfo() {
@@ -1415,7 +1277,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.google.rpc.DebugInfo debug_info = 6;</code>
+     * <code>.google.rpc.DebugInfo debug_info = 5;</code>
      */
     public Builder setDebugInfo(com.google.rpc.DebugInfo value) {
       if (debugInfoBuilder_ == null) {
@@ -1431,7 +1293,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.DebugInfo debug_info = 6;</code>
+     * <code>.google.rpc.DebugInfo debug_info = 5;</code>
      */
     public Builder setDebugInfo(
         com.google.rpc.DebugInfo.Builder builderForValue) {
@@ -1445,7 +1307,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.DebugInfo debug_info = 6;</code>
+     * <code>.google.rpc.DebugInfo debug_info = 5;</code>
      */
     public Builder mergeDebugInfo(com.google.rpc.DebugInfo value) {
       if (debugInfoBuilder_ == null) {
@@ -1463,7 +1325,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.DebugInfo debug_info = 6;</code>
+     * <code>.google.rpc.DebugInfo debug_info = 5;</code>
      */
     public Builder clearDebugInfo() {
       if (debugInfoBuilder_ == null) {
@@ -1477,7 +1339,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.DebugInfo debug_info = 6;</code>
+     * <code>.google.rpc.DebugInfo debug_info = 5;</code>
      */
     public com.google.rpc.DebugInfo.Builder getDebugInfoBuilder() {
       
@@ -1485,7 +1347,7 @@ private static final long serialVersionUID = 0L;
       return getDebugInfoFieldBuilder().getBuilder();
     }
     /**
-     * <code>.google.rpc.DebugInfo debug_info = 6;</code>
+     * <code>.google.rpc.DebugInfo debug_info = 5;</code>
      */
     public com.google.rpc.DebugInfoOrBuilder getDebugInfoOrBuilder() {
       if (debugInfoBuilder_ != null) {
@@ -1496,7 +1358,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.google.rpc.DebugInfo debug_info = 6;</code>
+     * <code>.google.rpc.DebugInfo debug_info = 5;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.rpc.DebugInfo, com.google.rpc.DebugInfo.Builder, com.google.rpc.DebugInfoOrBuilder> 
@@ -1516,14 +1378,14 @@ private static final long serialVersionUID = 0L;
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.rpc.ErrorInfo, com.google.rpc.ErrorInfo.Builder, com.google.rpc.ErrorInfoOrBuilder> errorInfoBuilder_;
     /**
-     * <code>.google.rpc.ErrorInfo error_info = 7;</code>
+     * <code>.google.rpc.ErrorInfo error_info = 6;</code>
      * @return Whether the errorInfo field is set.
      */
     public boolean hasErrorInfo() {
       return errorInfoBuilder_ != null || errorInfo_ != null;
     }
     /**
-     * <code>.google.rpc.ErrorInfo error_info = 7;</code>
+     * <code>.google.rpc.ErrorInfo error_info = 6;</code>
      * @return The errorInfo.
      */
     public com.google.rpc.ErrorInfo getErrorInfo() {
@@ -1534,7 +1396,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.google.rpc.ErrorInfo error_info = 7;</code>
+     * <code>.google.rpc.ErrorInfo error_info = 6;</code>
      */
     public Builder setErrorInfo(com.google.rpc.ErrorInfo value) {
       if (errorInfoBuilder_ == null) {
@@ -1550,7 +1412,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.ErrorInfo error_info = 7;</code>
+     * <code>.google.rpc.ErrorInfo error_info = 6;</code>
      */
     public Builder setErrorInfo(
         com.google.rpc.ErrorInfo.Builder builderForValue) {
@@ -1564,7 +1426,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.ErrorInfo error_info = 7;</code>
+     * <code>.google.rpc.ErrorInfo error_info = 6;</code>
      */
     public Builder mergeErrorInfo(com.google.rpc.ErrorInfo value) {
       if (errorInfoBuilder_ == null) {
@@ -1582,7 +1444,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.ErrorInfo error_info = 7;</code>
+     * <code>.google.rpc.ErrorInfo error_info = 6;</code>
      */
     public Builder clearErrorInfo() {
       if (errorInfoBuilder_ == null) {
@@ -1596,7 +1458,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.rpc.ErrorInfo error_info = 7;</code>
+     * <code>.google.rpc.ErrorInfo error_info = 6;</code>
      */
     public com.google.rpc.ErrorInfo.Builder getErrorInfoBuilder() {
       
@@ -1604,7 +1466,7 @@ private static final long serialVersionUID = 0L;
       return getErrorInfoFieldBuilder().getBuilder();
     }
     /**
-     * <code>.google.rpc.ErrorInfo error_info = 7;</code>
+     * <code>.google.rpc.ErrorInfo error_info = 6;</code>
      */
     public com.google.rpc.ErrorInfoOrBuilder getErrorInfoOrBuilder() {
       if (errorInfoBuilder_ != null) {
@@ -1615,7 +1477,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.google.rpc.ErrorInfo error_info = 7;</code>
+     * <code>.google.rpc.ErrorInfo error_info = 6;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.rpc.ErrorInfo, com.google.rpc.ErrorInfo.Builder, com.google.rpc.ErrorInfoOrBuilder> 

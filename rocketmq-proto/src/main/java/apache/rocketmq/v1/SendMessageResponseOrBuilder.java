@@ -33,4 +33,16 @@ public interface SendMessageResponseOrBuilder extends
    */
   com.google.protobuf.ByteString
       getMessageIdBytes();
+
+  /**
+   * <code>string transaction_id = 3;</code>
+   * @return The transactionId.
+   */
+  java.lang.String getTransactionId();
+  /**
+   * <code>string transaction_id = 3;</code>
+   * @return The bytes for transactionId.
+   */
+  com.google.protobuf.ByteString
+      getTransactionIdBytes();
 }
