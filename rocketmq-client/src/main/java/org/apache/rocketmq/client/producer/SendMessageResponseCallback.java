@@ -1,4 +1,4 @@
-package org.apache.rocketmq.client.remoting;
+package org.apache.rocketmq.client.producer;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 

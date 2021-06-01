@@ -2,7 +2,7 @@ package org.apache.rocketmq.client.misc;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -11,6 +11,9 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.apache.rocketmq.client.constant.SystemProperty;
+import org.apache.rocketmq.client.remoting.Address;
+import org.apache.rocketmq.client.remoting.Endpoints;
+import org.apache.rocketmq.client.route.Schema;
 
 public class TopAddressing {
     private static final String DEFAULT_NAME_SERVER_DOMAIN = "jmenv.tbsite.net";
@@ -37,12 +40,22 @@ public class TopAddressing {
         return wsAddress;
     }
 
-    public List<String> fetchNameServerAddresses() throws IOException {
+    // TODO: check result format here.
+    public Endpoints fetchNameServerAddresses() throws IOException {
         final HttpGet httpGet = new HttpGet(wsAddress);
         final HttpResponse response = httpClient.execute(httpGet);
         final HttpEntity entity = response.getEntity();
         final String body = EntityUtils.toString(entity, MixAll.DEFAULT_CHARSET);
         final String[] nameServerAddresses = body.split(";");
-        return new ArrayList<String>(Arrays.asList(nameServerAddresses));
+
+        List<Address> addresses = new ArrayList<Address>();
+        for (String nameServerAddress : nameServerAddresses) {
+            final String[] split = nameServerAddress.split(":");
+            String host = split[0];
+            final int port = Integer.parseInt(split[1]);
+            addresses.add(new Address(host, port));
+        }
+        Collections.shuffle(addresses);
+        return new Endpoints(Schema.IPv4, addresses);
     }
 }

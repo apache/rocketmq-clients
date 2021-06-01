@@ -32,6 +32,7 @@ import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.impl.ClientInstance;
 import org.apache.rocketmq.client.impl.ClientInstanceManager;
 import org.apache.rocketmq.client.message.MessageQueue;
+import org.apache.rocketmq.client.remoting.RpcTarget;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
 
@@ -302,7 +303,7 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
         this.messageListenerOrderly = messageListenerOrderly;
     }
 
-    private String selectTargetForQuery(String topic) throws MQClientException, MQServerException {
+    private RpcTarget selectRpcTargetForQuery(String topic) throws MQClientException, MQServerException {
         final TopicRouteData topicRouteData = clientInstance.getTopicRouteInfo(topic);
 
         final List<Partition> partitions = topicRouteData.getPartitions();
@@ -310,12 +311,12 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
             throw new MQServerException("No partition available.");
         }
         final Partition partition = partitions.get(TopicAssignmentInfo.getNextPartitionIndex() % partitions.size());
-        return partition.getTarget();
+        return partition.getRpcTarget();
     }
 
     private TopicAssignmentInfo queryLoadAssignment(String topic)
             throws MQClientException, MQServerException {
-        final String target = selectTargetForQuery(topic);
+        final RpcTarget target = selectRpcTargetForQuery(topic);
 
         QueryAssignmentRequest request = wrapQueryAssignmentRequest(topic);
 

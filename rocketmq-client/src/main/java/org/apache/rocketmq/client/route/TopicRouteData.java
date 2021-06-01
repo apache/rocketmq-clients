@@ -7,13 +7,22 @@ import java.util.Set;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
+import org.apache.rocketmq.client.remoting.Endpoints;
 
 @Getter
 @EqualsAndHashCode
 @ToString
 public class TopicRouteData {
+    /**
+     * Partitions of topic route
+     */
     final List<Partition> partitions;
 
+    /**
+     * Construct topic route by partition list.
+     *
+     * @param partitionList partition list, should never be empty.
+     */
     public TopicRouteData(List<apache.rocketmq.v1.Partition> partitionList) {
         this.partitions = new ArrayList<Partition>();
         for (apache.rocketmq.v1.Partition partition : partitionList) {
@@ -21,11 +30,11 @@ public class TopicRouteData {
         }
     }
 
-    public Set<String> getAllEndpoints() {
-        Set<String> endpoints = new HashSet<String>();
+    public Set<Endpoints> getAllEndpoints() {
+        Set<Endpoints> endpointsSet = new HashSet<Endpoints>();
         for (Partition partition : partitions) {
-            endpoints.addAll(partition.getEndpoints());
+            endpointsSet.add(partition.getRpcTarget().getEndpoints());
         }
-        return endpoints;
+        return endpointsSet;
     }
 }

@@ -3,6 +3,7 @@ package org.apache.rocketmq.client.message;
 
 import java.util.Map;
 import lombok.EqualsAndHashCode;
+import org.apache.rocketmq.client.remoting.RpcTarget;
 
 @EqualsAndHashCode
 public class MessageExt {
@@ -77,8 +78,8 @@ public class MessageExt {
     }
 
     // TODO: hide targetEndpoint here.
-    public String getTargetEndpoint() {
-        return this.impl.getSystemAttribute().getTargetEndpoint();
+    public RpcTarget getAckRpcTarget() {
+        return this.impl.getSystemAttribute().getAckRpcTarget();
     }
 
     public Map<String, String> getUserProperties() {

@@ -72,9 +72,9 @@ public class ConsumeConcurrentlyService implements ConsumeService {
         final int size = cachedMessages.size();
         for (int i = 0; i < size; i += batchMaxSize) {
             try {
-                final List<MessageExt> spitedMessages =
+                final List<MessageExt> splitMessages =
                         cachedMessages.subList(i, Math.min(size, i + batchMaxSize));
-                consumeExecutor.submit(new ConsumeConcurrentlyTask(this, processQueue, spitedMessages));
+                consumeExecutor.submit(new ConsumeConcurrentlyTask(this, processQueue, splitMessages));
             } catch (Throwable t) {
                 log.error(
                         "Exception occurs while submitting consumeTask for mq={}, cached msg count={}, batchMaxSize={}",

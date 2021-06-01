@@ -19,19 +19,24 @@ import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.grpc.ManagedChannel;
+import io.grpc.NameResolverRegistry;
 import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext;
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslContextBuilder;
 import io.grpc.netty.shaded.io.netty.handler.ssl.util.InsecureTrustManagerFactory;
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.client.route.Schema;
 
 @Slf4j
-public class RPCClientImpl implements RPCClient {
+public class RpcClientImpl implements RpcClient {
     @Getter
     @Setter
     private String arn;
@@ -44,36 +49,55 @@ public class RPCClientImpl implements RPCClient {
     @Setter
     private AccessCredential accessCredential;
 
-    private final RpcTarget rpcTarget;
     private final ManagedChannel channel;
 
     private final MessagingServiceGrpc.MessagingServiceBlockingStub blockingStub;
     private final MessagingServiceGrpc.MessagingServiceFutureStub futureStub;
 
-    public RPCClientImpl(RpcTarget rpcTarget) {
-        this.rpcTarget = rpcTarget;
-
+    public RpcClientImpl(RpcTarget rpcTarget) {
         final SslContextBuilder builder = GrpcSslContexts.forClient();
         builder.trustManager(InsecureTrustManagerFactory.INSTANCE);
 
         SslContext sslContext = null;
+        // TODO: polish code here.
         try {
             sslContext = builder.build();
         } catch (Throwable t) {
             log.error("Failed to build ssl Context");
         }
 
-        this.channel =
-                NettyChannelBuilder.forTarget(rpcTarget.getTarget())
-                                   .disableRetry()
+        final Endpoints endpoints = rpcTarget.getEndpoints();
+        final NettyChannelBuilder channelBuilder =
+                NettyChannelBuilder.forTarget(endpoints.getTarget())
                                    .intercept(new HeadersClientInterceptor(this))
-                                   .sslContext(sslContext)
-                                   .build();
+                                   .sslContext(sslContext);
+
+        if (rpcTarget.isAutoRetryEnabled()) {
+            channelBuilder.enableRetry();
+        } else {
+            channelBuilder.disableRetry();
+        }
+
+        final Schema schema = endpoints.getSchema();
+        switch (schema) {
+            case DOMAIN_NAME:
+                break;
+            case IPv4:
+            case IPv6:
+            default:
+                List<InetSocketAddress> socketAddresses = new ArrayList<InetSocketAddress>();
+                for (Address address : endpoints.getAddresses()) {
+                    socketAddresses.add(new InetSocketAddress(address.getHost(), address.getPort()));
+                }
+                final IPNameResolverFactory ipNameResolverFactory = new IPNameResolverFactory(socketAddresses);
+                final NameResolverRegistry defaultRegistry = NameResolverRegistry.getDefaultRegistry();
+                defaultRegistry.register(ipNameResolverFactory);
+        }
+
+        this.channel = channelBuilder.build();
 
         this.blockingStub = MessagingServiceGrpc.newBlockingStub(channel);
         this.futureStub = MessagingServiceGrpc.newFutureStub(channel);
-
-
     }
 
     @Override
@@ -81,16 +105,6 @@ public class RPCClientImpl implements RPCClient {
         if (null != channel) {
             channel.shutdown();
         }
-    }
-
-    @Override
-    public void setIsolated(boolean isolated) {
-        rpcTarget.setIsolated(isolated);
-    }
-
-    @Override
-    public boolean isIsolated() {
-        return rpcTarget.isIsolated();
     }
 
     @Override

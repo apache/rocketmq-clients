@@ -4,24 +4,16 @@ import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.apache.rocketmq.client.message.MessageExt;
+import org.apache.rocketmq.client.remoting.RpcTarget;
 
 @AllArgsConstructor
 @Getter
 public class PopResult {
-    private final String target;
+    private final RpcTarget target;
     private final PopStatus popStatus;
 
     private final long popTimestamp;
     private final long invisibleDuration;
 
     private final List<MessageExt> msgFoundList;
-
-    // TODO: Fix termId here.
-    public long getTermId() {
-        return 1;
-        //        if (requestId.isEmpty()) {
-        //            return 0;
-        //        }
-        //        return Long.parseLong(requestId, 16);
-    }
 }

@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
+import org.apache.rocketmq.client.remoting.RpcTarget;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
 
@@ -71,7 +72,7 @@ public class TopicPublishInfo {
      * @param brokerName provided broker name.
      * @return target address.
      */
-    public String resolveTarget(String brokerName) throws MQClientException {
+    public RpcTarget resolveRpcTarget(String brokerName) throws MQClientException {
         final List<Partition> partitions = topicRouteData.getPartitions();
         for (Partition partition : partitions) {
             if (!brokerName.equals(partition.getBrokerName())) {
@@ -80,13 +81,13 @@ public class TopicPublishInfo {
             if (MixAll.MASTER_BROKER_ID != partition.getBrokerId()) {
                 continue;
             }
-            return partition.getTarget();
+            return partition.getRpcTarget();
         }
         log.error("Failed to resolve target address from brokerName=" + brokerName);
         throw new MQClientException("Failed to resolve target");
     }
 
-    public MessageQueue selectOneMessageQueue(Set<String> isolatedTargets) throws MQClientException {
+    public MessageQueue selectOneMessageQueue(Set<RpcTarget> isolatedTargets) throws MQClientException {
         MessageQueue selectedMessageQueue;
         if (messageQueueList.isEmpty()) {
             throw new MQClientException("No writable message queue is available");
@@ -96,7 +97,7 @@ public class TopicPublishInfo {
                     messageQueueList.get(getNextSendQueueIndex() % messageQueueList.size());
             final String brokerName = selectedMessageQueue.getBrokerName();
             try {
-                String target = resolveTarget(brokerName);
+                RpcTarget target = resolveRpcTarget(brokerName);
                 if (!isolatedTargets.contains(target)) {
                     return selectedMessageQueue;
                 }

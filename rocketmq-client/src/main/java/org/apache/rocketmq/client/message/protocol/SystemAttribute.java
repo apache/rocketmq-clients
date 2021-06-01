@@ -3,6 +3,7 @@ package org.apache.rocketmq.client.message.protocol;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.Data;
+import org.apache.rocketmq.client.remoting.RpcTarget;
 
 @Data
 public class SystemAttribute {
@@ -26,7 +27,7 @@ public class SystemAttribute {
     private String traceContext;
     // Would set after receiving the message.
     private long decodedTimestamp;
-    private String targetEndpoint;
+    private RpcTarget ackRpcTarget;
 
     public SystemAttribute() {
         this.keys = new ArrayList<String>();

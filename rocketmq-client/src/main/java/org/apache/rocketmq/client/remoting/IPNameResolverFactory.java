@@ -2,16 +2,17 @@ package org.apache.rocketmq.client.remoting;
 
 import io.grpc.EquivalentAddressGroup;
 import io.grpc.NameResolver;
+import io.grpc.NameResolverProvider;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
-public class IPNameResolver extends NameResolver.Factory {
+public class IPNameResolverFactory extends NameResolverProvider {
     final List<EquivalentAddressGroup> addresses;
     final String scheme = "IP";
 
-    public IPNameResolver(InetSocketAddress... socketAddresses) {
+    public IPNameResolverFactory(List<InetSocketAddress> socketAddresses) {
         this.addresses = new ArrayList<EquivalentAddressGroup>();
         for (InetSocketAddress socketAddress : socketAddresses) {
             addresses.add(new EquivalentAddressGroup(socketAddress));
@@ -21,7 +22,6 @@ public class IPNameResolver extends NameResolver.Factory {
     @Override
     public NameResolver newNameResolver(URI notUsedUri, NameResolver.Args args) {
         return new NameResolver() {
-
 
             @Override
             public String getServiceAuthority() {
@@ -42,5 +42,15 @@ public class IPNameResolver extends NameResolver.Factory {
     @Override
     public String getDefaultScheme() {
         return scheme;
+    }
+
+    @Override
+    protected boolean isAvailable() {
+        return true;
+    }
+
+    @Override
+    protected int priority() {
+        return 0;
     }
 }

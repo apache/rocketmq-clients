@@ -4,18 +4,11 @@ import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.apache.rocketmq.client.constant.SystemProperty;
 
 public class MessageCodec {
     public static final char NAME_VALUE_SEPARATOR = 1;
     public static final char PROPERTY_SEPARATOR = 2;
 
-    public static final int DEFAULT_MESSAGE_COMPRESSION_LEVEL = 5;
-    public static final int MESSAGE_COMPRESSION_LEVEL =
-            Integer.parseInt(
-                    System.getProperty(
-                            SystemProperty.MESSAGE_COMPRESSION_LEVEL,
-                            Integer.toString(DEFAULT_MESSAGE_COMPRESSION_LEVEL)));
 
     private MessageCodec() {
     }

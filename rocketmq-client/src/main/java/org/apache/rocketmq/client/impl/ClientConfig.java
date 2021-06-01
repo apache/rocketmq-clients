@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.Data;
 import org.apache.rocketmq.client.remoting.AccessCredential;
+import org.apache.rocketmq.client.remoting.Address;
+import org.apache.rocketmq.client.remoting.Endpoints;
+import org.apache.rocketmq.client.route.Schema;
 import org.apache.rocketmq.utility.RemotingUtil;
 import org.apache.rocketmq.utility.UtilAll;
 
@@ -12,13 +15,14 @@ public class ClientConfig {
     private final ClientInstanceConfig clientInstanceConfig;
 
     private String groupName;
-    private List<String> nameServerList;
+    private Endpoints endpoints;
+
     private final String clientId;
 
     public ClientConfig(String groupName) {
         this.clientInstanceConfig = new ClientInstanceConfig();
         this.groupName = groupName;
-        this.nameServerList = new ArrayList<String>();
+        this.endpoints = null;
 
         StringBuilder sb = new StringBuilder();
         final String clientIP = RemotingUtil.getLocalAddress();
@@ -30,9 +34,16 @@ public class ClientConfig {
         this.clientId = sb.toString();
     }
 
+    // TODO: support 127.0.0.1:9876;127.0.0.1:9877 ?
     public void setNamesrvAddr(String namesrv) {
-        this.nameServerList.clear();
-        this.nameServerList.add(namesrv);
+        // TODO: check name server format, IPv4/IPv6/DOMAIN_NAME
+        final String[] split = namesrv.split(":");
+        String host = split[0];
+        int port = Integer.parseInt(split[1]);
+
+        List<Address> addresses = new ArrayList<Address>();
+        addresses.add(new Address(host, port));
+        this.endpoints = new Endpoints(Schema.IPv4, addresses);
     }
 
     public void setArn(String arn) {

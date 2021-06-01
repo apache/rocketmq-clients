@@ -11,6 +11,7 @@ import apache.rocketmq.v1.SendMessageResponse;
 import apache.rocketmq.v1.SystemAttribute;
 import apache.rocketmq.v1.TransactionPhase;
 import com.google.protobuf.ByteString;
+import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,6 +22,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.CommunicationMode;
 import org.apache.rocketmq.client.constant.ServiceState;
+import org.apache.rocketmq.client.constant.SystemProperty;
 import org.apache.rocketmq.client.exception.MQBrokerException;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
@@ -28,21 +30,29 @@ import org.apache.rocketmq.client.exception.RemotingException;
 import org.apache.rocketmq.client.impl.ClientInstance;
 import org.apache.rocketmq.client.impl.ClientInstanceManager;
 import org.apache.rocketmq.client.message.Message;
-import org.apache.rocketmq.client.message.MessageBatch;
 import org.apache.rocketmq.client.message.MessageConst;
 import org.apache.rocketmq.client.message.MessageIdUtils;
 import org.apache.rocketmq.client.message.MessageQueue;
+import org.apache.rocketmq.client.message.protocol.Encoding;
 import org.apache.rocketmq.client.misc.Validators;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.client.producer.MessageQueueSelector;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
+import org.apache.rocketmq.client.remoting.RpcTarget;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.utility.UtilAll;
 
 
 @Slf4j
 public class DefaultMQProducerImpl implements ProducerObserver {
+
+    public static final int MESSAGE_COMPRESSION_THRESHOLD = 1024 * 1024 * 4;
+    public static final int DEFAULT_MESSAGE_COMPRESSION_LEVEL = 5;
+    public static final int MESSAGE_COMPRESSION_LEVEL =
+            Integer.parseInt(System.getProperty(SystemProperty.MESSAGE_COMPRESSION_LEVEL,
+                                                Integer.toString(DEFAULT_MESSAGE_COMPRESSION_LEVEL)));
+
     private final DefaultMQProducer defaultMQProducer;
     private final ConcurrentMap<String /* topic */, TopicPublishInfo> topicPublishInfoTable;
     private ClientInstance clientInstance;
@@ -104,16 +114,6 @@ public class DefaultMQProducerImpl implements ProducerObserver {
     }
 
 
-    // TODO: compress message here.
-    private void messagePretreated(Message message) {
-        if (!(message instanceof MessageBatch)) {
-            MessageIdUtils.setMessageId(message);
-            if (this.defaultMQProducer.isAddExtendUniqInfo()) {
-                // TODO: MessageClientIdUtils.setExtendUniqInfo(msg,this.defaultMQProducer.getRandomSign());
-            }
-        }
-    }
-
     private SendMessageRequest wrapSendMessageRequest(Message message, MessageQueue mq) {
 
         final Resource topicResource =
@@ -131,9 +131,32 @@ public class DefaultMQProducerImpl implements ProducerObserver {
                 SystemAttribute.newBuilder()
                                .setBornTimestamp(fromMillis(System.currentTimeMillis()))
                                .setPublisherGroup(groupResource)
-                               .setMessageId(MessageIdUtils.getMessageId(message))
+                               .setMessageId(MessageIdUtils.createUniqID())
                                .setBornHost(UtilAll.getIpv4Address())
                                .setPartitionId(mq.getQueueId());
+
+        Encoding encoding = Encoding.IDENTITY;
+        byte[] body = message.getBody();
+        if (body.length > MESSAGE_COMPRESSION_THRESHOLD) {
+            try {
+                body = UtilAll.compressBytesGzip(body, MESSAGE_COMPRESSION_LEVEL);
+                encoding = Encoding.GZIP;
+            } catch (IOException e) {
+                log.warn("Failed to compress message", e);
+            }
+        }
+
+        switch (encoding) {
+            case GZIP:
+                systemAttributeBuilder.setBodyEncoding(apache.rocketmq.v1.Encoding.GZIP);
+                break;
+            case SNAPPY:
+                systemAttributeBuilder.setBodyEncoding(apache.rocketmq.v1.Encoding.SNAPPY);
+                break;
+            case IDENTITY:
+            default:
+                systemAttributeBuilder.setBodyEncoding(apache.rocketmq.v1.Encoding.IDENTITY);
+        }
 
         if (transactionFlag) {
             systemAttributeBuilder.setTransactionPhase(TransactionPhase.PREPARE);
@@ -142,19 +165,15 @@ public class DefaultMQProducerImpl implements ProducerObserver {
 
         final SystemAttribute systemAttribute = systemAttributeBuilder.build();
 
-
         final apache.rocketmq.v1.Message msg =
                 apache.rocketmq.v1.Message.newBuilder()
                                           .setTopic(topicResource)
                                           .setSystemAttribute(systemAttribute)
                                           .putAllUserAttribute(message.getUserProperties())
-                                          .setBody(ByteString.copyFrom(message.getBody()))
+                                          .setBody(ByteString.copyFrom(body))
                                           .build();
 
-        final SendMessageRequest request =
-                SendMessageRequest.newBuilder().setMessage(msg).build();
-        log.debug("SendMessageRequest: \n{}", request);
-        return request;
+        return SendMessageRequest.newBuilder().setMessage(msg).build();
     }
 
     private TopicPublishInfo getPublicInfo(String topic) throws MQClientException {
@@ -169,7 +188,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
     }
 
     private MessageQueue selectOneMessageQueue(TopicPublishInfo topicPublishInfo) throws MQClientException {
-        final Set<String> isolatedTargets = clientInstance.getIsolatedTargets();
+        final Set<RpcTarget> isolatedTargets = clientInstance.getIsolatedTargets();
         return topicPublishInfo.selectOneMessageQueue(isolatedTargets);
     }
 
@@ -293,8 +312,8 @@ public class DefaultMQProducerImpl implements ProducerObserver {
             long timeoutMillis)
             throws MQClientException, MQServerException {
         TopicPublishInfo publicInfo = getPublicInfo(message.getTopic());
-        final String target = publicInfo.resolveTarget(mq.getBrokerName());
-        messagePretreated(message);
+        final RpcTarget target = publicInfo.resolveRpcTarget(mq.getBrokerName());
+
         final SendMessageRequest request = wrapSendMessageRequest(message, mq);
 
         final SendMessageResponse response =
@@ -321,8 +340,8 @@ public class DefaultMQProducerImpl implements ProducerObserver {
             } catch (Throwable t) {
                 log.warn("Exception occurs while sending message, topic={}, time={}.", topic, time, t);
 
-                final String target = publicInfo.resolveTarget(messageQueue.getBrokerName());
-                clientInstance.setTargetIsolated(target, true);
+                final RpcTarget target = publicInfo.resolveRpcTarget(messageQueue.getBrokerName());
+                target.setIsolated(true);
                 log.debug(
                         "Would isolate target for a while cause failed to send message, target={}", target);
             }
@@ -355,15 +374,15 @@ public class DefaultMQProducerImpl implements ProducerObserver {
             throw new MQClientException("Message queue is unexpectedly null.");
         }
 
-        final String target = publicInfo.resolveTarget(messageQueue.getBrokerName());
-        if (!clientInstance.isTargetIsolated(target)) {
+        final RpcTarget target = publicInfo.resolveRpcTarget(messageQueue.getBrokerName());
+        if (!target.isIsolated()) {
             try {
                 sendResult = sendKernelImpl(message, messageQueue, mode, sendCallback, timeoutMillis);
                 return sendResult;
             } catch (Throwable t) {
                 log.warn("Exception occurs while sending message.", t);
 
-                clientInstance.setTargetIsolated(target, true);
+                target.setIsolated(true);
                 log.debug(
                         "Would isolate target for a while cause failed to send message, target={}", target);
             }

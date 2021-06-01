@@ -12,15 +12,20 @@ import apache.rocketmq.v1.SendMessageResponse;
 import apache.rocketmq.v1.SystemAttribute;
 import com.google.protobuf.ByteString;
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
-import org.apache.rocketmq.client.impl.ClientInstance;
+import org.apache.rocketmq.client.route.Schema;
 import org.testng.annotations.Test;
 
-public class RPCClientImplTest {
+public class RpcClientImplTest {
 
     @Test
     public void testQueryRoute() {
-        final RPCClientImpl rpcClient = new RPCClientImpl(new RpcTarget("11.165.223.199:9876"));
+        List<Address> addresses = new ArrayList<Address>();
+        addresses.add(new Address("11.165.223.199", 9876));
+        final Endpoints endpoints = new Endpoints(Schema.IPv4, addresses);
+        final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, true, false));
 
         Resource topicResource = Resource.newBuilder().setName("yc001").build();
 
@@ -32,7 +37,10 @@ public class RPCClientImplTest {
 
     @Test
     public void testSendMessage() throws UnsupportedEncodingException {
-        final RPCClientImpl rpcClient = new RPCClientImpl(new RpcTarget("11.158.159.57:8081"));
+        List<Address> addresses = new ArrayList<Address>();
+        addresses.add(new Address("11.158.159.57", 8081));
+        final Endpoints endpoints = new Endpoints(Schema.IPv4, addresses);
+        final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, false, true));
         rpcClient.setAccessCredential(new AccessCredential("LTAInDOvOPEkCj67", "UniBnf6GKgUS1Y5l3Ce0rmgQhhKyZd"));
 
         rpcClient.setArn("MQ_INST_1973281269661160_BXmPlOA6");
@@ -53,7 +61,10 @@ public class RPCClientImplTest {
 
     @Test
     public void testQueryAssignment() {
-        final RPCClientImpl rpcClient = new RPCClientImpl(new RpcTarget("11.158.159.57:8081"));
+        List<Address> addresses = new ArrayList<Address>();
+        addresses.add(new Address("11.158.159.57", 8081));
+        final Endpoints endpoints = new Endpoints(Schema.IPv4, addresses);
+        final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, false, true));
         rpcClient.setAccessCredential(new AccessCredential("LTAInDOvOPEkCj67", "UniBnf6GKgUS1Y5l3Ce0rmgQhhKyZd"));
         rpcClient.setTenantId("");
         rpcClient.setArn("MQ_INST_1973281269661160_BXmPlOA6");

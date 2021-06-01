@@ -31,6 +31,7 @@ import org.apache.rocketmq.client.impl.ClientInstance;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
+import org.apache.rocketmq.client.remoting.RpcTarget;
 
 @Slf4j
 public class ProcessQueue {
@@ -165,7 +166,7 @@ public class ProcessQueue {
                         popStatus,
                         messageQueue.simpleName(),
                         msgFoundList.size());
-                prepareNextPop(popResult.getTermId(), popResult.getTarget());
+                prepareNextPop();
                 break;
             default:
                 log.warn(
@@ -174,16 +175,12 @@ public class ProcessQueue {
                         popStatus,
                         messageQueue.simpleName(),
                         msgFoundList.size());
-                prepareNextPop(popResult.getTermId(), popResult.getTarget());
+                prepareNextPop();
         }
     }
 
     @VisibleForTesting
-    public void prepareNextPop(long currentTermId, String target) {
-        //        if (!leaseNextTerm(currentTermId, target)) {
-        //            log.debug("No need to prepare for next pop, mq={}", messageQueue.simpleName());
-        //            return;
-        //        }
+    public void prepareNextPop() {
         if (this.isDropped()) {
             log.debug("Process queue has been dropped, mq={}.", messageQueue.simpleName());
             return;
@@ -240,7 +237,7 @@ public class ProcessQueue {
         // TODO: check message is expired or not.
         final AckMessageRequest request = wrapAckMessageRequest(messageExt);
         final ClientInstance clientInstance = consumerImpl.getClientInstance();
-        final String target = messageExt.getTargetEndpoint();
+        final RpcTarget target = messageExt.getAckRpcTarget();
         if (consumerImpl.getDefaultMQPushConsumer().isAckMessageAsync()) {
             clientInstance.ackMessageAsync(target, request);
             return;
@@ -251,14 +248,14 @@ public class ProcessQueue {
     public void negativeAckMessage(MessageExt messageExt) throws MQClientException {
         final NackMessageRequest request = wrapNackMessageRequest(messageExt);
         final ClientInstance clientInstance = consumerImpl.getClientInstance();
-        final String target = messageExt.getTargetEndpoint();
+        final RpcTarget target = messageExt.getAckRpcTarget();
         clientInstance.nackMessage(target, request);
     }
 
     public void popMessage() {
         try {
             final ClientInstance clientInstance = consumerImpl.getClientInstance();
-            final String target = messageQueue.getPartition().getTarget();
+            final RpcTarget target = messageQueue.getPartition().getRpcTarget();
             final ReceiveMessageRequest request = wrapPopMessageRequest();
 
             lastPopTimestamp = System.currentTimeMillis();

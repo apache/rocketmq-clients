@@ -20,7 +20,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
-public interface RPCClient {
+public interface RpcClient {
     void shutdown();
 
     void setArn(String arn);
@@ -34,10 +34,6 @@ public interface RPCClient {
     void setAccessCredential(AccessCredential accessCredential);
 
     AccessCredential getAccessCredential();
-
-    void setIsolated(boolean isolated);
-
-    boolean isIsolated();
 
     SendMessageResponse sendMessage(SendMessageRequest request, long duration, TimeUnit unit);
 

@@ -43,13 +43,9 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
@@ -67,26 +63,23 @@ import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.message.protocol.TransactionPhase;
-import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.misc.TopAddressing;
 import org.apache.rocketmq.client.producer.SendCallback;
+import org.apache.rocketmq.client.producer.SendMessageResponseCallback;
 import org.apache.rocketmq.client.producer.SendResult;
-import org.apache.rocketmq.client.remoting.RPCClient;
-import org.apache.rocketmq.client.remoting.RPCClientImpl;
+import org.apache.rocketmq.client.remoting.Endpoints;
+import org.apache.rocketmq.client.remoting.RpcClient;
+import org.apache.rocketmq.client.remoting.RpcClientImpl;
 import org.apache.rocketmq.client.remoting.RpcTarget;
-import org.apache.rocketmq.client.remoting.SendMessageResponseCallback;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.apache.rocketmq.utility.UtilAll;
 
 @Slf4j
 public class ClientInstance {
-    private static final int MAX_ASYNC_QUEUE_TASK_NUM = 1024;
-    private static final AtomicInteger nameServerIndex = new AtomicInteger(0);
-
     private static final long RPC_DEFAULT_TIMEOUT_MILLIS = 3 * 1000;
     /**
-     * Usage of {@link RPCClientImpl#queryRoute(QueryRouteRequest, long, TimeUnit)} are
+     * Usage of {@link RpcClientImpl#queryRoute(QueryRouteRequest, long, TimeUnit)} are
      * usually invokes the first call of gRPC, which need warm up in most case.
      */
     private static final long FETCH_TOPIC_ROUTE_INFO_TIMEOUT_MILLIS = 15 * 1000;
@@ -95,20 +88,18 @@ public class ClientInstance {
     @Setter
     private String tenantId = "";
 
+    private final ConcurrentMap<RpcTarget, RpcClient> clientTable;
+
     @Getter
-    private final ScheduledExecutorService scheduler =
-            new ScheduledThreadPoolExecutor(4, new ThreadFactoryImpl("ClientInstanceScheduler_"));
-
-    private final ConcurrentMap<MqRpcTarget, RPCClient> clientTable;
-
-    private final ThreadPoolExecutor callbackExecutor;
-    private final Semaphore callbackSemaphore;
-
+    private final ScheduledExecutorService scheduler;
+    /**
+     * Public executor for all async rpc, <strong>should never submit heavy task.</strong>
+     */
+    private final ThreadPoolExecutor asyncRpcExecutor;
+    @Setter
     private ThreadPoolExecutor sendCallbackExecutor;
-    private Semaphore sendCallbackSemaphore;
 
-    private final List<String> nameServerList;
-    private final ReadWriteLock nameServerLock;
+    private Endpoints nameServerEndpoints = null;
 
     private final TopAddressing topAddressing;
 
@@ -119,25 +110,30 @@ public class ClientInstance {
 
     private final AtomicReference<ServiceState> state;
 
-
-    public ClientInstance(ClientInstanceConfig clientInstanceConfig, List<String> nameServerList) {
+    public ClientInstance(ClientInstanceConfig clientInstanceConfig, Endpoints nameServerEndpointsList) {
         this.clientInstanceConfig = clientInstanceConfig;
-        this.clientTable = new ConcurrentHashMap<MqRpcTarget, RPCClient>();
-        this.callbackExecutor =
+        this.clientTable = new ConcurrentHashMap<RpcTarget, RpcClient>();
+
+        this.scheduler =
+                new ScheduledThreadPoolExecutor(4, new ThreadFactoryImpl("ClientInstanceScheduler_"));
+
+        this.asyncRpcExecutor =
                 new ThreadPoolExecutor(
                         Runtime.getRuntime().availableProcessors(),
                         Runtime.getRuntime().availableProcessors(),
                         60,
                         TimeUnit.SECONDS,
-                        new LinkedBlockingQueue<Runnable>(MAX_ASYNC_QUEUE_TASK_NUM),
-                        new ThreadFactoryImpl("ClientCallbackThread_"));
-        this.callbackSemaphore = new Semaphore(UtilAll.getThreadParallelCount(callbackExecutor));
+                        new LinkedBlockingQueue<Runnable>(),
+                        new ThreadFactoryImpl("AsyncRpcThread_"));
 
-        this.sendCallbackExecutor = null;
-        this.sendCallbackSemaphore = null;
+        this.sendCallbackExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
+                                                           Runtime.getRuntime().availableProcessors(),
+                                                           60,
+                                                           TimeUnit.SECONDS,
+                                                           new LinkedBlockingQueue<Runnable>(),
+                                                           new ThreadFactoryImpl("SendCallbackThread_"));
 
-        this.nameServerList = nameServerList;
-        this.nameServerLock = new ReentrantReadWriteLock();
+        this.nameServerEndpoints = nameServerEndpointsList;
 
         this.topAddressing = new TopAddressing();
 
@@ -149,15 +145,8 @@ public class ClientInstance {
         this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
     }
 
-    public void setSendCallbackExecutor(ThreadPoolExecutor sendCallbackExecutor) {
-        this.sendCallbackExecutor = sendCallbackExecutor;
-        this.sendCallbackSemaphore =
-                new Semaphore(UtilAll.getThreadParallelCount(sendCallbackExecutor));
-    }
-
     private void updateNameServerListFromTopAddressing() throws IOException {
-        final List<String> nameServerList = topAddressing.fetchNameServerAddresses();
-        this.setNameServerList(nameServerList);
+        this.nameServerEndpoints = topAddressing.fetchNameServerAddresses();
     }
 
     public synchronized void start() throws MQClientException {
@@ -308,7 +297,7 @@ public class ClientInstance {
         final ServiceState serviceState = state.get();
         if (ServiceState.STOPPING == serviceState) {
             scheduler.shutdown();
-            callbackExecutor.shutdown();
+            asyncRpcExecutor.shutdown();
             if (state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED)) {
                 log.info("Shutdown ClientInstance successfully");
                 return;
@@ -352,16 +341,16 @@ public class ClientInstance {
 
         final HeartbeatRequest request = builder.build();
 
-        Set<MqRpcTarget> filteredTarget = new HashSet<MqRpcTarget>();
-        for (MqRpcTarget rpcTarget : clientTable.keySet()) {
-            if (!rpcTarget.needHeartbeat) {
+        Set<RpcTarget> filteredTarget = new HashSet<RpcTarget>();
+        for (RpcTarget rpcTarget : clientTable.keySet()) {
+            if (!rpcTarget.isNeedHeartbeat()) {
                 return;
             }
             filteredTarget.add(rpcTarget);
         }
 
-        for (MqRpcTarget rpcTarget : filteredTarget) {
-            final RPCClient rpcClient = clientTable.get(rpcTarget);
+        for (RpcTarget rpcTarget : filteredTarget) {
+            final RpcClient rpcClient = clientTable.get(rpcTarget);
             if (null == rpcClient) {
                 continue;
             }
@@ -369,12 +358,12 @@ public class ClientInstance {
                     rpcClient.heartbeat(request, RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
             final Status status = response.getCommon().getStatus();
             final Code code = Code.forNumber(status.getCode());
-            final String target = rpcTarget.getTarget();
+            final Endpoints endpoints = rpcTarget.getEndpoints();
             if (Code.OK != code) {
-                log.warn("Failed to send heartbeat to target, responseCode={}, target={}", code, target);
+                log.warn("Failed to send heartbeat to target, responseCode={}, endpoints={}", code, endpoints);
                 continue;
             }
-            log.debug("Send heartbeat to target successfully, target={}", target);
+            log.debug("Send heartbeat to target successfully, endpoints={}", endpoints);
         }
     }
 
@@ -385,13 +374,13 @@ public class ClientInstance {
             return;
         }
 
-        for (Map.Entry<MqRpcTarget, RPCClient> entry : clientTable.entrySet()) {
-            final MqRpcTarget rpcTarget = entry.getKey();
-            final RPCClient rpcClient = entry.getValue();
-            if (!rpcClient.isIsolated()) {
+        for (Map.Entry<RpcTarget, RpcClient> entry : clientTable.entrySet()) {
+            final RpcTarget rpcTarget = entry.getKey();
+            final RpcClient rpcClient = entry.getValue();
+            if (!rpcTarget.isIsolated()) {
                 continue;
             }
-            final String target = rpcTarget.getTarget();
+            final String target = rpcTarget.getEndpoints().getTarget();
             final HealthCheckRequest request =
                     HealthCheckRequest.newBuilder().setClientHost(target).build();
             final HealthCheckResponse response =
@@ -414,42 +403,25 @@ public class ClientInstance {
             return;
         }
 
-        Set<String> currentEndpoints = new HashSet<String>();
-        nameServerLock.readLock().lock();
-        try {
-            currentEndpoints.addAll(nameServerList);
-        } finally {
-            nameServerLock.readLock().unlock();
-        }
-        for (TopicRouteData topicRouteData : topicRouteTable.values()) {
-            final Set<String> endpoints = topicRouteData.getAllEndpoints();
-            currentEndpoints.addAll(endpoints);
+        Set<Endpoints> currentEndpointsSet = new HashSet<Endpoints>();
+        if (null != nameServerEndpoints) {
+            currentEndpointsSet.add(nameServerEndpoints);
         }
 
-        for (MqRpcTarget rpcTarget : clientTable.keySet()) {
-            if (!currentEndpoints.contains(rpcTarget.getTarget())) {
+        for (TopicRouteData topicRouteData : topicRouteTable.values()) {
+            final Set<Endpoints> endpoints = topicRouteData.getAllEndpoints();
+            currentEndpointsSet.addAll(endpoints);
+        }
+
+        for (RpcTarget rpcTarget : clientTable.keySet()) {
+            if (!currentEndpointsSet.contains(rpcTarget.getEndpoints())) {
                 clientTable.remove(rpcTarget);
             }
         }
     }
 
-    private void setNameServerList(List<String> nameServerList) {
-        nameServerLock.writeLock().lock();
-        try {
-            this.nameServerList.clear();
-            this.nameServerList.addAll(nameServerList);
-        } finally {
-            nameServerLock.writeLock().unlock();
-        }
-    }
-
     public boolean nameServerListIsEmpty() {
-        nameServerLock.readLock().lock();
-        try {
-            return nameServerList.isEmpty();
-        } finally {
-            nameServerLock.readLock().unlock();
-        }
+        return null == nameServerEndpoints;
     }
 
     /**
@@ -560,9 +532,6 @@ public class ClientInstance {
         consumerObserverTable.remove(consumerGroup);
     }
 
-    private RPCClient getRPCClient(String target) {
-        return getRPCClient(target, true);
-    }
 
     /**
      * Get rpc client by remote address, would create client automatically if it does not exist.
@@ -570,120 +539,94 @@ public class ClientInstance {
      * @param target remote address.
      * @return rpc client.
      */
-    private RPCClient getRPCClient(String target, boolean needHeartbeat) {
-        final MqRpcTarget rpcTarget = new MqRpcTarget(target, needHeartbeat);
-
-        RPCClient rpcClient = clientTable.get(rpcTarget);
+    private RpcClient getRPCClient(RpcTarget target) {
+        RpcClient rpcClient = clientTable.get(target);
         if (null != rpcClient) {
             return rpcClient;
         }
 
-        rpcClient = new RPCClientImpl(rpcTarget);
+        rpcClient = new RpcClientImpl(target);
         rpcClient.setArn(clientInstanceConfig.getArn());
         rpcClient.setTenantId(tenantId);
         rpcClient.setAccessCredential(clientInstanceConfig.getAccessCredential());
-        clientTable.put(rpcTarget, rpcClient);
+        clientTable.put(target, rpcClient);
 
         return rpcClient;
     }
 
-    /**
-     * Mark the remote address as isolated or not.
-     *
-     * @param target   remote address.
-     * @param isolated is isolated or not.
-     */
-    public void setTargetIsolated(String target, boolean isolated) {
-        final RPCClient client = clientTable.get(new MqRpcTarget(target, true));
-        if (null != client) {
-            client.setIsolated(isolated);
-        }
-    }
 
-    public Set<String> getAvailableTargets() {
-        Set<String> targetSet = new HashSet<String>();
-        for (RpcTarget rpcTarget : clientTable.keySet()) {
-            if (rpcTarget.isIsolated()) {
-                continue;
-            }
-            targetSet.add(rpcTarget.getTarget());
-        }
-        return targetSet;
-    }
-
-    public Set<String> getIsolatedTargets() {
-        Set<String> targetSet = new HashSet<String>();
+    public Set<RpcTarget> getIsolatedTargets() {
+        Set<RpcTarget> targetSet = new HashSet<RpcTarget>();
         for (RpcTarget rpcTarget : clientTable.keySet()) {
             if (!rpcTarget.isIsolated()) {
                 continue;
             }
-            targetSet.add(rpcTarget.getTarget());
+            targetSet.add(rpcTarget);
         }
         return targetSet;
     }
 
-    public boolean isTargetIsolated(String target) {
-        return getIsolatedTargets().contains(target);
-    }
-
     SendMessageResponse send(
-            String target, SendMessageRequest request, long duration, TimeUnit unit) {
-        RPCClient rpcClient = this.getRPCClient(target);
+            RpcTarget target, SendMessageRequest request, long duration, TimeUnit unit) {
+        RpcClient rpcClient = this.getRPCClient(target);
         return rpcClient.sendMessage(request, duration, unit);
     }
 
     void sendAsync(
-            String target,
+            RpcTarget target,
             SendMessageRequest request,
-            SendCallback sendCallback,
+            final SendCallback sendCallback,
             long duration,
             TimeUnit unit) {
         final SendMessageResponseCallback callback =
                 new SendMessageResponseCallback(request, state, sendCallback);
-
-        boolean customizedExecutor = null != sendCallbackExecutor && null != sendCallbackSemaphore;
-        final ThreadPoolExecutor executor =
-                customizedExecutor ? sendCallbackExecutor : callbackExecutor;
-        final Semaphore semaphore = customizedExecutor ? sendCallbackSemaphore : callbackSemaphore;
-
         try {
-            semaphore.acquire();
             final ListenableFuture<SendMessageResponse> future =
-                    getRPCClient(target).sendMessage(request, executor, duration, unit);
+                    getRPCClient(target).sendMessage(request, asyncRpcExecutor, duration, unit);
             Futures.addCallback(
                     future,
                     new FutureCallback<SendMessageResponse>() {
                         @Override
-                        public void onSuccess(@Nullable SendMessageResponse response) {
+                        public void onSuccess(@Nullable final SendMessageResponse response) {
                             try {
-                                callback.onSuccess(response);
-                            } finally {
-                                semaphore.release();
+                                sendCallbackExecutor.submit(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        callback.onSuccess(response);
+                                    }
+                                });
+                            } catch (Throwable t) {
+                                log.error("Failed to submit task for handling async-send message response.", t);
                             }
                         }
 
                         @Override
-                        public void onFailure(Throwable t) {
+                        public void onFailure(Throwable t1) {
                             try {
-                                callback.onException(t);
-                            } finally {
-                                semaphore.release();
+                                callback.onException(t1);
+                            } catch (Throwable t2) {
+                                log.error("Failed to submit task for handing async-send message throwable.", t2);
                             }
                         }
                     },
                     MoreExecutors.directExecutor());
 
-        } catch (Throwable t) {
+        } catch (final Throwable t) {
             try {
-                callback.onException(t);
-            } finally {
-                semaphore.release();
+                sendCallbackExecutor.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        callback.onException(t);
+                    }
+                });
+            } catch (Throwable t1) {
+                log.error("Exception occurs while sending message asynchronously", t1);
             }
         }
     }
 
     public SendMessageResponse sendClientAPI(
-            String target,
+            RpcTarget target,
             CommunicationMode mode,
             SendMessageRequest request,
             SendCallback sendCallback,
@@ -703,9 +646,9 @@ public class ClientInstance {
     }
 
     public ListenableFuture<PopResult> receiveMessageAsync(
-            final String target, final ReceiveMessageRequest request, long duration, TimeUnit unit) {
+            final RpcTarget target, final ReceiveMessageRequest request, long duration, TimeUnit unit) {
         final ListenableFuture<ReceiveMessageResponse> future =
-                getRPCClient(target).receiveMessage(request, callbackExecutor, duration, unit);
+                getRPCClient(target).receiveMessage(request, asyncRpcExecutor, duration, unit);
         return Futures.transform(
                 future,
                 new Function<ReceiveMessageResponse, PopResult>() {
@@ -716,7 +659,7 @@ public class ClientInstance {
                 });
     }
 
-    public void ackMessage(final String target, final AckMessageRequest request)
+    public void ackMessage(final RpcTarget target, final AckMessageRequest request)
             throws MQClientException {
         final AckMessageResponse response =
                 getRPCClient(target).ackMessage(request, RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
@@ -728,11 +671,11 @@ public class ClientInstance {
         }
     }
 
-    public void ackMessageAsync(final String target, final AckMessageRequest request) {
+    public void ackMessageAsync(final RpcTarget target, final AckMessageRequest request) {
         final ListenableFuture<AckMessageResponse> future =
                 getRPCClient(target)
                         .ackMessage(
-                                request, callbackExecutor, RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+                                request, asyncRpcExecutor, RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
         Futures.addCallback(
                 future,
                 new FutureCallback<AckMessageResponse>() {
@@ -750,7 +693,7 @@ public class ClientInstance {
                 });
     }
 
-    public void nackMessage(final String target, final NackMessageRequest request)
+    public void nackMessage(final RpcTarget target, final NackMessageRequest request)
             throws MQClientException {
         final NackMessageResponse response =
                 getRPCClient(target)
@@ -763,39 +706,19 @@ public class ClientInstance {
         }
     }
 
-    private String selectNameServer(boolean roundRobin) throws MQClientException {
-        nameServerLock.readLock().lock();
-        try {
-            int size = nameServerList.size();
-            if (size <= 0) {
-                throw new MQClientException("No name server is available");
-            }
-            int index = roundRobin ? nameServerIndex.getAndIncrement() : nameServerIndex.get();
-
-            return nameServerList.get(index % size);
-        } finally {
-            nameServerLock.readLock().unlock();
+    private QueryRouteResponse queryRoute(QueryRouteRequest request) throws MQClientException {
+        if (null == nameServerEndpoints) {
+            log.error("No name server endpoints found, topic={}", request.getTopic());
+            throw new MQClientException("No name server endpoints found.");
         }
-    }
-
-    private int getNameServerNum() {
-        nameServerLock.readLock().lock();
-        try {
-            return nameServerList.size();
-        } finally {
-            nameServerLock.readLock().unlock();
-        }
-    }
-
-    private QueryRouteResponse queryRoute(String target, QueryRouteRequest request) {
-        RPCClient rpcClient = this.getRPCClient(target, false);
+        final RpcClient rpcClient = this.getRPCClient(new RpcTarget(nameServerEndpoints, true, false));
         return rpcClient.queryRoute(
                 request, FETCH_TOPIC_ROUTE_INFO_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
     }
 
-    public TopicAssignmentInfo queryLoadAssignment(String target, QueryAssignmentRequest request)
+    public TopicAssignmentInfo queryLoadAssignment(RpcTarget target, QueryAssignmentRequest request)
             throws MQServerException {
-        final RPCClient rpcClient = this.getRPCClient(target);
+        final RpcClient rpcClient = this.getRPCClient(target);
         QueryAssignmentResponse response = rpcClient.queryAssignment(request, RPC_DEFAULT_TIMEOUT_MILLIS,
                                                                      TimeUnit.MILLISECONDS);
         final Status status = response.getCommon().getStatus();
@@ -817,38 +740,30 @@ public class ClientInstance {
      *                           e.g. topic does not exist.
      */
     private TopicRouteData fetchTopicRouteData(String topic) throws MQClientException {
-        int retryTimes = getNameServerNum();
         Resource topicResource = Resource.newBuilder().setArn(clientInstanceConfig.getArn()).setName(topic).build();
-        boolean roundRobin = false;
-        for (int time = 1; time <= retryTimes; time++) {
-            final QueryRouteRequest request =
-                    QueryRouteRequest.newBuilder().setTopic(topicResource).build();
-
-            String target = selectNameServer(roundRobin);
-            QueryRouteResponse response = queryRoute(target, request);
-            final Status status = response.getCommon().getStatus();
-            final Code code = Code.forNumber(status.getCode());
-            if (Code.OK != code) {
-                log.warn(
-                        "Failed to fetch topic route, topic={}, time={}, responseCode={}, nameServerAddress={}",
-                        topic, time, code, target);
-                roundRobin = true;
-                continue;
-            }
-            log.debug("Fetch topic route successfully, topic={}, time={}, nameServerAddress={} ", topic, time, target);
-
-            final List<Partition> partitionsList = response.getPartitionsList();
-
-            if (partitionsList.isEmpty()) {
-                log.warn(
-                        "Topic route is empty unexpectedly , topic={}, time={}, nameServerAddress={}",
-                        topic, time, target);
-                throw new MQClientException("Topic does not exist.");
-            }
-            return new TopicRouteData(partitionsList);
+        if (null == nameServerEndpoints) {
+            log.error("No name server endpoints found, topic={}", topic);
+            throw new MQClientException("No name server endpoints found");
         }
-        log.error("Failed to fetch topic route finally, topic={}", topic);
-        throw new MQClientException("Failed to fetch topic route.");
+        final QueryRouteRequest request =
+                QueryRouteRequest.newBuilder().setTopic(topicResource).build();
+        final QueryRouteResponse response = queryRoute(request);
+        final Status status = response.getCommon().getStatus();
+        final Code code = Code.forNumber(status.getCode());
+        if (Code.OK != code) {
+            log.error(
+                    "Failed to fetch topic route, topic={}, responseCode={}, name server endpoints={}",
+                    topic, code, nameServerEndpoints);
+            throw new MQClientException("Failed to fetch topic route");
+        }
+        final List<Partition> partitionsList = response.getPartitionsList();
+        if (partitionsList.isEmpty()) {
+            log.warn(
+                    "Topic route is empty unexpectedly , topic={}, name server endpoints={}",
+                    topic, nameServerEndpoints);
+            throw new MQClientException("Topic does not exist.");
+        }
+        return new TopicRouteData(partitionsList);
     }
 
     /**
@@ -870,22 +785,6 @@ public class ClientInstance {
         return topicRouteTable.get(topic);
     }
 
-    public String resolveEndpoint(String topic, String brokerName) throws MQClientException {
-        final TopicRouteData topicRouteInfo = getTopicRouteInfo(topic);
-        final List<org.apache.rocketmq.client.route.Partition> partitions = topicRouteInfo.getPartitions();
-        for (org.apache.rocketmq.client.route.Partition partition : partitions) {
-            if (!partition.getBrokerName().equals(brokerName)) {
-                continue;
-            }
-            if (MixAll.MASTER_BROKER_ID != partition.getBrokerId()) {
-                continue;
-            }
-            return partition.getTarget();
-        }
-        log.error("Failed to resolve endpoint, brokerName does not exist, topic={}, brokerName={}", topic, brokerName);
-        throw new MQClientException("Failed to resolve master node from brokerName.");
-    }
-
     public static SendResult processSendResponse(SendMessageResponse response)
             throws MQServerException {
         final Status status = response.getCommon().getStatus();
@@ -901,7 +800,7 @@ public class ClientInstance {
     }
 
     // TODO: handle the case that the topic does not exist.
-    public static PopResult processReceiveMessageResponse(String target, ReceiveMessageResponse response) {
+    public static PopResult processReceiveMessageResponse(RpcTarget target, ReceiveMessageResponse response) {
         PopStatus popStatus;
 
         final Status status = response.getCommon().getStatus();
@@ -935,7 +834,7 @@ public class ClientInstance {
                     MessageImpl impl = new MessageImpl(msg.getTopic().getName());
                     final SystemAttribute systemAttribute = msg.getSystemAttribute();
                     // Target
-                    impl.getSystemAttribute().setTargetEndpoint(target);
+                    impl.getSystemAttribute().setAckRpcTarget(target);
                     // Tag
                     impl.getSystemAttribute().setTag(systemAttribute.getTag());
                     // Key
@@ -988,7 +887,7 @@ public class ClientInstance {
 
                     switch (systemAttribute.getBodyEncoding()) {
                         case GZIP:
-                            body = UtilAll.uncompressByteArray(body);
+                            body = UtilAll.uncompressBytesGzip(body);
                             break;
                         case SNAPPY:
                             log.warn("SNAPPY encoding algorithm is not supported.");
@@ -1101,24 +1000,5 @@ public class ClientInstance {
                 Timestamps.toMillis(response.getDeliveryTimestamp()),
                 Durations.toMillis(response.getInvisibleDuration()),
                 msgFoundList);
-    }
-
-    static class MqRpcTarget extends RpcTarget {
-        private final boolean needHeartbeat;
-
-        public MqRpcTarget(String target, boolean needHeartbeat) {
-            super(target);
-            this.needHeartbeat = needHeartbeat;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            return super.equals(o);
-        }
-
-        @Override
-        public int hashCode() {
-            return super.hashCode();
-        }
     }
 }

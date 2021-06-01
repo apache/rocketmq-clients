@@ -32,9 +32,9 @@ public class HeadersClientInterceptor implements ClientInterceptor {
     private static final String SIGNATURE_KEY = "Signature";
     private static final String DATE_TIME_FORMAT = "yyyyMMdd'T'HHmmss'Z'";
 
-    private final RPCClient rpcClient;
+    private final RpcClient rpcClient;
 
-    public HeadersClientInterceptor(RPCClient rpcClient) {
+    public HeadersClientInterceptor(RpcClient rpcClient) {
         this.rpcClient = rpcClient;
     }
 

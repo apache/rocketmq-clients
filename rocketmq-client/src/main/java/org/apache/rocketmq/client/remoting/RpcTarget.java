@@ -1,37 +1,28 @@
 package org.apache.rocketmq.client.remoting;
 
-import com.google.common.base.Objects;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
 @Getter
+@ToString
+@EqualsAndHashCode
 public class RpcTarget {
 
-    private final String target;
-    private volatile boolean isolated;
+    private final Endpoints endpoints;
 
-    public RpcTarget(String target) {
-        this.target = target;
-        this.isolated = false;
-    }
+    @EqualsAndHashCode.Exclude
+    private final boolean autoRetryEnabled;
+    @EqualsAndHashCode.Exclude
+    private final boolean needHeartbeat;
+    @Setter
+    @EqualsAndHashCode.Exclude
+    private volatile boolean isolated = false;
 
-    public void setIsolated(boolean isolated) {
-        this.isolated = isolated;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        RpcTarget that = (RpcTarget) o;
-        return Objects.equal(target, that.target);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(target);
+    public RpcTarget(Endpoints endpoints, boolean autoRetryEnabled, boolean needHeartbeat) {
+        this.endpoints = endpoints;
+        this.autoRetryEnabled = autoRetryEnabled;
+        this.needHeartbeat = needHeartbeat;
     }
 }

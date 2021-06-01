@@ -1,13 +1,14 @@
 package org.apache.rocketmq.client.route;
 
-import apache.rocketmq.v1.Address;
-import apache.rocketmq.v1.Endpoints;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 import org.apache.rocketmq.client.constant.Permission;
+import org.apache.rocketmq.client.remoting.Address;
+import org.apache.rocketmq.client.remoting.Endpoints;
+import org.apache.rocketmq.client.remoting.RpcTarget;
 
 @Getter
 @ToString
@@ -20,8 +21,8 @@ public class Partition {
 
     private final String brokerName;
     private final int brokerId;
-    private final String target;
-    private final List<String> endpoints;
+
+    private final RpcTarget rpcTarget;
 
     public Partition(apache.rocketmq.v1.Partition partition) {
 
@@ -47,28 +48,27 @@ public class Partition {
 
         this.brokerName = partition.getBroker().getName();
         this.brokerId = partition.getBroker().getId();
-        this.endpoints = new ArrayList<String>();
 
-        final Endpoints endpoints = partition.getBroker().getEndpoints();
+        final apache.rocketmq.v1.Endpoints endpoints = partition.getBroker().getEndpoints();
         final apache.rocketmq.v1.Schema schema = endpoints.getSchema();
-        StringBuilder targetBuilder = new StringBuilder();
+        Schema targetSchema;
+
         switch (schema) {
             case IPv4:
-                targetBuilder.append(Schema.IPV4.getPrefix());
+                targetSchema = Schema.IPv4;
                 break;
             case IPv6:
-                targetBuilder.append(Schema.IPV6.getPrefix());
+                targetSchema = Schema.IPv6;
                 break;
             case DOMAIN_NAME:
             default:
-                targetBuilder.append(Schema.DOMAIN.getPrefix());
-                break;
+                targetSchema = Schema.DOMAIN_NAME;
         }
-        for (Address address : endpoints.getAddressesList()) {
-            targetBuilder.append(address.getHost());
-            targetBuilder.append(":");
-            targetBuilder.append(address.getPort());
+        List<Address> addresses = new ArrayList<Address>();
+        for (apache.rocketmq.v1.Address address : endpoints.getAddressesList()) {
+            addresses.add(new Address(address));
         }
-        this.target = targetBuilder.toString();
+
+        this.rpcTarget = new RpcTarget(new Endpoints(targetSchema, addresses), false, true);
     }
 }

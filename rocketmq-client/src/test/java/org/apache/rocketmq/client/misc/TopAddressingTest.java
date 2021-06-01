@@ -2,6 +2,7 @@ package org.apache.rocketmq.client.misc;
 
 import java.io.IOException;
 import java.util.List;
+import org.apache.rocketmq.client.remoting.Endpoints;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -21,7 +22,7 @@ public class TopAddressingTest {
 
     @Test
     public void testFetchNameServerAddresses() throws IOException {
-        final List<String> nameServerAddresses = topAddressing.fetchNameServerAddresses();
-        Assert.assertFalse(nameServerAddresses.isEmpty());
+        final Endpoints endpoints = topAddressing.fetchNameServerAddresses();
+        Assert.assertNotNull(endpoints);
     }
 }

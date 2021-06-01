@@ -4,7 +4,6 @@ import java.nio.ByteBuffer;
 import java.util.Calendar;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.client.message.protocol.SystemAttribute;
 import org.apache.rocketmq.utility.UtilAll;
 
 @Slf4j
@@ -72,20 +71,5 @@ public class MessageIdUtils {
         byte[] fakeIP = new byte[4];
         bb.get(fakeIP);
         return fakeIP;
-    }
-
-    public static void setMessageId(final Message message) {
-        final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
-        final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
-        final String messageId = systemAttribute.getMessageId();
-        if (null == messageId) {
-            systemAttribute.setMessageId(createUniqID());
-        }
-    }
-
-    // TODO: Maybe messageId does not exist here.
-    public static String getMessageId(final Message message) {
-        final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
-        return messageImpl.getSystemAttribute().getMessageId();
     }
 }

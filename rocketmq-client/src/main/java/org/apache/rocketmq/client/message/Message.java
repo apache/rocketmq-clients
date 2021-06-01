@@ -4,10 +4,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import lombok.EqualsAndHashCode;
+import lombok.ToString;
 import org.apache.commons.lang3.StringUtils;
 
 
 @EqualsAndHashCode
+@ToString
 public class Message {
     final MessageImpl impl;
 

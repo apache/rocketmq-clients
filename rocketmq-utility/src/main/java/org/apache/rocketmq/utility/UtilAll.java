@@ -4,6 +4,8 @@ import com.sun.jna.platform.win32.Kernel32;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.lang.management.RuntimeMXBean;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -16,27 +18,40 @@ import java.util.zip.CRC32;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
 import javax.xml.bind.DatatypeConverter;
+import org.apache.commons.lang3.SystemUtils;
 
 public class UtilAll {
 
-    private static final String OS_NAME = System.getProperty("os.name");
     private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
 
     private static byte[] IPV4_ADDRESS = null;
-    private static int PROCESS_ID = -1;
+
+    private static final int PROCESS_ID_NOT_SET = -1;
+    private static final int PROCESS_ID_NOT_FOUND = -2;
+    private static int PROCESS_ID = PROCESS_ID_NOT_SET;
 
     private UtilAll() {
     }
 
     public static int processId() {
-        if (PROCESS_ID > 0) {
+        if (PROCESS_ID != PROCESS_ID_NOT_SET) {
             return PROCESS_ID;
         }
-        // For windows.
-        if (OS_NAME.toLowerCase().contains("windows")) {
+        if (SystemUtils.IS_OS_WINDOWS) {
             PROCESS_ID = Kernel32.INSTANCE.GetCurrentProcessId();
-        } else {
+            return PROCESS_ID;
+        }
+        if (SystemUtils.IS_OS_LINUX || SystemUtils.IS_OS_MAC) {
             PROCESS_ID = CLibrary.INSTANCE.getpid();
+            return PROCESS_ID;
+        }
+        RuntimeMXBean runtime = ManagementFactory.getRuntimeMXBean();
+        // format: "pid@hostname"
+        String name = runtime.getName();
+        try {
+            PROCESS_ID = Integer.parseInt(name.substring(0, name.indexOf('@')));
+        } catch (Throwable ignore) {
+            PROCESS_ID = PROCESS_ID_NOT_FOUND;
         }
         return PROCESS_ID;
     }
@@ -137,7 +152,7 @@ public class UtilAll {
         return executor.getMaximumPoolSize() + executor.getQueue().remainingCapacity();
     }
 
-    public static byte[] compressByteArray(final byte[] src, final int level) throws IOException {
+    public static byte[] compressBytesGzip(final byte[] src, final int level) throws IOException {
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(src.length);
         java.util.zip.Deflater defeater = new java.util.zip.Deflater(level);
         DeflaterOutputStream deflaterOutputStream =
@@ -158,7 +173,7 @@ public class UtilAll {
         }
     }
 
-    public static byte[] uncompressByteArray(final byte[] src) throws IOException {
+    public static byte[] uncompressBytesGzip(final byte[] src) throws IOException {
         byte[] uncompressData = new byte[src.length];
 
         ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(src);
@@ -190,10 +205,6 @@ public class UtilAll {
                 // Exception not expected here.
             }
         }
-    }
-
-    public static SocketAddress host2SocketAddress(String host) {
-        return null;
     }
 
     public static String getCrc32CheckSum(byte[] array) {
