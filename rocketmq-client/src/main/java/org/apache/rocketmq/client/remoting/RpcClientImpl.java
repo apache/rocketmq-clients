@@ -56,6 +56,7 @@ public class RpcClientImpl implements RpcClient {
 
     public RpcClientImpl(RpcTarget rpcTarget) {
         final SslContextBuilder builder = GrpcSslContexts.forClient();
+        // TODO: discard the insecure way.
         builder.trustManager(InsecureTrustManagerFactory.INSTANCE);
 
         SslContext sslContext = null;

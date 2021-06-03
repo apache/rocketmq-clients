@@ -1,6 +1,7 @@
 package org.apache.rocketmq.client.remoting;
 
 import com.google.common.base.Preconditions;
+import java.util.Collections;
 import java.util.List;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -30,6 +31,8 @@ public class Endpoints {
         if (addresses.isEmpty()) {
             throw new UnsupportedOperationException("No available address");
         }
+        // Shuffle addresses for grpc pick-first policy.
+        Collections.shuffle(addresses);
 
         this.schema = schema;
         this.addresses = addresses;

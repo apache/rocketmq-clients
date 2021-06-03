@@ -55,7 +55,6 @@ public class TopAddressing {
             final int port = Integer.parseInt(split[1]);
             addresses.add(new Address(host, port));
         }
-        Collections.shuffle(addresses);
         return new Endpoints(Schema.IPv4, addresses);
     }
 }

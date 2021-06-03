@@ -1,6 +1,7 @@
 package org.apache.rocketmq.client.route;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -68,7 +69,6 @@ public class Partition {
         for (apache.rocketmq.v1.Address address : endpoints.getAddressesList()) {
             addresses.add(new Address(address));
         }
-
         this.rpcTarget = new RpcTarget(new Endpoints(targetSchema, addresses), false, true);
     }
 }
