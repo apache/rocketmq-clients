@@ -71,6 +71,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
      * @throws MQClientException the mq client exception.
      */
     public void start() throws MQClientException {
+        log.info("Begin to start the rocketmq producer.");
         final String producerGroup = defaultMQProducer.getGroupName();
 
         if (!state.compareAndSet(ServiceState.CREATED, ServiceState.STARTING)) {
@@ -91,6 +92,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
 
         clientInstance.start();
         state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
+        log.info("rocketmq producer starts successfully.");
     }
 
     public void shutdown() throws MQClientException {

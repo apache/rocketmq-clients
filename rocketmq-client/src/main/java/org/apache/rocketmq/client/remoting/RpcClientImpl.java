@@ -91,8 +91,7 @@ public class RpcClientImpl implements RpcClient {
                     socketAddresses.add(new InetSocketAddress(address.getHost(), address.getPort()));
                 }
                 final IPNameResolverFactory ipNameResolverFactory = new IPNameResolverFactory(socketAddresses);
-                final NameResolverRegistry defaultRegistry = NameResolverRegistry.getDefaultRegistry();
-                defaultRegistry.register(ipNameResolverFactory);
+                channelBuilder.nameResolverFactory(ipNameResolverFactory);
         }
 
         this.channel = channelBuilder.build();

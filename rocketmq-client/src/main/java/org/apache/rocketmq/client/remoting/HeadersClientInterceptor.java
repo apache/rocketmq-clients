@@ -44,6 +44,9 @@ public class HeadersClientInterceptor implements ClientInterceptor {
             headers.put(Metadata.Key.of(TENANT_ID_KEY, Metadata.ASCII_STRING_MARSHALLER), tenantId);
         }
 
+        headers.put(Metadata.Key.of(MQ_LANGUAGE, Metadata.ASCII_STRING_MARSHALLER), "JAVA");
+        headers.put(Metadata.Key.of(REQUEST_ID_KEY, Metadata.ASCII_STRING_MARSHALLER), "JAVA");
+
         final String arn = rpcClient.getArn();
         if (StringUtils.isNotBlank(arn)) {
             headers.put(Metadata.Key.of(ARN_KEY, Metadata.ASCII_STRING_MARSHALLER), arn);
