@@ -146,6 +146,12 @@ public class RpcClientImpl implements RpcClient {
     }
 
     @Override
+    public ListenableFuture<NackMessageResponse> nackMessage(
+            NackMessageRequest request, Executor executor, long duration, TimeUnit unit) {
+        return futureStub.withExecutor(executor).withDeadlineAfter(duration, unit).nackMessage(request);
+    }
+
+    @Override
     public HeartbeatResponse heartbeat(HeartbeatRequest request, long duration, TimeUnit unit) {
         return blockingStub.withDeadlineAfter(duration, unit).heartbeat(request);
     }

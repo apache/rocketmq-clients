@@ -152,6 +152,11 @@ public class ClientInstance {
         this.nameServerEndpoints = topAddressing.fetchNameServerAddresses();
     }
 
+    /**
+     * Start the instance.
+     *
+     * @throws MQClientException
+     */
     public synchronized void start() throws MQClientException {
         if (ServiceState.STARTED == state.get()) {
             log.info("Client instance has been started before");
@@ -164,7 +169,7 @@ public class ClientInstance {
         }
 
         // Only for internal usage of Alibaba group.
-        if (nameServerListIsEmpty()) {
+        if (null == nameServerEndpoints) {
             try {
                 updateNameServerListFromTopAddressing();
             } catch (Throwable t) {
@@ -427,10 +432,6 @@ public class ClientInstance {
         }
     }
 
-    public boolean nameServerListIsEmpty() {
-        return null == nameServerEndpoints;
-    }
-
     /**
      * Update topic route info from name server and notify observer if changed.
      */
@@ -636,7 +637,7 @@ public class ClientInstance {
         }
     }
 
-    public SendMessageResponse sendClientAPI(
+    public SendMessageResponse sendClientApi(
             RpcTarget target,
             CommunicationMode mode,
             SendMessageRequest request,

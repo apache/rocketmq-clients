@@ -320,7 +320,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
         final SendMessageRequest request = wrapSendMessageRequest(message, mq);
 
         final SendMessageResponse response =
-                clientInstance.sendClientAPI(
+                clientInstance.sendClientApi(
                         target, mode, request, sendCallback, timeoutMillis, TimeUnit.MILLISECONDS);
 
         return ClientInstance.processSendResponse(response);

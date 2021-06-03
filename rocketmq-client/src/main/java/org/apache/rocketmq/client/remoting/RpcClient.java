@@ -55,6 +55,9 @@ public interface RpcClient {
 
     NackMessageResponse nackMessage(NackMessageRequest request, long duration, TimeUnit unit);
 
+    ListenableFuture<NackMessageResponse> nackMessage(
+            NackMessageRequest request, Executor executor, long duration, TimeUnit unit);
+
 
     HeartbeatResponse heartbeat(HeartbeatRequest request, long duration, TimeUnit unit);
 

@@ -45,6 +45,7 @@ public class TopAddressing {
         final HttpResponse response = httpClient.execute(httpGet);
         final HttpEntity entity = response.getEntity();
         final String body = EntityUtils.toString(entity, MixAll.DEFAULT_CHARSET);
+        // TODO: check split result here.
         final String[] nameServerAddresses = body.split(";");
 
         List<Address> addresses = new ArrayList<Address>();
