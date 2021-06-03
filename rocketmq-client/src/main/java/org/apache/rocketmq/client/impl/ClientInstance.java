@@ -78,11 +78,6 @@ import org.apache.rocketmq.utility.UtilAll;
 @Slf4j
 public class ClientInstance {
     private static final long RPC_DEFAULT_TIMEOUT_MILLIS = 3 * 1000;
-    /**
-     * Usage of {@link RpcClientImpl#queryRoute(QueryRouteRequest, long, TimeUnit)} are
-     * usually invokes the first call of gRPC, which need warm up in most case.
-     */
-    private static final long FETCH_TOPIC_ROUTE_INFO_TIMEOUT_MILLIS = 15 * 1000;
 
     private final ClientInstanceConfig clientInstanceConfig;
     @Setter
@@ -98,6 +93,8 @@ public class ClientInstance {
     private final ThreadPoolExecutor asyncRpcExecutor;
     @Setter
     private ThreadPoolExecutor sendCallbackExecutor;
+
+    private final ThreadPoolExecutor consumeCallbackExecutor;
 
     private Endpoints nameServerEndpoints = null;
 
@@ -117,14 +114,12 @@ public class ClientInstance {
         this.scheduler =
                 new ScheduledThreadPoolExecutor(4, new ThreadFactoryImpl("ClientInstanceScheduler_"));
 
-        this.asyncRpcExecutor =
-                new ThreadPoolExecutor(
-                        Runtime.getRuntime().availableProcessors(),
-                        Runtime.getRuntime().availableProcessors(),
-                        60,
-                        TimeUnit.SECONDS,
-                        new LinkedBlockingQueue<Runnable>(),
-                        new ThreadFactoryImpl("AsyncRpcThread_"));
+        this.asyncRpcExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
+                                                       Runtime.getRuntime().availableProcessors(),
+                                                       60,
+                                                       TimeUnit.SECONDS,
+                                                       new LinkedBlockingQueue<Runnable>(),
+                                                       new ThreadFactoryImpl("AsyncRpcThread_"));
 
         this.sendCallbackExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
                                                            Runtime.getRuntime().availableProcessors(),
@@ -132,6 +127,13 @@ public class ClientInstance {
                                                            TimeUnit.SECONDS,
                                                            new LinkedBlockingQueue<Runnable>(),
                                                            new ThreadFactoryImpl("SendCallbackThread_"));
+
+        this.consumeCallbackExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
+                                                              Runtime.getRuntime().availableProcessors(),
+                                                              60,
+                                                              TimeUnit.SECONDS,
+                                                              new LinkedBlockingQueue<Runnable>(),
+                                                              new ThreadFactoryImpl("ConsumeCallbackThread_"));
 
         this.nameServerEndpoints = nameServerEndpointsList;
 
@@ -151,8 +153,10 @@ public class ClientInstance {
 
     public synchronized void start() throws MQClientException {
         if (ServiceState.STARTED == state.get()) {
+            log.info("Client instance has been started before");
             return;
         }
+        log.info("Begin to start the client instance.");
         if (!state.compareAndSet(ServiceState.CREATED, ServiceState.STARTING)) {
             throw new MQClientException(
                     "The client instance has attempted to be stared before, state=" + state.get());
@@ -274,9 +278,11 @@ public class ClientInstance {
                 TimeUnit.MILLISECONDS);
 
         state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
+        log.info("Start the client instance successfully.");
     }
 
     public synchronized void shutdown() throws MQClientException {
+        log.info("Begin to start client instance.");
         if (ServiceState.STOPPED == state.get()) {
             return;
         }
@@ -299,7 +305,7 @@ public class ClientInstance {
             scheduler.shutdown();
             asyncRpcExecutor.shutdown();
             if (state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED)) {
-                log.info("Shutdown ClientInstance successfully");
+                log.info("Shutdown client instance successfully");
                 return;
             }
         }
@@ -360,10 +366,10 @@ public class ClientInstance {
             final Code code = Code.forNumber(status.getCode());
             final Endpoints endpoints = rpcTarget.getEndpoints();
             if (Code.OK != code) {
-                log.warn("Failed to send heartbeat to target, responseCode={}, endpoints={}", code, endpoints);
+                log.warn("Failed to send heartbeat, responseCode={}, endpoints={}", code, endpoints);
                 continue;
             }
-            log.debug("Send heartbeat to target successfully, endpoints={}", endpoints);
+            log.debug("Send heartbeat successfully, endpoints={}", endpoints);
         }
     }
 
@@ -539,7 +545,7 @@ public class ClientInstance {
      * @param target remote address.
      * @return rpc client.
      */
-    private RpcClient getRPCClient(RpcTarget target) {
+    private RpcClient getRpcClient(RpcTarget target) {
         RpcClient rpcClient = clientTable.get(target);
         if (null != rpcClient) {
             return rpcClient;
@@ -568,7 +574,7 @@ public class ClientInstance {
 
     SendMessageResponse send(
             RpcTarget target, SendMessageRequest request, long duration, TimeUnit unit) {
-        RpcClient rpcClient = this.getRPCClient(target);
+        RpcClient rpcClient = this.getRpcClient(target);
         return rpcClient.sendMessage(request, duration, unit);
     }
 
@@ -582,7 +588,7 @@ public class ClientInstance {
                 new SendMessageResponseCallback(request, state, sendCallback);
         try {
             final ListenableFuture<SendMessageResponse> future =
-                    getRPCClient(target).sendMessage(request, asyncRpcExecutor, duration, unit);
+                    getRpcClient(target).sendMessage(request, asyncRpcExecutor, duration, unit);
             Futures.addCallback(
                     future,
                     new FutureCallback<SendMessageResponse>() {
@@ -648,7 +654,7 @@ public class ClientInstance {
     public ListenableFuture<PopResult> receiveMessageAsync(
             final RpcTarget target, final ReceiveMessageRequest request, long duration, TimeUnit unit) {
         final ListenableFuture<ReceiveMessageResponse> future =
-                getRPCClient(target).receiveMessage(request, asyncRpcExecutor, duration, unit);
+                getRpcClient(target).receiveMessage(request, asyncRpcExecutor, duration, unit);
         return Futures.transform(
                 future,
                 new Function<ReceiveMessageResponse, PopResult>() {
@@ -656,39 +662,42 @@ public class ClientInstance {
                     public PopResult apply(ReceiveMessageResponse response) {
                         return processReceiveMessageResponse(target, response);
                     }
-                });
+                }, consumeCallbackExecutor);
     }
 
     public void ackMessage(final RpcTarget target, final AckMessageRequest request)
             throws MQClientException {
         final AckMessageResponse response =
-                getRPCClient(target).ackMessage(request, RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+                getRpcClient(target).ackMessage(request, RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
         final Status status = response.getCommon().getStatus();
         final Code code = Code.forNumber(status.getCode());
         if (Code.OK != code) {
-            log.error("Failed to ack message, target={}, status={}.", target, status);
+            log.error("Failed to ack message, endpoints={}, status={}.", target.getEndpoints(), status);
             throw new MQClientException("Failed to ack message.");
         }
     }
 
     public void ackMessageAsync(final RpcTarget target, final AckMessageRequest request) {
         final ListenableFuture<AckMessageResponse> future =
-                getRPCClient(target)
-                        .ackMessage(
-                                request, asyncRpcExecutor, RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+                getRpcClient(target).ackMessage(request, asyncRpcExecutor, RPC_DEFAULT_TIMEOUT_MILLIS,
+                                                TimeUnit.MILLISECONDS);
         Futures.addCallback(
                 future,
                 new FutureCallback<AckMessageResponse>() {
                     @Override
                     public void onSuccess(AckMessageResponse result) {
-                        // TODO: check status here.
                         final Status status = result.getCommon().getStatus();
+                        final Code code = Code.forNumber(status.getCode());
+                        if (Code.OK != code) {
+                            log.error("Failed to async-ack message, endpoints={}, status={}", target.getEndpoints(),
+                                      status);
+                        }
+
                     }
 
                     @Override
                     public void onFailure(Throwable t) {
-                        log.warn(
-                                "Failed to ack message asynchronously, target={}", target, t);
+                        log.warn("Failed to async-ack message, endpoints={}", target.getEndpoints(), t);
                     }
                 });
     }
@@ -696,7 +705,7 @@ public class ClientInstance {
     public void nackMessage(final RpcTarget target, final NackMessageRequest request)
             throws MQClientException {
         final NackMessageResponse response =
-                getRPCClient(target)
+                getRpcClient(target)
                         .nackMessage(request, RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
         final Status status = response.getCommon().getStatus();
         final int code = status.getCode();
@@ -711,22 +720,19 @@ public class ClientInstance {
             log.error("No name server endpoints found, topic={}", request.getTopic());
             throw new MQClientException("No name server endpoints found.");
         }
-        final RpcClient rpcClient = this.getRPCClient(new RpcTarget(nameServerEndpoints, true, false));
-        return rpcClient.queryRoute(
-                request, FETCH_TOPIC_ROUTE_INFO_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        final RpcClient rpcClient = this.getRpcClient(new RpcTarget(nameServerEndpoints, true, false));
+        return rpcClient.queryRoute(request, RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
     }
 
     public TopicAssignmentInfo queryLoadAssignment(RpcTarget target, QueryAssignmentRequest request)
             throws MQServerException {
-        final RpcClient rpcClient = this.getRPCClient(target);
+        final RpcClient rpcClient = this.getRpcClient(target);
         QueryAssignmentResponse response = rpcClient.queryAssignment(request, RPC_DEFAULT_TIMEOUT_MILLIS,
                                                                      TimeUnit.MILLISECONDS);
         final Status status = response.getCommon().getStatus();
         final int code = status.getCode();
         if (Code.OK_VALUE != code) {
-            throw new MQServerException(
-                    "Failed to query load assignment from remote target, target="
-                    + target + ", code=" + code);
+            throw new MQServerException("Failed to query load assignment from remote");
         }
         return new TopicAssignmentInfo(response.getLoadAssignmentsList());
     }
@@ -758,7 +764,7 @@ public class ClientInstance {
         }
         final List<Partition> partitionsList = response.getPartitionsList();
         if (partitionsList.isEmpty()) {
-            log.warn(
+            log.error(
                     "Topic route is empty unexpectedly , topic={}, name server endpoints={}",
                     topic, nameServerEndpoints);
             throw new MQClientException("Topic does not exist.");

@@ -96,6 +96,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
     }
 
     public void shutdown() throws MQClientException {
+        log.info("Begin to shutdown rocketmq producer.");
         state.compareAndSet(ServiceState.STARTING, ServiceState.STOPPING);
         state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING);
         final ServiceState serviceState = state.get();
@@ -103,7 +104,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
             clientInstance.unregisterProducerObserver(this.getProducerGroup());
             clientInstance.shutdown();
             if (state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED)) {
-                log.info("Shutdown DefaultMQProducerImpl successfully");
+                log.info("Shutdown rocketmq producer successfully.");
                 return;
             }
         }
