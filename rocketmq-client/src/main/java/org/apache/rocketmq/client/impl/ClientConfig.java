@@ -15,14 +15,16 @@ public class ClientConfig {
     private final ClientInstanceConfig clientInstanceConfig;
 
     private String groupName;
-    private Endpoints endpoints;
 
     private final String clientId;
+
+    private Endpoints nameServerEndpoints = null;
+    private boolean messageTracingEnabled = false;
+    private boolean rpcTracingEnabled = false;
 
     public ClientConfig(String groupName) {
         this.clientInstanceConfig = new ClientInstanceConfig();
         this.groupName = groupName;
-        this.endpoints = null;
 
         StringBuilder sb = new StringBuilder();
         final String clientIP = RemotingUtil.getLocalAddress();
@@ -43,7 +45,7 @@ public class ClientConfig {
 
         List<Address> addresses = new ArrayList<Address>();
         addresses.add(new Address(host, port));
-        this.endpoints = new Endpoints(Schema.IPv4, addresses);
+        this.nameServerEndpoints = new Endpoints(Schema.IPv4, addresses);
     }
 
     public void setArn(String arn) {

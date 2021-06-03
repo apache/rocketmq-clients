@@ -16,14 +16,14 @@ public class RpcTarget {
     private final boolean autoRetryEnabled;
     @EqualsAndHashCode.Exclude
     private final boolean needHeartbeat;
+
     @Setter
     @EqualsAndHashCode.Exclude
-    private volatile boolean isolated;
+    private volatile boolean isolated = false;
 
     public RpcTarget(Endpoints endpoints, boolean autoRetryEnabled, boolean needHeartbeat) {
         this.endpoints = endpoints;
         this.autoRetryEnabled = autoRetryEnabled;
         this.needHeartbeat = needHeartbeat;
-        this.isolated = false;
     }
 }

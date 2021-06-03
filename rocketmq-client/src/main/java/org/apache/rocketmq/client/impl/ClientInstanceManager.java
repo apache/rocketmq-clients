@@ -31,7 +31,7 @@ public class ClientInstanceManager {
             if (null != clientInstance) {
                 return clientInstance;
             }
-            clientInstance = new ClientInstance(clientInstanceConfig, clientConfig.getEndpoints());
+            clientInstance = new ClientInstance(clientInstanceConfig, clientConfig.getNameServerEndpoints());
             clientInstanceTable.put(clientInstanceConfig, clientInstance);
             return clientInstance;
         } finally {
