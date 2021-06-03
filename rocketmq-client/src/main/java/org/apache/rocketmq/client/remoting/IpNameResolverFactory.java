@@ -6,6 +6,7 @@ import io.grpc.NameResolverProvider;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,6 +34,7 @@ public class IpNameResolverFactory extends NameResolverProvider {
         for (InetSocketAddress socketAddress : socketAddresses) {
             addresses.add(new EquivalentAddressGroup(socketAddress));
         }
+        Collections.shuffle(addresses);
         return addresses;
     }
 

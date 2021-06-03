@@ -95,7 +95,7 @@ public class ClientInstance {
     @Setter
     private ThreadPoolExecutor sendCallbackExecutor;
 
-    private final ThreadPoolExecutor consumeCallbackExecutor;
+    private final ThreadPoolExecutor receiveCallbackExecutor;
 
     private Endpoints nameServerEndpoints = null;
 
@@ -129,12 +129,12 @@ public class ClientInstance {
                                                            new LinkedBlockingQueue<Runnable>(),
                                                            new ThreadFactoryImpl("SendCallbackThread_"));
 
-        this.consumeCallbackExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
+        this.receiveCallbackExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
                                                               Runtime.getRuntime().availableProcessors(),
                                                               60,
                                                               TimeUnit.SECONDS,
                                                               new LinkedBlockingQueue<Runnable>(),
-                                                              new ThreadFactoryImpl("ConsumeCallbackThread_"));
+                                                              new ThreadFactoryImpl("ReceiveCallbackThread_"));
 
         this.nameServerEndpoints = nameServerEndpointsList;
 
@@ -148,7 +148,7 @@ public class ClientInstance {
         this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
     }
 
-    private void updateNameServerListFromTopAddressing() throws IOException {
+    private void updateNameServerEndpointsFromTopAddressing() throws IOException {
         this.nameServerEndpoints = topAddressing.fetchNameServerAddresses();
     }
 
@@ -171,7 +171,7 @@ public class ClientInstance {
         // Only for internal usage of Alibaba group.
         if (null == nameServerEndpoints) {
             try {
-                updateNameServerListFromTopAddressing();
+                updateNameServerEndpointsFromTopAddressing();
             } catch (Throwable t) {
                 throw new MQClientException(
                         "Failed to fetch name server list from top address while starting.", t);
@@ -181,7 +181,7 @@ public class ClientInstance {
                         @Override
                         public void run() {
                             try {
-                                updateNameServerListFromTopAddressing();
+                                updateNameServerEndpointsFromTopAddressing();
                             } catch (Throwable t) {
                                 log.error(
                                         "Exception occurs while updating name server list from top addressing", t);
@@ -669,7 +669,7 @@ public class ClientInstance {
                     public PopResult apply(ReceiveMessageResponse response) {
                         return processReceiveMessageResponse(target, response);
                     }
-                }, consumeCallbackExecutor);
+                }, receiveCallbackExecutor);
     }
 
     public void ackMessage(final RpcTarget target, final AckMessageRequest request)
