@@ -12,6 +12,8 @@ import org.apache.rocketmq.utility.UtilAll;
 
 @Data
 public class ClientConfig {
+    private static final String CLIENT_ID_SEPARATOR = "@";
+
     private final ClientInstanceConfig clientInstanceConfig;
 
     private String groupName;
@@ -29,9 +31,9 @@ public class ClientConfig {
         StringBuilder sb = new StringBuilder();
         final String clientIP = RemotingUtil.getLocalAddress();
         sb.append(clientIP);
-        sb.append("@");
+        sb.append(CLIENT_ID_SEPARATOR);
         sb.append(UtilAll.processId());
-        sb.append("@");
+        sb.append(CLIENT_ID_SEPARATOR);
         sb.append(System.nanoTime());
         this.clientId = sb.toString();
     }

@@ -47,6 +47,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
+import javax.net.ssl.SSLException;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -545,13 +546,17 @@ public class ClientInstance {
      * @param target remote address.
      * @return rpc client.
      */
-    private RpcClient getRpcClient(RpcTarget target) {
+    private RpcClient getRpcClient(RpcTarget target) throws MQClientException {
         RpcClient rpcClient = clientTable.get(target);
         if (null != rpcClient) {
             return rpcClient;
         }
-
-        rpcClient = new RpcClientImpl(target);
+        try {
+            rpcClient = new RpcClientImpl(target);
+        } catch (SSLException e) {
+            log.error("Failed to get rpc client, endpoints={}", target.getEndpoints());
+            throw new MQClientException("Failed to get rpc client");
+        }
         rpcClient.setArn(clientInstanceConfig.getArn());
         rpcClient.setTenantId(tenantId);
         rpcClient.setAccessCredential(clientInstanceConfig.getAccessCredential());
@@ -573,7 +578,7 @@ public class ClientInstance {
     }
 
     SendMessageResponse send(
-            RpcTarget target, SendMessageRequest request, long duration, TimeUnit unit) {
+            RpcTarget target, SendMessageRequest request, long duration, TimeUnit unit) throws MQClientException {
         RpcClient rpcClient = this.getRpcClient(target);
         return rpcClient.sendMessage(request, duration, unit);
     }
@@ -637,7 +642,7 @@ public class ClientInstance {
             SendMessageRequest request,
             SendCallback sendCallback,
             long duration,
-            TimeUnit unit) {
+            TimeUnit unit) throws MQClientException {
         switch (mode) {
             case SYNC:
             case ONE_WAY:
@@ -652,7 +657,8 @@ public class ClientInstance {
     }
 
     public ListenableFuture<PopResult> receiveMessageAsync(
-            final RpcTarget target, final ReceiveMessageRequest request, long duration, TimeUnit unit) {
+            final RpcTarget target, final ReceiveMessageRequest request, long duration, TimeUnit unit)
+            throws MQClientException {
         final ListenableFuture<ReceiveMessageResponse> future =
                 getRpcClient(target).receiveMessage(request, asyncRpcExecutor, duration, unit);
         return Futures.transform(
@@ -677,7 +683,7 @@ public class ClientInstance {
         }
     }
 
-    public void ackMessageAsync(final RpcTarget target, final AckMessageRequest request) {
+    public void ackMessageAsync(final RpcTarget target, final AckMessageRequest request) throws MQClientException {
         final ListenableFuture<AckMessageResponse> future =
                 getRpcClient(target).ackMessage(request, asyncRpcExecutor, RPC_DEFAULT_TIMEOUT_MILLIS,
                                                 TimeUnit.MILLISECONDS);
@@ -725,7 +731,7 @@ public class ClientInstance {
     }
 
     public TopicAssignmentInfo queryLoadAssignment(RpcTarget target, QueryAssignmentRequest request)
-            throws MQServerException {
+            throws MQServerException, MQClientException {
         final RpcClient rpcClient = this.getRpcClient(target);
         QueryAssignmentResponse response = rpcClient.queryAssignment(request, RPC_DEFAULT_TIMEOUT_MILLIS,
                                                                      TimeUnit.MILLISECONDS);

@@ -323,12 +323,12 @@
         <module name="InnerAssignment"/>
 
         <!-- Checks that we don't use System.out.print -->
-<!--        <module name="Regexp">-->
-<!--            <property name="format" value="System\s*\.\s*(out|err)\s*(\.|::)\s*print"/>-->
-<!--            <property name="illegalPattern" value="true"/>-->
-<!--            <property name="message" value="Don't use System console for logging, use a logger instead"/>-->
-<!--            <property name="ignoreComments" value="true"/>-->
-<!--        </module>-->
+        <module name="Regexp">
+            <property name="format" value="System\s*\.\s*(out|err)\s*(\.|::)\s*print"/>
+            <property name="illegalPattern" value="true"/>
+            <property name="message" value="Don't use System console for logging, use a logger instead"/>
+            <property name="ignoreComments" value="true"/>
+        </module>
 
         <!-- Checks that we don't implement AutoCloseable/Closeable -->
         <module name="Regexp">

@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import javax.net.ssl.SSLException;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -53,18 +54,11 @@ public class RpcClientImpl implements RpcClient {
     private final MessagingServiceGrpc.MessagingServiceBlockingStub blockingStub;
     private final MessagingServiceGrpc.MessagingServiceFutureStub futureStub;
 
-    public RpcClientImpl(RpcTarget rpcTarget) {
+    public RpcClientImpl(RpcTarget rpcTarget) throws SSLException {
         final SslContextBuilder builder = GrpcSslContexts.forClient();
         // TODO: discard the insecure way.
         builder.trustManager(InsecureTrustManagerFactory.INSTANCE);
-
-        SslContext sslContext = null;
-        // TODO: polish code here.
-        try {
-            sslContext = builder.build();
-        } catch (Throwable t) {
-            log.error("Failed to build ssl Context");
-        }
+        SslContext sslContext = builder.build();
 
         final Endpoints endpoints = rpcTarget.getEndpoints();
         final NettyChannelBuilder channelBuilder =
@@ -89,7 +83,7 @@ public class RpcClientImpl implements RpcClient {
                 for (Address address : endpoints.getAddresses()) {
                     socketAddresses.add(new InetSocketAddress(address.getHost(), address.getPort()));
                 }
-                final IPNameResolverFactory ipNameResolverFactory = new IPNameResolverFactory(socketAddresses);
+                final IpNameResolverFactory ipNameResolverFactory = new IpNameResolverFactory(socketAddresses);
                 channelBuilder.nameResolverFactory(ipNameResolverFactory);
         }
 

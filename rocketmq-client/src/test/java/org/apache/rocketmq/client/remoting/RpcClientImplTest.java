@@ -15,13 +15,14 @@ import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import javax.net.ssl.SSLException;
 import org.apache.rocketmq.client.route.Schema;
 import org.testng.annotations.Test;
 
 public class RpcClientImplTest {
 
     @Test
-    public void testQueryRoute() {
+    public void testQueryRoute() throws SSLException {
         List<Address> addresses = new ArrayList<Address>();
         addresses.add(new Address("11.165.223.199", 9876));
         final Endpoints endpoints = new Endpoints(Schema.IPv4, addresses);
@@ -36,7 +37,7 @@ public class RpcClientImplTest {
     }
 
     @Test
-    public void testSendMessage() throws UnsupportedEncodingException {
+    public void testSendMessage() throws UnsupportedEncodingException, SSLException {
         List<Address> addresses1 = new ArrayList<Address>();
         addresses1.add(new Address("11.165.223.199", 9876));
         final Endpoints endpoints1 = new Endpoints(Schema.IPv4, addresses1);
@@ -71,7 +72,7 @@ public class RpcClientImplTest {
     }
 
     @Test
-    public void testQueryAssignment() {
+    public void testQueryAssignment() throws SSLException {
         List<Address> addresses = new ArrayList<Address>();
         addresses.add(new Address("11.158.159.57", 8081));
         final Endpoints endpoints = new Endpoints(Schema.IPv4, addresses);

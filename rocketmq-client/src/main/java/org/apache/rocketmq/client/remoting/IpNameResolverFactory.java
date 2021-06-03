@@ -10,12 +10,12 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class IPNameResolverFactory extends NameResolverProvider {
+public class IpNameResolverFactory extends NameResolverProvider {
     private List<EquivalentAddressGroup> addresses;
     private final String serviceAuthority = "IPAuthority";
     private NameResolver.Listener2 listener2;
 
-    public IPNameResolverFactory(List<InetSocketAddress> socketAddresses) {
+    public IpNameResolverFactory(List<InetSocketAddress> socketAddresses) {
         this.addresses = convertAddresses(socketAddresses);
     }
 
@@ -47,7 +47,7 @@ public class IPNameResolverFactory extends NameResolverProvider {
 
             @Override
             public void start(Listener2 listener2) {
-                IPNameResolverFactory.this.listener2 = listener2;
+                IpNameResolverFactory.this.listener2 = listener2;
                 listener2.onResult(ResolutionResult.newBuilder().setAddresses(addresses).build());
             }
 
