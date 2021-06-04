@@ -16,7 +16,7 @@ private static final long serialVersionUID = 0L;
     super(builder);
   }
   private Endpoints() {
-    schema_ = 0;
+    scheme_ = 0;
     addresses_ = java.util.Collections.emptyList();
   }
 
@@ -54,7 +54,7 @@ private static final long serialVersionUID = 0L;
           case 8: {
             int rawValue = input.readEnum();
 
-            schema_ = rawValue;
+            scheme_ = rawValue;
             break;
           }
           case 18: {
@@ -101,23 +101,23 @@ private static final long serialVersionUID = 0L;
             apache.rocketmq.v1.Endpoints.class, apache.rocketmq.v1.Endpoints.Builder.class);
   }
 
-  public static final int SCHEMA_FIELD_NUMBER = 1;
-  private int schema_;
+  public static final int SCHEME_FIELD_NUMBER = 1;
+  private int scheme_;
   /**
-   * <code>.apache.rocketmq.v1.Schema schema = 1;</code>
-   * @return The enum numeric value on the wire for schema.
+   * <code>.apache.rocketmq.v1.AddressScheme scheme = 1;</code>
+   * @return The enum numeric value on the wire for scheme.
    */
-  @java.lang.Override public int getSchemaValue() {
-    return schema_;
+  @java.lang.Override public int getSchemeValue() {
+    return scheme_;
   }
   /**
-   * <code>.apache.rocketmq.v1.Schema schema = 1;</code>
-   * @return The schema.
+   * <code>.apache.rocketmq.v1.AddressScheme scheme = 1;</code>
+   * @return The scheme.
    */
-  @java.lang.Override public apache.rocketmq.v1.Schema getSchema() {
+  @java.lang.Override public apache.rocketmq.v1.AddressScheme getScheme() {
     @SuppressWarnings("deprecation")
-    apache.rocketmq.v1.Schema result = apache.rocketmq.v1.Schema.valueOf(schema_);
-    return result == null ? apache.rocketmq.v1.Schema.UNRECOGNIZED : result;
+    apache.rocketmq.v1.AddressScheme result = apache.rocketmq.v1.AddressScheme.valueOf(scheme_);
+    return result == null ? apache.rocketmq.v1.AddressScheme.UNRECOGNIZED : result;
   }
 
   public static final int ADDRESSES_FIELD_NUMBER = 2;
@@ -174,8 +174,8 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (schema_ != apache.rocketmq.v1.Schema.IPv4.getNumber()) {
-      output.writeEnum(1, schema_);
+    if (scheme_ != apache.rocketmq.v1.AddressScheme.IPv4.getNumber()) {
+      output.writeEnum(1, scheme_);
     }
     for (int i = 0; i < addresses_.size(); i++) {
       output.writeMessage(2, addresses_.get(i));
@@ -189,9 +189,9 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (schema_ != apache.rocketmq.v1.Schema.IPv4.getNumber()) {
+    if (scheme_ != apache.rocketmq.v1.AddressScheme.IPv4.getNumber()) {
       size += com.google.protobuf.CodedOutputStream
-        .computeEnumSize(1, schema_);
+        .computeEnumSize(1, scheme_);
     }
     for (int i = 0; i < addresses_.size(); i++) {
       size += com.google.protobuf.CodedOutputStream
@@ -212,7 +212,7 @@ private static final long serialVersionUID = 0L;
     }
     apache.rocketmq.v1.Endpoints other = (apache.rocketmq.v1.Endpoints) obj;
 
-    if (schema_ != other.schema_) return false;
+    if (scheme_ != other.scheme_) return false;
     if (!getAddressesList()
         .equals(other.getAddressesList())) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
@@ -226,8 +226,8 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    hash = (37 * hash) + SCHEMA_FIELD_NUMBER;
-    hash = (53 * hash) + schema_;
+    hash = (37 * hash) + SCHEME_FIELD_NUMBER;
+    hash = (53 * hash) + scheme_;
     if (getAddressesCount() > 0) {
       hash = (37 * hash) + ADDRESSES_FIELD_NUMBER;
       hash = (53 * hash) + getAddressesList().hashCode();
@@ -366,7 +366,7 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
-      schema_ = 0;
+      scheme_ = 0;
 
       if (addressesBuilder_ == null) {
         addresses_ = java.util.Collections.emptyList();
@@ -401,7 +401,7 @@ private static final long serialVersionUID = 0L;
     public apache.rocketmq.v1.Endpoints buildPartial() {
       apache.rocketmq.v1.Endpoints result = new apache.rocketmq.v1.Endpoints(this);
       int from_bitField0_ = bitField0_;
-      result.schema_ = schema_;
+      result.scheme_ = scheme_;
       if (addressesBuilder_ == null) {
         if (((bitField0_ & 0x00000001) != 0)) {
           addresses_ = java.util.Collections.unmodifiableList(addresses_);
@@ -459,8 +459,8 @@ private static final long serialVersionUID = 0L;
 
     public Builder mergeFrom(apache.rocketmq.v1.Endpoints other) {
       if (other == apache.rocketmq.v1.Endpoints.getDefaultInstance()) return this;
-      if (other.schema_ != 0) {
-        setSchemaValue(other.getSchemaValue());
+      if (other.scheme_ != 0) {
+        setSchemeValue(other.getSchemeValue());
       }
       if (addressesBuilder_ == null) {
         if (!other.addresses_.isEmpty()) {
@@ -518,56 +518,56 @@ private static final long serialVersionUID = 0L;
     }
     private int bitField0_;
 
-    private int schema_ = 0;
+    private int scheme_ = 0;
     /**
-     * <code>.apache.rocketmq.v1.Schema schema = 1;</code>
-     * @return The enum numeric value on the wire for schema.
+     * <code>.apache.rocketmq.v1.AddressScheme scheme = 1;</code>
+     * @return The enum numeric value on the wire for scheme.
      */
-    @java.lang.Override public int getSchemaValue() {
-      return schema_;
+    @java.lang.Override public int getSchemeValue() {
+      return scheme_;
     }
     /**
-     * <code>.apache.rocketmq.v1.Schema schema = 1;</code>
-     * @param value The enum numeric value on the wire for schema to set.
+     * <code>.apache.rocketmq.v1.AddressScheme scheme = 1;</code>
+     * @param value The enum numeric value on the wire for scheme to set.
      * @return This builder for chaining.
      */
-    public Builder setSchemaValue(int value) {
+    public Builder setSchemeValue(int value) {
       
-      schema_ = value;
+      scheme_ = value;
       onChanged();
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Schema schema = 1;</code>
-     * @return The schema.
+     * <code>.apache.rocketmq.v1.AddressScheme scheme = 1;</code>
+     * @return The scheme.
      */
     @java.lang.Override
-    public apache.rocketmq.v1.Schema getSchema() {
+    public apache.rocketmq.v1.AddressScheme getScheme() {
       @SuppressWarnings("deprecation")
-      apache.rocketmq.v1.Schema result = apache.rocketmq.v1.Schema.valueOf(schema_);
-      return result == null ? apache.rocketmq.v1.Schema.UNRECOGNIZED : result;
+      apache.rocketmq.v1.AddressScheme result = apache.rocketmq.v1.AddressScheme.valueOf(scheme_);
+      return result == null ? apache.rocketmq.v1.AddressScheme.UNRECOGNIZED : result;
     }
     /**
-     * <code>.apache.rocketmq.v1.Schema schema = 1;</code>
-     * @param value The schema to set.
+     * <code>.apache.rocketmq.v1.AddressScheme scheme = 1;</code>
+     * @param value The scheme to set.
      * @return This builder for chaining.
      */
-    public Builder setSchema(apache.rocketmq.v1.Schema value) {
+    public Builder setScheme(apache.rocketmq.v1.AddressScheme value) {
       if (value == null) {
         throw new NullPointerException();
       }
       
-      schema_ = value.getNumber();
+      scheme_ = value.getNumber();
       onChanged();
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Schema schema = 1;</code>
+     * <code>.apache.rocketmq.v1.AddressScheme scheme = 1;</code>
      * @return This builder for chaining.
      */
-    public Builder clearSchema() {
+    public Builder clearScheme() {
       
-      schema_ = 0;
+      scheme_ = 0;
       onChanged();
       return this;
     }

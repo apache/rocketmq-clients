@@ -6,7 +6,7 @@ import lombok.Data;
 import org.apache.rocketmq.client.remoting.AccessCredential;
 import org.apache.rocketmq.client.remoting.Address;
 import org.apache.rocketmq.client.remoting.Endpoints;
-import org.apache.rocketmq.client.route.Schema;
+import org.apache.rocketmq.client.route.AddressScheme;
 import org.apache.rocketmq.utility.RemotingUtil;
 import org.apache.rocketmq.utility.UtilAll;
 
@@ -47,7 +47,7 @@ public class ClientConfig {
 
         List<Address> addresses = new ArrayList<Address>();
         addresses.add(new Address(host, port));
-        this.nameServerEndpoints = new Endpoints(Schema.IPv4, addresses);
+        this.nameServerEndpoints = new Endpoints(AddressScheme.IPv4, addresses);
     }
 
     public void setArn(String arn) {

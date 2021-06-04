@@ -25,7 +25,6 @@ import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext;
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslContextBuilder;
 import io.grpc.netty.shaded.io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -33,7 +32,6 @@ import javax.net.ssl.SSLException;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.client.route.Schema;
 
 @Slf4j
 public class RpcClientImpl implements RpcClient {
@@ -63,7 +61,7 @@ public class RpcClientImpl implements RpcClient {
         final Endpoints endpoints = rpcTarget.getEndpoints();
         final NettyChannelBuilder channelBuilder =
                 NettyChannelBuilder.forTarget(endpoints.getTarget())
-                                   .intercept(new HeadersClientInterceptor(this))
+                                   .intercept(new HeadersClientInterceptor(arn, tenantId, accessCredential))
                                    .sslContext(sslContext);
 
         if (rpcTarget.isAutoRetryEnabled()) {
@@ -72,19 +70,10 @@ public class RpcClientImpl implements RpcClient {
             channelBuilder.disableRetry();
         }
 
-        final Schema schema = endpoints.getSchema();
-        switch (schema) {
-            case DOMAIN_NAME:
-                break;
-            case IPv4:
-            case IPv6:
-            default:
-                List<InetSocketAddress> socketAddresses = new ArrayList<InetSocketAddress>();
-                for (Address address : endpoints.getAddresses()) {
-                    socketAddresses.add(new InetSocketAddress(address.getHost(), address.getPort()));
-                }
-                final IpNameResolverFactory ipNameResolverFactory = new IpNameResolverFactory(socketAddresses);
-                channelBuilder.nameResolverFactory(ipNameResolverFactory);
+        final List<InetSocketAddress> socketAddresses = endpoints.convertToSocketAddresses();
+        if (null != socketAddresses) {
+            final IpNameResolverFactory ipNameResolverFactory = new IpNameResolverFactory(socketAddresses);
+            channelBuilder.nameResolverFactory(ipNameResolverFactory);
         }
 
         this.channel = channelBuilder.build();

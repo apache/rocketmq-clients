@@ -50,24 +50,24 @@ public class Partition {
         this.brokerId = partition.getBroker().getId();
 
         final apache.rocketmq.v1.Endpoints endpoints = partition.getBroker().getEndpoints();
-        final apache.rocketmq.v1.Schema schema = endpoints.getSchema();
-        Schema targetSchema;
+        final apache.rocketmq.v1.AddressScheme scheme = endpoints.getScheme();
+        AddressScheme targetAddressScheme;
 
-        switch (schema) {
+        switch (scheme) {
             case IPv4:
-                targetSchema = Schema.IPv4;
+                targetAddressScheme = AddressScheme.IPv4;
                 break;
             case IPv6:
-                targetSchema = Schema.IPv6;
+                targetAddressScheme = AddressScheme.IPv6;
                 break;
             case DOMAIN_NAME:
             default:
-                targetSchema = Schema.DOMAIN_NAME;
+                targetAddressScheme = AddressScheme.DOMAIN_NAME;
         }
         List<Address> addresses = new ArrayList<Address>();
         for (apache.rocketmq.v1.Address address : endpoints.getAddressesList()) {
             addresses.add(new Address(address));
         }
-        this.rpcTarget = new RpcTarget(new Endpoints(targetSchema, addresses), false, true);
+        this.rpcTarget = new RpcTarget(new Endpoints(targetAddressScheme, addresses), false, true);
     }
 }

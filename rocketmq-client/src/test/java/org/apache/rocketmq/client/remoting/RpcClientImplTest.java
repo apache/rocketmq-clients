@@ -16,7 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLException;
-import org.apache.rocketmq.client.route.Schema;
+import org.apache.rocketmq.client.route.AddressScheme;
 import org.testng.annotations.Test;
 
 public class RpcClientImplTest {
@@ -25,7 +25,7 @@ public class RpcClientImplTest {
     public void testQueryRoute() throws SSLException {
         List<Address> addresses = new ArrayList<Address>();
         addresses.add(new Address("11.165.223.199", 9876));
-        final Endpoints endpoints = new Endpoints(Schema.IPv4, addresses);
+        final Endpoints endpoints = new Endpoints(AddressScheme.IPv4, addresses);
         final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, true, false));
 
         Resource topicResource = Resource.newBuilder().setName("yc001").build();
@@ -40,7 +40,7 @@ public class RpcClientImplTest {
     public void testSendMessage() throws UnsupportedEncodingException, SSLException {
         List<Address> addresses1 = new ArrayList<Address>();
         addresses1.add(new Address("11.165.223.199", 9876));
-        final Endpoints endpoints1 = new Endpoints(Schema.IPv4, addresses1);
+        final Endpoints endpoints1 = new Endpoints(AddressScheme.IPv4, addresses1);
         final RpcClientImpl rpcClient1 = new RpcClientImpl(new RpcTarget(endpoints1, true, false));
 
         Resource topicResource1 = Resource.newBuilder().setName("yc001").build();
@@ -52,7 +52,7 @@ public class RpcClientImplTest {
 
         List<Address> addresses = new ArrayList<Address>();
         addresses.add(new Address("11.158.159.57", 8081));
-        final Endpoints endpoints = new Endpoints(Schema.IPv4, addresses);
+        final Endpoints endpoints = new Endpoints(AddressScheme.IPv4, addresses);
         final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, false, true));
         rpcClient.setAccessCredential(new AccessCredential("LTAInDOvOPEkCj67", "UniBnf6GKgUS1Y5l3Ce0rmgQhhKyZd"));
 
@@ -75,7 +75,7 @@ public class RpcClientImplTest {
     public void testQueryAssignment() throws SSLException {
         List<Address> addresses = new ArrayList<Address>();
         addresses.add(new Address("11.158.159.57", 8081));
-        final Endpoints endpoints = new Endpoints(Schema.IPv4, addresses);
+        final Endpoints endpoints = new Endpoints(AddressScheme.IPv4, addresses);
         final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, false, true));
         rpcClient.setAccessCredential(new AccessCredential("LTAInDOvOPEkCj67", "UniBnf6GKgUS1Y5l3Ce0rmgQhhKyZd"));
         rpcClient.setTenantId("");

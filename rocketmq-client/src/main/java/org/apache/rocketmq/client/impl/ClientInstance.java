@@ -31,7 +31,21 @@ import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
+import io.grpc.ManagedChannel;
+import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext;
+import io.grpc.netty.shaded.io.netty.handler.ssl.util.InsecureTrustManagerFactory;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
+import io.opentelemetry.context.propagation.ContextPropagators;
+import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter;
+import io.opentelemetry.sdk.OpenTelemetrySdk;
+import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -64,15 +78,19 @@ import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.message.protocol.TransactionPhase;
+import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.misc.TopAddressing;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendMessageResponseCallback;
 import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.client.remoting.Endpoints;
+import org.apache.rocketmq.client.remoting.HeadersClientInterceptor;
+import org.apache.rocketmq.client.remoting.IpNameResolverFactory;
 import org.apache.rocketmq.client.remoting.RpcClient;
 import org.apache.rocketmq.client.remoting.RpcClientImpl;
 import org.apache.rocketmq.client.remoting.RpcTarget;
 import org.apache.rocketmq.client.route.TopicRouteData;
+import org.apache.rocketmq.client.tracing.TracingUtility;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.apache.rocketmq.utility.UtilAll;
 
@@ -107,6 +125,10 @@ public class ClientInstance {
     private final ConcurrentHashMap<String /* Topic */, TopicRouteData> topicRouteTable;
 
     private final AtomicReference<ServiceState> state;
+
+    private IpNameResolverFactory tracingResolverFactory = null;
+
+    private Tracer messageTracer = null;
 
     public ClientInstance(ClientInstanceConfig clientInstanceConfig, Endpoints nameServerEndpointsList) {
         this.clientInstanceConfig = clientInstanceConfig;
@@ -435,7 +457,7 @@ public class ClientInstance {
     /**
      * Update topic route info from name server and notify observer if changed.
      */
-    private void updateRouteInfo() {
+    private void updateRouteInfo() throws SSLException {
         final ServiceState serviceState = state.get();
         if (ServiceState.STARTED != serviceState && ServiceState.STARTING != serviceState) {
             log.warn("Unexpected client instance state={}", serviceState);
@@ -446,7 +468,7 @@ public class ClientInstance {
             return;
         }
         for (String topic : topics) {
-            boolean needNotify = false;
+            boolean updated = false;
             TopicRouteData after;
 
             try {
@@ -459,21 +481,87 @@ public class ClientInstance {
             final TopicRouteData before = topicRouteTable.get(topic);
             if (!after.equals(before)) {
                 topicRouteTable.put(topic, after);
-                needNotify = true;
+                updated = true;
             }
 
-            if (needNotify) {
-                log.info("Topic route changed, topic={}, before={}, after={}", topic, before, after);
+            if (updated) {
+                log.info("Topic route updated, topic={}, before={}, after={}", topic, before, after);
             } else {
                 log.debug("Topic route remains unchanged, topic={}", topic);
             }
 
-            if (needNotify) {
+            if (updated) {
                 for (ProducerObserver producerObserver : producerObserverTable.values()) {
                     producerObserver.onTopicRouteChanged(topic, after);
                 }
             }
         }
+        updateTraceEndpoints();
+    }
+
+    private void updateTraceEndpoints() throws SSLException {
+        Set<RpcTarget> messageTraceRpcTargetSet = new HashSet<RpcTarget>();
+        for (TopicRouteData topicRouteData : topicRouteTable.values()) {
+            final List<org.apache.rocketmq.client.route.Partition> partitions = topicRouteData.getPartitions();
+            for (org.apache.rocketmq.client.route.Partition partition : partitions) {
+                if (MixAll.MASTER_BROKER_ID != partition.getBrokerId()) {
+                    continue;
+                }
+                messageTraceRpcTargetSet.add(partition.getRpcTarget());
+            }
+        }
+        if (messageTraceRpcTargetSet.isEmpty()) {
+            return;
+        }
+        Endpoints endpoints = null;
+        for (RpcTarget rpcTarget : messageTraceRpcTargetSet) {
+            if (null == endpoints) {
+                endpoints = rpcTarget.getEndpoints();
+                continue;
+            }
+            endpoints = endpoints.merge(rpcTarget.getEndpoints());
+        }
+
+        if (null != tracingResolverFactory) {
+            final List<InetSocketAddress> socketAddresses = endpoints.convertToSocketAddresses();
+            tracingResolverFactory.updateAddresses(socketAddresses);
+            return;
+        }
+
+        final SslContext sslContext =
+                GrpcSslContexts.forClient().trustManager(InsecureTrustManagerFactory.INSTANCE).build();
+
+        final NettyChannelBuilder channelBuilder =
+                NettyChannelBuilder
+                        .forTarget(endpoints.getTarget())
+                        .sslContext(sslContext)
+                        .intercept(new HeadersClientInterceptor(clientInstanceConfig.getArn(), tenantId,
+                                                                clientInstanceConfig.getAccessCredential()));
+
+        final List<InetSocketAddress> socketAddresses = endpoints.convertToSocketAddresses();
+        // If scheme is not domain.
+        if (null != socketAddresses) {
+            tracingResolverFactory = new IpNameResolverFactory(socketAddresses);
+            channelBuilder.nameResolverFactory(tracingResolverFactory);
+        }
+
+        final ManagedChannel channel = channelBuilder.build();
+
+        OtlpGrpcSpanExporter exporter =
+                OtlpGrpcSpanExporter.builder().setChannel(channel).setTimeout(RPC_DEFAULT_TIMEOUT_MILLIS,
+                                                                              TimeUnit.MILLISECONDS).build();
+        BatchSpanProcessor spanProcessor =
+                BatchSpanProcessor.builder(exporter)
+                                  .setScheduleDelay(1, TimeUnit.SECONDS)
+                                  .setMaxExportBatchSize(4096)
+                                  .build();
+        SdkTracerProvider sdkTracerProvider = SdkTracerProvider.builder().addSpanProcessor(spanProcessor).build();
+
+        OpenTelemetrySdk openTelemetry =
+                OpenTelemetrySdk.builder()
+                                .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
+                                .setTracerProvider(sdkTracerProvider).buildAndRegisterGlobal();
+        messageTracer = openTelemetry.getTracer("org.apache.rocketmq.message.tracer");
     }
 
     /**
@@ -581,7 +669,29 @@ public class ClientInstance {
     SendMessageResponse send(
             RpcTarget target, SendMessageRequest request, long duration, TimeUnit unit) throws MQClientException {
         RpcClient rpcClient = this.getRpcClient(target);
-        return rpcClient.sendMessage(request, duration, unit);
+
+        Span span = null;
+        if (null != messageTracer) {
+            span = messageTracer.spanBuilder("SendMessage").startSpan();
+            final Message message = request.getMessage();
+            final SystemAttribute systemAttribute = message.getSystemAttribute();
+            span.setAttribute(TracingUtility.ARN, message.getTopic().getArn());
+            span.setAttribute(TracingUtility.TOPIC, message.getTopic().getName());
+            span.setAttribute(TracingUtility.TAGS, systemAttribute.getTag());
+            span.setAttribute(TracingUtility.MSG_ID, systemAttribute.getMessageId());
+            final String serializedSpanContext = TracingUtility.injectSpanContextToTraceParent(span.getSpanContext());
+            systemAttribute.toBuilder().setTraceContext(serializedSpanContext);
+        }
+
+        final SendMessageResponse response = rpcClient.sendMessage(request, duration, unit);
+
+        if (null != span) {
+            span.setAttribute(TracingUtility.SUCCESS,
+                              Code.OK == Code.forNumber(response.getCommon().getStatus().getCode()));
+            span.end();
+        }
+
+        return response;
     }
 
     void sendAsync(

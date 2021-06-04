@@ -12,7 +12,7 @@ import org.apache.http.util.EntityUtils;
 import org.apache.rocketmq.client.constant.SystemProperty;
 import org.apache.rocketmq.client.remoting.Address;
 import org.apache.rocketmq.client.remoting.Endpoints;
-import org.apache.rocketmq.client.route.Schema;
+import org.apache.rocketmq.client.route.AddressScheme;
 
 public class TopAddressing {
     private static final String DEFAULT_NAME_SERVER_DOMAIN = "jmenv.tbsite.net";
@@ -55,6 +55,6 @@ public class TopAddressing {
             final int port = Integer.parseInt(split[1]);
             addresses.add(new Address(host, port));
         }
-        return new Endpoints(Schema.IPv4, addresses);
+        return new Endpoints(AddressScheme.IPv4, addresses);
     }
 }

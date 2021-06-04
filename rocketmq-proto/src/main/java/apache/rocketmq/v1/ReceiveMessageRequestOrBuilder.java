@@ -125,4 +125,15 @@ public interface ReceiveMessageRequestOrBuilder extends
    * <code>.google.protobuf.Duration await_time = 9;</code>
    */
   com.google.protobuf.DurationOrBuilder getAwaitTimeOrBuilder();
+
+  /**
+   * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 10;</code>
+   * @return The enum numeric value on the wire for consumeModel.
+   */
+  int getConsumeModelValue();
+  /**
+   * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 10;</code>
+   * @return The consumeModel.
+   */
+  apache.rocketmq.v1.ConsumeModel getConsumeModel();
 }

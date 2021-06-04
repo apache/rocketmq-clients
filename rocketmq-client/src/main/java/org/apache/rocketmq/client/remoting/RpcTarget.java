@@ -12,6 +12,9 @@ public class RpcTarget {
 
     private final Endpoints endpoints;
 
+    /**
+     * Indicates that if gRPC's auto retry is enabled or not.
+     */
     @EqualsAndHashCode.Exclude
     private final boolean autoRetryEnabled;
     @EqualsAndHashCode.Exclude

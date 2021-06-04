@@ -4,9 +4,9 @@
 package apache.rocketmq.v1;
 
 /**
- * Protobuf enum {@code apache.rocketmq.v1.Schema}
+ * Protobuf enum {@code apache.rocketmq.v1.AddressScheme}
  */
-public enum Schema
+public enum AddressScheme
     implements com.google.protobuf.ProtocolMessageEnum {
   /**
    * <code>IPv4 = 0;</code>
@@ -51,7 +51,7 @@ public enum Schema
    * @deprecated Use {@link #forNumber(int)} instead.
    */
   @java.lang.Deprecated
-  public static Schema valueOf(int value) {
+  public static AddressScheme valueOf(int value) {
     return forNumber(value);
   }
 
@@ -59,7 +59,7 @@ public enum Schema
    * @param value The numeric wire value of the corresponding enum entry.
    * @return The enum associated with the given numeric wire value.
    */
-  public static Schema forNumber(int value) {
+  public static AddressScheme forNumber(int value) {
     switch (value) {
       case 0: return IPv4;
       case 1: return IPv6;
@@ -68,15 +68,15 @@ public enum Schema
     }
   }
 
-  public static com.google.protobuf.Internal.EnumLiteMap<Schema>
+  public static com.google.protobuf.Internal.EnumLiteMap<AddressScheme>
       internalGetValueMap() {
     return internalValueMap;
   }
   private static final com.google.protobuf.Internal.EnumLiteMap<
-      Schema> internalValueMap =
-        new com.google.protobuf.Internal.EnumLiteMap<Schema>() {
-          public Schema findValueByNumber(int number) {
-            return Schema.forNumber(number);
+      AddressScheme> internalValueMap =
+        new com.google.protobuf.Internal.EnumLiteMap<AddressScheme>() {
+          public AddressScheme findValueByNumber(int number) {
+            return AddressScheme.forNumber(number);
           }
         };
 
@@ -97,9 +97,9 @@ public enum Schema
     return apache.rocketmq.v1.MQDomain.getDescriptor().getEnumTypes().get(4);
   }
 
-  private static final Schema[] VALUES = values();
+  private static final AddressScheme[] VALUES = values();
 
-  public static Schema valueOf(
+  public static AddressScheme valueOf(
       com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
     if (desc.getType() != getDescriptor()) {
       throw new java.lang.IllegalArgumentException(
@@ -113,10 +113,10 @@ public enum Schema
 
   private final int value;
 
-  private Schema(int value) {
+  private AddressScheme(int value) {
     this.value = value;
   }
 
-  // @@protoc_insertion_point(enum_scope:apache.rocketmq.v1.Schema)
+  // @@protoc_insertion_point(enum_scope:apache.rocketmq.v1.AddressScheme)
 }
 

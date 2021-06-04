@@ -72,4 +72,15 @@ public interface AckMessageRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getMessageIdBytes();
+
+  /**
+   * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 6;</code>
+   * @return The enum numeric value on the wire for consumeModel.
+   */
+  int getConsumeModelValue();
+  /**
+   * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 6;</code>
+   * @return The consumeModel.
+   */
+  apache.rocketmq.v1.ConsumeModel getConsumeModel();
 }

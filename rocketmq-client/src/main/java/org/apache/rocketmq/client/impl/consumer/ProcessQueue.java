@@ -1,6 +1,7 @@
 package org.apache.rocketmq.client.impl.consumer;
 
 import apache.rocketmq.v1.AckMessageRequest;
+import apache.rocketmq.v1.ConsumeModel;
 import apache.rocketmq.v1.ConsumePolicy;
 import apache.rocketmq.v1.FilterType;
 import apache.rocketmq.v1.NackMessageRequest;
@@ -22,6 +23,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.client.consumer.MessageModel;
 import org.apache.rocketmq.client.consumer.PopResult;
 import org.apache.rocketmq.client.consumer.PopStatus;
 import org.apache.rocketmq.client.consumer.filter.ExpressionType;
@@ -42,7 +44,6 @@ public class ProcessQueue {
             MixAll.DEFAULT_MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE;
     public static final long MAX_POP_MESSAGE_INTERVAL_MILLIS =
             MixAll.DEFAULT_MAX_POP_MESSAGE_INTERVAL_MILLIS;
-    public static final long MESSAGE_EXPIRED_TOLERANCE_MILLIS = 10;
 
     private static final long POP_TIME_DELAY_TIME_MILLIS_WHEN_FLOW_CONTROL = 3000L;
 
@@ -383,6 +384,17 @@ public class ProcessQueue {
                                      // TODO: fix consume policy here.
                                      .setConsumePolicy(ConsumePolicy.RESUME);
 
+        switch (this.getMessageModel()) {
+            case CLUSTERING:
+                builder.setConsumeModel(ConsumeModel.CLUSTERING);
+                break;
+            case BROADCASTING:
+                builder.setConsumeModel(ConsumeModel.BROADCASTING);
+                break;
+            default:
+                builder.setConsumeModel(ConsumeModel.UNRECOGNIZED);
+        }
+
         final ExpressionType expressionType = filterExpression.getExpressionType();
 
         apache.rocketmq.v1.FilterExpression.Builder expressionBuilder =
@@ -434,5 +446,9 @@ public class ProcessQueue {
 
     private int getMaxReconsumeTimes() {
         return consumerImpl.getDefaultMQPushConsumer().getMaxReconsumeTimes();
+    }
+
+    private MessageModel getMessageModel() {
+        return consumerImpl.getDefaultMQPushConsumer().getMessageModel();
     }
 }

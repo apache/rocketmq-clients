@@ -8,15 +8,15 @@ public interface EndpointsOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>.apache.rocketmq.v1.Schema schema = 1;</code>
-   * @return The enum numeric value on the wire for schema.
+   * <code>.apache.rocketmq.v1.AddressScheme scheme = 1;</code>
+   * @return The enum numeric value on the wire for scheme.
    */
-  int getSchemaValue();
+  int getSchemeValue();
   /**
-   * <code>.apache.rocketmq.v1.Schema schema = 1;</code>
-   * @return The schema.
+   * <code>.apache.rocketmq.v1.AddressScheme scheme = 1;</code>
+   * @return The scheme.
    */
-  apache.rocketmq.v1.Schema getSchema();
+  apache.rocketmq.v1.AddressScheme getScheme();
 
   /**
    * <code>repeated .apache.rocketmq.v1.Address addresses = 2;</code>

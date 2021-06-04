@@ -12,6 +12,7 @@ import java.util.Set;
 public class TracingUtility {
 
     public static final String TOPIC = "topic";
+    public static final String ARN = "arn";
     public static final String CONSUMER_GROUP = "consumer_group";
     public static final String MSG_ID = "msg_id";
     public static final String TAGS = "tags";
