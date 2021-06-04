@@ -559,11 +559,11 @@ public class ClientInstance {
                                   .build();
 
         SdkTracerProvider sdkTracerProvider = SdkTracerProvider.builder().addSpanProcessor(spanProcessor).build();
-        // TODO: no need to register global here.
+        // TODO: no need propagators here.
         OpenTelemetrySdk openTelemetry =
                 OpenTelemetrySdk.builder()
                                 .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
-                                .setTracerProvider(sdkTracerProvider).buildAndRegisterGlobal();
+                                .setTracerProvider(sdkTracerProvider).build();
         tracer = openTelemetry.getTracer("org.apache.rocketmq.message.tracer");
         tracingRpcTarget = randomTracingRpcTarget;
     }
