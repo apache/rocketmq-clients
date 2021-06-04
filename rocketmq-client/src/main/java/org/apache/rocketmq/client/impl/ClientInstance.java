@@ -26,7 +26,6 @@ import com.google.common.base.Function;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
 import com.google.rpc.Code;
@@ -695,6 +694,7 @@ public class ClientInstance {
             response = rpcClient.sendMessage(request, duration, unit);
             return response;
         } finally {
+            // Ensure span MUST be ended.
             if (null != span) {
                 span.setAttribute(TracingAttribute.SUCCESS,
                                   null != response && Code.OK == Code.forNumber(response.getCommon().getStatus().getCode()));
@@ -720,14 +720,9 @@ public class ClientInstance {
                         @Override
                         public void onSuccess(@Nullable final SendMessageResponse response) {
                             try {
-                                sendCallbackExecutor.submit(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        callback.onSuccess(response);
-                                    }
-                                });
+                                callback.onReceiveResponse(response);
                             } catch (Throwable t) {
-                                log.error("Failed to submit task for handling async-send message response.", t);
+                                log.error("Failed to handle async-send message response.", t);
                             }
                         }
 
@@ -736,22 +731,25 @@ public class ClientInstance {
                             try {
                                 callback.onException(t1);
                             } catch (Throwable t2) {
-                                log.error("Failed to submit task for handing async-send message throwable.", t2);
+                                log.error("Failed to handle async-send message throwable.", t2);
                             }
                         }
-                    },
-                    MoreExecutors.directExecutor());
+                    }, sendCallbackExecutor);
 
         } catch (final Throwable t) {
             try {
                 sendCallbackExecutor.submit(new Runnable() {
                     @Override
                     public void run() {
-                        callback.onException(t);
+                        try {
+                            callback.onException(t);
+                        } catch (Throwable t1) {
+                            log.error("Failed to handle async-send message throwable.", t1);
+                        }
                     }
                 });
-            } catch (Throwable t1) {
-                log.error("Exception occurs while sending message asynchronously", t1);
+            } catch (Throwable t2) {
+                log.error("Exception occurs while handling async-send message throwable.", t2);
             }
         }
     }

@@ -27,7 +27,7 @@ public class SendMessageResponseCallback {
         this.sendCallback = sendCallback;
     }
 
-    public void onSuccess(SendMessageResponse response) {
+    public void onReceiveResponse(SendMessageResponse response) {
         try {
             checkNotNull(response);
             final ServiceState state = this.state.get();
