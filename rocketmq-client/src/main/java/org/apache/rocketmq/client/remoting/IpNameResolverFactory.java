@@ -11,7 +11,7 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Customized name resolver to support multiple IPv4/IPv6 address in endpoints.
+ * Name resolver factory which is customized to support multiple IPv4/IPv6 address in endpoints.
  */
 @Slf4j
 public class IpNameResolverFactory extends NameResolverProvider {

@@ -12,7 +12,13 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.rocketmq.client.impl.ClientInstanceConfig;
 
+/**
+ * Interceptor for all gRPC request.
+ *
+ * <p>Interceptor is responsible for authorization and RPC tracing.</p>
+ */
 @Slf4j
 public class HeadersClientInterceptor implements ClientInterceptor {
 
@@ -32,17 +38,14 @@ public class HeadersClientInterceptor implements ClientInterceptor {
     private static final String SIGNATURE_KEY = "Signature";
     private static final String DATE_TIME_FORMAT = "yyyyMMdd'T'HHmmss'Z'";
 
-    private final String arn;
-    private final String tenantId;
-    private final AccessCredential accessCredential;
+    private final ClientInstanceConfig config;
 
-    public HeadersClientInterceptor(String arn, String tenantId, AccessCredential accessCredential) {
-        this.arn = arn;
-        this.tenantId = tenantId;
-        this.accessCredential = accessCredential;
+    public HeadersClientInterceptor(ClientInstanceConfig config) {
+        this.config = config;
     }
 
     private void customMetadata(Metadata headers) {
+        final String tenantId = config.getTenantId();
         if (StringUtils.isNotBlank(tenantId)) {
             headers.put(Metadata.Key.of(TENANT_ID_KEY, Metadata.ASCII_STRING_MARSHALLER), tenantId);
         }
@@ -50,12 +53,14 @@ public class HeadersClientInterceptor implements ClientInterceptor {
         headers.put(Metadata.Key.of(MQ_LANGUAGE, Metadata.ASCII_STRING_MARSHALLER), "JAVA");
         headers.put(Metadata.Key.of(REQUEST_ID_KEY, Metadata.ASCII_STRING_MARSHALLER), "JAVA");
 
+        final String arn = config.getArn();
         if (StringUtils.isNotBlank(arn)) {
             headers.put(Metadata.Key.of(ARN_KEY, Metadata.ASCII_STRING_MARSHALLER), arn);
         }
         String dateTime = new SimpleDateFormat(DATE_TIME_FORMAT).format(new Date());
         headers.put(Metadata.Key.of(DATE_TIME_KEY, Metadata.ASCII_STRING_MARSHALLER), dateTime);
 
+        final AccessCredential accessCredential = config.getAccessCredential();
         if (null == accessCredential) {
             return;
         }

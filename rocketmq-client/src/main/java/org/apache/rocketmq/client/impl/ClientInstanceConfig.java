@@ -7,6 +7,7 @@ import org.apache.rocketmq.client.remoting.AccessCredential;
 @Data
 public class ClientInstanceConfig {
     private String arn = "";
+    private String tenantId = "";
     private AccessCredential accessCredential = null;
 
     public void setArn(String arn) {

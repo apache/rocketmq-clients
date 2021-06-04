@@ -24,8 +24,8 @@ public class ClientInstanceManager {
     }
 
     public ClientInstance getClientInstance(final ClientConfig clientConfig) {
+        lock.lock();
         try {
-            lock.lock();
             final ClientInstanceConfig clientInstanceConfig = clientConfig.getClientInstanceConfig();
             ClientInstance clientInstance = clientInstanceTable.get(clientInstanceConfig);
             if (null != clientInstance) {

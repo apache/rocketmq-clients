@@ -27,6 +27,9 @@ public class RpcClientImplTest {
         addresses.add(new Address("11.165.223.199", 9876));
         final Endpoints endpoints = new Endpoints(AddressScheme.IPv4, addresses);
         final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, true, false));
+        rpcClient.setAccessCredential(new AccessCredential("LTAInDOvOPEkCj67", "UniBnf6GKgUS1Y5l3Ce0rmgQhhKyZd"));
+
+        rpcClient.setArn("MQ_INST_1973281269661160_BXmPlOA6");
 
         Resource topicResource = Resource.newBuilder().setName("yc001").build();
 
@@ -38,17 +41,6 @@ public class RpcClientImplTest {
 
     @Test
     public void testSendMessage() throws UnsupportedEncodingException, SSLException {
-        List<Address> addresses1 = new ArrayList<Address>();
-        addresses1.add(new Address("11.165.223.199", 9876));
-        final Endpoints endpoints1 = new Endpoints(AddressScheme.IPv4, addresses1);
-        final RpcClientImpl rpcClient1 = new RpcClientImpl(new RpcTarget(endpoints1, true, false));
-
-        Resource topicResource1 = Resource.newBuilder().setName("yc001").build();
-
-        QueryRouteRequest request1 =
-                QueryRouteRequest.newBuilder().setTopic(topicResource1).build();
-        final QueryRouteResponse response1 = rpcClient1.queryRoute(request1, 3, TimeUnit.SECONDS);
-        System.out.println(response1);
 
         List<Address> addresses = new ArrayList<Address>();
         addresses.add(new Address("11.158.159.57", 8081));
@@ -69,6 +61,7 @@ public class RpcClientImplTest {
                 SendMessageRequest.newBuilder().setMessage(msg).build();
 
         final SendMessageResponse response = rpcClient.sendMessage(request, 3, TimeUnit.SECONDS);
+        System.out.println(request);
     }
 
     @Test

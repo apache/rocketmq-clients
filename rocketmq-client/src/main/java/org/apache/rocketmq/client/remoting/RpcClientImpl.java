@@ -29,24 +29,14 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLException;
-import lombok.Getter;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.client.impl.ClientInstanceConfig;
 
+/**
+ * A typical implementation for {@link RpcClient}
+ */
 @Slf4j
-public class RpcClientImpl implements RpcClient {
-    @Getter
-    @Setter
-    private String arn;
-
-    @Getter
-    @Setter
-    private String tenantId;
-
-    @Getter
-    @Setter
-    private AccessCredential accessCredential;
-
+public class RpcClientImpl extends ClientInstanceConfig implements RpcClient {
     private final ManagedChannel channel;
 
     private final MessagingServiceGrpc.MessagingServiceBlockingStub blockingStub;
@@ -61,7 +51,7 @@ public class RpcClientImpl implements RpcClient {
         final Endpoints endpoints = rpcTarget.getEndpoints();
         final NettyChannelBuilder channelBuilder =
                 NettyChannelBuilder.forTarget(endpoints.getTarget())
-                                   .intercept(new HeadersClientInterceptor(arn, tenantId, accessCredential))
+                                   .intercept(new HeadersClientInterceptor(this))
                                    .sslContext(sslContext);
 
         if (rpcTarget.isAutoRetryEnabled()) {
