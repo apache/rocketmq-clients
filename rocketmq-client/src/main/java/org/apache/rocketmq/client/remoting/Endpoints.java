@@ -3,9 +3,7 @@ package org.apache.rocketmq.client.remoting;
 import com.google.common.base.Preconditions;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
@@ -45,19 +43,6 @@ public class Endpoints {
             targetBuilder.append(address.getAddress()).append(ADDRESS_SEPARATOR);
         }
         this.target = targetBuilder.substring(0, targetBuilder.length() - 1);
-    }
-
-    public Endpoints merge(Endpoints endpoints) {
-        if (addressScheme == AddressScheme.DOMAIN_NAME) {
-            return this;
-        }
-        if (addressScheme != endpoints.getAddressScheme()) {
-            return this;
-        }
-        Set<Address> addressSet = new HashSet<Address>();
-        addressSet.addAll(addresses);
-        addressSet.addAll(endpoints.addresses);
-        return new Endpoints(addressScheme, new ArrayList<Address>(addressSet));
     }
 
     public List<InetSocketAddress> convertToSocketAddresses() {

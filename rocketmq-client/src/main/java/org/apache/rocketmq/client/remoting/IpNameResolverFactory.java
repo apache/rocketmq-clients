@@ -15,21 +15,12 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class IpNameResolverFactory extends NameResolverProvider {
-    private List<EquivalentAddressGroup> addresses;
+    private final List<EquivalentAddressGroup> addresses;
     private final String serviceAuthority = "IPAuthority";
     private NameResolver.Listener2 listener2;
 
     public IpNameResolverFactory(List<InetSocketAddress> socketAddresses) {
         this.addresses = convertAddresses(socketAddresses);
-    }
-
-    public void updateAddresses(List<InetSocketAddress> socketAddresses) {
-        if (null == listener2) {
-            log.debug("Failed to update address for name resolver cause listener is null");
-            return;
-        }
-        addresses = convertAddresses(socketAddresses);
-        listener2.onResult(NameResolver.ResolutionResult.newBuilder().setAddresses(addresses).build());
     }
 
     private List<EquivalentAddressGroup> convertAddresses(List<InetSocketAddress> socketAddresses) {
