@@ -16,7 +16,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.zip.CRC32;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
-import javax.xml.bind.DatatypeConverter;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.SystemUtils;
 
 public class UtilAll {
@@ -208,20 +208,21 @@ public class UtilAll {
 
     public static String getCrc32CheckSum(byte[] array) {
         CRC32 crc32 = new CRC32();
-        crc32.update(array);
+        // Do not use crc32.update(array) directly for the compatibility, which has been marked as since Java1.9.
+        crc32.update(array, 0, array.length);
         return Long.toHexString(crc32.getValue());
     }
 
     public static String getMd5CheckSum(byte[] array) throws NoSuchAlgorithmException {
         final MessageDigest digest = MessageDigest.getInstance("MD5");
         digest.update(array);
-        return DatatypeConverter.printHexBinary(digest.digest());
+        return Hex.encodeHexString(digest.digest());
     }
 
     public static String getSha1CheckSum(byte[] array) throws NoSuchAlgorithmException {
         final MessageDigest digest = MessageDigest.getInstance("SHA-1");
         digest.update(array);
-        return DatatypeConverter.printHexBinary(digest.digest());
+        return Hex.encodeHexString(digest.digest());
     }
 
 

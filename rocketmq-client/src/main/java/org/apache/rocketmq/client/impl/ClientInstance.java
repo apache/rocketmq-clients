@@ -697,7 +697,8 @@ public class ClientInstance {
             // Ensure span MUST be ended.
             if (null != span) {
                 span.setAttribute(TracingAttribute.SUCCESS,
-                                  null != response && Code.OK == Code.forNumber(response.getCommon().getStatus().getCode()));
+                                  null != response
+                                  && Code.OK == Code.forNumber(response.getCommon().getStatus().getCode()));
                 span.end();
             }
         }
