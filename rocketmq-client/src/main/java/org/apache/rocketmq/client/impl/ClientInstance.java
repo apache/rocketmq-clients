@@ -4,7 +4,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import apache.rocketmq.v1.AckMessageRequest;
 import apache.rocketmq.v1.AckMessageResponse;
-import apache.rocketmq.v1.Digest;
 import apache.rocketmq.v1.HealthCheckRequest;
 import apache.rocketmq.v1.HealthCheckResponse;
 import apache.rocketmq.v1.HeartbeatRequest;
@@ -77,6 +76,8 @@ import org.apache.rocketmq.client.impl.consumer.TopicAssignmentInfo;
 import org.apache.rocketmq.client.impl.producer.ProducerObserver;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageImpl;
+import org.apache.rocketmq.client.message.protocol.Digest;
+import org.apache.rocketmq.client.message.protocol.DigestType;
 import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.message.protocol.TransactionPhase;
 import org.apache.rocketmq.client.misc.MixAll;
@@ -978,21 +979,23 @@ public class ClientInstance {
                     // Message Id
                     impl.getSystemAttribute().setMessageId(systemAttribute.getMessageId());
                     // Check digest.
-                    final Digest bodyDigest = systemAttribute.getBodyDigest();
+                    final apache.rocketmq.v1.Digest bodyDigest = systemAttribute.getBodyDigest();
                     byte[] body = msg.getBody().toByteArray();
                     boolean bodyDigestMatch = false;
                     String expectedCheckSum;
+                    DigestType digestType = DigestType.CRC32;
+                    final String checksum = bodyDigest.getChecksum();
                     switch (bodyDigest.getType()) {
                         case CRC32:
                             expectedCheckSum = UtilAll.getCrc32CheckSum(body);
-                            if (expectedCheckSum.equals(bodyDigest.getChecksum())) {
+                            if (expectedCheckSum.equals(checksum)) {
                                 bodyDigestMatch = true;
                             }
                             break;
                         case MD5:
                             try {
                                 expectedCheckSum = UtilAll.getMd5CheckSum(body);
-                                if (expectedCheckSum.equals(bodyDigest.getChecksum())) {
+                                if (expectedCheckSum.equals(checksum)) {
                                     bodyDigestMatch = true;
                                 }
                             } catch (NoSuchAlgorithmException e) {
@@ -1003,7 +1006,7 @@ public class ClientInstance {
                         case SHA1:
                             try {
                                 expectedCheckSum = UtilAll.getSha1CheckSum(body);
-                                if (expectedCheckSum.equals(bodyDigest.getChecksum())) {
+                                if (expectedCheckSum.equals(checksum)) {
                                     bodyDigestMatch = true;
                                 }
                             } catch (NoSuchAlgorithmException e) {
@@ -1019,6 +1022,7 @@ public class ClientInstance {
                         // Need NACK immediately ?
                         continue;
                     }
+                    impl.getSystemAttribute().setDigest(new Digest(digestType, checksum));
 
                     switch (systemAttribute.getBodyEncoding()) {
                         case GZIP:
