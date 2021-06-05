@@ -24,5 +24,6 @@ out/
 target/
 *.ser
 *.ec
+dependency-reduced-pom.xml
 .flattened-pom.xml
 
