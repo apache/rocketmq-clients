@@ -15,4 +15,15 @@
         <maven.compiler.release>6</maven.compiler.release>
     </properties>
 
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.rocketmq</groupId>
+            <artifactId>rocketmq-proto</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-services</artifactId>
+        </dependency>
+    </dependencies>
 </project>
