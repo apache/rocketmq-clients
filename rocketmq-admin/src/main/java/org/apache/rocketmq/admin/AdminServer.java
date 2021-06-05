@@ -5,13 +5,12 @@ import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import io.grpc.protobuf.services.ProtoReflectionService;
 import io.grpc.services.ChannelzService;
 import java.io.IOException;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class AdminServer {
+    private static final int PORT = 15072;
+
     private final Server server;
-    private final static int PORT = 15072;
 
     public AdminServer() {
         this.server = NettyServerBuilder.forPort(PORT)

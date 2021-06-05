@@ -67,14 +67,14 @@ public class UtilAll {
 
     public static byte[] getIpv4AddressBytes() {
         if (null != IPV4_ADDRESS) {
-            return IPV4_ADDRESS;
+            return IPV4_ADDRESS.clone();
         }
         try {
             final Enumeration<NetworkInterface> networkInterfaces =
                     NetworkInterface.getNetworkInterfaces();
             InetAddress address;
 
-            byte[] internalIP = null;
+            byte[] internalIp = null;
             while (networkInterfaces.hasMoreElements()) {
                 NetworkInterface netInterface = networkInterfaces.nextElement();
                 final Enumeration<InetAddress> inetAddresses = netInterface.getInetAddresses();
@@ -92,14 +92,14 @@ public class UtilAll {
                         return ipBytes;
                     }
 
-                    if (internalIP == null) {
-                        internalIP = ipBytes;
+                    if (internalIp == null) {
+                        internalIp = ipBytes;
                     }
                 }
             }
-            if (null != internalIP) {
-                IPV4_ADDRESS = internalIP;
-                return internalIP;
+            if (null != internalIp) {
+                IPV4_ADDRESS = internalIp;
+                return internalIp.clone();
             } else {
                 throw new RuntimeException("Can not get local ip");
             }

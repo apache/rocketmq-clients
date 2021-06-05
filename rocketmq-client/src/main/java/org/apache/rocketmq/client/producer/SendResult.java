@@ -6,15 +6,10 @@ import lombok.ToString;
 @Getter
 @ToString
 public class SendResult {
-    private final SendStatus sendStatus;
+    private final SendStatus sendStatus = SendStatus.SEND_OK;
     private final String msgId;
 
     public SendResult(String msgId) {
-        this.sendStatus = SendStatus.SEND_OK;
         this.msgId = msgId;
-    }
-
-    public SendStatus getSendStatus() {
-        return SendStatus.SEND_OK;
     }
 }

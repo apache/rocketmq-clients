@@ -18,4 +18,16 @@ public class MessageImpl {
         this.systemAttribute = new SystemAttribute();
         this.userAttribute = new HashMap<String, String>();
     }
+
+    public void setBody(byte[] body) {
+        if (null == body) {
+            this.body = null;
+            return;
+        }
+        this.body = body.clone();
+    }
+
+    public byte[] getBody() {
+        return null == body ? null : body.clone();
+    }
 }

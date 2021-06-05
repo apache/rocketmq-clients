@@ -71,9 +71,9 @@ public class ConsumeConcurrentlyService implements ConsumeService {
         final int batchMaxSize = consumer.getConsumeMessageBatchMaxSize();
         final int size = cachedMessages.size();
         for (int i = 0; i < size; i += batchMaxSize) {
+            final List<MessageExt> splitMessages =
+                    cachedMessages.subList(i, Math.min(size, i + batchMaxSize));
             try {
-                final List<MessageExt> splitMessages =
-                        cachedMessages.subList(i, Math.min(size, i + batchMaxSize));
                 consumeExecutor.submit(new ConsumeConcurrentlyTask(this, processQueue, splitMessages));
             } catch (Throwable t) {
                 log.error(

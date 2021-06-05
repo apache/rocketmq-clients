@@ -301,20 +301,6 @@ public class ProcessQueue {
         }
     }
 
-    private boolean leaseNextTerm(long currentTermId, String target) {
-        if (0 >= currentTermId) {
-            log.warn("Version of target is too old, mq={}, target={}", messageQueue.simpleName(), target);
-        }
-        if (currentTermId < termId.get()) {
-            return false;
-        }
-        final boolean acquired = termId.compareAndSet(currentTermId, currentTermId + 1);
-        if (acquired) {
-            log.debug("Lease acquired, mq={}, new termId={}", messageQueue.simpleName(), termId.get());
-        }
-        return acquired;
-    }
-
     private AckMessageRequest wrapAckMessageRequest(MessageExt messageExt) {
         // Group
         final Resource groupResource = Resource.newBuilder()

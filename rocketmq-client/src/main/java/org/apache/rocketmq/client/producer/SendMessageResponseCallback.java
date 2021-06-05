@@ -29,7 +29,6 @@ public class SendMessageResponseCallback {
 
     public void onReceiveResponse(SendMessageResponse response) {
         try {
-            checkNotNull(response);
             final ServiceState state = this.state.get();
             if (ServiceState.STARTED != state) {
                 log.info("Client is not be started, state={}", state);

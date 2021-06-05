@@ -24,16 +24,16 @@ public class TopAddressing {
 
     public TopAddressing() {
         this.httpClient = HttpClients.createDefault();
-        this.wsAddress = getWSAddress();
+        this.wsAddress = getWsAddress();
     }
 
-    private String getWSAddress() {
+    private String getWsAddress() {
         final String wsDomain =
                 System.getProperty(SystemProperty.NAME_SERVER_DOMAIN, DEFAULT_NAME_SERVER_DOMAIN);
         final String wsSubGroup =
                 System.getProperty(SystemProperty.NAME_SERVER_SUB_GROUP, DEFAULT_NAME_SERVER_SUB_GROUP);
         String wsAddress = "http://" + wsDomain + ":8080/rocketmq/" + wsSubGroup;
-        if (wsDomain.indexOf(":") > 0) {
+        if (wsDomain.contains(":")) {
             wsAddress = "http://" + wsDomain + "/rocketmq/" + wsSubGroup;
         }
         return wsAddress;

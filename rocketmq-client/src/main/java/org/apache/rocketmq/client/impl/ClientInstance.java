@@ -1,5 +1,7 @@
 package org.apache.rocketmq.client.impl;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import apache.rocketmq.v1.AckMessageRequest;
 import apache.rocketmq.v1.AckMessageResponse;
 import apache.rocketmq.v1.Digest;
@@ -715,27 +717,26 @@ public class ClientInstance {
         try {
             final ListenableFuture<SendMessageResponse> future =
                     getRpcClient(target).sendMessage(request, asyncRpcExecutor, duration, unit);
-            Futures.addCallback(
-                    future,
-                    new FutureCallback<SendMessageResponse>() {
-                        @Override
-                        public void onSuccess(@Nullable final SendMessageResponse response) {
-                            try {
-                                callback.onReceiveResponse(response);
-                            } catch (Throwable t) {
-                                log.error("Failed to handle async-send message response.", t);
-                            }
-                        }
+            Futures.addCallback(future, new FutureCallback<SendMessageResponse>() {
+                @Override
+                public void onSuccess(@Nullable final SendMessageResponse response) {
+                    try {
+                        checkNotNull(response);
+                        callback.onReceiveResponse(response);
+                    } catch (Throwable t) {
+                        log.error("Failed to handle async-send message response.", t);
+                    }
+                }
 
-                        @Override
-                        public void onFailure(Throwable t1) {
-                            try {
-                                callback.onException(t1);
-                            } catch (Throwable t2) {
-                                log.error("Failed to handle async-send message throwable.", t2);
-                            }
-                        }
-                    }, sendCallbackExecutor);
+                @Override
+                public void onFailure(Throwable t1) {
+                    try {
+                        callback.onException(t1);
+                    } catch (Throwable t2) {
+                        log.error("Failed to handle async-send message throwable.", t2);
+                    }
+                }
+            }, sendCallbackExecutor);
 
         } catch (final Throwable t) {
             try {
@@ -806,25 +807,28 @@ public class ClientInstance {
         final ListenableFuture<AckMessageResponse> future =
                 getRpcClient(target).ackMessage(request, asyncRpcExecutor, RPC_DEFAULT_TIMEOUT_MILLIS,
                                                 TimeUnit.MILLISECONDS);
-        Futures.addCallback(
-                future,
-                new FutureCallback<AckMessageResponse>() {
-                    @Override
-                    public void onSuccess(AckMessageResponse result) {
-                        final Status status = result.getCommon().getStatus();
-                        final Code code = Code.forNumber(status.getCode());
-                        if (Code.OK != code) {
-                            log.error("Failed to async-ack message, endpoints={}, status={}", target.getEndpoints(),
-                                      status);
-                        }
-
+        Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
+            @Override
+            public void onSuccess(@Nullable AckMessageResponse result) {
+                try {
+                    checkNotNull(result);
+                    final Status status = result.getCommon().getStatus();
+                    final Code code = Code.forNumber(status.getCode());
+                    if (Code.OK != code) {
+                        log.error("Failed to async-ack message, endpoints={}, status={}", target.getEndpoints(),
+                                  status);
                     }
+                } catch (Throwable t) {
+                    log.error("Failed to async-ack message, endpoints={}", target.getEndpoints(), t);
+                }
 
-                    @Override
-                    public void onFailure(Throwable t) {
-                        log.warn("Failed to async-ack message, endpoints={}", target.getEndpoints(), t);
-                    }
-                });
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                log.warn("Failed to async-ack message, endpoints={}", target.getEndpoints(), t);
+            }
+        });
     }
 
     public void nackMessage(final RpcTarget target, final NackMessageRequest request)

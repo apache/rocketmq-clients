@@ -19,7 +19,9 @@ public class RemotingUtil {
         }
     }
 
+
     public static String getLocalAddress() {
+        // TODO: cache local address here.
         try {
             // Traversal Network interface to get the first non-loopback and non-private address
             Enumeration<NetworkInterface> enumeration = NetworkInterface.getNetworkInterfaces();
@@ -56,11 +58,9 @@ public class RemotingUtil {
             // If failed to find, fall back to localhost
             final InetAddress localHost = InetAddress.getLocalHost();
             return normalizeHostAddress(localHost);
-        } catch (Exception e) {
-            //            log.error("Failed to obtain local address", e);
+        } catch (Throwable e) {
+            return "127.0.0.1";
         }
-
-        return null;
     }
 
 

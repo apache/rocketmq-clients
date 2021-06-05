@@ -3,11 +3,11 @@ package org.apache.rocketmq.client.impl.consumer;
 import apache.rocketmq.v1.LoadAssignment;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.route.Partition;
 
@@ -15,13 +15,13 @@ import org.apache.rocketmq.client.route.Partition;
 @ToString
 @EqualsAndHashCode
 public class TopicAssignmentInfo {
-    private static final ThreadLocal<Integer> partitionIndex = new ThreadLocal<Integer>();
+    private static final ThreadLocal<Integer> PARTITION_INDEX = new ThreadLocal<Integer>();
 
     @Getter
     private final List<Assignment> assignmentList;
 
     static {
-        partitionIndex.set(Math.abs(new Random().nextInt()));
+        PARTITION_INDEX.set(RandomUtils.nextInt());
     }
 
     public TopicAssignmentInfo(List<LoadAssignment> loadAssignmentList) {
@@ -47,13 +47,13 @@ public class TopicAssignmentInfo {
     }
 
     public static int getNextPartitionIndex() {
-        Integer index = partitionIndex.get();
+        Integer index = PARTITION_INDEX.get();
         if (null == index) {
             index = -1;
         }
         index += 1;
         index = Math.abs(index);
-        partitionIndex.set(index);
+        PARTITION_INDEX.set(index);
         return index;
     }
 

@@ -3,10 +3,10 @@ package org.apache.rocketmq.client.impl.producer;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Random;
 import java.util.Set;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
@@ -30,7 +30,7 @@ public class TopicPublishInfo {
         this.refreshTopicRoute(topicRouteData);
 
         this.sendQueueIndex = new ThreadLocal<Integer>();
-        this.sendQueueIndex.set(Math.abs(new Random().nextInt()));
+        this.sendQueueIndex.set(RandomUtils.nextInt());
     }
 
     void refreshTopicRoute(TopicRouteData topicRouteData) {

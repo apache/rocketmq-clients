@@ -157,10 +157,12 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
                 return;
             }
             log.debug("Start to scan load assignments periodically");
-            for (String topic : filterExpressionTable.keySet()) {
-                try {
-                    final FilterExpression filterExpression = filterExpressionTable.get(topic);
+            for (Map.Entry<String, FilterExpression> entry : filterExpressionTable.entrySet()) {
 
+                final String topic = entry.getKey();
+                final FilterExpression filterExpression = entry.getValue();
+
+                try {
                     final TopicAssignmentInfo localTopicAssignmentInfo =
                             cachedTopicAssignmentTable.get(topic);
                     final TopicAssignmentInfo remoteTopicAssignmentInfo = queryLoadAssignment(topic);
@@ -225,8 +227,9 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
 
         Set<MessageQueue> activeMessageQueueSet = new HashSet<MessageQueue>();
 
-        for (MessageQueue messageQueue : processQueueTable.keySet()) {
-            final ProcessQueue processQueue = processQueueTable.get(messageQueue);
+        for (Map.Entry<MessageQueue, ProcessQueue> entry : processQueueTable.entrySet()) {
+            final MessageQueue messageQueue = entry.getKey();
+            final ProcessQueue processQueue = entry.getValue();
             if (!topic.equals(messageQueue.getTopic())) {
                 continue;
             }

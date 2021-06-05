@@ -81,25 +81,34 @@ public class HeadersClientInterceptor implements ClientInterceptor {
         // TODO: fix serviceName here.
         String serviceName = "aone";
 
-        final String authorization = ALGORITHM_KEY
-                                     + " "
-                                     + CREDENTIAL_KEY
-                                     + "="
-                                     + accessKey
-                                     + "/"
-                                     + regionId
-                                     + "/"
-                                     + serviceName
-                                     + ", "
-                                     + SIGNED_HEADERS_KEY
-                                     + "="
-                                     + DATE_TIME_KEY
-                                     + ", "
-                                     + SIGNATURE_KEY
-                                     + "="
-                                     + TlsHelper.sign(accessSecret, dateTime);
+        String sign = null;
+        try {
+            sign = TlsHelper.sign(accessSecret, dateTime);
+        } catch (Throwable t) {
+            log.error("Failed to sign accessSecret", t);
+        }
 
-        headers.put(Metadata.Key.of(AUTHORIZATION, Metadata.ASCII_STRING_MARSHALLER), authorization);
+        if (null != sign) {
+            final String authorization = ALGORITHM_KEY
+                                         + " "
+                                         + CREDENTIAL_KEY
+                                         + "="
+                                         + accessKey
+                                         + "/"
+                                         + regionId
+                                         + "/"
+                                         + serviceName
+                                         + ", "
+                                         + SIGNED_HEADERS_KEY
+                                         + "="
+                                         + DATE_TIME_KEY
+                                         + ", "
+                                         + SIGNATURE_KEY
+                                         + "="
+                                         + sign;
+
+            headers.put(Metadata.Key.of(AUTHORIZATION, Metadata.ASCII_STRING_MARSHALLER), authorization);
+        }
     }
 
     @Override

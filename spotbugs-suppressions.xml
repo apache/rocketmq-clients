@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<FindBugsFilter>
+    <Match>
+        <Bug pattern="SF_SWITCH_FALLTHROUGH,SIC_INNER_SHOULD_BE_STATIC_ANON,URF_UNREAD_FIELD,UUF_UNUSED_FIELD,SS_SHOULD_BE_STATIC"/>
+    </Match>
+
+    <!--    TODO: remove match here. -->
+    <Match>
+        <Package name="~org\.apache\.rocketmq\.client\.impl.*"/>
+        <Bug pattern="NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE"/>
+    </Match>
+
+    <Match>
+        <Package name="~org\.apache\.rocketmq\.example.*"/>
+    </Match>
+
+    <Match>
+        <Package name="~com\.aliyun\.openservices\.ons.*"/>
+    </Match>
+
+    <Match>
+        <Package name="~apache\.rocketmq\.v1.*"/>
+    </Match>
+
+    <Match>
+        <Package name="~com\.google\.rpc.*"/>
+    </Match>
+</FindBugsFilter>

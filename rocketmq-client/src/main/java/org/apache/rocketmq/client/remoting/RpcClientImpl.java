@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLException;
+import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.impl.ClientInstanceConfig;
 
@@ -36,6 +37,7 @@ import org.apache.rocketmq.client.impl.ClientInstanceConfig;
  * A typical implementation for {@link RpcClient}
  */
 @Slf4j
+@EqualsAndHashCode(callSuper = true)
 public class RpcClientImpl extends ClientInstanceConfig implements RpcClient {
     private final ManagedChannel channel;
 
