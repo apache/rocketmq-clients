@@ -1,5 +1,7 @@
 package org.apache.rocketmq.client.impl.consumer;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import apache.rocketmq.v1.AckMessageRequest;
 import apache.rocketmq.v1.ConsumeModel;
 import apache.rocketmq.v1.ConsumePolicy;
@@ -20,6 +22,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -201,15 +204,21 @@ public class ProcessQueue {
 
     public void popMessageLater() {
         final ScheduledExecutorService scheduler = consumerImpl.getClientInstance().getScheduler();
-        scheduler.schedule(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        popMessage();
-                    }
-                },
-                POP_TIME_DELAY_TIME_MILLIS_WHEN_FLOW_CONTROL,
-                TimeUnit.MILLISECONDS);
+        try {
+            scheduler.schedule(
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            popMessage();
+                        }
+                    },
+                    POP_TIME_DELAY_TIME_MILLIS_WHEN_FLOW_CONTROL,
+                    TimeUnit.MILLISECONDS);
+        } catch (Throwable t) {
+            // Should never reach here.
+            log.error("Unexpected error, failed to schedule pop message request", t);
+            popMessageLater();
+        }
     }
 
     private boolean isPopThrottled() {
@@ -235,7 +244,6 @@ public class ProcessQueue {
     }
 
     public void ackMessage(MessageExt messageExt) throws MQClientException {
-        // TODO: check message is expired or not.
         final AckMessageRequest request = wrapAckMessageRequest(messageExt);
         final ClientInstance clientInstance = consumerImpl.getClientInstance();
         final RpcTarget target = messageExt.getAckRpcTarget();
@@ -250,6 +258,10 @@ public class ProcessQueue {
         final NackMessageRequest request = wrapNackMessageRequest(messageExt);
         final ClientInstance clientInstance = consumerImpl.getClientInstance();
         final RpcTarget target = messageExt.getAckRpcTarget();
+        if (consumerImpl.getDefaultMQPushConsumer().isNackMessageAsync()) {
+            clientInstance.nackMessageAsync(target, request);
+            return;
+        }
         clientInstance.nackMessage(target, request);
     }
 
@@ -268,16 +280,15 @@ public class ProcessQueue {
                     future,
                     new FutureCallback<PopResult>() {
                         @Override
-                        public void onSuccess(PopResult popResult) {
+                        public void onSuccess(@Nullable PopResult popResult) {
                             try {
+                                checkNotNull(popResult);
                                 ProcessQueue.this.handlePopResult(popResult);
                             } catch (Throwable t) {
                                 // Should never reach here.
                                 log.error(
                                         "Unexpected exception occurs while handle pop result, would pop message " +
-                                        "later, mq={}",
-                                        messageQueue,
-                                        t);
+                                        "later, mq={}", messageQueue, t);
                                 popMessageLater();
                             }
                         }
@@ -286,8 +297,7 @@ public class ProcessQueue {
                         public void onFailure(Throwable t) {
                             log.error(
                                     "Exception occurs while popping message, would pop message later, mq={}",
-                                    messageQueue,
-                                    t);
+                                    messageQueue, t);
                             popMessageLater();
                         }
                     },

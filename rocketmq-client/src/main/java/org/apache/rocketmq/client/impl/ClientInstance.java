@@ -845,6 +845,33 @@ public class ClientInstance {
         }
     }
 
+    public void nackMessageAsync(final RpcTarget target, final NackMessageRequest request) throws MQClientException {
+        final ListenableFuture<NackMessageResponse> future =
+                getRpcClient(target).nackMessage(request, asyncRpcExecutor, RPC_DEFAULT_TIMEOUT_MILLIS,
+                                                 TimeUnit.MILLISECONDS);
+        Futures.addCallback(future, new FutureCallback<NackMessageResponse>() {
+            @Override
+            public void onSuccess(@Nullable NackMessageResponse result) {
+                try {
+                    checkNotNull(result);
+                    final Status status = result.getCommon().getStatus();
+                    final Code code = Code.forNumber(status.getCode());
+                    if (Code.OK != code) {
+                        log.error("Failed to async-nack message, endpoints={}, status={}", target.getEndpoints(),
+                                  status);
+                    }
+                } catch (Throwable t) {
+                    log.error("Failed to async-nack message, endpoints={}", target.getEndpoints(), t);
+                }
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                log.warn("Failed to async-nack message, endpoints={}", target.getEndpoints(), t);
+            }
+        });
+    }
+
     private QueryRouteResponse queryRoute(QueryRouteRequest request) throws MQClientException {
         if (null == nameServerEndpoints) {
             log.error("No name server endpoints found, topic={}", request.getTopic());

@@ -9,6 +9,8 @@ import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.impl.ClientConfig;
 import org.apache.rocketmq.client.impl.consumer.DefaultMQPushConsumerImpl;
 
+@Getter
+@Setter
 public class DefaultMQPushConsumer extends ClientConfig {
 
     /**
@@ -16,32 +18,22 @@ public class DefaultMQPushConsumer extends ClientConfig {
      */
     protected final DefaultMQPushConsumerImpl impl;
 
-    @Getter
-    @Setter
     private MessageModel messageModel;
 
-    @Getter
-    @Setter
     private ConsumeFromWhere consumeFromWhere;
 
-    @Getter
     private int consumeThreadMin = 20;
 
-    @Getter
     private int consumeThreadMax = 64;
 
     // TODO: provide default max re-consume times here.
-    @Getter
-    @Setter
     private int maxReconsumeTimes = 16;
 
-    @Getter
-    @Setter
     private int consumeMessageBatchMaxSize = 1;
 
-    @Getter
-    @Setter
     private boolean ackMessageAsync = true;
+
+    private boolean nackMessageAsync = true;
 
     public DefaultMQPushConsumer(final String consumerGroup) {
         super(consumerGroup);
@@ -66,6 +58,22 @@ public class DefaultMQPushConsumer extends ClientConfig {
 
     public void shutdown() throws MQClientException {
         this.impl.shutdown();
+    }
+
+    // TODO: not allowed to set thead num after start
+    public void setConsumeThreadMax(int consumeThreadMax) {
+        this.consumeThreadMax = consumeThreadMax;
+        if (this.consumeThreadMax < this.consumeThreadMin) {
+            this.consumeThreadMin = consumeThreadMax;
+        }
+    }
+
+    // TODO: not allowed to set thead num after start
+    public void setConsumeThreadMin(int consumeThreadMin) {
+        this.consumeThreadMin = consumeThreadMin;
+        if (this.consumeThreadMax < this.consumeThreadMin) {
+            this.consumeThreadMax = consumeThreadMin;
+        }
     }
 
     public void registerMessageListener(MessageListenerConcurrently messageListenerConcurrently) {
