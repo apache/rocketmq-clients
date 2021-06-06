@@ -351,8 +351,8 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
             subscriptionEntries.add(subscriptionEntry);
         }
 
-        // TODO: fix max delivery attempts here.
-        DeadLetterPolicy deadLetterPolicy = DeadLetterPolicy.newBuilder().setMaxDeliveryAttempts(0).build();
+        DeadLetterPolicy deadLetterPolicy =
+                DeadLetterPolicy.newBuilder().setMaxDeliveryAttempts(this.getDefaultMQPushConsumer().getMaxReconsumeTimes()).build();
 
         final ConsumerGroup.Builder builder =
                 ConsumerGroup.newBuilder()
