@@ -115,9 +115,9 @@ public class UtilAll {
 
     /**
      * Check ip is a valid address which belong to class A/B/C or not.
-     *
-     * <p>Class A: 1.0.0.1-126.255.255.254. Class B: 128.1.0.1-191.255.255.254. Class C:
-     * 192.0.1.1-223.255.255.254.
+     * <p>Class A: 1.0.0.1-126.255.255.254.
+     * <p>Class B: 128.1.0.1-191.255.255.254.
+     * <p>Class C: 192.0.1.1-223.255.255.254.
      *
      * @param ipBytes source ip bytes.
      * @return check result.

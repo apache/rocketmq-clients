@@ -367,7 +367,7 @@
                     <failOnError>true</failOnError>
                     <fork>false</fork>
                     <spotbugsXmlOutput>true</spotbugsXmlOutput>
-                    <excludeFilterFile>spotbugs-suppressions.xml</excludeFilterFile>
+                    <excludeFilterFile>style/spotbugs-suppressions.xml</excludeFilterFile>
                     <threshold>Low</threshold>
                     <effort>Max</effort>
                 </configuration>
@@ -380,7 +380,7 @@
                 <configuration>
                     <consoleOutput>true</consoleOutput>
                     <encoding>UTF-8</encoding>
-                    <configLocation>checkstyle.xml</configLocation>
+                    <configLocation>style/checkstyle.xml</configLocation>
                     <excludes>**/apache/rocketmq/v1/*,**/com/google/rpc/*</excludes>
                 </configuration>
                 <executions>
