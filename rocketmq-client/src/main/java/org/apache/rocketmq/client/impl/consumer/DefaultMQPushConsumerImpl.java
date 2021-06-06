@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ConsumeFromWhere;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
+import org.apache.rocketmq.client.consumer.MessageModel;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
@@ -352,15 +353,27 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
         }
 
         DeadLetterPolicy deadLetterPolicy =
-                DeadLetterPolicy.newBuilder().setMaxDeliveryAttempts(this.getDefaultMQPushConsumer().getMaxReconsumeTimes()).build();
+                DeadLetterPolicy.newBuilder()
+                                .setMaxDeliveryAttempts(defaultMQPushConsumer.getMaxReconsumeTimes())
+                                .build();
 
         final ConsumerGroup.Builder builder =
                 ConsumerGroup.newBuilder()
                              .setGroup(groupResource)
                              .addAllSubscriptions(subscriptionEntries)
-                             .setConsumeModel(ConsumeModel.CLUSTERING)
                              .setDeadLetterPolicy(deadLetterPolicy)
                              .setConsumeType(ConsumeMessageType.POP);
+
+        switch (defaultMQPushConsumer.getMessageModel()) {
+            case CLUSTERING:
+                builder.setConsumeModel(ConsumeModel.CLUSTERING);
+                break;
+            case BROADCASTING:
+                builder.setConsumeModel(ConsumeModel.BROADCASTING);
+                break;
+            default:
+                builder.setConsumeModel(ConsumeModel.UNRECOGNIZED);
+        }
 
         final ConsumeFromWhere consumeFromWhere = defaultMQPushConsumer.getConsumeFromWhere();
         switch (consumeFromWhere) {

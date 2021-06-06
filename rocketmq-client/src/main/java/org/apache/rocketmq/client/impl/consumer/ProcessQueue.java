@@ -26,6 +26,7 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.client.constant.ConsumeFromWhere;
 import org.apache.rocketmq.client.consumer.MessageModel;
 import org.apache.rocketmq.client.consumer.PopResult;
 import org.apache.rocketmq.client.consumer.PopStatus;
@@ -158,7 +159,12 @@ public class ProcessQueue {
                 consumerImpl.popTimes.getAndIncrement();
                 consumerImpl.popMsgCount.getAndAdd(msgFoundList.size());
 
-                consumerImpl.getConsumeService().dispatch(this);
+                try {
+                    // TODO: considering whether exception would be thrown here?
+                    consumerImpl.getConsumeService().dispatch(this);
+                } catch (Throwable t) {
+                    log.error("Unexpected error while dispatching message popped, mq={}", messageQueue.simpleName(), t);
+                }
                 // fall through on purpose.
             case NO_NEW_MSG:
             case POLLING_FULL:
@@ -287,8 +293,8 @@ public class ProcessQueue {
                             } catch (Throwable t) {
                                 // Should never reach here.
                                 log.error(
-                                        "Unexpected exception occurs while handle pop result, would pop message " +
-                                        "later, mq={}", messageQueue, t);
+                                        "BUG!!! unexpected exception occurs while handle pop result, would pop "
+                                        + "message later, mq={}", messageQueue, t);
                                 popMessageLater();
                             }
                         }
@@ -323,13 +329,25 @@ public class ProcessQueue {
                                                .setName(messageExt.getTopic())
                                                .build();
 
-        return AckMessageRequest.newBuilder()
-                                .setGroup(groupResource)
-                                .setTopic(topicResource)
-                                .setMessageId(messageExt.getMsgId())
-                                .setClientId(this.getClientId())
-                                .setReceiptHandle(messageExt.getReceiptHandle())
-                                .build();
+        final AckMessageRequest.Builder builder = AckMessageRequest.newBuilder()
+                                                                   .setGroup(groupResource)
+                                                                   .setTopic(topicResource)
+                                                                   .setMessageId(messageExt.getMsgId())
+                                                                   .setClientId(this.getClientId())
+                                                                   .setReceiptHandle(messageExt.getReceiptHandle());
+
+        switch (getMessageModel()) {
+            case CLUSTERING:
+                builder.setConsumeModel(ConsumeModel.CLUSTERING);
+                break;
+            case BROADCASTING:
+                builder.setConsumeModel(ConsumeModel.BROADCASTING);
+                break;
+            default:
+                builder.setConsumeModel(ConsumeModel.UNRECOGNIZED);
+        }
+
+        return builder.build();
     }
 
     private NackMessageRequest wrapNackMessageRequest(MessageExt messageExt) {
@@ -376,9 +394,19 @@ public class ProcessQueue {
                                      .setClientId(this.getClientId())
                                      .setPartition(partition).setBatchSize(MixAll.DEFAULT_MAX_MESSAGE_NUMBER_PRE_BATCH)
                                      .setInvisibleDuration(Durations.fromMillis(MixAll.DEFAULT_INVISIBLE_TIME_MILLIS))
-                                     .setAwaitTime(Durations.fromMillis(MixAll.DEFAULT_POLL_TIME_MILLIS))
-                                     // TODO: fix consume policy here.
-                                     .setConsumePolicy(ConsumePolicy.RESUME);
+                                     .setAwaitTime(Durations.fromMillis(MixAll.DEFAULT_POLL_TIME_MILLIS));
+
+        switch (this.getConsumeFromWhere()) {
+            case CONSUME_FROM_FIRST_OFFSET:
+                builder.setConsumePolicy(ConsumePolicy.PLAYBACK);
+                break;
+            case CONSUME_FROM_TIMESTAMP:
+                builder.setConsumePolicy(ConsumePolicy.TARGET_TIMESTAMP);
+                break;
+            case CONSUME_FROM_LAST_OFFSET:
+            default:
+                builder.setConsumePolicy(ConsumePolicy.RESUME);
+        }
 
         switch (this.getMessageModel()) {
             case CLUSTERING:
@@ -446,5 +474,9 @@ public class ProcessQueue {
 
     private MessageModel getMessageModel() {
         return consumerImpl.getDefaultMQPushConsumer().getMessageModel();
+    }
+
+    private ConsumeFromWhere getConsumeFromWhere() {
+        return consumerImpl.getDefaultMQPushConsumer().getConsumeFromWhere();
     }
 }

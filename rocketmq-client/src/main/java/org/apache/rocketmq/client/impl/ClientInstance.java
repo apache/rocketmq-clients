@@ -1056,6 +1056,7 @@ public class ClientInstance {
                             body = UtilAll.uncompressBytesGzip(body);
                             break;
                         case SNAPPY:
+                            // TODO
                             log.warn("SNAPPY encoding algorithm is not supported.");
                             break;
                         case IDENTITY:
@@ -1067,6 +1068,7 @@ public class ClientInstance {
                     impl.setBody(body);
 
                     MessageType messageType;
+                    // TODO: messageType not set yet.
                     switch (systemAttribute.getMessageType()) {
                         case NORMAL:
                             messageType = MessageType.NORMAL;
