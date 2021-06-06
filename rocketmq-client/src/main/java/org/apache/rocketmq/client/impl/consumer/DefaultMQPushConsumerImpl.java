@@ -218,11 +218,11 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
 
     private void syncProcessQueueByTopic(
             String topic, TopicAssignmentInfo topicAssignmentInfo, FilterExpression filterExpression) {
-        Set<MessageQueue> newMessageQueueSet = new HashSet<MessageQueue>();
+        Set<MessageQueue> latestMessageQueueSet = new HashSet<MessageQueue>();
 
         final List<Assignment> assignmentList = topicAssignmentInfo.getAssignmentList();
         for (Assignment assignment : assignmentList) {
-            newMessageQueueSet.add(assignment.getMessageQueue());
+            latestMessageQueueSet.add(assignment.getMessageQueue());
         }
 
         Set<MessageQueue> activeMessageQueueSet = new HashSet<MessageQueue>();
@@ -239,10 +239,9 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
                 continue;
             }
 
-            if (!newMessageQueueSet.contains(messageQueue)) {
+            if (!latestMessageQueueSet.contains(messageQueue)) {
                 log.info(
-                        "Stop to pop message queue according to the latest load assignments, message queue={}",
-                        messageQueue);
+                        "Stop to pop message queue according to the latest load assignments, mq={}", messageQueue);
                 processQueueTable.remove(messageQueue);
                 processQueue.setDropped(true);
                 continue;
@@ -250,18 +249,20 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
 
             if (processQueue.isPopExpired()) {
                 log.warn("ProcessQueue is expired to pop, mq={}", messageQueue);
+                processQueueTable.remove(messageQueue);
                 processQueue.setDropped(true);
                 continue;
             }
             activeMessageQueueSet.add(messageQueue);
         }
 
-        for (MessageQueue messageQueue : newMessageQueueSet) {
+        for (MessageQueue messageQueue : latestMessageQueueSet) {
             if (!activeMessageQueueSet.contains(messageQueue)) {
                 log.info(
                         "Start to pop message queue according to the latest load assignments, mq={}",
                         messageQueue);
-                popMessagePromptly(messageQueue, filterExpression);
+                final ProcessQueue processQueue = getProcessQueue(messageQueue, filterExpression);
+                processQueue.popMessage();
             }
         }
     }
@@ -273,11 +274,6 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
                     messageQueue, new ProcessQueue(this, messageQueue, filterExpression));
         }
         return processQueueTable.get(messageQueue);
-    }
-
-    private void popMessagePromptly(MessageQueue messageQueue, FilterExpression filterExpression) {
-        final ProcessQueue processQueue = getProcessQueue(messageQueue, filterExpression);
-        processQueue.popMessage();
     }
 
     public void subscribe(final String topic, final String subscribeExpression)
