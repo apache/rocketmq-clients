@@ -362,15 +362,27 @@ public class ProcessQueue {
                                                .setName(messageExt.getTopic())
                                                .build();
 
-        return NackMessageRequest.newBuilder()
-                                 .setGroup(groupResource)
-                                 .setTopic(topicResource)
-                                 .setClientId(this.getClientId())
-                                 .setReceiptHandle(messageExt.getReceiptHandle())
-                                 .setMessageId(messageExt.getMsgId())
-                                 .setReconsumeTimes(messageExt.getReconsumeTimes() + 1)
-                                 .setMaxReconsumeTimes(this.getMaxReconsumeTimes())
-                                 .build();
+        final NackMessageRequest.Builder builder = NackMessageRequest.newBuilder()
+                                                                     .setGroup(groupResource)
+                                                                     .setTopic(topicResource)
+                                                                     .setClientId(this.getClientId())
+                                                                     .setReceiptHandle(messageExt.getReceiptHandle())
+                                                                     .setMessageId(messageExt.getMsgId())
+                                                                     .setReconsumeTimes(messageExt.getReconsumeTimes() + 1)
+                                                                     .setMaxReconsumeTimes(this.getMaxReconsumeTimes());
+
+        switch (getMessageModel()) {
+            case CLUSTERING:
+                builder.setConsumeModel(ConsumeModel.CLUSTERING);
+                break;
+            case BROADCASTING:
+                builder.setConsumeModel(ConsumeModel.BROADCASTING);
+                break;
+            default:
+                builder.setConsumeModel(ConsumeModel.UNRECOGNIZED);
+        }
+
+        return builder.build();
     }
 
     private ReceiveMessageRequest wrapPopMessageRequest() {
