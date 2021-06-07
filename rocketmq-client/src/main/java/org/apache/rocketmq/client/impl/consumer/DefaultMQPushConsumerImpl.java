@@ -10,6 +10,7 @@ import apache.rocketmq.v1.HeartbeatEntry;
 import apache.rocketmq.v1.QueryAssignmentRequest;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.SubscriptionEntry;
+import io.opentelemetry.api.trace.Tracer;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -403,5 +404,12 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
 
     private Resource getGroupResource() {
         return Resource.newBuilder().setArn(getArn()).setName(getProducerGroup()).build();
+    }
+
+    public Tracer getTracer() {
+        if (null == clientInstance) {
+            return null;
+        }
+        return clientInstance.getTracer();
     }
 }

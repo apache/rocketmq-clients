@@ -10,7 +10,7 @@ public class MQClientException extends Exception {
     }
 
     public MQClientException(String errorMessage, Throwable cause) {
-        //        super(FAQUrl.attachDefaultURL(errorMessage), cause);
+        super(errorMessage, cause);
         this.responseCode = -1;
         this.errorMessage = errorMessage;
     }

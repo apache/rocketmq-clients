@@ -82,6 +82,10 @@ public class MessageExt {
         return this.impl.getSystemAttribute().getAckRpcTarget();
     }
 
+    public String getTraceContext() {
+        return this.impl.getSystemAttribute().getTraceContext();
+    }
+
     public Map<String, String> getUserProperties() {
         return this.impl.getUserAttribute();
     }

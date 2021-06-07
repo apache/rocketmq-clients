@@ -16,6 +16,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.util.Durations;
+import io.opentelemetry.api.trace.Tracer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
@@ -491,5 +492,9 @@ public class ProcessQueue {
 
     private ConsumeFromWhere getConsumeFromWhere() {
         return consumerImpl.getDefaultMQPushConsumer().getConsumeFromWhere();
+    }
+
+    public Tracer getTracer() {
+        return consumerImpl.getTracer();
     }
 }

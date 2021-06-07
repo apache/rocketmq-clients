@@ -37,6 +37,7 @@ import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext;
 import io.grpc.netty.shaded.io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
 import io.opentelemetry.context.propagation.ContextPropagators;
@@ -132,6 +133,7 @@ public class ClientInstance {
     private final AtomicReference<ServiceState> state;
 
     private volatile RpcTarget tracingRpcTarget = null;
+    @Getter
     private volatile Tracer tracer = null;
 
     public ClientInstance(ClientInstanceConfig clientInstanceConfig, Endpoints nameServerEndpointsList) {
@@ -524,54 +526,58 @@ public class ClientInstance {
         return tracingRpcTargetSet;
     }
 
-    private void updateTracer() throws SSLException {
-        final Set<RpcTarget> tracingRpcTargetSet = getTracingRpcTargetSet();
-        if (tracingRpcTargetSet.isEmpty()) {
-            log.info("No available tracing rpc target.");
-            return;
+    private void updateTracer() {
+        try {
+            final Set<RpcTarget> tracingRpcTargetSet = getTracingRpcTargetSet();
+            if (tracingRpcTargetSet.isEmpty()) {
+                log.info("No available tracing rpc target.");
+                return;
+            }
+            if (null != tracingRpcTarget && tracingRpcTargetSet.contains(tracingRpcTarget)) {
+                log.info("Tracing rpc target remains unchanged");
+                return;
+            }
+            List<RpcTarget> tracingRpcTargetList = new ArrayList<RpcTarget>(tracingRpcTargetSet);
+            Collections.shuffle(tracingRpcTargetList);
+            // Pick up tracing rpc target randomly.
+            final RpcTarget randomTracingRpcTarget = tracingRpcTargetList.iterator().next();
+            final SslContext sslContext =
+                    GrpcSslContexts.forClient().trustManager(InsecureTrustManagerFactory.INSTANCE).build();
+
+            final NettyChannelBuilder channelBuilder =
+                    NettyChannelBuilder
+                            .forTarget(randomTracingRpcTarget.getEndpoints().getTarget())
+                            .sslContext(sslContext)
+                            .intercept(new HeadersClientInterceptor(clientInstanceConfig));
+
+            final List<InetSocketAddress> socketAddresses =
+                    randomTracingRpcTarget.getEndpoints().convertToSocketAddresses();
+            // If scheme is not domain.
+            if (null != socketAddresses) {
+                IpNameResolverFactory tracingResolverFactory = new IpNameResolverFactory(socketAddresses);
+                channelBuilder.nameResolverFactory(tracingResolverFactory);
+            }
+
+            OtlpGrpcSpanExporter exporter =
+                    OtlpGrpcSpanExporter.builder().setChannel(channelBuilder.build())
+                                        .setTimeout(RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS).build();
+            BatchSpanProcessor spanProcessor =
+                    BatchSpanProcessor.builder(exporter)
+                                      .setScheduleDelay(1, TimeUnit.SECONDS)
+                                      .setMaxExportBatchSize(4096)
+                                      .build();
+
+            SdkTracerProvider sdkTracerProvider = SdkTracerProvider.builder().addSpanProcessor(spanProcessor).build();
+            // TODO: no need propagators here.
+            OpenTelemetrySdk openTelemetry =
+                    OpenTelemetrySdk.builder()
+                                    .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
+                                    .setTracerProvider(sdkTracerProvider).build();
+            tracer = openTelemetry.getTracer("org.apache.rocketmq.message.tracer");
+            tracingRpcTarget = randomTracingRpcTarget;
+        } catch (Throwable t) {
+            log.error("Exception occurs while updating tracer.", t);
         }
-        if (null != tracingRpcTarget && tracingRpcTargetSet.contains(tracingRpcTarget)) {
-            log.info("Tracing rpc target remains unchanged");
-            return;
-        }
-        List<RpcTarget> tracingRpcTargetList = new ArrayList<RpcTarget>(tracingRpcTargetSet);
-        Collections.shuffle(tracingRpcTargetList);
-        // Pick up tracing rpc target randomly.
-        final RpcTarget randomTracingRpcTarget = tracingRpcTargetList.iterator().next();
-        final SslContext sslContext =
-                GrpcSslContexts.forClient().trustManager(InsecureTrustManagerFactory.INSTANCE).build();
-
-        final NettyChannelBuilder channelBuilder =
-                NettyChannelBuilder
-                        .forTarget(randomTracingRpcTarget.getEndpoints().getTarget())
-                        .sslContext(sslContext)
-                        .intercept(new HeadersClientInterceptor(clientInstanceConfig));
-
-        final List<InetSocketAddress> socketAddresses =
-                randomTracingRpcTarget.getEndpoints().convertToSocketAddresses();
-        // If scheme is not domain.
-        if (null != socketAddresses) {
-            IpNameResolverFactory tracingResolverFactory = new IpNameResolverFactory(socketAddresses);
-            channelBuilder.nameResolverFactory(tracingResolverFactory);
-        }
-
-        OtlpGrpcSpanExporter exporter =
-                OtlpGrpcSpanExporter.builder().setChannel(channelBuilder.build())
-                                    .setTimeout(RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS).build();
-        BatchSpanProcessor spanProcessor =
-                BatchSpanProcessor.builder(exporter)
-                                  .setScheduleDelay(1, TimeUnit.SECONDS)
-                                  .setMaxExportBatchSize(4096)
-                                  .build();
-
-        SdkTracerProvider sdkTracerProvider = SdkTracerProvider.builder().addSpanProcessor(spanProcessor).build();
-        // TODO: no need propagators here.
-        OpenTelemetrySdk openTelemetry =
-                OpenTelemetrySdk.builder()
-                                .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
-                                .setTracerProvider(sdkTracerProvider).build();
-        tracer = openTelemetry.getTracer("org.apache.rocketmq.message.tracer");
-        tracingRpcTarget = randomTracingRpcTarget;
     }
 
     /**
@@ -677,36 +683,19 @@ public class ClientInstance {
         return targetSet;
     }
 
+
     SendMessageResponse send(
             RpcTarget target, SendMessageRequest request, long duration, TimeUnit unit) throws MQClientException {
         RpcClient rpcClient = this.getRpcClient(target);
 
-        Span span = null;
-        if (null != tracer) {
-            span = tracer.spanBuilder(SpanName.SEND_MESSAGE_SYNC).startSpan();
-            final Message message = request.getMessage();
-            final SystemAttribute systemAttribute = message.getSystemAttribute();
-
-            span.setAttribute(TracingAttribute.ARN, message.getTopic().getArn());
-            span.setAttribute(TracingAttribute.TOPIC, message.getTopic().getName());
-            span.setAttribute(TracingAttribute.TAGS, systemAttribute.getTag());
-            span.setAttribute(TracingAttribute.MSG_ID, systemAttribute.getMessageId());
-
-            final String serializedSpanContext = TracingUtility.injectSpanContextToTraceParent(span.getSpanContext());
-            systemAttribute.toBuilder().setTraceContext(serializedSpanContext);
-        }
+        Span span = startSendMessageSpan(SpanName.SEND_MESSAGE_SYNC, request);
         SendMessageResponse response = null;
         try {
             response = rpcClient.sendMessage(request, duration, unit);
             return response;
         } finally {
             // Ensure span MUST be ended.
-            if (null != span) {
-                span.setAttribute(TracingAttribute.SUCCESS,
-                                  null != response
-                                  && Code.OK == Code.forNumber(response.getCommon().getStatus().getCode()));
-                span.end();
-            }
+            endSendMessageSpan(span, response);
         }
     }
 
@@ -718,6 +707,7 @@ public class ClientInstance {
             TimeUnit unit) {
         final SendMessageResponseCallback callback =
                 new SendMessageResponseCallback(request, state, sendCallback);
+        final Span span = startSendMessageSpan(SpanName.SEND_MESSAGE_ASYNC, request);
         try {
             final ListenableFuture<SendMessageResponse> future =
                     getRpcClient(target).sendMessage(request, asyncRpcExecutor, duration, unit);
@@ -728,6 +718,7 @@ public class ClientInstance {
                         @Override
                         public void run() {
                             try {
+                                endSendMessageSpan(span, response);
                                 checkNotNull(response);
                                 callback.onReceiveResponse(response);
                             } catch (Throwable t) {
@@ -755,6 +746,7 @@ public class ClientInstance {
                         @Override
                         public void run() {
                             try {
+                                endSendMessageSpan(span);
                                 callback.onException(t1);
                             } catch (Throwable t) {
                                 log.error("Failed to handle async-sending message throwable.", t1);
@@ -782,6 +774,7 @@ public class ClientInstance {
                 @Override
                 public void run() {
                     try {
+                        endSendMessageSpan(span);
                         callback.onException(t);
                     } catch (Throwable t1) {
                         log.error("Failed to handle callback registration throwable for async-sending message", t1);
@@ -990,6 +983,7 @@ public class ClientInstance {
         }
         topicRouteData = fetchTopicRouteData(topic);
         topicRouteTable.put(topic, topicRouteData);
+        updateTracer();
         return topicRouteTable.get(topic);
     }
 
@@ -1213,5 +1207,61 @@ public class ClientInstance {
                 Timestamps.toMillis(response.getDeliveryTimestamp()),
                 Durations.toMillis(response.getInvisibleDuration()),
                 msgFoundList);
+    }
+
+
+    private Span startSendMessageSpan(String spanName, SendMessageRequest request) {
+        if (null == tracer) {
+            return null;
+        }
+        final Span span = tracer.spanBuilder(spanName).startSpan();
+        final Message message = request.getMessage();
+        final SystemAttribute systemAttribute = message.getSystemAttribute();
+
+        span.setAttribute(TracingAttribute.ARN, message.getTopic().getArn());
+        span.setAttribute(TracingAttribute.TOPIC, message.getTopic().getName());
+        span.setAttribute(TracingAttribute.TAGS, systemAttribute.getTag());
+        span.setAttribute(TracingAttribute.MSG_ID, systemAttribute.getMessageId());
+        span.setAttribute(TracingAttribute.GROUP, systemAttribute.getPublisherGroup().getName());
+        StringBuilder keys = new StringBuilder();
+        for (String key : systemAttribute.getKeysList()) {
+            keys.append(key);
+        }
+        span.setAttribute(TracingAttribute.KEYS, keys.toString().trim());
+        span.setAttribute(TracingAttribute.BORN_HOST, systemAttribute.getBornHost());
+        final apache.rocketmq.v1.MessageType messageType = systemAttribute.getMessageType();
+        switch (messageType) {
+            case FIFO:
+                span.setAttribute(TracingAttribute.MSG_TYPE, MessageType.FIFO.getName());
+                break;
+            case DELAY:
+                span.setAttribute(TracingAttribute.MSG_TYPE, MessageType.DELAY.getName());
+                break;
+            case TRANSACTION:
+                span.setAttribute(TracingAttribute.MSG_TYPE, MessageType.TRANSACTION.getName());
+                break;
+            default:
+                span.setAttribute(TracingAttribute.MSG_TYPE, MessageType.NORMAL.getName());
+        }
+        final String serializedSpanContext = TracingUtility.injectSpanContextToTraceParent(span.getSpanContext());
+        systemAttribute.toBuilder().setTraceContext(serializedSpanContext);
+        return span;
+    }
+
+    private void endSendMessageSpan(Span span) {
+        endSendMessageSpan(span, null);
+    }
+
+    private void endSendMessageSpan(Span span, SendMessageResponse response) {
+        if (null == span) {
+            return;
+        }
+        if (null != response && Code.OK == Code.forNumber(response.getCommon().getStatus().getCode())) {
+            span.setStatus(StatusCode.OK);
+            span.end();
+            return;
+        }
+        span.setStatus(StatusCode.ERROR);
+        span.end();
     }
 }

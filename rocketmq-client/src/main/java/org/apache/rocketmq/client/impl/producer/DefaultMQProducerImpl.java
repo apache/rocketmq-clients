@@ -333,6 +333,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
         final String topic = message.getTopic();
         final TopicPublishInfo publicInfo = getPublicInfo(topic);
         final int totalSendTimes = getTotalSendTimes(mode);
+        Throwable terminatedThrowable = null;
         for (int time = 1; time <= totalSendTimes; time++) {
             final MessageQueue messageQueue = selectOneMessageQueue(publicInfo);
             if (null == messageQueue) {
@@ -347,9 +348,10 @@ public class DefaultMQProducerImpl implements ProducerObserver {
                 target.setIsolated(true);
                 log.debug(
                         "Would isolate target for a while cause failed to send message, target={}", target);
+                terminatedThrowable = t;
             }
         }
-        throw new MQClientException("Failed to send message");
+        throw new MQClientException("Failed to send message", terminatedThrowable);
     }
 
     private SendResult sendSelectImpl(
