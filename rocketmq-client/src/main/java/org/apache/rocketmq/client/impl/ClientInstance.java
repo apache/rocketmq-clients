@@ -337,6 +337,7 @@ public class ClientInstance {
             scheduler.shutdown();
             asyncRpcExecutor.shutdown();
             sendCallbackExecutor.shutdown();
+            receiveCallbackExecutor.shutdown();
             if (state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED)) {
                 log.info("Shutdown client instance successfully");
                 return;
