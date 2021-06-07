@@ -27,6 +27,7 @@ import com.google.common.base.Function;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
 import com.google.rpc.Code;
@@ -335,6 +336,7 @@ public class ClientInstance {
         if (ServiceState.STOPPING == serviceState) {
             scheduler.shutdown();
             asyncRpcExecutor.shutdown();
+            sendCallbackExecutor.shutdown();
             if (state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED)) {
                 log.info("Shutdown client instance successfully");
                 return;
@@ -721,38 +723,80 @@ public class ClientInstance {
             Futures.addCallback(future, new FutureCallback<SendMessageResponse>() {
                 @Override
                 public void onSuccess(@Nullable final SendMessageResponse response) {
+                    final Runnable runnable = new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                checkNotNull(response);
+                                callback.onReceiveResponse(response);
+                            } catch (Throwable t) {
+                                log.error("Failed to handle async-sending  message response.", t);
+                            }
+                        }
+                    };
                     try {
-                        checkNotNull(response);
-                        callback.onReceiveResponse(response);
+                        sendCallbackExecutor.submit(runnable);
                     } catch (Throwable t) {
-                        log.error("Failed to handle async-send message response.", t);
+                        log.error("SERIOUS!!! failed to submit task to sendCallback executor for handling "
+                                  + "async-sending message response, try to execute it directly.");
+                        try {
+                            MoreExecutors.directExecutor().execute(runnable);
+                        } catch (Throwable t1) {
+                            log.error("Unexpected error for handling async-sending message response directly in "
+                                      + "async thread pool", t1);
+                        }
                     }
                 }
 
                 @Override
-                public void onFailure(Throwable t1) {
+                public void onFailure(final Throwable t1) {
+                    final Runnable runnable = new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                callback.onException(t1);
+                            } catch (Throwable t) {
+                                log.error("Failed to handle async-sending message throwable.", t1);
+                            }
+                        }
+                    };
                     try {
-                        callback.onException(t1);
-                    } catch (Throwable t2) {
-                        log.error("Failed to handle async-send message throwable.", t2);
-                    }
-                }
-            }, sendCallbackExecutor);
-
-        } catch (final Throwable t) {
-            try {
-                sendCallbackExecutor.submit(new Runnable() {
-                    @Override
-                    public void run() {
+                        sendCallbackExecutor.submit(runnable);
+                    } catch (Throwable t) {
+                        log.error("SERIOUS!!! failed to submit task to sendCallback executor for handling "
+                                  + "async-sending throwable, try to execute it directly.", t);
                         try {
-                            callback.onException(t);
-                        } catch (Throwable t1) {
-                            log.error("Failed to handle async-send message throwable.", t1);
+                            MoreExecutors.directExecutor().execute(runnable);
+                        } catch (Throwable t2) {
+                            log.error("Unexpected error for handling async-sending message throwable directly in "
+                                      + "async thread pool", t2);
                         }
                     }
-                });
+                }
+            }, asyncRpcExecutor);
+
+        } catch (final Throwable t) {
+            log.error("Failed to register callback for async-sending message", t);
+            final Runnable runnable = new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        callback.onException(t);
+                    } catch (Throwable t1) {
+                        log.error("Failed to handle callback registration throwable for async-sending message", t1);
+                    }
+                }
+            };
+            try {
+                sendCallbackExecutor.submit(runnable);
             } catch (Throwable t2) {
-                log.error("Exception occurs while handling async-send message throwable.", t2);
+                log.error("SERIOUS!!! failed to submit task to sendCallback executor for handling async-sending "
+                          + "throwable", t2);
+                try {
+                    MoreExecutors.directExecutor().execute(runnable);
+                } catch (Throwable t3) {
+                    log.error("Unexpected error for handling async-sending message throwable directly.", t3);
+                }
             }
         }
     }

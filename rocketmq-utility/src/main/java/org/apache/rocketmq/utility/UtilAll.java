@@ -210,19 +210,19 @@ public class UtilAll {
         CRC32 crc32 = new CRC32();
         // Do not use crc32.update(array) directly for the compatibility, which has been marked as since Java1.9.
         crc32.update(array, 0, array.length);
-        return Long.toHexString(crc32.getValue());
+        return Long.toHexString(crc32.getValue()).toUpperCase();
     }
 
     public static String getMd5CheckSum(byte[] array) throws NoSuchAlgorithmException {
         final MessageDigest digest = MessageDigest.getInstance("MD5");
         digest.update(array);
-        return Hex.encodeHexString(digest.digest());
+        return Hex.encodeHexString(digest.digest(), false);
     }
 
     public static String getSha1CheckSum(byte[] array) throws NoSuchAlgorithmException {
         final MessageDigest digest = MessageDigest.getInstance("SHA-1");
         digest.update(array);
-        return Hex.encodeHexString(digest.digest());
+        return Hex.encodeHexString(digest.digest(), false);
     }
 
 
