@@ -123,7 +123,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
                 Resource.newBuilder().setArn(this.getArn()).setName(message.getTopic()).build();
 
         final Resource groupResource =
-                Resource.newBuilder().setName(this.getProducerGroup()).setName(this.getArn()).build();
+                Resource.newBuilder().setArn(this.getArn()).setName(this.getProducerGroup()).build();
 
         final Map<String, String> properties = message.getUserProperties();
 

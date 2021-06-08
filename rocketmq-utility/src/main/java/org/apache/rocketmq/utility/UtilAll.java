@@ -12,6 +12,7 @@ import java.net.NetworkInterface;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Enumeration;
+import java.util.Locale;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.zip.CRC32;
 import java.util.zip.DeflaterOutputStream;
@@ -210,7 +211,8 @@ public class UtilAll {
         CRC32 crc32 = new CRC32();
         // Do not use crc32.update(array) directly for the compatibility, which has been marked as since Java1.9.
         crc32.update(array, 0, array.length);
-        return Long.toHexString(crc32.getValue()).toUpperCase();
+        Locale locale = new Locale("zh", "CN");
+        return Long.toHexString(crc32.getValue()).toUpperCase(locale);
     }
 
     public static String getMd5CheckSum(byte[] array) throws NoSuchAlgorithmException {

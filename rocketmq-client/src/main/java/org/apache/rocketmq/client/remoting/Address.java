@@ -3,10 +3,12 @@ package org.apache.rocketmq.client.remoting;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.ToString;
 
 @AllArgsConstructor
 @Getter
 @EqualsAndHashCode
+@ToString
 public class Address {
     private final String host;
     private final int port;

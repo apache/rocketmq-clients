@@ -688,7 +688,10 @@ public class ClientInstance {
             RpcTarget target, SendMessageRequest request, long duration, TimeUnit unit) throws MQClientException {
         RpcClient rpcClient = this.getRpcClient(target);
 
-        Span span = startSendMessageSpan(SpanName.SEND_MSG_SYNC, request);
+        final SendMessageRequest.Builder requestBuilder = request.toBuilder();
+        final Span span = startSendMessageSpan(SpanName.SEND_MSG_SYNC, requestBuilder);
+        request = requestBuilder.build();
+
         SendMessageResponse response = null;
         try {
             response = rpcClient.sendMessage(request, duration, unit);
@@ -707,7 +710,11 @@ public class ClientInstance {
             TimeUnit unit) {
         final SendMessageResponseCallback callback =
                 new SendMessageResponseCallback(request, state, sendCallback);
-        final Span span = startSendMessageSpan(SpanName.SEND_MSG_ASYNC, request);
+
+        final SendMessageRequest.Builder requestBuilder = request.toBuilder();
+        final Span span = startSendMessageSpan(SpanName.SEND_MSG_SYNC, requestBuilder);
+        request = requestBuilder.build();
+
         try {
             final ListenableFuture<SendMessageResponse> future =
                     getRpcClient(target).sendMessage(request, asyncRpcExecutor, duration, unit);
@@ -1210,13 +1217,13 @@ public class ClientInstance {
     }
 
 
-    private Span startSendMessageSpan(String spanName, SendMessageRequest request) {
+    private Span startSendMessageSpan(String spanName, SendMessageRequest.Builder requestBuilder) {
         if (null == tracer) {
             return null;
         }
         final Span span = tracer.spanBuilder(spanName).startSpan();
-        final Message message = request.getMessage();
-        final SystemAttribute systemAttribute = message.getSystemAttribute();
+        Message message = requestBuilder.getMessage();
+        SystemAttribute systemAttribute = message.getSystemAttribute();
 
         span.setAttribute(TracingAttribute.ARN, message.getTopic().getArn());
         span.setAttribute(TracingAttribute.TOPIC, message.getTopic().getName());
@@ -1244,7 +1251,11 @@ public class ClientInstance {
                 span.setAttribute(TracingAttribute.MSG_TYPE, MessageType.NORMAL.getName());
         }
         final String serializedSpanContext = TracingUtility.injectSpanContextToTraceParent(span.getSpanContext());
-        systemAttribute.toBuilder().setTraceContext(serializedSpanContext);
+
+        systemAttribute = systemAttribute.toBuilder().setTraceContext(serializedSpanContext).build();
+        message = message.toBuilder().setSystemAttribute(systemAttribute).build();
+        requestBuilder.setMessage(message);
+
         return span;
     }
 
