@@ -321,7 +321,8 @@ public class DefaultMQProducerImpl implements ProducerObserver {
 
         final SendMessageResponse response =
                 clientInstance.sendClientApi(
-                        target, mode, request, sendCallback, timeoutMillis, TimeUnit.MILLISECONDS);
+                        target, mode, request, sendCallback, defaultMQProducer.isMessageTracingEnabled(),
+                        timeoutMillis, TimeUnit.MILLISECONDS);
 
         return ClientInstance.processSendResponse(response);
     }

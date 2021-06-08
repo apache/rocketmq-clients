@@ -14,6 +14,11 @@ public class MixAll {
     public static final int DEFAULT_MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE = 5 * 1024 * 1024;
     public static final long DEFAULT_MAX_POP_MESSAGE_INTERVAL_MILLIS = 30 * 1000L;
 
+    public static final String DEFAULT_TRACER_INSTRUMENTATION_NAME = "org.apache.rocketmq.message.tracer";
+    public static final long DEFAULT_EXPORTER_SCHEDULE_DELAY_TIME_MILLIS = 1000L;
+    public static final long DEFAULT_EXPORTER_RPC_TIMEOUT_MILLIS = 3000L;
+    public static final int DEFAULT_EXPORTER_BATCH_SIZE = 65536;
+
     private MixAll() {
     }
 }

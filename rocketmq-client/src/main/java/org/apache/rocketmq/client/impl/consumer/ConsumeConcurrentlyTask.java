@@ -52,11 +52,11 @@ public class ConsumeConcurrentlyTask implements Runnable {
         final double durationEachMessage = duration * 1.0 / messageNum;
         final long finalEndTimestamp = System.currentTimeMillis();
 
+        final DefaultMQPushConsumer consumer =
+                processQueue.getConsumerImpl().getDefaultMQPushConsumer();
         final Tracer tracer = processQueue.getTracer();
-        if (null != tracer) {
+        if (null != tracer && consumer.isMessageTracingEnabled()) {
             // Estimate message consuming start timestamp.
-            final DefaultMQPushConsumer consumer =
-                    processQueue.getConsumerImpl().getDefaultMQPushConsumer();
             final String group = consumer.getConsumerGroup();
             final String arn = consumer.getArn();
             for (int i = 0; i < messageNum; i++) {

@@ -465,7 +465,7 @@ public class ClientInstance {
     /**
      * Update topic route info from name server and notify observer if changed.
      */
-    private void updateRouteInfo() throws SSLException {
+    private void updateRouteInfo() {
         final ServiceState serviceState = state.get();
         if (ServiceState.STARTED != serviceState && ServiceState.STARTING != serviceState) {
             log.warn("Unexpected client instance state={}", serviceState);
@@ -560,11 +560,13 @@ public class ClientInstance {
 
             OtlpGrpcSpanExporter exporter =
                     OtlpGrpcSpanExporter.builder().setChannel(channelBuilder.build())
-                                        .setTimeout(RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS).build();
+                                        .setTimeout(MixAll.DEFAULT_EXPORTER_RPC_TIMEOUT_MILLIS,
+                                                    TimeUnit.MILLISECONDS).build();
             BatchSpanProcessor spanProcessor =
                     BatchSpanProcessor.builder(exporter)
-                                      .setScheduleDelay(1, TimeUnit.SECONDS)
-                                      .setMaxExportBatchSize(4096)
+                                      .setScheduleDelay(MixAll.DEFAULT_EXPORTER_SCHEDULE_DELAY_TIME_MILLIS,
+                                                        TimeUnit.SECONDS)
+                                      .setMaxExportBatchSize(MixAll.DEFAULT_EXPORTER_BATCH_SIZE)
                                       .build();
 
             SdkTracerProvider sdkTracerProvider = SdkTracerProvider.builder().addSpanProcessor(spanProcessor).build();
@@ -573,7 +575,7 @@ public class ClientInstance {
                     OpenTelemetrySdk.builder()
                                     .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
                                     .setTracerProvider(sdkTracerProvider).build();
-            tracer = openTelemetry.getTracer("org.apache.rocketmq.message.tracer");
+            tracer = openTelemetry.getTracer(MixAll.DEFAULT_TRACER_INSTRUMENTATION_NAME);
             tracingRpcTarget = randomTracingRpcTarget;
         } catch (Throwable t) {
             log.error("Exception occurs while updating tracer.", t);
@@ -685,11 +687,12 @@ public class ClientInstance {
 
 
     SendMessageResponse send(
-            RpcTarget target, SendMessageRequest request, long duration, TimeUnit unit) throws MQClientException {
+            RpcTarget target, SendMessageRequest request, boolean messageTracingEnabled, long duration,
+            TimeUnit unit) throws MQClientException {
         RpcClient rpcClient = this.getRpcClient(target);
 
         final SendMessageRequest.Builder requestBuilder = request.toBuilder();
-        final Span span = startSendMessageSpan(SpanName.SEND_MSG_SYNC, requestBuilder);
+        final Span span = messageTracingEnabled ? startSendMessageSpan(SpanName.SEND_MSG_SYNC, requestBuilder) : null;
         request = requestBuilder.build();
 
         SendMessageResponse response = null;
@@ -706,13 +709,14 @@ public class ClientInstance {
             RpcTarget target,
             SendMessageRequest request,
             final SendCallback sendCallback,
+            boolean messageTracingEnabled,
             long duration,
             TimeUnit unit) {
         final SendMessageResponseCallback callback =
                 new SendMessageResponseCallback(request, state, sendCallback);
 
         final SendMessageRequest.Builder requestBuilder = request.toBuilder();
-        final Span span = startSendMessageSpan(SpanName.SEND_MSG_SYNC, requestBuilder);
+        final Span span = messageTracingEnabled ? startSendMessageSpan(SpanName.SEND_MSG_ASYNC, requestBuilder) : null;
         request = requestBuilder.build();
 
         try {
@@ -807,15 +811,17 @@ public class ClientInstance {
             CommunicationMode mode,
             SendMessageRequest request,
             SendCallback sendCallback,
+            boolean messageTracingEnabled,
             long duration,
             TimeUnit unit) throws MQClientException {
         switch (mode) {
             case SYNC:
             case ONE_WAY:
-                return send(target, request, duration, unit);
+                return send(target, request, messageTracingEnabled, duration, unit);
             case ASYNC:
             default:
-                sendAsync(target, request, sendCallback, duration, unit);
+                // Response here would be ignored by async-sending.
+                sendAsync(target, request, sendCallback, messageTracingEnabled, duration, unit);
                 ResponseCommon common =
                         ResponseCommon.newBuilder().setStatus(Status.newBuilder().setCode(Code.OK_VALUE)).build();
                 return SendMessageResponse.newBuilder().setCommon(common).build();
