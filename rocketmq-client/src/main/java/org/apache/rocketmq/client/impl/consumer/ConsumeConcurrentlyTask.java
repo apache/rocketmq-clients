@@ -11,10 +11,11 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
-import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageExt;
+import org.apache.rocketmq.client.tracing.EventName;
 import org.apache.rocketmq.client.tracing.SpanName;
 import org.apache.rocketmq.client.tracing.TracingAttribute;
 import org.apache.rocketmq.client.tracing.TracingUtility;
@@ -54,6 +55,10 @@ public class ConsumeConcurrentlyTask implements Runnable {
         final Tracer tracer = processQueue.getTracer();
         if (null != tracer) {
             // Estimate message consuming start timestamp.
+            final DefaultMQPushConsumer consumer =
+                    processQueue.getConsumerImpl().getDefaultMQPushConsumer();
+            final String group = consumer.getConsumerGroup();
+            final String arn = consumer.getArn();
             for (int i = 0; i < messageNum; i++) {
                 final long startTimestamp = (long) (finalEndTimestamp - (messageNum - i) * durationEachMessage);
                 final long endTimestamp = startTimestamp + (long) durationEachMessage;
@@ -62,18 +67,24 @@ public class ConsumeConcurrentlyTask implements Runnable {
                 final String traceContext = cachedMessage.getTraceContext();
 
                 final SpanBuilder spanBuilder =
-                        tracer.spanBuilder(SpanName.CONSUME_MESSAGE).setStartTimestamp(startTimestamp,
-                                                                                       TimeUnit.MILLISECONDS);
-
+                        tracer.spanBuilder(SpanName.CONSUME_MSG).setStartTimestamp(startTimestamp,
+                                                                                   TimeUnit.MILLISECONDS);
+                // Set sending-message's span as parent if it is valid.
                 final SpanContext spanContext = TracingUtility.extractContextFromTraceParent(traceContext);
                 if (spanContext.isValid()) {
                     spanBuilder.setParent(Context.current().with(Span.wrap(spanContext)));
                 }
                 final Span span = spanBuilder.startSpan();
+                // Record message born-timestamp.
+                span.addEvent(EventName.MSG_BORN, cachedMessage.getBornTimestamp(), TimeUnit.MILLISECONDS);
+                span.setAttribute(TracingAttribute.ARN, arn);
                 span.setAttribute(TracingAttribute.TOPIC, cachedMessage.getTopic());
                 span.setAttribute(TracingAttribute.MSG_ID, cachedMessage.getMsgId());
+                span.setAttribute(TracingAttribute.GROUP, group);
                 span.setAttribute(TracingAttribute.TAGS, cachedMessage.getTags());
                 span.setAttribute(TracingAttribute.KEYS, cachedMessage.getKeys());
+                span.setAttribute(TracingAttribute.RETRY_TIMES, cachedMessage.getReconsumeTimes());
+                span.setAttribute(TracingAttribute.MSG_TYPE, cachedMessage.getMsgType().getName());
                 if (status == ConsumeConcurrentlyStatus.CONSUME_SUCCESS) {
                     span.setStatus(StatusCode.OK);
                 } else {

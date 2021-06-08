@@ -6,7 +6,7 @@ public class TracingAttribute {
     public static final String GROUP = "group";
     public static final String MSG_ID = "msg_id";
     public static final String TAGS = "tags";
-    public static final String STORE_HOST = "store_host";
+//    public static final String STORE_HOST = "store_host";
     public static final String BORN_HOST = "born_host";
     public static final String KEYS = "keys";
     public static final String RETRY_TIMES = "retry_times";

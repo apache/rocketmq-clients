@@ -688,7 +688,7 @@ public class ClientInstance {
             RpcTarget target, SendMessageRequest request, long duration, TimeUnit unit) throws MQClientException {
         RpcClient rpcClient = this.getRpcClient(target);
 
-        Span span = startSendMessageSpan(SpanName.SEND_MESSAGE_SYNC, request);
+        Span span = startSendMessageSpan(SpanName.SEND_MSG_SYNC, request);
         SendMessageResponse response = null;
         try {
             response = rpcClient.sendMessage(request, duration, unit);
@@ -707,7 +707,7 @@ public class ClientInstance {
             TimeUnit unit) {
         final SendMessageResponseCallback callback =
                 new SendMessageResponseCallback(request, state, sendCallback);
-        final Span span = startSendMessageSpan(SpanName.SEND_MESSAGE_ASYNC, request);
+        final Span span = startSendMessageSpan(SpanName.SEND_MSG_ASYNC, request);
         try {
             final ListenableFuture<SendMessageResponse> future =
                     getRpcClient(target).sendMessage(request, asyncRpcExecutor, duration, unit);
@@ -1220,9 +1220,9 @@ public class ClientInstance {
 
         span.setAttribute(TracingAttribute.ARN, message.getTopic().getArn());
         span.setAttribute(TracingAttribute.TOPIC, message.getTopic().getName());
-        span.setAttribute(TracingAttribute.TAGS, systemAttribute.getTag());
         span.setAttribute(TracingAttribute.MSG_ID, systemAttribute.getMessageId());
         span.setAttribute(TracingAttribute.GROUP, systemAttribute.getPublisherGroup().getName());
+        span.setAttribute(TracingAttribute.TAGS, systemAttribute.getTag());
         StringBuilder keys = new StringBuilder();
         for (String key : systemAttribute.getKeysList()) {
             keys.append(key);

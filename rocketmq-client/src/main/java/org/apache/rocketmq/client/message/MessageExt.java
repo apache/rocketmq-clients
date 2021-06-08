@@ -3,6 +3,7 @@ package org.apache.rocketmq.client.message;
 
 import java.util.Map;
 import lombok.EqualsAndHashCode;
+import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.remoting.RpcTarget;
 
 @EqualsAndHashCode
@@ -88,5 +89,18 @@ public class MessageExt {
 
     public Map<String, String> getUserProperties() {
         return this.impl.getUserAttribute();
+    }
+
+    public MessageType getMsgType() {
+        switch (this.impl.getSystemAttribute().getMessageType()) {
+            case FIFO:
+                return MessageType.FIFO;
+            case DELAY:
+                return MessageType.DELAY;
+            case TRANSACTION:
+                return MessageType.TRANSACTION;
+            default:
+                return MessageType.NORMAL;
+        }
     }
 }
