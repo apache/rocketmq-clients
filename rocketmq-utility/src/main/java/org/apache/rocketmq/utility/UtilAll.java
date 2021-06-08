@@ -21,9 +21,6 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.SystemUtils;
 
 public class UtilAll {
-
-    private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
-
     private static byte[] IPV4_ADDRESS = null;
 
     private static final int PROCESS_ID_NOT_SET = -1;
@@ -54,16 +51,6 @@ public class UtilAll {
             PROCESS_ID = PROCESS_ID_NOT_FOUND;
         }
         return PROCESS_ID;
-    }
-
-    public static String bytes2string(byte[] src) {
-        char[] hexChars = new char[src.length * 2];
-        for (int j = 0; j < src.length; j++) {
-            int v = src[j] & 0xFF;
-            hexChars[j * 2] = HEX_ARRAY[v >>> 4];
-            hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
-        }
-        return new String(hexChars);
     }
 
     public static byte[] getIpv4AddressBytes() {
@@ -146,10 +133,6 @@ public class UtilAll {
             return ipBytes[3] != (byte) 0;
         }
         return false;
-    }
-
-    public static int getThreadParallelCount(ThreadPoolExecutor executor) {
-        return executor.getMaximumPoolSize() + executor.getQueue().remainingCapacity();
     }
 
     public static byte[] compressBytesGzip(final byte[] src, final int level) throws IOException {

@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.util.Calendar;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.rocketmq.utility.UtilAll;
 
 @Slf4j
@@ -28,7 +29,7 @@ public class MessageIdUtils {
         }
         buffer.position(6);
         buffer.putInt(MessageIdUtils.class.getClassLoader().hashCode());
-        FIX_PREFIX = UtilAll.bytes2string(buffer.array());
+        FIX_PREFIX = Hex.encodeHexString(buffer.array(), false);
         setStartTime(System.currentTimeMillis());
     }
 
@@ -36,7 +37,7 @@ public class MessageIdUtils {
     }
 
     public static String createUniqID() {
-        return FIX_PREFIX + UtilAll.bytes2string(createUniqIdBuffer());
+        return FIX_PREFIX + Hex.encodeHexString(createUniqIdBuffer(), false);
     }
 
     private static byte[] createUniqIdBuffer() {

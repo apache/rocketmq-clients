@@ -102,6 +102,7 @@ import org.apache.rocketmq.utility.UtilAll;
 
 @Slf4j
 public class ClientInstance {
+    private static final long FETCH_TOPIC_ROUTE_TIMEOUT_MILLIS = 5 * 1000;
     private static final long RPC_DEFAULT_TIMEOUT_MILLIS = 3 * 1000;
 
     private final ClientInstanceConfig clientInstanceConfig;
@@ -929,7 +930,7 @@ public class ClientInstance {
             throw new MQClientException("No name server endpoints found.");
         }
         final RpcClient rpcClient = this.getRpcClient(new RpcTarget(nameServerEndpoints, true, false));
-        return rpcClient.queryRoute(request, RPC_DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        return rpcClient.queryRoute(request, FETCH_TOPIC_ROUTE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
     }
 
     public TopicAssignmentInfo queryLoadAssignment(RpcTarget target, QueryAssignmentRequest request)
