@@ -2,7 +2,6 @@ package org.apache.rocketmq.client.producer;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Setter;
@@ -10,19 +9,19 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.impl.ClientInstance;
-import org.apache.rocketmq.client.producer.SendCallback;
-import org.apache.rocketmq.client.producer.SendResult;
+import org.apache.rocketmq.client.remoting.RpcTarget;
 
 @Slf4j
 @Setter
 public class SendMessageResponseCallback {
-    private SendMessageRequest request;
-    private AtomicReference<ServiceState> state;
-    private SendCallback sendCallback;
+    private final RpcTarget rpcTarget;
+    private final AtomicReference<ServiceState> state;
+    private final SendCallback sendCallback;
 
-    public SendMessageResponseCallback(
-            SendMessageRequest request, AtomicReference<ServiceState> state, SendCallback sendCallback) {
-        this.request = request;
+    public SendMessageResponseCallback(RpcTarget rpcTarget,
+                                       AtomicReference<ServiceState> state,
+                                       SendCallback sendCallback) {
+        this.rpcTarget = rpcTarget;
         this.state = state;
         this.sendCallback = sendCallback;
     }
@@ -36,7 +35,7 @@ public class SendMessageResponseCallback {
             }
             SendResult sendResult;
             try {
-                sendResult = ClientInstance.processSendResponse(response);
+                sendResult = ClientInstance.processSendResponse(rpcTarget, response);
             } catch (MQServerException e) {
                 sendCallback.onException(e);
                 return;

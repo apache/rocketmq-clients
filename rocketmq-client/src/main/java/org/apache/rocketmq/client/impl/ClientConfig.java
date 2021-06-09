@@ -52,6 +52,7 @@ public class ClientConfig {
         this.nameServerEndpoints = new Endpoints(AddressScheme.IPv4, addresses);
     }
 
+    // TODO: not allowed to update after client instance started(override in producer and consumer)
     public void setArn(String arn) {
         clientInstanceConfig.setArn(arn);
     }
@@ -60,6 +61,7 @@ public class ClientConfig {
         return clientInstanceConfig.getArn();
     }
 
+    // TODO: not allowed to update after client instance started(override in producer and consumer)
     public void setAccessCredential(AccessCredential accessCredential) {
         clientInstanceConfig.setAccessCredential(accessCredential);
     }

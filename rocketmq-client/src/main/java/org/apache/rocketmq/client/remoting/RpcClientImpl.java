@@ -2,6 +2,8 @@ package org.apache.rocketmq.client.remoting;
 
 import apache.rocketmq.v1.AckMessageRequest;
 import apache.rocketmq.v1.AckMessageResponse;
+import apache.rocketmq.v1.EndTransactionRequest;
+import apache.rocketmq.v1.EndTransactionResponse;
 import apache.rocketmq.v1.HealthCheckRequest;
 import apache.rocketmq.v1.HealthCheckResponse;
 import apache.rocketmq.v1.HeartbeatRequest;
@@ -138,8 +140,12 @@ public class RpcClientImpl extends ClientInstanceConfig implements RpcClient {
     }
 
     @Override
-    public QueryRouteResponse queryRoute(
-            QueryRouteRequest request, long duration, TimeUnit unit) {
+    public QueryRouteResponse queryRoute(QueryRouteRequest request, long duration, TimeUnit unit) {
         return blockingStub.withDeadlineAfter(duration, unit).queryRoute(request);
+    }
+
+    @Override
+    public EndTransactionResponse endTransaction(EndTransactionRequest request, long duration, TimeUnit unit) {
+        return blockingStub.withDeadlineAfter(duration, unit).endTransaction(request);
     }
 }

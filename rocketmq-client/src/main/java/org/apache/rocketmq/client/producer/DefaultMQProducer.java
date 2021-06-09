@@ -99,6 +99,18 @@ public class DefaultMQProducer extends ClientConfig {
         this.impl = new DefaultMQProducerImpl(this);
     }
 
+    /**
+     * Constructor specifying arn and producer group.
+     *
+     * @param arn           Means abstract resource namespace,
+     * @param producerGroup Producer group, see the name-sake field.
+     */
+    public DefaultMQProducer(final String arn, final String producerGroup) {
+        super(producerGroup);
+        this.impl = new DefaultMQProducerImpl(this);
+        this.setArn(arn);
+    }
+
     public String getProducerGroup() {
         return this.getGroupName();
     }
@@ -406,20 +418,11 @@ public class DefaultMQProducer extends ClientConfig {
         this.impl.sendOneway(msg, selector, arg);
     }
 
-    /**
-     * This method is to send transactional messages.
-     *
-     * @param msg          Transactional message to send.
-     * @param tranExecuter local transaction executor.
-     * @param arg          Argument used along with local transaction executor.
-     * @return Transaction result.
-     * @throws MQClientException if there is any client error.
-     */
+
     public TransactionSendResult sendMessageInTransaction(
-            Message msg, LocalTransactionExecutor tranExecuter, final Object arg)
+            Message msg, LocalTransactionExecuter executor, final Object arg)
             throws MQClientException {
-        throw new RuntimeException(
-                "sendMessageInTransaction not implement, please use TransactionMQProducer class");
+        throw new UnsupportedOperationException();
     }
 
     public SendResult send(Collection<Message> msgs)

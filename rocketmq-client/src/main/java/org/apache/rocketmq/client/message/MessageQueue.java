@@ -1,18 +1,17 @@
 package org.apache.rocketmq.client.message;
 
-import lombok.Data;
 import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
 import lombok.ToString;
 import org.apache.rocketmq.client.route.Partition;
 
-@Data
+@Getter
+@ToString
 @EqualsAndHashCode
-@NoArgsConstructor
 public class MessageQueue {
-    private String topic;
-    private String brokerName;
-    private int queueId;
+    private final String topic;
+    private final String brokerName;
+    private final int queueId;
 
     @EqualsAndHashCode.Exclude
     @ToString.Exclude

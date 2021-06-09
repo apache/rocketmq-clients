@@ -351,29 +351,29 @@
                 </executions>
             </plugin>
 
-            <plugin>
-                <groupId>com.github.spotbugs</groupId>
-                <artifactId>spotbugs-maven-plugin</artifactId>
-                <version>${spotbugs-plugin.version}</version>
-                <executions>
-                    <execution>
-                        <id>check</id>
-                        <phase>compile</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <failOnError>true</failOnError>
-                    <fork>false</fork>
-                    <spotbugsXmlOutput>true</spotbugsXmlOutput>
-                    <excludeFilterFile>${project.root}/style/spotbugs-suppressions.xml
-                    </excludeFilterFile>
-                    <threshold>Low</threshold>
-                    <effort>Max</effort>
-                </configuration>
-            </plugin>
+<!--            <plugin>-->
+<!--                <groupId>com.github.spotbugs</groupId>-->
+<!--                <artifactId>spotbugs-maven-plugin</artifactId>-->
+<!--                <version>${spotbugs-plugin.version}</version>-->
+<!--                <executions>-->
+<!--                    <execution>-->
+<!--                        <id>check</id>-->
+<!--                        <phase>compile</phase>-->
+<!--                        <goals>-->
+<!--                            <goal>check</goal>-->
+<!--                        </goals>-->
+<!--                    </execution>-->
+<!--                </executions>-->
+<!--                <configuration>-->
+<!--                    <failOnError>true</failOnError>-->
+<!--                    <fork>false</fork>-->
+<!--                    <spotbugsXmlOutput>true</spotbugsXmlOutput>-->
+<!--                    <excludeFilterFile>${project.root}/style/spotbugs-suppressions.xml-->
+<!--                    </excludeFilterFile>-->
+<!--                    <threshold>Low</threshold>-->
+<!--                    <effort>Max</effort>-->
+<!--                </configuration>-->
+<!--            </plugin>-->
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

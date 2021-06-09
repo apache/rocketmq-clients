@@ -2,6 +2,8 @@ package org.apache.rocketmq.client.remoting;
 
 import apache.rocketmq.v1.AckMessageRequest;
 import apache.rocketmq.v1.AckMessageResponse;
+import apache.rocketmq.v1.EndTransactionRequest;
+import apache.rocketmq.v1.EndTransactionResponse;
 import apache.rocketmq.v1.HealthCheckRequest;
 import apache.rocketmq.v1.HealthCheckResponse;
 import apache.rocketmq.v1.HeartbeatRequest;
@@ -149,4 +151,14 @@ public interface RpcClient {
      * @return response of query topic route.
      */
     QueryRouteResponse queryRoute(QueryRouteRequest request, long duration, TimeUnit unit);
+
+    /**
+     * Submit transaction resolution
+     *
+     * @param request  end transaction request.
+     * @param duration request max duration.
+     * @param unit     duration time unit.
+     * @return response of submitting transaction resolution.
+     */
+    EndTransactionResponse endTransaction(EndTransactionRequest request, long duration, TimeUnit unit);
 }

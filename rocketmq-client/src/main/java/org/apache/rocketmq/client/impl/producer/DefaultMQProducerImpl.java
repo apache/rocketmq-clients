@@ -2,6 +2,7 @@ package org.apache.rocketmq.client.impl.producer;
 
 import static com.google.protobuf.util.Timestamps.fromMillis;
 
+import apache.rocketmq.v1.EndTransactionRequest;
 import apache.rocketmq.v1.HeartbeatEntry;
 import apache.rocketmq.v1.MessageType;
 import apache.rocketmq.v1.ProducerGroup;
@@ -36,9 +37,12 @@ import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.message.protocol.Encoding;
 import org.apache.rocketmq.client.misc.Validators;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
+import org.apache.rocketmq.client.producer.LocalTransactionExecuter;
+import org.apache.rocketmq.client.producer.LocalTransactionState;
 import org.apache.rocketmq.client.producer.MessageQueueSelector;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
+import org.apache.rocketmq.client.producer.TransactionSendResult;
 import org.apache.rocketmq.client.remoting.RpcTarget;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.utility.UtilAll;
@@ -307,6 +311,75 @@ public class DefaultMQProducerImpl implements ProducerObserver {
                 defaultMQProducer.getSendMsgTimeout());
     }
 
+    public TransactionSendResult sendTransaction(Message message, LocalTransactionExecuter executor, Object object)
+            throws MQClientException {
+        LocalTransactionState localTransactionState = LocalTransactionState.UNKNOWN;
+        SendResult sendResult;
+        // 1. Prepare
+        try {
+            sendResult = transactionPrepare(message);
+        } catch (Throwable t) {
+            throw new MQClientException("Failed to prepare transaction", t);
+        }
+        try {
+            localTransactionState = executor.executeLocalTransactionBranch(message, object);
+        } catch (Throwable t) {
+            log.error("Exception occurs while executing local transaction", t);
+        }
+        final String messageId = sendResult.getMsgId();
+        final String transactionId = sendResult.getTransactionId();
+        final RpcTarget rpcTarget = sendResult.getRpcTarget();
+        // 2. Commit or Rollback
+        switch (localTransactionState) {
+            case COMMIT_MESSAGE:
+                try {
+                    transactionCommit(messageId, transactionId, rpcTarget);
+                } catch (Throwable t) {
+                    log.error("Failed to commit transaction, messageId={}, transactionId={}, endpoints={}", messageId,
+                              transactionId, rpcTarget.getEndpoints().getTarget());
+                }
+                break;
+            case ROLLBACK_MESSAGE:
+                try {
+                    transactionRollback(messageId, transactionId, rpcTarget);
+                } catch (Throwable t) {
+                    log.error("Failed to rollback transaction, messageId={}, transactionId={}, endpoints={}",
+                              messageId, transactionId, rpcTarget.getEndpoints().getTarget());
+                }
+                break;
+            default:
+                log.warn("Transaction status in unknown, messageId={}, transactionId={}", messageId, transactionId);
+        }
+        return new TransactionSendResult(rpcTarget, messageId, transactionId, localTransactionState);
+    }
+
+    private SendResult transactionPrepare(Message message) throws MQClientException {
+        return sendDefaultImpl(message, CommunicationMode.SYNC, null,
+                               defaultMQProducer.getSendMsgTimeout());
+    }
+
+    private void transactionCommit(String messageId, String transactionId, RpcTarget rpcTarget)
+            throws MQServerException, MQClientException {
+        EndTransactionRequest request =
+                EndTransactionRequest.newBuilder()
+                                     .setMessageId(messageId)
+                                     .setTransactionId(transactionId)
+                                     .setResolution(EndTransactionRequest.TransactionResolution.COMMIT)
+                                     .build();
+        clientInstance.endTransaction(rpcTarget, request);
+    }
+
+    private void transactionRollback(String messageId, String transactionId, RpcTarget rpcTarget)
+            throws MQServerException, MQClientException {
+        EndTransactionRequest request =
+                EndTransactionRequest.newBuilder()
+                                     .setMessageId(messageId)
+                                     .setTransactionId(transactionId)
+                                     .setResolution(EndTransactionRequest.TransactionResolution.ROLLBACK)
+                                     .build();
+        clientInstance.endTransaction(rpcTarget, request);
+    }
+
     private SendResult sendKernelImpl(
             Message message,
             MessageQueue mq,
@@ -315,16 +388,16 @@ public class DefaultMQProducerImpl implements ProducerObserver {
             long timeoutMillis)
             throws MQClientException, MQServerException {
         TopicPublishInfo publicInfo = getPublicInfo(message.getTopic());
-        final RpcTarget target = publicInfo.resolveRpcTarget(mq.getBrokerName());
+        final RpcTarget rpcTarget = publicInfo.resolveRpcTarget(mq.getBrokerName());
 
         final SendMessageRequest request = wrapSendMessageRequest(message, mq);
 
         final SendMessageResponse response =
                 clientInstance.sendClientApi(
-                        target, mode, request, sendCallback, defaultMQProducer.isMessageTracingEnabled(),
+                        rpcTarget, mode, request, sendCallback, defaultMQProducer.isMessageTracingEnabled(),
                         timeoutMillis, TimeUnit.MILLISECONDS);
 
-        return ClientInstance.processSendResponse(response);
+        return ClientInstance.processSendResponse(rpcTarget, response);
     }
 
     public SendResult sendDefaultImpl(
@@ -399,7 +472,13 @@ public class DefaultMQProducerImpl implements ProducerObserver {
         return null;
     }
 
-    // Not implemented yet.
+    //    void commit()
+
+
+    //    EndTransactionRequest wrapEndTransactionRequest(String messageId, String transactionId, )
+
+
+    // TODO: Not implemented yet.
     public void setCallbackExecutor(final ExecutorService callbackExecutor) {
     }
 

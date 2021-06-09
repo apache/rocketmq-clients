@@ -4,6 +4,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import apache.rocketmq.v1.AckMessageRequest;
 import apache.rocketmq.v1.AckMessageResponse;
+import apache.rocketmq.v1.EndTransactionRequest;
+import apache.rocketmq.v1.EndTransactionResponse;
 import apache.rocketmq.v1.HealthCheckRequest;
 import apache.rocketmq.v1.HealthCheckResponse;
 import apache.rocketmq.v1.HeartbeatRequest;
@@ -707,14 +709,14 @@ public class ClientInstance {
     }
 
     void sendAsync(
-            RpcTarget target,
+            RpcTarget rpcTarget,
             SendMessageRequest request,
             final SendCallback sendCallback,
             boolean messageTracingEnabled,
             long duration,
             TimeUnit unit) {
         final SendMessageResponseCallback callback =
-                new SendMessageResponseCallback(request, state, sendCallback);
+                new SendMessageResponseCallback(rpcTarget, state, sendCallback);
 
         final SendMessageRequest.Builder requestBuilder = request.toBuilder();
         final Span span = messageTracingEnabled ? startSendMessageSpan(SpanName.SEND_MSG_ASYNC, requestBuilder) : null;
@@ -722,7 +724,7 @@ public class ClientInstance {
 
         try {
             final ListenableFuture<SendMessageResponse> future =
-                    getRpcClient(target).sendMessage(request, asyncRpcExecutor, duration, unit);
+                    getRpcClient(rpcTarget).sendMessage(request, asyncRpcExecutor, duration, unit);
             Futures.addCallback(future, new FutureCallback<SendMessageResponse>() {
                 @Override
                 public void onSuccess(@Nullable final SendMessageResponse response) {
@@ -1009,7 +1011,7 @@ public class ClientInstance {
         return topicRouteTable.get(topic);
     }
 
-    public static SendResult processSendResponse(SendMessageResponse response)
+    public static SendResult processSendResponse(RpcTarget rpcTarget, SendMessageResponse response)
             throws MQServerException {
         final Status status = response.getCommon().getStatus();
         final Code code = Code.forNumber(status.getCode());
@@ -1017,7 +1019,7 @@ public class ClientInstance {
             throw new MQServerException("Unrecognized code=" + status.getCode());
         }
         if (Code.OK == code) {
-            return new SendResult(response.getMessageId());
+            return new SendResult(rpcTarget, response.getMessageId(), response.getTransactionId());
         }
         log.debug("Response indicates failure of sending message, information={}", status.getMessage());
         throw new MQServerException(status.getMessage());
@@ -1229,6 +1231,18 @@ public class ClientInstance {
                 Timestamps.toMillis(response.getDeliveryTimestamp()),
                 Durations.toMillis(response.getInvisibleDuration()),
                 msgFoundList);
+    }
+
+    public void endTransaction(RpcTarget rpcTarget, EndTransactionRequest request) throws MQClientException,
+                                                                                          MQServerException {
+        final RpcClient rpcClient = this.getRpcClient(rpcTarget);
+        final EndTransactionResponse response = rpcClient.endTransaction(request, RPC_DEFAULT_TIMEOUT_MILLIS,
+                                                                         TimeUnit.MILLISECONDS);
+        final Status status = response.getCommon().getStatus();
+        final int code = status.getCode();
+        if (Code.OK_VALUE != code) {
+            throw new MQServerException("Failed to end transaction");
+        }
     }
 
 
