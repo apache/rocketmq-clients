@@ -153,11 +153,12 @@ public class ProcessQueue {
         final PopStatus popStatus = popResult.getPopStatus();
         final List<MessageExt> msgFoundList = popResult.getMsgFoundList();
 
+        consumerImpl.popTimes.getAndIncrement();
+
         switch (popStatus) {
             case FOUND:
                 cacheMessages(msgFoundList);
 
-                consumerImpl.popTimes.getAndIncrement();
                 consumerImpl.popMsgCount.getAndAdd(msgFoundList.size());
 
                 try {
@@ -172,8 +173,8 @@ public class ProcessQueue {
             case POLLING_NOT_FOUND:
             case SERVICE_UNSTABLE:
                 log.debug(
-                        "Pop message from target={} with status={}, mq={}, message count={}",
-                        popResult.getTarget(),
+                        "Pop message from endpoints={} with status={}, mq={}, message count={}",
+                        popResult.getRpcTarget().getEndpoints().getTarget(),
                         popStatus,
                         messageQueue.simpleName(),
                         msgFoundList.size());
@@ -181,8 +182,8 @@ public class ProcessQueue {
                 break;
             default:
                 log.warn(
-                        "Pop message from target={} with unknown status={}, mq={}, message count={}",
-                        popResult.getTarget(),
+                        "Pop message from endpoints={} with unknown status={}, mq={}, message count={}",
+                        popResult.getRpcTarget().getEndpoints().getTarget(),
                         popStatus,
                         messageQueue.simpleName(),
                         msgFoundList.size());

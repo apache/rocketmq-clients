@@ -43,8 +43,8 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
 
     public AtomicLong popTimes;
     public AtomicLong popMsgCount;
-    public AtomicLong consumeSuccessNum;
-    public AtomicLong consumeFailureNum;
+    public AtomicLong consumeSuccessMsgCount;
+    public AtomicLong consumeFailureMsgCount;
 
     @Getter
     private final DefaultMQPushConsumer defaultMQPushConsumer;
@@ -80,8 +80,8 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
 
         this.popTimes = new AtomicLong(0);
         this.popMsgCount = new AtomicLong(0);
-        this.consumeSuccessNum = new AtomicLong(0);
-        this.consumeFailureNum = new AtomicLong(0);
+        this.consumeSuccessMsgCount = new AtomicLong(0);
+        this.consumeFailureMsgCount = new AtomicLong(0);
     }
 
     private ConsumeService generateConsumeService() throws MQClientException {
@@ -205,16 +205,16 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
     @Override
     public void logStats() {
         final long popTimes = this.popTimes.getAndSet(0);
-        final long popNum = popMsgCount.getAndSet(0);
-        final long consumeSuccessNum = this.consumeSuccessNum.getAndSet(0);
-        final long consumeFailureNum = this.consumeFailureNum.getAndSet(0);
+        final long poppedMsgCount = popMsgCount.getAndSet(0);
+        final long consumeSuccessMsgCount = this.consumeSuccessMsgCount.getAndSet(0);
+        final long consumeFailureMsgCount = this.consumeFailureMsgCount.getAndSet(0);
         log.info(
-                "ConsumerGroup={}, popTimes={}, PopNum={}, SuccessNum={}, FailureNum={}",
-                defaultMQPushConsumer.getConsumerGroup(),
+                "ConsumerGroup={}, PopTimes={}, PoppedMsgCount={}, ConsumeSuccessMsgCount={}, "
+                + "ConsumeFailureMsgCount={}", defaultMQPushConsumer.getConsumerGroup(),
                 popTimes,
-                popNum,
-                consumeSuccessNum,
-                consumeFailureNum);
+                poppedMsgCount,
+                consumeSuccessMsgCount,
+                consumeFailureMsgCount);
     }
 
     private void syncProcessQueueByTopic(

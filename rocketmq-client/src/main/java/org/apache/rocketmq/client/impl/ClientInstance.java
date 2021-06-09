@@ -851,7 +851,8 @@ public class ClientInstance {
         final Status status = response.getCommon().getStatus();
         final Code code = Code.forNumber(status.getCode());
         if (Code.OK != code) {
-            log.error("Failed to ack message, endpoints={}, status={}.", target.getEndpoints(), status);
+            log.error("Failed to ack message, messageId={}, endpoints={}, status={}.", request.getMessageId(),
+                      target.getEndpoints().getTarget(), status);
             throw new MQClientException("Failed to ack message.");
         }
     }
@@ -860,6 +861,7 @@ public class ClientInstance {
         final ListenableFuture<AckMessageResponse> future =
                 getRpcClient(target).ackMessage(request, asyncRpcExecutor, RPC_DEFAULT_TIMEOUT_MILLIS,
                                                 TimeUnit.MILLISECONDS);
+        final String messageId = request.getMessageId();
         Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
             @Override
             public void onSuccess(@Nullable AckMessageResponse result) {
@@ -868,18 +870,20 @@ public class ClientInstance {
                     final Status status = result.getCommon().getStatus();
                     final Code code = Code.forNumber(status.getCode());
                     if (Code.OK != code) {
-                        log.error("Failed to async-ack message, endpoints={}, status={}", target.getEndpoints(),
-                                  status);
+                        log.error("Failed to async-ack message, messageId={}, endpoints={}, status={}", messageId,
+                                  target.getEndpoints().getTarget(), status);
                     }
                 } catch (Throwable t) {
-                    log.error("Failed to async-ack message, endpoints={}", target.getEndpoints(), t);
+                    log.error("Failed to async-ack message, messageId={}, endpoints={}", messageId,
+                              target.getEndpoints().getTarget(), t);
                 }
 
             }
 
             @Override
             public void onFailure(Throwable t) {
-                log.warn("Failed to async-ack message, endpoints={}", target.getEndpoints(), t);
+                log.warn("Failed to async-ack message, messageId={}, endpoints={}", messageId,
+                         target.getEndpoints().getTarget(), t);
             }
         });
     }
@@ -892,7 +896,8 @@ public class ClientInstance {
         final Status status = response.getCommon().getStatus();
         final int code = status.getCode();
         if (Code.OK_VALUE != code) {
-            log.error("Failed to nack message, target={}, status={}.", target, status);
+            log.error("Failed to nack message, messageId={}, endpoints={}, status={}.", request.getMessageId(),
+                      target.getEndpoints().getTarget(), status);
             throw new MQClientException("Failed to nack message.");
         }
     }
@@ -901,6 +906,7 @@ public class ClientInstance {
         final ListenableFuture<NackMessageResponse> future =
                 getRpcClient(target).nackMessage(request, asyncRpcExecutor, RPC_DEFAULT_TIMEOUT_MILLIS,
                                                  TimeUnit.MILLISECONDS);
+        final String messageId = request.getMessageId();
         Futures.addCallback(future, new FutureCallback<NackMessageResponse>() {
             @Override
             public void onSuccess(@Nullable NackMessageResponse result) {
@@ -909,17 +915,19 @@ public class ClientInstance {
                     final Status status = result.getCommon().getStatus();
                     final Code code = Code.forNumber(status.getCode());
                     if (Code.OK != code) {
-                        log.error("Failed to async-nack message, endpoints={}, status={}", target.getEndpoints(),
-                                  status);
+                        log.error("Failed to async-nack message, messageId={}, endpoints={}, status={}",
+                                  messageId, target.getEndpoints().getTarget(), status);
                     }
                 } catch (Throwable t) {
-                    log.error("Failed to async-nack message, endpoints={}", target.getEndpoints(), t);
+                    log.error("Failed to async-nack message, messageId={}, endpoints={}", messageId,
+                              target.getEndpoints().getTarget(), t);
                 }
             }
 
             @Override
             public void onFailure(Throwable t) {
-                log.warn("Failed to async-nack message, endpoints={}", target.getEndpoints(), t);
+                log.warn("Failed to async-nack message, messageId={}, endpoints={}", messageId,
+                         target.getEndpoints().getTarget(), t);
             }
         });
     }
@@ -974,8 +982,8 @@ public class ClientInstance {
         final List<Partition> partitionsList = response.getPartitionsList();
         if (partitionsList.isEmpty()) {
             log.error(
-                    "Topic route is empty unexpectedly , topic={}, name server endpoints={}",
-                    topic, nameServerEndpoints);
+                    "Topic route is empty unexpectedly, topic={}, name server endpoints={}",
+                    topic, nameServerEndpoints.getTarget());
             throw new MQClientException("Topic does not exist.");
         }
         return new TopicRouteData(partitionsList);
@@ -1038,8 +1046,8 @@ public class ClientInstance {
             default:
                 popStatus = PopStatus.SERVICE_UNSTABLE;
                 log.warn(
-                        "Pop response indicated server-side error, brokerAddress={}, code={}, status message={}",
-                        target, code, status.getMessage());
+                        "Pop response indicated server-side error, endpoints={}, code={}, status message={}",
+                        target.getEndpoints(), code, status.getMessage());
         }
 
         List<MessageExt> msgFoundList = new ArrayList<MessageExt>();

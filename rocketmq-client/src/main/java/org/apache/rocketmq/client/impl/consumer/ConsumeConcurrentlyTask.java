@@ -100,7 +100,7 @@ public class ConsumeConcurrentlyTask implements Runnable {
             switch (status) {
                 case CONSUME_SUCCESS:
                     try {
-                        processQueue.getConsumerImpl().consumeSuccessNum.incrementAndGet();
+                        processQueue.getConsumerImpl().consumeSuccessMsgCount.incrementAndGet();
                         processQueue.ackMessage(messageExt);
                     } catch (Throwable t) {
                         log.warn(
@@ -113,7 +113,7 @@ public class ConsumeConcurrentlyTask implements Runnable {
                 case RECONSUME_LATER:
                 default:
                     try {
-                        processQueue.getConsumerImpl().consumeFailureNum.incrementAndGet();
+                        processQueue.getConsumerImpl().consumeFailureMsgCount.incrementAndGet();
                         processQueue.negativeAckMessage(messageExt);
                     } catch (Throwable t) {
                         log.warn(
