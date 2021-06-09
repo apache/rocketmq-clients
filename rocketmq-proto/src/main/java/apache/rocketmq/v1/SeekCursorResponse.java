@@ -4,25 +4,25 @@
 package apache.rocketmq.v1;
 
 /**
- * Protobuf type {@code apache.rocketmq.v1.SeekOffsetResponse}
+ * Protobuf type {@code apache.rocketmq.v1.SeekCursorResponse}
  */
-public final class SeekOffsetResponse extends
+public final class SeekCursorResponse extends
     com.google.protobuf.GeneratedMessageV3 implements
-    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.SeekOffsetResponse)
-    SeekOffsetResponseOrBuilder {
+    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.SeekCursorResponse)
+    SeekCursorResponseOrBuilder {
 private static final long serialVersionUID = 0L;
-  // Use SeekOffsetResponse.newBuilder() to construct.
-  private SeekOffsetResponse(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+  // Use SeekCursorResponse.newBuilder() to construct.
+  private SeekCursorResponse(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
-  private SeekOffsetResponse() {
+  private SeekCursorResponse() {
   }
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
   protected java.lang.Object newInstance(
       UnusedPrivateParameter unused) {
-    return new SeekOffsetResponse();
+    return new SeekCursorResponse();
   }
 
   @java.lang.Override
@@ -30,7 +30,7 @@ private static final long serialVersionUID = 0L;
   getUnknownFields() {
     return this.unknownFields;
   }
-  private SeekOffsetResponse(
+  private SeekCursorResponse(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
@@ -95,15 +95,15 @@ private static final long serialVersionUID = 0L;
   }
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SeekOffsetResponse_descriptor;
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SeekCursorResponse_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SeekOffsetResponse_fieldAccessorTable
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SeekCursorResponse_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            apache.rocketmq.v1.SeekOffsetResponse.class, apache.rocketmq.v1.SeekOffsetResponse.Builder.class);
+            apache.rocketmq.v1.SeekCursorResponse.class, apache.rocketmq.v1.SeekCursorResponse.Builder.class);
   }
 
   public static final int COMMON_FIELD_NUMBER = 1;
@@ -205,10 +205,10 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof apache.rocketmq.v1.SeekOffsetResponse)) {
+    if (!(obj instanceof apache.rocketmq.v1.SeekCursorResponse)) {
       return super.equals(obj);
     }
-    apache.rocketmq.v1.SeekOffsetResponse other = (apache.rocketmq.v1.SeekOffsetResponse) obj;
+    apache.rocketmq.v1.SeekCursorResponse other = (apache.rocketmq.v1.SeekCursorResponse) obj;
 
     if (hasCommon() != other.hasCommon()) return false;
     if (hasCommon()) {
@@ -244,69 +244,69 @@ private static final long serialVersionUID = 0L;
     return hash;
   }
 
-  public static apache.rocketmq.v1.SeekOffsetResponse parseFrom(
+  public static apache.rocketmq.v1.SeekCursorResponse parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.SeekOffsetResponse parseFrom(
+  public static apache.rocketmq.v1.SeekCursorResponse parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.SeekOffsetResponse parseFrom(
+  public static apache.rocketmq.v1.SeekCursorResponse parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.SeekOffsetResponse parseFrom(
+  public static apache.rocketmq.v1.SeekCursorResponse parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.SeekOffsetResponse parseFrom(byte[] data)
+  public static apache.rocketmq.v1.SeekCursorResponse parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.SeekOffsetResponse parseFrom(
+  public static apache.rocketmq.v1.SeekCursorResponse parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.SeekOffsetResponse parseFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.SeekCursorResponse parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.SeekOffsetResponse parseFrom(
+  public static apache.rocketmq.v1.SeekCursorResponse parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.SeekOffsetResponse parseDelimitedFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.SeekCursorResponse parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.SeekOffsetResponse parseDelimitedFrom(
+  public static apache.rocketmq.v1.SeekCursorResponse parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.SeekOffsetResponse parseFrom(
+  public static apache.rocketmq.v1.SeekCursorResponse parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.SeekOffsetResponse parseFrom(
+  public static apache.rocketmq.v1.SeekCursorResponse parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -319,7 +319,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(apache.rocketmq.v1.SeekOffsetResponse prototype) {
+  public static Builder newBuilder(apache.rocketmq.v1.SeekCursorResponse prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -335,26 +335,26 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
-   * Protobuf type {@code apache.rocketmq.v1.SeekOffsetResponse}
+   * Protobuf type {@code apache.rocketmq.v1.SeekCursorResponse}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.SeekOffsetResponse)
-      apache.rocketmq.v1.SeekOffsetResponseOrBuilder {
+      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.SeekCursorResponse)
+      apache.rocketmq.v1.SeekCursorResponseOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SeekOffsetResponse_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SeekCursorResponse_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SeekOffsetResponse_fieldAccessorTable
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SeekCursorResponse_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              apache.rocketmq.v1.SeekOffsetResponse.class, apache.rocketmq.v1.SeekOffsetResponse.Builder.class);
+              apache.rocketmq.v1.SeekCursorResponse.class, apache.rocketmq.v1.SeekCursorResponse.Builder.class);
     }
 
-    // Construct using apache.rocketmq.v1.SeekOffsetResponse.newBuilder()
+    // Construct using apache.rocketmq.v1.SeekCursorResponse.newBuilder()
     private Builder() {
       maybeForceBuilderInitialization();
     }
@@ -390,17 +390,17 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SeekOffsetResponse_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SeekCursorResponse_descriptor;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.SeekOffsetResponse getDefaultInstanceForType() {
-      return apache.rocketmq.v1.SeekOffsetResponse.getDefaultInstance();
+    public apache.rocketmq.v1.SeekCursorResponse getDefaultInstanceForType() {
+      return apache.rocketmq.v1.SeekCursorResponse.getDefaultInstance();
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.SeekOffsetResponse build() {
-      apache.rocketmq.v1.SeekOffsetResponse result = buildPartial();
+    public apache.rocketmq.v1.SeekCursorResponse build() {
+      apache.rocketmq.v1.SeekCursorResponse result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -408,8 +408,8 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.SeekOffsetResponse buildPartial() {
-      apache.rocketmq.v1.SeekOffsetResponse result = new apache.rocketmq.v1.SeekOffsetResponse(this);
+    public apache.rocketmq.v1.SeekCursorResponse buildPartial() {
+      apache.rocketmq.v1.SeekCursorResponse result = new apache.rocketmq.v1.SeekCursorResponse(this);
       if (commonBuilder_ == null) {
         result.common_ = common_;
       } else {
@@ -458,16 +458,16 @@ private static final long serialVersionUID = 0L;
     }
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof apache.rocketmq.v1.SeekOffsetResponse) {
-        return mergeFrom((apache.rocketmq.v1.SeekOffsetResponse)other);
+      if (other instanceof apache.rocketmq.v1.SeekCursorResponse) {
+        return mergeFrom((apache.rocketmq.v1.SeekCursorResponse)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(apache.rocketmq.v1.SeekOffsetResponse other) {
-      if (other == apache.rocketmq.v1.SeekOffsetResponse.getDefaultInstance()) return this;
+    public Builder mergeFrom(apache.rocketmq.v1.SeekCursorResponse other) {
+      if (other == apache.rocketmq.v1.SeekCursorResponse.getDefaultInstance()) return this;
       if (other.hasCommon()) {
         mergeCommon(other.getCommon());
       }
@@ -489,11 +489,11 @@ private static final long serialVersionUID = 0L;
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      apache.rocketmq.v1.SeekOffsetResponse parsedMessage = null;
+      apache.rocketmq.v1.SeekCursorResponse parsedMessage = null;
       try {
         parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        parsedMessage = (apache.rocketmq.v1.SeekOffsetResponse) e.getUnfinishedMessage();
+        parsedMessage = (apache.rocketmq.v1.SeekCursorResponse) e.getUnfinishedMessage();
         throw e.unwrapIOException();
       } finally {
         if (parsedMessage != null) {
@@ -753,41 +753,41 @@ private static final long serialVersionUID = 0L;
     }
 
 
-    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.SeekOffsetResponse)
+    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.SeekCursorResponse)
   }
 
-  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.SeekOffsetResponse)
-  private static final apache.rocketmq.v1.SeekOffsetResponse DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.SeekCursorResponse)
+  private static final apache.rocketmq.v1.SeekCursorResponse DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new apache.rocketmq.v1.SeekOffsetResponse();
+    DEFAULT_INSTANCE = new apache.rocketmq.v1.SeekCursorResponse();
   }
 
-  public static apache.rocketmq.v1.SeekOffsetResponse getDefaultInstance() {
+  public static apache.rocketmq.v1.SeekCursorResponse getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<SeekOffsetResponse>
-      PARSER = new com.google.protobuf.AbstractParser<SeekOffsetResponse>() {
+  private static final com.google.protobuf.Parser<SeekCursorResponse>
+      PARSER = new com.google.protobuf.AbstractParser<SeekCursorResponse>() {
     @java.lang.Override
-    public SeekOffsetResponse parsePartialFrom(
+    public SeekCursorResponse parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
-      return new SeekOffsetResponse(input, extensionRegistry);
+      return new SeekCursorResponse(input, extensionRegistry);
     }
   };
 
-  public static com.google.protobuf.Parser<SeekOffsetResponse> parser() {
+  public static com.google.protobuf.Parser<SeekCursorResponse> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<SeekOffsetResponse> getParserForType() {
+  public com.google.protobuf.Parser<SeekCursorResponse> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public apache.rocketmq.v1.SeekOffsetResponse getDefaultInstanceForType() {
+  public apache.rocketmq.v1.SeekCursorResponse getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

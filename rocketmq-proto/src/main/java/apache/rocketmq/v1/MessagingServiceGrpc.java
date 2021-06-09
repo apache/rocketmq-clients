@@ -355,35 +355,35 @@ public final class MessagingServiceGrpc {
     return getQueryOffsetMethod;
   }
 
-  private static volatile io.grpc.MethodDescriptor<apache.rocketmq.v1.SeekOffsetRequest,
-      apache.rocketmq.v1.SeekOffsetResponse> getSeekOffsetMethod;
+  private static volatile io.grpc.MethodDescriptor<apache.rocketmq.v1.SeekCursorRequest,
+      apache.rocketmq.v1.SeekCursorResponse> getSeekCursorMethod;
 
   @io.grpc.stub.annotations.RpcMethod(
-      fullMethodName = SERVICE_NAME + '/' + "SeekOffset",
-      requestType = apache.rocketmq.v1.SeekOffsetRequest.class,
-      responseType = apache.rocketmq.v1.SeekOffsetResponse.class,
+      fullMethodName = SERVICE_NAME + '/' + "SeekCursor",
+      requestType = apache.rocketmq.v1.SeekCursorRequest.class,
+      responseType = apache.rocketmq.v1.SeekCursorResponse.class,
       methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
-  public static io.grpc.MethodDescriptor<apache.rocketmq.v1.SeekOffsetRequest,
-      apache.rocketmq.v1.SeekOffsetResponse> getSeekOffsetMethod() {
-    io.grpc.MethodDescriptor<apache.rocketmq.v1.SeekOffsetRequest, apache.rocketmq.v1.SeekOffsetResponse> getSeekOffsetMethod;
-    if ((getSeekOffsetMethod = MessagingServiceGrpc.getSeekOffsetMethod) == null) {
+  public static io.grpc.MethodDescriptor<apache.rocketmq.v1.SeekCursorRequest,
+      apache.rocketmq.v1.SeekCursorResponse> getSeekCursorMethod() {
+    io.grpc.MethodDescriptor<apache.rocketmq.v1.SeekCursorRequest, apache.rocketmq.v1.SeekCursorResponse> getSeekCursorMethod;
+    if ((getSeekCursorMethod = MessagingServiceGrpc.getSeekCursorMethod) == null) {
       synchronized (MessagingServiceGrpc.class) {
-        if ((getSeekOffsetMethod = MessagingServiceGrpc.getSeekOffsetMethod) == null) {
-          MessagingServiceGrpc.getSeekOffsetMethod = getSeekOffsetMethod =
-              io.grpc.MethodDescriptor.<apache.rocketmq.v1.SeekOffsetRequest, apache.rocketmq.v1.SeekOffsetResponse>newBuilder()
+        if ((getSeekCursorMethod = MessagingServiceGrpc.getSeekCursorMethod) == null) {
+          MessagingServiceGrpc.getSeekCursorMethod = getSeekCursorMethod =
+              io.grpc.MethodDescriptor.<apache.rocketmq.v1.SeekCursorRequest, apache.rocketmq.v1.SeekCursorResponse>newBuilder()
               .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
-              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "SeekOffset"))
+              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "SeekCursor"))
               .setSampledToLocalTracing(true)
               .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  apache.rocketmq.v1.SeekOffsetRequest.getDefaultInstance()))
+                  apache.rocketmq.v1.SeekCursorRequest.getDefaultInstance()))
               .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  apache.rocketmq.v1.SeekOffsetResponse.getDefaultInstance()))
-              .setSchemaDescriptor(new MessagingServiceMethodDescriptorSupplier("SeekOffset"))
+                  apache.rocketmq.v1.SeekCursorResponse.getDefaultInstance()))
+              .setSchemaDescriptor(new MessagingServiceMethodDescriptorSupplier("SeekCursor"))
               .build();
         }
       }
     }
-    return getSeekOffsetMethod;
+    return getSeekCursorMethod;
   }
 
   private static volatile io.grpc.MethodDescriptor<apache.rocketmq.v1.PollMessageRequest,
@@ -575,9 +575,9 @@ public final class MessagingServiceGrpc {
 
     /**
      */
-    public void seekOffset(apache.rocketmq.v1.SeekOffsetRequest request,
-        io.grpc.stub.StreamObserver<apache.rocketmq.v1.SeekOffsetResponse> responseObserver) {
-      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getSeekOffsetMethod(), responseObserver);
+    public void seekCursor(apache.rocketmq.v1.SeekCursorRequest request,
+        io.grpc.stub.StreamObserver<apache.rocketmq.v1.SeekCursorResponse> responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getSeekCursorMethod(), responseObserver);
     }
 
     /**
@@ -674,12 +674,12 @@ public final class MessagingServiceGrpc {
                 apache.rocketmq.v1.QueryOffsetResponse>(
                   this, METHODID_QUERY_OFFSET)))
           .addMethod(
-            getSeekOffsetMethod(),
+            getSeekCursorMethod(),
             io.grpc.stub.ServerCalls.asyncUnaryCall(
               new MethodHandlers<
-                apache.rocketmq.v1.SeekOffsetRequest,
-                apache.rocketmq.v1.SeekOffsetResponse>(
-                  this, METHODID_SEEK_OFFSET)))
+                apache.rocketmq.v1.SeekCursorRequest,
+                apache.rocketmq.v1.SeekCursorResponse>(
+                  this, METHODID_SEEK_CURSOR)))
           .addMethod(
             getPollMessageMethod(),
             io.grpc.stub.ServerCalls.asyncUnaryCall(
@@ -802,10 +802,10 @@ public final class MessagingServiceGrpc {
 
     /**
      */
-    public void seekOffset(apache.rocketmq.v1.SeekOffsetRequest request,
-        io.grpc.stub.StreamObserver<apache.rocketmq.v1.SeekOffsetResponse> responseObserver) {
+    public void seekCursor(apache.rocketmq.v1.SeekCursorRequest request,
+        io.grpc.stub.StreamObserver<apache.rocketmq.v1.SeekCursorResponse> responseObserver) {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
-          getChannel().newCall(getSeekOffsetMethod(), getCallOptions()), request, responseObserver);
+          getChannel().newCall(getSeekCursorMethod(), getCallOptions()), request, responseObserver);
     }
 
     /**
@@ -911,9 +911,9 @@ public final class MessagingServiceGrpc {
 
     /**
      */
-    public apache.rocketmq.v1.SeekOffsetResponse seekOffset(apache.rocketmq.v1.SeekOffsetRequest request) {
+    public apache.rocketmq.v1.SeekCursorResponse seekCursor(apache.rocketmq.v1.SeekCursorRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
-          getChannel(), getSeekOffsetMethod(), getCallOptions(), request);
+          getChannel(), getSeekCursorMethod(), getCallOptions(), request);
     }
 
     /**
@@ -1027,10 +1027,10 @@ public final class MessagingServiceGrpc {
 
     /**
      */
-    public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.SeekOffsetResponse> seekOffset(
-        apache.rocketmq.v1.SeekOffsetRequest request) {
+    public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.SeekCursorResponse> seekCursor(
+        apache.rocketmq.v1.SeekCursorRequest request) {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
-          getChannel().newCall(getSeekOffsetMethod(), getCallOptions()), request);
+          getChannel().newCall(getSeekCursorMethod(), getCallOptions()), request);
     }
 
     /**
@@ -1060,7 +1060,7 @@ public final class MessagingServiceGrpc {
   private static final int METHODID_NACK_MESSAGE = 7;
   private static final int METHODID_END_TRANSACTION = 8;
   private static final int METHODID_QUERY_OFFSET = 9;
-  private static final int METHODID_SEEK_OFFSET = 10;
+  private static final int METHODID_SEEK_CURSOR = 10;
   private static final int METHODID_POLL_MESSAGE = 11;
   private static final int METHODID_COMMIT_OFFSET = 12;
   private static final int METHODID_POLL_ORPHAN_TRANSACTION = 13;
@@ -1122,9 +1122,9 @@ public final class MessagingServiceGrpc {
           serviceImpl.queryOffset((apache.rocketmq.v1.QueryOffsetRequest) request,
               (io.grpc.stub.StreamObserver<apache.rocketmq.v1.QueryOffsetResponse>) responseObserver);
           break;
-        case METHODID_SEEK_OFFSET:
-          serviceImpl.seekOffset((apache.rocketmq.v1.SeekOffsetRequest) request,
-              (io.grpc.stub.StreamObserver<apache.rocketmq.v1.SeekOffsetResponse>) responseObserver);
+        case METHODID_SEEK_CURSOR:
+          serviceImpl.seekCursor((apache.rocketmq.v1.SeekCursorRequest) request,
+              (io.grpc.stub.StreamObserver<apache.rocketmq.v1.SeekCursorResponse>) responseObserver);
           break;
         case METHODID_POLL_MESSAGE:
           serviceImpl.pollMessage((apache.rocketmq.v1.PollMessageRequest) request,
@@ -1209,7 +1209,7 @@ public final class MessagingServiceGrpc {
               .addMethod(getEndTransactionMethod())
               .addMethod(getPollOrphanTransactionMethod())
               .addMethod(getQueryOffsetMethod())
-              .addMethod(getSeekOffsetMethod())
+              .addMethod(getSeekCursorMethod())
               .addMethod(getPollMessageMethod())
               .addMethod(getCommitOffsetMethod())
               .build();

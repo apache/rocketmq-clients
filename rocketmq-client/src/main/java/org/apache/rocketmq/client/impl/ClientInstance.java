@@ -1257,7 +1257,7 @@ public class ClientInstance {
         span.setAttribute(TracingAttribute.ARN, message.getTopic().getArn());
         span.setAttribute(TracingAttribute.TOPIC, message.getTopic().getName());
         span.setAttribute(TracingAttribute.MSG_ID, systemAttribute.getMessageId());
-        span.setAttribute(TracingAttribute.GROUP, systemAttribute.getPublisherGroup().getName());
+        span.setAttribute(TracingAttribute.GROUP, systemAttribute.getProducerGroup().getName());
         span.setAttribute(TracingAttribute.TAGS, systemAttribute.getTag());
         StringBuilder keys = new StringBuilder();
         for (String key : systemAttribute.getKeysList()) {

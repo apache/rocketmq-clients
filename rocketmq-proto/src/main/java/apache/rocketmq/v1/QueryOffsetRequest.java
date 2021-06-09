@@ -168,20 +168,20 @@ private static final long serialVersionUID = 0L;
   public static final int POLICY_FIELD_NUMBER = 3;
   private int policy_;
   /**
-   * <code>.apache.rocketmq.v1.OffsetPolicy policy = 3;</code>
+   * <code>.apache.rocketmq.v1.CursorPolicy policy = 3;</code>
    * @return The enum numeric value on the wire for policy.
    */
   @java.lang.Override public int getPolicyValue() {
     return policy_;
   }
   /**
-   * <code>.apache.rocketmq.v1.OffsetPolicy policy = 3;</code>
+   * <code>.apache.rocketmq.v1.CursorPolicy policy = 3;</code>
    * @return The policy.
    */
-  @java.lang.Override public apache.rocketmq.v1.OffsetPolicy getPolicy() {
+  @java.lang.Override public apache.rocketmq.v1.CursorPolicy getPolicy() {
     @SuppressWarnings("deprecation")
-    apache.rocketmq.v1.OffsetPolicy result = apache.rocketmq.v1.OffsetPolicy.valueOf(policy_);
-    return result == null ? apache.rocketmq.v1.OffsetPolicy.UNRECOGNIZED : result;
+    apache.rocketmq.v1.CursorPolicy result = apache.rocketmq.v1.CursorPolicy.valueOf(policy_);
+    return result == null ? apache.rocketmq.v1.CursorPolicy.UNRECOGNIZED : result;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -204,7 +204,7 @@ private static final long serialVersionUID = 0L;
     if (group_ != null) {
       output.writeMessage(2, getGroup());
     }
-    if (policy_ != apache.rocketmq.v1.OffsetPolicy.CURRENT.getNumber()) {
+    if (policy_ != apache.rocketmq.v1.CursorPolicy.CURRENT.getNumber()) {
       output.writeEnum(3, policy_);
     }
     unknownFields.writeTo(output);
@@ -224,7 +224,7 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(2, getGroup());
     }
-    if (policy_ != apache.rocketmq.v1.OffsetPolicy.CURRENT.getNumber()) {
+    if (policy_ != apache.rocketmq.v1.CursorPolicy.CURRENT.getNumber()) {
       size += com.google.protobuf.CodedOutputStream
         .computeEnumSize(3, policy_);
     }
@@ -785,14 +785,14 @@ private static final long serialVersionUID = 0L;
 
     private int policy_ = 0;
     /**
-     * <code>.apache.rocketmq.v1.OffsetPolicy policy = 3;</code>
+     * <code>.apache.rocketmq.v1.CursorPolicy policy = 3;</code>
      * @return The enum numeric value on the wire for policy.
      */
     @java.lang.Override public int getPolicyValue() {
       return policy_;
     }
     /**
-     * <code>.apache.rocketmq.v1.OffsetPolicy policy = 3;</code>
+     * <code>.apache.rocketmq.v1.CursorPolicy policy = 3;</code>
      * @param value The enum numeric value on the wire for policy to set.
      * @return This builder for chaining.
      */
@@ -803,21 +803,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.OffsetPolicy policy = 3;</code>
+     * <code>.apache.rocketmq.v1.CursorPolicy policy = 3;</code>
      * @return The policy.
      */
     @java.lang.Override
-    public apache.rocketmq.v1.OffsetPolicy getPolicy() {
+    public apache.rocketmq.v1.CursorPolicy getPolicy() {
       @SuppressWarnings("deprecation")
-      apache.rocketmq.v1.OffsetPolicy result = apache.rocketmq.v1.OffsetPolicy.valueOf(policy_);
-      return result == null ? apache.rocketmq.v1.OffsetPolicy.UNRECOGNIZED : result;
+      apache.rocketmq.v1.CursorPolicy result = apache.rocketmq.v1.CursorPolicy.valueOf(policy_);
+      return result == null ? apache.rocketmq.v1.CursorPolicy.UNRECOGNIZED : result;
     }
     /**
-     * <code>.apache.rocketmq.v1.OffsetPolicy policy = 3;</code>
+     * <code>.apache.rocketmq.v1.CursorPolicy policy = 3;</code>
      * @param value The policy to set.
      * @return This builder for chaining.
      */
-    public Builder setPolicy(apache.rocketmq.v1.OffsetPolicy value) {
+    public Builder setPolicy(apache.rocketmq.v1.CursorPolicy value) {
       if (value == null) {
         throw new NullPointerException();
       }
@@ -827,7 +827,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.OffsetPolicy policy = 3;</code>
+     * <code>.apache.rocketmq.v1.CursorPolicy policy = 3;</code>
      * @return This builder for chaining.
      */
     public Builder clearPolicy() {

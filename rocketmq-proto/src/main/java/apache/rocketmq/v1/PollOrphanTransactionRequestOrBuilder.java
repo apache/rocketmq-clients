@@ -27,6 +27,4 @@ public interface PollOrphanTransactionRequestOrBuilder extends
    * @return The windowUpdate.
    */
   int getWindowUpdate();
-
-  public apache.rocketmq.v1.PollOrphanTransactionRequest.PollTypeCase getPollTypeCase();
 }

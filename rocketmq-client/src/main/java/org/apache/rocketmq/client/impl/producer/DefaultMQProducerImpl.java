@@ -137,7 +137,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
         final SystemAttribute.Builder systemAttributeBuilder =
                 SystemAttribute.newBuilder()
                                .setBornTimestamp(fromMillis(System.currentTimeMillis()))
-                               .setPublisherGroup(groupResource)
+                               .setProducerGroup(groupResource)
                                .setMessageId(MessageIdUtils.createUniqID())
                                .setBornHost(UtilAll.getIpv4Address())
                                .setPartitionId(mq.getQueueId());

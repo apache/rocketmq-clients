@@ -385,37 +385,49 @@ public interface SystemAttributeOrBuilder extends
 
   /**
    * <pre>
-   * Message publisher load-balance group if applicable.
+   * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource publisher_group = 19;</code>
-   * @return Whether the publisherGroup field is set.
+   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+   * @return Whether the producerGroup field is set.
    */
-  boolean hasPublisherGroup();
+  boolean hasProducerGroup();
   /**
    * <pre>
-   * Message publisher load-balance group if applicable.
+   * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource publisher_group = 19;</code>
-   * @return The publisherGroup.
+   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+   * @return The producerGroup.
    */
-  apache.rocketmq.v1.Resource getPublisherGroup();
+  apache.rocketmq.v1.Resource getProducerGroup();
   /**
    * <pre>
-   * Message publisher load-balance group if applicable.
+   * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource publisher_group = 19;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
    */
-  apache.rocketmq.v1.ResourceOrBuilder getPublisherGroupOrBuilder();
+  apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder();
+
+  /**
+   * <code>string message_group = 20;</code>
+   * @return The messageGroup.
+   */
+  java.lang.String getMessageGroup();
+  /**
+   * <code>string message_group = 20;</code>
+   * @return The bytes for messageGroup.
+   */
+  com.google.protobuf.ByteString
+      getMessageGroupBytes();
 
   /**
    * <pre>
    * Trace context.
    * </pre>
    *
-   * <code>string trace_context = 20;</code>
+   * <code>string trace_context = 21;</code>
    * @return The traceContext.
    */
   java.lang.String getTraceContext();
@@ -424,7 +436,7 @@ public interface SystemAttributeOrBuilder extends
    * Trace context.
    * </pre>
    *
-   * <code>string trace_context = 20;</code>
+   * <code>string trace_context = 21;</code>
    * @return The bytes for traceContext.
    */
   com.google.protobuf.ByteString

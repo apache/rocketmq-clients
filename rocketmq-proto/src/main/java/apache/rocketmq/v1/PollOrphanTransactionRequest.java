@@ -50,21 +50,20 @@ private static final long serialVersionUID = 0L;
             break;
           case 10: {
             apache.rocketmq.v1.Resource.Builder subBuilder = null;
-            if (pollTypeCase_ == 1) {
-              subBuilder = ((apache.rocketmq.v1.Resource) pollType_).toBuilder();
+            if (producerGroup_ != null) {
+              subBuilder = producerGroup_.toBuilder();
             }
-            pollType_ =
-                input.readMessage(apache.rocketmq.v1.Resource.parser(), extensionRegistry);
+            producerGroup_ = input.readMessage(apache.rocketmq.v1.Resource.parser(), extensionRegistry);
             if (subBuilder != null) {
-              subBuilder.mergeFrom((apache.rocketmq.v1.Resource) pollType_);
-              pollType_ = subBuilder.buildPartial();
+              subBuilder.mergeFrom(producerGroup_);
+              producerGroup_ = subBuilder.buildPartial();
             }
-            pollTypeCase_ = 1;
+
             break;
           }
           case 16: {
-            pollTypeCase_ = 2;
-            pollType_ = input.readInt32();
+
+            windowUpdate_ = input.readInt32();
             break;
           }
           default: {
@@ -99,55 +98,15 @@ private static final long serialVersionUID = 0L;
             apache.rocketmq.v1.PollOrphanTransactionRequest.class, apache.rocketmq.v1.PollOrphanTransactionRequest.Builder.class);
   }
 
-  private int pollTypeCase_ = 0;
-  private java.lang.Object pollType_;
-  public enum PollTypeCase
-      implements com.google.protobuf.Internal.EnumLite,
-          com.google.protobuf.AbstractMessage.InternalOneOfEnum {
-    PRODUCER_GROUP(1),
-    WINDOW_UPDATE(2),
-    POLLTYPE_NOT_SET(0);
-    private final int value;
-    private PollTypeCase(int value) {
-      this.value = value;
-    }
-    /**
-     * @param value The number of the enum to look for.
-     * @return The enum associated with the given number.
-     * @deprecated Use {@link #forNumber(int)} instead.
-     */
-    @java.lang.Deprecated
-    public static PollTypeCase valueOf(int value) {
-      return forNumber(value);
-    }
-
-    public static PollTypeCase forNumber(int value) {
-      switch (value) {
-        case 1: return PRODUCER_GROUP;
-        case 2: return WINDOW_UPDATE;
-        case 0: return POLLTYPE_NOT_SET;
-        default: return null;
-      }
-    }
-    public int getNumber() {
-      return this.value;
-    }
-  };
-
-  public PollTypeCase
-  getPollTypeCase() {
-    return PollTypeCase.forNumber(
-        pollTypeCase_);
-  }
-
   public static final int PRODUCER_GROUP_FIELD_NUMBER = 1;
+  private apache.rocketmq.v1.Resource producerGroup_;
   /**
    * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
    * @return Whether the producerGroup field is set.
    */
   @java.lang.Override
   public boolean hasProducerGroup() {
-    return pollTypeCase_ == 1;
+    return producerGroup_ != null;
   }
   /**
    * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
@@ -155,33 +114,25 @@ private static final long serialVersionUID = 0L;
    */
   @java.lang.Override
   public apache.rocketmq.v1.Resource getProducerGroup() {
-    if (pollTypeCase_ == 1) {
-       return (apache.rocketmq.v1.Resource) pollType_;
-    }
-    return apache.rocketmq.v1.Resource.getDefaultInstance();
+    return producerGroup_ == null ? apache.rocketmq.v1.Resource.getDefaultInstance() : producerGroup_;
   }
   /**
    * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
    */
   @java.lang.Override
   public apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder() {
-    if (pollTypeCase_ == 1) {
-       return (apache.rocketmq.v1.Resource) pollType_;
-    }
-    return apache.rocketmq.v1.Resource.getDefaultInstance();
+    return getProducerGroup();
   }
 
   public static final int WINDOW_UPDATE_FIELD_NUMBER = 2;
+  private int windowUpdate_;
   /**
    * <code>int32 window_update = 2;</code>
    * @return The windowUpdate.
    */
   @java.lang.Override
   public int getWindowUpdate() {
-    if (pollTypeCase_ == 2) {
-      return (java.lang.Integer) pollType_;
-    }
-    return 0;
+    return windowUpdate_;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -198,12 +149,11 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (pollTypeCase_ == 1) {
-      output.writeMessage(1, (apache.rocketmq.v1.Resource) pollType_);
+    if (producerGroup_ != null) {
+      output.writeMessage(1, getProducerGroup());
     }
-    if (pollTypeCase_ == 2) {
-      output.writeInt32(
-          2, (int)((java.lang.Integer) pollType_));
+    if (windowUpdate_ != 0) {
+      output.writeInt32(2, windowUpdate_);
     }
     unknownFields.writeTo(output);
   }
@@ -214,14 +164,13 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (pollTypeCase_ == 1) {
+    if (producerGroup_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(1, (apache.rocketmq.v1.Resource) pollType_);
+        .computeMessageSize(1, getProducerGroup());
     }
-    if (pollTypeCase_ == 2) {
+    if (windowUpdate_ != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(
-            2, (int)((java.lang.Integer) pollType_));
+        .computeInt32Size(2, windowUpdate_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -238,19 +187,13 @@ private static final long serialVersionUID = 0L;
     }
     apache.rocketmq.v1.PollOrphanTransactionRequest other = (apache.rocketmq.v1.PollOrphanTransactionRequest) obj;
 
-    if (!getPollTypeCase().equals(other.getPollTypeCase())) return false;
-    switch (pollTypeCase_) {
-      case 1:
-        if (!getProducerGroup()
-            .equals(other.getProducerGroup())) return false;
-        break;
-      case 2:
-        if (getWindowUpdate()
-            != other.getWindowUpdate()) return false;
-        break;
-      case 0:
-      default:
+    if (hasProducerGroup() != other.hasProducerGroup()) return false;
+    if (hasProducerGroup()) {
+      if (!getProducerGroup()
+          .equals(other.getProducerGroup())) return false;
     }
+    if (getWindowUpdate()
+        != other.getWindowUpdate()) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -262,18 +205,12 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    switch (pollTypeCase_) {
-      case 1:
-        hash = (37 * hash) + PRODUCER_GROUP_FIELD_NUMBER;
-        hash = (53 * hash) + getProducerGroup().hashCode();
-        break;
-      case 2:
-        hash = (37 * hash) + WINDOW_UPDATE_FIELD_NUMBER;
-        hash = (53 * hash) + getWindowUpdate();
-        break;
-      case 0:
-      default:
+    if (hasProducerGroup()) {
+      hash = (37 * hash) + PRODUCER_GROUP_FIELD_NUMBER;
+      hash = (53 * hash) + getProducerGroup().hashCode();
     }
+    hash = (37 * hash) + WINDOW_UPDATE_FIELD_NUMBER;
+    hash = (53 * hash) + getWindowUpdate();
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -407,8 +344,14 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
-      pollTypeCase_ = 0;
-      pollType_ = null;
+      if (producerGroupBuilder_ == null) {
+        producerGroup_ = null;
+      } else {
+        producerGroup_ = null;
+        producerGroupBuilder_ = null;
+      }
+      windowUpdate_ = 0;
+
       return this;
     }
 
@@ -435,17 +378,12 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public apache.rocketmq.v1.PollOrphanTransactionRequest buildPartial() {
       apache.rocketmq.v1.PollOrphanTransactionRequest result = new apache.rocketmq.v1.PollOrphanTransactionRequest(this);
-      if (pollTypeCase_ == 1) {
-        if (producerGroupBuilder_ == null) {
-          result.pollType_ = pollType_;
-        } else {
-          result.pollType_ = producerGroupBuilder_.build();
-        }
+      if (producerGroupBuilder_ == null) {
+        result.producerGroup_ = producerGroup_;
+      } else {
+        result.producerGroup_ = producerGroupBuilder_.build();
       }
-      if (pollTypeCase_ == 2) {
-        result.pollType_ = pollType_;
-      }
-      result.pollTypeCase_ = pollTypeCase_;
+      result.windowUpdate_ = windowUpdate_;
       onBuilt();
       return result;
     }
@@ -494,18 +432,11 @@ private static final long serialVersionUID = 0L;
 
     public Builder mergeFrom(apache.rocketmq.v1.PollOrphanTransactionRequest other) {
       if (other == apache.rocketmq.v1.PollOrphanTransactionRequest.getDefaultInstance()) return this;
-      switch (other.getPollTypeCase()) {
-        case PRODUCER_GROUP: {
-          mergeProducerGroup(other.getProducerGroup());
-          break;
-        }
-        case WINDOW_UPDATE: {
-          setWindowUpdate(other.getWindowUpdate());
-          break;
-        }
-        case POLLTYPE_NOT_SET: {
-          break;
-        }
+      if (other.hasProducerGroup()) {
+        mergeProducerGroup(other.getProducerGroup());
+      }
+      if (other.getWindowUpdate() != 0) {
+        setWindowUpdate(other.getWindowUpdate());
       }
       this.mergeUnknownFields(other.unknownFields);
       onChanged();
@@ -535,48 +466,26 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
-    private int pollTypeCase_ = 0;
-    private java.lang.Object pollType_;
-    public PollTypeCase
-        getPollTypeCase() {
-      return PollTypeCase.forNumber(
-          pollTypeCase_);
-    }
 
-    public Builder clearPollType() {
-      pollTypeCase_ = 0;
-      pollType_ = null;
-      onChanged();
-      return this;
-    }
-
-
+    private apache.rocketmq.v1.Resource producerGroup_;
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> producerGroupBuilder_;
     /**
      * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
      * @return Whether the producerGroup field is set.
      */
-    @java.lang.Override
     public boolean hasProducerGroup() {
-      return pollTypeCase_ == 1;
+      return producerGroupBuilder_ != null || producerGroup_ != null;
     }
     /**
      * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
      * @return The producerGroup.
      */
-    @java.lang.Override
     public apache.rocketmq.v1.Resource getProducerGroup() {
       if (producerGroupBuilder_ == null) {
-        if (pollTypeCase_ == 1) {
-          return (apache.rocketmq.v1.Resource) pollType_;
-        }
-        return apache.rocketmq.v1.Resource.getDefaultInstance();
+        return producerGroup_ == null ? apache.rocketmq.v1.Resource.getDefaultInstance() : producerGroup_;
       } else {
-        if (pollTypeCase_ == 1) {
-          return producerGroupBuilder_.getMessage();
-        }
-        return apache.rocketmq.v1.Resource.getDefaultInstance();
+        return producerGroupBuilder_.getMessage();
       }
     }
     /**
@@ -587,12 +496,12 @@ private static final long serialVersionUID = 0L;
         if (value == null) {
           throw new NullPointerException();
         }
-        pollType_ = value;
+        producerGroup_ = value;
         onChanged();
       } else {
         producerGroupBuilder_.setMessage(value);
       }
-      pollTypeCase_ = 1;
+
       return this;
     }
     /**
@@ -601,12 +510,12 @@ private static final long serialVersionUID = 0L;
     public Builder setProducerGroup(
         apache.rocketmq.v1.Resource.Builder builderForValue) {
       if (producerGroupBuilder_ == null) {
-        pollType_ = builderForValue.build();
+        producerGroup_ = builderForValue.build();
         onChanged();
       } else {
         producerGroupBuilder_.setMessage(builderForValue.build());
       }
-      pollTypeCase_ = 1;
+
       return this;
     }
     /**
@@ -614,21 +523,17 @@ private static final long serialVersionUID = 0L;
      */
     public Builder mergeProducerGroup(apache.rocketmq.v1.Resource value) {
       if (producerGroupBuilder_ == null) {
-        if (pollTypeCase_ == 1 &&
-            pollType_ != apache.rocketmq.v1.Resource.getDefaultInstance()) {
-          pollType_ = apache.rocketmq.v1.Resource.newBuilder((apache.rocketmq.v1.Resource) pollType_)
-              .mergeFrom(value).buildPartial();
+        if (producerGroup_ != null) {
+          producerGroup_ =
+            apache.rocketmq.v1.Resource.newBuilder(producerGroup_).mergeFrom(value).buildPartial();
         } else {
-          pollType_ = value;
+          producerGroup_ = value;
         }
         onChanged();
       } else {
-        if (pollTypeCase_ == 1) {
-          producerGroupBuilder_.mergeFrom(value);
-        }
-        producerGroupBuilder_.setMessage(value);
+        producerGroupBuilder_.mergeFrom(value);
       }
-      pollTypeCase_ = 1;
+
       return this;
     }
     /**
@@ -636,38 +541,32 @@ private static final long serialVersionUID = 0L;
      */
     public Builder clearProducerGroup() {
       if (producerGroupBuilder_ == null) {
-        if (pollTypeCase_ == 1) {
-          pollTypeCase_ = 0;
-          pollType_ = null;
-          onChanged();
-        }
+        producerGroup_ = null;
+        onChanged();
       } else {
-        if (pollTypeCase_ == 1) {
-          pollTypeCase_ = 0;
-          pollType_ = null;
-        }
-        producerGroupBuilder_.clear();
+        producerGroup_ = null;
+        producerGroupBuilder_ = null;
       }
+
       return this;
     }
     /**
      * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
      */
     public apache.rocketmq.v1.Resource.Builder getProducerGroupBuilder() {
+      
+      onChanged();
       return getProducerGroupFieldBuilder().getBuilder();
     }
     /**
      * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
      */
-    @java.lang.Override
     public apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder() {
-      if ((pollTypeCase_ == 1) && (producerGroupBuilder_ != null)) {
+      if (producerGroupBuilder_ != null) {
         return producerGroupBuilder_.getMessageOrBuilder();
       } else {
-        if (pollTypeCase_ == 1) {
-          return (apache.rocketmq.v1.Resource) pollType_;
-        }
-        return apache.rocketmq.v1.Resource.getDefaultInstance();
+        return producerGroup_ == null ?
+            apache.rocketmq.v1.Resource.getDefaultInstance() : producerGroup_;
       }
     }
     /**
@@ -677,30 +576,24 @@ private static final long serialVersionUID = 0L;
         apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> 
         getProducerGroupFieldBuilder() {
       if (producerGroupBuilder_ == null) {
-        if (!(pollTypeCase_ == 1)) {
-          pollType_ = apache.rocketmq.v1.Resource.getDefaultInstance();
-        }
         producerGroupBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
             apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder>(
-                (apache.rocketmq.v1.Resource) pollType_,
+                getProducerGroup(),
                 getParentForChildren(),
                 isClean());
-        pollType_ = null;
+        producerGroup_ = null;
       }
-      pollTypeCase_ = 1;
-      onChanged();;
       return producerGroupBuilder_;
     }
 
+    private int windowUpdate_ ;
     /**
      * <code>int32 window_update = 2;</code>
      * @return The windowUpdate.
      */
+    @java.lang.Override
     public int getWindowUpdate() {
-      if (pollTypeCase_ == 2) {
-        return (java.lang.Integer) pollType_;
-      }
-      return 0;
+      return windowUpdate_;
     }
     /**
      * <code>int32 window_update = 2;</code>
@@ -708,8 +601,8 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder setWindowUpdate(int value) {
-      pollTypeCase_ = 2;
-      pollType_ = value;
+      
+      windowUpdate_ = value;
       onChanged();
       return this;
     }
@@ -718,11 +611,9 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearWindowUpdate() {
-      if (pollTypeCase_ == 2) {
-        pollTypeCase_ = 0;
-        pollType_ = null;
-        onChanged();
-      }
+      
+      windowUpdate_ = 0;
+      onChanged();
       return this;
     }
     @java.lang.Override

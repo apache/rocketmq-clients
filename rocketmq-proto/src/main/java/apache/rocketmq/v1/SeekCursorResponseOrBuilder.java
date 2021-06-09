@@ -3,8 +3,8 @@
 
 package apache.rocketmq.v1;
 
-public interface SeekOffsetResponseOrBuilder extends
-    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.SeekOffsetResponse)
+public interface SeekCursorResponseOrBuilder extends
+    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.SeekCursorResponse)
     com.google.protobuf.MessageOrBuilder {
 
   /**

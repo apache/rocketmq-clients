@@ -25,6 +25,7 @@ private static final long serialVersionUID = 0L;
     bornHost_ = "";
     storeHost_ = "";
     receiptHandle_ = "";
+    messageGroup_ = "";
     traceContext_ = "";
   }
 
@@ -204,18 +205,24 @@ private static final long serialVersionUID = 0L;
           }
           case 154: {
             apache.rocketmq.v1.Resource.Builder subBuilder = null;
-            if (publisherGroup_ != null) {
-              subBuilder = publisherGroup_.toBuilder();
+            if (producerGroup_ != null) {
+              subBuilder = producerGroup_.toBuilder();
             }
-            publisherGroup_ = input.readMessage(apache.rocketmq.v1.Resource.parser(), extensionRegistry);
+            producerGroup_ = input.readMessage(apache.rocketmq.v1.Resource.parser(), extensionRegistry);
             if (subBuilder != null) {
-              subBuilder.mergeFrom(publisherGroup_);
-              publisherGroup_ = subBuilder.buildPartial();
+              subBuilder.mergeFrom(producerGroup_);
+              producerGroup_ = subBuilder.buildPartial();
             }
 
             break;
           }
           case 162: {
+            java.lang.String s = input.readStringRequireUtf8();
+
+            messageGroup_ = s;
+            break;
+          }
+          case 170: {
             java.lang.String s = input.readStringRequireUtf8();
 
             traceContext_ = s;
@@ -919,52 +926,90 @@ private static final long serialVersionUID = 0L;
     return deliveryCount_;
   }
 
-  public static final int PUBLISHER_GROUP_FIELD_NUMBER = 19;
-  private apache.rocketmq.v1.Resource publisherGroup_;
+  public static final int PRODUCER_GROUP_FIELD_NUMBER = 19;
+  private apache.rocketmq.v1.Resource producerGroup_;
   /**
    * <pre>
-   * Message publisher load-balance group if applicable.
+   * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource publisher_group = 19;</code>
-   * @return Whether the publisherGroup field is set.
+   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+   * @return Whether the producerGroup field is set.
    */
   @java.lang.Override
-  public boolean hasPublisherGroup() {
-    return publisherGroup_ != null;
+  public boolean hasProducerGroup() {
+    return producerGroup_ != null;
   }
   /**
    * <pre>
-   * Message publisher load-balance group if applicable.
+   * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource publisher_group = 19;</code>
-   * @return The publisherGroup.
+   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+   * @return The producerGroup.
    */
   @java.lang.Override
-  public apache.rocketmq.v1.Resource getPublisherGroup() {
-    return publisherGroup_ == null ? apache.rocketmq.v1.Resource.getDefaultInstance() : publisherGroup_;
+  public apache.rocketmq.v1.Resource getProducerGroup() {
+    return producerGroup_ == null ? apache.rocketmq.v1.Resource.getDefaultInstance() : producerGroup_;
   }
   /**
    * <pre>
-   * Message publisher load-balance group if applicable.
+   * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource publisher_group = 19;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
    */
   @java.lang.Override
-  public apache.rocketmq.v1.ResourceOrBuilder getPublisherGroupOrBuilder() {
-    return getPublisherGroup();
+  public apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder() {
+    return getProducerGroup();
   }
 
-  public static final int TRACE_CONTEXT_FIELD_NUMBER = 20;
+  public static final int MESSAGE_GROUP_FIELD_NUMBER = 20;
+  private volatile java.lang.Object messageGroup_;
+  /**
+   * <code>string message_group = 20;</code>
+   * @return The messageGroup.
+   */
+  @java.lang.Override
+  public java.lang.String getMessageGroup() {
+    java.lang.Object ref = messageGroup_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      messageGroup_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string message_group = 20;</code>
+   * @return The bytes for messageGroup.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getMessageGroupBytes() {
+    java.lang.Object ref = messageGroup_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      messageGroup_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int TRACE_CONTEXT_FIELD_NUMBER = 21;
   private volatile java.lang.Object traceContext_;
   /**
    * <pre>
    * Trace context.
    * </pre>
    *
-   * <code>string trace_context = 20;</code>
+   * <code>string trace_context = 21;</code>
    * @return The traceContext.
    */
   @java.lang.Override
@@ -985,7 +1030,7 @@ private static final long serialVersionUID = 0L;
    * Trace context.
    * </pre>
    *
-   * <code>string trace_context = 20;</code>
+   * <code>string trace_context = 21;</code>
    * @return The bytes for traceContext.
    */
   @java.lang.Override
@@ -1072,11 +1117,14 @@ private static final long serialVersionUID = 0L;
     if (deliveryCount_ != 0) {
       output.writeInt32(18, deliveryCount_);
     }
-    if (publisherGroup_ != null) {
-      output.writeMessage(19, getPublisherGroup());
+    if (producerGroup_ != null) {
+      output.writeMessage(19, getProducerGroup());
+    }
+    if (!getMessageGroupBytes().isEmpty()) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 20, messageGroup_);
     }
     if (!getTraceContextBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 20, traceContext_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 21, traceContext_);
     }
     unknownFields.writeTo(output);
   }
@@ -1159,12 +1207,15 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(18, deliveryCount_);
     }
-    if (publisherGroup_ != null) {
+    if (producerGroup_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(19, getPublisherGroup());
+        .computeMessageSize(19, getProducerGroup());
+    }
+    if (!getMessageGroupBytes().isEmpty()) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(20, messageGroup_);
     }
     if (!getTraceContextBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(20, traceContext_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(21, traceContext_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -1222,11 +1273,13 @@ private static final long serialVersionUID = 0L;
     }
     if (getDeliveryCount()
         != other.getDeliveryCount()) return false;
-    if (hasPublisherGroup() != other.hasPublisherGroup()) return false;
-    if (hasPublisherGroup()) {
-      if (!getPublisherGroup()
-          .equals(other.getPublisherGroup())) return false;
+    if (hasProducerGroup() != other.hasProducerGroup()) return false;
+    if (hasProducerGroup()) {
+      if (!getProducerGroup()
+          .equals(other.getProducerGroup())) return false;
     }
+    if (!getMessageGroup()
+        .equals(other.getMessageGroup())) return false;
     if (!getTraceContext()
         .equals(other.getTraceContext())) return false;
     if (!getTimedDeliveryCase().equals(other.getTimedDeliveryCase())) return false;
@@ -1296,10 +1349,12 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + DELIVERY_COUNT_FIELD_NUMBER;
     hash = (53 * hash) + getDeliveryCount();
-    if (hasPublisherGroup()) {
-      hash = (37 * hash) + PUBLISHER_GROUP_FIELD_NUMBER;
-      hash = (53 * hash) + getPublisherGroup().hashCode();
+    if (hasProducerGroup()) {
+      hash = (37 * hash) + PRODUCER_GROUP_FIELD_NUMBER;
+      hash = (53 * hash) + getProducerGroup().hashCode();
     }
+    hash = (37 * hash) + MESSAGE_GROUP_FIELD_NUMBER;
+    hash = (53 * hash) + getMessageGroup().hashCode();
     hash = (37 * hash) + TRACE_CONTEXT_FIELD_NUMBER;
     hash = (53 * hash) + getTraceContext().hashCode();
     switch (timedDeliveryCase_) {
@@ -1495,12 +1550,14 @@ private static final long serialVersionUID = 0L;
       }
       deliveryCount_ = 0;
 
-      if (publisherGroupBuilder_ == null) {
-        publisherGroup_ = null;
+      if (producerGroupBuilder_ == null) {
+        producerGroup_ = null;
       } else {
-        publisherGroup_ = null;
-        publisherGroupBuilder_ = null;
+        producerGroup_ = null;
+        producerGroupBuilder_ = null;
       }
+      messageGroup_ = "";
+
       traceContext_ = "";
 
       timedDeliveryCase_ = 0;
@@ -1578,11 +1635,12 @@ private static final long serialVersionUID = 0L;
         result.invisiblePeriod_ = invisiblePeriodBuilder_.build();
       }
       result.deliveryCount_ = deliveryCount_;
-      if (publisherGroupBuilder_ == null) {
-        result.publisherGroup_ = publisherGroup_;
+      if (producerGroupBuilder_ == null) {
+        result.producerGroup_ = producerGroup_;
       } else {
-        result.publisherGroup_ = publisherGroupBuilder_.build();
+        result.producerGroup_ = producerGroupBuilder_.build();
       }
+      result.messageGroup_ = messageGroup_;
       result.traceContext_ = traceContext_;
       result.timedDeliveryCase_ = timedDeliveryCase_;
       onBuilt();
@@ -1693,8 +1751,12 @@ private static final long serialVersionUID = 0L;
       if (other.getDeliveryCount() != 0) {
         setDeliveryCount(other.getDeliveryCount());
       }
-      if (other.hasPublisherGroup()) {
-        mergePublisherGroup(other.getPublisherGroup());
+      if (other.hasProducerGroup()) {
+        mergeProducerGroup(other.getProducerGroup());
+      }
+      if (!other.getMessageGroup().isEmpty()) {
+        messageGroup_ = other.messageGroup_;
+        onChanged();
       }
       if (!other.getTraceContext().isEmpty()) {
         traceContext_ = other.traceContext_;
@@ -3586,159 +3648,235 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private apache.rocketmq.v1.Resource publisherGroup_;
+    private apache.rocketmq.v1.Resource producerGroup_;
     private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> publisherGroupBuilder_;
+        apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> producerGroupBuilder_;
     /**
      * <pre>
-     * Message publisher load-balance group if applicable.
+     * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource publisher_group = 19;</code>
-     * @return Whether the publisherGroup field is set.
+     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * @return Whether the producerGroup field is set.
      */
-    public boolean hasPublisherGroup() {
-      return publisherGroupBuilder_ != null || publisherGroup_ != null;
+    public boolean hasProducerGroup() {
+      return producerGroupBuilder_ != null || producerGroup_ != null;
     }
     /**
      * <pre>
-     * Message publisher load-balance group if applicable.
+     * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource publisher_group = 19;</code>
-     * @return The publisherGroup.
+     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * @return The producerGroup.
      */
-    public apache.rocketmq.v1.Resource getPublisherGroup() {
-      if (publisherGroupBuilder_ == null) {
-        return publisherGroup_ == null ? apache.rocketmq.v1.Resource.getDefaultInstance() : publisherGroup_;
+    public apache.rocketmq.v1.Resource getProducerGroup() {
+      if (producerGroupBuilder_ == null) {
+        return producerGroup_ == null ? apache.rocketmq.v1.Resource.getDefaultInstance() : producerGroup_;
       } else {
-        return publisherGroupBuilder_.getMessage();
+        return producerGroupBuilder_.getMessage();
       }
     }
     /**
      * <pre>
-     * Message publisher load-balance group if applicable.
+     * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource publisher_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
      */
-    public Builder setPublisherGroup(apache.rocketmq.v1.Resource value) {
-      if (publisherGroupBuilder_ == null) {
+    public Builder setProducerGroup(apache.rocketmq.v1.Resource value) {
+      if (producerGroupBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
         }
-        publisherGroup_ = value;
+        producerGroup_ = value;
         onChanged();
       } else {
-        publisherGroupBuilder_.setMessage(value);
+        producerGroupBuilder_.setMessage(value);
       }
 
       return this;
     }
     /**
      * <pre>
-     * Message publisher load-balance group if applicable.
+     * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource publisher_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
      */
-    public Builder setPublisherGroup(
+    public Builder setProducerGroup(
         apache.rocketmq.v1.Resource.Builder builderForValue) {
-      if (publisherGroupBuilder_ == null) {
-        publisherGroup_ = builderForValue.build();
+      if (producerGroupBuilder_ == null) {
+        producerGroup_ = builderForValue.build();
         onChanged();
       } else {
-        publisherGroupBuilder_.setMessage(builderForValue.build());
+        producerGroupBuilder_.setMessage(builderForValue.build());
       }
 
       return this;
     }
     /**
      * <pre>
-     * Message publisher load-balance group if applicable.
+     * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource publisher_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
      */
-    public Builder mergePublisherGroup(apache.rocketmq.v1.Resource value) {
-      if (publisherGroupBuilder_ == null) {
-        if (publisherGroup_ != null) {
-          publisherGroup_ =
-            apache.rocketmq.v1.Resource.newBuilder(publisherGroup_).mergeFrom(value).buildPartial();
+    public Builder mergeProducerGroup(apache.rocketmq.v1.Resource value) {
+      if (producerGroupBuilder_ == null) {
+        if (producerGroup_ != null) {
+          producerGroup_ =
+            apache.rocketmq.v1.Resource.newBuilder(producerGroup_).mergeFrom(value).buildPartial();
         } else {
-          publisherGroup_ = value;
+          producerGroup_ = value;
         }
         onChanged();
       } else {
-        publisherGroupBuilder_.mergeFrom(value);
+        producerGroupBuilder_.mergeFrom(value);
       }
 
       return this;
     }
     /**
      * <pre>
-     * Message publisher load-balance group if applicable.
+     * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource publisher_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
      */
-    public Builder clearPublisherGroup() {
-      if (publisherGroupBuilder_ == null) {
-        publisherGroup_ = null;
+    public Builder clearProducerGroup() {
+      if (producerGroupBuilder_ == null) {
+        producerGroup_ = null;
         onChanged();
       } else {
-        publisherGroup_ = null;
-        publisherGroupBuilder_ = null;
+        producerGroup_ = null;
+        producerGroupBuilder_ = null;
       }
 
       return this;
     }
     /**
      * <pre>
-     * Message publisher load-balance group if applicable.
+     * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource publisher_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
      */
-    public apache.rocketmq.v1.Resource.Builder getPublisherGroupBuilder() {
+    public apache.rocketmq.v1.Resource.Builder getProducerGroupBuilder() {
       
       onChanged();
-      return getPublisherGroupFieldBuilder().getBuilder();
+      return getProducerGroupFieldBuilder().getBuilder();
     }
     /**
      * <pre>
-     * Message publisher load-balance group if applicable.
+     * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource publisher_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
      */
-    public apache.rocketmq.v1.ResourceOrBuilder getPublisherGroupOrBuilder() {
-      if (publisherGroupBuilder_ != null) {
-        return publisherGroupBuilder_.getMessageOrBuilder();
+    public apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder() {
+      if (producerGroupBuilder_ != null) {
+        return producerGroupBuilder_.getMessageOrBuilder();
       } else {
-        return publisherGroup_ == null ?
-            apache.rocketmq.v1.Resource.getDefaultInstance() : publisherGroup_;
+        return producerGroup_ == null ?
+            apache.rocketmq.v1.Resource.getDefaultInstance() : producerGroup_;
       }
     }
     /**
      * <pre>
-     * Message publisher load-balance group if applicable.
+     * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource publisher_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> 
-        getPublisherGroupFieldBuilder() {
-      if (publisherGroupBuilder_ == null) {
-        publisherGroupBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+        getProducerGroupFieldBuilder() {
+      if (producerGroupBuilder_ == null) {
+        producerGroupBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
             apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder>(
-                getPublisherGroup(),
+                getProducerGroup(),
                 getParentForChildren(),
                 isClean());
-        publisherGroup_ = null;
+        producerGroup_ = null;
       }
-      return publisherGroupBuilder_;
+      return producerGroupBuilder_;
+    }
+
+    private java.lang.Object messageGroup_ = "";
+    /**
+     * <code>string message_group = 20;</code>
+     * @return The messageGroup.
+     */
+    public java.lang.String getMessageGroup() {
+      java.lang.Object ref = messageGroup_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        messageGroup_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string message_group = 20;</code>
+     * @return The bytes for messageGroup.
+     */
+    public com.google.protobuf.ByteString
+        getMessageGroupBytes() {
+      java.lang.Object ref = messageGroup_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        messageGroup_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string message_group = 20;</code>
+     * @param value The messageGroup to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMessageGroup(
+        java.lang.String value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  
+      messageGroup_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string message_group = 20;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMessageGroup() {
+      
+      messageGroup_ = getDefaultInstance().getMessageGroup();
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string message_group = 20;</code>
+     * @param value The bytes for messageGroup to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMessageGroupBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  checkByteStringIsUtf8(value);
+      
+      messageGroup_ = value;
+      onChanged();
+      return this;
     }
 
     private java.lang.Object traceContext_ = "";
@@ -3747,7 +3885,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 20;</code>
+     * <code>string trace_context = 21;</code>
      * @return The traceContext.
      */
     public java.lang.String getTraceContext() {
@@ -3767,7 +3905,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 20;</code>
+     * <code>string trace_context = 21;</code>
      * @return The bytes for traceContext.
      */
     public com.google.protobuf.ByteString
@@ -3788,7 +3926,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 20;</code>
+     * <code>string trace_context = 21;</code>
      * @param value The traceContext to set.
      * @return This builder for chaining.
      */
@@ -3807,7 +3945,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 20;</code>
+     * <code>string trace_context = 21;</code>
      * @return This builder for chaining.
      */
     public Builder clearTraceContext() {
@@ -3821,7 +3959,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 20;</code>
+     * <code>string trace_context = 21;</code>
      * @param value The bytes for traceContext to set.
      * @return This builder for chaining.
      */

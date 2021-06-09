@@ -4,9 +4,9 @@
 package apache.rocketmq.v1;
 
 /**
- * Protobuf enum {@code apache.rocketmq.v1.OffsetPolicy}
+ * Protobuf enum {@code apache.rocketmq.v1.CursorPolicy}
  */
-public enum OffsetPolicy
+public enum CursorPolicy
     implements com.google.protobuf.ProtocolMessageEnum {
   /**
    * <code>CURRENT = 0;</code>
@@ -24,6 +24,10 @@ public enum OffsetPolicy
    * <code>TIME_POINT = 3;</code>
    */
   TIME_POINT(3),
+  /**
+   * <code>OFFSET = 4;</code>
+   */
+  OFFSET(4),
   UNRECOGNIZED(-1),
   ;
 
@@ -43,6 +47,10 @@ public enum OffsetPolicy
    * <code>TIME_POINT = 3;</code>
    */
   public static final int TIME_POINT_VALUE = 3;
+  /**
+   * <code>OFFSET = 4;</code>
+   */
+  public static final int OFFSET_VALUE = 4;
 
 
   public final int getNumber() {
@@ -59,7 +67,7 @@ public enum OffsetPolicy
    * @deprecated Use {@link #forNumber(int)} instead.
    */
   @java.lang.Deprecated
-  public static OffsetPolicy valueOf(int value) {
+  public static CursorPolicy valueOf(int value) {
     return forNumber(value);
   }
 
@@ -67,25 +75,26 @@ public enum OffsetPolicy
    * @param value The numeric wire value of the corresponding enum entry.
    * @return The enum associated with the given numeric wire value.
    */
-  public static OffsetPolicy forNumber(int value) {
+  public static CursorPolicy forNumber(int value) {
     switch (value) {
       case 0: return CURRENT;
       case 1: return BEGINNING;
       case 2: return END;
       case 3: return TIME_POINT;
+      case 4: return OFFSET;
       default: return null;
     }
   }
 
-  public static com.google.protobuf.Internal.EnumLiteMap<OffsetPolicy>
+  public static com.google.protobuf.Internal.EnumLiteMap<CursorPolicy>
       internalGetValueMap() {
     return internalValueMap;
   }
   private static final com.google.protobuf.Internal.EnumLiteMap<
-      OffsetPolicy> internalValueMap =
-        new com.google.protobuf.Internal.EnumLiteMap<OffsetPolicy>() {
-          public OffsetPolicy findValueByNumber(int number) {
-            return OffsetPolicy.forNumber(number);
+      CursorPolicy> internalValueMap =
+        new com.google.protobuf.Internal.EnumLiteMap<CursorPolicy>() {
+          public CursorPolicy findValueByNumber(int number) {
+            return CursorPolicy.forNumber(number);
           }
         };
 
@@ -106,9 +115,9 @@ public enum OffsetPolicy
     return apache.rocketmq.v1.MQDomain.getDescriptor().getEnumTypes().get(11);
   }
 
-  private static final OffsetPolicy[] VALUES = values();
+  private static final CursorPolicy[] VALUES = values();
 
-  public static OffsetPolicy valueOf(
+  public static CursorPolicy valueOf(
       com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
     if (desc.getType() != getDescriptor()) {
       throw new java.lang.IllegalArgumentException(
@@ -122,10 +131,10 @@ public enum OffsetPolicy
 
   private final int value;
 
-  private OffsetPolicy(int value) {
+  private CursorPolicy(int value) {
     this.value = value;
   }
 
-  // @@protoc_insertion_point(enum_scope:apache.rocketmq.v1.OffsetPolicy)
+  // @@protoc_insertion_point(enum_scope:apache.rocketmq.v1.CursorPolicy)
 }
 

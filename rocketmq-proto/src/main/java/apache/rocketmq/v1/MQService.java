@@ -130,15 +130,15 @@ public final class MQService {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_apache_rocketmq_v1_QueryOffsetResponse_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_apache_rocketmq_v1_SeekOffsetRequest_descriptor;
+    internal_static_apache_rocketmq_v1_SeekCursorRequest_descriptor;
   static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_apache_rocketmq_v1_SeekOffsetRequest_fieldAccessorTable;
+      internal_static_apache_rocketmq_v1_SeekCursorRequest_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_apache_rocketmq_v1_SeekOffsetResponse_descriptor;
+    internal_static_apache_rocketmq_v1_SeekCursorResponse_descriptor;
   static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_apache_rocketmq_v1_SeekOffsetResponse_fieldAccessorTable;
+      internal_static_apache_rocketmq_v1_SeekCursorResponse_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_apache_rocketmq_v1_PollMessageRequest_descriptor;
   static final 
@@ -248,77 +248,80 @@ public final class MQService {
       "actionResolution\022\n\n\006COMMIT\020\000\022\014\n\010ROLLBACK" +
       "\020\001\"L\n\026EndTransactionResponse\0222\n\006common\030\001" +
       " \001(\0132\".apache.rocketmq.v1.ResponseCommon" +
-      "\"|\n\034PollOrphanTransactionRequest\0226\n\016prod" +
+      "\"k\n\034PollOrphanTransactionRequest\0224\n\016prod" +
       "ucer_group\030\001 \001(\0132\034.apache.rocketmq.v1.Re" +
-      "sourceH\000\022\027\n\rwindow_update\030\002 \001(\005H\000B\013\n\tpol" +
-      "l_type\"\215\001\n\035PollOrphanTransactionResponse" +
-      "\0222\n\006common\030\001 \001(\0132\".apache.rocketmq.v1.Re" +
-      "sponseCommon\0228\n\023orphan_transactions\030\002 \003(" +
-      "\0132\033.apache.rocketmq.v1.Message\"\245\001\n\022Query" +
-      "OffsetRequest\0220\n\tpartition\030\001 \001(\0132\035.apach" +
-      "e.rocketmq.v1.Partition\022+\n\005group\030\002 \001(\0132\034" +
-      ".apache.rocketmq.v1.Resource\0220\n\006policy\030\003" +
-      " \001(\0162 .apache.rocketmq.v1.OffsetPolicy\"u" +
-      "\n\023QueryOffsetResponse\0222\n\006common\030\001 \001(\0132\"." +
-      "apache.rocketmq.v1.ResponseCommon\022*\n\006off" +
-      "set\030\002 \001(\0132\032.apache.rocketmq.v1.Offset\"u\n" +
-      "\021SeekOffsetRequest\0220\n\006policy\030\001 \001(\0162 .apa" +
-      "che.rocketmq.v1.OffsetPolicy\022.\n\ntime_poi" +
-      "nt\030\002 \001(\0132\032.google.protobuf.Timestamp\"t\n\022" +
-      "SeekOffsetResponse\0222\n\006common\030\001 \001(\0132\".apa" +
-      "che.rocketmq.v1.ResponseCommon\022*\n\006offset" +
-      "\030\002 \001(\0132\032.apache.rocketmq.v1.Offset\"\266\001\n\022P" +
-      "ollMessageRequest\022+\n\005group\030\001 \001(\0132\034.apach" +
-      "e.rocketmq.v1.Resource\0220\n\tpartition\030\002 \001(" +
-      "\0132\035.apache.rocketmq.v1.Partition\022\022\n\nbatc" +
-      "h_size\030\003 \001(\005\022-\n\nawait_time\030\004 \001(\0132\031.googl" +
-      "e.protobuf.Duration\"x\n\023PollMessageRespon" +
-      "se\0222\n\006common\030\001 \001(\0132\".apache.rocketmq.v1." +
-      "ResponseCommon\022-\n\010messages\030\002 \003(\0132\033.apach" +
-      "e.rocketmq.v1.Message\"\240\001\n\023CommitOffsetRe" +
-      "quest\0220\n\tpartition\030\001 \001(\0132\035.apache.rocket" +
-      "mq.v1.Partition\022+\n\005group\030\002 \001(\0132\034.apache." +
-      "rocketmq.v1.Resource\022*\n\006offset\030\003 \001(\0132\032.a" +
-      "pache.rocketmq.v1.Offset\"J\n\024CommitOffset" +
-      "Response\0222\n\006common\030\001 \001(\0132\".apache.rocket" +
-      "mq.v1.ResponseCommon2\243\013\n\020MessagingServic" +
-      "e\022]\n\nQueryRoute\022%.apache.rocketmq.v1.Que" +
-      "ryRouteRequest\032&.apache.rocketmq.v1.Quer" +
-      "yRouteResponse\"\000\022Z\n\tHeartbeat\022$.apache.r" +
-      "ocketmq.v1.HeartbeatRequest\032%.apache.roc" +
-      "ketmq.v1.HeartbeatResponse\"\000\022`\n\013HealthCh" +
-      "eck\022&.apache.rocketmq.v1.HealthCheckRequ" +
-      "est\032\'.apache.rocketmq.v1.HealthCheckResp" +
-      "onse\"\000\022`\n\013SendMessage\022&.apache.rocketmq." +
-      "v1.SendMessageRequest\032\'.apache.rocketmq." +
-      "v1.SendMessageResponse\"\000\022l\n\017QueryAssignm" +
-      "ent\022*.apache.rocketmq.v1.QueryAssignment" +
-      "Request\032+.apache.rocketmq.v1.QueryAssign" +
-      "mentResponse\"\000\022i\n\016ReceiveMessage\022).apach" +
-      "e.rocketmq.v1.ReceiveMessageRequest\032*.ap" +
-      "ache.rocketmq.v1.ReceiveMessageResponse\"" +
-      "\000\022]\n\nAckMessage\022%.apache.rocketmq.v1.Ack" +
-      "MessageRequest\032&.apache.rocketmq.v1.AckM" +
-      "essageResponse\"\000\022`\n\013NackMessage\022&.apache" +
-      ".rocketmq.v1.NackMessageRequest\032\'.apache" +
-      ".rocketmq.v1.NackMessageResponse\"\000\022i\n\016En" +
-      "dTransaction\022).apache.rocketmq.v1.EndTra" +
-      "nsactionRequest\032*.apache.rocketmq.v1.End" +
-      "TransactionResponse\"\000\022\202\001\n\025PollOrphanTran" +
-      "saction\0220.apache.rocketmq.v1.PollOrphanT" +
-      "ransactionRequest\0321.apache.rocketmq.v1.P" +
-      "ollOrphanTransactionResponse\"\000(\0010\001\022`\n\013Qu" +
-      "eryOffset\022&.apache.rocketmq.v1.QueryOffs" +
-      "etRequest\032\'.apache.rocketmq.v1.QueryOffs" +
-      "etResponse\"\000\022]\n\nSeekOffset\022%.apache.rock" +
-      "etmq.v1.SeekOffsetRequest\032&.apache.rocke" +
-      "tmq.v1.SeekOffsetResponse\"\000\022`\n\013PollMessa" +
-      "ge\022&.apache.rocketmq.v1.PollMessageReque" +
-      "st\032\'.apache.rocketmq.v1.PollMessageRespo" +
-      "nse\"\000\022c\n\014CommitOffset\022\'.apache.rocketmq." +
-      "v1.CommitOffsetRequest\032(.apache.rocketmq" +
-      ".v1.CommitOffsetResponse\"\000B\'\n\022apache.roc" +
-      "ketmq.v1B\tMQServiceP\001\240\001\001\330\001\001b\006proto3"
+      "source\022\025\n\rwindow_update\030\002 \001(\005\"\215\001\n\035PollOr" +
+      "phanTransactionResponse\0222\n\006common\030\001 \001(\0132" +
+      "\".apache.rocketmq.v1.ResponseCommon\0228\n\023o" +
+      "rphan_transactions\030\002 \003(\0132\033.apache.rocket" +
+      "mq.v1.Message\"\245\001\n\022QueryOffsetRequest\0220\n\t" +
+      "partition\030\001 \001(\0132\035.apache.rocketmq.v1.Par" +
+      "tition\022+\n\005group\030\002 \001(\0132\034.apache.rocketmq." +
+      "v1.Resource\0220\n\006policy\030\003 \001(\0162 .apache.roc" +
+      "ketmq.v1.CursorPolicy\"u\n\023QueryOffsetResp" +
+      "onse\0222\n\006common\030\001 \001(\0132\".apache.rocketmq.v" +
+      "1.ResponseCommon\022*\n\006offset\030\002 \001(\0132\032.apach" +
+      "e.rocketmq.v1.Offset\"\344\001\n\021SeekCursorReque" +
+      "st\022+\n\005group\030\001 \001(\0132\034.apache.rocketmq.v1.R" +
+      "esource\0220\n\tpartition\030\002 \001(\0132\035.apache.rock" +
+      "etmq.v1.Partition\0220\n\006policy\030\003 \001(\0162 .apac" +
+      "he.rocketmq.v1.CursorPolicy\022.\n\ntime_poin" +
+      "t\030\004 \001(\0132\032.google.protobuf.Timestamp\022\016\n\006o" +
+      "ffset\030\005 \001(\003\"t\n\022SeekCursorResponse\0222\n\006com" +
+      "mon\030\001 \001(\0132\".apache.rocketmq.v1.ResponseC" +
+      "ommon\022*\n\006offset\030\002 \001(\0132\032.apache.rocketmq." +
+      "v1.Offset\"\266\001\n\022PollMessageRequest\022+\n\005grou" +
+      "p\030\001 \001(\0132\034.apache.rocketmq.v1.Resource\0220\n" +
+      "\tpartition\030\002 \001(\0132\035.apache.rocketmq.v1.Pa" +
+      "rtition\022\022\n\nbatch_size\030\003 \001(\005\022-\n\nawait_tim" +
+      "e\030\004 \001(\0132\031.google.protobuf.Duration\"x\n\023Po" +
+      "llMessageResponse\0222\n\006common\030\001 \001(\0132\".apac" +
+      "he.rocketmq.v1.ResponseCommon\022-\n\010message" +
+      "s\030\002 \003(\0132\033.apache.rocketmq.v1.Message\"\240\001\n" +
+      "\023CommitOffsetRequest\0220\n\tpartition\030\001 \001(\0132" +
+      "\035.apache.rocketmq.v1.Partition\022+\n\005group\030" +
+      "\002 \001(\0132\034.apache.rocketmq.v1.Resource\022*\n\006o" +
+      "ffset\030\003 \001(\0132\032.apache.rocketmq.v1.Offset\"" +
+      "J\n\024CommitOffsetResponse\0222\n\006common\030\001 \001(\0132" +
+      "\".apache.rocketmq.v1.ResponseCommon2\243\013\n\020" +
+      "MessagingService\022]\n\nQueryRoute\022%.apache." +
+      "rocketmq.v1.QueryRouteRequest\032&.apache.r" +
+      "ocketmq.v1.QueryRouteResponse\"\000\022Z\n\tHeart" +
+      "beat\022$.apache.rocketmq.v1.HeartbeatReque" +
+      "st\032%.apache.rocketmq.v1.HeartbeatRespons" +
+      "e\"\000\022`\n\013HealthCheck\022&.apache.rocketmq.v1." +
+      "HealthCheckRequest\032\'.apache.rocketmq.v1." +
+      "HealthCheckResponse\"\000\022`\n\013SendMessage\022&.a" +
+      "pache.rocketmq.v1.SendMessageRequest\032\'.a" +
+      "pache.rocketmq.v1.SendMessageResponse\"\000\022" +
+      "l\n\017QueryAssignment\022*.apache.rocketmq.v1." +
+      "QueryAssignmentRequest\032+.apache.rocketmq" +
+      ".v1.QueryAssignmentResponse\"\000\022i\n\016Receive" +
+      "Message\022).apache.rocketmq.v1.ReceiveMess" +
+      "ageRequest\032*.apache.rocketmq.v1.ReceiveM" +
+      "essageResponse\"\000\022]\n\nAckMessage\022%.apache." +
+      "rocketmq.v1.AckMessageRequest\032&.apache.r" +
+      "ocketmq.v1.AckMessageResponse\"\000\022`\n\013NackM" +
+      "essage\022&.apache.rocketmq.v1.NackMessageR" +
+      "equest\032\'.apache.rocketmq.v1.NackMessageR" +
+      "esponse\"\000\022i\n\016EndTransaction\022).apache.roc" +
+      "ketmq.v1.EndTransactionRequest\032*.apache." +
+      "rocketmq.v1.EndTransactionResponse\"\000\022\202\001\n" +
+      "\025PollOrphanTransaction\0220.apache.rocketmq" +
+      ".v1.PollOrphanTransactionRequest\0321.apach" +
+      "e.rocketmq.v1.PollOrphanTransactionRespo" +
+      "nse\"\000(\0010\001\022`\n\013QueryOffset\022&.apache.rocket" +
+      "mq.v1.QueryOffsetRequest\032\'.apache.rocket" +
+      "mq.v1.QueryOffsetResponse\"\000\022]\n\nSeekCurso" +
+      "r\022%.apache.rocketmq.v1.SeekCursorRequest" +
+      "\032&.apache.rocketmq.v1.SeekCursorResponse" +
+      "\"\000\022`\n\013PollMessage\022&.apache.rocketmq.v1.P" +
+      "ollMessageRequest\032\'.apache.rocketmq.v1.P" +
+      "ollMessageResponse\"\000\022c\n\014CommitOffset\022\'.a" +
+      "pache.rocketmq.v1.CommitOffsetRequest\032(." +
+      "apache.rocketmq.v1.CommitOffsetResponse\"" +
+      "\000B\'\n\022apache.rocketmq.v1B\tMQServiceP\001\240\001\001\330" +
+      "\001\001b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -450,7 +453,7 @@ public final class MQService {
     internal_static_apache_rocketmq_v1_PollOrphanTransactionRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_apache_rocketmq_v1_PollOrphanTransactionRequest_descriptor,
-        new java.lang.String[] { "ProducerGroup", "WindowUpdate", "PollType", });
+        new java.lang.String[] { "ProducerGroup", "WindowUpdate", });
     internal_static_apache_rocketmq_v1_PollOrphanTransactionResponse_descriptor =
       getDescriptor().getMessageTypes().get(20);
     internal_static_apache_rocketmq_v1_PollOrphanTransactionResponse_fieldAccessorTable = new
@@ -469,17 +472,17 @@ public final class MQService {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_apache_rocketmq_v1_QueryOffsetResponse_descriptor,
         new java.lang.String[] { "Common", "Offset", });
-    internal_static_apache_rocketmq_v1_SeekOffsetRequest_descriptor =
+    internal_static_apache_rocketmq_v1_SeekCursorRequest_descriptor =
       getDescriptor().getMessageTypes().get(23);
-    internal_static_apache_rocketmq_v1_SeekOffsetRequest_fieldAccessorTable = new
+    internal_static_apache_rocketmq_v1_SeekCursorRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_apache_rocketmq_v1_SeekOffsetRequest_descriptor,
-        new java.lang.String[] { "Policy", "TimePoint", });
-    internal_static_apache_rocketmq_v1_SeekOffsetResponse_descriptor =
+        internal_static_apache_rocketmq_v1_SeekCursorRequest_descriptor,
+        new java.lang.String[] { "Group", "Partition", "Policy", "TimePoint", "Offset", });
+    internal_static_apache_rocketmq_v1_SeekCursorResponse_descriptor =
       getDescriptor().getMessageTypes().get(24);
-    internal_static_apache_rocketmq_v1_SeekOffsetResponse_fieldAccessorTable = new
+    internal_static_apache_rocketmq_v1_SeekCursorResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_apache_rocketmq_v1_SeekOffsetResponse_descriptor,
+        internal_static_apache_rocketmq_v1_SeekCursorResponse_descriptor,
         new java.lang.String[] { "Common", "Offset", });
     internal_static_apache_rocketmq_v1_PollMessageRequest_descriptor =
       getDescriptor().getMessageTypes().get(25);

@@ -38,13 +38,13 @@ public interface QueryOffsetRequestOrBuilder extends
   apache.rocketmq.v1.ResourceOrBuilder getGroupOrBuilder();
 
   /**
-   * <code>.apache.rocketmq.v1.OffsetPolicy policy = 3;</code>
+   * <code>.apache.rocketmq.v1.CursorPolicy policy = 3;</code>
    * @return The enum numeric value on the wire for policy.
    */
   int getPolicyValue();
   /**
-   * <code>.apache.rocketmq.v1.OffsetPolicy policy = 3;</code>
+   * <code>.apache.rocketmq.v1.CursorPolicy policy = 3;</code>
    * @return The policy.
    */
-  apache.rocketmq.v1.OffsetPolicy getPolicy();
+  apache.rocketmq.v1.CursorPolicy getPolicy();
 }
