@@ -387,7 +387,7 @@ public class ClientInstance {
         Set<RpcTarget> filteredTarget = new HashSet<RpcTarget>();
         for (RpcTarget rpcTarget : clientTable.keySet()) {
             if (!rpcTarget.isNeedHeartbeat()) {
-                return;
+                continue;
             }
             filteredTarget.add(rpcTarget);
         }
