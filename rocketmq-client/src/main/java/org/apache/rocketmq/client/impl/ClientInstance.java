@@ -384,15 +384,15 @@ public class ClientInstance {
 
         final HeartbeatRequest request = builder.build();
 
-        Set<RpcTarget> filteredTarget = new HashSet<RpcTarget>();
+        Set<RpcTarget> targetNeedHeartbeat = new HashSet<RpcTarget>();
         for (RpcTarget rpcTarget : clientTable.keySet()) {
             if (!rpcTarget.isNeedHeartbeat()) {
                 continue;
             }
-            filteredTarget.add(rpcTarget);
+            targetNeedHeartbeat.add(rpcTarget);
         }
 
-        for (RpcTarget rpcTarget : filteredTarget) {
+        for (RpcTarget rpcTarget : targetNeedHeartbeat) {
             final RpcClient rpcClient = clientTable.get(rpcTarget);
             if (null == rpcClient) {
                 continue;
