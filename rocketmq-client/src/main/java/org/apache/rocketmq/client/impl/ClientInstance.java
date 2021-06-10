@@ -107,9 +107,7 @@ public class ClientInstance {
     private static final long FETCH_TOPIC_ROUTE_TIMEOUT_MILLIS = 5 * 1000;
     private static final long RPC_DEFAULT_TIMEOUT_MILLIS = 3 * 1000;
 
-    private final ClientInstanceConfig clientInstanceConfig;
-    @Setter
-    private String tenantId = "";
+    private final ClientConfig clientConfig;
 
     private final ConcurrentMap<RpcTarget, RpcClient> clientTable;
 
@@ -139,8 +137,8 @@ public class ClientInstance {
     @Getter
     private volatile Tracer tracer = null;
 
-    public ClientInstance(ClientInstanceConfig clientInstanceConfig, Endpoints nameServerEndpointsList) {
-        this.clientInstanceConfig = clientInstanceConfig;
+    public ClientInstance(ClientConfig clientConfig, Endpoints nameServerEndpointsList) {
+        this.clientConfig = clientConfig;
         this.clientTable = new ConcurrentHashMap<RpcTarget, RpcClient>();
 
         this.scheduler =
@@ -551,7 +549,7 @@ public class ClientInstance {
                     NettyChannelBuilder
                             .forTarget(randomTracingRpcTarget.getEndpoints().getTarget())
                             .sslContext(sslContext)
-                            .intercept(new HeadersClientInterceptor(clientInstanceConfig));
+                            .intercept(new HeadersClientInterceptor(clientConfig));
 
             final List<InetSocketAddress> socketAddresses =
                     randomTracingRpcTarget.getEndpoints().convertToSocketAddresses();
@@ -663,14 +661,11 @@ public class ClientInstance {
         }
         RpcClientImpl newRpcClient;
         try {
-            newRpcClient = new RpcClientImpl(target);
+            newRpcClient = new RpcClientImpl(target, clientConfig);
         } catch (SSLException e) {
             log.error("Failed to get rpc client, endpoints={}", target.getEndpoints());
             throw new MQClientException("Failed to get rpc client");
         }
-        newRpcClient.setArn(clientInstanceConfig.getArn());
-        newRpcClient.setTenantId(tenantId);
-        newRpcClient.setAccessCredential(clientInstanceConfig.getAccessCredential());
         clientTable.put(target, newRpcClient);
 
         return newRpcClient;
@@ -965,7 +960,7 @@ public class ClientInstance {
      *                           e.g. topic does not exist.
      */
     private TopicRouteData fetchTopicRouteData(String topic) throws MQClientException {
-        Resource topicResource = Resource.newBuilder().setArn(clientInstanceConfig.getArn()).setName(topic).build();
+        Resource topicResource = Resource.newBuilder().setArn(clientConfig.getArn()).setName(topic).build();
         if (null == nameServerEndpoints) {
             log.error("No name server endpoints found, topic={}", topic);
             throw new MQClientException("No name server endpoints found");

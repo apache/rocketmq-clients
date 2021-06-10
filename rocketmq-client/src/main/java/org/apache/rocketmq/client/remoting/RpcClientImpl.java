@@ -33,20 +33,20 @@ import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLException;
 import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.client.impl.ClientInstanceConfig;
 
 /**
  * A typical implementation for {@link RpcClient}
  */
 @Slf4j
-@EqualsAndHashCode(callSuper = true)
-public class RpcClientImpl extends ClientInstanceConfig implements RpcClient {
+@EqualsAndHashCode
+public class RpcClientImpl implements RpcClient {
+
     private final ManagedChannel channel;
 
     private final MessagingServiceGrpc.MessagingServiceBlockingStub blockingStub;
     private final MessagingServiceGrpc.MessagingServiceFutureStub futureStub;
 
-    public RpcClientImpl(RpcTarget rpcTarget) throws SSLException {
+    public RpcClientImpl(RpcTarget rpcTarget, CredentialsObservable credentialsObservable) throws SSLException {
         final SslContextBuilder builder = GrpcSslContexts.forClient();
         // TODO: discard the insecure way.
         builder.trustManager(InsecureTrustManagerFactory.INSTANCE);
@@ -55,7 +55,7 @@ public class RpcClientImpl extends ClientInstanceConfig implements RpcClient {
         final Endpoints endpoints = rpcTarget.getEndpoints();
         final NettyChannelBuilder channelBuilder =
                 NettyChannelBuilder.forTarget(endpoints.getTarget())
-                                   .intercept(new HeadersClientInterceptor(this))
+                                   .intercept(new HeadersClientInterceptor(credentialsObservable))
                                    .sslContext(sslContext);
 
         if (rpcTarget.isAutoRetryEnabled()) {

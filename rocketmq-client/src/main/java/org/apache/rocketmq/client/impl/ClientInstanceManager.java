@@ -11,11 +11,11 @@ public class ClientInstanceManager {
     private static final ClientInstanceManager CLIENT_INSTANCE_MANAGER = new ClientInstanceManager();
 
     @GuardedBy("lock")
-    private final Map<ClientInstanceConfig, ClientInstance> clientInstanceTable;
+    private final Map<String/* ClientId */, ClientInstance> clientInstanceTable;
     private final Lock lock;
 
     private ClientInstanceManager() {
-        this.clientInstanceTable = new HashMap<ClientInstanceConfig, ClientInstance>();
+        this.clientInstanceTable = new HashMap<String, ClientInstance>();
         this.lock = new ReentrantLock();
     }
 
@@ -26,13 +26,13 @@ public class ClientInstanceManager {
     public ClientInstance getClientInstance(final ClientConfig clientConfig) {
         lock.lock();
         try {
-            final ClientInstanceConfig clientInstanceConfig = clientConfig.getClientInstanceConfig();
-            ClientInstance clientInstance = clientInstanceTable.get(clientInstanceConfig);
+            final String clientId = clientConfig.getClientId();
+            ClientInstance clientInstance = clientInstanceTable.get(clientId);
             if (null != clientInstance) {
                 return clientInstance;
             }
-            clientInstance = new ClientInstance(clientInstanceConfig, clientConfig.getNameServerEndpoints());
-            clientInstanceTable.put(clientInstanceConfig, clientInstance);
+            clientInstance = new ClientInstance(clientConfig, clientConfig.getNameServerEndpoints());
+            clientInstanceTable.put(clientId, clientInstance);
             return clientInstance;
         } finally {
             lock.unlock();

@@ -21,15 +21,41 @@ import org.testng.annotations.Test;
 
 public class RpcClientImplTest {
 
+    private CredentialsObservable observable = new CredentialsObservable() {
+
+        @Override
+        public AccessCredential getAccessCredential() {
+            return new AccessCredential("LTAInDOvOPEkCj67", "UniBnf6GKgUS1Y5l3Ce0rmgQhhKyZd");
+        }
+
+        @Override
+        public String getTenantId() {
+            return "";
+        }
+
+        @Override
+        public String getArn() {
+            return "MQ_INST_1973281269661160_BXmPlOA6";
+        }
+
+        @Override
+        public String getRegionId() {
+            return "";
+        }
+
+        @Override
+        public String getServiceName() {
+            return "";
+        }
+    };
+
     @Test
     public void testQueryRoute() throws SSLException {
         List<Address> addresses = new ArrayList<Address>();
         addresses.add(new Address("11.165.223.199", 9876));
         final Endpoints endpoints = new Endpoints(AddressScheme.IPv4, addresses);
-        final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, true, false));
-        rpcClient.setAccessCredential(new AccessCredential("LTAInDOvOPEkCj67", "UniBnf6GKgUS1Y5l3Ce0rmgQhhKyZd"));
 
-        rpcClient.setArn("MQ_INST_1973281269661160_BXmPlOA6");
+        final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, true, false), observable);
 
         Resource topicResource = Resource.newBuilder().setName("yc001").build();
 
@@ -45,10 +71,7 @@ public class RpcClientImplTest {
         List<Address> addresses = new ArrayList<Address>();
         addresses.add(new Address("11.158.159.57", 8081));
         final Endpoints endpoints = new Endpoints(AddressScheme.IPv4, addresses);
-        final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, false, true));
-        rpcClient.setAccessCredential(new AccessCredential("LTAInDOvOPEkCj67", "UniBnf6GKgUS1Y5l3Ce0rmgQhhKyZd"));
-
-        rpcClient.setArn("MQ_INST_1973281269661160_BXmPlOA6");
+        final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, false, true), observable);
 
         final Resource topicResource = Resource.newBuilder().setArn("MQ_INST_1973281269661160_BXmPlOA6").setName(
                 "yc001").build();
@@ -69,11 +92,7 @@ public class RpcClientImplTest {
         List<Address> addresses = new ArrayList<Address>();
         addresses.add(new Address("11.158.159.57", 8081));
         final Endpoints endpoints = new Endpoints(AddressScheme.IPv4, addresses);
-        final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, false, true));
-        rpcClient.setAccessCredential(new AccessCredential("LTAInDOvOPEkCj67", "UniBnf6GKgUS1Y5l3Ce0rmgQhhKyZd"));
-        rpcClient.setTenantId("");
-        rpcClient.setArn("MQ_INST_1973281269661160_BXmPlOA6");
-
+        final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, false, true), observable);
 
         final Resource topicResource = Resource.newBuilder().setArn("MQ_INST_1973281269661160_BXmPlOA6").setName(
                 "yc001").build();

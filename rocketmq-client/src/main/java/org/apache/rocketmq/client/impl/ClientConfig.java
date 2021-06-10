@@ -1,24 +1,30 @@
 package org.apache.rocketmq.client.impl;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.ArrayList;
 import java.util.List;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
 import org.apache.rocketmq.client.remoting.AccessCredential;
 import org.apache.rocketmq.client.remoting.Address;
+import org.apache.rocketmq.client.remoting.CredentialsObservable;
 import org.apache.rocketmq.client.remoting.Endpoints;
 import org.apache.rocketmq.client.route.AddressScheme;
 import org.apache.rocketmq.utility.RemotingUtil;
 import org.apache.rocketmq.utility.UtilAll;
 
-@Getter
-@Setter
-public class ClientConfig {
+@Data
+public class ClientConfig implements CredentialsObservable {
     private static final String CLIENT_ID_SEPARATOR = "@";
 
-    private final ClientInstanceConfig clientInstanceConfig;
-
-    private String groupName;
+    private String groupName = "";
+    // TODO: fix region_id here.
+    private String regionId = "cn-hangzhou";
+    private String arn = "";
+    private String tenantId = "";
+    // TODO: fix service name here.
+    private String serviceName = "aone";
+    private AccessCredential accessCredential = null;
 
     private final String clientId;
 
@@ -27,7 +33,6 @@ public class ClientConfig {
     private boolean rpcTracingEnabled = false;
 
     public ClientConfig(String groupName) {
-        this.clientInstanceConfig = new ClientInstanceConfig();
         this.groupName = groupName;
 
         StringBuilder sb = new StringBuilder();
@@ -54,19 +59,14 @@ public class ClientConfig {
 
     // TODO: not allowed to update after client instance started(override in producer and consumer)
     public void setArn(String arn) {
-        clientInstanceConfig.setArn(arn);
+        checkNotNull(arn, "Abstract resource name is null, please set it.");
+        this.arn = arn;
     }
 
-    public String getArn() {
-        return clientInstanceConfig.getArn();
-    }
 
     // TODO: not allowed to update after client instance started(override in producer and consumer)
     public void setAccessCredential(AccessCredential accessCredential) {
-        clientInstanceConfig.setAccessCredential(accessCredential);
-    }
-
-    public AccessCredential getAccessCredential() {
-        return clientInstanceConfig.getAccessCredential();
+        checkNotNull(accessCredential, "Access Credential is null, please set it.");
+        this.accessCredential = accessCredential;
     }
 }
