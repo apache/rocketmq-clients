@@ -4,7 +4,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class ThreadFactoryImpl implements ThreadFactory {
-    private final AtomicLong threadIndex = new AtomicLong(0);
+    private static final AtomicLong THREAD_INDEX = new AtomicLong(0);
     private final String threadNamePrefix;
     private final boolean daemon;
 
@@ -19,7 +19,7 @@ public class ThreadFactoryImpl implements ThreadFactory {
 
     @Override
     public Thread newThread(Runnable r) {
-        Thread thread = new Thread(r, threadNamePrefix + this.threadIndex.incrementAndGet());
+        Thread thread = new Thread(r, threadNamePrefix + "-" + THREAD_INDEX.incrementAndGet());
         thread.setDaemon(daemon);
         return thread;
     }

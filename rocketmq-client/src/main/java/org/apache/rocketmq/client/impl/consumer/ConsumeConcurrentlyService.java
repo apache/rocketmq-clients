@@ -38,7 +38,7 @@ public class ConsumeConcurrentlyService implements ConsumeService {
                         1000 * 60,
                         TimeUnit.MILLISECONDS,
                         new LinkedBlockingQueue<Runnable>(),
-                        new ThreadFactoryImpl("ConsumeMessageThread_"));
+                        new ThreadFactoryImpl("ConsumeMessageThread"));
     }
 
     @Override

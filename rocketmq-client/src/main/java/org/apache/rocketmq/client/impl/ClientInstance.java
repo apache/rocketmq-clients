@@ -144,28 +144,28 @@ public class ClientInstance {
         this.clientTable = new ConcurrentHashMap<RpcTarget, RpcClient>();
 
         this.scheduler =
-                new ScheduledThreadPoolExecutor(4, new ThreadFactoryImpl("ClientInstanceScheduler_"));
+                new ScheduledThreadPoolExecutor(4, new ThreadFactoryImpl("ClientInstanceScheduler"));
 
         this.asyncRpcExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
                                                        Runtime.getRuntime().availableProcessors(),
                                                        60,
                                                        TimeUnit.SECONDS,
                                                        new LinkedBlockingQueue<Runnable>(),
-                                                       new ThreadFactoryImpl("AsyncRpcThread_"));
+                                                       new ThreadFactoryImpl("AsyncRpcThread"));
 
         this.sendCallbackExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
                                                            Runtime.getRuntime().availableProcessors(),
                                                            60,
                                                            TimeUnit.SECONDS,
                                                            new LinkedBlockingQueue<Runnable>(),
-                                                           new ThreadFactoryImpl("SendCallbackThread_"));
+                                                           new ThreadFactoryImpl("SendCallbackThread"));
 
         this.receiveCallbackExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
                                                               Runtime.getRuntime().availableProcessors(),
                                                               60,
                                                               TimeUnit.SECONDS,
                                                               new LinkedBlockingQueue<Runnable>(),
-                                                              new ThreadFactoryImpl("ReceiveCallbackThread_"));
+                                                              new ThreadFactoryImpl("ReceiveCallbackThread"));
 
         this.nameServerEndpoints = nameServerEndpointsList;
 
