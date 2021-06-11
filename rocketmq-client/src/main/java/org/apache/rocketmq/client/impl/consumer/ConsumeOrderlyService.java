@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
+import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
 
@@ -19,7 +20,10 @@ public class ConsumeOrderlyService implements ConsumeService {
     }
 
     @Override
-    public void start() {
+    public void start() throws MQClientException {
+        if (!state.compareAndSet(ServiceState.STARTED, ServiceState.STARTED)) {
+            throw new MQClientException("ConsumeOrderlyService has attempted to be started before");
+        }
     }
 
     @Override
@@ -33,5 +37,7 @@ public class ConsumeOrderlyService implements ConsumeService {
     @Override
     public void submitConsumeTask(
             List<MessageExt> messageExtList, ProcessQueue processQueue, MessageQueue messageQueue) {
+        final List<MessageExt> cachedMessages = processQueue.getCachedMessages();
+
     }
 }

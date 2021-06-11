@@ -45,7 +45,7 @@ public class ConsumeConcurrentlyService implements ConsumeService {
     public void start() throws MQClientException {
         if (!state.compareAndSet(ServiceState.CREATED, ServiceState.STARTED)) {
             throw new MQClientException(
-                    "ConsumerConcurrentlyService has attempted to be stared before, state=" + state.get());
+                    "ConsumerConcurrentlyService has attempted to be started before");
         }
     }
 
