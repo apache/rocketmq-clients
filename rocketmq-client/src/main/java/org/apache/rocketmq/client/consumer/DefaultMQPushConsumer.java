@@ -29,6 +29,8 @@ public class DefaultMQPushConsumer extends ClientConfig {
     // Only for order message.
     private long suspendCurrentQueueTimeMillis = 1000;
 
+    private int maxBatchConsumeWaitTimeMillis;
+
     // TODO: provide default max re-consume times here.
     private int maxReconsumeTimes = 16;
 
