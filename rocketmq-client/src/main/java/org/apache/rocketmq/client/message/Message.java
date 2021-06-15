@@ -81,6 +81,10 @@ public class Message {
         this.impl.getSystemAttribute().setDelayLevel(level);
     }
 
+    public long getDeliveryTimestamp() {
+        return this.impl.getSystemAttribute().getDeliveryTimestamp();
+    }
+
     public void setBody(byte[] body) {
         this.impl.setBody(body);
     }

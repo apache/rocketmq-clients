@@ -12,6 +12,7 @@ import apache.rocketmq.v1.SendMessageResponse;
 import apache.rocketmq.v1.SystemAttribute;
 import apache.rocketmq.v1.TransactionPhase;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.util.Timestamps;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
@@ -141,6 +142,16 @@ public class DefaultMQProducerImpl implements ProducerObserver {
                                .setMessageId(MessageIdUtils.createUniqID())
                                .setBornHost(UtilAll.getIpv4Address())
                                .setPartitionId(mq.getQueueId());
+
+        final int delayTimeLevel = message.getDelayTimeLevel();
+        if (delayTimeLevel > 0) {
+            systemAttributeBuilder.setDelayLevel(delayTimeLevel);
+        } else {
+            final long deliveryTimestamp = message.getDeliveryTimestamp();
+            if (deliveryTimestamp > 0) {
+                systemAttributeBuilder.setDeliveryTimestamp(Timestamps.fromMillis(deliveryTimestamp));
+            }
+        }
 
         Encoding encoding = Encoding.IDENTITY;
         byte[] body = message.getBody();

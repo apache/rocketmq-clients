@@ -16,8 +16,8 @@ public class SystemAttribute {
     private TransactionPhase transactionPhase;
     private long bornTimestamp;
     private String bornHost;
-    private long deliveryTimestamp;
-    private int delayLevel;
+    private long deliveryTimestamp = 0;
+    private int delayLevel = 0;
     private String receiptHandle;
     private int partitionId;
     private long partitionOffset;
