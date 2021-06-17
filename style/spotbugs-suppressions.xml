@@ -16,10 +16,6 @@
     </Match>
 
     <Match>
-        <Package name="~com\.aliyun\.openservices\.ons.*"/>
-    </Match>
-
-    <Match>
         <Package name="~apache\.rocketmq\.v1.*"/>
     </Match>
 

@@ -10,7 +10,6 @@
     <version>${revision}</version>
 
     <modules>
-        <module>ons</module>
         <module>rocketmq-proto</module>
         <module>rocketmq-example</module>
         <module>rocketmq-admin</module>
@@ -57,7 +56,6 @@
         <maven-checkstyle-plugin.version>3.1.1</maven-checkstyle-plugin.version>
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
         <maven-jar-plugin.version>3.2.0</maven-jar-plugin.version>
-        <maven-shade-plugin.version>3.2.4</maven-shade-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -65,12 +63,6 @@
             <dependency>
                 <groupId>${project.groupId}</groupId>
                 <artifactId>rocketmq-proto</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>${project.groupId}</groupId>
-                <artifactId>rocketmq-shade</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
