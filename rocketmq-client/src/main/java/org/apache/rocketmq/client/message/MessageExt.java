@@ -3,10 +3,12 @@ package org.apache.rocketmq.client.message;
 
 import java.util.Map;
 import lombok.EqualsAndHashCode;
+import lombok.ToString;
 import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.remoting.RpcTarget;
 
 @EqualsAndHashCode
+@ToString
 public class MessageExt {
     private final MessageImpl impl;
 

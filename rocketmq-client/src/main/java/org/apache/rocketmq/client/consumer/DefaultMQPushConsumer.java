@@ -18,7 +18,7 @@ public class DefaultMQPushConsumer extends ClientConfig {
      */
     protected final DefaultMQPushConsumerImpl impl;
 
-    private MessageModel messageModel;
+    private MessageModel messageModel = MessageModel.CLUSTERING;
 
     private ConsumeFromWhere consumeFromWhere;
 
