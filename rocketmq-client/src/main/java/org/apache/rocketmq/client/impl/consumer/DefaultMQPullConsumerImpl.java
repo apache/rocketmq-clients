@@ -14,6 +14,12 @@ public class DefaultMQPullConsumerImpl {
     public PullResult pull(MessageQueue mq, String subExpression, long offset, int maxNums, long timeoutMillis) {
         throw new UnsupportedOperationException();
     }
+
+    public void start() {
+    }
+
+    public void shutdown() {
+    }
 }
 
 

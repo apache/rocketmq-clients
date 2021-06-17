@@ -30,5 +30,23 @@ public class DefaultMQPullConsumer extends ClientConfig {
         throw new UnsupportedOperationException();
     }
 
+    public void pull(MessageQueue mq, PullMessageSelector messageSelector, PullCallback callback) {
+        throw new UnsupportedOperationException();
+    }
 
+    public void pull(MessageQueue mq, PullMessageSelector messageSelector, PullCallback callback, long timeoutMillis) {
+        throw new UnsupportedOperationException();
+    }
+
+    public void pullBlockIfNotFound(MessageQueue mq, String subExpression, long offset, int maxNums) {
+        throw new UnsupportedOperationException();
+    }
+
+    public void start() {
+        this.impl.start();
+    }
+
+    public void shutdown() {
+        this.impl.shutdown();
+    }
 }
