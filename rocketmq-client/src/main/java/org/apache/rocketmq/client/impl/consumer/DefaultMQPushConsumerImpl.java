@@ -31,7 +31,6 @@ import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.impl.ClientInstance;
-import org.apache.rocketmq.client.impl.ClientInstanceManager;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.remoting.RpcTarget;
 import org.apache.rocketmq.client.route.Partition;
@@ -76,6 +75,8 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
         this.processQueueTable = new ConcurrentHashMap<MessageQueue, ProcessQueue>();
 
         this.consumeService = null;
+
+        this.clientInstance = new ClientInstance(defaultMQPushConsumer);
         this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
 
         this.popTimes = new AtomicLong(0);
@@ -105,7 +106,6 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
         consumeService = this.generateConsumeService();
         consumeService.start();
 
-        clientInstance = ClientInstanceManager.getInstance().getClientInstance(defaultMQPushConsumer);
         final boolean registerResult = clientInstance.registerConsumerObserver(consumerGroup, this);
         if (!registerResult) {
             throw new MQClientException(

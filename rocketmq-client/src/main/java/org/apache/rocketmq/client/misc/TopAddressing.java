@@ -40,7 +40,9 @@ public class TopAddressing {
     }
 
     // TODO: check result format here.
-    public Endpoints fetchNameServerAddresses() throws IOException {
+    public List<Endpoints> fetchNameServerAddresses() throws IOException {
+        List<Endpoints> endpointsList = new ArrayList<Endpoints>();
+
         final HttpGet httpGet = new HttpGet(wsAddress);
         final HttpResponse response = httpClient.execute(httpGet);
         final HttpEntity entity = response.getEntity();
@@ -48,13 +50,14 @@ public class TopAddressing {
         // TODO: check split result here.
         final String[] nameServerAddresses = body.split(";");
 
-        List<Address> addresses = new ArrayList<Address>();
         for (String nameServerAddress : nameServerAddresses) {
+            List<Address> addresses = new ArrayList<Address>();
             final String[] split = nameServerAddress.split(":");
             String host = split[0];
             final int port = Integer.parseInt(split[1]);
             addresses.add(new Address(host, port));
+            endpointsList.add(new Endpoints(AddressScheme.IPv4, addresses));
         }
-        return new Endpoints(AddressScheme.IPv4, addresses);
+        return endpointsList;
     }
 }

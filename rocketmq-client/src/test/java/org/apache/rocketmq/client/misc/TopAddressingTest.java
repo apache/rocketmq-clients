@@ -22,7 +22,8 @@ public class TopAddressingTest {
 
     @Test
     public void testFetchNameServerAddresses() throws IOException {
-        final Endpoints endpoints = topAddressing.fetchNameServerAddresses();
+        final List<Endpoints> endpoints = topAddressing.fetchNameServerAddresses();
         Assert.assertNotNull(endpoints);
+        Assert.assertFalse(endpoints.isEmpty());
     }
 }

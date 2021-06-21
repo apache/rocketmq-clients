@@ -1,6 +1,8 @@
 package org.apache.rocketmq.client.impl.consumer;
 
 import org.apache.rocketmq.client.consumer.DefaultMQPullConsumer;
+import org.apache.rocketmq.client.consumer.PullCallback;
+import org.apache.rocketmq.client.consumer.PullMessageQuery;
 import org.apache.rocketmq.client.consumer.PullResult;
 import org.apache.rocketmq.client.message.MessageQueue;
 
@@ -13,6 +15,9 @@ public class DefaultMQPullConsumerImpl {
 
     public PullResult pull(MessageQueue mq, String subExpression, long offset, int maxNums, long timeoutMillis) {
         throw new UnsupportedOperationException();
+    }
+
+    public void pull(PullMessageQuery pullMessageQuery, PullCallback callback) {
     }
 
     public void start() {

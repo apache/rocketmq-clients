@@ -11,8 +11,12 @@ import apache.rocketmq.v1.HeartbeatResponse;
 import apache.rocketmq.v1.NackMessageRequest;
 import apache.rocketmq.v1.NackMessageResponse;
 import apache.rocketmq.v1.PollOrphanTransactionRequest;
+import apache.rocketmq.v1.PullMessageRequest;
+import apache.rocketmq.v1.PullMessageResponse;
 import apache.rocketmq.v1.QueryAssignmentRequest;
 import apache.rocketmq.v1.QueryAssignmentResponse;
+import apache.rocketmq.v1.QueryOffsetRequest;
+import apache.rocketmq.v1.QueryOffsetResponse;
 import apache.rocketmq.v1.QueryRouteRequest;
 import apache.rocketmq.v1.QueryRouteResponse;
 import apache.rocketmq.v1.ReceiveMessageRequest;
@@ -174,4 +178,9 @@ public interface RpcClient {
      */
     void pollOrphanTransaction(PollOrphanTransactionRequest request, OrphanTransactionCallback callback,
                                long duration, TimeUnit unit);
+
+
+    QueryOffsetResponse queryOffset(QueryOffsetRequest request, long duration, TimeUnit unit);
+
+    PullMessageResponse pullMessage(PullMessageRequest request, long duration, TimeUnit unit);
 }

@@ -13,8 +13,12 @@ import apache.rocketmq.v1.NackMessageRequest;
 import apache.rocketmq.v1.NackMessageResponse;
 import apache.rocketmq.v1.PollOrphanTransactionRequest;
 import apache.rocketmq.v1.PollOrphanTransactionResponse;
+import apache.rocketmq.v1.PullMessageRequest;
+import apache.rocketmq.v1.PullMessageResponse;
 import apache.rocketmq.v1.QueryAssignmentRequest;
 import apache.rocketmq.v1.QueryAssignmentResponse;
+import apache.rocketmq.v1.QueryOffsetRequest;
+import apache.rocketmq.v1.QueryOffsetResponse;
 import apache.rocketmq.v1.QueryRouteRequest;
 import apache.rocketmq.v1.QueryRouteResponse;
 import apache.rocketmq.v1.ReceiveMessageRequest;
@@ -180,5 +184,15 @@ public class RpcClientImpl implements RpcClient {
                 asyncStub.withDeadlineAfter(duration, unit).pollOrphanTransaction(responseStreamObserver);
         requestStreamObserver.onNext(request);
         requestStreamObserver.onCompleted();
+    }
+
+    @Override
+    public QueryOffsetResponse queryOffset(QueryOffsetRequest request, long duration, TimeUnit unit) {
+        return blockingStub.withDeadlineAfter(duration, unit).queryOffset(request);
+    }
+
+    @Override
+    public PullMessageResponse pullMessage(PullMessageRequest request, long duration, TimeUnit unit) {
+        return blockingStub.withDeadlineAfter(duration, unit).pullMessage(request);
     }
 }

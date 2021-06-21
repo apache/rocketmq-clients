@@ -30,6 +30,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
 import com.google.rpc.Code;
@@ -63,12 +64,15 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReadWriteLock;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLException;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.constant.CommunicationMode;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.PopResult;
@@ -104,8 +108,9 @@ import org.apache.rocketmq.utility.UtilAll;
 
 @Slf4j
 public class ClientInstance {
-    private static final long FETCH_TOPIC_ROUTE_TIMEOUT_MILLIS = 5 * 1000;
     private static final long RPC_DEFAULT_TIMEOUT_MILLIS = 3 * 1000;
+
+    private static final long FETCH_TOPIC_ROUTE_TIMEOUT_MILLIS = 5 * 1000;
 
     private final ClientConfig clientConfig;
 
@@ -122,7 +127,10 @@ public class ClientInstance {
 
     private final ThreadPoolExecutor receiveCallbackExecutor;
 
-    private Endpoints nameServerEndpoints = null;
+    @GuardedBy("nameServerLock")
+    private final List<Endpoints> nameServerEndpointsList;
+    private final ReadWriteLock nameServerLock;
+    private final AtomicInteger nameServerIndex;
 
     private final TopAddressing topAddressing;
 
@@ -137,7 +145,7 @@ public class ClientInstance {
     @Getter
     private volatile Tracer tracer = null;
 
-    public ClientInstance(ClientConfig clientConfig, Endpoints nameServerEndpointsList) {
+    public ClientInstance(ClientConfig clientConfig) {
         this.clientConfig = clientConfig;
         this.clientTable = new ConcurrentHashMap<RpcTarget, RpcClient>();
 
@@ -165,7 +173,9 @@ public class ClientInstance {
                                                               new LinkedBlockingQueue<Runnable>(),
                                                               new ThreadFactoryImpl("ReceiveCallbackThread"));
 
-        this.nameServerEndpoints = nameServerEndpointsList;
+        this.nameServerEndpointsList = clientConfig.getNamesrvAddr();
+        this.nameServerLock = clientConfig.getNameServerLock();
+        this.nameServerIndex = new AtomicInteger(RandomUtils.nextInt());
 
         this.topAddressing = new TopAddressing();
 
@@ -177,8 +187,24 @@ public class ClientInstance {
         this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
     }
 
-    private void updateNameServerEndpointsFromTopAddressing() throws IOException {
-        this.nameServerEndpoints = topAddressing.fetchNameServerAddresses();
+    private void updateNameServersFromTopAddressing() throws IOException {
+        final List<Endpoints> nameServerEndpointsList = topAddressing.fetchNameServerAddresses();
+        nameServerLock.writeLock().lock();
+        try {
+            this.nameServerEndpointsList.clear();
+            this.nameServerEndpointsList.addAll(nameServerEndpointsList);
+        } finally {
+            nameServerLock.writeLock().unlock();
+        }
+    }
+
+    public boolean nameServersIsEmpty() {
+        nameServerLock.readLock().lock();
+        try {
+            return this.nameServerEndpointsList.isEmpty();
+        } finally {
+            nameServerLock.readLock().unlock();
+        }
     }
 
     /**
@@ -198,9 +224,9 @@ public class ClientInstance {
         }
 
         // Only for internal usage of Alibaba group.
-        if (null == nameServerEndpoints) {
+        if (nameServersIsEmpty()) {
             try {
-                updateNameServerEndpointsFromTopAddressing();
+                updateNameServersFromTopAddressing();
             } catch (Throwable t) {
                 throw new MQClientException(
                         "Failed to fetch name server list from top address while starting.", t);
@@ -210,7 +236,7 @@ public class ClientInstance {
                         @Override
                         public void run() {
                             try {
-                                updateNameServerEndpointsFromTopAddressing();
+                                updateNameServersFromTopAddressing();
                             } catch (Throwable t) {
                                 log.error(
                                         "Exception occurs while updating name server list from top addressing", t);
@@ -447,8 +473,11 @@ public class ClientInstance {
         }
 
         Set<Endpoints> currentEndpointsSet = new HashSet<Endpoints>();
-        if (null != nameServerEndpoints) {
-            currentEndpointsSet.add(nameServerEndpoints);
+        nameServerLock.readLock().lock();
+        try {
+            currentEndpointsSet.addAll(nameServerEndpointsList);
+        } finally {
+            nameServerLock.readLock().unlock();
         }
 
         for (TopicRouteData topicRouteData : topicRouteTable.values()) {
@@ -929,12 +958,31 @@ public class ClientInstance {
         });
     }
 
-    private QueryRouteResponse queryRoute(QueryRouteRequest request) throws MQClientException {
-        if (null == nameServerEndpoints) {
-            log.error("No name server endpoints found, topic={}", request.getTopic());
-            throw new MQClientException("No name server endpoints found.");
+    private Endpoints selectNameServer(boolean roundRobin) throws MQClientException {
+        nameServerLock.readLock().lock();
+        try {
+            final int size = nameServerEndpointsList.size();
+            if (size <= 0) {
+                throw new MQClientException("No name server is available.");
+            }
+            int index = roundRobin ? nameServerIndex.getAndIncrement() : nameServerIndex.get();
+            return nameServerEndpointsList.get(index % size);
+        } finally {
+            nameServerLock.readLock().unlock();
         }
-        final RpcClient rpcClient = this.getRpcClient(new RpcTarget(nameServerEndpoints, true, false));
+    }
+
+    private int getNameServerNum() {
+        nameServerLock.readLock().lock();
+        try {
+            return nameServerEndpointsList.size();
+        } finally {
+            nameServerLock.readLock().unlock();
+        }
+    }
+
+    private QueryRouteResponse queryRoute(RpcTarget target, QueryRouteRequest request) throws MQClientException {
+        final RpcClient rpcClient = this.getRpcClient(target);
         return rpcClient.queryRoute(request, FETCH_TOPIC_ROUTE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
     }
 
@@ -960,30 +1008,35 @@ public class ClientInstance {
      *                           e.g. topic does not exist.
      */
     private TopicRouteData fetchTopicRouteData(String topic) throws MQClientException {
+        final int retryTimes = getNameServerNum();
         Resource topicResource = Resource.newBuilder().setArn(clientConfig.getArn()).setName(topic).build();
-        if (null == nameServerEndpoints) {
-            log.error("No name server endpoints found, topic={}", topic);
-            throw new MQClientException("No name server endpoints found");
+        final QueryRouteRequest request = QueryRouteRequest.newBuilder().setTopic(topicResource).build();
+        boolean roundRobin = false;
+        for (int time = 1; time <= retryTimes; time++) {
+            final Endpoints endpoints = selectNameServer(roundRobin);
+            final RpcTarget rpcTarget = new RpcTarget(endpoints, true, false);
+            final QueryRouteResponse response = queryRoute(rpcTarget, request);
+            final Status status = response.getCommon().getStatus();
+            final Code code = Code.forNumber(status.getCode());
+            if (Code.OK != code) {
+                log.warn("Failed to fetch topic route, topic={}, time={}, responseCode={}, name server endpoints={}",
+                         topic, time, code, endpoints);
+                roundRobin = true;
+                continue;
+            }
+            log.debug("Fetch topic route successfully, topic={}, time={}, name server endpoints={}", topic, time,
+                      endpoints);
+
+            final List<Partition> partitionsList = response.getPartitionsList();
+            if (partitionsList.isEmpty()) {
+                log.warn("Topic route is empty unexpectedly, topic={}, time={}, name server endpoints={}", topic,
+                         time, endpoints);
+                throw new MQClientException("Topic does not exist.");
+            }
+            return new TopicRouteData(partitionsList);
         }
-        final QueryRouteRequest request =
-                QueryRouteRequest.newBuilder().setTopic(topicResource).build();
-        final QueryRouteResponse response = queryRoute(request);
-        final Status status = response.getCommon().getStatus();
-        final Code code = Code.forNumber(status.getCode());
-        if (Code.OK != code) {
-            log.error(
-                    "Failed to fetch topic route, topic={}, responseCode={}, name server endpoints={}",
-                    topic, code, nameServerEndpoints);
-            throw new MQClientException("Failed to fetch topic route");
-        }
-        final List<Partition> partitionsList = response.getPartitionsList();
-        if (partitionsList.isEmpty()) {
-            log.error(
-                    "Topic route is empty unexpectedly, topic={}, name server endpoints={}",
-                    topic, nameServerEndpoints.getTarget());
-            throw new MQClientException("Topic does not exist.");
-        }
-        return new TopicRouteData(partitionsList);
+        log.error("Failed to fetch topic route finally, topic={}", topic);
+        throw new MQClientException("Failed to fetch topic route.");
     }
 
     /**

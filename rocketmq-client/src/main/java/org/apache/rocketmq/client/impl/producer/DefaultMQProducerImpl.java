@@ -30,7 +30,6 @@ import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.exception.RemotingException;
 import org.apache.rocketmq.client.impl.ClientInstance;
-import org.apache.rocketmq.client.impl.ClientInstanceManager;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageConst;
 import org.apache.rocketmq.client.message.MessageIdUtils;
@@ -60,12 +59,13 @@ public class DefaultMQProducerImpl implements ProducerObserver {
 
     private final DefaultMQProducer defaultMQProducer;
     private final ConcurrentMap<String /* topic */, TopicPublishInfo> topicPublishInfoTable;
-    private ClientInstance clientInstance;
+    private final ClientInstance clientInstance;
     private final AtomicReference<ServiceState> state;
 
     public DefaultMQProducerImpl(DefaultMQProducer defaultMQProducer) {
         this.defaultMQProducer = defaultMQProducer;
         this.topicPublishInfoTable = new ConcurrentHashMap<String, TopicPublishInfo>();
+        this.clientInstance = new ClientInstance(defaultMQProducer);
 
         this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
     }
@@ -83,8 +83,6 @@ public class DefaultMQProducerImpl implements ProducerObserver {
             throw new MQClientException(
                     "The producer has attempted to be started before, producerGroup=" + producerGroup);
         }
-
-        clientInstance = ClientInstanceManager.getInstance().getClientInstance(defaultMQProducer);
 
         final boolean registerResult = clientInstance.registerProducerObserver(producerGroup, this);
         if (!registerResult) {

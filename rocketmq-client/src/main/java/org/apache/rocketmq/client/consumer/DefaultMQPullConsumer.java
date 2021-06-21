@@ -53,7 +53,7 @@ public class DefaultMQPullConsumer extends ClientConfig {
     }
 
     public void pull(PullMessageQuery pullMessageQuery, PullCallback callback) {
-        throw new UnsupportedOperationException();
+        impl.pull(pullMessageQuery, callback);
     }
 
     public void start() {
