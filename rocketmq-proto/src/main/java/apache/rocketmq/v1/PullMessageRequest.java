@@ -4,25 +4,26 @@
 package apache.rocketmq.v1;
 
 /**
- * Protobuf type {@code apache.rocketmq.v1.PollMessageRequest}
+ * Protobuf type {@code apache.rocketmq.v1.PullMessageRequest}
  */
-public final class PollMessageRequest extends
+public final class PullMessageRequest extends
     com.google.protobuf.GeneratedMessageV3 implements
-    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.PollMessageRequest)
-    PollMessageRequestOrBuilder {
+    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.PullMessageRequest)
+    PullMessageRequestOrBuilder {
 private static final long serialVersionUID = 0L;
-  // Use PollMessageRequest.newBuilder() to construct.
-  private PollMessageRequest(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+  // Use PullMessageRequest.newBuilder() to construct.
+  private PullMessageRequest(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
-  private PollMessageRequest() {
+  private PullMessageRequest() {
+    clientId_ = "";
   }
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
   protected java.lang.Object newInstance(
       UnusedPrivateParameter unused) {
-    return new PollMessageRequest();
+    return new PullMessageRequest();
   }
 
   @java.lang.Override
@@ -30,7 +31,7 @@ private static final long serialVersionUID = 0L;
   getUnknownFields() {
     return this.unknownFields;
   }
-  private PollMessageRequest(
+  private PullMessageRequest(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
@@ -76,10 +77,15 @@ private static final long serialVersionUID = 0L;
           }
           case 24: {
 
+            offset_ = input.readInt64();
+            break;
+          }
+          case 32: {
+
             batchSize_ = input.readInt32();
             break;
           }
-          case 34: {
+          case 42: {
             com.google.protobuf.Duration.Builder subBuilder = null;
             if (awaitTime_ != null) {
               subBuilder = awaitTime_.toBuilder();
@@ -90,6 +96,25 @@ private static final long serialVersionUID = 0L;
               awaitTime_ = subBuilder.buildPartial();
             }
 
+            break;
+          }
+          case 50: {
+            apache.rocketmq.v1.FilterExpression.Builder subBuilder = null;
+            if (filterExpression_ != null) {
+              subBuilder = filterExpression_.toBuilder();
+            }
+            filterExpression_ = input.readMessage(apache.rocketmq.v1.FilterExpression.parser(), extensionRegistry);
+            if (subBuilder != null) {
+              subBuilder.mergeFrom(filterExpression_);
+              filterExpression_ = subBuilder.buildPartial();
+            }
+
+            break;
+          }
+          case 58: {
+            java.lang.String s = input.readStringRequireUtf8();
+
+            clientId_ = s;
             break;
           }
           default: {
@@ -113,15 +138,15 @@ private static final long serialVersionUID = 0L;
   }
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PollMessageRequest_descriptor;
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PullMessageRequest_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PollMessageRequest_fieldAccessorTable
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PullMessageRequest_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            apache.rocketmq.v1.PollMessageRequest.class, apache.rocketmq.v1.PollMessageRequest.Builder.class);
+            apache.rocketmq.v1.PullMessageRequest.class, apache.rocketmq.v1.PullMessageRequest.Builder.class);
   }
 
   public static final int GROUP_FIELD_NUMBER = 1;
@@ -176,10 +201,21 @@ private static final long serialVersionUID = 0L;
     return getPartition();
   }
 
-  public static final int BATCH_SIZE_FIELD_NUMBER = 3;
+  public static final int OFFSET_FIELD_NUMBER = 3;
+  private long offset_;
+  /**
+   * <code>int64 offset = 3;</code>
+   * @return The offset.
+   */
+  @java.lang.Override
+  public long getOffset() {
+    return offset_;
+  }
+
+  public static final int BATCH_SIZE_FIELD_NUMBER = 4;
   private int batchSize_;
   /**
-   * <code>int32 batch_size = 3;</code>
+   * <code>int32 batch_size = 4;</code>
    * @return The batchSize.
    */
   @java.lang.Override
@@ -187,10 +223,10 @@ private static final long serialVersionUID = 0L;
     return batchSize_;
   }
 
-  public static final int AWAIT_TIME_FIELD_NUMBER = 4;
+  public static final int AWAIT_TIME_FIELD_NUMBER = 5;
   private com.google.protobuf.Duration awaitTime_;
   /**
-   * <code>.google.protobuf.Duration await_time = 4;</code>
+   * <code>.google.protobuf.Duration await_time = 5;</code>
    * @return Whether the awaitTime field is set.
    */
   @java.lang.Override
@@ -198,7 +234,7 @@ private static final long serialVersionUID = 0L;
     return awaitTime_ != null;
   }
   /**
-   * <code>.google.protobuf.Duration await_time = 4;</code>
+   * <code>.google.protobuf.Duration await_time = 5;</code>
    * @return The awaitTime.
    */
   @java.lang.Override
@@ -206,11 +242,75 @@ private static final long serialVersionUID = 0L;
     return awaitTime_ == null ? com.google.protobuf.Duration.getDefaultInstance() : awaitTime_;
   }
   /**
-   * <code>.google.protobuf.Duration await_time = 4;</code>
+   * <code>.google.protobuf.Duration await_time = 5;</code>
    */
   @java.lang.Override
   public com.google.protobuf.DurationOrBuilder getAwaitTimeOrBuilder() {
     return getAwaitTime();
+  }
+
+  public static final int FILTER_EXPRESSION_FIELD_NUMBER = 6;
+  private apache.rocketmq.v1.FilterExpression filterExpression_;
+  /**
+   * <code>.apache.rocketmq.v1.FilterExpression filter_expression = 6;</code>
+   * @return Whether the filterExpression field is set.
+   */
+  @java.lang.Override
+  public boolean hasFilterExpression() {
+    return filterExpression_ != null;
+  }
+  /**
+   * <code>.apache.rocketmq.v1.FilterExpression filter_expression = 6;</code>
+   * @return The filterExpression.
+   */
+  @java.lang.Override
+  public apache.rocketmq.v1.FilterExpression getFilterExpression() {
+    return filterExpression_ == null ? apache.rocketmq.v1.FilterExpression.getDefaultInstance() : filterExpression_;
+  }
+  /**
+   * <code>.apache.rocketmq.v1.FilterExpression filter_expression = 6;</code>
+   */
+  @java.lang.Override
+  public apache.rocketmq.v1.FilterExpressionOrBuilder getFilterExpressionOrBuilder() {
+    return getFilterExpression();
+  }
+
+  public static final int CLIENT_ID_FIELD_NUMBER = 7;
+  private volatile java.lang.Object clientId_;
+  /**
+   * <code>string client_id = 7;</code>
+   * @return The clientId.
+   */
+  @java.lang.Override
+  public java.lang.String getClientId() {
+    java.lang.Object ref = clientId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      clientId_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string client_id = 7;</code>
+   * @return The bytes for clientId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getClientIdBytes() {
+    java.lang.Object ref = clientId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      clientId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
   }
 
   private byte memoizedIsInitialized = -1;
@@ -233,11 +333,20 @@ private static final long serialVersionUID = 0L;
     if (partition_ != null) {
       output.writeMessage(2, getPartition());
     }
+    if (offset_ != 0L) {
+      output.writeInt64(3, offset_);
+    }
     if (batchSize_ != 0) {
-      output.writeInt32(3, batchSize_);
+      output.writeInt32(4, batchSize_);
     }
     if (awaitTime_ != null) {
-      output.writeMessage(4, getAwaitTime());
+      output.writeMessage(5, getAwaitTime());
+    }
+    if (filterExpression_ != null) {
+      output.writeMessage(6, getFilterExpression());
+    }
+    if (!getClientIdBytes().isEmpty()) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 7, clientId_);
     }
     unknownFields.writeTo(output);
   }
@@ -256,13 +365,24 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(2, getPartition());
     }
+    if (offset_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt64Size(3, offset_);
+    }
     if (batchSize_ != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(3, batchSize_);
+        .computeInt32Size(4, batchSize_);
     }
     if (awaitTime_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(4, getAwaitTime());
+        .computeMessageSize(5, getAwaitTime());
+    }
+    if (filterExpression_ != null) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(6, getFilterExpression());
+    }
+    if (!getClientIdBytes().isEmpty()) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, clientId_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -274,10 +394,10 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof apache.rocketmq.v1.PollMessageRequest)) {
+    if (!(obj instanceof apache.rocketmq.v1.PullMessageRequest)) {
       return super.equals(obj);
     }
-    apache.rocketmq.v1.PollMessageRequest other = (apache.rocketmq.v1.PollMessageRequest) obj;
+    apache.rocketmq.v1.PullMessageRequest other = (apache.rocketmq.v1.PullMessageRequest) obj;
 
     if (hasGroup() != other.hasGroup()) return false;
     if (hasGroup()) {
@@ -289,6 +409,8 @@ private static final long serialVersionUID = 0L;
       if (!getPartition()
           .equals(other.getPartition())) return false;
     }
+    if (getOffset()
+        != other.getOffset()) return false;
     if (getBatchSize()
         != other.getBatchSize()) return false;
     if (hasAwaitTime() != other.hasAwaitTime()) return false;
@@ -296,6 +418,13 @@ private static final long serialVersionUID = 0L;
       if (!getAwaitTime()
           .equals(other.getAwaitTime())) return false;
     }
+    if (hasFilterExpression() != other.hasFilterExpression()) return false;
+    if (hasFilterExpression()) {
+      if (!getFilterExpression()
+          .equals(other.getFilterExpression())) return false;
+    }
+    if (!getClientId()
+        .equals(other.getClientId())) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -315,80 +444,89 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + PARTITION_FIELD_NUMBER;
       hash = (53 * hash) + getPartition().hashCode();
     }
+    hash = (37 * hash) + OFFSET_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getOffset());
     hash = (37 * hash) + BATCH_SIZE_FIELD_NUMBER;
     hash = (53 * hash) + getBatchSize();
     if (hasAwaitTime()) {
       hash = (37 * hash) + AWAIT_TIME_FIELD_NUMBER;
       hash = (53 * hash) + getAwaitTime().hashCode();
     }
+    if (hasFilterExpression()) {
+      hash = (37 * hash) + FILTER_EXPRESSION_FIELD_NUMBER;
+      hash = (53 * hash) + getFilterExpression().hashCode();
+    }
+    hash = (37 * hash) + CLIENT_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getClientId().hashCode();
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
     return hash;
   }
 
-  public static apache.rocketmq.v1.PollMessageRequest parseFrom(
+  public static apache.rocketmq.v1.PullMessageRequest parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.PollMessageRequest parseFrom(
+  public static apache.rocketmq.v1.PullMessageRequest parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.PollMessageRequest parseFrom(
+  public static apache.rocketmq.v1.PullMessageRequest parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.PollMessageRequest parseFrom(
+  public static apache.rocketmq.v1.PullMessageRequest parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.PollMessageRequest parseFrom(byte[] data)
+  public static apache.rocketmq.v1.PullMessageRequest parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.PollMessageRequest parseFrom(
+  public static apache.rocketmq.v1.PullMessageRequest parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.PollMessageRequest parseFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.PullMessageRequest parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.PollMessageRequest parseFrom(
+  public static apache.rocketmq.v1.PullMessageRequest parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.PollMessageRequest parseDelimitedFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.PullMessageRequest parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.PollMessageRequest parseDelimitedFrom(
+  public static apache.rocketmq.v1.PullMessageRequest parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.PollMessageRequest parseFrom(
+  public static apache.rocketmq.v1.PullMessageRequest parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.PollMessageRequest parseFrom(
+  public static apache.rocketmq.v1.PullMessageRequest parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -401,7 +539,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(apache.rocketmq.v1.PollMessageRequest prototype) {
+  public static Builder newBuilder(apache.rocketmq.v1.PullMessageRequest prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -417,26 +555,26 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
-   * Protobuf type {@code apache.rocketmq.v1.PollMessageRequest}
+   * Protobuf type {@code apache.rocketmq.v1.PullMessageRequest}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.PollMessageRequest)
-      apache.rocketmq.v1.PollMessageRequestOrBuilder {
+      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.PullMessageRequest)
+      apache.rocketmq.v1.PullMessageRequestOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PollMessageRequest_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PullMessageRequest_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PollMessageRequest_fieldAccessorTable
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PullMessageRequest_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              apache.rocketmq.v1.PollMessageRequest.class, apache.rocketmq.v1.PollMessageRequest.Builder.class);
+              apache.rocketmq.v1.PullMessageRequest.class, apache.rocketmq.v1.PullMessageRequest.Builder.class);
     }
 
-    // Construct using apache.rocketmq.v1.PollMessageRequest.newBuilder()
+    // Construct using apache.rocketmq.v1.PullMessageRequest.newBuilder()
     private Builder() {
       maybeForceBuilderInitialization();
     }
@@ -466,6 +604,8 @@ private static final long serialVersionUID = 0L;
         partition_ = null;
         partitionBuilder_ = null;
       }
+      offset_ = 0L;
+
       batchSize_ = 0;
 
       if (awaitTimeBuilder_ == null) {
@@ -474,23 +614,31 @@ private static final long serialVersionUID = 0L;
         awaitTime_ = null;
         awaitTimeBuilder_ = null;
       }
+      if (filterExpressionBuilder_ == null) {
+        filterExpression_ = null;
+      } else {
+        filterExpression_ = null;
+        filterExpressionBuilder_ = null;
+      }
+      clientId_ = "";
+
       return this;
     }
 
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PollMessageRequest_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PullMessageRequest_descriptor;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.PollMessageRequest getDefaultInstanceForType() {
-      return apache.rocketmq.v1.PollMessageRequest.getDefaultInstance();
+    public apache.rocketmq.v1.PullMessageRequest getDefaultInstanceForType() {
+      return apache.rocketmq.v1.PullMessageRequest.getDefaultInstance();
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.PollMessageRequest build() {
-      apache.rocketmq.v1.PollMessageRequest result = buildPartial();
+    public apache.rocketmq.v1.PullMessageRequest build() {
+      apache.rocketmq.v1.PullMessageRequest result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -498,8 +646,8 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.PollMessageRequest buildPartial() {
-      apache.rocketmq.v1.PollMessageRequest result = new apache.rocketmq.v1.PollMessageRequest(this);
+    public apache.rocketmq.v1.PullMessageRequest buildPartial() {
+      apache.rocketmq.v1.PullMessageRequest result = new apache.rocketmq.v1.PullMessageRequest(this);
       if (groupBuilder_ == null) {
         result.group_ = group_;
       } else {
@@ -510,12 +658,19 @@ private static final long serialVersionUID = 0L;
       } else {
         result.partition_ = partitionBuilder_.build();
       }
+      result.offset_ = offset_;
       result.batchSize_ = batchSize_;
       if (awaitTimeBuilder_ == null) {
         result.awaitTime_ = awaitTime_;
       } else {
         result.awaitTime_ = awaitTimeBuilder_.build();
       }
+      if (filterExpressionBuilder_ == null) {
+        result.filterExpression_ = filterExpression_;
+      } else {
+        result.filterExpression_ = filterExpressionBuilder_.build();
+      }
+      result.clientId_ = clientId_;
       onBuilt();
       return result;
     }
@@ -554,27 +709,37 @@ private static final long serialVersionUID = 0L;
     }
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof apache.rocketmq.v1.PollMessageRequest) {
-        return mergeFrom((apache.rocketmq.v1.PollMessageRequest)other);
+      if (other instanceof apache.rocketmq.v1.PullMessageRequest) {
+        return mergeFrom((apache.rocketmq.v1.PullMessageRequest)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(apache.rocketmq.v1.PollMessageRequest other) {
-      if (other == apache.rocketmq.v1.PollMessageRequest.getDefaultInstance()) return this;
+    public Builder mergeFrom(apache.rocketmq.v1.PullMessageRequest other) {
+      if (other == apache.rocketmq.v1.PullMessageRequest.getDefaultInstance()) return this;
       if (other.hasGroup()) {
         mergeGroup(other.getGroup());
       }
       if (other.hasPartition()) {
         mergePartition(other.getPartition());
       }
+      if (other.getOffset() != 0L) {
+        setOffset(other.getOffset());
+      }
       if (other.getBatchSize() != 0) {
         setBatchSize(other.getBatchSize());
       }
       if (other.hasAwaitTime()) {
         mergeAwaitTime(other.getAwaitTime());
+      }
+      if (other.hasFilterExpression()) {
+        mergeFilterExpression(other.getFilterExpression());
+      }
+      if (!other.getClientId().isEmpty()) {
+        clientId_ = other.clientId_;
+        onChanged();
       }
       this.mergeUnknownFields(other.unknownFields);
       onChanged();
@@ -591,11 +756,11 @@ private static final long serialVersionUID = 0L;
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      apache.rocketmq.v1.PollMessageRequest parsedMessage = null;
+      apache.rocketmq.v1.PullMessageRequest parsedMessage = null;
       try {
         parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        parsedMessage = (apache.rocketmq.v1.PollMessageRequest) e.getUnfinishedMessage();
+        parsedMessage = (apache.rocketmq.v1.PullMessageRequest) e.getUnfinishedMessage();
         throw e.unwrapIOException();
       } finally {
         if (parsedMessage != null) {
@@ -843,9 +1008,40 @@ private static final long serialVersionUID = 0L;
       return partitionBuilder_;
     }
 
+    private long offset_ ;
+    /**
+     * <code>int64 offset = 3;</code>
+     * @return The offset.
+     */
+    @java.lang.Override
+    public long getOffset() {
+      return offset_;
+    }
+    /**
+     * <code>int64 offset = 3;</code>
+     * @param value The offset to set.
+     * @return This builder for chaining.
+     */
+    public Builder setOffset(long value) {
+      
+      offset_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>int64 offset = 3;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearOffset() {
+      
+      offset_ = 0L;
+      onChanged();
+      return this;
+    }
+
     private int batchSize_ ;
     /**
-     * <code>int32 batch_size = 3;</code>
+     * <code>int32 batch_size = 4;</code>
      * @return The batchSize.
      */
     @java.lang.Override
@@ -853,7 +1049,7 @@ private static final long serialVersionUID = 0L;
       return batchSize_;
     }
     /**
-     * <code>int32 batch_size = 3;</code>
+     * <code>int32 batch_size = 4;</code>
      * @param value The batchSize to set.
      * @return This builder for chaining.
      */
@@ -864,7 +1060,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>int32 batch_size = 3;</code>
+     * <code>int32 batch_size = 4;</code>
      * @return This builder for chaining.
      */
     public Builder clearBatchSize() {
@@ -878,14 +1074,14 @@ private static final long serialVersionUID = 0L;
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.protobuf.Duration, com.google.protobuf.Duration.Builder, com.google.protobuf.DurationOrBuilder> awaitTimeBuilder_;
     /**
-     * <code>.google.protobuf.Duration await_time = 4;</code>
+     * <code>.google.protobuf.Duration await_time = 5;</code>
      * @return Whether the awaitTime field is set.
      */
     public boolean hasAwaitTime() {
       return awaitTimeBuilder_ != null || awaitTime_ != null;
     }
     /**
-     * <code>.google.protobuf.Duration await_time = 4;</code>
+     * <code>.google.protobuf.Duration await_time = 5;</code>
      * @return The awaitTime.
      */
     public com.google.protobuf.Duration getAwaitTime() {
@@ -896,7 +1092,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.google.protobuf.Duration await_time = 4;</code>
+     * <code>.google.protobuf.Duration await_time = 5;</code>
      */
     public Builder setAwaitTime(com.google.protobuf.Duration value) {
       if (awaitTimeBuilder_ == null) {
@@ -912,7 +1108,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.protobuf.Duration await_time = 4;</code>
+     * <code>.google.protobuf.Duration await_time = 5;</code>
      */
     public Builder setAwaitTime(
         com.google.protobuf.Duration.Builder builderForValue) {
@@ -926,7 +1122,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.protobuf.Duration await_time = 4;</code>
+     * <code>.google.protobuf.Duration await_time = 5;</code>
      */
     public Builder mergeAwaitTime(com.google.protobuf.Duration value) {
       if (awaitTimeBuilder_ == null) {
@@ -944,7 +1140,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.protobuf.Duration await_time = 4;</code>
+     * <code>.google.protobuf.Duration await_time = 5;</code>
      */
     public Builder clearAwaitTime() {
       if (awaitTimeBuilder_ == null) {
@@ -958,7 +1154,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.protobuf.Duration await_time = 4;</code>
+     * <code>.google.protobuf.Duration await_time = 5;</code>
      */
     public com.google.protobuf.Duration.Builder getAwaitTimeBuilder() {
       
@@ -966,7 +1162,7 @@ private static final long serialVersionUID = 0L;
       return getAwaitTimeFieldBuilder().getBuilder();
     }
     /**
-     * <code>.google.protobuf.Duration await_time = 4;</code>
+     * <code>.google.protobuf.Duration await_time = 5;</code>
      */
     public com.google.protobuf.DurationOrBuilder getAwaitTimeOrBuilder() {
       if (awaitTimeBuilder_ != null) {
@@ -977,7 +1173,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.google.protobuf.Duration await_time = 4;</code>
+     * <code>.google.protobuf.Duration await_time = 5;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.protobuf.Duration, com.google.protobuf.Duration.Builder, com.google.protobuf.DurationOrBuilder> 
@@ -992,6 +1188,201 @@ private static final long serialVersionUID = 0L;
       }
       return awaitTimeBuilder_;
     }
+
+    private apache.rocketmq.v1.FilterExpression filterExpression_;
+    private com.google.protobuf.SingleFieldBuilderV3<
+        apache.rocketmq.v1.FilterExpression, apache.rocketmq.v1.FilterExpression.Builder, apache.rocketmq.v1.FilterExpressionOrBuilder> filterExpressionBuilder_;
+    /**
+     * <code>.apache.rocketmq.v1.FilterExpression filter_expression = 6;</code>
+     * @return Whether the filterExpression field is set.
+     */
+    public boolean hasFilterExpression() {
+      return filterExpressionBuilder_ != null || filterExpression_ != null;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.FilterExpression filter_expression = 6;</code>
+     * @return The filterExpression.
+     */
+    public apache.rocketmq.v1.FilterExpression getFilterExpression() {
+      if (filterExpressionBuilder_ == null) {
+        return filterExpression_ == null ? apache.rocketmq.v1.FilterExpression.getDefaultInstance() : filterExpression_;
+      } else {
+        return filterExpressionBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.apache.rocketmq.v1.FilterExpression filter_expression = 6;</code>
+     */
+    public Builder setFilterExpression(apache.rocketmq.v1.FilterExpression value) {
+      if (filterExpressionBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        filterExpression_ = value;
+        onChanged();
+      } else {
+        filterExpressionBuilder_.setMessage(value);
+      }
+
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.FilterExpression filter_expression = 6;</code>
+     */
+    public Builder setFilterExpression(
+        apache.rocketmq.v1.FilterExpression.Builder builderForValue) {
+      if (filterExpressionBuilder_ == null) {
+        filterExpression_ = builderForValue.build();
+        onChanged();
+      } else {
+        filterExpressionBuilder_.setMessage(builderForValue.build());
+      }
+
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.FilterExpression filter_expression = 6;</code>
+     */
+    public Builder mergeFilterExpression(apache.rocketmq.v1.FilterExpression value) {
+      if (filterExpressionBuilder_ == null) {
+        if (filterExpression_ != null) {
+          filterExpression_ =
+            apache.rocketmq.v1.FilterExpression.newBuilder(filterExpression_).mergeFrom(value).buildPartial();
+        } else {
+          filterExpression_ = value;
+        }
+        onChanged();
+      } else {
+        filterExpressionBuilder_.mergeFrom(value);
+      }
+
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.FilterExpression filter_expression = 6;</code>
+     */
+    public Builder clearFilterExpression() {
+      if (filterExpressionBuilder_ == null) {
+        filterExpression_ = null;
+        onChanged();
+      } else {
+        filterExpression_ = null;
+        filterExpressionBuilder_ = null;
+      }
+
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.FilterExpression filter_expression = 6;</code>
+     */
+    public apache.rocketmq.v1.FilterExpression.Builder getFilterExpressionBuilder() {
+      
+      onChanged();
+      return getFilterExpressionFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.apache.rocketmq.v1.FilterExpression filter_expression = 6;</code>
+     */
+    public apache.rocketmq.v1.FilterExpressionOrBuilder getFilterExpressionOrBuilder() {
+      if (filterExpressionBuilder_ != null) {
+        return filterExpressionBuilder_.getMessageOrBuilder();
+      } else {
+        return filterExpression_ == null ?
+            apache.rocketmq.v1.FilterExpression.getDefaultInstance() : filterExpression_;
+      }
+    }
+    /**
+     * <code>.apache.rocketmq.v1.FilterExpression filter_expression = 6;</code>
+     */
+    private com.google.protobuf.SingleFieldBuilderV3<
+        apache.rocketmq.v1.FilterExpression, apache.rocketmq.v1.FilterExpression.Builder, apache.rocketmq.v1.FilterExpressionOrBuilder> 
+        getFilterExpressionFieldBuilder() {
+      if (filterExpressionBuilder_ == null) {
+        filterExpressionBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+            apache.rocketmq.v1.FilterExpression, apache.rocketmq.v1.FilterExpression.Builder, apache.rocketmq.v1.FilterExpressionOrBuilder>(
+                getFilterExpression(),
+                getParentForChildren(),
+                isClean());
+        filterExpression_ = null;
+      }
+      return filterExpressionBuilder_;
+    }
+
+    private java.lang.Object clientId_ = "";
+    /**
+     * <code>string client_id = 7;</code>
+     * @return The clientId.
+     */
+    public java.lang.String getClientId() {
+      java.lang.Object ref = clientId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        clientId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string client_id = 7;</code>
+     * @return The bytes for clientId.
+     */
+    public com.google.protobuf.ByteString
+        getClientIdBytes() {
+      java.lang.Object ref = clientId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        clientId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string client_id = 7;</code>
+     * @param value The clientId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setClientId(
+        java.lang.String value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  
+      clientId_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string client_id = 7;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearClientId() {
+      
+      clientId_ = getDefaultInstance().getClientId();
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string client_id = 7;</code>
+     * @param value The bytes for clientId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setClientIdBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  checkByteStringIsUtf8(value);
+      
+      clientId_ = value;
+      onChanged();
+      return this;
+    }
     @java.lang.Override
     public final Builder setUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -1005,41 +1396,41 @@ private static final long serialVersionUID = 0L;
     }
 
 
-    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.PollMessageRequest)
+    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.PullMessageRequest)
   }
 
-  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.PollMessageRequest)
-  private static final apache.rocketmq.v1.PollMessageRequest DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.PullMessageRequest)
+  private static final apache.rocketmq.v1.PullMessageRequest DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new apache.rocketmq.v1.PollMessageRequest();
+    DEFAULT_INSTANCE = new apache.rocketmq.v1.PullMessageRequest();
   }
 
-  public static apache.rocketmq.v1.PollMessageRequest getDefaultInstance() {
+  public static apache.rocketmq.v1.PullMessageRequest getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<PollMessageRequest>
-      PARSER = new com.google.protobuf.AbstractParser<PollMessageRequest>() {
+  private static final com.google.protobuf.Parser<PullMessageRequest>
+      PARSER = new com.google.protobuf.AbstractParser<PullMessageRequest>() {
     @java.lang.Override
-    public PollMessageRequest parsePartialFrom(
+    public PullMessageRequest parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
-      return new PollMessageRequest(input, extensionRegistry);
+      return new PullMessageRequest(input, extensionRegistry);
     }
   };
 
-  public static com.google.protobuf.Parser<PollMessageRequest> parser() {
+  public static com.google.protobuf.Parser<PullMessageRequest> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<PollMessageRequest> getParserForType() {
+  public com.google.protobuf.Parser<PullMessageRequest> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public apache.rocketmq.v1.PollMessageRequest getDefaultInstanceForType() {
+  public apache.rocketmq.v1.PullMessageRequest getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

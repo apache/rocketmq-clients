@@ -23,28 +23,28 @@ public interface QueryOffsetRequestOrBuilder extends
   apache.rocketmq.v1.PartitionOrBuilder getPartitionOrBuilder();
 
   /**
-   * <code>.apache.rocketmq.v1.Resource group = 2;</code>
-   * @return Whether the group field is set.
-   */
-  boolean hasGroup();
-  /**
-   * <code>.apache.rocketmq.v1.Resource group = 2;</code>
-   * @return The group.
-   */
-  apache.rocketmq.v1.Resource getGroup();
-  /**
-   * <code>.apache.rocketmq.v1.Resource group = 2;</code>
-   */
-  apache.rocketmq.v1.ResourceOrBuilder getGroupOrBuilder();
-
-  /**
-   * <code>.apache.rocketmq.v1.CursorPolicy policy = 3;</code>
+   * <code>.apache.rocketmq.v1.QueryOffsetPolicy policy = 2;</code>
    * @return The enum numeric value on the wire for policy.
    */
   int getPolicyValue();
   /**
-   * <code>.apache.rocketmq.v1.CursorPolicy policy = 3;</code>
+   * <code>.apache.rocketmq.v1.QueryOffsetPolicy policy = 2;</code>
    * @return The policy.
    */
-  apache.rocketmq.v1.CursorPolicy getPolicy();
+  apache.rocketmq.v1.QueryOffsetPolicy getPolicy();
+
+  /**
+   * <code>.google.protobuf.Timestamp time_point = 4;</code>
+   * @return Whether the timePoint field is set.
+   */
+  boolean hasTimePoint();
+  /**
+   * <code>.google.protobuf.Timestamp time_point = 4;</code>
+   * @return The timePoint.
+   */
+  com.google.protobuf.Timestamp getTimePoint();
+  /**
+   * <code>.google.protobuf.Timestamp time_point = 4;</code>
+   */
+  com.google.protobuf.TimestampOrBuilder getTimePointOrBuilder();
 }

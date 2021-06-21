@@ -94,11 +94,6 @@ public final class MQDomain {
   static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_apache_rocketmq_v1_LoadAssignment_fieldAccessorTable;
-  static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_apache_rocketmq_v1_Offset_descriptor;
-  static final 
-    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_apache_rocketmq_v1_Offset_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -174,29 +169,27 @@ public final class MQDomain {
       "ey\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"x\n\016LoadAssig" +
       "nment\0220\n\tPartition\030\001 \001(\0132\035.apache.rocket" +
       "mq.v1.Partition\0224\n\004mode\030\002 \001(\0162&.apache.r" +
-      "ocketmq.v1.ConsumeMessageType\":\n\006Offset\022" +
-      "\r\n\005value\030\001 \001(\003\022\017\n\007version\030\002 \001(\005\022\020\n\010metad" +
-      "ata\030\003 \001(\t*;\n\nPermission\022\010\n\004NONE\020\000\022\010\n\004REA" +
-      "D\020\001\022\t\n\005WRITE\020\002\022\016\n\nREAD_WRITE\020\003*\036\n\nFilter" +
-      "Type\022\007\n\003TAG\020\000\022\007\n\003SQL\020\001*0\n\014ConsumeModel\022\016" +
-      "\n\nCLUSTERING\020\000\022\020\n\014BROADCASTING\020\001*L\n\rCons" +
-      "umePolicy\022\n\n\006RESUME\020\000\022\014\n\010PLAYBACK\020\001\022\013\n\007D" +
-      "ISCARD\020\002\022\024\n\020TARGET_TIMESTAMP\020\003*4\n\rAddres" +
-      "sScheme\022\010\n\004IPv4\020\000\022\010\n\004IPv6\020\001\022\017\n\013DOMAIN_NA" +
-      "ME\020\002*\270\001\n\010Language\022\010\n\004JAVA\020\000\022\007\n\003CPP\020\001\022\013\n\007" +
-      "C_SHARP\020\002\022\n\n\006PYTHON\020\003\022\n\n\006DELPHI\020\004\022\n\n\006ERL" +
-      "ANG\020\005\022\010\n\004RUBY\020\006\022\006\n\002GO\020\007\022\007\n\003PHP\020\010\022\010\n\004RUST" +
-      "\020\t\022\005\n\001C\020\n\022\010\n\004PERL\020\013\022\017\n\013OBJECTIVE_C\020\014\022\010\n\004" +
-      "DART\020\r\022\n\n\006KOTLIN\020\016\022\013\n\007NODE_JS\020\017*?\n\013Messa" +
-      "geType\022\n\n\006NORMAL\020\000\022\010\n\004FIFO\020\001\022\t\n\005DELAY\020\002\022" +
-      "\017\n\013TRANSACTION\020\003**\n\nDigestType\022\t\n\005CRC32\020" +
-      "\000\022\007\n\003MD5\020\001\022\010\n\004SHA1\020\002*.\n\010Encoding\022\014\n\010IDEN" +
-      "TITY\020\000\022\010\n\004GZIP\020\001\022\n\n\006SNAPPY\020\002*M\n\020Transact" +
-      "ionPhase\022\022\n\016NOT_APPLICABLE\020\000\022\013\n\007PREPARE\020" +
-      "\001\022\n\n\006COMMIT\020\002\022\014\n\010ROLLBACK\020\003*\'\n\022ConsumeMe" +
-      "ssageType\022\010\n\004PULL\020\000\022\007\n\003POP\020\001*O\n\014CursorPo" +
-      "licy\022\013\n\007CURRENT\020\000\022\r\n\tBEGINNING\020\001\022\007\n\003END\020" +
-      "\002\022\016\n\nTIME_POINT\020\003\022\n\n\006OFFSET\020\004B&\n\022apache." +
+      "ocketmq.v1.ConsumeMessageType*;\n\nPermiss" +
+      "ion\022\010\n\004NONE\020\000\022\010\n\004READ\020\001\022\t\n\005WRITE\020\002\022\016\n\nRE" +
+      "AD_WRITE\020\003*\036\n\nFilterType\022\007\n\003TAG\020\000\022\007\n\003SQL" +
+      "\020\001*0\n\014ConsumeModel\022\016\n\nCLUSTERING\020\000\022\020\n\014BR" +
+      "OADCASTING\020\001*L\n\rConsumePolicy\022\n\n\006RESUME\020" +
+      "\000\022\014\n\010PLAYBACK\020\001\022\013\n\007DISCARD\020\002\022\024\n\020TARGET_T" +
+      "IMESTAMP\020\003*4\n\rAddressScheme\022\010\n\004IPv4\020\000\022\010\n" +
+      "\004IPv6\020\001\022\017\n\013DOMAIN_NAME\020\002*\270\001\n\010Language\022\010\n" +
+      "\004JAVA\020\000\022\007\n\003CPP\020\001\022\013\n\007C_SHARP\020\002\022\n\n\006PYTHON\020" +
+      "\003\022\n\n\006DELPHI\020\004\022\n\n\006ERLANG\020\005\022\010\n\004RUBY\020\006\022\006\n\002G" +
+      "O\020\007\022\007\n\003PHP\020\010\022\010\n\004RUST\020\t\022\005\n\001C\020\n\022\010\n\004PERL\020\013\022" +
+      "\017\n\013OBJECTIVE_C\020\014\022\010\n\004DART\020\r\022\n\n\006KOTLIN\020\016\022\013" +
+      "\n\007NODE_JS\020\017*?\n\013MessageType\022\n\n\006NORMAL\020\000\022\010" +
+      "\n\004FIFO\020\001\022\t\n\005DELAY\020\002\022\017\n\013TRANSACTION\020\003**\n\n" +
+      "DigestType\022\t\n\005CRC32\020\000\022\007\n\003MD5\020\001\022\010\n\004SHA1\020\002" +
+      "*.\n\010Encoding\022\014\n\010IDENTITY\020\000\022\010\n\004GZIP\020\001\022\n\n\006" +
+      "SNAPPY\020\002*M\n\020TransactionPhase\022\022\n\016NOT_APPL" +
+      "ICABLE\020\000\022\013\n\007PREPARE\020\001\022\n\n\006COMMIT\020\002\022\014\n\010ROL" +
+      "LBACK\020\003*\'\n\022ConsumeMessageType\022\010\n\004PULL\020\000\022" +
+      "\007\n\003POP\020\001*;\n\021QueryOffsetPolicy\022\r\n\tBEGINNI" +
+      "NG\020\000\022\007\n\003END\020\001\022\016\n\nTIME_POINT\020\002B&\n\022apache." +
       "rocketmq.v1B\010MQDomainP\001\240\001\001\330\001\001b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
@@ -301,12 +294,6 @@ public final class MQDomain {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_apache_rocketmq_v1_LoadAssignment_descriptor,
         new java.lang.String[] { "Partition", "Mode", });
-    internal_static_apache_rocketmq_v1_Offset_descriptor =
-      getDescriptor().getMessageTypes().get(15);
-    internal_static_apache_rocketmq_v1_Offset_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_apache_rocketmq_v1_Offset_descriptor,
-        new java.lang.String[] { "Value", "Version", "Metadata", });
     com.google.protobuf.TimestampProto.getDescriptor();
     com.google.protobuf.DurationProto.getDescriptor();
   }

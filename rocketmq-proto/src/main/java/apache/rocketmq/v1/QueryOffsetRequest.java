@@ -62,23 +62,23 @@ private static final long serialVersionUID = 0L;
 
             break;
           }
-          case 18: {
-            apache.rocketmq.v1.Resource.Builder subBuilder = null;
-            if (group_ != null) {
-              subBuilder = group_.toBuilder();
-            }
-            group_ = input.readMessage(apache.rocketmq.v1.Resource.parser(), extensionRegistry);
-            if (subBuilder != null) {
-              subBuilder.mergeFrom(group_);
-              group_ = subBuilder.buildPartial();
-            }
-
-            break;
-          }
-          case 24: {
+          case 16: {
             int rawValue = input.readEnum();
 
             policy_ = rawValue;
+            break;
+          }
+          case 34: {
+            com.google.protobuf.Timestamp.Builder subBuilder = null;
+            if (timePoint_ != null) {
+              subBuilder = timePoint_.toBuilder();
+            }
+            timePoint_ = input.readMessage(com.google.protobuf.Timestamp.parser(), extensionRegistry);
+            if (subBuilder != null) {
+              subBuilder.mergeFrom(timePoint_);
+              timePoint_ = subBuilder.buildPartial();
+            }
+
             break;
           }
           default: {
@@ -139,49 +139,49 @@ private static final long serialVersionUID = 0L;
     return getPartition();
   }
 
-  public static final int GROUP_FIELD_NUMBER = 2;
-  private apache.rocketmq.v1.Resource group_;
-  /**
-   * <code>.apache.rocketmq.v1.Resource group = 2;</code>
-   * @return Whether the group field is set.
-   */
-  @java.lang.Override
-  public boolean hasGroup() {
-    return group_ != null;
-  }
-  /**
-   * <code>.apache.rocketmq.v1.Resource group = 2;</code>
-   * @return The group.
-   */
-  @java.lang.Override
-  public apache.rocketmq.v1.Resource getGroup() {
-    return group_ == null ? apache.rocketmq.v1.Resource.getDefaultInstance() : group_;
-  }
-  /**
-   * <code>.apache.rocketmq.v1.Resource group = 2;</code>
-   */
-  @java.lang.Override
-  public apache.rocketmq.v1.ResourceOrBuilder getGroupOrBuilder() {
-    return getGroup();
-  }
-
-  public static final int POLICY_FIELD_NUMBER = 3;
+  public static final int POLICY_FIELD_NUMBER = 2;
   private int policy_;
   /**
-   * <code>.apache.rocketmq.v1.CursorPolicy policy = 3;</code>
+   * <code>.apache.rocketmq.v1.QueryOffsetPolicy policy = 2;</code>
    * @return The enum numeric value on the wire for policy.
    */
   @java.lang.Override public int getPolicyValue() {
     return policy_;
   }
   /**
-   * <code>.apache.rocketmq.v1.CursorPolicy policy = 3;</code>
+   * <code>.apache.rocketmq.v1.QueryOffsetPolicy policy = 2;</code>
    * @return The policy.
    */
-  @java.lang.Override public apache.rocketmq.v1.CursorPolicy getPolicy() {
+  @java.lang.Override public apache.rocketmq.v1.QueryOffsetPolicy getPolicy() {
     @SuppressWarnings("deprecation")
-    apache.rocketmq.v1.CursorPolicy result = apache.rocketmq.v1.CursorPolicy.valueOf(policy_);
-    return result == null ? apache.rocketmq.v1.CursorPolicy.UNRECOGNIZED : result;
+    apache.rocketmq.v1.QueryOffsetPolicy result = apache.rocketmq.v1.QueryOffsetPolicy.valueOf(policy_);
+    return result == null ? apache.rocketmq.v1.QueryOffsetPolicy.UNRECOGNIZED : result;
+  }
+
+  public static final int TIME_POINT_FIELD_NUMBER = 4;
+  private com.google.protobuf.Timestamp timePoint_;
+  /**
+   * <code>.google.protobuf.Timestamp time_point = 4;</code>
+   * @return Whether the timePoint field is set.
+   */
+  @java.lang.Override
+  public boolean hasTimePoint() {
+    return timePoint_ != null;
+  }
+  /**
+   * <code>.google.protobuf.Timestamp time_point = 4;</code>
+   * @return The timePoint.
+   */
+  @java.lang.Override
+  public com.google.protobuf.Timestamp getTimePoint() {
+    return timePoint_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : timePoint_;
+  }
+  /**
+   * <code>.google.protobuf.Timestamp time_point = 4;</code>
+   */
+  @java.lang.Override
+  public com.google.protobuf.TimestampOrBuilder getTimePointOrBuilder() {
+    return getTimePoint();
   }
 
   private byte memoizedIsInitialized = -1;
@@ -201,11 +201,11 @@ private static final long serialVersionUID = 0L;
     if (partition_ != null) {
       output.writeMessage(1, getPartition());
     }
-    if (group_ != null) {
-      output.writeMessage(2, getGroup());
+    if (policy_ != apache.rocketmq.v1.QueryOffsetPolicy.BEGINNING.getNumber()) {
+      output.writeEnum(2, policy_);
     }
-    if (policy_ != apache.rocketmq.v1.CursorPolicy.CURRENT.getNumber()) {
-      output.writeEnum(3, policy_);
+    if (timePoint_ != null) {
+      output.writeMessage(4, getTimePoint());
     }
     unknownFields.writeTo(output);
   }
@@ -220,13 +220,13 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(1, getPartition());
     }
-    if (group_ != null) {
+    if (policy_ != apache.rocketmq.v1.QueryOffsetPolicy.BEGINNING.getNumber()) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(2, getGroup());
+        .computeEnumSize(2, policy_);
     }
-    if (policy_ != apache.rocketmq.v1.CursorPolicy.CURRENT.getNumber()) {
+    if (timePoint_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeEnumSize(3, policy_);
+        .computeMessageSize(4, getTimePoint());
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -248,12 +248,12 @@ private static final long serialVersionUID = 0L;
       if (!getPartition()
           .equals(other.getPartition())) return false;
     }
-    if (hasGroup() != other.hasGroup()) return false;
-    if (hasGroup()) {
-      if (!getGroup()
-          .equals(other.getGroup())) return false;
-    }
     if (policy_ != other.policy_) return false;
+    if (hasTimePoint() != other.hasTimePoint()) return false;
+    if (hasTimePoint()) {
+      if (!getTimePoint()
+          .equals(other.getTimePoint())) return false;
+    }
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -269,12 +269,12 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + PARTITION_FIELD_NUMBER;
       hash = (53 * hash) + getPartition().hashCode();
     }
-    if (hasGroup()) {
-      hash = (37 * hash) + GROUP_FIELD_NUMBER;
-      hash = (53 * hash) + getGroup().hashCode();
-    }
     hash = (37 * hash) + POLICY_FIELD_NUMBER;
     hash = (53 * hash) + policy_;
+    if (hasTimePoint()) {
+      hash = (37 * hash) + TIME_POINT_FIELD_NUMBER;
+      hash = (53 * hash) + getTimePoint().hashCode();
+    }
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -414,14 +414,14 @@ private static final long serialVersionUID = 0L;
         partition_ = null;
         partitionBuilder_ = null;
       }
-      if (groupBuilder_ == null) {
-        group_ = null;
-      } else {
-        group_ = null;
-        groupBuilder_ = null;
-      }
       policy_ = 0;
 
+      if (timePointBuilder_ == null) {
+        timePoint_ = null;
+      } else {
+        timePoint_ = null;
+        timePointBuilder_ = null;
+      }
       return this;
     }
 
@@ -453,12 +453,12 @@ private static final long serialVersionUID = 0L;
       } else {
         result.partition_ = partitionBuilder_.build();
       }
-      if (groupBuilder_ == null) {
-        result.group_ = group_;
-      } else {
-        result.group_ = groupBuilder_.build();
-      }
       result.policy_ = policy_;
+      if (timePointBuilder_ == null) {
+        result.timePoint_ = timePoint_;
+      } else {
+        result.timePoint_ = timePointBuilder_.build();
+      }
       onBuilt();
       return result;
     }
@@ -510,11 +510,11 @@ private static final long serialVersionUID = 0L;
       if (other.hasPartition()) {
         mergePartition(other.getPartition());
       }
-      if (other.hasGroup()) {
-        mergeGroup(other.getGroup());
-      }
       if (other.policy_ != 0) {
         setPolicyValue(other.getPolicyValue());
+      }
+      if (other.hasTimePoint()) {
+        mergeTimePoint(other.getTimePoint());
       }
       this.mergeUnknownFields(other.unknownFields);
       onChanged();
@@ -664,135 +664,16 @@ private static final long serialVersionUID = 0L;
       return partitionBuilder_;
     }
 
-    private apache.rocketmq.v1.Resource group_;
-    private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> groupBuilder_;
-    /**
-     * <code>.apache.rocketmq.v1.Resource group = 2;</code>
-     * @return Whether the group field is set.
-     */
-    public boolean hasGroup() {
-      return groupBuilder_ != null || group_ != null;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.Resource group = 2;</code>
-     * @return The group.
-     */
-    public apache.rocketmq.v1.Resource getGroup() {
-      if (groupBuilder_ == null) {
-        return group_ == null ? apache.rocketmq.v1.Resource.getDefaultInstance() : group_;
-      } else {
-        return groupBuilder_.getMessage();
-      }
-    }
-    /**
-     * <code>.apache.rocketmq.v1.Resource group = 2;</code>
-     */
-    public Builder setGroup(apache.rocketmq.v1.Resource value) {
-      if (groupBuilder_ == null) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        group_ = value;
-        onChanged();
-      } else {
-        groupBuilder_.setMessage(value);
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.Resource group = 2;</code>
-     */
-    public Builder setGroup(
-        apache.rocketmq.v1.Resource.Builder builderForValue) {
-      if (groupBuilder_ == null) {
-        group_ = builderForValue.build();
-        onChanged();
-      } else {
-        groupBuilder_.setMessage(builderForValue.build());
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.Resource group = 2;</code>
-     */
-    public Builder mergeGroup(apache.rocketmq.v1.Resource value) {
-      if (groupBuilder_ == null) {
-        if (group_ != null) {
-          group_ =
-            apache.rocketmq.v1.Resource.newBuilder(group_).mergeFrom(value).buildPartial();
-        } else {
-          group_ = value;
-        }
-        onChanged();
-      } else {
-        groupBuilder_.mergeFrom(value);
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.Resource group = 2;</code>
-     */
-    public Builder clearGroup() {
-      if (groupBuilder_ == null) {
-        group_ = null;
-        onChanged();
-      } else {
-        group_ = null;
-        groupBuilder_ = null;
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.Resource group = 2;</code>
-     */
-    public apache.rocketmq.v1.Resource.Builder getGroupBuilder() {
-      
-      onChanged();
-      return getGroupFieldBuilder().getBuilder();
-    }
-    /**
-     * <code>.apache.rocketmq.v1.Resource group = 2;</code>
-     */
-    public apache.rocketmq.v1.ResourceOrBuilder getGroupOrBuilder() {
-      if (groupBuilder_ != null) {
-        return groupBuilder_.getMessageOrBuilder();
-      } else {
-        return group_ == null ?
-            apache.rocketmq.v1.Resource.getDefaultInstance() : group_;
-      }
-    }
-    /**
-     * <code>.apache.rocketmq.v1.Resource group = 2;</code>
-     */
-    private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> 
-        getGroupFieldBuilder() {
-      if (groupBuilder_ == null) {
-        groupBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder>(
-                getGroup(),
-                getParentForChildren(),
-                isClean());
-        group_ = null;
-      }
-      return groupBuilder_;
-    }
-
     private int policy_ = 0;
     /**
-     * <code>.apache.rocketmq.v1.CursorPolicy policy = 3;</code>
+     * <code>.apache.rocketmq.v1.QueryOffsetPolicy policy = 2;</code>
      * @return The enum numeric value on the wire for policy.
      */
     @java.lang.Override public int getPolicyValue() {
       return policy_;
     }
     /**
-     * <code>.apache.rocketmq.v1.CursorPolicy policy = 3;</code>
+     * <code>.apache.rocketmq.v1.QueryOffsetPolicy policy = 2;</code>
      * @param value The enum numeric value on the wire for policy to set.
      * @return This builder for chaining.
      */
@@ -803,21 +684,21 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.CursorPolicy policy = 3;</code>
+     * <code>.apache.rocketmq.v1.QueryOffsetPolicy policy = 2;</code>
      * @return The policy.
      */
     @java.lang.Override
-    public apache.rocketmq.v1.CursorPolicy getPolicy() {
+    public apache.rocketmq.v1.QueryOffsetPolicy getPolicy() {
       @SuppressWarnings("deprecation")
-      apache.rocketmq.v1.CursorPolicy result = apache.rocketmq.v1.CursorPolicy.valueOf(policy_);
-      return result == null ? apache.rocketmq.v1.CursorPolicy.UNRECOGNIZED : result;
+      apache.rocketmq.v1.QueryOffsetPolicy result = apache.rocketmq.v1.QueryOffsetPolicy.valueOf(policy_);
+      return result == null ? apache.rocketmq.v1.QueryOffsetPolicy.UNRECOGNIZED : result;
     }
     /**
-     * <code>.apache.rocketmq.v1.CursorPolicy policy = 3;</code>
+     * <code>.apache.rocketmq.v1.QueryOffsetPolicy policy = 2;</code>
      * @param value The policy to set.
      * @return This builder for chaining.
      */
-    public Builder setPolicy(apache.rocketmq.v1.CursorPolicy value) {
+    public Builder setPolicy(apache.rocketmq.v1.QueryOffsetPolicy value) {
       if (value == null) {
         throw new NullPointerException();
       }
@@ -827,7 +708,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.CursorPolicy policy = 3;</code>
+     * <code>.apache.rocketmq.v1.QueryOffsetPolicy policy = 2;</code>
      * @return This builder for chaining.
      */
     public Builder clearPolicy() {
@@ -835,6 +716,125 @@ private static final long serialVersionUID = 0L;
       policy_ = 0;
       onChanged();
       return this;
+    }
+
+    private com.google.protobuf.Timestamp timePoint_;
+    private com.google.protobuf.SingleFieldBuilderV3<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> timePointBuilder_;
+    /**
+     * <code>.google.protobuf.Timestamp time_point = 4;</code>
+     * @return Whether the timePoint field is set.
+     */
+    public boolean hasTimePoint() {
+      return timePointBuilder_ != null || timePoint_ != null;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp time_point = 4;</code>
+     * @return The timePoint.
+     */
+    public com.google.protobuf.Timestamp getTimePoint() {
+      if (timePointBuilder_ == null) {
+        return timePoint_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : timePoint_;
+      } else {
+        return timePointBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.google.protobuf.Timestamp time_point = 4;</code>
+     */
+    public Builder setTimePoint(com.google.protobuf.Timestamp value) {
+      if (timePointBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        timePoint_ = value;
+        onChanged();
+      } else {
+        timePointBuilder_.setMessage(value);
+      }
+
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp time_point = 4;</code>
+     */
+    public Builder setTimePoint(
+        com.google.protobuf.Timestamp.Builder builderForValue) {
+      if (timePointBuilder_ == null) {
+        timePoint_ = builderForValue.build();
+        onChanged();
+      } else {
+        timePointBuilder_.setMessage(builderForValue.build());
+      }
+
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp time_point = 4;</code>
+     */
+    public Builder mergeTimePoint(com.google.protobuf.Timestamp value) {
+      if (timePointBuilder_ == null) {
+        if (timePoint_ != null) {
+          timePoint_ =
+            com.google.protobuf.Timestamp.newBuilder(timePoint_).mergeFrom(value).buildPartial();
+        } else {
+          timePoint_ = value;
+        }
+        onChanged();
+      } else {
+        timePointBuilder_.mergeFrom(value);
+      }
+
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp time_point = 4;</code>
+     */
+    public Builder clearTimePoint() {
+      if (timePointBuilder_ == null) {
+        timePoint_ = null;
+        onChanged();
+      } else {
+        timePoint_ = null;
+        timePointBuilder_ = null;
+      }
+
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp time_point = 4;</code>
+     */
+    public com.google.protobuf.Timestamp.Builder getTimePointBuilder() {
+      
+      onChanged();
+      return getTimePointFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.google.protobuf.Timestamp time_point = 4;</code>
+     */
+    public com.google.protobuf.TimestampOrBuilder getTimePointOrBuilder() {
+      if (timePointBuilder_ != null) {
+        return timePointBuilder_.getMessageOrBuilder();
+      } else {
+        return timePoint_ == null ?
+            com.google.protobuf.Timestamp.getDefaultInstance() : timePoint_;
+      }
+    }
+    /**
+     * <code>.google.protobuf.Timestamp time_point = 4;</code>
+     */
+    private com.google.protobuf.SingleFieldBuilderV3<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> 
+        getTimePointFieldBuilder() {
+      if (timePointBuilder_ == null) {
+        timePointBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+            com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder>(
+                getTimePoint(),
+                getParentForChildren(),
+                isClean());
+        timePoint_ = null;
+      }
+      return timePointBuilder_;
     }
     @java.lang.Override
     public final Builder setUnknownFields(

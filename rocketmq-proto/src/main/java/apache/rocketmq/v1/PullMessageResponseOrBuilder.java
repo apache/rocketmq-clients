@@ -3,8 +3,8 @@
 
 package apache.rocketmq.v1;
 
-public interface PollMessageResponseOrBuilder extends
-    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.PollMessageResponse)
+public interface PullMessageResponseOrBuilder extends
+    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.PullMessageResponse)
     com.google.protobuf.MessageOrBuilder {
 
   /**
@@ -23,25 +23,43 @@ public interface PollMessageResponseOrBuilder extends
   apache.rocketmq.v1.ResponseCommonOrBuilder getCommonOrBuilder();
 
   /**
-   * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+   * <code>int64 min_offset = 2;</code>
+   * @return The minOffset.
+   */
+  long getMinOffset();
+
+  /**
+   * <code>int64 next_offset = 3;</code>
+   * @return The nextOffset.
+   */
+  long getNextOffset();
+
+  /**
+   * <code>int64 max_offset = 4;</code>
+   * @return The maxOffset.
+   */
+  long getMaxOffset();
+
+  /**
+   * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
    */
   java.util.List<apache.rocketmq.v1.Message> 
       getMessagesList();
   /**
-   * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
    */
   apache.rocketmq.v1.Message getMessages(int index);
   /**
-   * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
    */
   int getMessagesCount();
   /**
-   * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
    */
   java.util.List<? extends apache.rocketmq.v1.MessageOrBuilder> 
       getMessagesOrBuilderList();
   /**
-   * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
    */
   apache.rocketmq.v1.MessageOrBuilder getMessagesOrBuilder(
       int index);

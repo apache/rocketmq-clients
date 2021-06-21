@@ -3,8 +3,8 @@
 
 package apache.rocketmq.v1;
 
-public interface PollMessageRequestOrBuilder extends
-    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.PollMessageRequest)
+public interface PullMessageRequestOrBuilder extends
+    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.PullMessageRequest)
     com.google.protobuf.MessageOrBuilder {
 
   /**
@@ -38,23 +38,56 @@ public interface PollMessageRequestOrBuilder extends
   apache.rocketmq.v1.PartitionOrBuilder getPartitionOrBuilder();
 
   /**
-   * <code>int32 batch_size = 3;</code>
+   * <code>int64 offset = 3;</code>
+   * @return The offset.
+   */
+  long getOffset();
+
+  /**
+   * <code>int32 batch_size = 4;</code>
    * @return The batchSize.
    */
   int getBatchSize();
 
   /**
-   * <code>.google.protobuf.Duration await_time = 4;</code>
+   * <code>.google.protobuf.Duration await_time = 5;</code>
    * @return Whether the awaitTime field is set.
    */
   boolean hasAwaitTime();
   /**
-   * <code>.google.protobuf.Duration await_time = 4;</code>
+   * <code>.google.protobuf.Duration await_time = 5;</code>
    * @return The awaitTime.
    */
   com.google.protobuf.Duration getAwaitTime();
   /**
-   * <code>.google.protobuf.Duration await_time = 4;</code>
+   * <code>.google.protobuf.Duration await_time = 5;</code>
    */
   com.google.protobuf.DurationOrBuilder getAwaitTimeOrBuilder();
+
+  /**
+   * <code>.apache.rocketmq.v1.FilterExpression filter_expression = 6;</code>
+   * @return Whether the filterExpression field is set.
+   */
+  boolean hasFilterExpression();
+  /**
+   * <code>.apache.rocketmq.v1.FilterExpression filter_expression = 6;</code>
+   * @return The filterExpression.
+   */
+  apache.rocketmq.v1.FilterExpression getFilterExpression();
+  /**
+   * <code>.apache.rocketmq.v1.FilterExpression filter_expression = 6;</code>
+   */
+  apache.rocketmq.v1.FilterExpressionOrBuilder getFilterExpressionOrBuilder();
+
+  /**
+   * <code>string client_id = 7;</code>
+   * @return The clientId.
+   */
+  java.lang.String getClientId();
+  /**
+   * <code>string client_id = 7;</code>
+   * @return The bytes for clientId.
+   */
+  com.google.protobuf.ByteString
+      getClientIdBytes();
 }

@@ -4,18 +4,18 @@
 package apache.rocketmq.v1;
 
 /**
- * Protobuf type {@code apache.rocketmq.v1.PollMessageResponse}
+ * Protobuf type {@code apache.rocketmq.v1.PullMessageResponse}
  */
-public final class PollMessageResponse extends
+public final class PullMessageResponse extends
     com.google.protobuf.GeneratedMessageV3 implements
-    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.PollMessageResponse)
-    PollMessageResponseOrBuilder {
+    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.PullMessageResponse)
+    PullMessageResponseOrBuilder {
 private static final long serialVersionUID = 0L;
-  // Use PollMessageResponse.newBuilder() to construct.
-  private PollMessageResponse(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+  // Use PullMessageResponse.newBuilder() to construct.
+  private PullMessageResponse(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
-  private PollMessageResponse() {
+  private PullMessageResponse() {
     messages_ = java.util.Collections.emptyList();
   }
 
@@ -23,7 +23,7 @@ private static final long serialVersionUID = 0L;
   @SuppressWarnings({"unused"})
   protected java.lang.Object newInstance(
       UnusedPrivateParameter unused) {
-    return new PollMessageResponse();
+    return new PullMessageResponse();
   }
 
   @java.lang.Override
@@ -31,7 +31,7 @@ private static final long serialVersionUID = 0L;
   getUnknownFields() {
     return this.unknownFields;
   }
-  private PollMessageResponse(
+  private PullMessageResponse(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
@@ -63,7 +63,22 @@ private static final long serialVersionUID = 0L;
 
             break;
           }
-          case 18: {
+          case 16: {
+
+            minOffset_ = input.readInt64();
+            break;
+          }
+          case 24: {
+
+            nextOffset_ = input.readInt64();
+            break;
+          }
+          case 32: {
+
+            maxOffset_ = input.readInt64();
+            break;
+          }
+          case 42: {
             if (!((mutable_bitField0_ & 0x00000001) != 0)) {
               messages_ = new java.util.ArrayList<apache.rocketmq.v1.Message>();
               mutable_bitField0_ |= 0x00000001;
@@ -96,15 +111,15 @@ private static final long serialVersionUID = 0L;
   }
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PollMessageResponse_descriptor;
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PullMessageResponse_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PollMessageResponse_fieldAccessorTable
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PullMessageResponse_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            apache.rocketmq.v1.PollMessageResponse.class, apache.rocketmq.v1.PollMessageResponse.Builder.class);
+            apache.rocketmq.v1.PullMessageResponse.class, apache.rocketmq.v1.PullMessageResponse.Builder.class);
   }
 
   public static final int COMMON_FIELD_NUMBER = 1;
@@ -133,17 +148,50 @@ private static final long serialVersionUID = 0L;
     return getCommon();
   }
 
-  public static final int MESSAGES_FIELD_NUMBER = 2;
+  public static final int MIN_OFFSET_FIELD_NUMBER = 2;
+  private long minOffset_;
+  /**
+   * <code>int64 min_offset = 2;</code>
+   * @return The minOffset.
+   */
+  @java.lang.Override
+  public long getMinOffset() {
+    return minOffset_;
+  }
+
+  public static final int NEXT_OFFSET_FIELD_NUMBER = 3;
+  private long nextOffset_;
+  /**
+   * <code>int64 next_offset = 3;</code>
+   * @return The nextOffset.
+   */
+  @java.lang.Override
+  public long getNextOffset() {
+    return nextOffset_;
+  }
+
+  public static final int MAX_OFFSET_FIELD_NUMBER = 4;
+  private long maxOffset_;
+  /**
+   * <code>int64 max_offset = 4;</code>
+   * @return The maxOffset.
+   */
+  @java.lang.Override
+  public long getMaxOffset() {
+    return maxOffset_;
+  }
+
+  public static final int MESSAGES_FIELD_NUMBER = 5;
   private java.util.List<apache.rocketmq.v1.Message> messages_;
   /**
-   * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
    */
   @java.lang.Override
   public java.util.List<apache.rocketmq.v1.Message> getMessagesList() {
     return messages_;
   }
   /**
-   * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
    */
   @java.lang.Override
   public java.util.List<? extends apache.rocketmq.v1.MessageOrBuilder> 
@@ -151,21 +199,21 @@ private static final long serialVersionUID = 0L;
     return messages_;
   }
   /**
-   * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
    */
   @java.lang.Override
   public int getMessagesCount() {
     return messages_.size();
   }
   /**
-   * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
    */
   @java.lang.Override
   public apache.rocketmq.v1.Message getMessages(int index) {
     return messages_.get(index);
   }
   /**
-   * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
    */
   @java.lang.Override
   public apache.rocketmq.v1.MessageOrBuilder getMessagesOrBuilder(
@@ -190,8 +238,17 @@ private static final long serialVersionUID = 0L;
     if (common_ != null) {
       output.writeMessage(1, getCommon());
     }
+    if (minOffset_ != 0L) {
+      output.writeInt64(2, minOffset_);
+    }
+    if (nextOffset_ != 0L) {
+      output.writeInt64(3, nextOffset_);
+    }
+    if (maxOffset_ != 0L) {
+      output.writeInt64(4, maxOffset_);
+    }
     for (int i = 0; i < messages_.size(); i++) {
-      output.writeMessage(2, messages_.get(i));
+      output.writeMessage(5, messages_.get(i));
     }
     unknownFields.writeTo(output);
   }
@@ -206,9 +263,21 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(1, getCommon());
     }
+    if (minOffset_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt64Size(2, minOffset_);
+    }
+    if (nextOffset_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt64Size(3, nextOffset_);
+    }
+    if (maxOffset_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt64Size(4, maxOffset_);
+    }
     for (int i = 0; i < messages_.size(); i++) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(2, messages_.get(i));
+        .computeMessageSize(5, messages_.get(i));
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -220,16 +289,22 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof apache.rocketmq.v1.PollMessageResponse)) {
+    if (!(obj instanceof apache.rocketmq.v1.PullMessageResponse)) {
       return super.equals(obj);
     }
-    apache.rocketmq.v1.PollMessageResponse other = (apache.rocketmq.v1.PollMessageResponse) obj;
+    apache.rocketmq.v1.PullMessageResponse other = (apache.rocketmq.v1.PullMessageResponse) obj;
 
     if (hasCommon() != other.hasCommon()) return false;
     if (hasCommon()) {
       if (!getCommon()
           .equals(other.getCommon())) return false;
     }
+    if (getMinOffset()
+        != other.getMinOffset()) return false;
+    if (getNextOffset()
+        != other.getNextOffset()) return false;
+    if (getMaxOffset()
+        != other.getMaxOffset()) return false;
     if (!getMessagesList()
         .equals(other.getMessagesList())) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
@@ -247,6 +322,15 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + COMMON_FIELD_NUMBER;
       hash = (53 * hash) + getCommon().hashCode();
     }
+    hash = (37 * hash) + MIN_OFFSET_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getMinOffset());
+    hash = (37 * hash) + NEXT_OFFSET_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getNextOffset());
+    hash = (37 * hash) + MAX_OFFSET_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getMaxOffset());
     if (getMessagesCount() > 0) {
       hash = (37 * hash) + MESSAGES_FIELD_NUMBER;
       hash = (53 * hash) + getMessagesList().hashCode();
@@ -256,69 +340,69 @@ private static final long serialVersionUID = 0L;
     return hash;
   }
 
-  public static apache.rocketmq.v1.PollMessageResponse parseFrom(
+  public static apache.rocketmq.v1.PullMessageResponse parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.PollMessageResponse parseFrom(
+  public static apache.rocketmq.v1.PullMessageResponse parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.PollMessageResponse parseFrom(
+  public static apache.rocketmq.v1.PullMessageResponse parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.PollMessageResponse parseFrom(
+  public static apache.rocketmq.v1.PullMessageResponse parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.PollMessageResponse parseFrom(byte[] data)
+  public static apache.rocketmq.v1.PullMessageResponse parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.PollMessageResponse parseFrom(
+  public static apache.rocketmq.v1.PullMessageResponse parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.PollMessageResponse parseFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.PullMessageResponse parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.PollMessageResponse parseFrom(
+  public static apache.rocketmq.v1.PullMessageResponse parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.PollMessageResponse parseDelimitedFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.PullMessageResponse parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.PollMessageResponse parseDelimitedFrom(
+  public static apache.rocketmq.v1.PullMessageResponse parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.PollMessageResponse parseFrom(
+  public static apache.rocketmq.v1.PullMessageResponse parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.PollMessageResponse parseFrom(
+  public static apache.rocketmq.v1.PullMessageResponse parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -331,7 +415,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(apache.rocketmq.v1.PollMessageResponse prototype) {
+  public static Builder newBuilder(apache.rocketmq.v1.PullMessageResponse prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -347,26 +431,26 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
-   * Protobuf type {@code apache.rocketmq.v1.PollMessageResponse}
+   * Protobuf type {@code apache.rocketmq.v1.PullMessageResponse}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.PollMessageResponse)
-      apache.rocketmq.v1.PollMessageResponseOrBuilder {
+      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.PullMessageResponse)
+      apache.rocketmq.v1.PullMessageResponseOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PollMessageResponse_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PullMessageResponse_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PollMessageResponse_fieldAccessorTable
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PullMessageResponse_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              apache.rocketmq.v1.PollMessageResponse.class, apache.rocketmq.v1.PollMessageResponse.Builder.class);
+              apache.rocketmq.v1.PullMessageResponse.class, apache.rocketmq.v1.PullMessageResponse.Builder.class);
     }
 
-    // Construct using apache.rocketmq.v1.PollMessageResponse.newBuilder()
+    // Construct using apache.rocketmq.v1.PullMessageResponse.newBuilder()
     private Builder() {
       maybeForceBuilderInitialization();
     }
@@ -391,6 +475,12 @@ private static final long serialVersionUID = 0L;
         common_ = null;
         commonBuilder_ = null;
       }
+      minOffset_ = 0L;
+
+      nextOffset_ = 0L;
+
+      maxOffset_ = 0L;
+
       if (messagesBuilder_ == null) {
         messages_ = java.util.Collections.emptyList();
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -403,17 +493,17 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PollMessageResponse_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PullMessageResponse_descriptor;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.PollMessageResponse getDefaultInstanceForType() {
-      return apache.rocketmq.v1.PollMessageResponse.getDefaultInstance();
+    public apache.rocketmq.v1.PullMessageResponse getDefaultInstanceForType() {
+      return apache.rocketmq.v1.PullMessageResponse.getDefaultInstance();
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.PollMessageResponse build() {
-      apache.rocketmq.v1.PollMessageResponse result = buildPartial();
+    public apache.rocketmq.v1.PullMessageResponse build() {
+      apache.rocketmq.v1.PullMessageResponse result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -421,14 +511,17 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.PollMessageResponse buildPartial() {
-      apache.rocketmq.v1.PollMessageResponse result = new apache.rocketmq.v1.PollMessageResponse(this);
+    public apache.rocketmq.v1.PullMessageResponse buildPartial() {
+      apache.rocketmq.v1.PullMessageResponse result = new apache.rocketmq.v1.PullMessageResponse(this);
       int from_bitField0_ = bitField0_;
       if (commonBuilder_ == null) {
         result.common_ = common_;
       } else {
         result.common_ = commonBuilder_.build();
       }
+      result.minOffset_ = minOffset_;
+      result.nextOffset_ = nextOffset_;
+      result.maxOffset_ = maxOffset_;
       if (messagesBuilder_ == null) {
         if (((bitField0_ & 0x00000001) != 0)) {
           messages_ = java.util.Collections.unmodifiableList(messages_);
@@ -476,18 +569,27 @@ private static final long serialVersionUID = 0L;
     }
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof apache.rocketmq.v1.PollMessageResponse) {
-        return mergeFrom((apache.rocketmq.v1.PollMessageResponse)other);
+      if (other instanceof apache.rocketmq.v1.PullMessageResponse) {
+        return mergeFrom((apache.rocketmq.v1.PullMessageResponse)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(apache.rocketmq.v1.PollMessageResponse other) {
-      if (other == apache.rocketmq.v1.PollMessageResponse.getDefaultInstance()) return this;
+    public Builder mergeFrom(apache.rocketmq.v1.PullMessageResponse other) {
+      if (other == apache.rocketmq.v1.PullMessageResponse.getDefaultInstance()) return this;
       if (other.hasCommon()) {
         mergeCommon(other.getCommon());
+      }
+      if (other.getMinOffset() != 0L) {
+        setMinOffset(other.getMinOffset());
+      }
+      if (other.getNextOffset() != 0L) {
+        setNextOffset(other.getNextOffset());
+      }
+      if (other.getMaxOffset() != 0L) {
+        setMaxOffset(other.getMaxOffset());
       }
       if (messagesBuilder_ == null) {
         if (!other.messages_.isEmpty()) {
@@ -530,11 +632,11 @@ private static final long serialVersionUID = 0L;
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      apache.rocketmq.v1.PollMessageResponse parsedMessage = null;
+      apache.rocketmq.v1.PullMessageResponse parsedMessage = null;
       try {
         parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        parsedMessage = (apache.rocketmq.v1.PollMessageResponse) e.getUnfinishedMessage();
+        parsedMessage = (apache.rocketmq.v1.PullMessageResponse) e.getUnfinishedMessage();
         throw e.unwrapIOException();
       } finally {
         if (parsedMessage != null) {
@@ -664,6 +766,99 @@ private static final long serialVersionUID = 0L;
       return commonBuilder_;
     }
 
+    private long minOffset_ ;
+    /**
+     * <code>int64 min_offset = 2;</code>
+     * @return The minOffset.
+     */
+    @java.lang.Override
+    public long getMinOffset() {
+      return minOffset_;
+    }
+    /**
+     * <code>int64 min_offset = 2;</code>
+     * @param value The minOffset to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMinOffset(long value) {
+      
+      minOffset_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>int64 min_offset = 2;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMinOffset() {
+      
+      minOffset_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private long nextOffset_ ;
+    /**
+     * <code>int64 next_offset = 3;</code>
+     * @return The nextOffset.
+     */
+    @java.lang.Override
+    public long getNextOffset() {
+      return nextOffset_;
+    }
+    /**
+     * <code>int64 next_offset = 3;</code>
+     * @param value The nextOffset to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNextOffset(long value) {
+      
+      nextOffset_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>int64 next_offset = 3;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearNextOffset() {
+      
+      nextOffset_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private long maxOffset_ ;
+    /**
+     * <code>int64 max_offset = 4;</code>
+     * @return The maxOffset.
+     */
+    @java.lang.Override
+    public long getMaxOffset() {
+      return maxOffset_;
+    }
+    /**
+     * <code>int64 max_offset = 4;</code>
+     * @param value The maxOffset to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMaxOffset(long value) {
+      
+      maxOffset_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>int64 max_offset = 4;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMaxOffset() {
+      
+      maxOffset_ = 0L;
+      onChanged();
+      return this;
+    }
+
     private java.util.List<apache.rocketmq.v1.Message> messages_ =
       java.util.Collections.emptyList();
     private void ensureMessagesIsMutable() {
@@ -677,7 +872,7 @@ private static final long serialVersionUID = 0L;
         apache.rocketmq.v1.Message, apache.rocketmq.v1.Message.Builder, apache.rocketmq.v1.MessageOrBuilder> messagesBuilder_;
 
     /**
-     * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
      */
     public java.util.List<apache.rocketmq.v1.Message> getMessagesList() {
       if (messagesBuilder_ == null) {
@@ -687,7 +882,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
      */
     public int getMessagesCount() {
       if (messagesBuilder_ == null) {
@@ -697,7 +892,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
      */
     public apache.rocketmq.v1.Message getMessages(int index) {
       if (messagesBuilder_ == null) {
@@ -707,7 +902,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
      */
     public Builder setMessages(
         int index, apache.rocketmq.v1.Message value) {
@@ -724,7 +919,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
      */
     public Builder setMessages(
         int index, apache.rocketmq.v1.Message.Builder builderForValue) {
@@ -738,7 +933,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
      */
     public Builder addMessages(apache.rocketmq.v1.Message value) {
       if (messagesBuilder_ == null) {
@@ -754,7 +949,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
      */
     public Builder addMessages(
         int index, apache.rocketmq.v1.Message value) {
@@ -771,7 +966,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
      */
     public Builder addMessages(
         apache.rocketmq.v1.Message.Builder builderForValue) {
@@ -785,7 +980,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
      */
     public Builder addMessages(
         int index, apache.rocketmq.v1.Message.Builder builderForValue) {
@@ -799,7 +994,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
      */
     public Builder addAllMessages(
         java.lang.Iterable<? extends apache.rocketmq.v1.Message> values) {
@@ -814,7 +1009,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
      */
     public Builder clearMessages() {
       if (messagesBuilder_ == null) {
@@ -827,7 +1022,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
      */
     public Builder removeMessages(int index) {
       if (messagesBuilder_ == null) {
@@ -840,14 +1035,14 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
      */
     public apache.rocketmq.v1.Message.Builder getMessagesBuilder(
         int index) {
       return getMessagesFieldBuilder().getBuilder(index);
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
      */
     public apache.rocketmq.v1.MessageOrBuilder getMessagesOrBuilder(
         int index) {
@@ -857,7 +1052,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
      */
     public java.util.List<? extends apache.rocketmq.v1.MessageOrBuilder> 
          getMessagesOrBuilderList() {
@@ -868,14 +1063,14 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
      */
     public apache.rocketmq.v1.Message.Builder addMessagesBuilder() {
       return getMessagesFieldBuilder().addBuilder(
           apache.rocketmq.v1.Message.getDefaultInstance());
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
      */
     public apache.rocketmq.v1.Message.Builder addMessagesBuilder(
         int index) {
@@ -883,7 +1078,7 @@ private static final long serialVersionUID = 0L;
           index, apache.rocketmq.v1.Message.getDefaultInstance());
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.Message messages = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Message messages = 5;</code>
      */
     public java.util.List<apache.rocketmq.v1.Message.Builder> 
          getMessagesBuilderList() {
@@ -916,41 +1111,41 @@ private static final long serialVersionUID = 0L;
     }
 
 
-    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.PollMessageResponse)
+    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.PullMessageResponse)
   }
 
-  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.PollMessageResponse)
-  private static final apache.rocketmq.v1.PollMessageResponse DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.PullMessageResponse)
+  private static final apache.rocketmq.v1.PullMessageResponse DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new apache.rocketmq.v1.PollMessageResponse();
+    DEFAULT_INSTANCE = new apache.rocketmq.v1.PullMessageResponse();
   }
 
-  public static apache.rocketmq.v1.PollMessageResponse getDefaultInstance() {
+  public static apache.rocketmq.v1.PullMessageResponse getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<PollMessageResponse>
-      PARSER = new com.google.protobuf.AbstractParser<PollMessageResponse>() {
+  private static final com.google.protobuf.Parser<PullMessageResponse>
+      PARSER = new com.google.protobuf.AbstractParser<PullMessageResponse>() {
     @java.lang.Override
-    public PollMessageResponse parsePartialFrom(
+    public PullMessageResponse parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
-      return new PollMessageResponse(input, extensionRegistry);
+      return new PullMessageResponse(input, extensionRegistry);
     }
   };
 
-  public static com.google.protobuf.Parser<PollMessageResponse> parser() {
+  public static com.google.protobuf.Parser<PullMessageResponse> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<PollMessageResponse> getParserForType() {
+  public com.google.protobuf.Parser<PullMessageResponse> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public apache.rocketmq.v1.PollMessageResponse getDefaultInstanceForType() {
+  public apache.rocketmq.v1.PullMessageResponse getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

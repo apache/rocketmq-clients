@@ -4,53 +4,61 @@
 package apache.rocketmq.v1;
 
 /**
- * Protobuf enum {@code apache.rocketmq.v1.CursorPolicy}
+ * Protobuf enum {@code apache.rocketmq.v1.QueryOffsetPolicy}
  */
-public enum CursorPolicy
+public enum QueryOffsetPolicy
     implements com.google.protobuf.ProtocolMessageEnum {
   /**
-   * <code>CURRENT = 0;</code>
+   * <pre>
+   * Use this option if client wishes to playback all existing messages.
+   * </pre>
+   *
+   * <code>BEGINNING = 0;</code>
    */
-  CURRENT(0),
+  BEGINNING(0),
   /**
-   * <code>BEGINNING = 1;</code>
+   * <pre>
+   * Use this option if client wishes to skip all existing messages.
+   * </pre>
+   *
+   * <code>END = 1;</code>
    */
-  BEGINNING(1),
+  END(1),
   /**
-   * <code>END = 2;</code>
+   * <pre>
+   * Use this option if time-based seek is targeted.
+   * </pre>
+   *
+   * <code>TIME_POINT = 2;</code>
    */
-  END(2),
-  /**
-   * <code>TIME_POINT = 3;</code>
-   */
-  TIME_POINT(3),
-  /**
-   * <code>OFFSET = 4;</code>
-   */
-  OFFSET(4),
+  TIME_POINT(2),
   UNRECOGNIZED(-1),
   ;
 
   /**
-   * <code>CURRENT = 0;</code>
+   * <pre>
+   * Use this option if client wishes to playback all existing messages.
+   * </pre>
+   *
+   * <code>BEGINNING = 0;</code>
    */
-  public static final int CURRENT_VALUE = 0;
+  public static final int BEGINNING_VALUE = 0;
   /**
-   * <code>BEGINNING = 1;</code>
+   * <pre>
+   * Use this option if client wishes to skip all existing messages.
+   * </pre>
+   *
+   * <code>END = 1;</code>
    */
-  public static final int BEGINNING_VALUE = 1;
+  public static final int END_VALUE = 1;
   /**
-   * <code>END = 2;</code>
+   * <pre>
+   * Use this option if time-based seek is targeted.
+   * </pre>
+   *
+   * <code>TIME_POINT = 2;</code>
    */
-  public static final int END_VALUE = 2;
-  /**
-   * <code>TIME_POINT = 3;</code>
-   */
-  public static final int TIME_POINT_VALUE = 3;
-  /**
-   * <code>OFFSET = 4;</code>
-   */
-  public static final int OFFSET_VALUE = 4;
+  public static final int TIME_POINT_VALUE = 2;
 
 
   public final int getNumber() {
@@ -67,7 +75,7 @@ public enum CursorPolicy
    * @deprecated Use {@link #forNumber(int)} instead.
    */
   @java.lang.Deprecated
-  public static CursorPolicy valueOf(int value) {
+  public static QueryOffsetPolicy valueOf(int value) {
     return forNumber(value);
   }
 
@@ -75,26 +83,24 @@ public enum CursorPolicy
    * @param value The numeric wire value of the corresponding enum entry.
    * @return The enum associated with the given numeric wire value.
    */
-  public static CursorPolicy forNumber(int value) {
+  public static QueryOffsetPolicy forNumber(int value) {
     switch (value) {
-      case 0: return CURRENT;
-      case 1: return BEGINNING;
-      case 2: return END;
-      case 3: return TIME_POINT;
-      case 4: return OFFSET;
+      case 0: return BEGINNING;
+      case 1: return END;
+      case 2: return TIME_POINT;
       default: return null;
     }
   }
 
-  public static com.google.protobuf.Internal.EnumLiteMap<CursorPolicy>
+  public static com.google.protobuf.Internal.EnumLiteMap<QueryOffsetPolicy>
       internalGetValueMap() {
     return internalValueMap;
   }
   private static final com.google.protobuf.Internal.EnumLiteMap<
-      CursorPolicy> internalValueMap =
-        new com.google.protobuf.Internal.EnumLiteMap<CursorPolicy>() {
-          public CursorPolicy findValueByNumber(int number) {
-            return CursorPolicy.forNumber(number);
+      QueryOffsetPolicy> internalValueMap =
+        new com.google.protobuf.Internal.EnumLiteMap<QueryOffsetPolicy>() {
+          public QueryOffsetPolicy findValueByNumber(int number) {
+            return QueryOffsetPolicy.forNumber(number);
           }
         };
 
@@ -115,9 +121,9 @@ public enum CursorPolicy
     return apache.rocketmq.v1.MQDomain.getDescriptor().getEnumTypes().get(11);
   }
 
-  private static final CursorPolicy[] VALUES = values();
+  private static final QueryOffsetPolicy[] VALUES = values();
 
-  public static CursorPolicy valueOf(
+  public static QueryOffsetPolicy valueOf(
       com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
     if (desc.getType() != getDescriptor()) {
       throw new java.lang.IllegalArgumentException(
@@ -131,10 +137,10 @@ public enum CursorPolicy
 
   private final int value;
 
-  private CursorPolicy(int value) {
+  private QueryOffsetPolicy(int value) {
     this.value = value;
   }
 
-  // @@protoc_insertion_point(enum_scope:apache.rocketmq.v1.CursorPolicy)
+  // @@protoc_insertion_point(enum_scope:apache.rocketmq.v1.QueryOffsetPolicy)
 }
 

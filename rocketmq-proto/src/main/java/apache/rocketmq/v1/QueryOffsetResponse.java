@@ -61,17 +61,9 @@ private static final long serialVersionUID = 0L;
 
             break;
           }
-          case 18: {
-            apache.rocketmq.v1.Offset.Builder subBuilder = null;
-            if (offset_ != null) {
-              subBuilder = offset_.toBuilder();
-            }
-            offset_ = input.readMessage(apache.rocketmq.v1.Offset.parser(), extensionRegistry);
-            if (subBuilder != null) {
-              subBuilder.mergeFrom(offset_);
-              offset_ = subBuilder.buildPartial();
-            }
+          case 16: {
 
+            offset_ = input.readInt64();
             break;
           }
           default: {
@@ -133,29 +125,14 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int OFFSET_FIELD_NUMBER = 2;
-  private apache.rocketmq.v1.Offset offset_;
+  private long offset_;
   /**
-   * <code>.apache.rocketmq.v1.Offset offset = 2;</code>
-   * @return Whether the offset field is set.
-   */
-  @java.lang.Override
-  public boolean hasOffset() {
-    return offset_ != null;
-  }
-  /**
-   * <code>.apache.rocketmq.v1.Offset offset = 2;</code>
+   * <code>int64 offset = 2;</code>
    * @return The offset.
    */
   @java.lang.Override
-  public apache.rocketmq.v1.Offset getOffset() {
-    return offset_ == null ? apache.rocketmq.v1.Offset.getDefaultInstance() : offset_;
-  }
-  /**
-   * <code>.apache.rocketmq.v1.Offset offset = 2;</code>
-   */
-  @java.lang.Override
-  public apache.rocketmq.v1.OffsetOrBuilder getOffsetOrBuilder() {
-    return getOffset();
+  public long getOffset() {
+    return offset_;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -175,8 +152,8 @@ private static final long serialVersionUID = 0L;
     if (common_ != null) {
       output.writeMessage(1, getCommon());
     }
-    if (offset_ != null) {
-      output.writeMessage(2, getOffset());
+    if (offset_ != 0L) {
+      output.writeInt64(2, offset_);
     }
     unknownFields.writeTo(output);
   }
@@ -191,9 +168,9 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(1, getCommon());
     }
-    if (offset_ != null) {
+    if (offset_ != 0L) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(2, getOffset());
+        .computeInt64Size(2, offset_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -215,11 +192,8 @@ private static final long serialVersionUID = 0L;
       if (!getCommon()
           .equals(other.getCommon())) return false;
     }
-    if (hasOffset() != other.hasOffset()) return false;
-    if (hasOffset()) {
-      if (!getOffset()
-          .equals(other.getOffset())) return false;
-    }
+    if (getOffset()
+        != other.getOffset()) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -235,10 +209,9 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + COMMON_FIELD_NUMBER;
       hash = (53 * hash) + getCommon().hashCode();
     }
-    if (hasOffset()) {
-      hash = (37 * hash) + OFFSET_FIELD_NUMBER;
-      hash = (53 * hash) + getOffset().hashCode();
-    }
+    hash = (37 * hash) + OFFSET_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getOffset());
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -378,12 +351,8 @@ private static final long serialVersionUID = 0L;
         common_ = null;
         commonBuilder_ = null;
       }
-      if (offsetBuilder_ == null) {
-        offset_ = null;
-      } else {
-        offset_ = null;
-        offsetBuilder_ = null;
-      }
+      offset_ = 0L;
+
       return this;
     }
 
@@ -415,11 +384,7 @@ private static final long serialVersionUID = 0L;
       } else {
         result.common_ = commonBuilder_.build();
       }
-      if (offsetBuilder_ == null) {
-        result.offset_ = offset_;
-      } else {
-        result.offset_ = offsetBuilder_.build();
-      }
+      result.offset_ = offset_;
       onBuilt();
       return result;
     }
@@ -471,8 +436,8 @@ private static final long serialVersionUID = 0L;
       if (other.hasCommon()) {
         mergeCommon(other.getCommon());
       }
-      if (other.hasOffset()) {
-        mergeOffset(other.getOffset());
+      if (other.getOffset() != 0L) {
+        setOffset(other.getOffset());
       }
       this.mergeUnknownFields(other.unknownFields);
       onChanged();
@@ -622,123 +587,35 @@ private static final long serialVersionUID = 0L;
       return commonBuilder_;
     }
 
-    private apache.rocketmq.v1.Offset offset_;
-    private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.Offset, apache.rocketmq.v1.Offset.Builder, apache.rocketmq.v1.OffsetOrBuilder> offsetBuilder_;
+    private long offset_ ;
     /**
-     * <code>.apache.rocketmq.v1.Offset offset = 2;</code>
-     * @return Whether the offset field is set.
-     */
-    public boolean hasOffset() {
-      return offsetBuilder_ != null || offset_ != null;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.Offset offset = 2;</code>
+     * <code>int64 offset = 2;</code>
      * @return The offset.
      */
-    public apache.rocketmq.v1.Offset getOffset() {
-      if (offsetBuilder_ == null) {
-        return offset_ == null ? apache.rocketmq.v1.Offset.getDefaultInstance() : offset_;
-      } else {
-        return offsetBuilder_.getMessage();
-      }
+    @java.lang.Override
+    public long getOffset() {
+      return offset_;
     }
     /**
-     * <code>.apache.rocketmq.v1.Offset offset = 2;</code>
+     * <code>int64 offset = 2;</code>
+     * @param value The offset to set.
+     * @return This builder for chaining.
      */
-    public Builder setOffset(apache.rocketmq.v1.Offset value) {
-      if (offsetBuilder_ == null) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        offset_ = value;
-        onChanged();
-      } else {
-        offsetBuilder_.setMessage(value);
-      }
-
+    public Builder setOffset(long value) {
+      
+      offset_ = value;
+      onChanged();
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Offset offset = 2;</code>
-     */
-    public Builder setOffset(
-        apache.rocketmq.v1.Offset.Builder builderForValue) {
-      if (offsetBuilder_ == null) {
-        offset_ = builderForValue.build();
-        onChanged();
-      } else {
-        offsetBuilder_.setMessage(builderForValue.build());
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.Offset offset = 2;</code>
-     */
-    public Builder mergeOffset(apache.rocketmq.v1.Offset value) {
-      if (offsetBuilder_ == null) {
-        if (offset_ != null) {
-          offset_ =
-            apache.rocketmq.v1.Offset.newBuilder(offset_).mergeFrom(value).buildPartial();
-        } else {
-          offset_ = value;
-        }
-        onChanged();
-      } else {
-        offsetBuilder_.mergeFrom(value);
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.Offset offset = 2;</code>
+     * <code>int64 offset = 2;</code>
+     * @return This builder for chaining.
      */
     public Builder clearOffset() {
-      if (offsetBuilder_ == null) {
-        offset_ = null;
-        onChanged();
-      } else {
-        offset_ = null;
-        offsetBuilder_ = null;
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.Offset offset = 2;</code>
-     */
-    public apache.rocketmq.v1.Offset.Builder getOffsetBuilder() {
       
+      offset_ = 0L;
       onChanged();
-      return getOffsetFieldBuilder().getBuilder();
-    }
-    /**
-     * <code>.apache.rocketmq.v1.Offset offset = 2;</code>
-     */
-    public apache.rocketmq.v1.OffsetOrBuilder getOffsetOrBuilder() {
-      if (offsetBuilder_ != null) {
-        return offsetBuilder_.getMessageOrBuilder();
-      } else {
-        return offset_ == null ?
-            apache.rocketmq.v1.Offset.getDefaultInstance() : offset_;
-      }
-    }
-    /**
-     * <code>.apache.rocketmq.v1.Offset offset = 2;</code>
-     */
-    private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.Offset, apache.rocketmq.v1.Offset.Builder, apache.rocketmq.v1.OffsetOrBuilder> 
-        getOffsetFieldBuilder() {
-      if (offsetBuilder_ == null) {
-        offsetBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            apache.rocketmq.v1.Offset, apache.rocketmq.v1.Offset.Builder, apache.rocketmq.v1.OffsetOrBuilder>(
-                getOffset(),
-                getParentForChildren(),
-                isClean());
-        offset_ = null;
-      }
-      return offsetBuilder_;
+      return this;
     }
     @java.lang.Override
     public final Builder setUnknownFields(

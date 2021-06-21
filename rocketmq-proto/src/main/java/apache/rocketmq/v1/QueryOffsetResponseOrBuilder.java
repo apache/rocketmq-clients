@@ -23,17 +23,8 @@ public interface QueryOffsetResponseOrBuilder extends
   apache.rocketmq.v1.ResponseCommonOrBuilder getCommonOrBuilder();
 
   /**
-   * <code>.apache.rocketmq.v1.Offset offset = 2;</code>
-   * @return Whether the offset field is set.
-   */
-  boolean hasOffset();
-  /**
-   * <code>.apache.rocketmq.v1.Offset offset = 2;</code>
+   * <code>int64 offset = 2;</code>
    * @return The offset.
    */
-  apache.rocketmq.v1.Offset getOffset();
-  /**
-   * <code>.apache.rocketmq.v1.Offset offset = 2;</code>
-   */
-  apache.rocketmq.v1.OffsetOrBuilder getOffsetOrBuilder();
+  long getOffset();
 }
