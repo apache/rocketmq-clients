@@ -38,6 +38,8 @@ public class BaseConfig {
     protected String dummyProducerGroup1 = "TestProducerGroup1";
 
     protected String dummyNameServerAddr = "11.167.164.105:9876";
+    protected String dummyNameServerAddr0 = "11.167.164.106:9876";
+    protected String dummyNameServerAddr1 = "11.167.164.107:9876";
 
     protected String dummyTagExpression = FilterExpression.TAG_EXPRESSION_SUB_ALL;
     protected String dummyTag0 = "TestTagA";

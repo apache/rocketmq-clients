@@ -67,19 +67,21 @@ public class ClientConfig implements CredentialsObservable {
         this.clientId = sb.toString();
     }
 
-    // TODO: support 127.0.0.1:9876;127.0.0.1:9877 ?
     public void setNamesrvAddr(String namesrv) {
         nameServerLock.writeLock().lock();
         try {
             this.namesrvAddr.clear();
-            // TODO: check name server format, IPv4/IPv6/DOMAIN_NAME
-            final String[] split = namesrv.split(":");
-            String host = split[0];
-            int port = Integer.parseInt(split[1]);
+            final String[] addressArray = namesrv.split(";");
+            for (String address : addressArray) {
+                // TODO: check name server format, IPv4/IPv6/DOMAIN_NAME
+                final String[] split = address.split(":");
+                String host = split[0];
+                int port = Integer.parseInt(split[1]);
 
-            List<Address> addresses = new ArrayList<Address>();
-            addresses.add(new Address(host, port));
-            this.namesrvAddr.add(new Endpoints(AddressScheme.IPv4, addresses));
+                List<Address> addresses = new ArrayList<Address>();
+                addresses.add(new Address(host, port));
+                this.namesrvAddr.add(new Endpoints(AddressScheme.IPv4, addresses));
+            }
         } finally {
             nameServerLock.writeLock().unlock();
         }
