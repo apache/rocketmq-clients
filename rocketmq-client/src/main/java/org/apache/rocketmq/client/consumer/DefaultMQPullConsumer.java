@@ -2,6 +2,7 @@ package org.apache.rocketmq.client.consumer;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.rocketmq.client.OffsetQuery;
 import org.apache.rocketmq.client.impl.ClientConfig;
 import org.apache.rocketmq.client.impl.consumer.DefaultMQPullConsumerImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
@@ -46,6 +47,10 @@ public class DefaultMQPullConsumer extends ClientConfig {
     @Deprecated
     public void pullBlockIfNotFound(MessageQueue mq, String subExpression, long offset, int maxNums) {
         throw new UnsupportedOperationException();
+    }
+
+    public long queryOffset(OffsetQuery offsetQuery) {
+        return this.impl.queryOffset(offsetQuery);
     }
 
     public PullResult pull(PullMessageQuery pullMessageQuery) {
