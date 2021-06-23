@@ -14,10 +14,8 @@ import apache.rocketmq.v1.TransactionPhase;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.util.Timestamps;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -35,6 +33,7 @@ import org.apache.rocketmq.client.message.MessageConst;
 import org.apache.rocketmq.client.message.MessageIdUtils;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.message.protocol.Encoding;
+import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.misc.Validators;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.client.producer.LocalTransactionExecuter;
@@ -44,6 +43,7 @@ import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.client.producer.TransactionSendResult;
 import org.apache.rocketmq.client.remoting.RpcTarget;
+import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.utility.UtilAll;
 
@@ -58,13 +58,11 @@ public class DefaultMQProducerImpl implements ProducerObserver {
                                                 Integer.toString(DEFAULT_MESSAGE_COMPRESSION_LEVEL)));
 
     private final DefaultMQProducer defaultMQProducer;
-    private final ConcurrentMap<String /* topic */, TopicPublishInfo> topicPublishInfoTable;
     private final ClientInstance clientInstance;
     private final AtomicReference<ServiceState> state;
 
     public DefaultMQProducerImpl(DefaultMQProducer defaultMQProducer) {
         this.defaultMQProducer = defaultMQProducer;
-        this.topicPublishInfoTable = new ConcurrentHashMap<String, TopicPublishInfo>();
         this.clientInstance = new ClientInstance(defaultMQProducer);
 
         this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
@@ -120,7 +118,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
     }
 
 
-    private SendMessageRequest wrapSendMessageRequest(Message message, MessageQueue mq) {
+    private SendMessageRequest wrapSendMessageRequest(Message message, Partition partition) {
 
         final Resource topicResource =
                 Resource.newBuilder().setArn(this.getArn()).setName(message.getTopic()).build();
@@ -139,7 +137,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
                                .setProducerGroup(groupResource)
                                .setMessageId(MessageIdUtils.createUniqID())
                                .setBornHost(UtilAll.getIpv4Address())
-                               .setPartitionId(mq.getQueueId());
+                               .setPartitionId(partition.getPartitionId());
 
         final int delayTimeLevel = message.getDelayTimeLevel();
         if (delayTimeLevel > 0) {
@@ -192,20 +190,35 @@ public class DefaultMQProducerImpl implements ProducerObserver {
         return SendMessageRequest.newBuilder().setMessage(msg).build();
     }
 
-    private TopicPublishInfo getPublicInfo(String topic) throws MQClientException {
-        TopicPublishInfo topicPublishInfo = topicPublishInfoTable.get(topic);
-        if (null != topicPublishInfo) {
-            return topicPublishInfo;
+    private Partition selectOnePartition(String topic) throws MQClientException, MQServerException {
+        final TopicRouteData topicRouteData = clientInstance.getTopicRouteInfo(topic);
+        final List<Partition> partitions = topicRouteData.getPartitions();
+        for (int i = 0; i < partitions.size(); i++) {
+            final Partition partition = partitions.get(TopicRouteData.getNextPartitionIndex() % partitions.size());
+            if (MixAll.MASTER_BROKER_ID != partition.getBrokerId()) {
+                continue;
+            }
+            if (!partition.getPermission().isWritable()) {
+                continue;
+            }
+            if (partition.getRpcTarget().isIsolated()) {
+                continue;
+            }
+            return partition;
         }
-        TopicRouteData topicRouteData = clientInstance.getTopicRouteInfo(topic);
-        topicPublishInfo = new TopicPublishInfo(topic, topicRouteData);
-        topicPublishInfoTable.put(topic, topicPublishInfo);
-        return topicPublishInfo;
-    }
-
-    private MessageQueue selectOneMessageQueue(TopicPublishInfo topicPublishInfo) throws MQClientException {
-        final Set<RpcTarget> isolatedTargets = clientInstance.getIsolatedTargets();
-        return topicPublishInfo.selectOneMessageQueue(isolatedTargets);
+        log.warn("No available partition target temporarily.");
+        for (int i = 0; i < partitions.size(); i++) {
+            final Partition partition = partitions.get(TopicRouteData.getNextPartitionIndex() % partitions.size());
+            if (MixAll.MASTER_BROKER_ID != partition.getBrokerId()) {
+                continue;
+            }
+            if (!partition.getPermission().isWritable()) {
+                continue;
+            }
+            log.warn("No healthy partition available now, choose a writable partition, partition={}", partition);
+            return partition;
+        }
+        throw new MQServerException("No writable partition available");
     }
 
     private int getTotalSendTimes(CommunicationMode mode) {
@@ -236,19 +249,6 @@ public class DefaultMQProducerImpl implements ProducerObserver {
         return sendDefaultImpl(message, CommunicationMode.SYNC, null, timeoutMillis);
     }
 
-    public SendResult send(Message message, MessageQueue mq)
-            throws MQClientException, RemotingException, MQBrokerException, InterruptedException,
-                   MQServerException {
-        return send(message, mq, defaultMQProducer.getSendMsgTimeout());
-    }
-
-    public SendResult send(Message message, MessageQueue mq, long timeoutMillis)
-            throws MQClientException, RemotingException, MQBrokerException, InterruptedException,
-                   MQServerException {
-        ensureRunning();
-        return sendKernelImpl(message, mq, CommunicationMode.SYNC, null, timeoutMillis);
-    }
-
     public void send(Message message, SendCallback sendCallback)
             throws MQClientException, RemotingException, InterruptedException {
         send(message, sendCallback, defaultMQProducer.getSendMsgTimeout());
@@ -259,28 +259,10 @@ public class DefaultMQProducerImpl implements ProducerObserver {
         sendDefaultImpl(message, CommunicationMode.ASYNC, sendCallback, timeout);
     }
 
-    public void send(Message message, MessageQueue mq, SendCallback sendCallback)
-            throws MQClientException, RemotingException, InterruptedException, MQServerException {
-        send(message, mq, sendCallback, defaultMQProducer.getSendMsgTimeout());
-    }
-
-    public void send(Message message, MessageQueue mq, SendCallback sendCallback, long timeoutMillis)
-            throws MQClientException, RemotingException, InterruptedException, MQServerException {
-        ensureRunning();
-        sendKernelImpl(message, mq, CommunicationMode.ASYNC, sendCallback, timeoutMillis);
-    }
-
     public void sendOneway(Message message)
             throws MQClientException {
         sendDefaultImpl(
                 message, CommunicationMode.ONE_WAY, null, defaultMQProducer.getSendMsgTimeout());
-    }
-
-    public void sendOneway(Message message, MessageQueue mq)
-            throws MQClientException, MQServerException {
-        ensureRunning();
-        sendKernelImpl(
-                message, mq, CommunicationMode.ONE_WAY, null, defaultMQProducer.getSendMsgTimeout());
     }
 
     public SendResult send(Message message, MessageQueueSelector selector, Object arg)
@@ -391,15 +373,14 @@ public class DefaultMQProducerImpl implements ProducerObserver {
 
     private SendResult sendKernelImpl(
             Message message,
-            MessageQueue mq,
+            Partition partition,
             CommunicationMode mode,
             SendCallback sendCallback,
             long timeoutMillis)
             throws MQClientException, MQServerException {
-        TopicPublishInfo publicInfo = getPublicInfo(message.getTopic());
-        final RpcTarget rpcTarget = publicInfo.resolveRpcTarget(mq.getBrokerName());
+        final RpcTarget rpcTarget = partition.getRpcTarget();
 
-        final SendMessageRequest request = wrapSendMessageRequest(message, mq);
+        final SendMessageRequest request = wrapSendMessageRequest(message, partition);
 
         final SendMessageResponse response =
                 clientInstance.sendClientApi(
@@ -414,20 +395,21 @@ public class DefaultMQProducerImpl implements ProducerObserver {
             throws MQClientException {
         ensureRunning();
         final String topic = message.getTopic();
-        final TopicPublishInfo publicInfo = getPublicInfo(topic);
         final int totalSendTimes = getTotalSendTimes(mode);
         Throwable terminatedThrowable = null;
         for (int time = 1; time <= totalSendTimes; time++) {
-            final MessageQueue messageQueue = selectOneMessageQueue(publicInfo);
-            if (null == messageQueue) {
-                throw new MQClientException("Failed to select a message queue for sending.");
+            Partition partition;
+            try {
+                partition = selectOnePartition(topic);
+            } catch (Throwable t) {
+                throw new MQClientException("Failed to select a partition for sending");
             }
             try {
-                return sendKernelImpl(message, messageQueue, mode, sendCallback, timeoutMillis);
+                return sendKernelImpl(message, partition, mode, sendCallback, timeoutMillis);
             } catch (Throwable t) {
                 log.warn("Exception occurs while sending message, topic={}, time={}.", topic, time, t);
 
-                final RpcTarget target = publicInfo.resolveRpcTarget(messageQueue.getBrokerName());
+                final RpcTarget target = partition.getRpcTarget();
                 target.setIsolated(true);
                 log.debug(
                         "Would isolate target for a while cause failed to send message, target={}", target);
@@ -448,13 +430,13 @@ public class DefaultMQProducerImpl implements ProducerObserver {
         ensureRunning();
         Validators.messageCheck(message, defaultMQProducer.getMaxMessageSize());
 
-        final TopicPublishInfo publicInfo = getPublicInfo(message.getTopic());
+        final TopicRouteData topicRouteInfo = clientInstance.getTopicRouteInfo(message.getTopic());
 
         SendResult sendResult;
         MessageQueue messageQueue;
 
         try {
-            messageQueue = selector.select(publicInfo.getMessageQueueList(), message, arg);
+            messageQueue = selector.select(topicRouteInfo.getWritableMessageQueueList(), message, arg);
         } catch (Throwable t) {
             throw new MQClientException("Exception occurs while select message queue.");
         }
@@ -462,10 +444,12 @@ public class DefaultMQProducerImpl implements ProducerObserver {
             throw new MQClientException("Message queue is unexpectedly null.");
         }
 
-        final RpcTarget target = publicInfo.resolveRpcTarget(messageQueue.getBrokerName());
+        final Partition partition = messageQueue.getPartition();
+
+        final RpcTarget target = partition.getRpcTarget();
         if (!target.isIsolated()) {
             try {
-                sendResult = sendKernelImpl(message, messageQueue, mode, sendCallback, timeoutMillis);
+                sendResult = sendKernelImpl(message, partition, mode, sendCallback, timeoutMillis);
                 return sendResult;
             } catch (Throwable t) {
                 log.warn("Exception occurs while sending message.", t);
@@ -504,17 +488,6 @@ public class DefaultMQProducerImpl implements ProducerObserver {
 
     @Override
     public void logStats() {
-    }
-
-    @Override
-    public void onTopicRouteChanged(String topic, TopicRouteData topicRouteData) {
-        final TopicPublishInfo topicPublishInfo = topicPublishInfoTable.get(topic);
-        // Need filter topic in advance?
-        if (null == topicPublishInfo) {
-            log.info("No topic publish info, skip updating, topic={}", topic);
-            return;
-        }
-        topicPublishInfo.refreshTopicRoute(topicRouteData);
     }
 
     private String getProducerGroup() {

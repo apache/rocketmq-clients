@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ConsumeFromWhere;
+import org.apache.rocketmq.client.constant.Permission;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
@@ -32,6 +33,7 @@ import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.impl.ClientInstance;
 import org.apache.rocketmq.client.message.MessageQueue;
+import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.remoting.RpcTarget;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
@@ -307,11 +309,17 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
         final TopicRouteData topicRouteData = clientInstance.getTopicRouteInfo(topic);
 
         final List<Partition> partitions = topicRouteData.getPartitions();
-        if (partitions.isEmpty()) {
-            throw new MQServerException("No partition available.");
+        for (int i = 0; i < partitions.size(); i++) {
+            final Partition partition = partitions.get(TopicRouteData.getNextPartitionIndex() % partitions.size());
+            if (MixAll.MASTER_BROKER_ID != partition.getBrokerId()) {
+                continue;
+            }
+            if (Permission.NONE == partition.getPermission()) {
+                continue;
+            }
+            return partition.getRpcTarget();
         }
-        final Partition partition = partitions.get(TopicAssignmentInfo.getNextPartitionIndex() % partitions.size());
-        return partition.getRpcTarget();
+        throw new MQServerException("No target available for query.");
     }
 
     private TopicAssignmentInfo queryLoadAssignment(String topic)
@@ -325,10 +333,9 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
 
     @Override
     public HeartbeatEntry prepareHeartbeatData() {
-        Resource groupResource =
-                Resource.newBuilder()
-                        .setArn(this.getArn())
-                        .setName(defaultMQPushConsumer.getConsumerGroup()).build();
+        Resource groupResource = Resource.newBuilder()
+                                         .setArn(this.getArn())
+                                         .setName(defaultMQPushConsumer.getConsumerGroup()).build();
 
         List<SubscriptionEntry> subscriptionEntries = new ArrayList<SubscriptionEntry>();
         for (Map.Entry<String, FilterExpression> entry : filterExpressionTable.entrySet()) {

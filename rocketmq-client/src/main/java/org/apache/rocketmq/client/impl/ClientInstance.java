@@ -527,12 +527,6 @@ public class ClientInstance {
             } else {
                 log.debug("Topic route remains unchanged, topic={}", topic);
             }
-
-            if (updated) {
-                for (ProducerObserver producerObserver : producerObserverTable.values()) {
-                    producerObserver.onTopicRouteChanged(topic, after);
-                }
-            }
         }
         updateTracer();
     }
@@ -699,19 +693,6 @@ public class ClientInstance {
 
         return newRpcClient;
     }
-
-
-    public Set<RpcTarget> getIsolatedTargets() {
-        Set<RpcTarget> targetSet = new HashSet<RpcTarget>();
-        for (RpcTarget rpcTarget : clientTable.keySet()) {
-            if (!rpcTarget.isIsolated()) {
-                continue;
-            }
-            targetSet.add(rpcTarget);
-        }
-        return targetSet;
-    }
-
 
     SendMessageResponse send(
             RpcTarget target, SendMessageRequest request, boolean messageTracingEnabled, long duration,

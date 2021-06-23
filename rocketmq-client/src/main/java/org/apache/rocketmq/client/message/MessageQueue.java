@@ -15,19 +15,13 @@ public class MessageQueue {
 
     @EqualsAndHashCode.Exclude
     @ToString.Exclude
-    private Partition partition = null;
+    private final Partition partition;
 
     public MessageQueue(Partition partition) {
         this.topic = partition.getTopicName();
         this.brokerName = partition.getBrokerName();
         this.queueId = partition.getPartitionId();
         this.partition = partition;
-    }
-
-    public MessageQueue(String topic, String brokerName, int queueId) {
-        this.topic = topic;
-        this.brokerName = brokerName;
-        this.queueId = queueId;
     }
 
     public String simpleName() {

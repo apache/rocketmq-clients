@@ -22,12 +22,12 @@ public class BaseConfig {
 
     protected String dummyMsgId = "1EE10C774F0D18B4AAC24CAB60130000";
 
-    protected MessageQueue dummyMessageQueue =
-            new MessageQueue(dummyTopic, dummyBrokerName, dummyQueueId);
-    protected MessageQueue dummyMessageQueue0 =
-            new MessageQueue(dummyTopic0, dummyBrokerName0, dummyQueueId0);
-    protected MessageQueue dummyMessageQueue1 =
-            new MessageQueue(dummyTopic1, dummyBrokerName1, dummyQueueId1);
+//    protected MessageQueue dummyMessageQueue =
+//            new MessageQueue(dummyTopic, dummyBrokerName, dummyQueueId);
+//    protected MessageQueue dummyMessageQueue0 =
+//            new MessageQueue(dummyTopic0, dummyBrokerName0, dummyQueueId0);
+//    protected MessageQueue dummyMessageQueue1 =
+//            new MessageQueue(dummyTopic1, dummyBrokerName1, dummyQueueId1);
 
     protected String dummyConsumerGroup = "TestConsumerGroup";
     protected String dummyConsumerGroup0 = "TestConsumerGroup0";

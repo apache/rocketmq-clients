@@ -7,7 +7,6 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.route.Partition;
 
@@ -15,14 +14,9 @@ import org.apache.rocketmq.client.route.Partition;
 @ToString
 @EqualsAndHashCode
 public class TopicAssignmentInfo {
-    private static final ThreadLocal<Integer> PARTITION_INDEX = new ThreadLocal<Integer>();
 
     @Getter
     private final List<Assignment> assignmentList;
-
-    static {
-        PARTITION_INDEX.set(RandomUtils.nextInt());
-    }
 
     public TopicAssignmentInfo(List<LoadAssignment> loadAssignmentList) {
         this.assignmentList = new ArrayList<Assignment>();
@@ -45,17 +39,4 @@ public class TopicAssignmentInfo {
             assignmentList.add(new Assignment(messageQueue, mode));
         }
     }
-
-    public static int getNextPartitionIndex() {
-        Integer index = PARTITION_INDEX.get();
-        if (null == index) {
-            index = -1;
-        }
-        index += 1;
-        index = Math.abs(index);
-        PARTITION_INDEX.set(index);
-        return index;
-    }
-
-
 }

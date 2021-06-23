@@ -253,75 +253,6 @@ public class DefaultMQProducer extends ClientConfig {
     }
 
     /**
-     * Same to {@link #send(Message)} with target message queue and send timeout specified.
-     *
-     * @param msg     Message to send.
-     * @param mq      Target message queue.
-     * @param timeout send timeout.
-     * @return {@link SendResult} instance to inform senders details of the deliverable, say Message
-     * ID of the message, {@link SendStatus} indicating broker storage/replication status, message
-     * queue sent to, etc.
-     * @throws MQClientException    if there is any client error.
-     * @throws RemotingException    if there is any network-tier error.
-     * @throws MQBrokerException    if there is any error with broker.
-     * @throws InterruptedException if the sending thread is interrupted.
-     */
-    public SendResult send(Message msg, MessageQueue mq, long timeout)
-            throws MQClientException, RemotingException, MQBrokerException, InterruptedException,
-                   MQServerException {
-        msg.setTopic(msg.getTopic());
-        return this.impl.send(msg, mq, timeout);
-    }
-
-    /**
-     * Same to {@link #send(Message, SendCallback)} with target message queue specified.
-     *
-     * @param msg          Message to send.
-     * @param mq           Target message queue.
-     * @param sendCallback Callback to execute on sending completed, either successful or
-     *                     unsuccessful.
-     * @throws MQClientException    if there is any client error.
-     * @throws RemotingException    if there is any network-tier error.
-     * @throws InterruptedException if the sending thread is interrupted.
-     */
-    public void send(Message msg, MessageQueue mq, SendCallback sendCallback)
-            throws MQClientException, RemotingException, InterruptedException, MQServerException {
-        this.impl.send(msg, mq, sendCallback);
-    }
-
-    /**
-     * Same to {@link #send(Message, SendCallback)} with target message queue and send timeout
-     * specified.
-     *
-     * @param msg          Message to send.
-     * @param mq           Target message queue.
-     * @param sendCallback Callback to execute on sending completed, either successful or
-     *                     unsuccessful.
-     * @param timeout      Send timeout.
-     * @throws MQClientException    if there is any client error.
-     * @throws RemotingException    if there is any network-tier error.
-     * @throws InterruptedException if the sending thread is interrupted.
-     */
-    public void send(Message msg, MessageQueue mq, SendCallback sendCallback, long timeout)
-            throws MQClientException, RemotingException, InterruptedException, MQServerException {
-        this.impl.send(msg, mq, sendCallback, timeout);
-    }
-
-    /**
-     * Same to {@link #sendOneway(Message)} with target message queue specified.
-     *
-     * @param msg Message to send.
-     * @param mq  Target message queue.
-     * @throws MQClientException    if there is any client error.
-     * @throws RemotingException    if there is any network-tier error.
-     * @throws InterruptedException if the sending thread is interrupted.
-     */
-    public void sendOneway(Message msg, MessageQueue mq)
-            throws MQClientException, RemotingException, InterruptedException, MQServerException {
-        this.impl.sendOneway(msg, mq);
-    }
-
-    /**
      * Same to {@link #send(Message)} with message queue selector specified.
      *
      * @param msg      Message to send.
@@ -438,25 +369,6 @@ public class DefaultMQProducer extends ClientConfig {
     public void send(Collection<Message> msgs, SendCallback sendCallback, long timeout)
             throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
         this.impl.send(batch(msgs), sendCallback, timeout);
-    }
-
-    public SendResult send(Collection<Message> msgs, MessageQueue messageQueue)
-            throws MQClientException, RemotingException, MQBrokerException, InterruptedException,
-                   MQServerException {
-        return this.impl.send(batch(msgs), messageQueue);
-    }
-
-    public SendResult send(Collection<Message> msgs, MessageQueue messageQueue, long timeout)
-            throws MQClientException, RemotingException, MQBrokerException, InterruptedException,
-                   MQServerException {
-        return this.impl.send(batch(msgs), messageQueue, timeout);
-    }
-
-    public void send(
-            Collection<Message> msgs, MessageQueue mq, SendCallback sendCallback, long timeout)
-            throws MQClientException, RemotingException, MQBrokerException, InterruptedException,
-                   MQServerException {
-        this.impl.send(batch(msgs), mq, sendCallback, timeout);
     }
 
     /**
