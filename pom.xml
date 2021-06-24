@@ -15,6 +15,7 @@
         <module>rocketmq-admin</module>
         <module>rocketmq-utility</module>
         <module>rocketmq-client</module>
+        <module>rocketmq-logging</module>
     </modules>
 
     <properties>
