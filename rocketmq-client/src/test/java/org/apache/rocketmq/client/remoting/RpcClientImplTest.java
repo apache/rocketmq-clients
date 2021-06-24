@@ -99,9 +99,8 @@ public class RpcClientImplTest {
         final Resource groupResource = Resource.newBuilder().setArn("MQ_INST_1973281269661160_BXmPlOA6").setName(
                 "GID_groupa").build();
 
-
         QueryAssignmentRequest request =
-                QueryAssignmentRequest.newBuilder().setClientId("123").setTopic(topicResource).setGroup(groupResource).setConsumeModel(ConsumeModel.CLUSTERING).build();
+                QueryAssignmentRequest.newBuilder().setClientId("123").setTopic(topicResource).setGroup(groupResource).build();
         final QueryAssignmentResponse response = rpcClient.queryAssignment(request, 3, TimeUnit.SECONDS);
         System.out.println(response);
     }

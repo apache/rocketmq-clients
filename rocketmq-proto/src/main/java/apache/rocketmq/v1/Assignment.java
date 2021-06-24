@@ -4,18 +4,18 @@
 package apache.rocketmq.v1;
 
 /**
- * Protobuf type {@code apache.rocketmq.v1.LoadAssignment}
+ * Protobuf type {@code apache.rocketmq.v1.Assignment}
  */
-public final class LoadAssignment extends
+public final class Assignment extends
     com.google.protobuf.GeneratedMessageV3 implements
-    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.LoadAssignment)
-    LoadAssignmentOrBuilder {
+    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.Assignment)
+    AssignmentOrBuilder {
 private static final long serialVersionUID = 0L;
-  // Use LoadAssignment.newBuilder() to construct.
-  private LoadAssignment(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+  // Use Assignment.newBuilder() to construct.
+  private Assignment(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
-  private LoadAssignment() {
+  private Assignment() {
     mode_ = 0;
   }
 
@@ -23,7 +23,7 @@ private static final long serialVersionUID = 0L;
   @SuppressWarnings({"unused"})
   protected java.lang.Object newInstance(
       UnusedPrivateParameter unused) {
-    return new LoadAssignment();
+    return new Assignment();
   }
 
   @java.lang.Override
@@ -31,7 +31,7 @@ private static final long serialVersionUID = 0L;
   getUnknownFields() {
     return this.unknownFields;
   }
-  private LoadAssignment(
+  private Assignment(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
@@ -89,15 +89,15 @@ private static final long serialVersionUID = 0L;
   }
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_LoadAssignment_descriptor;
+    return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_Assignment_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_LoadAssignment_fieldAccessorTable
+    return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_Assignment_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            apache.rocketmq.v1.LoadAssignment.class, apache.rocketmq.v1.LoadAssignment.Builder.class);
+            apache.rocketmq.v1.Assignment.class, apache.rocketmq.v1.Assignment.Builder.class);
   }
 
   public static final int PARTITION_FIELD_NUMBER = 1;
@@ -192,10 +192,10 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof apache.rocketmq.v1.LoadAssignment)) {
+    if (!(obj instanceof apache.rocketmq.v1.Assignment)) {
       return super.equals(obj);
     }
-    apache.rocketmq.v1.LoadAssignment other = (apache.rocketmq.v1.LoadAssignment) obj;
+    apache.rocketmq.v1.Assignment other = (apache.rocketmq.v1.Assignment) obj;
 
     if (hasPartition() != other.hasPartition()) return false;
     if (hasPartition()) {
@@ -225,69 +225,69 @@ private static final long serialVersionUID = 0L;
     return hash;
   }
 
-  public static apache.rocketmq.v1.LoadAssignment parseFrom(
+  public static apache.rocketmq.v1.Assignment parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.LoadAssignment parseFrom(
+  public static apache.rocketmq.v1.Assignment parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.LoadAssignment parseFrom(
+  public static apache.rocketmq.v1.Assignment parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.LoadAssignment parseFrom(
+  public static apache.rocketmq.v1.Assignment parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.LoadAssignment parseFrom(byte[] data)
+  public static apache.rocketmq.v1.Assignment parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.LoadAssignment parseFrom(
+  public static apache.rocketmq.v1.Assignment parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.LoadAssignment parseFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.Assignment parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.LoadAssignment parseFrom(
+  public static apache.rocketmq.v1.Assignment parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.LoadAssignment parseDelimitedFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.Assignment parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.LoadAssignment parseDelimitedFrom(
+  public static apache.rocketmq.v1.Assignment parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.LoadAssignment parseFrom(
+  public static apache.rocketmq.v1.Assignment parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.LoadAssignment parseFrom(
+  public static apache.rocketmq.v1.Assignment parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -300,7 +300,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(apache.rocketmq.v1.LoadAssignment prototype) {
+  public static Builder newBuilder(apache.rocketmq.v1.Assignment prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -316,26 +316,26 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
-   * Protobuf type {@code apache.rocketmq.v1.LoadAssignment}
+   * Protobuf type {@code apache.rocketmq.v1.Assignment}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.LoadAssignment)
-      apache.rocketmq.v1.LoadAssignmentOrBuilder {
+      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.Assignment)
+      apache.rocketmq.v1.AssignmentOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_LoadAssignment_descriptor;
+      return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_Assignment_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_LoadAssignment_fieldAccessorTable
+      return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_Assignment_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              apache.rocketmq.v1.LoadAssignment.class, apache.rocketmq.v1.LoadAssignment.Builder.class);
+              apache.rocketmq.v1.Assignment.class, apache.rocketmq.v1.Assignment.Builder.class);
     }
 
-    // Construct using apache.rocketmq.v1.LoadAssignment.newBuilder()
+    // Construct using apache.rocketmq.v1.Assignment.newBuilder()
     private Builder() {
       maybeForceBuilderInitialization();
     }
@@ -367,17 +367,17 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_LoadAssignment_descriptor;
+      return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_Assignment_descriptor;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.LoadAssignment getDefaultInstanceForType() {
-      return apache.rocketmq.v1.LoadAssignment.getDefaultInstance();
+    public apache.rocketmq.v1.Assignment getDefaultInstanceForType() {
+      return apache.rocketmq.v1.Assignment.getDefaultInstance();
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.LoadAssignment build() {
-      apache.rocketmq.v1.LoadAssignment result = buildPartial();
+    public apache.rocketmq.v1.Assignment build() {
+      apache.rocketmq.v1.Assignment result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -385,8 +385,8 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.LoadAssignment buildPartial() {
-      apache.rocketmq.v1.LoadAssignment result = new apache.rocketmq.v1.LoadAssignment(this);
+    public apache.rocketmq.v1.Assignment buildPartial() {
+      apache.rocketmq.v1.Assignment result = new apache.rocketmq.v1.Assignment(this);
       if (partitionBuilder_ == null) {
         result.partition_ = partition_;
       } else {
@@ -431,16 +431,16 @@ private static final long serialVersionUID = 0L;
     }
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof apache.rocketmq.v1.LoadAssignment) {
-        return mergeFrom((apache.rocketmq.v1.LoadAssignment)other);
+      if (other instanceof apache.rocketmq.v1.Assignment) {
+        return mergeFrom((apache.rocketmq.v1.Assignment)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(apache.rocketmq.v1.LoadAssignment other) {
-      if (other == apache.rocketmq.v1.LoadAssignment.getDefaultInstance()) return this;
+    public Builder mergeFrom(apache.rocketmq.v1.Assignment other) {
+      if (other == apache.rocketmq.v1.Assignment.getDefaultInstance()) return this;
       if (other.hasPartition()) {
         mergePartition(other.getPartition());
       }
@@ -462,11 +462,11 @@ private static final long serialVersionUID = 0L;
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      apache.rocketmq.v1.LoadAssignment parsedMessage = null;
+      apache.rocketmq.v1.Assignment parsedMessage = null;
       try {
         parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        parsedMessage = (apache.rocketmq.v1.LoadAssignment) e.getUnfinishedMessage();
+        parsedMessage = (apache.rocketmq.v1.Assignment) e.getUnfinishedMessage();
         throw e.unwrapIOException();
       } finally {
         if (parsedMessage != null) {
@@ -661,41 +661,41 @@ private static final long serialVersionUID = 0L;
     }
 
 
-    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.LoadAssignment)
+    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.Assignment)
   }
 
-  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.LoadAssignment)
-  private static final apache.rocketmq.v1.LoadAssignment DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.Assignment)
+  private static final apache.rocketmq.v1.Assignment DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new apache.rocketmq.v1.LoadAssignment();
+    DEFAULT_INSTANCE = new apache.rocketmq.v1.Assignment();
   }
 
-  public static apache.rocketmq.v1.LoadAssignment getDefaultInstance() {
+  public static apache.rocketmq.v1.Assignment getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<LoadAssignment>
-      PARSER = new com.google.protobuf.AbstractParser<LoadAssignment>() {
+  private static final com.google.protobuf.Parser<Assignment>
+      PARSER = new com.google.protobuf.AbstractParser<Assignment>() {
     @java.lang.Override
-    public LoadAssignment parsePartialFrom(
+    public Assignment parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
-      return new LoadAssignment(input, extensionRegistry);
+      return new Assignment(input, extensionRegistry);
     }
   };
 
-  public static com.google.protobuf.Parser<LoadAssignment> parser() {
+  public static com.google.protobuf.Parser<Assignment> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<LoadAssignment> getParserForType() {
+  public com.google.protobuf.Parser<Assignment> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public apache.rocketmq.v1.LoadAssignment getDefaultInstanceForType() {
+  public apache.rocketmq.v1.Assignment getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

@@ -13,7 +13,6 @@ public class SystemAttribute {
     private Digest digest;
     private Encoding bodyEncoding;
     private MessageType messageType;
-    private TransactionPhase transactionPhase;
     private long bornTimestamp;
     private String bornHost;
     private long deliveryTimestamp = 0;

@@ -3,8 +3,8 @@
 
 package apache.rocketmq.v1;
 
-public interface LoadAssignmentOrBuilder extends
-    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.LoadAssignment)
+public interface AssignmentOrBuilder extends
+    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.Assignment)
     com.google.protobuf.MessageOrBuilder {
 
   /**

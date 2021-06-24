@@ -80,14 +80,13 @@ import org.apache.rocketmq.client.consumer.PopStatus;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.impl.consumer.ConsumerObserver;
-import org.apache.rocketmq.client.impl.consumer.TopicAssignmentInfo;
+import org.apache.rocketmq.client.impl.consumer.TopicAssignment;
 import org.apache.rocketmq.client.impl.producer.ProducerObserver;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.protocol.Digest;
 import org.apache.rocketmq.client.message.protocol.DigestType;
 import org.apache.rocketmq.client.message.protocol.MessageType;
-import org.apache.rocketmq.client.message.protocol.TransactionPhase;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.misc.TopAddressing;
 import org.apache.rocketmq.client.producer.SendCallback;
@@ -967,7 +966,7 @@ public class ClientInstance {
         return rpcClient.queryRoute(request, FETCH_TOPIC_ROUTE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
     }
 
-    public TopicAssignmentInfo queryLoadAssignment(RpcTarget target, QueryAssignmentRequest request)
+    public TopicAssignment queryLoadAssignment(RpcTarget target, QueryAssignmentRequest request)
             throws MQServerException, MQClientException {
         final RpcClient rpcClient = this.getRpcClient(target);
         QueryAssignmentResponse response = rpcClient.queryAssignment(request, RPC_DEFAULT_TIMEOUT_MILLIS,
@@ -977,7 +976,7 @@ public class ClientInstance {
         if (Code.OK_VALUE != code) {
             throw new MQServerException("Failed to query load assignment from remote");
         }
-        return new TopicAssignmentInfo(response.getLoadAssignmentsList());
+        return new TopicAssignment(response.getAssignmentsList());
     }
 
     /**
@@ -1180,28 +1179,6 @@ public class ClientInstance {
                     }
                     // MessageType
                     impl.getSystemAttribute().setMessageType(messageType);
-
-                    TransactionPhase transactionPhase;
-                    switch (systemAttribute.getTransactionPhase()) {
-                        case NOT_APPLICABLE:
-                            transactionPhase = TransactionPhase.NOT_APPLICABLE;
-                            break;
-                        case PREPARE:
-                            transactionPhase = TransactionPhase.PREPARE;
-                            break;
-                        case COMMIT:
-                            transactionPhase = TransactionPhase.COMMIT;
-                            break;
-                        case ROLLBACK:
-                            transactionPhase = TransactionPhase.ROLLBACK;
-                            break;
-                        default:
-                            transactionPhase = TransactionPhase.NOT_APPLICABLE;
-                            log.warn("Unknown transaction phase, fall through to N/A");
-                    }
-                    // TransactionPhase
-                    impl.getSystemAttribute().setTransactionPhase(transactionPhase);
-
                     // BornTimestamp
                     impl.getSystemAttribute().setBornTimestamp(Timestamps.toMillis(systemAttribute.getBornTimestamp()));
                     // BornHost

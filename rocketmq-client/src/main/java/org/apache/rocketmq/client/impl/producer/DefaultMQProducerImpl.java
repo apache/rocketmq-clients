@@ -10,7 +10,6 @@ import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
 import apache.rocketmq.v1.SystemAttribute;
-import apache.rocketmq.v1.TransactionPhase;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.util.Timestamps;
 import java.io.IOException;
@@ -173,7 +172,6 @@ public class DefaultMQProducerImpl implements ProducerObserver {
         }
 
         if (transactionFlag) {
-            systemAttributeBuilder.setTransactionPhase(TransactionPhase.PREPARE);
             systemAttributeBuilder.setMessageType(MessageType.TRANSACTION);
         }
 

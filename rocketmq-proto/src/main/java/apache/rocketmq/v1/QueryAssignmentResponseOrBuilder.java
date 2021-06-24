@@ -23,26 +23,26 @@ public interface QueryAssignmentResponseOrBuilder extends
   apache.rocketmq.v1.ResponseCommonOrBuilder getCommonOrBuilder();
 
   /**
-   * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
    */
-  java.util.List<apache.rocketmq.v1.LoadAssignment> 
-      getLoadAssignmentsList();
+  java.util.List<apache.rocketmq.v1.Assignment> 
+      getAssignmentsList();
   /**
-   * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
    */
-  apache.rocketmq.v1.LoadAssignment getLoadAssignments(int index);
+  apache.rocketmq.v1.Assignment getAssignments(int index);
   /**
-   * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
    */
-  int getLoadAssignmentsCount();
+  int getAssignmentsCount();
   /**
-   * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
    */
-  java.util.List<? extends apache.rocketmq.v1.LoadAssignmentOrBuilder> 
-      getLoadAssignmentsOrBuilderList();
+  java.util.List<? extends apache.rocketmq.v1.AssignmentOrBuilder> 
+      getAssignmentsOrBuilderList();
   /**
-   * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
    */
-  apache.rocketmq.v1.LoadAssignmentOrBuilder getLoadAssignmentsOrBuilder(
+  apache.rocketmq.v1.AssignmentOrBuilder getAssignmentsOrBuilder(
       int index);
 }

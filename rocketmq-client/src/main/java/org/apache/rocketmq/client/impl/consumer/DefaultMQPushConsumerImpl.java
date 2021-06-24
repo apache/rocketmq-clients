@@ -51,7 +51,7 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
     private final DefaultMQPushConsumer defaultMQPushConsumer;
 
     private final ConcurrentMap<String /* topic */, FilterExpression> filterExpressionTable;
-    private final ConcurrentMap<String /* topic */, TopicAssignmentInfo> cachedTopicAssignmentTable;
+    private final ConcurrentMap<String /* topic */, TopicAssignment> cachedTopicAssignmentTable;
 
     private MessageListenerConcurrently messageListenerConcurrently;
     private MessageListenerOrderly messageListenerOrderly;
@@ -69,7 +69,7 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
         this.defaultMQPushConsumer = defaultMQPushConsumer;
 
         this.filterExpressionTable = new ConcurrentHashMap<String, FilterExpression>();
-        this.cachedTopicAssignmentTable = new ConcurrentHashMap<String, TopicAssignmentInfo>();
+        this.cachedTopicAssignmentTable = new ConcurrentHashMap<String, TopicAssignment>();
 
         this.messageListenerConcurrently = null;
         this.messageListenerOrderly = null;
@@ -147,7 +147,7 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
         return QueryAssignmentRequest.newBuilder()
                                      .setTopic(topicResource).setGroup(getGroupResource())
                                      .setClientId(defaultMQPushConsumer.getClientId())
-                                     .setConsumeModel(ConsumeModel.CLUSTERING).build();
+                                     .build();
     }
 
     @Override
@@ -166,15 +166,15 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
                 final FilterExpression filterExpression = entry.getValue();
 
                 try {
-                    final TopicAssignmentInfo localTopicAssignmentInfo =
+                    final TopicAssignment localTopicAssignment =
                             cachedTopicAssignmentTable.get(topic);
-                    final TopicAssignmentInfo remoteTopicAssignmentInfo = queryLoadAssignment(topic);
+                    final TopicAssignment remoteTopicAssignment = queryLoadAssignment(topic);
 
                     // remoteTopicAssignmentInfo should never be null.
-                    if (remoteTopicAssignmentInfo.getAssignmentList().isEmpty()) {
+                    if (remoteTopicAssignment.getAssignmentList().isEmpty()) {
                         log.warn("Acquired empty assignment list from remote, topic={}", topic);
-                        if (null == localTopicAssignmentInfo
-                            || localTopicAssignmentInfo.getAssignmentList().isEmpty()) {
+                        if (null == localTopicAssignment
+                            || localTopicAssignment.getAssignmentList().isEmpty()) {
                             log.warn("No available assignments now, would scan later, topic={}", topic);
                             continue;
                         }
@@ -184,15 +184,15 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
                         continue;
                     }
 
-                    if (!remoteTopicAssignmentInfo.equals(localTopicAssignmentInfo)) {
+                    if (!remoteTopicAssignment.equals(localTopicAssignment)) {
                         log.info(
                                 "Load assignment of {} has changed, {} -> {}",
                                 topic,
-                                localTopicAssignmentInfo,
-                                remoteTopicAssignmentInfo);
+                                localTopicAssignment,
+                                remoteTopicAssignment);
 
-                        syncProcessQueueByTopic(topic, remoteTopicAssignmentInfo, filterExpression);
-                        cachedTopicAssignmentTable.put(topic, remoteTopicAssignmentInfo);
+                        syncProcessQueueByTopic(topic, remoteTopicAssignment, filterExpression);
+                        cachedTopicAssignmentTable.put(topic, remoteTopicAssignment);
                     }
                 } catch (Throwable t) {
                     log.error(
@@ -220,10 +220,10 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
     }
 
     private void syncProcessQueueByTopic(
-            String topic, TopicAssignmentInfo topicAssignmentInfo, FilterExpression filterExpression) {
+            String topic, TopicAssignment topicAssignment, FilterExpression filterExpression) {
         Set<MessageQueue> latestMessageQueueSet = new HashSet<MessageQueue>();
 
-        final List<Assignment> assignmentList = topicAssignmentInfo.getAssignmentList();
+        final List<Assignment> assignmentList = topicAssignment.getAssignmentList();
         for (Assignment assignment : assignmentList) {
             latestMessageQueueSet.add(assignment.getMessageQueue());
         }
@@ -322,7 +322,7 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
         throw new MQServerException("No target available for query.");
     }
 
-    private TopicAssignmentInfo queryLoadAssignment(String topic)
+    private TopicAssignment queryLoadAssignment(String topic)
             throws MQClientException, MQServerException {
         final RpcTarget target = selectRpcTargetForQuery(topic);
 

@@ -19,6 +19,7 @@ private static final long serialVersionUID = 0L;
     messageId_ = "";
     transactionId_ = "";
     resolution_ = 0;
+    source_ = 0;
   }
 
   @java.lang.Override
@@ -52,21 +53,40 @@ private static final long serialVersionUID = 0L;
             done = true;
             break;
           case 10: {
-            java.lang.String s = input.readStringRequireUtf8();
+            apache.rocketmq.v1.Resource.Builder subBuilder = null;
+            if (producerGroup_ != null) {
+              subBuilder = producerGroup_.toBuilder();
+            }
+            producerGroup_ = input.readMessage(apache.rocketmq.v1.Resource.parser(), extensionRegistry);
+            if (subBuilder != null) {
+              subBuilder.mergeFrom(producerGroup_);
+              producerGroup_ = subBuilder.buildPartial();
+            }
 
-            messageId_ = s;
             break;
           }
           case 18: {
             java.lang.String s = input.readStringRequireUtf8();
 
+            messageId_ = s;
+            break;
+          }
+          case 26: {
+            java.lang.String s = input.readStringRequireUtf8();
+
             transactionId_ = s;
             break;
           }
-          case 24: {
+          case 32: {
             int rawValue = input.readEnum();
 
             resolution_ = rawValue;
+            break;
+          }
+          case 40: {
+            int rawValue = input.readEnum();
+
+            source_ = rawValue;
             break;
           }
           default: {
@@ -209,10 +229,144 @@ private static final long serialVersionUID = 0L;
     // @@protoc_insertion_point(enum_scope:apache.rocketmq.v1.EndTransactionRequest.TransactionResolution)
   }
 
-  public static final int MESSAGE_ID_FIELD_NUMBER = 1;
+  /**
+   * Protobuf enum {@code apache.rocketmq.v1.EndTransactionRequest.Source}
+   */
+  public enum Source
+      implements com.google.protobuf.ProtocolMessageEnum {
+    /**
+     * <code>CLIENT = 0;</code>
+     */
+    CLIENT(0),
+    /**
+     * <code>SERVER_CHECK = 1;</code>
+     */
+    SERVER_CHECK(1),
+    UNRECOGNIZED(-1),
+    ;
+
+    /**
+     * <code>CLIENT = 0;</code>
+     */
+    public static final int CLIENT_VALUE = 0;
+    /**
+     * <code>SERVER_CHECK = 1;</code>
+     */
+    public static final int SERVER_CHECK_VALUE = 1;
+
+
+    public final int getNumber() {
+      if (this == UNRECOGNIZED) {
+        throw new java.lang.IllegalArgumentException(
+            "Can't get the number of an unknown enum value.");
+      }
+      return value;
+    }
+
+    /**
+     * @param value The numeric wire value of the corresponding enum entry.
+     * @return The enum associated with the given numeric wire value.
+     * @deprecated Use {@link #forNumber(int)} instead.
+     */
+    @java.lang.Deprecated
+    public static Source valueOf(int value) {
+      return forNumber(value);
+    }
+
+    /**
+     * @param value The numeric wire value of the corresponding enum entry.
+     * @return The enum associated with the given numeric wire value.
+     */
+    public static Source forNumber(int value) {
+      switch (value) {
+        case 0: return CLIENT;
+        case 1: return SERVER_CHECK;
+        default: return null;
+      }
+    }
+
+    public static com.google.protobuf.Internal.EnumLiteMap<Source>
+        internalGetValueMap() {
+      return internalValueMap;
+    }
+    private static final com.google.protobuf.Internal.EnumLiteMap<
+        Source> internalValueMap =
+          new com.google.protobuf.Internal.EnumLiteMap<Source>() {
+            public Source findValueByNumber(int number) {
+              return Source.forNumber(number);
+            }
+          };
+
+    public final com.google.protobuf.Descriptors.EnumValueDescriptor
+        getValueDescriptor() {
+      if (this == UNRECOGNIZED) {
+        throw new java.lang.IllegalStateException(
+            "Can't get the descriptor of an unrecognized enum value.");
+      }
+      return getDescriptor().getValues().get(ordinal());
+    }
+    public final com.google.protobuf.Descriptors.EnumDescriptor
+        getDescriptorForType() {
+      return getDescriptor();
+    }
+    public static final com.google.protobuf.Descriptors.EnumDescriptor
+        getDescriptor() {
+      return apache.rocketmq.v1.EndTransactionRequest.getDescriptor().getEnumTypes().get(1);
+    }
+
+    private static final Source[] VALUES = values();
+
+    public static Source valueOf(
+        com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
+      if (desc.getType() != getDescriptor()) {
+        throw new java.lang.IllegalArgumentException(
+          "EnumValueDescriptor is not for this type.");
+      }
+      if (desc.getIndex() == -1) {
+        return UNRECOGNIZED;
+      }
+      return VALUES[desc.getIndex()];
+    }
+
+    private final int value;
+
+    private Source(int value) {
+      this.value = value;
+    }
+
+    // @@protoc_insertion_point(enum_scope:apache.rocketmq.v1.EndTransactionRequest.Source)
+  }
+
+  public static final int PRODUCER_GROUP_FIELD_NUMBER = 1;
+  private apache.rocketmq.v1.Resource producerGroup_;
+  /**
+   * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+   * @return Whether the producerGroup field is set.
+   */
+  @java.lang.Override
+  public boolean hasProducerGroup() {
+    return producerGroup_ != null;
+  }
+  /**
+   * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+   * @return The producerGroup.
+   */
+  @java.lang.Override
+  public apache.rocketmq.v1.Resource getProducerGroup() {
+    return producerGroup_ == null ? apache.rocketmq.v1.Resource.getDefaultInstance() : producerGroup_;
+  }
+  /**
+   * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+   */
+  @java.lang.Override
+  public apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder() {
+    return getProducerGroup();
+  }
+
+  public static final int MESSAGE_ID_FIELD_NUMBER = 2;
   private volatile java.lang.Object messageId_;
   /**
-   * <code>string message_id = 1;</code>
+   * <code>string message_id = 2;</code>
    * @return The messageId.
    */
   @java.lang.Override
@@ -229,7 +383,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string message_id = 1;</code>
+   * <code>string message_id = 2;</code>
    * @return The bytes for messageId.
    */
   @java.lang.Override
@@ -247,10 +401,10 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int TRANSACTION_ID_FIELD_NUMBER = 2;
+  public static final int TRANSACTION_ID_FIELD_NUMBER = 3;
   private volatile java.lang.Object transactionId_;
   /**
-   * <code>string transaction_id = 2;</code>
+   * <code>string transaction_id = 3;</code>
    * @return The transactionId.
    */
   @java.lang.Override
@@ -267,7 +421,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string transaction_id = 2;</code>
+   * <code>string transaction_id = 3;</code>
    * @return The bytes for transactionId.
    */
   @java.lang.Override
@@ -285,23 +439,42 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int RESOLUTION_FIELD_NUMBER = 3;
+  public static final int RESOLUTION_FIELD_NUMBER = 4;
   private int resolution_;
   /**
-   * <code>.apache.rocketmq.v1.EndTransactionRequest.TransactionResolution resolution = 3;</code>
+   * <code>.apache.rocketmq.v1.EndTransactionRequest.TransactionResolution resolution = 4;</code>
    * @return The enum numeric value on the wire for resolution.
    */
   @java.lang.Override public int getResolutionValue() {
     return resolution_;
   }
   /**
-   * <code>.apache.rocketmq.v1.EndTransactionRequest.TransactionResolution resolution = 3;</code>
+   * <code>.apache.rocketmq.v1.EndTransactionRequest.TransactionResolution resolution = 4;</code>
    * @return The resolution.
    */
   @java.lang.Override public apache.rocketmq.v1.EndTransactionRequest.TransactionResolution getResolution() {
     @SuppressWarnings("deprecation")
     apache.rocketmq.v1.EndTransactionRequest.TransactionResolution result = apache.rocketmq.v1.EndTransactionRequest.TransactionResolution.valueOf(resolution_);
     return result == null ? apache.rocketmq.v1.EndTransactionRequest.TransactionResolution.UNRECOGNIZED : result;
+  }
+
+  public static final int SOURCE_FIELD_NUMBER = 5;
+  private int source_;
+  /**
+   * <code>.apache.rocketmq.v1.EndTransactionRequest.Source source = 5;</code>
+   * @return The enum numeric value on the wire for source.
+   */
+  @java.lang.Override public int getSourceValue() {
+    return source_;
+  }
+  /**
+   * <code>.apache.rocketmq.v1.EndTransactionRequest.Source source = 5;</code>
+   * @return The source.
+   */
+  @java.lang.Override public apache.rocketmq.v1.EndTransactionRequest.Source getSource() {
+    @SuppressWarnings("deprecation")
+    apache.rocketmq.v1.EndTransactionRequest.Source result = apache.rocketmq.v1.EndTransactionRequest.Source.valueOf(source_);
+    return result == null ? apache.rocketmq.v1.EndTransactionRequest.Source.UNRECOGNIZED : result;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -318,14 +491,20 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
+    if (producerGroup_ != null) {
+      output.writeMessage(1, getProducerGroup());
+    }
     if (!getMessageIdBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 1, messageId_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 2, messageId_);
     }
     if (!getTransactionIdBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 2, transactionId_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 3, transactionId_);
     }
     if (resolution_ != apache.rocketmq.v1.EndTransactionRequest.TransactionResolution.COMMIT.getNumber()) {
-      output.writeEnum(3, resolution_);
+      output.writeEnum(4, resolution_);
+    }
+    if (source_ != apache.rocketmq.v1.EndTransactionRequest.Source.CLIENT.getNumber()) {
+      output.writeEnum(5, source_);
     }
     unknownFields.writeTo(output);
   }
@@ -336,15 +515,23 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
+    if (producerGroup_ != null) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(1, getProducerGroup());
+    }
     if (!getMessageIdBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, messageId_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, messageId_);
     }
     if (!getTransactionIdBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, transactionId_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, transactionId_);
     }
     if (resolution_ != apache.rocketmq.v1.EndTransactionRequest.TransactionResolution.COMMIT.getNumber()) {
       size += com.google.protobuf.CodedOutputStream
-        .computeEnumSize(3, resolution_);
+        .computeEnumSize(4, resolution_);
+    }
+    if (source_ != apache.rocketmq.v1.EndTransactionRequest.Source.CLIENT.getNumber()) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeEnumSize(5, source_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -361,11 +548,17 @@ private static final long serialVersionUID = 0L;
     }
     apache.rocketmq.v1.EndTransactionRequest other = (apache.rocketmq.v1.EndTransactionRequest) obj;
 
+    if (hasProducerGroup() != other.hasProducerGroup()) return false;
+    if (hasProducerGroup()) {
+      if (!getProducerGroup()
+          .equals(other.getProducerGroup())) return false;
+    }
     if (!getMessageId()
         .equals(other.getMessageId())) return false;
     if (!getTransactionId()
         .equals(other.getTransactionId())) return false;
     if (resolution_ != other.resolution_) return false;
+    if (source_ != other.source_) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -377,12 +570,18 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
+    if (hasProducerGroup()) {
+      hash = (37 * hash) + PRODUCER_GROUP_FIELD_NUMBER;
+      hash = (53 * hash) + getProducerGroup().hashCode();
+    }
     hash = (37 * hash) + MESSAGE_ID_FIELD_NUMBER;
     hash = (53 * hash) + getMessageId().hashCode();
     hash = (37 * hash) + TRANSACTION_ID_FIELD_NUMBER;
     hash = (53 * hash) + getTransactionId().hashCode();
     hash = (37 * hash) + RESOLUTION_FIELD_NUMBER;
     hash = (53 * hash) + resolution_;
+    hash = (37 * hash) + SOURCE_FIELD_NUMBER;
+    hash = (53 * hash) + source_;
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -516,11 +715,19 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
+      if (producerGroupBuilder_ == null) {
+        producerGroup_ = null;
+      } else {
+        producerGroup_ = null;
+        producerGroupBuilder_ = null;
+      }
       messageId_ = "";
 
       transactionId_ = "";
 
       resolution_ = 0;
+
+      source_ = 0;
 
       return this;
     }
@@ -548,9 +755,15 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public apache.rocketmq.v1.EndTransactionRequest buildPartial() {
       apache.rocketmq.v1.EndTransactionRequest result = new apache.rocketmq.v1.EndTransactionRequest(this);
+      if (producerGroupBuilder_ == null) {
+        result.producerGroup_ = producerGroup_;
+      } else {
+        result.producerGroup_ = producerGroupBuilder_.build();
+      }
       result.messageId_ = messageId_;
       result.transactionId_ = transactionId_;
       result.resolution_ = resolution_;
+      result.source_ = source_;
       onBuilt();
       return result;
     }
@@ -599,6 +812,9 @@ private static final long serialVersionUID = 0L;
 
     public Builder mergeFrom(apache.rocketmq.v1.EndTransactionRequest other) {
       if (other == apache.rocketmq.v1.EndTransactionRequest.getDefaultInstance()) return this;
+      if (other.hasProducerGroup()) {
+        mergeProducerGroup(other.getProducerGroup());
+      }
       if (!other.getMessageId().isEmpty()) {
         messageId_ = other.messageId_;
         onChanged();
@@ -609,6 +825,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.resolution_ != 0) {
         setResolutionValue(other.getResolutionValue());
+      }
+      if (other.source_ != 0) {
+        setSourceValue(other.getSourceValue());
       }
       this.mergeUnknownFields(other.unknownFields);
       onChanged();
@@ -639,9 +858,128 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    private apache.rocketmq.v1.Resource producerGroup_;
+    private com.google.protobuf.SingleFieldBuilderV3<
+        apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> producerGroupBuilder_;
+    /**
+     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+     * @return Whether the producerGroup field is set.
+     */
+    public boolean hasProducerGroup() {
+      return producerGroupBuilder_ != null || producerGroup_ != null;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+     * @return The producerGroup.
+     */
+    public apache.rocketmq.v1.Resource getProducerGroup() {
+      if (producerGroupBuilder_ == null) {
+        return producerGroup_ == null ? apache.rocketmq.v1.Resource.getDefaultInstance() : producerGroup_;
+      } else {
+        return producerGroupBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+     */
+    public Builder setProducerGroup(apache.rocketmq.v1.Resource value) {
+      if (producerGroupBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        producerGroup_ = value;
+        onChanged();
+      } else {
+        producerGroupBuilder_.setMessage(value);
+      }
+
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+     */
+    public Builder setProducerGroup(
+        apache.rocketmq.v1.Resource.Builder builderForValue) {
+      if (producerGroupBuilder_ == null) {
+        producerGroup_ = builderForValue.build();
+        onChanged();
+      } else {
+        producerGroupBuilder_.setMessage(builderForValue.build());
+      }
+
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+     */
+    public Builder mergeProducerGroup(apache.rocketmq.v1.Resource value) {
+      if (producerGroupBuilder_ == null) {
+        if (producerGroup_ != null) {
+          producerGroup_ =
+            apache.rocketmq.v1.Resource.newBuilder(producerGroup_).mergeFrom(value).buildPartial();
+        } else {
+          producerGroup_ = value;
+        }
+        onChanged();
+      } else {
+        producerGroupBuilder_.mergeFrom(value);
+      }
+
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+     */
+    public Builder clearProducerGroup() {
+      if (producerGroupBuilder_ == null) {
+        producerGroup_ = null;
+        onChanged();
+      } else {
+        producerGroup_ = null;
+        producerGroupBuilder_ = null;
+      }
+
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+     */
+    public apache.rocketmq.v1.Resource.Builder getProducerGroupBuilder() {
+      
+      onChanged();
+      return getProducerGroupFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+     */
+    public apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder() {
+      if (producerGroupBuilder_ != null) {
+        return producerGroupBuilder_.getMessageOrBuilder();
+      } else {
+        return producerGroup_ == null ?
+            apache.rocketmq.v1.Resource.getDefaultInstance() : producerGroup_;
+      }
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+     */
+    private com.google.protobuf.SingleFieldBuilderV3<
+        apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> 
+        getProducerGroupFieldBuilder() {
+      if (producerGroupBuilder_ == null) {
+        producerGroupBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+            apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder>(
+                getProducerGroup(),
+                getParentForChildren(),
+                isClean());
+        producerGroup_ = null;
+      }
+      return producerGroupBuilder_;
+    }
+
     private java.lang.Object messageId_ = "";
     /**
-     * <code>string message_id = 1;</code>
+     * <code>string message_id = 2;</code>
      * @return The messageId.
      */
     public java.lang.String getMessageId() {
@@ -657,7 +995,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string message_id = 1;</code>
+     * <code>string message_id = 2;</code>
      * @return The bytes for messageId.
      */
     public com.google.protobuf.ByteString
@@ -674,7 +1012,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string message_id = 1;</code>
+     * <code>string message_id = 2;</code>
      * @param value The messageId to set.
      * @return This builder for chaining.
      */
@@ -689,7 +1027,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string message_id = 1;</code>
+     * <code>string message_id = 2;</code>
      * @return This builder for chaining.
      */
     public Builder clearMessageId() {
@@ -699,7 +1037,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string message_id = 1;</code>
+     * <code>string message_id = 2;</code>
      * @param value The bytes for messageId to set.
      * @return This builder for chaining.
      */
@@ -717,7 +1055,7 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object transactionId_ = "";
     /**
-     * <code>string transaction_id = 2;</code>
+     * <code>string transaction_id = 3;</code>
      * @return The transactionId.
      */
     public java.lang.String getTransactionId() {
@@ -733,7 +1071,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string transaction_id = 2;</code>
+     * <code>string transaction_id = 3;</code>
      * @return The bytes for transactionId.
      */
     public com.google.protobuf.ByteString
@@ -750,7 +1088,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string transaction_id = 2;</code>
+     * <code>string transaction_id = 3;</code>
      * @param value The transactionId to set.
      * @return This builder for chaining.
      */
@@ -765,7 +1103,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string transaction_id = 2;</code>
+     * <code>string transaction_id = 3;</code>
      * @return This builder for chaining.
      */
     public Builder clearTransactionId() {
@@ -775,7 +1113,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string transaction_id = 2;</code>
+     * <code>string transaction_id = 3;</code>
      * @param value The bytes for transactionId to set.
      * @return This builder for chaining.
      */
@@ -793,14 +1131,14 @@ private static final long serialVersionUID = 0L;
 
     private int resolution_ = 0;
     /**
-     * <code>.apache.rocketmq.v1.EndTransactionRequest.TransactionResolution resolution = 3;</code>
+     * <code>.apache.rocketmq.v1.EndTransactionRequest.TransactionResolution resolution = 4;</code>
      * @return The enum numeric value on the wire for resolution.
      */
     @java.lang.Override public int getResolutionValue() {
       return resolution_;
     }
     /**
-     * <code>.apache.rocketmq.v1.EndTransactionRequest.TransactionResolution resolution = 3;</code>
+     * <code>.apache.rocketmq.v1.EndTransactionRequest.TransactionResolution resolution = 4;</code>
      * @param value The enum numeric value on the wire for resolution to set.
      * @return This builder for chaining.
      */
@@ -811,7 +1149,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.EndTransactionRequest.TransactionResolution resolution = 3;</code>
+     * <code>.apache.rocketmq.v1.EndTransactionRequest.TransactionResolution resolution = 4;</code>
      * @return The resolution.
      */
     @java.lang.Override
@@ -821,7 +1159,7 @@ private static final long serialVersionUID = 0L;
       return result == null ? apache.rocketmq.v1.EndTransactionRequest.TransactionResolution.UNRECOGNIZED : result;
     }
     /**
-     * <code>.apache.rocketmq.v1.EndTransactionRequest.TransactionResolution resolution = 3;</code>
+     * <code>.apache.rocketmq.v1.EndTransactionRequest.TransactionResolution resolution = 4;</code>
      * @param value The resolution to set.
      * @return This builder for chaining.
      */
@@ -835,12 +1173,66 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.EndTransactionRequest.TransactionResolution resolution = 3;</code>
+     * <code>.apache.rocketmq.v1.EndTransactionRequest.TransactionResolution resolution = 4;</code>
      * @return This builder for chaining.
      */
     public Builder clearResolution() {
       
       resolution_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int source_ = 0;
+    /**
+     * <code>.apache.rocketmq.v1.EndTransactionRequest.Source source = 5;</code>
+     * @return The enum numeric value on the wire for source.
+     */
+    @java.lang.Override public int getSourceValue() {
+      return source_;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.EndTransactionRequest.Source source = 5;</code>
+     * @param value The enum numeric value on the wire for source to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSourceValue(int value) {
+      
+      source_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.EndTransactionRequest.Source source = 5;</code>
+     * @return The source.
+     */
+    @java.lang.Override
+    public apache.rocketmq.v1.EndTransactionRequest.Source getSource() {
+      @SuppressWarnings("deprecation")
+      apache.rocketmq.v1.EndTransactionRequest.Source result = apache.rocketmq.v1.EndTransactionRequest.Source.valueOf(source_);
+      return result == null ? apache.rocketmq.v1.EndTransactionRequest.Source.UNRECOGNIZED : result;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.EndTransactionRequest.Source source = 5;</code>
+     * @param value The source to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSource(apache.rocketmq.v1.EndTransactionRequest.Source value) {
+      if (value == null) {
+        throw new NullPointerException();
+      }
+      
+      source_ = value.getNumber();
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.EndTransactionRequest.Source source = 5;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSource() {
+      
+      source_ = 0;
       onChanged();
       return this;
     }

@@ -8,37 +8,63 @@ public interface EndTransactionRequestOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>string message_id = 1;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+   * @return Whether the producerGroup field is set.
+   */
+  boolean hasProducerGroup();
+  /**
+   * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+   * @return The producerGroup.
+   */
+  apache.rocketmq.v1.Resource getProducerGroup();
+  /**
+   * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+   */
+  apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder();
+
+  /**
+   * <code>string message_id = 2;</code>
    * @return The messageId.
    */
   java.lang.String getMessageId();
   /**
-   * <code>string message_id = 1;</code>
+   * <code>string message_id = 2;</code>
    * @return The bytes for messageId.
    */
   com.google.protobuf.ByteString
       getMessageIdBytes();
 
   /**
-   * <code>string transaction_id = 2;</code>
+   * <code>string transaction_id = 3;</code>
    * @return The transactionId.
    */
   java.lang.String getTransactionId();
   /**
-   * <code>string transaction_id = 2;</code>
+   * <code>string transaction_id = 3;</code>
    * @return The bytes for transactionId.
    */
   com.google.protobuf.ByteString
       getTransactionIdBytes();
 
   /**
-   * <code>.apache.rocketmq.v1.EndTransactionRequest.TransactionResolution resolution = 3;</code>
+   * <code>.apache.rocketmq.v1.EndTransactionRequest.TransactionResolution resolution = 4;</code>
    * @return The enum numeric value on the wire for resolution.
    */
   int getResolutionValue();
   /**
-   * <code>.apache.rocketmq.v1.EndTransactionRequest.TransactionResolution resolution = 3;</code>
+   * <code>.apache.rocketmq.v1.EndTransactionRequest.TransactionResolution resolution = 4;</code>
    * @return The resolution.
    */
   apache.rocketmq.v1.EndTransactionRequest.TransactionResolution getResolution();
+
+  /**
+   * <code>.apache.rocketmq.v1.EndTransactionRequest.Source source = 5;</code>
+   * @return The enum numeric value on the wire for source.
+   */
+  int getSourceValue();
+  /**
+   * <code>.apache.rocketmq.v1.EndTransactionRequest.Source source = 5;</code>
+   * @return The source.
+   */
+  apache.rocketmq.v1.EndTransactionRequest.Source getSource();
 }

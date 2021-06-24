@@ -1,6 +1,5 @@
 package org.apache.rocketmq.client.impl.consumer;
 
-import apache.rocketmq.v1.LoadAssignment;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.EqualsAndHashCode;
@@ -13,15 +12,15 @@ import org.apache.rocketmq.client.route.Partition;
 @Slf4j
 @ToString
 @EqualsAndHashCode
-public class TopicAssignmentInfo {
+public class TopicAssignment {
 
     @Getter
     private final List<Assignment> assignmentList;
 
-    public TopicAssignmentInfo(List<LoadAssignment> loadAssignmentList) {
+    public TopicAssignment(List<apache.rocketmq.v1.Assignment> assignmentList) {
         this.assignmentList = new ArrayList<Assignment>();
 
-        for (LoadAssignment item : loadAssignmentList) {
+        for (apache.rocketmq.v1.Assignment item : assignmentList) {
             MessageQueue messageQueue =
                     new MessageQueue(new Partition(item.getPartition()));
 
@@ -36,7 +35,7 @@ public class TopicAssignmentInfo {
                 default:
                     log.warn("Unknown message request mode={}, default to pop.", item.getMode());
             }
-            assignmentList.add(new Assignment(messageQueue, mode));
+            this.assignmentList.add(new Assignment(messageQueue, mode));
         }
     }
 }

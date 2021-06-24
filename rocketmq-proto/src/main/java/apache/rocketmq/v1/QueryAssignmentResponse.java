@@ -16,7 +16,7 @@ private static final long serialVersionUID = 0L;
     super(builder);
   }
   private QueryAssignmentResponse() {
-    loadAssignments_ = java.util.Collections.emptyList();
+    assignments_ = java.util.Collections.emptyList();
   }
 
   @java.lang.Override
@@ -65,11 +65,11 @@ private static final long serialVersionUID = 0L;
           }
           case 18: {
             if (!((mutable_bitField0_ & 0x00000001) != 0)) {
-              loadAssignments_ = new java.util.ArrayList<apache.rocketmq.v1.LoadAssignment>();
+              assignments_ = new java.util.ArrayList<apache.rocketmq.v1.Assignment>();
               mutable_bitField0_ |= 0x00000001;
             }
-            loadAssignments_.add(
-                input.readMessage(apache.rocketmq.v1.LoadAssignment.parser(), extensionRegistry));
+            assignments_.add(
+                input.readMessage(apache.rocketmq.v1.Assignment.parser(), extensionRegistry));
             break;
           }
           default: {
@@ -88,7 +88,7 @@ private static final long serialVersionUID = 0L;
           e).setUnfinishedMessage(this);
     } finally {
       if (((mutable_bitField0_ & 0x00000001) != 0)) {
-        loadAssignments_ = java.util.Collections.unmodifiableList(loadAssignments_);
+        assignments_ = java.util.Collections.unmodifiableList(assignments_);
       }
       this.unknownFields = unknownFields.build();
       makeExtensionsImmutable();
@@ -133,44 +133,44 @@ private static final long serialVersionUID = 0L;
     return getCommon();
   }
 
-  public static final int LOAD_ASSIGNMENTS_FIELD_NUMBER = 2;
-  private java.util.List<apache.rocketmq.v1.LoadAssignment> loadAssignments_;
+  public static final int ASSIGNMENTS_FIELD_NUMBER = 2;
+  private java.util.List<apache.rocketmq.v1.Assignment> assignments_;
   /**
-   * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
    */
   @java.lang.Override
-  public java.util.List<apache.rocketmq.v1.LoadAssignment> getLoadAssignmentsList() {
-    return loadAssignments_;
+  public java.util.List<apache.rocketmq.v1.Assignment> getAssignmentsList() {
+    return assignments_;
   }
   /**
-   * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
    */
   @java.lang.Override
-  public java.util.List<? extends apache.rocketmq.v1.LoadAssignmentOrBuilder> 
-      getLoadAssignmentsOrBuilderList() {
-    return loadAssignments_;
+  public java.util.List<? extends apache.rocketmq.v1.AssignmentOrBuilder> 
+      getAssignmentsOrBuilderList() {
+    return assignments_;
   }
   /**
-   * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
    */
   @java.lang.Override
-  public int getLoadAssignmentsCount() {
-    return loadAssignments_.size();
+  public int getAssignmentsCount() {
+    return assignments_.size();
   }
   /**
-   * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
    */
   @java.lang.Override
-  public apache.rocketmq.v1.LoadAssignment getLoadAssignments(int index) {
-    return loadAssignments_.get(index);
+  public apache.rocketmq.v1.Assignment getAssignments(int index) {
+    return assignments_.get(index);
   }
   /**
-   * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+   * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
    */
   @java.lang.Override
-  public apache.rocketmq.v1.LoadAssignmentOrBuilder getLoadAssignmentsOrBuilder(
+  public apache.rocketmq.v1.AssignmentOrBuilder getAssignmentsOrBuilder(
       int index) {
-    return loadAssignments_.get(index);
+    return assignments_.get(index);
   }
 
   private byte memoizedIsInitialized = -1;
@@ -190,8 +190,8 @@ private static final long serialVersionUID = 0L;
     if (common_ != null) {
       output.writeMessage(1, getCommon());
     }
-    for (int i = 0; i < loadAssignments_.size(); i++) {
-      output.writeMessage(2, loadAssignments_.get(i));
+    for (int i = 0; i < assignments_.size(); i++) {
+      output.writeMessage(2, assignments_.get(i));
     }
     unknownFields.writeTo(output);
   }
@@ -206,9 +206,9 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(1, getCommon());
     }
-    for (int i = 0; i < loadAssignments_.size(); i++) {
+    for (int i = 0; i < assignments_.size(); i++) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(2, loadAssignments_.get(i));
+        .computeMessageSize(2, assignments_.get(i));
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -230,8 +230,8 @@ private static final long serialVersionUID = 0L;
       if (!getCommon()
           .equals(other.getCommon())) return false;
     }
-    if (!getLoadAssignmentsList()
-        .equals(other.getLoadAssignmentsList())) return false;
+    if (!getAssignmentsList()
+        .equals(other.getAssignmentsList())) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -247,9 +247,9 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + COMMON_FIELD_NUMBER;
       hash = (53 * hash) + getCommon().hashCode();
     }
-    if (getLoadAssignmentsCount() > 0) {
-      hash = (37 * hash) + LOAD_ASSIGNMENTS_FIELD_NUMBER;
-      hash = (53 * hash) + getLoadAssignmentsList().hashCode();
+    if (getAssignmentsCount() > 0) {
+      hash = (37 * hash) + ASSIGNMENTS_FIELD_NUMBER;
+      hash = (53 * hash) + getAssignmentsList().hashCode();
     }
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
@@ -379,7 +379,7 @@ private static final long serialVersionUID = 0L;
     private void maybeForceBuilderInitialization() {
       if (com.google.protobuf.GeneratedMessageV3
               .alwaysUseFieldBuilders) {
-        getLoadAssignmentsFieldBuilder();
+        getAssignmentsFieldBuilder();
       }
     }
     @java.lang.Override
@@ -391,11 +391,11 @@ private static final long serialVersionUID = 0L;
         common_ = null;
         commonBuilder_ = null;
       }
-      if (loadAssignmentsBuilder_ == null) {
-        loadAssignments_ = java.util.Collections.emptyList();
+      if (assignmentsBuilder_ == null) {
+        assignments_ = java.util.Collections.emptyList();
         bitField0_ = (bitField0_ & ~0x00000001);
       } else {
-        loadAssignmentsBuilder_.clear();
+        assignmentsBuilder_.clear();
       }
       return this;
     }
@@ -429,14 +429,14 @@ private static final long serialVersionUID = 0L;
       } else {
         result.common_ = commonBuilder_.build();
       }
-      if (loadAssignmentsBuilder_ == null) {
+      if (assignmentsBuilder_ == null) {
         if (((bitField0_ & 0x00000001) != 0)) {
-          loadAssignments_ = java.util.Collections.unmodifiableList(loadAssignments_);
+          assignments_ = java.util.Collections.unmodifiableList(assignments_);
           bitField0_ = (bitField0_ & ~0x00000001);
         }
-        result.loadAssignments_ = loadAssignments_;
+        result.assignments_ = assignments_;
       } else {
-        result.loadAssignments_ = loadAssignmentsBuilder_.build();
+        result.assignments_ = assignmentsBuilder_.build();
       }
       onBuilt();
       return result;
@@ -489,29 +489,29 @@ private static final long serialVersionUID = 0L;
       if (other.hasCommon()) {
         mergeCommon(other.getCommon());
       }
-      if (loadAssignmentsBuilder_ == null) {
-        if (!other.loadAssignments_.isEmpty()) {
-          if (loadAssignments_.isEmpty()) {
-            loadAssignments_ = other.loadAssignments_;
+      if (assignmentsBuilder_ == null) {
+        if (!other.assignments_.isEmpty()) {
+          if (assignments_.isEmpty()) {
+            assignments_ = other.assignments_;
             bitField0_ = (bitField0_ & ~0x00000001);
           } else {
-            ensureLoadAssignmentsIsMutable();
-            loadAssignments_.addAll(other.loadAssignments_);
+            ensureAssignmentsIsMutable();
+            assignments_.addAll(other.assignments_);
           }
           onChanged();
         }
       } else {
-        if (!other.loadAssignments_.isEmpty()) {
-          if (loadAssignmentsBuilder_.isEmpty()) {
-            loadAssignmentsBuilder_.dispose();
-            loadAssignmentsBuilder_ = null;
-            loadAssignments_ = other.loadAssignments_;
+        if (!other.assignments_.isEmpty()) {
+          if (assignmentsBuilder_.isEmpty()) {
+            assignmentsBuilder_.dispose();
+            assignmentsBuilder_ = null;
+            assignments_ = other.assignments_;
             bitField0_ = (bitField0_ & ~0x00000001);
-            loadAssignmentsBuilder_ = 
+            assignmentsBuilder_ = 
               com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
-                 getLoadAssignmentsFieldBuilder() : null;
+                 getAssignmentsFieldBuilder() : null;
           } else {
-            loadAssignmentsBuilder_.addAllMessages(other.loadAssignments_);
+            assignmentsBuilder_.addAllMessages(other.assignments_);
           }
         }
       }
@@ -664,244 +664,244 @@ private static final long serialVersionUID = 0L;
       return commonBuilder_;
     }
 
-    private java.util.List<apache.rocketmq.v1.LoadAssignment> loadAssignments_ =
+    private java.util.List<apache.rocketmq.v1.Assignment> assignments_ =
       java.util.Collections.emptyList();
-    private void ensureLoadAssignmentsIsMutable() {
+    private void ensureAssignmentsIsMutable() {
       if (!((bitField0_ & 0x00000001) != 0)) {
-        loadAssignments_ = new java.util.ArrayList<apache.rocketmq.v1.LoadAssignment>(loadAssignments_);
+        assignments_ = new java.util.ArrayList<apache.rocketmq.v1.Assignment>(assignments_);
         bitField0_ |= 0x00000001;
        }
     }
 
     private com.google.protobuf.RepeatedFieldBuilderV3<
-        apache.rocketmq.v1.LoadAssignment, apache.rocketmq.v1.LoadAssignment.Builder, apache.rocketmq.v1.LoadAssignmentOrBuilder> loadAssignmentsBuilder_;
+        apache.rocketmq.v1.Assignment, apache.rocketmq.v1.Assignment.Builder, apache.rocketmq.v1.AssignmentOrBuilder> assignmentsBuilder_;
 
     /**
-     * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
      */
-    public java.util.List<apache.rocketmq.v1.LoadAssignment> getLoadAssignmentsList() {
-      if (loadAssignmentsBuilder_ == null) {
-        return java.util.Collections.unmodifiableList(loadAssignments_);
+    public java.util.List<apache.rocketmq.v1.Assignment> getAssignmentsList() {
+      if (assignmentsBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(assignments_);
       } else {
-        return loadAssignmentsBuilder_.getMessageList();
+        return assignmentsBuilder_.getMessageList();
       }
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
      */
-    public int getLoadAssignmentsCount() {
-      if (loadAssignmentsBuilder_ == null) {
-        return loadAssignments_.size();
+    public int getAssignmentsCount() {
+      if (assignmentsBuilder_ == null) {
+        return assignments_.size();
       } else {
-        return loadAssignmentsBuilder_.getCount();
+        return assignmentsBuilder_.getCount();
       }
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
      */
-    public apache.rocketmq.v1.LoadAssignment getLoadAssignments(int index) {
-      if (loadAssignmentsBuilder_ == null) {
-        return loadAssignments_.get(index);
+    public apache.rocketmq.v1.Assignment getAssignments(int index) {
+      if (assignmentsBuilder_ == null) {
+        return assignments_.get(index);
       } else {
-        return loadAssignmentsBuilder_.getMessage(index);
+        return assignmentsBuilder_.getMessage(index);
       }
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
      */
-    public Builder setLoadAssignments(
-        int index, apache.rocketmq.v1.LoadAssignment value) {
-      if (loadAssignmentsBuilder_ == null) {
+    public Builder setAssignments(
+        int index, apache.rocketmq.v1.Assignment value) {
+      if (assignmentsBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
         }
-        ensureLoadAssignmentsIsMutable();
-        loadAssignments_.set(index, value);
+        ensureAssignmentsIsMutable();
+        assignments_.set(index, value);
         onChanged();
       } else {
-        loadAssignmentsBuilder_.setMessage(index, value);
+        assignmentsBuilder_.setMessage(index, value);
       }
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
      */
-    public Builder setLoadAssignments(
-        int index, apache.rocketmq.v1.LoadAssignment.Builder builderForValue) {
-      if (loadAssignmentsBuilder_ == null) {
-        ensureLoadAssignmentsIsMutable();
-        loadAssignments_.set(index, builderForValue.build());
+    public Builder setAssignments(
+        int index, apache.rocketmq.v1.Assignment.Builder builderForValue) {
+      if (assignmentsBuilder_ == null) {
+        ensureAssignmentsIsMutable();
+        assignments_.set(index, builderForValue.build());
         onChanged();
       } else {
-        loadAssignmentsBuilder_.setMessage(index, builderForValue.build());
+        assignmentsBuilder_.setMessage(index, builderForValue.build());
       }
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
      */
-    public Builder addLoadAssignments(apache.rocketmq.v1.LoadAssignment value) {
-      if (loadAssignmentsBuilder_ == null) {
+    public Builder addAssignments(apache.rocketmq.v1.Assignment value) {
+      if (assignmentsBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
         }
-        ensureLoadAssignmentsIsMutable();
-        loadAssignments_.add(value);
+        ensureAssignmentsIsMutable();
+        assignments_.add(value);
         onChanged();
       } else {
-        loadAssignmentsBuilder_.addMessage(value);
+        assignmentsBuilder_.addMessage(value);
       }
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
      */
-    public Builder addLoadAssignments(
-        int index, apache.rocketmq.v1.LoadAssignment value) {
-      if (loadAssignmentsBuilder_ == null) {
+    public Builder addAssignments(
+        int index, apache.rocketmq.v1.Assignment value) {
+      if (assignmentsBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
         }
-        ensureLoadAssignmentsIsMutable();
-        loadAssignments_.add(index, value);
+        ensureAssignmentsIsMutable();
+        assignments_.add(index, value);
         onChanged();
       } else {
-        loadAssignmentsBuilder_.addMessage(index, value);
+        assignmentsBuilder_.addMessage(index, value);
       }
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
      */
-    public Builder addLoadAssignments(
-        apache.rocketmq.v1.LoadAssignment.Builder builderForValue) {
-      if (loadAssignmentsBuilder_ == null) {
-        ensureLoadAssignmentsIsMutable();
-        loadAssignments_.add(builderForValue.build());
+    public Builder addAssignments(
+        apache.rocketmq.v1.Assignment.Builder builderForValue) {
+      if (assignmentsBuilder_ == null) {
+        ensureAssignmentsIsMutable();
+        assignments_.add(builderForValue.build());
         onChanged();
       } else {
-        loadAssignmentsBuilder_.addMessage(builderForValue.build());
+        assignmentsBuilder_.addMessage(builderForValue.build());
       }
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
      */
-    public Builder addLoadAssignments(
-        int index, apache.rocketmq.v1.LoadAssignment.Builder builderForValue) {
-      if (loadAssignmentsBuilder_ == null) {
-        ensureLoadAssignmentsIsMutable();
-        loadAssignments_.add(index, builderForValue.build());
+    public Builder addAssignments(
+        int index, apache.rocketmq.v1.Assignment.Builder builderForValue) {
+      if (assignmentsBuilder_ == null) {
+        ensureAssignmentsIsMutable();
+        assignments_.add(index, builderForValue.build());
         onChanged();
       } else {
-        loadAssignmentsBuilder_.addMessage(index, builderForValue.build());
+        assignmentsBuilder_.addMessage(index, builderForValue.build());
       }
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
      */
-    public Builder addAllLoadAssignments(
-        java.lang.Iterable<? extends apache.rocketmq.v1.LoadAssignment> values) {
-      if (loadAssignmentsBuilder_ == null) {
-        ensureLoadAssignmentsIsMutable();
+    public Builder addAllAssignments(
+        java.lang.Iterable<? extends apache.rocketmq.v1.Assignment> values) {
+      if (assignmentsBuilder_ == null) {
+        ensureAssignmentsIsMutable();
         com.google.protobuf.AbstractMessageLite.Builder.addAll(
-            values, loadAssignments_);
+            values, assignments_);
         onChanged();
       } else {
-        loadAssignmentsBuilder_.addAllMessages(values);
+        assignmentsBuilder_.addAllMessages(values);
       }
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
      */
-    public Builder clearLoadAssignments() {
-      if (loadAssignmentsBuilder_ == null) {
-        loadAssignments_ = java.util.Collections.emptyList();
+    public Builder clearAssignments() {
+      if (assignmentsBuilder_ == null) {
+        assignments_ = java.util.Collections.emptyList();
         bitField0_ = (bitField0_ & ~0x00000001);
         onChanged();
       } else {
-        loadAssignmentsBuilder_.clear();
+        assignmentsBuilder_.clear();
       }
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
      */
-    public Builder removeLoadAssignments(int index) {
-      if (loadAssignmentsBuilder_ == null) {
-        ensureLoadAssignmentsIsMutable();
-        loadAssignments_.remove(index);
+    public Builder removeAssignments(int index) {
+      if (assignmentsBuilder_ == null) {
+        ensureAssignmentsIsMutable();
+        assignments_.remove(index);
         onChanged();
       } else {
-        loadAssignmentsBuilder_.remove(index);
+        assignmentsBuilder_.remove(index);
       }
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
      */
-    public apache.rocketmq.v1.LoadAssignment.Builder getLoadAssignmentsBuilder(
+    public apache.rocketmq.v1.Assignment.Builder getAssignmentsBuilder(
         int index) {
-      return getLoadAssignmentsFieldBuilder().getBuilder(index);
+      return getAssignmentsFieldBuilder().getBuilder(index);
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
      */
-    public apache.rocketmq.v1.LoadAssignmentOrBuilder getLoadAssignmentsOrBuilder(
+    public apache.rocketmq.v1.AssignmentOrBuilder getAssignmentsOrBuilder(
         int index) {
-      if (loadAssignmentsBuilder_ == null) {
-        return loadAssignments_.get(index);  } else {
-        return loadAssignmentsBuilder_.getMessageOrBuilder(index);
+      if (assignmentsBuilder_ == null) {
+        return assignments_.get(index);  } else {
+        return assignmentsBuilder_.getMessageOrBuilder(index);
       }
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
      */
-    public java.util.List<? extends apache.rocketmq.v1.LoadAssignmentOrBuilder> 
-         getLoadAssignmentsOrBuilderList() {
-      if (loadAssignmentsBuilder_ != null) {
-        return loadAssignmentsBuilder_.getMessageOrBuilderList();
+    public java.util.List<? extends apache.rocketmq.v1.AssignmentOrBuilder> 
+         getAssignmentsOrBuilderList() {
+      if (assignmentsBuilder_ != null) {
+        return assignmentsBuilder_.getMessageOrBuilderList();
       } else {
-        return java.util.Collections.unmodifiableList(loadAssignments_);
+        return java.util.Collections.unmodifiableList(assignments_);
       }
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
      */
-    public apache.rocketmq.v1.LoadAssignment.Builder addLoadAssignmentsBuilder() {
-      return getLoadAssignmentsFieldBuilder().addBuilder(
-          apache.rocketmq.v1.LoadAssignment.getDefaultInstance());
+    public apache.rocketmq.v1.Assignment.Builder addAssignmentsBuilder() {
+      return getAssignmentsFieldBuilder().addBuilder(
+          apache.rocketmq.v1.Assignment.getDefaultInstance());
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
      */
-    public apache.rocketmq.v1.LoadAssignment.Builder addLoadAssignmentsBuilder(
+    public apache.rocketmq.v1.Assignment.Builder addAssignmentsBuilder(
         int index) {
-      return getLoadAssignmentsFieldBuilder().addBuilder(
-          index, apache.rocketmq.v1.LoadAssignment.getDefaultInstance());
+      return getAssignmentsFieldBuilder().addBuilder(
+          index, apache.rocketmq.v1.Assignment.getDefaultInstance());
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.LoadAssignment load_assignments = 2;</code>
+     * <code>repeated .apache.rocketmq.v1.Assignment assignments = 2;</code>
      */
-    public java.util.List<apache.rocketmq.v1.LoadAssignment.Builder> 
-         getLoadAssignmentsBuilderList() {
-      return getLoadAssignmentsFieldBuilder().getBuilderList();
+    public java.util.List<apache.rocketmq.v1.Assignment.Builder> 
+         getAssignmentsBuilderList() {
+      return getAssignmentsFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilderV3<
-        apache.rocketmq.v1.LoadAssignment, apache.rocketmq.v1.LoadAssignment.Builder, apache.rocketmq.v1.LoadAssignmentOrBuilder> 
-        getLoadAssignmentsFieldBuilder() {
-      if (loadAssignmentsBuilder_ == null) {
-        loadAssignmentsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
-            apache.rocketmq.v1.LoadAssignment, apache.rocketmq.v1.LoadAssignment.Builder, apache.rocketmq.v1.LoadAssignmentOrBuilder>(
-                loadAssignments_,
+        apache.rocketmq.v1.Assignment, apache.rocketmq.v1.Assignment.Builder, apache.rocketmq.v1.AssignmentOrBuilder> 
+        getAssignmentsFieldBuilder() {
+      if (assignmentsBuilder_ == null) {
+        assignmentsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+            apache.rocketmq.v1.Assignment, apache.rocketmq.v1.Assignment.Builder, apache.rocketmq.v1.AssignmentOrBuilder>(
+                assignments_,
                 ((bitField0_ & 0x00000001) != 0),
                 getParentForChildren(),
                 isClean());
-        loadAssignments_ = null;
+        assignments_ = null;
       }
-      return loadAssignmentsBuilder_;
+      return assignmentsBuilder_;
     }
     @java.lang.Override
     public final Builder setUnknownFields(

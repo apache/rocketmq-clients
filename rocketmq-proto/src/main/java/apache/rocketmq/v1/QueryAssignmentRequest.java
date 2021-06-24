@@ -17,7 +17,6 @@ private static final long serialVersionUID = 0L;
   }
   private QueryAssignmentRequest() {
     clientId_ = "";
-    consumeModel_ = 0;
   }
 
   @java.lang.Override
@@ -80,12 +79,6 @@ private static final long serialVersionUID = 0L;
             java.lang.String s = input.readStringRequireUtf8();
 
             clientId_ = s;
-            break;
-          }
-          case 32: {
-            int rawValue = input.readEnum();
-
-            consumeModel_ = rawValue;
             break;
           }
           default: {
@@ -210,25 +203,6 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int CONSUME_MODEL_FIELD_NUMBER = 4;
-  private int consumeModel_;
-  /**
-   * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 4;</code>
-   * @return The enum numeric value on the wire for consumeModel.
-   */
-  @java.lang.Override public int getConsumeModelValue() {
-    return consumeModel_;
-  }
-  /**
-   * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 4;</code>
-   * @return The consumeModel.
-   */
-  @java.lang.Override public apache.rocketmq.v1.ConsumeModel getConsumeModel() {
-    @SuppressWarnings("deprecation")
-    apache.rocketmq.v1.ConsumeModel result = apache.rocketmq.v1.ConsumeModel.valueOf(consumeModel_);
-    return result == null ? apache.rocketmq.v1.ConsumeModel.UNRECOGNIZED : result;
-  }
-
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -252,9 +226,6 @@ private static final long serialVersionUID = 0L;
     if (!getClientIdBytes().isEmpty()) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 3, clientId_);
     }
-    if (consumeModel_ != apache.rocketmq.v1.ConsumeModel.CLUSTERING.getNumber()) {
-      output.writeEnum(4, consumeModel_);
-    }
     unknownFields.writeTo(output);
   }
 
@@ -274,10 +245,6 @@ private static final long serialVersionUID = 0L;
     }
     if (!getClientIdBytes().isEmpty()) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, clientId_);
-    }
-    if (consumeModel_ != apache.rocketmq.v1.ConsumeModel.CLUSTERING.getNumber()) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeEnumSize(4, consumeModel_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -306,7 +273,6 @@ private static final long serialVersionUID = 0L;
     }
     if (!getClientId()
         .equals(other.getClientId())) return false;
-    if (consumeModel_ != other.consumeModel_) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -328,8 +294,6 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + CLIENT_ID_FIELD_NUMBER;
     hash = (53 * hash) + getClientId().hashCode();
-    hash = (37 * hash) + CONSUME_MODEL_FIELD_NUMBER;
-    hash = (53 * hash) + consumeModel_;
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -477,8 +441,6 @@ private static final long serialVersionUID = 0L;
       }
       clientId_ = "";
 
-      consumeModel_ = 0;
-
       return this;
     }
 
@@ -516,7 +478,6 @@ private static final long serialVersionUID = 0L;
         result.group_ = groupBuilder_.build();
       }
       result.clientId_ = clientId_;
-      result.consumeModel_ = consumeModel_;
       onBuilt();
       return result;
     }
@@ -574,9 +535,6 @@ private static final long serialVersionUID = 0L;
       if (!other.getClientId().isEmpty()) {
         clientId_ = other.clientId_;
         onChanged();
-      }
-      if (other.consumeModel_ != 0) {
-        setConsumeModelValue(other.getConsumeModelValue());
       }
       this.mergeUnknownFields(other.unknownFields);
       onChanged();
@@ -917,60 +875,6 @@ private static final long serialVersionUID = 0L;
   checkByteStringIsUtf8(value);
       
       clientId_ = value;
-      onChanged();
-      return this;
-    }
-
-    private int consumeModel_ = 0;
-    /**
-     * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 4;</code>
-     * @return The enum numeric value on the wire for consumeModel.
-     */
-    @java.lang.Override public int getConsumeModelValue() {
-      return consumeModel_;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 4;</code>
-     * @param value The enum numeric value on the wire for consumeModel to set.
-     * @return This builder for chaining.
-     */
-    public Builder setConsumeModelValue(int value) {
-      
-      consumeModel_ = value;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 4;</code>
-     * @return The consumeModel.
-     */
-    @java.lang.Override
-    public apache.rocketmq.v1.ConsumeModel getConsumeModel() {
-      @SuppressWarnings("deprecation")
-      apache.rocketmq.v1.ConsumeModel result = apache.rocketmq.v1.ConsumeModel.valueOf(consumeModel_);
-      return result == null ? apache.rocketmq.v1.ConsumeModel.UNRECOGNIZED : result;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 4;</code>
-     * @param value The consumeModel to set.
-     * @return This builder for chaining.
-     */
-    public Builder setConsumeModel(apache.rocketmq.v1.ConsumeModel value) {
-      if (value == null) {
-        throw new NullPointerException();
-      }
-      
-      consumeModel_ = value.getNumber();
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 4;</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearConsumeModel() {
-      
-      consumeModel_ = 0;
       onChanged();
       return this;
     }

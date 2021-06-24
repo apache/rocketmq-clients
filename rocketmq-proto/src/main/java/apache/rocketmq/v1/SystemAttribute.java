@@ -21,12 +21,12 @@ private static final long serialVersionUID = 0L;
     messageId_ = "";
     bodyEncoding_ = 0;
     messageType_ = 0;
-    transactionPhase_ = 0;
     bornHost_ = "";
     storeHost_ = "";
     receiptHandle_ = "";
     messageGroup_ = "";
     traceContext_ = "";
+    transactionId_ = "";
   }
 
   @java.lang.Override
@@ -106,13 +106,7 @@ private static final long serialVersionUID = 0L;
             messageType_ = rawValue;
             break;
           }
-          case 56: {
-            int rawValue = input.readEnum();
-
-            transactionPhase_ = rawValue;
-            break;
-          }
-          case 66: {
+          case 58: {
             com.google.protobuf.Timestamp.Builder subBuilder = null;
             if (bornTimestamp_ != null) {
               subBuilder = bornTimestamp_.toBuilder();
@@ -125,13 +119,13 @@ private static final long serialVersionUID = 0L;
 
             break;
           }
-          case 74: {
+          case 66: {
             java.lang.String s = input.readStringRequireUtf8();
 
             bornHost_ = s;
             break;
           }
-          case 82: {
+          case 74: {
             com.google.protobuf.Timestamp.Builder subBuilder = null;
             if (storeTimestamp_ != null) {
               subBuilder = storeTimestamp_.toBuilder();
@@ -144,15 +138,15 @@ private static final long serialVersionUID = 0L;
 
             break;
           }
-          case 90: {
+          case 82: {
             java.lang.String s = input.readStringRequireUtf8();
 
             storeHost_ = s;
             break;
           }
-          case 98: {
+          case 90: {
             com.google.protobuf.Timestamp.Builder subBuilder = null;
-            if (timedDeliveryCase_ == 12) {
+            if (timedDeliveryCase_ == 11) {
               subBuilder = ((com.google.protobuf.Timestamp) timedDelivery_).toBuilder();
             }
             timedDelivery_ =
@@ -161,31 +155,31 @@ private static final long serialVersionUID = 0L;
               subBuilder.mergeFrom((com.google.protobuf.Timestamp) timedDelivery_);
               timedDelivery_ = subBuilder.buildPartial();
             }
-            timedDeliveryCase_ = 12;
+            timedDeliveryCase_ = 11;
             break;
           }
-          case 104: {
-            timedDeliveryCase_ = 13;
+          case 96: {
+            timedDeliveryCase_ = 12;
             timedDelivery_ = input.readInt32();
             break;
           }
-          case 114: {
+          case 106: {
             java.lang.String s = input.readStringRequireUtf8();
 
             receiptHandle_ = s;
             break;
           }
-          case 120: {
+          case 112: {
 
             partitionId_ = input.readInt32();
             break;
           }
-          case 128: {
+          case 120: {
 
             partitionOffset_ = input.readInt64();
             break;
           }
-          case 138: {
+          case 130: {
             com.google.protobuf.Duration.Builder subBuilder = null;
             if (invisiblePeriod_ != null) {
               subBuilder = invisiblePeriod_.toBuilder();
@@ -198,12 +192,12 @@ private static final long serialVersionUID = 0L;
 
             break;
           }
-          case 144: {
+          case 136: {
 
             deliveryCount_ = input.readInt32();
             break;
           }
-          case 154: {
+          case 146: {
             apache.rocketmq.v1.Resource.Builder subBuilder = null;
             if (producerGroup_ != null) {
               subBuilder = producerGroup_.toBuilder();
@@ -216,16 +210,22 @@ private static final long serialVersionUID = 0L;
 
             break;
           }
-          case 162: {
+          case 154: {
             java.lang.String s = input.readStringRequireUtf8();
 
             messageGroup_ = s;
             break;
           }
-          case 170: {
+          case 162: {
             java.lang.String s = input.readStringRequireUtf8();
 
             traceContext_ = s;
+            break;
+          }
+          case 170: {
+            java.lang.String s = input.readStringRequireUtf8();
+
+            transactionId_ = s;
             break;
           }
           default: {
@@ -268,8 +268,8 @@ private static final long serialVersionUID = 0L;
   public enum TimedDeliveryCase
       implements com.google.protobuf.Internal.EnumLite,
           com.google.protobuf.AbstractMessage.InternalOneOfEnum {
-    DELIVERY_TIMESTAMP(12),
-    DELAY_LEVEL(13),
+    DELIVERY_TIMESTAMP(11),
+    DELAY_LEVEL(12),
     TIMEDDELIVERY_NOT_SET(0);
     private final int value;
     private TimedDeliveryCase(int value) {
@@ -287,8 +287,8 @@ private static final long serialVersionUID = 0L;
 
     public static TimedDeliveryCase forNumber(int value) {
       switch (value) {
-        case 12: return DELIVERY_TIMESTAMP;
-        case 13: return DELAY_LEVEL;
+        case 11: return DELIVERY_TIMESTAMP;
+        case 12: return DELAY_LEVEL;
         case 0: return TIMEDDELIVERY_NOT_SET;
         default: return null;
       }
@@ -539,41 +539,14 @@ private static final long serialVersionUID = 0L;
     return result == null ? apache.rocketmq.v1.MessageType.UNRECOGNIZED : result;
   }
 
-  public static final int TRANSACTION_PHASE_FIELD_NUMBER = 7;
-  private int transactionPhase_;
-  /**
-   * <pre>
-   * If message type is transaction, this field is to indicate transaction phase: prepare, commit or rollback.
-   * </pre>
-   *
-   * <code>.apache.rocketmq.v1.TransactionPhase transaction_phase = 7;</code>
-   * @return The enum numeric value on the wire for transactionPhase.
-   */
-  @java.lang.Override public int getTransactionPhaseValue() {
-    return transactionPhase_;
-  }
-  /**
-   * <pre>
-   * If message type is transaction, this field is to indicate transaction phase: prepare, commit or rollback.
-   * </pre>
-   *
-   * <code>.apache.rocketmq.v1.TransactionPhase transaction_phase = 7;</code>
-   * @return The transactionPhase.
-   */
-  @java.lang.Override public apache.rocketmq.v1.TransactionPhase getTransactionPhase() {
-    @SuppressWarnings("deprecation")
-    apache.rocketmq.v1.TransactionPhase result = apache.rocketmq.v1.TransactionPhase.valueOf(transactionPhase_);
-    return result == null ? apache.rocketmq.v1.TransactionPhase.UNRECOGNIZED : result;
-  }
-
-  public static final int BORN_TIMESTAMP_FIELD_NUMBER = 8;
+  public static final int BORN_TIMESTAMP_FIELD_NUMBER = 7;
   private com.google.protobuf.Timestamp bornTimestamp_;
   /**
    * <pre>
    * Message born time-point.
    * </pre>
    *
-   * <code>.google.protobuf.Timestamp born_timestamp = 8;</code>
+   * <code>.google.protobuf.Timestamp born_timestamp = 7;</code>
    * @return Whether the bornTimestamp field is set.
    */
   @java.lang.Override
@@ -585,7 +558,7 @@ private static final long serialVersionUID = 0L;
    * Message born time-point.
    * </pre>
    *
-   * <code>.google.protobuf.Timestamp born_timestamp = 8;</code>
+   * <code>.google.protobuf.Timestamp born_timestamp = 7;</code>
    * @return The bornTimestamp.
    */
   @java.lang.Override
@@ -597,21 +570,21 @@ private static final long serialVersionUID = 0L;
    * Message born time-point.
    * </pre>
    *
-   * <code>.google.protobuf.Timestamp born_timestamp = 8;</code>
+   * <code>.google.protobuf.Timestamp born_timestamp = 7;</code>
    */
   @java.lang.Override
   public com.google.protobuf.TimestampOrBuilder getBornTimestampOrBuilder() {
     return getBornTimestamp();
   }
 
-  public static final int BORN_HOST_FIELD_NUMBER = 9;
+  public static final int BORN_HOST_FIELD_NUMBER = 8;
   private volatile java.lang.Object bornHost_;
   /**
    * <pre>
    * Message born host. Valid options are IPv4, IPv6 or client host domain name.
    * </pre>
    *
-   * <code>string born_host = 9;</code>
+   * <code>string born_host = 8;</code>
    * @return The bornHost.
    */
   @java.lang.Override
@@ -632,7 +605,7 @@ private static final long serialVersionUID = 0L;
    * Message born host. Valid options are IPv4, IPv6 or client host domain name.
    * </pre>
    *
-   * <code>string born_host = 9;</code>
+   * <code>string born_host = 8;</code>
    * @return The bytes for bornHost.
    */
   @java.lang.Override
@@ -650,14 +623,14 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int STORE_TIMESTAMP_FIELD_NUMBER = 10;
+  public static final int STORE_TIMESTAMP_FIELD_NUMBER = 9;
   private com.google.protobuf.Timestamp storeTimestamp_;
   /**
    * <pre>
    * Time-point at which the message is stored in the broker.
    * </pre>
    *
-   * <code>.google.protobuf.Timestamp store_timestamp = 10;</code>
+   * <code>.google.protobuf.Timestamp store_timestamp = 9;</code>
    * @return Whether the storeTimestamp field is set.
    */
   @java.lang.Override
@@ -669,7 +642,7 @@ private static final long serialVersionUID = 0L;
    * Time-point at which the message is stored in the broker.
    * </pre>
    *
-   * <code>.google.protobuf.Timestamp store_timestamp = 10;</code>
+   * <code>.google.protobuf.Timestamp store_timestamp = 9;</code>
    * @return The storeTimestamp.
    */
   @java.lang.Override
@@ -681,21 +654,21 @@ private static final long serialVersionUID = 0L;
    * Time-point at which the message is stored in the broker.
    * </pre>
    *
-   * <code>.google.protobuf.Timestamp store_timestamp = 10;</code>
+   * <code>.google.protobuf.Timestamp store_timestamp = 9;</code>
    */
   @java.lang.Override
   public com.google.protobuf.TimestampOrBuilder getStoreTimestampOrBuilder() {
     return getStoreTimestamp();
   }
 
-  public static final int STORE_HOST_FIELD_NUMBER = 11;
+  public static final int STORE_HOST_FIELD_NUMBER = 10;
   private volatile java.lang.Object storeHost_;
   /**
    * <pre>
-   * The broker that stores this message. It may be name, IP or arbitary identifier that uniquely identify the broker.
+   * The broker that stores this message. It may be name, IP or arbitrary identifier that uniquely identify the broker.
    * </pre>
    *
-   * <code>string store_host = 11;</code>
+   * <code>string store_host = 10;</code>
    * @return The storeHost.
    */
   @java.lang.Override
@@ -713,10 +686,10 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * The broker that stores this message. It may be name, IP or arbitary identifier that uniquely identify the broker.
+   * The broker that stores this message. It may be name, IP or arbitrary identifier that uniquely identify the broker.
    * </pre>
    *
-   * <code>string store_host = 11;</code>
+   * <code>string store_host = 10;</code>
    * @return The bytes for storeHost.
    */
   @java.lang.Override
@@ -734,30 +707,30 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int DELIVERY_TIMESTAMP_FIELD_NUMBER = 12;
+  public static final int DELIVERY_TIMESTAMP_FIELD_NUMBER = 11;
   /**
    * <pre>
    * Time-point at which broker delivers to clients.
    * </pre>
    *
-   * <code>.google.protobuf.Timestamp delivery_timestamp = 12;</code>
+   * <code>.google.protobuf.Timestamp delivery_timestamp = 11;</code>
    * @return Whether the deliveryTimestamp field is set.
    */
   @java.lang.Override
   public boolean hasDeliveryTimestamp() {
-    return timedDeliveryCase_ == 12;
+    return timedDeliveryCase_ == 11;
   }
   /**
    * <pre>
    * Time-point at which broker delivers to clients.
    * </pre>
    *
-   * <code>.google.protobuf.Timestamp delivery_timestamp = 12;</code>
+   * <code>.google.protobuf.Timestamp delivery_timestamp = 11;</code>
    * @return The deliveryTimestamp.
    */
   @java.lang.Override
   public com.google.protobuf.Timestamp getDeliveryTimestamp() {
-    if (timedDeliveryCase_ == 12) {
+    if (timedDeliveryCase_ == 11) {
        return (com.google.protobuf.Timestamp) timedDelivery_;
     }
     return com.google.protobuf.Timestamp.getDefaultInstance();
@@ -767,34 +740,34 @@ private static final long serialVersionUID = 0L;
    * Time-point at which broker delivers to clients.
    * </pre>
    *
-   * <code>.google.protobuf.Timestamp delivery_timestamp = 12;</code>
+   * <code>.google.protobuf.Timestamp delivery_timestamp = 11;</code>
    */
   @java.lang.Override
   public com.google.protobuf.TimestampOrBuilder getDeliveryTimestampOrBuilder() {
-    if (timedDeliveryCase_ == 12) {
+    if (timedDeliveryCase_ == 11) {
        return (com.google.protobuf.Timestamp) timedDelivery_;
     }
     return com.google.protobuf.Timestamp.getDefaultInstance();
   }
 
-  public static final int DELAY_LEVEL_FIELD_NUMBER = 13;
+  public static final int DELAY_LEVEL_FIELD_NUMBER = 12;
   /**
    * <pre>
    * Level-based delay strategy.
    * </pre>
    *
-   * <code>int32 delay_level = 13;</code>
+   * <code>int32 delay_level = 12;</code>
    * @return The delayLevel.
    */
   @java.lang.Override
   public int getDelayLevel() {
-    if (timedDeliveryCase_ == 13) {
+    if (timedDeliveryCase_ == 12) {
       return (java.lang.Integer) timedDelivery_;
     }
     return 0;
   }
 
-  public static final int RECEIPT_HANDLE_FIELD_NUMBER = 14;
+  public static final int RECEIPT_HANDLE_FIELD_NUMBER = 13;
   private volatile java.lang.Object receiptHandle_;
   /**
    * <pre>
@@ -802,7 +775,7 @@ private static final long serialVersionUID = 0L;
    * acknowledge or negatively acknowledge the message.
    * </pre>
    *
-   * <code>string receipt_handle = 14;</code>
+   * <code>string receipt_handle = 13;</code>
    * @return The receiptHandle.
    */
   @java.lang.Override
@@ -824,7 +797,7 @@ private static final long serialVersionUID = 0L;
    * acknowledge or negatively acknowledge the message.
    * </pre>
    *
-   * <code>string receipt_handle = 14;</code>
+   * <code>string receipt_handle = 13;</code>
    * @return The bytes for receiptHandle.
    */
   @java.lang.Override
@@ -842,14 +815,14 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int PARTITION_ID_FIELD_NUMBER = 15;
+  public static final int PARTITION_ID_FIELD_NUMBER = 14;
   private int partitionId_;
   /**
    * <pre>
    * Partition identifier in which a message is physically stored.
    * </pre>
    *
-   * <code>int32 partition_id = 15;</code>
+   * <code>int32 partition_id = 14;</code>
    * @return The partitionId.
    */
   @java.lang.Override
@@ -857,14 +830,14 @@ private static final long serialVersionUID = 0L;
     return partitionId_;
   }
 
-  public static final int PARTITION_OFFSET_FIELD_NUMBER = 16;
+  public static final int PARTITION_OFFSET_FIELD_NUMBER = 15;
   private long partitionOffset_;
   /**
    * <pre>
    * Partition offset at which a message is stored.
    * </pre>
    *
-   * <code>int64 partition_offset = 16;</code>
+   * <code>int64 partition_offset = 15;</code>
    * @return The partitionOffset.
    */
   @java.lang.Override
@@ -872,14 +845,14 @@ private static final long serialVersionUID = 0L;
     return partitionOffset_;
   }
 
-  public static final int INVISIBLE_PERIOD_FIELD_NUMBER = 17;
+  public static final int INVISIBLE_PERIOD_FIELD_NUMBER = 16;
   private com.google.protobuf.Duration invisiblePeriod_;
   /**
    * <pre>
    * Period of time servers would remain invisible once a message is acquired.
    * </pre>
    *
-   * <code>.google.protobuf.Duration invisible_period = 17;</code>
+   * <code>.google.protobuf.Duration invisible_period = 16;</code>
    * @return Whether the invisiblePeriod field is set.
    */
   @java.lang.Override
@@ -891,7 +864,7 @@ private static final long serialVersionUID = 0L;
    * Period of time servers would remain invisible once a message is acquired.
    * </pre>
    *
-   * <code>.google.protobuf.Duration invisible_period = 17;</code>
+   * <code>.google.protobuf.Duration invisible_period = 16;</code>
    * @return The invisiblePeriod.
    */
   @java.lang.Override
@@ -903,14 +876,14 @@ private static final long serialVersionUID = 0L;
    * Period of time servers would remain invisible once a message is acquired.
    * </pre>
    *
-   * <code>.google.protobuf.Duration invisible_period = 17;</code>
+   * <code>.google.protobuf.Duration invisible_period = 16;</code>
    */
   @java.lang.Override
   public com.google.protobuf.DurationOrBuilder getInvisiblePeriodOrBuilder() {
     return getInvisiblePeriod();
   }
 
-  public static final int DELIVERY_COUNT_FIELD_NUMBER = 18;
+  public static final int DELIVERY_COUNT_FIELD_NUMBER = 17;
   private int deliveryCount_;
   /**
    * <pre>
@@ -918,7 +891,7 @@ private static final long serialVersionUID = 0L;
    * again using certain back-off strategy.
    * </pre>
    *
-   * <code>int32 delivery_count = 18;</code>
+   * <code>int32 delivery_count = 17;</code>
    * @return The deliveryCount.
    */
   @java.lang.Override
@@ -926,14 +899,14 @@ private static final long serialVersionUID = 0L;
     return deliveryCount_;
   }
 
-  public static final int PRODUCER_GROUP_FIELD_NUMBER = 19;
+  public static final int PRODUCER_GROUP_FIELD_NUMBER = 18;
   private apache.rocketmq.v1.Resource producerGroup_;
   /**
    * <pre>
    * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
    * @return Whether the producerGroup field is set.
    */
   @java.lang.Override
@@ -945,7 +918,7 @@ private static final long serialVersionUID = 0L;
    * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
    * @return The producerGroup.
    */
   @java.lang.Override
@@ -957,17 +930,17 @@ private static final long serialVersionUID = 0L;
    * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
    */
   @java.lang.Override
   public apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder() {
     return getProducerGroup();
   }
 
-  public static final int MESSAGE_GROUP_FIELD_NUMBER = 20;
+  public static final int MESSAGE_GROUP_FIELD_NUMBER = 19;
   private volatile java.lang.Object messageGroup_;
   /**
-   * <code>string message_group = 20;</code>
+   * <code>string message_group = 19;</code>
    * @return The messageGroup.
    */
   @java.lang.Override
@@ -984,7 +957,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string message_group = 20;</code>
+   * <code>string message_group = 19;</code>
    * @return The bytes for messageGroup.
    */
   @java.lang.Override
@@ -1002,14 +975,14 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int TRACE_CONTEXT_FIELD_NUMBER = 21;
+  public static final int TRACE_CONTEXT_FIELD_NUMBER = 20;
   private volatile java.lang.Object traceContext_;
   /**
    * <pre>
    * Trace context.
    * </pre>
    *
-   * <code>string trace_context = 21;</code>
+   * <code>string trace_context = 20;</code>
    * @return The traceContext.
    */
   @java.lang.Override
@@ -1030,7 +1003,7 @@ private static final long serialVersionUID = 0L;
    * Trace context.
    * </pre>
    *
-   * <code>string trace_context = 21;</code>
+   * <code>string trace_context = 20;</code>
    * @return The bytes for traceContext.
    */
   @java.lang.Override
@@ -1042,6 +1015,52 @@ private static final long serialVersionUID = 0L;
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       traceContext_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int TRANSACTION_ID_FIELD_NUMBER = 21;
+  private volatile java.lang.Object transactionId_;
+  /**
+   * <pre>
+   * Correlated transactioin
+   * </pre>
+   *
+   * <code>string transaction_id = 21;</code>
+   * @return The transactionId.
+   */
+  @java.lang.Override
+  public java.lang.String getTransactionId() {
+    java.lang.Object ref = transactionId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      transactionId_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Correlated transactioin
+   * </pre>
+   *
+   * <code>string transaction_id = 21;</code>
+   * @return The bytes for transactionId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getTransactionIdBytes() {
+    java.lang.Object ref = transactionId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      transactionId_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
@@ -1080,51 +1099,51 @@ private static final long serialVersionUID = 0L;
     if (messageType_ != apache.rocketmq.v1.MessageType.NORMAL.getNumber()) {
       output.writeEnum(6, messageType_);
     }
-    if (transactionPhase_ != apache.rocketmq.v1.TransactionPhase.NOT_APPLICABLE.getNumber()) {
-      output.writeEnum(7, transactionPhase_);
-    }
     if (bornTimestamp_ != null) {
-      output.writeMessage(8, getBornTimestamp());
+      output.writeMessage(7, getBornTimestamp());
     }
     if (!getBornHostBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 9, bornHost_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 8, bornHost_);
     }
     if (storeTimestamp_ != null) {
-      output.writeMessage(10, getStoreTimestamp());
+      output.writeMessage(9, getStoreTimestamp());
     }
     if (!getStoreHostBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 11, storeHost_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 10, storeHost_);
+    }
+    if (timedDeliveryCase_ == 11) {
+      output.writeMessage(11, (com.google.protobuf.Timestamp) timedDelivery_);
     }
     if (timedDeliveryCase_ == 12) {
-      output.writeMessage(12, (com.google.protobuf.Timestamp) timedDelivery_);
-    }
-    if (timedDeliveryCase_ == 13) {
       output.writeInt32(
-          13, (int)((java.lang.Integer) timedDelivery_));
+          12, (int)((java.lang.Integer) timedDelivery_));
     }
     if (!getReceiptHandleBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 14, receiptHandle_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 13, receiptHandle_);
     }
     if (partitionId_ != 0) {
-      output.writeInt32(15, partitionId_);
+      output.writeInt32(14, partitionId_);
     }
     if (partitionOffset_ != 0L) {
-      output.writeInt64(16, partitionOffset_);
+      output.writeInt64(15, partitionOffset_);
     }
     if (invisiblePeriod_ != null) {
-      output.writeMessage(17, getInvisiblePeriod());
+      output.writeMessage(16, getInvisiblePeriod());
     }
     if (deliveryCount_ != 0) {
-      output.writeInt32(18, deliveryCount_);
+      output.writeInt32(17, deliveryCount_);
     }
     if (producerGroup_ != null) {
-      output.writeMessage(19, getProducerGroup());
+      output.writeMessage(18, getProducerGroup());
     }
     if (!getMessageGroupBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 20, messageGroup_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 19, messageGroup_);
     }
     if (!getTraceContextBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 21, traceContext_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 20, traceContext_);
+    }
+    if (!getTransactionIdBytes().isEmpty()) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 21, transactionId_);
     }
     unknownFields.writeTo(output);
   }
@@ -1161,61 +1180,60 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeEnumSize(6, messageType_);
     }
-    if (transactionPhase_ != apache.rocketmq.v1.TransactionPhase.NOT_APPLICABLE.getNumber()) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeEnumSize(7, transactionPhase_);
-    }
     if (bornTimestamp_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(8, getBornTimestamp());
+        .computeMessageSize(7, getBornTimestamp());
     }
     if (!getBornHostBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(9, bornHost_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(8, bornHost_);
     }
     if (storeTimestamp_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(10, getStoreTimestamp());
+        .computeMessageSize(9, getStoreTimestamp());
     }
     if (!getStoreHostBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(11, storeHost_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(10, storeHost_);
+    }
+    if (timedDeliveryCase_ == 11) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(11, (com.google.protobuf.Timestamp) timedDelivery_);
     }
     if (timedDeliveryCase_ == 12) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(12, (com.google.protobuf.Timestamp) timedDelivery_);
-    }
-    if (timedDeliveryCase_ == 13) {
-      size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(
-            13, (int)((java.lang.Integer) timedDelivery_));
+            12, (int)((java.lang.Integer) timedDelivery_));
     }
     if (!getReceiptHandleBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(14, receiptHandle_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(13, receiptHandle_);
     }
     if (partitionId_ != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(15, partitionId_);
+        .computeInt32Size(14, partitionId_);
     }
     if (partitionOffset_ != 0L) {
       size += com.google.protobuf.CodedOutputStream
-        .computeInt64Size(16, partitionOffset_);
+        .computeInt64Size(15, partitionOffset_);
     }
     if (invisiblePeriod_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(17, getInvisiblePeriod());
+        .computeMessageSize(16, getInvisiblePeriod());
     }
     if (deliveryCount_ != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(18, deliveryCount_);
+        .computeInt32Size(17, deliveryCount_);
     }
     if (producerGroup_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(19, getProducerGroup());
+        .computeMessageSize(18, getProducerGroup());
     }
     if (!getMessageGroupBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(20, messageGroup_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(19, messageGroup_);
     }
     if (!getTraceContextBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(21, traceContext_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(20, traceContext_);
+    }
+    if (!getTransactionIdBytes().isEmpty()) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(21, transactionId_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -1245,7 +1263,6 @@ private static final long serialVersionUID = 0L;
     }
     if (bodyEncoding_ != other.bodyEncoding_) return false;
     if (messageType_ != other.messageType_) return false;
-    if (transactionPhase_ != other.transactionPhase_) return false;
     if (hasBornTimestamp() != other.hasBornTimestamp()) return false;
     if (hasBornTimestamp()) {
       if (!getBornTimestamp()
@@ -1282,13 +1299,15 @@ private static final long serialVersionUID = 0L;
         .equals(other.getMessageGroup())) return false;
     if (!getTraceContext()
         .equals(other.getTraceContext())) return false;
+    if (!getTransactionId()
+        .equals(other.getTransactionId())) return false;
     if (!getTimedDeliveryCase().equals(other.getTimedDeliveryCase())) return false;
     switch (timedDeliveryCase_) {
-      case 12:
+      case 11:
         if (!getDeliveryTimestamp()
             .equals(other.getDeliveryTimestamp())) return false;
         break;
-      case 13:
+      case 12:
         if (getDelayLevel()
             != other.getDelayLevel()) return false;
         break;
@@ -1322,8 +1341,6 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + bodyEncoding_;
     hash = (37 * hash) + MESSAGE_TYPE_FIELD_NUMBER;
     hash = (53 * hash) + messageType_;
-    hash = (37 * hash) + TRANSACTION_PHASE_FIELD_NUMBER;
-    hash = (53 * hash) + transactionPhase_;
     if (hasBornTimestamp()) {
       hash = (37 * hash) + BORN_TIMESTAMP_FIELD_NUMBER;
       hash = (53 * hash) + getBornTimestamp().hashCode();
@@ -1357,12 +1374,14 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getMessageGroup().hashCode();
     hash = (37 * hash) + TRACE_CONTEXT_FIELD_NUMBER;
     hash = (53 * hash) + getTraceContext().hashCode();
+    hash = (37 * hash) + TRANSACTION_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getTransactionId().hashCode();
     switch (timedDeliveryCase_) {
-      case 12:
+      case 11:
         hash = (37 * hash) + DELIVERY_TIMESTAMP_FIELD_NUMBER;
         hash = (53 * hash) + getDeliveryTimestamp().hashCode();
         break;
-      case 13:
+      case 12:
         hash = (37 * hash) + DELAY_LEVEL_FIELD_NUMBER;
         hash = (53 * hash) + getDelayLevel();
         break;
@@ -1518,8 +1537,6 @@ private static final long serialVersionUID = 0L;
 
       messageType_ = 0;
 
-      transactionPhase_ = 0;
-
       if (bornTimestampBuilder_ == null) {
         bornTimestamp_ = null;
       } else {
@@ -1559,6 +1576,8 @@ private static final long serialVersionUID = 0L;
       messageGroup_ = "";
 
       traceContext_ = "";
+
+      transactionId_ = "";
 
       timedDeliveryCase_ = 0;
       timedDelivery_ = null;
@@ -1603,7 +1622,6 @@ private static final long serialVersionUID = 0L;
       }
       result.bodyEncoding_ = bodyEncoding_;
       result.messageType_ = messageType_;
-      result.transactionPhase_ = transactionPhase_;
       if (bornTimestampBuilder_ == null) {
         result.bornTimestamp_ = bornTimestamp_;
       } else {
@@ -1616,14 +1634,14 @@ private static final long serialVersionUID = 0L;
         result.storeTimestamp_ = storeTimestampBuilder_.build();
       }
       result.storeHost_ = storeHost_;
-      if (timedDeliveryCase_ == 12) {
+      if (timedDeliveryCase_ == 11) {
         if (deliveryTimestampBuilder_ == null) {
           result.timedDelivery_ = timedDelivery_;
         } else {
           result.timedDelivery_ = deliveryTimestampBuilder_.build();
         }
       }
-      if (timedDeliveryCase_ == 13) {
+      if (timedDeliveryCase_ == 12) {
         result.timedDelivery_ = timedDelivery_;
       }
       result.receiptHandle_ = receiptHandle_;
@@ -1642,6 +1660,7 @@ private static final long serialVersionUID = 0L;
       }
       result.messageGroup_ = messageGroup_;
       result.traceContext_ = traceContext_;
+      result.transactionId_ = transactionId_;
       result.timedDeliveryCase_ = timedDeliveryCase_;
       onBuilt();
       return result;
@@ -1718,9 +1737,6 @@ private static final long serialVersionUID = 0L;
       if (other.messageType_ != 0) {
         setMessageTypeValue(other.getMessageTypeValue());
       }
-      if (other.transactionPhase_ != 0) {
-        setTransactionPhaseValue(other.getTransactionPhaseValue());
-      }
       if (other.hasBornTimestamp()) {
         mergeBornTimestamp(other.getBornTimestamp());
       }
@@ -1760,6 +1776,10 @@ private static final long serialVersionUID = 0L;
       }
       if (!other.getTraceContext().isEmpty()) {
         traceContext_ = other.traceContext_;
+        onChanged();
+      }
+      if (!other.getTransactionId().isEmpty()) {
+        transactionId_ = other.transactionId_;
         onChanged();
       }
       switch (other.getTimedDeliveryCase()) {
@@ -2461,80 +2481,6 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int transactionPhase_ = 0;
-    /**
-     * <pre>
-     * If message type is transaction, this field is to indicate transaction phase: prepare, commit or rollback.
-     * </pre>
-     *
-     * <code>.apache.rocketmq.v1.TransactionPhase transaction_phase = 7;</code>
-     * @return The enum numeric value on the wire for transactionPhase.
-     */
-    @java.lang.Override public int getTransactionPhaseValue() {
-      return transactionPhase_;
-    }
-    /**
-     * <pre>
-     * If message type is transaction, this field is to indicate transaction phase: prepare, commit or rollback.
-     * </pre>
-     *
-     * <code>.apache.rocketmq.v1.TransactionPhase transaction_phase = 7;</code>
-     * @param value The enum numeric value on the wire for transactionPhase to set.
-     * @return This builder for chaining.
-     */
-    public Builder setTransactionPhaseValue(int value) {
-      
-      transactionPhase_ = value;
-      onChanged();
-      return this;
-    }
-    /**
-     * <pre>
-     * If message type is transaction, this field is to indicate transaction phase: prepare, commit or rollback.
-     * </pre>
-     *
-     * <code>.apache.rocketmq.v1.TransactionPhase transaction_phase = 7;</code>
-     * @return The transactionPhase.
-     */
-    @java.lang.Override
-    public apache.rocketmq.v1.TransactionPhase getTransactionPhase() {
-      @SuppressWarnings("deprecation")
-      apache.rocketmq.v1.TransactionPhase result = apache.rocketmq.v1.TransactionPhase.valueOf(transactionPhase_);
-      return result == null ? apache.rocketmq.v1.TransactionPhase.UNRECOGNIZED : result;
-    }
-    /**
-     * <pre>
-     * If message type is transaction, this field is to indicate transaction phase: prepare, commit or rollback.
-     * </pre>
-     *
-     * <code>.apache.rocketmq.v1.TransactionPhase transaction_phase = 7;</code>
-     * @param value The transactionPhase to set.
-     * @return This builder for chaining.
-     */
-    public Builder setTransactionPhase(apache.rocketmq.v1.TransactionPhase value) {
-      if (value == null) {
-        throw new NullPointerException();
-      }
-      
-      transactionPhase_ = value.getNumber();
-      onChanged();
-      return this;
-    }
-    /**
-     * <pre>
-     * If message type is transaction, this field is to indicate transaction phase: prepare, commit or rollback.
-     * </pre>
-     *
-     * <code>.apache.rocketmq.v1.TransactionPhase transaction_phase = 7;</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearTransactionPhase() {
-      
-      transactionPhase_ = 0;
-      onChanged();
-      return this;
-    }
-
     private com.google.protobuf.Timestamp bornTimestamp_;
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> bornTimestampBuilder_;
@@ -2543,7 +2489,7 @@ private static final long serialVersionUID = 0L;
      * Message born time-point.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp born_timestamp = 8;</code>
+     * <code>.google.protobuf.Timestamp born_timestamp = 7;</code>
      * @return Whether the bornTimestamp field is set.
      */
     public boolean hasBornTimestamp() {
@@ -2554,7 +2500,7 @@ private static final long serialVersionUID = 0L;
      * Message born time-point.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp born_timestamp = 8;</code>
+     * <code>.google.protobuf.Timestamp born_timestamp = 7;</code>
      * @return The bornTimestamp.
      */
     public com.google.protobuf.Timestamp getBornTimestamp() {
@@ -2569,7 +2515,7 @@ private static final long serialVersionUID = 0L;
      * Message born time-point.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp born_timestamp = 8;</code>
+     * <code>.google.protobuf.Timestamp born_timestamp = 7;</code>
      */
     public Builder setBornTimestamp(com.google.protobuf.Timestamp value) {
       if (bornTimestampBuilder_ == null) {
@@ -2589,7 +2535,7 @@ private static final long serialVersionUID = 0L;
      * Message born time-point.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp born_timestamp = 8;</code>
+     * <code>.google.protobuf.Timestamp born_timestamp = 7;</code>
      */
     public Builder setBornTimestamp(
         com.google.protobuf.Timestamp.Builder builderForValue) {
@@ -2607,7 +2553,7 @@ private static final long serialVersionUID = 0L;
      * Message born time-point.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp born_timestamp = 8;</code>
+     * <code>.google.protobuf.Timestamp born_timestamp = 7;</code>
      */
     public Builder mergeBornTimestamp(com.google.protobuf.Timestamp value) {
       if (bornTimestampBuilder_ == null) {
@@ -2629,7 +2575,7 @@ private static final long serialVersionUID = 0L;
      * Message born time-point.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp born_timestamp = 8;</code>
+     * <code>.google.protobuf.Timestamp born_timestamp = 7;</code>
      */
     public Builder clearBornTimestamp() {
       if (bornTimestampBuilder_ == null) {
@@ -2647,7 +2593,7 @@ private static final long serialVersionUID = 0L;
      * Message born time-point.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp born_timestamp = 8;</code>
+     * <code>.google.protobuf.Timestamp born_timestamp = 7;</code>
      */
     public com.google.protobuf.Timestamp.Builder getBornTimestampBuilder() {
       
@@ -2659,7 +2605,7 @@ private static final long serialVersionUID = 0L;
      * Message born time-point.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp born_timestamp = 8;</code>
+     * <code>.google.protobuf.Timestamp born_timestamp = 7;</code>
      */
     public com.google.protobuf.TimestampOrBuilder getBornTimestampOrBuilder() {
       if (bornTimestampBuilder_ != null) {
@@ -2674,7 +2620,7 @@ private static final long serialVersionUID = 0L;
      * Message born time-point.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp born_timestamp = 8;</code>
+     * <code>.google.protobuf.Timestamp born_timestamp = 7;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> 
@@ -2696,7 +2642,7 @@ private static final long serialVersionUID = 0L;
      * Message born host. Valid options are IPv4, IPv6 or client host domain name.
      * </pre>
      *
-     * <code>string born_host = 9;</code>
+     * <code>string born_host = 8;</code>
      * @return The bornHost.
      */
     public java.lang.String getBornHost() {
@@ -2716,7 +2662,7 @@ private static final long serialVersionUID = 0L;
      * Message born host. Valid options are IPv4, IPv6 or client host domain name.
      * </pre>
      *
-     * <code>string born_host = 9;</code>
+     * <code>string born_host = 8;</code>
      * @return The bytes for bornHost.
      */
     public com.google.protobuf.ByteString
@@ -2737,7 +2683,7 @@ private static final long serialVersionUID = 0L;
      * Message born host. Valid options are IPv4, IPv6 or client host domain name.
      * </pre>
      *
-     * <code>string born_host = 9;</code>
+     * <code>string born_host = 8;</code>
      * @param value The bornHost to set.
      * @return This builder for chaining.
      */
@@ -2756,7 +2702,7 @@ private static final long serialVersionUID = 0L;
      * Message born host. Valid options are IPv4, IPv6 or client host domain name.
      * </pre>
      *
-     * <code>string born_host = 9;</code>
+     * <code>string born_host = 8;</code>
      * @return This builder for chaining.
      */
     public Builder clearBornHost() {
@@ -2770,7 +2716,7 @@ private static final long serialVersionUID = 0L;
      * Message born host. Valid options are IPv4, IPv6 or client host domain name.
      * </pre>
      *
-     * <code>string born_host = 9;</code>
+     * <code>string born_host = 8;</code>
      * @param value The bytes for bornHost to set.
      * @return This builder for chaining.
      */
@@ -2794,7 +2740,7 @@ private static final long serialVersionUID = 0L;
      * Time-point at which the message is stored in the broker.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp store_timestamp = 10;</code>
+     * <code>.google.protobuf.Timestamp store_timestamp = 9;</code>
      * @return Whether the storeTimestamp field is set.
      */
     public boolean hasStoreTimestamp() {
@@ -2805,7 +2751,7 @@ private static final long serialVersionUID = 0L;
      * Time-point at which the message is stored in the broker.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp store_timestamp = 10;</code>
+     * <code>.google.protobuf.Timestamp store_timestamp = 9;</code>
      * @return The storeTimestamp.
      */
     public com.google.protobuf.Timestamp getStoreTimestamp() {
@@ -2820,7 +2766,7 @@ private static final long serialVersionUID = 0L;
      * Time-point at which the message is stored in the broker.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp store_timestamp = 10;</code>
+     * <code>.google.protobuf.Timestamp store_timestamp = 9;</code>
      */
     public Builder setStoreTimestamp(com.google.protobuf.Timestamp value) {
       if (storeTimestampBuilder_ == null) {
@@ -2840,7 +2786,7 @@ private static final long serialVersionUID = 0L;
      * Time-point at which the message is stored in the broker.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp store_timestamp = 10;</code>
+     * <code>.google.protobuf.Timestamp store_timestamp = 9;</code>
      */
     public Builder setStoreTimestamp(
         com.google.protobuf.Timestamp.Builder builderForValue) {
@@ -2858,7 +2804,7 @@ private static final long serialVersionUID = 0L;
      * Time-point at which the message is stored in the broker.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp store_timestamp = 10;</code>
+     * <code>.google.protobuf.Timestamp store_timestamp = 9;</code>
      */
     public Builder mergeStoreTimestamp(com.google.protobuf.Timestamp value) {
       if (storeTimestampBuilder_ == null) {
@@ -2880,7 +2826,7 @@ private static final long serialVersionUID = 0L;
      * Time-point at which the message is stored in the broker.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp store_timestamp = 10;</code>
+     * <code>.google.protobuf.Timestamp store_timestamp = 9;</code>
      */
     public Builder clearStoreTimestamp() {
       if (storeTimestampBuilder_ == null) {
@@ -2898,7 +2844,7 @@ private static final long serialVersionUID = 0L;
      * Time-point at which the message is stored in the broker.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp store_timestamp = 10;</code>
+     * <code>.google.protobuf.Timestamp store_timestamp = 9;</code>
      */
     public com.google.protobuf.Timestamp.Builder getStoreTimestampBuilder() {
       
@@ -2910,7 +2856,7 @@ private static final long serialVersionUID = 0L;
      * Time-point at which the message is stored in the broker.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp store_timestamp = 10;</code>
+     * <code>.google.protobuf.Timestamp store_timestamp = 9;</code>
      */
     public com.google.protobuf.TimestampOrBuilder getStoreTimestampOrBuilder() {
       if (storeTimestampBuilder_ != null) {
@@ -2925,7 +2871,7 @@ private static final long serialVersionUID = 0L;
      * Time-point at which the message is stored in the broker.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp store_timestamp = 10;</code>
+     * <code>.google.protobuf.Timestamp store_timestamp = 9;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> 
@@ -2944,10 +2890,10 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object storeHost_ = "";
     /**
      * <pre>
-     * The broker that stores this message. It may be name, IP or arbitary identifier that uniquely identify the broker.
+     * The broker that stores this message. It may be name, IP or arbitrary identifier that uniquely identify the broker.
      * </pre>
      *
-     * <code>string store_host = 11;</code>
+     * <code>string store_host = 10;</code>
      * @return The storeHost.
      */
     public java.lang.String getStoreHost() {
@@ -2964,10 +2910,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The broker that stores this message. It may be name, IP or arbitary identifier that uniquely identify the broker.
+     * The broker that stores this message. It may be name, IP or arbitrary identifier that uniquely identify the broker.
      * </pre>
      *
-     * <code>string store_host = 11;</code>
+     * <code>string store_host = 10;</code>
      * @return The bytes for storeHost.
      */
     public com.google.protobuf.ByteString
@@ -2985,10 +2931,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The broker that stores this message. It may be name, IP or arbitary identifier that uniquely identify the broker.
+     * The broker that stores this message. It may be name, IP or arbitrary identifier that uniquely identify the broker.
      * </pre>
      *
-     * <code>string store_host = 11;</code>
+     * <code>string store_host = 10;</code>
      * @param value The storeHost to set.
      * @return This builder for chaining.
      */
@@ -3004,10 +2950,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The broker that stores this message. It may be name, IP or arbitary identifier that uniquely identify the broker.
+     * The broker that stores this message. It may be name, IP or arbitrary identifier that uniquely identify the broker.
      * </pre>
      *
-     * <code>string store_host = 11;</code>
+     * <code>string store_host = 10;</code>
      * @return This builder for chaining.
      */
     public Builder clearStoreHost() {
@@ -3018,10 +2964,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The broker that stores this message. It may be name, IP or arbitary identifier that uniquely identify the broker.
+     * The broker that stores this message. It may be name, IP or arbitrary identifier that uniquely identify the broker.
      * </pre>
      *
-     * <code>string store_host = 11;</code>
+     * <code>string store_host = 10;</code>
      * @param value The bytes for storeHost to set.
      * @return This builder for chaining.
      */
@@ -3044,30 +2990,30 @@ private static final long serialVersionUID = 0L;
      * Time-point at which broker delivers to clients.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp delivery_timestamp = 12;</code>
+     * <code>.google.protobuf.Timestamp delivery_timestamp = 11;</code>
      * @return Whether the deliveryTimestamp field is set.
      */
     @java.lang.Override
     public boolean hasDeliveryTimestamp() {
-      return timedDeliveryCase_ == 12;
+      return timedDeliveryCase_ == 11;
     }
     /**
      * <pre>
      * Time-point at which broker delivers to clients.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp delivery_timestamp = 12;</code>
+     * <code>.google.protobuf.Timestamp delivery_timestamp = 11;</code>
      * @return The deliveryTimestamp.
      */
     @java.lang.Override
     public com.google.protobuf.Timestamp getDeliveryTimestamp() {
       if (deliveryTimestampBuilder_ == null) {
-        if (timedDeliveryCase_ == 12) {
+        if (timedDeliveryCase_ == 11) {
           return (com.google.protobuf.Timestamp) timedDelivery_;
         }
         return com.google.protobuf.Timestamp.getDefaultInstance();
       } else {
-        if (timedDeliveryCase_ == 12) {
+        if (timedDeliveryCase_ == 11) {
           return deliveryTimestampBuilder_.getMessage();
         }
         return com.google.protobuf.Timestamp.getDefaultInstance();
@@ -3078,7 +3024,7 @@ private static final long serialVersionUID = 0L;
      * Time-point at which broker delivers to clients.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp delivery_timestamp = 12;</code>
+     * <code>.google.protobuf.Timestamp delivery_timestamp = 11;</code>
      */
     public Builder setDeliveryTimestamp(com.google.protobuf.Timestamp value) {
       if (deliveryTimestampBuilder_ == null) {
@@ -3090,7 +3036,7 @@ private static final long serialVersionUID = 0L;
       } else {
         deliveryTimestampBuilder_.setMessage(value);
       }
-      timedDeliveryCase_ = 12;
+      timedDeliveryCase_ = 11;
       return this;
     }
     /**
@@ -3098,7 +3044,7 @@ private static final long serialVersionUID = 0L;
      * Time-point at which broker delivers to clients.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp delivery_timestamp = 12;</code>
+     * <code>.google.protobuf.Timestamp delivery_timestamp = 11;</code>
      */
     public Builder setDeliveryTimestamp(
         com.google.protobuf.Timestamp.Builder builderForValue) {
@@ -3108,7 +3054,7 @@ private static final long serialVersionUID = 0L;
       } else {
         deliveryTimestampBuilder_.setMessage(builderForValue.build());
       }
-      timedDeliveryCase_ = 12;
+      timedDeliveryCase_ = 11;
       return this;
     }
     /**
@@ -3116,11 +3062,11 @@ private static final long serialVersionUID = 0L;
      * Time-point at which broker delivers to clients.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp delivery_timestamp = 12;</code>
+     * <code>.google.protobuf.Timestamp delivery_timestamp = 11;</code>
      */
     public Builder mergeDeliveryTimestamp(com.google.protobuf.Timestamp value) {
       if (deliveryTimestampBuilder_ == null) {
-        if (timedDeliveryCase_ == 12 &&
+        if (timedDeliveryCase_ == 11 &&
             timedDelivery_ != com.google.protobuf.Timestamp.getDefaultInstance()) {
           timedDelivery_ = com.google.protobuf.Timestamp.newBuilder((com.google.protobuf.Timestamp) timedDelivery_)
               .mergeFrom(value).buildPartial();
@@ -3129,12 +3075,12 @@ private static final long serialVersionUID = 0L;
         }
         onChanged();
       } else {
-        if (timedDeliveryCase_ == 12) {
+        if (timedDeliveryCase_ == 11) {
           deliveryTimestampBuilder_.mergeFrom(value);
         }
         deliveryTimestampBuilder_.setMessage(value);
       }
-      timedDeliveryCase_ = 12;
+      timedDeliveryCase_ = 11;
       return this;
     }
     /**
@@ -3142,17 +3088,17 @@ private static final long serialVersionUID = 0L;
      * Time-point at which broker delivers to clients.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp delivery_timestamp = 12;</code>
+     * <code>.google.protobuf.Timestamp delivery_timestamp = 11;</code>
      */
     public Builder clearDeliveryTimestamp() {
       if (deliveryTimestampBuilder_ == null) {
-        if (timedDeliveryCase_ == 12) {
+        if (timedDeliveryCase_ == 11) {
           timedDeliveryCase_ = 0;
           timedDelivery_ = null;
           onChanged();
         }
       } else {
-        if (timedDeliveryCase_ == 12) {
+        if (timedDeliveryCase_ == 11) {
           timedDeliveryCase_ = 0;
           timedDelivery_ = null;
         }
@@ -3165,7 +3111,7 @@ private static final long serialVersionUID = 0L;
      * Time-point at which broker delivers to clients.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp delivery_timestamp = 12;</code>
+     * <code>.google.protobuf.Timestamp delivery_timestamp = 11;</code>
      */
     public com.google.protobuf.Timestamp.Builder getDeliveryTimestampBuilder() {
       return getDeliveryTimestampFieldBuilder().getBuilder();
@@ -3175,14 +3121,14 @@ private static final long serialVersionUID = 0L;
      * Time-point at which broker delivers to clients.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp delivery_timestamp = 12;</code>
+     * <code>.google.protobuf.Timestamp delivery_timestamp = 11;</code>
      */
     @java.lang.Override
     public com.google.protobuf.TimestampOrBuilder getDeliveryTimestampOrBuilder() {
-      if ((timedDeliveryCase_ == 12) && (deliveryTimestampBuilder_ != null)) {
+      if ((timedDeliveryCase_ == 11) && (deliveryTimestampBuilder_ != null)) {
         return deliveryTimestampBuilder_.getMessageOrBuilder();
       } else {
-        if (timedDeliveryCase_ == 12) {
+        if (timedDeliveryCase_ == 11) {
           return (com.google.protobuf.Timestamp) timedDelivery_;
         }
         return com.google.protobuf.Timestamp.getDefaultInstance();
@@ -3193,13 +3139,13 @@ private static final long serialVersionUID = 0L;
      * Time-point at which broker delivers to clients.
      * </pre>
      *
-     * <code>.google.protobuf.Timestamp delivery_timestamp = 12;</code>
+     * <code>.google.protobuf.Timestamp delivery_timestamp = 11;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> 
         getDeliveryTimestampFieldBuilder() {
       if (deliveryTimestampBuilder_ == null) {
-        if (!(timedDeliveryCase_ == 12)) {
+        if (!(timedDeliveryCase_ == 11)) {
           timedDelivery_ = com.google.protobuf.Timestamp.getDefaultInstance();
         }
         deliveryTimestampBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
@@ -3209,7 +3155,7 @@ private static final long serialVersionUID = 0L;
                 isClean());
         timedDelivery_ = null;
       }
-      timedDeliveryCase_ = 12;
+      timedDeliveryCase_ = 11;
       onChanged();;
       return deliveryTimestampBuilder_;
     }
@@ -3219,11 +3165,11 @@ private static final long serialVersionUID = 0L;
      * Level-based delay strategy.
      * </pre>
      *
-     * <code>int32 delay_level = 13;</code>
+     * <code>int32 delay_level = 12;</code>
      * @return The delayLevel.
      */
     public int getDelayLevel() {
-      if (timedDeliveryCase_ == 13) {
+      if (timedDeliveryCase_ == 12) {
         return (java.lang.Integer) timedDelivery_;
       }
       return 0;
@@ -3233,12 +3179,12 @@ private static final long serialVersionUID = 0L;
      * Level-based delay strategy.
      * </pre>
      *
-     * <code>int32 delay_level = 13;</code>
+     * <code>int32 delay_level = 12;</code>
      * @param value The delayLevel to set.
      * @return This builder for chaining.
      */
     public Builder setDelayLevel(int value) {
-      timedDeliveryCase_ = 13;
+      timedDeliveryCase_ = 12;
       timedDelivery_ = value;
       onChanged();
       return this;
@@ -3248,11 +3194,11 @@ private static final long serialVersionUID = 0L;
      * Level-based delay strategy.
      * </pre>
      *
-     * <code>int32 delay_level = 13;</code>
+     * <code>int32 delay_level = 12;</code>
      * @return This builder for chaining.
      */
     public Builder clearDelayLevel() {
-      if (timedDeliveryCase_ == 13) {
+      if (timedDeliveryCase_ == 12) {
         timedDeliveryCase_ = 0;
         timedDelivery_ = null;
         onChanged();
@@ -3267,7 +3213,7 @@ private static final long serialVersionUID = 0L;
      * acknowledge or negatively acknowledge the message.
      * </pre>
      *
-     * <code>string receipt_handle = 14;</code>
+     * <code>string receipt_handle = 13;</code>
      * @return The receiptHandle.
      */
     public java.lang.String getReceiptHandle() {
@@ -3288,7 +3234,7 @@ private static final long serialVersionUID = 0L;
      * acknowledge or negatively acknowledge the message.
      * </pre>
      *
-     * <code>string receipt_handle = 14;</code>
+     * <code>string receipt_handle = 13;</code>
      * @return The bytes for receiptHandle.
      */
     public com.google.protobuf.ByteString
@@ -3310,7 +3256,7 @@ private static final long serialVersionUID = 0L;
      * acknowledge or negatively acknowledge the message.
      * </pre>
      *
-     * <code>string receipt_handle = 14;</code>
+     * <code>string receipt_handle = 13;</code>
      * @param value The receiptHandle to set.
      * @return This builder for chaining.
      */
@@ -3330,7 +3276,7 @@ private static final long serialVersionUID = 0L;
      * acknowledge or negatively acknowledge the message.
      * </pre>
      *
-     * <code>string receipt_handle = 14;</code>
+     * <code>string receipt_handle = 13;</code>
      * @return This builder for chaining.
      */
     public Builder clearReceiptHandle() {
@@ -3345,7 +3291,7 @@ private static final long serialVersionUID = 0L;
      * acknowledge or negatively acknowledge the message.
      * </pre>
      *
-     * <code>string receipt_handle = 14;</code>
+     * <code>string receipt_handle = 13;</code>
      * @param value The bytes for receiptHandle to set.
      * @return This builder for chaining.
      */
@@ -3367,7 +3313,7 @@ private static final long serialVersionUID = 0L;
      * Partition identifier in which a message is physically stored.
      * </pre>
      *
-     * <code>int32 partition_id = 15;</code>
+     * <code>int32 partition_id = 14;</code>
      * @return The partitionId.
      */
     @java.lang.Override
@@ -3379,7 +3325,7 @@ private static final long serialVersionUID = 0L;
      * Partition identifier in which a message is physically stored.
      * </pre>
      *
-     * <code>int32 partition_id = 15;</code>
+     * <code>int32 partition_id = 14;</code>
      * @param value The partitionId to set.
      * @return This builder for chaining.
      */
@@ -3394,7 +3340,7 @@ private static final long serialVersionUID = 0L;
      * Partition identifier in which a message is physically stored.
      * </pre>
      *
-     * <code>int32 partition_id = 15;</code>
+     * <code>int32 partition_id = 14;</code>
      * @return This builder for chaining.
      */
     public Builder clearPartitionId() {
@@ -3410,7 +3356,7 @@ private static final long serialVersionUID = 0L;
      * Partition offset at which a message is stored.
      * </pre>
      *
-     * <code>int64 partition_offset = 16;</code>
+     * <code>int64 partition_offset = 15;</code>
      * @return The partitionOffset.
      */
     @java.lang.Override
@@ -3422,7 +3368,7 @@ private static final long serialVersionUID = 0L;
      * Partition offset at which a message is stored.
      * </pre>
      *
-     * <code>int64 partition_offset = 16;</code>
+     * <code>int64 partition_offset = 15;</code>
      * @param value The partitionOffset to set.
      * @return This builder for chaining.
      */
@@ -3437,7 +3383,7 @@ private static final long serialVersionUID = 0L;
      * Partition offset at which a message is stored.
      * </pre>
      *
-     * <code>int64 partition_offset = 16;</code>
+     * <code>int64 partition_offset = 15;</code>
      * @return This builder for chaining.
      */
     public Builder clearPartitionOffset() {
@@ -3455,7 +3401,7 @@ private static final long serialVersionUID = 0L;
      * Period of time servers would remain invisible once a message is acquired.
      * </pre>
      *
-     * <code>.google.protobuf.Duration invisible_period = 17;</code>
+     * <code>.google.protobuf.Duration invisible_period = 16;</code>
      * @return Whether the invisiblePeriod field is set.
      */
     public boolean hasInvisiblePeriod() {
@@ -3466,7 +3412,7 @@ private static final long serialVersionUID = 0L;
      * Period of time servers would remain invisible once a message is acquired.
      * </pre>
      *
-     * <code>.google.protobuf.Duration invisible_period = 17;</code>
+     * <code>.google.protobuf.Duration invisible_period = 16;</code>
      * @return The invisiblePeriod.
      */
     public com.google.protobuf.Duration getInvisiblePeriod() {
@@ -3481,7 +3427,7 @@ private static final long serialVersionUID = 0L;
      * Period of time servers would remain invisible once a message is acquired.
      * </pre>
      *
-     * <code>.google.protobuf.Duration invisible_period = 17;</code>
+     * <code>.google.protobuf.Duration invisible_period = 16;</code>
      */
     public Builder setInvisiblePeriod(com.google.protobuf.Duration value) {
       if (invisiblePeriodBuilder_ == null) {
@@ -3501,7 +3447,7 @@ private static final long serialVersionUID = 0L;
      * Period of time servers would remain invisible once a message is acquired.
      * </pre>
      *
-     * <code>.google.protobuf.Duration invisible_period = 17;</code>
+     * <code>.google.protobuf.Duration invisible_period = 16;</code>
      */
     public Builder setInvisiblePeriod(
         com.google.protobuf.Duration.Builder builderForValue) {
@@ -3519,7 +3465,7 @@ private static final long serialVersionUID = 0L;
      * Period of time servers would remain invisible once a message is acquired.
      * </pre>
      *
-     * <code>.google.protobuf.Duration invisible_period = 17;</code>
+     * <code>.google.protobuf.Duration invisible_period = 16;</code>
      */
     public Builder mergeInvisiblePeriod(com.google.protobuf.Duration value) {
       if (invisiblePeriodBuilder_ == null) {
@@ -3541,7 +3487,7 @@ private static final long serialVersionUID = 0L;
      * Period of time servers would remain invisible once a message is acquired.
      * </pre>
      *
-     * <code>.google.protobuf.Duration invisible_period = 17;</code>
+     * <code>.google.protobuf.Duration invisible_period = 16;</code>
      */
     public Builder clearInvisiblePeriod() {
       if (invisiblePeriodBuilder_ == null) {
@@ -3559,7 +3505,7 @@ private static final long serialVersionUID = 0L;
      * Period of time servers would remain invisible once a message is acquired.
      * </pre>
      *
-     * <code>.google.protobuf.Duration invisible_period = 17;</code>
+     * <code>.google.protobuf.Duration invisible_period = 16;</code>
      */
     public com.google.protobuf.Duration.Builder getInvisiblePeriodBuilder() {
       
@@ -3571,7 +3517,7 @@ private static final long serialVersionUID = 0L;
      * Period of time servers would remain invisible once a message is acquired.
      * </pre>
      *
-     * <code>.google.protobuf.Duration invisible_period = 17;</code>
+     * <code>.google.protobuf.Duration invisible_period = 16;</code>
      */
     public com.google.protobuf.DurationOrBuilder getInvisiblePeriodOrBuilder() {
       if (invisiblePeriodBuilder_ != null) {
@@ -3586,7 +3532,7 @@ private static final long serialVersionUID = 0L;
      * Period of time servers would remain invisible once a message is acquired.
      * </pre>
      *
-     * <code>.google.protobuf.Duration invisible_period = 17;</code>
+     * <code>.google.protobuf.Duration invisible_period = 16;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.protobuf.Duration, com.google.protobuf.Duration.Builder, com.google.protobuf.DurationOrBuilder> 
@@ -3609,7 +3555,7 @@ private static final long serialVersionUID = 0L;
      * again using certain back-off strategy.
      * </pre>
      *
-     * <code>int32 delivery_count = 18;</code>
+     * <code>int32 delivery_count = 17;</code>
      * @return The deliveryCount.
      */
     @java.lang.Override
@@ -3622,7 +3568,7 @@ private static final long serialVersionUID = 0L;
      * again using certain back-off strategy.
      * </pre>
      *
-     * <code>int32 delivery_count = 18;</code>
+     * <code>int32 delivery_count = 17;</code>
      * @param value The deliveryCount to set.
      * @return This builder for chaining.
      */
@@ -3638,7 +3584,7 @@ private static final long serialVersionUID = 0L;
      * again using certain back-off strategy.
      * </pre>
      *
-     * <code>int32 delivery_count = 18;</code>
+     * <code>int32 delivery_count = 17;</code>
      * @return This builder for chaining.
      */
     public Builder clearDeliveryCount() {
@@ -3656,7 +3602,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
      * @return Whether the producerGroup field is set.
      */
     public boolean hasProducerGroup() {
@@ -3667,7 +3613,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
      * @return The producerGroup.
      */
     public apache.rocketmq.v1.Resource getProducerGroup() {
@@ -3682,7 +3628,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
      */
     public Builder setProducerGroup(apache.rocketmq.v1.Resource value) {
       if (producerGroupBuilder_ == null) {
@@ -3702,7 +3648,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
      */
     public Builder setProducerGroup(
         apache.rocketmq.v1.Resource.Builder builderForValue) {
@@ -3720,7 +3666,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
      */
     public Builder mergeProducerGroup(apache.rocketmq.v1.Resource value) {
       if (producerGroupBuilder_ == null) {
@@ -3742,7 +3688,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
      */
     public Builder clearProducerGroup() {
       if (producerGroupBuilder_ == null) {
@@ -3760,7 +3706,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
      */
     public apache.rocketmq.v1.Resource.Builder getProducerGroupBuilder() {
       
@@ -3772,7 +3718,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
      */
     public apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder() {
       if (producerGroupBuilder_ != null) {
@@ -3787,7 +3733,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> 
@@ -3805,7 +3751,7 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object messageGroup_ = "";
     /**
-     * <code>string message_group = 20;</code>
+     * <code>string message_group = 19;</code>
      * @return The messageGroup.
      */
     public java.lang.String getMessageGroup() {
@@ -3821,7 +3767,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string message_group = 20;</code>
+     * <code>string message_group = 19;</code>
      * @return The bytes for messageGroup.
      */
     public com.google.protobuf.ByteString
@@ -3838,7 +3784,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string message_group = 20;</code>
+     * <code>string message_group = 19;</code>
      * @param value The messageGroup to set.
      * @return This builder for chaining.
      */
@@ -3853,7 +3799,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string message_group = 20;</code>
+     * <code>string message_group = 19;</code>
      * @return This builder for chaining.
      */
     public Builder clearMessageGroup() {
@@ -3863,7 +3809,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string message_group = 20;</code>
+     * <code>string message_group = 19;</code>
      * @param value The bytes for messageGroup to set.
      * @return This builder for chaining.
      */
@@ -3885,7 +3831,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 21;</code>
+     * <code>string trace_context = 20;</code>
      * @return The traceContext.
      */
     public java.lang.String getTraceContext() {
@@ -3905,7 +3851,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 21;</code>
+     * <code>string trace_context = 20;</code>
      * @return The bytes for traceContext.
      */
     public com.google.protobuf.ByteString
@@ -3926,7 +3872,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 21;</code>
+     * <code>string trace_context = 20;</code>
      * @param value The traceContext to set.
      * @return This builder for chaining.
      */
@@ -3945,7 +3891,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 21;</code>
+     * <code>string trace_context = 20;</code>
      * @return This builder for chaining.
      */
     public Builder clearTraceContext() {
@@ -3959,7 +3905,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 21;</code>
+     * <code>string trace_context = 20;</code>
      * @param value The bytes for traceContext to set.
      * @return This builder for chaining.
      */
@@ -3971,6 +3917,102 @@ private static final long serialVersionUID = 0L;
   checkByteStringIsUtf8(value);
       
       traceContext_ = value;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object transactionId_ = "";
+    /**
+     * <pre>
+     * Correlated transactioin
+     * </pre>
+     *
+     * <code>string transaction_id = 21;</code>
+     * @return The transactionId.
+     */
+    public java.lang.String getTransactionId() {
+      java.lang.Object ref = transactionId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        transactionId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Correlated transactioin
+     * </pre>
+     *
+     * <code>string transaction_id = 21;</code>
+     * @return The bytes for transactionId.
+     */
+    public com.google.protobuf.ByteString
+        getTransactionIdBytes() {
+      java.lang.Object ref = transactionId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        transactionId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Correlated transactioin
+     * </pre>
+     *
+     * <code>string transaction_id = 21;</code>
+     * @param value The transactionId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTransactionId(
+        java.lang.String value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  
+      transactionId_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Correlated transactioin
+     * </pre>
+     *
+     * <code>string transaction_id = 21;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTransactionId() {
+      
+      transactionId_ = getDefaultInstance().getTransactionId();
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Correlated transactioin
+     * </pre>
+     *
+     * <code>string transaction_id = 21;</code>
+     * @param value The bytes for transactionId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTransactionIdBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  checkByteStringIsUtf8(value);
+      
+      transactionId_ = value;
       onChanged();
       return this;
     }

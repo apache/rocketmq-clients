@@ -338,17 +338,6 @@ public class ProcessQueue {
                                                                    .setClientId(this.getClientId())
                                                                    .setReceiptHandle(messageExt.getReceiptHandle());
 
-        switch (getMessageModel()) {
-            case CLUSTERING:
-                builder.setConsumeModel(ConsumeModel.CLUSTERING);
-                break;
-            case BROADCASTING:
-                builder.setConsumeModel(ConsumeModel.BROADCASTING);
-                break;
-            default:
-                builder.setConsumeModel(ConsumeModel.UNRECOGNIZED);
-        }
-
         return builder.build();
     }
 
@@ -421,17 +410,6 @@ public class ProcessQueue {
             case CONSUME_FROM_LAST_OFFSET:
             default:
                 builder.setConsumePolicy(ConsumePolicy.RESUME);
-        }
-
-        switch (this.getMessageModel()) {
-            case CLUSTERING:
-                builder.setConsumeModel(ConsumeModel.CLUSTERING);
-                break;
-            case BROADCASTING:
-                builder.setConsumeModel(ConsumeModel.BROADCASTING);
-                break;
-            default:
-                builder.setConsumeModel(ConsumeModel.UNRECOGNIZED);
         }
 
         final ExpressionType expressionType = filterExpression.getExpressionType();

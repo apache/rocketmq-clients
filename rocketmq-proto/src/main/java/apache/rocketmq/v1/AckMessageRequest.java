@@ -17,9 +17,7 @@ private static final long serialVersionUID = 0L;
   }
   private AckMessageRequest() {
     clientId_ = "";
-    receiptHandle_ = "";
     messageId_ = "";
-    consumeModel_ = 0;
   }
 
   @java.lang.Override
@@ -86,20 +84,19 @@ private static final long serialVersionUID = 0L;
           }
           case 34: {
             java.lang.String s = input.readStringRequireUtf8();
-
-            receiptHandle_ = s;
+            handleCase_ = 4;
+            handle_ = s;
             break;
           }
-          case 42: {
+          case 40: {
+            handleCase_ = 5;
+            handle_ = input.readInt64();
+            break;
+          }
+          case 50: {
             java.lang.String s = input.readStringRequireUtf8();
 
             messageId_ = s;
-            break;
-          }
-          case 48: {
-            int rawValue = input.readEnum();
-
-            consumeModel_ = rawValue;
             break;
           }
           default: {
@@ -132,6 +129,47 @@ private static final long serialVersionUID = 0L;
     return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_AckMessageRequest_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
             apache.rocketmq.v1.AckMessageRequest.class, apache.rocketmq.v1.AckMessageRequest.Builder.class);
+  }
+
+  private int handleCase_ = 0;
+  private java.lang.Object handle_;
+  public enum HandleCase
+      implements com.google.protobuf.Internal.EnumLite,
+          com.google.protobuf.AbstractMessage.InternalOneOfEnum {
+    RECEIPT_HANDLE(4),
+    OFFSET(5),
+    HANDLE_NOT_SET(0);
+    private final int value;
+    private HandleCase(int value) {
+      this.value = value;
+    }
+    /**
+     * @param value The number of the enum to look for.
+     * @return The enum associated with the given number.
+     * @deprecated Use {@link #forNumber(int)} instead.
+     */
+    @java.lang.Deprecated
+    public static HandleCase valueOf(int value) {
+      return forNumber(value);
+    }
+
+    public static HandleCase forNumber(int value) {
+      switch (value) {
+        case 4: return RECEIPT_HANDLE;
+        case 5: return OFFSET;
+        case 0: return HANDLE_NOT_SET;
+        default: return null;
+      }
+    }
+    public int getNumber() {
+      return this.value;
+    }
+  };
+
+  public HandleCase
+  getHandleCase() {
+    return HandleCase.forNumber(
+        handleCase_);
   }
 
   public static final int GROUP_FIELD_NUMBER = 1;
@@ -225,21 +263,24 @@ private static final long serialVersionUID = 0L;
   }
 
   public static final int RECEIPT_HANDLE_FIELD_NUMBER = 4;
-  private volatile java.lang.Object receiptHandle_;
   /**
    * <code>string receipt_handle = 4;</code>
    * @return The receiptHandle.
    */
-  @java.lang.Override
   public java.lang.String getReceiptHandle() {
-    java.lang.Object ref = receiptHandle_;
+    java.lang.Object ref = "";
+    if (handleCase_ == 4) {
+      ref = handle_;
+    }
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
       com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
-      receiptHandle_ = s;
+      if (handleCase_ == 4) {
+        handle_ = s;
+      }
       return s;
     }
   }
@@ -247,25 +288,42 @@ private static final long serialVersionUID = 0L;
    * <code>string receipt_handle = 4;</code>
    * @return The bytes for receiptHandle.
    */
-  @java.lang.Override
   public com.google.protobuf.ByteString
       getReceiptHandleBytes() {
-    java.lang.Object ref = receiptHandle_;
+    java.lang.Object ref = "";
+    if (handleCase_ == 4) {
+      ref = handle_;
+    }
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
-      receiptHandle_ = b;
+      if (handleCase_ == 4) {
+        handle_ = b;
+      }
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
     }
   }
 
-  public static final int MESSAGE_ID_FIELD_NUMBER = 5;
+  public static final int OFFSET_FIELD_NUMBER = 5;
+  /**
+   * <code>int64 offset = 5;</code>
+   * @return The offset.
+   */
+  @java.lang.Override
+  public long getOffset() {
+    if (handleCase_ == 5) {
+      return (java.lang.Long) handle_;
+    }
+    return 0L;
+  }
+
+  public static final int MESSAGE_ID_FIELD_NUMBER = 6;
   private volatile java.lang.Object messageId_;
   /**
-   * <code>string message_id = 5;</code>
+   * <code>string message_id = 6;</code>
    * @return The messageId.
    */
   @java.lang.Override
@@ -282,7 +340,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string message_id = 5;</code>
+   * <code>string message_id = 6;</code>
    * @return The bytes for messageId.
    */
   @java.lang.Override
@@ -298,25 +356,6 @@ private static final long serialVersionUID = 0L;
     } else {
       return (com.google.protobuf.ByteString) ref;
     }
-  }
-
-  public static final int CONSUME_MODEL_FIELD_NUMBER = 6;
-  private int consumeModel_;
-  /**
-   * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 6;</code>
-   * @return The enum numeric value on the wire for consumeModel.
-   */
-  @java.lang.Override public int getConsumeModelValue() {
-    return consumeModel_;
-  }
-  /**
-   * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 6;</code>
-   * @return The consumeModel.
-   */
-  @java.lang.Override public apache.rocketmq.v1.ConsumeModel getConsumeModel() {
-    @SuppressWarnings("deprecation")
-    apache.rocketmq.v1.ConsumeModel result = apache.rocketmq.v1.ConsumeModel.valueOf(consumeModel_);
-    return result == null ? apache.rocketmq.v1.ConsumeModel.UNRECOGNIZED : result;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -342,14 +381,15 @@ private static final long serialVersionUID = 0L;
     if (!getClientIdBytes().isEmpty()) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 3, clientId_);
     }
-    if (!getReceiptHandleBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 4, receiptHandle_);
+    if (handleCase_ == 4) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 4, handle_);
+    }
+    if (handleCase_ == 5) {
+      output.writeInt64(
+          5, (long)((java.lang.Long) handle_));
     }
     if (!getMessageIdBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 5, messageId_);
-    }
-    if (consumeModel_ != apache.rocketmq.v1.ConsumeModel.CLUSTERING.getNumber()) {
-      output.writeEnum(6, consumeModel_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 6, messageId_);
     }
     unknownFields.writeTo(output);
   }
@@ -371,15 +411,16 @@ private static final long serialVersionUID = 0L;
     if (!getClientIdBytes().isEmpty()) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, clientId_);
     }
-    if (!getReceiptHandleBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, receiptHandle_);
+    if (handleCase_ == 4) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, handle_);
+    }
+    if (handleCase_ == 5) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt64Size(
+            5, (long)((java.lang.Long) handle_));
     }
     if (!getMessageIdBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, messageId_);
-    }
-    if (consumeModel_ != apache.rocketmq.v1.ConsumeModel.CLUSTERING.getNumber()) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeEnumSize(6, consumeModel_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, messageId_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -408,11 +449,21 @@ private static final long serialVersionUID = 0L;
     }
     if (!getClientId()
         .equals(other.getClientId())) return false;
-    if (!getReceiptHandle()
-        .equals(other.getReceiptHandle())) return false;
     if (!getMessageId()
         .equals(other.getMessageId())) return false;
-    if (consumeModel_ != other.consumeModel_) return false;
+    if (!getHandleCase().equals(other.getHandleCase())) return false;
+    switch (handleCase_) {
+      case 4:
+        if (!getReceiptHandle()
+            .equals(other.getReceiptHandle())) return false;
+        break;
+      case 5:
+        if (getOffset()
+            != other.getOffset()) return false;
+        break;
+      case 0:
+      default:
+    }
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -434,12 +485,21 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + CLIENT_ID_FIELD_NUMBER;
     hash = (53 * hash) + getClientId().hashCode();
-    hash = (37 * hash) + RECEIPT_HANDLE_FIELD_NUMBER;
-    hash = (53 * hash) + getReceiptHandle().hashCode();
     hash = (37 * hash) + MESSAGE_ID_FIELD_NUMBER;
     hash = (53 * hash) + getMessageId().hashCode();
-    hash = (37 * hash) + CONSUME_MODEL_FIELD_NUMBER;
-    hash = (53 * hash) + consumeModel_;
+    switch (handleCase_) {
+      case 4:
+        hash = (37 * hash) + RECEIPT_HANDLE_FIELD_NUMBER;
+        hash = (53 * hash) + getReceiptHandle().hashCode();
+        break;
+      case 5:
+        hash = (37 * hash) + OFFSET_FIELD_NUMBER;
+        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+            getOffset());
+        break;
+      case 0:
+      default:
+    }
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -587,12 +647,10 @@ private static final long serialVersionUID = 0L;
       }
       clientId_ = "";
 
-      receiptHandle_ = "";
-
       messageId_ = "";
 
-      consumeModel_ = 0;
-
+      handleCase_ = 0;
+      handle_ = null;
       return this;
     }
 
@@ -630,9 +688,14 @@ private static final long serialVersionUID = 0L;
         result.topic_ = topicBuilder_.build();
       }
       result.clientId_ = clientId_;
-      result.receiptHandle_ = receiptHandle_;
+      if (handleCase_ == 4) {
+        result.handle_ = handle_;
+      }
+      if (handleCase_ == 5) {
+        result.handle_ = handle_;
+      }
       result.messageId_ = messageId_;
-      result.consumeModel_ = consumeModel_;
+      result.handleCase_ = handleCase_;
       onBuilt();
       return result;
     }
@@ -691,16 +754,24 @@ private static final long serialVersionUID = 0L;
         clientId_ = other.clientId_;
         onChanged();
       }
-      if (!other.getReceiptHandle().isEmpty()) {
-        receiptHandle_ = other.receiptHandle_;
-        onChanged();
-      }
       if (!other.getMessageId().isEmpty()) {
         messageId_ = other.messageId_;
         onChanged();
       }
-      if (other.consumeModel_ != 0) {
-        setConsumeModelValue(other.getConsumeModelValue());
+      switch (other.getHandleCase()) {
+        case RECEIPT_HANDLE: {
+          handleCase_ = 4;
+          handle_ = other.handle_;
+          onChanged();
+          break;
+        }
+        case OFFSET: {
+          setOffset(other.getOffset());
+          break;
+        }
+        case HANDLE_NOT_SET: {
+          break;
+        }
       }
       this.mergeUnknownFields(other.unknownFields);
       onChanged();
@@ -730,6 +801,21 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
+    private int handleCase_ = 0;
+    private java.lang.Object handle_;
+    public HandleCase
+        getHandleCase() {
+      return HandleCase.forNumber(
+          handleCase_);
+    }
+
+    public Builder clearHandle() {
+      handleCase_ = 0;
+      handle_ = null;
+      onChanged();
+      return this;
+    }
+
 
     private apache.rocketmq.v1.Resource group_;
     private com.google.protobuf.SingleFieldBuilderV3<
@@ -1045,18 +1131,23 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private java.lang.Object receiptHandle_ = "";
     /**
      * <code>string receipt_handle = 4;</code>
      * @return The receiptHandle.
      */
+    @java.lang.Override
     public java.lang.String getReceiptHandle() {
-      java.lang.Object ref = receiptHandle_;
+      java.lang.Object ref = "";
+      if (handleCase_ == 4) {
+        ref = handle_;
+      }
       if (!(ref instanceof java.lang.String)) {
         com.google.protobuf.ByteString bs =
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
-        receiptHandle_ = s;
+        if (handleCase_ == 4) {
+          handle_ = s;
+        }
         return s;
       } else {
         return (java.lang.String) ref;
@@ -1066,14 +1157,20 @@ private static final long serialVersionUID = 0L;
      * <code>string receipt_handle = 4;</code>
      * @return The bytes for receiptHandle.
      */
+    @java.lang.Override
     public com.google.protobuf.ByteString
         getReceiptHandleBytes() {
-      java.lang.Object ref = receiptHandle_;
+      java.lang.Object ref = "";
+      if (handleCase_ == 4) {
+        ref = handle_;
+      }
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        receiptHandle_ = b;
+        if (handleCase_ == 4) {
+          handle_ = b;
+        }
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
@@ -1089,8 +1186,8 @@ private static final long serialVersionUID = 0L;
       if (value == null) {
     throw new NullPointerException();
   }
-  
-      receiptHandle_ = value;
+  handleCase_ = 4;
+      handle_ = value;
       onChanged();
       return this;
     }
@@ -1099,9 +1196,11 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearReceiptHandle() {
-      
-      receiptHandle_ = getDefaultInstance().getReceiptHandle();
-      onChanged();
+      if (handleCase_ == 4) {
+        handleCase_ = 0;
+        handle_ = null;
+        onChanged();
+      }
       return this;
     }
     /**
@@ -1115,15 +1214,49 @@ private static final long serialVersionUID = 0L;
     throw new NullPointerException();
   }
   checkByteStringIsUtf8(value);
-      
-      receiptHandle_ = value;
+      handleCase_ = 4;
+      handle_ = value;
       onChanged();
+      return this;
+    }
+
+    /**
+     * <code>int64 offset = 5;</code>
+     * @return The offset.
+     */
+    public long getOffset() {
+      if (handleCase_ == 5) {
+        return (java.lang.Long) handle_;
+      }
+      return 0L;
+    }
+    /**
+     * <code>int64 offset = 5;</code>
+     * @param value The offset to set.
+     * @return This builder for chaining.
+     */
+    public Builder setOffset(long value) {
+      handleCase_ = 5;
+      handle_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>int64 offset = 5;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearOffset() {
+      if (handleCase_ == 5) {
+        handleCase_ = 0;
+        handle_ = null;
+        onChanged();
+      }
       return this;
     }
 
     private java.lang.Object messageId_ = "";
     /**
-     * <code>string message_id = 5;</code>
+     * <code>string message_id = 6;</code>
      * @return The messageId.
      */
     public java.lang.String getMessageId() {
@@ -1139,7 +1272,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string message_id = 5;</code>
+     * <code>string message_id = 6;</code>
      * @return The bytes for messageId.
      */
     public com.google.protobuf.ByteString
@@ -1156,7 +1289,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string message_id = 5;</code>
+     * <code>string message_id = 6;</code>
      * @param value The messageId to set.
      * @return This builder for chaining.
      */
@@ -1171,7 +1304,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string message_id = 5;</code>
+     * <code>string message_id = 6;</code>
      * @return This builder for chaining.
      */
     public Builder clearMessageId() {
@@ -1181,7 +1314,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string message_id = 5;</code>
+     * <code>string message_id = 6;</code>
      * @param value The bytes for messageId to set.
      * @return This builder for chaining.
      */
@@ -1193,60 +1326,6 @@ private static final long serialVersionUID = 0L;
   checkByteStringIsUtf8(value);
       
       messageId_ = value;
-      onChanged();
-      return this;
-    }
-
-    private int consumeModel_ = 0;
-    /**
-     * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 6;</code>
-     * @return The enum numeric value on the wire for consumeModel.
-     */
-    @java.lang.Override public int getConsumeModelValue() {
-      return consumeModel_;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 6;</code>
-     * @param value The enum numeric value on the wire for consumeModel to set.
-     * @return This builder for chaining.
-     */
-    public Builder setConsumeModelValue(int value) {
-      
-      consumeModel_ = value;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 6;</code>
-     * @return The consumeModel.
-     */
-    @java.lang.Override
-    public apache.rocketmq.v1.ConsumeModel getConsumeModel() {
-      @SuppressWarnings("deprecation")
-      apache.rocketmq.v1.ConsumeModel result = apache.rocketmq.v1.ConsumeModel.valueOf(consumeModel_);
-      return result == null ? apache.rocketmq.v1.ConsumeModel.UNRECOGNIZED : result;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 6;</code>
-     * @param value The consumeModel to set.
-     * @return This builder for chaining.
-     */
-    public Builder setConsumeModel(apache.rocketmq.v1.ConsumeModel value) {
-      if (value == null) {
-        throw new NullPointerException();
-      }
-      
-      consumeModel_ = value.getNumber();
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 6;</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearConsumeModel() {
-      
-      consumeModel_ = 0;
       onChanged();
       return this;
     }

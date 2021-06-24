@@ -155,29 +155,10 @@ public interface SystemAttributeOrBuilder extends
 
   /**
    * <pre>
-   * If message type is transaction, this field is to indicate transaction phase: prepare, commit or rollback.
-   * </pre>
-   *
-   * <code>.apache.rocketmq.v1.TransactionPhase transaction_phase = 7;</code>
-   * @return The enum numeric value on the wire for transactionPhase.
-   */
-  int getTransactionPhaseValue();
-  /**
-   * <pre>
-   * If message type is transaction, this field is to indicate transaction phase: prepare, commit or rollback.
-   * </pre>
-   *
-   * <code>.apache.rocketmq.v1.TransactionPhase transaction_phase = 7;</code>
-   * @return The transactionPhase.
-   */
-  apache.rocketmq.v1.TransactionPhase getTransactionPhase();
-
-  /**
-   * <pre>
    * Message born time-point.
    * </pre>
    *
-   * <code>.google.protobuf.Timestamp born_timestamp = 8;</code>
+   * <code>.google.protobuf.Timestamp born_timestamp = 7;</code>
    * @return Whether the bornTimestamp field is set.
    */
   boolean hasBornTimestamp();
@@ -186,7 +167,7 @@ public interface SystemAttributeOrBuilder extends
    * Message born time-point.
    * </pre>
    *
-   * <code>.google.protobuf.Timestamp born_timestamp = 8;</code>
+   * <code>.google.protobuf.Timestamp born_timestamp = 7;</code>
    * @return The bornTimestamp.
    */
   com.google.protobuf.Timestamp getBornTimestamp();
@@ -195,7 +176,7 @@ public interface SystemAttributeOrBuilder extends
    * Message born time-point.
    * </pre>
    *
-   * <code>.google.protobuf.Timestamp born_timestamp = 8;</code>
+   * <code>.google.protobuf.Timestamp born_timestamp = 7;</code>
    */
   com.google.protobuf.TimestampOrBuilder getBornTimestampOrBuilder();
 
@@ -204,7 +185,7 @@ public interface SystemAttributeOrBuilder extends
    * Message born host. Valid options are IPv4, IPv6 or client host domain name.
    * </pre>
    *
-   * <code>string born_host = 9;</code>
+   * <code>string born_host = 8;</code>
    * @return The bornHost.
    */
   java.lang.String getBornHost();
@@ -213,7 +194,7 @@ public interface SystemAttributeOrBuilder extends
    * Message born host. Valid options are IPv4, IPv6 or client host domain name.
    * </pre>
    *
-   * <code>string born_host = 9;</code>
+   * <code>string born_host = 8;</code>
    * @return The bytes for bornHost.
    */
   com.google.protobuf.ByteString
@@ -224,7 +205,7 @@ public interface SystemAttributeOrBuilder extends
    * Time-point at which the message is stored in the broker.
    * </pre>
    *
-   * <code>.google.protobuf.Timestamp store_timestamp = 10;</code>
+   * <code>.google.protobuf.Timestamp store_timestamp = 9;</code>
    * @return Whether the storeTimestamp field is set.
    */
   boolean hasStoreTimestamp();
@@ -233,7 +214,7 @@ public interface SystemAttributeOrBuilder extends
    * Time-point at which the message is stored in the broker.
    * </pre>
    *
-   * <code>.google.protobuf.Timestamp store_timestamp = 10;</code>
+   * <code>.google.protobuf.Timestamp store_timestamp = 9;</code>
    * @return The storeTimestamp.
    */
   com.google.protobuf.Timestamp getStoreTimestamp();
@@ -242,25 +223,25 @@ public interface SystemAttributeOrBuilder extends
    * Time-point at which the message is stored in the broker.
    * </pre>
    *
-   * <code>.google.protobuf.Timestamp store_timestamp = 10;</code>
+   * <code>.google.protobuf.Timestamp store_timestamp = 9;</code>
    */
   com.google.protobuf.TimestampOrBuilder getStoreTimestampOrBuilder();
 
   /**
    * <pre>
-   * The broker that stores this message. It may be name, IP or arbitary identifier that uniquely identify the broker.
+   * The broker that stores this message. It may be name, IP or arbitrary identifier that uniquely identify the broker.
    * </pre>
    *
-   * <code>string store_host = 11;</code>
+   * <code>string store_host = 10;</code>
    * @return The storeHost.
    */
   java.lang.String getStoreHost();
   /**
    * <pre>
-   * The broker that stores this message. It may be name, IP or arbitary identifier that uniquely identify the broker.
+   * The broker that stores this message. It may be name, IP or arbitrary identifier that uniquely identify the broker.
    * </pre>
    *
-   * <code>string store_host = 11;</code>
+   * <code>string store_host = 10;</code>
    * @return The bytes for storeHost.
    */
   com.google.protobuf.ByteString
@@ -271,7 +252,7 @@ public interface SystemAttributeOrBuilder extends
    * Time-point at which broker delivers to clients.
    * </pre>
    *
-   * <code>.google.protobuf.Timestamp delivery_timestamp = 12;</code>
+   * <code>.google.protobuf.Timestamp delivery_timestamp = 11;</code>
    * @return Whether the deliveryTimestamp field is set.
    */
   boolean hasDeliveryTimestamp();
@@ -280,7 +261,7 @@ public interface SystemAttributeOrBuilder extends
    * Time-point at which broker delivers to clients.
    * </pre>
    *
-   * <code>.google.protobuf.Timestamp delivery_timestamp = 12;</code>
+   * <code>.google.protobuf.Timestamp delivery_timestamp = 11;</code>
    * @return The deliveryTimestamp.
    */
   com.google.protobuf.Timestamp getDeliveryTimestamp();
@@ -289,7 +270,7 @@ public interface SystemAttributeOrBuilder extends
    * Time-point at which broker delivers to clients.
    * </pre>
    *
-   * <code>.google.protobuf.Timestamp delivery_timestamp = 12;</code>
+   * <code>.google.protobuf.Timestamp delivery_timestamp = 11;</code>
    */
   com.google.protobuf.TimestampOrBuilder getDeliveryTimestampOrBuilder();
 
@@ -298,7 +279,7 @@ public interface SystemAttributeOrBuilder extends
    * Level-based delay strategy.
    * </pre>
    *
-   * <code>int32 delay_level = 13;</code>
+   * <code>int32 delay_level = 12;</code>
    * @return The delayLevel.
    */
   int getDelayLevel();
@@ -309,7 +290,7 @@ public interface SystemAttributeOrBuilder extends
    * acknowledge or negatively acknowledge the message.
    * </pre>
    *
-   * <code>string receipt_handle = 14;</code>
+   * <code>string receipt_handle = 13;</code>
    * @return The receiptHandle.
    */
   java.lang.String getReceiptHandle();
@@ -319,7 +300,7 @@ public interface SystemAttributeOrBuilder extends
    * acknowledge or negatively acknowledge the message.
    * </pre>
    *
-   * <code>string receipt_handle = 14;</code>
+   * <code>string receipt_handle = 13;</code>
    * @return The bytes for receiptHandle.
    */
   com.google.protobuf.ByteString
@@ -330,7 +311,7 @@ public interface SystemAttributeOrBuilder extends
    * Partition identifier in which a message is physically stored.
    * </pre>
    *
-   * <code>int32 partition_id = 15;</code>
+   * <code>int32 partition_id = 14;</code>
    * @return The partitionId.
    */
   int getPartitionId();
@@ -340,7 +321,7 @@ public interface SystemAttributeOrBuilder extends
    * Partition offset at which a message is stored.
    * </pre>
    *
-   * <code>int64 partition_offset = 16;</code>
+   * <code>int64 partition_offset = 15;</code>
    * @return The partitionOffset.
    */
   long getPartitionOffset();
@@ -350,7 +331,7 @@ public interface SystemAttributeOrBuilder extends
    * Period of time servers would remain invisible once a message is acquired.
    * </pre>
    *
-   * <code>.google.protobuf.Duration invisible_period = 17;</code>
+   * <code>.google.protobuf.Duration invisible_period = 16;</code>
    * @return Whether the invisiblePeriod field is set.
    */
   boolean hasInvisiblePeriod();
@@ -359,7 +340,7 @@ public interface SystemAttributeOrBuilder extends
    * Period of time servers would remain invisible once a message is acquired.
    * </pre>
    *
-   * <code>.google.protobuf.Duration invisible_period = 17;</code>
+   * <code>.google.protobuf.Duration invisible_period = 16;</code>
    * @return The invisiblePeriod.
    */
   com.google.protobuf.Duration getInvisiblePeriod();
@@ -368,7 +349,7 @@ public interface SystemAttributeOrBuilder extends
    * Period of time servers would remain invisible once a message is acquired.
    * </pre>
    *
-   * <code>.google.protobuf.Duration invisible_period = 17;</code>
+   * <code>.google.protobuf.Duration invisible_period = 16;</code>
    */
   com.google.protobuf.DurationOrBuilder getInvisiblePeriodOrBuilder();
 
@@ -378,7 +359,7 @@ public interface SystemAttributeOrBuilder extends
    * again using certain back-off strategy.
    * </pre>
    *
-   * <code>int32 delivery_count = 18;</code>
+   * <code>int32 delivery_count = 17;</code>
    * @return The deliveryCount.
    */
   int getDeliveryCount();
@@ -388,7 +369,7 @@ public interface SystemAttributeOrBuilder extends
    * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
    * @return Whether the producerGroup field is set.
    */
   boolean hasProducerGroup();
@@ -397,7 +378,7 @@ public interface SystemAttributeOrBuilder extends
    * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
    * @return The producerGroup.
    */
   apache.rocketmq.v1.Resource getProducerGroup();
@@ -406,17 +387,17 @@ public interface SystemAttributeOrBuilder extends
    * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
    */
   apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder();
 
   /**
-   * <code>string message_group = 20;</code>
+   * <code>string message_group = 19;</code>
    * @return The messageGroup.
    */
   java.lang.String getMessageGroup();
   /**
-   * <code>string message_group = 20;</code>
+   * <code>string message_group = 19;</code>
    * @return The bytes for messageGroup.
    */
   com.google.protobuf.ByteString
@@ -427,7 +408,7 @@ public interface SystemAttributeOrBuilder extends
    * Trace context.
    * </pre>
    *
-   * <code>string trace_context = 21;</code>
+   * <code>string trace_context = 20;</code>
    * @return The traceContext.
    */
   java.lang.String getTraceContext();
@@ -436,11 +417,31 @@ public interface SystemAttributeOrBuilder extends
    * Trace context.
    * </pre>
    *
-   * <code>string trace_context = 21;</code>
+   * <code>string trace_context = 20;</code>
    * @return The bytes for traceContext.
    */
   com.google.protobuf.ByteString
       getTraceContextBytes();
+
+  /**
+   * <pre>
+   * Correlated transactioin
+   * </pre>
+   *
+   * <code>string transaction_id = 21;</code>
+   * @return The transactionId.
+   */
+  java.lang.String getTransactionId();
+  /**
+   * <pre>
+   * Correlated transactioin
+   * </pre>
+   *
+   * <code>string transaction_id = 21;</code>
+   * @return The bytes for transactionId.
+   */
+  com.google.protobuf.ByteString
+      getTransactionIdBytes();
 
   public apache.rocketmq.v1.SystemAttribute.TimedDeliveryCase getTimedDeliveryCase();
 }
