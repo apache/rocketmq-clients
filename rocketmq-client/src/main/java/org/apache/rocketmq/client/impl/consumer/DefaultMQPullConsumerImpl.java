@@ -22,19 +22,20 @@ import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.impl.ClientInstance;
+import org.apache.rocketmq.client.impl.ClientObserver;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.remoting.RpcTarget;
 import org.apache.rocketmq.client.route.Partition;
 
 @Slf4j
-public class DefaultMQPullConsumerImpl implements ConsumerObserver {
+public class DefaultMQPullConsumerImpl implements ClientObserver {
     private final DefaultMQPullConsumer defaultMQPullConsumer;
     private final ClientInstance clientInstance;
     private final AtomicReference<ServiceState> state;
 
     public DefaultMQPullConsumerImpl(DefaultMQPullConsumer defaultMQPullConsumer) {
         this.defaultMQPullConsumer = defaultMQPullConsumer;
-        this.clientInstance = new ClientInstance(defaultMQPullConsumer);
+        this.clientInstance = new ClientInstance(defaultMQPullConsumer, this);
         this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
     }
 
@@ -130,15 +131,6 @@ public class DefaultMQPullConsumerImpl implements ConsumerObserver {
                     "The pull consumer has attempted to be started before, consumerGroup=" + consumerGroup);
         }
 
-        final boolean registerResult = clientInstance.registerConsumerObserver(consumerGroup, this);
-        if (!registerResult) {
-            throw new MQClientException(
-                    "The consumer group has been created already, please specify another one, consumerGroup="
-                    + consumerGroup);
-        }
-
-        log.debug("Registered consumer observer, consumerGroup={}", consumerGroup);
-
         clientInstance.start();
         state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
         log.info("Start DefaultMQPullConsumerImpl successfully.");
@@ -149,7 +141,6 @@ public class DefaultMQPullConsumerImpl implements ConsumerObserver {
         state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING);
         final ServiceState serviceState = state.get();
         if (ServiceState.STOPPING == serviceState) {
-            clientInstance.unregisterConsumerObserver(defaultMQPullConsumer.getConsumerGroup());
             clientInstance.shutdown();
             if (state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED)) {
                 log.info("Shutdown DefaultMQPullConsumerImpl successfully.");

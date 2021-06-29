@@ -33,6 +33,7 @@ import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.impl.ClientInstance;
+import org.apache.rocketmq.client.impl.ClientObserver;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.remoting.RpcTarget;
@@ -41,7 +42,7 @@ import org.apache.rocketmq.client.route.TopicRouteData;
 
 
 @Slf4j
-public class DefaultMQPushConsumerImpl implements ConsumerObserver {
+public class DefaultMQPushConsumerImpl implements ClientObserver {
 
     public AtomicLong popTimes;
     public AtomicLong popMsgCount;
@@ -79,7 +80,7 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
 
         this.consumeService = null;
 
-        this.clientInstance = new ClientInstance(defaultMQPushConsumer);
+        this.clientInstance = new ClientInstance(defaultMQPushConsumer, this);
         this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
 
         this.popTimes = new AtomicLong(0);
@@ -109,13 +110,6 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
         consumeService = this.generateConsumeService();
         consumeService.start();
 
-        final boolean registerResult = clientInstance.registerConsumerObserver(consumerGroup, this);
-        if (!registerResult) {
-            throw new MQClientException(
-                    "The consumer group has been created already, please specify another one, consumerGroup="
-                    + consumerGroup);
-        }
-
         log.debug("Registered consumer observer, consumerGroup={}", consumerGroup);
 
         clientInstance.start();
@@ -144,7 +138,6 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
         state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING);
         final ServiceState serviceState = state.get();
         if (ServiceState.STOPPING == serviceState) {
-            clientInstance.unregisterConsumerObserver(defaultMQPushConsumer.getConsumerGroup());
             clientInstance.shutdown();
 
             if (null != consumeService) {

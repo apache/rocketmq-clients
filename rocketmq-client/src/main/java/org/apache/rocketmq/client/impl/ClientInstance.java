@@ -85,9 +85,7 @@ import org.apache.rocketmq.client.consumer.PullResult;
 import org.apache.rocketmq.client.consumer.PullStatus;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
-import org.apache.rocketmq.client.impl.consumer.ConsumerObserver;
 import org.apache.rocketmq.client.impl.consumer.TopicAssignment;
-import org.apache.rocketmq.client.impl.producer.ProducerObserver;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.protocol.Digest;
@@ -139,8 +137,7 @@ public class ClientInstance {
 
     private final TopAddressing topAddressing;
 
-    private final ConcurrentMap<String, ProducerObserver> producerObserverTable;
-    private final ConcurrentMap<String, ConsumerObserver> consumerObserverTable;
+    private final ClientObserver clientObserver;
 
     private final ConcurrentHashMap<String /* Topic */, TopicRouteData> topicRouteTable;
 
@@ -150,8 +147,9 @@ public class ClientInstance {
     @Getter
     private volatile Tracer tracer = null;
 
-    public ClientInstance(ClientConfig clientConfig) {
+    public ClientInstance(ClientConfig clientConfig, ClientObserver clientObserver) {
         this.clientConfig = clientConfig;
+        this.clientObserver = clientObserver;
         this.clientTable = new ConcurrentHashMap<RpcTarget, RpcClient>();
 
         this.scheduler =
@@ -183,9 +181,6 @@ public class ClientInstance {
         this.nameServerIndex = new AtomicInteger(RandomUtils.nextInt());
 
         this.topAddressing = new TopAddressing();
-
-        this.producerObserverTable = new ConcurrentHashMap<String, ProducerObserver>();
-        this.consumerObserverTable = new ConcurrentHashMap<String, ConsumerObserver>();
 
         this.topicRouteTable = new ConcurrentHashMap<String, TopicRouteData>();
 
@@ -337,18 +332,6 @@ public class ClientInstance {
         if (ServiceState.STOPPED == state.get()) {
             return;
         }
-        if (!producerObserverTable.isEmpty()) {
-            log.info(
-                    "Not all producerObserver has been unregistered, producerObserver num={}",
-                    producerObserverTable.size());
-            return;
-        }
-        if (!consumerObserverTable.isEmpty()) {
-            log.info(
-                    "Not all consumerObserver has been unregistered, consumerObserver num={}",
-                    consumerObserverTable.size());
-            return;
-        }
         state.compareAndSet(ServiceState.STARTING, ServiceState.STOPPING);
         state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING);
         final ServiceState serviceState = state.get();
@@ -371,12 +354,7 @@ public class ClientInstance {
             log.warn("Unexpected client instance state={}", serviceState);
             return;
         }
-        for (ProducerObserver producerObserver : producerObserverTable.values()) {
-            producerObserver.logStats();
-        }
-        for (ConsumerObserver consumerObserver : consumerObserverTable.values()) {
-            consumerObserver.logStats();
-        }
+        clientObserver.logStats();
     }
 
     private void doHeartbeat() {
@@ -389,14 +367,7 @@ public class ClientInstance {
         log.debug("Start to send heartbeat for a new round.");
 
         final HeartbeatRequest.Builder builder = HeartbeatRequest.newBuilder();
-
-        for (ProducerObserver producerObserver : producerObserverTable.values()) {
-            builder.addHeartbeats(producerObserver.prepareHeartbeatData());
-        }
-
-        for (ConsumerObserver consumerObserver : consumerObserverTable.values()) {
-            builder.addHeartbeats(consumerObserver.prepareHeartbeatData());
-        }
+        builder.addHeartbeats(clientObserver.prepareHeartbeatData());
 
         final HeartbeatRequest request = builder.build();
 
@@ -595,57 +566,6 @@ public class ClientInstance {
             log.error("Exception occurs while updating tracer.", t);
         }
     }
-
-    /**
-     * Register producer observer.
-     *
-     * @param producerGroup group of producer, caller must ensure that it is not blank.
-     * @param observer      producer observer.
-     * @return result of register.
-     */
-    public boolean registerProducerObserver(String producerGroup, ProducerObserver observer) {
-        final ProducerObserver prev = producerObserverTable.putIfAbsent(producerGroup, observer);
-        if (null != prev) {
-            log.warn("The producer group exists already, producerGroup={}", producerGroup);
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Unregister producer observer.
-     *
-     * @param producerGroup the producer group
-     */
-    public void unregisterProducerObserver(String producerGroup) {
-        producerObserverTable.remove(producerGroup);
-    }
-
-    /**
-     * Register consumer observer.
-     *
-     * @param consumerGroup group of consumer, caller must ensure that it is not blank.
-     * @param observer      consumer observer.
-     * @return result of register.
-     */
-    public boolean registerConsumerObserver(String consumerGroup, ConsumerObserver observer) {
-        final ConsumerObserver prev = consumerObserverTable.putIfAbsent(consumerGroup, observer);
-        if (null != prev) {
-            log.warn("The consumer group exists already, producerGroup={}", consumerGroup);
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Unregister consumer observer.
-     *
-     * @param consumerGroup the consumer group
-     */
-    public void unregisterConsumerObserver(String consumerGroup) {
-        consumerObserverTable.remove(consumerGroup);
-    }
-
 
     /**
      * Get rpc client by remote address, would create client automatically if it does not exist.

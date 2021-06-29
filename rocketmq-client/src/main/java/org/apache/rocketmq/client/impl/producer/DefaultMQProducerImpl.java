@@ -27,6 +27,7 @@ import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.exception.RemotingException;
 import org.apache.rocketmq.client.impl.ClientInstance;
+import org.apache.rocketmq.client.impl.ClientObserver;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageConst;
 import org.apache.rocketmq.client.message.MessageIdUtils;
@@ -48,7 +49,7 @@ import org.apache.rocketmq.utility.UtilAll;
 
 
 @Slf4j
-public class DefaultMQProducerImpl implements ProducerObserver {
+public class DefaultMQProducerImpl implements ClientObserver {
 
     public static final int MESSAGE_COMPRESSION_THRESHOLD = 1024 * 1024 * 4;
     public static final int DEFAULT_MESSAGE_COMPRESSION_LEVEL = 5;
@@ -62,7 +63,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
 
     public DefaultMQProducerImpl(DefaultMQProducer defaultMQProducer) {
         this.defaultMQProducer = defaultMQProducer;
-        this.clientInstance = new ClientInstance(defaultMQProducer);
+        this.clientInstance = new ClientInstance(defaultMQProducer, this);
 
         this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
     }
@@ -81,15 +82,6 @@ public class DefaultMQProducerImpl implements ProducerObserver {
                     "The producer has attempted to be started before, producerGroup=" + producerGroup);
         }
 
-        final boolean registerResult = clientInstance.registerProducerObserver(producerGroup, this);
-        if (!registerResult) {
-            throw new MQClientException(
-                    "The producer group has been created already, please specify another one, producerGroup="
-                    + producerGroup);
-        } else {
-            log.debug("Registered producer observer, producerGroup={}", producerGroup);
-        }
-
         clientInstance.start();
         state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
         log.info("rocketmq producer starts successfully.");
@@ -101,7 +93,6 @@ public class DefaultMQProducerImpl implements ProducerObserver {
         state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING);
         final ServiceState serviceState = state.get();
         if (ServiceState.STOPPING == serviceState) {
-            clientInstance.unregisterProducerObserver(this.getProducerGroup());
             clientInstance.shutdown();
             if (state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED)) {
                 log.info("Shutdown rocketmq producer successfully.");
