@@ -391,7 +391,7 @@ public class DefaultMQProducerImpl implements ClientObserver {
             try {
                 partition = selectOnePartition(topic);
             } catch (Throwable t) {
-                throw new MQClientException("Failed to select a partition for sending");
+                throw new MQClientException("Failed to select a partition for sending", t);
             }
             try {
                 return sendKernelImpl(message, partition, mode, sendCallback, timeoutMillis);
