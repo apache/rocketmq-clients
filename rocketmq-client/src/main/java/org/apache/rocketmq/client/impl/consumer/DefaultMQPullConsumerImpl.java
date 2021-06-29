@@ -149,10 +149,8 @@ public class DefaultMQPullConsumerImpl implements ConsumerObserver {
         state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING);
         final ServiceState serviceState = state.get();
         if (ServiceState.STOPPING == serviceState) {
-            if (null != clientInstance) {
-                clientInstance.unregisterConsumerObserver(defaultMQPullConsumer.getConsumerGroup());
-                clientInstance.shutdown();
-            }
+            clientInstance.unregisterConsumerObserver(defaultMQPullConsumer.getConsumerGroup());
+            clientInstance.shutdown();
             if (state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED)) {
                 log.info("Shutdown DefaultMQPullConsumerImpl successfully.");
                 return;
@@ -172,11 +170,6 @@ public class DefaultMQPullConsumerImpl implements ConsumerObserver {
         final ConsumerGroup consumerGroup = ConsumerGroup.newBuilder().setGroup(groupResource).build();
         return HeartbeatEntry.newBuilder().setClientId(defaultMQPullConsumer.getClientId())
                              .setConsumerGroup(consumerGroup).build();
-    }
-
-    @Override
-    public void scanLoadAssignments() {
-
     }
 
     @Override

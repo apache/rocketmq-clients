@@ -273,21 +273,6 @@ public class ClientInstance {
                     @Override
                     public void run() {
                         try {
-                            scanConsumersLoadAssignments();
-                        } catch (Throwable t) {
-                            log.error("Exception occurs while scanning load assignments of consumers.", t);
-                        }
-                    }
-                },
-                1000,
-                5 * 1000,
-                TimeUnit.MILLISECONDS);
-
-        scheduler.scheduleWithFixedDelay(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
                             restoreIsolatedTarget();
                         } catch (Throwable t) {
                             log.error("Exception occurs while restoring isolated target.", t);
@@ -608,20 +593,6 @@ public class ClientInstance {
             tracingRpcTarget = randomTracingRpcTarget;
         } catch (Throwable t) {
             log.error("Exception occurs while updating tracer.", t);
-        }
-    }
-
-    /**
-     * Scan load assignments for all consumers.
-     */
-    private void scanConsumersLoadAssignments() {
-        final ServiceState serviceState = state.get();
-        if (ServiceState.STARTED != serviceState && ServiceState.STARTING != serviceState) {
-            log.warn("Unexpected client instance state={}", serviceState);
-            return;
-        }
-        for (ConsumerObserver consumerObserver : consumerObserverTable.values()) {
-            consumerObserver.scanLoadAssignments();
         }
     }
 

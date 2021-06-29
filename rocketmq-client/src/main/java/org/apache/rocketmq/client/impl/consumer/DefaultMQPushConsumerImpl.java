@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
@@ -59,7 +60,7 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
     private final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable;
 
     @Getter
-    private ClientInstance clientInstance;
+    private final ClientInstance clientInstance;
     @Getter
     private ConsumeService consumeService;
     private final AtomicReference<ServiceState> state;
@@ -118,6 +119,22 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
         log.debug("Registered consumer observer, consumerGroup={}", consumerGroup);
 
         clientInstance.start();
+
+        clientInstance.getScheduler().scheduleWithFixedDelay(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            scanLoadAssignments();
+                        } catch (Throwable t) {
+                            log.error("Exception occurs while scanning load assignment of push consumer, "
+                                      + "consumerGroup={}", defaultMQPushConsumer.getConsumerGroup(), t);
+                        }
+                    }
+                }, 1000,
+                5 * 1000,
+                TimeUnit.MILLISECONDS);
+
         state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
         log.info("Start DefaultMQPushConsumerImpl successfully.");
     }
@@ -127,10 +144,8 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
         state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING);
         final ServiceState serviceState = state.get();
         if (ServiceState.STOPPING == serviceState) {
-            if (null != clientInstance) {
-                clientInstance.unregisterConsumerObserver(defaultMQPushConsumer.getConsumerGroup());
-                clientInstance.shutdown();
-            }
+            clientInstance.unregisterConsumerObserver(defaultMQPushConsumer.getConsumerGroup());
+            clientInstance.shutdown();
 
             if (null != consumeService) {
                 consumeService.shutdown();
@@ -151,7 +166,6 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
                                      .build();
     }
 
-    @Override
     public void scanLoadAssignments() {
         try {
             final ServiceState serviceState = state.get();
@@ -415,9 +429,6 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
     }
 
     public Tracer getTracer() {
-        if (null == clientInstance) {
-            return null;
-        }
         return clientInstance.getTracer();
     }
 }
