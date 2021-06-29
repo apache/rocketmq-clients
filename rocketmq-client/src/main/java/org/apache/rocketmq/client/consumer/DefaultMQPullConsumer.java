@@ -3,6 +3,8 @@ package org.apache.rocketmq.client.consumer;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.rocketmq.client.OffsetQuery;
+import org.apache.rocketmq.client.exception.MQClientException;
+import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.impl.ClientConfig;
 import org.apache.rocketmq.client.impl.consumer.DefaultMQPullConsumerImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
@@ -17,6 +19,17 @@ public class DefaultMQPullConsumer extends ClientConfig {
     public DefaultMQPullConsumer(final String consumerGroup) {
         super(consumerGroup);
         this.impl = new DefaultMQPullConsumerImpl(this);
+    }
+
+    public void setConsumerGroup(String consumerGroup) {
+        if (impl.hasBeenStarted()) {
+            throw new RuntimeException("Please set consumerGroup before consumer started.");
+        }
+        setGroupName(consumerGroup);
+    }
+
+    public String getConsumerGroup() {
+        return this.getGroupName();
     }
 
     @Deprecated
@@ -49,7 +62,7 @@ public class DefaultMQPullConsumer extends ClientConfig {
         throw new UnsupportedOperationException();
     }
 
-    public long queryOffset(OffsetQuery offsetQuery) {
+    public long queryOffset(OffsetQuery offsetQuery) throws MQServerException, MQClientException {
         return this.impl.queryOffset(offsetQuery);
     }
 
@@ -61,11 +74,11 @@ public class DefaultMQPullConsumer extends ClientConfig {
         impl.pull(pullMessageQuery, callback);
     }
 
-    public void start() {
+    public void start() throws MQClientException {
         this.impl.start();
     }
 
-    public void shutdown() {
+    public void shutdown() throws MQClientException {
         this.impl.shutdown();
     }
 }

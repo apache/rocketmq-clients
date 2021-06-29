@@ -98,11 +98,11 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
     }
 
     public void start() throws MQClientException {
-        final String consumerGroup = defaultMQPushConsumer.getGroupName();
+        final String consumerGroup = defaultMQPushConsumer.getConsumerGroup();
 
         if (!state.compareAndSet(ServiceState.CREATED, ServiceState.STARTING)) {
             throw new MQClientException(
-                    "The producer has attempted to be started before, consumerGroup=" + consumerGroup);
+                    "The push consumer has attempted to be started before, consumerGroup=" + consumerGroup);
         }
 
         consumeService = this.generateConsumeService();
@@ -119,6 +119,7 @@ public class DefaultMQPushConsumerImpl implements ConsumerObserver {
 
         clientInstance.start();
         state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
+        log.info("Start DefaultMQPushConsumerImpl successfully.");
     }
 
     public void shutdown() throws MQClientException {

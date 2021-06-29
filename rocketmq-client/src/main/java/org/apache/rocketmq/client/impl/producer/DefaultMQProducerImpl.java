@@ -74,7 +74,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
      */
     public void start() throws MQClientException {
         log.info("Begin to start the rocketmq producer.");
-        final String producerGroup = defaultMQProducer.getGroupName();
+        final String producerGroup = defaultMQProducer.getProducerGroup();
 
         if (!state.compareAndSet(ServiceState.CREATED, ServiceState.STARTING)) {
             throw new MQClientException(
@@ -136,7 +136,7 @@ public class DefaultMQProducerImpl implements ProducerObserver {
                                .setProducerGroup(groupResource)
                                .setMessageId(MessageIdUtils.createUniqID())
                                .setBornHost(UtilAll.getIpv4Address())
-                               .setPartitionId(partition.getPartitionId());
+                               .setPartitionId(partition.getId());
 
         final int delayTimeLevel = message.getDelayTimeLevel();
         if (delayTimeLevel > 0) {

@@ -16,7 +16,7 @@ import org.apache.rocketmq.client.remoting.RpcTarget;
 public class Partition {
     private final String topicArn;
     private final String topicName;
-    private final int partitionId;
+    private final int id;
     private final Permission permission;
 
     private final String brokerName;
@@ -28,7 +28,7 @@ public class Partition {
 
         this.topicArn = partition.getTopic().getArn();
         this.topicName = partition.getTopic().getName();
-        this.partitionId = partition.getId();
+        this.id = partition.getId();
         final apache.rocketmq.v1.Permission perm = partition.getPermission();
         switch (perm) {
             case READ:

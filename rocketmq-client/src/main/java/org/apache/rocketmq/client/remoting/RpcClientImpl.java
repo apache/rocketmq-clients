@@ -195,4 +195,10 @@ public class RpcClientImpl implements RpcClient {
     public PullMessageResponse pullMessage(PullMessageRequest request, long duration, TimeUnit unit) {
         return blockingStub.withDeadlineAfter(duration, unit).pullMessage(request);
     }
+
+    @Override
+    public ListenableFuture<PullMessageResponse> pullMessage(PullMessageRequest request, Executor executor,
+                                                             long duration, TimeUnit timeUnit) {
+        return futureStub.withExecutor(executor).withDeadlineAfter(duration, timeUnit).pullMessage(request);
+    }
 }

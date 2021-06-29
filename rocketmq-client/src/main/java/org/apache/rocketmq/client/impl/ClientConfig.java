@@ -23,8 +23,6 @@ public class ClientConfig implements CredentialsObservable {
     @Getter
     protected final ReadWriteLock nameServerLock;
 
-    @Setter
-    @Getter
     private String groupName = "";
     // TODO: fix region_id here.
     @Getter
@@ -65,6 +63,14 @@ public class ClientConfig implements CredentialsObservable {
         sb.append(CLIENT_ID_SEPARATOR);
         sb.append(System.nanoTime());
         this.clientId = sb.toString();
+    }
+
+    protected void setGroupName(String groupName) {
+        this.groupName = groupName;
+    }
+
+    protected String getGroupName() {
+        return groupName;
     }
 
     public void setNamesrvAddr(String namesrv) {

@@ -156,22 +156,24 @@ public class ProcessQueue {
         consumerImpl.popTimes.getAndIncrement();
 
         switch (popStatus) {
-            case FOUND:
-                cacheMessages(msgFoundList);
-
-                consumerImpl.popMsgCount.getAndAdd(msgFoundList.size());
-
-                try {
-                    // TODO: considering whether exception would be thrown here?
-                    consumerImpl.getConsumeService().dispatch(this);
-                } catch (Throwable t) {
-                    log.error("Unexpected error while dispatching message popped, mq={}", messageQueue.simpleName(), t);
+            case OK:
+                if (!msgFoundList.isEmpty()) {
+                    cacheMessages(msgFoundList);
+                    consumerImpl.popMsgCount.getAndAdd(msgFoundList.size());
+                    try {
+                        // TODO: considering whether exception would be thrown here?
+                        consumerImpl.getConsumeService().dispatch(this);
+                    } catch (Throwable t) {
+                        log.error("Unexpected error while dispatching message popped, mq={}",
+                                  messageQueue.simpleName(), t);
+                    }
                 }
                 // fall through on purpose.
-            case NO_NEW_MSG:
-            case POLLING_FULL:
-            case POLLING_NOT_FOUND:
-            case SERVICE_UNSTABLE:
+            case DEADLINE_EXCEEDED:
+            case RESOURCE_EXHAUSTED:
+            case NOT_FOUND:
+            case DATA_CORRUPTED:
+            case INTERNAL:
                 log.debug(
                         "Pop message from endpoints={} with status={}, mq={}, message count={}",
                         popResult.getRpcTarget().getEndpoints().getTarget(),

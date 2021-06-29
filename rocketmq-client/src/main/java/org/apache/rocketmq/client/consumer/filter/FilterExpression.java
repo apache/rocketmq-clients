@@ -11,6 +11,14 @@ public class FilterExpression {
     private final ExpressionType expressionType;
     private final long version;
 
+    public FilterExpression() {
+        this(TAG_EXPRESSION_SUB_ALL);
+    }
+
+    public FilterExpression(String expression) {
+        this(expression, ExpressionType.TAG);
+    }
+
     public FilterExpression(String expression, ExpressionType expressionType) {
         if (ExpressionType.TAG == expressionType) {
             if (null == expression || expression.isEmpty()) {
@@ -23,10 +31,6 @@ public class FilterExpression {
         }
         this.expressionType = expressionType;
         this.version = System.currentTimeMillis();
-    }
-
-    public FilterExpression(String expression) {
-        this(expression, ExpressionType.TAG);
     }
 
     public boolean verifyExpression() {

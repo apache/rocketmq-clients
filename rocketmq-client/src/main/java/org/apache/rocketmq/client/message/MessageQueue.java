@@ -20,7 +20,7 @@ public class MessageQueue {
     public MessageQueue(Partition partition) {
         this.topic = partition.getTopicName();
         this.brokerName = partition.getBrokerName();
-        this.queueId = partition.getPartitionId();
+        this.queueId = partition.getId();
         this.partition = partition;
     }
 

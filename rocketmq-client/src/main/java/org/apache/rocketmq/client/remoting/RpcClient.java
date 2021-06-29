@@ -87,7 +87,7 @@ public interface RpcClient {
      * @param executor gRPC asynchronous executor.
      * @param duration request max duration.
      * @param unit     duration time unit
-     * @return response of receiving message
+     * @return response future of receiving message
      */
     ListenableFuture<ReceiveMessageResponse> receiveMessage(
             ReceiveMessageRequest request, Executor executor, long duration, TimeUnit unit);
@@ -183,4 +183,7 @@ public interface RpcClient {
     QueryOffsetResponse queryOffset(QueryOffsetRequest request, long duration, TimeUnit unit);
 
     PullMessageResponse pullMessage(PullMessageRequest request, long duration, TimeUnit unit);
+
+    ListenableFuture<PullMessageResponse> pullMessage(PullMessageRequest request, Executor executor, long duration,
+                                                      TimeUnit timeUnit);
 }

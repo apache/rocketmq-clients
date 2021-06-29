@@ -2,19 +2,33 @@ package org.apache.rocketmq.client.consumer;
 
 public enum PullStatus {
     /**
-     * Founded
+     * Messages are received as expected or no new message arrived.
      */
-    FOUND,
+    OK,
     /**
-     * No new message can be pull
+     * Deadline expired before matched messages are found in the server side.
      */
-    NO_NEW_MSG,
+    DEADLINE_EXCEEDED,
     /**
-     * Filtering results can not match
+     * Resource has been exhausted, perhaps a per-user quota. For example, too many receive-message requests are
+     * submitted to the same partition at the same time.
      */
-    NO_MATCHED_MSG,
+    RESOURCE_EXHAUSTED,
     /**
-     * Illegal offset,may be too big or too small
+     * The target partition does not exist, which might have been deleted.
      */
-    OFFSET_ILLEGAL
+    NOT_FOUND,
+    /**
+     * Receive-message operation was attempted past the valid range. For pull operation, clients may try to pull expired
+     * messages.
+     */
+    OUT_OF_RANGE,
+    /**
+     * Serious errors occurred in the server side.
+     */
+    INTERNAL,
+    /**
+     * Only for test purpose.
+     */
+    STATUS_FOR_TEST;
 }
