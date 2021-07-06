@@ -48,13 +48,8 @@
         </dependency>
 
         <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>logback-shaded</artifactId>
         </dependency>
 
         <dependency>
