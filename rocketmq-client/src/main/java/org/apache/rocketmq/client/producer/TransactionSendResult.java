@@ -7,9 +7,9 @@ import org.apache.rocketmq.client.remoting.RpcTarget;
 public class TransactionSendResult extends SendResult {
     private final LocalTransactionState localTransactionState;
 
-    public TransactionSendResult(RpcTarget rpcTarget, String msgId, String transactionId,
+    public TransactionSendResult(RpcTarget target, String msgId, String transactionId,
                                  LocalTransactionState localTransactionState) {
-        super(rpcTarget, msgId, transactionId);
+        super(target, msgId, transactionId);
         this.localTransactionState = localTransactionState;
     }
 }

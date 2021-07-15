@@ -67,4 +67,16 @@ public interface EndTransactionRequestOrBuilder extends
    * @return The source.
    */
   apache.rocketmq.v1.EndTransactionRequest.Source getSource();
+
+  /**
+   * <code>string trace_context = 6;</code>
+   * @return The traceContext.
+   */
+  java.lang.String getTraceContext();
+  /**
+   * <code>string trace_context = 6;</code>
+   * @return The bytes for traceContext.
+   */
+  com.google.protobuf.ByteString
+      getTraceContextBytes();
 }

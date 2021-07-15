@@ -20,6 +20,7 @@ private static final long serialVersionUID = 0L;
     transactionId_ = "";
     resolution_ = 0;
     source_ = 0;
+    traceContext_ = "";
   }
 
   @java.lang.Override
@@ -87,6 +88,12 @@ private static final long serialVersionUID = 0L;
             int rawValue = input.readEnum();
 
             source_ = rawValue;
+            break;
+          }
+          case 50: {
+            java.lang.String s = input.readStringRequireUtf8();
+
+            traceContext_ = s;
             break;
           }
           default: {
@@ -477,6 +484,44 @@ private static final long serialVersionUID = 0L;
     return result == null ? apache.rocketmq.v1.EndTransactionRequest.Source.UNRECOGNIZED : result;
   }
 
+  public static final int TRACE_CONTEXT_FIELD_NUMBER = 6;
+  private volatile java.lang.Object traceContext_;
+  /**
+   * <code>string trace_context = 6;</code>
+   * @return The traceContext.
+   */
+  @java.lang.Override
+  public java.lang.String getTraceContext() {
+    java.lang.Object ref = traceContext_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      traceContext_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string trace_context = 6;</code>
+   * @return The bytes for traceContext.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getTraceContextBytes() {
+    java.lang.Object ref = traceContext_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      traceContext_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -506,6 +551,9 @@ private static final long serialVersionUID = 0L;
     if (source_ != apache.rocketmq.v1.EndTransactionRequest.Source.CLIENT.getNumber()) {
       output.writeEnum(5, source_);
     }
+    if (!getTraceContextBytes().isEmpty()) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 6, traceContext_);
+    }
     unknownFields.writeTo(output);
   }
 
@@ -533,6 +581,9 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeEnumSize(5, source_);
     }
+    if (!getTraceContextBytes().isEmpty()) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, traceContext_);
+    }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
     return size;
@@ -559,6 +610,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getTransactionId())) return false;
     if (resolution_ != other.resolution_) return false;
     if (source_ != other.source_) return false;
+    if (!getTraceContext()
+        .equals(other.getTraceContext())) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -582,6 +635,8 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + resolution_;
     hash = (37 * hash) + SOURCE_FIELD_NUMBER;
     hash = (53 * hash) + source_;
+    hash = (37 * hash) + TRACE_CONTEXT_FIELD_NUMBER;
+    hash = (53 * hash) + getTraceContext().hashCode();
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -729,6 +784,8 @@ private static final long serialVersionUID = 0L;
 
       source_ = 0;
 
+      traceContext_ = "";
+
       return this;
     }
 
@@ -764,6 +821,7 @@ private static final long serialVersionUID = 0L;
       result.transactionId_ = transactionId_;
       result.resolution_ = resolution_;
       result.source_ = source_;
+      result.traceContext_ = traceContext_;
       onBuilt();
       return result;
     }
@@ -828,6 +886,10 @@ private static final long serialVersionUID = 0L;
       }
       if (other.source_ != 0) {
         setSourceValue(other.getSourceValue());
+      }
+      if (!other.getTraceContext().isEmpty()) {
+        traceContext_ = other.traceContext_;
+        onChanged();
       }
       this.mergeUnknownFields(other.unknownFields);
       onChanged();
@@ -1233,6 +1295,82 @@ private static final long serialVersionUID = 0L;
     public Builder clearSource() {
       
       source_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object traceContext_ = "";
+    /**
+     * <code>string trace_context = 6;</code>
+     * @return The traceContext.
+     */
+    public java.lang.String getTraceContext() {
+      java.lang.Object ref = traceContext_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        traceContext_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string trace_context = 6;</code>
+     * @return The bytes for traceContext.
+     */
+    public com.google.protobuf.ByteString
+        getTraceContextBytes() {
+      java.lang.Object ref = traceContext_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        traceContext_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string trace_context = 6;</code>
+     * @param value The traceContext to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTraceContext(
+        java.lang.String value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  
+      traceContext_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string trace_context = 6;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTraceContext() {
+      
+      traceContext_ = getDefaultInstance().getTraceContext();
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string trace_context = 6;</code>
+     * @param value The bytes for traceContext to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTraceContextBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  checkByteStringIsUtf8(value);
+      
+      traceContext_ = value;
       onChanged();
       return this;
     }

@@ -34,17 +34,17 @@ public interface QueryOffsetRequestOrBuilder extends
   apache.rocketmq.v1.QueryOffsetPolicy getPolicy();
 
   /**
-   * <code>.google.protobuf.Timestamp time_point = 4;</code>
+   * <code>.google.protobuf.Timestamp time_point = 3;</code>
    * @return Whether the timePoint field is set.
    */
   boolean hasTimePoint();
   /**
-   * <code>.google.protobuf.Timestamp time_point = 4;</code>
+   * <code>.google.protobuf.Timestamp time_point = 3;</code>
    * @return The timePoint.
    */
   com.google.protobuf.Timestamp getTimePoint();
   /**
-   * <code>.google.protobuf.Timestamp time_point = 4;</code>
+   * <code>.google.protobuf.Timestamp time_point = 3;</code>
    */
   com.google.protobuf.TimestampOrBuilder getTimePointOrBuilder();
 }

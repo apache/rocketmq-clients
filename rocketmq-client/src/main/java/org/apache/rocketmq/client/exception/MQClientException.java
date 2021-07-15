@@ -1,43 +1,34 @@
 package org.apache.rocketmq.client.exception;
 
+import lombok.Getter;
+import lombok.ToString;
+
+@Getter
+@ToString
 public class MQClientException extends Exception {
-    private static final long serialVersionUID = -5758410930844185841L;
-    private int responseCode;
-    private String errorMessage;
 
+    @Deprecated
     public MQClientException(String errorMessage) {
-        this.errorMessage = errorMessage;
+        super("Code: " + ErrorCode.OTHER + ", " + errorMessage);
     }
 
-    public MQClientException(String errorMessage, Throwable cause) {
-        super(errorMessage, cause);
-        this.responseCode = -1;
-        this.errorMessage = errorMessage;
+    public MQClientException(Throwable cause) {
+        super("Code: " + ErrorCode.OTHER, cause);
     }
 
-    public MQClientException(int responseCode, String errorMessage) {
-        //        super(FAQUrl.attachDefaultURL("CODE: " + UtilAll.responseCode2String(responseCode)
-        // + "
-        //  DESC: "
-        //                + errorMessage));
-        this.responseCode = responseCode;
-        this.errorMessage = errorMessage;
+    public MQClientException(ErrorCode errorCode) {
+        super("Code: " + errorCode);
     }
 
-    public int getResponseCode() {
-        return responseCode;
+    public MQClientException(ErrorCode errorCode, String errorMessage) {
+        super("Code: " + errorCode + ", " + errorMessage);
     }
 
-    public MQClientException setResponseCode(final int responseCode) {
-        this.responseCode = responseCode;
-        return this;
+    public MQClientException(ErrorCode errorCode, String errorMessage, Throwable cause) {
+        super("Code: " + errorCode + ", " + errorMessage, cause);
     }
 
-    public String getErrorMessage() {
-        return errorMessage;
-    }
-
-    public void setErrorMessage(final String errorMessage) {
-        this.errorMessage = errorMessage;
+    public MQClientException(ErrorCode errorCode, Throwable cause) {
+        super("Code: " + errorCode, cause);
     }
 }

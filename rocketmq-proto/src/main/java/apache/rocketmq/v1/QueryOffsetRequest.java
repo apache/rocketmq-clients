@@ -68,7 +68,7 @@ private static final long serialVersionUID = 0L;
             policy_ = rawValue;
             break;
           }
-          case 34: {
+          case 26: {
             com.google.protobuf.Timestamp.Builder subBuilder = null;
             if (timePoint_ != null) {
               subBuilder = timePoint_.toBuilder();
@@ -158,10 +158,10 @@ private static final long serialVersionUID = 0L;
     return result == null ? apache.rocketmq.v1.QueryOffsetPolicy.UNRECOGNIZED : result;
   }
 
-  public static final int TIME_POINT_FIELD_NUMBER = 4;
+  public static final int TIME_POINT_FIELD_NUMBER = 3;
   private com.google.protobuf.Timestamp timePoint_;
   /**
-   * <code>.google.protobuf.Timestamp time_point = 4;</code>
+   * <code>.google.protobuf.Timestamp time_point = 3;</code>
    * @return Whether the timePoint field is set.
    */
   @java.lang.Override
@@ -169,7 +169,7 @@ private static final long serialVersionUID = 0L;
     return timePoint_ != null;
   }
   /**
-   * <code>.google.protobuf.Timestamp time_point = 4;</code>
+   * <code>.google.protobuf.Timestamp time_point = 3;</code>
    * @return The timePoint.
    */
   @java.lang.Override
@@ -177,7 +177,7 @@ private static final long serialVersionUID = 0L;
     return timePoint_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : timePoint_;
   }
   /**
-   * <code>.google.protobuf.Timestamp time_point = 4;</code>
+   * <code>.google.protobuf.Timestamp time_point = 3;</code>
    */
   @java.lang.Override
   public com.google.protobuf.TimestampOrBuilder getTimePointOrBuilder() {
@@ -205,7 +205,7 @@ private static final long serialVersionUID = 0L;
       output.writeEnum(2, policy_);
     }
     if (timePoint_ != null) {
-      output.writeMessage(4, getTimePoint());
+      output.writeMessage(3, getTimePoint());
     }
     unknownFields.writeTo(output);
   }
@@ -226,7 +226,7 @@ private static final long serialVersionUID = 0L;
     }
     if (timePoint_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(4, getTimePoint());
+        .computeMessageSize(3, getTimePoint());
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -722,14 +722,14 @@ private static final long serialVersionUID = 0L;
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> timePointBuilder_;
     /**
-     * <code>.google.protobuf.Timestamp time_point = 4;</code>
+     * <code>.google.protobuf.Timestamp time_point = 3;</code>
      * @return Whether the timePoint field is set.
      */
     public boolean hasTimePoint() {
       return timePointBuilder_ != null || timePoint_ != null;
     }
     /**
-     * <code>.google.protobuf.Timestamp time_point = 4;</code>
+     * <code>.google.protobuf.Timestamp time_point = 3;</code>
      * @return The timePoint.
      */
     public com.google.protobuf.Timestamp getTimePoint() {
@@ -740,7 +740,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.google.protobuf.Timestamp time_point = 4;</code>
+     * <code>.google.protobuf.Timestamp time_point = 3;</code>
      */
     public Builder setTimePoint(com.google.protobuf.Timestamp value) {
       if (timePointBuilder_ == null) {
@@ -756,7 +756,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.protobuf.Timestamp time_point = 4;</code>
+     * <code>.google.protobuf.Timestamp time_point = 3;</code>
      */
     public Builder setTimePoint(
         com.google.protobuf.Timestamp.Builder builderForValue) {
@@ -770,7 +770,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.protobuf.Timestamp time_point = 4;</code>
+     * <code>.google.protobuf.Timestamp time_point = 3;</code>
      */
     public Builder mergeTimePoint(com.google.protobuf.Timestamp value) {
       if (timePointBuilder_ == null) {
@@ -788,7 +788,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.protobuf.Timestamp time_point = 4;</code>
+     * <code>.google.protobuf.Timestamp time_point = 3;</code>
      */
     public Builder clearTimePoint() {
       if (timePointBuilder_ == null) {
@@ -802,7 +802,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.google.protobuf.Timestamp time_point = 4;</code>
+     * <code>.google.protobuf.Timestamp time_point = 3;</code>
      */
     public com.google.protobuf.Timestamp.Builder getTimePointBuilder() {
       
@@ -810,7 +810,7 @@ private static final long serialVersionUID = 0L;
       return getTimePointFieldBuilder().getBuilder();
     }
     /**
-     * <code>.google.protobuf.Timestamp time_point = 4;</code>
+     * <code>.google.protobuf.Timestamp time_point = 3;</code>
      */
     public com.google.protobuf.TimestampOrBuilder getTimePointOrBuilder() {
       if (timePointBuilder_ != null) {
@@ -821,7 +821,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.google.protobuf.Timestamp time_point = 4;</code>
+     * <code>.google.protobuf.Timestamp time_point = 3;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> 

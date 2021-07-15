@@ -10,15 +10,15 @@ import org.apache.rocketmq.client.remoting.RpcTarget;
 public class SendResult {
     private final SendStatus sendStatus = SendStatus.SEND_OK;
     private final String msgId;
+    private final RpcTarget target;
     private final String transactionId;
-    private final RpcTarget rpcTarget;
 
-    public SendResult(RpcTarget rpcTarget, String msgId) {
-        this(rpcTarget, msgId, StringUtils.EMPTY);
+    public SendResult(RpcTarget target, String msgId) {
+        this(target, msgId, StringUtils.EMPTY);
     }
 
-    public SendResult(RpcTarget rpcTarget, String msgId, String transactionId) {
-        this.rpcTarget = rpcTarget;
+    public SendResult(RpcTarget target, String msgId, String transactionId) {
+        this.target = target;
         this.msgId = msgId;
         this.transactionId = transactionId;
     }

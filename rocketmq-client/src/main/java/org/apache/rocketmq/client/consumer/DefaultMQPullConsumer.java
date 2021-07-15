@@ -16,20 +16,21 @@ public class DefaultMQPullConsumer extends ClientConfig {
 
     private long consumerPullTimeoutMillis;
 
+    // TODO
     public DefaultMQPullConsumer(final String consumerGroup) {
         super(consumerGroup);
-        this.impl = new DefaultMQPullConsumerImpl(this);
+        this.impl = new DefaultMQPullConsumerImpl(group);
     }
 
     public void setConsumerGroup(String consumerGroup) {
         if (impl.hasBeenStarted()) {
             throw new RuntimeException("Please set consumerGroup before consumer started.");
         }
-        setGroupName(consumerGroup);
+        setGroup(consumerGroup);
     }
 
     public String getConsumerGroup() {
-        return this.getGroupName();
+        return this.getGroup();
     }
 
     @Deprecated
@@ -80,5 +81,9 @@ public class DefaultMQPullConsumer extends ClientConfig {
 
     public void shutdown() throws MQClientException {
         this.impl.shutdown();
+    }
+
+    public void setNamesrvAddr(String namesrvAddr) {
+        this.impl.setNamesrvAddr(namesrvAddr);
     }
 }

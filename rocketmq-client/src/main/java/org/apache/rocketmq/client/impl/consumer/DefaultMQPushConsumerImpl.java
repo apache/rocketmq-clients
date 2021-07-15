@@ -1,5 +1,9 @@
 package org.apache.rocketmq.client.impl.consumer;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import apache.rocketmq.v1.AckMessageRequest;
+import apache.rocketmq.v1.AckMessageResponse;
 import apache.rocketmq.v1.ConsumeMessageType;
 import apache.rocketmq.v1.ConsumeModel;
 import apache.rocketmq.v1.ConsumePolicy;
@@ -7,9 +11,20 @@ import apache.rocketmq.v1.ConsumerGroup;
 import apache.rocketmq.v1.DeadLetterPolicy;
 import apache.rocketmq.v1.FilterType;
 import apache.rocketmq.v1.HeartbeatEntry;
+import apache.rocketmq.v1.NackMessageRequest;
+import apache.rocketmq.v1.NackMessageResponse;
 import apache.rocketmq.v1.QueryAssignmentRequest;
+import apache.rocketmq.v1.QueryAssignmentResponse;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.SubscriptionEntry;
+import com.google.common.util.concurrent.AsyncFunction;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
+import com.google.rpc.Code;
+import com.google.rpc.Status;
+import io.grpc.Metadata;
 import io.opentelemetry.api.trace.Tracer;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -18,39 +33,43 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ConsumeFromWhere;
 import org.apache.rocketmq.client.constant.Permission;
 import org.apache.rocketmq.client.constant.ServiceState;
-import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
+import org.apache.rocketmq.client.consumer.MessageModel;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
+import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
+import org.apache.rocketmq.client.impl.ClientBaseImpl;
 import org.apache.rocketmq.client.impl.ClientInstance;
-import org.apache.rocketmq.client.impl.ClientObserver;
+import org.apache.rocketmq.client.impl.ClientManager;
+import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
+import org.apache.rocketmq.client.remoting.Endpoints;
 import org.apache.rocketmq.client.remoting.RpcTarget;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
 
 
 @Slf4j
-public class DefaultMQPushConsumerImpl implements ClientObserver {
+public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     public AtomicLong popTimes;
-    public AtomicLong popMsgCount;
+    public AtomicLong poppedMsgCount;
     public AtomicLong consumeSuccessMsgCount;
     public AtomicLong consumeFailureMsgCount;
-
-    @Getter
-    private final DefaultMQPushConsumer defaultMQPushConsumer;
 
     private final ConcurrentMap<String /* topic */, FilterExpression> filterExpressionTable;
     private final ConcurrentMap<String /* topic */, TopicAssignment> cachedTopicAssignmentTable;
@@ -59,17 +78,50 @@ public class DefaultMQPushConsumerImpl implements ClientObserver {
     private MessageListenerOrderly messageListenerOrderly;
 
     private final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable;
+    private volatile ScheduledFuture<?> scanLoadAssignmentsFuture;
+
+    @Setter
+    @Getter
+    private int consumeMessageBatchMaxSize = 1;
+
+    @Setter
+    @Getter
+    private long maxBatchConsumeWaitTimeMillis = 1000;
+
+    @Getter
+    @Setter
+    private int consumeThreadMin = 20;
+
+    @Getter
+    @Setter
+    private int consumeThreadMax = 64;
+
+    @Getter
+    @Setter
+    // Only for order message.
+    private long suspendCurrentQueueTimeMillis = 1000;
 
     @Getter
     private final ClientInstance clientInstance;
     @Getter
-    private ConsumeService consumeService;
+    private volatile ConsumeService consumeService;
+
+    @Getter
+    @Setter
+    private int maxReconsumeTimes = 16;
+
+    @Getter
+    @Setter
+    private MessageModel messageModel = MessageModel.CLUSTERING;
+
+    @Getter
+    @Setter
+    private ConsumeFromWhere consumeFromWhere = ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET;
+
     private final AtomicReference<ServiceState> state;
 
-    public DefaultMQPushConsumerImpl(DefaultMQPushConsumer defaultMQPushConsumer) {
-
-        this.defaultMQPushConsumer = defaultMQPushConsumer;
-
+    public DefaultMQPushConsumerImpl(String group) {
+        super(group);
         this.filterExpressionTable = new ConcurrentHashMap<String, FilterExpression>();
         this.cachedTopicAssignmentTable = new ConcurrentHashMap<String, TopicAssignment>();
 
@@ -80,11 +132,11 @@ public class DefaultMQPushConsumerImpl implements ClientObserver {
 
         this.consumeService = null;
 
-        this.clientInstance = new ClientInstance(defaultMQPushConsumer, this);
+        this.clientInstance = ClientManager.getInstance().getClientInstance(this);
         this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
 
         this.popTimes = new AtomicLong(0);
-        this.popMsgCount = new AtomicLong(0);
+        this.poppedMsgCount = new AtomicLong(0);
         this.consumeSuccessMsgCount = new AtomicLong(0);
         this.consumeFailureMsgCount = new AtomicLong(0);
     }
@@ -96,131 +148,121 @@ public class DefaultMQPushConsumerImpl implements ClientObserver {
         if (null != messageListenerOrderly) {
             return new ConsumeOrderlyService(this, messageListenerOrderly);
         }
-        throw new MQClientException("No message listener registered.");
+        throw new MQClientException(ErrorCode.NO_LISTENER_REGISTERED);
     }
 
+    @Override
     public void start() throws MQClientException {
-        final String consumerGroup = defaultMQPushConsumer.getConsumerGroup();
-
-        if (!state.compareAndSet(ServiceState.CREATED, ServiceState.STARTING)) {
-            throw new MQClientException(
-                    "The push consumer has attempted to be started before, consumerGroup=" + consumerGroup);
-        }
-
-        consumeService = this.generateConsumeService();
-        consumeService.start();
-
-        log.debug("Registered consumer observer, consumerGroup={}", consumerGroup);
-
-        clientInstance.start();
-
-        clientInstance.getScheduler().scheduleWithFixedDelay(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            scanLoadAssignments();
-                        } catch (Throwable t) {
-                            log.error("Exception occurs while scanning load assignment of push consumer, "
-                                      + "consumerGroup={}", defaultMQPushConsumer.getConsumerGroup(), t);
+        synchronized (this) {
+            log.info("Begin to start the rocketmq push consumer");
+            if (!state.compareAndSet(ServiceState.CREATED, ServiceState.READY)) {
+                log.warn("The rocketmq push consumer has been started before.");
+                return;
+            }
+            consumeService = this.generateConsumeService();
+            consumeService.start();
+            super.start();
+            final ScheduledExecutorService scheduler = clientInstance.getScheduler();
+            scanLoadAssignmentsFuture = scheduler.scheduleWithFixedDelay(
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                scanAssignments();
+                            } catch (Throwable t) {
+                                log.error("Unexpected error while scanning the load assignments.", t);
+                            }
                         }
-                    }
-                }, 1000,
-                5 * 1000,
-                TimeUnit.MILLISECONDS);
-
-        state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
-        log.info("Start DefaultMQPushConsumerImpl successfully.");
+                    },
+                    1,
+                    5,
+                    TimeUnit.SECONDS);
+            state.compareAndSet(ServiceState.READY, ServiceState.STARTED);
+            log.info("The rocketmq push consumer starts successfully.");
+        }
     }
 
-    public void shutdown() throws MQClientException {
-        state.compareAndSet(ServiceState.STARTING, ServiceState.STOPPING);
-        state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING);
-        final ServiceState serviceState = state.get();
-        if (ServiceState.STOPPING == serviceState) {
-            clientInstance.shutdown();
-
+    @Override
+    public void shutdown() {
+        synchronized (this) {
+            log.info("Begin to shutdown the rocketmq push consumer.");
+            if (!state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING)) {
+                log.warn("The rocketmq push consumer has not been started before");
+                return;
+            }
+            if (null != scanLoadAssignmentsFuture) {
+                scanLoadAssignmentsFuture.cancel(false);
+            }
+            super.shutdown();
             if (null != consumeService) {
                 consumeService.shutdown();
             }
-            if (state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED)) {
-                log.info("Shutdown DefaultMQPushConsumerImpl successfully.");
-                return;
-            }
+            state.compareAndSet(ServiceState.STOPPING, ServiceState.READY);
+            log.info("Shutdown the rocketmq push consumer successfully.");
         }
-        throw new MQClientException("Failed to shutdown consumer, state=" + state.get());
     }
 
     private QueryAssignmentRequest wrapQueryAssignmentRequest(String topic) {
         Resource topicResource = Resource.newBuilder().setArn(this.getArn()).setName(topic).build();
         return QueryAssignmentRequest.newBuilder()
                                      .setTopic(topicResource).setGroup(getGroupResource())
-                                     .setClientId(defaultMQPushConsumer.getClientId())
+                                     .setClientId(clientId)
                                      .build();
     }
 
-    public void scanLoadAssignments() {
+    public void scanAssignments() {
         try {
-            final ServiceState serviceState = state.get();
-            if (ServiceState.STARTED != serviceState && ServiceState.STARTING != serviceState) {
-                log.warn(
-                        "Unexpected consumer state while scanning load assignments, state={}", serviceState);
-                return;
-            }
-            log.debug("Start to scan load assignments periodically");
+            log.debug("Start to scan assignments periodically");
             for (Map.Entry<String, FilterExpression> entry : filterExpressionTable.entrySet()) {
-
                 final String topic = entry.getKey();
                 final FilterExpression filterExpression = entry.getValue();
 
-                try {
-                    final TopicAssignment localTopicAssignment =
-                            cachedTopicAssignmentTable.get(topic);
-                    final TopicAssignment remoteTopicAssignment = queryLoadAssignment(topic);
+                final TopicAssignment topicAssignment = cachedTopicAssignmentTable.get(topic);
 
-                    // remoteTopicAssignmentInfo should never be null.
-                    if (remoteTopicAssignment.getAssignmentList().isEmpty()) {
-                        log.warn("Acquired empty assignment list from remote, topic={}", topic);
-                        if (null == localTopicAssignment
-                            || localTopicAssignment.getAssignmentList().isEmpty()) {
-                            log.warn("No available assignments now, would scan later, topic={}", topic);
-                            continue;
+                final ListenableFuture<TopicAssignment> future = queryAssignment(topic);
+                Futures.addCallback(future, new FutureCallback<TopicAssignment>() {
+                    @Override
+                    public void onSuccess(TopicAssignment remoteTopicAssignment) {
+                        // remoteTopicAssignmentInfo should never be null.
+                        if (remoteTopicAssignment.getAssignmentList().isEmpty()) {
+                            log.warn("Acquired empty assignment list from remote, topic={}", topic);
+                            if (null == topicAssignment || topicAssignment.getAssignmentList().isEmpty()) {
+                                log.warn("No available assignments now, would scan later, topic={}", topic);
+                                return;
+                            }
+                            log.warn("Acquired empty assignment list from remote, reuse the existing one, topic={}",
+                                     topic);
+                            return;
                         }
-                        log.warn(
-                                "Acquired empty assignment list from remote, reuse the existing one, topic={}",
-                                topic);
-                        continue;
+
+                        if (!remoteTopicAssignment.equals(topicAssignment)) {
+                            log.info("Assignment of {} has changed, {} -> {}", topic, topicAssignment,
+                                     remoteTopicAssignment);
+                            syncProcessQueueByTopic(topic, remoteTopicAssignment, filterExpression);
+                            cachedTopicAssignmentTable.put(topic, remoteTopicAssignment);
+                        }
                     }
 
-                    if (!remoteTopicAssignment.equals(localTopicAssignment)) {
-                        log.info(
-                                "Load assignment of {} has changed, {} -> {}",
-                                topic,
-                                localTopicAssignment,
-                                remoteTopicAssignment);
-
-                        syncProcessQueueByTopic(topic, remoteTopicAssignment, filterExpression);
-                        cachedTopicAssignmentTable.put(topic, remoteTopicAssignment);
+                    @Override
+                    public void onFailure(Throwable t) {
+                        log.error("Unexpected error occurs while scanning the assignments for topic={}", topic, t);
                     }
-                } catch (Throwable t) {
-                    log.error(
-                            "Unexpected error occurs while scanning the load assignments for topic={}", topic, t);
-                }
+                });
             }
         } catch (Throwable t) {
-            log.error("Exception occurs while scanning the load assignments for all topics.", t);
+            log.error("Exception occurs while scanning the assignments for all topics.", t);
         }
     }
 
     @Override
     public void logStats() {
         final long popTimes = this.popTimes.getAndSet(0);
-        final long poppedMsgCount = popMsgCount.getAndSet(0);
+        final long poppedMsgCount = this.poppedMsgCount.getAndSet(0);
         final long consumeSuccessMsgCount = this.consumeSuccessMsgCount.getAndSet(0);
         final long consumeFailureMsgCount = this.consumeFailureMsgCount.getAndSet(0);
         log.info(
                 "ConsumerGroup={}, PopTimes={}, PoppedMsgCount={}, ConsumeSuccessMsgCount={}, "
-                + "ConsumeFailureMsgCount={}", defaultMQPushConsumer.getConsumerGroup(),
+                + "ConsumeFailureMsgCount={}", group,
                 popTimes,
                 poppedMsgCount,
                 consumeSuccessMsgCount,
@@ -246,20 +288,21 @@ public class DefaultMQPushConsumerImpl implements ClientObserver {
             }
 
             if (null == processQueue) {
-                log.warn("BUG!!! processQueue is null unexpectedly, mq={}", messageQueue);
+                log.warn("BUG!!! processQueue is null unexpectedly, mq={}", messageQueue.simpleName());
                 continue;
             }
 
             if (!latestMessageQueueSet.contains(messageQueue)) {
                 log.info(
-                        "Stop to pop message queue according to the latest load assignments, mq={}", messageQueue);
+                        "Stop to pop message queue according to the latest load assignments, mq={}",
+                        messageQueue.simpleName());
                 processQueueTable.remove(messageQueue);
                 processQueue.setDropped(true);
                 continue;
             }
 
             if (processQueue.isPopExpired()) {
-                log.warn("ProcessQueue is expired to pop, mq={}", messageQueue);
+                log.warn("ProcessQueue is expired to pop, mq={}", messageQueue.simpleName());
                 processQueueTable.remove(messageQueue);
                 processQueue.setDropped(true);
                 continue;
@@ -269,9 +312,8 @@ public class DefaultMQPushConsumerImpl implements ClientObserver {
 
         for (MessageQueue messageQueue : latestMessageQueueSet) {
             if (!activeMessageQueueSet.contains(messageQueue)) {
-                log.info(
-                        "Start to pop message queue according to the latest load assignments, mq={}",
-                        messageQueue);
+                log.info("Start to pop message queue according to the latest assignments, mq={}",
+                         messageQueue.simpleName());
                 final ProcessQueue processQueue = getProcessQueue(messageQueue, filterExpression);
                 processQueue.popMessage();
             }
@@ -302,48 +344,78 @@ public class DefaultMQPushConsumerImpl implements ClientObserver {
 
     public boolean hasBeenStarted() {
         final ServiceState serviceState = state.get();
-        return ServiceState.CREATED != serviceState;
+        return ServiceState.READY != serviceState;
     }
 
     public void registerMessageListener(MessageListenerConcurrently messageListenerConcurrently) {
+        checkNotNull(messageListenerConcurrently);
         this.messageListenerConcurrently = messageListenerConcurrently;
     }
 
     public void registerMessageListener(MessageListenerOrderly messageListenerOrderly) {
+        checkNotNull(messageListenerOrderly);
         this.messageListenerOrderly = messageListenerOrderly;
     }
 
-    private RpcTarget selectRpcTargetForQuery(String topic) throws MQClientException, MQServerException {
-        final TopicRouteData topicRouteData = clientInstance.getTopicRouteInfo(topic);
-
-        final List<Partition> partitions = topicRouteData.getPartitions();
-        for (int i = 0; i < partitions.size(); i++) {
-            final Partition partition = partitions.get(TopicRouteData.getNextPartitionIndex() % partitions.size());
-            if (MixAll.MASTER_BROKER_ID != partition.getBrokerId()) {
-                continue;
+    private ListenableFuture<RpcTarget> selectTargetForQuery(String topic) {
+        final ListenableFuture<TopicRouteData> future = getRouteFor(topic);
+        return Futures.transformAsync(future, new AsyncFunction<TopicRouteData, RpcTarget>() {
+            @Override
+            public ListenableFuture<RpcTarget> apply(TopicRouteData topicRouteData) throws Exception {
+                final SettableFuture<RpcTarget> future0 = SettableFuture.create();
+                final List<Partition> partitions = topicRouteData.getPartitions();
+                for (int i = 0; i < partitions.size(); i++) {
+                    final Partition partition =
+                            partitions.get(TopicAssignment.getNextPartitionIndex() % partitions.size());
+                    if (MixAll.MASTER_BROKER_ID != partition.getBrokerId()) {
+                        continue;
+                    }
+                    if (Permission.NONE == partition.getPermission()) {
+                        continue;
+                    }
+                    future0.set(partition.getTarget());
+                    return future0;
+                }
+                throw new MQServerException(ErrorCode.NO_PERMISSION);
             }
-            if (Permission.NONE == partition.getPermission()) {
-                continue;
-            }
-            return partition.getRpcTarget();
-        }
-        throw new MQServerException("No target available for query.");
+        });
     }
 
-    private TopicAssignment queryLoadAssignment(String topic)
-            throws MQClientException, MQServerException {
-        final RpcTarget target = selectRpcTargetForQuery(topic);
+    private ListenableFuture<TopicAssignment> queryAssignment(final String topic) {
 
-        QueryAssignmentRequest request = wrapQueryAssignmentRequest(topic);
-
-        return clientInstance.queryLoadAssignment(target, request);
+        final QueryAssignmentRequest request = wrapQueryAssignmentRequest(topic);
+        final ListenableFuture<RpcTarget> future = selectTargetForQuery(topic);
+        final ListenableFuture<QueryAssignmentResponse> responseFuture =
+                Futures.transformAsync(future, new AsyncFunction<RpcTarget, QueryAssignmentResponse>() {
+                    @Override
+                    public ListenableFuture<QueryAssignmentResponse> apply(RpcTarget target) throws Exception {
+                        final Metadata metadata = sign();
+                        return clientInstance.queryAssignment(target, metadata, request, ioTimeoutMillis,
+                                                              TimeUnit.MILLISECONDS);
+                    }
+                });
+        return Futures.transformAsync(responseFuture, new AsyncFunction<QueryAssignmentResponse, TopicAssignment>() {
+            @Override
+            public ListenableFuture<TopicAssignment> apply(QueryAssignmentResponse response) throws Exception {
+                SettableFuture<TopicAssignment> future0 = SettableFuture.create();
+                final Status status = response.getCommon().getStatus();
+                final Code code = Code.forNumber(status.getCode());
+                if (Code.OK != code) {
+                    log.error("Failed to query assignment, topic={}, code={}, message={}", topic, code,
+                              status.getMessage());
+                    throw new MQClientException(ErrorCode.NO_ASSIGNMENT);
+                }
+                log.trace("Query assignment successfully, topic={}", topic);
+                final TopicAssignment topicAssignment = new TopicAssignment(response.getAssignmentsList());
+                future0.set(topicAssignment);
+                return future0;
+            }
+        });
     }
 
     @Override
     public HeartbeatEntry prepareHeartbeatData() {
-        Resource groupResource = Resource.newBuilder()
-                                         .setArn(this.getArn())
-                                         .setName(defaultMQPushConsumer.getConsumerGroup()).build();
+        Resource groupResource = Resource.newBuilder().setArn(this.getArn()).setName(group).build();
 
         List<SubscriptionEntry> subscriptionEntries = new ArrayList<SubscriptionEntry>();
         for (Map.Entry<String, FilterExpression> entry : filterExpressionTable.entrySet()) {
@@ -369,7 +441,7 @@ public class DefaultMQPushConsumerImpl implements ClientObserver {
 
         DeadLetterPolicy deadLetterPolicy =
                 DeadLetterPolicy.newBuilder()
-                                .setMaxDeliveryAttempts(defaultMQPushConsumer.getMaxReconsumeTimes())
+                                .setMaxDeliveryAttempts(maxReconsumeTimes)
                                 .build();
 
         final ConsumerGroup.Builder builder =
@@ -379,7 +451,7 @@ public class DefaultMQPushConsumerImpl implements ClientObserver {
                              .setDeadLetterPolicy(deadLetterPolicy)
                              .setConsumeType(ConsumeMessageType.POP);
 
-        switch (defaultMQPushConsumer.getMessageModel()) {
+        switch (messageModel) {
             case CLUSTERING:
                 builder.setConsumeModel(ConsumeModel.CLUSTERING);
                 break;
@@ -390,7 +462,6 @@ public class DefaultMQPushConsumerImpl implements ClientObserver {
                 builder.setConsumeModel(ConsumeModel.UNRECOGNIZED);
         }
 
-        final ConsumeFromWhere consumeFromWhere = defaultMQPushConsumer.getConsumeFromWhere();
         switch (consumeFromWhere) {
             case CONSUME_FROM_FIRST_OFFSET:
                 builder.setConsumePolicy(ConsumePolicy.PLAYBACK);
@@ -404,24 +475,132 @@ public class DefaultMQPushConsumerImpl implements ClientObserver {
         }
         final ConsumerGroup consumerGroup = builder.build();
         return HeartbeatEntry.newBuilder()
-                             .setClientId(defaultMQPushConsumer.getClientId())
+                             .setClientId(clientId)
                              .setConsumerGroup(consumerGroup)
                              .build();
     }
 
-    private String getProducerGroup() {
-        return defaultMQPushConsumer.getConsumerGroup();
-    }
-
-    private String getArn() {
-        return defaultMQPushConsumer.getArn();
-    }
-
     private Resource getGroupResource() {
-        return Resource.newBuilder().setArn(getArn()).setName(getProducerGroup()).build();
+        return Resource.newBuilder().setArn(getArn()).setName(group).build();
     }
 
     public Tracer getTracer() {
-        return clientInstance.getTracer();
+        return tracer;
+    }
+
+    public void nackMessage(MessageExt messageExt) throws MQClientException {
+        final NackMessageRequest request = wrapNackMessageRequest(messageExt);
+        final RpcTarget target = messageExt.getAckTarget();
+        final Metadata metadata = sign();
+        final ListenableFuture<NackMessageResponse> future =
+                clientInstance.nackMessage(target, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+        final String messageId = request.getMessageId();
+        final Endpoints endpoints = target.getEndpoints();
+        Futures.addCallback(future, new FutureCallback<NackMessageResponse>() {
+            @Override
+            public void onSuccess(NackMessageResponse response) {
+                final Status status = response.getCommon().getStatus();
+                final Code code = Code.forNumber(status.getCode());
+                if (Code.OK != code) {
+                    log.error("Failed to nack message, messageId={}, endpoints={}, code={}, message={}", messageId,
+                              endpoints, code, status.getMessage());
+                    return;
+                }
+                log.trace("Nack message successfully, messageId={}, endpoints={}, code={}, message={}", messageId,
+                          endpoints, code, status.getMessage());
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                log.error("Unexpected error while nack message, messageId={}, endpoints={}", messageId, endpoints, t);
+            }
+        });
+    }
+
+    private NackMessageRequest wrapNackMessageRequest(MessageExt messageExt) {
+        // Group
+        final Resource groupResource = Resource.newBuilder()
+                                               .setArn(this.getArn())
+                                               .setName(this.getGroup())
+                                               .build();
+        // Topic
+        final Resource topicResource = Resource.newBuilder()
+                                               .setArn(this.getArn())
+                                               .setName(messageExt.getTopic())
+                                               .build();
+
+        final NackMessageRequest.Builder builder =
+                NackMessageRequest.newBuilder()
+                                  .setGroup(groupResource)
+                                  .setTopic(topicResource)
+                                  .setClientId(this.getClientId())
+                                  .setReceiptHandle(messageExt.getReceiptHandle())
+                                  .setMessageId(messageExt.getMsgId())
+                                  .setReconsumeTimes(messageExt.getReconsumeTimes() + 1)
+                                  .setMaxReconsumeTimes(this.getMaxReconsumeTimes());
+
+        switch (getMessageModel()) {
+            case CLUSTERING:
+                builder.setConsumeModel(ConsumeModel.CLUSTERING);
+                break;
+            case BROADCASTING:
+                builder.setConsumeModel(ConsumeModel.BROADCASTING);
+                break;
+            default:
+                builder.setConsumeModel(ConsumeModel.UNRECOGNIZED);
+        }
+
+        return builder.build();
+    }
+
+    private AckMessageRequest wrapAckMessageRequest(MessageExt messageExt) {
+        // Group
+        final Resource groupResource = Resource.newBuilder()
+                                               .setArn(this.getArn())
+                                               .setName(this.getGroup())
+                                               .build();
+        // Topic
+        final Resource topicResource = Resource.newBuilder()
+                                               .setArn(this.getArn())
+                                               .setName(messageExt.getTopic())
+                                               .build();
+
+        final AckMessageRequest.Builder builder = AckMessageRequest.newBuilder()
+                                                                   .setGroup(groupResource)
+                                                                   .setTopic(topicResource)
+                                                                   .setMessageId(messageExt.getMsgId())
+                                                                   .setClientId(this.getClientId())
+                                                                   .setReceiptHandle(messageExt.getReceiptHandle());
+
+        return builder.build();
+    }
+
+    public void ackMessage(final MessageExt messageExt) throws MQClientException {
+        final AckMessageRequest request = wrapAckMessageRequest(messageExt);
+        final RpcTarget target = messageExt.getAckTarget();
+        final Metadata metadata = sign();
+        final ListenableFuture<AckMessageResponse> future =
+                clientInstance.ackMessage(target, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+        final String messageId = request.getMessageId();
+        final Endpoints endpoints = target.getEndpoints();
+        Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
+            @Override
+            public void onSuccess(AckMessageResponse response) {
+                final Status status = response.getCommon().getStatus();
+                final Code code = Code.forNumber(status.getCode());
+                if (Code.OK != code) {
+                    log.error("Failed to ack message, messageId={}, endpoints={}, code={}, message={}", messageId,
+                              endpoints, code, status.getMessage());
+                    return;
+                }
+                log.trace("Ack message successfully, messageId={}, endpoints={}, code={}, message={}", messageId,
+                          endpoints, code, status.getMessage());
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                log.error("Unexpected error while ack message, messageId={}, endpoints={}", messageId, endpoints, t);
+            }
+        });
     }
 }

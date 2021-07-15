@@ -425,7 +425,7 @@ public interface SystemAttributeOrBuilder extends
 
   /**
    * <pre>
-   * Correlated transactioin
+   * Correlated transaction
    * </pre>
    *
    * <code>string transaction_id = 21;</code>
@@ -434,7 +434,7 @@ public interface SystemAttributeOrBuilder extends
   java.lang.String getTransactionId();
   /**
    * <pre>
-   * Correlated transactioin
+   * Correlated transaction
    * </pre>
    *
    * <code>string transaction_id = 21;</code>

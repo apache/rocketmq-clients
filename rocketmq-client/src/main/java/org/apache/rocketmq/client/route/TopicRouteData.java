@@ -9,8 +9,6 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 import org.apache.commons.lang3.RandomUtils;
-import org.apache.rocketmq.client.message.MessageQueue;
-import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.remoting.Endpoints;
 
 @Getter
@@ -24,7 +22,6 @@ public class TopicRouteData {
      */
     final List<Partition> partitions;
 
-    final List<MessageQueue> writableMessageQueueList;
 
     /**
      * Construct topic route by partition list.
@@ -36,23 +33,12 @@ public class TopicRouteData {
         for (apache.rocketmq.v1.Partition partition : partitionList) {
             this.partitions.add(new Partition(partition));
         }
-        this.writableMessageQueueList = new ArrayList<MessageQueue>();
-        for (Partition partition : partitions) {
-            if (MixAll.MASTER_BROKER_ID != partition.getBrokerId()) {
-                continue;
-            }
-            if (!partition.getPermission().isWritable()) {
-                continue;
-            }
-            final MessageQueue messageQueue = new MessageQueue(partition);
-            writableMessageQueueList.add(messageQueue);
-        }
     }
 
     public Set<Endpoints> getAllEndpoints() {
         Set<Endpoints> endpointsSet = new HashSet<Endpoints>();
         for (Partition partition : partitions) {
-            endpointsSet.add(partition.getRpcTarget().getEndpoints());
+            endpointsSet.add(partition.getTarget().getEndpoints());
         }
         return endpointsSet;
     }

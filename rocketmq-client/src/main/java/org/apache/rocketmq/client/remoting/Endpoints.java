@@ -6,10 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.ToString;
 import org.apache.rocketmq.client.route.AddressScheme;
 
-@ToString
 @Getter
 @EqualsAndHashCode
 public class Endpoints {
@@ -22,7 +20,7 @@ public class Endpoints {
      * <p>2. ipv4:127.0.0.1:10911,127.0.0.2:10912
      * <p>3. ipv6:1050:0000:0000:0000:0005:0600:300c:326b:10911,1050:0000:0000:0000:0005:0600:300c:326b:10912
      */
-    private final String target;
+    private final String facade;
     private final List<Address> addresses;
 
     public Endpoints(AddressScheme addressScheme, List<Address> addresses) {
@@ -42,7 +40,7 @@ public class Endpoints {
         for (Address address : addresses) {
             targetBuilder.append(address.getAddress()).append(ADDRESS_SEPARATOR);
         }
-        this.target = targetBuilder.substring(0, targetBuilder.length() - 1);
+        this.facade = targetBuilder.substring(0, targetBuilder.length() - 1);
     }
 
     public List<InetSocketAddress> convertToSocketAddresses() {
@@ -59,5 +57,10 @@ public class Endpoints {
                 }
                 return socketAddresses;
         }
+    }
+
+    @Override
+    public String toString() {
+        return facade;
     }
 }

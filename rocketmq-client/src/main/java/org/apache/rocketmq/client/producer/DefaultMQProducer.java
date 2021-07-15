@@ -1,24 +1,27 @@
 package org.apache.rocketmq.client.producer;
 
 import java.util.Collection;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeoutException;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.RandomUtils;
+import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.constant.SystemTopic;
+import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.MQBrokerException;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.exception.RemotingException;
-import org.apache.rocketmq.client.impl.ClientConfig;
 import org.apache.rocketmq.client.impl.producer.DefaultMQProducerImpl;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageBatch;
 import org.apache.rocketmq.client.message.MessageQueue;
+import org.apache.rocketmq.client.remoting.AccessCredential;
 
 @Getter
 @Setter
-public class DefaultMQProducer extends ClientConfig {
+public class DefaultMQProducer {
 
     /**
      * Wrapping internal implementations for virtually all methods presented in this class.
@@ -92,34 +95,34 @@ public class DefaultMQProducer extends ClientConfig {
     /**
      * Constructor specifying producer group.
      *
-     * @param producerGroup Producer group, see the name-sake field.
+     * @param group Producer group, see the name-sake field.
      */
-    public DefaultMQProducer(final String producerGroup) {
-        super(producerGroup);
-        this.impl = new DefaultMQProducerImpl(this);
+    public DefaultMQProducer(final String group) {
+        this.impl = new DefaultMQProducerImpl(group);
     }
 
     /**
      * Constructor specifying arn and producer group.
      *
-     * @param arn           Means abstract resource namespace,
-     * @param producerGroup Producer group, see the name-sake field.
+     * @param arn   Means abstract resource namespace,
+     * @param group Producer group, see the name-sake field.
      */
-    public DefaultMQProducer(final String arn, final String producerGroup) {
-        super(producerGroup);
-        this.impl = new DefaultMQProducerImpl(this);
-        this.setArn(arn);
+    public DefaultMQProducer(final String arn, final String group) {
+        this(group);
+        impl.setArn(arn);
     }
 
     public String getProducerGroup() {
-        return this.getGroupName();
+        return impl.getGroup();
     }
 
-    public void setProducerGroup(String producerGroup) {
-        if (impl.hasBeenStarted()) {
-            throw new RuntimeException("Please set producerGroup before producer started.");
+    public void setProducerGroup(String group) throws MQClientException {
+        synchronized (impl) {
+            if (ServiceState.CREATED != impl.getState()) {
+                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+            }
+            impl.setGroup(group);
         }
-        setGroupName(producerGroup);
     }
 
     /**
@@ -140,6 +143,33 @@ public class DefaultMQProducer extends ClientConfig {
         this.impl.shutdown();
     }
 
+    public void setNamesrvAddr(String namesrvAddr) throws MQClientException {
+        synchronized (impl) {
+            if (ServiceState.CREATED != impl.getState()) {
+                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+            }
+            impl.setNamesrvAddr(namesrvAddr);
+        }
+    }
+
+
+    public void setArn(String arn) throws MQClientException {
+        synchronized (impl) {
+            if (ServiceState.CREATED != impl.getState()) {
+                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+            }
+            impl.setArn(arn);
+        }
+    }
+
+    public void setAccessCredential(AccessCredential accessCredential) throws MQClientException {
+        synchronized (impl) {
+            if (ServiceState.CREATED != impl.getState()) {
+                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+            }
+            impl.setAccessCredential(accessCredential);
+        }
+    }
 
     /**
      * Send message in synchronous mode. This method returns only when the sending procedure totally
@@ -158,7 +188,7 @@ public class DefaultMQProducer extends ClientConfig {
      * @throws InterruptedException if the sending thread is interrupted.
      */
     public SendResult send(Message msg)
-            throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+            throws MQClientException, InterruptedException, MQServerException, TimeoutException {
         return this.impl.send(msg);
     }
 
@@ -176,7 +206,7 @@ public class DefaultMQProducer extends ClientConfig {
      * @throws InterruptedException if the sending thread is interrupted.
      */
     public SendResult send(Message msg, long timeout)
-            throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+            throws MQClientException, InterruptedException, MQServerException, TimeoutException {
         return this.impl.send(msg, timeout);
     }
 
@@ -246,8 +276,8 @@ public class DefaultMQProducer extends ClientConfig {
      * @throws InterruptedException if the sending thread is interrupted.
      */
     public SendResult send(Message msg, MessageQueue mq)
-            throws MQClientException, RemotingException, MQBrokerException, InterruptedException,
-                   MQServerException {
+            throws MQClientException, InterruptedException,
+                   MQServerException, TimeoutException {
         //        msg.setTopic(withNamespace(msg.getTopic()));
         return this.impl.send(msg);
     }
@@ -357,12 +387,13 @@ public class DefaultMQProducer extends ClientConfig {
     }
 
     public SendResult send(Collection<Message> msgs)
-            throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+            throws MQClientException, InterruptedException, MQServerException,
+                   TimeoutException {
         return this.impl.send(batch(msgs));
     }
 
     public SendResult send(Collection<Message> msgs, long timeout)
-            throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+            throws MQClientException, InterruptedException, MQServerException, TimeoutException {
         return this.impl.send(batch(msgs), timeout);
     }
 
@@ -377,8 +408,8 @@ public class DefaultMQProducer extends ClientConfig {
      *
      * @param callbackExecutor the instance of Executor
      */
-    public void setCallbackExecutor(final ExecutorService callbackExecutor) {
-        this.impl.setCallbackExecutor(callbackExecutor);
+    public void setCallbackExecutor(final ThreadPoolExecutor callbackExecutor) {
+        this.impl.setSendCallbackExecutor(callbackExecutor);
     }
 
     // Not yet implemented.

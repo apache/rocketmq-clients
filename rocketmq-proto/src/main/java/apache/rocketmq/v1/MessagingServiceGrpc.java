@@ -293,37 +293,6 @@ public final class MessagingServiceGrpc {
     return getEndTransactionMethod;
   }
 
-  private static volatile io.grpc.MethodDescriptor<apache.rocketmq.v1.PollOrphanTransactionRequest,
-      apache.rocketmq.v1.PollOrphanTransactionResponse> getPollOrphanTransactionMethod;
-
-  @io.grpc.stub.annotations.RpcMethod(
-      fullMethodName = SERVICE_NAME + '/' + "PollOrphanTransaction",
-      requestType = apache.rocketmq.v1.PollOrphanTransactionRequest.class,
-      responseType = apache.rocketmq.v1.PollOrphanTransactionResponse.class,
-      methodType = io.grpc.MethodDescriptor.MethodType.BIDI_STREAMING)
-  public static io.grpc.MethodDescriptor<apache.rocketmq.v1.PollOrphanTransactionRequest,
-      apache.rocketmq.v1.PollOrphanTransactionResponse> getPollOrphanTransactionMethod() {
-    io.grpc.MethodDescriptor<apache.rocketmq.v1.PollOrphanTransactionRequest, apache.rocketmq.v1.PollOrphanTransactionResponse> getPollOrphanTransactionMethod;
-    if ((getPollOrphanTransactionMethod = MessagingServiceGrpc.getPollOrphanTransactionMethod) == null) {
-      synchronized (MessagingServiceGrpc.class) {
-        if ((getPollOrphanTransactionMethod = MessagingServiceGrpc.getPollOrphanTransactionMethod) == null) {
-          MessagingServiceGrpc.getPollOrphanTransactionMethod = getPollOrphanTransactionMethod =
-              io.grpc.MethodDescriptor.<apache.rocketmq.v1.PollOrphanTransactionRequest, apache.rocketmq.v1.PollOrphanTransactionResponse>newBuilder()
-              .setType(io.grpc.MethodDescriptor.MethodType.BIDI_STREAMING)
-              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "PollOrphanTransaction"))
-              .setSampledToLocalTracing(true)
-              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  apache.rocketmq.v1.PollOrphanTransactionRequest.getDefaultInstance()))
-              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  apache.rocketmq.v1.PollOrphanTransactionResponse.getDefaultInstance()))
-              .setSchemaDescriptor(new MessagingServiceMethodDescriptorSupplier("PollOrphanTransaction"))
-              .build();
-        }
-      }
-    }
-    return getPollOrphanTransactionMethod;
-  }
-
   private static volatile io.grpc.MethodDescriptor<apache.rocketmq.v1.QueryOffsetRequest,
       apache.rocketmq.v1.QueryOffsetResponse> getQueryOffsetMethod;
 
@@ -384,6 +353,37 @@ public final class MessagingServiceGrpc {
       }
     }
     return getPullMessageMethod;
+  }
+
+  private static volatile io.grpc.MethodDescriptor<apache.rocketmq.v1.MultiplexingRequest,
+      apache.rocketmq.v1.MultiplexingResponse> getMultiplexingCallMethod;
+
+  @io.grpc.stub.annotations.RpcMethod(
+      fullMethodName = SERVICE_NAME + '/' + "MultiplexingCall",
+      requestType = apache.rocketmq.v1.MultiplexingRequest.class,
+      responseType = apache.rocketmq.v1.MultiplexingResponse.class,
+      methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
+  public static io.grpc.MethodDescriptor<apache.rocketmq.v1.MultiplexingRequest,
+      apache.rocketmq.v1.MultiplexingResponse> getMultiplexingCallMethod() {
+    io.grpc.MethodDescriptor<apache.rocketmq.v1.MultiplexingRequest, apache.rocketmq.v1.MultiplexingResponse> getMultiplexingCallMethod;
+    if ((getMultiplexingCallMethod = MessagingServiceGrpc.getMultiplexingCallMethod) == null) {
+      synchronized (MessagingServiceGrpc.class) {
+        if ((getMultiplexingCallMethod = MessagingServiceGrpc.getMultiplexingCallMethod) == null) {
+          MessagingServiceGrpc.getMultiplexingCallMethod = getMultiplexingCallMethod =
+              io.grpc.MethodDescriptor.<apache.rocketmq.v1.MultiplexingRequest, apache.rocketmq.v1.MultiplexingResponse>newBuilder()
+              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "MultiplexingCall"))
+              .setSampledToLocalTracing(true)
+              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  apache.rocketmq.v1.MultiplexingRequest.getDefaultInstance()))
+              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  apache.rocketmq.v1.MultiplexingResponse.getDefaultInstance()))
+              .setSchemaDescriptor(new MessagingServiceMethodDescriptorSupplier("MultiplexingCall"))
+              .build();
+        }
+      }
+    }
+    return getMultiplexingCallMethod;
   }
 
   /**
@@ -499,13 +499,6 @@ public final class MessagingServiceGrpc {
 
     /**
      */
-    public io.grpc.stub.StreamObserver<apache.rocketmq.v1.PollOrphanTransactionRequest> pollOrphanTransaction(
-        io.grpc.stub.StreamObserver<apache.rocketmq.v1.PollOrphanTransactionResponse> responseObserver) {
-      return io.grpc.stub.ServerCalls.asyncUnimplementedStreamingCall(getPollOrphanTransactionMethod(), responseObserver);
-    }
-
-    /**
-     */
     public void queryOffset(apache.rocketmq.v1.QueryOffsetRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.QueryOffsetResponse> responseObserver) {
       io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getQueryOffsetMethod(), responseObserver);
@@ -516,6 +509,13 @@ public final class MessagingServiceGrpc {
     public void pullMessage(apache.rocketmq.v1.PullMessageRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.PullMessageResponse> responseObserver) {
       io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getPullMessageMethod(), responseObserver);
+    }
+
+    /**
+     */
+    public void multiplexingCall(apache.rocketmq.v1.MultiplexingRequest request,
+        io.grpc.stub.StreamObserver<apache.rocketmq.v1.MultiplexingResponse> responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getMultiplexingCallMethod(), responseObserver);
     }
 
     @java.lang.Override public final io.grpc.ServerServiceDefinition bindService() {
@@ -584,13 +584,6 @@ public final class MessagingServiceGrpc {
                 apache.rocketmq.v1.EndTransactionResponse>(
                   this, METHODID_END_TRANSACTION)))
           .addMethod(
-            getPollOrphanTransactionMethod(),
-            io.grpc.stub.ServerCalls.asyncBidiStreamingCall(
-              new MethodHandlers<
-                apache.rocketmq.v1.PollOrphanTransactionRequest,
-                apache.rocketmq.v1.PollOrphanTransactionResponse>(
-                  this, METHODID_POLL_ORPHAN_TRANSACTION)))
-          .addMethod(
             getQueryOffsetMethod(),
             io.grpc.stub.ServerCalls.asyncUnaryCall(
               new MethodHandlers<
@@ -604,6 +597,13 @@ public final class MessagingServiceGrpc {
                 apache.rocketmq.v1.PullMessageRequest,
                 apache.rocketmq.v1.PullMessageResponse>(
                   this, METHODID_PULL_MESSAGE)))
+          .addMethod(
+            getMultiplexingCallMethod(),
+            io.grpc.stub.ServerCalls.asyncUnaryCall(
+              new MethodHandlers<
+                apache.rocketmq.v1.MultiplexingRequest,
+                apache.rocketmq.v1.MultiplexingResponse>(
+                  this, METHODID_MULTIPLEXING_CALL)))
           .build();
     }
   }
@@ -696,14 +696,6 @@ public final class MessagingServiceGrpc {
 
     /**
      */
-    public io.grpc.stub.StreamObserver<apache.rocketmq.v1.PollOrphanTransactionRequest> pollOrphanTransaction(
-        io.grpc.stub.StreamObserver<apache.rocketmq.v1.PollOrphanTransactionResponse> responseObserver) {
-      return io.grpc.stub.ClientCalls.asyncBidiStreamingCall(
-          getChannel().newCall(getPollOrphanTransactionMethod(), getCallOptions()), responseObserver);
-    }
-
-    /**
-     */
     public void queryOffset(apache.rocketmq.v1.QueryOffsetRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.QueryOffsetResponse> responseObserver) {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
@@ -716,6 +708,14 @@ public final class MessagingServiceGrpc {
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.PullMessageResponse> responseObserver) {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
           getChannel().newCall(getPullMessageMethod(), getCallOptions()), request, responseObserver);
+    }
+
+    /**
+     */
+    public void multiplexingCall(apache.rocketmq.v1.MultiplexingRequest request,
+        io.grpc.stub.StreamObserver<apache.rocketmq.v1.MultiplexingResponse> responseObserver) {
+      io.grpc.stub.ClientCalls.asyncUnaryCall(
+          getChannel().newCall(getMultiplexingCallMethod(), getCallOptions()), request, responseObserver);
     }
   }
 
@@ -808,6 +808,13 @@ public final class MessagingServiceGrpc {
     public apache.rocketmq.v1.PullMessageResponse pullMessage(apache.rocketmq.v1.PullMessageRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
           getChannel(), getPullMessageMethod(), getCallOptions(), request);
+    }
+
+    /**
+     */
+    public apache.rocketmq.v1.MultiplexingResponse multiplexingCall(apache.rocketmq.v1.MultiplexingRequest request) {
+      return io.grpc.stub.ClientCalls.blockingUnaryCall(
+          getChannel(), getMultiplexingCallMethod(), getCallOptions(), request);
     }
   }
 
@@ -912,6 +919,14 @@ public final class MessagingServiceGrpc {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
           getChannel().newCall(getPullMessageMethod(), getCallOptions()), request);
     }
+
+    /**
+     */
+    public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.MultiplexingResponse> multiplexingCall(
+        apache.rocketmq.v1.MultiplexingRequest request) {
+      return io.grpc.stub.ClientCalls.futureUnaryCall(
+          getChannel().newCall(getMultiplexingCallMethod(), getCallOptions()), request);
+    }
   }
 
   private static final int METHODID_QUERY_ROUTE = 0;
@@ -925,7 +940,7 @@ public final class MessagingServiceGrpc {
   private static final int METHODID_END_TRANSACTION = 8;
   private static final int METHODID_QUERY_OFFSET = 9;
   private static final int METHODID_PULL_MESSAGE = 10;
-  private static final int METHODID_POLL_ORPHAN_TRANSACTION = 11;
+  private static final int METHODID_MULTIPLEXING_CALL = 11;
 
   private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
@@ -988,6 +1003,10 @@ public final class MessagingServiceGrpc {
           serviceImpl.pullMessage((apache.rocketmq.v1.PullMessageRequest) request,
               (io.grpc.stub.StreamObserver<apache.rocketmq.v1.PullMessageResponse>) responseObserver);
           break;
+        case METHODID_MULTIPLEXING_CALL:
+          serviceImpl.multiplexingCall((apache.rocketmq.v1.MultiplexingRequest) request,
+              (io.grpc.stub.StreamObserver<apache.rocketmq.v1.MultiplexingResponse>) responseObserver);
+          break;
         default:
           throw new AssertionError();
       }
@@ -998,9 +1017,6 @@ public final class MessagingServiceGrpc {
     public io.grpc.stub.StreamObserver<Req> invoke(
         io.grpc.stub.StreamObserver<Resp> responseObserver) {
       switch (methodId) {
-        case METHODID_POLL_ORPHAN_TRANSACTION:
-          return (io.grpc.stub.StreamObserver<Req>) serviceImpl.pollOrphanTransaction(
-              (io.grpc.stub.StreamObserver<apache.rocketmq.v1.PollOrphanTransactionResponse>) responseObserver);
         default:
           throw new AssertionError();
       }
@@ -1061,9 +1077,9 @@ public final class MessagingServiceGrpc {
               .addMethod(getAckMessageMethod())
               .addMethod(getNackMessageMethod())
               .addMethod(getEndTransactionMethod())
-              .addMethod(getPollOrphanTransactionMethod())
               .addMethod(getQueryOffsetMethod())
               .addMethod(getPullMessageMethod())
+              .addMethod(getMultiplexingCallMethod())
               .build();
         }
       }

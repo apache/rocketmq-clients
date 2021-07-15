@@ -1,60 +1,35 @@
 package org.apache.rocketmq.client.consumer;
 
-import lombok.Getter;
-import lombok.Setter;
-import org.apache.rocketmq.client.constant.ConsumeFromWhere;
+import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
+import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.MQClientException;
-import org.apache.rocketmq.client.impl.ClientConfig;
 import org.apache.rocketmq.client.impl.consumer.DefaultMQPushConsumerImpl;
+import org.apache.rocketmq.client.remoting.AccessCredential;
 
-@Getter
-@Setter
-public class DefaultMQPushConsumer extends ClientConfig {
+public class DefaultMQPushConsumer {
 
     /**
      * Wrapping internal implementations for virtually all methods presented in this class.
      */
     protected final DefaultMQPushConsumerImpl impl;
 
-    private MessageModel messageModel = MessageModel.CLUSTERING;
-
-    private ConsumeFromWhere consumeFromWhere;
-
-    private int consumeThreadMin = 20;
-
-    private int consumeThreadMax = 64;
-
-    // Only for order message.
-    private long suspendCurrentQueueTimeMillis = 1000;
-
-    private int maxBatchConsumeWaitTimeMillis;
-
-    // TODO: provide default max re-consume times here.
-    private int maxReconsumeTimes = 16;
-
-    private int consumeMessageBatchMaxSize = 1;
-
-    private boolean ackMessageAsync = true;
-
-    private boolean nackMessageAsync = true;
-
-    public DefaultMQPushConsumer(final String consumerGroup) {
-        super(consumerGroup);
-        this.consumeFromWhere = ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET;
-        this.impl = new DefaultMQPushConsumerImpl(this);
+    public DefaultMQPushConsumer(final String group) {
+        this.impl = new DefaultMQPushConsumerImpl(group);
     }
 
-    public void setConsumerGroup(String consumerGroup) {
-        if (impl.hasBeenStarted()) {
-            throw new RuntimeException("Please set consumerGroup before consumer started.");
+    public void setConsumerGroup(String group) throws MQClientException {
+        synchronized (impl) {
+            if (ServiceState.CREATED != impl.getState()) {
+                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+            }
+            impl.setGroup(group);
         }
-        setGroupName(consumerGroup);
     }
 
     public String getConsumerGroup() {
-        return this.getGroupName();
+        return this.impl.getGroup();
     }
 
     public void start() throws MQClientException {
@@ -65,20 +40,18 @@ public class DefaultMQPushConsumer extends ClientConfig {
         this.impl.shutdown();
     }
 
+    public void setNamesrvAddr(String namesrvAddr) {
+        this.impl.setNamesrvAddr(namesrvAddr);
+    }
+
     // TODO: not allowed to set thead num after start
     public void setConsumeThreadMax(int consumeThreadMax) {
-        this.consumeThreadMax = consumeThreadMax;
-        if (this.consumeThreadMax < this.consumeThreadMin) {
-            this.consumeThreadMin = consumeThreadMax;
-        }
+        throw new UnsupportedOperationException();
     }
 
     // TODO: not allowed to set thead num after start
     public void setConsumeThreadMin(int consumeThreadMin) {
-        this.consumeThreadMin = consumeThreadMin;
-        if (this.consumeThreadMax < this.consumeThreadMin) {
-            this.consumeThreadMax = consumeThreadMin;
-        }
+        throw new UnsupportedOperationException();
     }
 
     public void registerMessageListener(MessageListenerConcurrently messageListenerConcurrently) {
@@ -93,8 +66,42 @@ public class DefaultMQPushConsumer extends ClientConfig {
         this.impl.subscribe(topic, subscribeExpression);
     }
 
-
     public void unsubscribe(String topic) {
         this.impl.unsubscribe(topic);
+    }
+
+    public void setArn(String arn) throws MQClientException {
+        synchronized (impl) {
+            if (ServiceState.CREATED != impl.getState()) {
+                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+            }
+            impl.setArn(arn);
+        }
+    }
+
+    public void setAccessCredential(AccessCredential accessCredential) throws MQClientException {
+        synchronized (impl) {
+            if (ServiceState.CREATED != impl.getState()) {
+                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+            }
+            impl.setAccessCredential(accessCredential);
+        }
+    }
+
+    public void setConsumeMessageBatchMaxSize(int batchMaxSize) {
+        impl.setConsumeMessageBatchMaxSize(batchMaxSize);
+    }
+
+    public void setMaxBatchConsumeWaitTimeMillis(long maxBatchConsumeWaitTimeMillis) {
+        impl.setMaxBatchConsumeWaitTimeMillis(maxBatchConsumeWaitTimeMillis);
+    }
+
+    public void setMessageModel(MessageModel messageModel) throws MQClientException {
+        synchronized (impl) {
+            if (ServiceState.CREATED != impl.getState()) {
+                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+            }
+            impl.setMessageModel(messageModel);
+        }
     }
 }

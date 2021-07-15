@@ -9,7 +9,7 @@ import org.apache.rocketmq.client.remoting.RpcTarget;
 @AllArgsConstructor
 @Getter
 public class PopResult {
-    private final RpcTarget rpcTarget;
+    private final RpcTarget target;
     private final PopStatus popStatus;
 
     private final long popTimestamp;

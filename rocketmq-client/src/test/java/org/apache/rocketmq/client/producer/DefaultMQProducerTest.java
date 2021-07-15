@@ -1,8 +1,10 @@
 package org.apache.rocketmq.client.producer;
 
+import java.util.concurrent.TimeoutException;
 import org.apache.rocketmq.client.conf.BaseConfig;
 import org.apache.rocketmq.client.exception.MQBrokerException;
 import org.apache.rocketmq.client.exception.MQClientException;
+import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.exception.RemotingException;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.misc.MixAll;
@@ -37,7 +39,11 @@ public class DefaultMQProducerTest extends BaseConfig {
             producer.send(msg);
             Assert.fail();
         } catch (MQClientException e) {
-            Assert.assertTrue(e.getErrorMessage().contains("Producer is not started"));
+            Assert.assertTrue(e.getMessage().contains("Producer is not started"));
+        } catch (MQServerException e) {
+            e.printStackTrace();
+        } catch (TimeoutException e) {
+            e.printStackTrace();
         }
     }
 
@@ -60,7 +66,7 @@ public class DefaultMQProducerTest extends BaseConfig {
                     });
             Assert.fail();
         } catch (MQClientException e) {
-            Assert.assertTrue(e.getErrorMessage().contains("Producer is not started"));
+            Assert.assertTrue(e.getMessage().contains("Producer is not started"));
         }
     }
 
@@ -73,7 +79,7 @@ public class DefaultMQProducerTest extends BaseConfig {
             Assert.fail();
         } catch (MQClientException e) {
             Assert.assertTrue(
-                    e.getErrorMessage().contains("The producer has attempted to be started before"));
+                    e.getMessage().contains("The producer has attempted to be started before"));
         } finally {
             producer.shutdown();
         }

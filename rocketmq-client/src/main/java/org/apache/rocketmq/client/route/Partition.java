@@ -22,7 +22,7 @@ public class Partition {
     private final String brokerName;
     private final int brokerId;
 
-    private final RpcTarget rpcTarget;
+    private final RpcTarget target;
 
     public Partition(apache.rocketmq.v1.Partition partition) {
 
@@ -68,6 +68,6 @@ public class Partition {
         for (apache.rocketmq.v1.Address address : endpoints.getAddressesList()) {
             addresses.add(new Address(address));
         }
-        this.rpcTarget = new RpcTarget(new Endpoints(targetAddressScheme, addresses), false, true);
+        this.target = new RpcTarget(new Endpoints(targetAddressScheme, addresses), true);
     }
 }

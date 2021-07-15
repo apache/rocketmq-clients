@@ -26,7 +26,7 @@ public class SystemAttribute {
     private String traceContext;
     // Would set after receiving the message.
     private long decodedTimestamp;
-    private RpcTarget ackRpcTarget;
+    private RpcTarget ackTarget;
 
     public SystemAttribute() {
         this.keys = new ArrayList<String>();

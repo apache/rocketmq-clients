@@ -77,7 +77,7 @@ public class DefaultMQPushConsumerTest extends BaseConfig {
             Assert.fail();
         } catch (MQClientException e) {
             Assert.assertTrue(
-                    e.getErrorMessage().contains("The producer has attempted to be started before"));
+                    e.getMessage().contains("The producer has attempted to be started before"));
         } finally {
             consumer.shutdown();
         }

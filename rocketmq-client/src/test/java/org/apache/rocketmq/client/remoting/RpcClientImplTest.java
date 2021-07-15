@@ -11,6 +11,7 @@ import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
 import apache.rocketmq.v1.SystemAttribute;
 import com.google.protobuf.ByteString;
+import io.grpc.Metadata;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,18 +52,18 @@ public class RpcClientImplTest {
 
     @Test
     public void testQueryRoute() throws SSLException {
-        List<Address> addresses = new ArrayList<Address>();
-        addresses.add(new Address("11.165.223.199", 9876));
-        final Endpoints endpoints = new Endpoints(AddressScheme.IPv4, addresses);
-
-        final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, true, false), observable);
-
-        Resource topicResource = Resource.newBuilder().setName("yc001").build();
-
-        QueryRouteRequest request =
-                QueryRouteRequest.newBuilder().setTopic(topicResource).build();
-        final QueryRouteResponse response = rpcClient.queryRoute(request, 3, TimeUnit.SECONDS);
-        System.out.println(response);
+//        List<Address> addresses = new ArrayList<Address>();
+//        addresses.add(new Address("11.165.223.199", 9876));
+//        final Endpoints endpoints = new Endpoints(AddressScheme.IPv4, addresses);
+//
+//        final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, false));
+//
+//        Resource topicResource = Resource.newBuilder().setName("yc001").build();
+//
+//        QueryRouteRequest request =
+//                QueryRouteRequest.newBuilder().setTopic(topicResource).build();
+//        final QueryRouteResponse response = rpcClient.queryRoute(request, 3, TimeUnit.SECONDS);
+//        System.out.println(response);
     }
 
     @Test
@@ -71,7 +72,7 @@ public class RpcClientImplTest {
         List<Address> addresses = new ArrayList<Address>();
         addresses.add(new Address("11.158.159.57", 8081));
         final Endpoints endpoints = new Endpoints(AddressScheme.IPv4, addresses);
-        final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, false, true), observable);
+        final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, true));
 
         final Resource topicResource = Resource.newBuilder().setArn("MQ_INST_1973281269661160_BXmPlOA6").setName(
                 "yc001").build();
@@ -83,26 +84,26 @@ public class RpcClientImplTest {
         SendMessageRequest request =
                 SendMessageRequest.newBuilder().setMessage(msg).build();
 
-        final SendMessageResponse response = rpcClient.sendMessage(request, 3, TimeUnit.SECONDS);
-        System.out.println(request);
+//        final SendMessageResponse response = rpcClient.sendMessage(new Metadata(), request, 3, TimeUnit.SECONDS);
+//        System.out.println(request);
     }
 
     @Test
     public void testQueryAssignment() throws SSLException {
-        List<Address> addresses = new ArrayList<Address>();
-        addresses.add(new Address("11.158.159.57", 8081));
-        final Endpoints endpoints = new Endpoints(AddressScheme.IPv4, addresses);
-        final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, false, true), observable);
-
-        final Resource topicResource = Resource.newBuilder().setArn("MQ_INST_1973281269661160_BXmPlOA6").setName(
-                "yc001").build();
-        final Resource groupResource = Resource.newBuilder().setArn("MQ_INST_1973281269661160_BXmPlOA6").setName(
-                "GID_groupa").build();
-
-        QueryAssignmentRequest request =
-                QueryAssignmentRequest.newBuilder().setClientId("123").setTopic(topicResource).setGroup(groupResource).build();
-        final QueryAssignmentResponse response = rpcClient.queryAssignment(request, 3, TimeUnit.SECONDS);
-        System.out.println(response);
+//        List<Address> addresses = new ArrayList<Address>();
+//        addresses.add(new Address("11.158.159.57", 8081));
+//        final Endpoints endpoints = new Endpoints(AddressScheme.IPv4, addresses);
+//        final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, false));
+//
+//        final Resource topicResource = Resource.newBuilder().setArn("MQ_INST_1973281269661160_BXmPlOA6").setName(
+//                "yc001").build();
+//        final Resource groupResource = Resource.newBuilder().setArn("MQ_INST_1973281269661160_BXmPlOA6").setName(
+//                "GID_groupa").build();
+//
+//        QueryAssignmentRequest request =
+//                QueryAssignmentRequest.newBuilder().setClientId("123").setTopic(topicResource).setGroup(groupResource).build();
+//        final QueryAssignmentResponse response = rpcClient.queryAssignment(request, 3, TimeUnit.SECONDS);
+//        System.out.println(response);
     }
 
 }

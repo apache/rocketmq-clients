@@ -8,7 +8,7 @@ import org.apache.rocketmq.client.message.MessageQueue;
 public interface ConsumeService {
     void start() throws MQClientException;
 
-    void shutdown() throws MQClientException;
+    void shutdown();
 
     void dispatch(ProcessQueue processQueue);
 

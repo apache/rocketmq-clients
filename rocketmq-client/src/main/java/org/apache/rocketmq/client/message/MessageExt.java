@@ -81,8 +81,8 @@ public class MessageExt {
     }
 
     // TODO: hide targetEndpoint here.
-    public RpcTarget getAckRpcTarget() {
-        return this.impl.getSystemAttribute().getAckRpcTarget();
+    public RpcTarget getAckTarget() {
+        return this.impl.getSystemAttribute().getAckTarget();
     }
 
     public String getTraceContext() {

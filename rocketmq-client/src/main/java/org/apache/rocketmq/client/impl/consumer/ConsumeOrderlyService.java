@@ -9,7 +9,7 @@ import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
 
 public class ConsumeOrderlyService implements ConsumeService {
-    private AtomicReference<ServiceState> state = new AtomicReference<ServiceState>(ServiceState.CREATED);
+    private AtomicReference<ServiceState> state = new AtomicReference<ServiceState>(ServiceState.READY);
     private DefaultMQPushConsumerImpl impl;
     private MessageListenerOrderly messageListenerOrderly;
 
@@ -37,7 +37,6 @@ public class ConsumeOrderlyService implements ConsumeService {
     @Override
     public void submitConsumeTask(
             List<MessageExt> messageExtList, ProcessQueue processQueue, MessageQueue messageQueue) {
-        final List<MessageExt> cachedMessages = processQueue.getCachedMessages();
-
+        throw new UnsupportedOperationException();
     }
 }

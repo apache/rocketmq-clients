@@ -1025,7 +1025,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object transactionId_;
   /**
    * <pre>
-   * Correlated transactioin
+   * Correlated transaction
    * </pre>
    *
    * <code>string transaction_id = 21;</code>
@@ -1046,7 +1046,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Correlated transactioin
+   * Correlated transaction
    * </pre>
    *
    * <code>string transaction_id = 21;</code>
@@ -3924,7 +3924,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object transactionId_ = "";
     /**
      * <pre>
-     * Correlated transactioin
+     * Correlated transaction
      * </pre>
      *
      * <code>string transaction_id = 21;</code>
@@ -3944,7 +3944,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Correlated transactioin
+     * Correlated transaction
      * </pre>
      *
      * <code>string transaction_id = 21;</code>
@@ -3965,7 +3965,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Correlated transactioin
+     * Correlated transaction
      * </pre>
      *
      * <code>string transaction_id = 21;</code>
@@ -3984,7 +3984,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Correlated transactioin
+     * Correlated transaction
      * </pre>
      *
      * <code>string transaction_id = 21;</code>
@@ -3998,7 +3998,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Correlated transactioin
+     * Correlated transaction
      * </pre>
      *
      * <code>string transaction_id = 21;</code>

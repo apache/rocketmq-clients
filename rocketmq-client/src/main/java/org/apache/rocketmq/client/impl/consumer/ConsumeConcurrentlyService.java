@@ -8,7 +8,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ServiceState;
-import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.message.MessageExt;
@@ -18,8 +17,8 @@ import org.apache.rocketmq.utility.ThreadFactoryImpl;
 @Slf4j
 public class ConsumeConcurrentlyService implements ConsumeService {
     private final AtomicReference<ServiceState> state;
+    private final DefaultMQPushConsumerImpl consumerImpl;
 
-    private final DefaultMQPushConsumer consumer;
     @Getter
     private final MessageListenerConcurrently messageListenerConcurrently;
     private final ThreadPoolExecutor consumeExecutor;
@@ -27,14 +26,13 @@ public class ConsumeConcurrentlyService implements ConsumeService {
     public ConsumeConcurrentlyService(
             DefaultMQPushConsumerImpl consumerImpl,
             MessageListenerConcurrently messageListenerConcurrently) {
-        this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
+        this.state = new AtomicReference<ServiceState>(ServiceState.READY);
         this.messageListenerConcurrently = messageListenerConcurrently;
-        this.consumer = consumerImpl.getDefaultMQPushConsumer();
-
+        this.consumerImpl = consumerImpl;
         this.consumeExecutor =
                 new ThreadPoolExecutor(
-                        consumer.getConsumeThreadMin(),
-                        consumer.getConsumeThreadMax(),
+                        consumerImpl.getConsumeThreadMin(),
+                        consumerImpl.getConsumeThreadMax(),
                         1000 * 60,
                         TimeUnit.MILLISECONDS,
                         new LinkedBlockingQueue<Runnable>(),
@@ -43,32 +41,32 @@ public class ConsumeConcurrentlyService implements ConsumeService {
 
     @Override
     public void start() throws MQClientException {
-        if (!state.compareAndSet(ServiceState.CREATED, ServiceState.STARTED)) {
-            throw new MQClientException(
-                    "ConsumerConcurrentlyService has attempted to be started before");
+        synchronized (this) {
+            log.info("Begin to start the consume concurrently service.");
+            if (!state.compareAndSet(ServiceState.READY, ServiceState.STARTED)) {
+                log.warn("The consume concurrently service has been started before");
+            }
         }
     }
 
     @Override
-    public void shutdown() throws MQClientException {
-        state.compareAndSet(ServiceState.CREATED, ServiceState.STOPPING);
-        state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING);
-        final ServiceState serviceState = state.get();
-        if (ServiceState.STOPPING == serviceState) {
-            consumeExecutor.shutdown();
-            if (state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED)) {
-                log.info("Shutdown ConsumeConcurrentlyService successfully.");
+    public void shutdown() {
+        synchronized (this) {
+            log.info("Begin to shutdown the consume concurrently service.");
+            if (!state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING)) {
+                log.warn("The consume concurrently service has not been started before");
                 return;
             }
+            consumeExecutor.shutdown();
+            state.compareAndSet(ServiceState.STOPPING, ServiceState.READY);
+            log.info("Shutdown the consume concurrently service successfully.");
         }
-        throw new MQClientException(
-                "Failed to shutdown ConsumeConcurrentlyService, state=" + state.get());
     }
 
     @Override
     public void dispatch(ProcessQueue processQueue) {
         final List<MessageExt> cachedMessages = processQueue.getCachedMessages();
-        final int batchMaxSize = consumer.getConsumeMessageBatchMaxSize();
+        final int batchMaxSize = consumerImpl.getConsumeMessageBatchMaxSize();
         final int size = cachedMessages.size();
         for (int i = 0; i < size; i += batchMaxSize) {
             final List<MessageExt> splitMessages =

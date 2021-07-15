@@ -8,9 +8,10 @@ import apache.rocketmq.v1.HealthCheckRequest;
 import apache.rocketmq.v1.HealthCheckResponse;
 import apache.rocketmq.v1.HeartbeatRequest;
 import apache.rocketmq.v1.HeartbeatResponse;
+import apache.rocketmq.v1.MultiplexingRequest;
+import apache.rocketmq.v1.MultiplexingResponse;
 import apache.rocketmq.v1.NackMessageRequest;
 import apache.rocketmq.v1.NackMessageResponse;
-import apache.rocketmq.v1.PollOrphanTransactionRequest;
 import apache.rocketmq.v1.PullMessageRequest;
 import apache.rocketmq.v1.PullMessageResponse;
 import apache.rocketmq.v1.QueryAssignmentRequest;
@@ -24,9 +25,9 @@ import apache.rocketmq.v1.ReceiveMessageResponse;
 import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.grpc.Metadata;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
-import org.apache.rocketmq.client.producer.OrphanTransactionCallback;
 
 /**
  * Client for all explicit RPC in RocketMQ.
@@ -38,152 +39,158 @@ public interface RpcClient {
     void shutdown();
 
     /**
-     * Send message synchronously.
+     * Query topic route asynchronously.
      *
-     * @param request  send message request.
-     * @param duration request max duration
-     * @param unit     duration time unit
-     * @return response of sending message.
+     * @param metadata gRPC request header metadata.
+     * @param request  query route request.
+     * @param executor gRPC asynchronous executor.
+     * @param duration request max duration.
+     * @param timeUnit duration time unit.
+     * @return response future of topic route.
      */
-    SendMessageResponse sendMessage(SendMessageRequest request, long duration, TimeUnit unit);
+    ListenableFuture<QueryRouteResponse> queryRoute(Metadata metadata, QueryRouteRequest request, Executor executor,
+                                                    long duration, TimeUnit timeUnit);
 
     /**
-     * Send message asynchronously
+     * Heart beat asynchronously.
      *
+     * @param metadata gRPC request header metadata.
+     * @param request  heart beat request.
+     * @param executor gRPC asynchronous executor.
+     * @param duration request max duration.
+     * @param timeUnit duration time unit.
+     * @return response future of heart beat.
+     */
+    ListenableFuture<HeartbeatResponse> heartbeat(Metadata metadata, HeartbeatRequest request, Executor executor,
+                                                  long duration, TimeUnit timeUnit);
+
+    /**
+     * Asynchronous health check for producer.
+     *
+     * @param metadata gRPC request header metadata.
+     * @param request  health check request.
+     * @param executor gRPC asynchronous executor.
+     * @param duration request max duration.
+     * @param timeUnit duration time timeUnit
+     * @return response future of health check response
+     */
+    ListenableFuture<HealthCheckResponse> healthCheck(Metadata metadata, HealthCheckRequest request,
+                                                      Executor executor, long duration, TimeUnit timeUnit);
+
+    /**
+     * Send message asynchronously.
+     *
+     * @param metadata gRPC request header metadata.
      * @param request  send message request.
      * @param executor gRPC asynchronous executor.
-     * @param duration request max duration
-     * @param unit     duration time unit
+     * @param duration request max duration.
+     * @param timeUnit duration time unit.
      * @return response future of sending message.
      */
-    ListenableFuture<SendMessageResponse> sendMessage(
-            SendMessageRequest request, Executor executor, long duration, TimeUnit unit);
+    ListenableFuture<SendMessageResponse> sendMessage(Metadata metadata, SendMessageRequest request,
+                                                      Executor executor, long duration, TimeUnit timeUnit);
 
     /**
-     * Query load assignment of consumer.
+     * Query assignment asynchronously.
      *
+     * @param metadata gRPC request header metadata.
      * @param request  query assignment request.
+     * @param executor gRPC asynchronous executor.
      * @param duration request max duration.
-     * @param unit     duration time unit
-     * @return response of query assignment.
+     * @param timeUnit duration time unit.
+     * @return response future of query assignment.
      */
-    QueryAssignmentResponse queryAssignment(
-            QueryAssignmentRequest request, long duration, TimeUnit unit);
+    ListenableFuture<QueryAssignmentResponse> queryAssignment(Metadata metadata, QueryAssignmentRequest request,
+                                                              Executor executor, long duration, TimeUnit timeUnit);
 
     /**
-     * For health check.
+     * Receiving message asynchronously from server.
      *
-     * @param request  health check request.
-     * @param duration request max duration.
-     * @param unit     duration time unit
-     * @return response of health check
-     */
-    HealthCheckResponse healthCheck(HealthCheckRequest request, long duration, TimeUnit unit);
-
-    /**
-     * Receiving message from server.
-     *
+     * @param metadata gRPC request header metadata.
      * @param request  receiving message request.
      * @param executor gRPC asynchronous executor.
      * @param duration request max duration.
-     * @param unit     duration time unit
+     * @param timeUnit duration time unit.
      * @return response future of receiving message
      */
-    ListenableFuture<ReceiveMessageResponse> receiveMessage(
-            ReceiveMessageRequest request, Executor executor, long duration, TimeUnit unit);
+    ListenableFuture<ReceiveMessageResponse> receiveMessage(Metadata metadata, ReceiveMessageRequest request,
+                                                            Executor executor, long duration, TimeUnit timeUnit);
 
     /**
-     * Ack message synchronously after consuming success.
+     * Ack message asynchronously after consuming.
      *
+     * @param metadata gRPC request header metadata.
      * @param request  ack message request.
+     * @param executor gRPC asynchronous executor.
      * @param duration request max duration.
-     * @param unit     duration time unit
-     * @return response of ack message.
-     */
-    AckMessageResponse ackMessage(AckMessageRequest request, long duration, TimeUnit unit);
-
-
-    /**
-     * Ack message asynchronously after consuming
-     *
-     * @param request  ack message request.
-     * @param executor gRPC asynchronous executor
-     * @param duration request max duration.
-     * @param unit     duration time unit
+     * @param timeUnit duration time unit.
      * @return response future of ack message.
      */
-    ListenableFuture<AckMessageResponse> ackMessage(
-            AckMessageRequest request, Executor executor, long duration, TimeUnit unit);
-
-    /**
-     * Nack message synchronously after consuming failure
-     *
-     * @param request  ack message request.
-     * @param duration request max duration.
-     * @param unit     duration time unit
-     * @return response of nack message.
-     */
-    NackMessageResponse nackMessage(NackMessageRequest request, long duration, TimeUnit unit);
+    ListenableFuture<AckMessageResponse> ackMessage(Metadata metadata, AckMessageRequest request, Executor executor,
+                                                    long duration, TimeUnit timeUnit);
 
     /**
      * Nack message asynchronously after consuming failure
      *
+     * @param metadata gRPC request header metadata.
      * @param request  nack message request.
-     * @param executor gRPC asynchronous executor
+     * @param executor gRPC asynchronous executor.
      * @param duration request max duration.
-     * @param unit     duration time unit
+     * @param timeUnit duration time unit.
      * @return response future of ack message.
      */
-    ListenableFuture<NackMessageResponse> nackMessage(
-            NackMessageRequest request, Executor executor, long duration, TimeUnit unit);
-
-    /**
-     * Send heart beat.
-     *
-     * @param request  heart beat request.
-     * @param duration request max duration.
-     * @param unit     duration time unit.
-     * @return response of heart beat.
-     */
-    HeartbeatResponse heartbeat(HeartbeatRequest request, long duration, TimeUnit unit);
-
-    /**
-     * Query topic route
-     *
-     * @param request  query topic route request.
-     * @param duration request max duration.
-     * @param unit     duration time unit.
-     * @return response of query topic route.
-     */
-    QueryRouteResponse queryRoute(QueryRouteRequest request, long duration, TimeUnit unit);
+    ListenableFuture<NackMessageResponse> nackMessage(Metadata metadata, NackMessageRequest request, Executor executor,
+                                                      long duration, TimeUnit timeUnit);
 
     /**
      * Submit transaction resolution
      *
+     * @param metadata gRPC request header metadata.
      * @param request  end transaction request.
+     * @param executor gRPC asynchronous executor.
      * @param duration request max duration.
-     * @param unit     duration time unit.
-     * @return response of submitting transaction resolution.
+     * @param timeUnit duration time unit.
+     * @return response future of submitting transaction resolution.
      */
-    EndTransactionResponse endTransaction(EndTransactionRequest request, long duration, TimeUnit unit);
-
+    ListenableFuture<EndTransactionResponse> endTransaction(Metadata metadata, EndTransactionRequest request,
+                                                            Executor executor, long duration, TimeUnit timeUnit);
 
     /**
-     * Poll orphan transaction
+     * Query offset for pull
      *
-     * @param request  poll orphan transaction request.
-     * @param callback callback of orphan transaction.
+     * @param metadata gRPC request header metadata.
+     * @param request  query offset request.
+     * @param executor gRPC asynchronous executor.
      * @param duration request max duration.
-     * @param unit     duration time unit.
+     * @param timeUnit duration time unit.
+     * @return response future of query offset.
      */
-    void pollOrphanTransaction(PollOrphanTransactionRequest request, OrphanTransactionCallback callback,
-                               long duration, TimeUnit unit);
+    ListenableFuture<QueryOffsetResponse> queryOffset(Metadata metadata, QueryOffsetRequest request, Executor executor,
+                                                      long duration, TimeUnit timeUnit);
 
+    /**
+     * Pull message from remote
+     *
+     * @param metadata gRPC request header metadata.
+     * @param request  pull message request.
+     * @param executor gRPC asynchronous executor.
+     * @param duration request max duration.
+     * @param timeUnit duration time unit.
+     * @return response future of pull message.
+     */
+    ListenableFuture<PullMessageResponse> pullMessage(Metadata metadata, PullMessageRequest request,
+                                                      Executor executor, long duration, TimeUnit timeUnit);
 
-    QueryOffsetResponse queryOffset(QueryOffsetRequest request, long duration, TimeUnit unit);
-
-    PullMessageResponse pullMessage(PullMessageRequest request, long duration, TimeUnit unit);
-
-    ListenableFuture<PullMessageResponse> pullMessage(PullMessageRequest request, Executor executor, long duration,
-                                                      TimeUnit timeUnit);
+    /**
+     * Multiplexing call for composited request.
+     *
+     * @param metadata gRPC request header metadata.
+     * @param request  multiplexing call request.
+     * @param executor gRPC asynchronous executor.
+     * @param duration request max duration.
+     * @param timeUnit duration time unit.
+     * @return response future of multiplexing call.
+     */
+    ListenableFuture<MultiplexingResponse> multiplexingCall(Metadata metadata, MultiplexingRequest request,
+                                                            Executor executor, long duration, TimeUnit timeUnit);
 }
