@@ -137,13 +137,14 @@ public class ConsumeConcurrentlyTask implements Runnable {
         final DefaultMQPushConsumerImpl consumerImpl = processQueue.getConsumerImpl();
         // Record message born-timestamp.
         span.addEvent(EventName.MSG_BORN, messageExt.getBornTimestamp(), TimeUnit.MILLISECONDS);
+        span.setAttribute(TracingAttribute.ACCESS_KEY, consumerImpl.getAccessCredential().getAccessKey());
         span.setAttribute(TracingAttribute.ARN, consumerImpl.getArn());
         span.setAttribute(TracingAttribute.TOPIC, messageExt.getTopic());
         span.setAttribute(TracingAttribute.MSG_ID, messageExt.getMsgId());
         span.setAttribute(TracingAttribute.GROUP, consumerImpl.getGroup());
         span.setAttribute(TracingAttribute.TAGS, messageExt.getTags());
         span.setAttribute(TracingAttribute.KEYS, messageExt.getKeys());
-        span.setAttribute(TracingAttribute.RETRY_TIMES, messageExt.getReconsumeTimes());
+        span.setAttribute(TracingAttribute.ATTEMPT_TIMES, 1 + messageExt.getReconsumeTimes());
         span.setAttribute(TracingAttribute.MSG_TYPE, messageExt.getMsgType().getName());
         return span;
     }

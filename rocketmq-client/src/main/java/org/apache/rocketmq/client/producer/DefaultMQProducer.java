@@ -338,7 +338,7 @@ public class DefaultMQProducer {
      *
      * @param callbackExecutor the instance of Executor
      */
-    public void setCallbackExecutor(final ThreadPoolExecutor callbackExecutor) {
+    public void setCallbackExecutor(final ThreadPoolExecutor callbackExecutor) throws MQClientException {
         this.impl.setSendCallbackExecutor(callbackExecutor);
     }
 

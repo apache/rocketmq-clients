@@ -5,6 +5,7 @@ public class SpanName {
     public static final String WAITING_CONSUMPTION = "WaitingConsumption";
     public static final String CONSUME_MESSAGE = "ConsumeMessage";
     public static final String END_MESSAGE = "EndMessage";
+    public static final String PULL_MESSAGE = "PullMessage";
 
     private SpanName() {
     }

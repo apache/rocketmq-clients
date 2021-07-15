@@ -34,7 +34,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -77,7 +76,6 @@ import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.apache.rocketmq.utility.UtilAll;
 
 @Slf4j
-@Setter
 public class DefaultMQProducerImpl extends ClientBaseImpl {
 
     public static final int MESSAGE_COMPRESSION_THRESHOLD = 1024 * 1024 * 4;
@@ -88,8 +86,11 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             Integer.parseInt(System.getProperty(SystemProperty.MESSAGE_COMPRESSION_LEVEL,
                                                 Integer.toString(DEFAULT_MESSAGE_COMPRESSION_LEVEL)));
 
+    @Setter
     private int maxAttemptTimes = 3;
+    @Setter
     private long sendMessageTimeoutMillis = 10 * 1000;
+    @Setter
     private int maxMessageSize = 1024 * 1024 * 4;
 
     @NonNull
@@ -145,6 +146,19 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             sendCallbackExecutor.shutdown();
             state.compareAndSet(ServiceState.STOPPING, ServiceState.READY);
             log.info("Shutdown the rocketmq producer successfully.");
+        }
+    }
+
+    public void setSendCallbackExecutor(final ThreadPoolExecutor callbackExecutor) throws MQClientException {
+        synchronized (this) {
+            if (null == callbackExecutor) {
+                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+            }
+            if (ServiceState.CREATED != state.get() || ServiceState.READY != state.get()) {
+                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+            }
+            this.sendCallbackExecutor.shutdown();
+            this.sendCallbackExecutor = callbackExecutor;
         }
     }
 
@@ -238,6 +252,8 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     public SendResult send(Message message, long timeoutMillis)
             throws MQClientException, InterruptedException, TimeoutException, MQServerException {
         final ListenableFuture<SendResult> future = send0(message, maxAttemptTimes);
+        // Limit the future timeout.
+        Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
         try {
             return future.get(timeoutMillis, TimeUnit.MILLISECONDS);
         } catch (ExecutionException e) {
@@ -473,7 +489,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             future.setException(e);
             return future;
         }
-        int attemptTimes = 0;
+        int attemptTimes = 1;
         final Partition partition = candidates.get(attemptTimes);
         final SendMessageRequest request = wrapSendMessageRequest(message, partition);
         send0(future, candidates, request, attemptTimes, maxAttemptTimes);
@@ -483,7 +499,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     private void send0(final SettableFuture<SendResult> future, final List<Partition> candidates,
                        final SendMessageRequest request, final int attemptTimes, final int maxAttemptTimes) {
         // Calculate the current partition.
-        final Partition partition = candidates.get(attemptTimes % candidates.size());
+        final Partition partition = candidates.get((attemptTimes - 1) % candidates.size());
         final RpcTarget target = partition.getTarget();
         Metadata metadata;
         try {
@@ -520,17 +536,17 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             public void onFailure(Throwable t) {
                 endSpan(span, StatusCode.ERROR);
                 // No need more attempts.
-                if (1 + attemptTimes >= maxAttemptTimes) {
+                if (attemptTimes >= maxAttemptTimes) {
                     future.setException(t);
                     log.error("Failed to send message, attempt times is exhausted, maxAttemptTimes={}, currentTimes={}",
-                              maxAttemptTimes, 1 + attemptTimes, t);
+                              maxAttemptTimes, attemptTimes, t);
                     return;
                 }
                 log.warn("Failed to send message, would attempt to re-send right now, maxAttemptTimes={}, "
-                         + "currentTimes={}", maxAttemptTimes, 1 + attemptTimes, t);
+                         + "currentTimes={}", maxAttemptTimes, attemptTimes, t);
                 // Turn to the next partition.
                 final int nextAttemptTimes = attemptTimes + 1;
-                final Partition nextPartition = candidates.get(nextAttemptTimes % candidates.size());
+                final Partition nextPartition = candidates.get((nextAttemptTimes - 1) % candidates.size());
                 // Replace the partition-id in request by the newest one.
                 SystemAttribute systemAttribute = request.getMessage().getSystemAttribute();
                 SystemAttribute nextSystemAttribute =
@@ -568,10 +584,6 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         });
     }
 
-    // TODO: Not implemented yet.
-    public void setCallbackExecutor(final ExecutorService callbackExecutor) {
-    }
-
     @Override
     public HeartbeatEntry prepareHeartbeatData() {
         Resource groupResource =
@@ -597,6 +609,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
         span.addEvent(EventName.MSG_BORN, Timestamps.toMillis(systemAttribute.getBornTimestamp()),
                       TimeUnit.MILLISECONDS);
+        span.setAttribute(TracingAttribute.ACCESS_KEY, getAccessCredential().getAccessKey());
         span.setAttribute(TracingAttribute.ARN, message.getTopic().getArn());
         span.setAttribute(TracingAttribute.TOPIC, message.getTopic().getName());
         span.setAttribute(TracingAttribute.MSG_ID, systemAttribute.getMessageId());
@@ -622,6 +635,10 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             default:
                 span.setAttribute(TracingAttribute.MSG_TYPE, MessageType.NORMAL.getName());
         }
+        final long deliveryTimestamp = Timestamps.toMillis(systemAttribute.getDeliveryTimestamp());
+        if (deliveryTimestamp > 0) {
+            span.setAttribute(TracingAttribute.DELIVERY_TIMESTAMP, deliveryTimestamp);
+        }
         final String serializedSpanContext = TracingUtility.injectSpanContextToTraceParent(span.getSpanContext());
 
         systemAttribute = systemAttribute.toBuilder().setTraceContext(serializedSpanContext).build();
@@ -642,6 +659,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             spanBuilder.setParent(Context.current().with(Span.wrap(spanContext)));
         }
         final Span span = spanBuilder.startSpan();
+        span.setAttribute(TracingAttribute.ACCESS_KEY, getAccessCredential().getAccessKey());
         span.setAttribute(TracingAttribute.MSG_ID, messageId);
         span.setAttribute(TracingAttribute.TRANSACTION_ID, transactionId);
 

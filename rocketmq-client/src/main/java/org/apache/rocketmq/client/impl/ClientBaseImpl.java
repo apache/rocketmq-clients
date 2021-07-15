@@ -295,11 +295,13 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                 inflightRouteFutureLock.lock();
                 try {
                     updateTopicRouteCache(topic, newTopicRouteData);
-                    final Set<SettableFuture<TopicRouteData>> newFutureSet = inflightRouteFutureTable.get(topic);
+                    final Set<SettableFuture<TopicRouteData>> newFutureSet = inflightRouteFutureTable.remove(topic);
                     if (null == newFutureSet) {
+                        // Should never reach here.
                         return;
                     }
-                    log.debug("topic={}, in-flight route future size={}", topic, newFutureSet.size());
+                    log.debug("Fetch topic route successfully, topic={}, in-flight route future size={}", topic,
+                              newFutureSet.size());
                     for (SettableFuture<TopicRouteData> newFuture : newFutureSet) {
                         newFuture.set(newTopicRouteData);
                     }
@@ -310,7 +312,21 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
 
             @Override
             public void onFailure(Throwable t) {
-                log.error("Failed to fetch topic route, topic={}", topic, t);
+                inflightRouteFutureLock.lock();
+                try {
+                    final Set<SettableFuture<TopicRouteData>> newFutureSet = inflightRouteFutureTable.remove(topic);
+                    if (null == newFutureSet) {
+                        // Should never reach here.
+                        return;
+                    }
+                    log.error("Failed to fetch topic route, topic={}, in-flight route future size={}", topic,
+                              newFutureSet.size(), t);
+                    for (SettableFuture<TopicRouteData> newFuture : newFutureSet) {
+                        newFuture.setException(t);
+                    }
+                } finally {
+                    inflightRouteFutureLock.unlock();
+                }
             }
         });
         return future;
@@ -401,9 +417,9 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         }
         for (final Endpoints endpoints : endpointsNeedHeartbeat) {
             final RpcTarget target = new RpcTarget(endpoints, true);
-            final ListenableFuture<HeartbeatResponse> future = clientInstance.heartbeat(target, metadata,
-                                                                                           request, ioTimeoutMillis,
-                                                                                           TimeUnit.MILLISECONDS);
+            final ListenableFuture<HeartbeatResponse> future = clientInstance.heartbeat(target, metadata, request,
+                                                                                        ioTimeoutMillis,
+                                                                                        TimeUnit.MILLISECONDS);
             Futures.addCallback(future, new FutureCallback<HeartbeatResponse>() {
                 @Override
                 public void onSuccess(HeartbeatResponse response) {
@@ -490,7 +506,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
             BatchSpanProcessor spanProcessor =
                     BatchSpanProcessor.builder(exporter)
                                       .setScheduleDelay(MixAll.DEFAULT_EXPORTER_SCHEDULE_DELAY_TIME_MILLIS,
-                                                        TimeUnit.SECONDS)
+                                                        TimeUnit.MILLISECONDS)
                                       .setMaxExportBatchSize(MixAll.DEFAULT_EXPORTER_BATCH_SIZE)
                                       .build();
 
