@@ -27,6 +27,7 @@ import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.context.Context;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,9 +42,9 @@ import java.util.concurrent.TimeoutException;
 import lombok.NonNull;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.client.constant.CommunicationMode;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.constant.SystemProperty;
+import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.MQBrokerException;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
@@ -54,8 +55,10 @@ import org.apache.rocketmq.client.impl.ClientManager;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageConst;
 import org.apache.rocketmq.client.message.MessageIdUtils;
+import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.message.protocol.Encoding;
 import org.apache.rocketmq.client.message.protocol.MessageType;
+import org.apache.rocketmq.client.misc.Validators;
 import org.apache.rocketmq.client.producer.LocalTransactionExecuter;
 import org.apache.rocketmq.client.producer.MessageQueueSelector;
 import org.apache.rocketmq.client.producer.SendCallback;
@@ -73,19 +76,22 @@ import org.apache.rocketmq.client.tracing.TracingUtility;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.apache.rocketmq.utility.UtilAll;
 
-
 @Slf4j
 @Setter
 public class DefaultMQProducerImpl extends ClientBaseImpl {
 
     public static final int MESSAGE_COMPRESSION_THRESHOLD = 1024 * 1024 * 4;
+
     public static final int DEFAULT_MESSAGE_COMPRESSION_LEVEL = 5;
+
     public static final int MESSAGE_COMPRESSION_LEVEL =
             Integer.parseInt(System.getProperty(SystemProperty.MESSAGE_COMPRESSION_LEVEL,
                                                 Integer.toString(DEFAULT_MESSAGE_COMPRESSION_LEVEL)));
 
     private int maxAttemptTimes = 3;
     private long sendMessageTimeoutMillis = 10 * 1000;
+    private int maxMessageSize = 1024 * 1024 * 4;
+
     @NonNull
     private ThreadPoolExecutor sendCallbackExecutor;
 
@@ -106,7 +112,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     }
 
     /**
-     * Start the producer, not allowed to start producer repeatedly.
+     * Start the rocketmq producer.
      *
      * @throws MQClientException the mq client exception.
      */
@@ -124,6 +130,9 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         }
     }
 
+    /**
+     * Shutdown the rocketmq producer.
+     */
     @Override
     public void shutdown() {
         synchronized (this) {
@@ -228,7 +237,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
     public SendResult send(Message message, long timeoutMillis)
             throws MQClientException, InterruptedException, TimeoutException, MQServerException {
-        final ListenableFuture<SendResult> future = send0(message);
+        final ListenableFuture<SendResult> future = send0(message, maxAttemptTimes);
         try {
             return future.get(timeoutMillis, TimeUnit.MILLISECONDS);
         } catch (ExecutionException e) {
@@ -250,7 +259,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
     public void send(Message message, final SendCallback sendCallback, long timeoutMillis)
             throws MQClientException, RemotingException, InterruptedException {
-        final ListenableFuture<SendResult> future = send0(message);
+        final ListenableFuture<SendResult> future = send0(message, maxAttemptTimes);
         // Limit the future timeout.
         Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
         Futures.addCallback(future, new FutureCallback<SendResult>() {
@@ -289,13 +298,27 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     }
 
     public SendResult send(Message message, MessageQueueSelector selector, Object arg)
-            throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+            throws MQClientException, MQBrokerException, InterruptedException, MQServerException,
+                   TimeoutException {
         return send(message, selector, arg, sendMessageTimeoutMillis);
     }
 
-    public SendResult send(Message message, MessageQueueSelector selector, Object arg, long timeout)
-            throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
-        return sendSelectImpl(message, selector, arg, CommunicationMode.SYNC, null, timeout);
+    public SendResult send(Message message, MessageQueueSelector selector, Object arg, long timeoutMillis)
+            throws MQClientException, MQServerException, InterruptedException, TimeoutException {
+        final ListenableFuture<SendResult> future = send0(message, selector, arg, maxAttemptTimes);
+        Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
+        try {
+            return future.get(timeoutMillis, TimeUnit.MILLISECONDS);
+        } catch (ExecutionException e) {
+            final Throwable cause = e.getCause();
+            if (cause instanceof MQClientException) {
+                throw (MQClientException) cause;
+            }
+            if (cause instanceof MQServerException) {
+                throw (MQServerException) cause;
+            }
+            throw new MQClientException(cause);
+        }
     }
 
     public void send(
@@ -308,21 +331,44 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             Message message,
             MessageQueueSelector selector,
             Object arg,
-            SendCallback sendCallback,
-            long timeout)
+            final SendCallback sendCallback,
+            long timeoutMillis)
             throws MQClientException, RemotingException, InterruptedException {
-        sendSelectImpl(message, selector, arg, CommunicationMode.ASYNC, sendCallback, timeout);
+        final ListenableFuture<SendResult> future = send0(message, selector, arg, maxAttemptTimes);
+        Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
+        Futures.addCallback(future, new FutureCallback<SendResult>() {
+            @Override
+            public void onSuccess(final SendResult sendResult) {
+                sendCallbackExecutor.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            sendCallback.onSuccess(sendResult);
+                        } catch (Throwable t) {
+                            log.error("Exception occurs in SendCallback#onSuccess", t);
+                        }
+                    }
+                });
+            }
+
+            @Override
+            public void onFailure(final Throwable t) {
+                sendCallbackExecutor.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            sendCallback.onException(t);
+                        } catch (Throwable t) {
+                            log.error("Exception occurs in SendCallback#onFailure", t);
+                        }
+                    }
+                });
+            }
+        });
     }
 
-    public void sendOneway(Message message, MessageQueueSelector selector, Object arg)
-            throws MQClientException {
-        sendSelectImpl(
-                message,
-                selector,
-                arg,
-                CommunicationMode.ONE_WAY,
-                null,
-                sendMessageTimeoutMillis);
+    public void sendOneway(Message message, MessageQueueSelector selector, Object arg) {
+        send0(message, selector, arg, 1);
     }
 
     public TransactionSendResult sendTransaction(Message message, LocalTransactionExecuter executor, Object object)
@@ -392,35 +438,6 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         });
     }
 
-    public void getPublishInfo(final String topic, final SettableFuture<TopicPublishInfo> future) {
-        // If publish info was cached before, get it directly.
-        final TopicPublishInfo cachedTopicPublishInfo = topicPublishInfoCache.get(topic);
-        if (null != cachedTopicPublishInfo) {
-            future.set(cachedTopicPublishInfo);
-            return;
-        }
-        // Fetch publish info from remote.
-        final ListenableFuture<TopicRouteData> routeFuture = getRouteFor(topic);
-        Futures.addCallback(routeFuture, new FutureCallback<TopicRouteData>() {
-            @Override
-            public void onSuccess(TopicRouteData topicRouteData) {
-                // Cache publish info right now and set the future.
-                final TopicPublishInfo topicPublishInfo = new TopicPublishInfo(topicRouteData);
-                topicPublishInfoCache.put(topic, topicPublishInfo);
-                future.set(topicPublishInfo);
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-                future.setException(t);
-            }
-        });
-    }
-
-    public ListenableFuture<SendResult> send0(final Message message) {
-        return send0(message, maxAttemptTimes);
-    }
-
     public ListenableFuture<SendResult> send0(final Message message, final int maxAttemptTimes) {
         final ListenableFuture<TopicPublishInfo> future = getPublishInfo(message.getTopic());
         return Futures.transformAsync(future, new AsyncFunction<TopicPublishInfo, SendResult>() {
@@ -433,15 +450,29 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         });
     }
 
-    List<Partition> takePartitionsRoundRobin(TopicPublishInfo topicPublishInfo, int maxAttemptTimes)
-            throws MQClientException {
-        final Set<Endpoints> isolated = clientInstance.getAllIsolatedEndpoints();
-        return topicPublishInfo.takePartitions(isolated, maxAttemptTimes);
+    private ListenableFuture<SendResult> send0(final Message message, MessageQueueSelector selector, Object arg,
+                                               final int maxAttemptTimes) {
+        final ListenableFuture<Partition> future0 = selectPartition(message, selector, arg);
+        return Futures.transformAsync(future0, new AsyncFunction<Partition, SendResult>() {
+            @Override
+            public ListenableFuture<SendResult> apply(Partition partition) {
+                List<Partition> candidates = new ArrayList<Partition>();
+                candidates.add(partition);
+                return send0(message, candidates, maxAttemptTimes);
+            }
+        });
     }
 
     private ListenableFuture<SendResult> send0(final Message message, final List<Partition> candidates,
                                                int maxAttemptTimes) {
         final SettableFuture<SendResult> future = SettableFuture.create();
+        // Filter illegal message.
+        try {
+            Validators.messageCheck(message, maxMessageSize);
+        } catch (MQClientException e) {
+            future.setException(e);
+            return future;
+        }
         int attemptTimes = 0;
         final Partition partition = candidates.get(attemptTimes);
         final SendMessageRequest request = wrapSendMessageRequest(message, partition);
@@ -512,65 +543,34 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         });
     }
 
-    private SendResult sendSelectImpl(
-            Message message,
-            MessageQueueSelector selector,
-            Object arg,
-            CommunicationMode mode,
-            SendCallback sendCallback,
-            long timeoutMillis)
+    List<Partition> takePartitionsRoundRobin(TopicPublishInfo topicPublishInfo, int maxAttemptTimes)
             throws MQClientException {
-        throw new UnsupportedOperationException();
-        //        ensureRunning();
-        //        Validators.messageCheck(message, defaultMQProducer.getMaxMessageSize());
-        //        SettableFuture<TopicPublishInfo> future = SettableFuture.create();
-        //
-        //
-        //        final TopicRouteData topicRouteInfo = clientInstance.getTopicRouteInfo(message.getTopic());
-        //
-        //        SendResult sendResult;
-        //        MessageQueue messageQueue;
-        //
-        //        try {
-        //            messageQueue = selector.select(topicRouteInfo.getWritableMessageQueueList(), message, arg);
-        //        } catch (Throwable t) {
-        //            throw new MQClientException("Exception occurs while select message queue.");
-        //        }
-        //        if (null == messageQueue) {
-        //            throw new MQClientException("Message queue is unexpectedly null.");
-        //        }
-        //
-        //        final Partition partition = messageQueue.getPartition();
-        //
-        //        final RpcTarget target = partition.getRpcTarget();
-        //        if (!target.isIsolated()) {
-        //            try {
-        //                sendResult = sendKernelImpl(message, partition, mode, sendCallback, timeoutMillis);
-        //                return sendResult;
-        //            } catch (Throwable t) {
-        //                log.warn("Exception occurs while sending message.", t);
-        //
-        //                target.setIsolated(true);
-        //                log.debug(
-        //                        "Would isolate target for a while cause failed to send message, target={}", target);
-        //            }
-        //        } else {
-        //            log.warn("Could not select a message queue cause target[{}] is isolated.", target);
-        //        }
-        //
-        //        return null;
+        final Set<Endpoints> isolated = clientInstance.getAllIsolatedEndpoints();
+        return topicPublishInfo.takePartitions(isolated, maxAttemptTimes);
     }
 
-    //    void commit()
-
-
-    //    EndTransactionRequest wrapEndTransactionRequest(String messageId, String transactionId, )
-
+    private ListenableFuture<Partition> selectPartition(final Message message, final MessageQueueSelector selector,
+                                                        final Object arg) {
+        final String topic = message.getTopic();
+        final ListenableFuture<TopicPublishInfo> future = getPublishInfo(topic);
+        return Futures.transformAsync(future, new AsyncFunction<TopicPublishInfo, Partition>() {
+            @Override
+            public ListenableFuture<Partition> apply(TopicPublishInfo topicPublishInfo) throws MQClientException {
+                if (topicPublishInfo.isEmpty()) {
+                    log.warn("No available partition for selector, topic={}", topic);
+                    throw new MQClientException(ErrorCode.NO_PERMISSION);
+                }
+                final MessageQueue mq = selector.select(topicPublishInfo.getMessageQueues(), message, arg);
+                final SettableFuture<Partition> future0 = SettableFuture.create();
+                future0.set(mq.getPartition());
+                return future0;
+            }
+        });
+    }
 
     // TODO: Not implemented yet.
     public void setCallbackExecutor(final ExecutorService callbackExecutor) {
     }
-
 
     @Override
     public HeartbeatEntry prepareHeartbeatData() {

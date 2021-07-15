@@ -1,17 +1,16 @@
 package org.apache.rocketmq.client.impl.producer;
 
-import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.MQClientException;
+import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.remoting.Endpoints;
 import org.apache.rocketmq.client.route.Partition;
@@ -21,15 +20,21 @@ import org.apache.rocketmq.client.route.TopicRouteData;
 public class TopicPublishInfo {
     private static final ThreadLocal<AtomicInteger> partitionIndex = new ThreadLocal<AtomicInteger>();
 
-    @GuardedBy("partitionsLock")
     private final List<Partition> partitions;
-    private final ReadWriteLock partitionsLock;
 
     public TopicPublishInfo(TopicRouteData topicRouteData) {
-        this.partitionsLock = new ReentrantReadWriteLock();
         this.partitions = filterPartition(topicRouteData);
     }
 
+    public List<MessageQueue> getMessageQueues() {
+        List<MessageQueue> messageQueues = new ArrayList<MessageQueue>();
+        for (Partition partition : partitions) {
+            messageQueues.add(new MessageQueue(partition));
+        }
+        return messageQueues;
+    }
+
+    @VisibleForTesting
     public static List<Partition> filterPartition(TopicRouteData topicRouteData) {
         List<Partition> partitions = new ArrayList<Partition>();
         for (Partition partition : topicRouteData.getPartitions()) {
@@ -42,9 +47,13 @@ public class TopicPublishInfo {
             partitions.add(partition);
         }
         if (partitions.isEmpty()) {
-            log.info("No available partition for publishing, topicRouteData={}", topicRouteData);
+            log.warn("No available partition, topicRouteData={}", topicRouteData);
         }
         return partitions;
+    }
+
+    public boolean isEmpty() {
+        return partitions.isEmpty();
     }
 
     public List<Partition> takePartitions(Set<Endpoints> isolated, int count) throws MQClientException {
@@ -54,39 +63,23 @@ public class TopicPublishInfo {
         int index = partitionIndex.get().getAndIncrement();
         List<Partition> candidatePartitions = new ArrayList<Partition>();
         Set<String> candidateBrokerNames = new HashSet<String>();
-        partitionsLock.readLock().lock();
-        try {
-            if (partitions.isEmpty()) {
-                throw new MQClientException(ErrorCode.NO_PERMISSION);
+        if (partitions.isEmpty()) {
+            throw new MQClientException(ErrorCode.NO_PERMISSION);
+        }
+        for (int i = 0; i < partitions.size(); i++) {
+            final Partition partition = partitions.get((index++) % partitions.size());
+            final String brokerName = partition.getBrokerName();
+            if (!isolated.contains(partition.getTarget().getEndpoints())
+                && !candidateBrokerNames.contains(brokerName)) {
+                candidateBrokerNames.add(brokerName);
+                candidatePartitions.add(partition);
             }
-            for (int i = 0; i < partitions.size(); i++) {
-                final Partition partition = partitions.get((index++) % partitions.size());
-                final String brokerName = partition.getBrokerName();
-                if (!isolated.contains(partition.getTarget().getEndpoints())
-                    && !candidateBrokerNames.contains(brokerName)) {
-                    candidateBrokerNames.add(brokerName);
-                    candidatePartitions.add(partition);
-                }
-                if (candidatePartitions.size() >= count) {
-                    return candidatePartitions;
-                }
-            }
-            // If all endpoints are isolated.
-            if (candidatePartitions.isEmpty()) {
-                for (int i = 0; i < partitions.size(); i++) {
-                    final Partition partition = partitions.get((index++) % partitions.size());
-                    final String brokerName = partition.getBrokerName();
-                    if (!candidateBrokerNames.contains(brokerName)) {
-                        candidateBrokerNames.add(brokerName);
-                        candidatePartitions.add(partition);
-                    }
-                    if (candidatePartitions.size() >= count) {
-                        break;
-                    }
-                }
+            if (candidatePartitions.size() >= count) {
                 return candidatePartitions;
             }
-            // If no enough candidates, pick up partition from isolated partition.
+        }
+        // If all endpoints are isolated.
+        if (candidatePartitions.isEmpty()) {
             for (int i = 0; i < partitions.size(); i++) {
                 final Partition partition = partitions.get((index++) % partitions.size());
                 final String brokerName = partition.getBrokerName();
@@ -98,9 +91,20 @@ public class TopicPublishInfo {
                     break;
                 }
             }
-            return partitions;
-        } finally {
-            partitionsLock.readLock().unlock();
+            return candidatePartitions;
         }
+        // If no enough candidates, pick up partition from isolated partition.
+        for (int i = 0; i < partitions.size(); i++) {
+            final Partition partition = partitions.get((index++) % partitions.size());
+            final String brokerName = partition.getBrokerName();
+            if (!candidateBrokerNames.contains(brokerName)) {
+                candidateBrokerNames.add(brokerName);
+                candidatePartitions.add(partition);
+            }
+            if (candidatePartitions.size() >= count) {
+                break;
+            }
+        }
+        return partitions;
     }
 }

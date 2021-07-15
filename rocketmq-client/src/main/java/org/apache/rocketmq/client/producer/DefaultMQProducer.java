@@ -3,11 +3,7 @@ package org.apache.rocketmq.client.producer;
 import java.util.Collection;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeoutException;
-import lombok.Getter;
-import lombok.Setter;
-import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.constant.ServiceState;
-import org.apache.rocketmq.client.constant.SystemTopic;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.MQBrokerException;
 import org.apache.rocketmq.client.exception.MQClientException;
@@ -19,78 +15,12 @@ import org.apache.rocketmq.client.message.MessageBatch;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.remoting.AccessCredential;
 
-@Getter
-@Setter
 public class DefaultMQProducer {
 
     /**
      * Wrapping internal implementations for virtually all methods presented in this class.
      */
     protected final DefaultMQProducerImpl impl;
-
-    /**
-     * Just for testing or demo program
-     */
-    private String createTopicKey = SystemTopic.DEFAULT_TOPIC;
-
-    /**
-     * Number of queues to create per default topic.
-     */
-    private volatile int defaultTopicQueueNums = 4;
-
-    /**
-     * Timeout for sending messages.
-     */
-    private int sendMsgTimeout = 3000;
-
-    /**
-     * Compress message body threshold, namely, message body larger than 4k will be compressed on
-     * default.
-     */
-    private int compressMsgBodyOverHowmuch = 1024 * 4;
-
-    /**
-     * Maximum number of retry to perform internally before claiming sending failure in synchronous
-     * mode.
-     *
-     * <p>This may potentially cause message duplication which is up to application developers to
-     * resolve.
-     */
-    private int retryTimesWhenSendFailed = 2;
-
-    /**
-     * Maximum number of retry to perform internally before claiming sending failure in asynchronous
-     * mode.
-     *
-     * <p>This may potentially cause message duplication which is up to application developers to
-     * resolve.
-     */
-    private int retryTimesWhenSendAsyncFailed = 2;
-
-    /**
-     * Indicate whether to retry another broker on sending failure internally.
-     */
-    private boolean retryAnotherBrokerWhenNotStoreOK = false;
-
-    /**
-     * Maximum allowed message size in bytes.
-     */
-    private int maxMessageSize = 1024 * 1024 * 4; // 4M
-
-    /**
-     * random sign for identifying echo producer
-     */
-    private int randomSign = RandomUtils.nextInt(0, 2147483647);
-
-    /**
-     * Indicate whether add extend unique info for producer
-     */
-    private boolean addExtendUniqInfo = false;
-
-    /**
-     * If topic route not found when sending message, whether use the default topic route.
-     */
-    private boolean useDefaultTopicIfNotFound = true;
 
     /**
      * Constructor specifying producer group.
@@ -127,8 +57,8 @@ public class DefaultMQProducer {
 
     /**
      * Start this producer instance. <strong> Much internal initializing procedures are carried out to
-     * make this instance prepared, thus, it's a must to invoke this method before sending or querying
-     * messages. </strong>
+     * make this instance prepared, thus, it's a must to invoke this method before sending messages.
+     * </strong>
      *
      * @throws MQClientException if there is any unexpected error.
      */
@@ -174,9 +104,9 @@ public class DefaultMQProducer {
     /**
      * Send message in synchronous mode. This method returns only when the sending procedure totally
      * completes. <strong>Warn:</strong> this method has internal retry-mechanism, that is, internal
-     * implementation will retry {@link #retryTimesWhenSendFailed} times before claiming failure. As a
-     * result, multiple messages may potentially delivered to broker(s). It's up to the application
-     * developers to resolve potential duplication issue.
+     * implementation will retry before claiming failure. As a result, multiple messages may
+     * potentially delivered to broker(s). It's up to the application developers to resolve potential
+     * duplication issue.
      *
      * @param msg Message to send.
      * @return {@link SendResult} instance to inform senders details of the deliverable, say Message
@@ -216,9 +146,9 @@ public class DefaultMQProducer {
      * <p>This method returns immediately. On sending completion, <code>sendCallback</code> will be
      * executed.
      *
-     * <p>Similar to {@link #send(Message)}, internal implementation would potentially retry up to
-     * {@link #retryTimesWhenSendAsyncFailed} times before claiming sending failure, which may yield
-     * message duplication and application developers are the one to resolve this potential issue.
+     * <p>Similar to {@link #send(Message)}, internal implementation would potentially retry before
+     * claiming sending failure, which may yield message duplication and application developers are
+     * the one to resolve this potential issue.
      *
      * @param msg          Message to send.
      * @param sendCallback Callback to execute on sending completed, either successful or
@@ -298,7 +228,7 @@ public class DefaultMQProducer {
      * @throws InterruptedException if the sending thread is interrupted.
      */
     public SendResult send(Message msg, MessageQueueSelector selector, Object arg)
-            throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+            throws MQClientException, MQBrokerException, InterruptedException, MQServerException, TimeoutException {
         return this.impl.send(msg, selector, arg);
     }
 
@@ -319,7 +249,7 @@ public class DefaultMQProducer {
      * @throws InterruptedException if the sending thread is interrupted.
      */
     public SendResult send(Message msg, MessageQueueSelector selector, Object arg, long timeout)
-            throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+            throws MQClientException, InterruptedException, MQServerException, TimeoutException {
         return this.impl.send(msg, selector, arg, timeout);
     }
 
