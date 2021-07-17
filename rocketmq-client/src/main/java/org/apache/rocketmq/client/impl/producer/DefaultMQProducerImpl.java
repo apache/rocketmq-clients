@@ -39,7 +39,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import lombok.NonNull;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ServiceState;
@@ -50,8 +49,6 @@ import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.exception.RemotingException;
 import org.apache.rocketmq.client.impl.ClientBaseImpl;
-import org.apache.rocketmq.client.impl.ClientInstance;
-import org.apache.rocketmq.client.impl.ClientManager;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageConst;
 import org.apache.rocketmq.client.message.MessageExt;
@@ -95,23 +92,23 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     @Setter
     private int maxMessageSize = 1024 * 1024 * 4;
 
-    @NonNull
-    private ThreadPoolExecutor sendCallbackExecutor;
+    private final ThreadPoolExecutor defaultSendCallbackExecutor;
+
+    private ThreadPoolExecutor customizedSendCallbackExecutor = null;
 
     private final ConcurrentMap<String/* topic */, TopicPublishInfo> topicPublishInfoCache;
-    private final ClientInstance clientInstance;
 
     public DefaultMQProducerImpl(String group) {
         super(group);
-        this.sendCallbackExecutor = new ThreadPoolExecutor(
+        this.defaultSendCallbackExecutor = new ThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors(),
             Runtime.getRuntime().availableProcessors(),
-            60, TimeUnit.SECONDS,
+            60,
+            TimeUnit.SECONDS,
             new LinkedBlockingQueue<Runnable>(),
             new ThreadFactoryImpl("SendCallbackThread"));
 
         this.topicPublishInfoCache = new ConcurrentHashMap<String, TopicPublishInfo>();
-        this.clientInstance = ClientManager.getInstance().getClientInstance(this);
     }
 
     /**
@@ -123,13 +120,11 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     public void start() throws MQClientException {
         synchronized (this) {
             log.info("Begin to start the rocketmq producer.");
-            if (!state.compareAndSet(ServiceState.CREATED, ServiceState.READY)) {
-                log.warn("The rocketmq producer has been started before.");
-                return;
-            }
             super.start();
-            state.compareAndSet(ServiceState.READY, ServiceState.STARTED);
-            log.info("The rocketmq producer starts successfully.");
+
+            if (ServiceState.STARTED == getState()) {
+                log.info("The rocketmq producer starts successfully.");
+            }
         }
     }
 
@@ -140,28 +135,29 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     public void shutdown() {
         synchronized (this) {
             log.info("Begin to shutdown the rocketmq producer.");
-            if (!state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING)) {
-                log.warn("The rocketmq producer has not been started before");
-                return;
-            }
             super.shutdown();
-            sendCallbackExecutor.shutdown();
-            state.compareAndSet(ServiceState.STOPPING, ServiceState.READY);
-            log.info("Shutdown the rocketmq producer successfully.");
+
+            if (ServiceState.STOPPED == getState()) {
+                defaultSendCallbackExecutor.shutdown();
+                log.info("Shutdown the rocketmq producer successfully.");
+            }
         }
     }
 
-    public void setSendCallbackExecutor(final ThreadPoolExecutor callbackExecutor) throws MQClientException {
+    public void setDefaultSendCallbackExecutor(final ThreadPoolExecutor callbackExecutor) throws MQClientException {
         synchronized (this) {
             if (null == callbackExecutor) {
                 throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
             }
-            if (ServiceState.CREATED != state.get() || ServiceState.READY != state.get()) {
-                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
-            }
-            this.sendCallbackExecutor.shutdown();
-            this.sendCallbackExecutor = callbackExecutor;
+            this.customizedSendCallbackExecutor = callbackExecutor;
         }
+    }
+
+    public ThreadPoolExecutor getSendCallbackExecutor() {
+        if (null != customizedSendCallbackExecutor) {
+            return customizedSendCallbackExecutor;
+        }
+        return defaultSendCallbackExecutor;
     }
 
     private SendMessageRequest wrapSendMessageRequest(Message message, Partition partition) {
@@ -235,16 +231,6 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         return SendMessageRequest.newBuilder().setMessage(msg).build();
     }
 
-    boolean isRunning() {
-        return ServiceState.STARTED == state.get();
-    }
-
-    void ensureRunning() throws MQClientException {
-        if (!isRunning()) {
-            throw new MQClientException("Producer is not started");
-        }
-    }
-
     public SendResult send(Message message)
             throws MQClientException, InterruptedException, MQServerException,
                    TimeoutException {
@@ -280,33 +266,42 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         final ListenableFuture<SendResult> future = send0(message, maxAttemptTimes);
         // Limit the future timeout.
         Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
+        final ThreadPoolExecutor sendCallbackExecutor = getSendCallbackExecutor();
         Futures.addCallback(future, new FutureCallback<SendResult>() {
             @Override
             public void onSuccess(final SendResult sendResult) {
-                sendCallbackExecutor.submit(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            sendCallback.onSuccess(sendResult);
-                        } catch (Throwable t) {
-                            log.error("Exception occurs in SendCallback#onSuccess", t);
+                try {
+                    sendCallbackExecutor.submit(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                sendCallback.onSuccess(sendResult);
+                            } catch (Throwable t) {
+                                log.error("Exception occurs in SendCallback#onSuccess", t);
+                            }
                         }
-                    }
-                });
+                    });
+                } catch (Throwable t) {
+                    log.error("Exception occurs while submitting task to send callback executor", t);
+                }
             }
 
             @Override
             public void onFailure(final Throwable t) {
-                sendCallbackExecutor.submit(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            sendCallback.onException(t);
-                        } catch (Throwable t) {
-                            log.error("Exception occurs in SendCallback#onFailure", t);
+                try {
+                    sendCallbackExecutor.submit(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                sendCallback.onException(t);
+                            } catch (Throwable t) {
+                                log.error("Exception occurs in SendCallback#onException", t);
+                            }
                         }
-                    }
-                });
+                    });
+                } catch (Throwable t0) {
+                    log.error("Exception occurs while submitting task to send callback executor", t0);
+                }
             }
         });
     }
@@ -357,7 +352,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         Futures.addCallback(future, new FutureCallback<SendResult>() {
             @Override
             public void onSuccess(final SendResult sendResult) {
-                sendCallbackExecutor.submit(new Runnable() {
+                defaultSendCallbackExecutor.submit(new Runnable() {
                     @Override
                     public void run() {
                         try {
@@ -371,7 +366,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
             @Override
             public void onFailure(final Throwable t) {
-                sendCallbackExecutor.submit(new Runnable() {
+                defaultSendCallbackExecutor.submit(new Runnable() {
                     @Override
                     public void run() {
                         try {

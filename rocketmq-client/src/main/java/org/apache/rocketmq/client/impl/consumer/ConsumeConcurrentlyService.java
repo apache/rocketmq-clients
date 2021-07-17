@@ -26,7 +26,7 @@ public class ConsumeConcurrentlyService implements ConsumeService {
     public ConsumeConcurrentlyService(
             DefaultMQPushConsumerImpl consumerImpl,
             MessageListenerConcurrently messageListenerConcurrently) {
-        this.state = new AtomicReference<ServiceState>(ServiceState.READY);
+        this.state = new AtomicReference<ServiceState>(ServiceState.STARTING);
         this.messageListenerConcurrently = messageListenerConcurrently;
         this.consumerImpl = consumerImpl;
         this.consumeExecutor =
@@ -43,7 +43,7 @@ public class ConsumeConcurrentlyService implements ConsumeService {
     public void start() throws MQClientException {
         synchronized (this) {
             log.info("Begin to start the consume concurrently service.");
-            if (!state.compareAndSet(ServiceState.READY, ServiceState.STARTED)) {
+            if (!state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED)) {
                 log.warn("The consume concurrently service has been started before");
             }
         }
@@ -58,7 +58,7 @@ public class ConsumeConcurrentlyService implements ConsumeService {
                 return;
             }
             consumeExecutor.shutdown();
-            state.compareAndSet(ServiceState.STOPPING, ServiceState.READY);
+            state.compareAndSet(ServiceState.STOPPING, ServiceState.STARTING);
             log.info("Shutdown the consume concurrently service successfully.");
         }
     }

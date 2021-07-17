@@ -36,7 +36,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -51,8 +50,6 @@ import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.impl.ClientBaseImpl;
-import org.apache.rocketmq.client.impl.ClientInstance;
-import org.apache.rocketmq.client.impl.ClientManager;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
@@ -101,8 +98,6 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     private long suspendCurrentQueueTimeMillis = 1000;
 
     @Getter
-    private final ClientInstance clientInstance;
-    @Getter
     private volatile ConsumeService consumeService;
 
     @Getter
@@ -117,8 +112,6 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     @Setter
     private ConsumeFromWhere consumeFromWhere = ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET;
 
-    private final AtomicReference<ServiceState> state;
-
     public DefaultMQPushConsumerImpl(String group) {
         super(group);
         this.filterExpressionTable = new ConcurrentHashMap<String, FilterExpression>();
@@ -130,9 +123,6 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         this.processQueueTable = new ConcurrentHashMap<MessageQueue, ProcessQueue>();
 
         this.consumeService = null;
-
-        this.clientInstance = ClientManager.getInstance().getClientInstance(this);
-        this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
 
         this.popTimes = new AtomicLong(0);
         this.poppedMsgCount = new AtomicLong(0);
@@ -154,13 +144,10 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     public void start() throws MQClientException {
         synchronized (this) {
             log.info("Begin to start the rocketmq push consumer");
-            if (!state.compareAndSet(ServiceState.CREATED, ServiceState.READY)) {
-                log.warn("The rocketmq push consumer has been started before.");
-                return;
-            }
+            super.start();
+
             consumeService = this.generateConsumeService();
             consumeService.start();
-            super.start();
             final ScheduledExecutorService scheduler = clientInstance.getScheduler();
             scanLoadAssignmentsFuture = scheduler.scheduleWithFixedDelay(
                     new Runnable() {
@@ -176,8 +163,9 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                     1,
                     5,
                     TimeUnit.SECONDS);
-            state.compareAndSet(ServiceState.READY, ServiceState.STARTED);
-            log.info("The rocketmq push consumer starts successfully.");
+            if (ServiceState.STARTED == getState()) {
+                log.info("The rocketmq push consumer starts successfully.");
+            }
         }
     }
 
@@ -185,19 +173,18 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     public void shutdown() {
         synchronized (this) {
             log.info("Begin to shutdown the rocketmq push consumer.");
-            if (!state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING)) {
-                log.warn("The rocketmq push consumer has not been started before");
-                return;
-            }
-            if (null != scanLoadAssignmentsFuture) {
-                scanLoadAssignmentsFuture.cancel(false);
-            }
             super.shutdown();
-            if (null != consumeService) {
-                consumeService.shutdown();
+
+            if (ServiceState.STOPPED == getState()) {
+                if (null != scanLoadAssignmentsFuture) {
+                    scanLoadAssignmentsFuture.cancel(false);
+                }
+                super.shutdown();
+                if (null != consumeService) {
+                    consumeService.shutdown();
+                }
+                log.info("Shutdown the rocketmq push consumer successfully.");
             }
-            state.compareAndSet(ServiceState.STOPPING, ServiceState.READY);
-            log.info("Shutdown the rocketmq push consumer successfully.");
         }
     }
 
@@ -341,11 +328,6 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         filterExpressionTable.remove(topic);
     }
 
-    public boolean hasBeenStarted() {
-        final ServiceState serviceState = state.get();
-        return ServiceState.READY != serviceState;
-    }
-
     public void registerMessageListener(MessageListenerConcurrently messageListenerConcurrently) {
         checkNotNull(messageListenerConcurrently);
         this.messageListenerConcurrently = messageListenerConcurrently;
@@ -404,7 +386,6 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                               status.getMessage());
                     throw new MQClientException(ErrorCode.NO_ASSIGNMENT);
                 }
-                log.trace("Query assignment successfully, topic={}", topic);
                 final TopicAssignment topicAssignment = new TopicAssignment(response.getAssignmentsList());
                 future0.set(topicAssignment);
                 return future0;

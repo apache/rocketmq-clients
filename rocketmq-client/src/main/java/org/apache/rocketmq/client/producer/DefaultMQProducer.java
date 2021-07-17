@@ -48,7 +48,7 @@ public class DefaultMQProducer {
 
     public void setProducerGroup(String group) throws MQClientException {
         synchronized (impl) {
-            if (ServiceState.CREATED != impl.getState()) {
+            if (ServiceState.READY != impl.getState()) {
                 throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
             }
             impl.setGroup(group);
@@ -75,7 +75,7 @@ public class DefaultMQProducer {
 
     public void setNamesrvAddr(String namesrvAddr) throws MQClientException {
         synchronized (impl) {
-            if (ServiceState.CREATED != impl.getState()) {
+            if (ServiceState.READY != impl.getState()) {
                 throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
             }
             impl.setNamesrvAddr(namesrvAddr);
@@ -85,7 +85,7 @@ public class DefaultMQProducer {
 
     public void setArn(String arn) throws MQClientException {
         synchronized (impl) {
-            if (ServiceState.CREATED != impl.getState()) {
+            if (ServiceState.READY != impl.getState()) {
                 throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
             }
             impl.setArn(arn);
@@ -94,7 +94,7 @@ public class DefaultMQProducer {
 
     public void setAccessCredential(AccessCredential accessCredential) throws MQClientException {
         synchronized (impl) {
-            if (ServiceState.CREATED != impl.getState()) {
+            if (ServiceState.READY != impl.getState()) {
                 throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
             }
             impl.setAccessCredential(accessCredential);
@@ -339,7 +339,7 @@ public class DefaultMQProducer {
      * @param callbackExecutor the instance of Executor
      */
     public void setCallbackExecutor(final ThreadPoolExecutor callbackExecutor) throws MQClientException {
-        this.impl.setSendCallbackExecutor(callbackExecutor);
+        this.impl.setDefaultSendCallbackExecutor(callbackExecutor);
     }
 
     // Not yet implemented.

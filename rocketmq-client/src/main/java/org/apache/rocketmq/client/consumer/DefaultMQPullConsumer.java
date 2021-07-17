@@ -1,78 +1,37 @@
 package org.apache.rocketmq.client.consumer;
 
+import com.google.common.util.concurrent.ListenableFuture;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.rocketmq.client.OffsetQuery;
+import org.apache.rocketmq.client.constant.ServiceState;
+import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.MQClientException;
-import org.apache.rocketmq.client.exception.MQServerException;
-import org.apache.rocketmq.client.impl.ClientConfig;
 import org.apache.rocketmq.client.impl.consumer.DefaultMQPullConsumerImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
+import org.apache.rocketmq.client.remoting.AccessCredential;
 
 @Getter
 @Setter
-public class DefaultMQPullConsumer extends ClientConfig {
+public class DefaultMQPullConsumer {
     private final DefaultMQPullConsumerImpl impl;
 
-    private long consumerPullTimeoutMillis;
-
-    // TODO
     public DefaultMQPullConsumer(final String consumerGroup) {
-        super(consumerGroup);
-        this.impl = new DefaultMQPullConsumerImpl(group);
+        this.impl = new DefaultMQPullConsumerImpl(consumerGroup);
     }
 
-    public void setConsumerGroup(String consumerGroup) {
-        if (impl.hasBeenStarted()) {
-            throw new RuntimeException("Please set consumerGroup before consumer started.");
+    public void setConsumerGroup(String group) throws MQClientException {
+        synchronized (impl) {
+            if (ServiceState.READY != impl.getState()) {
+                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+            }
+            impl.setGroup(group);
         }
-        setGroup(consumerGroup);
     }
 
     public String getConsumerGroup() {
-        return this.getGroup();
-    }
-
-    @Deprecated
-    public PullResult pull(MessageQueue mq, String subExpression, long offset, int maxNums) {
-        return this.pull(mq, subExpression, offset, maxNums, consumerPullTimeoutMillis);
-    }
-
-    @Deprecated
-    public PullResult pull(MessageQueue mq, String subExpression, long offset, int maxNums, long timeoutMillis) {
-        return this.impl.pull(mq, subExpression, offset, maxNums, timeoutMillis);
-    }
-
-    @Deprecated
-    public PullResult pull(MessageQueue mq, PullMessageSelector messageSelector) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Deprecated
-    public void pull(MessageQueue mq, PullMessageSelector messageSelector, PullCallback callback) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Deprecated
-    public void pull(MessageQueue mq, PullMessageSelector messageSelector, PullCallback callback, long timeoutMillis) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Deprecated
-    public void pullBlockIfNotFound(MessageQueue mq, String subExpression, long offset, int maxNums) {
-        throw new UnsupportedOperationException();
-    }
-
-    public long queryOffset(OffsetQuery offsetQuery) throws MQServerException, MQClientException {
-        return this.impl.queryOffset(offsetQuery);
-    }
-
-    public PullResult pull(PullMessageQuery pullMessageQuery) {
-        throw new UnsupportedOperationException();
-    }
-
-    public void pull(PullMessageQuery pullMessageQuery, PullCallback callback) {
-        impl.pull(pullMessageQuery, callback);
+        return this.impl.getGroup();
     }
 
     public void start() throws MQClientException {
@@ -83,7 +42,46 @@ public class DefaultMQPullConsumer extends ClientConfig {
         this.impl.shutdown();
     }
 
-    public void setNamesrvAddr(String namesrvAddr) {
-        this.impl.setNamesrvAddr(namesrvAddr);
+    public void setNamesrvAddr(String namesrvAddr) throws MQClientException {
+        synchronized (impl) {
+            if (ServiceState.READY != impl.getState()) {
+                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+            }
+            this.impl.setNamesrvAddr(namesrvAddr);
+        }
+    }
+
+    public ListenableFuture<List<MessageQueue>> queuesFor(String topic) {
+        return this.impl.getQueuesFor(topic);
+    }
+
+    public ListenableFuture<Long> queryOffset(OffsetQuery offsetQuery) {
+        return this.impl.queryOffset(offsetQuery);
+    }
+
+    public ListenableFuture<PullResult> pull(PullMessageQuery pullMessageQuery) {
+        return this.impl.pull(pullMessageQuery);
+    }
+
+    public void pull(PullMessageQuery pullMessageQuery, final PullCallback callback) {
+        this.impl.pull(pullMessageQuery, callback);
+    }
+
+    public void setArn(String arn) throws MQClientException {
+        synchronized (impl) {
+            if (ServiceState.READY != impl.getState()) {
+                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+            }
+            impl.setArn(arn);
+        }
+    }
+
+    public void setAccessCredential(AccessCredential accessCredential) throws MQClientException {
+        synchronized (impl) {
+            if (ServiceState.READY != impl.getState()) {
+                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+            }
+            impl.setAccessCredential(accessCredential);
+        }
     }
 }

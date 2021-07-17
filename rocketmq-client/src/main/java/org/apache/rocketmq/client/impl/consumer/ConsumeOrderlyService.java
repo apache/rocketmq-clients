@@ -9,7 +9,7 @@ import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
 
 public class ConsumeOrderlyService implements ConsumeService {
-    private AtomicReference<ServiceState> state = new AtomicReference<ServiceState>(ServiceState.READY);
+    private AtomicReference<ServiceState> state = new AtomicReference<ServiceState>(ServiceState.STARTING);
     private DefaultMQPushConsumerImpl impl;
     private MessageListenerOrderly messageListenerOrderly;
 

@@ -16,6 +16,8 @@ import apache.rocketmq.v1.PullMessageRequest;
 import apache.rocketmq.v1.PullMessageResponse;
 import apache.rocketmq.v1.QueryAssignmentRequest;
 import apache.rocketmq.v1.QueryAssignmentResponse;
+import apache.rocketmq.v1.QueryOffsetRequest;
+import apache.rocketmq.v1.QueryOffsetResponse;
 import apache.rocketmq.v1.QueryRouteRequest;
 import apache.rocketmq.v1.QueryRouteResponse;
 import apache.rocketmq.v1.ReceiveMessageRequest;
@@ -101,7 +103,7 @@ public class ClientInstance {
                 new LinkedBlockingQueue<Runnable>(),
                 new ThreadFactoryImpl("ClientAsyncThread"));
 
-        this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
+        this.state = new AtomicReference<ServiceState>(ServiceState.READY);
     }
 
     public void registerClientObserver(ClientObserver clientObserver) {
@@ -184,7 +186,7 @@ public class ClientInstance {
     public void start() {
         synchronized (this) {
             log.info("Begin to start the client instance.");
-            if (!state.compareAndSet(ServiceState.CREATED, ServiceState.READY)) {
+            if (!state.compareAndSet(ServiceState.READY, ServiceState.STARTING)) {
                 log.warn("The client instance has been started before.");
                 return;
             }
@@ -235,7 +237,7 @@ public class ClientInstance {
                     1,
                     TimeUnit.SECONDS
             );
-            state.compareAndSet(ServiceState.READY, ServiceState.STARTED);
+            state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
             log.info("The client instance starts successfully.");
         }
     }
@@ -259,7 +261,7 @@ public class ClientInstance {
             }
             scheduler.shutdown();
             asyncExecutor.shutdown();
-            state.compareAndSet(ServiceState.STOPPING, ServiceState.READY);
+            state.compareAndSet(ServiceState.STOPPING, ServiceState.STARTING);
             log.info("Shutdown the client instance successfully.");
         }
     }
@@ -403,6 +405,19 @@ public class ClientInstance {
             return rpcClient.endTransaction(metadata, request, asyncExecutor, duration, timeUnit);
         } catch (Throwable t) {
             SettableFuture<EndTransactionResponse> future = SettableFuture.create();
+            future.setException(t);
+            return future;
+        }
+    }
+
+    public ListenableFuture<QueryOffsetResponse> queryOffset(RpcTarget target, Metadata metadata,
+                                                             QueryOffsetRequest request, long duration,
+                                                             TimeUnit timeUnit) {
+        try {
+            final RpcClient rpcClient = getRpcClient(target);
+            return rpcClient.queryOffset(metadata, request, asyncExecutor, duration, timeUnit);
+        } catch (Throwable t) {
+            final SettableFuture<QueryOffsetResponse> future = SettableFuture.create();
             future.setException(t);
             return future;
         }

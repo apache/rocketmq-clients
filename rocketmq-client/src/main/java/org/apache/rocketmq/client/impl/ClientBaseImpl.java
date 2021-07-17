@@ -90,18 +90,19 @@ import org.apache.rocketmq.utility.UtilAll;
 
 @Slf4j
 public abstract class ClientBaseImpl extends ClientConfig implements ClientObserver {
-    protected final AtomicReference<ServiceState> state;
-
     @Getter
     protected volatile Tracer tracer;
     protected volatile RpcTarget tracingTarget;
 
-    private final ClientInstance clientInstance;
+    @Getter
+    protected volatile ClientInstance clientInstance;
+
+    private final AtomicReference<ServiceState> state;
 
     private final TopAddressing topAddressing;
     private final AtomicInteger nameServerIndex;
 
-    @GuardedBy("MessageInterceptionsLock")
+    @GuardedBy("messageInterceptorsLock")
     private final List<MessageInterceptor> messageInterceptors;
     private final ReadWriteLock messageInterceptorsLock;
 
@@ -120,12 +121,10 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
 
     public ClientBaseImpl(String group) {
         super(group);
-        this.state = new AtomicReference<ServiceState>(ServiceState.CREATED);
+        this.state = new AtomicReference<ServiceState>(ServiceState.READY);
 
         this.tracer = null;
         this.tracingTarget = null;
-
-        this.clientInstance = ClientManager.getInstance().getClientInstance(this);
 
         this.topAddressing = new TopAddressing();
         this.nameServerIndex = new AtomicInteger(RandomUtils.nextInt());
@@ -153,6 +152,11 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
     public void start() throws MQClientException {
         synchronized (this) {
             log.info("Begin to start the rocketmq client base.");
+            if (!state.compareAndSet(ServiceState.READY, ServiceState.STARTING)) {
+                log.warn("The rocketmq client base has been started before.");
+                return;
+            }
+            clientInstance = ClientManager.getInstance().getClientInstance(this);
             clientInstance.registerClientObserver(this);
 
             if (messageTracingEnabled) {
@@ -195,6 +199,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                     10,
                     30,
                     TimeUnit.SECONDS);
+            state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
             log.info("The rocketmq client base starts successfully.");
         }
     }
@@ -202,6 +207,10 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
     public void shutdown() {
         synchronized (this) {
             log.info("Begin to shutdown the rocketmq client base.");
+            if (!state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING)) {
+                log.warn("The rocketmq client base has not been started before");
+                return;
+            }
             if (null != renewNameServerListFuture) {
                 renewNameServerListFuture.cancel(false);
             }
@@ -209,6 +218,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                 updateRouteCacheFuture.cancel(false);
             }
             clientInstance.unregisterClientObserver(this);
+            state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
             log.info("Shutdown the rocketmq client base successfully.");
         }
     }
@@ -284,7 +294,9 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
 
     protected void updateTopicRouteCache(String topic, TopicRouteData topicRouteData) {
         topicRouteCache.put(topic, topicRouteData);
-        updateTracer();
+        if (messageTracingEnabled) {
+            updateTracer();
+        }
     }
 
     private void updateRouteCache() {

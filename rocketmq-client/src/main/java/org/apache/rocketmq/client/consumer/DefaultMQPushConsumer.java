@@ -21,7 +21,7 @@ public class DefaultMQPushConsumer {
 
     public void setConsumerGroup(String group) throws MQClientException {
         synchronized (impl) {
-            if (ServiceState.CREATED != impl.getState()) {
+            if (ServiceState.READY != impl.getState()) {
                 throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
             }
             impl.setGroup(group);
@@ -40,8 +40,13 @@ public class DefaultMQPushConsumer {
         this.impl.shutdown();
     }
 
-    public void setNamesrvAddr(String namesrvAddr) {
-        this.impl.setNamesrvAddr(namesrvAddr);
+    public void setNamesrvAddr(String namesrvAddr) throws MQClientException {
+        synchronized (impl) {
+            if (ServiceState.READY != impl.getState()) {
+                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+            }
+            this.impl.setNamesrvAddr(namesrvAddr);
+        }
     }
 
     // TODO: not allowed to set thead num after start
@@ -72,7 +77,7 @@ public class DefaultMQPushConsumer {
 
     public void setArn(String arn) throws MQClientException {
         synchronized (impl) {
-            if (ServiceState.CREATED != impl.getState()) {
+            if (ServiceState.READY != impl.getState()) {
                 throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
             }
             impl.setArn(arn);
@@ -81,7 +86,7 @@ public class DefaultMQPushConsumer {
 
     public void setAccessCredential(AccessCredential accessCredential) throws MQClientException {
         synchronized (impl) {
-            if (ServiceState.CREATED != impl.getState()) {
+            if (ServiceState.READY != impl.getState()) {
                 throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
             }
             impl.setAccessCredential(accessCredential);
@@ -98,7 +103,7 @@ public class DefaultMQPushConsumer {
 
     public void setMessageModel(MessageModel messageModel) throws MQClientException {
         synchronized (impl) {
-            if (ServiceState.CREATED != impl.getState()) {
+            if (ServiceState.READY != impl.getState()) {
                 throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
             }
             impl.setMessageModel(messageModel);
