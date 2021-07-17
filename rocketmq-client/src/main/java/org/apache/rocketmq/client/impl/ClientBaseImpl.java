@@ -226,7 +226,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                 }
             }
         } finally {
-            messageInterceptorsLock.readLock().lock();
+            messageInterceptorsLock.readLock().unlock();
         }
     }
 
