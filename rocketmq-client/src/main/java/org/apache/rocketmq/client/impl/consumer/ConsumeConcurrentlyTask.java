@@ -31,8 +31,8 @@ public class ConsumeConcurrentlyTask implements Runnable {
         final DefaultMQPushConsumerImpl consumerImpl = processQueue.getConsumerImpl();
         // Intercept message while PRE_MESSAGE_CONSUMPTION
         for (MessageExt messageExt : cachedMessages) {
-            final MessageInterceptorContext context = MessageInterceptorContext.EMPTY;
-            context.setAttemptTimes(1 + messageExt.getReconsumeTimes());
+            final MessageInterceptorContext context =
+                    MessageInterceptorContext.builder().attemptTimes(1 + messageExt.getReconsumeTimes()).build();
             consumerImpl.interceptMessage(MessageHookPoint.PRE_MESSAGE_CONSUMPTION, messageExt, context);
         }
 
@@ -53,14 +53,17 @@ public class ConsumeConcurrentlyTask implements Runnable {
         // Intercept message while POST_MESSAGE_CONSUMPTION.
         for (int i = 0; i < cachedMessages.size(); i++) {
             final MessageExt messageExt = cachedMessages.get(i);
-            final MessageInterceptorContext context = MessageInterceptorContext.EMPTY;
-            context.setAttemptTimes(1 + messageExt.getReconsumeTimes());
-            context.setDuration(consumptionDurationPerMessage);
-            context.setTimeUnit(TimeUnit.MILLISECONDS);
-            context.setMessageIndex(i);
-            context.setMessageBatchSize(cachedMessages.size());
-            context.setStatus(status == ConsumeConcurrentlyStatus.CONSUME_SUCCESS ? MessageHookPoint.PointStatus.OK :
-                              MessageHookPoint.PointStatus.ERROR);
+            final MessageInterceptorContext context =
+                    MessageInterceptorContext.builder()
+                                             .attemptTimes(1 + messageExt.getReconsumeTimes())
+                                             .duration(consumptionDurationPerMessage)
+                                             .timeUnit(TimeUnit.MILLISECONDS)
+                                             .messageIndex(i)
+                                             .messageBatchSize(cachedMessages.size())
+                                             .status(ConsumeConcurrentlyStatus.CONSUME_SUCCESS == status ?
+                                                     MessageHookPoint.PointStatus.OK :
+                                                     MessageHookPoint.PointStatus.ERROR)
+                                             .build();
             consumerImpl.interceptMessage(MessageHookPoint.POST_MESSAGE_CONSUMPTION, messageExt, context);
         }
 

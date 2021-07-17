@@ -514,9 +514,9 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         }
 
         // Intercept message while PRE_SEND_MESSAGE.
-        final MessageInterceptorContext context = MessageInterceptorContext.EMPTY;
-        context.setAttemptTimes(attemptTimes);
-        interceptMessage(MessageHookPoint.PRE_SEND_MESSAGE, message.getMessageExt(), context);
+        final MessageInterceptorContext.MessageInterceptorContextBuilder contextBuilder =
+                MessageInterceptorContext.builder().attemptTimes(attemptTimes);
+        interceptMessage(MessageHookPoint.PRE_SEND_MESSAGE, message.getMessageExt(), contextBuilder.build());
 
         final Stopwatch stopwatch = Stopwatch.createStarted();
 
@@ -545,9 +545,10 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
                 // Intercept message while POST_SEND_MESSAGE.
                 final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
-                context.setDuration(duration);
-                context.setTimeUnit(TimeUnit.MILLISECONDS);
-                context.setStatus(MessageHookPoint.PointStatus.OK);
+                final MessageInterceptorContext context = contextBuilder.duration(duration)
+                                                                      .timeUnit(TimeUnit.MILLISECONDS)
+                                                                      .status(MessageHookPoint.PointStatus.OK)
+                                                                      .build();
                 interceptMessage(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
             }
 
@@ -555,10 +556,11 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             public void onFailure(Throwable t) {
                 // Intercept message while POST_SEND_MESSAGE.
                 final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
-                context.setDuration(duration);
-                context.setTimeUnit(TimeUnit.MILLISECONDS);
-                context.setStatus(MessageHookPoint.PointStatus.ERROR);
-                context.setThrowable(t);
+                final MessageInterceptorContext context = contextBuilder.duration(duration)
+                                                                      .timeUnit(TimeUnit.MILLISECONDS)
+                                                                      .status(MessageHookPoint.PointStatus.ERROR)
+                                                                      .throwable(t)
+                                                                      .build();
                 interceptMessage(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
 
                 if (attemptTimes >= maxAttemptTimes) {

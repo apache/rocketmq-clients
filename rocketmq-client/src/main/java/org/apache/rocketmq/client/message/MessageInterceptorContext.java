@@ -3,24 +3,25 @@ package org.apache.rocketmq.client.message;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
+import lombok.Builder;
 import lombok.Getter;
-import lombok.Setter;
 
-@Setter
 @Getter
+@Builder
 public class MessageInterceptorContext {
-    public static MessageInterceptorContext EMPTY = new MessageInterceptorContext();
-
-    private MessageHookPoint.PointStatus status = MessageHookPoint.PointStatus.UNSET;
-    private int messageBatchSize = 1;
-    private int messageIndex = 0;
-    private int attemptTimes = 1;
-    private long duration = 0;
-    private TimeUnit timeUnit = TimeUnit.MILLISECONDS;
-    private Throwable throwable = null;
-    private final ConcurrentMap<String, String> metadata;
-
-    private MessageInterceptorContext() {
-        this.metadata = new ConcurrentHashMap<String, String>();
-    }
+    @Builder.Default
+    private final MessageHookPoint.PointStatus status = MessageHookPoint.PointStatus.UNSET;
+    @Builder.Default
+    private final int messageBatchSize = 1;
+    @Builder.Default
+    private final int messageIndex = 0;
+    @Builder.Default
+    private final int attemptTimes = 1;
+    @Builder.Default
+    private final long duration = 0;
+    @Builder.Default
+    private final TimeUnit timeUnit = TimeUnit.MILLISECONDS;
+    @Builder.Default
+    private final Throwable throwable = null;
+    private final ConcurrentMap<String, String> metadata = new ConcurrentHashMap<String, String>();
 }
