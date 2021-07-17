@@ -11,6 +11,7 @@ import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
 import apache.rocketmq.v1.SystemAttribute;
 import com.google.common.base.Function;
+import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -53,10 +54,12 @@ import org.apache.rocketmq.client.impl.ClientInstance;
 import org.apache.rocketmq.client.impl.ClientManager;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageConst;
+import org.apache.rocketmq.client.message.MessageExt;
+import org.apache.rocketmq.client.message.MessageHookPoint;
 import org.apache.rocketmq.client.message.MessageIdUtils;
+import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.message.protocol.Encoding;
-import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.misc.Validators;
 import org.apache.rocketmq.client.producer.LocalTransactionExecuter;
 import org.apache.rocketmq.client.producer.MessageQueueSelector;
@@ -68,7 +71,6 @@ import org.apache.rocketmq.client.remoting.Endpoints;
 import org.apache.rocketmq.client.remoting.RpcTarget;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
-import org.apache.rocketmq.client.tracing.EventName;
 import org.apache.rocketmq.client.tracing.SpanName;
 import org.apache.rocketmq.client.tracing.TracingAttribute;
 import org.apache.rocketmq.client.tracing.TracingUtility;
@@ -392,8 +394,11 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         throw new UnsupportedOperationException();
     }
 
-    private void endTransaction(RpcTarget target, final String messageId, final String transactionId,
-                                String traceContext, TransactionResolution resolution) throws MQClientException {
+    private void endTransaction(RpcTarget target, MessageExt messageExt, TransactionResolution resolution)
+            throws MQClientException {
+        final String messageId = messageExt.getMsgId();
+        final String traceContext = messageExt.getTraceContext();
+        final String transactionId = messageExt.getTransactionId();
         EndTransactionRequest request =
                 EndTransactionRequest.newBuilder()
                                      .setMessageId(messageId)
@@ -489,31 +494,38 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             future.setException(e);
             return future;
         }
-        int attemptTimes = 1;
-        final Partition partition = candidates.get(attemptTimes);
-        final SendMessageRequest request = wrapSendMessageRequest(message, partition);
-        send0(future, candidates, request, attemptTimes, maxAttemptTimes);
+        send0(future, candidates, message, 1, maxAttemptTimes);
         return future;
     }
 
     private void send0(final SettableFuture<SendResult> future, final List<Partition> candidates,
-                       final SendMessageRequest request, final int attemptTimes, final int maxAttemptTimes) {
+                       final Message message, final int attemptTimes, final int maxAttemptTimes) {
         // Calculate the current partition.
         final Partition partition = candidates.get((attemptTimes - 1) % candidates.size());
+
         final RpcTarget target = partition.getTarget();
         Metadata metadata;
         try {
             metadata = sign();
         } catch (Throwable t) {
+            // Failed to sign, return in advance.
             future.setException(t);
             return;
         }
-        final SendMessageRequest.Builder requestBuilder = request.toBuilder();
-        final Span span = startSendMessageSpan(requestBuilder);
+
+        // Intercept message while PRE_SEND_MESSAGE.
+        final MessageInterceptorContext context = MessageInterceptorContext.EMPTY;
+        context.setAttemptTimes(attemptTimes);
+        interceptMessage(MessageHookPoint.PRE_SEND_MESSAGE, message.getMessageExt(), context);
+
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+
+        final SendMessageRequest request = wrapSendMessageRequest(message, partition);
 
         final ListenableFuture<SendMessageResponse> responseFuture =
-                clientInstance.sendMessage(target, metadata, requestBuilder.build(), ioTimeoutMillis,
-                                           TimeUnit.MILLISECONDS);
+                clientInstance.sendMessage(target, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+
+        // Return the future of send result for current attempt.
         final ListenableFuture<SendResult> attemptFuture = Futures.transformAsync(
                 responseFuture, new AsyncFunction<SendMessageResponse, SendResult>() {
                     @Override
@@ -528,33 +540,38 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         Futures.addCallback(attemptFuture, new FutureCallback<SendResult>() {
             @Override
             public void onSuccess(SendResult sendResult) {
+                // No need more attempts.
                 future.set(sendResult);
-                endSpan(span, StatusCode.OK);
+
+                // Intercept message while POST_SEND_MESSAGE.
+                final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
+                context.setDuration(duration);
+                context.setTimeUnit(TimeUnit.MILLISECONDS);
+                context.setStatus(MessageHookPoint.PointStatus.OK);
+                interceptMessage(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
             }
 
             @Override
             public void onFailure(Throwable t) {
-                endSpan(span, StatusCode.ERROR);
-                // No need more attempts.
+                // Intercept message while POST_SEND_MESSAGE.
+                final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
+                context.setDuration(duration);
+                context.setTimeUnit(TimeUnit.MILLISECONDS);
+                context.setStatus(MessageHookPoint.PointStatus.ERROR);
+                context.setThrowable(t);
+                interceptMessage(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
+
                 if (attemptTimes >= maxAttemptTimes) {
+                    // No need more attempts.
                     future.setException(t);
                     log.error("Failed to send message, attempt times is exhausted, maxAttemptTimes={}, currentTimes={}",
                               maxAttemptTimes, attemptTimes, t);
                     return;
                 }
+                // Try to do more attempts.
                 log.warn("Failed to send message, would attempt to re-send right now, maxAttemptTimes={}, "
                          + "currentTimes={}", maxAttemptTimes, attemptTimes, t);
-                // Turn to the next partition.
-                final int nextAttemptTimes = attemptTimes + 1;
-                final Partition nextPartition = candidates.get((nextAttemptTimes - 1) % candidates.size());
-                // Replace the partition-id in request by the newest one.
-                SystemAttribute systemAttribute = request.getMessage().getSystemAttribute();
-                SystemAttribute nextSystemAttribute =
-                        systemAttribute.toBuilder().setPartitionId(nextPartition.getId()).build();
-                final apache.rocketmq.v1.Message nextMessage =
-                        request.getMessage().toBuilder().setSystemAttribute(nextSystemAttribute).build();
-                final SendMessageRequest nextRequest = request.toBuilder().setMessage(nextMessage).build();
-                send0(future, candidates, nextRequest, nextAttemptTimes, maxAttemptTimes);
+                send0(future, candidates, message, 1 + attemptTimes, maxAttemptTimes);
             }
         });
     }
@@ -597,55 +614,6 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
     @Override
     public void logStats() {
-    }
-
-    private Span startSendMessageSpan(SendMessageRequest.Builder requestBuilder) {
-        if (null == tracer || !isMessageTracingEnabled()) {
-            return null;
-        }
-        final Span span = tracer.spanBuilder(SpanName.SEND_MESSAGE).startSpan();
-        apache.rocketmq.v1.Message message = requestBuilder.getMessage();
-        SystemAttribute systemAttribute = message.getSystemAttribute();
-
-        span.addEvent(EventName.MSG_BORN, Timestamps.toMillis(systemAttribute.getBornTimestamp()),
-                      TimeUnit.MILLISECONDS);
-        span.setAttribute(TracingAttribute.ACCESS_KEY, getAccessCredential().getAccessKey());
-        span.setAttribute(TracingAttribute.ARN, message.getTopic().getArn());
-        span.setAttribute(TracingAttribute.TOPIC, message.getTopic().getName());
-        span.setAttribute(TracingAttribute.MSG_ID, systemAttribute.getMessageId());
-        span.setAttribute(TracingAttribute.GROUP, systemAttribute.getProducerGroup().getName());
-        span.setAttribute(TracingAttribute.TAGS, systemAttribute.getTag());
-        StringBuilder keys = new StringBuilder();
-        for (String key : systemAttribute.getKeysList()) {
-            keys.append(key);
-        }
-        span.setAttribute(TracingAttribute.KEYS, keys.toString().trim());
-        span.setAttribute(TracingAttribute.BORN_HOST, systemAttribute.getBornHost());
-        final apache.rocketmq.v1.MessageType messageType = systemAttribute.getMessageType();
-        switch (messageType) {
-            case FIFO:
-                span.setAttribute(TracingAttribute.MSG_TYPE, MessageType.FIFO.getName());
-                break;
-            case DELAY:
-                span.setAttribute(TracingAttribute.MSG_TYPE, MessageType.DELAY.getName());
-                break;
-            case TRANSACTION:
-                span.setAttribute(TracingAttribute.MSG_TYPE, MessageType.TRANSACTION.getName());
-                break;
-            default:
-                span.setAttribute(TracingAttribute.MSG_TYPE, MessageType.NORMAL.getName());
-        }
-        final long deliveryTimestamp = Timestamps.toMillis(systemAttribute.getDeliveryTimestamp());
-        if (deliveryTimestamp > 0) {
-            span.setAttribute(TracingAttribute.DELIVERY_TIMESTAMP, deliveryTimestamp);
-        }
-        final String serializedSpanContext = TracingUtility.injectSpanContextToTraceParent(span.getSpanContext());
-
-        systemAttribute = systemAttribute.toBuilder().setTraceContext(serializedSpanContext).build();
-        message = message.toBuilder().setSystemAttribute(systemAttribute).build();
-        requestBuilder.setMessage(message);
-
-        return span;
     }
 
     private Span startEndTransactionSpan(String messageId, String transactionId, String traceContext) {

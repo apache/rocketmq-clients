@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.ToString;
 import org.apache.commons.lang3.StringUtils;
 
@@ -12,15 +13,19 @@ import org.apache.commons.lang3.StringUtils;
 @ToString
 public class Message {
     final MessageImpl impl;
+    @Getter
+    final MessageExt messageExt;
 
     public Message(String topic, String tags, byte[] body) {
         this.impl = new MessageImpl(topic);
         this.impl.setBody(body);
         this.impl.getSystemAttribute().setTag(tags);
+        this.messageExt = new MessageExt(impl);
     }
 
     public Message(MessageImpl impl) {
         this.impl = impl;
+        this.messageExt = new MessageExt(impl);
     }
 
     public void setTopic(String topic) {

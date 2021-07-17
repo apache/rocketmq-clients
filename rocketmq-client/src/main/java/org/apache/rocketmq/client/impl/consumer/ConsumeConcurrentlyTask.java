@@ -1,12 +1,6 @@
 package org.apache.rocketmq.client.impl.consumer;
 
 import com.google.common.base.Stopwatch;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.SpanBuilder;
-import io.opentelemetry.api.trace.SpanContext;
-import io.opentelemetry.api.trace.StatusCode;
-import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.context.Context;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import lombok.AllArgsConstructor;
@@ -14,11 +8,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
 import org.apache.rocketmq.client.message.MessageExt;
+import org.apache.rocketmq.client.message.MessageHookPoint;
+import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.message.MessageQueue;
-import org.apache.rocketmq.client.tracing.EventName;
-import org.apache.rocketmq.client.tracing.SpanName;
-import org.apache.rocketmq.client.tracing.TracingAttribute;
-import org.apache.rocketmq.client.tracing.TracingUtility;
 
 @Slf4j
 @AllArgsConstructor
@@ -36,27 +28,44 @@ public class ConsumeConcurrentlyTask implements Runnable {
             return;
         }
 
-        recordMessageWaitingConsumptionSpan();
+        final DefaultMQPushConsumerImpl consumerImpl = processQueue.getConsumerImpl();
+        // Intercept message while PRE_MESSAGE_CONSUMPTION
+        for (MessageExt messageExt : cachedMessages) {
+            final MessageInterceptorContext context = MessageInterceptorContext.EMPTY;
+            context.setAttemptTimes(1 + messageExt.getReconsumeTimes());
+            consumerImpl.interceptMessage(MessageHookPoint.PRE_MESSAGE_CONSUMPTION, messageExt, context);
+        }
 
-        ConsumeConcurrentlyContext context = new ConsumeConcurrentlyContext(messageQueue);
+        ConsumeConcurrentlyContext consumeContext = new ConsumeConcurrentlyContext(messageQueue);
         ConsumeConcurrentlyStatus status;
 
         final Stopwatch started = Stopwatch.createStarted();
         try {
             status = consumeConcurrentlyService.getMessageListenerConcurrently()
-                                               .consumeMessage(cachedMessages, context);
+                                               .consumeMessage(cachedMessages, consumeContext);
         } catch (Throwable t) {
             status = ConsumeConcurrentlyStatus.RECONSUME_LATER;
             log.error("Business callback raised an exception while consuming message.", t);
         }
-        // Record trace of CONSUME_MESSAGE.
-        final long consumptionDuration = started.elapsed(TimeUnit.MILLISECONDS);
 
-        recordConsumeMessageSpan(consumptionDuration, status);
+        final long consumptionDuration = started.elapsed(TimeUnit.MILLISECONDS);
+        final long consumptionDurationPerMessage = consumptionDuration / cachedMessages.size();
+        // Intercept message while POST_MESSAGE_CONSUMPTION.
+        for (int i = 0; i < cachedMessages.size(); i++) {
+            final MessageExt messageExt = cachedMessages.get(i);
+            final MessageInterceptorContext context = MessageInterceptorContext.EMPTY;
+            context.setAttemptTimes(1 + messageExt.getReconsumeTimes());
+            context.setDuration(consumptionDurationPerMessage);
+            context.setTimeUnit(TimeUnit.MILLISECONDS);
+            context.setMessageIndex(i);
+            context.setMessageBatchSize(cachedMessages.size());
+            context.setStatus(status == ConsumeConcurrentlyStatus.CONSUME_SUCCESS ? MessageHookPoint.PointStatus.OK :
+                              MessageHookPoint.PointStatus.ERROR);
+            consumerImpl.interceptMessage(MessageHookPoint.POST_MESSAGE_CONSUMPTION, messageExt, context);
+        }
 
         processQueue.removeCachedMessages(cachedMessages);
 
-        final DefaultMQPushConsumerImpl consumerImpl = processQueue.getConsumerImpl();
         for (MessageExt messageExt : cachedMessages) {
             switch (status) {
                 case CONSUME_SUCCESS:
@@ -79,73 +88,5 @@ public class ConsumeConcurrentlyTask implements Runnable {
                     }
             }
         }
-    }
-
-    private void recordConsumeMessageSpan(long consumptionDuration, ConsumeConcurrentlyStatus status) {
-        final Tracer tracer = processQueue.getTracer();
-        final DefaultMQPushConsumerImpl consumerImpl = processQueue.getConsumerImpl();
-        if (null == tracer || !consumerImpl.isMessageTracingEnabled()) {
-            return;
-        }
-        final int messageNum = cachedMessages.size();
-        final double durationEachMessage = consumptionDuration * 1.0 / messageNum;
-        final long finalEndTimestamp = System.currentTimeMillis();
-        for (int i = 0; i < messageNum; i++) {
-            final long startTimestamp = (long) (finalEndTimestamp - (messageNum - i) * durationEachMessage);
-            final long endTimestamp = startTimestamp + (long) durationEachMessage;
-
-            final MessageExt cachedMessage = cachedMessages.get(i);
-            final String traceContext = cachedMessage.getTraceContext();
-
-            final SpanBuilder spanBuilder =
-                    tracer.spanBuilder(SpanName.CONSUME_MESSAGE).setStartTimestamp(startTimestamp,
-                                                                                   TimeUnit.MILLISECONDS);
-            final Span span = wrapSpan(traceContext, spanBuilder, cachedMessage);
-            if (status == ConsumeConcurrentlyStatus.CONSUME_SUCCESS) {
-                span.setStatus(StatusCode.OK);
-            } else {
-                span.setStatus(StatusCode.ERROR);
-            }
-            span.end(endTimestamp, TimeUnit.MILLISECONDS);
-        }
-    }
-
-    private void recordMessageWaitingConsumptionSpan() {
-        final Tracer tracer = processQueue.getTracer();
-        final DefaultMQPushConsumerImpl consumerImpl = processQueue.getConsumerImpl();
-        if (null == tracer || !consumerImpl.isMessageTracingEnabled()) {
-            return;
-        }
-        for (MessageExt cachedMessage : cachedMessages) {
-            final long decodedTimestamp = cachedMessage.getDecodedTimestamp();
-            final SpanBuilder spanBuilder =
-                    tracer.spanBuilder(SpanName.WAITING_CONSUMPTION).setStartTimestamp(decodedTimestamp,
-                                                                                       TimeUnit.MILLISECONDS);
-            final String traceContext = cachedMessage.getTraceContext();
-            final Span span = wrapSpan(traceContext, spanBuilder, cachedMessage);
-            span.end();
-        }
-    }
-
-    private Span wrapSpan(String traceContext, SpanBuilder spanBuilder, MessageExt messageExt) {
-        // Set sending-message's span as parent if it is valid.
-        final SpanContext spanContext = TracingUtility.extractContextFromTraceParent(traceContext);
-        if (spanContext.isValid()) {
-            spanBuilder.setParent(Context.current().with(Span.wrap(spanContext)));
-        }
-        final Span span = spanBuilder.startSpan();
-        final DefaultMQPushConsumerImpl consumerImpl = processQueue.getConsumerImpl();
-        // Record message born-timestamp.
-        span.addEvent(EventName.MSG_BORN, messageExt.getBornTimestamp(), TimeUnit.MILLISECONDS);
-        span.setAttribute(TracingAttribute.ACCESS_KEY, consumerImpl.getAccessCredential().getAccessKey());
-        span.setAttribute(TracingAttribute.ARN, consumerImpl.getArn());
-        span.setAttribute(TracingAttribute.TOPIC, messageExt.getTopic());
-        span.setAttribute(TracingAttribute.MSG_ID, messageExt.getMsgId());
-        span.setAttribute(TracingAttribute.GROUP, consumerImpl.getGroup());
-        span.setAttribute(TracingAttribute.TAGS, messageExt.getTags());
-        span.setAttribute(TracingAttribute.KEYS, messageExt.getKeys());
-        span.setAttribute(TracingAttribute.ATTEMPT_TIMES, 1 + messageExt.getReconsumeTimes());
-        span.setAttribute(TracingAttribute.MSG_TYPE, messageExt.getMsgType().getName());
-        return span;
     }
 }

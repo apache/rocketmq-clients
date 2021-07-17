@@ -22,7 +22,8 @@ public class SystemAttribute {
     private long partitionOffset;
     private long invisiblePeriod;
     private int deliveryCount;
-    private String publisherGroup;
+    private String producerGroup;
+    private String transactionId;
     private String traceContext;
     // Would set after receiving the message.
     private long decodedTimestamp;

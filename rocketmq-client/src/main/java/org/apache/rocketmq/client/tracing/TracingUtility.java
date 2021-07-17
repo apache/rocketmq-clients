@@ -3,11 +3,13 @@ package org.apache.rocketmq.client.tracing;
 import io.opentelemetry.api.internal.OtelEncodingUtils;
 import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.SpanId;
+import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.TraceFlags;
 import io.opentelemetry.api.trace.TraceId;
 import io.opentelemetry.api.trace.TraceState;
 import java.util.HashSet;
 import java.util.Set;
+import org.apache.rocketmq.client.message.MessageHookPoint;
 
 public class TracingUtility {
     private static final String VERSION = "00";
@@ -105,5 +107,16 @@ public class TracingUtility {
                 TraceFlags.fromByte(
                         OtelEncodingUtils.byteFromBase16(firstTraceFlagsChar, secondTraceFlagsChar));
         return SpanContext.createFromRemoteParent(traceId, spanId, traceFlags, TraceState.getDefault());
+    }
+
+    public static StatusCode convertToTraceStatus(MessageHookPoint.PointStatus status) {
+        switch (status) {
+            case OK:
+                return StatusCode.OK;
+            case ERROR:
+                return StatusCode.ERROR;
+            default:
+                return StatusCode.UNSET;
+        }
     }
 }

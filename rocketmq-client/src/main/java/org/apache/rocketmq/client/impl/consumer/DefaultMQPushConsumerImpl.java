@@ -25,7 +25,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
 import io.grpc.Metadata;
-import io.opentelemetry.api.trace.Tracer;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -203,7 +202,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     }
 
     private QueryAssignmentRequest wrapQueryAssignmentRequest(String topic) {
-        Resource topicResource = Resource.newBuilder().setArn(this.getArn()).setName(topic).build();
+        Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
         return QueryAssignmentRequest.newBuilder()
                                      .setTopic(topicResource).setGroup(getGroupResource())
                                      .setClientId(clientId)
@@ -415,14 +414,14 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     @Override
     public HeartbeatEntry prepareHeartbeatData() {
-        Resource groupResource = Resource.newBuilder().setArn(this.getArn()).setName(group).build();
+        Resource groupResource = Resource.newBuilder().setArn(arn).setName(group).build();
 
         List<SubscriptionEntry> subscriptionEntries = new ArrayList<SubscriptionEntry>();
         for (Map.Entry<String, FilterExpression> entry : filterExpressionTable.entrySet()) {
             final String topic = entry.getKey();
             final FilterExpression filterExpression = entry.getValue();
 
-            Resource topicResource = Resource.newBuilder().setArn(this.getArn()).setName(topic).build();
+            Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
             final apache.rocketmq.v1.FilterExpression.Builder builder =
                     apache.rocketmq.v1.FilterExpression.newBuilder().setExpression(filterExpression.getExpression());
             switch (filterExpression.getExpressionType()) {
@@ -481,11 +480,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     }
 
     private Resource getGroupResource() {
-        return Resource.newBuilder().setArn(getArn()).setName(group).build();
-    }
-
-    public Tracer getTracer() {
-        return tracer;
+        return Resource.newBuilder().setArn(arn).setName(group).build();
     }
 
     public void nackMessage(MessageExt messageExt) throws MQClientException {
@@ -520,12 +515,12 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     private NackMessageRequest wrapNackMessageRequest(MessageExt messageExt) {
         // Group
         final Resource groupResource = Resource.newBuilder()
-                                               .setArn(this.getArn())
-                                               .setName(this.getGroup())
+                                               .setArn(arn)
+                                               .setName(group)
                                                .build();
         // Topic
         final Resource topicResource = Resource.newBuilder()
-                                               .setArn(this.getArn())
+                                               .setArn(arn)
                                                .setName(messageExt.getTopic())
                                                .build();
 
@@ -556,12 +551,12 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     private AckMessageRequest wrapAckMessageRequest(MessageExt messageExt) {
         // Group
         final Resource groupResource = Resource.newBuilder()
-                                               .setArn(this.getArn())
+                                               .setArn(arn)
                                                .setName(this.getGroup())
                                                .build();
         // Topic
         final Resource topicResource = Resource.newBuilder()
-                                               .setArn(this.getArn())
+                                               .setArn(arn)
                                                .setName(messageExt.getTopic())
                                                .build();
 

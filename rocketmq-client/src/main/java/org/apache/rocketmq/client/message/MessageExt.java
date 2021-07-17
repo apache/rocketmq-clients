@@ -10,7 +10,7 @@ import org.apache.rocketmq.client.remoting.RpcTarget;
 @EqualsAndHashCode
 @ToString
 public class MessageExt {
-    private final MessageImpl impl;
+    protected final MessageImpl impl;
 
     public MessageExt(MessageImpl impl) {
         this.impl = impl;
@@ -104,5 +104,9 @@ public class MessageExt {
             default:
                 return MessageType.NORMAL;
         }
+    }
+
+    public String getTransactionId() {
+        return this.impl.getSystemAttribute().getTransactionId();
     }
 }

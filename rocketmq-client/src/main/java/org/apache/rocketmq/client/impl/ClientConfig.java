@@ -18,11 +18,17 @@ public class ClientConfig implements CredentialsObservable {
     protected final String clientId;
 
     protected String group = "";
+
+    @Getter
+    protected String arn = "";
+
+    @Getter
+    @Setter
+    protected boolean messageTracingEnabled = true;
+
     // TODO: fix region_id here.
     @Getter
     private String regionId = "cn-hangzhou";
-    @Getter
-    private String arn = "";
     @Getter
     private String tenantId = "";
     // TODO: fix service name here.
@@ -31,11 +37,6 @@ public class ClientConfig implements CredentialsObservable {
     private String serviceName = "aone";
     @Getter
     private AccessCredential accessCredential = null;
-
-    @Getter
-    @Setter
-    private boolean messageTracingEnabled = true;
-    private boolean rpcTracingEnabled = false;
 
     public ClientConfig(String group) {
         this.group = group;

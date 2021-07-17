@@ -54,6 +54,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.constant.Permission;
@@ -66,7 +67,10 @@ import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.message.MessageExt;
+import org.apache.rocketmq.client.message.MessageHookPoint;
 import org.apache.rocketmq.client.message.MessageImpl;
+import org.apache.rocketmq.client.message.MessageInterceptor;
+import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.message.protocol.Digest;
 import org.apache.rocketmq.client.message.protocol.DigestType;
 import org.apache.rocketmq.client.message.protocol.MessageType;
@@ -81,12 +85,14 @@ import org.apache.rocketmq.client.remoting.RpcTarget;
 import org.apache.rocketmq.client.route.AddressScheme;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
+import org.apache.rocketmq.client.tracing.TracingMessageInterceptor;
 import org.apache.rocketmq.utility.UtilAll;
 
 @Slf4j
 public abstract class ClientBaseImpl extends ClientConfig implements ClientObserver {
     protected final AtomicReference<ServiceState> state;
 
+    @Getter
     protected volatile Tracer tracer;
     protected volatile RpcTarget tracingTarget;
 
@@ -94,6 +100,10 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
 
     private final TopAddressing topAddressing;
     private final AtomicInteger nameServerIndex;
+
+    @GuardedBy("MessageInterceptionsLock")
+    private final List<MessageInterceptor> messageInterceptors;
+    private final ReadWriteLock messageInterceptorsLock;
 
     @GuardedBy("nameServerListLock")
     private final List<Endpoints> nameServerList;
@@ -120,6 +130,9 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         this.topAddressing = new TopAddressing();
         this.nameServerIndex = new AtomicInteger(RandomUtils.nextInt());
 
+        this.messageInterceptors = new ArrayList<MessageInterceptor>();
+        this.messageInterceptorsLock = new ReentrantReadWriteLock();
+
         this.nameServerList = new ArrayList<Endpoints>();
         this.nameServerListLock = new ReentrantReadWriteLock();
 
@@ -128,10 +141,25 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         this.topicRouteCache = new ConcurrentHashMap<String, TopicRouteData>();
     }
 
+    public void registerMessageInterceptor(MessageInterceptor messageInterceptor) {
+        messageInterceptorsLock.writeLock().lock();
+        try {
+            messageInterceptors.add(messageInterceptor);
+        } finally {
+            messageInterceptorsLock.writeLock().unlock();
+        }
+    }
+
     public void start() throws MQClientException {
         synchronized (this) {
             log.info("Begin to start the rocketmq client base.");
             clientInstance.registerClientObserver(this);
+
+            if (messageTracingEnabled) {
+                final TracingMessageInterceptor tracingInterceptor = new TracingMessageInterceptor(this);
+                registerMessageInterceptor(tracingInterceptor);
+            }
+
             final ScheduledExecutorService scheduler = clientInstance.getScheduler();
             if (nameServerIsNotSet()) {
                 // Acquire name server list immediately.
@@ -182,6 +210,23 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
             }
             clientInstance.unregisterClientObserver(this);
             log.info("Shutdown the rocketmq client base successfully.");
+        }
+    }
+
+    public void interceptMessage(MessageHookPoint hookPoint, MessageExt messageExt,
+                                 MessageInterceptorContext context) {
+        messageInterceptorsLock.readLock().lock();
+        try {
+            for (MessageInterceptor interceptor : messageInterceptors) {
+                try {
+                    interceptor.intercept(hookPoint, messageExt, context);
+                } catch (Throwable t) {
+                    log.error("Exception occurs while intercepting message, hookPoint={}, message={}", hookPoint,
+                              messageExt, t);
+                }
+            }
+        } finally {
+            messageInterceptorsLock.readLock().lock();
         }
     }
 
@@ -366,7 +411,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         try {
             final Endpoints nameServerEndpoints = selectNameServer();
             final RpcTarget target = new RpcTarget(nameServerEndpoints);
-            Resource topicResource = Resource.newBuilder().setArn(this.getArn()).setName(topic).build();
+            Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
             final QueryRouteRequest request = QueryRouteRequest.newBuilder().setTopic(topicResource).build();
             final Metadata metadata = sign();
             final ListenableFuture<QueryRouteResponse> responseFuture =
@@ -653,6 +698,10 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
             .setInvisiblePeriod(Durations.toMillis(systemAttribute.getInvisiblePeriod()));
         // DeliveryCount
         impl.getSystemAttribute().setDeliveryCount(systemAttribute.getDeliveryCount());
+        // ProducerGroup
+        impl.getSystemAttribute().setProducerGroup(systemAttribute.getProducerGroup().getName());
+        // TransactionId
+        impl.getSystemAttribute().setTransactionId(systemAttribute.getTransactionId());
         // TraceContext
         impl.getSystemAttribute().setTraceContext(systemAttribute.getTraceContext());
         // UserProperties
