@@ -50,10 +50,12 @@ import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.exception.RemotingException;
 import org.apache.rocketmq.client.impl.ClientBaseImpl;
 import org.apache.rocketmq.client.message.Message;
+import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageConst;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
 import org.apache.rocketmq.client.message.MessageIdUtils;
+import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.message.protocol.Encoding;
@@ -177,7 +179,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                 SystemAttribute.newBuilder()
                                .setBornTimestamp(fromMillis(System.currentTimeMillis()))
                                .setProducerGroup(groupResource)
-                               .setMessageId(MessageIdUtils.createUniqID())
+                               .setMessageId(message.getMessageExt().getMsgId())
                                .setBornHost(UtilAll.getIpv4Address())
                                .setPartitionId(partition.getId());
 
@@ -232,8 +234,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     }
 
     public SendResult send(Message message)
-            throws MQClientException, InterruptedException, MQServerException,
-                   TimeoutException {
+            throws MQClientException, InterruptedException, MQServerException, TimeoutException {
         return send(message, sendMessageTimeoutMillis);
     }
 
@@ -481,6 +482,11 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
     private ListenableFuture<SendResult> send0(final Message message, final List<Partition> candidates,
                                                int maxAttemptTimes) {
+        // Set messageId
+        final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
+        final String messageId = MessageIdUtils.createUniqId();
+        messageImpl.getSystemAttribute().setMessageId(messageId);
+
         final SettableFuture<SendResult> future = SettableFuture.create();
         // Filter illegal message.
         try {
@@ -508,14 +514,13 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             return;
         }
 
+        final SendMessageRequest request = wrapSendMessageRequest(message, partition);
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+
         // Intercept message while PRE_SEND_MESSAGE.
         final MessageInterceptorContext.MessageInterceptorContextBuilder contextBuilder =
                 MessageInterceptorContext.builder().attemptTimes(attemptTimes);
         interceptMessage(MessageHookPoint.PRE_SEND_MESSAGE, message.getMessageExt(), contextBuilder.build());
-
-        final Stopwatch stopwatch = Stopwatch.createStarted();
-
-        final SendMessageRequest request = wrapSendMessageRequest(message, partition);
 
         final ListenableFuture<SendMessageResponse> responseFuture =
                 clientInstance.sendMessage(target, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);

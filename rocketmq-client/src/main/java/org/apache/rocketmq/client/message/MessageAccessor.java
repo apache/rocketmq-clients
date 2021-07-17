@@ -4,6 +4,10 @@ public class MessageAccessor {
     private MessageAccessor() {
     }
 
+    public static MessageImpl getMessageImpl(Message message) {
+        return message.impl;
+    }
+
     public static MessageImpl getMessageImpl(MessageExt messageExt) {
         return messageExt.impl;
     }

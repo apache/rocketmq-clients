@@ -36,7 +36,7 @@ public class MessageIdUtils {
     private MessageIdUtils() {
     }
 
-    public static String createUniqID() {
+    public static String createUniqId() {
         return FIX_PREFIX + Hex.encodeHexString(createUniqIdBuffer(), false);
     }
 
