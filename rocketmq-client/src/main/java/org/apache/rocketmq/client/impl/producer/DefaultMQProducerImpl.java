@@ -80,7 +80,7 @@ import org.apache.rocketmq.utility.UtilAll;
 @Slf4j
 public class DefaultMQProducerImpl extends ClientBaseImpl {
 
-    public static final int MESSAGE_COMPRESSION_THRESHOLD = 1024 * 1024 * 4;
+    public static final int MESSAGE_COMPRESSION_THRESHOLD = 1024 * 4;
 
     public static final int DEFAULT_MESSAGE_COMPRESSION_LEVEL = 5;
 
