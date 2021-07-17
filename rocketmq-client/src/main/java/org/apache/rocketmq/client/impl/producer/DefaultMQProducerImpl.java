@@ -167,10 +167,10 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     private SendMessageRequest wrapSendMessageRequest(Message message, Partition partition) {
 
         final Resource topicResource =
-                Resource.newBuilder().setArn(this.getArn()).setName(message.getTopic()).build();
+                Resource.newBuilder().setArn(arn).setName(message.getTopic()).build();
 
         final Resource groupResource =
-                Resource.newBuilder().setArn(this.getArn()).setName(group).build();
+                Resource.newBuilder().setArn(arn).setName(group).build();
 
         final Map<String, String> properties = message.getUserProperties();
 
@@ -606,7 +606,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     @Override
     public HeartbeatEntry prepareHeartbeatData() {
         Resource groupResource =
-                Resource.newBuilder().setArn(this.getArn()).setName(group).build();
+                Resource.newBuilder().setArn(arn).setName(group).build();
         ProducerGroup producerGroup = ProducerGroup.newBuilder().setGroup(groupResource).build();
         return HeartbeatEntry.newBuilder()
                              .setClientId(clientId)
