@@ -12,7 +12,6 @@
     <modules>
         <module>rocketmq-proto</module>
         <module>rocketmq-example</module>
-        <module>rocketmq-admin</module>
         <module>rocketmq-utility</module>
         <module>rocketmq-client</module>
     </modules>
@@ -70,12 +69,6 @@
             <dependency>
                 <groupId>${project.groupId}</groupId>
                 <artifactId>rocketmq-example</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>${project.groupId}</groupId>
-                <artifactId>rocketmq-admin</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

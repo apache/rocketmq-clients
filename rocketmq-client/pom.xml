@@ -27,11 +27,6 @@
             <artifactId>rocketmq-proto</artifactId>
         </dependency>
 
-        <!--        <dependency>-->
-        <!--            <groupId>${project.groupId}</groupId>-->
-        <!--            <artifactId>rocketmq-admin</artifactId>-->
-        <!--        </dependency>-->
-
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
