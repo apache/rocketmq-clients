@@ -1,7 +1,5 @@
 package org.apache.rocketmq.client.message;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import lombok.Builder;
 import lombok.Getter;
@@ -23,5 +21,4 @@ public class MessageInterceptorContext {
     private final TimeUnit timeUnit = TimeUnit.MILLISECONDS;
     @Builder.Default
     private final Throwable throwable = null;
-    private final ConcurrentMap<String, String> metadata = new ConcurrentHashMap<String, String>();
 }

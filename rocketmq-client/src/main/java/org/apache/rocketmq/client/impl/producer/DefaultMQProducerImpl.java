@@ -22,11 +22,6 @@ import com.google.protobuf.util.Timestamps;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
 import io.grpc.Metadata;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.SpanBuilder;
-import io.opentelemetry.api.trace.SpanContext;
-import io.opentelemetry.api.trace.StatusCode;
-import io.opentelemetry.context.Context;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -70,9 +65,6 @@ import org.apache.rocketmq.client.remoting.Endpoints;
 import org.apache.rocketmq.client.remoting.RpcTarget;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
-import org.apache.rocketmq.client.tracing.SpanName;
-import org.apache.rocketmq.client.tracing.TracingAttribute;
-import org.apache.rocketmq.client.tracing.TracingUtility;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.apache.rocketmq.utility.UtilAll;
 
@@ -390,7 +382,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         throw new UnsupportedOperationException();
     }
 
-    private void endTransaction(RpcTarget target, MessageExt messageExt, TransactionResolution resolution)
+    private void endTransaction(RpcTarget target, final MessageExt messageExt, TransactionResolution resolution)
             throws MQClientException {
         final String messageId = messageExt.getMsgId();
         final String traceContext = messageExt.getTraceContext();
@@ -405,7 +397,12 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                                                     EndTransactionRequest.TransactionResolution.ROLLBACK)
                                      .build();
         final Metadata metadata = sign();
-        final Span span = startEndTransactionSpan(messageId, transactionId, traceContext);
+
+        // Intercept message while PRE_END_MESSAGE.
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+        final MessageInterceptorContext context = MessageInterceptorContext.builder().build();
+        interceptMessage(MessageHookPoint.PRE_END_MESSAGE, messageExt, context);
+
         final ListenableFuture<EndTransactionResponse> future =
                 clientInstance.endTransaction(target, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
         Futures.addCallback(future, new FutureCallback<EndTransactionResponse>() {
@@ -413,20 +410,36 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             public void onSuccess(EndTransactionResponse response) {
                 final Status status = response.getCommon().getStatus();
                 final Code code = Code.forNumber(status.getCode());
+
+                // Intercept message while POST_END_MESSAGE.
+                final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
+                final MessageInterceptorContext context =
+                        MessageInterceptorContext.builder().duration(duration).timeUnit(TimeUnit.MILLISECONDS)
+                                                 .status(Code.OK == code ? MessageHookPoint.PointStatus.OK :
+                                                         MessageHookPoint.PointStatus.ERROR).build();
+                interceptMessage(MessageHookPoint.POST_END_MESSAGE, messageExt, context);
+
                 if (Code.OK != code) {
                     log.error("Failed to end transaction, messageId={}, transactionId={}, code={}, message={}",
                               messageId, transactionId, code, status.getMessage());
-                    endSpan(span, StatusCode.ERROR);
                     return;
                 }
                 log.trace("End transaction successfully, messageId={}, transactionId={}, code={}, message={}",
                           messageId, transactionId, code, status.getMessage());
-                endSpan(span, StatusCode.OK);
             }
 
             @Override
             public void onFailure(Throwable t) {
-                endSpan(span, StatusCode.ERROR, t);
+                // Intercept message while POST_END_MESSAGE.
+                final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
+                final MessageInterceptorContext context =
+                        MessageInterceptorContext.builder()
+                                                 .duration(duration)
+                                                 .timeUnit(TimeUnit.MILLISECONDS)
+                                                 .throwable(t)
+                                                 .status(MessageHookPoint.PointStatus.ERROR)
+                                                 .build();
+                interceptMessage(MessageHookPoint.POST_END_MESSAGE, messageExt, context);
             }
         });
     }
@@ -559,7 +572,6 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                 final MessageInterceptorContext context = contextBuilder.duration(duration)
                                                                       .timeUnit(TimeUnit.MILLISECONDS)
                                                                       .status(MessageHookPoint.PointStatus.ERROR)
-                                                                      .throwable(t)
                                                                       .build();
                 interceptMessage(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
 
@@ -616,38 +628,5 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
     @Override
     public void logStats() {
-    }
-
-    private Span startEndTransactionSpan(String messageId, String transactionId, String traceContext) {
-        if (null == tracer || !isMessageTracingEnabled()) {
-            return null;
-        }
-        final SpanBuilder spanBuilder = tracer.spanBuilder(SpanName.END_MESSAGE);
-
-        final SpanContext spanContext = TracingUtility.extractContextFromTraceParent(traceContext);
-        if (spanContext.isValid()) {
-            spanBuilder.setParent(Context.current().with(Span.wrap(spanContext)));
-        }
-        final Span span = spanBuilder.startSpan();
-        span.setAttribute(TracingAttribute.ACCESS_KEY, getAccessCredential().getAccessKey());
-        span.setAttribute(TracingAttribute.MSG_ID, messageId);
-        span.setAttribute(TracingAttribute.TRANSACTION_ID, transactionId);
-
-        return span;
-    }
-
-    private void endSpan(Span span, StatusCode statusCode) {
-        endSpan(span, statusCode, null);
-    }
-
-    private void endSpan(Span span, StatusCode statusCode, Throwable t) {
-        if (null == span) {
-            return;
-        }
-        span.setStatus(statusCode);
-        if (null != t) {
-            span.recordException(t);
-        }
-        span.end();
     }
 }

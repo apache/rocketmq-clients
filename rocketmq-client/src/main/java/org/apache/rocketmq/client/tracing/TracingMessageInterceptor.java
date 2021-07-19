@@ -28,17 +28,17 @@ public class TracingMessageInterceptor implements MessageInterceptor {
 
     @Override
     public void intercept(MessageHookPoint hookPoint, MessageExt message, MessageInterceptorContext context) {
+        final Tracer tracer = client.getTracer();
+        if (null == tracer) {
+            return;
+        }
+
         final String accessKey = client.getAccessCredential().getAccessKey();
         final String arn = client.getArn();
         final String group = client.getGroup();
 
         switch (hookPoint) {
             case PRE_SEND_MESSAGE: {
-                final Tracer tracer = client.getTracer();
-                if (null == tracer) {
-                    break;
-                }
-
                 Span span = tracer.spanBuilder(SpanName.SEND_MESSAGE).startSpan();
 
                 span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);
@@ -74,10 +74,6 @@ public class TracingMessageInterceptor implements MessageInterceptor {
             case PRE_PULL_MESSAGE:
                 break;
             case POST_PULL_MESSAGE: {
-                final Tracer tracer = client.getTracer();
-                if (null == tracer) {
-                    break;
-                }
                 final String traceContext = message.getTraceContext();
                 final SpanContext spanContext = TracingUtility.extractContextFromTraceParent(traceContext);
                 long startTimestamp =
@@ -102,11 +98,6 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 break;
             }
             case PRE_MESSAGE_CONSUMPTION: {
-                final Tracer tracer = client.getTracer();
-                if (null == tracer) {
-                    break;
-                }
-
                 String traceContext = message.getTraceContext();
                 final SpanContext spanContext = TracingUtility.extractContextFromTraceParent(traceContext);
                 final SpanBuilder spanBuilder = tracer.spanBuilder(SpanName.WAITING_CONSUMPTION)
@@ -129,11 +120,6 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 break;
             }
             case POST_MESSAGE_CONSUMPTION: {
-                final Tracer tracer = client.getTracer();
-                if (null == tracer) {
-                    break;
-                }
-
                 final String traceContext = message.getTraceContext();
                 final SpanContext spanContext = TracingUtility.extractContextFromTraceParent(traceContext);
                 long startTimestamp =
@@ -170,10 +156,6 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 break;
             }
             case POST_END_MESSAGE: {
-                final Tracer tracer = client.getTracer();
-                if (null == tracer) {
-                    return;
-                }
                 final String traceContext = message.getTraceContext();
                 final SpanContext spanContext = TracingUtility.extractContextFromTraceParent(traceContext);
 
@@ -181,7 +163,10 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 if (spanContext.isValid()) {
                     spanBuilder.setParent(Context.current().with(Span.wrap(spanContext)));
                 }
-                final Span span = spanBuilder.startSpan();
+                long startTimestamp =
+                        System.currentTimeMillis() - TimeUnit.MILLISECONDS.convert(context.getDuration(),
+                                                                                   context.getTimeUnit());
+                final Span span = spanBuilder.setStartTimestamp(startTimestamp, TimeUnit.MILLISECONDS).startSpan();
                 span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);
                 span.setAttribute(TracingAttribute.ARN, arn);
                 span.setAttribute(TracingAttribute.TOPIC, message.getTopic());
@@ -189,7 +174,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.GROUP, group);
                 span.setAttribute(TracingAttribute.TRANSACTION_ID, message.getTransactionId());
 
-                inflightSpans.put(span.getSpanContext().getSpanId(), span);
+                span.end();
                 break;
             }
             default:
