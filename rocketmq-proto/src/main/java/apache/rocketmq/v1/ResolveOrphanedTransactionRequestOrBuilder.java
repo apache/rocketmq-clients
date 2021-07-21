@@ -8,26 +8,29 @@ public interface ResolveOrphanedTransactionRequestOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>repeated .apache.rocketmq.v1.Message orphaned_transactional_messages = 1;</code>
+   * <code>.apache.rocketmq.v1.Message orphaned_transactional_message = 1;</code>
+   * @return Whether the orphanedTransactionalMessage field is set.
    */
-  java.util.List<apache.rocketmq.v1.Message> 
-      getOrphanedTransactionalMessagesList();
+  boolean hasOrphanedTransactionalMessage();
   /**
-   * <code>repeated .apache.rocketmq.v1.Message orphaned_transactional_messages = 1;</code>
+   * <code>.apache.rocketmq.v1.Message orphaned_transactional_message = 1;</code>
+   * @return The orphanedTransactionalMessage.
    */
-  apache.rocketmq.v1.Message getOrphanedTransactionalMessages(int index);
+  apache.rocketmq.v1.Message getOrphanedTransactionalMessage();
   /**
-   * <code>repeated .apache.rocketmq.v1.Message orphaned_transactional_messages = 1;</code>
+   * <code>.apache.rocketmq.v1.Message orphaned_transactional_message = 1;</code>
    */
-  int getOrphanedTransactionalMessagesCount();
+  apache.rocketmq.v1.MessageOrBuilder getOrphanedTransactionalMessageOrBuilder();
+
   /**
-   * <code>repeated .apache.rocketmq.v1.Message orphaned_transactional_messages = 1;</code>
+   * <code>string transaction_id = 2;</code>
+   * @return The transactionId.
    */
-  java.util.List<? extends apache.rocketmq.v1.MessageOrBuilder> 
-      getOrphanedTransactionalMessagesOrBuilderList();
+  java.lang.String getTransactionId();
   /**
-   * <code>repeated .apache.rocketmq.v1.Message orphaned_transactional_messages = 1;</code>
+   * <code>string transaction_id = 2;</code>
+   * @return The bytes for transactionId.
    */
-  apache.rocketmq.v1.MessageOrBuilder getOrphanedTransactionalMessagesOrBuilder(
-      int index);
+  com.google.protobuf.ByteString
+      getTransactionIdBytes();
 }

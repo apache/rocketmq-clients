@@ -26,7 +26,6 @@ private static final long serialVersionUID = 0L;
     receiptHandle_ = "";
     messageGroup_ = "";
     traceContext_ = "";
-    transactionId_ = "";
   }
 
   @java.lang.Override
@@ -220,12 +219,6 @@ private static final long serialVersionUID = 0L;
             java.lang.String s = input.readStringRequireUtf8();
 
             traceContext_ = s;
-            break;
-          }
-          case 170: {
-            java.lang.String s = input.readStringRequireUtf8();
-
-            transactionId_ = s;
             break;
           }
           default: {
@@ -1021,52 +1014,6 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int TRANSACTION_ID_FIELD_NUMBER = 21;
-  private volatile java.lang.Object transactionId_;
-  /**
-   * <pre>
-   * Correlated transaction
-   * </pre>
-   *
-   * <code>string transaction_id = 21;</code>
-   * @return The transactionId.
-   */
-  @java.lang.Override
-  public java.lang.String getTransactionId() {
-    java.lang.Object ref = transactionId_;
-    if (ref instanceof java.lang.String) {
-      return (java.lang.String) ref;
-    } else {
-      com.google.protobuf.ByteString bs = 
-          (com.google.protobuf.ByteString) ref;
-      java.lang.String s = bs.toStringUtf8();
-      transactionId_ = s;
-      return s;
-    }
-  }
-  /**
-   * <pre>
-   * Correlated transaction
-   * </pre>
-   *
-   * <code>string transaction_id = 21;</code>
-   * @return The bytes for transactionId.
-   */
-  @java.lang.Override
-  public com.google.protobuf.ByteString
-      getTransactionIdBytes() {
-    java.lang.Object ref = transactionId_;
-    if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
-      transactionId_ = b;
-      return b;
-    } else {
-      return (com.google.protobuf.ByteString) ref;
-    }
-  }
-
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -1141,9 +1088,6 @@ private static final long serialVersionUID = 0L;
     }
     if (!getTraceContextBytes().isEmpty()) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 20, traceContext_);
-    }
-    if (!getTransactionIdBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 21, transactionId_);
     }
     unknownFields.writeTo(output);
   }
@@ -1232,9 +1176,6 @@ private static final long serialVersionUID = 0L;
     if (!getTraceContextBytes().isEmpty()) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(20, traceContext_);
     }
-    if (!getTransactionIdBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(21, transactionId_);
-    }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
     return size;
@@ -1299,8 +1240,6 @@ private static final long serialVersionUID = 0L;
         .equals(other.getMessageGroup())) return false;
     if (!getTraceContext()
         .equals(other.getTraceContext())) return false;
-    if (!getTransactionId()
-        .equals(other.getTransactionId())) return false;
     if (!getTimedDeliveryCase().equals(other.getTimedDeliveryCase())) return false;
     switch (timedDeliveryCase_) {
       case 11:
@@ -1374,8 +1313,6 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getMessageGroup().hashCode();
     hash = (37 * hash) + TRACE_CONTEXT_FIELD_NUMBER;
     hash = (53 * hash) + getTraceContext().hashCode();
-    hash = (37 * hash) + TRANSACTION_ID_FIELD_NUMBER;
-    hash = (53 * hash) + getTransactionId().hashCode();
     switch (timedDeliveryCase_) {
       case 11:
         hash = (37 * hash) + DELIVERY_TIMESTAMP_FIELD_NUMBER;
@@ -1577,8 +1514,6 @@ private static final long serialVersionUID = 0L;
 
       traceContext_ = "";
 
-      transactionId_ = "";
-
       timedDeliveryCase_ = 0;
       timedDelivery_ = null;
       return this;
@@ -1660,7 +1595,6 @@ private static final long serialVersionUID = 0L;
       }
       result.messageGroup_ = messageGroup_;
       result.traceContext_ = traceContext_;
-      result.transactionId_ = transactionId_;
       result.timedDeliveryCase_ = timedDeliveryCase_;
       onBuilt();
       return result;
@@ -1776,10 +1710,6 @@ private static final long serialVersionUID = 0L;
       }
       if (!other.getTraceContext().isEmpty()) {
         traceContext_ = other.traceContext_;
-        onChanged();
-      }
-      if (!other.getTransactionId().isEmpty()) {
-        transactionId_ = other.transactionId_;
         onChanged();
       }
       switch (other.getTimedDeliveryCase()) {
@@ -3917,102 +3847,6 @@ private static final long serialVersionUID = 0L;
   checkByteStringIsUtf8(value);
       
       traceContext_ = value;
-      onChanged();
-      return this;
-    }
-
-    private java.lang.Object transactionId_ = "";
-    /**
-     * <pre>
-     * Correlated transaction
-     * </pre>
-     *
-     * <code>string transaction_id = 21;</code>
-     * @return The transactionId.
-     */
-    public java.lang.String getTransactionId() {
-      java.lang.Object ref = transactionId_;
-      if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        transactionId_ = s;
-        return s;
-      } else {
-        return (java.lang.String) ref;
-      }
-    }
-    /**
-     * <pre>
-     * Correlated transaction
-     * </pre>
-     *
-     * <code>string transaction_id = 21;</code>
-     * @return The bytes for transactionId.
-     */
-    public com.google.protobuf.ByteString
-        getTransactionIdBytes() {
-      java.lang.Object ref = transactionId_;
-      if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        transactionId_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-    /**
-     * <pre>
-     * Correlated transaction
-     * </pre>
-     *
-     * <code>string transaction_id = 21;</code>
-     * @param value The transactionId to set.
-     * @return This builder for chaining.
-     */
-    public Builder setTransactionId(
-        java.lang.String value) {
-      if (value == null) {
-    throw new NullPointerException();
-  }
-  
-      transactionId_ = value;
-      onChanged();
-      return this;
-    }
-    /**
-     * <pre>
-     * Correlated transaction
-     * </pre>
-     *
-     * <code>string transaction_id = 21;</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearTransactionId() {
-      
-      transactionId_ = getDefaultInstance().getTransactionId();
-      onChanged();
-      return this;
-    }
-    /**
-     * <pre>
-     * Correlated transaction
-     * </pre>
-     *
-     * <code>string transaction_id = 21;</code>
-     * @param value The bytes for transactionId to set.
-     * @return This builder for chaining.
-     */
-    public Builder setTransactionIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) {
-    throw new NullPointerException();
-  }
-  checkByteStringIsUtf8(value);
-      
-      transactionId_ = value;
       onChanged();
       return this;
     }

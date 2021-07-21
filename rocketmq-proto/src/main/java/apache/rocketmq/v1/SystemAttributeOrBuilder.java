@@ -423,25 +423,5 @@ public interface SystemAttributeOrBuilder extends
   com.google.protobuf.ByteString
       getTraceContextBytes();
 
-  /**
-   * <pre>
-   * Correlated transaction
-   * </pre>
-   *
-   * <code>string transaction_id = 21;</code>
-   * @return The transactionId.
-   */
-  java.lang.String getTransactionId();
-  /**
-   * <pre>
-   * Correlated transaction
-   * </pre>
-   *
-   * <code>string transaction_id = 21;</code>
-   * @return The bytes for transactionId.
-   */
-  com.google.protobuf.ByteString
-      getTransactionIdBytes();
-
   public apache.rocketmq.v1.SystemAttribute.TimedDeliveryCase getTimedDeliveryCase();
 }
