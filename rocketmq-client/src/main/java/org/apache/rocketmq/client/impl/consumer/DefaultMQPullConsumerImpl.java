@@ -69,7 +69,7 @@ public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
                 List<MessageQueue> messageQueues = new ArrayList<MessageQueue>();
                 final List<Partition> partitions = topicRouteData.getPartitions();
                 for (Partition partition : partitions) {
-                    if (MixAll.MASTER_BROKER_ID != partition.getBrokerId()) {
+                    if (MixAll.MASTER_BROKER_ID != partition.getBroker().getId()) {
                         continue;
                     }
                     if (partition.getPermission().isReadable()) {
@@ -123,7 +123,7 @@ public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
             return future0;
         }
         final Partition partition = offsetQuery.getMessageQueue().getPartition();
-        final RpcTarget target = partition.getTarget();
+        final RpcTarget target = partition.getBroker().getTarget();
         final ListenableFuture<QueryOffsetResponse> future =
                 clientInstance.queryOffset(target, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
         return Futures.transformAsync(future, new AsyncFunction<QueryOffsetResponse, Long>() {
@@ -194,7 +194,7 @@ public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
             future0.setException(t);
             return future0;
         }
-        final RpcTarget target = pullMessageQuery.getMessageQueue().getPartition().getTarget();
+        final RpcTarget target = pullMessageQuery.getMessageQueue().getPartition().getBroker().getTarget();
         final ListenableFuture<PullMessageResponse> future =
                 clientInstance.pullMessage(target, metadata, request, pullTimeoutMillis, TimeUnit.MILLISECONDS);
         return Futures.transformAsync(future, new AsyncFunction<PullMessageResponse, PullResult>() {

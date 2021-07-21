@@ -13,6 +13,7 @@ import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.remoting.Endpoints;
+import org.apache.rocketmq.client.route.Broker;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
 
@@ -41,7 +42,7 @@ public class TopicPublishInfo {
             if (!partition.getPermission().isWritable()) {
                 continue;
             }
-            if (MixAll.MASTER_BROKER_ID != partition.getBrokerId()) {
+            if (MixAll.MASTER_BROKER_ID != partition.getBroker().getId()) {
                 continue;
             }
             partitions.add(partition);
@@ -68,8 +69,9 @@ public class TopicPublishInfo {
         }
         for (int i = 0; i < partitions.size(); i++) {
             final Partition partition = partitions.get((index++) % partitions.size());
-            final String brokerName = partition.getBrokerName();
-            if (!isolated.contains(partition.getTarget().getEndpoints())
+            final Broker broker = partition.getBroker();
+            final String brokerName = broker.getName();
+            if (!isolated.contains(broker.getTarget().getEndpoints())
                 && !candidateBrokerNames.contains(brokerName)) {
                 candidateBrokerNames.add(brokerName);
                 candidatePartitions.add(partition);
@@ -82,7 +84,8 @@ public class TopicPublishInfo {
         if (candidatePartitions.isEmpty()) {
             for (int i = 0; i < partitions.size(); i++) {
                 final Partition partition = partitions.get((index++) % partitions.size());
-                final String brokerName = partition.getBrokerName();
+                final Broker broker = partition.getBroker();
+                final String brokerName = broker.getName();
                 if (!candidateBrokerNames.contains(brokerName)) {
                     candidateBrokerNames.add(brokerName);
                     candidatePartitions.add(partition);
@@ -96,7 +99,8 @@ public class TopicPublishInfo {
         // If no enough candidates, pick up partition from isolated partition.
         for (int i = 0; i < partitions.size(); i++) {
             final Partition partition = partitions.get((index++) % partitions.size());
-            final String brokerName = partition.getBrokerName();
+            final Broker broker = partition.getBroker();
+            final String brokerName = broker.getName();
             if (!candidateBrokerNames.contains(brokerName)) {
                 candidateBrokerNames.add(brokerName);
                 candidatePartitions.add(partition);

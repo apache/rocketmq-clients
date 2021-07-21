@@ -1,5 +1,6 @@
 package org.apache.rocketmq.client.route;
 
+import apache.rocketmq.v1.Resource;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.EqualsAndHashCode;
@@ -14,20 +15,16 @@ import org.apache.rocketmq.client.remoting.RpcTarget;
 @ToString
 @EqualsAndHashCode
 public class Partition {
-    private final String topicArn;
-    private final String topicName;
+    private final Topic topic;
+
     private final int id;
     private final Permission permission;
 
-    private final String brokerName;
-    private final int brokerId;
-
-    private final RpcTarget target;
+    private final Broker broker;
 
     public Partition(apache.rocketmq.v1.Partition partition) {
-
-        this.topicArn = partition.getTopic().getArn();
-        this.topicName = partition.getTopic().getName();
+        final Resource topicResource = partition.getTopic();
+        this.topic = new Topic(topicResource.getArn(), topicResource.getName());
         this.id = partition.getId();
         final apache.rocketmq.v1.Permission perm = partition.getPermission();
         switch (perm) {
@@ -46,8 +43,8 @@ public class Partition {
                 break;
         }
 
-        this.brokerName = partition.getBroker().getName();
-        this.brokerId = partition.getBroker().getId();
+        final String brokerName = partition.getBroker().getName();
+        final int brokerId = partition.getBroker().getId();
 
         final apache.rocketmq.v1.Endpoints endpoints = partition.getBroker().getEndpoints();
         final apache.rocketmq.v1.AddressScheme scheme = endpoints.getScheme();
@@ -68,6 +65,7 @@ public class Partition {
         for (apache.rocketmq.v1.Address address : endpoints.getAddressesList()) {
             addresses.add(new Address(address));
         }
-        this.target = new RpcTarget(new Endpoints(targetAddressScheme, addresses), true);
+        RpcTarget target = new RpcTarget(new Endpoints(targetAddressScheme, addresses), true);
+        this.broker = new Broker(brokerName, brokerId, target);
     }
 }

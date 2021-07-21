@@ -83,6 +83,7 @@ import org.apache.rocketmq.client.remoting.Endpoints;
 import org.apache.rocketmq.client.remoting.IpNameResolverFactory;
 import org.apache.rocketmq.client.remoting.RpcTarget;
 import org.apache.rocketmq.client.route.AddressScheme;
+import org.apache.rocketmq.client.route.Broker;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.client.tracing.TracingMessageInterceptor;
@@ -512,13 +513,14 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         for (TopicRouteData topicRouteData : topicRouteCache.values()) {
             final List<Partition> partitions = topicRouteData.getPartitions();
             for (Partition partition : partitions) {
-                if (MixAll.MASTER_BROKER_ID != partition.getBrokerId()) {
+                final Broker broker = partition.getBroker();
+                if (MixAll.MASTER_BROKER_ID != broker.getId()) {
                     continue;
                 }
                 if (Permission.NONE == partition.getPermission()) {
                     continue;
                 }
-                tracingTargets.add(partition.getTarget());
+                tracingTargets.add(broker.getTarget());
             }
         }
         return tracingTargets;
@@ -712,8 +714,6 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         impl.getSystemAttribute().setDeliveryCount(systemAttribute.getDeliveryCount());
         // ProducerGroup
         impl.getSystemAttribute().setProducerGroup(systemAttribute.getProducerGroup().getName());
-        // TransactionId
-        impl.getSystemAttribute().setTransactionId(systemAttribute.getTransactionId());
         // TraceContext
         impl.getSystemAttribute().setTraceContext(systemAttribute.getTraceContext());
         // UserProperties

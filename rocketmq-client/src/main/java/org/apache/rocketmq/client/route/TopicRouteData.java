@@ -38,7 +38,7 @@ public class TopicRouteData {
     public Set<Endpoints> getAllEndpoints() {
         Set<Endpoints> endpointsSet = new HashSet<Endpoints>();
         for (Partition partition : partitions) {
-            endpointsSet.add(partition.getTarget().getEndpoints());
+            endpointsSet.add(partition.getBroker().getTarget().getEndpoints());
         }
         return endpointsSet;
     }

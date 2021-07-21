@@ -517,7 +517,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         // Calculate the current partition.
         final Partition partition = candidates.get((attemptTimes - 1) % candidates.size());
 
-        final RpcTarget target = partition.getTarget();
+        final RpcTarget target = partition.getBroker().getTarget();
         Metadata metadata;
         try {
             metadata = sign();

@@ -1,5 +1,6 @@
 package org.apache.rocketmq.client.impl.consumer;
 
+import apache.rocketmq.v1.Broker;
 import apache.rocketmq.v1.ConsumePolicy;
 import apache.rocketmq.v1.FilterType;
 import apache.rocketmq.v1.Partition;
@@ -241,7 +242,7 @@ public class ProcessQueue {
     public void popMessage() {
         try {
             final ClientInstance clientInstance = consumerImpl.getClientInstance();
-            final RpcTarget target = messageQueue.getPartition().getTarget();
+            final RpcTarget target = messageQueue.getPartition().getBroker().getTarget();
             final ReceiveMessageRequest request = wrapPopMessageRequest();
 
             lastPopTimestamp = System.currentTimeMillis();
@@ -299,8 +300,12 @@ public class ProcessQueue {
                         .setArn(this.getArn())
                         .setName(messageQueue.getTopic()).build();
 
-        final Partition partition =
-                Partition.newBuilder().setTopic(topicResource).setId(messageQueue.getQueueId()).build();
+        final Broker broker = Broker.newBuilder().setName(messageQueue.getBrokerName()).build();
+
+        final Partition partition = Partition.newBuilder()
+                                             .setTopic(topicResource)
+                                             .setId(messageQueue.getQueueId())
+                                             .setBroker(broker).build();
 
         final ReceiveMessageRequest.Builder builder =
                 ReceiveMessageRequest.newBuilder()

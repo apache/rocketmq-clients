@@ -55,6 +55,7 @@ import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.remoting.Endpoints;
 import org.apache.rocketmq.client.remoting.RpcTarget;
+import org.apache.rocketmq.client.route.Broker;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
 
@@ -348,13 +349,14 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                 for (int i = 0; i < partitions.size(); i++) {
                     final Partition partition =
                             partitions.get(TopicAssignment.getNextPartitionIndex() % partitions.size());
-                    if (MixAll.MASTER_BROKER_ID != partition.getBrokerId()) {
+                    final Broker broker = partition.getBroker();
+                    if (MixAll.MASTER_BROKER_ID != broker.getId()) {
                         continue;
                     }
                     if (Permission.NONE == partition.getPermission()) {
                         continue;
                     }
-                    future0.set(partition.getTarget());
+                    future0.set(broker.getTarget());
                     return future0;
                 }
                 throw new MQServerException(ErrorCode.NO_PERMISSION);
