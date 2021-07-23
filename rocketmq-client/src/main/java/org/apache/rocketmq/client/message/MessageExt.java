@@ -5,6 +5,7 @@ import java.util.Map;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import org.apache.rocketmq.client.message.protocol.MessageType;
+import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.remoting.Endpoints;
 
 @EqualsAndHashCode
@@ -31,7 +32,7 @@ public class MessageExt {
     public String getKeys() {
         StringBuilder keys = new StringBuilder();
         for (String key : this.impl.getSystemAttribute().getKeys()) {
-            keys.append(key).append(MessageConst.KEY_SEPARATOR);
+            keys.append(key).append(MixAll.MESSAGE_KEY_SEPARATOR);
         }
         return keys.toString().trim();
     }

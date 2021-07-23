@@ -7,6 +7,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.rocketmq.client.misc.MixAll;
 
 
 @EqualsAndHashCode
@@ -73,7 +74,7 @@ public class Message {
     public String getKeys() {
         StringBuilder keys = new StringBuilder();
         for (String key : this.impl.getSystemAttribute().getKeys()) {
-            keys.append(key).append(MessageConst.KEY_SEPARATOR);
+            keys.append(key).append(MixAll.MESSAGE_KEY_SEPARATOR);
         }
         return keys.toString().trim();
     }

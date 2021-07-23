@@ -8,6 +8,7 @@ import apache.rocketmq.v1.EndTransactionResponse;
 import apache.rocketmq.v1.HealthCheckRequest;
 import apache.rocketmq.v1.HealthCheckResponse;
 import apache.rocketmq.v1.HeartbeatEntry;
+import apache.rocketmq.v1.MessageType;
 import apache.rocketmq.v1.ProducerGroup;
 import apache.rocketmq.v1.ResolveOrphanedTransactionRequest;
 import apache.rocketmq.v1.Resource;
@@ -32,7 +33,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -53,7 +53,6 @@ import org.apache.rocketmq.client.impl.ClientBaseImpl;
 import org.apache.rocketmq.client.impl.Signature;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageAccessor;
-import org.apache.rocketmq.client.message.MessageConst;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
 import org.apache.rocketmq.client.message.MessageIdUtils;
@@ -244,11 +243,6 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         final Resource groupResource =
                 Resource.newBuilder().setArn(arn).setName(group).build();
 
-        final Map<String, String> properties = message.getUserProperties();
-
-        final boolean transactionFlag =
-                Boolean.parseBoolean(properties.get(MessageConst.PROPERTY_TRANSACTION_PREPARED));
-
         final SystemAttribute.Builder systemAttributeBuilder =
                 SystemAttribute.newBuilder()
                                .setBornTimestamp(fromMillis(System.currentTimeMillis()))
@@ -289,11 +283,21 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             default:
                 systemAttributeBuilder.setBodyEncoding(apache.rocketmq.v1.Encoding.IDENTITY);
         }
-        // TODO
-        if (transactionFlag) {
-            systemAttributeBuilder.setMessageType(apache.rocketmq.v1.MessageType.TRANSACTION);
-        }
 
+        final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
+        switch (messageImpl.getSystemAttribute().getMessageType()) {
+            case FIFO:
+                systemAttributeBuilder.setMessageType(MessageType.FIFO);
+                break;
+            case DELAY:
+                systemAttributeBuilder.setMessageType(MessageType.DELAY);
+                break;
+            case TRANSACTION:
+                systemAttributeBuilder.setMessageType(MessageType.TRANSACTION);
+                break;
+            default:
+                systemAttributeBuilder.setMessageType(MessageType.NORMAL);
+        }
         final SystemAttribute systemAttribute = systemAttributeBuilder.build();
 
         final apache.rocketmq.v1.Message msg =
