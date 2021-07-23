@@ -35,12 +35,12 @@ public class Endpoints {
 
         this.addressScheme = addressScheme;
         this.addresses = addresses;
-        StringBuilder targetBuilder = new StringBuilder();
-        targetBuilder.append(addressScheme.getPrefix());
+        StringBuilder facadeBuilder = new StringBuilder();
+        facadeBuilder.append(addressScheme.getPrefix());
         for (Address address : addresses) {
-            targetBuilder.append(address.getAddress()).append(ADDRESS_SEPARATOR);
+            facadeBuilder.append(address.getAddress()).append(ADDRESS_SEPARATOR);
         }
-        this.facade = targetBuilder.substring(0, targetBuilder.length() - 1);
+        this.facade = facadeBuilder.substring(0, facadeBuilder.length() - 1);
     }
 
     public List<InetSocketAddress> convertToSocketAddresses() {

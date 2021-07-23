@@ -47,6 +47,7 @@
 
         <!-- plugin -->
         <maven-compiler-plugin.version>3.8.0</maven-compiler-plugin.version>
+        <maven-antrun-plugin.version>1.8</maven-antrun-plugin.version>
         <!-- <flatten-maven-plugin.version>1.1.0</flatten-maven-plugin.version> -->
         <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
         <os-maven-plugin.version>1.6.2</os-maven-plugin.version>

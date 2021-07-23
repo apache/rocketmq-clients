@@ -71,8 +71,7 @@ public class TopicPublishInfo {
             final Partition partition = partitions.get((index++) % partitions.size());
             final Broker broker = partition.getBroker();
             final String brokerName = broker.getName();
-            if (!isolated.contains(broker.getTarget().getEndpoints())
-                && !candidateBrokerNames.contains(brokerName)) {
+            if (!isolated.contains(broker.getEndpoints()) && !candidateBrokerNames.contains(brokerName)) {
                 candidateBrokerNames.add(brokerName);
                 candidatePartitions.add(partition);
             }

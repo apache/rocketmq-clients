@@ -33,6 +33,9 @@ import java.util.concurrent.TimeUnit;
  * Client for all explicit RPC in RocketMQ.
  */
 public interface RpcClient {
+
+    long idleSeconds();
+
     /**
      * Shutdown the client.
      */

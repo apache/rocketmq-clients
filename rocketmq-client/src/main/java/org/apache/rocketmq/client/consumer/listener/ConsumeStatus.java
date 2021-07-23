@@ -1,6 +1,6 @@
 package org.apache.rocketmq.client.consumer.listener;
 
-public enum ConsumeConcurrentlyStatus {
+public enum ConsumeStatus {
     /**
      * Success consumption
      */

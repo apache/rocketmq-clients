@@ -24,6 +24,13 @@ public class MessageQueue {
         this.partition = partition;
     }
 
+    public MessageQueue(String topic, String brokerName, int queueId) {
+        this.topic = topic;
+        this.brokerName = brokerName;
+        this.queueId = queueId;
+        this.partition = null;
+    }
+
     public String simpleName() {
         return topic + "." + brokerName + "." + queueId;
     }

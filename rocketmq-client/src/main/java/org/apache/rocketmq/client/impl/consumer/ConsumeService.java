@@ -1,9 +1,11 @@
 package org.apache.rocketmq.client.impl.consumer;
 
-import java.util.List;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.message.MessageExt;
-import org.apache.rocketmq.client.message.MessageQueue;
+import org.apache.rocketmq.client.route.Partition;
 
 public interface ConsumeService {
     void start() throws MQClientException;
@@ -12,8 +14,5 @@ public interface ConsumeService {
 
     void dispatch(ProcessQueue processQueue);
 
-    void submitConsumeTask(
-            final List<MessageExt> messageExtList,
-            final ProcessQueue processQueue,
-            final MessageQueue messageQueue);
+    ListenableFuture<ConsumeStatus> verifyMessageConsumption(MessageExt messageExt, Partition partition);
 }

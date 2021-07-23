@@ -4,12 +4,12 @@ import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.apache.rocketmq.client.message.MessageExt;
-import org.apache.rocketmq.client.remoting.RpcTarget;
+import org.apache.rocketmq.client.remoting.Endpoints;
 
 @AllArgsConstructor
 @Getter
 public class PopResult {
-    private final RpcTarget target;
+    private final Endpoints endpoints;
     private final PopStatus popStatus;
 
     private final long popTimestamp;

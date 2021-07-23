@@ -13,6 +13,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Enumeration;
 import java.util.Locale;
+import java.util.Map;
 import java.util.zip.CRC32;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
@@ -209,5 +210,30 @@ public class UtilAll {
         return Hex.encodeHexString(digest.digest(), false);
     }
 
+    public static String javaStack() {
+        return javaStack(Thread.getAllStackTraces());
+    }
+
+    public static String javaStack(Map<Thread, StackTraceElement[]> map) {
+        StringBuilder result = new StringBuilder();
+        try {
+            for (Map.Entry<Thread, StackTraceElement[]> entry : map.entrySet()) {
+                StackTraceElement[] elements = entry.getValue();
+                Thread thread = entry.getKey();
+                if (elements != null && elements.length > 0) {
+                    String threadName = entry.getKey().getName();
+                    result.append(String.format("%-40sTID: %d STATE: %s%n", threadName, thread.getId(),
+                                                thread.getState()));
+                    for (StackTraceElement el : elements) {
+                        result.append(String.format("%-40s%s%n", threadName, el.toString()));
+                    }
+                    result.append("\n");
+                }
+            }
+        } catch (Throwable e) {
+            result.append(e);
+        }
+        return result.toString();
+    }
 
 }

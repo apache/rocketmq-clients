@@ -9,7 +9,6 @@ import lombok.ToString;
 import org.apache.rocketmq.client.constant.Permission;
 import org.apache.rocketmq.client.remoting.Address;
 import org.apache.rocketmq.client.remoting.Endpoints;
-import org.apache.rocketmq.client.remoting.RpcTarget;
 
 @Getter
 @ToString
@@ -65,7 +64,6 @@ public class Partition {
         for (apache.rocketmq.v1.Address address : endpoints.getAddressesList()) {
             addresses.add(new Address(address));
         }
-        RpcTarget target = new RpcTarget(new Endpoints(targetAddressScheme, addresses), true);
-        this.broker = new Broker(brokerName, brokerId, target);
+        this.broker = new Broker(brokerName, brokerId, new Endpoints(targetAddressScheme, addresses));
     }
 }

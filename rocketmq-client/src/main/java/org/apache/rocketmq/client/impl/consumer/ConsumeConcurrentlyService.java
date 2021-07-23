@@ -1,5 +1,8 @@
 package org.apache.rocketmq.client.impl.consumer;
 
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -8,10 +11,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ServiceState;
+import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
+import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
+import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 
 @Slf4j
@@ -72,7 +78,9 @@ public class ConsumeConcurrentlyService implements ConsumeService {
             final List<MessageExt> splitMessages =
                     cachedMessages.subList(i, Math.min(size, i + batchMaxSize));
             try {
-                consumeExecutor.submit(new ConsumeConcurrentlyTask(this, processQueue, splitMessages));
+                final ConsumeConcurrentlyTask task = new ConsumeConcurrentlyTask(this, processQueue,
+                                                                                 splitMessages);
+                consumeExecutor.submit(task);
             } catch (Throwable t) {
                 log.error(
                         "Exception occurs while submitting consumeTask for mq={}, cached msg count={}, batchMaxSize={}",
@@ -82,7 +90,32 @@ public class ConsumeConcurrentlyService implements ConsumeService {
     }
 
     @Override
-    public void submitConsumeTask(
-            List<MessageExt> messageExtList, ProcessQueue processQueue, MessageQueue messageQueue) {
+    public ListenableFuture<ConsumeStatus> verifyMessageConsumption(final MessageExt messageExt,
+                                                                    final Partition partition) {
+        final SettableFuture<ConsumeStatus> future0 = SettableFuture.create();
+        try {
+            consumeExecutor.submit(new Runnable() {
+                @Override
+                public void run() {
+                    final ArrayList<MessageExt> messageList = new ArrayList<MessageExt>();
+                    messageList.add(messageExt);
+                    final MessageQueue messageQueue = new MessageQueue(partition);
+                    final ConsumeConcurrentlyContext context = new ConsumeConcurrentlyContext(messageQueue);
+                    try {
+                        ConsumeStatus consumeStatus = messageListenerConcurrently.consumeMessage(messageList, context);
+                        future0.set(consumeStatus);
+                    } catch (Throwable t) {
+                        log.error("Exception occurs while verification of message consumption, topic={}, "
+                                  + "messageId={}", messageExt.getTopic(), messageExt.getMsgId());
+                        future0.setException(t);
+                    }
+                }
+            });
+        } catch (Throwable t) {
+            log.error("Failed to submit task for verification of message consumption, topic={}, messageId={}",
+                      messageExt.getTopic(), messageExt.getMsgId());
+            future0.setException(t);
+        }
+        return future0;
     }
 }

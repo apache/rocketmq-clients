@@ -4,6 +4,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import apache.rocketmq.v1.AckMessageRequest;
 import apache.rocketmq.v1.AckMessageResponse;
+import apache.rocketmq.v1.ClientResourceBundle;
 import apache.rocketmq.v1.ConsumeMessageType;
 import apache.rocketmq.v1.ConsumeModel;
 import apache.rocketmq.v1.ConsumePolicy;
@@ -11,12 +12,17 @@ import apache.rocketmq.v1.ConsumerGroup;
 import apache.rocketmq.v1.DeadLetterPolicy;
 import apache.rocketmq.v1.FilterType;
 import apache.rocketmq.v1.HeartbeatEntry;
+import apache.rocketmq.v1.Message;
 import apache.rocketmq.v1.NackMessageRequest;
 import apache.rocketmq.v1.NackMessageResponse;
 import apache.rocketmq.v1.QueryAssignmentRequest;
 import apache.rocketmq.v1.QueryAssignmentResponse;
 import apache.rocketmq.v1.Resource;
+import apache.rocketmq.v1.ResponseCommon;
 import apache.rocketmq.v1.SubscriptionEntry;
+import apache.rocketmq.v1.VerifyMessageConsumptionRequest;
+import apache.rocketmq.v1.VerifyMessageConsumptionResponse;
+import com.google.common.base.Function;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -36,6 +42,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -44,6 +51,7 @@ import org.apache.rocketmq.client.constant.Permission;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.MessageModel;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
+import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
 import org.apache.rocketmq.client.exception.ErrorCode;
@@ -51,10 +59,10 @@ import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.impl.ClientBaseImpl;
 import org.apache.rocketmq.client.message.MessageExt;
+import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.remoting.Endpoints;
-import org.apache.rocketmq.client.remoting.RpcTarget;
 import org.apache.rocketmq.client.route.Broker;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
@@ -339,12 +347,12 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         this.messageListenerOrderly = messageListenerOrderly;
     }
 
-    private ListenableFuture<RpcTarget> selectTargetForQuery(String topic) {
+    private ListenableFuture<Endpoints> selectTargetForQuery(String topic) {
         final ListenableFuture<TopicRouteData> future = getRouteFor(topic);
-        return Futures.transformAsync(future, new AsyncFunction<TopicRouteData, RpcTarget>() {
+        return Futures.transformAsync(future, new AsyncFunction<TopicRouteData, Endpoints>() {
             @Override
-            public ListenableFuture<RpcTarget> apply(TopicRouteData topicRouteData) throws Exception {
-                final SettableFuture<RpcTarget> future0 = SettableFuture.create();
+            public ListenableFuture<Endpoints> apply(TopicRouteData topicRouteData) throws Exception {
+                final SettableFuture<Endpoints> future0 = SettableFuture.create();
                 final List<Partition> partitions = topicRouteData.getPartitions();
                 for (int i = 0; i < partitions.size(); i++) {
                     final Partition partition =
@@ -356,7 +364,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                     if (Permission.NONE == partition.getPermission()) {
                         continue;
                     }
-                    future0.set(broker.getTarget());
+                    future0.set(broker.getEndpoints());
                     return future0;
                 }
                 throw new MQServerException(ErrorCode.NO_PERMISSION);
@@ -367,13 +375,13 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     private ListenableFuture<TopicAssignment> queryAssignment(final String topic) {
 
         final QueryAssignmentRequest request = wrapQueryAssignmentRequest(topic);
-        final ListenableFuture<RpcTarget> future = selectTargetForQuery(topic);
+        final ListenableFuture<Endpoints> future = selectTargetForQuery(topic);
         final ListenableFuture<QueryAssignmentResponse> responseFuture =
-                Futures.transformAsync(future, new AsyncFunction<RpcTarget, QueryAssignmentResponse>() {
+                Futures.transformAsync(future, new AsyncFunction<Endpoints, QueryAssignmentResponse>() {
                     @Override
-                    public ListenableFuture<QueryAssignmentResponse> apply(RpcTarget target) throws Exception {
+                    public ListenableFuture<QueryAssignmentResponse> apply(Endpoints endpoints) throws Exception {
                         final Metadata metadata = sign();
-                        return clientInstance.queryAssignment(target, metadata, request, ioTimeoutMillis,
+                        return clientInstance.queryAssignment(endpoints, metadata, request, ioTimeoutMillis,
                                                               TimeUnit.MILLISECONDS);
                     }
                 });
@@ -468,12 +476,11 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     public void nackMessage(MessageExt messageExt) throws MQClientException {
         final NackMessageRequest request = wrapNackMessageRequest(messageExt);
-        final RpcTarget target = messageExt.getAckTarget();
+        final Endpoints endpoints = messageExt.getAckEndpoints();
         final Metadata metadata = sign();
         final ListenableFuture<NackMessageResponse> future =
-                clientInstance.nackMessage(target, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+                clientInstance.nackMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
         final String messageId = request.getMessageId();
-        final Endpoints endpoints = target.getEndpoints();
         Futures.addCallback(future, new FutureCallback<NackMessageResponse>() {
             @Override
             public void onSuccess(NackMessageResponse response) {
@@ -555,12 +562,11 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     public void ackMessage(final MessageExt messageExt) throws MQClientException {
         final AckMessageRequest request = wrapAckMessageRequest(messageExt);
-        final RpcTarget target = messageExt.getAckTarget();
+        final Endpoints endpoints = messageExt.getAckEndpoints();
         final Metadata metadata = sign();
         final ListenableFuture<AckMessageResponse> future =
-                clientInstance.ackMessage(target, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+                clientInstance.ackMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
         final String messageId = request.getMessageId();
-        final Endpoints endpoints = target.getEndpoints();
         Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
             @Override
             public void onSuccess(AckMessageResponse response) {
@@ -580,5 +586,57 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                 log.error("Unexpected error while ack message, messageId={}, endpoints={}", messageId, endpoints, t);
             }
         });
+    }
+
+    @Override
+    public ListenableFuture<VerifyMessageConsumptionResponse> verifyMessageConsumption(VerifyMessageConsumptionRequest request) {
+        final ListenableFuture<ConsumeStatus> future = verifyMessageConsumption0(request);
+        return Futures.transform(future, new Function<ConsumeStatus, VerifyMessageConsumptionResponse>() {
+            @Override
+            public VerifyMessageConsumptionResponse apply(ConsumeStatus consumeStatus) {
+                final Status.Builder builder = Status.newBuilder();
+                Status status;
+                switch (consumeStatus) {
+                    case CONSUME_SUCCESS:
+                        status = builder.setCode(Code.OK_VALUE).build();
+                        break;
+                    case RECONSUME_LATER:
+                    default:
+                        status = builder.setCode(Code.ABORTED_VALUE).build();
+                        break;
+                }
+                ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
+                return VerifyMessageConsumptionResponse.newBuilder().setCommon(common).build();
+            }
+        });
+    }
+
+    public ListenableFuture<ConsumeStatus> verifyMessageConsumption0(VerifyMessageConsumptionRequest request) {
+        final Partition partition = new Partition(request.getPartition());
+        final Message message = request.getMessage();
+        MessageImpl messageImpl;
+        try {
+            messageImpl = ClientBaseImpl.wrapMessageImpl(message);
+        } catch (Throwable t) {
+            log.error("Message verify consumption is corrupted, partition={}, messageId={}", partition,
+                      message.getSystemAttribute().getMessageId());
+            SettableFuture<ConsumeStatus> future0 = SettableFuture.create();
+            future0.setException(t);
+            return future0;
+        }
+        final MessageExt messageExt = new MessageExt(messageImpl);
+        return consumeService.verifyMessageConsumption(messageExt, partition);
+    }
+
+    @Override
+    public ClientResourceBundle wrapClientResourceBundle() {
+        Resource groupResource = Resource.newBuilder().setArn(arn).setName(group).build();
+        final ClientResourceBundle.Builder builder =
+                ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(groupResource);
+        for (String topic : filterExpressionTable.keySet()) {
+            Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
+            builder.addTopics(topicResource);
+        }
+        return builder.build();
     }
 }

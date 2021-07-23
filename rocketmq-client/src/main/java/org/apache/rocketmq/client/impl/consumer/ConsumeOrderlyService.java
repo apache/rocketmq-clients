@@ -1,12 +1,15 @@
 package org.apache.rocketmq.client.impl.consumer;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.rocketmq.client.constant.ServiceState;
+import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
+import org.apache.rocketmq.client.route.Partition;
 
 public class ConsumeOrderlyService implements ConsumeService {
     private AtomicReference<ServiceState> state = new AtomicReference<ServiceState>(ServiceState.STARTING);
@@ -35,8 +38,7 @@ public class ConsumeOrderlyService implements ConsumeService {
     }
 
     @Override
-    public void submitConsumeTask(
-            List<MessageExt> messageExtList, ProcessQueue processQueue, MessageQueue messageQueue) {
-        throw new UnsupportedOperationException();
+    public ListenableFuture<ConsumeStatus> verifyMessageConsumption(MessageExt messageExt, Partition partition) {
+        return null;
     }
 }

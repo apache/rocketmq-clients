@@ -8,7 +8,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.conf.BaseConfig;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
-import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
+import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.message.MessageExt;
@@ -25,9 +25,9 @@ public class DefaultMQPushConsumerTest extends BaseConfig {
         consumer.registerMessageListener(
                 new MessageListenerConcurrently() {
                     @Override
-                    public ConsumeConcurrentlyStatus consumeMessage(
+                    public ConsumeStatus consumeMessage(
                             List<MessageExt> messages, ConsumeConcurrentlyContext context) {
-                        return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
+                        return ConsumeStatus.CONSUME_SUCCESS;
                     }
                 });
         return consumer;
@@ -50,9 +50,9 @@ public class DefaultMQPushConsumerTest extends BaseConfig {
         consumer.registerMessageListener(
                 new MessageListenerConcurrently() {
                     @Override
-                    public ConsumeConcurrentlyStatus consumeMessage(
+                    public ConsumeStatus consumeMessage(
                             List<MessageExt> messages, ConsumeConcurrentlyContext context) {
-                        return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
+                        return ConsumeStatus.CONSUME_SUCCESS;
                     }
                 });
         consumer.start();

@@ -1,9 +1,12 @@
 package org.apache.rocketmq.client.impl;
 
+import apache.rocketmq.v1.ClientResourceBundle;
+import apache.rocketmq.v1.GenericPollingRequest;
 import apache.rocketmq.v1.HeartbeatEntry;
 import apache.rocketmq.v1.HeartbeatRequest;
 import apache.rocketmq.v1.HeartbeatResponse;
 import apache.rocketmq.v1.Message;
+import apache.rocketmq.v1.MultiplexingRequest;
 import apache.rocketmq.v1.PullMessageResponse;
 import apache.rocketmq.v1.QueryRouteRequest;
 import apache.rocketmq.v1.QueryRouteResponse;
@@ -11,6 +14,9 @@ import apache.rocketmq.v1.ReceiveMessageResponse;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.SendMessageResponse;
 import apache.rocketmq.v1.SystemAttribute;
+import apache.rocketmq.v1.VerifyMessageConsumptionRequest;
+import apache.rocketmq.v1.VerifyMessageConsumptionResponse;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -81,7 +87,6 @@ import org.apache.rocketmq.client.remoting.Address;
 import org.apache.rocketmq.client.remoting.ClientAuthInterceptor;
 import org.apache.rocketmq.client.remoting.Endpoints;
 import org.apache.rocketmq.client.remoting.IpNameResolverFactory;
-import org.apache.rocketmq.client.remoting.RpcTarget;
 import org.apache.rocketmq.client.route.AddressScheme;
 import org.apache.rocketmq.client.route.Broker;
 import org.apache.rocketmq.client.route.Partition;
@@ -93,7 +98,7 @@ import org.apache.rocketmq.utility.UtilAll;
 public abstract class ClientBaseImpl extends ClientConfig implements ClientObserver {
     @Getter
     protected volatile Tracer tracer;
-    protected volatile RpcTarget tracingTarget;
+    protected volatile Endpoints tracingEndpoints;
 
     @Getter
     protected volatile ClientInstance clientInstance;
@@ -108,8 +113,8 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
     private final ReadWriteLock messageInterceptorsLock;
 
     @GuardedBy("nameServerListLock")
-    private final List<Endpoints> nameServerList;
-    private final ReadWriteLock nameServerListLock;
+    private final List<Endpoints> nameServerEndpointsList;
+    private final ReadWriteLock nameServerEndpointsListLock;
 
     @GuardedBy("inflightRouteFutureLock")
     private final Map<String /* topic */, Set<SettableFuture<TopicRouteData>>> inflightRouteFutureTable;
@@ -125,7 +130,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         this.state = new AtomicReference<ServiceState>(ServiceState.READY);
 
         this.tracer = null;
-        this.tracingTarget = null;
+        this.tracingEndpoints = null;
 
         this.topAddressing = new TopAddressing();
         this.nameServerIndex = new AtomicInteger(RandomUtils.nextInt());
@@ -133,8 +138,8 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         this.messageInterceptors = new ArrayList<MessageInterceptor>();
         this.messageInterceptorsLock = new ReentrantReadWriteLock();
 
-        this.nameServerList = new ArrayList<Endpoints>();
-        this.nameServerListLock = new ReentrantReadWriteLock();
+        this.nameServerEndpointsList = new ArrayList<Endpoints>();
+        this.nameServerEndpointsListLock = new ReentrantReadWriteLock();
 
         this.inflightRouteFutureTable = new HashMap<String, Set<SettableFuture<TopicRouteData>>>();
         this.inflightRouteFutureLock = new ReentrantLock();
@@ -249,8 +254,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         return this.state.get();
     }
 
-    @Override
-    public Set<Endpoints> getEndpointsNeedHeartbeat() {
+    public Set<Endpoints> getRouteEndpointsSet() {
         Set<Endpoints> endpointsSet = new HashSet<Endpoints>();
         for (TopicRouteData topicRouteData : topicRouteCache.values()) {
             endpointsSet.addAll(topicRouteData.getAllEndpoints());
@@ -259,11 +263,11 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
     }
 
     public boolean nameServerIsNotSet() {
-        nameServerListLock.readLock().lock();
+        nameServerEndpointsListLock.readLock().lock();
         try {
-            return nameServerList.isEmpty();
+            return nameServerEndpointsList.isEmpty();
         } finally {
-            nameServerListLock.readLock().unlock();
+            nameServerEndpointsListLock.readLock().unlock();
         }
     }
 
@@ -280,21 +284,25 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
             log.warn("Yuck, got an empty name server list.");
             return;
         }
-        nameServerListLock.writeLock().lock();
+        nameServerEndpointsListLock.writeLock().lock();
         try {
-            if (nameServerList == newNameServerList) {
+            if (nameServerEndpointsList == newNameServerList) {
                 log.debug("Name server list remains no changed");
                 return;
             }
-            nameServerList.clear();
-            nameServerList.addAll(newNameServerList);
+            nameServerEndpointsList.clear();
+            nameServerEndpointsList.addAll(newNameServerList);
         } finally {
-            nameServerListLock.writeLock().unlock();
+            nameServerEndpointsListLock.writeLock().unlock();
         }
     }
 
     protected void updateTopicRouteCache(String topic, TopicRouteData topicRouteData) {
+        final Set<Endpoints> before = getRouteEndpointsSet();
         topicRouteCache.put(topic, topicRouteData);
+        final Set<Endpoints> after = getRouteEndpointsSet();
+        final Set<Endpoints> diff = new HashSet<Endpoints>(Sets.difference(after, before));
+
         if (messageTracingEnabled) {
             updateTracer();
         }
@@ -391,9 +399,9 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
     }
 
     public void setNamesrvAddr(String namesrv) {
-        nameServerListLock.writeLock().lock();
+        nameServerEndpointsListLock.writeLock().lock();
         try {
-            this.nameServerList.clear();
+            this.nameServerEndpointsList.clear();
             final String[] addressArray = namesrv.split(";");
             for (String address : addressArray) {
                 // TODO: check name server format, IPv4/IPv6/DOMAIN_NAME
@@ -403,32 +411,31 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
 
                 List<Address> addresses = new ArrayList<Address>();
                 addresses.add(new Address(host, port));
-                this.nameServerList.add(new Endpoints(AddressScheme.IPv4, addresses));
+                this.nameServerEndpointsList.add(new Endpoints(AddressScheme.IPv4, addresses));
             }
         } finally {
-            nameServerListLock.writeLock().unlock();
+            nameServerEndpointsListLock.writeLock().unlock();
         }
     }
 
-    private Endpoints selectNameServer() {
-        nameServerListLock.readLock().lock();
+    private Endpoints selectNameServerEndpoints() {
+        nameServerEndpointsListLock.readLock().lock();
         try {
-            return nameServerList.get(nameServerIndex.get() % nameServerList.size());
+            return nameServerEndpointsList.get(nameServerIndex.get() % nameServerEndpointsList.size());
         } finally {
-            nameServerListLock.readLock().unlock();
+            nameServerEndpointsListLock.readLock().unlock();
         }
     }
 
     public ListenableFuture<TopicRouteData> fetchTopicRoute(final String topic) {
         final SettableFuture<TopicRouteData> future = SettableFuture.create();
         try {
-            final Endpoints nameServerEndpoints = selectNameServer();
-            final RpcTarget target = new RpcTarget(nameServerEndpoints);
+            final Endpoints endpoints = selectNameServerEndpoints();
             Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
             final QueryRouteRequest request = QueryRouteRequest.newBuilder().setTopic(topicResource).build();
             final Metadata metadata = sign();
             final ListenableFuture<QueryRouteResponse> responseFuture =
-                    clientInstance.queryRoute(target, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+                    clientInstance.queryRoute(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
             return Futures.transformAsync(responseFuture, new AsyncFunction<QueryRouteResponse, TopicRouteData>() {
                 @Override
                 public ListenableFuture<TopicRouteData> apply(QueryRouteResponse response) throws Exception {
@@ -454,8 +461,8 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
 
     @Override
     public void doHeartbeat() {
-        final Set<Endpoints> endpointsNeedHeartbeat = getEndpointsNeedHeartbeat();
-        if (endpointsNeedHeartbeat.isEmpty()) {
+        final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
+        if (routeEndpointsSet.isEmpty()) {
             log.info("No endpoints is needed to send heartbeat at present, clientId={}", clientId);
             return;
         }
@@ -473,9 +480,8 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         } catch (Throwable t) {
             return;
         }
-        for (final Endpoints endpoints : endpointsNeedHeartbeat) {
-            final RpcTarget target = new RpcTarget(endpoints, true);
-            final ListenableFuture<HeartbeatResponse> future = clientInstance.heartbeat(target, metadata, request,
+        for (final Endpoints endpoints : routeEndpointsSet) {
+            final ListenableFuture<HeartbeatResponse> future = clientInstance.heartbeat(endpoints, metadata, request,
                                                                                         ioTimeoutMillis,
                                                                                         TimeUnit.MILLISECONDS);
             Futures.addCallback(future, new FutureCallback<HeartbeatResponse>() {
@@ -484,7 +490,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                     final Status status = response.getCommon().getStatus();
                     final Code code = Code.forNumber(status.getCode());
                     if (Code.OK != code) {
-                        log.warn("Failed to send heartbeat, code={}, message={}, endpoints={}", code,
+                        log.warn("Failed to send heartbeat, code={}, status message={}, endpoints={}", code,
                                  status.getMessage(), endpoints);
                         return;
                     }
@@ -499,6 +505,74 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         }
     }
 
+    public abstract ClientResourceBundle wrapClientResourceBundle();
+
+    public ListenableFuture<VerifyMessageConsumptionResponse> verifyMessageConsumption(VerifyMessageConsumptionRequest request) {
+        SettableFuture<VerifyMessageConsumptionResponse> future = SettableFuture.create();
+        final MQClientException exception = new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+        future.setException(exception);
+        return future;
+    }
+
+    public GenericPollingRequest wrapGenericPollingRequest() {
+        final ClientResourceBundle bundle = wrapClientResourceBundle();
+        return GenericPollingRequest.newBuilder().setClientResourceBundle(bundle).build();
+    }
+
+    public void multiplexing(final Endpoints endpoints, MultiplexingRequest request) {
+//        final Metadata metadata = sign();
+//        final ListenableFuture<MultiplexingResponse> future =
+//                clientInstance.multiplexingCall(endpoints, metadata, request, 30, TimeUnit.MILLISECONDS);
+//        final FutureCallback<MultiplexingResponse> futureCallback = new FutureCallback<MultiplexingResponse>() {
+//            @Override
+//            public void onSuccess(MultiplexingResponse response) {
+//                switch (response.getTypeCase()) {
+//                    case POLLING_RESPONSE: {
+//                        final GenericPollingRequest genericPollingRequest = wrapGenericPollingRequest();
+//                        MultiplexingRequest multiplexingRequest =
+//                                MultiplexingRequest.newBuilder().setPollingRequest(genericPollingRequest).build();
+//                        multiplexing(endpoints, multiplexingRequest);
+//                        break;
+//                    }
+//
+//                    case PRINT_THREAD_STACK_REQUEST: {
+//                        PrintThreadStackResponse printThreadStackResponse =
+//                                PrintThreadStackResponse.newBuilder().setStackTrace(UtilAll.javaStack()).build();
+//                        MultiplexingRequest multiplexingRequest = MultiplexingRequest
+//                                .newBuilder().setPrintThreadStackResponse(printThreadStackResponse).build();
+//                        multiplexing(endpoints, multiplexingRequest);
+//                        break;
+//                    }
+//
+//                    case VERIFY_MESSAGE_CONSUMPTION_REQUEST:
+//                        final VerifyMessageConsumptionRequest verifyMessageConsumptionRequest =
+//                                response.getVerifyMessageConsumptionRequest();
+//                        final ListenableFuture<VerifyMessageConsumptionResponse> future =
+//                                verifyMessageConsumption(verifyMessageConsumptionRequest);
+//                        Futures.addCallback(future, new FutureCallback<VerifyMessageConsumptionResponse>() {
+//                            @Override
+//                            public void onSuccess(VerifyMessageConsumptionResponse response) {
+//
+//                            }
+//
+//                            @Override
+//                            public void onFailure(Throwable t) {
+//
+//                            }
+//                        });
+//
+//
+//                }
+//            }
+//
+//            @Override
+//            public void onFailure(Throwable t) {
+//
+//            }
+//        };
+//        Futures.addCallback(future, futureCallback);
+    }
+
     public Metadata sign() throws MQClientException {
         try {
             return Signature.sign(this);
@@ -508,8 +582,8 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         }
     }
 
-    private Set<RpcTarget> getTracingTargets() {
-        Set<RpcTarget> tracingTargets = new HashSet<RpcTarget>();
+    private Set<Endpoints> getTracingEndpointsSet() {
+        Set<Endpoints> tracingEndpointsSet = new HashSet<Endpoints>();
         for (TopicRouteData topicRouteData : topicRouteCache.values()) {
             final List<Partition> partitions = topicRouteData.getPartitions();
             for (Partition partition : partitions) {
@@ -520,38 +594,37 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                 if (Permission.NONE == partition.getPermission()) {
                     continue;
                 }
-                tracingTargets.add(broker.getTarget());
+                tracingEndpointsSet.add(broker.getEndpoints());
             }
         }
-        return tracingTargets;
+        return tracingEndpointsSet;
     }
 
     private void updateTracer() {
         try {
             log.info("Start to update tracer.");
-            final Set<RpcTarget> tracingTargets = getTracingTargets();
-            if (tracingTargets.isEmpty()) {
-                log.warn("No available tracing targets.");
+            final Set<Endpoints> tracingEndpointsSet = getTracingEndpointsSet();
+            if (tracingEndpointsSet.isEmpty()) {
+                log.warn("No available tracing endpoints.");
                 return;
             }
-            if (null != tracingTarget && tracingTargets.contains(tracingTarget)) {
+            if (null != tracingEndpoints && tracingEndpointsSet.contains(tracingEndpoints)) {
                 log.info("Tracing target remains unchanged");
                 return;
             }
-            List<RpcTarget> tracingRpcTargetList = new ArrayList<RpcTarget>(tracingTargets);
+            List<Endpoints> tracingRpcTargetList = new ArrayList<Endpoints>(tracingEndpointsSet);
             Collections.shuffle(tracingRpcTargetList);
             // Pick up tracing rpc target randomly.
-            final RpcTarget randomTracingTarget = tracingRpcTargetList.iterator().next();
+            final Endpoints randomTracingEndpoints = tracingRpcTargetList.iterator().next();
             final SslContext sslContext =
                     GrpcSslContexts.forClient().trustManager(InsecureTrustManagerFactory.INSTANCE).build();
 
             final NettyChannelBuilder channelBuilder =
-                    NettyChannelBuilder.forTarget(randomTracingTarget.getEndpoints().getFacade())
+                    NettyChannelBuilder.forTarget(randomTracingEndpoints.getFacade())
                                        .sslContext(sslContext)
                                        .intercept(new ClientAuthInterceptor(this));
 
-            final List<InetSocketAddress> socketAddresses =
-                    randomTracingTarget.getEndpoints().convertToSocketAddresses();
+            final List<InetSocketAddress> socketAddresses = randomTracingEndpoints.convertToSocketAddresses();
             // If scheme is not domain.
             if (null != socketAddresses) {
                 IpNameResolverFactory tracingResolverFactory = new IpNameResolverFactory(socketAddresses);
@@ -576,7 +649,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                                     .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
                                     .setTracerProvider(sdkTracerProvider).build();
             tracer = openTelemetry.getTracer(MixAll.DEFAULT_TRACER_INSTRUMENTATION_NAME);
-            tracingTarget = randomTracingTarget;
+            tracingEndpoints = randomTracingEndpoints;
         } catch (Throwable t) {
             log.error("Exception occurs while updating tracer.", t);
         }
@@ -722,8 +795,12 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         return impl;
     }
 
+    @Override
+    public void doHealthCheck() {
+    }
+
     // TODO: handle the case that the topic does not exist.
-    public static PopResult processReceiveMessageResponse(RpcTarget target, ReceiveMessageResponse response) {
+    public static PopResult processReceiveMessageResponse(Endpoints endpoints, ReceiveMessageResponse response) {
         PopStatus popStatus;
 
         final Status status = response.getCommon().getStatus();
@@ -734,18 +811,17 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                 break;
             case RESOURCE_EXHAUSTED:
                 popStatus = PopStatus.RESOURCE_EXHAUSTED;
-                log.warn("Too many request in server, server endpoints={}, status message={}", target.getEndpoints(),
+                log.warn("Too many request in server, server endpoints={}, status message={}", endpoints,
                          status.getMessage());
                 break;
             case DEADLINE_EXCEEDED:
                 popStatus = PopStatus.DEADLINE_EXCEEDED;
-                log.warn("Gateway timeout, server endpoints={}, status message={}", target.getEndpoints(),
-                         status.getMessage());
+                log.warn("Gateway timeout, server endpoints={}, status message={}", endpoints, status.getMessage());
                 break;
             default:
                 popStatus = PopStatus.INTERNAL;
                 log.warn("Pop response indicated server-side error, server endpoints={}, code={}, status message={}",
-                         target.getEndpoints(), code, status.getMessage());
+                         endpoints, code, status.getMessage());
         }
 
         List<MessageExt> msgFoundList = new ArrayList<MessageExt>();
@@ -754,7 +830,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
             for (Message message : messageList) {
                 try {
                     MessageImpl messageImpl = ClientBaseImpl.wrapMessageImpl(message);
-                    messageImpl.getSystemAttribute().setAckTarget(target);
+                    messageImpl.getSystemAttribute().setAckEndpoints(endpoints);
                     msgFoundList.add(new MessageExt(messageImpl));
                 } catch (MQClientException e) {
                     // TODO: need nack immediately.
@@ -770,12 +846,12 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
             }
         }
 
-        return new PopResult(target, popStatus, Timestamps.toMillis(response.getDeliveryTimestamp()),
+        return new PopResult(endpoints, popStatus, Timestamps.toMillis(response.getDeliveryTimestamp()),
                              Durations.toMillis(response.getInvisibleDuration()), msgFoundList);
     }
 
 
-    public static PullResult processPullMessageResponse(RpcTarget target, PullMessageResponse response) {
+    public static PullResult processPullMessageResponse(Endpoints endpoints, PullMessageResponse response) {
         PullStatus pullStatus;
 
         final Status status = response.getCommon().getStatus();
@@ -786,28 +862,27 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                 break;
             case RESOURCE_EXHAUSTED:
                 pullStatus = PullStatus.RESOURCE_EXHAUSTED;
-                log.warn("Too many request in server, server endpoints={}, status message={}", target.getEndpoints(),
+                log.warn("Too many request in server, server endpoints={}, status message={}", endpoints,
                          status.getMessage());
                 break;
             case DEADLINE_EXCEEDED:
                 pullStatus = PullStatus.DEADLINE_EXCEEDED;
-                log.warn("Gateway timeout, server endpoints={}, status message={}", target.getEndpoints(),
-                         status.getMessage());
+                log.warn("Gateway timeout, server endpoints={}, status message={}", endpoints, status.getMessage());
                 break;
             case NOT_FOUND:
                 pullStatus = PullStatus.NOT_FOUND;
-                log.warn("Target partition does not exist, server endpoints={}, status message={}",
-                         target.getEndpoints(), status.getMessage());
+                log.warn("Target partition does not exist, server endpoints={}, status message={}", endpoints,
+                         status.getMessage());
                 break;
             case OUT_OF_RANGE:
                 pullStatus = PullStatus.OUT_OF_RANGE;
-                log.warn("Pulled offset is out of range, server endpoints={}, status message{}",
-                         target.getEndpoints(), status.getMessage());
+                log.warn("Pulled offset is out of range, server endpoints={}, status message{}", endpoints,
+                         status.getMessage());
                 break;
             default:
                 pullStatus = PullStatus.INTERNAL;
                 log.warn("Pull response indicated server-side error, server endpoints={}, code={}, status message{}",
-                         target.getEndpoints(), code, status.getMessage());
+                         endpoints, code, status.getMessage());
         }
         List<MessageExt> msgFoundList = new ArrayList<MessageExt>();
         if (PullStatus.OK == pullStatus) {
@@ -832,12 +907,12 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                               msgFoundList);
     }
 
-    public static SendResult processSendResponse(RpcTarget target, SendMessageResponse response)
+    public static SendResult processSendResponse(Endpoints endpoints, SendMessageResponse response)
             throws MQServerException {
         final Status status = response.getCommon().getStatus();
         final Code code = Code.forNumber(status.getCode());
         if (Code.OK == code) {
-            return new SendResult(target, response.getMessageId(), response.getTransactionId());
+            return new SendResult(endpoints, response.getMessageId(), response.getTransactionId());
         }
         log.debug("Response indicates failure of sending message, information={}", status.getMessage());
         throw new MQServerException(ErrorCode.OTHER, status.getMessage());

@@ -8,17 +8,32 @@ public interface VerifyMessageConsumptionRequestOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>.apache.rocketmq.v1.Message message = 1;</code>
+   * <code>.apache.rocketmq.v1.Partition Partition = 1;</code>
+   * @return Whether the partition field is set.
+   */
+  boolean hasPartition();
+  /**
+   * <code>.apache.rocketmq.v1.Partition Partition = 1;</code>
+   * @return The partition.
+   */
+  apache.rocketmq.v1.Partition getPartition();
+  /**
+   * <code>.apache.rocketmq.v1.Partition Partition = 1;</code>
+   */
+  apache.rocketmq.v1.PartitionOrBuilder getPartitionOrBuilder();
+
+  /**
+   * <code>.apache.rocketmq.v1.Message message = 2;</code>
    * @return Whether the message field is set.
    */
   boolean hasMessage();
   /**
-   * <code>.apache.rocketmq.v1.Message message = 1;</code>
+   * <code>.apache.rocketmq.v1.Message message = 2;</code>
    * @return The message.
    */
   apache.rocketmq.v1.Message getMessage();
   /**
-   * <code>.apache.rocketmq.v1.Message message = 1;</code>
+   * <code>.apache.rocketmq.v1.Message message = 2;</code>
    */
   apache.rocketmq.v1.MessageOrBuilder getMessageOrBuilder();
 }

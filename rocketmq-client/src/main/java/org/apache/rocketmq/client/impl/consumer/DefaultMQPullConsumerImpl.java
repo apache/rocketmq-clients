@@ -1,5 +1,6 @@
 package org.apache.rocketmq.client.impl.consumer;
 
+import apache.rocketmq.v1.ClientResourceBundle;
 import apache.rocketmq.v1.ConsumerGroup;
 import apache.rocketmq.v1.FilterType;
 import apache.rocketmq.v1.HeartbeatEntry;
@@ -37,7 +38,7 @@ import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.impl.ClientBaseImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
-import org.apache.rocketmq.client.remoting.RpcTarget;
+import org.apache.rocketmq.client.remoting.Endpoints;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
@@ -123,9 +124,9 @@ public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
             return future0;
         }
         final Partition partition = offsetQuery.getMessageQueue().getPartition();
-        final RpcTarget target = partition.getBroker().getTarget();
+        final Endpoints endpoints = partition.getBroker().getEndpoints();
         final ListenableFuture<QueryOffsetResponse> future =
-                clientInstance.queryOffset(target, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+                clientInstance.queryOffset(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
         return Futures.transformAsync(future, new AsyncFunction<QueryOffsetResponse, Long>() {
             @Override
             public ListenableFuture<Long> apply(QueryOffsetResponse response) throws Exception {
@@ -194,9 +195,9 @@ public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
             future0.setException(t);
             return future0;
         }
-        final RpcTarget target = pullMessageQuery.getMessageQueue().getPartition().getBroker().getTarget();
+        final Endpoints endpoints = pullMessageQuery.getMessageQueue().getPartition().getBroker().getEndpoints();
         final ListenableFuture<PullMessageResponse> future =
-                clientInstance.pullMessage(target, metadata, request, pullTimeoutMillis, TimeUnit.MILLISECONDS);
+                clientInstance.pullMessage(endpoints, metadata, request, pullTimeoutMillis, TimeUnit.MILLISECONDS);
         return Futures.transformAsync(future, new AsyncFunction<PullMessageResponse, PullResult>() {
             @Override
             public ListenableFuture<PullResult> apply(PullMessageResponse response) throws MQClientException {
@@ -208,7 +209,7 @@ public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
                               code, status.getMessage());
                     throw new MQClientException(ErrorCode.OTHER);
                 }
-                final PullResult pullResult = processPullMessageResponse(target, response);
+                final PullResult pullResult = processPullMessageResponse(endpoints, response);
                 future0.set(pullResult);
                 return future0;
             }
@@ -292,6 +293,14 @@ public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
     @Override
     public void logStats() {
 
+    }
+
+    @Override
+    public ClientResourceBundle wrapClientResourceBundle() {
+        Resource groupResource = Resource.newBuilder().setArn(arn).setName(group).build();
+        final ClientResourceBundle.Builder builder =
+                ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(groupResource);
+        return builder.build();
     }
 }
 

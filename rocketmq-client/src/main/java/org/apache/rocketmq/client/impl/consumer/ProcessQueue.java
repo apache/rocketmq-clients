@@ -35,7 +35,7 @@ import org.apache.rocketmq.client.impl.ClientInstance;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
-import org.apache.rocketmq.client.remoting.RpcTarget;
+import org.apache.rocketmq.client.remoting.Endpoints;
 
 @Slf4j
 public class ProcessQueue {
@@ -166,14 +166,14 @@ public class ProcessQueue {
             case INTERNAL:
                 log.debug(
                         "Pop message from endpoints={} with status={}, mq={}, message count={}",
-                        popResult.getTarget().getEndpoints().getFacade(), popStatus, messageQueue.simpleName(),
+                        popResult.getEndpoints(), popStatus, messageQueue.simpleName(),
                         msgFoundList.size());
                 prepareNextPop();
                 break;
             default:
                 log.warn(
                         "Pop message from endpoints={} with unknown status={}, mq={}, message count={}",
-                        popResult.getTarget().getEndpoints().getFacade(), popStatus, messageQueue.simpleName(),
+                        popResult.getEndpoints(), popStatus, messageQueue.simpleName(),
                         msgFoundList.size());
                 prepareNextPop();
         }
@@ -242,14 +242,14 @@ public class ProcessQueue {
     public void popMessage() {
         try {
             final ClientInstance clientInstance = consumerImpl.getClientInstance();
-            final RpcTarget target = messageQueue.getPartition().getBroker().getTarget();
+            final Endpoints endpoints = messageQueue.getPartition().getBroker().getEndpoints();
             final ReceiveMessageRequest request = wrapPopMessageRequest();
 
             lastPopTimestamp = System.currentTimeMillis();
             final Metadata metadata = consumerImpl.sign();
 
             final ListenableFuture<ReceiveMessageResponse> future0 =
-                    clientInstance.receiveMessage(target, metadata, request, LONG_POLLING_TIMEOUT_MILLIS,
+                    clientInstance.receiveMessage(endpoints, metadata, request, LONG_POLLING_TIMEOUT_MILLIS,
                                                   TimeUnit.MILLISECONDS);
 
             final ListenableFuture<PopResult> future = Futures.transform(
@@ -257,7 +257,7 @@ public class ProcessQueue {
                     new Function<ReceiveMessageResponse, PopResult>() {
                         @Override
                         public PopResult apply(ReceiveMessageResponse response) {
-                            return ClientBaseImpl.processReceiveMessageResponse(target, response);
+                            return ClientBaseImpl.processReceiveMessageResponse(endpoints, response);
                         }
                     });
 

@@ -72,7 +72,7 @@ public class RpcClientImplTest {
         List<Address> addresses = new ArrayList<Address>();
         addresses.add(new Address("11.158.159.57", 8081));
         final Endpoints endpoints = new Endpoints(AddressScheme.IPv4, addresses);
-        final RpcClientImpl rpcClient = new RpcClientImpl(new RpcTarget(endpoints, true));
+        final RpcClientImpl rpcClient = new RpcClientImpl(endpoints);
 
         final Resource topicResource = Resource.newBuilder().setArn("MQ_INST_1973281269661160_BXmPlOA6").setName(
                 "yc001").build();

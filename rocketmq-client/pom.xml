@@ -14,6 +14,11 @@
     <properties>
         <maven.compiler.release>6</maven.compiler.release>
         <project.root>${basedir}/..</project.root>
+        <!-- rename dynamic link library for shade -->
+        <classesShadedDir>${project.build.directory}/classes-shaded</classesShadedDir>
+        <classesShadedNativeDir>${classesShadedDir}/META-INF/native</classesShadedNativeDir>
+        <shadingNettyNativePrefix>org_apache_rocketmq_shaded</shadingNettyNativePrefix>
+        <shadedJarName>${project.build.finalName}.${project.packaging}</shadedJarName>
     </properties>
 
     <dependencies>
@@ -182,6 +187,46 @@
                                     <shadedPattern>org.apache.rocketmq.shaded.io.netty</shadedPattern>
                                 </relocation>
                             </relocations>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>${maven-antrun-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <unzip dest="${classesShadedDir}">
+                                    <fileset dir="${project.build.directory}">
+                                        <include name="${shadedJarName}"/>
+                                    </fileset>
+                                </unzip>
+                                <move file="${classesShadedNativeDir}/io_grpc_netty_shaded_netty_tcnative_windows_x86_64.dll"
+                                      tofile="${classesShadedNativeDir}/${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_windows_x86_64.dll"/>
+
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_tcnative_linux_aarch64.so"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_linux_aarch64.so"/>
+
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_tcnative_linux_x86_64.so"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_linux_x86_64.so"/>
+
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_tcnative_osx_x86_64.jnilib"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_osx_x86_64.jnilib"/>
+
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_transport_native_epoll_x86_64.so"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_transport_native_epoll_x86_64.so"/>
+
+                                <jar destfile="${project.build.directory}/${shadedJarName}"
+                                     basedir="${classesShadedDir}"/>
+                                <!-- <delete dir="${classesShadedDir}"/> -->
+                            </target>
                         </configuration>
                     </execution>
                 </executions>

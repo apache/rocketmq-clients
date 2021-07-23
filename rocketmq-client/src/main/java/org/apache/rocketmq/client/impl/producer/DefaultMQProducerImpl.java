@@ -2,8 +2,11 @@ package org.apache.rocketmq.client.impl.producer;
 
 import static com.google.protobuf.util.Timestamps.fromMillis;
 
+import apache.rocketmq.v1.ClientResourceBundle;
 import apache.rocketmq.v1.EndTransactionRequest;
 import apache.rocketmq.v1.EndTransactionResponse;
+import apache.rocketmq.v1.HealthCheckRequest;
+import apache.rocketmq.v1.HealthCheckResponse;
 import apache.rocketmq.v1.HeartbeatEntry;
 import apache.rocketmq.v1.ProducerGroup;
 import apache.rocketmq.v1.Resource;
@@ -12,11 +15,13 @@ import apache.rocketmq.v1.SendMessageResponse;
 import apache.rocketmq.v1.SystemAttribute;
 import com.google.common.base.Function;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.util.Timestamps;
 import com.google.rpc.Code;
@@ -24,6 +29,7 @@ import com.google.rpc.Status;
 import io.grpc.Metadata;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -34,6 +40,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ServiceState;
@@ -62,7 +70,6 @@ import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.client.producer.TransactionResolution;
 import org.apache.rocketmq.client.producer.TransactionSendResult;
 import org.apache.rocketmq.client.remoting.Endpoints;
-import org.apache.rocketmq.client.remoting.RpcTarget;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
@@ -92,6 +99,10 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
     private final ConcurrentMap<String/* topic */, TopicPublishInfo> topicPublishInfoCache;
 
+    @GuardedBy("isolatedRouteEndpointsSetLock")
+    private final Set<Endpoints> isolatedRouteEndpointsSet;
+    private final ReadWriteLock isolatedRouteEndpointsSetLock;
+
     public DefaultMQProducerImpl(String group) {
         super(group);
         this.defaultSendCallbackExecutor = new ThreadPoolExecutor(
@@ -103,6 +114,9 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             new ThreadFactoryImpl("SendCallbackThread"));
 
         this.topicPublishInfoCache = new ConcurrentHashMap<String, TopicPublishInfo>();
+
+        this.isolatedRouteEndpointsSet = new HashSet<Endpoints>();
+        this.isolatedRouteEndpointsSetLock = new ReentrantReadWriteLock();
     }
 
     /**
@@ -135,6 +149,62 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                 defaultSendCallbackExecutor.shutdown();
                 log.info("Shutdown the rocketmq producer successfully.");
             }
+        }
+    }
+
+    @Override
+    public void doHealthCheck() {
+        final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
+        final Set<Endpoints> diff = new HashSet<Endpoints>(Sets.difference(routeEndpointsSet,
+                                                                           isolatedRouteEndpointsSet));
+        // Remove all isolated endpoints where is not in the topic route.
+        isolatedRouteEndpointsSetLock.writeLock().lock();
+        try {
+            isolatedRouteEndpointsSet.removeAll(diff);
+        } finally {
+            isolatedRouteEndpointsSetLock.writeLock().unlock();
+        }
+
+        HealthCheckRequest request = HealthCheckRequest.newBuilder().build();
+        isolatedRouteEndpointsSetLock.readLock().lock();
+        try {
+            for (final Endpoints endpoints : isolatedRouteEndpointsSet) {
+                Metadata metadata;
+                try {
+                    metadata = sign();
+                } catch (Throwable t) {
+                    continue;
+                }
+                final ListenableFuture<HealthCheckResponse> future =
+                        clientInstance.healthCheck(endpoints, metadata, request, ioTimeoutMillis,
+                                                   TimeUnit.MILLISECONDS);
+                Futures.addCallback(future, new FutureCallback<HealthCheckResponse>() {
+                    @Override
+                    public void onSuccess(HealthCheckResponse response) {
+                        final Status status = response.getCommon().getStatus();
+                        final Code code = Code.forNumber(status.getCode());
+                        if (Code.OK == code) {
+                            isolatedRouteEndpointsSetLock.writeLock().lock();
+                            try {
+                                isolatedRouteEndpointsSet.remove(endpoints);
+                            } finally {
+                                isolatedRouteEndpointsSetLock.writeLock().unlock();
+                            }
+                            log.info("Restore isolated endpoints, endpoints={}", endpoints);
+                            return;
+                        }
+                        log.warn("Failed to restore isolated endpoints, code={}, status message={}, endpoints={}",
+                                 code, status.getMessage(), endpoints);
+                    }
+
+                    @Override
+                    public void onFailure(Throwable t) {
+                        log.error("Failed to do health check, endpoints={}", endpoints, t);
+                    }
+                });
+            }
+        } finally {
+            isolatedRouteEndpointsSetLock.readLock().unlock();
         }
     }
 
@@ -382,7 +452,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         throw new UnsupportedOperationException();
     }
 
-    private void endTransaction(RpcTarget target, final MessageExt messageExt, TransactionResolution resolution)
+    private void endTransaction(Endpoints endpoints, final MessageExt messageExt, TransactionResolution resolution)
             throws MQClientException {
         final String messageId = messageExt.getMsgId();
         final String traceContext = messageExt.getTraceContext();
@@ -404,7 +474,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         interceptMessage(MessageHookPoint.PRE_END_MESSAGE, messageExt, context);
 
         final ListenableFuture<EndTransactionResponse> future =
-                clientInstance.endTransaction(target, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+                clientInstance.endTransaction(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
         Futures.addCallback(future, new FutureCallback<EndTransactionResponse>() {
             @Override
             public void onSuccess(EndTransactionResponse response) {
@@ -517,7 +587,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         // Calculate the current partition.
         final Partition partition = candidates.get((attemptTimes - 1) % candidates.size());
 
-        final RpcTarget target = partition.getBroker().getTarget();
+        final Endpoints endpoints = partition.getBroker().getEndpoints();
         Metadata metadata;
         try {
             metadata = sign();
@@ -536,7 +606,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         interceptMessage(MessageHookPoint.PRE_SEND_MESSAGE, message.getMessageExt(), contextBuilder.build());
 
         final ListenableFuture<SendMessageResponse> responseFuture =
-                clientInstance.sendMessage(target, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+                clientInstance.sendMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
 
         // Return the future of send result for current attempt.
         final ListenableFuture<SendResult> attemptFuture = Futures.transformAsync(
@@ -544,7 +614,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                     @Override
                     public ListenableFuture<SendResult> apply(SendMessageResponse response) throws Exception {
                         final SettableFuture<SendResult> future0 = SettableFuture.create();
-                        final SendResult sendResult = processSendResponse(target, response);
+                        final SendResult sendResult = processSendResponse(endpoints, response);
                         future0.set(sendResult);
                         return future0;
                     }
@@ -628,5 +698,17 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
     @Override
     public void logStats() {
+    }
+
+    @Override
+    public ClientResourceBundle wrapClientResourceBundle() {
+        Resource groupResource = Resource.newBuilder().setArn(arn).setName(group).build();
+        final ClientResourceBundle.Builder builder =
+                ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(groupResource);
+        for (String topic : topicPublishInfoCache.keySet()) {
+            Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
+            builder.addTopics(topicResource);
+        }
+        return builder.build();
     }
 }

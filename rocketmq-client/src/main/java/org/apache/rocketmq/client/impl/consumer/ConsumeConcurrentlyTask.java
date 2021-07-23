@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
-import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
+import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
@@ -37,14 +37,14 @@ public class ConsumeConcurrentlyTask implements Runnable {
         }
 
         ConsumeConcurrentlyContext consumeContext = new ConsumeConcurrentlyContext(messageQueue);
-        ConsumeConcurrentlyStatus status;
+        ConsumeStatus status;
 
         final Stopwatch started = Stopwatch.createStarted();
         try {
             status = consumeConcurrentlyService.getMessageListenerConcurrently()
                                                .consumeMessage(cachedMessages, consumeContext);
         } catch (Throwable t) {
-            status = ConsumeConcurrentlyStatus.RECONSUME_LATER;
+            status = ConsumeStatus.RECONSUME_LATER;
             log.error("Business callback raised an exception while consuming message.", t);
         }
 
@@ -60,7 +60,7 @@ public class ConsumeConcurrentlyTask implements Runnable {
                                              .timeUnit(TimeUnit.MILLISECONDS)
                                              .messageIndex(i)
                                              .messageBatchSize(cachedMessages.size())
-                                             .status(ConsumeConcurrentlyStatus.CONSUME_SUCCESS == status ?
+                                             .status(ConsumeStatus.CONSUME_SUCCESS == status ?
                                                      MessageHookPoint.PointStatus.OK :
                                                      MessageHookPoint.PointStatus.ERROR)
                                              .build();
