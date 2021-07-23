@@ -4,7 +4,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.rocketmq.client.OffsetQuery;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;

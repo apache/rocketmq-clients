@@ -3,7 +3,6 @@ package org.apache.rocketmq.client.misc;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.rocketmq.client.constant.SystemTopic;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.message.Message;
@@ -35,9 +34,6 @@ public class Validators {
         if (topic.length() > TOPIC_MAX_LENGTH) {
             throw new ClientException(ErrorCode.ILLEGAL_FORMAT,
                                         "Topic's length exceeds the threshold, masSize=" + TOPIC_MAX_LENGTH + " bytes");
-        }
-        if (topic.equals(SystemTopic.DEFAULT_TOPIC)) {
-            throw new ClientException(ErrorCode.ILLEGAL_FORMAT, "Topic is conflict with the system default topic.");
         }
     }
 

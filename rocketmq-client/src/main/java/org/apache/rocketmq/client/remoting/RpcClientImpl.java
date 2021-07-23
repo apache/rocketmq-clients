@@ -52,7 +52,7 @@ public class RpcClientImpl implements RpcClient {
     private final ManagedChannel channel;
     private final MessagingServiceGrpc.MessagingServiceFutureStub stub;
 
-    private volatile long lastCallNanoTime;
+    private long lastCallNanoTime;
 
     public RpcClientImpl(Endpoints endpoints) throws SSLException {
         final SslContextBuilder builder = GrpcSslContexts.forClient();
@@ -62,6 +62,7 @@ public class RpcClientImpl implements RpcClient {
 
         final NettyChannelBuilder channelBuilder =
                 NettyChannelBuilder.forTarget(endpoints.getFacade())
+                                   .intercept(new ClientTraceInterceptor())
                                    .sslContext(sslContext);
         // Disable grpc's auto-retry here.
         channelBuilder.disableRetry();

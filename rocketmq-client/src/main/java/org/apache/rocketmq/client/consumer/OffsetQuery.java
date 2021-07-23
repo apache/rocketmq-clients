@@ -1,4 +1,4 @@
-package org.apache.rocketmq.client;
+package org.apache.rocketmq.client.consumer;
 
 import lombok.Getter;
 import lombok.ToString;
