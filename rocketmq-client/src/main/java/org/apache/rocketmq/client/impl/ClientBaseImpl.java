@@ -189,7 +189,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                                 try {
                                     renewNameServerList();
                                 } catch (Throwable t) {
-                                    log.error("Unexpected errors while updating nameserver from top addressing", t);
+                                    log.error("Exception raised while updating nameserver from top addressing", t);
                                 }
                             }
                         },
@@ -204,7 +204,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                             try {
                                 updateRouteCache();
                             } catch (Throwable t) {
-                                log.error("Unexpected error while updating topic route cache", t);
+                                log.error("Exception raised while updating topic route cache", t);
                             }
                         }
                     },
@@ -384,6 +384,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                     final Set<SettableFuture<TopicRouteData>> newFutureSet = inflightRouteFutureTable.remove(topic);
                     if (null == newFutureSet) {
                         // Should never reach here.
+                        log.error("[Bug] Inflight route futures was empty, topic={}", topic);
                         return;
                     }
                     log.debug("Fetch topic route successfully, topic={}, in-flight route future size={}", topic,
@@ -403,6 +404,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                     final Set<SettableFuture<TopicRouteData>> newFutureSet = inflightRouteFutureTable.remove(topic);
                     if (null == newFutureSet) {
                         // Should never reach here.
+                        log.error("[Bug] Inflight route futures was empty, topic={}", topic);
                         return;
                     }
                     log.error("Failed to fetch topic route, topic={}, in-flight route future size={}", topic,
@@ -466,7 +468,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                     }
                     final List<apache.rocketmq.v1.Partition> partitionsList = response.getPartitionsList();
                     if (partitionsList.isEmpty()) {
-                        throw new ClientException(ErrorCode.TOPIC_NOT_FOUND, "Partitions is empty unexpectedly");
+                        throw new ClientException(ErrorCode.TOPIC_NOT_FOUND, "Partitions is empty unexpectedly.");
                     }
                     final TopicRouteData topicRouteData = new TopicRouteData(partitionsList);
                     future.set(topicRouteData);

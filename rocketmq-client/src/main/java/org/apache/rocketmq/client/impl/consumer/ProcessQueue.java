@@ -205,7 +205,7 @@ public class ProcessQueue {
             }, POP_LATER_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
             // Should never reach here.
-            log.error("Failed to schedule pop message request", t);
+            log.error("[Bug] Failed to schedule pop message request", t);
             popMessageLater();
         }
     }

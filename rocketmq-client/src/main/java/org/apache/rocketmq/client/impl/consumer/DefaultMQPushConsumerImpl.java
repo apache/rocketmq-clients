@@ -170,7 +170,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                             try {
                                 scanAssignments();
                             } catch (Throwable t) {
-                                log.error("Unexpected error while scanning the load assignments.", t);
+                                log.error("Exception raised while scanning the load assignments.", t);
                             }
                         }
                     },
@@ -236,7 +236,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                         }
 
                         if (!remoteTopicAssignment.equals(topicAssignment)) {
-                            log.info("Assignment of {} has changed, {} -> {}", topic, topicAssignment,
+                            log.info("Assignment of topic={} has changed, {} -> {}", topic, topicAssignment,
                                      remoteTopicAssignment);
                             syncProcessQueueByTopic(topic, remoteTopicAssignment, filterExpression);
                             cachedTopicAssignmentTable.put(topic, remoteTopicAssignment);
@@ -245,12 +245,12 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
                     @Override
                     public void onFailure(Throwable t) {
-                        log.error("Unexpected error occurs while scanning the assignments for topic={}", topic, t);
+                        log.error("Exception raised while scanning the assignments, topic={}", topic, t);
                     }
                 });
             }
         } catch (Throwable t) {
-            log.error("Exception occurs while scanning the assignments for all topics.", t);
+            log.error("Exception raised while scanning the assignments for all topics.", t);
         }
     }
 
@@ -288,7 +288,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
             }
 
             if (null == processQueue) {
-                log.warn("BUG!!! processQueue is null unexpectedly, mq={}", messageQueue.simpleName());
+                log.error("[Bug] Process queue is null, mq={}", messageQueue.simpleName());
                 continue;
             }
 
@@ -352,7 +352,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         this.messageListenerOrderly = messageListenerOrderly;
     }
 
-    private ListenableFuture<Endpoints> selectTargetForQuery(String topic) {
+    private ListenableFuture<Endpoints> pickRouteEndpoints(String topic) {
         final ListenableFuture<TopicRouteData> future = getRouteFor(topic);
         return Futures.transformAsync(future, new AsyncFunction<TopicRouteData, Endpoints>() {
             @Override
@@ -380,7 +380,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     private ListenableFuture<TopicAssignment> queryAssignment(final String topic) {
 
         final QueryAssignmentRequest request = wrapQueryAssignmentRequest(topic);
-        final ListenableFuture<Endpoints> future = selectTargetForQuery(topic);
+        final ListenableFuture<Endpoints> future = pickRouteEndpoints(topic);
         final ListenableFuture<QueryAssignmentResponse> responseFuture =
                 Futures.transformAsync(future, new AsyncFunction<Endpoints, QueryAssignmentResponse>() {
                     @Override
@@ -492,17 +492,17 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                 final Status status = response.getCommon().getStatus();
                 final Code code = Code.forNumber(status.getCode());
                 if (Code.OK != code) {
-                    log.error("Failed to nack message, messageId={}, endpoints={}, code={}, message={}", messageId,
-                              endpoints, code, status.getMessage());
+                    log.error("Failed to nack message, messageId={}, endpoints={}, code={}, status message={}",
+                              messageId, endpoints, code, status.getMessage());
                     return;
                 }
-                log.trace("Nack message successfully, messageId={}, endpoints={}, code={}, message={}", messageId,
-                          endpoints, code, status.getMessage());
+                log.trace("Nack message successfully, messageId={}, endpoints={}, code={}, status message={}",
+                          messageId, endpoints, code, status.getMessage());
             }
 
             @Override
             public void onFailure(Throwable t) {
-                log.error("Unexpected error while nack message, messageId={}, endpoints={}", messageId, endpoints, t);
+                log.error("Exception raised while nack message, messageId={}, endpoints={}", messageId, endpoints, t);
             }
         });
     }
@@ -588,7 +588,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
             @Override
             public void onFailure(Throwable t) {
-                log.error("Unexpected error while ack message, messageId={}, endpoints={}", messageId, endpoints, t);
+                log.error("Exception raised while ack message, messageId={}, endpoints={}", messageId, endpoints, t);
             }
         });
     }
@@ -687,7 +687,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                     log.error("Failed to wrap messageImpl, topic={}, messageId={}", message.getTopic(),
                               message.getSystemAttribute().getMessageId(), e);
                 } catch (Throwable t) {
-                    log.error("Unexpected error while wrapping messageImpl, topic={}, messageId={}",
+                    log.error("Exception raised while wrapping messageImpl, topic={}, messageId={}",
                               message.getTopic(), message.getSystemAttribute().getMessageId(), t);
                 }
             }

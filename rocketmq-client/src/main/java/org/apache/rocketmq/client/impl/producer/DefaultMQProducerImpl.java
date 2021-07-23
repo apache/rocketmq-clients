@@ -449,10 +449,6 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         });
     }
 
-    public void sendOneway(Message message, MessageQueueSelector selector, Object arg) {
-        send0(message, selector, arg, 1);
-    }
-
     public TransactionImpl prepare(Message message) throws ServerException, InterruptedException,
                                                            ClientException, TimeoutException {
         final SendResult sendResult = send(message);

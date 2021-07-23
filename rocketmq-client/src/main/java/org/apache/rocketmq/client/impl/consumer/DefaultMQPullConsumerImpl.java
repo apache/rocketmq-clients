@@ -355,7 +355,7 @@ public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
                     log.error("Failed to wrap messageImpl, topic={}, messageId={}", message.getTopic(),
                               message.getSystemAttribute().getMessageId(), e);
                 } catch (Throwable t) {
-                    log.error("Unexpected error while wrapping messageImpl, topic={}, messageId={}",
+                    log.error("Exception raised while wrapping messageImpl, topic={}, messageId={}",
                               message.getTopic(), message.getSystemAttribute().getMessageId(), t);
                 }
             }
