@@ -1,14 +1,12 @@
 package org.apache.rocketmq.client.impl.consumer;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
-import org.apache.rocketmq.client.exception.MQClientException;
+import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.message.MessageExt;
-import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.route.Partition;
 
 public class ConsumeOrderlyService implements ConsumeService {
@@ -23,9 +21,9 @@ public class ConsumeOrderlyService implements ConsumeService {
     }
 
     @Override
-    public void start() throws MQClientException {
+    public void start() throws ClientException {
         if (!state.compareAndSet(ServiceState.STARTED, ServiceState.STARTED)) {
-            throw new MQClientException("ConsumeOrderlyService has attempted to be started before");
+            throw new ClientException("ConsumeOrderlyService has attempted to be started before");
         }
     }
 
@@ -38,7 +36,7 @@ public class ConsumeOrderlyService implements ConsumeService {
     }
 
     @Override
-    public ListenableFuture<ConsumeStatus> verifyMessageConsumption(MessageExt messageExt, Partition partition) {
+    public ListenableFuture<ConsumeStatus> verifyConsumption(MessageExt messageExt, Partition partition) {
         return null;
     }
 }

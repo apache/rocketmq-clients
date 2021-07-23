@@ -11,6 +11,8 @@ public class SendResult {
     private final SendStatus sendStatus = SendStatus.SEND_OK;
     private final String msgId;
     private final Endpoints endpoints;
+
+    @ToString.Exclude
     private final String transactionId;
 
     public SendResult(Endpoints endpoints, String msgId) {

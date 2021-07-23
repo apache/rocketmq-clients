@@ -9,6 +9,7 @@ import apache.rocketmq.v1.HealthCheckRequest;
 import apache.rocketmq.v1.HealthCheckResponse;
 import apache.rocketmq.v1.HeartbeatEntry;
 import apache.rocketmq.v1.ProducerGroup;
+import apache.rocketmq.v1.ResolveOrphanedTransactionRequest;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
@@ -45,13 +46,11 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ServiceState;
-import org.apache.rocketmq.client.constant.SystemProperty;
+import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
-import org.apache.rocketmq.client.exception.MQBrokerException;
-import org.apache.rocketmq.client.exception.MQClientException;
-import org.apache.rocketmq.client.exception.MQServerException;
-import org.apache.rocketmq.client.exception.RemotingException;
+import org.apache.rocketmq.client.exception.ServerException;
 import org.apache.rocketmq.client.impl.ClientBaseImpl;
+import org.apache.rocketmq.client.impl.Signature;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageConst;
@@ -63,12 +62,12 @@ import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.message.protocol.Encoding;
 import org.apache.rocketmq.client.misc.Validators;
-import org.apache.rocketmq.client.producer.LocalTransactionExecuter;
 import org.apache.rocketmq.client.producer.MessageQueueSelector;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
+import org.apache.rocketmq.client.producer.TransactionChecker;
+import org.apache.rocketmq.client.producer.TransactionImpl;
 import org.apache.rocketmq.client.producer.TransactionResolution;
-import org.apache.rocketmq.client.producer.TransactionSendResult;
 import org.apache.rocketmq.client.remoting.Endpoints;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
@@ -78,13 +77,8 @@ import org.apache.rocketmq.utility.UtilAll;
 @Slf4j
 public class DefaultMQProducerImpl extends ClientBaseImpl {
 
-    public static final int MESSAGE_COMPRESSION_THRESHOLD = 1024 * 4;
-
-    public static final int DEFAULT_MESSAGE_COMPRESSION_LEVEL = 5;
-
-    public static final int MESSAGE_COMPRESSION_LEVEL =
-            Integer.parseInt(System.getProperty(SystemProperty.MESSAGE_COMPRESSION_LEVEL,
-                                                Integer.toString(DEFAULT_MESSAGE_COMPRESSION_LEVEL)));
+    private static final int MESSAGE_COMPRESSION_THRESHOLD = 1024 * 4;
+    private static final int MESSAGE_COMPRESSION_LEVEL = 5;
 
     @Setter
     private int maxAttemptTimes = 3;
@@ -103,6 +97,10 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     private final Set<Endpoints> isolatedRouteEndpointsSet;
     private final ReadWriteLock isolatedRouteEndpointsSetLock;
 
+    @Setter
+    private TransactionChecker transactionChecker;
+    private final ThreadPoolExecutor transactionCheckerExecutor;
+
     public DefaultMQProducerImpl(String group) {
         super(group);
         this.defaultSendCallbackExecutor = new ThreadPoolExecutor(
@@ -117,15 +115,29 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
         this.isolatedRouteEndpointsSet = new HashSet<Endpoints>();
         this.isolatedRouteEndpointsSetLock = new ReentrantReadWriteLock();
+
+        this.transactionCheckerExecutor = new ThreadPoolExecutor(
+                1,
+                1,
+                60,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<Runnable>(128),
+                new ThreadFactoryImpl("TransactionChecker"));
+    }
+
+    void ensureRunning() throws ClientException {
+        if (ServiceState.STARTED != getState()) {
+            throw new ClientException(ErrorCode.CLIENT_NOT_STARTED, "Please invoke #start() first!");
+        }
     }
 
     /**
      * Start the rocketmq producer.
      *
-     * @throws MQClientException the mq client exception.
+     * @throws ClientException the mq client exception.
      */
     @Override
-    public void start() throws MQClientException {
+    public void start() throws ClientException {
         synchronized (this) {
             log.info("Begin to start the rocketmq producer.");
             super.start();
@@ -208,10 +220,10 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         }
     }
 
-    public void setDefaultSendCallbackExecutor(final ThreadPoolExecutor callbackExecutor) throws MQClientException {
+    public void setDefaultSendCallbackExecutor(final ThreadPoolExecutor callbackExecutor) throws ClientException {
         synchronized (this) {
             if (null == callbackExecutor) {
-                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
             }
             this.customizedSendCallbackExecutor = callbackExecutor;
         }
@@ -296,36 +308,31 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     }
 
     public SendResult send(Message message)
-            throws MQClientException, InterruptedException, MQServerException, TimeoutException {
+            throws ClientException, InterruptedException, ServerException, TimeoutException {
         return send(message, sendMessageTimeoutMillis);
     }
 
     public SendResult send(Message message, long timeoutMillis)
-            throws MQClientException, InterruptedException, TimeoutException, MQServerException {
+            throws ClientException, InterruptedException, TimeoutException, ServerException {
+        ensureRunning();
         final ListenableFuture<SendResult> future = send0(message, maxAttemptTimes);
         // Limit the future timeout.
         Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
         try {
             return future.get(timeoutMillis, TimeUnit.MILLISECONDS);
         } catch (ExecutionException e) {
-            final Throwable cause = e.getCause();
-            if (cause instanceof MQClientException) {
-                throw (MQClientException) cause;
-            }
-            if (cause instanceof MQServerException) {
-                throw (MQServerException) cause;
-            }
-            throw new MQClientException(cause);
+            throw onExecutionException(e);
         }
     }
 
     public void send(Message message, SendCallback sendCallback)
-            throws MQClientException, RemotingException, InterruptedException {
+            throws ClientException, InterruptedException {
         send(message, sendCallback, sendMessageTimeoutMillis);
     }
 
     public void send(Message message, final SendCallback sendCallback, long timeoutMillis)
-            throws MQClientException, RemotingException, InterruptedException {
+            throws ClientException, InterruptedException {
+        ensureRunning();
         final ListenableFuture<SendResult> future = send0(message, maxAttemptTimes);
         // Limit the future timeout.
         Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
@@ -369,37 +376,31 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         });
     }
 
-    public void sendOneway(Message message) {
+    public void sendOneway(Message message) throws ClientException {
+        ensureRunning();
         send0(message, 1);
     }
 
     public SendResult send(Message message, MessageQueueSelector selector, Object arg)
-            throws MQClientException, MQBrokerException, InterruptedException, MQServerException,
-                   TimeoutException {
+            throws ClientException, InterruptedException, ServerException, TimeoutException {
         return send(message, selector, arg, sendMessageTimeoutMillis);
     }
 
     public SendResult send(Message message, MessageQueueSelector selector, Object arg, long timeoutMillis)
-            throws MQClientException, MQServerException, InterruptedException, TimeoutException {
+            throws ClientException, ServerException, InterruptedException, TimeoutException {
+        ensureRunning();
         final ListenableFuture<SendResult> future = send0(message, selector, arg, maxAttemptTimes);
         Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
         try {
             return future.get(timeoutMillis, TimeUnit.MILLISECONDS);
         } catch (ExecutionException e) {
-            final Throwable cause = e.getCause();
-            if (cause instanceof MQClientException) {
-                throw (MQClientException) cause;
-            }
-            if (cause instanceof MQServerException) {
-                throw (MQServerException) cause;
-            }
-            throw new MQClientException(cause);
+            throw onExecutionException(e);
         }
     }
 
     public void send(
             Message message, MessageQueueSelector selector, Object arg, SendCallback sendCallback)
-            throws MQClientException, RemotingException, InterruptedException {
+            throws ClientException, InterruptedException {
         send(message, selector, arg, sendCallback, sendMessageTimeoutMillis);
     }
 
@@ -409,7 +410,8 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             Object arg,
             final SendCallback sendCallback,
             long timeoutMillis)
-            throws MQClientException, RemotingException, InterruptedException {
+            throws ClientException, InterruptedException {
+        ensureRunning();
         final ListenableFuture<SendResult> future = send0(message, selector, arg, maxAttemptTimes);
         Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
         Futures.addCallback(future, new FutureCallback<SendResult>() {
@@ -421,7 +423,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                         try {
                             sendCallback.onSuccess(sendResult);
                         } catch (Throwable t) {
-                            log.error("Exception occurs in SendCallback#onSuccess", t);
+                            log.error("Exception raised in SendCallback#onSuccess", t);
                         }
                     }
                 });
@@ -435,7 +437,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                         try {
                             sendCallback.onException(t);
                         } catch (Throwable t) {
-                            log.error("Exception occurs in SendCallback#onFailure", t);
+                            log.error("Exception raised in SendCallback#onFailure", t);
                         }
                     }
                 });
@@ -447,71 +449,101 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         send0(message, selector, arg, 1);
     }
 
-    public TransactionSendResult sendTransaction(Message message, LocalTransactionExecuter executor, Object object)
-            throws MQClientException {
-        throw new UnsupportedOperationException();
+    public TransactionImpl prepare(Message message) throws ServerException, InterruptedException,
+                                                           ClientException, TimeoutException {
+        final SendResult sendResult = send(message);
+        final String msgId = sendResult.getMsgId();
+        final String transactionId = sendResult.getTransactionId();
+        final Endpoints endpoints = sendResult.getEndpoints();
+        return new TransactionImpl(msgId, transactionId, endpoints, this);
     }
 
-    private void endTransaction(Endpoints endpoints, final MessageExt messageExt, TransactionResolution resolution)
-            throws MQClientException {
-        final String messageId = messageExt.getMsgId();
-        final String traceContext = messageExt.getTraceContext();
-        final String transactionId = messageExt.getTransactionId();
-        EndTransactionRequest request =
-                EndTransactionRequest.newBuilder()
-                                     .setMessageId(messageId)
-                                     .setTransactionId(transactionId)
-                                     .setTraceContext(traceContext)
-                                     .setResolution(resolution == TransactionResolution.COMMIT ?
-                                                    EndTransactionRequest.TransactionResolution.COMMIT :
-                                                    EndTransactionRequest.TransactionResolution.ROLLBACK)
-                                     .build();
-        final Metadata metadata = sign();
+    public void commit(Endpoints endpoints, String messageId, String transactionId) throws ClientException,
+                                                                                           ServerException,
+                                                                                           InterruptedException,
+                                                                                           TimeoutException {
+        endTransaction(endpoints, messageId, transactionId, TransactionResolution.COMMIT);
+    }
 
-        // Intercept message while PRE_END_MESSAGE.
-        final Stopwatch stopwatch = Stopwatch.createStarted();
-        final MessageInterceptorContext context = MessageInterceptorContext.builder().build();
-        interceptMessage(MessageHookPoint.PRE_END_MESSAGE, messageExt, context);
+    public void rollback(Endpoints endpoints, String messageId, String transactionId) throws ClientException,
+                                                                                             ServerException,
+                                                                                             InterruptedException,
+                                                                                             TimeoutException {
+        endTransaction(endpoints, messageId, transactionId, TransactionResolution.ROLLBACK);
+    }
 
+    private void endTransaction(Endpoints endpoints, String messageId, String transactionId,
+                                TransactionResolution resolution) throws ClientException, ServerException,
+                                                                         InterruptedException, TimeoutException {
+        final EndTransactionRequest.Builder builder =
+                EndTransactionRequest.newBuilder().setMessageId(messageId).setTransactionId(transactionId);
+        switch (resolution) {
+            case COMMIT:
+                builder.setResolution(EndTransactionRequest.TransactionResolution.COMMIT);
+                break;
+            case ROLLBACK:
+            default:
+                builder.setResolution(EndTransactionRequest.TransactionResolution.ROLLBACK);
+        }
+        final EndTransactionRequest request = builder.build();
+        Metadata metadata;
+        try {
+            metadata = Signature.sign(this);
+        } catch (Throwable t) {
+            throw new ClientException(ErrorCode.SIGNATURE_FAILURE);
+        }
         final ListenableFuture<EndTransactionResponse> future =
                 clientInstance.endTransaction(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
-        Futures.addCallback(future, new FutureCallback<EndTransactionResponse>() {
-            @Override
-            public void onSuccess(EndTransactionResponse response) {
-                final Status status = response.getCommon().getStatus();
-                final Code code = Code.forNumber(status.getCode());
+        try {
+            final EndTransactionResponse response = future.get(ioTimeoutMillis, TimeUnit.MILLISECONDS);
+            final Status status = response.getCommon().getStatus();
+            final Code code = Code.forNumber(status.getCode());
 
-                // Intercept message while POST_END_MESSAGE.
-                final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
-                final MessageInterceptorContext context =
-                        MessageInterceptorContext.builder().duration(duration).timeUnit(TimeUnit.MILLISECONDS)
-                                                 .status(Code.OK == code ? MessageHookPoint.PointStatus.OK :
-                                                         MessageHookPoint.PointStatus.ERROR).build();
-                interceptMessage(MessageHookPoint.POST_END_MESSAGE, messageExt, context);
-
-                if (Code.OK != code) {
-                    log.error("Failed to end transaction, messageId={}, transactionId={}, code={}, message={}",
-                              messageId, transactionId, code, status.getMessage());
-                    return;
-                }
-                log.trace("End transaction successfully, messageId={}, transactionId={}, code={}, message={}",
+            if (Code.OK != code) {
+                log.error("Failed to end transaction, messageId={}, transactionId={}, code={}, status message={}",
                           messageId, transactionId, code, status.getMessage());
+                throw new ServerException(status.getMessage());
             }
 
-            @Override
-            public void onFailure(Throwable t) {
-                // Intercept message while POST_END_MESSAGE.
-                final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
-                final MessageInterceptorContext context =
-                        MessageInterceptorContext.builder()
-                                                 .duration(duration)
-                                                 .timeUnit(TimeUnit.MILLISECONDS)
-                                                 .throwable(t)
-                                                 .status(MessageHookPoint.PointStatus.ERROR)
-                                                 .build();
-                interceptMessage(MessageHookPoint.POST_END_MESSAGE, messageExt, context);
-            }
-        });
+        } catch (ExecutionException e) {
+            throw onExecutionException(e);
+        }
+    }
+
+    @Override
+    public void resolveOrphanedTransaction(final Endpoints endpoints, ResolveOrphanedTransactionRequest request) {
+        final apache.rocketmq.v1.Message message = request.getOrphanedTransactionalMessage();
+        final String messageId = message.getSystemAttribute().getMessageId();
+        if (null == transactionChecker) {
+            log.error("No transaction checker registered, ignore it, messageId={}", messageId);
+            return;
+        }
+        MessageImpl messageImpl;
+        try {
+            messageImpl = wrapMessageImpl(message);
+        } catch (Throwable t) {
+            log.error("Failed to decode message, ignore it, messageId={}", messageId);
+            return;
+        }
+        final MessageExt messageExt = new MessageExt(messageImpl);
+        final String transactionId = messageExt.getTransactionId();
+        try {
+            transactionCheckerExecutor.submit(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        final TransactionResolution resolution = transactionChecker.check(messageExt);
+                        endTransaction(endpoints, messageId, transactionId, resolution);
+                    } catch (Throwable t) {
+                        log.error("Exception raised while check and end transaction, messageId={}, transactionId={}, "
+                                  + "endpoints={}", messageId, transactionId, endpoints, t);
+                    }
+                }
+            });
+        } catch (Throwable t) {
+            log.error("Failed to submit task for check and end transaction, messageId={}, transactionId={}",
+                      messageId, transactionId, t);
+        }
     }
 
     @Override
@@ -542,7 +574,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         final ListenableFuture<TopicPublishInfo> future = getPublishInfo(message.getTopic());
         return Futures.transformAsync(future, new AsyncFunction<TopicPublishInfo, SendResult>() {
             @Override
-            public ListenableFuture<SendResult> apply(TopicPublishInfo topicPublishInfo) throws MQClientException {
+            public ListenableFuture<SendResult> apply(TopicPublishInfo topicPublishInfo) throws ClientException {
                 // Prepare the candidate partitions for retry-sending in advance.
                 final List<Partition> candidates = takePartitionsRoundRobin(topicPublishInfo, maxAttemptTimes);
                 return send0(message, candidates, maxAttemptTimes);
@@ -574,7 +606,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         // Filter illegal message.
         try {
             Validators.messageCheck(message, maxMessageSize);
-        } catch (MQClientException e) {
+        } catch (ClientException e) {
             future.setException(e);
             return future;
         }
@@ -661,7 +693,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     }
 
     List<Partition> takePartitionsRoundRobin(TopicPublishInfo topicPublishInfo, int maxAttemptTimes)
-            throws MQClientException {
+            throws ClientException {
         final Set<Endpoints> isolated = clientInstance.getAllIsolatedEndpoints();
         return topicPublishInfo.takePartitions(isolated, maxAttemptTimes);
     }
@@ -672,10 +704,10 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         final ListenableFuture<TopicPublishInfo> future = getPublishInfo(topic);
         return Futures.transformAsync(future, new AsyncFunction<TopicPublishInfo, Partition>() {
             @Override
-            public ListenableFuture<Partition> apply(TopicPublishInfo topicPublishInfo) throws MQClientException {
+            public ListenableFuture<Partition> apply(TopicPublishInfo topicPublishInfo) throws ClientException {
                 if (topicPublishInfo.isEmpty()) {
                     log.warn("No available partition for selector, topic={}", topic);
-                    throw new MQClientException(ErrorCode.NO_PERMISSION);
+                    throw new ClientException(ErrorCode.NO_PERMISSION);
                 }
                 final MessageQueue mq = selector.select(topicPublishInfo.getMessageQueues(), message, arg);
                 final SettableFuture<Partition> future0 = SettableFuture.create();
@@ -710,5 +742,28 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             builder.addTopics(topicResource);
         }
         return builder.build();
+    }
+
+
+    public static SendResult processSendResponse(Endpoints endpoints, SendMessageResponse response)
+            throws ServerException {
+        final Status status = response.getCommon().getStatus();
+        final Code code = Code.forNumber(status.getCode());
+        if (Code.OK == code) {
+            return new SendResult(endpoints, response.getMessageId(), response.getTransactionId());
+        }
+        log.debug("Response indicates failure of sending message, information={}", status.getMessage());
+        throw new ServerException(ErrorCode.OTHER, status.getMessage());
+    }
+
+    public ClientException onExecutionException(ExecutionException e) throws ServerException {
+        final Throwable cause = e.getCause();
+        if (cause instanceof ClientException) {
+            return (ClientException) cause;
+        }
+        if (cause instanceof ServerException) {
+            throw (ServerException) cause;
+        }
+        return new ClientException(cause);
     }
 }

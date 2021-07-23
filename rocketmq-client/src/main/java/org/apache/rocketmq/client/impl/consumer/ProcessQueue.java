@@ -30,7 +30,6 @@ import org.apache.rocketmq.client.consumer.PopResult;
 import org.apache.rocketmq.client.consumer.PopStatus;
 import org.apache.rocketmq.client.consumer.filter.ExpressionType;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
-import org.apache.rocketmq.client.impl.ClientBaseImpl;
 import org.apache.rocketmq.client.impl.ClientInstance;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
@@ -39,14 +38,11 @@ import org.apache.rocketmq.client.remoting.Endpoints;
 
 @Slf4j
 public class ProcessQueue {
-    public static final long LONG_POLLING_TIMEOUT_MILLIS = MixAll.DEFAULT_LONG_POLLING_TIMEOUT_MILLIS;
-    public static final long MAX_CACHED_MESSAGES_COUNT_PER_MESSAGE_QUEUE =
-            MixAll.DEFAULT_MAX_CACHED_MESSAGES_COUNT_PER_MESSAGE_QUEUE;
-    public static final long MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE =
-            MixAll.DEFAULT_MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE;
-    public static final long MAX_POP_MESSAGE_INTERVAL_MILLIS = MixAll.DEFAULT_MAX_POP_MESSAGE_INTERVAL_MILLIS;
-
-    private static final long POP_TIME_DELAY_TIME_MILLIS_WHEN_FLOW_CONTROL = 3000L;
+    public static final long LONG_POLLING_TIMEOUT_MILLIS = 15 * 1000L;
+    public static final long MAX_CACHED_MESSAGES_COUNT_PER_MESSAGE_QUEUE = 1024;
+    public static final long MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE = 5 * 1024 * 1024;
+    public static final long MAX_POP_MESSAGE_INTERVAL_MILLIS = 30 * 1000L;
+    private static final long POP_LATER_DELAY_MILLIS = 3 * 1000L;
 
     @Setter
     @Getter
@@ -141,7 +137,7 @@ public class ProcessQueue {
         }
     }
 
-    private void handlePopResult(PopResult popResult) {
+    private void onPopResult(PopResult popResult) {
         final PopStatus popStatus = popResult.getPopStatus();
         final List<MessageExt> msgFoundList = popResult.getMsgFoundList();
 
@@ -201,18 +197,15 @@ public class ProcessQueue {
     public void popMessageLater() {
         final ScheduledExecutorService scheduler = consumerImpl.getClientInstance().getScheduler();
         try {
-            scheduler.schedule(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            popMessage();
-                        }
-                    },
-                    POP_TIME_DELAY_TIME_MILLIS_WHEN_FLOW_CONTROL,
-                    TimeUnit.MILLISECONDS);
+            scheduler.schedule(new Runnable() {
+                @Override
+                public void run() {
+                    popMessage();
+                }
+            }, POP_LATER_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
             // Should never reach here.
-            log.error("Unexpected error, failed to schedule pop message request", t);
+            log.error("Failed to schedule pop message request", t);
             popMessageLater();
         }
     }
@@ -253,30 +246,29 @@ public class ProcessQueue {
                                                   TimeUnit.MILLISECONDS);
 
             final ListenableFuture<PopResult> future = Futures.transform(
-                    future0,
-                    new Function<ReceiveMessageResponse, PopResult>() {
-                        @Override
-                        public PopResult apply(ReceiveMessageResponse response) {
-                            return ClientBaseImpl.processReceiveMessageResponse(endpoints, response);
-                        }
-                    });
+                future0, new Function<ReceiveMessageResponse, PopResult>() {
+                    @Override
+                    public PopResult apply(ReceiveMessageResponse response) {
+                        return DefaultMQPushConsumerImpl.processReceiveMessageResponse(endpoints, response);
+                    }
+                });
 
             Futures.addCallback(future, new FutureCallback<PopResult>() {
                 @Override
                 public void onSuccess(PopResult popResult) {
                     try {
-                        ProcessQueue.this.handlePopResult(popResult);
+                        ProcessQueue.this.onPopResult(popResult);
                     } catch (Throwable t) {
                         // Should never reach here.
-                        log.error("BUG!!! unexpected exception occurs while handling pop result, would pop later, "
-                                  + "mq={}", messageQueue.simpleName(), t);
+                        log.error("[Bug] Exception raised while handling pop result, would pop later, mq={}",
+                                  messageQueue.simpleName(), t);
                         popMessageLater();
                     }
                 }
 
                 @Override
                 public void onFailure(Throwable t) {
-                    log.error("Exception occurs while popping message, would pop later, mq={}",
+                    log.error("Exception raised while popping message, would pop later, mq={}",
                               messageQueue.simpleName(), t);
                     popMessageLater();
                 }

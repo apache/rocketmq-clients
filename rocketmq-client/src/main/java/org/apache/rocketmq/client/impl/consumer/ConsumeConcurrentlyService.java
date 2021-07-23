@@ -14,7 +14,7 @@ import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
-import org.apache.rocketmq.client.exception.MQClientException;
+import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.route.Partition;
@@ -46,7 +46,7 @@ public class ConsumeConcurrentlyService implements ConsumeService {
     }
 
     @Override
-    public void start() throws MQClientException {
+    public void start() throws ClientException {
         synchronized (this) {
             log.info("Begin to start the consume concurrently service.");
             if (!state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED)) {
@@ -90,8 +90,8 @@ public class ConsumeConcurrentlyService implements ConsumeService {
     }
 
     @Override
-    public ListenableFuture<ConsumeStatus> verifyMessageConsumption(final MessageExt messageExt,
-                                                                    final Partition partition) {
+    public ListenableFuture<ConsumeStatus> verifyConsumption(final MessageExt messageExt,
+                                                             final Partition partition) {
         final SettableFuture<ConsumeStatus> future0 = SettableFuture.create();
         try {
             consumeExecutor.submit(new Runnable() {

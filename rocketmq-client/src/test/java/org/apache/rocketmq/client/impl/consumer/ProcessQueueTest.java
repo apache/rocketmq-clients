@@ -1,40 +1,11 @@
 package org.apache.rocketmq.client.impl.consumer;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import apache.rocketmq.v1.AckMessageRequest;
-import apache.rocketmq.v1.ReceiveMessageRequest;
-import com.google.common.util.concurrent.SettableFuture;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import org.apache.rocketmq.client.conf.BaseConfig;
-import org.apache.rocketmq.client.constant.ConsumeFromWhere;
-import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
-import org.apache.rocketmq.client.consumer.PopResult;
-import org.apache.rocketmq.client.consumer.PopStatus;
-import org.apache.rocketmq.client.consumer.filter.FilterExpression;
-import org.apache.rocketmq.client.exception.MQClientException;
-import org.apache.rocketmq.client.impl.ClientInstance;
-import org.apache.rocketmq.client.message.MessageConst;
-import org.apache.rocketmq.client.message.MessageExt;
-import org.apache.rocketmq.client.message.MessageImpl;
-import org.mockito.ArgumentMatchers;
-import org.mockito.Mockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.reflect.Whitebox;
-import org.testng.Assert;
-import org.testng.annotations.Test;
 
 @PrepareForTest(ProcessQueue.class)
 public class ProcessQueueTest extends BaseConfig {

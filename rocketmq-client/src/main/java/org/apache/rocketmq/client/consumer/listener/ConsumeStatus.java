@@ -4,9 +4,9 @@ public enum ConsumeStatus {
     /**
      * Success consumption
      */
-    CONSUME_SUCCESS,
+    OK,
     /**
-     * Failure consumption,later try to consume
+     * Failure consumption
      */
-    RECONSUME_LATER;
+    ERROR;
 }

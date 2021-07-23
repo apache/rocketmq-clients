@@ -44,7 +44,7 @@ public class ConsumeConcurrentlyTask implements Runnable {
             status = consumeConcurrentlyService.getMessageListenerConcurrently()
                                                .consumeMessage(cachedMessages, consumeContext);
         } catch (Throwable t) {
-            status = ConsumeStatus.RECONSUME_LATER;
+            status = ConsumeStatus.ERROR;
             log.error("Business callback raised an exception while consuming message.", t);
         }
 
@@ -60,7 +60,7 @@ public class ConsumeConcurrentlyTask implements Runnable {
                                              .timeUnit(TimeUnit.MILLISECONDS)
                                              .messageIndex(i)
                                              .messageBatchSize(cachedMessages.size())
-                                             .status(ConsumeStatus.CONSUME_SUCCESS == status ?
+                                             .status(ConsumeStatus.OK == status ?
                                                      MessageHookPoint.PointStatus.OK :
                                                      MessageHookPoint.PointStatus.ERROR)
                                              .build();
@@ -71,7 +71,7 @@ public class ConsumeConcurrentlyTask implements Runnable {
 
         for (MessageExt messageExt : cachedMessages) {
             switch (status) {
-                case CONSUME_SUCCESS:
+                case OK:
                     try {
                         consumerImpl.consumeSuccessMsgCount.incrementAndGet();
                         consumerImpl.ackMessage(messageExt);
@@ -80,7 +80,7 @@ public class ConsumeConcurrentlyTask implements Runnable {
                                  messageExt.getMsgId(), t);
                     }
                     break;
-                case RECONSUME_LATER:
+                case ERROR:
                 default:
                     try {
                         consumerImpl.consumeFailureMsgCount.incrementAndGet();

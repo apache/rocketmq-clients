@@ -4,6 +4,7 @@ import apache.rocketmq.v1.ClientResourceBundle;
 import apache.rocketmq.v1.ConsumerGroup;
 import apache.rocketmq.v1.FilterType;
 import apache.rocketmq.v1.HeartbeatEntry;
+import apache.rocketmq.v1.Message;
 import apache.rocketmq.v1.PullMessageRequest;
 import apache.rocketmq.v1.PullMessageResponse;
 import apache.rocketmq.v1.QueryOffsetRequest;
@@ -19,6 +20,7 @@ import com.google.protobuf.util.Timestamps;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
 import io.grpc.Metadata;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -31,11 +33,14 @@ import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.PullCallback;
 import org.apache.rocketmq.client.consumer.PullMessageQuery;
 import org.apache.rocketmq.client.consumer.PullResult;
+import org.apache.rocketmq.client.consumer.PullStatus;
 import org.apache.rocketmq.client.consumer.QueryOffsetPolicy;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
+import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
-import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.impl.ClientBaseImpl;
+import org.apache.rocketmq.client.message.MessageExt;
+import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.remoting.Endpoints;
@@ -79,7 +84,7 @@ public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
                     }
                 }
                 if (messageQueues.isEmpty()) {
-                    throw new MQClientException(ErrorCode.NO_PERMISSION);
+                    throw new ClientException(ErrorCode.NO_PERMISSION);
                 }
                 SettableFuture<List<MessageQueue>> future0 = SettableFuture.create();
                 future0.set(messageQueues);
@@ -136,7 +141,7 @@ public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
                 if (Code.OK != code) {
                     log.error("Failed to query offset, offsetQuery={}, code={}, message={}", offsetQuery, code,
                               status.getMessage());
-                    throw new MQClientException(ErrorCode.OTHER);
+                    throw new ClientException(ErrorCode.OTHER);
                 }
                 final long offset = response.getOffset();
                 future0.set(offset);
@@ -200,14 +205,14 @@ public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
                 clientInstance.pullMessage(endpoints, metadata, request, pullTimeoutMillis, TimeUnit.MILLISECONDS);
         return Futures.transformAsync(future, new AsyncFunction<PullMessageResponse, PullResult>() {
             @Override
-            public ListenableFuture<PullResult> apply(PullMessageResponse response) throws MQClientException {
+            public ListenableFuture<PullResult> apply(PullMessageResponse response) throws ClientException {
                 final Status status = response.getCommon().getStatus();
                 final Code code = Code.forNumber(status.getCode());
                 // TODO: polish code.
                 if (Code.OK != code) {
                     log.error("Failed to pull message, pullMessageQuery={}, code={}, message={}", pullMessageQuery,
                               code, status.getMessage());
-                    throw new MQClientException(ErrorCode.OTHER);
+                    throw new ClientException(ErrorCode.OTHER);
                 }
                 final PullResult pullResult = processPullMessageResponse(endpoints, response);
                 future0.set(pullResult);
@@ -258,7 +263,7 @@ public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
     }
 
     @Override
-    public void start() throws MQClientException {
+    public void start() throws ClientException {
         synchronized (this) {
             log.warn("Begin to start the rocketmq pull consumer.");
             super.start();
@@ -301,6 +306,62 @@ public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
         final ClientResourceBundle.Builder builder =
                 ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(groupResource);
         return builder.build();
+    }
+
+    public static PullResult processPullMessageResponse(Endpoints endpoints, PullMessageResponse response) {
+        PullStatus pullStatus;
+
+        final Status status = response.getCommon().getStatus();
+        final Code code = Code.forNumber(status.getCode());
+        switch (code != null ? code : Code.UNKNOWN) {
+            case OK:
+                pullStatus = PullStatus.OK;
+                break;
+            case RESOURCE_EXHAUSTED:
+                pullStatus = PullStatus.RESOURCE_EXHAUSTED;
+                log.warn("Too many request in server, server endpoints={}, status message={}", endpoints,
+                         status.getMessage());
+                break;
+            case DEADLINE_EXCEEDED:
+                pullStatus = PullStatus.DEADLINE_EXCEEDED;
+                log.warn("Gateway timeout, server endpoints={}, status message={}", endpoints, status.getMessage());
+                break;
+            case NOT_FOUND:
+                pullStatus = PullStatus.NOT_FOUND;
+                log.warn("Target partition does not exist, server endpoints={}, status message={}", endpoints,
+                         status.getMessage());
+                break;
+            case OUT_OF_RANGE:
+                pullStatus = PullStatus.OUT_OF_RANGE;
+                log.warn("Pulled offset is out of range, server endpoints={}, status message{}", endpoints,
+                         status.getMessage());
+                break;
+            default:
+                pullStatus = PullStatus.INTERNAL;
+                log.warn("Pull response indicated server-side error, server endpoints={}, code={}, status message{}",
+                         endpoints, code, status.getMessage());
+        }
+        List<MessageExt> msgFoundList = new ArrayList<MessageExt>();
+        if (PullStatus.OK == pullStatus) {
+            final List<Message> messageList = response.getMessagesList();
+            for (Message message : messageList) {
+                try {
+                    MessageImpl messageImpl = ClientBaseImpl.wrapMessageImpl(message);
+                    msgFoundList.add(new MessageExt(messageImpl));
+                } catch (ClientException e) {
+                    log.error("Failed to wrap messageImpl, topic={}, messageId={}", message.getTopic(),
+                              message.getSystemAttribute().getMessageId(), e);
+                } catch (IOException e) {
+                    log.error("Failed to wrap messageImpl, topic={}, messageId={}", message.getTopic(),
+                              message.getSystemAttribute().getMessageId(), e);
+                } catch (Throwable t) {
+                    log.error("Unexpected error while wrapping messageImpl, topic={}, messageId={}",
+                              message.getTopic(), message.getSystemAttribute().getMessageId(), t);
+                }
+            }
+        }
+        return new PullResult(pullStatus, response.getNextOffset(), response.getMinOffset(), response.getMaxOffset(),
+                              msgFoundList);
     }
 }
 

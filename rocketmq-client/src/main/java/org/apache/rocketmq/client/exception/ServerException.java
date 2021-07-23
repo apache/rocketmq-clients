@@ -8,26 +8,26 @@ import lombok.extern.slf4j.Slf4j;
 @Getter
 @ToString
 @Slf4j
-public class MQServerException extends IOException {
+public class ServerException extends IOException {
 
     @Deprecated
-    public MQServerException(String errorMessage) {
+    public ServerException(String errorMessage) {
         super("Code: " + ErrorCode.OTHER + ", " + errorMessage);
     }
 
-    public MQServerException(ErrorCode errorCode) {
+    public ServerException(ErrorCode errorCode) {
         super("Code: " + errorCode);
     }
 
-    public MQServerException(ErrorCode errorCode, String errorMessage) {
+    public ServerException(ErrorCode errorCode, String errorMessage) {
         super("Code: " + errorCode + ", " + errorMessage);
     }
 
-    public MQServerException(ErrorCode errorCode, String errorMessage, Throwable cause) {
+    public ServerException(ErrorCode errorCode, String errorMessage, Throwable cause) {
         super("Code: " + errorCode + ", " + errorMessage, cause);
     }
 
-    public MQServerException(ErrorCode errorCode, Throwable cause) {
+    public ServerException(ErrorCode errorCode, Throwable cause) {
         super("Code: " + errorCode, cause);
     }
 }

@@ -3,8 +3,8 @@ package org.apache.rocketmq.client.consumer;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
+import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
-import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.impl.consumer.DefaultMQPushConsumerImpl;
 import org.apache.rocketmq.client.remoting.AccessCredential;
 
@@ -19,10 +19,10 @@ public class DefaultMQPushConsumer {
         this.impl = new DefaultMQPushConsumerImpl(group);
     }
 
-    public void setConsumerGroup(String group) throws MQClientException {
+    public void setConsumerGroup(String group) throws ClientException {
         synchronized (impl) {
             if (ServiceState.READY != impl.getState()) {
-                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
             }
             impl.setGroup(group);
         }
@@ -32,18 +32,18 @@ public class DefaultMQPushConsumer {
         return this.impl.getGroup();
     }
 
-    public void start() throws MQClientException {
+    public void start() throws ClientException {
         this.impl.start();
     }
 
-    public void shutdown() throws MQClientException {
+    public void shutdown() throws ClientException {
         this.impl.shutdown();
     }
 
-    public void setNamesrvAddr(String namesrvAddr) throws MQClientException {
+    public void setNamesrvAddr(String namesrvAddr) throws ClientException {
         synchronized (impl) {
             if (ServiceState.READY != impl.getState()) {
-                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
             }
             this.impl.setNamesrvAddr(namesrvAddr);
         }
@@ -67,7 +67,7 @@ public class DefaultMQPushConsumer {
         this.impl.registerMessageListener(messageListenerOrderly);
     }
 
-    public void subscribe(String topic, String subscribeExpression) throws MQClientException {
+    public void subscribe(String topic, String subscribeExpression) throws ClientException {
         this.impl.subscribe(topic, subscribeExpression);
     }
 
@@ -75,19 +75,19 @@ public class DefaultMQPushConsumer {
         this.impl.unsubscribe(topic);
     }
 
-    public void setArn(String arn) throws MQClientException {
+    public void setArn(String arn) throws ClientException {
         synchronized (impl) {
             if (ServiceState.READY != impl.getState()) {
-                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
             }
             impl.setArn(arn);
         }
     }
 
-    public void setAccessCredential(AccessCredential accessCredential) throws MQClientException {
+    public void setAccessCredential(AccessCredential accessCredential) throws ClientException {
         synchronized (impl) {
             if (ServiceState.READY != impl.getState()) {
-                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
             }
             impl.setAccessCredential(accessCredential);
         }
@@ -101,10 +101,10 @@ public class DefaultMQPushConsumer {
         impl.setMaxBatchConsumeWaitTimeMillis(maxBatchConsumeWaitTimeMillis);
     }
 
-    public void setMessageModel(MessageModel messageModel) throws MQClientException {
+    public void setMessageModel(MessageModel messageModel) throws ClientException {
         synchronized (impl) {
             if (ServiceState.READY != impl.getState()) {
-                throw new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
             }
             impl.setMessageModel(messageModel);
         }

@@ -10,7 +10,7 @@ import org.apache.rocketmq.client.conf.BaseConfig;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
-import org.apache.rocketmq.client.exception.MQClientException;
+import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -18,7 +18,7 @@ import org.testng.annotations.Test;
 public class DefaultMQPushConsumerTest extends BaseConfig {
 
     private DefaultMQPushConsumer initPushConsumer(
-            String consumerGroup, String nameServerAddr, String topic) throws MQClientException {
+            String consumerGroup, String nameServerAddr, String topic) throws ClientException {
         final DefaultMQPushConsumer consumer = new DefaultMQPushConsumer(consumerGroup);
 //        consumer.setNamesrvAddr(nameServerAddr);
         consumer.subscribe(topic, "*");
@@ -27,32 +27,32 @@ public class DefaultMQPushConsumerTest extends BaseConfig {
                     @Override
                     public ConsumeStatus consumeMessage(
                             List<MessageExt> messages, ConsumeConcurrentlyContext context) {
-                        return ConsumeStatus.CONSUME_SUCCESS;
+                        return ConsumeStatus.OK;
                     }
                 });
         return consumer;
     }
 
     @Test
-    public void testStartWithoutRegistration() throws MQClientException {
+    public void testStartWithoutRegistration() throws ClientException {
         DefaultMQPushConsumer consumer = new DefaultMQPushConsumer(dummyConsumerGroup);
         try {
             consumer.start();
             Assert.fail();
-        } catch (MQClientException ignore) {
+        } catch (ClientException ignore) {
             consumer.shutdown();
         }
     }
 
     @Test
-    public void testStartWithoutSubscription() throws MQClientException {
+    public void testStartWithoutSubscription() throws ClientException {
         DefaultMQPushConsumer consumer = new DefaultMQPushConsumer(dummyConsumerGroup);
         consumer.registerMessageListener(
                 new MessageListenerConcurrently() {
                     @Override
                     public ConsumeStatus consumeMessage(
                             List<MessageExt> messages, ConsumeConcurrentlyContext context) {
-                        return ConsumeStatus.CONSUME_SUCCESS;
+                        return ConsumeStatus.OK;
                     }
                 });
         consumer.start();
@@ -60,7 +60,7 @@ public class DefaultMQPushConsumerTest extends BaseConfig {
     }
 
     @Test
-    public void testStartAndShutdown() throws MQClientException {
+    public void testStartAndShutdown() throws ClientException {
         DefaultMQPushConsumer consumer =
                 initPushConsumer(dummyConsumerGroup, dummyNameServerAddr, dummyTopic);
         consumer.start();
@@ -68,14 +68,14 @@ public class DefaultMQPushConsumerTest extends BaseConfig {
     }
 
     @Test
-    public void testStartRepeatedly() throws MQClientException {
+    public void testStartRepeatedly() throws ClientException {
         DefaultMQPushConsumer consumer =
                 initPushConsumer(dummyConsumerGroup, dummyNameServerAddr, dummyTopic);
         consumer.start();
         try {
             consumer.start();
             Assert.fail();
-        } catch (MQClientException e) {
+        } catch (ClientException e) {
             Assert.assertTrue(
                     e.getMessage().contains("The producer has attempted to be started before"));
         } finally {
@@ -84,7 +84,7 @@ public class DefaultMQPushConsumerTest extends BaseConfig {
     }
 
     @Test
-    public void testSetGroupAfterStart() throws MQClientException {
+    public void testSetGroupAfterStart() throws ClientException {
         DefaultMQPushConsumer consumer =
                 initPushConsumer(dummyConsumerGroup, dummyNameServerAddr, dummyTopic);
         consumer.start();
@@ -100,7 +100,7 @@ public class DefaultMQPushConsumerTest extends BaseConfig {
     }
 
     @Test
-    public void testStartMultiConsumers() throws MQClientException {
+    public void testStartMultiConsumers() throws ClientException {
         {
             final DefaultMQPushConsumer consumer0 =
                     initPushConsumer(dummyConsumerGroup0, dummyNameServerAddr, dummyTopic);
@@ -148,7 +148,7 @@ public class DefaultMQPushConsumerTest extends BaseConfig {
     }
 
     @Test(invocationCount = 16)
-    public void testStartConsumersConcurrently() throws MQClientException, InterruptedException {
+    public void testStartConsumersConcurrently() throws ClientException, InterruptedException {
         final DefaultMQPushConsumer consumer0 =
                 initPushConsumer(dummyConsumerGroup0, dummyNameServerAddr, dummyTopic);
         final DefaultMQPushConsumer consumer1 =

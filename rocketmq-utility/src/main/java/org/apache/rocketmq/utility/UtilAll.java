@@ -210,11 +210,11 @@ public class UtilAll {
         return Hex.encodeHexString(digest.digest(), false);
     }
 
-    public static String javaStack() {
-        return javaStack(Thread.getAllStackTraces());
+    public static String stackTrace() {
+        return stackTrace(Thread.getAllStackTraces());
     }
 
-    public static String javaStack(Map<Thread, StackTraceElement[]> map) {
+    public static String stackTrace(Map<Thread, StackTraceElement[]> map) {
         StringBuilder result = new StringBuilder();
         try {
             for (Map.Entry<Thread, StackTraceElement[]> entry : map.entrySet()) {

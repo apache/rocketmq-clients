@@ -46,7 +46,7 @@ import javax.net.ssl.SSLException;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ServiceState;
-import org.apache.rocketmq.client.exception.MQClientException;
+import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.remoting.Endpoints;
 import org.apache.rocketmq.client.remoting.RpcClient;
 import org.apache.rocketmq.client.remoting.RpcClientImpl;
@@ -189,7 +189,7 @@ public class ClientInstance {
     /**
      * Start the instance.
      *
-     * @throws MQClientException
+     * @throws ClientException
      */
     public void start() {
         synchronized (this) {
@@ -273,6 +273,9 @@ public class ClientInstance {
                 return;
             }
             ClientManager.getInstance().removeClientInstance(id);
+            if (null != healthCheckFuture) {
+                heartbeatFuture.cancel(false);
+            }
             if (null != cleanIdleRpcClientsFuture) {
                 cleanIdleRpcClientsFuture.cancel(false);
             }
@@ -284,7 +287,7 @@ public class ClientInstance {
             }
             scheduler.shutdown();
             asyncExecutor.shutdown();
-            state.compareAndSet(ServiceState.STOPPING, ServiceState.STARTING);
+            state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
             log.info("Shutdown the client instance successfully.");
         }
     }
@@ -295,7 +298,7 @@ public class ClientInstance {
      * @param target remote address.
      * @return rpc client.
      */
-    private RpcClient getRpcClient(Endpoints endpoints) throws MQClientException {
+    private RpcClient getRpcClient(Endpoints endpoints) throws ClientException {
         RpcClient rpcClient = rpcClientTable.get(endpoints);
         if (null != rpcClient) {
             return rpcClient;
@@ -305,7 +308,7 @@ public class ClientInstance {
             newRpcClient = new RpcClientImpl(endpoints);
         } catch (SSLException e) {
             log.error("Failed to get rpc client, endpoints={}", endpoints);
-            throw new MQClientException("Failed to get rpc client");
+            throw new ClientException("Failed to get rpc client");
         }
         rpcClientTable.put(endpoints, newRpcClient);
 

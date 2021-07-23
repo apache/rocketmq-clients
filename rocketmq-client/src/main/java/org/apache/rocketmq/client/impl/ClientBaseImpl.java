@@ -7,12 +7,13 @@ import apache.rocketmq.v1.HeartbeatRequest;
 import apache.rocketmq.v1.HeartbeatResponse;
 import apache.rocketmq.v1.Message;
 import apache.rocketmq.v1.MultiplexingRequest;
-import apache.rocketmq.v1.PullMessageResponse;
+import apache.rocketmq.v1.MultiplexingResponse;
+import apache.rocketmq.v1.PrintThreadStackResponse;
 import apache.rocketmq.v1.QueryRouteRequest;
 import apache.rocketmq.v1.QueryRouteResponse;
-import apache.rocketmq.v1.ReceiveMessageResponse;
+import apache.rocketmq.v1.ResolveOrphanedTransactionRequest;
 import apache.rocketmq.v1.Resource;
-import apache.rocketmq.v1.SendMessageResponse;
+import apache.rocketmq.v1.ResponseCommon;
 import apache.rocketmq.v1.SystemAttribute;
 import apache.rocketmq.v1.VerifyMessageConsumptionRequest;
 import apache.rocketmq.v1.VerifyMessageConsumptionResponse;
@@ -65,13 +66,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.constant.Permission;
 import org.apache.rocketmq.client.constant.ServiceState;
-import org.apache.rocketmq.client.consumer.PopResult;
-import org.apache.rocketmq.client.consumer.PopStatus;
-import org.apache.rocketmq.client.consumer.PullResult;
-import org.apache.rocketmq.client.consumer.PullStatus;
+import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
-import org.apache.rocketmq.client.exception.MQClientException;
-import org.apache.rocketmq.client.exception.MQServerException;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
 import org.apache.rocketmq.client.message.MessageImpl;
@@ -82,7 +78,6 @@ import org.apache.rocketmq.client.message.protocol.DigestType;
 import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.misc.TopAddressing;
-import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.client.remoting.Address;
 import org.apache.rocketmq.client.remoting.ClientAuthInterceptor;
 import org.apache.rocketmq.client.remoting.Endpoints;
@@ -96,6 +91,16 @@ import org.apache.rocketmq.utility.UtilAll;
 
 @Slf4j
 public abstract class ClientBaseImpl extends ClientConfig implements ClientObserver {
+
+    private static final long MULTIPLEXING_CALL_LATER_DELAY_MILLIS = 3 * 1000L;
+    private static final long MULTIPLEXING_CALL_TIMEOUT_MILLIS = 30 * 1000L;
+    private static final long VERIFY_CONSUMPTION_TIMEOUT_MILLIS = 15 * 1000L;
+
+    private static final String TRACER_INSTRUMENTATION_NAME = "org.apache.rocketmq.message.tracer";
+    private static final long TRACE_EXPORTER_SCHEDULE_DELAY_MILLIS = 1000L;
+    private static final long TRACE_EXPORTER_RPC_TIMEOUT_MILLIS = 3000L;
+    private static final int TRACE_EXPORTER_BATCH_SIZE = 65536;
+
     @Getter
     protected volatile Tracer tracer;
     protected volatile Endpoints tracingEndpoints;
@@ -143,6 +148,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
 
         this.inflightRouteFutureTable = new HashMap<String, Set<SettableFuture<TopicRouteData>>>();
         this.inflightRouteFutureLock = new ReentrantLock();
+
         this.topicRouteCache = new ConcurrentHashMap<String, TopicRouteData>();
     }
 
@@ -155,7 +161,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         }
     }
 
-    public void start() throws MQClientException {
+    public void start() throws ClientException {
         synchronized (this) {
             log.info("Begin to start the rocketmq client base.");
             if (!state.compareAndSet(ServiceState.READY, ServiceState.STARTING)) {
@@ -254,6 +260,15 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         return this.state.get();
     }
 
+    public Metadata sign() throws ClientException {
+        try {
+            return Signature.sign(this);
+        } catch (Throwable t) {
+            log.error("Failed to calculate signature", t);
+            throw new ClientException(ErrorCode.SIGNATURE_FAILURE);
+        }
+    }
+
     public Set<Endpoints> getRouteEndpointsSet() {
         Set<Endpoints> endpointsSet = new HashSet<Endpoints>();
         for (TopicRouteData topicRouteData : topicRouteCache.values()) {
@@ -302,6 +317,11 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         topicRouteCache.put(topic, topicRouteData);
         final Set<Endpoints> after = getRouteEndpointsSet();
         final Set<Endpoints> diff = new HashSet<Endpoints>(Sets.difference(after, before));
+
+        for (Endpoints endpoints : diff) {
+            log.info("Start multiplexing call first time, endpoints={}", endpoints);
+            dispatchGenericPollRequest(endpoints);
+        }
 
         if (messageTracingEnabled) {
             updateTracer();
@@ -442,11 +462,11 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                     final Status status = response.getCommon().getStatus();
                     final Code code = Code.forNumber(status.getCode());
                     if (Code.OK != code) {
-                        throw new MQClientException(ErrorCode.TOPIC_NOT_FOUND, status.toString());
+                        throw new ClientException(ErrorCode.TOPIC_NOT_FOUND, status.toString());
                     }
                     final List<apache.rocketmq.v1.Partition> partitionsList = response.getPartitionsList();
                     if (partitionsList.isEmpty()) {
-                        throw new MQClientException(ErrorCode.TOPIC_NOT_FOUND, "Partitions is empty unexpectedly");
+                        throw new ClientException(ErrorCode.TOPIC_NOT_FOUND, "Partitions is empty unexpectedly");
                     }
                     final TopicRouteData topicRouteData = new TopicRouteData(partitionsList);
                     future.set(topicRouteData);
@@ -507,11 +527,29 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
 
     public abstract ClientResourceBundle wrapClientResourceBundle();
 
-    public ListenableFuture<VerifyMessageConsumptionResponse> verifyMessageConsumption(VerifyMessageConsumptionRequest request) {
+    /**
+     * Verify message's consumption ,the default is not supported, only would be implemented by push consumer.
+     *
+     * @param request request of verify message consumption.
+     * @return future of verify message consumption response.
+     */
+    public ListenableFuture<VerifyMessageConsumptionResponse> verifyConsumption(VerifyMessageConsumptionRequest
+                                                                                        request) {
         SettableFuture<VerifyMessageConsumptionResponse> future = SettableFuture.create();
-        final MQClientException exception = new MQClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
+        final ClientException exception = new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
         future.setException(exception);
         return future;
+    }
+
+    /**
+     * Resolve orphaned transaction message, only would be implemented by producer.
+     *
+     * <p>SHOULD NEVER THROW ANY EXCEPTION.</p>
+     *
+     * @param endpoints remote endpoints.
+     * @param request resolve orphaned transaction request.
+     */
+    public void resolveOrphanedTransaction(Endpoints endpoints, ResolveOrphanedTransactionRequest request) {
     }
 
     public GenericPollingRequest wrapGenericPollingRequest() {
@@ -519,66 +557,128 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         return GenericPollingRequest.newBuilder().setClientResourceBundle(bundle).build();
     }
 
-    public void multiplexing(final Endpoints endpoints, MultiplexingRequest request) {
-//        final Metadata metadata = sign();
-//        final ListenableFuture<MultiplexingResponse> future =
-//                clientInstance.multiplexingCall(endpoints, metadata, request, 30, TimeUnit.MILLISECONDS);
-//        final FutureCallback<MultiplexingResponse> futureCallback = new FutureCallback<MultiplexingResponse>() {
-//            @Override
-//            public void onSuccess(MultiplexingResponse response) {
-//                switch (response.getTypeCase()) {
-//                    case POLLING_RESPONSE: {
-//                        final GenericPollingRequest genericPollingRequest = wrapGenericPollingRequest();
-//                        MultiplexingRequest multiplexingRequest =
-//                                MultiplexingRequest.newBuilder().setPollingRequest(genericPollingRequest).build();
-//                        multiplexing(endpoints, multiplexingRequest);
-//                        break;
-//                    }
-//
-//                    case PRINT_THREAD_STACK_REQUEST: {
-//                        PrintThreadStackResponse printThreadStackResponse =
-//                                PrintThreadStackResponse.newBuilder().setStackTrace(UtilAll.javaStack()).build();
-//                        MultiplexingRequest multiplexingRequest = MultiplexingRequest
-//                                .newBuilder().setPrintThreadStackResponse(printThreadStackResponse).build();
-//                        multiplexing(endpoints, multiplexingRequest);
-//                        break;
-//                    }
-//
-//                    case VERIFY_MESSAGE_CONSUMPTION_REQUEST:
-//                        final VerifyMessageConsumptionRequest verifyMessageConsumptionRequest =
-//                                response.getVerifyMessageConsumptionRequest();
-//                        final ListenableFuture<VerifyMessageConsumptionResponse> future =
-//                                verifyMessageConsumption(verifyMessageConsumptionRequest);
-//                        Futures.addCallback(future, new FutureCallback<VerifyMessageConsumptionResponse>() {
-//                            @Override
-//                            public void onSuccess(VerifyMessageConsumptionResponse response) {
-//
-//                            }
-//
-//                            @Override
-//                            public void onFailure(Throwable t) {
-//
-//                            }
-//                        });
-//
-//
-//                }
-//            }
-//
-//            @Override
-//            public void onFailure(Throwable t) {
-//
-//            }
-//        };
-//        Futures.addCallback(future, futureCallback);
+    private void onMultiplexingResponse(final Endpoints endpoints, MultiplexingResponse response) {
+        switch (response.getTypeCase()) {
+            case PRINT_THREAD_STACK_REQUEST:
+                final String stackTrace = UtilAll.stackTrace();
+                PrintThreadStackResponse printThreadStackResponse =
+                        PrintThreadStackResponse.newBuilder().setStackTrace(stackTrace).build();
+                MultiplexingRequest multiplexingRequest = MultiplexingRequest
+                        .newBuilder().setPrintThreadStackResponse(printThreadStackResponse).build();
+                multiplexingCall(endpoints, multiplexingRequest);
+                break;
+            case VERIFY_MESSAGE_CONSUMPTION_REQUEST:
+                VerifyMessageConsumptionRequest verifyRequest = response.getVerifyMessageConsumptionRequest();
+                ListenableFuture<VerifyMessageConsumptionResponse> future = verifyConsumption(verifyRequest);
+
+                ScheduledExecutorService scheduler = clientInstance.getScheduler();
+                // In case block while message consumption.
+                Futures.withTimeout(future, VERIFY_CONSUMPTION_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS, scheduler);
+                Futures.addCallback(future, new FutureCallback<VerifyMessageConsumptionResponse>() {
+                    @Override
+                    public void onSuccess(VerifyMessageConsumptionResponse response) {
+                        MultiplexingRequest multiplexingRequest = MultiplexingRequest
+                                .newBuilder().setVerifyMessageConsumptionResponse(response).build();
+                        multiplexingCall(endpoints, multiplexingRequest);
+                    }
+
+                    @Override
+                    public void onFailure(Throwable t) {
+                        Status status = Status.newBuilder()
+                                              .setCode(Code.ABORTED_VALUE)
+                                              .setMessage(t.getMessage())
+                                              .build();
+
+                        ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
+                        final VerifyMessageConsumptionResponse verifyResponse =
+                                VerifyMessageConsumptionResponse.newBuilder().setCommon(common).build();
+                        MultiplexingRequest multiplexingRequest =
+                                MultiplexingRequest.newBuilder()
+                                                   .setVerifyMessageConsumptionResponse(verifyResponse).build();
+                        multiplexingCall(endpoints, multiplexingRequest);
+                    }
+                });
+                break;
+            case RESOLVE_ORPHANED_TRANSACTION_REQUEST:
+                ResolveOrphanedTransactionRequest orphanedRequest = response.getResolveOrphanedTransactionRequest();
+                resolveOrphanedTransaction(endpoints, orphanedRequest);
+                /* fall through on purpose. */
+            case POLLING_RESPONSE:
+                /* fall through on purpose. */
+            default:
+                dispatchGenericPollRequest(endpoints);
+                break;
+        }
     }
 
-    public Metadata sign() throws MQClientException {
+    public void dispatchGenericPollRequest(Endpoints endpoints) {
+        final GenericPollingRequest genericPollingRequest = wrapGenericPollingRequest();
+        MultiplexingRequest multiplexingRequest =
+                MultiplexingRequest.newBuilder().setPollingRequest(genericPollingRequest).build();
+        multiplexingCall(endpoints, multiplexingRequest);
+    }
+
+    public void multiplexingCall(final Endpoints endpoints, final MultiplexingRequest request) {
         try {
-            return Signature.sign(this);
+            final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
+            if (!routeEndpointsSet.contains(endpoints)) {
+                log.info("Endpoints was removed, no need to do more multiplexing call, endpoints={}", endpoints);
+                return;
+            }
+            final ListenableFuture<MultiplexingResponse> future = multiplexingCall0(endpoints, request);
+            Futures.addCallback(future, new FutureCallback<MultiplexingResponse>() {
+                @Override
+                public void onSuccess(MultiplexingResponse response) {
+                    try {
+                        onMultiplexingResponse(endpoints, response);
+                    } catch (Throwable t) {
+                        // Should never reach here.
+                        log.error("[Bug] Exception raised while handling multiplexing response, would call later", t);
+                        multiplexingCallLater(endpoints, request);
+                    }
+                }
+
+                @Override
+                public void onFailure(Throwable t) {
+                    log.error("Exception raised while multiplexing call, would call later.", t);
+                    multiplexingCallLater(endpoints, request);
+                }
+            });
         } catch (Throwable t) {
-            log.error("Failed to calculate signature", t);
-            throw new MQClientException(ErrorCode.SIGNATURE_FAILURE);
+            log.error("Exception raised while multiplexing call, would call later.", t);
+            multiplexingCallLater(endpoints, request);
+        }
+    }
+
+    public ListenableFuture<MultiplexingResponse> multiplexingCall0(Endpoints endpoints, MultiplexingRequest request) {
+        final SettableFuture<MultiplexingResponse> future = SettableFuture.create();
+        try {
+            final Metadata metadata = Signature.sign(this);
+            return clientInstance.multiplexingCall(endpoints, metadata, request, MULTIPLEXING_CALL_TIMEOUT_MILLIS,
+                                                   TimeUnit.MILLISECONDS);
+        } catch (Throwable t) {
+            // Failed to sign, set the future in advance.
+            future.setException(t);
+            return future;
+        }
+    }
+
+    public void multiplexingCallLater(final Endpoints endpoints, final MultiplexingRequest request) {
+        final ScheduledExecutorService scheduler = clientInstance.getScheduler();
+        try {
+            scheduler.schedule(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        multiplexingCall(endpoints, request);
+                    } catch (Throwable t) {
+                        multiplexingCallLater(endpoints, request);
+                    }
+                }
+            }, MULTIPLEXING_CALL_LATER_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+        } catch (Throwable t) {
+            log.error("Failed to schedule multiplexing request", t);
+            multiplexingCallLater(endpoints, request);
         }
     }
 
@@ -633,13 +733,12 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
 
             OtlpGrpcSpanExporter exporter =
                     OtlpGrpcSpanExporter.builder().setChannel(channelBuilder.build())
-                                        .setTimeout(MixAll.DEFAULT_EXPORTER_RPC_TIMEOUT_MILLIS,
-                                                    TimeUnit.MILLISECONDS).build();
+                                        .setTimeout(TRACE_EXPORTER_RPC_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS).build();
+
             BatchSpanProcessor spanProcessor =
                     BatchSpanProcessor.builder(exporter)
-                                      .setScheduleDelay(MixAll.DEFAULT_EXPORTER_SCHEDULE_DELAY_TIME_MILLIS,
-                                                        TimeUnit.MILLISECONDS)
-                                      .setMaxExportBatchSize(MixAll.DEFAULT_EXPORTER_BATCH_SIZE)
+                                      .setScheduleDelay(TRACE_EXPORTER_SCHEDULE_DELAY_MILLIS, TimeUnit.MILLISECONDS)
+                                      .setMaxExportBatchSize(TRACE_EXPORTER_BATCH_SIZE)
                                       .build();
 
             SdkTracerProvider sdkTracerProvider = SdkTracerProvider.builder().addSpanProcessor(spanProcessor).build();
@@ -648,14 +747,14 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                     OpenTelemetrySdk.builder()
                                     .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
                                     .setTracerProvider(sdkTracerProvider).build();
-            tracer = openTelemetry.getTracer(MixAll.DEFAULT_TRACER_INSTRUMENTATION_NAME);
+            tracer = openTelemetry.getTracer(TRACER_INSTRUMENTATION_NAME);
             tracingEndpoints = randomTracingEndpoints;
         } catch (Throwable t) {
             log.error("Exception occurs while updating tracer.", t);
         }
     }
 
-    public static MessageImpl wrapMessageImpl(Message message) throws IOException, MQClientException {
+    public static MessageImpl wrapMessageImpl(Message message) throws IOException, ClientException {
         MessageImpl impl = new MessageImpl(message.getTopic().getName());
         final SystemAttribute systemAttribute = message.getSystemAttribute();
         // Tag
@@ -706,7 +805,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         }
         if (!bodyDigestMatch) {
             // Need NACK immediately ?
-            throw new MQClientException("Message body checksum failure");
+            throw new ClientException("Message body checksum failure");
         }
         impl.getSystemAttribute().setDigest(new Digest(digestType, checksum));
 
@@ -797,124 +896,5 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
 
     @Override
     public void doHealthCheck() {
-    }
-
-    // TODO: handle the case that the topic does not exist.
-    public static PopResult processReceiveMessageResponse(Endpoints endpoints, ReceiveMessageResponse response) {
-        PopStatus popStatus;
-
-        final Status status = response.getCommon().getStatus();
-        final Code code = Code.forNumber(status.getCode());
-        switch (code != null ? code : Code.UNKNOWN) {
-            case OK:
-                popStatus = PopStatus.OK;
-                break;
-            case RESOURCE_EXHAUSTED:
-                popStatus = PopStatus.RESOURCE_EXHAUSTED;
-                log.warn("Too many request in server, server endpoints={}, status message={}", endpoints,
-                         status.getMessage());
-                break;
-            case DEADLINE_EXCEEDED:
-                popStatus = PopStatus.DEADLINE_EXCEEDED;
-                log.warn("Gateway timeout, server endpoints={}, status message={}", endpoints, status.getMessage());
-                break;
-            default:
-                popStatus = PopStatus.INTERNAL;
-                log.warn("Pop response indicated server-side error, server endpoints={}, code={}, status message={}",
-                         endpoints, code, status.getMessage());
-        }
-
-        List<MessageExt> msgFoundList = new ArrayList<MessageExt>();
-        if (PopStatus.OK == popStatus) {
-            final List<Message> messageList = response.getMessagesList();
-            for (Message message : messageList) {
-                try {
-                    MessageImpl messageImpl = ClientBaseImpl.wrapMessageImpl(message);
-                    messageImpl.getSystemAttribute().setAckEndpoints(endpoints);
-                    msgFoundList.add(new MessageExt(messageImpl));
-                } catch (MQClientException e) {
-                    // TODO: need nack immediately.
-                    log.error("Failed to wrap messageImpl, topic={}, messageId={}", message.getTopic(),
-                              message.getSystemAttribute().getMessageId(), e);
-                } catch (IOException e) {
-                    log.error("Failed to wrap messageImpl, topic={}, messageId={}", message.getTopic(),
-                              message.getSystemAttribute().getMessageId(), e);
-                } catch (Throwable t) {
-                    log.error("Unexpected error while wrapping messageImpl, topic={}, messageId={}",
-                              message.getTopic(), message.getSystemAttribute().getMessageId(), t);
-                }
-            }
-        }
-
-        return new PopResult(endpoints, popStatus, Timestamps.toMillis(response.getDeliveryTimestamp()),
-                             Durations.toMillis(response.getInvisibleDuration()), msgFoundList);
-    }
-
-
-    public static PullResult processPullMessageResponse(Endpoints endpoints, PullMessageResponse response) {
-        PullStatus pullStatus;
-
-        final Status status = response.getCommon().getStatus();
-        final Code code = Code.forNumber(status.getCode());
-        switch (code != null ? code : Code.UNKNOWN) {
-            case OK:
-                pullStatus = PullStatus.OK;
-                break;
-            case RESOURCE_EXHAUSTED:
-                pullStatus = PullStatus.RESOURCE_EXHAUSTED;
-                log.warn("Too many request in server, server endpoints={}, status message={}", endpoints,
-                         status.getMessage());
-                break;
-            case DEADLINE_EXCEEDED:
-                pullStatus = PullStatus.DEADLINE_EXCEEDED;
-                log.warn("Gateway timeout, server endpoints={}, status message={}", endpoints, status.getMessage());
-                break;
-            case NOT_FOUND:
-                pullStatus = PullStatus.NOT_FOUND;
-                log.warn("Target partition does not exist, server endpoints={}, status message={}", endpoints,
-                         status.getMessage());
-                break;
-            case OUT_OF_RANGE:
-                pullStatus = PullStatus.OUT_OF_RANGE;
-                log.warn("Pulled offset is out of range, server endpoints={}, status message{}", endpoints,
-                         status.getMessage());
-                break;
-            default:
-                pullStatus = PullStatus.INTERNAL;
-                log.warn("Pull response indicated server-side error, server endpoints={}, code={}, status message{}",
-                         endpoints, code, status.getMessage());
-        }
-        List<MessageExt> msgFoundList = new ArrayList<MessageExt>();
-        if (PullStatus.OK == pullStatus) {
-            final List<Message> messageList = response.getMessagesList();
-            for (Message message : messageList) {
-                try {
-                    MessageImpl messageImpl = ClientBaseImpl.wrapMessageImpl(message);
-                    msgFoundList.add(new MessageExt(messageImpl));
-                } catch (MQClientException e) {
-                    log.error("Failed to wrap messageImpl, topic={}, messageId={}", message.getTopic(),
-                              message.getSystemAttribute().getMessageId(), e);
-                } catch (IOException e) {
-                    log.error("Failed to wrap messageImpl, topic={}, messageId={}", message.getTopic(),
-                              message.getSystemAttribute().getMessageId(), e);
-                } catch (Throwable t) {
-                    log.error("Unexpected error while wrapping messageImpl, topic={}, messageId={}",
-                              message.getTopic(), message.getSystemAttribute().getMessageId(), t);
-                }
-            }
-        }
-        return new PullResult(pullStatus, response.getNextOffset(), response.getMinOffset(), response.getMaxOffset(),
-                              msgFoundList);
-    }
-
-    public static SendResult processSendResponse(Endpoints endpoints, SendMessageResponse response)
-            throws MQServerException {
-        final Status status = response.getCommon().getStatus();
-        final Code code = Code.forNumber(status.getCode());
-        if (Code.OK == code) {
-            return new SendResult(endpoints, response.getMessageId(), response.getTransactionId());
-        }
-        log.debug("Response indicates failure of sending message, information={}", status.getMessage());
-        throw new MQServerException(ErrorCode.OTHER, status.getMessage());
     }
 }

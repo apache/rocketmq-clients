@@ -2,10 +2,8 @@ package org.apache.rocketmq.client.producer;
 
 import java.util.concurrent.TimeoutException;
 import org.apache.rocketmq.client.conf.BaseConfig;
-import org.apache.rocketmq.client.exception.MQBrokerException;
-import org.apache.rocketmq.client.exception.MQClientException;
-import org.apache.rocketmq.client.exception.MQServerException;
-import org.apache.rocketmq.client.exception.RemotingException;
+import org.apache.rocketmq.client.exception.ClientException;
+import org.apache.rocketmq.client.exception.ServerException;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.testng.Assert;
@@ -23,24 +21,22 @@ public class DefaultMQProducerTest extends BaseConfig {
     }
 
     @Test
-    public void testStartAndShutdown() throws MQClientException {
+    public void testStartAndShutdown() throws ClientException {
         final DefaultMQProducer producer = new DefaultMQProducer(dummyConsumerGroup);
         producer.start();
         producer.shutdown();
     }
 
     @Test
-    public void testSendBeforeStart()
-            throws MQBrokerException, RemotingException, InterruptedException,
-                   UnsupportedEncodingException {
+    public void testSendBeforeStart() throws InterruptedException,  UnsupportedEncodingException {
         final DefaultMQProducer producer = new DefaultMQProducer(dummyConsumerGroup);
         Message msg = initMessage();
         try {
             producer.send(msg);
             Assert.fail();
-        } catch (MQClientException e) {
+        } catch (ClientException e) {
             Assert.assertTrue(e.getMessage().contains("Producer is not started"));
-        } catch (MQServerException e) {
+        } catch (ServerException e) {
             e.printStackTrace();
         } catch (TimeoutException e) {
             e.printStackTrace();
@@ -48,8 +44,7 @@ public class DefaultMQProducerTest extends BaseConfig {
     }
 
     @Test
-    public void testSendAsyncBeforeStart()
-            throws UnsupportedEncodingException, RemotingException, InterruptedException {
+    public void testSendAsyncBeforeStart() throws UnsupportedEncodingException, InterruptedException {
         final DefaultMQProducer producer = new DefaultMQProducer(dummyConsumerGroup);
         Message msg = initMessage();
         try {
@@ -65,19 +60,19 @@ public class DefaultMQProducerTest extends BaseConfig {
                         }
                     });
             Assert.fail();
-        } catch (MQClientException e) {
+        } catch (ClientException e) {
             Assert.assertTrue(e.getMessage().contains("Producer is not started"));
         }
     }
 
     @Test
-    public void testStartRepeatedly() throws MQClientException {
+    public void testStartRepeatedly() throws ClientException {
         final DefaultMQProducer producer = new DefaultMQProducer(dummyConsumerGroup);
         producer.start();
         try {
             producer.start();
             Assert.fail();
-        } catch (MQClientException e) {
+        } catch (ClientException e) {
             Assert.assertTrue(
                     e.getMessage().contains("The producer has attempted to be started before"));
         } finally {
@@ -86,7 +81,7 @@ public class DefaultMQProducerTest extends BaseConfig {
     }
 
     @Test
-    public void testSetGroupAfterStart() throws MQClientException {
+    public void testSetGroupAfterStart() throws ClientException {
         final DefaultMQProducer producer = new DefaultMQProducer(dummyConsumerGroup);
         producer.start();
         try {

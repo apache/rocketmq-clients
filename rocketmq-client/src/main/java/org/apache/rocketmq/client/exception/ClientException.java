@@ -5,30 +5,30 @@ import lombok.ToString;
 
 @Getter
 @ToString
-public class MQClientException extends Exception {
+public class ClientException extends Exception {
 
     @Deprecated
-    public MQClientException(String errorMessage) {
+    public ClientException(String errorMessage) {
         super("Code: " + ErrorCode.OTHER + ", " + errorMessage);
     }
 
-    public MQClientException(Throwable cause) {
+    public ClientException(Throwable cause) {
         super("Code: " + ErrorCode.OTHER, cause);
     }
 
-    public MQClientException(ErrorCode errorCode) {
+    public ClientException(ErrorCode errorCode) {
         super("Code: " + errorCode);
     }
 
-    public MQClientException(ErrorCode errorCode, String errorMessage) {
+    public ClientException(ErrorCode errorCode, String errorMessage) {
         super("Code: " + errorCode + ", " + errorMessage);
     }
 
-    public MQClientException(ErrorCode errorCode, String errorMessage, Throwable cause) {
+    public ClientException(ErrorCode errorCode, String errorMessage, Throwable cause) {
         super("Code: " + errorCode + ", " + errorMessage, cause);
     }
 
-    public MQClientException(ErrorCode errorCode, Throwable cause) {
+    public ClientException(ErrorCode errorCode, Throwable cause) {
         super("Code: " + errorCode, cause);
     }
 }

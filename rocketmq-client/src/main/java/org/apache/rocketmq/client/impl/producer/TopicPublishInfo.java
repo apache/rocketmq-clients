@@ -8,8 +8,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomUtils;
+import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
-import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.remoting.Endpoints;
@@ -57,7 +57,7 @@ public class TopicPublishInfo {
         return partitions.isEmpty();
     }
 
-    public List<Partition> takePartitions(Set<Endpoints> isolated, int count) throws MQClientException {
+    public List<Partition> takePartitions(Set<Endpoints> isolated, int count) throws ClientException {
         if (null == partitionIndex.get()) {
             partitionIndex.set(new AtomicInteger(RandomUtils.nextInt()));
         }
@@ -65,7 +65,7 @@ public class TopicPublishInfo {
         List<Partition> candidatePartitions = new ArrayList<Partition>();
         Set<String> candidateBrokerNames = new HashSet<String>();
         if (partitions.isEmpty()) {
-            throw new MQClientException(ErrorCode.NO_PERMISSION);
+            throw new ClientException(ErrorCode.NO_PERMISSION);
         }
         for (int i = 0; i < partitions.size(); i++) {
             final Partition partition = partitions.get((index++) % partitions.size());

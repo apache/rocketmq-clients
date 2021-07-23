@@ -17,6 +17,7 @@ import apache.rocketmq.v1.NackMessageRequest;
 import apache.rocketmq.v1.NackMessageResponse;
 import apache.rocketmq.v1.QueryAssignmentRequest;
 import apache.rocketmq.v1.QueryAssignmentResponse;
+import apache.rocketmq.v1.ReceiveMessageResponse;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.ResponseCommon;
 import apache.rocketmq.v1.SubscriptionEntry;
@@ -28,9 +29,12 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.protobuf.util.Durations;
+import com.google.protobuf.util.Timestamps;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
 import io.grpc.Metadata;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -42,7 +46,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -50,13 +53,15 @@ import org.apache.rocketmq.client.constant.ConsumeFromWhere;
 import org.apache.rocketmq.client.constant.Permission;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.MessageModel;
+import org.apache.rocketmq.client.consumer.PopResult;
+import org.apache.rocketmq.client.consumer.PopStatus;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
+import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
-import org.apache.rocketmq.client.exception.MQClientException;
-import org.apache.rocketmq.client.exception.MQServerException;
+import org.apache.rocketmq.client.exception.ServerException;
 import org.apache.rocketmq.client.impl.ClientBaseImpl;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageImpl;
@@ -139,18 +144,18 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         this.consumeFailureMsgCount = new AtomicLong(0);
     }
 
-    private ConsumeService generateConsumeService() throws MQClientException {
+    private ConsumeService generateConsumeService() throws ClientException {
         if (null != messageListenerConcurrently) {
             return new ConsumeConcurrentlyService(this, messageListenerConcurrently);
         }
         if (null != messageListenerOrderly) {
             return new ConsumeOrderlyService(this, messageListenerOrderly);
         }
-        throw new MQClientException(ErrorCode.NO_LISTENER_REGISTERED);
+        throw new ClientException(ErrorCode.NO_LISTENER_REGISTERED);
     }
 
     @Override
-    public void start() throws MQClientException {
+    public void start() throws ClientException {
         synchronized (this) {
             log.info("Begin to start the rocketmq push consumer");
             super.start();
@@ -325,10 +330,10 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     }
 
     public void subscribe(final String topic, final String subscribeExpression)
-            throws MQClientException {
+            throws ClientException {
         FilterExpression filterExpression = new FilterExpression(subscribeExpression);
         if (!filterExpression.verifyExpression()) {
-            throw new MQClientException("SubscribeExpression is illegal");
+            throw new ClientException("SubscribeExpression is illegal");
         }
         filterExpressionTable.put(topic, filterExpression);
     }
@@ -367,7 +372,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                     future0.set(broker.getEndpoints());
                     return future0;
                 }
-                throw new MQServerException(ErrorCode.NO_PERMISSION);
+                throw new ServerException(ErrorCode.NO_PERMISSION);
             }
         });
     }
@@ -394,7 +399,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                 if (Code.OK != code) {
                     log.error("Failed to query assignment, topic={}, code={}, message={}", topic, code,
                               status.getMessage());
-                    throw new MQClientException(ErrorCode.NO_ASSIGNMENT);
+                    throw new ClientException(ErrorCode.NO_ASSIGNMENT);
                 }
                 final TopicAssignment topicAssignment = new TopicAssignment(response.getAssignmentsList());
                 future0.set(topicAssignment);
@@ -474,7 +479,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         return Resource.newBuilder().setArn(arn).setName(group).build();
     }
 
-    public void nackMessage(MessageExt messageExt) throws MQClientException {
+    public void nackMessage(MessageExt messageExt) throws ClientException {
         final NackMessageRequest request = wrapNackMessageRequest(messageExt);
         final Endpoints endpoints = messageExt.getAckEndpoints();
         final Metadata metadata = sign();
@@ -560,7 +565,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         return builder.build();
     }
 
-    public void ackMessage(final MessageExt messageExt) throws MQClientException {
+    public void ackMessage(final MessageExt messageExt) throws ClientException {
         final AckMessageRequest request = wrapAckMessageRequest(messageExt);
         final Endpoints endpoints = messageExt.getAckEndpoints();
         final Metadata metadata = sign();
@@ -589,18 +594,19 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     }
 
     @Override
-    public ListenableFuture<VerifyMessageConsumptionResponse> verifyMessageConsumption(VerifyMessageConsumptionRequest request) {
-        final ListenableFuture<ConsumeStatus> future = verifyMessageConsumption0(request);
+    public ListenableFuture<VerifyMessageConsumptionResponse> verifyConsumption(VerifyMessageConsumptionRequest
+                                                                                        request) {
+        final ListenableFuture<ConsumeStatus> future = verifyConsumption0(request);
         return Futures.transform(future, new Function<ConsumeStatus, VerifyMessageConsumptionResponse>() {
             @Override
             public VerifyMessageConsumptionResponse apply(ConsumeStatus consumeStatus) {
                 final Status.Builder builder = Status.newBuilder();
                 Status status;
                 switch (consumeStatus) {
-                    case CONSUME_SUCCESS:
+                    case OK:
                         status = builder.setCode(Code.OK_VALUE).build();
                         break;
-                    case RECONSUME_LATER:
+                    case ERROR:
                     default:
                         status = builder.setCode(Code.ABORTED_VALUE).build();
                         break;
@@ -611,7 +617,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         });
     }
 
-    public ListenableFuture<ConsumeStatus> verifyMessageConsumption0(VerifyMessageConsumptionRequest request) {
+    public ListenableFuture<ConsumeStatus> verifyConsumption0(VerifyMessageConsumptionRequest request) {
         final Partition partition = new Partition(request.getPartition());
         final Message message = request.getMessage();
         MessageImpl messageImpl;
@@ -625,7 +631,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
             return future0;
         }
         final MessageExt messageExt = new MessageExt(messageImpl);
-        return consumeService.verifyMessageConsumption(messageExt, partition);
+        return consumeService.verifyConsumption(messageExt, partition);
     }
 
     @Override
@@ -638,5 +644,56 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
             builder.addTopics(topicResource);
         }
         return builder.build();
+    }
+
+    // TODO: handle the case that the topic does not exist.
+    public static PopResult processReceiveMessageResponse(Endpoints endpoints, ReceiveMessageResponse response) {
+        PopStatus popStatus;
+
+        final Status status = response.getCommon().getStatus();
+        final Code code = Code.forNumber(status.getCode());
+        switch (code != null ? code : Code.UNKNOWN) {
+            case OK:
+                popStatus = PopStatus.OK;
+                break;
+            case RESOURCE_EXHAUSTED:
+                popStatus = PopStatus.RESOURCE_EXHAUSTED;
+                log.warn("Too many request in server, server endpoints={}, status message={}", endpoints,
+                         status.getMessage());
+                break;
+            case DEADLINE_EXCEEDED:
+                popStatus = PopStatus.DEADLINE_EXCEEDED;
+                log.warn("Gateway timeout, server endpoints={}, status message={}", endpoints, status.getMessage());
+                break;
+            default:
+                popStatus = PopStatus.INTERNAL;
+                log.warn("Pop response indicated server-side error, server endpoints={}, code={}, status message={}",
+                         endpoints, code, status.getMessage());
+        }
+
+        List<MessageExt> msgFoundList = new ArrayList<MessageExt>();
+        if (PopStatus.OK == popStatus) {
+            final List<Message> messageList = response.getMessagesList();
+            for (Message message : messageList) {
+                try {
+                    MessageImpl messageImpl = ClientBaseImpl.wrapMessageImpl(message);
+                    messageImpl.getSystemAttribute().setAckEndpoints(endpoints);
+                    msgFoundList.add(new MessageExt(messageImpl));
+                } catch (ClientException e) {
+                    // TODO: need nack immediately.
+                    log.error("Failed to wrap messageImpl, topic={}, messageId={}", message.getTopic(),
+                              message.getSystemAttribute().getMessageId(), e);
+                } catch (IOException e) {
+                    log.error("Failed to wrap messageImpl, topic={}, messageId={}", message.getTopic(),
+                              message.getSystemAttribute().getMessageId(), e);
+                } catch (Throwable t) {
+                    log.error("Unexpected error while wrapping messageImpl, topic={}, messageId={}",
+                              message.getTopic(), message.getSystemAttribute().getMessageId(), t);
+                }
+            }
+        }
+
+        return new PopResult(endpoints, popStatus, Timestamps.toMillis(response.getDeliveryTimestamp()),
+                             Durations.toMillis(response.getInvisibleDuration()), msgFoundList);
     }
 }
