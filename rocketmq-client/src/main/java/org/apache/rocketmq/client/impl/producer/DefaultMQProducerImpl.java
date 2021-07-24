@@ -52,7 +52,7 @@ import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
-import org.apache.rocketmq.client.message.MessageIdUtils;
+import org.apache.rocketmq.client.message.MessageIdGenerator;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.message.MessageQueue;
@@ -100,12 +100,12 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     public DefaultMQProducerImpl(String group) {
         super(group);
         this.defaultSendCallbackExecutor = new ThreadPoolExecutor(
-            Runtime.getRuntime().availableProcessors(),
-            Runtime.getRuntime().availableProcessors(),
-            60,
-            TimeUnit.SECONDS,
-            new LinkedBlockingQueue<Runnable>(),
-            new ThreadFactoryImpl("SendCallbackThread"));
+                Runtime.getRuntime().availableProcessors(),
+                Runtime.getRuntime().availableProcessors(),
+                60,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<Runnable>(),
+                new ThreadFactoryImpl("SendCallbackThread"));
 
         this.topicPublishInfoCache = new ConcurrentHashMap<String, TopicPublishInfo>();
 
@@ -242,11 +242,11 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
         final apache.rocketmq.v1.SystemAttribute.Builder systemAttributeBuilder =
                 apache.rocketmq.v1.SystemAttribute.newBuilder()
-                               .setBornTimestamp(fromMillis(System.currentTimeMillis()))
-                               .setProducerGroup(groupResource)
-                               .setMessageId(message.getMessageExt().getMsgId())
-                               .setBornHost(UtilAll.getIpv4Address())
-                               .setPartitionId(partition.getId());
+                                                  .setBornTimestamp(fromMillis(System.currentTimeMillis()))
+                                                  .setProducerGroup(groupResource)
+                                                  .setMessageId(message.getMessageExt().getMsgId())
+                                                  .setBornHost(UtilAll.getIpv4Address())
+                                                  .setPartitionId(partition.getId());
 
         final int delayTimeLevel = message.getDelayTimeLevel();
         if (delayTimeLevel > 0) {
@@ -609,7 +609,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
         // Set messageId
         final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
-        final String messageId = MessageIdUtils.createUniqId();
+        final String messageId = MessageIdGenerator.getInstance().next();
 
         final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
         systemAttribute.setMessageId(messageId);
@@ -669,9 +669,9 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                 // Intercept message while POST_SEND_MESSAGE.
                 final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
                 final MessageInterceptorContext context = contextBuilder.duration(duration)
-                                                                      .timeUnit(TimeUnit.MILLISECONDS)
-                                                                      .status(MessageHookPoint.PointStatus.OK)
-                                                                      .build();
+                                                                        .timeUnit(TimeUnit.MILLISECONDS)
+                                                                        .status(MessageHookPoint.PointStatus.OK)
+                                                                        .build();
                 interceptMessage(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
             }
 
@@ -680,9 +680,9 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                 // Intercept message while POST_SEND_MESSAGE.
                 final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
                 final MessageInterceptorContext context = contextBuilder.duration(duration)
-                                                                      .timeUnit(TimeUnit.MILLISECONDS)
-                                                                      .status(MessageHookPoint.PointStatus.ERROR)
-                                                                      .build();
+                                                                        .timeUnit(TimeUnit.MILLISECONDS)
+                                                                        .status(MessageHookPoint.PointStatus.ERROR)
+                                                                        .build();
                 interceptMessage(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
 
                 if (attemptTimes >= maxAttemptTimes) {

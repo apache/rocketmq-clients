@@ -9,6 +9,7 @@ import java.lang.management.RuntimeMXBean;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Enumeration;
@@ -28,6 +29,19 @@ public class UtilAll {
     private static int PROCESS_ID = PROCESS_ID_NOT_SET;
 
     private UtilAll() {
+    }
+
+    public static byte[] macAddress() throws SocketException {
+        final Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
+        while (networkInterfaces.hasMoreElements()) {
+            final NetworkInterface networkInterface = networkInterfaces.nextElement();
+            final byte[] mac = networkInterface.getHardwareAddress();
+            if (null == mac) {
+                continue;
+            }
+            return mac;
+        }
+        throw new UnsupportedOperationException();
     }
 
     public static int processId() {
