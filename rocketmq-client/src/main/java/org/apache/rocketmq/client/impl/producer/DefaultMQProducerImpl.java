@@ -160,6 +160,15 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         }
     }
 
+    public void isolateEndpoints(Endpoints endpoints) {
+        isolatedRouteEndpointsSetLock.writeLock().lock();
+        try {
+            isolatedRouteEndpointsSet.add(endpoints);
+        } finally {
+            isolatedRouteEndpointsSetLock.writeLock().unlock();
+        }
+    }
+
     @Override
     public void doHealthCheck() {
         final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
@@ -198,16 +207,16 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                             } finally {
                                 isolatedRouteEndpointsSetLock.writeLock().unlock();
                             }
-                            log.info("Restore isolated endpoints, endpoints={}", endpoints);
+                            log.info("Restore isolated endpoints, clientId={}, endpoints={}", clientId, endpoints);
                             return;
                         }
-                        log.warn("Failed to restore isolated endpoints, code={}, status message={}, endpoints={}",
-                                 code, status.getMessage(), endpoints);
+                        log.warn("Failed to restore isolated endpoints, clientId={}, code={}, status message={}, "
+                                 + "endpoints={}", clientId, code, status.getMessage(), endpoints);
                     }
 
                     @Override
                     public void onFailure(Throwable t) {
-                        log.error("Failed to do health check, endpoints={}", endpoints, t);
+                        log.error("Failed to do health check, clientId={}, endpoints={}", clientId, endpoints, t);
                     }
                 });
             }
@@ -406,7 +415,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     }
 
     public void send(
-            Message message,
+            final Message message,
             MessageQueueSelector selector,
             Object arg,
             final SendCallback sendCallback,
@@ -415,33 +424,42 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         ensureRunning();
         final ListenableFuture<SendResult> future = send0(message, selector, arg, maxAttemptTimes);
         Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
+        final ThreadPoolExecutor sendCallbackExecutor = getSendCallbackExecutor();
         Futures.addCallback(future, new FutureCallback<SendResult>() {
             @Override
             public void onSuccess(final SendResult sendResult) {
-                defaultSendCallbackExecutor.submit(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            sendCallback.onSuccess(sendResult);
-                        } catch (Throwable t) {
-                            log.error("Exception raised in SendCallback#onSuccess", t);
+                try {
+                    sendCallbackExecutor.submit(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                sendCallback.onSuccess(sendResult);
+                            } catch (Throwable t) {
+                                log.error("Exception raised in #onSuccess", t);
+                            }
                         }
-                    }
-                });
+                    });
+                } catch (Throwable t0) {
+                    log.error("Failed to submit task to invoke #onSuccess, topic={}", message.getTopic(), t0);
+                }
             }
 
             @Override
             public void onFailure(final Throwable t) {
-                defaultSendCallbackExecutor.submit(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            sendCallback.onException(t);
-                        } catch (Throwable t) {
-                            log.error("Exception raised in SendCallback#onFailure", t);
+                try {
+                    sendCallbackExecutor.submit(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                sendCallback.onException(t);
+                            } catch (Throwable t) {
+                                log.error("Exception raised in #onFailure", t);
+                            }
                         }
-                    }
-                });
+                    });
+                } catch (Throwable t1) {
+                    log.error("Failed to submit task to invoke #onFailure, topic={}", message.getTopic(), t1);
+                }
             }
         });
     }
@@ -684,6 +702,8 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                                                                         .status(MessageHookPoint.PointStatus.ERROR)
                                                                         .build();
                 interceptMessage(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
+                // Isolate endpoints for a while.
+                isolateEndpoints(endpoints);
 
                 if (attemptTimes >= maxAttemptTimes) {
                     // No need more attempts.
@@ -702,7 +722,13 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
     List<Partition> takePartitionsRoundRobin(TopicPublishInfo topicPublishInfo, int maxAttemptTimes)
             throws ClientException {
-        final Set<Endpoints> isolated = clientInstance.getAllIsolatedEndpoints();
+        Set<Endpoints> isolated = new HashSet<Endpoints>();
+        isolatedRouteEndpointsSetLock.readLock().lock();
+        try {
+            isolated.addAll(isolatedRouteEndpointsSet);
+        } finally {
+            isolatedRouteEndpointsSetLock.readLock().unlock();
+        }
         return topicPublishInfo.takePartitions(isolated, maxAttemptTimes);
     }
 

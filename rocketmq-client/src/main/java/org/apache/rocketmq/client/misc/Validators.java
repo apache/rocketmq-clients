@@ -12,7 +12,7 @@ public class Validators {
     public static final Pattern TOPIC_PATTERN = Pattern.compile(TOPIC_REGEX);
     public static final int TOPIC_MAX_LENGTH = 255;
 
-    public static int MESSAGE_BODY_MAX_SIZE = 1024 * 1024 * 4;
+    public static final int MESSAGE_BODY_MAX_SIZE = 1024 * 1024 * 4;
 
     public static final String CONSUMER_GROUP_REGEX = TOPIC_REGEX;
     public static final Pattern CONSUMER_GROUP_PATTERN = Pattern.compile(CONSUMER_GROUP_REGEX);

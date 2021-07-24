@@ -127,7 +127,6 @@ public class ClientInstance {
     private void doHealthCheck() {
         log.info("Start to do health check for a new round.");
         for (Map.Entry<String, ClientObserver> entry : clientObserverTable.entrySet()) {
-            final String clientId = entry.getKey();
             final ClientObserver observer = entry.getValue();
             observer.doHealthCheck();
         }
@@ -145,24 +144,6 @@ public class ClientInstance {
                 log.info("Rpc client has been idle too long, endpoints={}, idleSeconds={}, maxIdleSeconds={}",
                          endpoints, idleSeconds, RPC_CLIENT_MAX_IDLE_SECONDS);
             }
-        }
-    }
-
-    // TODO: not implemented yet.
-    private void clientHealthCheck() {
-        for (Map.Entry<String, ClientObserver> entry : clientObserverTable.entrySet()) {
-            final String clientId = entry.getKey();
-            final ClientObserver observer = entry.getValue();
-            observer.doHealthCheck();
-        }
-    }
-
-    private Set<Endpoints> getAllUnhealthyEndpoints() {
-        unhealthyEndpointsLock.readLock().lock();
-        try {
-            return new HashSet<Endpoints>(unhealthyEndpointsSet);
-        } finally {
-            unhealthyEndpointsLock.readLock().unlock();
         }
     }
 
