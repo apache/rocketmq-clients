@@ -52,7 +52,7 @@ public class RpcClientImpl implements RpcClient {
     private final ManagedChannel channel;
     private final MessagingServiceGrpc.MessagingServiceFutureStub stub;
 
-    private long lastCallNanoTime;
+    private long activityNanoTime;
 
     public RpcClientImpl(Endpoints endpoints) throws SSLException {
         final SslContextBuilder builder = GrpcSslContexts.forClient();
@@ -75,12 +75,12 @@ public class RpcClientImpl implements RpcClient {
 
         this.channel = channelBuilder.build();
         this.stub = MessagingServiceGrpc.newFutureStub(channel);
-        this.lastCallNanoTime = System.nanoTime();
+        this.activityNanoTime = System.nanoTime();
     }
 
     @Override
     public long idleSeconds() {
-        return TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - lastCallNanoTime);
+        return TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - activityNanoTime);
     }
 
     @Override
@@ -93,7 +93,7 @@ public class RpcClientImpl implements RpcClient {
     @Override
     public ListenableFuture<SendMessageResponse> sendMessage(Metadata metadata, SendMessageRequest request,
                                                              Executor executor, long duration, TimeUnit timeUnit) {
-        this.lastCallNanoTime = System.nanoTime();
+        this.activityNanoTime = System.nanoTime();
         return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
                             .withDeadlineAfter(duration, timeUnit).sendMessage(request);
     }
@@ -102,7 +102,7 @@ public class RpcClientImpl implements RpcClient {
     public ListenableFuture<QueryAssignmentResponse> queryAssignment(Metadata metadata, QueryAssignmentRequest request,
                                                                      Executor executor, long duration,
                                                                      TimeUnit timeUnit) {
-        this.lastCallNanoTime = System.nanoTime();
+        this.activityNanoTime = System.nanoTime();
         return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
                             .withDeadlineAfter(duration, timeUnit).queryAssignment(request);
     }
@@ -110,7 +110,7 @@ public class RpcClientImpl implements RpcClient {
     @Override
     public ListenableFuture<HealthCheckResponse> healthCheck(Metadata metadata, HealthCheckRequest request,
                                                              Executor executor, long duration, TimeUnit timeUnit) {
-        this.lastCallNanoTime = System.nanoTime();
+        this.activityNanoTime = System.nanoTime();
         return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
                             .withDeadlineAfter(duration, timeUnit).healthCheck(request);
     }
@@ -119,7 +119,7 @@ public class RpcClientImpl implements RpcClient {
     public ListenableFuture<ReceiveMessageResponse> receiveMessage(Metadata metadata, ReceiveMessageRequest request,
                                                                    Executor executor, long duration,
                                                                    TimeUnit timeUnit) {
-        this.lastCallNanoTime = System.nanoTime();
+        this.activityNanoTime = System.nanoTime();
         return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
                             .withDeadlineAfter(duration, timeUnit).receiveMessage(request);
     }
@@ -127,7 +127,7 @@ public class RpcClientImpl implements RpcClient {
     @Override
     public ListenableFuture<AckMessageResponse> ackMessage(Metadata metadata, AckMessageRequest request,
                                                            Executor executor, long duration, TimeUnit timeUnit) {
-        this.lastCallNanoTime = System.nanoTime();
+        this.activityNanoTime = System.nanoTime();
         return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
                             .withDeadlineAfter(duration, timeUnit).ackMessage(request);
     }
@@ -135,7 +135,7 @@ public class RpcClientImpl implements RpcClient {
     @Override
     public ListenableFuture<NackMessageResponse> nackMessage(Metadata metadata, NackMessageRequest request,
                                                              Executor executor, long duration, TimeUnit timeUnit) {
-        this.lastCallNanoTime = System.nanoTime();
+        this.activityNanoTime = System.nanoTime();
         return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
                             .withDeadlineAfter(duration, timeUnit).nackMessage(request);
     }
@@ -143,7 +143,7 @@ public class RpcClientImpl implements RpcClient {
     @Override
     public ListenableFuture<HeartbeatResponse> heartbeat(Metadata metadata, HeartbeatRequest request, Executor executor,
                                                          long duration, TimeUnit timeUnit) {
-        this.lastCallNanoTime = System.nanoTime();
+        this.activityNanoTime = System.nanoTime();
         return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
                             .withDeadlineAfter(duration, timeUnit).heartbeat(request);
     }
@@ -151,7 +151,7 @@ public class RpcClientImpl implements RpcClient {
     @Override
     public ListenableFuture<QueryRouteResponse> queryRoute(Metadata metadata, QueryRouteRequest request,
                                                            Executor executor, long duration, TimeUnit timeUnit) {
-        this.lastCallNanoTime = System.nanoTime();
+        this.activityNanoTime = System.nanoTime();
         return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
                             .withDeadlineAfter(duration, timeUnit).queryRoute(request);
     }
@@ -160,7 +160,7 @@ public class RpcClientImpl implements RpcClient {
     public ListenableFuture<EndTransactionResponse> endTransaction(Metadata metadata, EndTransactionRequest request,
                                                                    Executor executor, long duration,
                                                                    TimeUnit timeUnit) {
-        this.lastCallNanoTime = System.nanoTime();
+        this.activityNanoTime = System.nanoTime();
         return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
                             .withDeadlineAfter(duration, timeUnit).endTransaction(request);
     }
@@ -168,7 +168,7 @@ public class RpcClientImpl implements RpcClient {
     @Override
     public ListenableFuture<QueryOffsetResponse> queryOffset(Metadata metadata, QueryOffsetRequest request,
                                                              Executor executor, long duration, TimeUnit timeUnit) {
-        this.lastCallNanoTime = System.nanoTime();
+        this.activityNanoTime = System.nanoTime();
         return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
                             .withDeadlineAfter(duration, timeUnit).queryOffset(request);
     }
@@ -176,7 +176,7 @@ public class RpcClientImpl implements RpcClient {
     @Override
     public ListenableFuture<PullMessageResponse> pullMessage(Metadata metadata, PullMessageRequest request,
                                                              Executor executor, long duration, TimeUnit timeUnit) {
-        this.lastCallNanoTime = System.nanoTime();
+        this.activityNanoTime = System.nanoTime();
         return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
                             .withDeadlineAfter(duration, timeUnit).pullMessage(request);
     }
@@ -185,7 +185,7 @@ public class RpcClientImpl implements RpcClient {
     public ListenableFuture<MultiplexingResponse> multiplexingCall(Metadata metadata, MultiplexingRequest request,
                                                                    Executor executor, long duration,
                                                                    TimeUnit timeUnit) {
-        this.lastCallNanoTime = System.nanoTime();
+        this.activityNanoTime = System.nanoTime();
         return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
                             .withDeadlineAfter(duration, timeUnit).multiplexingCall(request);
     }

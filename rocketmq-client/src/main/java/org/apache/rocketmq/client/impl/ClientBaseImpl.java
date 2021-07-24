@@ -635,19 +635,21 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                         onMultiplexingResponse(endpoints, response);
                     } catch (Throwable t) {
                         // Should never reach here.
-                        log.error("[Bug] Exception raised while handling multiplexing response, would call later", t);
+                        log.error("[Bug] Exception raised while handling multiplexing response, would call later, "
+                                  + "endpoints={}.", endpoints, t);
                         multiplexingCallLater(endpoints, request);
                     }
                 }
 
                 @Override
                 public void onFailure(Throwable t) {
-                    log.error("Exception raised while multiplexing call, would call later.", t);
+                    log.error("Exception raised while multiplexing call, would call later, endpoints={}.", endpoints,
+                              t);
                     multiplexingCallLater(endpoints, request);
                 }
             });
         } catch (Throwable t) {
-            log.error("Exception raised while multiplexing call, would call later.", t);
+            log.error("Exception raised while multiplexing call, would call later, endpoints={}.", endpoints, t);
             multiplexingCallLater(endpoints, request);
         }
     }
@@ -655,7 +657,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
     public ListenableFuture<MultiplexingResponse> multiplexingCall0(Endpoints endpoints, MultiplexingRequest request) {
         final SettableFuture<MultiplexingResponse> future = SettableFuture.create();
         try {
-            final Metadata metadata = Signature.sign(this);
+            final Metadata metadata = sign();
             return clientInstance.multiplexingCall(endpoints, metadata, request, MULTIPLEXING_CALL_TIMEOUT_MILLIS,
                                                    TimeUnit.MILLISECONDS);
         } catch (Throwable t) {

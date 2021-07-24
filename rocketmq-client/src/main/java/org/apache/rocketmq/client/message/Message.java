@@ -7,6 +7,8 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.rocketmq.client.message.protocol.MessageType;
+import org.apache.rocketmq.client.message.protocol.SystemAttribute;
 import org.apache.rocketmq.client.misc.MixAll;
 
 
@@ -88,7 +90,9 @@ public class Message {
     }
 
     public void setDeliveryTimestamp(long deliveryTimestamp) {
-        this.impl.getSystemAttribute().setDeliveryTimestamp(deliveryTimestamp);
+        final SystemAttribute systemAttribute = this.impl.getSystemAttribute();
+        systemAttribute.setDeliveryTimestamp(deliveryTimestamp);
+        systemAttribute.setMessageType(MessageType.DELAY);
     }
 
     public long getDeliveryTimestamp() {

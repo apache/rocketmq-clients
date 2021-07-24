@@ -1,10 +1,8 @@
 package org.apache.rocketmq.client.exception;
 
 import lombok.Getter;
-import lombok.ToString;
 
 @Getter
-@ToString
 public class ClientException extends Exception {
 
     @Deprecated

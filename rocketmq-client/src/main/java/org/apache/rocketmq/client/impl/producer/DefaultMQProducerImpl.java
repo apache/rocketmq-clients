@@ -8,13 +8,11 @@ import apache.rocketmq.v1.EndTransactionResponse;
 import apache.rocketmq.v1.HealthCheckRequest;
 import apache.rocketmq.v1.HealthCheckResponse;
 import apache.rocketmq.v1.HeartbeatEntry;
-import apache.rocketmq.v1.MessageType;
 import apache.rocketmq.v1.ProducerGroup;
 import apache.rocketmq.v1.ResolveOrphanedTransactionRequest;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
-import apache.rocketmq.v1.SystemAttribute;
 import com.google.common.base.Function;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Sets;
@@ -50,7 +48,6 @@ import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.ServerException;
 import org.apache.rocketmq.client.impl.ClientBaseImpl;
-import org.apache.rocketmq.client.impl.Signature;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageExt;
@@ -60,6 +57,8 @@ import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.message.protocol.Encoding;
+import org.apache.rocketmq.client.message.protocol.MessageType;
+import org.apache.rocketmq.client.message.protocol.SystemAttribute;
 import org.apache.rocketmq.client.misc.Validators;
 import org.apache.rocketmq.client.producer.MessageQueueSelector;
 import org.apache.rocketmq.client.producer.SendCallback;
@@ -243,8 +242,8 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         final Resource groupResource =
                 Resource.newBuilder().setArn(arn).setName(group).build();
 
-        final SystemAttribute.Builder systemAttributeBuilder =
-                SystemAttribute.newBuilder()
+        final apache.rocketmq.v1.SystemAttribute.Builder systemAttributeBuilder =
+                apache.rocketmq.v1.SystemAttribute.newBuilder()
                                .setBornTimestamp(fromMillis(System.currentTimeMillis()))
                                .setProducerGroup(groupResource)
                                .setMessageId(message.getMessageExt().getMsgId())
@@ -287,18 +286,18 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
         switch (messageImpl.getSystemAttribute().getMessageType()) {
             case FIFO:
-                systemAttributeBuilder.setMessageType(MessageType.FIFO);
+                systemAttributeBuilder.setMessageType(apache.rocketmq.v1.MessageType.FIFO);
                 break;
             case DELAY:
-                systemAttributeBuilder.setMessageType(MessageType.DELAY);
+                systemAttributeBuilder.setMessageType(apache.rocketmq.v1.MessageType.DELAY);
                 break;
             case TRANSACTION:
-                systemAttributeBuilder.setMessageType(MessageType.TRANSACTION);
+                systemAttributeBuilder.setMessageType(apache.rocketmq.v1.MessageType.TRANSACTION);
                 break;
             default:
-                systemAttributeBuilder.setMessageType(MessageType.NORMAL);
+                systemAttributeBuilder.setMessageType(apache.rocketmq.v1.MessageType.NORMAL);
         }
-        final SystemAttribute systemAttribute = systemAttributeBuilder.build();
+        final apache.rocketmq.v1.SystemAttribute systemAttribute = systemAttributeBuilder.build();
 
         final apache.rocketmq.v1.Message msg =
                 apache.rocketmq.v1.Message.newBuilder()
@@ -451,6 +450,10 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
     public TransactionImpl prepare(Message message) throws ServerException, InterruptedException,
                                                            ClientException, TimeoutException {
+        final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
+        final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
+        systemAttribute.setMessageType(MessageType.TRANSACTION);
+
         final SendResult sendResult = send(message);
         final String msgId = sendResult.getMsgId();
         final String transactionId = sendResult.getTransactionId();
@@ -488,7 +491,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         final EndTransactionRequest request = builder.build();
         Metadata metadata;
         try {
-            metadata = Signature.sign(this);
+            metadata = sign();
         } catch (Throwable t) {
             throw new ClientException(ErrorCode.SIGNATURE_FAILURE);
         }
@@ -597,11 +600,6 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
     private ListenableFuture<SendResult> send0(final Message message, final List<Partition> candidates,
                                                int maxAttemptTimes) {
-        // Set messageId
-        final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
-        final String messageId = MessageIdUtils.createUniqId();
-        messageImpl.getSystemAttribute().setMessageId(messageId);
-
         final SettableFuture<SendResult> future = SettableFuture.create();
         // Filter illegal message.
         try {
@@ -610,6 +608,20 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             future.setException(e);
             return future;
         }
+
+        // Set messageId
+        final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
+        final String messageId = MessageIdUtils.createUniqId();
+
+        final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
+
+        systemAttribute.setMessageId(messageId);
+
+        // Message type is normal as default.
+        if (null == systemAttribute.getMessageType()) {
+            systemAttribute.setMessageType(MessageType.NORMAL);
+        }
+
         send0(future, candidates, message, 1, maxAttemptTimes);
         return future;
     }
@@ -764,6 +776,6 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         if (cause instanceof ServerException) {
             throw (ServerException) cause;
         }
-        return new ClientException(cause);
+        return new ClientException(ErrorCode.OTHER, e);
     }
 }
