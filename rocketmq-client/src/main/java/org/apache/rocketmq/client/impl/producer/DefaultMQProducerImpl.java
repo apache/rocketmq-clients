@@ -60,6 +60,7 @@ import org.apache.rocketmq.client.message.protocol.Encoding;
 import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.message.protocol.SystemAttribute;
 import org.apache.rocketmq.client.misc.Validators;
+import org.apache.rocketmq.client.producer.MessageGroupQueueSelector;
 import org.apache.rocketmq.client.producer.MessageQueueSelector;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
@@ -390,6 +391,12 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         send0(message, 1);
     }
 
+    public SendResult send(Message message, String messageGroup) throws ServerException, ClientException,
+                                                                        InterruptedException, TimeoutException {
+        final MessageGroupQueueSelector selector = new MessageGroupQueueSelector(messageGroup);
+        return send(message, selector, null);
+    }
+
     public SendResult send(Message message, MessageQueueSelector selector, Object arg)
             throws ClientException, InterruptedException, ServerException, TimeoutException {
         return send(message, selector, arg, sendMessageTimeoutMillis);
@@ -407,8 +414,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         }
     }
 
-    public void send(
-            Message message, MessageQueueSelector selector, Object arg, SendCallback sendCallback)
+    public void send(Message message, MessageQueueSelector selector, Object arg, SendCallback sendCallback)
             throws ClientException, InterruptedException {
         send(message, selector, arg, sendCallback, sendMessageTimeoutMillis);
     }

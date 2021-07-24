@@ -410,14 +410,15 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                     log.error("Failed to fetch topic route, topic={}, in-flight route future size={}", topic,
                               newFutureSet.size(), t);
                     for (SettableFuture<TopicRouteData> newFuture : newFutureSet) {
-                        newFuture.setException(t);
+                        final ClientException exception = new ClientException(ErrorCode.FETCH_TOPIC_ROUTE_FAILURE, t);
+                        newFuture.setException(exception);
                     }
                 } finally {
                     inflightRouteFutureLock.unlock();
                 }
             }
         });
-        return future;
+        return future0;
     }
 
     public void setNamesrvAddr(String namesrv) {

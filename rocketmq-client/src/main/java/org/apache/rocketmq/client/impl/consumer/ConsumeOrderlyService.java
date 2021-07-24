@@ -33,6 +33,7 @@ public class ConsumeOrderlyService implements ConsumeService {
 
     @Override
     public void dispatch(ProcessQueue processQueue) {
+        
     }
 
     @Override
