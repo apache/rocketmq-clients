@@ -172,12 +172,11 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     @Override
     public void doHealthCheck() {
         final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
-        final Set<Endpoints> diff = new HashSet<Endpoints>(Sets.difference(routeEndpointsSet,
-                                                                           isolatedRouteEndpointsSet));
+        final Set<Endpoints> aborted = new HashSet<Endpoints>(Sets.difference(routeEndpointsSet, isolatedRouteEndpointsSet));
         // Remove all isolated endpoints where is not in the topic route.
         isolatedRouteEndpointsSetLock.writeLock().lock();
         try {
-            isolatedRouteEndpointsSet.removeAll(diff);
+            isolatedRouteEndpointsSet.removeAll(aborted);
         } finally {
             isolatedRouteEndpointsSetLock.writeLock().unlock();
         }
