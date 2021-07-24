@@ -1,18 +1,45 @@
 package org.apache.rocketmq.client.impl.consumer;
 
-import com.google.common.util.concurrent.ListenableFuture;
-import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
-import org.apache.rocketmq.client.exception.ClientException;
-import org.apache.rocketmq.client.message.MessageExt;
-import org.apache.rocketmq.client.route.Partition;
+import java.util.concurrent.atomic.AtomicReference;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.client.constant.ServiceState;
+import org.apache.rocketmq.client.consumer.listener.MessageListener;
 
-public interface ConsumeService {
+@Slf4j
+public abstract class ConsumeService {
+    private final AtomicReference<ServiceState> state;
 
-    void start() throws ClientException;
+    @Getter
+    private final MessageListener messageListener;
 
-    void shutdown();
+    public ConsumeService(MessageListener messageListener) {
+        this.messageListener = messageListener;
+        this.state = new AtomicReference<ServiceState>(ServiceState.READY);
+    }
 
-    void dispatch(ProcessQueue processQueue);
+    public void start() {
+        synchronized (this) {
+            log.info("Begin to start the consume service.");
+            if (!state.compareAndSet(ServiceState.READY, ServiceState.STARTED)) {
+                log.warn("The consume concurrently service has been started before");
+                return;
+            }
+            log.info("Start the consume service successfully.");
+        }
+    }
 
-    ListenableFuture<ConsumeStatus> verifyConsumption(MessageExt messageExt, Partition partition);
+    public void shutdown() {
+        synchronized (this) {
+            log.info("Begin to shutdown the consume service.");
+            if (!state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING)) {
+                log.warn("The consume service has not been started before.");
+                return;
+            }
+            state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
+            log.info("Shutdown the consumer service successfully.");
+        }
+    }
+
+    abstract void dispatch(ProcessQueue processQueue);
 }

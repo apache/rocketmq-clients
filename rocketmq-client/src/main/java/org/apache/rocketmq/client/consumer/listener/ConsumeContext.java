@@ -4,12 +4,12 @@ import lombok.Getter;
 import org.apache.rocketmq.client.message.MessageQueue;
 
 @Getter
-public class ConsumeConcurrentlyContext {
+public class ConsumeContext {
     private final MessageQueue messageQueue;
     // TODO:
     private final int ackIndex = Integer.MAX_VALUE;
 
-    public ConsumeConcurrentlyContext(MessageQueue messageQueue) {
+    public ConsumeContext(MessageQueue messageQueue) {
         this.messageQueue = messageQueue;
     }
 }

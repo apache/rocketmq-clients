@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
+import org.apache.rocketmq.client.consumer.listener.ConsumeContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
@@ -14,7 +14,7 @@ import org.apache.rocketmq.client.message.MessageQueue;
 
 @Slf4j
 @AllArgsConstructor
-public class ConsumeConcurrentlyTask implements Runnable {
+public class ConsumeTask implements Runnable {
     final ConsumeConcurrentlyService consumeConcurrentlyService;
     final ProcessQueue processQueue;
     final List<MessageExt> cachedMessages;
@@ -36,13 +36,12 @@ public class ConsumeConcurrentlyTask implements Runnable {
             consumerImpl.interceptMessage(MessageHookPoint.PRE_MESSAGE_CONSUMPTION, messageExt, context);
         }
 
-        ConsumeConcurrentlyContext consumeContext = new ConsumeConcurrentlyContext(messageQueue);
+        ConsumeContext consumeContext = new ConsumeContext(messageQueue);
         ConsumeStatus status;
 
         final Stopwatch started = Stopwatch.createStarted();
         try {
-            status = consumeConcurrentlyService.getMessageListenerConcurrently()
-                                               .consumeMessage(cachedMessages, consumeContext);
+            status = consumeConcurrentlyService.getMessageListener().consume(cachedMessages, consumeContext);
         } catch (Throwable t) {
             status = ConsumeStatus.ERROR;
             log.error("Business callback raised an exception while consuming message.", t);
@@ -67,7 +66,7 @@ public class ConsumeConcurrentlyTask implements Runnable {
             consumerImpl.interceptMessage(MessageHookPoint.POST_MESSAGE_CONSUMPTION, messageExt, context);
         }
 
-        processQueue.removeCachedMessages(cachedMessages);
+        processQueue.eraseMessages(cachedMessages);
 
         for (MessageExt messageExt : cachedMessages) {
             switch (status) {

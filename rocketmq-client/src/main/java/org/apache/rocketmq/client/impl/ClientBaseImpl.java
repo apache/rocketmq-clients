@@ -117,7 +117,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
     private final List<MessageInterceptor> messageInterceptors;
     private final ReadWriteLock messageInterceptorsLock;
 
-    @GuardedBy("nameServerListLock")
+    @GuardedBy("nameServerEndpointsListLock")
     private final List<Endpoints> nameServerEndpointsList;
     private final ReadWriteLock nameServerEndpointsListLock;
 
@@ -384,7 +384,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                     final Set<SettableFuture<TopicRouteData>> newFutureSet = inflightRouteFutureTable.remove(topic);
                     if (null == newFutureSet) {
                         // Should never reach here.
-                        log.error("[Bug] Inflight route futures was empty, topic={}", topic);
+                        log.error("[Bug] in-flight route futures was empty, topic={}", topic);
                         return;
                     }
                     log.debug("Fetch topic route successfully, topic={}, in-flight route future size={}", topic,
@@ -404,7 +404,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                     final Set<SettableFuture<TopicRouteData>> newFutureSet = inflightRouteFutureTable.remove(topic);
                     if (null == newFutureSet) {
                         // Should never reach here.
-                        log.error("[Bug] Inflight route futures was empty, topic={}", topic);
+                        log.error("[Bug] in-flight route futures was empty, topic={}", topic);
                         return;
                     }
                     log.error("Failed to fetch topic route, topic={}, in-flight route future size={}", topic,

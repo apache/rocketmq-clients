@@ -12,6 +12,7 @@ import com.google.common.base.Function;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.protobuf.util.Durations;
 import io.grpc.Metadata;
 import io.opentelemetry.api.trace.Tracer;
@@ -54,8 +55,10 @@ public class ProcessQueue {
     @Getter
     private final DefaultMQPushConsumerImpl consumerImpl;
 
+    @GuardedBy("cachedMessagesLock")
     private final List<MessageExt> cachedMessages;
     private final ReentrantReadWriteLock cachedMessagesLock;
+
     private final AtomicLong cachedMsgSize;
 
     private volatile long lastPopTimestamp;
@@ -79,28 +82,6 @@ public class ProcessQueue {
         this.lastThrottledTimestamp = System.currentTimeMillis();
     }
 
-    public boolean isPopExpired() {
-        final long popDuration = System.currentTimeMillis() - lastPopTimestamp;
-        if (popDuration < MAX_POP_MESSAGE_INTERVAL_MILLIS) {
-            return false;
-        }
-
-        final long throttledDuration = System.currentTimeMillis() - lastThrottledTimestamp;
-        if (throttledDuration < MAX_POP_MESSAGE_INTERVAL_MILLIS) {
-            return false;
-        }
-
-        log.warn(
-                "ProcessQueue is expired, duration from last pop={}ms, duration from last throttle={}ms, " +
-                "lastPopTimestamp={}, lastThrottledTimestamp={}, currentTimestamp={}",
-                popDuration,
-                throttledDuration,
-                lastPopTimestamp,
-                lastThrottledTimestamp,
-                System.currentTimeMillis());
-        return true;
-    }
-
     @VisibleForTesting
     public void cacheMessages(List<MessageExt> messageList) {
         cachedMessagesLock.writeLock().lock();
@@ -114,7 +95,7 @@ public class ProcessQueue {
         }
     }
 
-    public List<MessageExt> getCachedMessages() {
+    public List<MessageExt> peekMessages() {
         cachedMessagesLock.readLock().lock();
         try {
             return new ArrayList<MessageExt>(cachedMessages);
@@ -123,12 +104,11 @@ public class ProcessQueue {
         }
     }
 
-    public void removeCachedMessages(List<MessageExt> messageExtList) {
+    public void eraseMessages(List<MessageExt> messageList) {
         cachedMessagesLock.writeLock().lock();
         try {
-            for (MessageExt messageExt : messageExtList) {
-                final boolean removed = cachedMessages.remove(messageExt);
-                if (removed) {
+            for (MessageExt messageExt : messageList) {
+                if (cachedMessages.remove(messageExt)) {
                     cachedMsgSize.addAndGet(null == messageExt.getBody() ? 0 : -messageExt.getBody().length);
                 }
             }
@@ -230,6 +210,28 @@ public class ProcessQueue {
             return true;
         }
         return false;
+    }
+
+    public boolean isPopExpired() {
+        final long popDuration = System.currentTimeMillis() - lastPopTimestamp;
+        if (popDuration < MAX_POP_MESSAGE_INTERVAL_MILLIS) {
+            return false;
+        }
+
+        final long throttledDuration = System.currentTimeMillis() - lastThrottledTimestamp;
+        if (throttledDuration < MAX_POP_MESSAGE_INTERVAL_MILLIS) {
+            return false;
+        }
+
+        log.warn(
+                "ProcessQueue is expired, duration from last pop={}ms, duration from last throttle={}ms, " +
+                "lastPopTimestamp={}, lastThrottledTimestamp={}, currentTimestamp={}",
+                popDuration,
+                throttledDuration,
+                lastPopTimestamp,
+                lastThrottledTimestamp,
+                System.currentTimeMillis());
+        return true;
     }
 
     public void popMessage() {

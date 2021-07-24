@@ -96,7 +96,7 @@ public class ClientInstance {
 
         this.scheduler = new ScheduledThreadPoolExecutor(
                 Runtime.getRuntime().availableProcessors(),
-                new ThreadFactoryImpl("ClientInstanceScheduler"));
+                new ThreadFactoryImpl("ClientSchedulerThread"));
 
         this.asyncExecutor = new ThreadPoolExecutor(
                 Runtime.getRuntime().availableProcessors(),
@@ -294,11 +294,6 @@ public class ClientInstance {
         rpcClientTable.put(endpoints, newRpcClient);
 
         return newRpcClient;
-    }
-
-    // TODO
-    public Set<Endpoints> getAllIsolatedEndpoints() {
-        return new HashSet<Endpoints>();
     }
 
     public ListenableFuture<QueryRouteResponse> queryRoute(Endpoints endpoints, Metadata metadata,

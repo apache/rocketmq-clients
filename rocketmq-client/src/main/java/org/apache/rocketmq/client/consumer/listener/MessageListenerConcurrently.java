@@ -1,10 +1,8 @@
 package org.apache.rocketmq.client.consumer.listener;
 
-import java.util.List;
-import org.apache.rocketmq.client.message.MessageExt;
+import lombok.Getter;
 
-public interface MessageListenerConcurrently {
-
-    ConsumeStatus consumeMessage(
-            final List<MessageExt> messages, final ConsumeConcurrentlyContext context);
+public abstract class MessageListenerConcurrently implements MessageListener {
+    @Getter
+    private final MessageListenerType listenerType = MessageListenerType.CONCURRENTLY;
 }

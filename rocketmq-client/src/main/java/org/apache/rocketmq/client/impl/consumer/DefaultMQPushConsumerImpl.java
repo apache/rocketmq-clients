@@ -42,8 +42,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.Getter;
@@ -56,7 +58,9 @@ import org.apache.rocketmq.client.consumer.MessageModel;
 import org.apache.rocketmq.client.consumer.PopResult;
 import org.apache.rocketmq.client.consumer.PopStatus;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
+import org.apache.rocketmq.client.consumer.listener.ConsumeContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
+import org.apache.rocketmq.client.consumer.listener.MessageListener;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
 import org.apache.rocketmq.client.exception.ClientException;
@@ -71,21 +75,21 @@ import org.apache.rocketmq.client.remoting.Endpoints;
 import org.apache.rocketmq.client.route.Broker;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
+import org.apache.rocketmq.utility.ThreadFactoryImpl;
 
 
 @Slf4j
 public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
-    public AtomicLong popTimes;
-    public AtomicLong poppedMsgCount;
-    public AtomicLong consumeSuccessMsgCount;
-    public AtomicLong consumeFailureMsgCount;
+    public final AtomicLong popTimes;
+    public final AtomicLong poppedMsgCount;
+    public final AtomicLong consumeSuccessMsgCount;
+    public final AtomicLong consumeFailureMsgCount;
 
     private final ConcurrentMap<String /* topic */, FilterExpression> filterExpressionTable;
     private final ConcurrentMap<String /* topic */, TopicAssignment> cachedTopicAssignmentTable;
 
-    private MessageListenerConcurrently messageListenerConcurrently;
-    private MessageListenerOrderly messageListenerOrderly;
+    private MessageListener messageListener;
 
     private final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable;
     private volatile ScheduledFuture<?> scanLoadAssignmentsFuture;
@@ -114,8 +118,8 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     @Getter
     private volatile ConsumeService consumeService;
 
-    @Getter
     @Setter
+    @Getter
     private int maxReconsumeTimes = 16;
 
     @Getter
@@ -126,32 +130,44 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     @Setter
     private ConsumeFromWhere consumeFromWhere = ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET;
 
+    @Getter
+    private final ThreadPoolExecutor consumeExecutor;
+
     public DefaultMQPushConsumerImpl(String group) {
         super(group);
         this.filterExpressionTable = new ConcurrentHashMap<String, FilterExpression>();
         this.cachedTopicAssignmentTable = new ConcurrentHashMap<String, TopicAssignment>();
 
-        this.messageListenerConcurrently = null;
-        this.messageListenerOrderly = null;
+        this.messageListener = null;
+        this.consumeService = null;
 
         this.processQueueTable = new ConcurrentHashMap<MessageQueue, ProcessQueue>();
-
-        this.consumeService = null;
 
         this.popTimes = new AtomicLong(0);
         this.poppedMsgCount = new AtomicLong(0);
         this.consumeSuccessMsgCount = new AtomicLong(0);
         this.consumeFailureMsgCount = new AtomicLong(0);
+
+        this.consumeExecutor = new ThreadPoolExecutor(
+                consumeThreadMin,
+                consumeThreadMax,
+                60,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<Runnable>(),
+                new ThreadFactoryImpl("ConsumeThread"));
     }
 
-    private ConsumeService generateConsumeService() throws ClientException {
-        if (null != messageListenerConcurrently) {
-            return new ConsumeConcurrentlyService(this, messageListenerConcurrently);
+    private void generateConsumeService() throws ClientException {
+        switch (messageListener.getListenerType()) {
+            case CONCURRENTLY:
+                this.consumeService = new ConsumeConcurrentlyService(messageListener);
+                break;
+            case ORDERLY:
+                this.consumeService = new ConsumeOrderlyService(messageListener);
+                break;
+            default:
+                throw new ClientException(ErrorCode.NO_LISTENER_REGISTERED);
         }
-        if (null != messageListenerOrderly) {
-            return new ConsumeOrderlyService(this, messageListenerOrderly);
-        }
-        throw new ClientException(ErrorCode.NO_LISTENER_REGISTERED);
     }
 
     @Override
@@ -160,7 +176,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
             log.info("Begin to start the rocketmq push consumer");
             super.start();
 
-            consumeService = this.generateConsumeService();
+            this.generateConsumeService();
             consumeService.start();
             final ScheduledExecutorService scheduler = clientInstance.getScheduler();
             scanLoadAssignmentsFuture = scheduler.scheduleWithFixedDelay(
@@ -187,9 +203,8 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     public void shutdown() {
         synchronized (this) {
             log.info("Begin to shutdown the rocketmq push consumer.");
-            super.shutdown();
 
-            if (ServiceState.STOPPED == getState()) {
+            if (ServiceState.STARTED == getState()) {
                 if (null != scanLoadAssignmentsFuture) {
                     scanLoadAssignmentsFuture.cancel(false);
                 }
@@ -197,6 +212,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                 if (null != consumeService) {
                     consumeService.shutdown();
                 }
+                consumeExecutor.shutdown();
                 log.info("Shutdown the rocketmq push consumer successfully.");
             }
         }
@@ -344,12 +360,11 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     public void registerMessageListener(MessageListenerConcurrently messageListenerConcurrently) {
         checkNotNull(messageListenerConcurrently);
-        this.messageListenerConcurrently = messageListenerConcurrently;
+        this.messageListener = messageListenerConcurrently;
     }
 
     public void registerMessageListener(MessageListenerOrderly messageListenerOrderly) {
         checkNotNull(messageListenerOrderly);
-        this.messageListenerOrderly = messageListenerOrderly;
     }
 
     private ListenableFuture<Endpoints> pickRouteEndpoints(String topic) {
@@ -621,17 +636,41 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         final Partition partition = new Partition(request.getPartition());
         final Message message = request.getMessage();
         MessageImpl messageImpl;
+        final SettableFuture<ConsumeStatus> future = SettableFuture.create();
         try {
             messageImpl = ClientBaseImpl.wrapMessageImpl(message);
         } catch (Throwable t) {
             log.error("Message verify consumption is corrupted, partition={}, messageId={}", partition,
                       message.getSystemAttribute().getMessageId());
-            SettableFuture<ConsumeStatus> future0 = SettableFuture.create();
-            future0.setException(t);
-            return future0;
+            future.setException(t);
+            return future;
         }
         final MessageExt messageExt = new MessageExt(messageImpl);
-        return consumeService.verifyConsumption(messageExt, partition);
+        try {
+            consumeExecutor.submit(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        final ArrayList<MessageExt> messageList = new ArrayList<MessageExt>();
+                        messageList.add(messageExt);
+                        final MessageQueue messageQueue = new MessageQueue(partition);
+                        final ConsumeContext context = new ConsumeContext(messageQueue);
+                        // Listener here may not registered.
+                        final ConsumeStatus status = messageListener.consume(messageList, context);
+                        future.set(status);
+                    } catch (Throwable t) {
+                        log.error("Exception raised while verification of message consumption, topic={}, "
+                                  + "messageId={}", messageExt.getTopic(), messageExt.getMsgId());
+                        future.setException(t);
+                    }
+                }
+            });
+        } catch (Throwable t) {
+            log.error("Failed to submit task for verification of message consumption, topic={}, messageId={}",
+                      messageExt.getTopic(), messageExt.getMsgId());
+            future.setException(t);
+        }
+        return future;
     }
 
     @Override
