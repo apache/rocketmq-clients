@@ -255,7 +255,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     }
 
     @Override
-    public void logStats() {
+    public void doStats() {
         final long popTimes = this.popTimes.getAndSet(0);
         final long poppedMsgCount = this.poppedMsgCount.getAndSet(0);
         final long consumeSuccessMsgCount = this.consumeSuccessMsgCount.getAndSet(0);

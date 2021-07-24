@@ -117,7 +117,7 @@ public class ClientInstance {
 
     public void unregisterClientObserver(ClientObserver clientObserver) {
         synchronized (this) {
-            clientObserverTable.remove(clientObserver.getClientId(), clientObserver);
+            clientObserverTable.remove(clientObserver.getClientId());
             if (clientObserverTable.isEmpty()) {
                 shutdown();
             }
@@ -182,7 +182,7 @@ public class ClientInstance {
             final String clientId = entry.getKey();
             final ClientObserver observer = entry.getValue();
             log.info("Log stats for clientId={}", clientId);
-            observer.logStats();
+            observer.doStats();
         }
     }
 

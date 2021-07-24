@@ -12,6 +12,8 @@ public class Validators {
     public static final Pattern TOPIC_PATTERN = Pattern.compile(TOPIC_REGEX);
     public static final int TOPIC_MAX_LENGTH = 255;
 
+    public static int MESSAGE_BODY_MAX_SIZE = 1024 * 1024 * 4;
+
     public static final String CONSUMER_GROUP_REGEX = TOPIC_REGEX;
     public static final Pattern CONSUMER_GROUP_PATTERN = Pattern.compile(CONSUMER_GROUP_REGEX);
     public static final int CONSUMER_GROUP_MAX_LENGTH = TOPIC_MAX_LENGTH;
@@ -51,7 +53,7 @@ public class Validators {
         }
     }
 
-    public static void messageCheck(Message message, int bodyMaxSize) throws ClientException {
+    public static void check(Message message) throws ClientException {
         if (null == message) {
             throw new ClientException(ErrorCode.ILLEGAL_FORMAT, "Message is null.");
         }
@@ -65,9 +67,9 @@ public class Validators {
         if (0 == body.length) {
             throw new ClientException(ErrorCode.ILLEGAL_FORMAT, "Message body's length is zero.");
         }
-        if (body.length > bodyMaxSize) {
+        if (body.length > MESSAGE_BODY_MAX_SIZE) {
             throw new ClientException(ErrorCode.ILLEGAL_FORMAT, "Message body's length exceeds the threshold, "
-                                                                + "maxSize=" + bodyMaxSize + " bytes.");
+                                                                + "maxSize=" + MESSAGE_BODY_MAX_SIZE + " bytes.");
         }
     }
 }

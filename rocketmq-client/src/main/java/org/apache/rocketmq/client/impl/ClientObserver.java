@@ -7,9 +7,9 @@ public interface ClientObserver {
 
     void doHeartbeat();
 
-    HeartbeatEntry prepareHeartbeatData();
-
     void doHealthCheck();
 
-    void logStats();
+    void doStats();
+
+    HeartbeatEntry prepareHeartbeatData();
 }

@@ -82,8 +82,6 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     private int maxAttemptTimes = 3;
     @Setter
     private long sendMessageTimeoutMillis = 10 * 1000;
-    @Setter
-    private int maxMessageSize = 1024 * 1024 * 4;
 
     private final ThreadPoolExecutor defaultSendCallbackExecutor;
 
@@ -603,7 +601,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         final SettableFuture<SendResult> future = SettableFuture.create();
         // Filter illegal message.
         try {
-            Validators.messageCheck(message, maxMessageSize);
+            Validators.check(message);
         } catch (ClientException e) {
             future.setException(e);
             return future;
@@ -614,9 +612,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         final String messageId = MessageIdUtils.createUniqId();
 
         final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
-
         systemAttribute.setMessageId(messageId);
-
         // Message type is normal as default.
         if (null == systemAttribute.getMessageType()) {
             systemAttribute.setMessageType(MessageType.NORMAL);
@@ -628,10 +624,6 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
     private void send0(final SettableFuture<SendResult> future, final List<Partition> candidates,
                        final Message message, final int attemptTimes, final int maxAttemptTimes) {
-        // Calculate the current partition.
-        final Partition partition = candidates.get((attemptTimes - 1) % candidates.size());
-
-        final Endpoints endpoints = partition.getBroker().getEndpoints();
         Metadata metadata;
         try {
             metadata = sign();
@@ -640,6 +632,10 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             future.setException(t);
             return;
         }
+
+        // Calculate the current partition.
+        final Partition partition = candidates.get((attemptTimes - 1) % candidates.size());
+        final Endpoints endpoints = partition.getBroker().getEndpoints();
 
         final SendMessageRequest request = wrapSendMessageRequest(message, partition);
         final Stopwatch stopwatch = Stopwatch.createStarted();
@@ -731,8 +727,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
     @Override
     public HeartbeatEntry prepareHeartbeatData() {
-        Resource groupResource =
-                Resource.newBuilder().setArn(arn).setName(group).build();
+        Resource groupResource = Resource.newBuilder().setArn(arn).setName(group).build();
         ProducerGroup producerGroup = ProducerGroup.newBuilder().setGroup(groupResource).build();
         return HeartbeatEntry.newBuilder()
                              .setClientId(clientId)
@@ -741,7 +736,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     }
 
     @Override
-    public void logStats() {
+    public void doStats() {
     }
 
     @Override

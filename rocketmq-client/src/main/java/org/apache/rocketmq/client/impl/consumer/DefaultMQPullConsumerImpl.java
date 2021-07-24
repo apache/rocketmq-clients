@@ -296,7 +296,7 @@ public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
     }
 
     @Override
-    public void logStats() {
+    public void doStats() {
 
     }
 
