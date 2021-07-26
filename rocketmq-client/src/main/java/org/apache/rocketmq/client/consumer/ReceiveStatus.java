@@ -1,6 +1,6 @@
 package org.apache.rocketmq.client.consumer;
 
-public enum PopStatus {
+public enum ReceiveStatus {
     /**
      * Messages are received as expected or no new message arrived.
      */

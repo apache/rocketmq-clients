@@ -2,19 +2,15 @@ package org.apache.rocketmq.client.message;
 
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.ToString;
 import org.apache.rocketmq.client.route.Partition;
 
 @Getter
-@ToString
 @EqualsAndHashCode
 public class MessageQueue {
     private final String topic;
     private final String brokerName;
     private final int queueId;
 
-    @EqualsAndHashCode.Exclude
-    @ToString.Exclude
     private final Partition partition;
 
     public MessageQueue(Partition partition) {
@@ -31,7 +27,8 @@ public class MessageQueue {
         this.partition = null;
     }
 
-    public String simpleName() {
+    @Override
+    public String toString() {
         return topic + "." + brokerName + "." + queueId;
     }
 }

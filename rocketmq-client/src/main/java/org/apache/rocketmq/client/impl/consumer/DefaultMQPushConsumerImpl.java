@@ -2,8 +2,6 @@ package org.apache.rocketmq.client.impl.consumer;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import apache.rocketmq.v1.AckMessageRequest;
-import apache.rocketmq.v1.AckMessageResponse;
 import apache.rocketmq.v1.ClientResourceBundle;
 import apache.rocketmq.v1.ConsumeMessageType;
 import apache.rocketmq.v1.ConsumeModel;
@@ -13,11 +11,8 @@ import apache.rocketmq.v1.DeadLetterPolicy;
 import apache.rocketmq.v1.FilterType;
 import apache.rocketmq.v1.HeartbeatEntry;
 import apache.rocketmq.v1.Message;
-import apache.rocketmq.v1.NackMessageRequest;
-import apache.rocketmq.v1.NackMessageResponse;
 import apache.rocketmq.v1.QueryAssignmentRequest;
 import apache.rocketmq.v1.QueryAssignmentResponse;
-import apache.rocketmq.v1.ReceiveMessageResponse;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.ResponseCommon;
 import apache.rocketmq.v1.SubscriptionEntry;
@@ -29,12 +24,9 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.protobuf.util.Durations;
-import com.google.protobuf.util.Timestamps;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
 import io.grpc.Metadata;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -55,8 +47,6 @@ import org.apache.rocketmq.client.constant.ConsumeFromWhere;
 import org.apache.rocketmq.client.constant.Permission;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.MessageModel;
-import org.apache.rocketmq.client.consumer.PopResult;
-import org.apache.rocketmq.client.consumer.PopStatus;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.consumer.listener.ConsumeContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
@@ -81,10 +71,10 @@ import org.apache.rocketmq.utility.ThreadFactoryImpl;
 @Slf4j
 public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
-    public final AtomicLong popTimes;
-    public final AtomicLong poppedMsgCount;
-    public final AtomicLong consumeSuccessMsgCount;
-    public final AtomicLong consumeFailureMsgCount;
+    public final AtomicLong receiveTimes;
+    public final AtomicLong receivedCount;
+    public final AtomicLong consumptionOkCount;
+    public final AtomicLong consumptionErrorCount;
 
     private final ConcurrentMap<String /* topic */, FilterExpression> filterExpressionTable;
     private final ConcurrentMap<String /* topic */, TopicAssignment> cachedTopicAssignmentTable;
@@ -92,7 +82,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     private MessageListener messageListener;
 
     private final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable;
-    private volatile ScheduledFuture<?> scanLoadAssignmentsFuture;
+    private volatile ScheduledFuture<?> scanAssignmentsFuture;
 
     @Setter
     @Getter
@@ -100,7 +90,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     @Setter
     @Getter
-    private long maxBatchConsumeWaitTimeMillis = 1000;
+    private long maxBatchConsumeWaitTimeMillis = 0;
 
     @Getter
     @Setter
@@ -143,10 +133,10 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
         this.processQueueTable = new ConcurrentHashMap<MessageQueue, ProcessQueue>();
 
-        this.popTimes = new AtomicLong(0);
-        this.poppedMsgCount = new AtomicLong(0);
-        this.consumeSuccessMsgCount = new AtomicLong(0);
-        this.consumeFailureMsgCount = new AtomicLong(0);
+        this.receiveTimes = new AtomicLong(0);
+        this.receivedCount = new AtomicLong(0);
+        this.consumptionOkCount = new AtomicLong(0);
+        this.consumptionErrorCount = new AtomicLong(0);
 
         this.consumeExecutor = new ThreadPoolExecutor(
                 consumeThreadMin,
@@ -160,10 +150,10 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     private void generateConsumeService() throws ClientException {
         switch (messageListener.getListenerType()) {
             case CONCURRENTLY:
-                this.consumeService = new ConsumeConcurrentlyService(messageListener);
+                this.consumeService = new ConsumeConcurrentlyService(this, messageListener);
                 break;
             case ORDERLY:
-                this.consumeService = new ConsumeOrderlyService(messageListener);
+                this.consumeService = new ConsumeOrderlyService(this, messageListener);
                 break;
             default:
                 throw new ClientException(ErrorCode.NO_LISTENER_REGISTERED);
@@ -179,7 +169,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
             this.generateConsumeService();
             consumeService.start();
             final ScheduledExecutorService scheduler = clientInstance.getScheduler();
-            scanLoadAssignmentsFuture = scheduler.scheduleWithFixedDelay(
+            scanAssignmentsFuture = scheduler.scheduleWithFixedDelay(
                     new Runnable() {
                         @Override
                         public void run() {
@@ -205,8 +195,8 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
             log.info("Begin to shutdown the rocketmq push consumer.");
 
             if (ServiceState.STARTED == getState()) {
-                if (null != scanLoadAssignmentsFuture) {
-                    scanLoadAssignmentsFuture.cancel(false);
+                if (null != scanAssignmentsFuture) {
+                    scanAssignmentsFuture.cancel(false);
                 }
                 super.shutdown();
                 if (null != consumeService) {
@@ -216,6 +206,23 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                 log.info("Shutdown the rocketmq push consumer successfully.");
             }
         }
+    }
+
+    List<ProcessQueue> processQueueList() {
+        return new ArrayList<ProcessQueue>(processQueueTable.values());
+    }
+
+    int messagesCachedSize() {
+        int size = 0;
+        for (ProcessQueue pq : processQueueTable.values()) {
+            size += pq.messagesCacheSize();
+        }
+        return size;
+    }
+
+    // TODO ???
+    ProcessQueue processQueue(MessageQueue mq) {
+        return processQueueTable.get(mq);
     }
 
     private QueryAssignmentRequest wrapQueryAssignmentRequest(String topic) {
@@ -272,17 +279,14 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     @Override
     public void doStats() {
-        final long popTimes = this.popTimes.getAndSet(0);
-        final long poppedMsgCount = this.poppedMsgCount.getAndSet(0);
-        final long consumeSuccessMsgCount = this.consumeSuccessMsgCount.getAndSet(0);
-        final long consumeFailureMsgCount = this.consumeFailureMsgCount.getAndSet(0);
+        final long receiveTimes = this.receiveTimes.getAndSet(0);
+        final long receivedCount = this.receivedCount.getAndSet(0);
+        final long consumptionOkCount = this.consumptionOkCount.getAndSet(0);
+        final long consumptionErrorCount = this.consumptionErrorCount.getAndSet(0);
         log.info(
-                "ConsumerGroup={}, PopTimes={}, PoppedMsgCount={}, ConsumeSuccessMsgCount={}, "
-                + "ConsumeFailureMsgCount={}", group,
-                popTimes,
-                poppedMsgCount,
-                consumeSuccessMsgCount,
-                consumeFailureMsgCount);
+                "ConsumerGroup={}, receiveTimes={}, receivedCount={}, consumptionOkCount={}, "
+                + "consumptionErrorCount={}", group, receiveTimes, receivedCount, consumptionOkCount,
+                consumptionErrorCount);
     }
 
     private void syncProcessQueueByTopic(
@@ -304,21 +308,19 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
             }
 
             if (null == processQueue) {
-                log.error("[Bug] Process queue is null, mq={}", messageQueue.simpleName());
+                log.error("[Bug] Process queue is null, mq={}", messageQueue);
                 continue;
             }
 
             if (!latestMessageQueueSet.contains(messageQueue)) {
-                log.info(
-                        "Stop to pop message queue according to the latest load assignments, mq={}",
-                        messageQueue.simpleName());
+                log.info("Stop to receive message queue according to the latest assignments, mq={}", messageQueue);
                 processQueueTable.remove(messageQueue);
                 processQueue.setDropped(true);
                 continue;
             }
 
-            if (processQueue.isPopExpired()) {
-                log.warn("ProcessQueue is expired to pop, mq={}", messageQueue.simpleName());
+            if (processQueue.idle()) {
+                log.warn("Process queue is expired, mq={}", messageQueue);
                 processQueueTable.remove(messageQueue);
                 processQueue.setDropped(true);
                 continue;
@@ -328,15 +330,15 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
         for (MessageQueue messageQueue : latestMessageQueueSet) {
             if (!activeMessageQueueSet.contains(messageQueue)) {
-                log.info("Start to pop message queue according to the latest assignments, mq={}",
-                         messageQueue.simpleName());
-                final ProcessQueue processQueue = getProcessQueue(messageQueue, filterExpression);
-                processQueue.popMessage();
+                log.info("Start to receive message from message queue according to the latest assignments, mq={}",
+                         messageQueue);
+                final ProcessQueue processQueue = processQueue(messageQueue, filterExpression);
+                processQueue.receiveMessageImmediately();
             }
         }
     }
 
-    private ProcessQueue getProcessQueue(
+    private ProcessQueue processQueue(
             MessageQueue messageQueue, final FilterExpression filterExpression) {
         if (null == processQueueTable.get(messageQueue)) {
             processQueueTable.putIfAbsent(
@@ -494,119 +496,6 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         return Resource.newBuilder().setArn(arn).setName(group).build();
     }
 
-    public void nackMessage(MessageExt messageExt) throws ClientException {
-        final NackMessageRequest request = wrapNackMessageRequest(messageExt);
-        final Endpoints endpoints = messageExt.getAckEndpoints();
-        final Metadata metadata = sign();
-        final ListenableFuture<NackMessageResponse> future =
-                clientInstance.nackMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
-        final String messageId = request.getMessageId();
-        Futures.addCallback(future, new FutureCallback<NackMessageResponse>() {
-            @Override
-            public void onSuccess(NackMessageResponse response) {
-                final Status status = response.getCommon().getStatus();
-                final Code code = Code.forNumber(status.getCode());
-                if (Code.OK != code) {
-                    log.error("Failed to nack message, messageId={}, endpoints={}, code={}, status message={}",
-                              messageId, endpoints, code, status.getMessage());
-                    return;
-                }
-                log.trace("Nack message successfully, messageId={}, endpoints={}, code={}, status message={}",
-                          messageId, endpoints, code, status.getMessage());
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-                log.error("Exception raised while nack message, messageId={}, endpoints={}", messageId, endpoints, t);
-            }
-        });
-    }
-
-    private NackMessageRequest wrapNackMessageRequest(MessageExt messageExt) {
-        // Group
-        final Resource groupResource = Resource.newBuilder()
-                                               .setArn(arn)
-                                               .setName(group)
-                                               .build();
-        // Topic
-        final Resource topicResource = Resource.newBuilder()
-                                               .setArn(arn)
-                                               .setName(messageExt.getTopic())
-                                               .build();
-
-        final NackMessageRequest.Builder builder =
-                NackMessageRequest.newBuilder()
-                                  .setGroup(groupResource)
-                                  .setTopic(topicResource)
-                                  .setClientId(this.getClientId())
-                                  .setReceiptHandle(messageExt.getReceiptHandle())
-                                  .setMessageId(messageExt.getMsgId())
-                                  .setReconsumeTimes(messageExt.getReconsumeTimes() + 1)
-                                  .setMaxReconsumeTimes(this.getMaxReconsumeTimes());
-
-        switch (getMessageModel()) {
-            case CLUSTERING:
-                builder.setConsumeModel(ConsumeModel.CLUSTERING);
-                break;
-            case BROADCASTING:
-                builder.setConsumeModel(ConsumeModel.BROADCASTING);
-                break;
-            default:
-                builder.setConsumeModel(ConsumeModel.UNRECOGNIZED);
-        }
-
-        return builder.build();
-    }
-
-    private AckMessageRequest wrapAckMessageRequest(MessageExt messageExt) {
-        // Group
-        final Resource groupResource = Resource.newBuilder()
-                                               .setArn(arn)
-                                               .setName(this.getGroup())
-                                               .build();
-        // Topic
-        final Resource topicResource = Resource.newBuilder()
-                                               .setArn(arn)
-                                               .setName(messageExt.getTopic())
-                                               .build();
-
-        final AckMessageRequest.Builder builder = AckMessageRequest.newBuilder()
-                                                                   .setGroup(groupResource)
-                                                                   .setTopic(topicResource)
-                                                                   .setMessageId(messageExt.getMsgId())
-                                                                   .setClientId(this.getClientId())
-                                                                   .setReceiptHandle(messageExt.getReceiptHandle());
-
-        return builder.build();
-    }
-
-    public void ackMessage(final MessageExt messageExt) throws ClientException {
-        final AckMessageRequest request = wrapAckMessageRequest(messageExt);
-        final Endpoints endpoints = messageExt.getAckEndpoints();
-        final Metadata metadata = sign();
-        final ListenableFuture<AckMessageResponse> future =
-                clientInstance.ackMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
-        final String messageId = request.getMessageId();
-        Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
-            @Override
-            public void onSuccess(AckMessageResponse response) {
-                final Status status = response.getCommon().getStatus();
-                final Code code = Code.forNumber(status.getCode());
-                if (Code.OK != code) {
-                    log.error("Failed to ack message, messageId={}, endpoints={}, code={}, message={}", messageId,
-                              endpoints, code, status.getMessage());
-                    return;
-                }
-                log.trace("Ack message successfully, messageId={}, endpoints={}, code={}, message={}", messageId,
-                          endpoints, code, status.getMessage());
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-                log.error("Exception raised while ack message, messageId={}, endpoints={}", messageId, endpoints, t);
-            }
-        });
-    }
 
     @Override
     public ListenableFuture<VerifyMessageConsumptionResponse> verifyConsumption(VerifyMessageConsumptionRequest
@@ -654,7 +543,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                         final ArrayList<MessageExt> messageList = new ArrayList<MessageExt>();
                         messageList.add(messageExt);
                         final MessageQueue messageQueue = new MessageQueue(partition);
-                        final ConsumeContext context = new ConsumeContext(messageQueue);
+                        final ConsumeContext context = new ConsumeContext();
                         // Listener here may not registered.
                         final ConsumeStatus status = messageListener.consume(messageList, context);
                         future.set(status);
@@ -685,54 +574,9 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         return builder.build();
     }
 
-    // TODO: handle the case that the topic does not exist.
-    public static PopResult processReceiveMessageResponse(Endpoints endpoints, ReceiveMessageResponse response) {
-        PopStatus popStatus;
 
-        final Status status = response.getCommon().getStatus();
-        final Code code = Code.forNumber(status.getCode());
-        switch (code != null ? code : Code.UNKNOWN) {
-            case OK:
-                popStatus = PopStatus.OK;
-                break;
-            case RESOURCE_EXHAUSTED:
-                popStatus = PopStatus.RESOURCE_EXHAUSTED;
-                log.warn("Too many request in server, server endpoints={}, status message={}", endpoints,
-                         status.getMessage());
-                break;
-            case DEADLINE_EXCEEDED:
-                popStatus = PopStatus.DEADLINE_EXCEEDED;
-                log.warn("Gateway timeout, server endpoints={}, status message={}", endpoints, status.getMessage());
-                break;
-            default:
-                popStatus = PopStatus.INTERNAL;
-                log.warn("Pop response indicated server-side error, server endpoints={}, code={}, status message={}",
-                         endpoints, code, status.getMessage());
-        }
 
-        List<MessageExt> msgFoundList = new ArrayList<MessageExt>();
-        if (PopStatus.OK == popStatus) {
-            final List<Message> messageList = response.getMessagesList();
-            for (Message message : messageList) {
-                try {
-                    MessageImpl messageImpl = ClientBaseImpl.wrapMessageImpl(message);
-                    messageImpl.getSystemAttribute().setAckEndpoints(endpoints);
-                    msgFoundList.add(new MessageExt(messageImpl));
-                } catch (ClientException e) {
-                    // TODO: need nack immediately.
-                    log.error("Failed to wrap messageImpl, topic={}, messageId={}", message.getTopic(),
-                              message.getSystemAttribute().getMessageId(), e);
-                } catch (IOException e) {
-                    log.error("Failed to wrap messageImpl, topic={}, messageId={}", message.getTopic(),
-                              message.getSystemAttribute().getMessageId(), e);
-                } catch (Throwable t) {
-                    log.error("Exception raised while wrapping messageImpl, topic={}, messageId={}",
-                              message.getTopic(), message.getSystemAttribute().getMessageId(), t);
-                }
-            }
-        }
-
-        return new PopResult(endpoints, popStatus, Timestamps.toMillis(response.getDeliveryTimestamp()),
-                             Durations.toMillis(response.getInvisibleDuration()), msgFoundList);
+    long getIoTimeoutMillis() {
+        return ioTimeoutMillis;
     }
 }

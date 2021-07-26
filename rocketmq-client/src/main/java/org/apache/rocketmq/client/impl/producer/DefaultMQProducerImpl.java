@@ -667,7 +667,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         // Intercept message while PRE_SEND_MESSAGE.
         final MessageInterceptorContext.MessageInterceptorContextBuilder contextBuilder =
                 MessageInterceptorContext.builder().attemptTimes(attemptTimes);
-        interceptMessage(MessageHookPoint.PRE_SEND_MESSAGE, message.getMessageExt(), contextBuilder.build());
+        intercept(MessageHookPoint.PRE_SEND_MESSAGE, message.getMessageExt(), contextBuilder.build());
 
         final ListenableFuture<SendMessageResponse> responseFuture =
                 clientInstance.sendMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
@@ -696,7 +696,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                                                                         .timeUnit(TimeUnit.MILLISECONDS)
                                                                         .status(MessageHookPoint.PointStatus.OK)
                                                                         .build();
-                interceptMessage(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
+                intercept(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
             }
 
             @Override
@@ -707,7 +707,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                                                                         .timeUnit(TimeUnit.MILLISECONDS)
                                                                         .status(MessageHookPoint.PointStatus.ERROR)
                                                                         .build();
-                interceptMessage(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
+                intercept(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
                 // Isolate endpoints for a while.
                 isolateEndpoints(endpoints);
 

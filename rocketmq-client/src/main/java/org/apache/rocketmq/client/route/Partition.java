@@ -15,11 +15,10 @@ import org.apache.rocketmq.client.remoting.Endpoints;
 @EqualsAndHashCode
 public class Partition {
     private final Topic topic;
-
-    private final int id;
-    private final Permission permission;
-
     private final Broker broker;
+    private final int id;
+
+    private final Permission permission;
 
     public Partition(apache.rocketmq.v1.Partition partition) {
         final Resource topicResource = partition.getTopic();

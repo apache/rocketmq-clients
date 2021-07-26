@@ -235,8 +235,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         }
     }
 
-    public void interceptMessage(MessageHookPoint hookPoint, MessageExt messageExt,
-                                 MessageInterceptorContext context) {
+    public void intercept(MessageHookPoint hookPoint, MessageExt messageExt, MessageInterceptorContext context) {
         messageInterceptorsLock.readLock().lock();
         try {
             for (MessageInterceptor interceptor : messageInterceptors) {

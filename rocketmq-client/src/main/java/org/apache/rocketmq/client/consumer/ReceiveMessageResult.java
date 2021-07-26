@@ -8,12 +8,12 @@ import org.apache.rocketmq.client.remoting.Endpoints;
 
 @AllArgsConstructor
 @Getter
-public class PopResult {
+public class ReceiveMessageResult {
     private final Endpoints endpoints;
-    private final PopStatus popStatus;
+    private final ReceiveStatus receiveStatus;
 
-    private final long popTimestamp;
+    private final long receiveTimestamp;
     private final long invisibleDuration;
 
-    private final List<MessageExt> msgFoundList;
+    private final List<MessageExt> messagesFound;
 }

@@ -1,8 +1,14 @@
 package org.apache.rocketmq.client.impl.consumer;
 
+import apache.rocketmq.v1.AckMessageRequest;
+import apache.rocketmq.v1.AckMessageResponse;
 import apache.rocketmq.v1.Broker;
+import apache.rocketmq.v1.ConsumeModel;
 import apache.rocketmq.v1.ConsumePolicy;
 import apache.rocketmq.v1.FilterType;
+import apache.rocketmq.v1.Message;
+import apache.rocketmq.v1.NackMessageRequest;
+import apache.rocketmq.v1.NackMessageResponse;
 import apache.rocketmq.v1.Partition;
 import apache.rocketmq.v1.ReceiveMessageRequest;
 import apache.rocketmq.v1.ReceiveMessageResponse;
@@ -14,8 +20,11 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.protobuf.util.Durations;
+import com.google.protobuf.util.Timestamps;
+import com.google.rpc.Code;
+import com.google.rpc.Status;
 import io.grpc.Metadata;
-import io.opentelemetry.api.trace.Tracer;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
@@ -27,29 +36,33 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ConsumeFromWhere;
 import org.apache.rocketmq.client.consumer.MessageModel;
-import org.apache.rocketmq.client.consumer.PopResult;
-import org.apache.rocketmq.client.consumer.PopStatus;
+import org.apache.rocketmq.client.consumer.ReceiveMessageResult;
+import org.apache.rocketmq.client.consumer.ReceiveStatus;
 import org.apache.rocketmq.client.consumer.filter.ExpressionType;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
+import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
+import org.apache.rocketmq.client.exception.ClientException;
+import org.apache.rocketmq.client.impl.ClientBaseImpl;
 import org.apache.rocketmq.client.impl.ClientInstance;
 import org.apache.rocketmq.client.message.MessageExt;
+import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.remoting.Endpoints;
 
 @Slf4j
 public class ProcessQueue {
-    public static final long LONG_POLLING_TIMEOUT_MILLIS = 15 * 1000L;
-    public static final long MAX_CACHED_MESSAGES_COUNT_PER_MESSAGE_QUEUE = 1024;
-    public static final long MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE = 5 * 1024 * 1024;
-    public static final long MAX_POP_MESSAGE_INTERVAL_MILLIS = 30 * 1000L;
-    private static final long POP_LATER_DELAY_MILLIS = 3 * 1000L;
+    private static final long LONG_POLLING_TIMEOUT_MILLIS = 15 * 1000L;
+    private static final long TOTAL_MAX_MESSAGES_SIZE = 1024;
+    private static final long TOTAL_MAX_MESSAGES_BODY_SIZE = 4 * 1024 * 1024;
+    private static final long MAX_IDLE_MILLIS = 30 * 1000L;
+    private static final long RECEIVE_LATER_DELAY_MILLIS = 3 * 1000L;
 
     @Setter
     @Getter
     private volatile boolean dropped;
     @Getter
-    private final MessageQueue messageQueue;
+    private final MessageQueue mq;
     private final FilterExpression filterExpression;
 
     @Getter
@@ -59,24 +72,31 @@ public class ProcessQueue {
     private final List<MessageExt> cachedMessages;
     private final ReentrantReadWriteLock cachedMessagesLock;
 
-    private final AtomicLong cachedMsgSize;
+    @GuardedBy("inflightMessagesLock")
+    private final List<MessageExt> inflightMessages;
+    private final ReentrantReadWriteLock inflightMessagesLock;
+
+    private final AtomicLong messagesBodySize;
 
     private volatile long lastPopTimestamp;
     private volatile long lastThrottledTimestamp;
 
     public ProcessQueue(
             DefaultMQPushConsumerImpl consumerImpl,
-            MessageQueue messageQueue,
+            MessageQueue mq,
             FilterExpression filterExpression) {
         this.consumerImpl = consumerImpl;
-        this.messageQueue = messageQueue;
+        this.mq = mq;
         this.filterExpression = filterExpression;
         this.dropped = false;
 
         this.cachedMessages = new ArrayList<MessageExt>();
         this.cachedMessagesLock = new ReentrantReadWriteLock();
 
-        this.cachedMsgSize = new AtomicLong(0L);
+        this.inflightMessages = new ArrayList<MessageExt>();
+        this.inflightMessagesLock = new ReentrantReadWriteLock();
+
+        this.messagesBodySize = new AtomicLong(0L);
 
         this.lastPopTimestamp = System.currentTimeMillis();
         this.lastThrottledTimestamp = System.currentTimeMillis();
@@ -88,201 +108,297 @@ public class ProcessQueue {
         try {
             for (MessageExt message : messageList) {
                 cachedMessages.add(message);
-                cachedMsgSize.addAndGet(null == message.getBody() ? 0 : message.getBody().length);
+                messagesBodySize.addAndGet(null == message.getBody() ? 0 : message.getBody().length);
             }
         } finally {
             cachedMessagesLock.writeLock().unlock();
         }
     }
 
-    public List<MessageExt> peekMessages() {
-        cachedMessagesLock.readLock().lock();
+    /**
+     * Try to take one message from {@link ProcessQueue#cachedMessages}, and move it to
+     * {@link ProcessQueue#inflightMessages}.
+     *
+     * @return message which has been taken, or null if no message exists.
+     */
+    public MessageExt takeMessage() {
+        final List<MessageExt> messageExtList = takeMessages(1);
+        if (messageExtList.isEmpty()) {
+            return null;
+        }
+        return messageExtList.get(0);
+    }
+
+    /**
+     * Try to take messages from {@link ProcessQueue#cachedMessages}, and move them to
+     * {@link ProcessQueue#inflightMessages}.
+     *
+     * @param batchMaxSize max batch size to take messages.
+     * @return messages which have been taken.
+     */
+    public List<MessageExt> takeMessages(int batchMaxSize) {
+        cachedMessagesLock.writeLock().lock();
+        inflightMessagesLock.writeLock().lock();
         try {
-            return new ArrayList<MessageExt>(cachedMessages);
+            final int actualSize = Math.min(cachedMessages.size(), batchMaxSize);
+            final List<MessageExt> subList = cachedMessages.subList(0, actualSize);
+            final List<MessageExt> messageExtList = new ArrayList<MessageExt>(subList);
+
+            inflightMessages.addAll(messageExtList);
+            cachedMessages.removeAll(messageExtList);
+            return messageExtList;
         } finally {
-            cachedMessagesLock.readLock().unlock();
+            inflightMessagesLock.writeLock().unlock();
+            cachedMessagesLock.writeLock().unlock();
         }
     }
 
-    public void eraseMessages(List<MessageExt> messageList) {
-        cachedMessagesLock.writeLock().lock();
+    /**
+     * Erase consumed message from {@link ProcessQueue#cachedMessages} and execute ack/nack.
+     *
+     * @param messageList consumed message list.
+     * @param status      consume status, which indicates to ack/nack message.
+     */
+    public void eraseMessages(List<MessageExt> messageList, ConsumeStatus status) {
+        inflightMessagesLock.writeLock().lock();
         try {
             for (MessageExt messageExt : messageList) {
-                if (cachedMessages.remove(messageExt)) {
-                    cachedMsgSize.addAndGet(null == messageExt.getBody() ? 0 : -messageExt.getBody().length);
+                if (inflightMessages.remove(messageExt)) {
+                    messagesBodySize.addAndGet(null == messageExt.getBody() ? 0 : -messageExt.getBody().length);
                 }
             }
         } finally {
-            cachedMessagesLock.writeLock().unlock();
+            inflightMessagesLock.writeLock().unlock();
+        }
+
+        for (MessageExt message : messageList) {
+            switch (status) {
+                case OK:
+                    try {
+                        consumerImpl.consumptionOkCount.incrementAndGet();
+                        ackMessage(message);
+                    } catch (Throwable t) {
+                        log.warn("Failed to ACK message, mq={}, msgId={}", mq, message.getMsgId(), t);
+                    }
+                    break;
+                case ERROR:
+                default:
+                    try {
+                        consumerImpl.consumptionErrorCount.incrementAndGet();
+                        nackMessage(message);
+                    } catch (Throwable t) {
+                        log.warn("Failed to NACK message, mq={}, msgId={}", mq, message.getMsgId(), t);
+                    }
+            }
         }
     }
 
-    private void onPopResult(PopResult popResult) {
-        final PopStatus popStatus = popResult.getPopStatus();
-        final List<MessageExt> msgFoundList = popResult.getMsgFoundList();
+    private void onReceiveMessageResult(ReceiveMessageResult result) {
+        final ReceiveStatus receiveStatus = result.getReceiveStatus();
+        final List<MessageExt> messagesFound = result.getMessagesFound();
+        final Endpoints endpoints = result.getEndpoints();
 
-        switch (popStatus) {
+        switch (receiveStatus) {
             case OK:
-                if (!msgFoundList.isEmpty()) {
-                    cacheMessages(msgFoundList);
-                    consumerImpl.poppedMsgCount.getAndAdd(msgFoundList.size());
+                if (!messagesFound.isEmpty()) {
+                    cacheMessages(messagesFound);
+                    consumerImpl.receivedCount.getAndAdd(messagesFound.size());
                     try {
                         // TODO: considering whether exception would be thrown here?
-                        consumerImpl.getConsumeService().dispatch(this);
+                        consumerImpl.getConsumeService().dispatch();
                     } catch (Throwable t) {
-                        log.error("Unexpected error while dispatching message popped, mq={}",
-                                  messageQueue.simpleName(), t);
+                        log.error("Unexpected error while dispatching message popped, mq={}", mq, t);
                     }
                 }
-                // fall through on purpose.
+                log.debug("Receive message with status=OK, mq={}, endpoints={}, messages found count={}",
+                          mq, endpoints, messagesFound.size());
+                nextReception();
+                break;
+            // fall through on purpose.
             case DEADLINE_EXCEEDED:
             case RESOURCE_EXHAUSTED:
             case NOT_FOUND:
             case DATA_CORRUPTED:
             case INTERNAL:
-                log.debug(
-                        "Pop message from endpoints={} with status={}, mq={}, message count={}",
-                        popResult.getEndpoints(), popStatus, messageQueue.simpleName(),
-                        msgFoundList.size());
-                prepareNextPop();
-                break;
             default:
-                log.warn(
-                        "Pop message from endpoints={} with unknown status={}, mq={}, message count={}",
-                        popResult.getEndpoints(), popStatus, messageQueue.simpleName(),
-                        msgFoundList.size());
-                prepareNextPop();
+                log.debug("Receive message with status={}, mq={}, endpoints={}, messages found count={}", receiveStatus,
+                          mq, endpoints, messagesFound.size());
+                nextReception();
         }
     }
 
     @VisibleForTesting
-    public void prepareNextPop() {
+    public void nextReception() {
         if (this.isDropped()) {
-            log.debug("Process queue has been dropped, mq={}.", messageQueue.simpleName());
+            log.debug("Process queue has been dropped, mq={}.", mq);
             return;
         }
-        if (this.isPopThrottled()) {
-            log.warn(
-                    "Process queue flow control is triggered, would pop message later, mq={}.",
-                    messageQueue.simpleName());
-
+        if (this.throttled()) {
+            log.warn("Process queue is throttled, would receive message later, mq={}.", mq);
             lastThrottledTimestamp = System.currentTimeMillis();
-
-            popMessageLater();
+            receiveMessageLater();
             return;
         }
-        popMessage();
+        receiveMessageImmediately();
     }
 
-    public void popMessageLater() {
+    public void receiveMessageLater() {
         final ScheduledExecutorService scheduler = consumerImpl.getClientInstance().getScheduler();
         try {
             scheduler.schedule(new Runnable() {
                 @Override
                 public void run() {
-                    popMessage();
+                    receiveMessageImmediately();
                 }
-            }, POP_LATER_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+            }, RECEIVE_LATER_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
             // Should never reach here.
-            log.error("[Bug] Failed to schedule pop message request", t);
-            popMessageLater();
+            log.error("[Bug] Failed to schedule receive message request", t);
+            receiveMessageLater();
         }
     }
 
-    private boolean isPopThrottled() {
-        final long actualCachedMsgCount = this.getCachedMsgCount();
-        if (MAX_CACHED_MESSAGES_COUNT_PER_MESSAGE_QUEUE <= actualCachedMsgCount) {
-            log.warn(
-                    "Process queue cached message count exceeds the threshold, max count={}, cached count={}, mq={}",
-                    MAX_CACHED_MESSAGES_COUNT_PER_MESSAGE_QUEUE,
-                    actualCachedMsgCount,
-                    messageQueue.simpleName());
+    private boolean throttled() {
+        final long actualMessagesSize = this.messagesSize();
+        if (TOTAL_MAX_MESSAGES_SIZE <= actualMessagesSize) {
+            log.warn("Process queue total messages size exceeds the threshold, threshold={}, actual={}, mq={}",
+                     TOTAL_MAX_MESSAGES_SIZE, actualMessagesSize, mq);
             return true;
         }
-        final long actualCachedMsgSize = cachedMsgSize.get();
-        if (MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE <= actualCachedMsgSize) {
-            log.warn(
-                    "Process queue cached message size exceeds the threshold, max size={}, cached size={}, mq={}",
-                    MAX_CACHED_MESSAGES_SIZE_PER_MESSAGE_QUEUE,
-                    actualCachedMsgSize,
-                    messageQueue.simpleName());
+        final long actualMessagesBodySize = messagesBodySize.get();
+        if (TOTAL_MAX_MESSAGES_BODY_SIZE <= actualMessagesBodySize) {
+            log.warn("Process queue total messages body size exceeds the threshold, threshold={} bytes, "
+                     + "actual={} bytes, mq={}", TOTAL_MAX_MESSAGES_BODY_SIZE, actualMessagesBodySize, mq);
             return true;
         }
         return false;
     }
 
-    public boolean isPopExpired() {
+    public boolean idle() {
         final long popDuration = System.currentTimeMillis() - lastPopTimestamp;
-        if (popDuration < MAX_POP_MESSAGE_INTERVAL_MILLIS) {
+        if (popDuration < MAX_IDLE_MILLIS) {
             return false;
         }
 
         final long throttledDuration = System.currentTimeMillis() - lastThrottledTimestamp;
-        if (throttledDuration < MAX_POP_MESSAGE_INTERVAL_MILLIS) {
+        if (throttledDuration < MAX_IDLE_MILLIS) {
             return false;
         }
 
-        log.warn(
-                "ProcessQueue is expired, duration from last pop={}ms, duration from last throttle={}ms, " +
-                "lastPopTimestamp={}, lastThrottledTimestamp={}, currentTimestamp={}",
-                popDuration,
-                throttledDuration,
-                lastPopTimestamp,
-                lastThrottledTimestamp,
-                System.currentTimeMillis());
+        log.warn("Process queue is idle, duration from last pop={}ms, duration from last throttle={}ms, " +
+                 "lastPopTimestamp={}, lastThrottledTimestamp={}, currentTimestamp={}", popDuration, throttledDuration,
+                 lastPopTimestamp, lastThrottledTimestamp, System.currentTimeMillis());
         return true;
     }
 
-    public void popMessage() {
+    public void receiveMessageImmediately() {
         try {
             final ClientInstance clientInstance = consumerImpl.getClientInstance();
-            final Endpoints endpoints = messageQueue.getPartition().getBroker().getEndpoints();
-            final ReceiveMessageRequest request = wrapPopMessageRequest();
+            final Endpoints endpoints = mq.getPartition().getBroker().getEndpoints();
+            final ReceiveMessageRequest request = wrapReceiveMessageRequest();
 
             lastPopTimestamp = System.currentTimeMillis();
             final Metadata metadata = consumerImpl.sign();
 
-            final ListenableFuture<ReceiveMessageResponse> future0 =
-                    clientInstance.receiveMessage(endpoints, metadata, request, LONG_POLLING_TIMEOUT_MILLIS,
-                                                  TimeUnit.MILLISECONDS);
+            final ListenableFuture<ReceiveMessageResponse> future0 = clientInstance.receiveMessage(
+                    endpoints, metadata, request, LONG_POLLING_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
-            final ListenableFuture<PopResult> future = Futures.transform(
-                future0, new Function<ReceiveMessageResponse, PopResult>() {
-                    @Override
-                    public PopResult apply(ReceiveMessageResponse response) {
-                        return DefaultMQPushConsumerImpl.processReceiveMessageResponse(endpoints, response);
-                    }
-                });
+            final ListenableFuture<ReceiveMessageResult> future = Futures.transform(
+                    future0, new Function<ReceiveMessageResponse, ReceiveMessageResult>() {
+                        @Override
+                        public ReceiveMessageResult apply(ReceiveMessageResponse response) {
+                            return processReceiveMessageResponse(endpoints, response);
+                        }
+                    });
 
-            Futures.addCallback(future, new FutureCallback<PopResult>() {
+            Futures.addCallback(future, new FutureCallback<ReceiveMessageResult>() {
                 @Override
-                public void onSuccess(PopResult popResult) {
+                public void onSuccess(ReceiveMessageResult receiveMessageResult) {
                     try {
-                        ProcessQueue.this.onPopResult(popResult);
+                        ProcessQueue.this.onReceiveMessageResult(receiveMessageResult);
                     } catch (Throwable t) {
                         // Should never reach here.
                         log.error("[Bug] Exception raised while handling pop result, would pop later, mq={}",
-                                  messageQueue.simpleName(), t);
-                        popMessageLater();
+                                  mq, t);
+                        receiveMessageLater();
                     }
                 }
 
                 @Override
                 public void onFailure(Throwable t) {
-                    log.error("Exception raised while popping message, would pop later, mq={}",
-                              messageQueue.simpleName(), t);
-                    popMessageLater();
+                    log.error("Exception raised while popping message, would pop later, mq={}", mq, t);
+                    receiveMessageLater();
                 }
             });
-            consumerImpl.popTimes.getAndIncrement();
+            consumerImpl.receiveTimes.getAndIncrement();
         } catch (Throwable t) {
-            log.error("Exception raised while popping message, would pop later, mq={}.", messageQueue.simpleName(), t);
-            popMessageLater();
+            log.error("Exception raised while popping message, would pop later, mq={}.", mq, t);
+            receiveMessageLater();
         }
     }
 
-    private ReceiveMessageRequest wrapPopMessageRequest() {
+    public void ackMessage(final MessageExt messageExt) throws ClientException {
+        final AckMessageRequest request = wrapAckMessageRequest(messageExt);
+        final Endpoints endpoints = messageExt.getAckEndpoints();
+        final Metadata metadata = consumerImpl.sign();
+        final ClientInstance clientInstance = consumerImpl.getClientInstance();
+        final long ioTimeoutMillis = consumerImpl.getIoTimeoutMillis();
+        final ListenableFuture<AckMessageResponse> future =
+                clientInstance.ackMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+        final String messageId = request.getMessageId();
+        Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
+            @Override
+            public void onSuccess(AckMessageResponse response) {
+                final Status status = response.getCommon().getStatus();
+                final Code code = Code.forNumber(status.getCode());
+                if (Code.OK != code) {
+                    log.error("Failed to ack message, messageId={}, endpoints={}, code={}, message={}", messageId,
+                              endpoints, code, status.getMessage());
+                    return;
+                }
+                log.trace("Ack message successfully, messageId={}, endpoints={}, code={}, message={}", messageId,
+                          endpoints, code, status.getMessage());
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                log.error("Exception raised while ack message, messageId={}, endpoints={}", messageId, endpoints, t);
+            }
+        });
+    }
+
+    public void nackMessage(MessageExt messageExt) throws ClientException {
+        final NackMessageRequest request = wrapNackMessageRequest(messageExt);
+        final Endpoints endpoints = messageExt.getAckEndpoints();
+        final Metadata metadata = consumerImpl.sign();
+        final ClientInstance clientInstance = consumerImpl.getClientInstance();
+        final long ioTimeoutMillis = consumerImpl.getIoTimeoutMillis();
+        final ListenableFuture<NackMessageResponse> future =
+                clientInstance.nackMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+        final String messageId = request.getMessageId();
+        Futures.addCallback(future, new FutureCallback<NackMessageResponse>() {
+            @Override
+            public void onSuccess(NackMessageResponse response) {
+                final Status status = response.getCommon().getStatus();
+                final Code code = Code.forNumber(status.getCode());
+                if (Code.OK != code) {
+                    log.error("Failed to nack message, messageId={}, endpoints={}, code={}, status message={}",
+                              messageId, endpoints, code, status.getMessage());
+                    return;
+                }
+                log.trace("Nack message successfully, messageId={}, endpoints={}, code={}, status message={}",
+                          messageId, endpoints, code, status.getMessage());
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                log.error("Exception raised while nack message, messageId={}, endpoints={}", messageId, endpoints, t);
+            }
+        });
+    }
+
+
+    private ReceiveMessageRequest wrapReceiveMessageRequest() {
         final Resource groupResource =
                 Resource.newBuilder()
                         .setArn(this.getArn())
@@ -292,13 +408,13 @@ public class ProcessQueue {
         final Resource topicResource =
                 Resource.newBuilder()
                         .setArn(this.getArn())
-                        .setName(messageQueue.getTopic()).build();
+                        .setName(mq.getTopic()).build();
 
-        final Broker broker = Broker.newBuilder().setName(messageQueue.getBrokerName()).build();
+        final Broker broker = Broker.newBuilder().setName(mq.getBrokerName()).build();
 
         final Partition partition = Partition.newBuilder()
                                              .setTopic(topicResource)
-                                             .setId(messageQueue.getQueueId())
+                                             .setId(mq.getQueueId())
                                              .setBroker(broker).build();
 
         final ReceiveMessageRequest.Builder builder =
@@ -345,7 +461,128 @@ public class ProcessQueue {
         return builder.build();
     }
 
-    public long getCachedMsgCount() {
+    private AckMessageRequest wrapAckMessageRequest(MessageExt messageExt) {
+        // Group
+        final Resource groupResource = Resource.newBuilder()
+                                               .setArn(this.getArn())
+                                               .setName(this.getGroup())
+                                               .build();
+        // Topic
+        final Resource topicResource = Resource.newBuilder()
+                                               .setArn(this.getArn())
+                                               .setName(messageExt.getTopic())
+                                               .build();
+
+        final AckMessageRequest.Builder builder = AckMessageRequest.newBuilder()
+                                                                   .setGroup(groupResource)
+                                                                   .setTopic(topicResource)
+                                                                   .setMessageId(messageExt.getMsgId())
+                                                                   .setClientId(this.getClientId())
+                                                                   .setReceiptHandle(messageExt.getReceiptHandle());
+
+        return builder.build();
+    }
+
+    private NackMessageRequest wrapNackMessageRequest(MessageExt messageExt) {
+        // Group
+        final Resource groupResource = Resource.newBuilder()
+                                               .setArn(this.getArn())
+                                               .setName(this.getGroup())
+                                               .build();
+        // Topic
+        final Resource topicResource = Resource.newBuilder()
+                                               .setArn(this.getArn())
+                                               .setName(messageExt.getTopic())
+                                               .build();
+
+        final NackMessageRequest.Builder builder =
+                NackMessageRequest.newBuilder()
+                                  .setGroup(groupResource)
+                                  .setTopic(topicResource)
+                                  .setClientId(this.getClientId())
+                                  .setReceiptHandle(messageExt.getReceiptHandle())
+                                  .setMessageId(messageExt.getMsgId())
+                                  .setReconsumeTimes(messageExt.getReconsumeTimes() + 1)
+                                  .setMaxReconsumeTimes(this.getMaxReconsumeTimes());
+
+        switch (getMessageModel()) {
+            case CLUSTERING:
+                builder.setConsumeModel(ConsumeModel.CLUSTERING);
+                break;
+            case BROADCASTING:
+                builder.setConsumeModel(ConsumeModel.BROADCASTING);
+                break;
+            default:
+                builder.setConsumeModel(ConsumeModel.UNRECOGNIZED);
+        }
+
+        return builder.build();
+    }
+
+    // TODO: handle the case that the topic does not exist.
+    public static ReceiveMessageResult processReceiveMessageResponse(Endpoints endpoints,
+                                                                  ReceiveMessageResponse response) {
+        ReceiveStatus receiveStatus;
+
+        final Status status = response.getCommon().getStatus();
+        final Code code = Code.forNumber(status.getCode());
+        switch (null != code ? code : Code.UNKNOWN) {
+            case OK:
+                receiveStatus = ReceiveStatus.OK;
+                break;
+            case RESOURCE_EXHAUSTED:
+                receiveStatus = ReceiveStatus.RESOURCE_EXHAUSTED;
+                log.warn("Too many request in server, server endpoints={}, status message={}", endpoints,
+                         status.getMessage());
+                break;
+            case DEADLINE_EXCEEDED:
+                receiveStatus = ReceiveStatus.DEADLINE_EXCEEDED;
+                log.warn("Gateway timeout, server endpoints={}, status message={}", endpoints, status.getMessage());
+                break;
+            default:
+                receiveStatus = ReceiveStatus.INTERNAL;
+                log.warn("Receive response indicated server-side error, server endpoints={}, code={}, status "
+                         + "message={}", endpoints, code, status.getMessage());
+        }
+
+        List<MessageExt> msgFoundList = new ArrayList<MessageExt>();
+        if (ReceiveStatus.OK == receiveStatus) {
+            final List<Message> messageList = response.getMessagesList();
+            for (Message message : messageList) {
+                try {
+                    MessageImpl messageImpl = ClientBaseImpl.wrapMessageImpl(message);
+                    messageImpl.getSystemAttribute().setAckEndpoints(endpoints);
+                    msgFoundList.add(new MessageExt(messageImpl));
+                } catch (ClientException e) {
+                    // TODO: need nack immediately.
+                    log.error("Failed to wrap messageImpl, topic={}, messageId={}", message.getTopic(),
+                              message.getSystemAttribute().getMessageId(), e);
+                } catch (IOException e) {
+                    log.error("Failed to wrap messageImpl, topic={}, messageId={}", message.getTopic(),
+                              message.getSystemAttribute().getMessageId(), e);
+                } catch (Throwable t) {
+                    log.error("Exception raised while wrapping messageImpl, topic={}, messageId={}",
+                              message.getTopic(), message.getSystemAttribute().getMessageId(), t);
+                }
+            }
+        }
+
+        return new ReceiveMessageResult(endpoints, receiveStatus, Timestamps.toMillis(response.getDeliveryTimestamp()),
+                                        Durations.toMillis(response.getInvisibleDuration()), msgFoundList);
+    }
+
+    public int messagesSize() {
+        cachedMessagesLock.readLock().lock();
+        inflightMessagesLock.readLock().lock();
+        try {
+            return cachedMessages.size() + inflightMessages.size();
+        } finally {
+            inflightMessagesLock.readLock().unlock();
+            cachedMessagesLock.readLock().unlock();
+        }
+    }
+
+    public int messagesCacheSize() {
         cachedMessagesLock.readLock().lock();
         try {
             return cachedMessages.size();
@@ -354,8 +591,8 @@ public class ProcessQueue {
         }
     }
 
-    public long getCachedMsgSize() {
-        return cachedMsgSize.get();
+    public long getMessagesBodySize() {
+        return messagesBodySize.get();
     }
 
     private String getArn() {
@@ -363,7 +600,7 @@ public class ProcessQueue {
     }
 
     private String getGroup() {
-        return consumerImpl.getArn();
+        return consumerImpl.getGroup();
     }
 
     private String getClientId() {
@@ -380,9 +617,5 @@ public class ProcessQueue {
 
     private ConsumeFromWhere getConsumeFromWhere() {
         return consumerImpl.getConsumeFromWhere();
-    }
-
-    public Tracer getTracer() {
-        return consumerImpl.getTracer();
     }
 }

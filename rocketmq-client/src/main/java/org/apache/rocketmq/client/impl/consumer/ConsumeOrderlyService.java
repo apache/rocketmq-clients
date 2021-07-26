@@ -4,12 +4,12 @@ import org.apache.rocketmq.client.consumer.listener.MessageListener;
 
 
 public class ConsumeOrderlyService extends ConsumeService {
-    public ConsumeOrderlyService(MessageListener messageListener) {
-        super(messageListener);
+    public ConsumeOrderlyService(DefaultMQPushConsumerImpl consumerImpl, MessageListener messageListener) {
+        super(consumerImpl, messageListener);
     }
 
     @Override
-    public void dispatch(ProcessQueue processQueue) {
+    public void dispatch() {
 
     }
 }
