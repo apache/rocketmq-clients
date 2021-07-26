@@ -63,6 +63,7 @@ public class ConsumeConcurrentlyService extends ConsumeService {
 
     public void dispatch0() {
         final List<ProcessQueue> processQueues = consumerImpl.processQueueList();
+        // order all process queues descend by their cached message size.
         Collections.sort(processQueues, new Comparator<ProcessQueue>() {
             @Override
             public int compare(ProcessQueue o1, ProcessQueue o2) {
@@ -71,18 +72,22 @@ public class ConsumeConcurrentlyService extends ConsumeService {
         });
 
         final int totalBatchMaxSize = consumerImpl.getConsumeMessageBatchMaxSize();
-        int actualBatchSize = 0;
         int nextBatchMaxSize = totalBatchMaxSize;
+        int actualBatchSize = 0;
+
         final Map<MessageQueue, List<MessageExt>> messageExtListTable = new HashMap<MessageQueue, List<MessageExt>>();
+        // iterate all process queues to submit consumption task.
         for (ProcessQueue pq : processQueues) {
+            final List<MessageExt> messageExtList = new ArrayList<MessageExt>();
+
+            // get rate limiter for each topic.
             final MessageQueue mq = pq.getMq();
             final String topic = mq.getTopic();
-
-            final List<MessageExt> messageExtList = new ArrayList<MessageExt>();
             final RateLimiter rateLimiter = getRateLimiter(topic);
+
             if (null != rateLimiter) {
-                while (pq.messagesCacheSize() > 0 && rateLimiter.tryAcquire() && actualBatchSize < totalBatchMaxSize) {
-                    final MessageExt messageExt = pq.takeMessage();
+                while (pq.messagesCacheSize() > 0 && actualBatchSize < totalBatchMaxSize && rateLimiter.tryAcquire()) {
+                    final MessageExt messageExt = pq.tryTakeMessage();
                     if (null == messageExt) {
                         log.info("[Bug] message taken from process queue is null, mq={}", mq);
                         break;
@@ -91,26 +96,32 @@ public class ConsumeConcurrentlyService extends ConsumeService {
                     messageExtList.add(messageExt);
                 }
             } else {
-                // No rate limiter was set.
-                messageExtList.addAll(pq.takeMessages(nextBatchMaxSize));
+                // no rate limiter was set.
+                messageExtList.addAll(pq.tryTakeMessages(nextBatchMaxSize));
                 actualBatchSize += messageExtList.size();
             }
-            // No message cached, skip this pq.
+
+            // no messages cached, skip this pq.
             if (messageExtList.isEmpty()) {
                 continue;
             }
+
+            // add message to message table.
             List<MessageExt> existedList = messageExtListTable.get(mq);
             if (null == existedList) {
                 existedList = new ArrayList<MessageExt>();
                 messageExtListTable.put(mq, existedList);
             }
             existedList.addAll(messageExtList);
+
+            // actual batch size exceeds the max, prepare to submit them to consume.
             if (actualBatchSize >= totalBatchMaxSize) {
                 break;
             }
+            // calculate the max batch for the next pq.
             nextBatchMaxSize = totalBatchMaxSize - actualBatchSize;
         }
-        // No new message arrived.
+        // no new message arrived for current round.
         if (actualBatchSize <= 0) {
             return;
         }
@@ -122,6 +133,7 @@ public class ConsumeConcurrentlyService extends ConsumeService {
             // Should never reach here.
             log.error("[Bug] Failed to submit task to consume thread pool, which may cause consumption congestion.", t);
         }
+        // not all messages are dispatched, start a new round.
         if (consumerImpl.messagesCachedSize() > 0) {
             dispatch0();
         }

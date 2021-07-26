@@ -121,8 +121,8 @@ public class ProcessQueue {
      *
      * @return message which has been taken, or null if no message exists.
      */
-    public MessageExt takeMessage() {
-        final List<MessageExt> messageExtList = takeMessages(1);
+    public MessageExt tryTakeMessage() {
+        final List<MessageExt> messageExtList = tryTakeMessages(1);
         if (messageExtList.isEmpty()) {
             return null;
         }
@@ -136,7 +136,7 @@ public class ProcessQueue {
      * @param batchMaxSize max batch size to take messages.
      * @return messages which have been taken.
      */
-    public List<MessageExt> takeMessages(int batchMaxSize) {
+    public List<MessageExt> tryTakeMessages(int batchMaxSize) {
         cachedMessagesLock.writeLock().lock();
         inflightMessagesLock.writeLock().lock();
         try {
