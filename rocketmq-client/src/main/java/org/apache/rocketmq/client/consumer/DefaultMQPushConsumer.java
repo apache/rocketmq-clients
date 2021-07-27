@@ -49,14 +49,14 @@ public class DefaultMQPushConsumer {
         }
     }
 
-    // TODO: not allowed to set thead num after start.
-    public void setConsumeThreadNum(int consumeThreadNum) {
+    // TODO: not allowed to set thead num after start
+    public void setConsumeThreadMax(int consumeThreadMax) {
         throw new UnsupportedOperationException();
     }
 
-    // TODO: not allowed to set after start.
-    public void throttle(String topic, int permitsPerSecond) {
-        this.impl.throttle(topic, permitsPerSecond);
+    // TODO: not allowed to set thead num after start
+    public void setConsumeThreadMin(int consumeThreadMin) {
+        throw new UnsupportedOperationException();
     }
 
     public void registerMessageListener(MessageListenerConcurrently messageListenerConcurrently) {

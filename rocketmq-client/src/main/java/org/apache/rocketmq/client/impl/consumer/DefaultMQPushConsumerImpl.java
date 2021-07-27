@@ -23,7 +23,6 @@ import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.RateLimiter;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
@@ -85,8 +84,6 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     private final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable;
     private volatile ScheduledFuture<?> scanAssignmentsFuture;
 
-    private final ConcurrentMap<String, RateLimiter> rateLimiterTable;
-
     @Setter
     @Getter
     private int consumeMessageBatchMaxSize = 1;
@@ -135,8 +132,6 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         this.consumeService = null;
 
         this.processQueueTable = new ConcurrentHashMap<MessageQueue, ProcessQueue>();
-
-        this.rateLimiterTable = new ConcurrentHashMap<String, RateLimiter>();
 
         this.receiveTimes = new AtomicLong(0);
         this.receivedCount = new AtomicLong(0);
@@ -217,15 +212,6 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         return new ArrayList<ProcessQueue>(processQueueTable.values());
     }
 
-    RateLimiter rateLimiter(String topic) {
-        return rateLimiterTable.get(topic);
-    }
-
-    public void throttle(String topic, int permitsPerSecond) {
-        final RateLimiter rateLimiter = RateLimiter.create(permitsPerSecond);
-        rateLimiterTable.put(topic, rateLimiter);
-    }
-
     int messagesCachedSize() {
         int size = 0;
         for (ProcessQueue pq : processQueueTable.values()) {
@@ -234,6 +220,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         return size;
     }
 
+    // TODO ???
     ProcessQueue processQueue(MessageQueue mq) {
         return processQueueTable.get(mq);
     }
@@ -586,6 +573,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         }
         return builder.build();
     }
+
 
 
     long getIoTimeoutMillis() {

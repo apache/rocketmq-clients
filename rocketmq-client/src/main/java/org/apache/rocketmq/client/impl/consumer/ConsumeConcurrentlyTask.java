@@ -1,7 +1,6 @@
 package org.apache.rocketmq.client.impl.consumer;
 
 import com.google.common.base.Stopwatch;
-import com.google.common.util.concurrent.RateLimiter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -25,23 +24,9 @@ public class ConsumeConcurrentlyTask implements Runnable {
     @Override
     public void run() {
         List<MessageExt> allMessageExtList = new ArrayList<MessageExt>();
-        for (Map.Entry<MessageQueue, List<MessageExt>> entry : messageExtListTable.entrySet()) {
-            final MessageQueue mq = entry.getKey();
-            final List<MessageExt> messageExtList = entry.getValue();
-
-            final String topic = mq.getTopic();
-            final RateLimiter rateLimiter = consumerImpl.rateLimiter(topic);
-            if (messageExtList.isEmpty()) {
-                log.error("[Bug] messageExt list is empty, mq={}", mq);
-                continue;
-            }
-            if (null != rateLimiter) {
-                // await acquire the token
-                rateLimiter.acquire(messageExtList.size());
-            }
+        for (List<MessageExt> messageExtList : messageExtListTable.values()) {
             allMessageExtList.addAll(messageExtList);
         }
-
         // Intercept before message consumption.
         for (MessageExt messageExt : allMessageExtList) {
             final MessageInterceptorContext context =
@@ -49,9 +34,10 @@ public class ConsumeConcurrentlyTask implements Runnable {
             consumerImpl.intercept(MessageHookPoint.PRE_MESSAGE_CONSUMPTION, messageExt, context);
         }
 
-        ConsumeStatus status;
-        final ConsumeContext consumeContext = new ConsumeContext();
         final ConsumeService consumeService = consumerImpl.getConsumeService();
+        ConsumeStatus status;
+
+        final ConsumeContext consumeContext = new ConsumeContext();
         final Stopwatch started = Stopwatch.createStarted();
         try {
             status = consumeService.getMessageListener().consume(allMessageExtList, consumeContext);
