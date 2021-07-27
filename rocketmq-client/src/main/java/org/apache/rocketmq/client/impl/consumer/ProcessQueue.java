@@ -342,7 +342,7 @@ public class ProcessQueue {
                         ProcessQueue.this.onReceiveMessageResult(receiveMessageResult);
                     } catch (Throwable t) {
                         // should never reach here.
-                        log.error("[Bug] Exception raised while handling pop result, would pop later, mq={}",
+                        log.error("[Bug] Exception raised while handling receive result, would receive later, mq={}",
                                   mq, t);
                         receiveMessageLater();
                     }
@@ -350,13 +350,13 @@ public class ProcessQueue {
 
                 @Override
                 public void onFailure(Throwable t) {
-                    log.error("Exception raised while popping message, would pop later, mq={}", mq, t);
+                    log.error("Exception raised while message reception, would receive later, mq={}", mq, t);
                     receiveMessageLater();
                 }
             });
             consumerImpl.receiveTimes.getAndIncrement();
         } catch (Throwable t) {
-            log.error("Exception raised while popping message, would pop later, mq={}.", mq, t);
+            log.error("Exception raised while message reception, would receive later, mq={}.", mq, t);
             receiveMessageLater();
         }
     }
