@@ -1,6 +1,5 @@
 package org.apache.rocketmq.client.impl.consumer;
 
-import com.google.common.util.concurrent.RateLimiter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -78,28 +77,8 @@ public class ConsumeConcurrentlyService extends ConsumeService {
         final Map<MessageQueue, List<MessageExt>> messageExtListTable = new HashMap<MessageQueue, List<MessageExt>>();
         // iterate all process queues to submit consumption task.
         for (ProcessQueue pq : processQueues) {
-            final List<MessageExt> messageExtList = new ArrayList<MessageExt>();
-
-            // get rate limiter for each topic.
-            final MessageQueue mq = pq.getMq();
-            final String topic = mq.getTopic();
-            final RateLimiter rateLimiter = getRateLimiter(topic);
-
-            if (null != rateLimiter) {
-                while (pq.messagesCacheSize() > 0 && actualBatchSize < totalBatchMaxSize && rateLimiter.tryAcquire()) {
-                    final MessageExt messageExt = pq.tryTakeMessage();
-                    if (null == messageExt) {
-                        log.info("[Bug] message taken from process queue is null, mq={}", mq);
-                        break;
-                    }
-                    actualBatchSize++;
-                    messageExtList.add(messageExt);
-                }
-            } else {
-                // no rate limiter was set.
-                messageExtList.addAll(pq.tryTakeMessages(nextBatchMaxSize));
-                actualBatchSize += messageExtList.size();
-            }
+            final List<MessageExt> messageExtList = pq.tryTakeMessages(nextBatchMaxSize);
+            actualBatchSize += messageExtList.size();
 
             // no messages cached, skip this pq.
             if (messageExtList.isEmpty()) {
@@ -107,6 +86,7 @@ public class ConsumeConcurrentlyService extends ConsumeService {
             }
 
             // add message to message table.
+            final MessageQueue mq = pq.getMq();
             List<MessageExt> existedList = messageExtListTable.get(mq);
             if (null == existedList) {
                 existedList = new ArrayList<MessageExt>();
@@ -130,8 +110,9 @@ public class ConsumeConcurrentlyService extends ConsumeService {
         try {
             consumeExecutor.submit(task);
         } catch (Throwable t) {
-            // Should never reach here.
-            log.error("[Bug] Failed to submit task to consume thread pool, which may cause consumption congestion.", t);
+            // should never reach here.
+            log.error("[Bug] Failed to submit task to consumption thread pool, which may cause consumption congestion.",
+                      t);
         }
         // not all messages are dispatched, start a new round.
         if (consumerImpl.messagesCachedSize() > 0) {
