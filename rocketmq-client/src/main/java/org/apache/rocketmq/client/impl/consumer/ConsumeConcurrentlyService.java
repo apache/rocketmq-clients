@@ -3,7 +3,6 @@ package org.apache.rocketmq.client.impl.consumer;
 import com.google.common.util.concurrent.RateLimiter;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +18,7 @@ import org.apache.rocketmq.utility.ThreadFactoryImpl;
 
 @Slf4j
 public class ConsumeConcurrentlyService extends ConsumeService {
+    private static final long CONSUMPTION_DISPATCHER_PERIOD_MILLIS = 10;
 
     private final Object dispatcherConditionVariable;
     private final ThreadPoolExecutor dispatcherExecutor;
@@ -32,7 +32,7 @@ public class ConsumeConcurrentlyService extends ConsumeService {
                 60,
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<Runnable>(),
-                new ThreadFactoryImpl("ConsumeDispatcherThread"));
+                new ThreadFactoryImpl("ConsumptionDispatcherThread"));
     }
 
     @Override
@@ -45,7 +45,7 @@ public class ConsumeConcurrentlyService extends ConsumeService {
                     try {
                         dispatch0();
                         synchronized (dispatcherConditionVariable) {
-                            dispatcherConditionVariable.wait(1000);
+                            dispatcherConditionVariable.wait(CONSUMPTION_DISPATCHER_PERIOD_MILLIS);
                         }
                     } catch (Throwable t) {
                         log.error("Exception raised while schedule message consumption dispatcher", t);
@@ -63,13 +63,8 @@ public class ConsumeConcurrentlyService extends ConsumeService {
 
     public void dispatch0() {
         final List<ProcessQueue> processQueues = consumerImpl.processQueueList();
-        // order all process queues descend by their cached message size.
-        Collections.sort(processQueues, new Comparator<ProcessQueue>() {
-            @Override
-            public int compare(ProcessQueue o1, ProcessQueue o2) {
-                return o2.messagesCacheSize() - o1.messagesCacheSize();
-            }
-        });
+        // shuffle all process queue in case messages are always consumed firstly in one message queue.
+        Collections.shuffle(processQueues);
 
         final int totalBatchMaxSize = consumerImpl.getConsumeMessageBatchMaxSize();
         int nextBatchMaxSize = totalBatchMaxSize;
@@ -83,7 +78,7 @@ public class ConsumeConcurrentlyService extends ConsumeService {
             // get rate limiter for each topic.
             final MessageQueue mq = pq.getMq();
             final String topic = mq.getTopic();
-            final RateLimiter rateLimiter = getRateLimiter(topic);
+            final RateLimiter rateLimiter = consumerImpl.rateLimiter(topic);
 
             if (null != rateLimiter) {
                 while (pq.messagesCacheSize() > 0 && actualBatchSize < totalBatchMaxSize && rateLimiter.tryAcquire()) {
@@ -130,12 +125,8 @@ public class ConsumeConcurrentlyService extends ConsumeService {
         try {
             consumeExecutor.submit(task);
         } catch (Throwable t) {
-            // Should never reach here.
+            // should never reach here.
             log.error("[Bug] Failed to submit task to consume thread pool, which may cause consumption congestion.", t);
-        }
-        // not all messages are dispatched, start a new round.
-        if (consumerImpl.messagesCachedSize() > 0) {
-            dispatch0();
         }
     }
 

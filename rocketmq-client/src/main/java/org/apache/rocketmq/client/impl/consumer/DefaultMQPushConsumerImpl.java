@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.RateLimiter;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
@@ -80,6 +81,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     private final ConcurrentMap<String /* topic */, TopicAssignment> cachedTopicAssignmentTable;
 
     private MessageListener messageListener;
+    private final ConcurrentMap<String/* topic */, RateLimiter> rateLimiterTable;
 
     private final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable;
     private volatile ScheduledFuture<?> scanAssignmentsFuture;
@@ -130,6 +132,8 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
         this.messageListener = null;
         this.consumeService = null;
+
+        this.rateLimiterTable = new ConcurrentHashMap<String, RateLimiter>();
 
         this.processQueueTable = new ConcurrentHashMap<MessageQueue, ProcessQueue>();
 
@@ -220,9 +224,17 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         return size;
     }
 
-    // TODO ???
     ProcessQueue processQueue(MessageQueue mq) {
         return processQueueTable.get(mq);
+    }
+
+    RateLimiter rateLimiter(String topic) {
+        return rateLimiterTable.get(topic);
+    }
+
+    public void throttle(String topic, int permitsPerSecond) {
+        final RateLimiter rateLimiter = RateLimiter.create(permitsPerSecond);
+        rateLimiterTable.put(topic, rateLimiter);
     }
 
     private QueryAssignmentRequest wrapQueryAssignmentRequest(String topic) {
@@ -573,8 +585,6 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         }
         return builder.build();
     }
-
-
 
     long getIoTimeoutMillis() {
         return ioTimeoutMillis;

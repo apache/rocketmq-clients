@@ -1,8 +1,5 @@
 package org.apache.rocketmq.client.impl.consumer;
 
-import com.google.common.util.concurrent.RateLimiter;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -14,25 +11,13 @@ public abstract class ConsumeService {
     protected final DefaultMQPushConsumerImpl consumerImpl;
     protected final AtomicReference<ServiceState> state;
 
-    private final ConcurrentMap<String, RateLimiter> rateLimiterTable;
-
     @Getter
     private final MessageListener messageListener;
 
     public ConsumeService(DefaultMQPushConsumerImpl consumerImpl, MessageListener messageListener) {
         this.consumerImpl = consumerImpl;
         this.messageListener = messageListener;
-        this.rateLimiterTable = new ConcurrentHashMap<String, RateLimiter>();
         this.state = new AtomicReference<ServiceState>(ServiceState.READY);
-    }
-
-    public void setRate(String topic, int permitsPerSecond) {
-        final RateLimiter rateLimiter = RateLimiter.create(permitsPerSecond);
-        rateLimiterTable.put(topic, rateLimiter);
-    }
-
-    public RateLimiter getRateLimiter(String topic) {
-        return rateLimiterTable.get(topic);
     }
 
     public void start() {

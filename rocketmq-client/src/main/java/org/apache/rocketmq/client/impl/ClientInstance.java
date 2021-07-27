@@ -26,11 +26,8 @@ import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.grpc.Metadata;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -40,8 +37,6 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.net.ssl.SSLException;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -60,10 +55,6 @@ public class ClientInstance {
     private final String id;
 
     private final ConcurrentMap<Endpoints, RpcClient> rpcClientTable;
-
-    @GuardedBy("unhealthyEndpointsLock")
-    private final Set<Endpoints> unhealthyEndpointsSet;
-    private final ReadWriteLock unhealthyEndpointsLock;
 
     private final ConcurrentMap<String/* ClientId */, ClientObserver> clientObserverTable;
 
@@ -88,9 +79,6 @@ public class ClientInstance {
     public ClientInstance(String id) {
         this.id = id;
         this.rpcClientTable = new ConcurrentHashMap<Endpoints, RpcClient>();
-
-        this.unhealthyEndpointsLock = new ReentrantReadWriteLock();
-        this.unhealthyEndpointsSet = new HashSet<Endpoints>();
 
         this.clientObserverTable = new ConcurrentHashMap<String, ClientObserver>();
 

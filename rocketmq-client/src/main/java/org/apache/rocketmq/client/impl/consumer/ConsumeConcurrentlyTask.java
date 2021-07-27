@@ -68,12 +68,14 @@ public class ConsumeConcurrentlyTask implements Runnable {
         for (Map.Entry<MessageQueue, List<MessageExt>> entry : messageExtListTable.entrySet()) {
             final MessageQueue mq = entry.getKey();
             final ProcessQueue pq = consumerImpl.processQueue(mq);
-            // Process queue has been removed.
+            // process queue has been removed.
             if (null == pq) {
                 continue;
             }
             final List<MessageExt> messageList = entry.getValue();
             pq.eraseMessages(messageList, status);
         }
+        // check if new messages arrived or not.
+        consumeService.dispatch();
     }
 }
