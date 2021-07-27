@@ -93,7 +93,7 @@ import org.apache.rocketmq.utility.UtilAll;
 public abstract class ClientBaseImpl extends ClientConfig implements ClientObserver {
 
     private static final long MULTIPLEXING_CALL_LATER_DELAY_MILLIS = 3 * 1000L;
-    private static final long MULTIPLEXING_CALL_TIMEOUT_MILLIS = 30 * 1000L;
+    private static final long MULTIPLEXING_CALL_TIMEOUT_MILLIS = 60 * 1000L;
     private static final long VERIFY_CONSUMPTION_TIMEOUT_MILLIS = 15 * 1000L;
 
     private static final String TRACER_INSTRUMENTATION_NAME = "org.apache.rocketmq.message.tracer";
@@ -549,7 +549,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
      * <p>SHOULD NEVER THROW ANY EXCEPTION.</p>
      *
      * @param endpoints remote endpoints.
-     * @param request resolve orphaned transaction request.
+     * @param request   resolve orphaned transaction request.
      */
     public void resolveOrphanedTransaction(Endpoints endpoints, ResolveOrphanedTransactionRequest request) {
     }
@@ -617,6 +617,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         final GenericPollingRequest genericPollingRequest = wrapGenericPollingRequest();
         MultiplexingRequest multiplexingRequest =
                 MultiplexingRequest.newBuilder().setPollingRequest(genericPollingRequest).build();
+        log.debug("Start to dispatch generic poll request, endpoints={}", endpoints);
         multiplexingCall(endpoints, multiplexingRequest);
     }
 
