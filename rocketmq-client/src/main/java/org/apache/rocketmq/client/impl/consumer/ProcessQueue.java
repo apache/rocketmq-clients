@@ -260,7 +260,7 @@ public class ProcessQueue {
         }
         if (this.throttled()) {
             log.warn("Process queue is throttled, would receive message later, mq={}.", mq);
-            throttledTime = System.currentTimeMillis();
+            throttledTime = System.nanoTime();
             receiveMessageLater();
             return;
         }
@@ -321,7 +321,7 @@ public class ProcessQueue {
             final Endpoints endpoints = mq.getPartition().getBroker().getEndpoints();
             final ReceiveMessageRequest request = wrapReceiveMessageRequest();
 
-            receptionTime = System.currentTimeMillis();
+            receptionTime = System.nanoTime();
             final Metadata metadata = consumerImpl.sign();
 
             final ListenableFuture<ReceiveMessageResponse> future0 = clientInstance.receiveMessage(
