@@ -6,61 +6,20 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.listener.MessageListener;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
-import org.apache.rocketmq.utility.ThreadFactoryImpl;
 
 @Slf4j
 public class ConsumeConcurrentlyService extends ConsumeService {
-    private static final long CONSUMPTION_DISPATCH_PERIOD_MILLIS = 10;
-
-    private final Object dispatcherConditionVariable;
-    private final ThreadPoolExecutor dispatcherExecutor;
 
     public ConsumeConcurrentlyService(DefaultMQPushConsumerImpl consumerImpl, MessageListener messageListener) {
         super(consumerImpl, messageListener);
-        this.dispatcherConditionVariable = new Object();
-        this.dispatcherExecutor = new ThreadPoolExecutor(
-                1,
-                1,
-                60,
-                TimeUnit.SECONDS,
-                new LinkedBlockingQueue<Runnable>(),
-                new ThreadFactoryImpl("ConsumptionDispatcherThread"));
     }
 
     @Override
-    public void start() {
-        super.start();
-        dispatcherExecutor.submit(new Runnable() {
-            @Override
-            public void run() {
-                while (ServiceState.STARTED == state.get()) {
-                    try {
-                        dispatch0();
-                        synchronized (dispatcherConditionVariable) {
-                            dispatcherConditionVariable.wait(CONSUMPTION_DISPATCH_PERIOD_MILLIS);
-                        }
-                    } catch (Throwable t) {
-                        log.error("Exception raised while schedule message consumption dispatcher", t);
-                    }
-                }
-            }
-        });
-    }
-
-    @Override
-    public void shutdown() {
-        super.shutdown();
-        this.dispatcherExecutor.shutdown();
-    }
-
     public void dispatch0() {
         final List<ProcessQueue> processQueues = consumerImpl.processQueueList();
         // shuffle all process queue in case messages are always consumed firstly in one message queue.
@@ -84,7 +43,7 @@ public class ConsumeConcurrentlyService extends ConsumeService {
                 while (pq.messagesCacheSize() > 0 && actualBatchSize < totalBatchMaxSize && rateLimiter.tryAcquire()) {
                     final MessageExt messageExt = pq.tryTakeMessage();
                     if (null == messageExt) {
-                        log.info("[Bug] message taken from process queue is null, mq={}", mq);
+                        log.error("[Bug] message taken from process queue is null, mq={}", mq);
                         break;
                     }
                     actualBatchSize++;
@@ -126,14 +85,7 @@ public class ConsumeConcurrentlyService extends ConsumeService {
             consumeExecutor.submit(task);
         } catch (Throwable t) {
             // should never reach here.
-            log.error("[Bug] Failed to submit task to consume thread pool, which may cause consumption congestion.", t);
-        }
-    }
-
-    @Override
-    public void dispatch() {
-        synchronized (dispatcherConditionVariable) {
-            dispatcherConditionVariable.notify();
+            log.error("[Bug] Failed to submit task to consumption thread pool, which may cause congestion.", t);
         }
     }
 }

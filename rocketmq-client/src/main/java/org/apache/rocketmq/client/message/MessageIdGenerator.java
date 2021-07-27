@@ -43,7 +43,7 @@ public class MessageIdGenerator {
         secondsStartTimestamp = TimeUnit.NANOSECONDS.toSeconds(System.nanoTime());
         seconds = deltaSeconds();
 
-        sequence = new AtomicInteger(RandomUtils.nextInt());
+        sequence = new AtomicInteger(0);
     }
 
     public static MessageIdGenerator getInstance() {

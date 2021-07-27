@@ -24,11 +24,11 @@ import com.google.protobuf.util.Timestamps;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
 import io.grpc.Metadata;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import lombok.Getter;
@@ -77,6 +77,7 @@ public class ProcessQueue {
     private final ReentrantReadWriteLock inflightMessagesLock;
 
     private final AtomicLong messagesBodySize;
+    private final AtomicBoolean fifoConsumeTaskOccupied;
 
     private volatile long receptionTime;
     private volatile long throttledTime;
@@ -97,10 +98,20 @@ public class ProcessQueue {
         this.inflightMessagesLock = new ReentrantReadWriteLock();
 
         this.messagesBodySize = new AtomicLong(0L);
+        this.fifoConsumeTaskOccupied = new AtomicBoolean(false);
 
         this.receptionTime = System.nanoTime();
         this.throttledTime = System.nanoTime();
     }
+
+    public boolean fifoConsumeTaskInbound() {
+        return fifoConsumeTaskOccupied.compareAndSet(false, true);
+    }
+
+    public boolean fifoConsumeTaskOutbound() {
+        return fifoConsumeTaskOccupied.compareAndSet(true, false);
+    }
+
 
     @VisibleForTesting
     public void cacheMessages(List<MessageExt> messageList) {
@@ -153,16 +164,10 @@ public class ProcessQueue {
         }
     }
 
-    /**
-     * Erase consumed message from {@link ProcessQueue#cachedMessages} and execute ack/nack.
-     *
-     * @param messageList consumed message list.
-     * @param status      consume status, which indicates to ack/nack message.
-     */
-    public void eraseMessages(List<MessageExt> messageList, ConsumeStatus status) {
+    private void eraseMessages(List<MessageExt> messageExtList) {
         inflightMessagesLock.writeLock().lock();
         try {
-            for (MessageExt messageExt : messageList) {
+            for (MessageExt messageExt : messageExtList) {
                 if (inflightMessages.remove(messageExt)) {
                     messagesBodySize.addAndGet(null == messageExt.getBody() ? 0 : -messageExt.getBody().length);
                 }
@@ -170,8 +175,31 @@ public class ProcessQueue {
         } finally {
             inflightMessagesLock.writeLock().unlock();
         }
+    }
 
-        for (MessageExt message : messageList) {
+    /**
+     * Erase consumed fifo messages from {@link ProcessQueue#cachedMessages}, send message to DLQ if status is
+     * {@link ConsumeStatus#ERROR}
+     *
+     * @param messageExtList consumed fifo message list
+     * @param status         consume status, which indicated whether to send message to DLQ.
+     */
+    public void eraseFifoMessages(List<MessageExt> messageExtList, ConsumeStatus status) {
+        eraseMessages(messageExtList);
+        for (MessageExt messageExt : messageExtList) {
+
+        }
+    }
+
+    /**
+     * Erase consumed message froms {@link ProcessQueue#cachedMessages} and execute ack/nack.
+     *
+     * @param messageExtList consumed message list.
+     * @param status         consume status, which indicates to ack/nack message.
+     */
+    public void eraseMessages(List<MessageExt> messageExtList, ConsumeStatus status) {
+        eraseMessages(messageExtList);
+        for (MessageExt message : messageExtList) {
             switch (status) {
                 case OK:
                     consumerImpl.consumptionOkCount.incrementAndGet();
@@ -209,7 +237,7 @@ public class ProcessQueue {
                     consumerImpl.receivedCount.getAndAdd(messagesFound.size());
                     consumerImpl.getConsumeService().dispatch();
                 }
-                nextReception();
+                receiveMessage();
                 break;
             // fall through on purpose.
             case DEADLINE_EXCEEDED:
@@ -220,12 +248,12 @@ public class ProcessQueue {
             default:
                 log.debug("Receive message with status={}, mq={}, endpoints={}, messages found count={}", receiveStatus,
                           mq, endpoints, messagesFound.size());
-                nextReception();
+                receiveMessage();
         }
     }
 
     @VisibleForTesting
-    public void nextReception() {
+    public void receiveMessage() {
         if (this.isDropped()) {
             log.debug("Process queue has been dropped, mq={}.", mq);
             return;
@@ -245,11 +273,11 @@ public class ProcessQueue {
             scheduler.schedule(new Runnable() {
                 @Override
                 public void run() {
-                    receiveMessageImmediately();
+                    receiveMessage();
                 }
             }, RECEIVE_LATER_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
-            // Should never reach here.
+            // should never reach here.
             log.error("[Bug] Failed to schedule receive message request", t);
             receiveMessageLater();
         }
@@ -271,7 +299,7 @@ public class ProcessQueue {
         return false;
     }
 
-    public boolean idle() {
+    public boolean expired() {
         final long receptionIdleMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - receptionTime);
         if (receptionIdleMillis < MAX_IDLE_MILLIS) {
             return false;
@@ -516,8 +544,8 @@ public class ProcessQueue {
     }
 
     // TODO: handle the case that the topic does not exist.
-    public static ReceiveMessageResult processReceiveMessageResponse(Endpoints endpoints,
-                                                                     ReceiveMessageResponse response) {
+    public ReceiveMessageResult processReceiveMessageResponse(Endpoints endpoints,
+                                                              ReceiveMessageResponse response) {
         ReceiveStatus receiveStatus;
 
         final Status status = response.getCommon().getStatus();
@@ -545,21 +573,15 @@ public class ProcessQueue {
         if (ReceiveStatus.OK == receiveStatus) {
             final List<Message> messageList = response.getMessagesList();
             for (Message message : messageList) {
+                MessageImpl messageImpl;
                 try {
-                    MessageImpl messageImpl = ClientBaseImpl.wrapMessageImpl(message);
-                    messageImpl.getSystemAttribute().setAckEndpoints(endpoints);
-                    msgFoundList.add(new MessageExt(messageImpl));
-                } catch (ClientException e) {
-                    // TODO: need nack immediately.
-                    log.error("Failed to wrap messageImpl, topic={}, messageId={}", message.getTopic(),
-                              message.getSystemAttribute().getMessageId(), e);
-                } catch (IOException e) {
-                    log.error("Failed to wrap messageImpl, topic={}, messageId={}", message.getTopic(),
-                              message.getSystemAttribute().getMessageId(), e);
+                    messageImpl = ClientBaseImpl.wrapMessageImpl(message);
                 } catch (Throwable t) {
-                    log.error("Exception raised while wrapping messageImpl, topic={}, messageId={}",
-                              message.getTopic(), message.getSystemAttribute().getMessageId(), t);
+                    // TODO: need nack immediately.
+                    continue;
                 }
+                messageImpl.getSystemAttribute().setAckEndpoints(endpoints);
+                msgFoundList.add(new MessageExt(messageImpl));
             }
         }
 

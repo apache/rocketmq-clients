@@ -331,7 +331,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                 continue;
             }
 
-            if (processQueue.idle()) {
+            if (processQueue.expired()) {
                 log.warn("Process queue is expired, mq={}", messageQueue);
                 processQueueTable.remove(messageQueue);
                 processQueue.setDropped(true);

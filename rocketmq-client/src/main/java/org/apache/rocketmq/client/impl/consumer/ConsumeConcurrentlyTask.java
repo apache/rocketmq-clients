@@ -27,7 +27,7 @@ public class ConsumeConcurrentlyTask implements Runnable {
         for (List<MessageExt> messageExtList : messageExtListTable.values()) {
             allMessageExtList.addAll(messageExtList);
         }
-        // Intercept before message consumption.
+        // intercept before message consumption.
         for (MessageExt messageExt : allMessageExtList) {
             final MessageInterceptorContext context =
                     MessageInterceptorContext.builder().attemptTimes(1 + messageExt.getReconsumeTimes()).build();
@@ -43,12 +43,12 @@ public class ConsumeConcurrentlyTask implements Runnable {
             status = consumeService.getMessageListener().consume(allMessageExtList, consumeContext);
         } catch (Throwable t) {
             status = ConsumeStatus.ERROR;
-            log.error("Business callback raised an exception while consuming message.", t);
+            log.error("Biz callback raised an exception while consuming messages.", t);
         }
 
+        // intercept after message consumption.
         final long elapsed = started.elapsed(TimeUnit.MILLISECONDS);
         final long elapsedPerMessage = elapsed / allMessageExtList.size();
-        // Intercept after message consumption.
         for (int i = 0; i < allMessageExtList.size(); i++) {
             final MessageExt messageExt = allMessageExtList.get(i);
             final MessageInterceptorContext context =
