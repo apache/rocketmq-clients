@@ -18,7 +18,7 @@ import org.apache.rocketmq.utility.ThreadFactoryImpl;
 
 @Slf4j
 public class ConsumeConcurrentlyService extends ConsumeService {
-    private static final long CONSUMPTION_DISPATCHER_PERIOD_MILLIS = 10;
+    private static final long CONSUMPTION_DISPATCH_PERIOD_MILLIS = 10;
 
     private final Object dispatcherConditionVariable;
     private final ThreadPoolExecutor dispatcherExecutor;
@@ -45,7 +45,7 @@ public class ConsumeConcurrentlyService extends ConsumeService {
                     try {
                         dispatch0();
                         synchronized (dispatcherConditionVariable) {
-                            dispatcherConditionVariable.wait(CONSUMPTION_DISPATCHER_PERIOD_MILLIS);
+                            dispatcherConditionVariable.wait(CONSUMPTION_DISPATCH_PERIOD_MILLIS);
                         }
                     } catch (Throwable t) {
                         log.error("Exception raised while schedule message consumption dispatcher", t);

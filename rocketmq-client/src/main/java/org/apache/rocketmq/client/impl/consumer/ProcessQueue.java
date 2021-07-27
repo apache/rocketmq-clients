@@ -78,8 +78,8 @@ public class ProcessQueue {
 
     private final AtomicLong messagesBodySize;
 
-    private volatile long lastPopTimestamp;
-    private volatile long lastThrottledTimestamp;
+    private volatile long receptionTime;
+    private volatile long throttledTime;
 
     public ProcessQueue(
             DefaultMQPushConsumerImpl consumerImpl,
@@ -98,8 +98,8 @@ public class ProcessQueue {
 
         this.messagesBodySize = new AtomicLong(0L);
 
-        this.lastPopTimestamp = System.currentTimeMillis();
-        this.lastThrottledTimestamp = System.currentTimeMillis();
+        this.receptionTime = System.nanoTime();
+        this.throttledTime = System.nanoTime();
     }
 
     @VisibleForTesting
@@ -174,18 +174,22 @@ public class ProcessQueue {
         for (MessageExt message : messageList) {
             switch (status) {
                 case OK:
+                    consumerImpl.consumptionOkCount.incrementAndGet();
                     try {
-                        consumerImpl.consumptionOkCount.incrementAndGet();
-                        ackMessage(message);
+                        if (MessageModel.CLUSTERING == consumerImpl.getMessageModel()) {
+                            ackMessage(message);
+                        }
                     } catch (Throwable t) {
                         log.warn("Failed to ACK message, mq={}, msgId={}", mq, message.getMsgId(), t);
                     }
                     break;
                 case ERROR:
                 default:
+                    consumerImpl.consumptionErrorCount.incrementAndGet();
                     try {
-                        consumerImpl.consumptionErrorCount.incrementAndGet();
-                        nackMessage(message);
+                        if (MessageModel.CLUSTERING == consumerImpl.getMessageModel()) {
+                            nackMessage(message);
+                        }
                     } catch (Throwable t) {
                         log.warn("Failed to NACK message, mq={}, msgId={}", mq, message.getMsgId(), t);
                     }
@@ -203,15 +207,8 @@ public class ProcessQueue {
                 if (!messagesFound.isEmpty()) {
                     cacheMessages(messagesFound);
                     consumerImpl.receivedCount.getAndAdd(messagesFound.size());
-                    try {
-                        // TODO: considering whether exception would be thrown here?
-                        consumerImpl.getConsumeService().dispatch();
-                    } catch (Throwable t) {
-                        log.error("Unexpected error while dispatching message popped, mq={}", mq, t);
-                    }
+                    consumerImpl.getConsumeService().dispatch();
                 }
-                log.debug("Receive message with status=OK, mq={}, endpoints={}, messages found count={}",
-                          mq, endpoints, messagesFound.size());
                 nextReception();
                 break;
             // fall through on purpose.
@@ -235,7 +232,7 @@ public class ProcessQueue {
         }
         if (this.throttled()) {
             log.warn("Process queue is throttled, would receive message later, mq={}.", mq);
-            lastThrottledTimestamp = System.currentTimeMillis();
+            throttledTime = System.currentTimeMillis();
             receiveMessageLater();
             return;
         }
@@ -275,19 +272,18 @@ public class ProcessQueue {
     }
 
     public boolean idle() {
-        final long popDuration = System.currentTimeMillis() - lastPopTimestamp;
-        if (popDuration < MAX_IDLE_MILLIS) {
+        final long receptionIdleMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - receptionTime);
+        if (receptionIdleMillis < MAX_IDLE_MILLIS) {
             return false;
         }
 
-        final long throttledDuration = System.currentTimeMillis() - lastThrottledTimestamp;
-        if (throttledDuration < MAX_IDLE_MILLIS) {
+        final long throttleIdleMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - throttledTime);
+        if (throttleIdleMillis < MAX_IDLE_MILLIS) {
             return false;
         }
 
-        log.warn("Process queue is idle, duration from last pop={}ms, duration from last throttle={}ms, " +
-                 "lastPopTimestamp={}, lastThrottledTimestamp={}, currentTimestamp={}", popDuration, throttledDuration,
-                 lastPopTimestamp, lastThrottledTimestamp, System.currentTimeMillis());
+        log.warn("Process queue is idle, reception idle time={}ms, throttle idle time={}ms", receptionIdleMillis,
+                 throttleIdleMillis);
         return true;
     }
 
@@ -297,7 +293,7 @@ public class ProcessQueue {
             final Endpoints endpoints = mq.getPartition().getBroker().getEndpoints();
             final ReceiveMessageRequest request = wrapReceiveMessageRequest();
 
-            lastPopTimestamp = System.currentTimeMillis();
+            receptionTime = System.currentTimeMillis();
             final Metadata metadata = consumerImpl.sign();
 
             final ListenableFuture<ReceiveMessageResponse> future0 = clientInstance.receiveMessage(
@@ -317,7 +313,7 @@ public class ProcessQueue {
                     try {
                         ProcessQueue.this.onReceiveMessageResult(receiveMessageResult);
                     } catch (Throwable t) {
-                        // Should never reach here.
+                        // should never reach here.
                         log.error("[Bug] Exception raised while handling pop result, would pop later, mq={}",
                                   mq, t);
                         receiveMessageLater();
@@ -521,7 +517,7 @@ public class ProcessQueue {
 
     // TODO: handle the case that the topic does not exist.
     public static ReceiveMessageResult processReceiveMessageResponse(Endpoints endpoints,
-                                                                  ReceiveMessageResponse response) {
+                                                                     ReceiveMessageResponse response) {
         ReceiveStatus receiveStatus;
 
         final Status status = response.getCommon().getStatus();
