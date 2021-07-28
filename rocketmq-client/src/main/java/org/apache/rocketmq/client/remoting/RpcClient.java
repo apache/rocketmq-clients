@@ -24,6 +24,8 @@ import apache.rocketmq.v1.ReceiveMessageRequest;
 import apache.rocketmq.v1.ReceiveMessageResponse;
 import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
+import apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest;
+import apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.grpc.Metadata;
 import java.util.concurrent.Executor;
@@ -144,6 +146,20 @@ public interface RpcClient {
      */
     ListenableFuture<NackMessageResponse> nackMessage(Metadata metadata, NackMessageRequest request, Executor executor,
                                                       long duration, TimeUnit timeUnit);
+
+    /**
+     * Send message to dead letter queue.
+     *
+     * @param metadata gRPC request header metadata.
+     * @param request  request of sending message to DLQ.
+     * @param executor gRPC asynchronous executor.
+     * @param duration request max duration.
+     * @param timeUnit duration time unit.
+     * @return response future of sending message to DLQ.
+     */
+    ListenableFuture<SendMessageToDeadLetterQueueResponse> sendMessageToDeadLetterQueue(
+            Metadata metadata, SendMessageToDeadLetterQueueRequest request, Executor executor, long duration,
+            TimeUnit timeUnit);
 
     /**
      * Submit transaction resolution

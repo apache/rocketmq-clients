@@ -24,6 +24,8 @@ import apache.rocketmq.v1.ReceiveMessageRequest;
 import apache.rocketmq.v1.ReceiveMessageResponse;
 import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
+import apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest;
+import apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.grpc.Metadata;
@@ -382,6 +384,19 @@ public class ClientInstance {
             return rpcClient.nackMessage(metadata, request, asyncExecutor, duration, timeUnit);
         } catch (Throwable t) {
             final SettableFuture<NackMessageResponse> future = SettableFuture.create();
+            future.setException(t);
+            return future;
+        }
+    }
+
+    public ListenableFuture<SendMessageToDeadLetterQueueResponse> sendMessageToDeadLetterQueue(
+            Endpoints endpoints, Metadata metadata, SendMessageToDeadLetterQueueRequest request, long duration,
+            TimeUnit timeUnit) {
+        try {
+            final RpcClient rpcClient = getRpcClient(endpoints);
+            return rpcClient.sendMessageToDeadLetterQueue(metadata, request, asyncExecutor, duration, timeUnit);
+        } catch (Throwable t) {
+            final SettableFuture<SendMessageToDeadLetterQueueResponse> future = SettableFuture.create();
             future.setException(t);
             return future;
         }

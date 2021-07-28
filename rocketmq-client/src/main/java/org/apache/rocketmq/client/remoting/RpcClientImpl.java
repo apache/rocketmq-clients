@@ -25,6 +25,8 @@ import apache.rocketmq.v1.ReceiveMessageRequest;
 import apache.rocketmq.v1.ReceiveMessageResponse;
 import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
+import apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest;
+import apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
@@ -91,6 +93,30 @@ public class RpcClientImpl implements RpcClient {
     }
 
     @Override
+    public ListenableFuture<QueryRouteResponse> queryRoute(Metadata metadata, QueryRouteRequest request,
+                                                           Executor executor, long duration, TimeUnit timeUnit) {
+        this.activityNanoTime = System.nanoTime();
+        return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
+                            .withDeadlineAfter(duration, timeUnit).queryRoute(request);
+    }
+
+    @Override
+    public ListenableFuture<HeartbeatResponse> heartbeat(Metadata metadata, HeartbeatRequest request, Executor executor,
+                                                         long duration, TimeUnit timeUnit) {
+        this.activityNanoTime = System.nanoTime();
+        return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
+                            .withDeadlineAfter(duration, timeUnit).heartbeat(request);
+    }
+
+    @Override
+    public ListenableFuture<HealthCheckResponse> healthCheck(Metadata metadata, HealthCheckRequest request,
+                                                             Executor executor, long duration, TimeUnit timeUnit) {
+        this.activityNanoTime = System.nanoTime();
+        return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
+                            .withDeadlineAfter(duration, timeUnit).healthCheck(request);
+    }
+
+    @Override
     public ListenableFuture<SendMessageResponse> sendMessage(Metadata metadata, SendMessageRequest request,
                                                              Executor executor, long duration, TimeUnit timeUnit) {
         this.activityNanoTime = System.nanoTime();
@@ -105,14 +131,6 @@ public class RpcClientImpl implements RpcClient {
         this.activityNanoTime = System.nanoTime();
         return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
                             .withDeadlineAfter(duration, timeUnit).queryAssignment(request);
-    }
-
-    @Override
-    public ListenableFuture<HealthCheckResponse> healthCheck(Metadata metadata, HealthCheckRequest request,
-                                                             Executor executor, long duration, TimeUnit timeUnit) {
-        this.activityNanoTime = System.nanoTime();
-        return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
-                            .withDeadlineAfter(duration, timeUnit).healthCheck(request);
     }
 
     @Override
@@ -141,19 +159,12 @@ public class RpcClientImpl implements RpcClient {
     }
 
     @Override
-    public ListenableFuture<HeartbeatResponse> heartbeat(Metadata metadata, HeartbeatRequest request, Executor executor,
-                                                         long duration, TimeUnit timeUnit) {
+    public ListenableFuture<SendMessageToDeadLetterQueueResponse> sendMessageToDeadLetterQueue(
+            Metadata metadata, SendMessageToDeadLetterQueueRequest request, Executor executor, long duration,
+            TimeUnit timeUnit) {
         this.activityNanoTime = System.nanoTime();
         return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
-                            .withDeadlineAfter(duration, timeUnit).heartbeat(request);
-    }
-
-    @Override
-    public ListenableFuture<QueryRouteResponse> queryRoute(Metadata metadata, QueryRouteRequest request,
-                                                           Executor executor, long duration, TimeUnit timeUnit) {
-        this.activityNanoTime = System.nanoTime();
-        return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
-                            .withDeadlineAfter(duration, timeUnit).queryRoute(request);
+                            .withDeadlineAfter(duration, timeUnit).sendMessageToDeadLetterQueue(request);
     }
 
     @Override

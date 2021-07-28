@@ -79,8 +79,8 @@ public class ProcessQueue {
     private final AtomicLong messagesBodySize;
     private final AtomicBoolean fifoConsumeTaskOccupied;
 
-    private volatile long receptionTime;
-    private volatile long throttledTime;
+    private volatile long activityNanoTime;
+    private volatile long throttleNanoTime;
 
     public ProcessQueue(
             DefaultMQPushConsumerImpl consumerImpl,
@@ -100,8 +100,8 @@ public class ProcessQueue {
         this.messagesBodySize = new AtomicLong(0L);
         this.fifoConsumeTaskOccupied = new AtomicBoolean(false);
 
-        this.receptionTime = System.nanoTime();
-        this.throttledTime = System.nanoTime();
+        this.activityNanoTime = System.nanoTime();
+        this.throttleNanoTime = System.nanoTime();
     }
 
     public boolean fifoConsumeTaskInbound() {
@@ -260,7 +260,7 @@ public class ProcessQueue {
         }
         if (this.throttled()) {
             log.warn("Process queue is throttled, would receive message later, mq={}.", mq);
-            throttledTime = System.nanoTime();
+            throttleNanoTime = System.nanoTime();
             receiveMessageLater();
             return;
         }
@@ -300,19 +300,31 @@ public class ProcessQueue {
     }
 
     public boolean expired() {
-        final long receptionIdleMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - receptionTime);
-        if (receptionIdleMillis < MAX_IDLE_MILLIS) {
+        final long idleMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - activityNanoTime);
+        if (idleMillis < MAX_IDLE_MILLIS) {
             return false;
         }
 
-        final long throttleIdleMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - throttledTime);
+        final long throttleIdleMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - throttleNanoTime);
         if (throttleIdleMillis < MAX_IDLE_MILLIS) {
             return false;
         }
 
-        log.warn("Process queue is idle, reception idle time={}ms, throttle idle time={}ms", receptionIdleMillis,
+        log.warn("Process queue is idle, reception idle time={}ms, throttle idle time={}ms", idleMillis,
                  throttleIdleMillis);
         return true;
+    }
+
+    public void pullMessageImmediately() {
+        throw new UnsupportedOperationException();
+    }
+
+    public void pullMessageLater() {
+        throw new UnsupportedOperationException();
+    }
+
+    public void pullMessage() {
+        throw new UnsupportedOperationException();
     }
 
     public void receiveMessageImmediately() {
@@ -321,7 +333,7 @@ public class ProcessQueue {
             final Endpoints endpoints = mq.getPartition().getBroker().getEndpoints();
             final ReceiveMessageRequest request = wrapReceiveMessageRequest();
 
-            receptionTime = System.nanoTime();
+            activityNanoTime = System.nanoTime();
             final Metadata metadata = consumerImpl.sign();
 
             final ListenableFuture<ReceiveMessageResponse> future0 = clientInstance.receiveMessage(
