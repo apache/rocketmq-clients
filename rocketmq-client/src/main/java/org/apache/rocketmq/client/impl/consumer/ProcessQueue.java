@@ -526,8 +526,8 @@ public class ProcessQueue {
                                   .setClientId(this.getClientId())
                                   .setReceiptHandle(messageExt.getReceiptHandle())
                                   .setMessageId(messageExt.getMsgId())
-                                  .setReconsumeTimes(messageExt.getReconsumeTimes() + 1)
-                                  .setMaxReconsumeTimes(this.getMaxReconsumeTimes());
+                                  .setDeliveryAttempts(messageExt.getDeliveryAttempts())
+                                  .setMaxDeliveryAttempts(this.getMaxReconsumeTimes());
 
         switch (getMessageModel()) {
             case CLUSTERING:

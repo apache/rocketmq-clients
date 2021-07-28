@@ -74,7 +74,11 @@ public class MessageExt {
     }
 
     public int getReconsumeTimes() {
-        return this.impl.getSystemAttribute().getDeliveryCount();
+        return this.impl.getSystemAttribute().getDeliveryAttempts() - 1;
+    }
+
+    public int getDeliveryAttempts() {
+        return this.impl.getSystemAttribute().getDeliveryAttempts();
     }
 
     public String getReceiptHandle() {

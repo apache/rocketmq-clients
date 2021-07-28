@@ -129,6 +129,10 @@ private static final long serialVersionUID = 0L;
   public static final int MODE_FIELD_NUMBER = 2;
   private int mode_;
   /**
+   * <pre>
+   * to delete.
+   * </pre>
+   *
    * <code>.apache.rocketmq.v1.ConsumeMessageType mode = 2;</code>
    * @return The enum numeric value on the wire for mode.
    */
@@ -136,6 +140,10 @@ private static final long serialVersionUID = 0L;
     return mode_;
   }
   /**
+   * <pre>
+   * to delete.
+   * </pre>
+   *
    * <code>.apache.rocketmq.v1.ConsumeMessageType mode = 2;</code>
    * @return The mode.
    */
@@ -597,6 +605,10 @@ private static final long serialVersionUID = 0L;
 
     private int mode_ = 0;
     /**
+     * <pre>
+     * to delete.
+     * </pre>
+     *
      * <code>.apache.rocketmq.v1.ConsumeMessageType mode = 2;</code>
      * @return The enum numeric value on the wire for mode.
      */
@@ -604,6 +616,10 @@ private static final long serialVersionUID = 0L;
       return mode_;
     }
     /**
+     * <pre>
+     * to delete.
+     * </pre>
+     *
      * <code>.apache.rocketmq.v1.ConsumeMessageType mode = 2;</code>
      * @param value The enum numeric value on the wire for mode to set.
      * @return This builder for chaining.
@@ -615,6 +631,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * to delete.
+     * </pre>
+     *
      * <code>.apache.rocketmq.v1.ConsumeMessageType mode = 2;</code>
      * @return The mode.
      */
@@ -625,6 +645,10 @@ private static final long serialVersionUID = 0L;
       return result == null ? apache.rocketmq.v1.ConsumeMessageType.UNRECOGNIZED : result;
     }
     /**
+     * <pre>
+     * to delete.
+     * </pre>
+     *
      * <code>.apache.rocketmq.v1.ConsumeMessageType mode = 2;</code>
      * @param value The mode to set.
      * @return This builder for chaining.
@@ -639,6 +663,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * to delete.
+     * </pre>
+     *
      * <code>.apache.rocketmq.v1.ConsumeMessageType mode = 2;</code>
      * @return This builder for chaining.
      */

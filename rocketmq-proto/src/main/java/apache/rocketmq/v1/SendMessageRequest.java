@@ -61,6 +61,19 @@ private static final long serialVersionUID = 0L;
 
             break;
           }
+          case 18: {
+            apache.rocketmq.v1.Partition.Builder subBuilder = null;
+            if (partition_ != null) {
+              subBuilder = partition_.toBuilder();
+            }
+            partition_ = input.readMessage(apache.rocketmq.v1.Partition.parser(), extensionRegistry);
+            if (subBuilder != null) {
+              subBuilder.mergeFrom(partition_);
+              partition_ = subBuilder.buildPartial();
+            }
+
+            break;
+          }
           default: {
             if (!parseUnknownField(
                 input, unknownFields, extensionRegistry, tag)) {
@@ -119,6 +132,32 @@ private static final long serialVersionUID = 0L;
     return getMessage();
   }
 
+  public static final int PARTITION_FIELD_NUMBER = 2;
+  private apache.rocketmq.v1.Partition partition_;
+  /**
+   * <code>.apache.rocketmq.v1.Partition partition = 2;</code>
+   * @return Whether the partition field is set.
+   */
+  @java.lang.Override
+  public boolean hasPartition() {
+    return partition_ != null;
+  }
+  /**
+   * <code>.apache.rocketmq.v1.Partition partition = 2;</code>
+   * @return The partition.
+   */
+  @java.lang.Override
+  public apache.rocketmq.v1.Partition getPartition() {
+    return partition_ == null ? apache.rocketmq.v1.Partition.getDefaultInstance() : partition_;
+  }
+  /**
+   * <code>.apache.rocketmq.v1.Partition partition = 2;</code>
+   */
+  @java.lang.Override
+  public apache.rocketmq.v1.PartitionOrBuilder getPartitionOrBuilder() {
+    return getPartition();
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -136,6 +175,9 @@ private static final long serialVersionUID = 0L;
     if (message_ != null) {
       output.writeMessage(1, getMessage());
     }
+    if (partition_ != null) {
+      output.writeMessage(2, getPartition());
+    }
     unknownFields.writeTo(output);
   }
 
@@ -148,6 +190,10 @@ private static final long serialVersionUID = 0L;
     if (message_ != null) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(1, getMessage());
+    }
+    if (partition_ != null) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(2, getPartition());
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -169,6 +215,11 @@ private static final long serialVersionUID = 0L;
       if (!getMessage()
           .equals(other.getMessage())) return false;
     }
+    if (hasPartition() != other.hasPartition()) return false;
+    if (hasPartition()) {
+      if (!getPartition()
+          .equals(other.getPartition())) return false;
+    }
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -183,6 +234,10 @@ private static final long serialVersionUID = 0L;
     if (hasMessage()) {
       hash = (37 * hash) + MESSAGE_FIELD_NUMBER;
       hash = (53 * hash) + getMessage().hashCode();
+    }
+    if (hasPartition()) {
+      hash = (37 * hash) + PARTITION_FIELD_NUMBER;
+      hash = (53 * hash) + getPartition().hashCode();
     }
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
@@ -323,6 +378,12 @@ private static final long serialVersionUID = 0L;
         message_ = null;
         messageBuilder_ = null;
       }
+      if (partitionBuilder_ == null) {
+        partition_ = null;
+      } else {
+        partition_ = null;
+        partitionBuilder_ = null;
+      }
       return this;
     }
 
@@ -353,6 +414,11 @@ private static final long serialVersionUID = 0L;
         result.message_ = message_;
       } else {
         result.message_ = messageBuilder_.build();
+      }
+      if (partitionBuilder_ == null) {
+        result.partition_ = partition_;
+      } else {
+        result.partition_ = partitionBuilder_.build();
       }
       onBuilt();
       return result;
@@ -404,6 +470,9 @@ private static final long serialVersionUID = 0L;
       if (other == apache.rocketmq.v1.SendMessageRequest.getDefaultInstance()) return this;
       if (other.hasMessage()) {
         mergeMessage(other.getMessage());
+      }
+      if (other.hasPartition()) {
+        mergePartition(other.getPartition());
       }
       this.mergeUnknownFields(other.unknownFields);
       onChanged();
@@ -551,6 +620,125 @@ private static final long serialVersionUID = 0L;
         message_ = null;
       }
       return messageBuilder_;
+    }
+
+    private apache.rocketmq.v1.Partition partition_;
+    private com.google.protobuf.SingleFieldBuilderV3<
+        apache.rocketmq.v1.Partition, apache.rocketmq.v1.Partition.Builder, apache.rocketmq.v1.PartitionOrBuilder> partitionBuilder_;
+    /**
+     * <code>.apache.rocketmq.v1.Partition partition = 2;</code>
+     * @return Whether the partition field is set.
+     */
+    public boolean hasPartition() {
+      return partitionBuilder_ != null || partition_ != null;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Partition partition = 2;</code>
+     * @return The partition.
+     */
+    public apache.rocketmq.v1.Partition getPartition() {
+      if (partitionBuilder_ == null) {
+        return partition_ == null ? apache.rocketmq.v1.Partition.getDefaultInstance() : partition_;
+      } else {
+        return partitionBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Partition partition = 2;</code>
+     */
+    public Builder setPartition(apache.rocketmq.v1.Partition value) {
+      if (partitionBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        partition_ = value;
+        onChanged();
+      } else {
+        partitionBuilder_.setMessage(value);
+      }
+
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Partition partition = 2;</code>
+     */
+    public Builder setPartition(
+        apache.rocketmq.v1.Partition.Builder builderForValue) {
+      if (partitionBuilder_ == null) {
+        partition_ = builderForValue.build();
+        onChanged();
+      } else {
+        partitionBuilder_.setMessage(builderForValue.build());
+      }
+
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Partition partition = 2;</code>
+     */
+    public Builder mergePartition(apache.rocketmq.v1.Partition value) {
+      if (partitionBuilder_ == null) {
+        if (partition_ != null) {
+          partition_ =
+            apache.rocketmq.v1.Partition.newBuilder(partition_).mergeFrom(value).buildPartial();
+        } else {
+          partition_ = value;
+        }
+        onChanged();
+      } else {
+        partitionBuilder_.mergeFrom(value);
+      }
+
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Partition partition = 2;</code>
+     */
+    public Builder clearPartition() {
+      if (partitionBuilder_ == null) {
+        partition_ = null;
+        onChanged();
+      } else {
+        partition_ = null;
+        partitionBuilder_ = null;
+      }
+
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Partition partition = 2;</code>
+     */
+    public apache.rocketmq.v1.Partition.Builder getPartitionBuilder() {
+      
+      onChanged();
+      return getPartitionFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Partition partition = 2;</code>
+     */
+    public apache.rocketmq.v1.PartitionOrBuilder getPartitionOrBuilder() {
+      if (partitionBuilder_ != null) {
+        return partitionBuilder_.getMessageOrBuilder();
+      } else {
+        return partition_ == null ?
+            apache.rocketmq.v1.Partition.getDefaultInstance() : partition_;
+      }
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Partition partition = 2;</code>
+     */
+    private com.google.protobuf.SingleFieldBuilderV3<
+        apache.rocketmq.v1.Partition, apache.rocketmq.v1.Partition.Builder, apache.rocketmq.v1.PartitionOrBuilder> 
+        getPartitionFieldBuilder() {
+      if (partitionBuilder_ == null) {
+        partitionBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+            apache.rocketmq.v1.Partition, apache.rocketmq.v1.Partition.Builder, apache.rocketmq.v1.PartitionOrBuilder>(
+                getPartition(),
+                getParentForChildren(),
+                isClean());
+        partition_ = null;
+      }
+      return partitionBuilder_;
     }
     @java.lang.Override
     public final Builder setUnknownFields(

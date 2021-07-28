@@ -21,4 +21,19 @@ public interface SendMessageRequestOrBuilder extends
    * <code>.apache.rocketmq.v1.Message message = 1;</code>
    */
   apache.rocketmq.v1.MessageOrBuilder getMessageOrBuilder();
+
+  /**
+   * <code>.apache.rocketmq.v1.Partition partition = 2;</code>
+   * @return Whether the partition field is set.
+   */
+  boolean hasPartition();
+  /**
+   * <code>.apache.rocketmq.v1.Partition partition = 2;</code>
+   * @return The partition.
+   */
+  apache.rocketmq.v1.Partition getPartition();
+  /**
+   * <code>.apache.rocketmq.v1.Partition partition = 2;</code>
+   */
+  apache.rocketmq.v1.PartitionOrBuilder getPartitionOrBuilder();
 }

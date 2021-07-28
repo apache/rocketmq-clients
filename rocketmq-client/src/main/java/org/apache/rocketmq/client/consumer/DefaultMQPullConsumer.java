@@ -2,17 +2,11 @@ package org.apache.rocketmq.client.consumer;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
-import lombok.Getter;
-import lombok.Setter;
-import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.exception.ClientException;
-import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.impl.consumer.DefaultMQPullConsumerImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.remoting.AccessCredential;
 
-@Getter
-@Setter
 public class DefaultMQPullConsumer {
     private final DefaultMQPullConsumerImpl impl;
 
@@ -20,13 +14,8 @@ public class DefaultMQPullConsumer {
         this.impl = new DefaultMQPullConsumerImpl(consumerGroup);
     }
 
-    public void setConsumerGroup(String group) throws ClientException {
-        synchronized (impl) {
-            if (ServiceState.READY != impl.getState()) {
-                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
-            }
-            impl.setGroup(group);
-        }
+    public void setConsumerGroup(String group) {
+        this.impl.setGroup(group);
     }
 
     public String getConsumerGroup() {
@@ -42,12 +31,7 @@ public class DefaultMQPullConsumer {
     }
 
     public void setNamesrvAddr(String namesrvAddr) throws ClientException {
-        synchronized (impl) {
-            if (ServiceState.READY != impl.getState()) {
-                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
-            }
-            this.impl.setNamesrvAddr(namesrvAddr);
-        }
+        this.impl.setNamesrvAddr(namesrvAddr);
     }
 
     public ListenableFuture<List<MessageQueue>> queuesFor(String topic) {
@@ -67,20 +51,10 @@ public class DefaultMQPullConsumer {
     }
 
     public void setArn(String arn) throws ClientException {
-        synchronized (impl) {
-            if (ServiceState.READY != impl.getState()) {
-                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
-            }
-            impl.setArn(arn);
-        }
+        this.impl.setArn(arn);
     }
 
     public void setAccessCredential(AccessCredential accessCredential) throws ClientException {
-        synchronized (impl) {
-            if (ServiceState.READY != impl.getState()) {
-                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
-            }
-            impl.setAccessCredential(accessCredential);
-        }
+        this.impl.setAccessCredential(accessCredential);
     }
 }

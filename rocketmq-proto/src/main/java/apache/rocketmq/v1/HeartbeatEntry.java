@@ -83,6 +83,11 @@ private static final long serialVersionUID = 0L;
             clientDataCase_ = 3;
             break;
           }
+          case 32: {
+
+            needRebalance_ = input.readBool();
+            break;
+          }
           default: {
             if (!parseUnknownField(
                 input, unknownFields, extensionRegistry, tag)) {
@@ -256,6 +261,17 @@ private static final long serialVersionUID = 0L;
     return apache.rocketmq.v1.ConsumerGroup.getDefaultInstance();
   }
 
+  public static final int NEED_REBALANCE_FIELD_NUMBER = 4;
+  private boolean needRebalance_;
+  /**
+   * <code>bool need_rebalance = 4;</code>
+   * @return The needRebalance.
+   */
+  @java.lang.Override
+  public boolean getNeedRebalance() {
+    return needRebalance_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -279,6 +295,9 @@ private static final long serialVersionUID = 0L;
     if (clientDataCase_ == 3) {
       output.writeMessage(3, (apache.rocketmq.v1.ConsumerGroup) clientData_);
     }
+    if (needRebalance_ != false) {
+      output.writeBool(4, needRebalance_);
+    }
     unknownFields.writeTo(output);
   }
 
@@ -299,6 +318,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(3, (apache.rocketmq.v1.ConsumerGroup) clientData_);
     }
+    if (needRebalance_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(4, needRebalance_);
+    }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
     return size;
@@ -316,6 +339,8 @@ private static final long serialVersionUID = 0L;
 
     if (!getClientId()
         .equals(other.getClientId())) return false;
+    if (getNeedRebalance()
+        != other.getNeedRebalance()) return false;
     if (!getClientDataCase().equals(other.getClientDataCase())) return false;
     switch (clientDataCase_) {
       case 2:
@@ -342,6 +367,9 @@ private static final long serialVersionUID = 0L;
     hash = (19 * hash) + getDescriptor().hashCode();
     hash = (37 * hash) + CLIENT_ID_FIELD_NUMBER;
     hash = (53 * hash) + getClientId().hashCode();
+    hash = (37 * hash) + NEED_REBALANCE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getNeedRebalance());
     switch (clientDataCase_) {
       case 2:
         hash = (37 * hash) + PRODUCER_GROUP_FIELD_NUMBER;
@@ -489,6 +517,8 @@ private static final long serialVersionUID = 0L;
       super.clear();
       clientId_ = "";
 
+      needRebalance_ = false;
+
       clientDataCase_ = 0;
       clientData_ = null;
       return this;
@@ -532,6 +562,7 @@ private static final long serialVersionUID = 0L;
           result.clientData_ = consumerGroupBuilder_.build();
         }
       }
+      result.needRebalance_ = needRebalance_;
       result.clientDataCase_ = clientDataCase_;
       onBuilt();
       return result;
@@ -584,6 +615,9 @@ private static final long serialVersionUID = 0L;
       if (!other.getClientId().isEmpty()) {
         clientId_ = other.clientId_;
         onChanged();
+      }
+      if (other.getNeedRebalance() != false) {
+        setNeedRebalance(other.getNeedRebalance());
       }
       switch (other.getClientDataCase()) {
         case PRODUCER_GROUP: {
@@ -998,6 +1032,37 @@ private static final long serialVersionUID = 0L;
       clientDataCase_ = 3;
       onChanged();;
       return consumerGroupBuilder_;
+    }
+
+    private boolean needRebalance_ ;
+    /**
+     * <code>bool need_rebalance = 4;</code>
+     * @return The needRebalance.
+     */
+    @java.lang.Override
+    public boolean getNeedRebalance() {
+      return needRebalance_;
+    }
+    /**
+     * <code>bool need_rebalance = 4;</code>
+     * @param value The needRebalance to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNeedRebalance(boolean value) {
+      
+      needRebalance_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool need_rebalance = 4;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearNeedRebalance() {
+      
+      needRebalance_ = false;
+      onChanged();
+      return this;
     }
     @java.lang.Override
     public final Builder setUnknownFields(

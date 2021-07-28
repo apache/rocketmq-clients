@@ -125,4 +125,10 @@ public interface ReceiveMessageRequestOrBuilder extends
    * <code>.google.protobuf.Duration await_time = 9;</code>
    */
   com.google.protobuf.DurationOrBuilder getAwaitTimeOrBuilder();
+
+  /**
+   * <code>bool fifo_flag = 10;</code>
+   * @return The fifoFlag.
+   */
+  boolean getFifoFlag();
 }

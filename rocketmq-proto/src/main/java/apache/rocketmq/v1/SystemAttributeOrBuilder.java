@@ -356,20 +356,30 @@ public interface SystemAttributeOrBuilder extends
   /**
    * <pre>
    * Business code may failed to process messages for the moment. Hence, clients may request servers to deliver them
-   * again using certain back-off strategy.
+   * again using certain back-off strategy, the attempts is 1 not 0 if message is delivered first time.
    * </pre>
    *
-   * <code>int32 delivery_count = 17;</code>
-   * @return The deliveryCount.
+   * <code>int32 delivery_attempts = 17;</code>
+   * @return The deliveryAttempts.
    */
-  int getDeliveryCount();
+  int getDeliveryAttempts();
+
+  /**
+   * <pre>
+   * Message's max delivery attempts count, if message's delivery count exceed this value, it will be sent to dlq topic.
+   * </pre>
+   *
+   * <code>int32 max_delivery_attempts = 18;</code>
+   * @return The maxDeliveryAttempts.
+   */
+  int getMaxDeliveryAttempts();
 
   /**
    * <pre>
    * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
    * @return Whether the producerGroup field is set.
    */
   boolean hasProducerGroup();
@@ -378,7 +388,7 @@ public interface SystemAttributeOrBuilder extends
    * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
    * @return The producerGroup.
    */
   apache.rocketmq.v1.Resource getProducerGroup();
@@ -387,17 +397,17 @@ public interface SystemAttributeOrBuilder extends
    * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
    */
   apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder();
 
   /**
-   * <code>string message_group = 19;</code>
+   * <code>string message_group = 20;</code>
    * @return The messageGroup.
    */
   java.lang.String getMessageGroup();
   /**
-   * <code>string message_group = 19;</code>
+   * <code>string message_group = 20;</code>
    * @return The bytes for messageGroup.
    */
   com.google.protobuf.ByteString
@@ -408,7 +418,7 @@ public interface SystemAttributeOrBuilder extends
    * Trace context.
    * </pre>
    *
-   * <code>string trace_context = 20;</code>
+   * <code>string trace_context = 21;</code>
    * @return The traceContext.
    */
   java.lang.String getTraceContext();
@@ -417,11 +427,31 @@ public interface SystemAttributeOrBuilder extends
    * Trace context.
    * </pre>
    *
-   * <code>string trace_context = 20;</code>
+   * <code>string trace_context = 21;</code>
    * @return The bytes for traceContext.
    */
   com.google.protobuf.ByteString
       getTraceContextBytes();
+
+  /**
+   * <pre>
+   * Correlated transaction
+   * </pre>
+   *
+   * <code>string transaction_id = 22;</code>
+   * @return The transactionId.
+   */
+  java.lang.String getTransactionId();
+  /**
+   * <pre>
+   * Correlated transaction
+   * </pre>
+   *
+   * <code>string transaction_id = 22;</code>
+   * @return The bytes for transactionId.
+   */
+  com.google.protobuf.ByteString
+      getTransactionIdBytes();
 
   public apache.rocketmq.v1.SystemAttribute.TimedDeliveryCase getTimedDeliveryCase();
 }

@@ -26,6 +26,7 @@ private static final long serialVersionUID = 0L;
     receiptHandle_ = "";
     messageGroup_ = "";
     traceContext_ = "";
+    transactionId_ = "";
   }
 
   @java.lang.Override
@@ -193,10 +194,15 @@ private static final long serialVersionUID = 0L;
           }
           case 136: {
 
-            deliveryCount_ = input.readInt32();
+            deliveryAttempts_ = input.readInt32();
             break;
           }
-          case 146: {
+          case 144: {
+
+            maxDeliveryAttempts_ = input.readInt32();
+            break;
+          }
+          case 154: {
             apache.rocketmq.v1.Resource.Builder subBuilder = null;
             if (producerGroup_ != null) {
               subBuilder = producerGroup_.toBuilder();
@@ -209,16 +215,22 @@ private static final long serialVersionUID = 0L;
 
             break;
           }
-          case 154: {
+          case 162: {
             java.lang.String s = input.readStringRequireUtf8();
 
             messageGroup_ = s;
             break;
           }
-          case 162: {
+          case 170: {
             java.lang.String s = input.readStringRequireUtf8();
 
             traceContext_ = s;
+            break;
+          }
+          case 178: {
+            java.lang.String s = input.readStringRequireUtf8();
+
+            transactionId_ = s;
             break;
           }
           default: {
@@ -876,30 +888,45 @@ private static final long serialVersionUID = 0L;
     return getInvisiblePeriod();
   }
 
-  public static final int DELIVERY_COUNT_FIELD_NUMBER = 17;
-  private int deliveryCount_;
+  public static final int DELIVERY_ATTEMPTS_FIELD_NUMBER = 17;
+  private int deliveryAttempts_;
   /**
    * <pre>
    * Business code may failed to process messages for the moment. Hence, clients may request servers to deliver them
-   * again using certain back-off strategy.
+   * again using certain back-off strategy, the attempts is 1 not 0 if message is delivered first time.
    * </pre>
    *
-   * <code>int32 delivery_count = 17;</code>
-   * @return The deliveryCount.
+   * <code>int32 delivery_attempts = 17;</code>
+   * @return The deliveryAttempts.
    */
   @java.lang.Override
-  public int getDeliveryCount() {
-    return deliveryCount_;
+  public int getDeliveryAttempts() {
+    return deliveryAttempts_;
   }
 
-  public static final int PRODUCER_GROUP_FIELD_NUMBER = 18;
+  public static final int MAX_DELIVERY_ATTEMPTS_FIELD_NUMBER = 18;
+  private int maxDeliveryAttempts_;
+  /**
+   * <pre>
+   * Message's max delivery attempts count, if message's delivery count exceed this value, it will be sent to dlq topic.
+   * </pre>
+   *
+   * <code>int32 max_delivery_attempts = 18;</code>
+   * @return The maxDeliveryAttempts.
+   */
+  @java.lang.Override
+  public int getMaxDeliveryAttempts() {
+    return maxDeliveryAttempts_;
+  }
+
+  public static final int PRODUCER_GROUP_FIELD_NUMBER = 19;
   private apache.rocketmq.v1.Resource producerGroup_;
   /**
    * <pre>
    * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
    * @return Whether the producerGroup field is set.
    */
   @java.lang.Override
@@ -911,7 +938,7 @@ private static final long serialVersionUID = 0L;
    * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
    * @return The producerGroup.
    */
   @java.lang.Override
@@ -923,17 +950,17 @@ private static final long serialVersionUID = 0L;
    * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
    */
   @java.lang.Override
   public apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder() {
     return getProducerGroup();
   }
 
-  public static final int MESSAGE_GROUP_FIELD_NUMBER = 19;
+  public static final int MESSAGE_GROUP_FIELD_NUMBER = 20;
   private volatile java.lang.Object messageGroup_;
   /**
-   * <code>string message_group = 19;</code>
+   * <code>string message_group = 20;</code>
    * @return The messageGroup.
    */
   @java.lang.Override
@@ -950,7 +977,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string message_group = 19;</code>
+   * <code>string message_group = 20;</code>
    * @return The bytes for messageGroup.
    */
   @java.lang.Override
@@ -968,14 +995,14 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int TRACE_CONTEXT_FIELD_NUMBER = 20;
+  public static final int TRACE_CONTEXT_FIELD_NUMBER = 21;
   private volatile java.lang.Object traceContext_;
   /**
    * <pre>
    * Trace context.
    * </pre>
    *
-   * <code>string trace_context = 20;</code>
+   * <code>string trace_context = 21;</code>
    * @return The traceContext.
    */
   @java.lang.Override
@@ -996,7 +1023,7 @@ private static final long serialVersionUID = 0L;
    * Trace context.
    * </pre>
    *
-   * <code>string trace_context = 20;</code>
+   * <code>string trace_context = 21;</code>
    * @return The bytes for traceContext.
    */
   @java.lang.Override
@@ -1008,6 +1035,52 @@ private static final long serialVersionUID = 0L;
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       traceContext_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int TRANSACTION_ID_FIELD_NUMBER = 22;
+  private volatile java.lang.Object transactionId_;
+  /**
+   * <pre>
+   * Correlated transaction
+   * </pre>
+   *
+   * <code>string transaction_id = 22;</code>
+   * @return The transactionId.
+   */
+  @java.lang.Override
+  public java.lang.String getTransactionId() {
+    java.lang.Object ref = transactionId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      transactionId_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Correlated transaction
+   * </pre>
+   *
+   * <code>string transaction_id = 22;</code>
+   * @return The bytes for transactionId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getTransactionIdBytes() {
+    java.lang.Object ref = transactionId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      transactionId_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
@@ -1077,17 +1150,23 @@ private static final long serialVersionUID = 0L;
     if (invisiblePeriod_ != null) {
       output.writeMessage(16, getInvisiblePeriod());
     }
-    if (deliveryCount_ != 0) {
-      output.writeInt32(17, deliveryCount_);
+    if (deliveryAttempts_ != 0) {
+      output.writeInt32(17, deliveryAttempts_);
+    }
+    if (maxDeliveryAttempts_ != 0) {
+      output.writeInt32(18, maxDeliveryAttempts_);
     }
     if (producerGroup_ != null) {
-      output.writeMessage(18, getProducerGroup());
+      output.writeMessage(19, getProducerGroup());
     }
     if (!getMessageGroupBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 19, messageGroup_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 20, messageGroup_);
     }
     if (!getTraceContextBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 20, traceContext_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 21, traceContext_);
+    }
+    if (!getTransactionIdBytes().isEmpty()) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 22, transactionId_);
     }
     unknownFields.writeTo(output);
   }
@@ -1162,19 +1241,26 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(16, getInvisiblePeriod());
     }
-    if (deliveryCount_ != 0) {
+    if (deliveryAttempts_ != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(17, deliveryCount_);
+        .computeInt32Size(17, deliveryAttempts_);
+    }
+    if (maxDeliveryAttempts_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(18, maxDeliveryAttempts_);
     }
     if (producerGroup_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(18, getProducerGroup());
+        .computeMessageSize(19, getProducerGroup());
     }
     if (!getMessageGroupBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(19, messageGroup_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(20, messageGroup_);
     }
     if (!getTraceContextBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(20, traceContext_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(21, traceContext_);
+    }
+    if (!getTransactionIdBytes().isEmpty()) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(22, transactionId_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -1229,8 +1315,10 @@ private static final long serialVersionUID = 0L;
       if (!getInvisiblePeriod()
           .equals(other.getInvisiblePeriod())) return false;
     }
-    if (getDeliveryCount()
-        != other.getDeliveryCount()) return false;
+    if (getDeliveryAttempts()
+        != other.getDeliveryAttempts()) return false;
+    if (getMaxDeliveryAttempts()
+        != other.getMaxDeliveryAttempts()) return false;
     if (hasProducerGroup() != other.hasProducerGroup()) return false;
     if (hasProducerGroup()) {
       if (!getProducerGroup()
@@ -1240,6 +1328,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getMessageGroup())) return false;
     if (!getTraceContext()
         .equals(other.getTraceContext())) return false;
+    if (!getTransactionId()
+        .equals(other.getTransactionId())) return false;
     if (!getTimedDeliveryCase().equals(other.getTimedDeliveryCase())) return false;
     switch (timedDeliveryCase_) {
       case 11:
@@ -1303,8 +1393,10 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + INVISIBLE_PERIOD_FIELD_NUMBER;
       hash = (53 * hash) + getInvisiblePeriod().hashCode();
     }
-    hash = (37 * hash) + DELIVERY_COUNT_FIELD_NUMBER;
-    hash = (53 * hash) + getDeliveryCount();
+    hash = (37 * hash) + DELIVERY_ATTEMPTS_FIELD_NUMBER;
+    hash = (53 * hash) + getDeliveryAttempts();
+    hash = (37 * hash) + MAX_DELIVERY_ATTEMPTS_FIELD_NUMBER;
+    hash = (53 * hash) + getMaxDeliveryAttempts();
     if (hasProducerGroup()) {
       hash = (37 * hash) + PRODUCER_GROUP_FIELD_NUMBER;
       hash = (53 * hash) + getProducerGroup().hashCode();
@@ -1313,6 +1405,8 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getMessageGroup().hashCode();
     hash = (37 * hash) + TRACE_CONTEXT_FIELD_NUMBER;
     hash = (53 * hash) + getTraceContext().hashCode();
+    hash = (37 * hash) + TRANSACTION_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getTransactionId().hashCode();
     switch (timedDeliveryCase_) {
       case 11:
         hash = (37 * hash) + DELIVERY_TIMESTAMP_FIELD_NUMBER;
@@ -1502,7 +1596,9 @@ private static final long serialVersionUID = 0L;
         invisiblePeriod_ = null;
         invisiblePeriodBuilder_ = null;
       }
-      deliveryCount_ = 0;
+      deliveryAttempts_ = 0;
+
+      maxDeliveryAttempts_ = 0;
 
       if (producerGroupBuilder_ == null) {
         producerGroup_ = null;
@@ -1513,6 +1609,8 @@ private static final long serialVersionUID = 0L;
       messageGroup_ = "";
 
       traceContext_ = "";
+
+      transactionId_ = "";
 
       timedDeliveryCase_ = 0;
       timedDelivery_ = null;
@@ -1587,7 +1685,8 @@ private static final long serialVersionUID = 0L;
       } else {
         result.invisiblePeriod_ = invisiblePeriodBuilder_.build();
       }
-      result.deliveryCount_ = deliveryCount_;
+      result.deliveryAttempts_ = deliveryAttempts_;
+      result.maxDeliveryAttempts_ = maxDeliveryAttempts_;
       if (producerGroupBuilder_ == null) {
         result.producerGroup_ = producerGroup_;
       } else {
@@ -1595,6 +1694,7 @@ private static final long serialVersionUID = 0L;
       }
       result.messageGroup_ = messageGroup_;
       result.traceContext_ = traceContext_;
+      result.transactionId_ = transactionId_;
       result.timedDeliveryCase_ = timedDeliveryCase_;
       onBuilt();
       return result;
@@ -1698,8 +1798,11 @@ private static final long serialVersionUID = 0L;
       if (other.hasInvisiblePeriod()) {
         mergeInvisiblePeriod(other.getInvisiblePeriod());
       }
-      if (other.getDeliveryCount() != 0) {
-        setDeliveryCount(other.getDeliveryCount());
+      if (other.getDeliveryAttempts() != 0) {
+        setDeliveryAttempts(other.getDeliveryAttempts());
+      }
+      if (other.getMaxDeliveryAttempts() != 0) {
+        setMaxDeliveryAttempts(other.getMaxDeliveryAttempts());
       }
       if (other.hasProducerGroup()) {
         mergeProducerGroup(other.getProducerGroup());
@@ -1710,6 +1813,10 @@ private static final long serialVersionUID = 0L;
       }
       if (!other.getTraceContext().isEmpty()) {
         traceContext_ = other.traceContext_;
+        onChanged();
+      }
+      if (!other.getTransactionId().isEmpty()) {
+        transactionId_ = other.transactionId_;
         onChanged();
       }
       switch (other.getTimedDeliveryCase()) {
@@ -3478,48 +3585,91 @@ private static final long serialVersionUID = 0L;
       return invisiblePeriodBuilder_;
     }
 
-    private int deliveryCount_ ;
+    private int deliveryAttempts_ ;
     /**
      * <pre>
      * Business code may failed to process messages for the moment. Hence, clients may request servers to deliver them
-     * again using certain back-off strategy.
+     * again using certain back-off strategy, the attempts is 1 not 0 if message is delivered first time.
      * </pre>
      *
-     * <code>int32 delivery_count = 17;</code>
-     * @return The deliveryCount.
+     * <code>int32 delivery_attempts = 17;</code>
+     * @return The deliveryAttempts.
      */
     @java.lang.Override
-    public int getDeliveryCount() {
-      return deliveryCount_;
+    public int getDeliveryAttempts() {
+      return deliveryAttempts_;
     }
     /**
      * <pre>
      * Business code may failed to process messages for the moment. Hence, clients may request servers to deliver them
-     * again using certain back-off strategy.
+     * again using certain back-off strategy, the attempts is 1 not 0 if message is delivered first time.
      * </pre>
      *
-     * <code>int32 delivery_count = 17;</code>
-     * @param value The deliveryCount to set.
+     * <code>int32 delivery_attempts = 17;</code>
+     * @param value The deliveryAttempts to set.
      * @return This builder for chaining.
      */
-    public Builder setDeliveryCount(int value) {
+    public Builder setDeliveryAttempts(int value) {
       
-      deliveryCount_ = value;
+      deliveryAttempts_ = value;
       onChanged();
       return this;
     }
     /**
      * <pre>
      * Business code may failed to process messages for the moment. Hence, clients may request servers to deliver them
-     * again using certain back-off strategy.
+     * again using certain back-off strategy, the attempts is 1 not 0 if message is delivered first time.
      * </pre>
      *
-     * <code>int32 delivery_count = 17;</code>
+     * <code>int32 delivery_attempts = 17;</code>
      * @return This builder for chaining.
      */
-    public Builder clearDeliveryCount() {
+    public Builder clearDeliveryAttempts() {
       
-      deliveryCount_ = 0;
+      deliveryAttempts_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int maxDeliveryAttempts_ ;
+    /**
+     * <pre>
+     * Message's max delivery attempts count, if message's delivery count exceed this value, it will be sent to dlq topic.
+     * </pre>
+     *
+     * <code>int32 max_delivery_attempts = 18;</code>
+     * @return The maxDeliveryAttempts.
+     */
+    @java.lang.Override
+    public int getMaxDeliveryAttempts() {
+      return maxDeliveryAttempts_;
+    }
+    /**
+     * <pre>
+     * Message's max delivery attempts count, if message's delivery count exceed this value, it will be sent to dlq topic.
+     * </pre>
+     *
+     * <code>int32 max_delivery_attempts = 18;</code>
+     * @param value The maxDeliveryAttempts to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMaxDeliveryAttempts(int value) {
+      
+      maxDeliveryAttempts_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Message's max delivery attempts count, if message's delivery count exceed this value, it will be sent to dlq topic.
+     * </pre>
+     *
+     * <code>int32 max_delivery_attempts = 18;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMaxDeliveryAttempts() {
+      
+      maxDeliveryAttempts_ = 0;
       onChanged();
       return this;
     }
@@ -3532,7 +3682,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
      * @return Whether the producerGroup field is set.
      */
     public boolean hasProducerGroup() {
@@ -3543,7 +3693,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
      * @return The producerGroup.
      */
     public apache.rocketmq.v1.Resource getProducerGroup() {
@@ -3558,7 +3708,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
      */
     public Builder setProducerGroup(apache.rocketmq.v1.Resource value) {
       if (producerGroupBuilder_ == null) {
@@ -3578,7 +3728,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
      */
     public Builder setProducerGroup(
         apache.rocketmq.v1.Resource.Builder builderForValue) {
@@ -3596,7 +3746,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
      */
     public Builder mergeProducerGroup(apache.rocketmq.v1.Resource value) {
       if (producerGroupBuilder_ == null) {
@@ -3618,7 +3768,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
      */
     public Builder clearProducerGroup() {
       if (producerGroupBuilder_ == null) {
@@ -3636,7 +3786,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
      */
     public apache.rocketmq.v1.Resource.Builder getProducerGroupBuilder() {
       
@@ -3648,7 +3798,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
      */
     public apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder() {
       if (producerGroupBuilder_ != null) {
@@ -3663,7 +3813,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> 
@@ -3681,7 +3831,7 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object messageGroup_ = "";
     /**
-     * <code>string message_group = 19;</code>
+     * <code>string message_group = 20;</code>
      * @return The messageGroup.
      */
     public java.lang.String getMessageGroup() {
@@ -3697,7 +3847,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string message_group = 19;</code>
+     * <code>string message_group = 20;</code>
      * @return The bytes for messageGroup.
      */
     public com.google.protobuf.ByteString
@@ -3714,7 +3864,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string message_group = 19;</code>
+     * <code>string message_group = 20;</code>
      * @param value The messageGroup to set.
      * @return This builder for chaining.
      */
@@ -3729,7 +3879,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string message_group = 19;</code>
+     * <code>string message_group = 20;</code>
      * @return This builder for chaining.
      */
     public Builder clearMessageGroup() {
@@ -3739,7 +3889,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string message_group = 19;</code>
+     * <code>string message_group = 20;</code>
      * @param value The bytes for messageGroup to set.
      * @return This builder for chaining.
      */
@@ -3761,7 +3911,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 20;</code>
+     * <code>string trace_context = 21;</code>
      * @return The traceContext.
      */
     public java.lang.String getTraceContext() {
@@ -3781,7 +3931,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 20;</code>
+     * <code>string trace_context = 21;</code>
      * @return The bytes for traceContext.
      */
     public com.google.protobuf.ByteString
@@ -3802,7 +3952,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 20;</code>
+     * <code>string trace_context = 21;</code>
      * @param value The traceContext to set.
      * @return This builder for chaining.
      */
@@ -3821,7 +3971,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 20;</code>
+     * <code>string trace_context = 21;</code>
      * @return This builder for chaining.
      */
     public Builder clearTraceContext() {
@@ -3835,7 +3985,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 20;</code>
+     * <code>string trace_context = 21;</code>
      * @param value The bytes for traceContext to set.
      * @return This builder for chaining.
      */
@@ -3847,6 +3997,102 @@ private static final long serialVersionUID = 0L;
   checkByteStringIsUtf8(value);
       
       traceContext_ = value;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object transactionId_ = "";
+    /**
+     * <pre>
+     * Correlated transaction
+     * </pre>
+     *
+     * <code>string transaction_id = 22;</code>
+     * @return The transactionId.
+     */
+    public java.lang.String getTransactionId() {
+      java.lang.Object ref = transactionId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        transactionId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Correlated transaction
+     * </pre>
+     *
+     * <code>string transaction_id = 22;</code>
+     * @return The bytes for transactionId.
+     */
+    public com.google.protobuf.ByteString
+        getTransactionIdBytes() {
+      java.lang.Object ref = transactionId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        transactionId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Correlated transaction
+     * </pre>
+     *
+     * <code>string transaction_id = 22;</code>
+     * @param value The transactionId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTransactionId(
+        java.lang.String value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  
+      transactionId_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Correlated transaction
+     * </pre>
+     *
+     * <code>string transaction_id = 22;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTransactionId() {
+      
+      transactionId_ = getDefaultInstance().getTransactionId();
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Correlated transaction
+     * </pre>
+     *
+     * <code>string transaction_id = 22;</code>
+     * @param value The bytes for transactionId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTransactionIdBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  checkByteStringIsUtf8(value);
+      
+      transactionId_ = value;
       onChanged();
       return this;
     }

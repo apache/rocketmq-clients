@@ -4,29 +4,28 @@
 package apache.rocketmq.v1;
 
 /**
- * Protobuf type {@code apache.rocketmq.v1.NackMessageRequest}
+ * Protobuf type {@code apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest}
  */
-public final class NackMessageRequest extends
+public final class SendMessageToDeadLetterQueueRequest extends
     com.google.protobuf.GeneratedMessageV3 implements
-    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.NackMessageRequest)
-    NackMessageRequestOrBuilder {
+    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest)
+    SendMessageToDeadLetterQueueRequestOrBuilder {
 private static final long serialVersionUID = 0L;
-  // Use NackMessageRequest.newBuilder() to construct.
-  private NackMessageRequest(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+  // Use SendMessageToDeadLetterQueueRequest.newBuilder() to construct.
+  private SendMessageToDeadLetterQueueRequest(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
-  private NackMessageRequest() {
+  private SendMessageToDeadLetterQueueRequest() {
     clientId_ = "";
     receiptHandle_ = "";
     messageId_ = "";
-    consumeModel_ = 0;
   }
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
   protected java.lang.Object newInstance(
       UnusedPrivateParameter unused) {
-    return new NackMessageRequest();
+    return new SendMessageToDeadLetterQueueRequest();
   }
 
   @java.lang.Override
@@ -34,7 +33,7 @@ private static final long serialVersionUID = 0L;
   getUnknownFields() {
     return this.unknownFields;
   }
-  private NackMessageRequest(
+  private SendMessageToDeadLetterQueueRequest(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
@@ -98,18 +97,12 @@ private static final long serialVersionUID = 0L;
           }
           case 48: {
 
-            deliveryAttempts_ = input.readInt32();
+            reconsumeTimes_ = input.readInt32();
             break;
           }
           case 56: {
 
             maxDeliveryAttempts_ = input.readInt32();
-            break;
-          }
-          case 64: {
-            int rawValue = input.readEnum();
-
-            consumeModel_ = rawValue;
             break;
           }
           default: {
@@ -133,15 +126,15 @@ private static final long serialVersionUID = 0L;
   }
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_NackMessageRequest_descriptor;
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SendMessageToDeadLetterQueueRequest_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_NackMessageRequest_fieldAccessorTable
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SendMessageToDeadLetterQueueRequest_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            apache.rocketmq.v1.NackMessageRequest.class, apache.rocketmq.v1.NackMessageRequest.Builder.class);
+            apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest.class, apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest.Builder.class);
   }
 
   public static final int GROUP_FIELD_NUMBER = 1;
@@ -310,15 +303,15 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int DELIVERY_ATTEMPTS_FIELD_NUMBER = 6;
-  private int deliveryAttempts_;
+  public static final int RECONSUME_TIMES_FIELD_NUMBER = 6;
+  private int reconsumeTimes_;
   /**
-   * <code>int32 delivery_attempts = 6;</code>
-   * @return The deliveryAttempts.
+   * <code>int32 reconsume_times = 6;</code>
+   * @return The reconsumeTimes.
    */
   @java.lang.Override
-  public int getDeliveryAttempts() {
-    return deliveryAttempts_;
+  public int getReconsumeTimes() {
+    return reconsumeTimes_;
   }
 
   public static final int MAX_DELIVERY_ATTEMPTS_FIELD_NUMBER = 7;
@@ -330,33 +323,6 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public int getMaxDeliveryAttempts() {
     return maxDeliveryAttempts_;
-  }
-
-  public static final int CONSUME_MODEL_FIELD_NUMBER = 8;
-  private int consumeModel_;
-  /**
-   * <pre>
-   * to delete.
-   * </pre>
-   *
-   * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 8;</code>
-   * @return The enum numeric value on the wire for consumeModel.
-   */
-  @java.lang.Override public int getConsumeModelValue() {
-    return consumeModel_;
-  }
-  /**
-   * <pre>
-   * to delete.
-   * </pre>
-   *
-   * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 8;</code>
-   * @return The consumeModel.
-   */
-  @java.lang.Override public apache.rocketmq.v1.ConsumeModel getConsumeModel() {
-    @SuppressWarnings("deprecation")
-    apache.rocketmq.v1.ConsumeModel result = apache.rocketmq.v1.ConsumeModel.valueOf(consumeModel_);
-    return result == null ? apache.rocketmq.v1.ConsumeModel.UNRECOGNIZED : result;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -388,14 +354,11 @@ private static final long serialVersionUID = 0L;
     if (!getMessageIdBytes().isEmpty()) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 5, messageId_);
     }
-    if (deliveryAttempts_ != 0) {
-      output.writeInt32(6, deliveryAttempts_);
+    if (reconsumeTimes_ != 0) {
+      output.writeInt32(6, reconsumeTimes_);
     }
     if (maxDeliveryAttempts_ != 0) {
       output.writeInt32(7, maxDeliveryAttempts_);
-    }
-    if (consumeModel_ != apache.rocketmq.v1.ConsumeModel.CLUSTERING.getNumber()) {
-      output.writeEnum(8, consumeModel_);
     }
     unknownFields.writeTo(output);
   }
@@ -423,17 +386,13 @@ private static final long serialVersionUID = 0L;
     if (!getMessageIdBytes().isEmpty()) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, messageId_);
     }
-    if (deliveryAttempts_ != 0) {
+    if (reconsumeTimes_ != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(6, deliveryAttempts_);
+        .computeInt32Size(6, reconsumeTimes_);
     }
     if (maxDeliveryAttempts_ != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(7, maxDeliveryAttempts_);
-    }
-    if (consumeModel_ != apache.rocketmq.v1.ConsumeModel.CLUSTERING.getNumber()) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeEnumSize(8, consumeModel_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -445,10 +404,10 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof apache.rocketmq.v1.NackMessageRequest)) {
+    if (!(obj instanceof apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest)) {
       return super.equals(obj);
     }
-    apache.rocketmq.v1.NackMessageRequest other = (apache.rocketmq.v1.NackMessageRequest) obj;
+    apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest other = (apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest) obj;
 
     if (hasGroup() != other.hasGroup()) return false;
     if (hasGroup()) {
@@ -466,11 +425,10 @@ private static final long serialVersionUID = 0L;
         .equals(other.getReceiptHandle())) return false;
     if (!getMessageId()
         .equals(other.getMessageId())) return false;
-    if (getDeliveryAttempts()
-        != other.getDeliveryAttempts()) return false;
+    if (getReconsumeTimes()
+        != other.getReconsumeTimes()) return false;
     if (getMaxDeliveryAttempts()
         != other.getMaxDeliveryAttempts()) return false;
-    if (consumeModel_ != other.consumeModel_) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -496,80 +454,78 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getReceiptHandle().hashCode();
     hash = (37 * hash) + MESSAGE_ID_FIELD_NUMBER;
     hash = (53 * hash) + getMessageId().hashCode();
-    hash = (37 * hash) + DELIVERY_ATTEMPTS_FIELD_NUMBER;
-    hash = (53 * hash) + getDeliveryAttempts();
+    hash = (37 * hash) + RECONSUME_TIMES_FIELD_NUMBER;
+    hash = (53 * hash) + getReconsumeTimes();
     hash = (37 * hash) + MAX_DELIVERY_ATTEMPTS_FIELD_NUMBER;
     hash = (53 * hash) + getMaxDeliveryAttempts();
-    hash = (37 * hash) + CONSUME_MODEL_FIELD_NUMBER;
-    hash = (53 * hash) + consumeModel_;
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
     return hash;
   }
 
-  public static apache.rocketmq.v1.NackMessageRequest parseFrom(
+  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.NackMessageRequest parseFrom(
+  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.NackMessageRequest parseFrom(
+  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.NackMessageRequest parseFrom(
+  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.NackMessageRequest parseFrom(byte[] data)
+  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.NackMessageRequest parseFrom(
+  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.NackMessageRequest parseFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.NackMessageRequest parseFrom(
+  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.NackMessageRequest parseDelimitedFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.NackMessageRequest parseDelimitedFrom(
+  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.NackMessageRequest parseFrom(
+  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.NackMessageRequest parseFrom(
+  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -582,7 +538,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(apache.rocketmq.v1.NackMessageRequest prototype) {
+  public static Builder newBuilder(apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -598,26 +554,26 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
-   * Protobuf type {@code apache.rocketmq.v1.NackMessageRequest}
+   * Protobuf type {@code apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.NackMessageRequest)
-      apache.rocketmq.v1.NackMessageRequestOrBuilder {
+      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest)
+      apache.rocketmq.v1.SendMessageToDeadLetterQueueRequestOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_NackMessageRequest_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SendMessageToDeadLetterQueueRequest_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_NackMessageRequest_fieldAccessorTable
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SendMessageToDeadLetterQueueRequest_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              apache.rocketmq.v1.NackMessageRequest.class, apache.rocketmq.v1.NackMessageRequest.Builder.class);
+              apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest.class, apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest.Builder.class);
     }
 
-    // Construct using apache.rocketmq.v1.NackMessageRequest.newBuilder()
+    // Construct using apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest.newBuilder()
     private Builder() {
       maybeForceBuilderInitialization();
     }
@@ -653,11 +609,9 @@ private static final long serialVersionUID = 0L;
 
       messageId_ = "";
 
-      deliveryAttempts_ = 0;
+      reconsumeTimes_ = 0;
 
       maxDeliveryAttempts_ = 0;
-
-      consumeModel_ = 0;
 
       return this;
     }
@@ -665,17 +619,17 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_NackMessageRequest_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SendMessageToDeadLetterQueueRequest_descriptor;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.NackMessageRequest getDefaultInstanceForType() {
-      return apache.rocketmq.v1.NackMessageRequest.getDefaultInstance();
+    public apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest getDefaultInstanceForType() {
+      return apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest.getDefaultInstance();
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.NackMessageRequest build() {
-      apache.rocketmq.v1.NackMessageRequest result = buildPartial();
+    public apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest build() {
+      apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -683,8 +637,8 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.NackMessageRequest buildPartial() {
-      apache.rocketmq.v1.NackMessageRequest result = new apache.rocketmq.v1.NackMessageRequest(this);
+    public apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest buildPartial() {
+      apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest result = new apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest(this);
       if (groupBuilder_ == null) {
         result.group_ = group_;
       } else {
@@ -698,9 +652,8 @@ private static final long serialVersionUID = 0L;
       result.clientId_ = clientId_;
       result.receiptHandle_ = receiptHandle_;
       result.messageId_ = messageId_;
-      result.deliveryAttempts_ = deliveryAttempts_;
+      result.reconsumeTimes_ = reconsumeTimes_;
       result.maxDeliveryAttempts_ = maxDeliveryAttempts_;
-      result.consumeModel_ = consumeModel_;
       onBuilt();
       return result;
     }
@@ -739,16 +692,16 @@ private static final long serialVersionUID = 0L;
     }
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof apache.rocketmq.v1.NackMessageRequest) {
-        return mergeFrom((apache.rocketmq.v1.NackMessageRequest)other);
+      if (other instanceof apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest) {
+        return mergeFrom((apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(apache.rocketmq.v1.NackMessageRequest other) {
-      if (other == apache.rocketmq.v1.NackMessageRequest.getDefaultInstance()) return this;
+    public Builder mergeFrom(apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest other) {
+      if (other == apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest.getDefaultInstance()) return this;
       if (other.hasGroup()) {
         mergeGroup(other.getGroup());
       }
@@ -767,14 +720,11 @@ private static final long serialVersionUID = 0L;
         messageId_ = other.messageId_;
         onChanged();
       }
-      if (other.getDeliveryAttempts() != 0) {
-        setDeliveryAttempts(other.getDeliveryAttempts());
+      if (other.getReconsumeTimes() != 0) {
+        setReconsumeTimes(other.getReconsumeTimes());
       }
       if (other.getMaxDeliveryAttempts() != 0) {
         setMaxDeliveryAttempts(other.getMaxDeliveryAttempts());
-      }
-      if (other.consumeModel_ != 0) {
-        setConsumeModelValue(other.getConsumeModelValue());
       }
       this.mergeUnknownFields(other.unknownFields);
       onChanged();
@@ -791,11 +741,11 @@ private static final long serialVersionUID = 0L;
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      apache.rocketmq.v1.NackMessageRequest parsedMessage = null;
+      apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parsedMessage = null;
       try {
         parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        parsedMessage = (apache.rocketmq.v1.NackMessageRequest) e.getUnfinishedMessage();
+        parsedMessage = (apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest) e.getUnfinishedMessage();
         throw e.unwrapIOException();
       } finally {
         if (parsedMessage != null) {
@@ -1271,33 +1221,33 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int deliveryAttempts_ ;
+    private int reconsumeTimes_ ;
     /**
-     * <code>int32 delivery_attempts = 6;</code>
-     * @return The deliveryAttempts.
+     * <code>int32 reconsume_times = 6;</code>
+     * @return The reconsumeTimes.
      */
     @java.lang.Override
-    public int getDeliveryAttempts() {
-      return deliveryAttempts_;
+    public int getReconsumeTimes() {
+      return reconsumeTimes_;
     }
     /**
-     * <code>int32 delivery_attempts = 6;</code>
-     * @param value The deliveryAttempts to set.
+     * <code>int32 reconsume_times = 6;</code>
+     * @param value The reconsumeTimes to set.
      * @return This builder for chaining.
      */
-    public Builder setDeliveryAttempts(int value) {
+    public Builder setReconsumeTimes(int value) {
       
-      deliveryAttempts_ = value;
+      reconsumeTimes_ = value;
       onChanged();
       return this;
     }
     /**
-     * <code>int32 delivery_attempts = 6;</code>
+     * <code>int32 reconsume_times = 6;</code>
      * @return This builder for chaining.
      */
-    public Builder clearDeliveryAttempts() {
+    public Builder clearReconsumeTimes() {
       
-      deliveryAttempts_ = 0;
+      reconsumeTimes_ = 0;
       onChanged();
       return this;
     }
@@ -1332,80 +1282,6 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
-
-    private int consumeModel_ = 0;
-    /**
-     * <pre>
-     * to delete.
-     * </pre>
-     *
-     * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 8;</code>
-     * @return The enum numeric value on the wire for consumeModel.
-     */
-    @java.lang.Override public int getConsumeModelValue() {
-      return consumeModel_;
-    }
-    /**
-     * <pre>
-     * to delete.
-     * </pre>
-     *
-     * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 8;</code>
-     * @param value The enum numeric value on the wire for consumeModel to set.
-     * @return This builder for chaining.
-     */
-    public Builder setConsumeModelValue(int value) {
-      
-      consumeModel_ = value;
-      onChanged();
-      return this;
-    }
-    /**
-     * <pre>
-     * to delete.
-     * </pre>
-     *
-     * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 8;</code>
-     * @return The consumeModel.
-     */
-    @java.lang.Override
-    public apache.rocketmq.v1.ConsumeModel getConsumeModel() {
-      @SuppressWarnings("deprecation")
-      apache.rocketmq.v1.ConsumeModel result = apache.rocketmq.v1.ConsumeModel.valueOf(consumeModel_);
-      return result == null ? apache.rocketmq.v1.ConsumeModel.UNRECOGNIZED : result;
-    }
-    /**
-     * <pre>
-     * to delete.
-     * </pre>
-     *
-     * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 8;</code>
-     * @param value The consumeModel to set.
-     * @return This builder for chaining.
-     */
-    public Builder setConsumeModel(apache.rocketmq.v1.ConsumeModel value) {
-      if (value == null) {
-        throw new NullPointerException();
-      }
-      
-      consumeModel_ = value.getNumber();
-      onChanged();
-      return this;
-    }
-    /**
-     * <pre>
-     * to delete.
-     * </pre>
-     *
-     * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 8;</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearConsumeModel() {
-      
-      consumeModel_ = 0;
-      onChanged();
-      return this;
-    }
     @java.lang.Override
     public final Builder setUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -1419,41 +1295,41 @@ private static final long serialVersionUID = 0L;
     }
 
 
-    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.NackMessageRequest)
+    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest)
   }
 
-  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.NackMessageRequest)
-  private static final apache.rocketmq.v1.NackMessageRequest DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest)
+  private static final apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new apache.rocketmq.v1.NackMessageRequest();
+    DEFAULT_INSTANCE = new apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest();
   }
 
-  public static apache.rocketmq.v1.NackMessageRequest getDefaultInstance() {
+  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<NackMessageRequest>
-      PARSER = new com.google.protobuf.AbstractParser<NackMessageRequest>() {
+  private static final com.google.protobuf.Parser<SendMessageToDeadLetterQueueRequest>
+      PARSER = new com.google.protobuf.AbstractParser<SendMessageToDeadLetterQueueRequest>() {
     @java.lang.Override
-    public NackMessageRequest parsePartialFrom(
+    public SendMessageToDeadLetterQueueRequest parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
-      return new NackMessageRequest(input, extensionRegistry);
+      return new SendMessageToDeadLetterQueueRequest(input, extensionRegistry);
     }
   };
 
-  public static com.google.protobuf.Parser<NackMessageRequest> parser() {
+  public static com.google.protobuf.Parser<SendMessageToDeadLetterQueueRequest> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<NackMessageRequest> getParserForType() {
+  public com.google.protobuf.Parser<SendMessageToDeadLetterQueueRequest> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public apache.rocketmq.v1.NackMessageRequest getDefaultInstanceForType() {
+  public apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

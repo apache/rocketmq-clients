@@ -145,6 +145,11 @@ private static final long serialVersionUID = 0L;
 
             break;
           }
+          case 80: {
+
+            fifoFlag_ = input.readBool();
+            break;
+          }
           default: {
             if (!parseUnknownField(
                 input, unknownFields, extensionRegistry, tag)) {
@@ -401,6 +406,17 @@ private static final long serialVersionUID = 0L;
     return getAwaitTime();
   }
 
+  public static final int FIFO_FLAG_FIELD_NUMBER = 10;
+  private boolean fifoFlag_;
+  /**
+   * <code>bool fifo_flag = 10;</code>
+   * @return The fifoFlag.
+   */
+  @java.lang.Override
+  public boolean getFifoFlag() {
+    return fifoFlag_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -441,6 +457,9 @@ private static final long serialVersionUID = 0L;
     }
     if (awaitTime_ != null) {
       output.writeMessage(9, getAwaitTime());
+    }
+    if (fifoFlag_ != false) {
+      output.writeBool(10, fifoFlag_);
     }
     unknownFields.writeTo(output);
   }
@@ -485,6 +504,10 @@ private static final long serialVersionUID = 0L;
     if (awaitTime_ != null) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(9, getAwaitTime());
+    }
+    if (fifoFlag_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(10, fifoFlag_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -536,6 +559,8 @@ private static final long serialVersionUID = 0L;
       if (!getAwaitTime()
           .equals(other.getAwaitTime())) return false;
     }
+    if (getFifoFlag()
+        != other.getFifoFlag()) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -577,6 +602,9 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + AWAIT_TIME_FIELD_NUMBER;
       hash = (53 * hash) + getAwaitTime().hashCode();
     }
+    hash = (37 * hash) + FIFO_FLAG_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getFifoFlag());
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -752,6 +780,8 @@ private static final long serialVersionUID = 0L;
         awaitTime_ = null;
         awaitTimeBuilder_ = null;
       }
+      fifoFlag_ = false;
+
       return this;
     }
 
@@ -811,6 +841,7 @@ private static final long serialVersionUID = 0L;
       } else {
         result.awaitTime_ = awaitTimeBuilder_.build();
       }
+      result.fifoFlag_ = fifoFlag_;
       onBuilt();
       return result;
     }
@@ -886,6 +917,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasAwaitTime()) {
         mergeAwaitTime(other.getAwaitTime());
+      }
+      if (other.getFifoFlag() != false) {
+        setFifoFlag(other.getFifoFlag());
       }
       this.mergeUnknownFields(other.unknownFields);
       onChanged();
@@ -1789,6 +1823,37 @@ private static final long serialVersionUID = 0L;
         awaitTime_ = null;
       }
       return awaitTimeBuilder_;
+    }
+
+    private boolean fifoFlag_ ;
+    /**
+     * <code>bool fifo_flag = 10;</code>
+     * @return The fifoFlag.
+     */
+    @java.lang.Override
+    public boolean getFifoFlag() {
+      return fifoFlag_;
+    }
+    /**
+     * <code>bool fifo_flag = 10;</code>
+     * @param value The fifoFlag to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFifoFlag(boolean value) {
+      
+      fifoFlag_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool fifo_flag = 10;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFifoFlag() {
+      
+      fifoFlag_ = false;
+      onChanged();
+      return this;
     }
     @java.lang.Override
     public final Builder setUnknownFields(

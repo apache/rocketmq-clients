@@ -888,7 +888,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         impl.getSystemAttribute()
             .setInvisiblePeriod(Durations.toMillis(systemAttribute.getInvisiblePeriod()));
         // DeliveryCount
-        impl.getSystemAttribute().setDeliveryCount(systemAttribute.getDeliveryCount());
+        impl.getSystemAttribute().setDeliveryAttempts(systemAttribute.getDeliveryAttempts());
         // ProducerGroup
         impl.getSystemAttribute().setProducerGroup(systemAttribute.getProducerGroup().getName());
         // TraceContext

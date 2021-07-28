@@ -49,5 +49,11 @@ public interface HeartbeatEntryOrBuilder extends
    */
   apache.rocketmq.v1.ConsumerGroupOrBuilder getConsumerGroupOrBuilder();
 
+  /**
+   * <code>bool need_rebalance = 4;</code>
+   * @return The needRebalance.
+   */
+  boolean getNeedRebalance();
+
   public apache.rocketmq.v1.HeartbeatEntry.ClientDataCase getClientDataCase();
 }

@@ -4,9 +4,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeoutException;
-import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.exception.ClientException;
-import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.ServerException;
 import org.apache.rocketmq.client.impl.producer.DefaultMQProducerImpl;
 import org.apache.rocketmq.client.message.Message;
@@ -36,20 +34,15 @@ public class DefaultMQProducer {
      */
     public DefaultMQProducer(final String arn, final String group) {
         this(group);
-        impl.setArn(arn);
+        this.impl.setArn(arn);
     }
 
     public String getProducerGroup() {
-        return impl.getGroup();
+        return this.impl.getGroup();
     }
 
-    public void setProducerGroup(String group) throws ClientException {
-        synchronized (impl) {
-            if (ServiceState.READY != impl.getState()) {
-                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
-            }
-            impl.setGroup(group);
-        }
+    public void setProducerGroup(String group) {
+        this.impl.setGroup(group);
     }
 
     /**
@@ -66,36 +59,21 @@ public class DefaultMQProducer {
     /**
      * This method shuts down this producer instance and releases related resources.
      */
-    public void shutdown() throws ClientException {
+    public void shutdown() {
         this.impl.shutdown();
     }
 
-    public void setNamesrvAddr(String namesrvAddr) throws ClientException {
-        synchronized (impl) {
-            if (ServiceState.READY != impl.getState()) {
-                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
-            }
-            impl.setNamesrvAddr(namesrvAddr);
-        }
+    public void setNamesrvAddr(String namesrvAddr) {
+        this.impl.setNamesrvAddr(namesrvAddr);
     }
 
 
-    public void setArn(String arn) throws ClientException {
-        synchronized (impl) {
-            if (ServiceState.READY != impl.getState()) {
-                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
-            }
-            impl.setArn(arn);
-        }
+    public void setArn(String arn) {
+        this.impl.setArn(arn);
     }
 
-    public void setAccessCredential(AccessCredential accessCredential) throws ClientException {
-        synchronized (impl) {
-            if (ServiceState.READY != impl.getState()) {
-                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
-            }
-            impl.setAccessCredential(accessCredential);
-        }
+    public void setAccessCredential(AccessCredential accessCredential) {
+        this.impl.setAccessCredential(accessCredential);
     }
 
     /**
@@ -261,7 +239,7 @@ public class DefaultMQProducer {
      *
      * @param callbackExecutor the instance of Executor
      */
-    public void setCallbackExecutor(final ThreadPoolExecutor callbackExecutor) throws ClientException {
+    public void setCallbackExecutor(final ThreadPoolExecutor callbackExecutor) {
         this.impl.setDefaultSendCallbackExecutor(callbackExecutor);
     }
 
@@ -270,14 +248,9 @@ public class DefaultMQProducer {
         return impl.prepare(message);
     }
 
-    public void setTransactionChecker(final TransactionChecker checker) throws ClientException {
+    public void setTransactionChecker(final TransactionChecker checker) {
         checkNotNull(checker);
-        synchronized (impl) {
-            if (ServiceState.READY != impl.getState()) {
-                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
-            }
-            impl.setTransactionChecker(checker);
-        }
+        this.impl.setTransactionChecker(checker);
     }
 
 

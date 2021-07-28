@@ -110,6 +110,10 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     @Getter
     private volatile ConsumeService consumeService;
 
+    @Getter
+    @Setter
+    private int maxDeliveryAttempts = 17;
+
     @Setter
     @Getter
     private int maxReconsumeTimes = 16;
@@ -465,7 +469,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
         DeadLetterPolicy deadLetterPolicy =
                 DeadLetterPolicy.newBuilder()
-                                .setMaxDeliveryAttempts(maxReconsumeTimes)
+                                .setMaxDeliveryAttempts(maxDeliveryAttempts)
                                 .build();
 
         final ConsumerGroup.Builder builder =

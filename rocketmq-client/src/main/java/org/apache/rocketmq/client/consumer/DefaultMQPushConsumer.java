@@ -1,10 +1,8 @@
 package org.apache.rocketmq.client.consumer;
 
-import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
 import org.apache.rocketmq.client.exception.ClientException;
-import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.impl.consumer.DefaultMQPushConsumerImpl;
 import org.apache.rocketmq.client.remoting.AccessCredential;
 
@@ -19,13 +17,8 @@ public class DefaultMQPushConsumer {
         this.impl = new DefaultMQPushConsumerImpl(group);
     }
 
-    public void setConsumerGroup(String group) throws ClientException {
-        synchronized (impl) {
-            if (ServiceState.READY != impl.getState()) {
-                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
-            }
-            impl.setGroup(group);
-        }
+    public void setConsumerGroup(String group) {
+        impl.setGroup(group);
     }
 
     public String getConsumerGroup() {
@@ -41,12 +34,7 @@ public class DefaultMQPushConsumer {
     }
 
     public void setNamesrvAddr(String namesrvAddr) throws ClientException {
-        synchronized (impl) {
-            if (ServiceState.READY != impl.getState()) {
-                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
-            }
-            this.impl.setNamesrvAddr(namesrvAddr);
-        }
+        this.impl.setNamesrvAddr(namesrvAddr);
     }
 
     // TODO: not allowed to set thead num after start
@@ -75,37 +63,30 @@ public class DefaultMQPushConsumer {
     }
 
     public void setArn(String arn) throws ClientException {
-        synchronized (impl) {
-            if (ServiceState.READY != impl.getState()) {
-                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
-            }
-            impl.setArn(arn);
-        }
+        this.impl.setArn(arn);
     }
 
     public void setAccessCredential(AccessCredential accessCredential) throws ClientException {
-        synchronized (impl) {
-            if (ServiceState.READY != impl.getState()) {
-                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
-            }
-            impl.setAccessCredential(accessCredential);
-        }
+        this.impl.setAccessCredential(accessCredential);
     }
 
     public void setConsumeMessageBatchMaxSize(int batchMaxSize) {
-        impl.setConsumeMessageBatchMaxSize(batchMaxSize);
+        this.impl.setConsumeMessageBatchMaxSize(batchMaxSize);
     }
 
     public void setMaxBatchConsumeWaitTimeMillis(long maxBatchConsumeWaitTimeMillis) {
-        impl.setMaxBatchConsumeWaitTimeMillis(maxBatchConsumeWaitTimeMillis);
+        this.impl.setMaxBatchConsumeWaitTimeMillis(maxBatchConsumeWaitTimeMillis);
     }
 
-    public void setMessageModel(MessageModel messageModel) throws ClientException {
-        synchronized (impl) {
-            if (ServiceState.READY != impl.getState()) {
-                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
-            }
-            impl.setMessageModel(messageModel);
-        }
+    public void setMessageModel(MessageModel messageModel) {
+        this.impl.setMessageModel(messageModel);
+    }
+
+    public void setMaxDeliveryAttempts(int maxDeliveryAttempts) {
+        this.impl.setMaxDeliveryAttempts(maxDeliveryAttempts);
+    }
+
+    public int getMaxDeliveryAttempts() {
+        return this.impl.getMaxDeliveryAttempts();
     }
 }

@@ -3,8 +3,8 @@
 
 package apache.rocketmq.v1;
 
-public interface NackMessageRequestOrBuilder extends
-    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.NackMessageRequest)
+public interface SendMessageToDeadLetterQueueRequestOrBuilder extends
+    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest)
     com.google.protobuf.MessageOrBuilder {
 
   /**
@@ -74,33 +74,14 @@ public interface NackMessageRequestOrBuilder extends
       getMessageIdBytes();
 
   /**
-   * <code>int32 delivery_attempts = 6;</code>
-   * @return The deliveryAttempts.
+   * <code>int32 reconsume_times = 6;</code>
+   * @return The reconsumeTimes.
    */
-  int getDeliveryAttempts();
+  int getReconsumeTimes();
 
   /**
    * <code>int32 max_delivery_attempts = 7;</code>
    * @return The maxDeliveryAttempts.
    */
   int getMaxDeliveryAttempts();
-
-  /**
-   * <pre>
-   * to delete.
-   * </pre>
-   *
-   * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 8;</code>
-   * @return The enum numeric value on the wire for consumeModel.
-   */
-  int getConsumeModelValue();
-  /**
-   * <pre>
-   * to delete.
-   * </pre>
-   *
-   * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 8;</code>
-   * @return The consumeModel.
-   */
-  apache.rocketmq.v1.ConsumeModel getConsumeModel();
 }

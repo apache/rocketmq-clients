@@ -1,5 +1,6 @@
 package org.apache.rocketmq.client.impl.producer;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.protobuf.util.Timestamps.fromMillis;
 
 import apache.rocketmq.v1.ClientResourceBundle;
@@ -226,13 +227,9 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         }
     }
 
-    public void setDefaultSendCallbackExecutor(final ThreadPoolExecutor callbackExecutor) throws ClientException {
-        synchronized (this) {
-            if (null == callbackExecutor) {
-                throw new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
-            }
-            this.customizedSendCallbackExecutor = callbackExecutor;
-        }
+    public void setDefaultSendCallbackExecutor(final ThreadPoolExecutor callbackExecutor) {
+        checkNotNull(callbackExecutor);
+        this.customizedSendCallbackExecutor = callbackExecutor;
     }
 
     public ThreadPoolExecutor getSendCallbackExecutor() {

@@ -21,7 +21,7 @@ public class SystemAttribute {
     private int partitionId;
     private long partitionOffset;
     private long invisiblePeriod;
-    private int deliveryCount;
+    private int deliveryAttempts;
     private String producerGroup;
     private String transactionId;
     private String traceContext;
