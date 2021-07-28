@@ -77,7 +77,7 @@ public class ProcessQueue {
     private final ReentrantReadWriteLock inflightMessagesLock;
 
     private final AtomicLong messagesBodySize;
-    private final AtomicBoolean fifoConsumeTaskOccupied;
+    private final AtomicBoolean fifoConsumptionTaskOccupied;
 
     private volatile long activityNanoTime;
     private volatile long throttleNanoTime;
@@ -98,18 +98,18 @@ public class ProcessQueue {
         this.inflightMessagesLock = new ReentrantReadWriteLock();
 
         this.messagesBodySize = new AtomicLong(0L);
-        this.fifoConsumeTaskOccupied = new AtomicBoolean(false);
+        this.fifoConsumptionTaskOccupied = new AtomicBoolean(false);
 
         this.activityNanoTime = System.nanoTime();
         this.throttleNanoTime = System.nanoTime();
     }
 
-    public boolean fifoConsumeTaskInbound() {
-        return fifoConsumeTaskOccupied.compareAndSet(false, true);
+    public boolean fifoConsumptionTaskInbound() {
+        return fifoConsumptionTaskOccupied.compareAndSet(false, true);
     }
 
-    public boolean fifoConsumeTaskOutbound() {
-        return fifoConsumeTaskOccupied.compareAndSet(true, false);
+    public boolean fifoConsumptionTaskOutbound() {
+        return fifoConsumptionTaskOccupied.compareAndSet(true, false);
     }
 
 
@@ -234,7 +234,7 @@ public class ProcessQueue {
             case OK:
                 if (!messagesFound.isEmpty()) {
                     cacheMessages(messagesFound);
-                    consumerImpl.receivedCount.getAndAdd(messagesFound.size());
+                    consumerImpl.receivedMessagesSize.getAndAdd(messagesFound.size());
                     consumerImpl.getConsumeService().dispatch();
                 }
                 receiveMessage();

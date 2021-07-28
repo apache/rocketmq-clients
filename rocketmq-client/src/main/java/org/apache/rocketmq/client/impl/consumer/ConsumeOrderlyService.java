@@ -22,18 +22,13 @@ public class ConsumeOrderlyService extends ConsumeService {
         final List<ProcessQueue> processQueues = consumerImpl.processQueueList();
         Collections.shuffle(processQueues);
 
-        final int totalBatchMaxSize = consumerImpl.getConsumeMessageBatchMaxSize();
-
         for (ProcessQueue pq : processQueues) {
             if (pq.messagesCacheSize() <= 0) {
                 continue;
             }
-            if (!pq.fifoConsumeTaskInbound()) {
+            if (!pq.fifoConsumptionTaskInbound()) {
                 continue;
             }
-
-            int nextBatchMaxSize = totalBatchMaxSize;
-            int actualBatchSize = 0;
 
             final MessageQueue mq = pq.getMq();
             final String topic = mq.getTopic();
@@ -42,24 +37,19 @@ public class ConsumeOrderlyService extends ConsumeService {
             final List<MessageExt> messageExtList = new ArrayList<MessageExt>();
             boolean hasMessage = false;
             if (null != rateLimiter) {
-                while (pq.messagesCacheSize() > 0 && actualBatchSize < totalBatchMaxSize && rateLimiter.tryAcquire()) {
+                if (pq.messagesCacheSize() > 0 && pq.fifoConsumptionTaskInbound() && rateLimiter.tryAcquire()) {
                     final MessageExt messageExt = pq.tryTakeMessage();
-                    if (!hasMessage && pq.fifoConsumeTaskInbound()) {
-                        hasMessage = true;
-                    }
                     if (null == messageExt) {
                         log.error("[Bug] FIFO message taken from process queue is null, mq={}", mq);
-                        pq.fifoConsumeTaskOutbound();
+                        pq.fifoConsumptionTaskOutbound();
                         break;
                     }
-                    actualBatchSize++;
                     messageExtList.add(messageExt);
                 }
             } else {
                 // no rate limiter was set.
-                if (pq.messagesCacheSize() > 0 && pq.fifoConsumeTaskInbound()) {
-                    messageExtList.addAll(pq.tryTakeMessages(nextBatchMaxSize));
-                    actualBatchSize = messageExtList.size();
+                if (pq.messagesCacheSize() > 0 && pq.fifoConsumptionTaskInbound()) {
+                    messageExtList.addAll(pq.tryTakeMessages(totalBatchMaxSize));
                 }
             }
 
@@ -69,13 +59,13 @@ public class ConsumeOrderlyService extends ConsumeService {
 
             final ThreadPoolExecutor consumeExecutor = consumerImpl.getConsumeExecutor();
             final ConsumeOrderlyTask task = new ConsumeOrderlyTask(consumerImpl, pq, messageExtList);
+
             try {
                 consumeExecutor.submit(task);
             } catch (Throwable t) {
                 // should never reach here.
                 log.error("[Bug] Failed to submit task to consumption thread pool, which may cause congestion.", t);
             }
-
         }
     }
 }

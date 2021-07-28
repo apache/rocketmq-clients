@@ -40,7 +40,7 @@ public class ConsumeOrderlyTask implements Runnable {
             log.error("Biz callback raised an exception while consuming fifo messages.", t);
         }
 
-        pq.fifoConsumeTaskOutbound();
+        pq.fifoConsumptionTaskOutbound();
 
         // intercept after message consumption.
         final long elapsed = started.elapsed(TimeUnit.MILLISECONDS);

@@ -72,8 +72,14 @@ import org.apache.rocketmq.utility.ThreadFactoryImpl;
 @Slf4j
 public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
+    // for cluster consumption mode.
     public final AtomicLong receiveTimes;
-    public final AtomicLong receivedCount;
+    public final AtomicLong receivedMessagesSize;
+
+    // for broadcasting consumption mode.
+    public final AtomicLong pullTimes;
+    public final AtomicLong pulledMessagesSize;
+
     public final AtomicLong consumptionOkCount;
     public final AtomicLong consumptionErrorCount;
 
@@ -142,7 +148,11 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         this.processQueueTable = new ConcurrentHashMap<MessageQueue, ProcessQueue>();
 
         this.receiveTimes = new AtomicLong(0);
-        this.receivedCount = new AtomicLong(0);
+        this.receivedMessagesSize = new AtomicLong(0);
+
+        this.pullTimes = new AtomicLong(0);
+        this.pulledMessagesSize = new AtomicLong(0);
+
         this.consumptionOkCount = new AtomicLong(0);
         this.consumptionErrorCount = new AtomicLong(0);
 
@@ -295,14 +305,20 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     @Override
     public void doStats() {
+        // for cluster consumption mode.
         final long receiveTimes = this.receiveTimes.getAndSet(0);
-        final long receivedCount = this.receivedCount.getAndSet(0);
+        final long receivedMessagesSize = this.receivedMessagesSize.getAndSet(0);
+
+        // for broadcasting consumption mode.
+        final long pullTimes = this.pullTimes.getAndSet(0);
+        final long pulledMessagesSize = this.pulledMessagesSize.getAndSet(0);
+
         final long consumptionOkCount = this.consumptionOkCount.getAndSet(0);
         final long consumptionErrorCount = this.consumptionErrorCount.getAndSet(0);
         log.info(
-                "ConsumerGroup={}, receiveTimes={}, receivedCount={}, consumptionOkCount={}, "
-                + "consumptionErrorCount={}", group, receiveTimes, receivedCount, consumptionOkCount,
-                consumptionErrorCount);
+                "ConsumerGroup={}, receiveTimes={}, receivedMessagesSize={}, pullTimes={}, pulledMessagesSize={}, "
+                + "consumptionOkCount={}, consumptionErrorCount={}", group, receiveTimes, receivedMessagesSize,
+                pullTimes, pulledMessagesSize, consumptionOkCount, consumptionErrorCount);
     }
 
     private void syncProcessQueueByTopic(
