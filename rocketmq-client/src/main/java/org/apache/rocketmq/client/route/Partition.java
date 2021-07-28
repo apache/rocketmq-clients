@@ -1,28 +1,30 @@
 package org.apache.rocketmq.client.route;
 
-import apache.rocketmq.v1.Resource;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.concurrent.Immutable;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 import org.apache.rocketmq.client.constant.Permission;
+import org.apache.rocketmq.client.message.protocol.Resource;
 import org.apache.rocketmq.client.remoting.Address;
 import org.apache.rocketmq.client.remoting.Endpoints;
 
 @Getter
 @ToString
 @EqualsAndHashCode
+@Immutable
 public class Partition {
-    private final Topic topic;
+    private final Resource topicResource;
     private final Broker broker;
     private final int id;
 
     private final Permission permission;
 
     public Partition(apache.rocketmq.v1.Partition partition) {
-        final Resource topicResource = partition.getTopic();
-        this.topic = new Topic(topicResource.getArn(), topicResource.getName());
+        final apache.rocketmq.v1.Resource resource = partition.getTopic();
+        this.topicResource = new Resource(resource.getArn(), resource.getName());
         this.id = partition.getId();
         final apache.rocketmq.v1.Permission perm = partition.getPermission();
         switch (perm) {

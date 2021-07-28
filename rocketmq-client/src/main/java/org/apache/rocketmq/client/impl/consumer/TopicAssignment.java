@@ -3,6 +3,7 @@ package org.apache.rocketmq.client.impl.consumer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.concurrent.Immutable;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
@@ -14,6 +15,7 @@ import org.apache.rocketmq.client.route.Partition;
 @Slf4j
 @ToString
 @EqualsAndHashCode
+@Immutable
 public class TopicAssignment {
     private static final ThreadLocal<AtomicInteger> partitionIndex = new ThreadLocal<AtomicInteger>();
 

@@ -14,7 +14,7 @@ public class MessageQueue {
     private final Partition partition;
 
     public MessageQueue(Partition partition) {
-        this.topic = partition.getTopic().getName();
+        this.topic = partition.getTopicResource().getName();
         this.brokerName = partition.getBroker().getName();
         this.queueId = partition.getId();
         this.partition = partition;

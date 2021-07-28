@@ -74,10 +74,10 @@ public interface NackMessageRequestOrBuilder extends
       getMessageIdBytes();
 
   /**
-   * <code>int32 delivery_attempts = 6;</code>
-   * @return The deliveryAttempts.
+   * <code>int32 delivery_attempt = 6;</code>
+   * @return The deliveryAttempt.
    */
-  int getDeliveryAttempts();
+  int getDeliveryAttempt();
 
   /**
    * <code>int32 max_delivery_attempts = 7;</code>

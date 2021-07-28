@@ -4,19 +4,17 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.concurrent.Immutable;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
-import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.remoting.Endpoints;
 
 @Getter
 @EqualsAndHashCode
 @ToString
+@Immutable
 public class TopicRouteData {
-    private static final ThreadLocal<AtomicInteger> PARTITION_INDEX_THREAD_LOCAL = new ThreadLocal<AtomicInteger>();
-
     /**
      * Partitions of topic route
      */
@@ -35,20 +33,11 @@ public class TopicRouteData {
         }
     }
 
-    public Set<Endpoints> getAllEndpoints() {
+    public Set<Endpoints> allEndpoints() {
         Set<Endpoints> endpointsSet = new HashSet<Endpoints>();
         for (Partition partition : partitions) {
             endpointsSet.add(partition.getBroker().getEndpoints());
         }
         return endpointsSet;
-    }
-
-    public static int getNextPartitionIndex() {
-        AtomicInteger partitionIndex = PARTITION_INDEX_THREAD_LOCAL.get();
-        if (null == partitionIndex) {
-            partitionIndex = new AtomicInteger(RandomUtils.nextInt());
-            PARTITION_INDEX_THREAD_LOCAL.set(partitionIndex);
-        }
-        return partitionIndex.getAndIncrement();
     }
 }

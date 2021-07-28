@@ -14,7 +14,7 @@ public class MessageInterceptorContext {
     @Builder.Default
     private final int messageIndex = 0;
     @Builder.Default
-    private final int attemptTimes = 1;
+    private final int attempt = 1;
     @Builder.Default
     private final long duration = 0;
     @Builder.Default

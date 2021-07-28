@@ -48,7 +48,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.GROUP, group);
                 span.setAttribute(TracingAttribute.TAGS, message.getTags());
                 span.setAttribute(TracingAttribute.KEYS, message.getKeys());
-                span.setAttribute(TracingAttribute.ATTEMPT_TIMES, context.getAttemptTimes());
+                span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
                 // span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
                 final long deliveryTimestamp = message.getDeliveryTimestamp();
                 if (deliveryTimestamp > 0) {
@@ -93,7 +93,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.GROUP, group);
                 span.setAttribute(TracingAttribute.TAGS, message.getTags());
                 span.setAttribute(TracingAttribute.KEYS, message.getKeys());
-                span.setAttribute(TracingAttribute.ATTEMPT_TIMES, context.getAttemptTimes());
+                span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
                 // span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
                 break;
             }
@@ -114,7 +114,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.GROUP, group);
                 span.setAttribute(TracingAttribute.TAGS, message.getTags());
                 span.setAttribute(TracingAttribute.KEYS, message.getKeys());
-                span.setAttribute(TracingAttribute.ATTEMPT_TIMES, context.getAttemptTimes());
+                span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
                 // span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
                 span.end();
                 break;
@@ -142,7 +142,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.GROUP, group);
                 span.setAttribute(TracingAttribute.TAGS, message.getTags());
                 span.setAttribute(TracingAttribute.KEYS, message.getKeys());
-                span.setAttribute(TracingAttribute.ATTEMPT_TIMES, context.getAttemptTimes());
+                span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
                 // span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
 
                 final StatusCode statusCode = TracingUtility.convertToTraceStatus(context.getStatus());

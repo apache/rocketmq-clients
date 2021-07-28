@@ -24,7 +24,7 @@ public class ConsumeOrderlyTask implements Runnable {
         // intercept before message consumption.
         for (MessageExt messageExt : messageExtList) {
             final MessageInterceptorContext context =
-                    MessageInterceptorContext.builder().attemptTimes(1 + messageExt.getReconsumeTimes()).build();
+                    MessageInterceptorContext.builder().attempt(1 + messageExt.getReconsumeTimes()).build();
             consumerImpl.intercept(MessageHookPoint.PRE_MESSAGE_CONSUMPTION, messageExt, context);
         }
 
@@ -49,7 +49,7 @@ public class ConsumeOrderlyTask implements Runnable {
             final MessageExt messageExt = messageExtList.get(i);
             final MessageInterceptorContext context =
                     MessageInterceptorContext.builder()
-                                             .attemptTimes(1 + messageExt.getReconsumeTimes())
+                                             .attempt(1 + messageExt.getReconsumeTimes())
                                              .duration(elapsedPerMessage)
                                              .timeUnit(TimeUnit.MILLISECONDS)
                                              .messageIndex(i)

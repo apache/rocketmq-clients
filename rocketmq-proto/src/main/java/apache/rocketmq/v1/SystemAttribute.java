@@ -194,7 +194,7 @@ private static final long serialVersionUID = 0L;
           }
           case 136: {
 
-            deliveryAttempts_ = input.readInt32();
+            deliveryAttempt_ = input.readInt32();
             break;
           }
           case 144: {
@@ -888,20 +888,20 @@ private static final long serialVersionUID = 0L;
     return getInvisiblePeriod();
   }
 
-  public static final int DELIVERY_ATTEMPTS_FIELD_NUMBER = 17;
-  private int deliveryAttempts_;
+  public static final int DELIVERY_ATTEMPT_FIELD_NUMBER = 17;
+  private int deliveryAttempt_;
   /**
    * <pre>
    * Business code may failed to process messages for the moment. Hence, clients may request servers to deliver them
-   * again using certain back-off strategy, the attempts is 1 not 0 if message is delivered first time.
+   * again using certain back-off strategy, the attempt is 1 not 0 if message is delivered first time.
    * </pre>
    *
-   * <code>int32 delivery_attempts = 17;</code>
-   * @return The deliveryAttempts.
+   * <code>int32 delivery_attempt = 17;</code>
+   * @return The deliveryAttempt.
    */
   @java.lang.Override
-  public int getDeliveryAttempts() {
-    return deliveryAttempts_;
+  public int getDeliveryAttempt() {
+    return deliveryAttempt_;
   }
 
   public static final int MAX_DELIVERY_ATTEMPTS_FIELD_NUMBER = 18;
@@ -1150,8 +1150,8 @@ private static final long serialVersionUID = 0L;
     if (invisiblePeriod_ != null) {
       output.writeMessage(16, getInvisiblePeriod());
     }
-    if (deliveryAttempts_ != 0) {
-      output.writeInt32(17, deliveryAttempts_);
+    if (deliveryAttempt_ != 0) {
+      output.writeInt32(17, deliveryAttempt_);
     }
     if (maxDeliveryAttempts_ != 0) {
       output.writeInt32(18, maxDeliveryAttempts_);
@@ -1241,9 +1241,9 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(16, getInvisiblePeriod());
     }
-    if (deliveryAttempts_ != 0) {
+    if (deliveryAttempt_ != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(17, deliveryAttempts_);
+        .computeInt32Size(17, deliveryAttempt_);
     }
     if (maxDeliveryAttempts_ != 0) {
       size += com.google.protobuf.CodedOutputStream
@@ -1315,8 +1315,8 @@ private static final long serialVersionUID = 0L;
       if (!getInvisiblePeriod()
           .equals(other.getInvisiblePeriod())) return false;
     }
-    if (getDeliveryAttempts()
-        != other.getDeliveryAttempts()) return false;
+    if (getDeliveryAttempt()
+        != other.getDeliveryAttempt()) return false;
     if (getMaxDeliveryAttempts()
         != other.getMaxDeliveryAttempts()) return false;
     if (hasProducerGroup() != other.hasProducerGroup()) return false;
@@ -1393,8 +1393,8 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + INVISIBLE_PERIOD_FIELD_NUMBER;
       hash = (53 * hash) + getInvisiblePeriod().hashCode();
     }
-    hash = (37 * hash) + DELIVERY_ATTEMPTS_FIELD_NUMBER;
-    hash = (53 * hash) + getDeliveryAttempts();
+    hash = (37 * hash) + DELIVERY_ATTEMPT_FIELD_NUMBER;
+    hash = (53 * hash) + getDeliveryAttempt();
     hash = (37 * hash) + MAX_DELIVERY_ATTEMPTS_FIELD_NUMBER;
     hash = (53 * hash) + getMaxDeliveryAttempts();
     if (hasProducerGroup()) {
@@ -1596,7 +1596,7 @@ private static final long serialVersionUID = 0L;
         invisiblePeriod_ = null;
         invisiblePeriodBuilder_ = null;
       }
-      deliveryAttempts_ = 0;
+      deliveryAttempt_ = 0;
 
       maxDeliveryAttempts_ = 0;
 
@@ -1685,7 +1685,7 @@ private static final long serialVersionUID = 0L;
       } else {
         result.invisiblePeriod_ = invisiblePeriodBuilder_.build();
       }
-      result.deliveryAttempts_ = deliveryAttempts_;
+      result.deliveryAttempt_ = deliveryAttempt_;
       result.maxDeliveryAttempts_ = maxDeliveryAttempts_;
       if (producerGroupBuilder_ == null) {
         result.producerGroup_ = producerGroup_;
@@ -1798,8 +1798,8 @@ private static final long serialVersionUID = 0L;
       if (other.hasInvisiblePeriod()) {
         mergeInvisiblePeriod(other.getInvisiblePeriod());
       }
-      if (other.getDeliveryAttempts() != 0) {
-        setDeliveryAttempts(other.getDeliveryAttempts());
+      if (other.getDeliveryAttempt() != 0) {
+        setDeliveryAttempt(other.getDeliveryAttempt());
       }
       if (other.getMaxDeliveryAttempts() != 0) {
         setMaxDeliveryAttempts(other.getMaxDeliveryAttempts());
@@ -3585,48 +3585,48 @@ private static final long serialVersionUID = 0L;
       return invisiblePeriodBuilder_;
     }
 
-    private int deliveryAttempts_ ;
+    private int deliveryAttempt_ ;
     /**
      * <pre>
      * Business code may failed to process messages for the moment. Hence, clients may request servers to deliver them
-     * again using certain back-off strategy, the attempts is 1 not 0 if message is delivered first time.
+     * again using certain back-off strategy, the attempt is 1 not 0 if message is delivered first time.
      * </pre>
      *
-     * <code>int32 delivery_attempts = 17;</code>
-     * @return The deliveryAttempts.
+     * <code>int32 delivery_attempt = 17;</code>
+     * @return The deliveryAttempt.
      */
     @java.lang.Override
-    public int getDeliveryAttempts() {
-      return deliveryAttempts_;
+    public int getDeliveryAttempt() {
+      return deliveryAttempt_;
     }
     /**
      * <pre>
      * Business code may failed to process messages for the moment. Hence, clients may request servers to deliver them
-     * again using certain back-off strategy, the attempts is 1 not 0 if message is delivered first time.
+     * again using certain back-off strategy, the attempt is 1 not 0 if message is delivered first time.
      * </pre>
      *
-     * <code>int32 delivery_attempts = 17;</code>
-     * @param value The deliveryAttempts to set.
+     * <code>int32 delivery_attempt = 17;</code>
+     * @param value The deliveryAttempt to set.
      * @return This builder for chaining.
      */
-    public Builder setDeliveryAttempts(int value) {
+    public Builder setDeliveryAttempt(int value) {
       
-      deliveryAttempts_ = value;
+      deliveryAttempt_ = value;
       onChanged();
       return this;
     }
     /**
      * <pre>
      * Business code may failed to process messages for the moment. Hence, clients may request servers to deliver them
-     * again using certain back-off strategy, the attempts is 1 not 0 if message is delivered first time.
+     * again using certain back-off strategy, the attempt is 1 not 0 if message is delivered first time.
      * </pre>
      *
-     * <code>int32 delivery_attempts = 17;</code>
+     * <code>int32 delivery_attempt = 17;</code>
      * @return This builder for chaining.
      */
-    public Builder clearDeliveryAttempts() {
+    public Builder clearDeliveryAttempt() {
       
-      deliveryAttempts_ = 0;
+      deliveryAttempt_ = 0;
       onChanged();
       return this;
     }

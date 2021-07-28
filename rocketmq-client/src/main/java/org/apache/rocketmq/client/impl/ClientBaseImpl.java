@@ -271,7 +271,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
     public Set<Endpoints> getRouteEndpointsSet() {
         Set<Endpoints> endpointsSet = new HashSet<Endpoints>();
         for (TopicRouteData topicRouteData : topicRouteCache.values()) {
-            endpointsSet.addAll(topicRouteData.getAllEndpoints());
+            endpointsSet.addAll(topicRouteData.allEndpoints());
         }
         return endpointsSet;
     }
@@ -888,7 +888,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         impl.getSystemAttribute()
             .setInvisiblePeriod(Durations.toMillis(systemAttribute.getInvisiblePeriod()));
         // DeliveryCount
-        impl.getSystemAttribute().setDeliveryAttempts(systemAttribute.getDeliveryAttempts());
+        impl.getSystemAttribute().setDeliveryAttempt(systemAttribute.getDeliveryAttempt());
         // ProducerGroup
         impl.getSystemAttribute().setProducerGroup(systemAttribute.getProducerGroup().getName());
         // TraceContext

@@ -98,7 +98,7 @@ private static final long serialVersionUID = 0L;
           }
           case 48: {
 
-            deliveryAttempts_ = input.readInt32();
+            deliveryAttempt_ = input.readInt32();
             break;
           }
           case 56: {
@@ -310,15 +310,15 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int DELIVERY_ATTEMPTS_FIELD_NUMBER = 6;
-  private int deliveryAttempts_;
+  public static final int DELIVERY_ATTEMPT_FIELD_NUMBER = 6;
+  private int deliveryAttempt_;
   /**
-   * <code>int32 delivery_attempts = 6;</code>
-   * @return The deliveryAttempts.
+   * <code>int32 delivery_attempt = 6;</code>
+   * @return The deliveryAttempt.
    */
   @java.lang.Override
-  public int getDeliveryAttempts() {
-    return deliveryAttempts_;
+  public int getDeliveryAttempt() {
+    return deliveryAttempt_;
   }
 
   public static final int MAX_DELIVERY_ATTEMPTS_FIELD_NUMBER = 7;
@@ -388,8 +388,8 @@ private static final long serialVersionUID = 0L;
     if (!getMessageIdBytes().isEmpty()) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 5, messageId_);
     }
-    if (deliveryAttempts_ != 0) {
-      output.writeInt32(6, deliveryAttempts_);
+    if (deliveryAttempt_ != 0) {
+      output.writeInt32(6, deliveryAttempt_);
     }
     if (maxDeliveryAttempts_ != 0) {
       output.writeInt32(7, maxDeliveryAttempts_);
@@ -423,9 +423,9 @@ private static final long serialVersionUID = 0L;
     if (!getMessageIdBytes().isEmpty()) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, messageId_);
     }
-    if (deliveryAttempts_ != 0) {
+    if (deliveryAttempt_ != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(6, deliveryAttempts_);
+        .computeInt32Size(6, deliveryAttempt_);
     }
     if (maxDeliveryAttempts_ != 0) {
       size += com.google.protobuf.CodedOutputStream
@@ -466,8 +466,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getReceiptHandle())) return false;
     if (!getMessageId()
         .equals(other.getMessageId())) return false;
-    if (getDeliveryAttempts()
-        != other.getDeliveryAttempts()) return false;
+    if (getDeliveryAttempt()
+        != other.getDeliveryAttempt()) return false;
     if (getMaxDeliveryAttempts()
         != other.getMaxDeliveryAttempts()) return false;
     if (consumeModel_ != other.consumeModel_) return false;
@@ -496,8 +496,8 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getReceiptHandle().hashCode();
     hash = (37 * hash) + MESSAGE_ID_FIELD_NUMBER;
     hash = (53 * hash) + getMessageId().hashCode();
-    hash = (37 * hash) + DELIVERY_ATTEMPTS_FIELD_NUMBER;
-    hash = (53 * hash) + getDeliveryAttempts();
+    hash = (37 * hash) + DELIVERY_ATTEMPT_FIELD_NUMBER;
+    hash = (53 * hash) + getDeliveryAttempt();
     hash = (37 * hash) + MAX_DELIVERY_ATTEMPTS_FIELD_NUMBER;
     hash = (53 * hash) + getMaxDeliveryAttempts();
     hash = (37 * hash) + CONSUME_MODEL_FIELD_NUMBER;
@@ -653,7 +653,7 @@ private static final long serialVersionUID = 0L;
 
       messageId_ = "";
 
-      deliveryAttempts_ = 0;
+      deliveryAttempt_ = 0;
 
       maxDeliveryAttempts_ = 0;
 
@@ -698,7 +698,7 @@ private static final long serialVersionUID = 0L;
       result.clientId_ = clientId_;
       result.receiptHandle_ = receiptHandle_;
       result.messageId_ = messageId_;
-      result.deliveryAttempts_ = deliveryAttempts_;
+      result.deliveryAttempt_ = deliveryAttempt_;
       result.maxDeliveryAttempts_ = maxDeliveryAttempts_;
       result.consumeModel_ = consumeModel_;
       onBuilt();
@@ -767,8 +767,8 @@ private static final long serialVersionUID = 0L;
         messageId_ = other.messageId_;
         onChanged();
       }
-      if (other.getDeliveryAttempts() != 0) {
-        setDeliveryAttempts(other.getDeliveryAttempts());
+      if (other.getDeliveryAttempt() != 0) {
+        setDeliveryAttempt(other.getDeliveryAttempt());
       }
       if (other.getMaxDeliveryAttempts() != 0) {
         setMaxDeliveryAttempts(other.getMaxDeliveryAttempts());
@@ -1271,33 +1271,33 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int deliveryAttempts_ ;
+    private int deliveryAttempt_ ;
     /**
-     * <code>int32 delivery_attempts = 6;</code>
-     * @return The deliveryAttempts.
+     * <code>int32 delivery_attempt = 6;</code>
+     * @return The deliveryAttempt.
      */
     @java.lang.Override
-    public int getDeliveryAttempts() {
-      return deliveryAttempts_;
+    public int getDeliveryAttempt() {
+      return deliveryAttempt_;
     }
     /**
-     * <code>int32 delivery_attempts = 6;</code>
-     * @param value The deliveryAttempts to set.
+     * <code>int32 delivery_attempt = 6;</code>
+     * @param value The deliveryAttempt to set.
      * @return This builder for chaining.
      */
-    public Builder setDeliveryAttempts(int value) {
+    public Builder setDeliveryAttempt(int value) {
       
-      deliveryAttempts_ = value;
+      deliveryAttempt_ = value;
       onChanged();
       return this;
     }
     /**
-     * <code>int32 delivery_attempts = 6;</code>
+     * <code>int32 delivery_attempt = 6;</code>
      * @return This builder for chaining.
      */
-    public Builder clearDeliveryAttempts() {
+    public Builder clearDeliveryAttempt() {
       
-      deliveryAttempts_ = 0;
+      deliveryAttempt_ = 0;
       onChanged();
       return this;
     }

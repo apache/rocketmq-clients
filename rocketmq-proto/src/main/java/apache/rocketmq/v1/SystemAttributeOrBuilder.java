@@ -356,13 +356,13 @@ public interface SystemAttributeOrBuilder extends
   /**
    * <pre>
    * Business code may failed to process messages for the moment. Hence, clients may request servers to deliver them
-   * again using certain back-off strategy, the attempts is 1 not 0 if message is delivered first time.
+   * again using certain back-off strategy, the attempt is 1 not 0 if message is delivered first time.
    * </pre>
    *
-   * <code>int32 delivery_attempts = 17;</code>
-   * @return The deliveryAttempts.
+   * <code>int32 delivery_attempt = 17;</code>
+   * @return The deliveryAttempt.
    */
-  int getDeliveryAttempts();
+  int getDeliveryAttempt();
 
   /**
    * <pre>

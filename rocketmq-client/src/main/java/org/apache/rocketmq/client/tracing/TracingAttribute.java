@@ -12,7 +12,7 @@ public class TracingAttribute {
     public static final String COMMIT_ACTION = "commit_action";
     public static final String BORN_HOST = "born_host";
     public static final String KEYS = "keys";
-    public static final String ATTEMPT_TIMES = "attempt_times";
+    public static final String ATTEMPT = "attempt";
     public static final String MSG_TYPE = "msg_type";
 
     private TracingAttribute() {

@@ -526,7 +526,7 @@ public class ProcessQueue {
                                   .setClientId(this.getClientId())
                                   .setReceiptHandle(messageExt.getReceiptHandle())
                                   .setMessageId(messageExt.getMsgId())
-                                  .setDeliveryAttempts(messageExt.getDeliveryAttempts())
+                                  .setDeliveryAttempt(messageExt.getDeliveryAttempt())
                                   .setMaxDeliveryAttempts(this.getMaxReconsumeTimes());
 
         switch (getMessageModel()) {
