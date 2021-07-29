@@ -4,18 +4,18 @@
 package apache.rocketmq.v1;
 
 /**
- * Protobuf type {@code apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest}
+ * Protobuf type {@code apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest}
  */
-public final class SendMessageToDeadLetterQueueRequest extends
+public final class ForwardMessageToDeadLetterQueueRequest extends
     com.google.protobuf.GeneratedMessageV3 implements
-    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest)
-    SendMessageToDeadLetterQueueRequestOrBuilder {
+    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest)
+    ForwardMessageToDeadLetterQueueRequestOrBuilder {
 private static final long serialVersionUID = 0L;
-  // Use SendMessageToDeadLetterQueueRequest.newBuilder() to construct.
-  private SendMessageToDeadLetterQueueRequest(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+  // Use ForwardMessageToDeadLetterQueueRequest.newBuilder() to construct.
+  private ForwardMessageToDeadLetterQueueRequest(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
-  private SendMessageToDeadLetterQueueRequest() {
+  private ForwardMessageToDeadLetterQueueRequest() {
     clientId_ = "";
     receiptHandle_ = "";
     messageId_ = "";
@@ -25,7 +25,7 @@ private static final long serialVersionUID = 0L;
   @SuppressWarnings({"unused"})
   protected java.lang.Object newInstance(
       UnusedPrivateParameter unused) {
-    return new SendMessageToDeadLetterQueueRequest();
+    return new ForwardMessageToDeadLetterQueueRequest();
   }
 
   @java.lang.Override
@@ -33,7 +33,7 @@ private static final long serialVersionUID = 0L;
   getUnknownFields() {
     return this.unknownFields;
   }
-  private SendMessageToDeadLetterQueueRequest(
+  private ForwardMessageToDeadLetterQueueRequest(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
@@ -126,15 +126,15 @@ private static final long serialVersionUID = 0L;
   }
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SendMessageToDeadLetterQueueRequest_descriptor;
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_ForwardMessageToDeadLetterQueueRequest_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SendMessageToDeadLetterQueueRequest_fieldAccessorTable
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_ForwardMessageToDeadLetterQueueRequest_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest.class, apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest.Builder.class);
+            apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest.class, apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest.Builder.class);
   }
 
   public static final int GROUP_FIELD_NUMBER = 1;
@@ -404,10 +404,10 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest)) {
+    if (!(obj instanceof apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest)) {
       return super.equals(obj);
     }
-    apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest other = (apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest) obj;
+    apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest other = (apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest) obj;
 
     if (hasGroup() != other.hasGroup()) return false;
     if (hasGroup()) {
@@ -463,69 +463,69 @@ private static final long serialVersionUID = 0L;
     return hash;
   }
 
-  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(
+  public static apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(
+  public static apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(
+  public static apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(
+  public static apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(byte[] data)
+  public static apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(
+  public static apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(
+  public static apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseDelimitedFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseDelimitedFrom(
+  public static apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(
+  public static apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parseFrom(
+  public static apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -538,7 +538,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest prototype) {
+  public static Builder newBuilder(apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -554,26 +554,26 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
-   * Protobuf type {@code apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest}
+   * Protobuf type {@code apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest)
-      apache.rocketmq.v1.SendMessageToDeadLetterQueueRequestOrBuilder {
+      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest)
+      apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequestOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SendMessageToDeadLetterQueueRequest_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_ForwardMessageToDeadLetterQueueRequest_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SendMessageToDeadLetterQueueRequest_fieldAccessorTable
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_ForwardMessageToDeadLetterQueueRequest_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest.class, apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest.Builder.class);
+              apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest.class, apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest.Builder.class);
     }
 
-    // Construct using apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest.newBuilder()
+    // Construct using apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest.newBuilder()
     private Builder() {
       maybeForceBuilderInitialization();
     }
@@ -619,17 +619,17 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_SendMessageToDeadLetterQueueRequest_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_ForwardMessageToDeadLetterQueueRequest_descriptor;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest getDefaultInstanceForType() {
-      return apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest.getDefaultInstance();
+    public apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest getDefaultInstanceForType() {
+      return apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest.getDefaultInstance();
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest build() {
-      apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest result = buildPartial();
+    public apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest build() {
+      apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -637,8 +637,8 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest buildPartial() {
-      apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest result = new apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest(this);
+    public apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest buildPartial() {
+      apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest result = new apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest(this);
       if (groupBuilder_ == null) {
         result.group_ = group_;
       } else {
@@ -692,16 +692,16 @@ private static final long serialVersionUID = 0L;
     }
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest) {
-        return mergeFrom((apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest)other);
+      if (other instanceof apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest) {
+        return mergeFrom((apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest other) {
-      if (other == apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest.getDefaultInstance()) return this;
+    public Builder mergeFrom(apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest other) {
+      if (other == apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest.getDefaultInstance()) return this;
       if (other.hasGroup()) {
         mergeGroup(other.getGroup());
       }
@@ -741,11 +741,11 @@ private static final long serialVersionUID = 0L;
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest parsedMessage = null;
+      apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest parsedMessage = null;
       try {
         parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        parsedMessage = (apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest) e.getUnfinishedMessage();
+        parsedMessage = (apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest) e.getUnfinishedMessage();
         throw e.unwrapIOException();
       } finally {
         if (parsedMessage != null) {
@@ -1295,41 +1295,41 @@ private static final long serialVersionUID = 0L;
     }
 
 
-    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest)
+    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest)
   }
 
-  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest)
-  private static final apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest)
+  private static final apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest();
+    DEFAULT_INSTANCE = new apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest();
   }
 
-  public static apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest getDefaultInstance() {
+  public static apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<SendMessageToDeadLetterQueueRequest>
-      PARSER = new com.google.protobuf.AbstractParser<SendMessageToDeadLetterQueueRequest>() {
+  private static final com.google.protobuf.Parser<ForwardMessageToDeadLetterQueueRequest>
+      PARSER = new com.google.protobuf.AbstractParser<ForwardMessageToDeadLetterQueueRequest>() {
     @java.lang.Override
-    public SendMessageToDeadLetterQueueRequest parsePartialFrom(
+    public ForwardMessageToDeadLetterQueueRequest parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
-      return new SendMessageToDeadLetterQueueRequest(input, extensionRegistry);
+      return new ForwardMessageToDeadLetterQueueRequest(input, extensionRegistry);
     }
   };
 
-  public static com.google.protobuf.Parser<SendMessageToDeadLetterQueueRequest> parser() {
+  public static com.google.protobuf.Parser<ForwardMessageToDeadLetterQueueRequest> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<SendMessageToDeadLetterQueueRequest> getParserForType() {
+  public com.google.protobuf.Parser<ForwardMessageToDeadLetterQueueRequest> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest getDefaultInstanceForType() {
+  public apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

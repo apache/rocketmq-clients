@@ -262,35 +262,35 @@ public final class MessagingServiceGrpc {
     return getNackMessageMethod;
   }
 
-  private static volatile io.grpc.MethodDescriptor<apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest,
-      apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse> getSendMessageToDeadLetterQueueMethod;
+  private static volatile io.grpc.MethodDescriptor<apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest,
+      apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse> getForwardMessageToDeadLetterQueueMethod;
 
   @io.grpc.stub.annotations.RpcMethod(
-      fullMethodName = SERVICE_NAME + '/' + "SendMessageToDeadLetterQueue",
-      requestType = apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest.class,
-      responseType = apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse.class,
+      fullMethodName = SERVICE_NAME + '/' + "ForwardMessageToDeadLetterQueue",
+      requestType = apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest.class,
+      responseType = apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse.class,
       methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
-  public static io.grpc.MethodDescriptor<apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest,
-      apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse> getSendMessageToDeadLetterQueueMethod() {
-    io.grpc.MethodDescriptor<apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest, apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse> getSendMessageToDeadLetterQueueMethod;
-    if ((getSendMessageToDeadLetterQueueMethod = MessagingServiceGrpc.getSendMessageToDeadLetterQueueMethod) == null) {
+  public static io.grpc.MethodDescriptor<apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest,
+      apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse> getForwardMessageToDeadLetterQueueMethod() {
+    io.grpc.MethodDescriptor<apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest, apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse> getForwardMessageToDeadLetterQueueMethod;
+    if ((getForwardMessageToDeadLetterQueueMethod = MessagingServiceGrpc.getForwardMessageToDeadLetterQueueMethod) == null) {
       synchronized (MessagingServiceGrpc.class) {
-        if ((getSendMessageToDeadLetterQueueMethod = MessagingServiceGrpc.getSendMessageToDeadLetterQueueMethod) == null) {
-          MessagingServiceGrpc.getSendMessageToDeadLetterQueueMethod = getSendMessageToDeadLetterQueueMethod =
-              io.grpc.MethodDescriptor.<apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest, apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse>newBuilder()
+        if ((getForwardMessageToDeadLetterQueueMethod = MessagingServiceGrpc.getForwardMessageToDeadLetterQueueMethod) == null) {
+          MessagingServiceGrpc.getForwardMessageToDeadLetterQueueMethod = getForwardMessageToDeadLetterQueueMethod =
+              io.grpc.MethodDescriptor.<apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest, apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse>newBuilder()
               .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
-              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "SendMessageToDeadLetterQueue"))
+              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "ForwardMessageToDeadLetterQueue"))
               .setSampledToLocalTracing(true)
               .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest.getDefaultInstance()))
+                  apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest.getDefaultInstance()))
               .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse.getDefaultInstance()))
-              .setSchemaDescriptor(new MessagingServiceMethodDescriptorSupplier("SendMessageToDeadLetterQueue"))
+                  apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse.getDefaultInstance()))
+              .setSchemaDescriptor(new MessagingServiceMethodDescriptorSupplier("ForwardMessageToDeadLetterQueue"))
               .build();
         }
       }
     }
-    return getSendMessageToDeadLetterQueueMethod;
+    return getForwardMessageToDeadLetterQueueMethod;
   }
 
   private static volatile io.grpc.MethodDescriptor<apache.rocketmq.v1.EndTransactionRequest,
@@ -523,9 +523,9 @@ public final class MessagingServiceGrpc {
 
     /**
      */
-    public void sendMessageToDeadLetterQueue(apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest request,
-        io.grpc.stub.StreamObserver<apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse> responseObserver) {
-      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getSendMessageToDeadLetterQueueMethod(), responseObserver);
+    public void forwardMessageToDeadLetterQueue(apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest request,
+        io.grpc.stub.StreamObserver<apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse> responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getForwardMessageToDeadLetterQueueMethod(), responseObserver);
     }
 
     /**
@@ -615,12 +615,12 @@ public final class MessagingServiceGrpc {
                 apache.rocketmq.v1.NackMessageResponse>(
                   this, METHODID_NACK_MESSAGE)))
           .addMethod(
-            getSendMessageToDeadLetterQueueMethod(),
+            getForwardMessageToDeadLetterQueueMethod(),
             io.grpc.stub.ServerCalls.asyncUnaryCall(
               new MethodHandlers<
-                apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest,
-                apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse>(
-                  this, METHODID_SEND_MESSAGE_TO_DEAD_LETTER_QUEUE)))
+                apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest,
+                apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse>(
+                  this, METHODID_FORWARD_MESSAGE_TO_DEAD_LETTER_QUEUE)))
           .addMethod(
             getEndTransactionMethod(),
             io.grpc.stub.ServerCalls.asyncUnaryCall(
@@ -733,10 +733,10 @@ public final class MessagingServiceGrpc {
 
     /**
      */
-    public void sendMessageToDeadLetterQueue(apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest request,
-        io.grpc.stub.StreamObserver<apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse> responseObserver) {
+    public void forwardMessageToDeadLetterQueue(apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest request,
+        io.grpc.stub.StreamObserver<apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse> responseObserver) {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
-          getChannel().newCall(getSendMessageToDeadLetterQueueMethod(), getCallOptions()), request, responseObserver);
+          getChannel().newCall(getForwardMessageToDeadLetterQueueMethod(), getCallOptions()), request, responseObserver);
     }
 
     /**
@@ -844,9 +844,9 @@ public final class MessagingServiceGrpc {
 
     /**
      */
-    public apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse sendMessageToDeadLetterQueue(apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest request) {
+    public apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse forwardMessageToDeadLetterQueue(apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
-          getChannel(), getSendMessageToDeadLetterQueueMethod(), getCallOptions(), request);
+          getChannel(), getForwardMessageToDeadLetterQueueMethod(), getCallOptions(), request);
     }
 
     /**
@@ -958,10 +958,10 @@ public final class MessagingServiceGrpc {
 
     /**
      */
-    public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse> sendMessageToDeadLetterQueue(
-        apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest request) {
+    public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse> forwardMessageToDeadLetterQueue(
+        apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest request) {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
-          getChannel().newCall(getSendMessageToDeadLetterQueueMethod(), getCallOptions()), request);
+          getChannel().newCall(getForwardMessageToDeadLetterQueueMethod(), getCallOptions()), request);
     }
 
     /**
@@ -1005,7 +1005,7 @@ public final class MessagingServiceGrpc {
   private static final int METHODID_RECEIVE_MESSAGE = 5;
   private static final int METHODID_ACK_MESSAGE = 6;
   private static final int METHODID_NACK_MESSAGE = 7;
-  private static final int METHODID_SEND_MESSAGE_TO_DEAD_LETTER_QUEUE = 8;
+  private static final int METHODID_FORWARD_MESSAGE_TO_DEAD_LETTER_QUEUE = 8;
   private static final int METHODID_END_TRANSACTION = 9;
   private static final int METHODID_QUERY_OFFSET = 10;
   private static final int METHODID_PULL_MESSAGE = 11;
@@ -1060,9 +1060,9 @@ public final class MessagingServiceGrpc {
           serviceImpl.nackMessage((apache.rocketmq.v1.NackMessageRequest) request,
               (io.grpc.stub.StreamObserver<apache.rocketmq.v1.NackMessageResponse>) responseObserver);
           break;
-        case METHODID_SEND_MESSAGE_TO_DEAD_LETTER_QUEUE:
-          serviceImpl.sendMessageToDeadLetterQueue((apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest) request,
-              (io.grpc.stub.StreamObserver<apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse>) responseObserver);
+        case METHODID_FORWARD_MESSAGE_TO_DEAD_LETTER_QUEUE:
+          serviceImpl.forwardMessageToDeadLetterQueue((apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest) request,
+              (io.grpc.stub.StreamObserver<apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse>) responseObserver);
           break;
         case METHODID_END_TRANSACTION:
           serviceImpl.endTransaction((apache.rocketmq.v1.EndTransactionRequest) request,
@@ -1149,7 +1149,7 @@ public final class MessagingServiceGrpc {
               .addMethod(getReceiveMessageMethod())
               .addMethod(getAckMessageMethod())
               .addMethod(getNackMessageMethod())
-              .addMethod(getSendMessageToDeadLetterQueueMethod())
+              .addMethod(getForwardMessageToDeadLetterQueueMethod())
               .addMethod(getEndTransactionMethod())
               .addMethod(getQueryOffsetMethod())
               .addMethod(getPullMessageMethod())

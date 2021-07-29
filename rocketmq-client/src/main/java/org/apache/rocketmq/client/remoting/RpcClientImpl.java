@@ -4,6 +4,8 @@ import apache.rocketmq.v1.AckMessageRequest;
 import apache.rocketmq.v1.AckMessageResponse;
 import apache.rocketmq.v1.EndTransactionRequest;
 import apache.rocketmq.v1.EndTransactionResponse;
+import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest;
+import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse;
 import apache.rocketmq.v1.HealthCheckRequest;
 import apache.rocketmq.v1.HealthCheckResponse;
 import apache.rocketmq.v1.HeartbeatRequest;
@@ -25,8 +27,6 @@ import apache.rocketmq.v1.ReceiveMessageRequest;
 import apache.rocketmq.v1.ReceiveMessageResponse;
 import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
-import apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest;
-import apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
@@ -159,12 +159,12 @@ public class RpcClientImpl implements RpcClient {
     }
 
     @Override
-    public ListenableFuture<SendMessageToDeadLetterQueueResponse> sendMessageToDeadLetterQueue(
-            Metadata metadata, SendMessageToDeadLetterQueueRequest request, Executor executor, long duration,
+    public ListenableFuture<ForwardMessageToDeadLetterQueueResponse> forwardMessageToDeadLetterQueue(
+            Metadata metadata, ForwardMessageToDeadLetterQueueRequest request, Executor executor, long duration,
             TimeUnit timeUnit) {
         this.activityNanoTime = System.nanoTime();
         return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
-                            .withDeadlineAfter(duration, timeUnit).sendMessageToDeadLetterQueue(request);
+                            .withDeadlineAfter(duration, timeUnit).forwardMessageToDeadLetterQueue(request);
     }
 
     @Override

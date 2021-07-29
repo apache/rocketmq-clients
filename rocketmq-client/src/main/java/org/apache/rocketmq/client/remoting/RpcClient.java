@@ -4,6 +4,8 @@ import apache.rocketmq.v1.AckMessageRequest;
 import apache.rocketmq.v1.AckMessageResponse;
 import apache.rocketmq.v1.EndTransactionRequest;
 import apache.rocketmq.v1.EndTransactionResponse;
+import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest;
+import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse;
 import apache.rocketmq.v1.HealthCheckRequest;
 import apache.rocketmq.v1.HealthCheckResponse;
 import apache.rocketmq.v1.HeartbeatRequest;
@@ -24,8 +26,6 @@ import apache.rocketmq.v1.ReceiveMessageRequest;
 import apache.rocketmq.v1.ReceiveMessageResponse;
 import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
-import apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest;
-import apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.grpc.Metadata;
 import java.util.concurrent.Executor;
@@ -157,8 +157,8 @@ public interface RpcClient {
      * @param timeUnit duration time unit.
      * @return response future of sending message to DLQ.
      */
-    ListenableFuture<SendMessageToDeadLetterQueueResponse> sendMessageToDeadLetterQueue(
-            Metadata metadata, SendMessageToDeadLetterQueueRequest request, Executor executor, long duration,
+    ListenableFuture<ForwardMessageToDeadLetterQueueResponse> forwardMessageToDeadLetterQueue(
+            Metadata metadata, ForwardMessageToDeadLetterQueueRequest request, Executor executor, long duration,
             TimeUnit timeUnit);
 
     /**

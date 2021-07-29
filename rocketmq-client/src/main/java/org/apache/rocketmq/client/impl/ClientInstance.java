@@ -4,6 +4,8 @@ import apache.rocketmq.v1.AckMessageRequest;
 import apache.rocketmq.v1.AckMessageResponse;
 import apache.rocketmq.v1.EndTransactionRequest;
 import apache.rocketmq.v1.EndTransactionResponse;
+import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest;
+import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse;
 import apache.rocketmq.v1.HealthCheckRequest;
 import apache.rocketmq.v1.HealthCheckResponse;
 import apache.rocketmq.v1.HeartbeatRequest;
@@ -24,8 +26,6 @@ import apache.rocketmq.v1.ReceiveMessageRequest;
 import apache.rocketmq.v1.ReceiveMessageResponse;
 import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
-import apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest;
-import apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.grpc.Metadata;
@@ -389,14 +389,14 @@ public class ClientInstance {
         }
     }
 
-    public ListenableFuture<SendMessageToDeadLetterQueueResponse> sendMessageToDeadLetterQueue(
-            Endpoints endpoints, Metadata metadata, SendMessageToDeadLetterQueueRequest request, long duration,
+    public ListenableFuture<ForwardMessageToDeadLetterQueueResponse> forwardMessageToDeadLetterQueue(
+            Endpoints endpoints, Metadata metadata, ForwardMessageToDeadLetterQueueRequest request, long duration,
             TimeUnit timeUnit) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
-            return rpcClient.sendMessageToDeadLetterQueue(metadata, request, asyncExecutor, duration, timeUnit);
+            return rpcClient.forwardMessageToDeadLetterQueue(metadata, request, asyncExecutor, duration, timeUnit);
         } catch (Throwable t) {
-            final SettableFuture<SendMessageToDeadLetterQueueResponse> future = SettableFuture.create();
+            final SettableFuture<ForwardMessageToDeadLetterQueueResponse> future = SettableFuture.create();
             future.setException(t);
             return future;
         }

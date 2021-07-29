@@ -6,6 +6,8 @@ import apache.rocketmq.v1.Broker;
 import apache.rocketmq.v1.ConsumeModel;
 import apache.rocketmq.v1.ConsumePolicy;
 import apache.rocketmq.v1.FilterType;
+import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest;
+import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse;
 import apache.rocketmq.v1.Message;
 import apache.rocketmq.v1.NackMessageRequest;
 import apache.rocketmq.v1.NackMessageResponse;
@@ -13,8 +15,6 @@ import apache.rocketmq.v1.Partition;
 import apache.rocketmq.v1.ReceiveMessageRequest;
 import apache.rocketmq.v1.ReceiveMessageResponse;
 import apache.rocketmq.v1.Resource;
-import apache.rocketmq.v1.SendMessageToDeadLetterQueueRequest;
-import apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.util.concurrent.FutureCallback;
@@ -224,7 +224,7 @@ public class ProcessQueue {
             future = ackFifoMessage(messageExt);
         } else if (consumerImpl.getMaxDeliveryAttempts() >= messageExt.getDeliveryAttempt()) {
             needReConsumption = false;
-            future = redirectToDeadLetterQueue(messageExt, 1);
+            future = forwardToDeadLetterQueue(messageExt, 1);
         } else {
             // deliver attempts do not exceed the threshold.
             needReConsumption = true;
@@ -414,8 +414,7 @@ public class ProcessQueue {
         try {
             final Endpoints endpoints = mq.getPartition().getBroker().getEndpoints();
             PullMessageQuery pullMessageQuery = new PullMessageQuery(mq, filterExpression, PULL_MAX_BATCH_SIZE,
-                                                                     PULL_MAX_BATCH_SIZE,
-                                                                     PULL_AWAIT_TIME_MILLIS,
+                                                                     PULL_MAX_BATCH_SIZE, PULL_AWAIT_TIME_MILLIS,
                                                                      PULL_LONG_POLLING_TIMEOUT_MILLIS);
             final ListenableFuture<PullMessageResult> future = consumerImpl.pull(pullMessageQuery);
             Futures.addCallback(future, new FutureCallback<PullMessageResult>() {
@@ -570,15 +569,15 @@ public class ProcessQueue {
         }
     }
 
-    private ListenableFuture<Void> redirectToDeadLetterQueue(final MessageExt messageExt, final int attempt) {
+    private ListenableFuture<Void> forwardToDeadLetterQueue(final MessageExt messageExt, final int attempt) {
         final SettableFuture<Void> future0 = SettableFuture.create();
 
-        final ListenableFuture<SendMessageToDeadLetterQueueResponse> future = redirectToDeadLetterQueue(messageExt);
+        final ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future = forwardToDeadLetterQueue(messageExt);
         final Endpoints endpoints = messageExt.getAckEndpoints();
         final String messageId = messageExt.getMsgId();
-        Futures.addCallback(future, new FutureCallback<SendMessageToDeadLetterQueueResponse>() {
+        Futures.addCallback(future, new FutureCallback<ForwardMessageToDeadLetterQueueResponse>() {
             @Override
-            public void onSuccess(SendMessageToDeadLetterQueueResponse response) {
+            public void onSuccess(ForwardMessageToDeadLetterQueueResponse response) {
                 final Status status = response.getCommon().getStatus();
                 final Code code = Code.forNumber(status.getCode());
                 if (Code.OK != code) {
@@ -611,7 +610,7 @@ public class ProcessQueue {
             scheduler.schedule(new Runnable() {
                 @Override
                 public void run() {
-                    redirectToDeadLetterQueue(messageExt, attempt);
+                    forwardToDeadLetterQueue(messageExt, attempt);
                 }
             }, REDIRECT_FIFO_MESSAGE_TO_DLQ_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
@@ -621,19 +620,20 @@ public class ProcessQueue {
         }
     }
 
-    private ListenableFuture<SendMessageToDeadLetterQueueResponse> redirectToDeadLetterQueue(
+    private ListenableFuture<ForwardMessageToDeadLetterQueueResponse> forwardToDeadLetterQueue(
             final MessageExt messageExt) {
-        ListenableFuture<SendMessageToDeadLetterQueueResponse> future;
+        ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future;
         final Endpoints endpoints = messageExt.getAckEndpoints();
         try {
-            final SendMessageToDeadLetterQueueRequest request = wrapSendMessageToDeadLetterQueueRequest(messageExt);
+            final ForwardMessageToDeadLetterQueueRequest request =
+                    wrapForwardMessageToDeadLetterQueueRequest(messageExt);
             final Metadata metadata = consumerImpl.sign();
             final ClientInstance clientInstance = consumerImpl.getClientInstance();
             final long ioTimeoutMillis = consumerImpl.getIoTimeoutMillis();
-            future = clientInstance.sendMessageToDeadLetterQueue(endpoints, metadata, request, ioTimeoutMillis,
+            future = clientInstance.forwardMessageToDeadLetterQueue(endpoints, metadata, request, ioTimeoutMillis,
                                                                  TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
-            final SettableFuture<SendMessageToDeadLetterQueueResponse> future0 = SettableFuture.create();
+            final SettableFuture<ForwardMessageToDeadLetterQueueResponse> future0 = SettableFuture.create();
             future0.setException(t);
             future = future0;
         }
@@ -776,7 +776,7 @@ public class ProcessQueue {
         return builder.build();
     }
 
-    private SendMessageToDeadLetterQueueRequest wrapSendMessageToDeadLetterQueueRequest(MessageExt messageExt) {
+    private ForwardMessageToDeadLetterQueueRequest wrapForwardMessageToDeadLetterQueueRequest(MessageExt messageExt) {
         // Group
         final Resource groupResource = Resource.newBuilder()
                                                .setArn(this.getArn())
@@ -789,7 +789,7 @@ public class ProcessQueue {
                                                .setName(messageExt.getTopic())
                                                .build();
 
-        return SendMessageToDeadLetterQueueRequest.newBuilder()
+        return ForwardMessageToDeadLetterQueueRequest.newBuilder()
                                                   .setGroup(groupResource)
                                                   .setTopic(topicResource)
                                                   .setClientId(this.getClientId())

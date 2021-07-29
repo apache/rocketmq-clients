@@ -3,8 +3,8 @@
 
 package apache.rocketmq.v1;
 
-public interface SendMessageToDeadLetterQueueResponseOrBuilder extends
-    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.SendMessageToDeadLetterQueueResponse)
+public interface ForwardMessageToDeadLetterQueueResponseOrBuilder extends
+    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse)
     com.google.protobuf.MessageOrBuilder {
 
   /**
