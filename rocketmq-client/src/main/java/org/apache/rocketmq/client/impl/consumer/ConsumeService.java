@@ -1,13 +1,22 @@
 package org.apache.rocketmq.client.impl.consumer;
 
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ServiceState;
+import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListener;
+import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 
 @Slf4j
@@ -75,6 +84,34 @@ public abstract class ConsumeService {
     }
 
     public abstract void dispatch0();
+
+    public ListenableFuture<ConsumeStatus> consume(MessageExt messageExt) {
+        final List<MessageExt> messageExtList = new ArrayList<MessageExt>();
+        messageExtList.add(messageExt);
+        return consume(messageExtList);
+    }
+
+    public ListenableFuture<ConsumeStatus> consume(MessageExt messageExt, long delay, TimeUnit timeUnit) {
+        final List<MessageExt> messageExtList = new ArrayList<MessageExt>();
+        messageExtList.add(messageExt);
+        return consume(messageExtList, delay, timeUnit);
+    }
+
+    public ListenableFuture<ConsumeStatus> consume(List<MessageExt> messageExtList) {
+        return consume(messageExtList, 0, TimeUnit.MILLISECONDS);
+    }
+
+    public ListenableFuture<ConsumeStatus> consume(List<MessageExt> messageExtList, long delay, TimeUnit timeUnit) {
+        final ThreadPoolExecutor consumeExecutor = consumerImpl.getConsumeExecutor();
+        final ListeningExecutorService executorService = MoreExecutors.listeningDecorator(consumeExecutor);
+        final ConsumeTask task = new ConsumeTask(consumerImpl, messageExtList);
+        if (delay <= 0) {
+            return executorService.submit(task);
+        }
+        final ScheduledExecutorService scheduler = consumerImpl.getScheduler();
+        final ListeningScheduledExecutorService schedulerService = MoreExecutors.listeningDecorator(scheduler);
+        return schedulerService.schedule(task, delay, timeUnit);
+    }
 
     public void dispatch() {
         synchronized (dispatcherConditionVariable) {

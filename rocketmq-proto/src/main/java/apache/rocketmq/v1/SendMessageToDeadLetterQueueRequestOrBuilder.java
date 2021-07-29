@@ -74,10 +74,10 @@ public interface SendMessageToDeadLetterQueueRequestOrBuilder extends
       getMessageIdBytes();
 
   /**
-   * <code>int32 reconsume_times = 6;</code>
-   * @return The reconsumeTimes.
+   * <code>int32 delivery_attempt = 6;</code>
+   * @return The deliveryAttempt.
    */
-  int getReconsumeTimes();
+  int getDeliveryAttempt();
 
   /**
    * <code>int32 max_delivery_attempts = 7;</code>

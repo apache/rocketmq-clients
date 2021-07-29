@@ -1,13 +1,16 @@
 package org.apache.rocketmq.client.impl.consumer;
 
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.RateLimiter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ThreadPoolExecutor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListener;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
@@ -79,13 +82,33 @@ public class ConsumeConcurrentlyService extends ConsumeService {
         if (actualBatchSize <= 0) {
             return;
         }
-        final ThreadPoolExecutor consumeExecutor = consumerImpl.getConsumeExecutor();
-        final ConsumeConcurrentlyTask task = new ConsumeConcurrentlyTask(consumerImpl, messageExtListTable);
-        try {
-            consumeExecutor.submit(task);
-        } catch (Throwable t) {
-            // should never reach here.
-            log.error("[Bug] Failed to submit task to consumption thread pool, which may cause congestion.", t);
+
+        List<MessageExt> messageExtList = new ArrayList<MessageExt>();
+        for (List<MessageExt> list : messageExtListTable.values()) {
+            messageExtList.addAll(list);
         }
+
+        final ListenableFuture<ConsumeStatus> future = consume(messageExtList);
+        Futures.addCallback(future, new FutureCallback<ConsumeStatus>() {
+            @Override
+            public void onSuccess(ConsumeStatus status) {
+                for (Map.Entry<MessageQueue, List<MessageExt>> entry : messageExtListTable.entrySet()) {
+                    final MessageQueue mq = entry.getKey();
+                    final List<MessageExt> messageExtList = entry.getValue();
+                    final ProcessQueue pq = consumerImpl.processQueue(mq);
+                    if (null == pq) {
+                        continue;
+                    }
+                    pq.eraseMessages(messageExtList, status);
+                }
+                ConsumeConcurrentlyService.this.dispatch();
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                log.error("[Bug] Exception raised in consumption callback.", t);
+                ConsumeConcurrentlyService.this.dispatch();
+            }
+        });
     }
 }

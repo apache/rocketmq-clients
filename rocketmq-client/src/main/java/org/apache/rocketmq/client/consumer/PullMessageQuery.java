@@ -3,7 +3,6 @@ package org.apache.rocketmq.client.consumer;
 import lombok.Getter;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.message.MessageQueue;
-import org.apache.rocketmq.client.misc.MixAll;
 
 @Getter
 public class PullMessageQuery {
@@ -36,16 +35,6 @@ public class PullMessageQuery {
         this.batchSize = batchSize;
         this.awaitTimeMillis = awaitTimeMillis;
         this.timeoutMillis = timeoutMillis;
-    }
-
-    // TODO: compare awaitTimeMillis and timeoutMillis here.
-    public PullMessageQuery(MessageQueue messageQueue, long queueOffset, int batchSize) {
-        this.messageQueue = messageQueue;
-        this.filterExpression = new FilterExpression();
-        this.queueOffset = queueOffset;
-        this.batchSize = batchSize;
-        this.awaitTimeMillis = MixAll.DEFAULT_POLL_TIME_MILLIS;
-        this.timeoutMillis = PULL_MESSAGE_TIMEOUT_MILLIS;
     }
 
     // TODO: compare awaitTimeMillis and timeoutMillis here.

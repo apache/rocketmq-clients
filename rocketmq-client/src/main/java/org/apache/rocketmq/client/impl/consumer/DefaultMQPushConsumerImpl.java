@@ -49,7 +49,6 @@ import org.apache.rocketmq.client.constant.Permission;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.MessageModel;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
-import org.apache.rocketmq.client.consumer.listener.ConsumeContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListener;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
@@ -94,6 +93,10 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     @Setter
     @Getter
+    private long fifoConsumptionSuspendTimeMillis = 1000L;
+
+    @Setter
+    @Getter
     private int consumeMessageBatchMaxSize = 1;
 
     @Setter
@@ -107,11 +110,6 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     @Getter
     @Setter
     private int consumeThreadMax = 64;
-
-    @Getter
-    @Setter
-    // Only for order message.
-    private long suspendCurrentQueueTimeMillis = 1000;
 
     @Getter
     private volatile ConsumeService consumeService;
@@ -134,6 +132,10 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     @Getter
     private final ThreadPoolExecutor consumeExecutor;
+
+    @Setter
+    @Getter
+    private long consumptionTimeoutMillis = 15 * 60 * 1000L;
 
     public DefaultMQPushConsumerImpl(String group) {
         super(group);
@@ -365,7 +367,11 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                 log.info("Start to receive message from message queue according to the latest assignments, mq={}",
                          messageQueue);
                 final ProcessQueue processQueue = processQueue(messageQueue, filterExpression);
-                processQueue.receiveMessageImmediately();
+                if (MessageModel.CLUSTERING.equals(messageModel)) {
+                    processQueue.receiveMessageImmediately();
+                } else {
+                    processQueue.pullMessageImmediately();
+                }
             }
         }
     }
@@ -567,31 +573,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
             return future;
         }
         final MessageExt messageExt = new MessageExt(messageImpl);
-        try {
-            consumeExecutor.submit(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        final ArrayList<MessageExt> messageList = new ArrayList<MessageExt>();
-                        messageList.add(messageExt);
-                        final MessageQueue messageQueue = new MessageQueue(partition);
-                        final ConsumeContext context = new ConsumeContext();
-                        // Listener here may not registered.
-                        final ConsumeStatus status = messageListener.consume(messageList, context);
-                        future.set(status);
-                    } catch (Throwable t) {
-                        log.error("Exception raised while verification of message consumption, topic={}, "
-                                  + "messageId={}", messageExt.getTopic(), messageExt.getMsgId());
-                        future.setException(t);
-                    }
-                }
-            });
-        } catch (Throwable t) {
-            log.error("Failed to submit task for verification of message consumption, topic={}, messageId={}",
-                      messageExt.getTopic(), messageExt.getMsgId());
-            future.setException(t);
-        }
-        return future;
+        return consumeService.consume(messageExt);
     }
 
     @Override

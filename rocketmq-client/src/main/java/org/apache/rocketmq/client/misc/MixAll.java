@@ -6,10 +6,6 @@ public class MixAll {
 
     public static final long MASTER_BROKER_ID = 0;
 
-    public static final long DEFAULT_INVISIBLE_TIME_MILLIS = 30 * 1000L;
-    public static final long DEFAULT_POLL_TIME_MILLIS = 10 * 1000L;
-    public static final int DEFAULT_MAX_MESSAGE_NUMBER_PRE_BATCH = 32;
-
     private MixAll() {
     }
 }

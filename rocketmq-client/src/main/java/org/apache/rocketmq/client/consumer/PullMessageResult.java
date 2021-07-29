@@ -5,19 +5,19 @@ import lombok.Getter;
 import org.apache.rocketmq.client.message.MessageExt;
 
 @Getter
-public class PullResult {
+public class PullMessageResult {
     private final PullStatus pullStatus;
     private final long nextBeginOffset;
     private final long minOffset;
     private final long maxOffset;
-    private final List<MessageExt> msgFoundList;
+    private final List<MessageExt> messagesFound;
 
-    public PullResult(PullStatus pullStatus, long nextBeginOffset, long minOffset, long maxOffset,
-                      List<MessageExt> msgFoundList) {
+    public PullMessageResult(PullStatus pullStatus, long nextBeginOffset, long minOffset, long maxOffset,
+                             List<MessageExt> messagesFound) {
         this.pullStatus = pullStatus;
         this.nextBeginOffset = nextBeginOffset;
         this.minOffset = minOffset;
         this.maxOffset = maxOffset;
-        this.msgFoundList = msgFoundList;
+        this.messagesFound = messagesFound;
     }
 }

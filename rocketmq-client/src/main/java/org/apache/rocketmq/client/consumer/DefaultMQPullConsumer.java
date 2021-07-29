@@ -42,7 +42,7 @@ public class DefaultMQPullConsumer {
         return this.impl.queryOffset(offsetQuery);
     }
 
-    public ListenableFuture<PullResult> pull(PullMessageQuery pullMessageQuery) {
+    public ListenableFuture<PullMessageResult> pull(PullMessageQuery pullMessageQuery) {
         return this.impl.pull(pullMessageQuery);
     }
 

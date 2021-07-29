@@ -97,7 +97,7 @@ private static final long serialVersionUID = 0L;
           }
           case 48: {
 
-            reconsumeTimes_ = input.readInt32();
+            deliveryAttempt_ = input.readInt32();
             break;
           }
           case 56: {
@@ -303,15 +303,15 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int RECONSUME_TIMES_FIELD_NUMBER = 6;
-  private int reconsumeTimes_;
+  public static final int DELIVERY_ATTEMPT_FIELD_NUMBER = 6;
+  private int deliveryAttempt_;
   /**
-   * <code>int32 reconsume_times = 6;</code>
-   * @return The reconsumeTimes.
+   * <code>int32 delivery_attempt = 6;</code>
+   * @return The deliveryAttempt.
    */
   @java.lang.Override
-  public int getReconsumeTimes() {
-    return reconsumeTimes_;
+  public int getDeliveryAttempt() {
+    return deliveryAttempt_;
   }
 
   public static final int MAX_DELIVERY_ATTEMPTS_FIELD_NUMBER = 7;
@@ -354,8 +354,8 @@ private static final long serialVersionUID = 0L;
     if (!getMessageIdBytes().isEmpty()) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 5, messageId_);
     }
-    if (reconsumeTimes_ != 0) {
-      output.writeInt32(6, reconsumeTimes_);
+    if (deliveryAttempt_ != 0) {
+      output.writeInt32(6, deliveryAttempt_);
     }
     if (maxDeliveryAttempts_ != 0) {
       output.writeInt32(7, maxDeliveryAttempts_);
@@ -386,9 +386,9 @@ private static final long serialVersionUID = 0L;
     if (!getMessageIdBytes().isEmpty()) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, messageId_);
     }
-    if (reconsumeTimes_ != 0) {
+    if (deliveryAttempt_ != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(6, reconsumeTimes_);
+        .computeInt32Size(6, deliveryAttempt_);
     }
     if (maxDeliveryAttempts_ != 0) {
       size += com.google.protobuf.CodedOutputStream
@@ -425,8 +425,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getReceiptHandle())) return false;
     if (!getMessageId()
         .equals(other.getMessageId())) return false;
-    if (getReconsumeTimes()
-        != other.getReconsumeTimes()) return false;
+    if (getDeliveryAttempt()
+        != other.getDeliveryAttempt()) return false;
     if (getMaxDeliveryAttempts()
         != other.getMaxDeliveryAttempts()) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
@@ -454,8 +454,8 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getReceiptHandle().hashCode();
     hash = (37 * hash) + MESSAGE_ID_FIELD_NUMBER;
     hash = (53 * hash) + getMessageId().hashCode();
-    hash = (37 * hash) + RECONSUME_TIMES_FIELD_NUMBER;
-    hash = (53 * hash) + getReconsumeTimes();
+    hash = (37 * hash) + DELIVERY_ATTEMPT_FIELD_NUMBER;
+    hash = (53 * hash) + getDeliveryAttempt();
     hash = (37 * hash) + MAX_DELIVERY_ATTEMPTS_FIELD_NUMBER;
     hash = (53 * hash) + getMaxDeliveryAttempts();
     hash = (29 * hash) + unknownFields.hashCode();
@@ -609,7 +609,7 @@ private static final long serialVersionUID = 0L;
 
       messageId_ = "";
 
-      reconsumeTimes_ = 0;
+      deliveryAttempt_ = 0;
 
       maxDeliveryAttempts_ = 0;
 
@@ -652,7 +652,7 @@ private static final long serialVersionUID = 0L;
       result.clientId_ = clientId_;
       result.receiptHandle_ = receiptHandle_;
       result.messageId_ = messageId_;
-      result.reconsumeTimes_ = reconsumeTimes_;
+      result.deliveryAttempt_ = deliveryAttempt_;
       result.maxDeliveryAttempts_ = maxDeliveryAttempts_;
       onBuilt();
       return result;
@@ -720,8 +720,8 @@ private static final long serialVersionUID = 0L;
         messageId_ = other.messageId_;
         onChanged();
       }
-      if (other.getReconsumeTimes() != 0) {
-        setReconsumeTimes(other.getReconsumeTimes());
+      if (other.getDeliveryAttempt() != 0) {
+        setDeliveryAttempt(other.getDeliveryAttempt());
       }
       if (other.getMaxDeliveryAttempts() != 0) {
         setMaxDeliveryAttempts(other.getMaxDeliveryAttempts());
@@ -1221,33 +1221,33 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int reconsumeTimes_ ;
+    private int deliveryAttempt_ ;
     /**
-     * <code>int32 reconsume_times = 6;</code>
-     * @return The reconsumeTimes.
+     * <code>int32 delivery_attempt = 6;</code>
+     * @return The deliveryAttempt.
      */
     @java.lang.Override
-    public int getReconsumeTimes() {
-      return reconsumeTimes_;
+    public int getDeliveryAttempt() {
+      return deliveryAttempt_;
     }
     /**
-     * <code>int32 reconsume_times = 6;</code>
-     * @param value The reconsumeTimes to set.
+     * <code>int32 delivery_attempt = 6;</code>
+     * @param value The deliveryAttempt to set.
      * @return This builder for chaining.
      */
-    public Builder setReconsumeTimes(int value) {
+    public Builder setDeliveryAttempt(int value) {
       
-      reconsumeTimes_ = value;
+      deliveryAttempt_ = value;
       onChanged();
       return this;
     }
     /**
-     * <code>int32 reconsume_times = 6;</code>
+     * <code>int32 delivery_attempt = 6;</code>
      * @return This builder for chaining.
      */
-    public Builder clearReconsumeTimes() {
+    public Builder clearDeliveryAttempt() {
       
-      reconsumeTimes_ = 0;
+      deliveryAttempt_ = 0;
       onChanged();
       return this;
     }
