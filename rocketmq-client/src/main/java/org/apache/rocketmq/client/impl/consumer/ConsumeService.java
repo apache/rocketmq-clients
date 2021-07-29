@@ -102,8 +102,8 @@ public abstract class ConsumeService {
     }
 
     public ListenableFuture<ConsumeStatus> consume(List<MessageExt> messageExtList, long delay, TimeUnit timeUnit) {
-        final ThreadPoolExecutor consumeExecutor = consumerImpl.getConsumeExecutor();
-        final ListeningExecutorService executorService = MoreExecutors.listeningDecorator(consumeExecutor);
+        final ThreadPoolExecutor consumptionExecutor = consumerImpl.getConsumptionExecutor();
+        final ListeningExecutorService executorService = MoreExecutors.listeningDecorator(consumptionExecutor);
         final ConsumeTask task = new ConsumeTask(consumerImpl, messageExtList);
         if (delay <= 0) {
             return executorService.submit(task);

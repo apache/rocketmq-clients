@@ -1,7 +1,5 @@
 package org.apache.rocketmq.client.impl;
 
-import apache.rocketmq.v1.HeartbeatEntry;
-
 public interface ClientObserver {
     String getClientId();
 
@@ -10,6 +8,4 @@ public interface ClientObserver {
     void doHealthCheck();
 
     void doStats();
-
-    HeartbeatEntry prepareHeartbeatData();
 }

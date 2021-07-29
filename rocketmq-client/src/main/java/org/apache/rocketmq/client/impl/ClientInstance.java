@@ -34,7 +34,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -69,14 +68,6 @@ public class ClientInstance {
     private final ThreadPoolExecutor asyncExecutor;
 
     private final AtomicReference<ServiceState> state;
-
-    private volatile ScheduledFuture<?> healthCheckFuture;
-
-    private volatile ScheduledFuture<?> cleanIdleRpcClientsFuture;
-
-    private volatile ScheduledFuture<?> heartbeatFuture;
-
-    private volatile ScheduledFuture<?> logStatsFuture;
 
     public ClientInstance(String id) {
         this.id = id;
@@ -169,14 +160,14 @@ public class ClientInstance {
                 log.warn("The client instance has been started before.");
                 return;
             }
-            healthCheckFuture = scheduler.scheduleWithFixedDelay(
+            scheduler.scheduleWithFixedDelay(
                     new Runnable() {
                         @Override
                         public void run() {
                             try {
                                 doHealthCheck();
                             } catch (Throwable t) {
-                                log.error("Exception occurs while health check.", t);
+                                log.error("Exception raised while health check.", t);
                             }
                         }
                     },
@@ -185,14 +176,14 @@ public class ClientInstance {
                     TimeUnit.SECONDS
             );
 
-            cleanIdleRpcClientsFuture = scheduler.scheduleWithFixedDelay(
+            scheduler.scheduleWithFixedDelay(
                     new Runnable() {
                         @Override
                         public void run() {
                             try {
                                 clearIdleRpcClients();
                             } catch (Throwable t) {
-                                log.error("Exception occurs while clear idle rpc clients.", t);
+                                log.error("Exception raised while clear idle rpc clients.", t);
                             }
                         }
                     },
@@ -200,14 +191,14 @@ public class ClientInstance {
                     60,
                     TimeUnit.SECONDS);
 
-            heartbeatFuture = scheduler.scheduleWithFixedDelay(
+            scheduler.scheduleWithFixedDelay(
                     new Runnable() {
                         @Override
                         public void run() {
                             try {
                                 doHeartbeat();
                             } catch (Throwable t) {
-                                log.error("Exception occurs while heartbeat.", t);
+                                log.error("Exception raised while heartbeat.", t);
                             }
                         }
                     },
@@ -216,14 +207,14 @@ public class ClientInstance {
                     TimeUnit.SECONDS
             );
 
-            logStatsFuture = scheduler.scheduleWithFixedDelay(
+            scheduler.scheduleWithFixedDelay(
                     new Runnable() {
                         @Override
                         public void run() {
                             try {
                                 doLogStats();
                             } catch (Throwable t) {
-                                log.error("Exception occurs while log stats", t);
+                                log.error("Exception raised while log stats", t);
                             }
                         }
                     },
@@ -244,18 +235,6 @@ public class ClientInstance {
                 return;
             }
             ClientManager.getInstance().removeClientInstance(id);
-            if (null != healthCheckFuture) {
-                heartbeatFuture.cancel(false);
-            }
-            if (null != cleanIdleRpcClientsFuture) {
-                cleanIdleRpcClientsFuture.cancel(false);
-            }
-            if (null != heartbeatFuture) {
-                heartbeatFuture.cancel(false);
-            }
-            if (null != logStatsFuture) {
-                logStatsFuture.cancel(false);
-            }
             scheduler.shutdown();
             asyncExecutor.shutdown();
             state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);

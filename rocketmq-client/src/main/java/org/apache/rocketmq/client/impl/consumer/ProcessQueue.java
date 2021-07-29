@@ -31,6 +31,7 @@ import com.google.rpc.Status;
 import io.grpc.Metadata;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeSet;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -80,6 +81,7 @@ public class ProcessQueue {
     @Setter
     @Getter
     private volatile boolean dropped;
+
     @Getter
     private final MessageQueue mq;
     private final FilterExpression filterExpression;
@@ -98,8 +100,12 @@ public class ProcessQueue {
     private final AtomicLong messagesBodySize;
     private final AtomicBoolean fifoConsumptionOccupied;
 
-    private volatile long activityNanoTime;
-    private volatile long throttleNanoTime;
+    @GuardedBy("offsetsLock")
+    private final TreeSet<OffsetRecord> offsets;
+    private final ReentrantReadWriteLock offsetsLock;
+
+    private volatile long activityNanoTime = System.nanoTime();
+    private volatile long throttleNanoTime = System.nanoTime();
 
     public ProcessQueue(
             DefaultMQPushConsumerImpl consumerImpl,
@@ -119,8 +125,8 @@ public class ProcessQueue {
         this.messagesBodySize = new AtomicLong(0L);
         this.fifoConsumptionOccupied = new AtomicBoolean(false);
 
-        this.activityNanoTime = System.nanoTime();
-        this.throttleNanoTime = System.nanoTime();
+        this.offsets = new TreeSet<OffsetRecord>();
+        this.offsetsLock = new ReentrantReadWriteLock();
     }
 
     public boolean fifoConsumptionInbound() {
@@ -139,6 +145,20 @@ public class ProcessQueue {
             for (MessageExt message : messageList) {
                 cachedMessages.add(message);
                 messagesBodySize.addAndGet(null == message.getBody() ? 0 : message.getBody().length);
+                if (MessageModel.BROADCASTING.equals(consumerImpl.getMessageModel())) {
+                    offsetsLock.writeLock().lock();
+                    try {
+                        if (1 == offsets.size()) {
+                            final OffsetRecord offsetRecord = offsets.iterator().next();
+                            if (offsetRecord.isRelease()) {
+                                offsets.remove(offsetRecord);
+                            }
+                        }
+                        offsets.add(new OffsetRecord(message.getQueueOffset()));
+                    } finally {
+                        offsetsLock.writeLock().unlock();
+                    }
+                }
             }
         } finally {
             cachedMessagesLock.writeLock().unlock();
@@ -209,25 +229,25 @@ public class ProcessQueue {
     public void eraseFifoMessage(final MessageExt messageExt, ConsumeStatus status) {
         statsMessageConsumptionStatus(status);
 
-        final boolean needReConsumption;
+        final boolean needMoreAttempt;
         ListenableFuture<?> future;
         final MessageModel messageModel = consumerImpl.getMessageModel();
         if (MessageModel.BROADCASTING.equals(messageModel)) {
-            needReConsumption = false;
+            needMoreAttempt = false;
 
             SettableFuture<Void> future0 = SettableFuture.create();
             future0.set(null);
 
             future = future0;
         } else if (ConsumeStatus.OK == status) {
-            needReConsumption = false;
+            needMoreAttempt = false;
             future = ackFifoMessage(messageExt);
         } else if (consumerImpl.getMaxDeliveryAttempts() >= messageExt.getDeliveryAttempt()) {
-            needReConsumption = false;
+            needMoreAttempt = false;
             future = forwardToDeadLetterQueue(messageExt, 1);
         } else {
-            // deliver attempts do not exceed the threshold.
-            needReConsumption = true;
+            // deliver attempt do not exceed the threshold.
+            needMoreAttempt = true;
 
             final MessageImpl messageImpl = MessageAccessor.getMessageImpl(messageExt);
             final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
@@ -245,7 +265,7 @@ public class ProcessQueue {
             @Override
             public void run() {
                 eraseMessage(messageExt);
-                if (!needReConsumption) {
+                if (!needMoreAttempt) {
                     fifoConsumptionOutbound();
                 }
             }
@@ -306,6 +326,8 @@ public class ProcessQueue {
                     consumerImpl.receivedMessagesSize.getAndAdd(messagesFound.size());
                     consumerImpl.getConsumeService().dispatch();
                 }
+                log.debug("Receive message with OK, mq={}, endpoints={}, messages found count={}", mq,
+                          endpoints, messagesFound.size());
                 receiveMessage();
                 break;
             // fall through on purpose.
@@ -315,9 +337,9 @@ public class ProcessQueue {
             case DATA_CORRUPTED:
             case INTERNAL:
             default:
-                log.debug("Receive message with status={}, mq={}, endpoints={}, messages found count={}", receiveStatus,
+                log.error("Receive message with status={}, mq={}, endpoints={}, messages found count={}", receiveStatus,
                           mq, endpoints, messagesFound.size());
-                receiveMessage();
+                receiveMessageLater();
         }
     }
 
@@ -332,6 +354,7 @@ public class ProcessQueue {
                     consumerImpl.pulledMessagesSize.getAndAdd(messagesFound.size());
                     consumerImpl.getConsumeService().dispatch();
                 }
+                log.debug("Pull message with OK, mq={}, messages found count={}", mq, messagesFound.size());
                 pullMessage();
                 break;
             // fall through on purpose.
@@ -343,7 +366,7 @@ public class ProcessQueue {
             default:
                 log.debug("Pull message with status={}, mq={}, messages found status={}", pullStatus, mq,
                           messagesFound.size());
-                pullMessage();
+                pullMessageLater();
         }
     }
 
@@ -416,6 +439,8 @@ public class ProcessQueue {
             PullMessageQuery pullMessageQuery = new PullMessageQuery(mq, filterExpression, PULL_MAX_BATCH_SIZE,
                                                                      PULL_MAX_BATCH_SIZE, PULL_AWAIT_TIME_MILLIS,
                                                                      PULL_LONG_POLLING_TIMEOUT_MILLIS);
+
+            activityNanoTime = System.nanoTime();
             final ListenableFuture<PullMessageResult> future = consumerImpl.pull(pullMessageQuery);
             Futures.addCallback(future, new FutureCallback<PullMessageResult>() {
                 @Override
@@ -482,7 +507,6 @@ public class ProcessQueue {
 
             activityNanoTime = System.nanoTime();
             final Metadata metadata = consumerImpl.sign();
-
             final ListenableFuture<ReceiveMessageResponse> future0 = clientInstance.receiveMessage(
                     endpoints, metadata, request, RECEIVE_LONG_POLLING_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
@@ -583,9 +607,10 @@ public class ProcessQueue {
                 if (Code.OK != code) {
                     log.error("Failed to redirect message to DLQ, attempt={}, messageId={}, endpoints={}, code={}, "
                               + "status message={}", attempt, messageId, endpoints, code, status.getMessage());
-                    redirectToDeadLetterQueueLater(messageExt, 1 + attempt);
+                    forwardToDeadLetterQueueLater(messageExt, 1 + attempt);
                     return;
                 }
+                // mark as end.
                 future0.set(null);
             }
 
@@ -593,13 +618,13 @@ public class ProcessQueue {
             public void onFailure(Throwable t) {
                 log.error("Exception raised while message redirection to DLQ, attempt={}, messageId={}, endpoints={}",
                           attempt, messageId, endpoints, t);
-                redirectToDeadLetterQueueLater(messageExt, 1 + attempt);
+                forwardToDeadLetterQueueLater(messageExt, 1 + attempt);
             }
         });
         return future0;
     }
 
-    private void redirectToDeadLetterQueueLater(final MessageExt messageExt, final int attempt) {
+    private void forwardToDeadLetterQueueLater(final MessageExt messageExt, final int attempt) {
         if (dropped) {
             log.info("Process queue was dropped, give up to redirect message to DLQ, mq={}, messageId={}", mq,
                      messageExt.getMsgId());
@@ -616,7 +641,7 @@ public class ProcessQueue {
         } catch (Throwable t) {
             // should never reach here.
             log.error("[Bug] Failed to schedule DLQ message request.");
-            redirectToDeadLetterQueueLater(messageExt, 1 + attempt);
+            forwardToDeadLetterQueueLater(messageExt, 1 + attempt);
         }
     }
 
@@ -655,7 +680,6 @@ public class ProcessQueue {
             final long ioTimeoutMillis = consumerImpl.getIoTimeoutMillis();
             future = clientInstance.ackMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
-            log.error("Failed to ACK, attempt={}, messageId={}, endpoints={}", attempt, messageId, endpoints, t);
             final SettableFuture<AckMessageResponse> future0 = SettableFuture.create();
             future0.setException(t);
             future = future0;
@@ -713,16 +737,14 @@ public class ProcessQueue {
     }
 
     private ReceiveMessageRequest wrapReceiveMessageRequest() {
-        final Resource groupResource =
-                Resource.newBuilder()
-                        .setArn(this.getArn())
-                        .setName(this.getGroup())
-                        .build();
+        final Resource groupResource = Resource.newBuilder()
+                                               .setArn(this.getArn())
+                                               .setName(this.getGroup())
+                                               .build();
 
-        final Resource topicResource =
-                Resource.newBuilder()
-                        .setArn(this.getArn())
-                        .setName(mq.getTopic()).build();
+        final Resource topicResource = Resource.newBuilder()
+                                               .setArn(this.getArn())
+                                               .setName(mq.getTopic()).build();
 
         final Broker broker = Broker.newBuilder().setName(mq.getBrokerName()).build();
 
@@ -756,8 +778,9 @@ public class ProcessQueue {
 
         apache.rocketmq.v1.FilterExpression.Builder expressionBuilder =
                 apache.rocketmq.v1.FilterExpression.newBuilder();
-        expressionBuilder.setExpression(filterExpression.getExpression());
 
+        final String expression = filterExpression.getExpression();
+        expressionBuilder.setExpression(expression);
         switch (expressionType) {
             case SQL92:
                 expressionBuilder.setType(FilterType.SQL);
@@ -766,10 +789,7 @@ public class ProcessQueue {
                 expressionBuilder.setType(FilterType.TAG);
                 break;
             default:
-                log.error(
-                        "Unknown filter expression type={}, expression string={}",
-                        expressionType,
-                        filterExpression.getExpression());
+                log.error("Unknown filter expression type={}, expression string={}", expressionType, expression);
         }
 
         builder.setFilterExpression(expressionBuilder.build());
@@ -934,10 +954,6 @@ public class ProcessQueue {
             return;
         }
         consumerImpl.consumptionErrorCount.addAndGet(messageSize);
-    }
-
-    public long getMessagesBodySize() {
-        return messagesBodySize.get();
     }
 
     private String getArn() {

@@ -41,6 +41,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -69,6 +70,8 @@ import org.apache.rocketmq.utility.ThreadFactoryImpl;
 
 
 @Slf4j
+@Getter
+@Setter
 public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     // for cluster consumption mode.
@@ -82,60 +85,51 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     public final AtomicLong consumptionOkCount;
     public final AtomicLong consumptionErrorCount;
 
-    private final ConcurrentMap<String /* topic */, FilterExpression> filterExpressionTable;
-    private final ConcurrentMap<String /* topic */, TopicAssignment> cachedTopicAssignmentTable;
-
+    @Setter(AccessLevel.NONE)
     private MessageListener messageListener;
-    private final ConcurrentMap<String/* topic */, RateLimiter> rateLimiterTable;
 
-    private final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable;
-    private volatile ScheduledFuture<?> scanAssignmentsFuture;
-
-    @Setter
-    @Getter
-    private long fifoConsumptionSuspendTimeMillis = 1000L;
-
-    @Setter
-    @Getter
-    private int consumeMessageBatchMaxSize = 1;
-
-    @Setter
-    @Getter
-    private long maxBatchConsumeWaitTimeMillis = 0;
-
-    @Getter
-    @Setter
-    private int consumeThreadMin = 20;
-
-    @Getter
-    @Setter
-    private int consumeThreadMax = 64;
-
-    @Getter
+    @Setter(AccessLevel.NONE)
     private volatile ConsumeService consumeService;
 
-    @Getter
-    @Setter
+    @Setter(AccessLevel.NONE)
+    private final ThreadPoolExecutor consumptionExecutor;
+
+    @Getter(AccessLevel.NONE)
+    private final ConcurrentMap<String /* topic */, FilterExpression> filterExpressionTable;
+
+    @Getter(AccessLevel.NONE)
+    private final ConcurrentMap<String /* topic */, TopicAssignment> cachedTopicAssignmentTable;
+
+    @Getter(AccessLevel.NONE)
+    private final ConcurrentMap<String/* topic */, RateLimiter> rateLimiterTable;
+
+    @Getter(AccessLevel.NONE)
+    private final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable;
+
+    @Getter(AccessLevel.NONE)
+    private volatile ScheduledFuture<?> scanAssignmentsFuture;
+
+    private long fifoConsumptionSuspendTimeMillis = 1000L;
+
+    private int consumeMessageBatchMaxSize = 1;
+
+    private long maxBatchConsumeWaitTimeMillis = 0;
+
+    private int consumptionThreadMin = 20;
+
+    private int consumptionThreadMax = 64;
+
     private int maxDeliveryAttempts = 17;
 
-    @Setter
-    @Getter
     private int maxReconsumeTimes = 16;
 
-    @Getter
-    @Setter
     private MessageModel messageModel = MessageModel.CLUSTERING;
 
-    @Getter
-    @Setter
     private ConsumeFromWhere consumeFromWhere = ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET;
 
-    @Getter
-    private final ThreadPoolExecutor consumeExecutor;
-
-    @Setter
-    @Getter
     private long consumptionTimeoutMillis = 15 * 60 * 1000L;
+
+    private OffsetStore offsetStore = null;
 
     public DefaultMQPushConsumerImpl(String group) {
         super(group);
@@ -158,13 +152,13 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         this.consumptionOkCount = new AtomicLong(0);
         this.consumptionErrorCount = new AtomicLong(0);
 
-        this.consumeExecutor = new ThreadPoolExecutor(
-                consumeThreadMin,
-                consumeThreadMax,
+        this.consumptionExecutor = new ThreadPoolExecutor(
+                consumptionThreadMin,
+                consumptionThreadMax,
                 60,
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<Runnable>(),
-                new ThreadFactoryImpl("ConsumeThread"));
+                new ThreadFactoryImpl("ConsumptionThread"));
     }
 
     private void generateConsumeService() throws ClientException {
@@ -178,6 +172,10 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
             default:
                 throw new ClientException(ErrorCode.NO_LISTENER_REGISTERED);
         }
+    }
+
+    public boolean hasCustomOffsetStore() {
+        return null != offsetStore;
     }
 
     @Override
@@ -222,7 +220,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                 if (null != consumeService) {
                     consumeService.shutdown();
                 }
-                consumeExecutor.shutdown();
+                consumptionExecutor.shutdown();
                 log.info("Shutdown the rocketmq push consumer successfully.");
             }
         }
@@ -230,14 +228,6 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     List<ProcessQueue> processQueueList() {
         return new ArrayList<ProcessQueue>(processQueueTable.values());
-    }
-
-    int messagesCachedSize() {
-        int size = 0;
-        for (ProcessQueue pq : processQueueTable.values()) {
-            size += pq.messagesCacheSize();
-        }
-        return size;
     }
 
     ProcessQueue processQueue(MessageQueue mq) {
@@ -256,7 +246,8 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     private QueryAssignmentRequest wrapQueryAssignmentRequest(String topic) {
         Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
         return QueryAssignmentRequest.newBuilder()
-                                     .setTopic(topicResource).setGroup(getGroupResource())
+                                     .setTopic(topicResource)
+                                     .setGroup(getGroupResource())
                                      .setClientId(clientId)
                                      .build();
     }
@@ -268,29 +259,27 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                 final String topic = entry.getKey();
                 final FilterExpression filterExpression = entry.getValue();
 
-                final TopicAssignment topicAssignment = cachedTopicAssignmentTable.get(topic);
+                final TopicAssignment local = cachedTopicAssignmentTable.get(topic);
 
                 final ListenableFuture<TopicAssignment> future = queryAssignment(topic);
                 Futures.addCallback(future, new FutureCallback<TopicAssignment>() {
                     @Override
-                    public void onSuccess(TopicAssignment remoteTopicAssignment) {
-                        // remoteTopicAssignmentInfo should never be null.
-                        if (remoteTopicAssignment.getAssignmentList().isEmpty()) {
-                            log.warn("Acquired empty assignment list from remote, topic={}", topic);
-                            if (null == topicAssignment || topicAssignment.getAssignmentList().isEmpty()) {
+                    public void onSuccess(TopicAssignment remote) {
+                        // remote assignments should never be null.
+                        if (remote.getAssignmentList().isEmpty()) {
+                            log.warn("Acquired empty assignments from remote, topic={}", topic);
+                            if (null == local || local.getAssignmentList().isEmpty()) {
                                 log.warn("No available assignments now, would scan later, topic={}", topic);
                                 return;
                             }
-                            log.warn("Acquired empty assignment list from remote, reuse the existing one, topic={}",
-                                     topic);
+                            log.warn("Acquired empty assignments from remote, reuse the existing one, topic={}", topic);
                             return;
                         }
 
-                        if (!remoteTopicAssignment.equals(topicAssignment)) {
-                            log.info("Assignment of topic={} has changed, {} -> {}", topic, topicAssignment,
-                                     remoteTopicAssignment);
-                            syncProcessQueueByTopic(topic, remoteTopicAssignment, filterExpression);
-                            cachedTopicAssignmentTable.put(topic, remoteTopicAssignment);
+                        if (!remote.equals(local)) {
+                            log.info("Assignments of topic={} has changed, {} -> {}", topic, local, remote);
+                            synchronizeProcessQueue(topic, remote, filterExpression);
+                            cachedTopicAssignmentTable.put(topic, remote);
                         }
                     }
 
@@ -317,13 +306,13 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
         final long consumptionOkCount = this.consumptionOkCount.getAndSet(0);
         final long consumptionErrorCount = this.consumptionErrorCount.getAndSet(0);
-        log.info(
-                "ConsumerGroup={}, receiveTimes={}, receivedMessagesSize={}, pullTimes={}, pulledMessagesSize={}, "
+
+        log.info("ConsumerGroup={}, receiveTimes={}, receivedMessagesSize={}, pullTimes={}, pulledMessagesSize={}, "
                 + "consumptionOkCount={}, consumptionErrorCount={}", group, receiveTimes, receivedMessagesSize,
                 pullTimes, pulledMessagesSize, consumptionOkCount, consumptionErrorCount);
     }
 
-    private void syncProcessQueueByTopic(
+    private void synchronizeProcessQueue(
             String topic, TopicAssignment topicAssignment, FilterExpression filterExpression) {
         Set<MessageQueue> latestMessageQueueSet = new HashSet<MessageQueue>();
 
@@ -530,6 +519,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                              .build();
     }
 
+    // TODO: polish code
     private Resource getGroupResource() {
         return Resource.newBuilder().setArn(arn).setName(group).build();
     }

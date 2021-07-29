@@ -75,7 +75,6 @@ public class ConsumeOrderlyService extends ConsumeService {
             }
 
             final ListenableFuture<ConsumeStatus> future = consume(messageExt);
-
             Futures.addCallback(future, new FutureCallback<ConsumeStatus>() {
                 @Override
                 public void onSuccess(ConsumeStatus status) {

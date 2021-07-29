@@ -489,6 +489,8 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         }
     }
 
+    public abstract HeartbeatEntry prepareHeartbeatData();
+
     @Override
     public void doHeartbeat() {
         final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();

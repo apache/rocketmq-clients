@@ -40,7 +40,6 @@ import org.apache.rocketmq.utility.ThreadFactoryImpl;
 @Slf4j
 public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
 
-
     private final ThreadPoolExecutor pullCallbackExecutor;
 
     public DefaultMQPullConsumerImpl(String group) {
@@ -137,7 +136,6 @@ public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
             }
         });
     }
-
 
 
     public void pull(PullMessageQuery pullMessageQuery, final PullCallback pullCallback) {
