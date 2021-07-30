@@ -244,7 +244,7 @@ public class ProcessQueue {
             future = ackFifoMessage(messageExt);
         } else if (consumerImpl.getMaxDeliveryAttempts() >= messageExt.getDeliveryAttempt()) {
             needMoreAttempt = false;
-            future = forwardToDeadLetterQueue(messageExt, 1);
+            future = forwardToDeadLetterQueue(messageExt);
         } else {
             // deliver attempt do not exceed the threshold.
             needMoreAttempt = true;
@@ -546,19 +546,19 @@ public class ProcessQueue {
     }
 
     private ListenableFuture<Void> ackFifoMessage(final MessageExt messageExt) {
-        return ackFifoMessage(messageExt, 1);
+        SettableFuture<Void> future0 = SettableFuture.create();
+        ackFifoMessage(messageExt, 1, future0);
+        return future0;
     }
 
-    private ListenableFuture<Void> ackFifoMessage(final MessageExt messageExt, final int attempt) {
-        final SettableFuture<Void> future0 = SettableFuture.create();
-
+    private void ackFifoMessage(final MessageExt messageExt, final int attempt, final SettableFuture<Void> future0) {
         final ListenableFuture<AckMessageResponse> future = ackMessage(messageExt, attempt);
         Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
             @Override
             public void onSuccess(AckMessageResponse response) {
                 final Code code = Code.forNumber(response.getCommon().getStatus().getCode());
                 if (Code.OK != code) {
-                    ackFifoMessageLater(messageExt, 1 + attempt);
+                    ackFifoMessageLater(messageExt, 1 + attempt, future0);
                     return;
                 }
                 future0.set(null);
@@ -566,13 +566,13 @@ public class ProcessQueue {
 
             @Override
             public void onFailure(Throwable t) {
-                ackFifoMessageLater(messageExt, 1 + attempt);
+                ackFifoMessageLater(messageExt, 1 + attempt, future0);
             }
         });
-        return future0;
     }
 
-    private void ackFifoMessageLater(final MessageExt messageExt, final int attempt) {
+    private void ackFifoMessageLater(final MessageExt messageExt, final int attempt,
+                                     final SettableFuture<Void> future0) {
         if (dropped) {
             log.info("Process queue was dropped, give up to ack message. mq={}, messageId={}", mq,
                      messageExt.getMsgId());
@@ -583,48 +583,46 @@ public class ProcessQueue {
             scheduler.schedule(new Runnable() {
                 @Override
                 public void run() {
-                    ackFifoMessage(messageExt, attempt);
+                    ackFifoMessage(messageExt, attempt, future0);
                 }
             }, ACK_FIFO_MESSAGE_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
             // should never reach here.
             log.error("[Bug] Failed to schedule ack message request.");
-            ackFifoMessageLater(messageExt, 1 + attempt);
+            ackFifoMessageLater(messageExt, 1 + attempt, future0);
         }
     }
 
-    private ListenableFuture<Void> forwardToDeadLetterQueue(final MessageExt messageExt, final int attempt) {
+    private ListenableFuture<Void> forwardToDeadLetterQueue(final MessageExt messageExt) {
         final SettableFuture<Void> future0 = SettableFuture.create();
+        forwardToDeadLetterQueue(messageExt, 1, future0);
+        return future0;
+    }
 
-        final ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future = forwardToDeadLetterQueue(messageExt);
-        final Endpoints endpoints = messageExt.getAckEndpoints();
-        final String messageId = messageExt.getMsgId();
+    private void forwardToDeadLetterQueue(final MessageExt messageExt, final int attempt,
+                                          final SettableFuture<Void> future0) {
+        final ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future =
+                forwardToDeadLetterQueue(messageExt, attempt);
         Futures.addCallback(future, new FutureCallback<ForwardMessageToDeadLetterQueueResponse>() {
             @Override
             public void onSuccess(ForwardMessageToDeadLetterQueueResponse response) {
-                final Status status = response.getCommon().getStatus();
-                final Code code = Code.forNumber(status.getCode());
+                final Code code = Code.forNumber(response.getCommon().getStatus().getCode());
                 if (Code.OK != code) {
-                    log.error("Failed to redirect message to DLQ, attempt={}, messageId={}, endpoints={}, code={}, "
-                              + "status message={}", attempt, messageId, endpoints, code, status.getMessage());
-                    forwardToDeadLetterQueueLater(messageExt, 1 + attempt);
+                    forwardToDeadLetterQueueLater(messageExt, 1 + attempt, future0);
                     return;
                 }
-                // mark as end.
                 future0.set(null);
             }
 
             @Override
             public void onFailure(Throwable t) {
-                log.error("Exception raised while message redirection to DLQ, attempt={}, messageId={}, endpoints={}",
-                          attempt, messageId, endpoints, t);
-                forwardToDeadLetterQueueLater(messageExt, 1 + attempt);
+                forwardToDeadLetterQueueLater(messageExt, 1 + attempt, future0);
             }
         });
-        return future0;
     }
 
-    private void forwardToDeadLetterQueueLater(final MessageExt messageExt, final int attempt) {
+    private void forwardToDeadLetterQueueLater(final MessageExt messageExt, final int attempt,
+                                               final SettableFuture<Void> future0) {
         if (dropped) {
             log.info("Process queue was dropped, give up to redirect message to DLQ, mq={}, messageId={}", mq,
                      messageExt.getMsgId());
@@ -635,19 +633,20 @@ public class ProcessQueue {
             scheduler.schedule(new Runnable() {
                 @Override
                 public void run() {
-                    forwardToDeadLetterQueue(messageExt, attempt);
+                    forwardToDeadLetterQueue(messageExt, attempt, future0);
                 }
             }, REDIRECT_FIFO_MESSAGE_TO_DLQ_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
             // should never reach here.
             log.error("[Bug] Failed to schedule DLQ message request.");
-            forwardToDeadLetterQueueLater(messageExt, 1 + attempt);
+            forwardToDeadLetterQueueLater(messageExt, 1 + attempt, future0);
         }
     }
 
     private ListenableFuture<ForwardMessageToDeadLetterQueueResponse> forwardToDeadLetterQueue(
-            final MessageExt messageExt) {
+            final MessageExt messageExt, final int attempt) {
         ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future;
+        final String messageId = messageExt.getMsgId();
         final Endpoints endpoints = messageExt.getAckEndpoints();
         try {
             final ForwardMessageToDeadLetterQueueRequest request =
@@ -656,12 +655,29 @@ public class ProcessQueue {
             final ClientInstance clientInstance = consumerImpl.getClientInstance();
             final long ioTimeoutMillis = consumerImpl.getIoTimeoutMillis();
             future = clientInstance.forwardMessageToDeadLetterQueue(endpoints, metadata, request, ioTimeoutMillis,
-                                                                 TimeUnit.MILLISECONDS);
+                                                                    TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
             final SettableFuture<ForwardMessageToDeadLetterQueueResponse> future0 = SettableFuture.create();
             future0.setException(t);
             future = future0;
         }
+        Futures.addCallback(future, new FutureCallback<ForwardMessageToDeadLetterQueueResponse>() {
+            @Override
+            public void onSuccess(ForwardMessageToDeadLetterQueueResponse response) {
+                final Status status = response.getCommon().getStatus();
+                final Code code = Code.forNumber(status.getCode());
+                if (Code.OK != code) {
+                    log.error("Failed to forward message to DLQ, attempt={}, messageId={}, endpoints={}, code={}, "
+                              + "status message={}", attempt, messageId, endpoints, code, status.getMessage());
+                }
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                log.error("Exception raised while forward message to DLQ, attempt={}, messageId={}, endpoints={}",
+                          attempt, messageId, endpoints, t);
+            }
+        });
         return future;
     }
 
@@ -810,14 +826,14 @@ public class ProcessQueue {
                                                .build();
 
         return ForwardMessageToDeadLetterQueueRequest.newBuilder()
-                                                  .setGroup(groupResource)
-                                                  .setTopic(topicResource)
-                                                  .setClientId(this.getClientId())
-                                                  .setReceiptHandle(messageExt.getReceiptHandle())
-                                                  .setMessageId(messageExt.getMsgId())
-                                                  .setDeliveryAttempt(messageExt.getDeliveryAttempt())
-                                                  .setMaxDeliveryAttempts(consumerImpl.getMaxDeliveryAttempts())
-                                                  .build();
+                                                     .setGroup(groupResource)
+                                                     .setTopic(topicResource)
+                                                     .setClientId(this.getClientId())
+                                                     .setReceiptHandle(messageExt.getReceiptHandle())
+                                                     .setMessageId(messageExt.getMsgId())
+                                                     .setDeliveryAttempt(messageExt.getDeliveryAttempt())
+                                                     .setMaxDeliveryAttempts(consumerImpl.getMaxDeliveryAttempts())
+                                                     .build();
     }
 
     private AckMessageRequest wrapAckMessageRequest(MessageExt messageExt) {
