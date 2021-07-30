@@ -707,6 +707,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                 MultiplexingRequest multiplexingRequest = MultiplexingRequest
                         .newBuilder().setPrintThreadStackResponse(printThreadStackResponse).build();
                 multiplexingCall(endpoints, multiplexingRequest);
+                log.debug("Send thread stack response to remote.");
                 break;
             case VERIFY_MESSAGE_CONSUMPTION_REQUEST:
                 log.debug("Receive verify message consumption request from remote.");

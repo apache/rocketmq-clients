@@ -158,7 +158,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                 60,
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<Runnable>(),
-                new ThreadFactoryImpl("ConsumptionThread"));
+                new ThreadFactoryImpl("MessageConsumption"));
     }
 
     private void generateConsumeService() throws ClientException {

@@ -77,7 +77,7 @@ public class ClientInstance {
 
         this.scheduler = new ScheduledThreadPoolExecutor(
                 Runtime.getRuntime().availableProcessors(),
-                new ThreadFactoryImpl("ClientSchedulerThread"));
+                new ThreadFactoryImpl("ClientScheduler"));
 
         this.asyncExecutor = new ThreadPoolExecutor(
                 Runtime.getRuntime().availableProcessors(),
@@ -85,7 +85,7 @@ public class ClientInstance {
                 60,
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<Runnable>(),
-                new ThreadFactoryImpl("ClientAsyncThread"));
+                new ThreadFactoryImpl("ClientAsyncWorker"));
 
         this.state = new AtomicReference<ServiceState>(ServiceState.READY);
     }
