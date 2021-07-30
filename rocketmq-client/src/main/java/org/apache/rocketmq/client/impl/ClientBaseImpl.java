@@ -700,6 +700,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
     private void onMultiplexingResponse(final Endpoints endpoints, MultiplexingResponse response) {
         switch (response.getTypeCase()) {
             case PRINT_THREAD_STACK_REQUEST:
+                log.debug("Receive thread stack request from remote.");
                 final String stackTrace = UtilAll.stackTrace();
                 PrintThreadStackResponse printThreadStackResponse =
                         PrintThreadStackResponse.newBuilder().setStackTrace(stackTrace).build();
@@ -708,6 +709,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                 multiplexingCall(endpoints, multiplexingRequest);
                 break;
             case VERIFY_MESSAGE_CONSUMPTION_REQUEST:
+                log.debug("Receive verify message consumption request from remote.");
                 VerifyMessageConsumptionRequest verifyRequest = response.getVerifyMessageConsumptionRequest();
                 ListenableFuture<VerifyMessageConsumptionResponse> future = verifyConsumption(verifyRequest);
 
@@ -740,10 +742,12 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                 });
                 break;
             case RESOLVE_ORPHANED_TRANSACTION_REQUEST:
+                log.trace("Receive resolve orphaned transaction request from remote.");
                 ResolveOrphanedTransactionRequest orphanedRequest = response.getResolveOrphanedTransactionRequest();
                 resolveOrphanedTransaction(endpoints, orphanedRequest);
                 /* fall through on purpose. */
             case POLLING_RESPONSE:
+                log.trace("Receive polling response from remote.");
                 /* fall through on purpose. */
             default:
                 dispatchGenericPollRequest(endpoints);
@@ -845,14 +849,14 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
 
     private void updateTracer() {
         try {
-            log.info("Start to update tracer.");
+            log.debug("Start to update tracer.");
             final Set<Endpoints> tracingEndpointsSet = getTracingEndpointsSet();
             if (tracingEndpointsSet.isEmpty()) {
                 log.warn("No available tracing endpoints.");
                 return;
             }
             if (null != tracingEndpoints && tracingEndpointsSet.contains(tracingEndpoints)) {
-                log.info("Tracing target remains unchanged");
+                log.debug("Tracing target remains unchanged");
                 return;
             }
             List<Endpoints> tracingRpcTargetList = new ArrayList<Endpoints>(tracingEndpointsSet);
@@ -1023,8 +1027,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         // PartitionOffset
         impl.getSystemAttribute().setPartitionOffset(systemAttribute.getPartitionOffset());
         // InvisiblePeriod
-        impl.getSystemAttribute()
-            .setInvisiblePeriod(Durations.toMillis(systemAttribute.getInvisiblePeriod()));
+        impl.getSystemAttribute().setInvisiblePeriod(Durations.toMillis(systemAttribute.getInvisiblePeriod()));
         // DeliveryCount
         impl.getSystemAttribute().setDeliveryAttempt(systemAttribute.getDeliveryAttempt());
         // ProducerGroup
