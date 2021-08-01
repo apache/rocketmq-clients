@@ -289,7 +289,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                 Futures.addCallback(future, new FutureCallback<TopicAssignment>() {
                     @Override
                     public void onSuccess(TopicAssignment remote) {
-                        // remote assignments should never be null.
+                        // TODO: remote assignments should never be empty.
                         if (remote.getAssignmentList().isEmpty()) {
                             log.warn("Acquired empty assignments from remote, topic={}", topic);
                             if (null == local || local.getAssignmentList().isEmpty()) {
@@ -304,7 +304,10 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                             log.info("Assignments of topic={} has changed, {} -> {}", topic, local, remote);
                             synchronizeProcessQueue(topic, remote, filterExpression);
                             cachedTopicAssignmentTable.put(topic, remote);
+                            return;
                         }
+                        // process queue may be dropped, need to be synchronized anyway.
+                        synchronizeProcessQueue(topic, remote, filterExpression);
                     }
 
                     @Override
@@ -391,14 +394,15 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
         for (MessageQueue mq : latestMqs) {
             if (!activeMqs.contains(mq)) {
-                log.info("Start to receive message from message queue according to the latest assignments, mq={}", mq);
                 final ProcessQueue pq = getProcessQueue(mq, filterExpression);
                 // for clustering mode.
                 if (MessageModel.CLUSTERING.equals(messageModel)) {
+                    log.info("Start to pull message from mq according to the latest assignments, mq={}", mq);
                     pq.receiveMessageImmediately();
                     continue;
                 }
                 // for broadcasting mode.
+                log.info("Start to receive message from mq according to the latest assignments, mq={}", mq);
                 pq.pullMessageImmediately();
             }
         }

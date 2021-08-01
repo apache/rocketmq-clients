@@ -110,4 +110,8 @@ public class Message {
     public Map<String, String> getUserProperties() {
         return this.impl.getUserAttribute();
     }
+
+    public String  getMsgId() {
+        return this.impl.getSystemAttribute().getMessageId();
+    }
 }

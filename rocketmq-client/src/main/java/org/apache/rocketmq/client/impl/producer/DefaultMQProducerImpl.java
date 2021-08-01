@@ -44,6 +44,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
@@ -615,7 +616,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     private ListenableFuture<SendResult> send0(final Message message, final List<Partition> candidates,
                                                int maxAttempts) {
         final SettableFuture<SendResult> future = SettableFuture.create();
-        // Filter illegal message.
+        // filter illegal message.
         try {
             Validators.check(message);
         } catch (ClientException e) {
@@ -623,13 +624,17 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             return future;
         }
 
-        // Set messageId
+        // set messageId
         final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
-        final String messageId = MessageIdGenerator.getInstance().next();
-
         final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
-        systemAttribute.setMessageId(messageId);
-        // Message type is normal as default.
+
+        // TODO:
+        if (StringUtils.isEmpty(systemAttribute.getMessageId())) {
+            final String messageId = MessageIdGenerator.getInstance().next();
+            systemAttribute.setMessageId(messageId);
+        }
+
+        // message type is normal as default.
         if (null == systemAttribute.getMessageType()) {
             systemAttribute.setMessageType(MessageType.NORMAL);
         }
@@ -644,19 +649,19 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         try {
             metadata = sign();
         } catch (Throwable t) {
-            // Failed to sign, return in advance.
+            // failed to sign, return in advance.
             future.setException(t);
             return;
         }
 
-        // Calculate the current partition.
+        // calculate the current partition.
         final Partition partition = candidates.get((attempt - 1) % candidates.size());
         final Endpoints endpoints = partition.getBroker().getEndpoints();
 
         final SendMessageRequest request = wrapSendMessageRequest(message, partition);
         final Stopwatch stopwatch = Stopwatch.createStarted();
 
-        // Intercept message while PRE_SEND_MESSAGE.
+        // intercept before message sending.
         final MessageInterceptorContext.MessageInterceptorContextBuilder contextBuilder =
                 MessageInterceptorContext.builder().attempt(attempt);
         intercept(MessageHookPoint.PRE_SEND_MESSAGE, message.getMessageExt(), contextBuilder.build());
@@ -664,7 +669,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         final ListenableFuture<SendMessageResponse> responseFuture =
                 clientInstance.sendMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
 
-        // Return the future of send result for current attempt.
+        // return the future of send result for current attempt.
         final ListenableFuture<SendResult> attemptFuture = Futures.transformAsync(
                 responseFuture, new AsyncFunction<SendMessageResponse, SendResult>() {
                     @Override
@@ -676,13 +681,16 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                     }
                 });
 
+        final String topic = message.getTopic();
+        final String msgId = message.getMsgId();
         Futures.addCallback(attemptFuture, new FutureCallback<SendResult>() {
             @Override
             public void onSuccess(SendResult sendResult) {
-                // No need more attempts.
+                // no need more attempts.
                 future.set(sendResult);
-
-                // Intercept message while POST_SEND_MESSAGE.
+                log.trace("Send message successfully, topic={}, msgId={}, maxAttempts={}, attempt={}", topic, msgId,
+                          maxAttempts, attempt);
+                // intercept after message sending.
                 final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
                 final MessageInterceptorContext context = contextBuilder.duration(duration)
                                                                         .timeUnit(TimeUnit.MILLISECONDS)
@@ -693,26 +701,26 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
             @Override
             public void onFailure(Throwable t) {
-                // Intercept message while POST_SEND_MESSAGE.
+                // intercept after message sending.
                 final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
                 final MessageInterceptorContext context = contextBuilder.duration(duration)
                                                                         .timeUnit(TimeUnit.MILLISECONDS)
                                                                         .status(MessageHookPoint.PointStatus.ERROR)
                                                                         .build();
                 intercept(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
-                // Isolate endpoints for a while.
+                // isolate endpoints for a while.
                 isolateEndpoints(endpoints);
 
                 if (attempt >= maxAttempts) {
-                    // No need more attempts.
+                    // no need more attempts.
                     future.setException(t);
-                    log.error("Failed to send message, attempt times is exhausted, maxAttempts={}, attempt={}",
-                              maxAttempts, attempt, t);
+                    log.error("Failed to send message, attempt times is exhausted, maxAttempts={}, attempt={}, "
+                              + "topic={}, messageId={}", maxAttempts, attempt, topic, msgId, t);
                     return;
                 }
-                // Try to do more attempts.
+                // try to do more attempts.
                 log.warn("Failed to send message, would attempt to re-send right now, maxAttempts={}, "
-                         + "attempt={}", maxAttempts, attempt, t);
+                         + "attempt={}, topic={}, messageId={}", maxAttempts, attempt, topic, msgId, t);
                 send0(future, candidates, message, 1 + attempt, maxAttempts);
             }
         });

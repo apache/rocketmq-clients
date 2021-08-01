@@ -29,10 +29,11 @@ public class TopicAssignment {
         final List<Partition> partitions = topicRouteData.getPartitions();
         for (Partition partition : partitions) {
             if (MixAll.MASTER_BROKER_ID != partition.getBroker().getId()) {
-                final MessageQueue mq = new MessageQueue(partition);
-                final Assignment assignment = new Assignment(mq, MessageRequestMode.PULL);
-                assignmentList.add(assignment);
+                continue;
             }
+            final MessageQueue mq = new MessageQueue(partition);
+            final Assignment assignment = new Assignment(mq, MessageRequestMode.PULL);
+            assignmentList.add(assignment);
         }
     }
 
