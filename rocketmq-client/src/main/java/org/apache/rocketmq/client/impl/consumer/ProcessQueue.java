@@ -264,13 +264,6 @@ public class ProcessQueue {
         }
     }
 
-    /**
-     * Erase consumed fifo messages from {@link ProcessQueue#cachedMessages}, send message to DLQ if status is
-     * {@link ConsumeStatus#ERROR}
-     *
-     * @param messageExt consumed fifo message
-     * @param status     consume status, which indicated whether to send message to DLQ.
-     */
     public void eraseFifoMessage(final MessageExt messageExt, final ConsumeStatus status) {
         statsMessageConsumptionStatus(status);
 
@@ -302,7 +295,7 @@ public class ProcessQueue {
 
                 @Override
                 public void onFailure(Throwable t) {
-                    log.error("[Bug] Exception raised while redelivery, mq={}, messageId={}, attempt={}, "
+                    log.error("[Bug] Exception raised while message redelivery, mq={}, messageId={}, attempt={}, "
                               + "maxAttempts={}", mq, messageExt.getMsgId(), messageExt.getDeliveryAttempt(),
                               maxAttempts, t);
                 }
