@@ -72,8 +72,8 @@ public class ProcessQueue {
     private static final int PULL_MAX_BATCH_SIZE = 32;
     private static final long PULL_LATER_DELAY_MILLIS = 3 * 1000L;
 
-    private static final long TOTAL_MAX_MESSAGES_SIZE = 1024;
-    private static final long TOTAL_MAX_MESSAGES_BODY_SIZE = 4 * 1024 * 1024;
+    private static final long TOTAL_MESSAGES_QUANTITY_THRESHOLD = 1024;
+    private static final long TOTAL_MESSAGES_MEMORY_THRESHOLD = 4 * 1024 * 1024;
 
     private static final long MAX_IDLE_MILLIS = 30 * 1000L;
     private static final long ACK_FIFO_MESSAGE_DELAY_MILLIS = 100L;
@@ -97,7 +97,7 @@ public class ProcessQueue {
     private final List<MessageExt> inflightMessages;
     private final ReentrantReadWriteLock inflightMessagesLock;
 
-    private final AtomicLong messagesBodySize;
+    private final AtomicLong totalMessagesMemory;
     private final AtomicBoolean fifoConsumptionOccupied;
 
     @GuardedBy("offsetsLock")
@@ -121,7 +121,7 @@ public class ProcessQueue {
         this.inflightMessages = new ArrayList<MessageExt>();
         this.inflightMessagesLock = new ReentrantReadWriteLock();
 
-        this.messagesBodySize = new AtomicLong(0L);
+        this.totalMessagesMemory = new AtomicLong(0L);
         this.fifoConsumptionOccupied = new AtomicBoolean(false);
 
         this.offsets = new TreeSet<OffsetRecord>();
@@ -147,7 +147,7 @@ public class ProcessQueue {
         try {
             for (MessageExt message : messageList) {
                 cachedMessages.add(message);
-                messagesBodySize.addAndGet(null == message.getBody() ? 0 : message.getBody().length);
+                totalMessagesMemory.addAndGet(null == message.getBody() ? 0 : message.getBody().length);
                 if (MessageModel.BROADCASTING.equals(consumerImpl.getMessageModel())) {
                     offsetsLock.writeLock().lock();
                     try {
@@ -215,7 +215,7 @@ public class ProcessQueue {
         inflightMessagesLock.writeLock().lock();
         try {
             if (inflightMessages.remove(messageExt)) {
-                messagesBodySize.addAndGet(null == messageExt.getBody() ? 0 : -messageExt.getBody().length);
+                totalMessagesMemory.addAndGet(null == messageExt.getBody() ? 0 : -messageExt.getBody().length);
             }
         } finally {
             inflightMessagesLock.writeLock().unlock();
@@ -285,7 +285,7 @@ public class ProcessQueue {
         try {
             for (MessageExt messageExt : messageExtList) {
                 if (inflightMessages.remove(messageExt)) {
-                    messagesBodySize.addAndGet(null == messageExt.getBody() ? 0 : -messageExt.getBody().length);
+                    totalMessagesMemory.addAndGet(null == messageExt.getBody() ? 0 : -messageExt.getBody().length);
                 }
             }
         } finally {
@@ -407,16 +407,17 @@ public class ProcessQueue {
     }
 
     private boolean throttled() {
-        final long actualMessagesSize = this.messagesSize();
-        if (TOTAL_MAX_MESSAGES_SIZE <= actualMessagesSize) {
-            log.warn("Process queue total messages size exceeds the threshold, threshold={}, actual={}, mq={}",
-                     TOTAL_MAX_MESSAGES_SIZE, actualMessagesSize, mq);
+        final long actualMessagesQuantity = this.messagesQuantity();
+
+        if (TOTAL_MESSAGES_QUANTITY_THRESHOLD <= actualMessagesQuantity) {
+            log.warn("Process queue total messages quantity exceeds the threshold, threshold={}, actual={}, mq={}",
+                     TOTAL_MESSAGES_QUANTITY_THRESHOLD, actualMessagesQuantity, mq);
             return true;
         }
-        final long actualMessagesBodySize = messagesBodySize.get();
-        if (TOTAL_MAX_MESSAGES_BODY_SIZE <= actualMessagesBodySize) {
-            log.warn("Process queue total messages body size exceeds the threshold, threshold={} bytes, "
-                     + "actual={} bytes, mq={}", TOTAL_MAX_MESSAGES_BODY_SIZE, actualMessagesBodySize, mq);
+        final long actualMessagesMemory = totalMessagesMemory.get();
+        if (TOTAL_MESSAGES_MEMORY_THRESHOLD <= actualMessagesMemory) {
+            log.warn("Process queue total messages memory exceeds the threshold, threshold={} bytes, actual={} bytes,"
+                     + " mq={}", TOTAL_MESSAGES_MEMORY_THRESHOLD, actualMessagesMemory, mq);
             return true;
         }
         return false;
@@ -1018,7 +1019,7 @@ public class ProcessQueue {
                                         Durations.toMillis(response.getInvisibleDuration()), msgFoundList);
     }
 
-    public int messagesSize() {
+    public int messagesQuantity() {
         cachedMessagesLock.readLock().lock();
         inflightMessagesLock.readLock().lock();
         try {
