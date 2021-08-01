@@ -12,6 +12,6 @@ public class MessageGroupQueueSelector implements MessageQueueSelector {
     @Override
     public MessageQueue select(List<MessageQueue> mqs, Message msg, Object arg) {
         final int hashCode = messageGroup.hashCode();
-        return mqs.get(hashCode % mqs.size());
+        return mqs.get(Math.abs(hashCode % mqs.size()));
     }
 }

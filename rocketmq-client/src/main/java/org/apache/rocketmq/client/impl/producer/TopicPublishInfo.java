@@ -79,7 +79,7 @@ public class TopicPublishInfo {
                 return candidatePartitions;
             }
         }
-        // If all endpoints are isolated.
+        // if all endpoints are isolated.
         if (candidatePartitions.isEmpty()) {
             for (int i = 0; i < partitions.size(); i++) {
                 final Partition partition = partitions.get((index++) % partitions.size());
@@ -95,7 +95,7 @@ public class TopicPublishInfo {
             }
             return candidatePartitions;
         }
-        // If no enough candidates, pick up partition from isolated partition.
+        // if no enough candidates, pick up partition from isolated partition.
         for (int i = 0; i < partitions.size(); i++) {
             final Partition partition = partitions.get((index++) % partitions.size());
             final Broker broker = partition.getBroker();

@@ -9,11 +9,11 @@ public class ClientManager {
 
     private static final ClientManager instance = new ClientManager();
 
-    private final Map<String, ClientInstance> clientInstanceTable;
+    private final Map<String, ClientInstance> instanceTable;
     private final Lock lock;
 
     private ClientManager() {
-        this.clientInstanceTable = new HashMap<String, ClientInstance>();
+        this.instanceTable = new HashMap<String, ClientInstance>();
         this.lock = new ReentrantLock();
     }
 
@@ -25,11 +25,11 @@ public class ClientManager {
         final String arn = clientConfig.getArn();
         lock.lock();
         try {
-            ClientInstance clientInstance = clientInstanceTable.get(arn);
+            ClientInstance clientInstance = instanceTable.get(arn);
             if (null == clientInstance) {
                 clientInstance = new ClientInstance(arn);
                 clientInstance.start();
-                clientInstanceTable.put(arn, clientInstance);
+                instanceTable.put(arn, clientInstance);
             }
             return clientInstance;
         } finally {
@@ -40,7 +40,7 @@ public class ClientManager {
     public void removeClientInstance(final String id) {
         lock.lock();
         try {
-            clientInstanceTable.remove(id);
+            instanceTable.remove(id);
         } finally {
             lock.unlock();
         }

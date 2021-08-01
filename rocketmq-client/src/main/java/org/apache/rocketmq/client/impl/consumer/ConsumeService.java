@@ -61,27 +61,33 @@ public abstract class ConsumeService {
     public void start() {
         synchronized (this) {
             log.info("Begin to start the consume service.");
-            if (!state.compareAndSet(ServiceState.READY, ServiceState.STARTED)) {
-                log.warn("The consume service has been started before");
+            if (!state.compareAndSet(ServiceState.READY, ServiceState.STARTING)) {
+                log.warn("The consume service has been started before.");
                 return;
             }
+            try {
+                dispatcherExecutor.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        while (ServiceState.STARTED == state.get()) {
+                            try {
+                                dispatch0();
+                                synchronized (dispatcherConditionVariable) {
+                                    dispatcherConditionVariable.wait(CONSUMPTION_DISPATCH_PERIOD_MILLIS);
+                                }
+                            } catch (Throwable t) {
+                                log.error("Exception raised while schedule message consumption dispatcher", t);
+                            }
+                        }
+                    }
+                });
+            } catch (Throwable t) {
+                log.error("[Bug] Failed to submit task to dispatch message.", t);
+                return;
+            }
+            state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
             log.info("Start the consume service successfully.");
         }
-        dispatcherExecutor.submit(new Runnable() {
-            @Override
-            public void run() {
-                while (ServiceState.STARTED == state.get()) {
-                    try {
-                        dispatch0();
-                        synchronized (dispatcherConditionVariable) {
-                            dispatcherConditionVariable.wait(CONSUMPTION_DISPATCH_PERIOD_MILLIS);
-                        }
-                    } catch (Throwable t) {
-                        log.error("Exception raised while schedule message consumption dispatcher", t);
-                    }
-                }
-            }
-        });
     }
 
     public void shutdown() {
@@ -127,7 +133,7 @@ public abstract class ConsumeService {
 
     public void dispatch() {
         synchronized (dispatcherConditionVariable) {
-            dispatcherConditionVariable.notify();
+            dispatcherConditionVariable.notifyAll();
         }
     }
 }
