@@ -413,58 +413,9 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         }
     }
 
-    public void send(Message message, MessageQueueSelector selector, Object arg, SendCallback sendCallback)
-            throws ClientException, InterruptedException {
-        send(message, selector, arg, sendCallback, sendMessageTimeoutMillis);
-    }
-
-    public void send(final Message message, MessageQueueSelector selector, Object arg, final SendCallback sendCallback,
-                     long timeoutMillis) throws ClientException, InterruptedException {
-        ensureRunning();
-        final ListenableFuture<SendResult> future = send0(message, selector, arg, maxAttempts);
-        Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
-        final ThreadPoolExecutor sendCallbackExecutor = getSendCallbackExecutor();
-        Futures.addCallback(future, new FutureCallback<SendResult>() {
-            @Override
-            public void onSuccess(final SendResult sendResult) {
-                try {
-                    sendCallbackExecutor.submit(new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                sendCallback.onSuccess(sendResult);
-                            } catch (Throwable t) {
-                                log.error("Exception raised in #onSuccess", t);
-                            }
-                        }
-                    });
-                } catch (Throwable t0) {
-                    log.error("Failed to submit task to invoke #onSuccess, topic={}", message.getTopic(), t0);
-                }
-            }
-
-            @Override
-            public void onFailure(final Throwable t) {
-                try {
-                    sendCallbackExecutor.submit(new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                sendCallback.onException(t);
-                            } catch (Throwable t) {
-                                log.error("Exception raised in #onFailure", t);
-                            }
-                        }
-                    });
-                } catch (Throwable t1) {
-                    log.error("Failed to submit task to invoke #onFailure, topic={}", message.getTopic(), t1);
-                }
-            }
-        });
-    }
-
     public TransactionImpl prepare(Message message) throws ServerException, InterruptedException,
                                                            ClientException, TimeoutException {
+        // set message type as transaction.
         final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
         final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
         systemAttribute.setMessageType(MessageType.TRANSACTION);
@@ -602,6 +553,11 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
     private ListenableFuture<SendResult> send0(final Message message, MessageQueueSelector selector, Object arg,
                                                final int maxAttempts) {
+        // set message type as fifo.
+        final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
+        final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
+        systemAttribute.setMessageType(MessageType.FIFO);
+
         final ListenableFuture<Partition> future0 = selectPartition(message, selector, arg);
         return Futures.transformAsync(future0, new AsyncFunction<Partition, SendResult>() {
             @Override

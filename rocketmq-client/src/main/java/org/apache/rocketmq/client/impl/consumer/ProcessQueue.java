@@ -653,9 +653,9 @@ public class ProcessQueue {
 
     private void ackFifoMessageLater(final MessageExt messageExt, final int attempt,
                                      final SettableFuture<Void> future0) {
+        final String msgId = messageExt.getMsgId();
         if (dropped) {
-            log.info("Process queue was dropped, give up to ack message. mq={}, messageId={}", mq,
-                     messageExt.getMsgId());
+            log.info("Process queue was dropped, give up to ack message. mq={}, messageId={}", mq, msgId);
             return;
         }
         final ScheduledExecutorService scheduler = consumerImpl.getScheduler();
@@ -668,7 +668,7 @@ public class ProcessQueue {
             }, ACK_FIFO_MESSAGE_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
             // should never reach here.
-            log.error("[Bug] Failed to schedule ack message request.");
+            log.error("[Bug] Failed to schedule ack message request, mq={}, msgId={}.", mq, msgId);
             ackFifoMessageLater(messageExt, 1 + attempt, future0);
         }
     }

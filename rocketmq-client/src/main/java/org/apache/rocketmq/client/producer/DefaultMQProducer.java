@@ -196,44 +196,6 @@ public class DefaultMQProducer {
     }
 
     /**
-     * Same to {@link #send(Message, SendCallback)} with message queue selector specified.
-     *
-     * @param msg          Message to send.
-     * @param selector     Message selector through which to get target message queue.
-     * @param arg          Argument used along with message queue selector.
-     * @param sendCallback callback to execute on sending completion.
-     * @throws ClientException    if there is any client error.
-     * @throws InterruptedException if the sending thread is interrupted.
-     */
-    public void send(
-            Message msg, MessageQueueSelector selector, Object arg, SendCallback sendCallback)
-            throws ClientException, InterruptedException {
-        this.impl.send(msg, selector, arg, sendCallback);
-    }
-
-    /**
-     * Same to {@link #send(Message, MessageQueueSelector, Object, SendCallback)} with timeout
-     * specified.
-     *
-     * @param msg          Message to send.
-     * @param selector     Message selector through which to get target message queue.
-     * @param arg          Argument used along with message queue selector.
-     * @param sendCallback callback to execute on sending completion.
-     * @param timeout      Send timeout.
-     * @throws ClientException    if there is any client error.
-     * @throws InterruptedException if the sending thread is interrupted.
-     */
-    public void send(
-            Message msg,
-            MessageQueueSelector selector,
-            Object arg,
-            SendCallback sendCallback,
-            long timeout)
-            throws ClientException, InterruptedException {
-        this.impl.send(msg, selector, arg, sendCallback, timeout);
-    }
-
-    /**
      * Sets an Executor to be used for executing callback methods. If the Executor is not set, will be
      * used.
      *
