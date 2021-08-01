@@ -255,6 +255,10 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                                                   .setMessageId(message.getMessageExt().getMsgId())
                                                   .setBornHost(UtilAll.getIpv4Address())
                                                   .setPartitionId(partition.getId());
+        final String messageGroup = message.getMessageGroup();
+        if (null != messageGroup) {
+            systemAttributeBuilder.setMessageGroup(messageGroup);
+        }
 
         final int delayTimeLevel = message.getDelayTimeLevel();
         if (delayTimeLevel > 0) {
@@ -392,6 +396,8 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
     public SendResult send(Message message, String messageGroup) throws ServerException, ClientException,
                                                                         InterruptedException, TimeoutException {
+        final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
+        messageImpl.getSystemAttribute().setMessageGroup(messageGroup);
         final MessageGroupQueueSelector selector = new MessageGroupQueueSelector(messageGroup);
         return send(message, selector, null);
     }

@@ -52,6 +52,7 @@ import org.apache.rocketmq.client.consumer.ReceiveStatus;
 import org.apache.rocketmq.client.consumer.filter.ExpressionType;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
+import org.apache.rocketmq.client.consumer.listener.MessageListenerType;
 import org.apache.rocketmq.client.impl.ClientBaseImpl;
 import org.apache.rocketmq.client.impl.ClientInstance;
 import org.apache.rocketmq.client.message.MessageAccessor;
@@ -59,6 +60,7 @@ import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.message.protocol.SystemAttribute;
+import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.remoting.Endpoints;
 
 @Slf4j
@@ -241,6 +243,7 @@ public class ProcessQueue {
             }
             // failed to lock.
             if (!fifoConsumptionInbound()) {
+                log.debug("Fifo consumption task are not finished, mq={}", mq);
                 return null;
             }
             final String topic = mq.getTopic();
@@ -934,6 +937,10 @@ public class ProcessQueue {
         }
 
         builder.setFilterExpression(expressionBuilder.build());
+        if (MessageListenerType.ORDERLY == consumerImpl.getMessageListener().getListenerType()) {
+            builder.setFifoFlag(true);
+        }
+
         return builder.build();
     }
 

@@ -111,7 +111,11 @@ public class Message {
         return this.impl.getUserAttribute();
     }
 
-    public String  getMsgId() {
+    public String getMessageGroup() {
+        return this.impl.getSystemAttribute().getMessageGroup();
+    }
+
+    public String getMsgId() {
         return this.impl.getSystemAttribute().getMessageId();
     }
 }

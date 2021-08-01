@@ -95,6 +95,11 @@ public class DefaultMQProducer {
         return this.impl.send(msg);
     }
 
+    public SendResult send(Message msg, String messageGroup) throws ServerException, ClientException,
+                                                                    InterruptedException, TimeoutException {
+        return this.impl.send(msg, messageGroup);
+    }
+
     /**
      * Same to {@link #send(Message)} with send timeout specified in addition.
      *

@@ -1095,8 +1095,12 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         impl.getSystemAttribute().setDeliveryAttempt(systemAttribute.getDeliveryAttempt());
         // ProducerGroup
         impl.getSystemAttribute().setProducerGroup(systemAttribute.getProducerGroup().getName());
+        // MessageGroup
+        impl.getSystemAttribute().setMessageGroup(systemAttribute.getMessageGroup());
         // TraceContext
         impl.getSystemAttribute().setTraceContext(systemAttribute.getTraceContext());
+        // TransactionId
+        impl.getSystemAttribute().setTransactionId(systemAttribute.getTransactionId());
         // UserProperties
         impl.getUserAttribute().putAll(message.getUserAttributeMap());
 

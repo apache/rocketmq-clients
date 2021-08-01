@@ -400,12 +400,12 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                 final ProcessQueue pq = getProcessQueue(mq, filterExpression);
                 // for clustering mode.
                 if (MessageModel.CLUSTERING.equals(messageModel)) {
-                    log.info("Start to pull message from mq according to the latest assignments, mq={}", mq);
+                    log.info("Start to receive message from mq according to the latest assignments, mq={}", mq);
                     pq.receiveMessageImmediately();
                     continue;
                 }
                 // for broadcasting mode.
-                log.info("Start to receive message from mq according to the latest assignments, mq={}", mq);
+                log.info("Start to pull message from mq according to the latest assignments, mq={}", mq);
                 pq.pullMessageImmediately();
             }
         }
@@ -431,6 +431,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     public void registerMessageListener(MessageListenerOrderly messageListenerOrderly) {
         checkNotNull(messageListenerOrderly);
+        this.messageListener = messageListenerOrderly;
     }
 
     private ListenableFuture<Endpoints> pickRouteEndpoints(String topic) {
@@ -459,7 +460,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     }
 
     private ListenableFuture<TopicAssignment> queryAssignment(final String topic) {
-        // return full topic route form broadcasting mode.
+        // for broadcasting mode, return full topic route.
         if (MessageModel.BROADCASTING == messageModel) {
             final ListenableFuture<TopicRouteData> future = getRouteFor(topic);
             return Futures.transform(future, new Function<TopicRouteData, TopicAssignment>() {
@@ -469,7 +470,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                 }
             });
         }
-
+        // for clustering mode.
         final QueryAssignmentRequest request = wrapQueryAssignmentRequest(topic);
         final ListenableFuture<Endpoints> future = pickRouteEndpoints(topic);
         final ListenableFuture<QueryAssignmentResponse> responseFuture =

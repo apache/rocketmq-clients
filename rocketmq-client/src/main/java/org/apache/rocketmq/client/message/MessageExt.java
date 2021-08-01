@@ -89,6 +89,10 @@ public class MessageExt {
         return this.impl.getSystemAttribute().getReceiptHandle();
     }
 
+    public String getMessageGroup() {
+        return this.impl.getSystemAttribute().getMessageGroup();
+    }
+
     // TODO: hide targetEndpoint here.
     public Endpoints getAckEndpoints() {
         return this.impl.getSystemAttribute().getAckEndpoints();

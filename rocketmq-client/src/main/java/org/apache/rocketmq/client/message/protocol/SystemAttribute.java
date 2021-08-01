@@ -23,8 +23,9 @@ public class SystemAttribute {
     private long invisiblePeriod;
     private int deliveryAttempt;
     private String producerGroup;
-    private String transactionId;
+    private String messageGroup;
     private String traceContext;
+    private String transactionId;
     // Would set after receiving the message.
     private long decodedTimestamp;
     private Endpoints ackEndpoints;
