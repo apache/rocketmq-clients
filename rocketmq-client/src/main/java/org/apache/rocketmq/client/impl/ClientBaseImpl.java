@@ -102,7 +102,7 @@ import org.apache.rocketmq.client.tracing.TracingMessageInterceptor;
 import org.apache.rocketmq.utility.UtilAll;
 
 @Slf4j
-public abstract class ClientBaseImpl extends ClientConfig implements ClientObserver {
+public abstract class ClientBaseImpl extends ClientConfig implements ClientObserver, MessageInterceptor {
 
     private static final long MULTIPLEXING_CALL_LATER_DELAY_MILLIS = 3 * 1000L;
     private static final long MULTIPLEXING_CALL_TIMEOUT_MILLIS = 60 * 1000L;
@@ -247,6 +247,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         }
     }
 
+    @Override
     public void intercept(MessageHookPoint hookPoint, MessageExt messageExt, MessageInterceptorContext context) {
         messageInterceptorsLock.readLock().lock();
         try {

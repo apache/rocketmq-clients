@@ -6,33 +6,48 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListener;
 import org.apache.rocketmq.client.message.MessageExt;
+import org.apache.rocketmq.client.message.MessageInterceptor;
+import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 
 @Slf4j
 public abstract class ConsumeService {
     private static final long CONSUMPTION_DISPATCH_PERIOD_MILLIS = 10;
 
-    protected final DefaultMQPushConsumerImpl consumerImpl;
-    protected final AtomicReference<ServiceState> state;
+    protected final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable;
+
+    private final MessageListener messageListener;
+    private final MessageInterceptor interceptor;
+    private final ThreadPoolExecutor consumptionExecutor;
+    private final ScheduledExecutorService scheduler;
+
+    private final AtomicReference<ServiceState> state;
+
     private final Object dispatcherConditionVariable;
     private final ThreadPoolExecutor dispatcherExecutor;
-    @Getter
-    private final MessageListener messageListener;
 
-    public ConsumeService(DefaultMQPushConsumerImpl consumerImpl, MessageListener messageListener) {
-        this.consumerImpl = consumerImpl;
+
+    public ConsumeService(MessageListener messageListener, MessageInterceptor interceptor,
+                          ThreadPoolExecutor consumptionExecutor, ScheduledExecutorService scheduler,
+                          ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable) {
         this.messageListener = messageListener;
+        this.interceptor = interceptor;
+        this.consumptionExecutor = consumptionExecutor;
+        this.scheduler = scheduler;
+        this.processQueueTable = processQueueTable;
+
+        this.state = new AtomicReference<ServiceState>(ServiceState.READY);
         this.dispatcherConditionVariable = new Object();
         this.dispatcherExecutor = new ThreadPoolExecutor(
                 1,
@@ -40,8 +55,7 @@ public abstract class ConsumeService {
                 60,
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<Runnable>(),
-                new ThreadFactoryImpl("ConsumptionDispatcherThread"));
-        this.state = new AtomicReference<ServiceState>(ServiceState.READY);
+                new ThreadFactoryImpl("ConsumptionDispatcher"));
     }
 
     public void start() {
@@ -102,13 +116,11 @@ public abstract class ConsumeService {
     }
 
     public ListenableFuture<ConsumeStatus> consume(List<MessageExt> messageExtList, long delay, TimeUnit timeUnit) {
-        final ThreadPoolExecutor consumptionExecutor = consumerImpl.getConsumptionExecutor();
         final ListeningExecutorService executorService = MoreExecutors.listeningDecorator(consumptionExecutor);
-        final ConsumeTask task = new ConsumeTask(consumerImpl, messageExtList);
+        final ConsumeTask task = new ConsumeTask(interceptor, messageListener, messageExtList);
         if (delay <= 0) {
             return executorService.submit(task);
         }
-        final ScheduledExecutorService scheduler = consumerImpl.getScheduler();
         final ListeningScheduledExecutorService schedulerService = MoreExecutors.listeningDecorator(scheduler);
         return schedulerService.schedule(task, delay, timeUnit);
     }

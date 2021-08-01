@@ -103,7 +103,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     @Getter(AccessLevel.NONE)
     private final ConcurrentMap<String/* topic */, RateLimiter> rateLimiterTable;
 
-    @Getter(AccessLevel.NONE)
+    @Getter(AccessLevel.PACKAGE)
     private final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable;
 
     @Getter(AccessLevel.NONE)
@@ -184,10 +184,13 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     private void generateConsumeService() throws ClientException {
         switch (messageListener.getListenerType()) {
             case CONCURRENTLY:
-                this.consumeService = new ConsumeConcurrentlyService(this, messageListener);
+                this.consumeService = new ConsumeConcurrentlyService(messageListener, this, consumptionExecutor,
+                                                                     this.getScheduler(), processQueueTable,
+                                                                     consumeMessageBatchMaxSize);
                 break;
             case ORDERLY:
-                this.consumeService = new ConsumeOrderlyService(this, messageListener);
+                this.consumeService = new ConsumeOrderlyService(messageListener, this, consumptionExecutor,
+                                                                this.getScheduler(), processQueueTable);
                 break;
             default:
                 throw new ClientException(ErrorCode.NO_LISTENER_REGISTERED);

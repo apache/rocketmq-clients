@@ -41,7 +41,7 @@ public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
                 60,
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<Runnable>(),
-                new ThreadFactoryImpl("PullCallbackThread"));
+                new ThreadFactoryImpl("PullCallbackWorker"));
     }
 
     public ListenableFuture<List<MessageQueue>> getQueuesFor(String topic) {

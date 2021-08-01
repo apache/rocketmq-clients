@@ -8,32 +8,34 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.listener.ConsumeContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
+import org.apache.rocketmq.client.consumer.listener.MessageListener;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
+import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
 
 @Slf4j
 @AllArgsConstructor
 public class ConsumeTask implements Callable<ConsumeStatus> {
-    final DefaultMQPushConsumerImpl consumerImpl;
-    final List<MessageExt> messageExtList;
+    private final MessageInterceptor interceptor;
+    private final MessageListener messageListener;
+    private final List<MessageExt> messageExtList;
 
     @Override
     public ConsumeStatus call() {
         // intercept before message consumption.
         for (MessageExt messageExt : messageExtList) {
             final MessageInterceptorContext context =
-                    MessageInterceptorContext.builder().attempt(1 + messageExt.getReconsumeTimes()).build();
-            consumerImpl.intercept(MessageHookPoint.PRE_MESSAGE_CONSUMPTION, messageExt, context);
+                    MessageInterceptorContext.builder().attempt(messageExt.getDeliveryAttempt()).build();
+            interceptor.intercept(MessageHookPoint.PRE_MESSAGE_CONSUMPTION, messageExt, context);
         }
 
-        final ConsumeService consumeService = consumerImpl.getConsumeService();
         ConsumeStatus status;
 
         final ConsumeContext consumeContext = new ConsumeContext();
         final Stopwatch started = Stopwatch.createStarted();
         try {
-            status = consumeService.getMessageListener().consume(messageExtList, consumeContext);
+            status = messageListener.consume(messageExtList, consumeContext);
         } catch (Throwable t) {
             status = ConsumeStatus.ERROR;
             log.error("Biz callback raised an exception while consuming messages.", t);
@@ -55,7 +57,7 @@ public class ConsumeTask implements Callable<ConsumeStatus> {
                                                      MessageHookPoint.PointStatus.OK :
                                                      MessageHookPoint.PointStatus.ERROR)
                                              .build();
-            consumerImpl.intercept(MessageHookPoint.POST_MESSAGE_CONSUMPTION, messageExt, context);
+            interceptor.intercept(MessageHookPoint.POST_MESSAGE_CONSUMPTION, messageExt, context);
         }
 
         return status;

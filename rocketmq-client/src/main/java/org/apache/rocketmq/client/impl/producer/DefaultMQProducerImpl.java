@@ -108,7 +108,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                 60,
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<Runnable>(),
-                new ThreadFactoryImpl("SendCallbackThread"));
+                new ThreadFactoryImpl("SendCallbackWorker"));
 
         this.topicPublishInfoCache = new ConcurrentHashMap<String, TopicPublishInfo>();
 

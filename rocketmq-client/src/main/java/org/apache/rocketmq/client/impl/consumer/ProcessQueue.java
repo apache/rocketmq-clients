@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.RateLimiter;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.protobuf.Duration;
@@ -169,20 +170,6 @@ public class ProcessQueue {
     }
 
     /**
-     * Try to take one message from {@link ProcessQueue#cachedMessages}, and move it to
-     * {@link ProcessQueue#inflightMessages}.
-     *
-     * @return message which has been taken, or null if no message exists.
-     */
-    public MessageExt tryTakeMessage() {
-        final List<MessageExt> messageExtList = tryTakeMessages(1);
-        if (messageExtList.isEmpty()) {
-            return null;
-        }
-        return messageExtList.get(0);
-    }
-
-    /**
      * Try to take messages from {@link ProcessQueue#cachedMessages}, and move them to
      * {@link ProcessQueue#inflightMessages}.
      *
@@ -193,12 +180,27 @@ public class ProcessQueue {
         cachedMessagesLock.writeLock().lock();
         inflightMessagesLock.writeLock().lock();
         try {
-            final int actualSize = Math.min(cachedMessages.size(), batchMaxSize);
-            final List<MessageExt> subList = cachedMessages.subList(0, actualSize);
-            final List<MessageExt> messageExtList = new ArrayList<MessageExt>(subList);
+            List<MessageExt> messageExtList = new ArrayList<MessageExt>();
+            final String topic = mq.getTopic();
+            final RateLimiter rateLimiter = consumerImpl.rateLimiter(topic);
+            // no rate limiter for current topic.
+            if (null == rateLimiter) {
+                final int actualSize = Math.min(cachedMessages.size(), batchMaxSize);
+                final List<MessageExt> subList = cachedMessages.subList(0, actualSize);
+                messageExtList.addAll(subList);
 
-            inflightMessages.addAll(messageExtList);
-            cachedMessages.removeAll(messageExtList);
+                inflightMessages.addAll(subList);
+                cachedMessages.removeAll(subList);
+                return messageExtList;
+            }
+            // has rate limiter for current topic.
+            while (cachedMessages.size() > 0 && messageExtList.size() < batchMaxSize && rateLimiter.tryAcquire()) {
+                final MessageExt messageExt = cachedMessages.iterator().next();
+                messageExtList.add(messageExt);
+
+                inflightMessages.add(messageExt);
+                cachedMessages.remove(messageExt);
+            }
             return messageExtList;
         } finally {
             inflightMessagesLock.writeLock().unlock();
@@ -219,6 +221,49 @@ public class ProcessQueue {
             }
         } finally {
             inflightMessagesLock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * Try to take fifo message from {@link ProcessQueue#cachedMessages}, and move them
+     * to{@link ProcessQueue#inflightMessages}. each fifo message taken from MUST be erased by
+     * {@link ProcessQueue#eraseFifoMessage(MessageExt, ConsumeStatus)}
+     *
+     * @return message which has been taken, or null if no message available
+     */
+    public MessageExt tryTakeFifoMessage() {
+        cachedMessagesLock.writeLock().lock();
+        inflightMessagesLock.writeLock().lock();
+        try {
+            // no new message arrived.
+            if (cachedMessages.isEmpty()) {
+                return null;
+            }
+            // failed to lock.
+            if (!fifoConsumptionInbound()) {
+                return null;
+            }
+            final String topic = mq.getTopic();
+            final RateLimiter rateLimiter = consumerImpl.rateLimiter(topic);
+            // no rate limiter for current topic.
+            if (null == rateLimiter) {
+                final MessageExt first = cachedMessages.iterator().next();
+                cachedMessages.remove(first);
+                inflightMessages.add(first);
+                return first;
+            }
+            // unlock cause failure of acquire the token,
+            if (!rateLimiter.tryAcquire()) {
+                fifoConsumptionOutbound();
+                return null;
+            }
+            final MessageExt first = cachedMessages.iterator().next();
+            cachedMessages.remove(first);
+            cachedMessages.add(first);
+            return first;
+        } finally {
+            inflightMessagesLock.writeLock().unlock();
+            cachedMessagesLock.writeLock().unlock();
         }
     }
 
@@ -1030,7 +1075,7 @@ public class ProcessQueue {
         }
     }
 
-    public int messagesCacheSize() {
+    public int cachedMessagesQuantity() {
         cachedMessagesLock.readLock().lock();
         try {
             return cachedMessages.size();
