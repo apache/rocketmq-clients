@@ -62,7 +62,7 @@ public abstract class ConsumeService {
         synchronized (this) {
             log.info("Begin to start the consume service.");
             if (!state.compareAndSet(ServiceState.READY, ServiceState.STARTED)) {
-                log.warn("The consume concurrently service has been started before");
+                log.warn("The consume service has been started before");
                 return;
             }
             log.info("Start the consume service successfully.");
