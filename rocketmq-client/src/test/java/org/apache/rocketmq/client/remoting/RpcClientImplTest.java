@@ -9,38 +9,13 @@ import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
 import javax.net.ssl.SSLException;
+import org.apache.rocketmq.client.impl.ClientConfig;
 import org.apache.rocketmq.client.route.AddressScheme;
 import org.testng.annotations.Test;
 
 public class RpcClientImplTest {
 
-    private Credentials observable = new Credentials() {
-
-        @Override
-        public AccessCredential getAccessCredential() {
-            return new AccessCredential("LTAInDOvOPEkCj67", "UniBnf6GKgUS1Y5l3Ce0rmgQhhKyZd");
-        }
-
-        @Override
-        public String getTenantId() {
-            return "";
-        }
-
-        @Override
-        public String getArn() {
-            return "MQ_INST_1973281269661160_BXmPlOA6";
-        }
-
-        @Override
-        public String getRegionId() {
-            return "";
-        }
-
-        @Override
-        public String getServiceName() {
-            return "";
-        }
-    };
+    private ClientConfig clientConfig = new ClientConfig("");
 
     @Test
     public void testQueryRoute() throws SSLException {

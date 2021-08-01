@@ -5,7 +5,7 @@ import java.util.List;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.impl.consumer.DefaultMQPullConsumerImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
-import org.apache.rocketmq.client.remoting.AccessCredential;
+import org.apache.rocketmq.client.remoting.CredentialsProvider;
 
 public class DefaultMQPullConsumer {
     private final DefaultMQPullConsumerImpl impl;
@@ -54,7 +54,7 @@ public class DefaultMQPullConsumer {
         this.impl.setArn(arn);
     }
 
-    public void setAccessCredential(AccessCredential accessCredential) throws ClientException {
-        this.impl.setAccessCredential(accessCredential);
+    public void setCredentialsProvider(CredentialsProvider provider) throws ClientException {
+        this.impl.setCredentialsProvider(provider);
     }
 }

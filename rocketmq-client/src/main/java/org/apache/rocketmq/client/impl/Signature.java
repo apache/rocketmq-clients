@@ -7,8 +7,8 @@ import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.rocketmq.client.remoting.AccessCredential;
 import org.apache.rocketmq.client.remoting.Credentials;
+import org.apache.rocketmq.client.remoting.CredentialsProvider;
 import org.apache.rocketmq.client.remoting.TlsHelper;
 
 public class Signature {
@@ -31,11 +31,11 @@ public class Signature {
     private Signature() {
     }
 
-    public static Metadata sign(Credentials observable)
+    public static Metadata sign(ClientConfig config)
             throws UnsupportedEncodingException, NoSuchAlgorithmException, InvalidKeyException {
 
         Metadata metadata = new Metadata();
-        final String tenantId = observable.getTenantId();
+        final String tenantId = config.getTenantId();
         if (StringUtils.isNotBlank(tenantId)) {
             metadata.put(Metadata.Key.of(TENANT_ID_KEY, Metadata.ASCII_STRING_MARSHALLER), tenantId);
         }
@@ -44,7 +44,7 @@ public class Signature {
         // TODO
         metadata.put(Metadata.Key.of(REQUEST_ID_KEY, Metadata.ASCII_STRING_MARSHALLER), "JAVA");
 
-        final String arn = observable.getArn();
+        final String arn = config.getArn();
         if (StringUtils.isNotBlank(arn)) {
             metadata.put(Metadata.Key.of(ARN_KEY, Metadata.ASCII_STRING_MARSHALLER), arn);
         }
@@ -52,13 +52,17 @@ public class Signature {
         String dateTime = new SimpleDateFormat(DATE_TIME_FORMAT).format(new Date());
         metadata.put(Metadata.Key.of(DATE_TIME_KEY, Metadata.ASCII_STRING_MARSHALLER), dateTime);
 
-        final AccessCredential accessCredential = observable.getAccessCredential();
-        if (null == accessCredential) {
+        final CredentialsProvider provider = config.getCredentialsProvider();
+        if (null == provider) {
+            return metadata;
+        }
+        final Credentials credentials = provider.getCredentials();
+        if (null == credentials) {
             return metadata;
         }
 
-        final String accessKey = accessCredential.getAccessKey();
-        final String accessSecret = accessCredential.getAccessSecret();
+        final String accessKey = credentials.getAccessKey();
+        final String accessSecret = credentials.getAccessSecret();
 
         if (StringUtils.isBlank(accessKey)) {
             return metadata;
@@ -68,8 +72,8 @@ public class Signature {
             return metadata;
         }
 
-        final String regionId = observable.getRegionId();
-        final String serviceName = observable.getServiceName();
+        final String regionId = config.getRegionId();
+        final String serviceName = config.getServiceName();
 
         String sign = TlsHelper.sign(accessSecret, dateTime);
 

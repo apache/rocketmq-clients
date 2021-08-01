@@ -20,7 +20,6 @@ import com.google.common.base.Function;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.RateLimiter;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -905,6 +904,8 @@ public class ProcessQueue {
                 builder.setConsumePolicy(ConsumePolicy.TARGET_TIMESTAMP);
                 break;
             case END:
+                builder.setConsumePolicy(ConsumePolicy.DISCARD);
+                break;
             default:
                 builder.setConsumePolicy(ConsumePolicy.RESUME);
         }

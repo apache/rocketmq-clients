@@ -4,12 +4,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.rocketmq.client.remoting.AccessCredential;
-import org.apache.rocketmq.client.remoting.Credentials;
+import org.apache.rocketmq.client.remoting.CredentialsProvider;
 import org.apache.rocketmq.utility.RemotingUtil;
 import org.apache.rocketmq.utility.UtilAll;
 
-public class ClientConfig implements Credentials {
+public class ClientConfig {
     private static final String CLIENT_ID_SEPARATOR = "@";
 
     protected long ioTimeoutMillis = 3 * 1000;
@@ -35,8 +34,9 @@ public class ClientConfig implements Credentials {
     @Setter
     @Getter
     private String serviceName = "aone";
+
     @Getter
-    private AccessCredential accessCredential = null;
+    private CredentialsProvider credentialsProvider = null;
 
     public ClientConfig(String group) {
         this.group = group;
@@ -68,8 +68,8 @@ public class ClientConfig implements Credentials {
 
 
     // TODO: not allowed to update after client instance started(override in producer and consumer)
-    public void setAccessCredential(AccessCredential accessCredential) {
-        checkNotNull(accessCredential, "Access Credential is null, please set it.");
-        this.accessCredential = accessCredential;
+    public void setCredentialsProvider(CredentialsProvider credentialsProvider) {
+        checkNotNull(credentialsProvider, "Credentials provider is null, please set it.");
+        this.credentialsProvider = credentialsProvider;
     }
 }

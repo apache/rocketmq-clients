@@ -9,12 +9,14 @@ import io.opentelemetry.context.Context;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.impl.ClientBaseImpl;
 import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
+import org.apache.rocketmq.client.remoting.CredentialsProvider;
 
 public class TracingMessageInterceptor implements MessageInterceptor {
 
@@ -33,15 +35,20 @@ public class TracingMessageInterceptor implements MessageInterceptor {
             return;
         }
 
-        final String accessKey = client.getAccessCredential().getAccessKey();
+        String accessKey = "";
+        final CredentialsProvider credentialsProvider = client.getCredentialsProvider();
+        if (null != credentialsProvider) {
+            accessKey = credentialsProvider.getCredentials().getAccessKey();
+        }
         final String arn = client.getArn();
         final String group = client.getGroup();
 
         switch (hookPoint) {
             case PRE_SEND_MESSAGE: {
                 Span span = tracer.spanBuilder(SpanName.SEND_MESSAGE).startSpan();
-
-                span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);
+                if (StringUtils.isNotEmpty(accessKey)) {
+                    span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);
+                }
                 span.setAttribute(TracingAttribute.ARN, arn);
                 span.setAttribute(TracingAttribute.TOPIC, message.getTopic());
                 span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
@@ -86,7 +93,9 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                     spanBuilder.setParent(Context.current().with(Span.wrap(spanContext)));
                 }
                 final Span span = spanBuilder.startSpan();
-                span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);
+                if (StringUtils.isNotEmpty(accessKey)) {
+                    span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);
+                }
                 span.setAttribute(TracingAttribute.ARN, arn);
                 span.setAttribute(TracingAttribute.TOPIC, message.getTopic());
                 span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
@@ -107,7 +116,9 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                     spanBuilder.setParent(Context.current().with(Span.wrap(spanContext)));
                 }
                 Span span = spanBuilder.startSpan();
-                span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);
+                if (StringUtils.isNotEmpty(accessKey)) {
+                    span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);
+                }
                 span.setAttribute(TracingAttribute.ARN, arn);
                 span.setAttribute(TracingAttribute.TOPIC, message.getTopic());
                 span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
@@ -135,7 +146,9 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                     spanBuilder.setParent(Context.current().with(Span.wrap(spanContext)));
                 }
                 final Span span = spanBuilder.startSpan();
-                span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);
+                if (StringUtils.isNotEmpty(accessKey)) {
+                    span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);
+                }
                 span.setAttribute(TracingAttribute.ARN, arn);
                 span.setAttribute(TracingAttribute.TOPIC, message.getTopic());
                 span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
@@ -167,7 +180,9 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                         System.currentTimeMillis() - TimeUnit.MILLISECONDS.convert(context.getDuration(),
                                                                                    context.getTimeUnit());
                 final Span span = spanBuilder.setStartTimestamp(startTimestamp, TimeUnit.MILLISECONDS).startSpan();
-                span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);
+                if (StringUtils.isNotEmpty(accessKey)) {
+                    span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);
+                }
                 span.setAttribute(TracingAttribute.ARN, arn);
                 span.setAttribute(TracingAttribute.TOPIC, message.getTopic());
                 span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());

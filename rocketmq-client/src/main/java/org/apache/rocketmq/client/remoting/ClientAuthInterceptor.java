@@ -8,6 +8,7 @@ import io.grpc.ForwardingClientCall;
 import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.client.impl.ClientConfig;
 import org.apache.rocketmq.client.impl.Signature;
 
 /**
@@ -16,15 +17,15 @@ import org.apache.rocketmq.client.impl.Signature;
 @Slf4j
 public class ClientAuthInterceptor implements ClientInterceptor {
 
-    private final Credentials credentials;
+    private final ClientConfig clientConfig;
 
-    public ClientAuthInterceptor(Credentials credentials) {
-        this.credentials = credentials;
+    public ClientAuthInterceptor(ClientConfig clientConfig) {
+        this.clientConfig = clientConfig;
     }
 
     private void customMetadata(Metadata headers) {
         try {
-            final Metadata metadata = Signature.sign(credentials);
+            final Metadata metadata = Signature.sign(clientConfig);
             headers.merge(metadata);
         } catch (Throwable t) {
             log.error("Failed to sign headers", t);

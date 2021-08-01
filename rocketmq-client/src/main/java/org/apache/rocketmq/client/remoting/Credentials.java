@@ -1,13 +1,30 @@
 package org.apache.rocketmq.client.remoting;
 
-public interface Credentials {
-    AccessCredential getAccessCredential();
+import com.google.common.base.Preconditions;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 
-    String getTenantId();
+@Getter
+@EqualsAndHashCode
+public class Credentials {
+    private final String accessKey;
+    private final String accessSecret;
+    private final String sessionToken;
 
-    String getArn();
+    public Credentials(String accessKey, String accessSecret) {
+        Preconditions.checkNotNull(accessKey, "AccessKey is null, please set it.");
+        Preconditions.checkNotNull(accessSecret, "SecretKey is null, please set it.");
+        this.accessKey = accessKey;
+        this.accessSecret = accessSecret;
+        this.sessionToken = null;
+    }
 
-    String getRegionId();
-
-    String getServiceName();
+    public Credentials(String accessKey, String accessSecret, String sessionToken) {
+        Preconditions.checkNotNull(accessKey, "AccessKey is null, please set it.");
+        Preconditions.checkNotNull(accessSecret, "SecretKey is null, please set it.");
+        Preconditions.checkNotNull(sessionToken, "SessionToken is null, please set it.");
+        this.accessKey = accessKey;
+        this.accessSecret = accessSecret;
+        this.sessionToken = sessionToken;
+    }
 }

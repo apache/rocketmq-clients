@@ -8,7 +8,7 @@ import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ServerException;
 import org.apache.rocketmq.client.impl.producer.DefaultMQProducerImpl;
 import org.apache.rocketmq.client.message.Message;
-import org.apache.rocketmq.client.remoting.AccessCredential;
+import org.apache.rocketmq.client.remoting.CredentialsProvider;
 
 public class DefaultMQProducer {
 
@@ -72,8 +72,8 @@ public class DefaultMQProducer {
         this.impl.setArn(arn);
     }
 
-    public void setAccessCredential(AccessCredential accessCredential) {
-        this.impl.setAccessCredential(accessCredential);
+    public void setCredentialsProvider(CredentialsProvider provider) {
+        this.impl.setCredentialsProvider(provider);
     }
 
     /**

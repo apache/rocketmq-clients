@@ -4,7 +4,7 @@ import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.impl.consumer.DefaultMQPushConsumerImpl;
-import org.apache.rocketmq.client.remoting.AccessCredential;
+import org.apache.rocketmq.client.remoting.CredentialsProvider;
 
 public class DefaultMQPushConsumer {
 
@@ -66,8 +66,8 @@ public class DefaultMQPushConsumer {
         this.impl.setArn(arn);
     }
 
-    public void setAccessCredential(AccessCredential accessCredential) throws ClientException {
-        this.impl.setAccessCredential(accessCredential);
+    public void setCredentialsProvider(CredentialsProvider provider) {
+        this.impl.setCredentialsProvider(provider);
     }
 
     public void setConsumeMessageBatchMaxSize(int batchMaxSize) {
