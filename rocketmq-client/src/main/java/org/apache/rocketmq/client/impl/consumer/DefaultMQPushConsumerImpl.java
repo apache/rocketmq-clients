@@ -209,6 +209,9 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     public void start() throws ClientException {
         synchronized (this) {
             log.info("Begin to start the rocketmq push consumer");
+            if (null == messageListener) {
+                throw new ClientException(ErrorCode.NO_LISTENER_REGISTERED);
+            }
             super.start();
 
             this.generateConsumeService();
