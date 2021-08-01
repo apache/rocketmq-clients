@@ -311,7 +311,7 @@ public class ProcessQueue {
                 eraseMessage(messageExt);
                 fifoConsumptionOutbound();
             }
-        }, MoreExecutors.directExecutor());
+        }, consumerImpl.getConsumptionExecutor());
     }
 
     /**
