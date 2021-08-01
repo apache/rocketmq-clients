@@ -13,6 +13,7 @@ import org.apache.rocketmq.utility.UtilAll;
 public class MessageIdGenerator {
 
     private static final MessageIdGenerator instance = new MessageIdGenerator();
+    private static final String VERSION = "00";
 
     private final String prefix;
     private final long secondsSinceCustomEpoch;
@@ -37,7 +38,7 @@ public class MessageIdGenerator {
         pidBuffer.putInt(pid);
         // Copy the lower 2 bytes
         prefixBuffer.put(pidBuffer.array(), 2, 2);
-        prefix = Hex.encodeHexString(prefixBuffer, false);
+        prefix = VERSION + Hex.encodeHexString(prefixBuffer, false);
 
         secondsSinceCustomEpoch = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis() - customEpochMillis());
         secondsStartTimestamp = TimeUnit.NANOSECONDS.toSeconds(System.nanoTime());

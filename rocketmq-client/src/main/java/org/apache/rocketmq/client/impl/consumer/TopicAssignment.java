@@ -10,7 +10,9 @@ import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.message.MessageQueue;
+import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.route.Partition;
+import org.apache.rocketmq.client.route.TopicRouteData;
 
 @Slf4j
 @ToString
@@ -21,6 +23,18 @@ public class TopicAssignment {
 
     @Getter
     private final List<Assignment> assignmentList;
+
+    public TopicAssignment(TopicRouteData topicRouteData) {
+        this.assignmentList = new ArrayList<Assignment>();
+        final List<Partition> partitions = topicRouteData.getPartitions();
+        for (Partition partition : partitions) {
+            if (MixAll.MASTER_BROKER_ID != partition.getBroker().getId()) {
+                final MessageQueue mq = new MessageQueue(partition);
+                final Assignment assignment = new Assignment(mq, MessageRequestMode.PULL);
+                assignmentList.add(assignment);
+            }
+        }
+    }
 
     public TopicAssignment(List<apache.rocketmq.v1.Assignment> assignmentList) {
         this.assignmentList = new ArrayList<Assignment>();

@@ -3,18 +3,12 @@ package org.apache.rocketmq.client.impl.consumer;
 import apache.rocketmq.v1.ClientResourceBundle;
 import apache.rocketmq.v1.ConsumerGroup;
 import apache.rocketmq.v1.HeartbeatEntry;
-import apache.rocketmq.v1.QueryOffsetRequest;
-import apache.rocketmq.v1.QueryOffsetResponse;
 import apache.rocketmq.v1.Resource;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.protobuf.util.Timestamps;
-import com.google.rpc.Code;
-import com.google.rpc.Status;
-import io.grpc.Metadata;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -22,17 +16,14 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ServiceState;
-import org.apache.rocketmq.client.consumer.OffsetQuery;
 import org.apache.rocketmq.client.consumer.PullCallback;
 import org.apache.rocketmq.client.consumer.PullMessageQuery;
 import org.apache.rocketmq.client.consumer.PullMessageResult;
-import org.apache.rocketmq.client.consumer.QueryOffsetPolicy;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.impl.ClientBaseImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
-import org.apache.rocketmq.client.remoting.Endpoints;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
@@ -79,64 +70,6 @@ public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
             }
         });
     }
-
-    public QueryOffsetRequest wrapQueryOffsetRequest(OffsetQuery offsetQuery) {
-        final QueryOffsetRequest.Builder builder = QueryOffsetRequest.newBuilder();
-        final QueryOffsetPolicy queryOffsetPolicy = offsetQuery.getQueryOffsetPolicy();
-        switch (queryOffsetPolicy) {
-            case END:
-                builder.setPolicy(apache.rocketmq.v1.QueryOffsetPolicy.END);
-                break;
-            case TIME_POINT:
-                builder.setPolicy(apache.rocketmq.v1.QueryOffsetPolicy.TIME_POINT);
-                builder.setTimePoint(Timestamps.fromMillis(offsetQuery.getTimePoint()));
-                break;
-            case BEGINNING:
-            default:
-                builder.setPolicy(apache.rocketmq.v1.QueryOffsetPolicy.BEGINNING);
-        }
-        final MessageQueue messageQueue = offsetQuery.getMessageQueue();
-        Resource topicResource = Resource.newBuilder().setArn(this.getArn()).setName(messageQueue.getTopic()).build();
-        int partitionId = messageQueue.getPartition().getId();
-        final apache.rocketmq.v1.Partition partition = apache.rocketmq.v1.Partition.newBuilder()
-                                                                                   .setTopic(topicResource)
-                                                                                   .setId(partitionId)
-                                                                                   .build();
-        return QueryOffsetRequest.newBuilder().setPartition(partition).build();
-    }
-
-    public ListenableFuture<Long> queryOffset(final OffsetQuery offsetQuery) {
-        final QueryOffsetRequest request = wrapQueryOffsetRequest(offsetQuery);
-        final SettableFuture<Long> future0 = SettableFuture.create();
-        Metadata metadata;
-        try {
-            metadata = sign();
-        } catch (Throwable t) {
-            future0.setException(t);
-            return future0;
-        }
-        final Partition partition = offsetQuery.getMessageQueue().getPartition();
-        final Endpoints endpoints = partition.getBroker().getEndpoints();
-        final ListenableFuture<QueryOffsetResponse> future =
-                clientInstance.queryOffset(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
-        return Futures.transformAsync(future, new AsyncFunction<QueryOffsetResponse, Long>() {
-            @Override
-            public ListenableFuture<Long> apply(QueryOffsetResponse response) throws Exception {
-                final Status status = response.getCommon().getStatus();
-                final Code code = Code.forNumber(status.getCode());
-                // TODO: polish code.
-                if (Code.OK != code) {
-                    log.error("Failed to query offset, offsetQuery={}, code={}, message={}", offsetQuery, code,
-                              status.getMessage());
-                    throw new ClientException(ErrorCode.OTHER);
-                }
-                final long offset = response.getOffset();
-                future0.set(offset);
-                return future0;
-            }
-        });
-    }
-
 
     public void pull(PullMessageQuery pullMessageQuery, final PullCallback pullCallback) {
         final ListenableFuture<PullMessageResult> future = pull(pullMessageQuery);

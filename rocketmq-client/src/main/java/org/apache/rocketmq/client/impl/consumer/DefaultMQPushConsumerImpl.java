@@ -121,11 +121,26 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     private int maxDeliveryAttempts = 17;
 
-    private int maxReconsumeTimes = 16;
-
     private MessageModel messageModel = MessageModel.CLUSTERING;
 
-    private ConsumeFromWhere consumeFromWhere = ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET;
+    /**
+     * Indicates the first consumption's position of consumer.
+     *
+     * <p>In cluster consumption model, it is UNDEFINED if consumer use different timestamp in the same group.
+     */
+    private ConsumeFromWhere consumeFromWhere = ConsumeFromWhere.END;
+
+    /**
+     * Indicates first consumption's time point of consumer by timestamp. Note that setting this option does not take
+     * effect while {@link ConsumeFromWhere} is not {@link ConsumeFromWhere#TIMESTAMP}.
+     *
+     * <p>In cluster consumption model, timestamp here indicates the position of all consumer's first consumption.
+     * Which is UNDEFINED if consumers use different timestamp in same group.
+     *
+     * <p>In broadcasting consumption model, timestamp here are individual for each consumer, even though they belong
+     * to the same group.
+     */
+    private long consumeFromTimeMillis = System.currentTimeMillis();
 
     private long consumptionTimeoutMillis = 15 * 60 * 1000L;
 
@@ -161,6 +176,11 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                 new ThreadFactoryImpl("MessageConsumption"));
     }
 
+    public void setOffsetStore(OffsetStore offsetStore) {
+        checkNotNull(offsetStore);
+        this.offsetStore = offsetStore;
+    }
+
     private void generateConsumeService() throws ClientException {
         switch (messageListener.getListenerType()) {
             case CONCURRENTLY:
@@ -176,6 +196,10 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     public boolean hasCustomOffsetStore() {
         return null != offsetStore;
+    }
+
+    public long readOffset(MessageQueue mq) {
+        return offsetStore.readOffset(mq);
     }
 
     @Override
@@ -230,7 +254,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         return new ArrayList<ProcessQueue>(processQueueTable.values());
     }
 
-    ProcessQueue processQueue(MessageQueue mq) {
+    ProcessQueue getProcessQueue(MessageQueue mq) {
         return processQueueTable.get(mq);
     }
 
@@ -312,73 +336,79 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                 pullTimes, pulledMessagesSize, consumptionOkCount, consumptionErrorCount);
     }
 
-    private void synchronizeProcessQueue(
-            String topic, TopicAssignment topicAssignment, FilterExpression filterExpression) {
-        Set<MessageQueue> latestMessageQueueSet = new HashSet<MessageQueue>();
-
-        final List<Assignment> assignmentList = topicAssignment.getAssignmentList();
-        for (Assignment assignment : assignmentList) {
-            latestMessageQueueSet.add(assignment.getMessageQueue());
-        }
-
-        Set<MessageQueue> activeMessageQueueSet = new HashSet<MessageQueue>();
-
-        for (Map.Entry<MessageQueue, ProcessQueue> entry : processQueueTable.entrySet()) {
-            final MessageQueue messageQueue = entry.getKey();
-            final ProcessQueue processQueue = entry.getValue();
-            if (!topic.equals(messageQueue.getTopic())) {
-                continue;
-            }
-
-            if (null == processQueue) {
-                log.error("[Bug] Process queue is null, mq={}", messageQueue);
-                continue;
-            }
-
-            if (!latestMessageQueueSet.contains(messageQueue)) {
-                log.info("Stop to receive message queue according to the latest assignments, mq={}", messageQueue);
-                processQueueTable.remove(messageQueue);
-                processQueue.setDropped(true);
-                continue;
-            }
-
-            if (processQueue.expired()) {
-                log.warn("Process queue is expired, mq={}", messageQueue);
-                processQueueTable.remove(messageQueue);
-                processQueue.setDropped(true);
-                continue;
-            }
-            activeMessageQueueSet.add(messageQueue);
-        }
-
-        for (MessageQueue messageQueue : latestMessageQueueSet) {
-            if (!activeMessageQueueSet.contains(messageQueue)) {
-                log.info("Start to receive message from message queue according to the latest assignments, mq={}",
-                         messageQueue);
-                final ProcessQueue processQueue = processQueue(messageQueue, filterExpression);
-                if (MessageModel.CLUSTERING.equals(messageModel)) {
-                    processQueue.receiveMessageImmediately();
-                } else {
-                    processQueue.pullMessageImmediately();
-                }
-            }
+    void dropProcessQueue(MessageQueue mq) {
+        final ProcessQueue pq = processQueueTable.remove(mq);
+        if (null != pq) {
+            pq.drop();
         }
     }
 
-    private ProcessQueue processQueue(
-            MessageQueue messageQueue, final FilterExpression filterExpression) {
-        if (null == processQueueTable.get(messageQueue)) {
-            processQueueTable.putIfAbsent(
-                    messageQueue, new ProcessQueue(this, messageQueue, filterExpression));
+    private ProcessQueue getProcessQueue(MessageQueue mq, final FilterExpression filterExpression) {
+        if (null == processQueueTable.get(mq)) {
+            processQueueTable.putIfAbsent(mq, new ProcessQueue(this, mq, filterExpression));
         }
-        return processQueueTable.get(messageQueue);
+        return processQueueTable.get(mq);
+    }
+
+    private void synchronizeProcessQueue(
+            String topic, TopicAssignment topicAssignment, FilterExpression filterExpression) {
+        Set<MessageQueue> latestMqs = new HashSet<MessageQueue>();
+
+        final List<Assignment> assignments = topicAssignment.getAssignmentList();
+        for (Assignment assignment : assignments) {
+            latestMqs.add(assignment.getMessageQueue());
+        }
+
+        Set<MessageQueue> activeMqs = new HashSet<MessageQueue>();
+
+        for (Map.Entry<MessageQueue, ProcessQueue> entry : processQueueTable.entrySet()) {
+            final MessageQueue mq = entry.getKey();
+            final ProcessQueue pq = entry.getValue();
+            if (!topic.equals(mq.getTopic())) {
+                continue;
+            }
+
+            if (null == pq) {
+                log.error("[Bug] Process queue is null, mq={}", mq);
+                continue;
+            }
+
+            if (!latestMqs.contains(mq)) {
+                log.info("Stop to receive message queue according to the latest assignments, mq={}", mq);
+                processQueueTable.remove(mq);
+                dropProcessQueue(mq);
+                continue;
+            }
+
+            if (pq.expired()) {
+                log.warn("Process queue is expired, mq={}", mq);
+                processQueueTable.remove(mq);
+                dropProcessQueue(mq);
+                continue;
+            }
+            activeMqs.add(mq);
+        }
+
+        for (MessageQueue mq : latestMqs) {
+            if (!activeMqs.contains(mq)) {
+                log.info("Start to receive message from message queue according to the latest assignments, mq={}", mq);
+                final ProcessQueue pq = getProcessQueue(mq, filterExpression);
+                // for clustering mode.
+                if (MessageModel.CLUSTERING.equals(messageModel)) {
+                    pq.receiveMessageImmediately();
+                    continue;
+                }
+                // for broadcasting mode.
+                pq.pullMessageImmediately();
+            }
+        }
     }
 
     public void subscribe(final String topic, final String subscribeExpression)
             throws ClientException {
         FilterExpression filterExpression = new FilterExpression(subscribeExpression);
         if (!filterExpression.verifyExpression()) {
-            throw new ClientException("SubscribeExpression is illegal");
+            throw new ClientException("Subscribe expression is illegal");
         }
         filterExpressionTable.put(topic, filterExpression);
     }
@@ -422,6 +452,16 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     }
 
     private ListenableFuture<TopicAssignment> queryAssignment(final String topic) {
+        // return full topic route form broadcasting mode.
+        if (MessageModel.BROADCASTING == messageModel) {
+            final ListenableFuture<TopicRouteData> future = getRouteFor(topic);
+            return Futures.transform(future, new Function<TopicRouteData, TopicAssignment>() {
+                @Override
+                public TopicAssignment apply(TopicRouteData topicRouteData) {
+                    return new TopicAssignment(topicRouteData);
+                }
+            });
+        }
 
         final QueryAssignmentRequest request = wrapQueryAssignmentRequest(topic);
         final ListenableFuture<Endpoints> future = pickRouteEndpoints(topic);
@@ -478,17 +518,15 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
             subscriptionEntries.add(subscriptionEntry);
         }
 
-        DeadLetterPolicy deadLetterPolicy =
-                DeadLetterPolicy.newBuilder()
-                                .setMaxDeliveryAttempts(maxDeliveryAttempts)
-                                .build();
+        DeadLetterPolicy deadLetterPolicy = DeadLetterPolicy.newBuilder()
+                                                            .setMaxDeliveryAttempts(maxDeliveryAttempts)
+                                                            .build();
 
-        final ConsumerGroup.Builder builder =
-                ConsumerGroup.newBuilder()
-                             .setGroup(groupResource)
-                             .addAllSubscriptions(subscriptionEntries)
-                             .setDeadLetterPolicy(deadLetterPolicy)
-                             .setConsumeType(ConsumeMessageType.POP);
+        final ConsumerGroup.Builder builder = ConsumerGroup.newBuilder()
+                                                           .setGroup(groupResource)
+                                                           .addAllSubscriptions(subscriptionEntries)
+                                                           .setDeadLetterPolicy(deadLetterPolicy)
+                                                           .setConsumeType(ConsumeMessageType.POP);
 
         switch (messageModel) {
             case CLUSTERING:
@@ -502,13 +540,13 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         }
 
         switch (consumeFromWhere) {
-            case CONSUME_FROM_FIRST_OFFSET:
+            case BEGINNING:
                 builder.setConsumePolicy(ConsumePolicy.PLAYBACK);
                 break;
-            case CONSUME_FROM_TIMESTAMP:
+            case TIMESTAMP:
                 builder.setConsumePolicy(ConsumePolicy.TARGET_TIMESTAMP);
                 break;
-            case CONSUME_FROM_LAST_OFFSET:
+            case END:
             default:
                 builder.setConsumePolicy(ConsumePolicy.RESUME);
         }

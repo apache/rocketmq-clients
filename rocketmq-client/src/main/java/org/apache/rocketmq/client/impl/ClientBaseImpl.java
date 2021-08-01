@@ -12,6 +12,8 @@ import apache.rocketmq.v1.MultiplexingResponse;
 import apache.rocketmq.v1.PrintThreadStackResponse;
 import apache.rocketmq.v1.PullMessageRequest;
 import apache.rocketmq.v1.PullMessageResponse;
+import apache.rocketmq.v1.QueryOffsetRequest;
+import apache.rocketmq.v1.QueryOffsetResponse;
 import apache.rocketmq.v1.QueryRouteRequest;
 import apache.rocketmq.v1.QueryRouteResponse;
 import apache.rocketmq.v1.ResolveOrphanedTransactionRequest;
@@ -69,9 +71,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.constant.Permission;
 import org.apache.rocketmq.client.constant.ServiceState;
+import org.apache.rocketmq.client.consumer.OffsetQuery;
 import org.apache.rocketmq.client.consumer.PullMessageQuery;
 import org.apache.rocketmq.client.consumer.PullMessageResult;
 import org.apache.rocketmq.client.consumer.PullStatus;
+import org.apache.rocketmq.client.consumer.QueryOffsetPolicy;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
@@ -900,6 +904,63 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         } catch (Throwable t) {
             log.error("Exception occurs while updating tracer.", t);
         }
+    }
+
+    public ListenableFuture<Long> queryOffset(final OffsetQuery offsetQuery) {
+        final QueryOffsetRequest request = wrapQueryOffsetRequest(offsetQuery);
+        final SettableFuture<Long> future0 = SettableFuture.create();
+        Metadata metadata;
+        try {
+            metadata = sign();
+        } catch (Throwable t) {
+            future0.setException(t);
+            return future0;
+        }
+        final Partition partition = offsetQuery.getMessageQueue().getPartition();
+        final Endpoints endpoints = partition.getBroker().getEndpoints();
+        final ListenableFuture<QueryOffsetResponse> future =
+                clientInstance.queryOffset(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+        return Futures.transformAsync(future, new AsyncFunction<QueryOffsetResponse, Long>() {
+            @Override
+            public ListenableFuture<Long> apply(QueryOffsetResponse response) throws Exception {
+                final Status status = response.getCommon().getStatus();
+                final Code code = Code.forNumber(status.getCode());
+                // TODO: polish code.
+                if (Code.OK != code) {
+                    log.error("Failed to query offset, offsetQuery={}, code={}, message={}", offsetQuery, code,
+                              status.getMessage());
+                    throw new ClientException(ErrorCode.OTHER);
+                }
+                final long offset = response.getOffset();
+                future0.set(offset);
+                return future0;
+            }
+        });
+    }
+
+    public QueryOffsetRequest wrapQueryOffsetRequest(OffsetQuery offsetQuery) {
+        final QueryOffsetRequest.Builder builder = QueryOffsetRequest.newBuilder();
+        final QueryOffsetPolicy queryOffsetPolicy = offsetQuery.getQueryOffsetPolicy();
+        switch (queryOffsetPolicy) {
+            case END:
+                builder.setPolicy(apache.rocketmq.v1.QueryOffsetPolicy.END);
+                break;
+            case TIME_POINT:
+                builder.setPolicy(apache.rocketmq.v1.QueryOffsetPolicy.TIME_POINT);
+                builder.setTimePoint(Timestamps.fromMillis(offsetQuery.getTimePoint()));
+                break;
+            case BEGINNING:
+            default:
+                builder.setPolicy(apache.rocketmq.v1.QueryOffsetPolicy.BEGINNING);
+        }
+        final MessageQueue messageQueue = offsetQuery.getMessageQueue();
+        Resource topicResource = Resource.newBuilder().setArn(this.getArn()).setName(messageQueue.getTopic()).build();
+        int partitionId = messageQueue.getPartition().getId();
+        final apache.rocketmq.v1.Partition partition = apache.rocketmq.v1.Partition.newBuilder()
+                                                                                   .setTopic(topicResource)
+                                                                                   .setId(partitionId)
+                                                                                   .build();
+        return QueryOffsetRequest.newBuilder().setPartition(partition).build();
     }
 
     public static MessageImpl wrapMessageImpl(Message message) throws IOException, ClientException {

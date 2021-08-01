@@ -95,7 +95,7 @@ public class ConsumeConcurrentlyService extends ConsumeService {
                 for (Map.Entry<MessageQueue, List<MessageExt>> entry : messageExtListTable.entrySet()) {
                     final MessageQueue mq = entry.getKey();
                     final List<MessageExt> messageExtList = entry.getValue();
-                    final ProcessQueue pq = consumerImpl.processQueue(mq);
+                    final ProcessQueue pq = consumerImpl.getProcessQueue(mq);
                     if (null == pq) {
                         continue;
                     }

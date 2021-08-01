@@ -38,13 +38,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ConsumeFromWhere;
 import org.apache.rocketmq.client.consumer.MessageModel;
+import org.apache.rocketmq.client.consumer.OffsetQuery;
 import org.apache.rocketmq.client.consumer.PullMessageQuery;
 import org.apache.rocketmq.client.consumer.PullMessageResult;
 import org.apache.rocketmq.client.consumer.PullStatus;
+import org.apache.rocketmq.client.consumer.QueryOffsetPolicy;
 import org.apache.rocketmq.client.consumer.ReceiveMessageResult;
 import org.apache.rocketmq.client.consumer.ReceiveStatus;
 import org.apache.rocketmq.client.consumer.filter.ExpressionType;
@@ -78,7 +79,6 @@ public class ProcessQueue {
     private static final long ACK_FIFO_MESSAGE_DELAY_MILLIS = 100L;
     private static final long REDIRECT_FIFO_MESSAGE_TO_DLQ_DELAY_MILLIS = 100L;
 
-    @Setter
     @Getter
     private volatile boolean dropped;
 
@@ -107,13 +107,12 @@ public class ProcessQueue {
     private volatile long activityNanoTime = System.nanoTime();
     private volatile long throttleNanoTime = System.nanoTime();
 
-    public ProcessQueue(
-            DefaultMQPushConsumerImpl consumerImpl,
-            MessageQueue mq,
-            FilterExpression filterExpression) {
+    public ProcessQueue(DefaultMQPushConsumerImpl consumerImpl, MessageQueue mq, FilterExpression filterExpression) {
         this.consumerImpl = consumerImpl;
+
         this.mq = mq;
         this.filterExpression = filterExpression;
+
         this.dropped = false;
 
         this.cachedMessages = new ArrayList<MessageExt>();
@@ -127,6 +126,10 @@ public class ProcessQueue {
 
         this.offsets = new TreeSet<OffsetRecord>();
         this.offsetsLock = new ReentrantReadWriteLock();
+    }
+
+    void drop() {
+        this.dropped = true;
     }
 
     public boolean fifoConsumptionInbound() {
@@ -300,17 +303,19 @@ public class ProcessQueue {
         statsMessageConsumptionStatus(messageExtList.size(), status);
         eraseMessages(messageExtList);
         final MessageModel messageModel = consumerImpl.getMessageModel();
+        // for broadcasting mode.
         if (MessageModel.BROADCASTING.equals(messageModel)) {
-            // TODO
             return;
-        } else if (ConsumeStatus.OK == status) {
+        }
+        // for clustering mode.
+        if (ConsumeStatus.OK == status) {
             for (MessageExt messageExt : messageExtList) {
                 ackMessage(messageExt);
             }
-        } else {
-            for (MessageExt messageExt : messageExtList) {
-                nackMessage(messageExt);
-            }
+            return;
+        }
+        for (MessageExt messageExt : messageExtList) {
+            nackMessage(messageExt);
         }
     }
 
@@ -355,7 +360,7 @@ public class ProcessQueue {
                     consumerImpl.getConsumeService().dispatch();
                 }
                 log.debug("Pull message with OK, mq={}, messages found count={}", mq, messagesFound.size());
-                pullMessage();
+                pullMessage(result.getNextBeginOffset());
                 break;
             // fall through on purpose.
             case DEADLINE_EXCEEDED:
@@ -364,9 +369,9 @@ public class ProcessQueue {
             case OUT_OF_RANGE:
             case INTERNAL:
             default:
-                log.debug("Pull message with status={}, mq={}, messages found status={}", pullStatus, mq,
+                log.error("Pull message with status={}, mq={}, messages found status={}", pullStatus, mq,
                           messagesFound.size());
-                pullMessageLater();
+                pullMessageLater(result.getNextBeginOffset());
         }
     }
 
@@ -433,10 +438,70 @@ public class ProcessQueue {
         return true;
     }
 
+    /**
+     * Pull message immediately.
+     *
+     * <p> Actually, offset for message queue to pull from must be fetched before pull. If offset store was
+     * customized, it would be read from offset store, otherwise offset would be fetched from remote according to the
+     * consumption policy.
+     */
     public void pullMessageImmediately() {
+        if (consumerImpl.hasCustomOffsetStore()) {
+            long offset;
+            try {
+                offset = consumerImpl.readOffset(mq);
+            } catch (Throwable t) {
+                log.error("Exception raised while reading offset from offset store, mq={}", mq);
+                // drop this pq, waiting for the next assignments scan.
+                consumerImpl.dropProcessQueue(mq);
+                return;
+            }
+            pullMessageImmediately(offset);
+            return;
+        }
+
+        QueryOffsetPolicy queryOffsetPolicy;
+        switch (consumerImpl.getConsumeFromWhere()) {
+            case BEGINNING:
+                queryOffsetPolicy = QueryOffsetPolicy.BEGINNING;
+                break;
+            case END:
+                queryOffsetPolicy = QueryOffsetPolicy.END;
+                break;
+            case TIMESTAMP:
+            default:
+                queryOffsetPolicy = QueryOffsetPolicy.TIME_POINT;
+        }
+        long timePoint = consumerImpl.getConsumeFromTimeMillis();
+        OffsetQuery offsetQuery = new OffsetQuery(mq, queryOffsetPolicy, timePoint);
+        final ListenableFuture<Long> future = consumerImpl.queryOffset(offsetQuery);
+        Futures.addCallback(future, new FutureCallback<Long>() {
+            @Override
+            public void onSuccess(Long offset) {
+                log.info("Query offset successfully from remote, mq={}, offset={}", mq, offset);
+                pullMessage(offset);
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                log.error("Exception raised while query offset to pull, mq={}", mq, t);
+                // drop this pq, waiting for the next assignments scan.
+                consumerImpl.dropProcessQueue(mq);
+            }
+        });
+    }
+
+    /**
+     * Pull message immediately by message queue according to the given offset.
+     *
+     * <p> Make sure that there is no any exception thrown.
+     *
+     * @param offset offset for message queue to pull from.
+     */
+    public void pullMessageImmediately(final long offset) {
         try {
             final Endpoints endpoints = mq.getPartition().getBroker().getEndpoints();
-            PullMessageQuery pullMessageQuery = new PullMessageQuery(mq, filterExpression, PULL_MAX_BATCH_SIZE,
+            PullMessageQuery pullMessageQuery = new PullMessageQuery(mq, filterExpression, offset,
                                                                      PULL_MAX_BATCH_SIZE, PULL_AWAIT_TIME_MILLIS,
                                                                      PULL_LONG_POLLING_TIMEOUT_MILLIS);
 
@@ -451,7 +516,7 @@ public class ProcessQueue {
                         // should never reach here.
                         log.error("[Bug] Exception raised while handling pull result, would pull later, mq={}, "
                                   + "endpoints={}", mq, endpoints, t);
-                        pullMessageLater();
+                        pullMessageLater(offset);
                     }
                 }
 
@@ -459,44 +524,58 @@ public class ProcessQueue {
                 public void onFailure(Throwable t) {
                     log.error("Exception raised while pull message, would pull later, mq={}, endpoints={}", mq,
                               endpoints, t);
-                    pullMessageLater();
+                    pullMessageLater(offset);
                 }
             });
             consumerImpl.pullTimes.getAndIncrement();
         } catch (Throwable t) {
             log.error("Exception raised while pull message, would pull message later, mq={}", mq, t);
-            pullMessageLater();
+            pullMessageLater(offset);
         }
     }
 
-    public void pullMessageLater() {
+    /**
+     * Pull message later by message queue according to the given offset.
+     *
+     * <p> Make sure that there is no any exception thrown.
+     *
+     * @param offset offset for message queue to pull from.
+     */
+    public void pullMessageLater(final long offset) {
         final ScheduledExecutorService scheduler = consumerImpl.getScheduler();
         try {
             scheduler.schedule(new Runnable() {
                 @Override
                 public void run() {
-                    pullMessage();
+                    pullMessage(offset);
                 }
             }, PULL_LATER_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
             // should never reach here.
             log.error("[Bug] Failed to schedule pull message request", t);
-            pullMessageLater();
+            pullMessageLater(offset);
         }
     }
 
-    public void pullMessage() {
+    /**
+     * Pull message by message queue according to the given offset.
+     *
+     * <p> Make sure that there is no any exception thrown.
+     *
+     * @param offset offset for message queue to pull from.
+     */
+    public void pullMessage(long offset) {
         if (this.isDropped()) {
-            log.debug("Process queue has been dropped, no longer pull message, mq={}.", mq);
+            log.info("Process queue has been dropped, no longer pull message, mq={}.", mq);
             return;
         }
         if (this.throttled()) {
             log.warn("Process queue is throttled, would pull message later, mq={}", mq);
             throttleNanoTime = System.nanoTime();
-            pullMessageLater();
+            pullMessageLater(offset);
             return;
         }
-        pullMessageImmediately();
+        pullMessageImmediately(offset);
     }
 
     public void receiveMessageImmediately() {
@@ -779,13 +858,13 @@ public class ProcessQueue {
                                      .setAwaitTime(Durations.fromMillis(RECEIVE_AWAIT_TIME_MILLIS));
 
         switch (this.getConsumeFromWhere()) {
-            case CONSUME_FROM_FIRST_OFFSET:
+            case BEGINNING:
                 builder.setConsumePolicy(ConsumePolicy.PLAYBACK);
                 break;
-            case CONSUME_FROM_TIMESTAMP:
+            case TIMESTAMP:
                 builder.setConsumePolicy(ConsumePolicy.TARGET_TIMESTAMP);
                 break;
-            case CONSUME_FROM_LAST_OFFSET:
+            case END:
             default:
                 builder.setConsumePolicy(ConsumePolicy.RESUME);
         }
@@ -877,7 +956,7 @@ public class ProcessQueue {
                                   .setReceiptHandle(messageExt.getReceiptHandle())
                                   .setMessageId(messageExt.getMsgId())
                                   .setDeliveryAttempt(messageExt.getDeliveryAttempt())
-                                  .setMaxDeliveryAttempts(this.getMaxReconsumeTimes());
+                                  .setMaxDeliveryAttempts(this.getMaxDeliveryAttempts());
 
         switch (getMessageModel()) {
             case CLUSTERING:
@@ -984,8 +1063,8 @@ public class ProcessQueue {
         return consumerImpl.getClientId();
     }
 
-    private int getMaxReconsumeTimes() {
-        return consumerImpl.getMaxReconsumeTimes();
+    private int getMaxDeliveryAttempts() {
+        return consumerImpl.getMaxDeliveryAttempts();
     }
 
     private MessageModel getMessageModel() {

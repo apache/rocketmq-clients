@@ -25,7 +25,7 @@ public class MessageExt {
         return this.impl.getTopic();
     }
 
-    public String getTags() {
+    public String getTag() {
         return this.impl.getSystemAttribute().getTag();
     }
 
