@@ -268,7 +268,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         return rateLimiterTable.get(topic);
     }
 
-    public void throttle(String topic, int permitsPerSecond) {
+    public void throttle(String topic, double permitsPerSecond) {
         final RateLimiter rateLimiter = RateLimiter.create(permitsPerSecond);
         rateLimiterTable.put(topic, rateLimiter);
     }

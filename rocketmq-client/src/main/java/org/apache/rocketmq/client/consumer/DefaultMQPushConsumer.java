@@ -42,7 +42,7 @@ public class DefaultMQPushConsumer {
         throw new UnsupportedOperationException();
     }
 
-    public void throttle(String topic, int permitsPerSecond) {
+    public void throttle(String topic, double permitsPerSecond) {
         this.impl.throttle(topic, permitsPerSecond);
     }
 
