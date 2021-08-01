@@ -5,11 +5,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.rocketmq.client.remoting.AccessCredential;
-import org.apache.rocketmq.client.remoting.CredentialsObservable;
+import org.apache.rocketmq.client.remoting.Credentials;
 import org.apache.rocketmq.utility.RemotingUtil;
 import org.apache.rocketmq.utility.UtilAll;
 
-public class ClientConfig implements CredentialsObservable {
+public class ClientConfig implements Credentials {
     private static final String CLIENT_ID_SEPARATOR = "@";
 
     protected long ioTimeoutMillis = 3 * 1000;

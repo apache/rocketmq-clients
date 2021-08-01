@@ -60,7 +60,6 @@ import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.message.protocol.SystemAttribute;
-import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.remoting.Endpoints;
 
 @Slf4j
@@ -216,14 +215,9 @@ public class ProcessQueue {
      * @param messageExt message to erase.
      */
     private void eraseMessage(final MessageExt messageExt) {
-        inflightMessagesLock.writeLock().lock();
-        try {
-            if (inflightMessages.remove(messageExt)) {
-                totalMessagesMemory.addAndGet(null == messageExt.getBody() ? 0 : -messageExt.getBody().length);
-            }
-        } finally {
-            inflightMessagesLock.writeLock().unlock();
-        }
+        final List<MessageExt> messageExtList = new ArrayList<MessageExt>();
+        messageExtList.add(messageExt);
+        eraseMessages(messageExtList);
     }
 
     /**
@@ -277,48 +271,52 @@ public class ProcessQueue {
      * @param messageExt consumed fifo message
      * @param status     consume status, which indicated whether to send message to DLQ.
      */
-    public void eraseFifoMessage(final MessageExt messageExt, ConsumeStatus status) {
+    public void eraseFifoMessage(final MessageExt messageExt, final ConsumeStatus status) {
         statsMessageConsumptionStatus(status);
 
-        final boolean needMoreAttempt;
-        ListenableFuture<?> future;
         final MessageModel messageModel = consumerImpl.getMessageModel();
         if (MessageModel.BROADCASTING.equals(messageModel)) {
-            needMoreAttempt = false;
-
-            SettableFuture<Void> future0 = SettableFuture.create();
-            future0.set(null);
-
-            future = future0;
-        } else if (ConsumeStatus.OK == status) {
-            needMoreAttempt = false;
-            future = ackFifoMessage(messageExt);
-        } else if (consumerImpl.getMaxDeliveryAttempts() >= messageExt.getDeliveryAttempt()) {
-            needMoreAttempt = false;
-            future = forwardToDeadLetterQueue(messageExt);
-        } else {
-            // deliver attempt do not exceed the threshold.
-            needMoreAttempt = true;
-
+            // for broadcasting mode, no need to ack message or forward it to DLQ.
+            eraseMessage(messageExt);
+            fifoConsumptionOutbound();
+            return;
+        }
+        final int maxAttempts = consumerImpl.getMaxDeliveryAttempts();
+        final int attempt = messageExt.getDeliveryAttempt();
+        // failed to consume message but deliver attempt do not exceed the threshold.
+        if (ConsumeStatus.ERROR.equals(status) && attempt < maxAttempts) {
             final MessageImpl messageImpl = MessageAccessor.getMessageImpl(messageExt);
             final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
-
             // increment the delivery attempt and prepare to deliver message once again.
-            systemAttribute.setDeliveryAttempt(1 + systemAttribute.getDeliveryAttempt());
-
+            systemAttribute.setDeliveryAttempt(1 + attempt);
             // try to deliver message once again.
             final long fifoConsumptionSuspendTimeMillis = consumerImpl.getFifoConsumptionSuspendTimeMillis();
-            future = consumerImpl.getConsumeService().consume(messageExt, fifoConsumptionSuspendTimeMillis,
-                                                              TimeUnit.MILLISECONDS);
-        }
+            final ConsumeService consumeService = consumerImpl.getConsumeService();
+            ListenableFuture<ConsumeStatus> future = consumeService
+                    .consume(messageExt, fifoConsumptionSuspendTimeMillis, TimeUnit.MILLISECONDS);
+            Futures.addCallback(future, new FutureCallback<ConsumeStatus>() {
+                @Override
+                public void onSuccess(ConsumeStatus consumeStatus) {
+                    eraseFifoMessage(messageExt, consumeStatus);
+                }
 
+                @Override
+                public void onFailure(Throwable t) {
+                    log.error("[Bug] Exception raised while redelivery, mq={}, messageId={}, attempt={}, "
+                              + "maxAttempts={}", mq, messageExt.getMsgId(), messageExt.getDeliveryAttempt(),
+                              maxAttempts, t);
+                }
+            });
+            return;
+        }
+        // ack message or forward it to DLQ depends on consumption status.
+        ListenableFuture<Void> future = ConsumeStatus.OK.equals(status) ? ackFifoMessage(messageExt) :
+                                        forwardToDeadLetterQueue(messageExt);
         future.addListener(new Runnable() {
             @Override
             public void run() {
                 eraseMessage(messageExt);
-                if (!needMoreAttempt) {
-                    fifoConsumptionOutbound();
-                }
+                fifoConsumptionOutbound();
             }
         }, MoreExecutors.directExecutor());
     }
@@ -716,7 +714,7 @@ public class ProcessQueue {
             }, ACK_FIFO_MESSAGE_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
             // should never reach here.
-            log.error("[Bug] Failed to schedule ack message request, mq={}, msgId={}.", mq, msgId);
+            log.error("[Bug] Failed to schedule ack fifo message request, mq={}, msgId={}.", mq, msgId);
             ackFifoMessageLater(messageExt, 1 + attempt, future0);
         }
     }
@@ -1081,16 +1079,6 @@ public class ProcessQueue {
             cachedMessagesLock.readLock().unlock();
         }
     }
-
-    public int cachedMessagesQuantity() {
-        cachedMessagesLock.readLock().lock();
-        try {
-            return cachedMessages.size();
-        } finally {
-            cachedMessagesLock.readLock().unlock();
-        }
-    }
-
 
     private void statsMessageConsumptionStatus(ConsumeStatus status) {
         statsMessageConsumptionStatus(1, status);

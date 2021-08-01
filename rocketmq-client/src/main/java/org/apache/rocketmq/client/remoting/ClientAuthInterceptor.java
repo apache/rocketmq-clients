@@ -16,15 +16,15 @@ import org.apache.rocketmq.client.impl.Signature;
 @Slf4j
 public class ClientAuthInterceptor implements ClientInterceptor {
 
-    private final CredentialsObservable credentialsObservable;
+    private final Credentials credentials;
 
-    public ClientAuthInterceptor(CredentialsObservable credentialsObservable) {
-        this.credentialsObservable = credentialsObservable;
+    public ClientAuthInterceptor(Credentials credentials) {
+        this.credentials = credentials;
     }
 
     private void customMetadata(Metadata headers) {
         try {
-            final Metadata metadata = Signature.sign(credentialsObservable);
+            final Metadata metadata = Signature.sign(credentials);
             headers.merge(metadata);
         } catch (Throwable t) {
             log.error("Failed to sign headers", t);

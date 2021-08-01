@@ -1,6 +1,6 @@
 package org.apache.rocketmq.client.remoting;
 
-public interface CredentialsObservable {
+public interface Credentials {
     AccessCredential getAccessCredential();
 
     String getTenantId();

@@ -38,7 +38,11 @@ public class ConsumeTask implements Callable<ConsumeStatus> {
             status = messageListener.consume(messageExtList, consumeContext);
         } catch (Throwable t) {
             status = ConsumeStatus.ERROR;
-            log.error("Biz callback raised an exception while consuming messages.", t);
+            log.error("Message listener raised an exception while consuming messages.", t);
+        }
+        if (null == status) {
+            log.error("Message listener returns a null pointer for consume status");
+            status = ConsumeStatus.ERROR;
         }
 
         // intercept after message consumption.

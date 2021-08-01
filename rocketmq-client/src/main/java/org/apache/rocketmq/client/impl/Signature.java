@@ -8,7 +8,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.remoting.AccessCredential;
-import org.apache.rocketmq.client.remoting.CredentialsObservable;
+import org.apache.rocketmq.client.remoting.Credentials;
 import org.apache.rocketmq.client.remoting.TlsHelper;
 
 public class Signature {
@@ -31,7 +31,7 @@ public class Signature {
     private Signature() {
     }
 
-    public static Metadata sign(CredentialsObservable observable)
+    public static Metadata sign(Credentials observable)
             throws UnsupportedEncodingException, NoSuchAlgorithmException, InvalidKeyException {
 
         Metadata metadata = new Metadata();

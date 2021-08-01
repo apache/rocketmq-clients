@@ -1,28 +1,20 @@
 package org.apache.rocketmq.client.remoting;
 
-import apache.rocketmq.v1.ConsumeModel;
 import apache.rocketmq.v1.Message;
-import apache.rocketmq.v1.QueryAssignmentRequest;
-import apache.rocketmq.v1.QueryAssignmentResponse;
-import apache.rocketmq.v1.QueryRouteRequest;
-import apache.rocketmq.v1.QueryRouteResponse;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.SendMessageRequest;
-import apache.rocketmq.v1.SendMessageResponse;
 import apache.rocketmq.v1.SystemAttribute;
 import com.google.protobuf.ByteString;
-import io.grpc.Metadata;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLException;
 import org.apache.rocketmq.client.route.AddressScheme;
 import org.testng.annotations.Test;
 
 public class RpcClientImplTest {
 
-    private CredentialsObservable observable = new CredentialsObservable() {
+    private Credentials observable = new Credentials() {
 
         @Override
         public AccessCredential getAccessCredential() {
