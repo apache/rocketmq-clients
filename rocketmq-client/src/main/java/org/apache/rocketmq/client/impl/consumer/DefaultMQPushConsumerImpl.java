@@ -49,6 +49,7 @@ import org.apache.rocketmq.client.constant.ConsumeFromWhere;
 import org.apache.rocketmq.client.constant.Permission;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.MessageModel;
+import org.apache.rocketmq.client.consumer.filter.ExpressionType;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListener;
@@ -414,12 +415,8 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         }
     }
 
-    public void subscribe(final String topic, final String subscribeExpression)
-            throws ClientException {
-        FilterExpression filterExpression = new FilterExpression(subscribeExpression);
-        if (!filterExpression.verifyExpression()) {
-            throw new ClientException("Subscribe expression is illegal");
-        }
+    public void subscribe(final String topic, String expression, ExpressionType expressionType) {
+        final FilterExpression filterExpression = new FilterExpression(expression, expressionType);
         filterExpressionTable.put(topic, filterExpression);
     }
 

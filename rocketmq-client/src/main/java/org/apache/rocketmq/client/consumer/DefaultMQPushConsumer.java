@@ -1,5 +1,6 @@
 package org.apache.rocketmq.client.consumer;
 
+import org.apache.rocketmq.client.consumer.filter.ExpressionType;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
 import org.apache.rocketmq.client.exception.ClientException;
@@ -58,8 +59,12 @@ public class DefaultMQPushConsumer {
         this.impl.registerMessageListener(messageListenerOrderly);
     }
 
-    public void subscribe(String topic, String subscribeExpression) throws ClientException {
-        this.impl.subscribe(topic, subscribeExpression);
+    public void subscribe(String topic, String expression) throws ClientException {
+        this.impl.subscribe(topic, expression, ExpressionType.TAG);
+    }
+
+    public void subscribe(String topic, String expression, ExpressionType expressionType) {
+        this.impl.subscribe(topic, expression, expressionType);
     }
 
     public void unsubscribe(String topic) {

@@ -34,14 +34,6 @@ public class FilterExpression {
         this.version = System.currentTimeMillis();
     }
 
-    public boolean verifyExpression() {
-        if (ExpressionType.TAG == expressionType) {
-            final String[] split = expression.split(TAG_EXPRESSION_SPLIT_PATTERN);
-            return split.length > 0;
-        }
-        return true;
-    }
-
     // TODO: if client connect to broker bypass the proxy, the message received may not be filter totally.
     public boolean accept(MessageExt messageExt) {
         final String[] split = expression.split(TAG_EXPRESSION_SPLIT_PATTERN);
