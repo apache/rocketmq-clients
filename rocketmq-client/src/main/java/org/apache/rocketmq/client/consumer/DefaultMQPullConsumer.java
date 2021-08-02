@@ -26,7 +26,7 @@ public class DefaultMQPullConsumer {
         this.impl.start();
     }
 
-    public void shutdown() throws ClientException {
+    public void shutdown() {
         this.impl.shutdown();
     }
 
