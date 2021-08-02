@@ -59,7 +59,7 @@ public class DefaultMQPushConsumer {
         this.impl.registerMessageListener(messageListenerOrderly);
     }
 
-    public void subscribe(String topic, String expression) throws ClientException {
+    public void subscribe(String topic, String expression) {
         this.impl.subscribe(topic, expression, ExpressionType.TAG);
     }
 
