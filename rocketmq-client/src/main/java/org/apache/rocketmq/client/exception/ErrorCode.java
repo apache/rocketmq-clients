@@ -2,6 +2,7 @@ package org.apache.rocketmq.client.exception;
 
 public enum ErrorCode {
     CLIENT_NOT_STARTED,
+    STS_TOKEN_GET_FAILURE,
     /**
      *
      */

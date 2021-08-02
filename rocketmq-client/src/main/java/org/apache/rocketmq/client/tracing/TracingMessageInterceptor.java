@@ -9,7 +9,9 @@ import io.opentelemetry.context.Context;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.impl.ClientBaseImpl;
 import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageExt;
@@ -18,6 +20,7 @@ import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
 
+@Slf4j
 public class TracingMessageInterceptor implements MessageInterceptor {
 
     private final ClientBaseImpl client;
@@ -38,7 +41,11 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         String accessKey = "";
         final CredentialsProvider credentialsProvider = client.getCredentialsProvider();
         if (null != credentialsProvider) {
-            accessKey = credentialsProvider.getCredentials().getAccessKey();
+            try {
+                accessKey = credentialsProvider.getCredentials().getAccessKey();
+            } catch (ClientException e) {
+                log.error("Failed to fetch accessKey", e);
+            }
         }
         final String arn = client.getArn();
         final String group = client.getGroup();

@@ -7,6 +7,7 @@ import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.remoting.Credentials;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
 import org.apache.rocketmq.client.remoting.TlsHelper;
@@ -32,7 +33,7 @@ public class Signature {
     }
 
     public static Metadata sign(ClientConfig config)
-            throws UnsupportedEncodingException, NoSuchAlgorithmException, InvalidKeyException {
+            throws UnsupportedEncodingException, NoSuchAlgorithmException, InvalidKeyException, ClientException {
 
         Metadata metadata = new Metadata();
         final String tenantId = config.getTenantId();
