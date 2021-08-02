@@ -8,4 +8,6 @@ public interface Transaction {
     void commit() throws ClientException, ServerException, InterruptedException, TimeoutException;
 
     void rollback() throws ClientException, ServerException, InterruptedException, TimeoutException;
+
+    SendResult getSendResult();
 }

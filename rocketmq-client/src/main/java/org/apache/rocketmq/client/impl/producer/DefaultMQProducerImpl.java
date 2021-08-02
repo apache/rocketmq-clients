@@ -65,6 +65,7 @@ import org.apache.rocketmq.client.producer.MessageGroupQueueSelector;
 import org.apache.rocketmq.client.producer.MessageQueueSelector;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
+import org.apache.rocketmq.client.producer.Transaction;
 import org.apache.rocketmq.client.producer.TransactionChecker;
 import org.apache.rocketmq.client.producer.TransactionImpl;
 import org.apache.rocketmq.client.producer.TransactionResolution;
@@ -418,18 +419,15 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         }
     }
 
-    public TransactionImpl prepare(Message message) throws ServerException, InterruptedException,
-                                                           ClientException, TimeoutException {
+    public Transaction prepare(Message message) throws ServerException, InterruptedException,
+                                                       ClientException, TimeoutException {
         // set message type as transaction.
         final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
         final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
         systemAttribute.setMessageType(MessageType.TRANSACTION);
 
         final SendResult sendResult = send(message);
-        final String msgId = sendResult.getMsgId();
-        final String transactionId = sendResult.getTransactionId();
-        final Endpoints endpoints = sendResult.getEndpoints();
-        return new TransactionImpl(msgId, transactionId, endpoints, this);
+        return new TransactionImpl(sendResult, this);
     }
 
     public void commit(Endpoints endpoints, String messageId, String transactionId) throws ClientException,

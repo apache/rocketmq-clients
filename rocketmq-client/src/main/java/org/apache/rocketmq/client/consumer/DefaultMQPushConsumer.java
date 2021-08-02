@@ -37,6 +37,10 @@ public class DefaultMQPushConsumer {
         this.impl.setNamesrvAddr(namesrvAddr);
     }
 
+    public void setMessageTracingEnabled(boolean tracingEnabled) {
+        this.impl.setMessageTracingEnabled(tracingEnabled);
+    }
+
     // TODO: not allowed to set thead num after start
     public void setConsumeThreadNum(int consumeThreadNum) {
         throw new UnsupportedOperationException();

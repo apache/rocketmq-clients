@@ -1,26 +1,28 @@
 package org.apache.rocketmq.client.producer;
 
 import java.util.concurrent.TimeoutException;
-import lombok.AllArgsConstructor;
+import lombok.Getter;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ServerException;
 import org.apache.rocketmq.client.impl.producer.DefaultMQProducerImpl;
-import org.apache.rocketmq.client.remoting.Endpoints;
 
-@AllArgsConstructor
 public class TransactionImpl implements Transaction {
-    private final String messageId;
-    private final String transactionId;
-    private final Endpoints endpoints;
+    @Getter
+    private final SendResult sendResult;
     private final DefaultMQProducerImpl producerImpl;
+
+    public TransactionImpl(SendResult sendResult, DefaultMQProducerImpl producerImpl) {
+        this.sendResult = sendResult;
+        this.producerImpl = producerImpl;
+    }
 
     @Override
     public void commit() throws ClientException, ServerException, InterruptedException, TimeoutException {
-        producerImpl.commit(endpoints, messageId, transactionId);
+        producerImpl.commit(sendResult.getEndpoints(), sendResult.getMsgId(), sendResult.getTransactionId());
     }
 
     @Override
     public void rollback() throws ClientException, ServerException, InterruptedException, TimeoutException {
-        producerImpl.rollback(endpoints, messageId, transactionId);
+        producerImpl.rollback(sendResult.getEndpoints(), sendResult.getMsgId(), sendResult.getTransactionId());
     }
 }

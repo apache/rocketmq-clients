@@ -67,13 +67,20 @@ public class DefaultMQProducer {
         this.impl.setNamesrvAddr(namesrvAddr);
     }
 
-
     public void setArn(String arn) {
         this.impl.setArn(arn);
     }
 
     public void setCredentialsProvider(CredentialsProvider provider) {
         this.impl.setCredentialsProvider(provider);
+    }
+
+    public void setMessageTracingEnabled(boolean tracingEnabled) {
+        this.impl.setMessageTracingEnabled(tracingEnabled);
+    }
+
+    public void setSendMessageTimeoutMillis(long timeoutMillis) {
+        this.impl.setSendMessageTimeoutMillis(timeoutMillis);
     }
 
     /**
@@ -90,8 +97,8 @@ public class DefaultMQProducer {
      * @throws ClientException    if there is any client error.
      * @throws InterruptedException if the sending thread is interrupted.
      */
-    public SendResult send(Message msg)
-            throws ClientException, InterruptedException, ServerException, TimeoutException {
+    public SendResult send(Message msg) throws ClientException, InterruptedException, ServerException,
+                                               TimeoutException {
         return this.impl.send(msg);
     }
 
@@ -210,7 +217,7 @@ public class DefaultMQProducer {
         this.impl.setDefaultSendCallbackExecutor(callbackExecutor);
     }
 
-    public TransactionImpl prepare(Message message) throws ServerException, InterruptedException,
+    public Transaction prepare(Message message) throws ServerException, InterruptedException,
                                                            ClientException, TimeoutException {
         return impl.prepare(message);
     }

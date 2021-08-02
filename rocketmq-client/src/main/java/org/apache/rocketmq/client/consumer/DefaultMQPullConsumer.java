@@ -34,6 +34,10 @@ public class DefaultMQPullConsumer {
         this.impl.setNamesrvAddr(namesrvAddr);
     }
 
+    public void setMessageTracingEnabled(boolean tracingEnabled) {
+        this.impl.setMessageTracingEnabled(tracingEnabled);
+    }
+
     public ListenableFuture<List<MessageQueue>> queuesFor(String topic) {
         return this.impl.getQueuesFor(topic);
     }
