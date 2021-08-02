@@ -586,7 +586,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             return future;
         }
 
-        // set messageId, if user send message to topicA and topicB, they would have different messageId.
+        // set message id, if user send message to different topic, they would have different message id.
         final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
         final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
         final String messageId = MessageIdGenerator.getInstance().next();
