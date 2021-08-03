@@ -5,6 +5,7 @@ import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.impl.consumer.DefaultMQPushConsumerImpl;
+import org.apache.rocketmq.client.impl.consumer.OffsetStore;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
 
 public class DefaultMQPushConsumer {
@@ -34,12 +35,12 @@ public class DefaultMQPushConsumer {
         this.impl.shutdown();
     }
 
-    public void setNamesrvAddr(String namesrvAddr) throws ClientException {
+    public void setNamesrvAddr(String namesrvAddr) {
         this.impl.setNamesrvAddr(namesrvAddr);
     }
 
-    public void setMessageTracingEnabled(boolean tracingEnabled) {
-        this.impl.setMessageTracingEnabled(tracingEnabled);
+    public void setMessageTracingEnabled(boolean enabled) {
+        this.impl.setMessageTracingEnabled(enabled);
     }
 
     // TODO: not allowed to set thead num after start
@@ -51,12 +52,12 @@ public class DefaultMQPushConsumer {
         this.impl.throttle(topic, permitsPerSecond);
     }
 
-    public void registerMessageListener(MessageListenerConcurrently messageListenerConcurrently) {
-        this.impl.registerMessageListener(messageListenerConcurrently);
+    public void registerMessageListener(MessageListenerConcurrently listener) {
+        this.impl.registerMessageListener(listener);
     }
 
-    public void registerMessageListener(MessageListenerOrderly messageListenerOrderly) {
-        this.impl.registerMessageListener(messageListenerOrderly);
+    public void registerMessageListener(MessageListenerOrderly listener) {
+        this.impl.registerMessageListener(listener);
     }
 
     public void subscribe(String topic, String expression) {
@@ -71,7 +72,7 @@ public class DefaultMQPushConsumer {
         this.impl.unsubscribe(topic);
     }
 
-    public void setArn(String arn) throws ClientException {
+    public void setArn(String arn) {
         this.impl.setArn(arn);
     }
 
@@ -79,23 +80,47 @@ public class DefaultMQPushConsumer {
         this.impl.setCredentialsProvider(provider);
     }
 
-    public void setConsumeMessageBatchMaxSize(int batchMaxSize) {
-        this.impl.setConsumeMessageBatchMaxSize(batchMaxSize);
+    public void setConsumeMessageBatchMaxSize(int maxSize) {
+        this.impl.setConsumeMessageBatchMaxSize(maxSize);
     }
 
-    public void setMaxBatchConsumeWaitTimeMillis(long maxBatchConsumeWaitTimeMillis) {
-        this.impl.setMaxBatchConsumeWaitTimeMillis(maxBatchConsumeWaitTimeMillis);
+    public void setMaxBatchConsumeWaitTimeMillis(long timeMillis) {
+        this.impl.setMaxBatchConsumeWaitTimeMillis(timeMillis);
     }
 
     public void setMessageModel(MessageModel messageModel) {
         this.impl.setMessageModel(messageModel);
     }
 
-    public void setMaxDeliveryAttempts(int maxDeliveryAttempts) {
-        this.impl.setMaxDeliveryAttempts(maxDeliveryAttempts);
+    public void setMaxDeliveryAttempts(int maxAttempts) {
+        this.impl.setMaxDeliveryAttempts(maxAttempts);
     }
 
     public int getMaxDeliveryAttempts() {
         return this.impl.getMaxDeliveryAttempts();
+    }
+
+    public void setFifoConsumptionSuspendTimeMillis(long timeMillis) {
+        this.impl.setFifoConsumptionSuspendTimeMillis(timeMillis);
+    }
+
+    public void setMaxTotalCachedMessagesQuantityThreshold(int quantity) {
+        this.impl.setMaxTotalCachedMessagesQuantityThreshold(quantity);
+    }
+
+    public void setMaxTotalCachedMessageBytesThreshold(int bytes) {
+        this.impl.setMaxTotalCachedMessagesBytesThreshold(bytes);
+    }
+
+    public void setConsumptionTimeoutMillis(long timeoutMillis) {
+        this.impl.setConsumptionTimeoutMillis(timeoutMillis);
+    }
+
+    public void setConsumptionThreadsAmount(int threadsAmount) {
+        this.impl.setConsumptionThreadsAmount(threadsAmount);
+    }
+
+    public void setOffsetStore(OffsetStore offsetStore) {
+        this.impl.setOffsetStore(offsetStore);
     }
 }

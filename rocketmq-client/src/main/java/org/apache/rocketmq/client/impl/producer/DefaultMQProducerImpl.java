@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -86,9 +87,9 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     @Setter
     private long sendMessageTimeoutMillis = 10 * 1000;
 
-    private final ThreadPoolExecutor defaultSendCallbackExecutor;
+    private final ExecutorService defaultSendCallbackExecutor;
 
-    private ThreadPoolExecutor customizedSendCallbackExecutor = null;
+    private ExecutorService customSendCallbackExecutor = null;
 
     private final ConcurrentMap<String/* topic */, TopicPublishInfo> topicPublishInfoCache;
 
@@ -228,14 +229,14 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         }
     }
 
-    public void setDefaultSendCallbackExecutor(final ThreadPoolExecutor callbackExecutor) {
-        checkNotNull(callbackExecutor);
-        this.customizedSendCallbackExecutor = callbackExecutor;
+    public void setCallbackExecutor(final ExecutorService executor) {
+        checkNotNull(executor);
+        this.customSendCallbackExecutor = executor;
     }
 
-    public ThreadPoolExecutor getSendCallbackExecutor() {
-        if (null != customizedSendCallbackExecutor) {
-            return customizedSendCallbackExecutor;
+    public ExecutorService getSendCallbackExecutor() {
+        if (null != customSendCallbackExecutor) {
+            return customSendCallbackExecutor;
         }
         return defaultSendCallbackExecutor;
     }
@@ -349,7 +350,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         final ListenableFuture<SendResult> future = send0(message, maxAttempts);
         // Limit the future timeout.
         Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
-        final ThreadPoolExecutor sendCallbackExecutor = getSendCallbackExecutor();
+        final ExecutorService sendCallbackExecutor = getSendCallbackExecutor();
         Futures.addCallback(future, new FutureCallback<SendResult>() {
             @Override
             public void onSuccess(final SendResult sendResult) {
@@ -505,6 +506,9 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                 public void run() {
                     try {
                         final TransactionResolution resolution = transactionChecker.check(messageExt);
+                        if (null == resolution || TransactionResolution.UNKNOWN.equals(resolution)) {
+                            return;
+                        }
                         endTransaction(endpoints, messageId, transactionId, resolution);
                     } catch (Throwable t) {
                         log.error("Exception raised while check and end transaction, messageId={}, transactionId={}, "

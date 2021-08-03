@@ -30,7 +30,7 @@ public class DefaultMQPullConsumer {
         this.impl.shutdown();
     }
 
-    public void setNamesrvAddr(String namesrvAddr) throws ClientException {
+    public void setNamesrvAddr(String namesrvAddr) {
         this.impl.setNamesrvAddr(namesrvAddr);
     }
 
@@ -54,11 +54,11 @@ public class DefaultMQPullConsumer {
         this.impl.pull(pullMessageQuery, callback);
     }
 
-    public void setArn(String arn) throws ClientException {
+    public void setArn(String arn) {
         this.impl.setArn(arn);
     }
 
-    public void setCredentialsProvider(CredentialsProvider provider) throws ClientException {
+    public void setCredentialsProvider(CredentialsProvider provider) {
         this.impl.setCredentialsProvider(provider);
     }
 }

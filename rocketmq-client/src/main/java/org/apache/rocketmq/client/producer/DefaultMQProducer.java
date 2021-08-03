@@ -2,7 +2,7 @@ package org.apache.rocketmq.client.producer;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeoutException;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ServerException;
@@ -213,8 +213,8 @@ public class DefaultMQProducer {
      *
      * @param callbackExecutor the instance of Executor
      */
-    public void setCallbackExecutor(final ThreadPoolExecutor callbackExecutor) {
-        this.impl.setDefaultSendCallbackExecutor(callbackExecutor);
+    public void setCallbackExecutor(final ExecutorService executor) {
+        this.impl.setCallbackExecutor(executor);
     }
 
     public Transaction prepare(Message message) throws ServerException, InterruptedException,

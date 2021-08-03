@@ -73,9 +73,6 @@ public class ProcessQueue {
     private static final int PULL_MAX_BATCH_SIZE = 32;
     private static final long PULL_LATER_DELAY_MILLIS = 3 * 1000L;
 
-    private static final long TOTAL_MESSAGES_QUANTITY_THRESHOLD = 1024;
-    private static final long TOTAL_MESSAGES_MEMORY_THRESHOLD = 4 * 1024 * 1024;
-
     private static final long MAX_IDLE_MILLIS = 30 * 1000L;
     private static final long ACK_FIFO_MESSAGE_DELAY_MILLIS = 100L;
     private static final long REDIRECT_FIFO_MESSAGE_TO_DLQ_DELAY_MILLIS = 100L;
@@ -90,9 +87,9 @@ public class ProcessQueue {
     @Getter
     private final DefaultMQPushConsumerImpl consumerImpl;
 
-    @GuardedBy("cachedMessagesLock")
-    private final List<MessageExt> cachedMessages;
-    private final ReentrantReadWriteLock cachedMessagesLock;
+    @GuardedBy("pendingMessagesLock")
+    private final List<MessageExt> pendingMessages;
+    private final ReentrantReadWriteLock pendingMessagesLock;
 
     @GuardedBy("inflightMessagesLock")
     private final List<MessageExt> inflightMessages;
@@ -116,8 +113,8 @@ public class ProcessQueue {
 
         this.dropped = false;
 
-        this.cachedMessages = new ArrayList<MessageExt>();
-        this.cachedMessagesLock = new ReentrantReadWriteLock();
+        this.pendingMessages = new ArrayList<MessageExt>();
+        this.pendingMessagesLock = new ReentrantReadWriteLock();
 
         this.inflightMessages = new ArrayList<MessageExt>();
         this.inflightMessagesLock = new ReentrantReadWriteLock();
@@ -144,10 +141,10 @@ public class ProcessQueue {
 
     @VisibleForTesting
     public void cacheMessages(List<MessageExt> messageList) {
-        cachedMessagesLock.writeLock().lock();
+        pendingMessagesLock.writeLock().lock();
         try {
             for (MessageExt message : messageList) {
-                cachedMessages.add(message);
+                pendingMessages.add(message);
                 totalMessagesMemory.addAndGet(null == message.getBody() ? 0 : message.getBody().length);
                 if (MessageModel.BROADCASTING.equals(consumerImpl.getMessageModel())) {
                     offsetsLock.writeLock().lock();
@@ -165,19 +162,19 @@ public class ProcessQueue {
                 }
             }
         } finally {
-            cachedMessagesLock.writeLock().unlock();
+            pendingMessagesLock.writeLock().unlock();
         }
     }
 
     /**
-     * Try to take messages from {@link ProcessQueue#cachedMessages}, and move them to
+     * Try to take messages from {@link ProcessQueue#pendingMessages}, and move them to
      * {@link ProcessQueue#inflightMessages}.
      *
      * @param batchMaxSize max batch size to take messages.
      * @return messages which have been taken.
      */
     public List<MessageExt> tryTakeMessages(int batchMaxSize) {
-        cachedMessagesLock.writeLock().lock();
+        pendingMessagesLock.writeLock().lock();
         inflightMessagesLock.writeLock().lock();
         try {
             List<MessageExt> messageExtList = new ArrayList<MessageExt>();
@@ -185,26 +182,26 @@ public class ProcessQueue {
             final RateLimiter rateLimiter = consumerImpl.rateLimiter(topic);
             // no rate limiter for current topic.
             if (null == rateLimiter) {
-                final int actualSize = Math.min(cachedMessages.size(), batchMaxSize);
-                final List<MessageExt> subList = cachedMessages.subList(0, actualSize);
+                final int actualSize = Math.min(pendingMessages.size(), batchMaxSize);
+                final List<MessageExt> subList = pendingMessages.subList(0, actualSize);
                 messageExtList.addAll(subList);
 
                 inflightMessages.addAll(subList);
-                cachedMessages.removeAll(subList);
+                pendingMessages.removeAll(subList);
                 return messageExtList;
             }
             // has rate limiter for current topic.
-            while (cachedMessages.size() > 0 && messageExtList.size() < batchMaxSize && rateLimiter.tryAcquire()) {
-                final MessageExt messageExt = cachedMessages.iterator().next();
+            while (pendingMessages.size() > 0 && messageExtList.size() < batchMaxSize && rateLimiter.tryAcquire()) {
+                final MessageExt messageExt = pendingMessages.iterator().next();
                 messageExtList.add(messageExt);
 
                 inflightMessages.add(messageExt);
-                cachedMessages.remove(messageExt);
+                pendingMessages.remove(messageExt);
             }
             return messageExtList;
         } finally {
             inflightMessagesLock.writeLock().unlock();
-            cachedMessagesLock.writeLock().unlock();
+            pendingMessagesLock.writeLock().unlock();
         }
     }
 
@@ -220,18 +217,18 @@ public class ProcessQueue {
     }
 
     /**
-     * Try to take fifo message from {@link ProcessQueue#cachedMessages}, and move them
+     * Try to take fifo message from {@link ProcessQueue#pendingMessages}, and move them
      * to{@link ProcessQueue#inflightMessages}. each fifo message taken from MUST be erased by
      * {@link ProcessQueue#eraseFifoMessage(MessageExt, ConsumeStatus)}
      *
      * @return message which has been taken, or null if no message available
      */
     public MessageExt tryTakeFifoMessage() {
-        cachedMessagesLock.writeLock().lock();
+        pendingMessagesLock.writeLock().lock();
         inflightMessagesLock.writeLock().lock();
         try {
             // no new message arrived.
-            if (cachedMessages.isEmpty()) {
+            if (pendingMessages.isEmpty()) {
                 return null;
             }
             // failed to lock.
@@ -243,8 +240,8 @@ public class ProcessQueue {
             final RateLimiter rateLimiter = consumerImpl.rateLimiter(topic);
             // no rate limiter for current topic.
             if (null == rateLimiter) {
-                final MessageExt first = cachedMessages.iterator().next();
-                cachedMessages.remove(first);
+                final MessageExt first = pendingMessages.iterator().next();
+                pendingMessages.remove(first);
                 inflightMessages.add(first);
                 return first;
             }
@@ -253,13 +250,13 @@ public class ProcessQueue {
                 fifoConsumptionOutbound();
                 return null;
             }
-            final MessageExt first = cachedMessages.iterator().next();
-            cachedMessages.remove(first);
-            cachedMessages.add(first);
+            final MessageExt first = pendingMessages.iterator().next();
+            pendingMessages.remove(first);
+            pendingMessages.add(first);
             return first;
         } finally {
             inflightMessagesLock.writeLock().unlock();
-            cachedMessagesLock.writeLock().unlock();
+            pendingMessagesLock.writeLock().unlock();
         }
     }
 
@@ -332,7 +329,7 @@ public class ProcessQueue {
     }
 
     /**
-     * Erase consumed message froms {@link ProcessQueue#cachedMessages} and execute ack/nack.
+     * Erase consumed message froms {@link ProcessQueue#pendingMessages} and execute ack/nack.
      *
      * @param messageExtList consumed message list.
      * @param status         consume status, which indicates to ack/nack message.
@@ -446,16 +443,17 @@ public class ProcessQueue {
 
     private boolean throttled() {
         final long actualMessagesQuantity = this.messagesQuantity();
-
-        if (TOTAL_MESSAGES_QUANTITY_THRESHOLD <= actualMessagesQuantity) {
+        final int cachedMessageQuantityThresholdPerQueue = consumerImpl.cachedMessageQuantityThresholdPerQueue();
+        if (cachedMessageQuantityThresholdPerQueue <= actualMessagesQuantity) {
             log.warn("Process queue total messages quantity exceeds the threshold, threshold={}, actual={}, mq={}",
-                     TOTAL_MESSAGES_QUANTITY_THRESHOLD, actualMessagesQuantity, mq);
+                     cachedMessageQuantityThresholdPerQueue, actualMessagesQuantity, mq);
             return true;
         }
+        final int cachedMessageMemoryThresholdPerQueue = consumerImpl.cachedMessageMemoryThresholdPerQueue();
         final long actualMessagesMemory = totalMessagesMemory.get();
-        if (TOTAL_MESSAGES_MEMORY_THRESHOLD <= actualMessagesMemory) {
+        if (cachedMessageMemoryThresholdPerQueue <= actualMessagesMemory) {
             log.warn("Process queue total messages memory exceeds the threshold, threshold={} bytes, actual={} bytes,"
-                     + " mq={}", TOTAL_MESSAGES_MEMORY_THRESHOLD, actualMessagesMemory, mq);
+                     + " mq={}", cachedMessageMemoryThresholdPerQueue, actualMessagesMemory, mq);
             return true;
         }
         return false;
@@ -1064,13 +1062,13 @@ public class ProcessQueue {
     }
 
     public int messagesQuantity() {
-        cachedMessagesLock.readLock().lock();
+        pendingMessagesLock.readLock().lock();
         inflightMessagesLock.readLock().lock();
         try {
-            return cachedMessages.size() + inflightMessages.size();
+            return pendingMessages.size() + inflightMessages.size();
         } finally {
             inflightMessagesLock.readLock().unlock();
-            cachedMessagesLock.readLock().unlock();
+            pendingMessagesLock.readLock().unlock();
         }
     }
 

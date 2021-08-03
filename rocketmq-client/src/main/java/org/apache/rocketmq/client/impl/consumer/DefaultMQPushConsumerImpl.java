@@ -110,15 +110,21 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     @Getter(AccessLevel.NONE)
     private volatile ScheduledFuture<?> scanAssignmentsFuture;
 
+    private int maxTotalCachedMessagesQuantityThreshold = -1;
+
+    private int maxCachedMessagesQuantityThresholdPerQueue = 1024;
+
+    private int maxTotalCachedMessagesBytesThreshold = -1;
+
+    private int maxCachedMessagesBytesThresholdPerQueue = 4 * 1024 * 1024;
+
     private long fifoConsumptionSuspendTimeMillis = 1000L;
 
     private int consumeMessageBatchMaxSize = 1;
 
     private long maxBatchConsumeWaitTimeMillis = 0;
 
-    private int consumptionThreadMin = 20;
-
-    private int consumptionThreadMax = 64;
+    private int consumptionThreadsAmount = 32;
 
     private int maxDeliveryAttempts = 17;
 
@@ -169,8 +175,8 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         this.consumptionErrorCount = new AtomicLong(0);
 
         this.consumptionExecutor = new ThreadPoolExecutor(
-                consumptionThreadMin,
-                consumptionThreadMax,
+                consumptionThreadsAmount,
+                consumptionThreadsAmount,
                 60,
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<Runnable>(),
@@ -200,6 +206,30 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     public boolean hasCustomOffsetStore() {
         return null != offsetStore;
+    }
+
+    int cachedMessageQuantityThresholdPerQueue() {
+        if (maxTotalCachedMessagesQuantityThreshold <= 0) {
+            return maxCachedMessagesQuantityThresholdPerQueue;
+        }
+        final int size = processQueueTable.size();
+        // all process queues have been removed, no need to cache message.
+        if (size <= 0) {
+            return 0;
+        }
+        return Math.max(1, maxTotalCachedMessagesQuantityThreshold / size);
+    }
+
+    int cachedMessageMemoryThresholdPerQueue() {
+        if (maxTotalCachedMessagesBytesThreshold <= 0) {
+            return maxCachedMessagesBytesThresholdPerQueue;
+        }
+        final int size = processQueueTable.size();
+        // all process queues have been removed, no need to cache message.
+        if (size <= 0) {
+            return 0;
+        }
+        return Math.max(1, maxTotalCachedMessagesBytesThreshold / size);
     }
 
     public long readOffset(MessageQueue mq) {
@@ -342,8 +372,8 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         final long consumptionErrorCount = this.consumptionErrorCount.getAndSet(0);
 
         log.info("ConsumerGroup={}, receiveTimes={}, receivedMessagesSize={}, pullTimes={}, pulledMessagesSize={}, "
-                + "consumptionOkCount={}, consumptionErrorCount={}", group, receiveTimes, receivedMessagesSize,
-                pullTimes, pulledMessagesSize, consumptionOkCount, consumptionErrorCount);
+                 + "consumptionOkCount={}, consumptionErrorCount={}", group, receiveTimes, receivedMessagesSize,
+                 pullTimes, pulledMessagesSize, consumptionOkCount, consumptionErrorCount);
     }
 
     void dropProcessQueue(MessageQueue mq) {
@@ -626,5 +656,10 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     long getIoTimeoutMillis() {
         return ioTimeoutMillis;
+    }
+
+    public void setConsumptionThreadsAmount(int threadsAmount) {
+        consumptionExecutor.setCorePoolSize(threadsAmount);
+        consumptionExecutor.setMaximumPoolSize(threadsAmount);
     }
 }
