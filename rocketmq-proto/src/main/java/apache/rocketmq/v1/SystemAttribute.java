@@ -233,6 +233,19 @@ private static final long serialVersionUID = 0L;
             transactionId_ = s;
             break;
           }
+          case 186: {
+            com.google.protobuf.Duration.Builder subBuilder = null;
+            if (transactionResolveDelay_ != null) {
+              subBuilder = transactionResolveDelay_.toBuilder();
+            }
+            transactionResolveDelay_ = input.readMessage(com.google.protobuf.Duration.parser(), extensionRegistry);
+            if (subBuilder != null) {
+              subBuilder.mergeFrom(transactionResolveDelay_);
+              transactionResolveDelay_ = subBuilder.buildPartial();
+            }
+
+            break;
+          }
           default: {
             if (!parseUnknownField(
                 input, unknownFields, extensionRegistry, tag)) {
@@ -1087,6 +1100,44 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int TRANSACTION_RESOLVE_DELAY_FIELD_NUMBER = 23;
+  private com.google.protobuf.Duration transactionResolveDelay_;
+  /**
+   * <pre>
+   * Delay time of first resolve orphaned transaction request from server.
+   * </pre>
+   *
+   * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+   * @return Whether the transactionResolveDelay field is set.
+   */
+  @java.lang.Override
+  public boolean hasTransactionResolveDelay() {
+    return transactionResolveDelay_ != null;
+  }
+  /**
+   * <pre>
+   * Delay time of first resolve orphaned transaction request from server.
+   * </pre>
+   *
+   * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+   * @return The transactionResolveDelay.
+   */
+  @java.lang.Override
+  public com.google.protobuf.Duration getTransactionResolveDelay() {
+    return transactionResolveDelay_ == null ? com.google.protobuf.Duration.getDefaultInstance() : transactionResolveDelay_;
+  }
+  /**
+   * <pre>
+   * Delay time of first resolve orphaned transaction request from server.
+   * </pre>
+   *
+   * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+   */
+  @java.lang.Override
+  public com.google.protobuf.DurationOrBuilder getTransactionResolveDelayOrBuilder() {
+    return getTransactionResolveDelay();
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -1167,6 +1218,9 @@ private static final long serialVersionUID = 0L;
     }
     if (!getTransactionIdBytes().isEmpty()) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 22, transactionId_);
+    }
+    if (transactionResolveDelay_ != null) {
+      output.writeMessage(23, getTransactionResolveDelay());
     }
     unknownFields.writeTo(output);
   }
@@ -1262,6 +1316,10 @@ private static final long serialVersionUID = 0L;
     if (!getTransactionIdBytes().isEmpty()) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(22, transactionId_);
     }
+    if (transactionResolveDelay_ != null) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(23, getTransactionResolveDelay());
+    }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
     return size;
@@ -1330,6 +1388,11 @@ private static final long serialVersionUID = 0L;
         .equals(other.getTraceContext())) return false;
     if (!getTransactionId()
         .equals(other.getTransactionId())) return false;
+    if (hasTransactionResolveDelay() != other.hasTransactionResolveDelay()) return false;
+    if (hasTransactionResolveDelay()) {
+      if (!getTransactionResolveDelay()
+          .equals(other.getTransactionResolveDelay())) return false;
+    }
     if (!getTimedDeliveryCase().equals(other.getTimedDeliveryCase())) return false;
     switch (timedDeliveryCase_) {
       case 11:
@@ -1407,6 +1470,10 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getTraceContext().hashCode();
     hash = (37 * hash) + TRANSACTION_ID_FIELD_NUMBER;
     hash = (53 * hash) + getTransactionId().hashCode();
+    if (hasTransactionResolveDelay()) {
+      hash = (37 * hash) + TRANSACTION_RESOLVE_DELAY_FIELD_NUMBER;
+      hash = (53 * hash) + getTransactionResolveDelay().hashCode();
+    }
     switch (timedDeliveryCase_) {
       case 11:
         hash = (37 * hash) + DELIVERY_TIMESTAMP_FIELD_NUMBER;
@@ -1612,6 +1679,12 @@ private static final long serialVersionUID = 0L;
 
       transactionId_ = "";
 
+      if (transactionResolveDelayBuilder_ == null) {
+        transactionResolveDelay_ = null;
+      } else {
+        transactionResolveDelay_ = null;
+        transactionResolveDelayBuilder_ = null;
+      }
       timedDeliveryCase_ = 0;
       timedDelivery_ = null;
       return this;
@@ -1695,6 +1768,11 @@ private static final long serialVersionUID = 0L;
       result.messageGroup_ = messageGroup_;
       result.traceContext_ = traceContext_;
       result.transactionId_ = transactionId_;
+      if (transactionResolveDelayBuilder_ == null) {
+        result.transactionResolveDelay_ = transactionResolveDelay_;
+      } else {
+        result.transactionResolveDelay_ = transactionResolveDelayBuilder_.build();
+      }
       result.timedDeliveryCase_ = timedDeliveryCase_;
       onBuilt();
       return result;
@@ -1818,6 +1896,9 @@ private static final long serialVersionUID = 0L;
       if (!other.getTransactionId().isEmpty()) {
         transactionId_ = other.transactionId_;
         onChanged();
+      }
+      if (other.hasTransactionResolveDelay()) {
+        mergeTransactionResolveDelay(other.getTransactionResolveDelay());
       }
       switch (other.getTimedDeliveryCase()) {
         case DELIVERY_TIMESTAMP: {
@@ -4095,6 +4176,161 @@ private static final long serialVersionUID = 0L;
       transactionId_ = value;
       onChanged();
       return this;
+    }
+
+    private com.google.protobuf.Duration transactionResolveDelay_;
+    private com.google.protobuf.SingleFieldBuilderV3<
+        com.google.protobuf.Duration, com.google.protobuf.Duration.Builder, com.google.protobuf.DurationOrBuilder> transactionResolveDelayBuilder_;
+    /**
+     * <pre>
+     * Delay time of first resolve orphaned transaction request from server.
+     * </pre>
+     *
+     * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+     * @return Whether the transactionResolveDelay field is set.
+     */
+    public boolean hasTransactionResolveDelay() {
+      return transactionResolveDelayBuilder_ != null || transactionResolveDelay_ != null;
+    }
+    /**
+     * <pre>
+     * Delay time of first resolve orphaned transaction request from server.
+     * </pre>
+     *
+     * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+     * @return The transactionResolveDelay.
+     */
+    public com.google.protobuf.Duration getTransactionResolveDelay() {
+      if (transactionResolveDelayBuilder_ == null) {
+        return transactionResolveDelay_ == null ? com.google.protobuf.Duration.getDefaultInstance() : transactionResolveDelay_;
+      } else {
+        return transactionResolveDelayBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * Delay time of first resolve orphaned transaction request from server.
+     * </pre>
+     *
+     * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+     */
+    public Builder setTransactionResolveDelay(com.google.protobuf.Duration value) {
+      if (transactionResolveDelayBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        transactionResolveDelay_ = value;
+        onChanged();
+      } else {
+        transactionResolveDelayBuilder_.setMessage(value);
+      }
+
+      return this;
+    }
+    /**
+     * <pre>
+     * Delay time of first resolve orphaned transaction request from server.
+     * </pre>
+     *
+     * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+     */
+    public Builder setTransactionResolveDelay(
+        com.google.protobuf.Duration.Builder builderForValue) {
+      if (transactionResolveDelayBuilder_ == null) {
+        transactionResolveDelay_ = builderForValue.build();
+        onChanged();
+      } else {
+        transactionResolveDelayBuilder_.setMessage(builderForValue.build());
+      }
+
+      return this;
+    }
+    /**
+     * <pre>
+     * Delay time of first resolve orphaned transaction request from server.
+     * </pre>
+     *
+     * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+     */
+    public Builder mergeTransactionResolveDelay(com.google.protobuf.Duration value) {
+      if (transactionResolveDelayBuilder_ == null) {
+        if (transactionResolveDelay_ != null) {
+          transactionResolveDelay_ =
+            com.google.protobuf.Duration.newBuilder(transactionResolveDelay_).mergeFrom(value).buildPartial();
+        } else {
+          transactionResolveDelay_ = value;
+        }
+        onChanged();
+      } else {
+        transactionResolveDelayBuilder_.mergeFrom(value);
+      }
+
+      return this;
+    }
+    /**
+     * <pre>
+     * Delay time of first resolve orphaned transaction request from server.
+     * </pre>
+     *
+     * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+     */
+    public Builder clearTransactionResolveDelay() {
+      if (transactionResolveDelayBuilder_ == null) {
+        transactionResolveDelay_ = null;
+        onChanged();
+      } else {
+        transactionResolveDelay_ = null;
+        transactionResolveDelayBuilder_ = null;
+      }
+
+      return this;
+    }
+    /**
+     * <pre>
+     * Delay time of first resolve orphaned transaction request from server.
+     * </pre>
+     *
+     * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+     */
+    public com.google.protobuf.Duration.Builder getTransactionResolveDelayBuilder() {
+      
+      onChanged();
+      return getTransactionResolveDelayFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * Delay time of first resolve orphaned transaction request from server.
+     * </pre>
+     *
+     * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+     */
+    public com.google.protobuf.DurationOrBuilder getTransactionResolveDelayOrBuilder() {
+      if (transactionResolveDelayBuilder_ != null) {
+        return transactionResolveDelayBuilder_.getMessageOrBuilder();
+      } else {
+        return transactionResolveDelay_ == null ?
+            com.google.protobuf.Duration.getDefaultInstance() : transactionResolveDelay_;
+      }
+    }
+    /**
+     * <pre>
+     * Delay time of first resolve orphaned transaction request from server.
+     * </pre>
+     *
+     * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+     */
+    private com.google.protobuf.SingleFieldBuilderV3<
+        com.google.protobuf.Duration, com.google.protobuf.Duration.Builder, com.google.protobuf.DurationOrBuilder> 
+        getTransactionResolveDelayFieldBuilder() {
+      if (transactionResolveDelayBuilder_ == null) {
+        transactionResolveDelayBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+            com.google.protobuf.Duration, com.google.protobuf.Duration.Builder, com.google.protobuf.DurationOrBuilder>(
+                getTransactionResolveDelay(),
+                getParentForChildren(),
+                isClean());
+        transactionResolveDelay_ = null;
+      }
+      return transactionResolveDelayBuilder_;
     }
     @java.lang.Override
     public final Builder setUnknownFields(

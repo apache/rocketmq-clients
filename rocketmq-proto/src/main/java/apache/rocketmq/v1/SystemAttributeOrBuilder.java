@@ -453,5 +453,32 @@ public interface SystemAttributeOrBuilder extends
   com.google.protobuf.ByteString
       getTransactionIdBytes();
 
+  /**
+   * <pre>
+   * Delay time of first resolve orphaned transaction request from server.
+   * </pre>
+   *
+   * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+   * @return Whether the transactionResolveDelay field is set.
+   */
+  boolean hasTransactionResolveDelay();
+  /**
+   * <pre>
+   * Delay time of first resolve orphaned transaction request from server.
+   * </pre>
+   *
+   * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+   * @return The transactionResolveDelay.
+   */
+  com.google.protobuf.Duration getTransactionResolveDelay();
+  /**
+   * <pre>
+   * Delay time of first resolve orphaned transaction request from server.
+   * </pre>
+   *
+   * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+   */
+  com.google.protobuf.DurationOrBuilder getTransactionResolveDelayOrBuilder();
+
   public apache.rocketmq.v1.SystemAttribute.TimedDeliveryCase getTimedDeliveryCase();
 }
