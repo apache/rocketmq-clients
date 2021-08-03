@@ -27,7 +27,7 @@ public class Validators {
     }
 
     public static void topicCheck(String topic) throws ClientException {
-        if (!StringUtils.isNoneBlank(topic)) {
+        if (StringUtils.isAnyBlank(topic)) {
             throw new ClientException(ErrorCode.ILLEGAL_FORMAT, "Topic is blank.");
         }
         if (regexNotMatched(topic, TOPIC_PATTERN)) {

@@ -1057,7 +1057,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         // MessageType
         impl.getSystemAttribute().setMessageType(messageType);
         // BornTimestamp
-        impl.getSystemAttribute().setBornTimestamp(Timestamps.toMillis(systemAttribute.getBornTimestamp()));
+        impl.getSystemAttribute().setBornTimeMillis(Timestamps.toMillis(systemAttribute.getBornTimestamp()));
         // BornHost
         impl.getSystemAttribute().setBornHost(systemAttribute.getBornHost());
 
@@ -1069,7 +1069,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
             case DELIVERY_TIMESTAMP:
                 // DelayTimestamp
                 impl.getSystemAttribute()
-                    .setDeliveryTimestamp(Timestamps.toMillis(systemAttribute.getDeliveryTimestamp()));
+                    .setDeliveryTimeMillis(Timestamps.toMillis(systemAttribute.getDeliveryTimestamp()));
                 break;
             case TIMEDDELIVERY_NOT_SET:
             default:
@@ -1078,11 +1078,11 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
 
         // DeliveryTimestamp
         impl.getSystemAttribute()
-            .setDeliveryTimestamp(Timestamps.toMillis(systemAttribute.getDeliveryTimestamp()));
+            .setDeliveryTimeMillis(Timestamps.toMillis(systemAttribute.getDeliveryTimestamp()));
         // DecodedTimestamp
         impl.getSystemAttribute().setDecodedTimestamp(System.currentTimeMillis());
         // BornTimestamp
-        impl.getSystemAttribute().setBornTimestamp(Timestamps.toMillis(systemAttribute.getBornTimestamp()));
+        impl.getSystemAttribute().setBornTimeMillis(Timestamps.toMillis(systemAttribute.getBornTimestamp()));
         // ReceiptHandle
         impl.getSystemAttribute().setReceiptHandle(systemAttribute.getReceiptHandle());
         // PartitionId

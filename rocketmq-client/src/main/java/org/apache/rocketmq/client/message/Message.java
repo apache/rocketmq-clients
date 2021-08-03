@@ -23,11 +23,7 @@ public class Message {
         this.impl = new MessageImpl(topic);
         this.impl.setBody(body);
         this.impl.getSystemAttribute().setTag(tags);
-        this.messageExt = new MessageExt(impl);
-    }
-
-    public Message(MessageImpl impl) {
-        this.impl = impl;
+        this.impl.getSystemAttribute().setBornTimeMillis(System.currentTimeMillis());
         this.messageExt = new MessageExt(impl);
     }
 
@@ -47,7 +43,7 @@ public class Message {
         this.impl.getSystemAttribute().setTag(StringUtils.join(split, "||"));
     }
 
-    public String getTags() {
+    public String getTag() {
         return this.impl.getSystemAttribute().getTag();
     }
 
@@ -81,6 +77,10 @@ public class Message {
         return keys.toString().trim();
     }
 
+    public List<String> getKeysList() {
+        return this.impl.getSystemAttribute().getKeys();
+    }
+
     public int getDelayTimeLevel() {
         return this.impl.getSystemAttribute().getDelayLevel();
     }
@@ -91,12 +91,12 @@ public class Message {
 
     public void setDeliveryTimestamp(long deliveryTimestamp) {
         final SystemAttribute systemAttribute = this.impl.getSystemAttribute();
-        systemAttribute.setDeliveryTimestamp(deliveryTimestamp);
+        systemAttribute.setDeliveryTimeMillis(deliveryTimestamp);
         systemAttribute.setMessageType(MessageType.DELAY);
     }
 
-    public long getDeliveryTimestamp() {
-        return this.impl.getSystemAttribute().getDeliveryTimestamp();
+    public long getDelayTimeMillis() {
+        return this.impl.getSystemAttribute().getDeliveryTimeMillis();
     }
 
     public void setBody(byte[] body) {
@@ -117,5 +117,9 @@ public class Message {
 
     public String getMsgId() {
         return this.impl.getSystemAttribute().getMessageId();
+    }
+
+    public long getBornTimeMillis() {
+        return this.impl.getSystemAttribute().getBornTimeMillis();
     }
 }

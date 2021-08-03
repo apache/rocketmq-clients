@@ -12,10 +12,10 @@ public class SystemAttribute {
     private String messageId;
     private Digest digest;
     private Encoding bodyEncoding;
-    private MessageType messageType;
-    private long bornTimestamp;
+    private MessageType messageType = MessageType.NORMAL;
+    private long bornTimeMillis;
     private String bornHost;
-    private long deliveryTimestamp = 0;
+    private long deliveryTimeMillis = 0;
     private int delayLevel = 0;
     private String receiptHandle;
     private int partitionId;
@@ -26,6 +26,7 @@ public class SystemAttribute {
     private String messageGroup;
     private String traceContext;
     private String transactionId;
+    private long transactionResolveDelayMillis;
     // Would set after receiving the message.
     private long decodedTimestamp;
     private Endpoints ackEndpoints;

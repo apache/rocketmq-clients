@@ -42,7 +42,7 @@ public class MessageExt {
     }
 
     public long getDeliveryTimestamp() {
-        return this.impl.getSystemAttribute().getDeliveryTimestamp();
+        return this.impl.getSystemAttribute().getDeliveryTimeMillis();
     }
 
     public int getQueueId() {
@@ -50,7 +50,7 @@ public class MessageExt {
     }
 
     public long getBornTimestamp() {
-        return this.impl.getSystemAttribute().getBornTimestamp();
+        return this.impl.getSystemAttribute().getBornTimeMillis();
     }
 
     public String getBornHost() {

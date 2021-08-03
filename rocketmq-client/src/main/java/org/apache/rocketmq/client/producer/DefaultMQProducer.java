@@ -1,7 +1,5 @@
 package org.apache.rocketmq.client.producer;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeoutException;
 import org.apache.rocketmq.client.exception.ClientException;
@@ -94,7 +92,7 @@ public class DefaultMQProducer {
      * @return {@link SendResult} instance to inform senders details of the deliverable, say Message
      * ID of the message, {@link SendStatus} indicating broker storage/replication status, message
      * queue sent to, etc.
-     * @throws ClientException    if there is any client error.
+     * @throws ClientException      if there is any client error.
      * @throws InterruptedException if the sending thread is interrupted.
      */
     public SendResult send(Message msg) throws ClientException, InterruptedException, ServerException,
@@ -115,7 +113,7 @@ public class DefaultMQProducer {
      * @return {@link SendResult} instance to inform senders details of the deliverable, say Message
      * ID of the message, {@link SendStatus} indicating broker storage/replication status, message
      * queue sent to, etc.
-     * @throws ClientException    if there is any client error.
+     * @throws ClientException      if there is any client error.
      * @throws InterruptedException if the sending thread is interrupted.
      */
     public SendResult send(Message msg, long timeout)
@@ -136,7 +134,7 @@ public class DefaultMQProducer {
      * @param msg          Message to send.
      * @param sendCallback Callback to execute on sending completed, either successful or
      *                     unsuccessful.
-     * @throws ClientException    if there is any client error.
+     * @throws ClientException      if there is any client error.
      * @throws InterruptedException if the sending thread is interrupted.
      */
     public void send(Message msg, SendCallback sendCallback)
@@ -150,7 +148,7 @@ public class DefaultMQProducer {
      * @param msg          message to send.
      * @param sendCallback Callback to execute.
      * @param timeout      send timeout.
-     * @throws ClientException    if there is any client error.
+     * @throws ClientException      if there is any client error.
      * @throws InterruptedException if the sending thread is interrupted.
      */
     public void send(Message msg, SendCallback sendCallback, long timeout)
@@ -164,7 +162,7 @@ public class DefaultMQProducer {
      * yet potentials of message loss.
      *
      * @param msg Message to send.
-     * @throws ClientException    if there is any client error.
+     * @throws ClientException if there is any client error.
      */
     public void sendOneway(Message msg) throws ClientException {
         this.impl.sendOneway(msg);
@@ -180,7 +178,7 @@ public class DefaultMQProducer {
      * @return {@link SendResult} instance to inform senders details of the deliverable, say Message
      * ID of the message, {@link SendStatus} indicating broker storage/replication status, message
      * queue sent to, etc.
-     * @throws ClientException    if there is any client error.
+     * @throws ClientException      if there is any client error.
      * @throws InterruptedException if the sending thread is interrupted.
      */
     public SendResult send(Message msg, MessageQueueSelector selector, Object arg)
@@ -199,7 +197,7 @@ public class DefaultMQProducer {
      * @return {@link SendResult} instance to inform senders details of the deliverable, say Message
      * ID of the message, {@link SendStatus} indicating broker storage/replication status, message
      * queue sent to, etc.
-     * @throws ClientException    if there is any client error.
+     * @throws ClientException      if there is any client error.
      * @throws InterruptedException if the sending thread is interrupted.
      */
     public SendResult send(Message msg, MessageQueueSelector selector, Object arg, long timeout)
@@ -218,14 +216,15 @@ public class DefaultMQProducer {
     }
 
     public Transaction prepare(Message message) throws ServerException, InterruptedException,
-                                                           ClientException, TimeoutException {
+                                                       ClientException, TimeoutException {
         return impl.prepare(message);
     }
 
     public void setTransactionChecker(final TransactionChecker checker) {
-        checkNotNull(checker);
         this.impl.setTransactionChecker(checker);
     }
 
-
+    public void setTransactionResolveDelayMillis(final long delayMillis) {
+        this.impl.setTransactionResolveDelayMillis(delayMillis);
+    }
 }

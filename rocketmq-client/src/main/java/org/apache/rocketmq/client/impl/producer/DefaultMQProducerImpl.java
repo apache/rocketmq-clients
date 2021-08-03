@@ -24,7 +24,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.util.Timestamps;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
 import io.grpc.Metadata;
@@ -43,6 +42,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ServiceState;
@@ -77,27 +78,36 @@ import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.apache.rocketmq.utility.UtilAll;
 
 @Slf4j
+@Getter
+@Setter
 public class DefaultMQProducerImpl extends ClientBaseImpl {
 
     private static final int MESSAGE_COMPRESSION_THRESHOLD = 1024 * 4;
     private static final int MESSAGE_COMPRESSION_LEVEL = 5;
 
-    @Setter
     private int maxAttempts = 3;
-    @Setter
+
     private long sendMessageTimeoutMillis = 10 * 1000;
 
+    private long transactionResolveDelayMillis = 5 * 1000;
+
+    @Getter(AccessLevel.NONE)
     private final ExecutorService defaultSendCallbackExecutor;
 
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
     private ExecutorService customSendCallbackExecutor = null;
 
+    @Getter(AccessLevel.NONE)
     private final ConcurrentMap<String/* topic */, TopicPublishInfo> topicPublishInfoCache;
 
+    @Getter(AccessLevel.NONE)
     @GuardedBy("isolatedRouteEndpointsSetLock")
     private final Set<Endpoints> isolatedRouteEndpointsSet;
+
+    @Getter(AccessLevel.NONE)
     private final ReadWriteLock isolatedRouteEndpointsSetLock;
 
-    @Setter
     private TransactionChecker transactionChecker;
     private final ThreadPoolExecutor transactionCheckerExecutor;
 
@@ -251,26 +261,13 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
         final apache.rocketmq.v1.SystemAttribute.Builder systemAttributeBuilder =
                 apache.rocketmq.v1.SystemAttribute.newBuilder()
-                                                  .setBornTimestamp(fromMillis(System.currentTimeMillis()))
+                                                  .setBornTimestamp(fromMillis(message.getBornTimeMillis()))
+                                                  .setTag(message.getTag())
+                                                  .addAllKeys(message.getKeysList())
                                                   .setProducerGroup(groupResource)
                                                   .setMessageId(message.getMessageExt().getMsgId())
                                                   .setBornHost(UtilAll.getIpv4Address())
                                                   .setPartitionId(partition.getId());
-        final String messageGroup = message.getMessageGroup();
-        if (null != messageGroup) {
-            systemAttributeBuilder.setMessageGroup(messageGroup);
-        }
-
-        final int delayTimeLevel = message.getDelayTimeLevel();
-        if (delayTimeLevel > 0) {
-            systemAttributeBuilder.setDelayLevel(delayTimeLevel);
-        } else {
-            final long deliveryTimestamp = message.getDeliveryTimestamp();
-            if (deliveryTimestamp > 0) {
-                systemAttributeBuilder.setDeliveryTimestamp(Timestamps.fromMillis(deliveryTimestamp));
-            }
-        }
-
         Encoding encoding = Encoding.IDENTITY;
         byte[] body = message.getBody();
         if (body.length > MESSAGE_COMPRESSION_THRESHOLD) {
@@ -298,9 +295,21 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         switch (messageImpl.getSystemAttribute().getMessageType()) {
             case FIFO:
                 systemAttributeBuilder.setMessageType(apache.rocketmq.v1.MessageType.FIFO);
+                // message group.
+                final String messageGroup = message.getMessageGroup();
+                if (null != messageGroup) {
+                    systemAttributeBuilder.setMessageGroup(messageGroup);
+                }
                 break;
             case DELAY:
                 systemAttributeBuilder.setMessageType(apache.rocketmq.v1.MessageType.DELAY);
+                final int delayTimeLevel = message.getDelayTimeLevel();
+                final long deliveryTimestamp = message.getDelayTimeMillis();
+                if (delayTimeLevel > 0) {
+                    systemAttributeBuilder.setDelayLevel(delayTimeLevel);
+                } else if (deliveryTimestamp > 0) {
+                    systemAttributeBuilder.setDeliveryTimestamp(fromMillis(deliveryTimestamp));
+                }
                 break;
             case TRANSACTION:
                 systemAttributeBuilder.setMessageType(apache.rocketmq.v1.MessageType.TRANSACTION);
@@ -426,6 +435,8 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
         final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
         systemAttribute.setMessageType(MessageType.TRANSACTION);
+        // set transaction resolve delay millis.
+        systemAttribute.setTransactionResolveDelayMillis(transactionResolveDelayMillis);
 
         final SendResult sendResult = send(message);
         return new TransactionImpl(sendResult, this);
@@ -593,9 +604,11 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         final String messageId = MessageIdGenerator.getInstance().next();
         systemAttribute.setMessageId(messageId);
 
-        // message type is normal as default.
-        if (null == systemAttribute.getMessageType()) {
-            systemAttribute.setMessageType(MessageType.NORMAL);
+        // check if it is delay message or not.
+        final int delayTimeLevel = message.getDelayTimeLevel();
+        final long deliveryTimestamp = message.getDelayTimeMillis();
+        if (delayTimeLevel > 0 || deliveryTimestamp > 0) {
+            systemAttribute.setMessageType(MessageType.DELAY);
         }
 
         send0(future, candidates, message, 1, maxAttempts);
@@ -763,5 +776,10 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             throw (ServerException) cause;
         }
         return new ClientException(ErrorCode.OTHER, e);
+    }
+
+    public void setTransactionChecker(final TransactionChecker checker) {
+        checkNotNull(checker);
+        this.transactionChecker = checker;
     }
 }
