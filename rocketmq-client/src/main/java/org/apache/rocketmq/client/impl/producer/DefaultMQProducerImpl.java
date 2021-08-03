@@ -109,6 +109,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     private final ReadWriteLock isolatedRouteEndpointsSetLock;
 
     private TransactionChecker transactionChecker;
+    @Getter(AccessLevel.NONE)
     private final ThreadPoolExecutor transactionCheckerExecutor;
 
     public DefaultMQProducerImpl(String group) {

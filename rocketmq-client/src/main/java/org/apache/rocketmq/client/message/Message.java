@@ -3,10 +3,10 @@ package org.apache.rocketmq.client.message;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.message.protocol.SystemAttribute;
 import org.apache.rocketmq.client.misc.MixAll;
@@ -17,13 +17,19 @@ import org.apache.rocketmq.client.misc.MixAll;
 public class Message {
     final MessageImpl impl;
     @Getter
-    final MessageExt messageExt;
+    private final MessageExt messageExt;
 
-    public Message(String topic, String tags, byte[] body) {
-        this.impl = new MessageImpl(topic);
-        this.impl.setBody(body);
-        this.impl.getSystemAttribute().setTag(tags);
-        this.impl.getSystemAttribute().setBornTimeMillis(System.currentTimeMillis());
+    public Message(String topic, String tag, byte[] body) {
+        final SystemAttribute systemAttribute = new SystemAttribute();
+        final ConcurrentHashMap<String, String> userAttribute = new ConcurrentHashMap<String, String>();
+        systemAttribute.setBornTimeMillis(System.currentTimeMillis());
+        systemAttribute.setTag(tag);
+        this.impl = new MessageImpl(topic, systemAttribute, userAttribute, body);
+        this.messageExt = new MessageExt(impl);
+    }
+
+    public Message(MessageImpl impl) {
+        this.impl = impl;
         this.messageExt = new MessageExt(impl);
     }
 
@@ -33,14 +39,6 @@ public class Message {
 
     public String getTopic() {
         return this.impl.getTopic();
-    }
-
-    public void setTags(String tags) {
-        String[] split = tags.split("\\|\\|");
-        for (int i = 0; i < split.length; i++) {
-            split[i] = split[i].trim();
-        }
-        this.impl.getSystemAttribute().setTag(StringUtils.join(split, "||"));
     }
 
     public String getTag() {

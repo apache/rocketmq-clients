@@ -87,6 +87,7 @@ import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.message.protocol.Digest;
 import org.apache.rocketmq.client.message.protocol.DigestType;
+import org.apache.rocketmq.client.message.protocol.Encoding;
 import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.misc.TopAddressing;
@@ -965,16 +966,17 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
     }
 
     public static MessageImpl wrapMessageImpl(Message message) throws IOException, ClientException {
-        MessageImpl impl = new MessageImpl(message.getTopic().getName());
+        final org.apache.rocketmq.client.message.protocol.SystemAttribute mqSystemAttribute =
+                new org.apache.rocketmq.client.message.protocol.SystemAttribute();
         final SystemAttribute systemAttribute = message.getSystemAttribute();
-        // Tag
-        impl.getSystemAttribute().setTag(systemAttribute.getTag());
-        // Key
+        // tag.
+        mqSystemAttribute.setTag(systemAttribute.getTag());
+        // keys.
         List<String> keys = new ArrayList<String>(systemAttribute.getKeysList());
-        impl.getSystemAttribute().setKeys(keys);
-        // Message Id
-        impl.getSystemAttribute().setMessageId(systemAttribute.getMessageId());
-        // Check digest.
+        mqSystemAttribute.setKeys(keys);
+        // message id.
+        mqSystemAttribute.setMessageId(systemAttribute.getMessageId());
+        // digest.
         final apache.rocketmq.v1.Digest bodyDigest = systemAttribute.getBodyDigest();
         byte[] body = message.getBody().toByteArray();
         boolean bodyDigestMatch = false;
@@ -1017,24 +1019,26 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
             // Need NACK immediately ?
             throw new ClientException("Message body checksum failure");
         }
-        impl.getSystemAttribute().setDigest(new Digest(digestType, checksum));
+        mqSystemAttribute.setDigest(new Digest(digestType, checksum));
 
         switch (systemAttribute.getBodyEncoding()) {
             case GZIP:
                 body = UtilAll.uncompressBytesGzip(body);
+                mqSystemAttribute.setBodyEncoding(Encoding.GZIP);
                 break;
             case SNAPPY:
                 // TODO
+                mqSystemAttribute.setBodyEncoding(Encoding.SNAPPY);
                 log.warn("SNAPPY encoding algorithm is not supported.");
                 break;
             case IDENTITY:
+                mqSystemAttribute.setBodyEncoding(Encoding.IDENTITY);
                 break;
             default:
                 log.warn("Unsupported message encoding algorithm.");
         }
-        // Body
-        impl.setBody(body);
 
+        // message type.
         MessageType messageType;
         // TODO: messageType not set yet.
         switch (systemAttribute.getMessageType()) {
@@ -1054,57 +1058,54 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                 messageType = MessageType.NORMAL;
                 log.warn("Unknown message type, fall through to normal type");
         }
-        // MessageType
-        impl.getSystemAttribute().setMessageType(messageType);
-        // BornTimestamp
-        impl.getSystemAttribute().setBornTimeMillis(Timestamps.toMillis(systemAttribute.getBornTimestamp()));
-        // BornHost
-        impl.getSystemAttribute().setBornHost(systemAttribute.getBornHost());
+        mqSystemAttribute.setMessageType(messageType);
+        // born time millis.
+        mqSystemAttribute.setBornTimeMillis(Timestamps.toMillis(systemAttribute.getBornTimestamp()));
+        // born host.
+        mqSystemAttribute.setBornHost(systemAttribute.getBornHost());
 
         switch (systemAttribute.getTimedDeliveryCase()) {
             case DELAY_LEVEL:
-                // DelayLevel
-                impl.getSystemAttribute().setDelayLevel(systemAttribute.getDelayLevel());
+                // delay level
+                mqSystemAttribute.setDelayLevel(systemAttribute.getDelayLevel());
                 break;
             case DELIVERY_TIMESTAMP:
-                // DelayTimestamp
-                impl.getSystemAttribute()
-                    .setDeliveryTimeMillis(Timestamps.toMillis(systemAttribute.getDeliveryTimestamp()));
+                // delay timestamp
+                mqSystemAttribute.setDeliveryTimeMillis(Timestamps.toMillis(systemAttribute.getDeliveryTimestamp()));
                 break;
             case TIMEDDELIVERY_NOT_SET:
             default:
                 break;
         }
+        // receipt handle.
+        mqSystemAttribute.setReceiptHandle(systemAttribute.getReceiptHandle());
+        // partition id.
+        mqSystemAttribute.setPartitionId(systemAttribute.getPartitionId());
+        // partition offset.
+        mqSystemAttribute.setPartitionOffset(systemAttribute.getPartitionOffset());
+        // invisible period.
+        mqSystemAttribute.setInvisiblePeriod(Durations.toMillis(systemAttribute.getInvisiblePeriod()));
+        // delivery attempt
+        mqSystemAttribute.setDeliveryAttempt(systemAttribute.getDeliveryAttempt());
+        // producer group.
+        mqSystemAttribute.setProducerGroup(systemAttribute.getProducerGroup().getName());
+        // message group.
+        mqSystemAttribute.setMessageGroup(systemAttribute.getMessageGroup());
+        // trace context.
+        mqSystemAttribute.setTraceContext(systemAttribute.getTraceContext());
+        // transaction id.
+        mqSystemAttribute.setTransactionId(systemAttribute.getTransactionId());
+        // transaction resolve delay millis.
+        mqSystemAttribute.setTransactionResolveDelayMillis(
+                Durations.toMillis(systemAttribute.getTransactionResolveDelay()));
+        // decoded timestamp.
+        mqSystemAttribute.setDecodedTimestamp(System.currentTimeMillis());
+        // user properties.
+        final ConcurrentHashMap<String, String> mqUserAttribute =
+                new ConcurrentHashMap<String, String>(message.getUserAttributeMap());
 
-        // DeliveryTimestamp
-        impl.getSystemAttribute()
-            .setDeliveryTimeMillis(Timestamps.toMillis(systemAttribute.getDeliveryTimestamp()));
-        // DecodedTimestamp
-        impl.getSystemAttribute().setDecodedTimestamp(System.currentTimeMillis());
-        // BornTimestamp
-        impl.getSystemAttribute().setBornTimeMillis(Timestamps.toMillis(systemAttribute.getBornTimestamp()));
-        // ReceiptHandle
-        impl.getSystemAttribute().setReceiptHandle(systemAttribute.getReceiptHandle());
-        // PartitionId
-        impl.getSystemAttribute().setPartitionId(systemAttribute.getPartitionId());
-        // PartitionOffset
-        impl.getSystemAttribute().setPartitionOffset(systemAttribute.getPartitionOffset());
-        // InvisiblePeriod
-        impl.getSystemAttribute().setInvisiblePeriod(Durations.toMillis(systemAttribute.getInvisiblePeriod()));
-        // DeliveryCount
-        impl.getSystemAttribute().setDeliveryAttempt(systemAttribute.getDeliveryAttempt());
-        // ProducerGroup
-        impl.getSystemAttribute().setProducerGroup(systemAttribute.getProducerGroup().getName());
-        // MessageGroup
-        impl.getSystemAttribute().setMessageGroup(systemAttribute.getMessageGroup());
-        // TraceContext
-        impl.getSystemAttribute().setTraceContext(systemAttribute.getTraceContext());
-        // TransactionId
-        impl.getSystemAttribute().setTransactionId(systemAttribute.getTransactionId());
-        // UserProperties
-        impl.getUserAttribute().putAll(message.getUserAttributeMap());
-
-        return impl;
+        final String topic = message.getTopic().getName();
+        return new MessageImpl(topic, mqSystemAttribute, mqUserAttribute, body);
     }
 
     @Override

@@ -1,23 +1,17 @@
 package org.apache.rocketmq.client.message;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.concurrent.ConcurrentMap;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.apache.rocketmq.client.message.protocol.SystemAttribute;
 
 @Data
+@AllArgsConstructor
 public class MessageImpl {
     private String topic;
     private final SystemAttribute systemAttribute;
-    private final Map<String, String> userAttribute;
-
+    private final ConcurrentMap<String, String> userAttribute;
     private byte[] body;
-
-    public MessageImpl(String topic) {
-        this.topic = topic;
-        this.systemAttribute = new SystemAttribute();
-        this.userAttribute = new HashMap<String, String>();
-    }
 
     public void setBody(byte[] body) {
         if (null == body) {

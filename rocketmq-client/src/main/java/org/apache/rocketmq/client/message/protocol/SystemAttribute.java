@@ -12,11 +12,11 @@ public class SystemAttribute {
     private String messageId;
     private Digest digest;
     private Encoding bodyEncoding;
-    private MessageType messageType = MessageType.NORMAL;
+    private MessageType messageType;
     private long bornTimeMillis;
     private String bornHost;
-    private long deliveryTimeMillis = 0;
-    private int delayLevel = 0;
+    private long deliveryTimeMillis;
+    private int delayLevel;
     private String receiptHandle;
     private int partitionId;
     private long partitionOffset;
@@ -33,6 +33,9 @@ public class SystemAttribute {
 
     public SystemAttribute() {
         this.keys = new ArrayList<String>();
+        this.messageType = MessageType.NORMAL;
+        this.deliveryTimeMillis = 0;
+        this.delayLevel = 0;
     }
 
     public void setKeys(List<String> keys) {
