@@ -26,7 +26,6 @@ private static final long serialVersionUID = 0L;
     receiptHandle_ = "";
     messageGroup_ = "";
     traceContext_ = "";
-    transactionId_ = "";
   }
 
   @java.lang.Override
@@ -228,20 +227,14 @@ private static final long serialVersionUID = 0L;
             break;
           }
           case 178: {
-            java.lang.String s = input.readStringRequireUtf8();
-
-            transactionId_ = s;
-            break;
-          }
-          case 186: {
             com.google.protobuf.Duration.Builder subBuilder = null;
-            if (transactionResolveDelay_ != null) {
-              subBuilder = transactionResolveDelay_.toBuilder();
+            if (orphanedTransactionRecoveryPeriod_ != null) {
+              subBuilder = orphanedTransactionRecoveryPeriod_.toBuilder();
             }
-            transactionResolveDelay_ = input.readMessage(com.google.protobuf.Duration.parser(), extensionRegistry);
+            orphanedTransactionRecoveryPeriod_ = input.readMessage(com.google.protobuf.Duration.parser(), extensionRegistry);
             if (subBuilder != null) {
-              subBuilder.mergeFrom(transactionResolveDelay_);
-              transactionResolveDelay_ = subBuilder.buildPartial();
+              subBuilder.mergeFrom(orphanedTransactionRecoveryPeriod_);
+              orphanedTransactionRecoveryPeriod_ = subBuilder.buildPartial();
             }
 
             break;
@@ -1054,88 +1047,42 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int TRANSACTION_ID_FIELD_NUMBER = 22;
-  private volatile java.lang.Object transactionId_;
-  /**
-   * <pre>
-   * Correlated transaction
-   * </pre>
-   *
-   * <code>string transaction_id = 22;</code>
-   * @return The transactionId.
-   */
-  @java.lang.Override
-  public java.lang.String getTransactionId() {
-    java.lang.Object ref = transactionId_;
-    if (ref instanceof java.lang.String) {
-      return (java.lang.String) ref;
-    } else {
-      com.google.protobuf.ByteString bs = 
-          (com.google.protobuf.ByteString) ref;
-      java.lang.String s = bs.toStringUtf8();
-      transactionId_ = s;
-      return s;
-    }
-  }
-  /**
-   * <pre>
-   * Correlated transaction
-   * </pre>
-   *
-   * <code>string transaction_id = 22;</code>
-   * @return The bytes for transactionId.
-   */
-  @java.lang.Override
-  public com.google.protobuf.ByteString
-      getTransactionIdBytes() {
-    java.lang.Object ref = transactionId_;
-    if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
-      transactionId_ = b;
-      return b;
-    } else {
-      return (com.google.protobuf.ByteString) ref;
-    }
-  }
-
-  public static final int TRANSACTION_RESOLVE_DELAY_FIELD_NUMBER = 23;
-  private com.google.protobuf.Duration transactionResolveDelay_;
+  public static final int ORPHANED_TRANSACTION_RECOVERY_PERIOD_FIELD_NUMBER = 22;
+  private com.google.protobuf.Duration orphanedTransactionRecoveryPeriod_;
   /**
    * <pre>
    * Delay time of first resolve orphaned transaction request from server.
    * </pre>
    *
-   * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
-   * @return Whether the transactionResolveDelay field is set.
+   * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+   * @return Whether the orphanedTransactionRecoveryPeriod field is set.
    */
   @java.lang.Override
-  public boolean hasTransactionResolveDelay() {
-    return transactionResolveDelay_ != null;
+  public boolean hasOrphanedTransactionRecoveryPeriod() {
+    return orphanedTransactionRecoveryPeriod_ != null;
   }
   /**
    * <pre>
    * Delay time of first resolve orphaned transaction request from server.
    * </pre>
    *
-   * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
-   * @return The transactionResolveDelay.
+   * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+   * @return The orphanedTransactionRecoveryPeriod.
    */
   @java.lang.Override
-  public com.google.protobuf.Duration getTransactionResolveDelay() {
-    return transactionResolveDelay_ == null ? com.google.protobuf.Duration.getDefaultInstance() : transactionResolveDelay_;
+  public com.google.protobuf.Duration getOrphanedTransactionRecoveryPeriod() {
+    return orphanedTransactionRecoveryPeriod_ == null ? com.google.protobuf.Duration.getDefaultInstance() : orphanedTransactionRecoveryPeriod_;
   }
   /**
    * <pre>
    * Delay time of first resolve orphaned transaction request from server.
    * </pre>
    *
-   * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+   * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
    */
   @java.lang.Override
-  public com.google.protobuf.DurationOrBuilder getTransactionResolveDelayOrBuilder() {
-    return getTransactionResolveDelay();
+  public com.google.protobuf.DurationOrBuilder getOrphanedTransactionRecoveryPeriodOrBuilder() {
+    return getOrphanedTransactionRecoveryPeriod();
   }
 
   private byte memoizedIsInitialized = -1;
@@ -1216,11 +1163,8 @@ private static final long serialVersionUID = 0L;
     if (!getTraceContextBytes().isEmpty()) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 21, traceContext_);
     }
-    if (!getTransactionIdBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 22, transactionId_);
-    }
-    if (transactionResolveDelay_ != null) {
-      output.writeMessage(23, getTransactionResolveDelay());
+    if (orphanedTransactionRecoveryPeriod_ != null) {
+      output.writeMessage(22, getOrphanedTransactionRecoveryPeriod());
     }
     unknownFields.writeTo(output);
   }
@@ -1313,12 +1257,9 @@ private static final long serialVersionUID = 0L;
     if (!getTraceContextBytes().isEmpty()) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(21, traceContext_);
     }
-    if (!getTransactionIdBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(22, transactionId_);
-    }
-    if (transactionResolveDelay_ != null) {
+    if (orphanedTransactionRecoveryPeriod_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(23, getTransactionResolveDelay());
+        .computeMessageSize(22, getOrphanedTransactionRecoveryPeriod());
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -1386,12 +1327,10 @@ private static final long serialVersionUID = 0L;
         .equals(other.getMessageGroup())) return false;
     if (!getTraceContext()
         .equals(other.getTraceContext())) return false;
-    if (!getTransactionId()
-        .equals(other.getTransactionId())) return false;
-    if (hasTransactionResolveDelay() != other.hasTransactionResolveDelay()) return false;
-    if (hasTransactionResolveDelay()) {
-      if (!getTransactionResolveDelay()
-          .equals(other.getTransactionResolveDelay())) return false;
+    if (hasOrphanedTransactionRecoveryPeriod() != other.hasOrphanedTransactionRecoveryPeriod()) return false;
+    if (hasOrphanedTransactionRecoveryPeriod()) {
+      if (!getOrphanedTransactionRecoveryPeriod()
+          .equals(other.getOrphanedTransactionRecoveryPeriod())) return false;
     }
     if (!getTimedDeliveryCase().equals(other.getTimedDeliveryCase())) return false;
     switch (timedDeliveryCase_) {
@@ -1468,11 +1407,9 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getMessageGroup().hashCode();
     hash = (37 * hash) + TRACE_CONTEXT_FIELD_NUMBER;
     hash = (53 * hash) + getTraceContext().hashCode();
-    hash = (37 * hash) + TRANSACTION_ID_FIELD_NUMBER;
-    hash = (53 * hash) + getTransactionId().hashCode();
-    if (hasTransactionResolveDelay()) {
-      hash = (37 * hash) + TRANSACTION_RESOLVE_DELAY_FIELD_NUMBER;
-      hash = (53 * hash) + getTransactionResolveDelay().hashCode();
+    if (hasOrphanedTransactionRecoveryPeriod()) {
+      hash = (37 * hash) + ORPHANED_TRANSACTION_RECOVERY_PERIOD_FIELD_NUMBER;
+      hash = (53 * hash) + getOrphanedTransactionRecoveryPeriod().hashCode();
     }
     switch (timedDeliveryCase_) {
       case 11:
@@ -1677,13 +1614,11 @@ private static final long serialVersionUID = 0L;
 
       traceContext_ = "";
 
-      transactionId_ = "";
-
-      if (transactionResolveDelayBuilder_ == null) {
-        transactionResolveDelay_ = null;
+      if (orphanedTransactionRecoveryPeriodBuilder_ == null) {
+        orphanedTransactionRecoveryPeriod_ = null;
       } else {
-        transactionResolveDelay_ = null;
-        transactionResolveDelayBuilder_ = null;
+        orphanedTransactionRecoveryPeriod_ = null;
+        orphanedTransactionRecoveryPeriodBuilder_ = null;
       }
       timedDeliveryCase_ = 0;
       timedDelivery_ = null;
@@ -1767,11 +1702,10 @@ private static final long serialVersionUID = 0L;
       }
       result.messageGroup_ = messageGroup_;
       result.traceContext_ = traceContext_;
-      result.transactionId_ = transactionId_;
-      if (transactionResolveDelayBuilder_ == null) {
-        result.transactionResolveDelay_ = transactionResolveDelay_;
+      if (orphanedTransactionRecoveryPeriodBuilder_ == null) {
+        result.orphanedTransactionRecoveryPeriod_ = orphanedTransactionRecoveryPeriod_;
       } else {
-        result.transactionResolveDelay_ = transactionResolveDelayBuilder_.build();
+        result.orphanedTransactionRecoveryPeriod_ = orphanedTransactionRecoveryPeriodBuilder_.build();
       }
       result.timedDeliveryCase_ = timedDeliveryCase_;
       onBuilt();
@@ -1893,12 +1827,8 @@ private static final long serialVersionUID = 0L;
         traceContext_ = other.traceContext_;
         onChanged();
       }
-      if (!other.getTransactionId().isEmpty()) {
-        transactionId_ = other.transactionId_;
-        onChanged();
-      }
-      if (other.hasTransactionResolveDelay()) {
-        mergeTransactionResolveDelay(other.getTransactionResolveDelay());
+      if (other.hasOrphanedTransactionRecoveryPeriod()) {
+        mergeOrphanedTransactionRecoveryPeriod(other.getOrphanedTransactionRecoveryPeriod());
       }
       switch (other.getTimedDeliveryCase()) {
         case DELIVERY_TIMESTAMP: {
@@ -4082,129 +4012,33 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private java.lang.Object transactionId_ = "";
-    /**
-     * <pre>
-     * Correlated transaction
-     * </pre>
-     *
-     * <code>string transaction_id = 22;</code>
-     * @return The transactionId.
-     */
-    public java.lang.String getTransactionId() {
-      java.lang.Object ref = transactionId_;
-      if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        transactionId_ = s;
-        return s;
-      } else {
-        return (java.lang.String) ref;
-      }
-    }
-    /**
-     * <pre>
-     * Correlated transaction
-     * </pre>
-     *
-     * <code>string transaction_id = 22;</code>
-     * @return The bytes for transactionId.
-     */
-    public com.google.protobuf.ByteString
-        getTransactionIdBytes() {
-      java.lang.Object ref = transactionId_;
-      if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        transactionId_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-    /**
-     * <pre>
-     * Correlated transaction
-     * </pre>
-     *
-     * <code>string transaction_id = 22;</code>
-     * @param value The transactionId to set.
-     * @return This builder for chaining.
-     */
-    public Builder setTransactionId(
-        java.lang.String value) {
-      if (value == null) {
-    throw new NullPointerException();
-  }
-  
-      transactionId_ = value;
-      onChanged();
-      return this;
-    }
-    /**
-     * <pre>
-     * Correlated transaction
-     * </pre>
-     *
-     * <code>string transaction_id = 22;</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearTransactionId() {
-      
-      transactionId_ = getDefaultInstance().getTransactionId();
-      onChanged();
-      return this;
-    }
-    /**
-     * <pre>
-     * Correlated transaction
-     * </pre>
-     *
-     * <code>string transaction_id = 22;</code>
-     * @param value The bytes for transactionId to set.
-     * @return This builder for chaining.
-     */
-    public Builder setTransactionIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) {
-    throw new NullPointerException();
-  }
-  checkByteStringIsUtf8(value);
-      
-      transactionId_ = value;
-      onChanged();
-      return this;
-    }
-
-    private com.google.protobuf.Duration transactionResolveDelay_;
+    private com.google.protobuf.Duration orphanedTransactionRecoveryPeriod_;
     private com.google.protobuf.SingleFieldBuilderV3<
-        com.google.protobuf.Duration, com.google.protobuf.Duration.Builder, com.google.protobuf.DurationOrBuilder> transactionResolveDelayBuilder_;
+        com.google.protobuf.Duration, com.google.protobuf.Duration.Builder, com.google.protobuf.DurationOrBuilder> orphanedTransactionRecoveryPeriodBuilder_;
     /**
      * <pre>
      * Delay time of first resolve orphaned transaction request from server.
      * </pre>
      *
-     * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
-     * @return Whether the transactionResolveDelay field is set.
+     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+     * @return Whether the orphanedTransactionRecoveryPeriod field is set.
      */
-    public boolean hasTransactionResolveDelay() {
-      return transactionResolveDelayBuilder_ != null || transactionResolveDelay_ != null;
+    public boolean hasOrphanedTransactionRecoveryPeriod() {
+      return orphanedTransactionRecoveryPeriodBuilder_ != null || orphanedTransactionRecoveryPeriod_ != null;
     }
     /**
      * <pre>
      * Delay time of first resolve orphaned transaction request from server.
      * </pre>
      *
-     * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
-     * @return The transactionResolveDelay.
+     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+     * @return The orphanedTransactionRecoveryPeriod.
      */
-    public com.google.protobuf.Duration getTransactionResolveDelay() {
-      if (transactionResolveDelayBuilder_ == null) {
-        return transactionResolveDelay_ == null ? com.google.protobuf.Duration.getDefaultInstance() : transactionResolveDelay_;
+    public com.google.protobuf.Duration getOrphanedTransactionRecoveryPeriod() {
+      if (orphanedTransactionRecoveryPeriodBuilder_ == null) {
+        return orphanedTransactionRecoveryPeriod_ == null ? com.google.protobuf.Duration.getDefaultInstance() : orphanedTransactionRecoveryPeriod_;
       } else {
-        return transactionResolveDelayBuilder_.getMessage();
+        return orphanedTransactionRecoveryPeriodBuilder_.getMessage();
       }
     }
     /**
@@ -4212,17 +4046,17 @@ private static final long serialVersionUID = 0L;
      * Delay time of first resolve orphaned transaction request from server.
      * </pre>
      *
-     * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
      */
-    public Builder setTransactionResolveDelay(com.google.protobuf.Duration value) {
-      if (transactionResolveDelayBuilder_ == null) {
+    public Builder setOrphanedTransactionRecoveryPeriod(com.google.protobuf.Duration value) {
+      if (orphanedTransactionRecoveryPeriodBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
         }
-        transactionResolveDelay_ = value;
+        orphanedTransactionRecoveryPeriod_ = value;
         onChanged();
       } else {
-        transactionResolveDelayBuilder_.setMessage(value);
+        orphanedTransactionRecoveryPeriodBuilder_.setMessage(value);
       }
 
       return this;
@@ -4232,15 +4066,15 @@ private static final long serialVersionUID = 0L;
      * Delay time of first resolve orphaned transaction request from server.
      * </pre>
      *
-     * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
      */
-    public Builder setTransactionResolveDelay(
+    public Builder setOrphanedTransactionRecoveryPeriod(
         com.google.protobuf.Duration.Builder builderForValue) {
-      if (transactionResolveDelayBuilder_ == null) {
-        transactionResolveDelay_ = builderForValue.build();
+      if (orphanedTransactionRecoveryPeriodBuilder_ == null) {
+        orphanedTransactionRecoveryPeriod_ = builderForValue.build();
         onChanged();
       } else {
-        transactionResolveDelayBuilder_.setMessage(builderForValue.build());
+        orphanedTransactionRecoveryPeriodBuilder_.setMessage(builderForValue.build());
       }
 
       return this;
@@ -4250,19 +4084,19 @@ private static final long serialVersionUID = 0L;
      * Delay time of first resolve orphaned transaction request from server.
      * </pre>
      *
-     * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
      */
-    public Builder mergeTransactionResolveDelay(com.google.protobuf.Duration value) {
-      if (transactionResolveDelayBuilder_ == null) {
-        if (transactionResolveDelay_ != null) {
-          transactionResolveDelay_ =
-            com.google.protobuf.Duration.newBuilder(transactionResolveDelay_).mergeFrom(value).buildPartial();
+    public Builder mergeOrphanedTransactionRecoveryPeriod(com.google.protobuf.Duration value) {
+      if (orphanedTransactionRecoveryPeriodBuilder_ == null) {
+        if (orphanedTransactionRecoveryPeriod_ != null) {
+          orphanedTransactionRecoveryPeriod_ =
+            com.google.protobuf.Duration.newBuilder(orphanedTransactionRecoveryPeriod_).mergeFrom(value).buildPartial();
         } else {
-          transactionResolveDelay_ = value;
+          orphanedTransactionRecoveryPeriod_ = value;
         }
         onChanged();
       } else {
-        transactionResolveDelayBuilder_.mergeFrom(value);
+        orphanedTransactionRecoveryPeriodBuilder_.mergeFrom(value);
       }
 
       return this;
@@ -4272,15 +4106,15 @@ private static final long serialVersionUID = 0L;
      * Delay time of first resolve orphaned transaction request from server.
      * </pre>
      *
-     * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
      */
-    public Builder clearTransactionResolveDelay() {
-      if (transactionResolveDelayBuilder_ == null) {
-        transactionResolveDelay_ = null;
+    public Builder clearOrphanedTransactionRecoveryPeriod() {
+      if (orphanedTransactionRecoveryPeriodBuilder_ == null) {
+        orphanedTransactionRecoveryPeriod_ = null;
         onChanged();
       } else {
-        transactionResolveDelay_ = null;
-        transactionResolveDelayBuilder_ = null;
+        orphanedTransactionRecoveryPeriod_ = null;
+        orphanedTransactionRecoveryPeriodBuilder_ = null;
       }
 
       return this;
@@ -4290,26 +4124,26 @@ private static final long serialVersionUID = 0L;
      * Delay time of first resolve orphaned transaction request from server.
      * </pre>
      *
-     * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
      */
-    public com.google.protobuf.Duration.Builder getTransactionResolveDelayBuilder() {
+    public com.google.protobuf.Duration.Builder getOrphanedTransactionRecoveryPeriodBuilder() {
       
       onChanged();
-      return getTransactionResolveDelayFieldBuilder().getBuilder();
+      return getOrphanedTransactionRecoveryPeriodFieldBuilder().getBuilder();
     }
     /**
      * <pre>
      * Delay time of first resolve orphaned transaction request from server.
      * </pre>
      *
-     * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
      */
-    public com.google.protobuf.DurationOrBuilder getTransactionResolveDelayOrBuilder() {
-      if (transactionResolveDelayBuilder_ != null) {
-        return transactionResolveDelayBuilder_.getMessageOrBuilder();
+    public com.google.protobuf.DurationOrBuilder getOrphanedTransactionRecoveryPeriodOrBuilder() {
+      if (orphanedTransactionRecoveryPeriodBuilder_ != null) {
+        return orphanedTransactionRecoveryPeriodBuilder_.getMessageOrBuilder();
       } else {
-        return transactionResolveDelay_ == null ?
-            com.google.protobuf.Duration.getDefaultInstance() : transactionResolveDelay_;
+        return orphanedTransactionRecoveryPeriod_ == null ?
+            com.google.protobuf.Duration.getDefaultInstance() : orphanedTransactionRecoveryPeriod_;
       }
     }
     /**
@@ -4317,20 +4151,20 @@ private static final long serialVersionUID = 0L;
      * Delay time of first resolve orphaned transaction request from server.
      * </pre>
      *
-     * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
+     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.protobuf.Duration, com.google.protobuf.Duration.Builder, com.google.protobuf.DurationOrBuilder> 
-        getTransactionResolveDelayFieldBuilder() {
-      if (transactionResolveDelayBuilder_ == null) {
-        transactionResolveDelayBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+        getOrphanedTransactionRecoveryPeriodFieldBuilder() {
+      if (orphanedTransactionRecoveryPeriodBuilder_ == null) {
+        orphanedTransactionRecoveryPeriodBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
             com.google.protobuf.Duration, com.google.protobuf.Duration.Builder, com.google.protobuf.DurationOrBuilder>(
-                getTransactionResolveDelay(),
+                getOrphanedTransactionRecoveryPeriod(),
                 getParentForChildren(),
                 isClean());
-        transactionResolveDelay_ = null;
+        orphanedTransactionRecoveryPeriod_ = null;
       }
-      return transactionResolveDelayBuilder_;
+      return orphanedTransactionRecoveryPeriodBuilder_;
     }
     @java.lang.Override
     public final Builder setUnknownFields(

@@ -435,50 +435,30 @@ public interface SystemAttributeOrBuilder extends
 
   /**
    * <pre>
-   * Correlated transaction
+   * Delay time of first resolve orphaned transaction request from server.
    * </pre>
    *
-   * <code>string transaction_id = 22;</code>
-   * @return The transactionId.
+   * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+   * @return Whether the orphanedTransactionRecoveryPeriod field is set.
    */
-  java.lang.String getTransactionId();
-  /**
-   * <pre>
-   * Correlated transaction
-   * </pre>
-   *
-   * <code>string transaction_id = 22;</code>
-   * @return The bytes for transactionId.
-   */
-  com.google.protobuf.ByteString
-      getTransactionIdBytes();
-
+  boolean hasOrphanedTransactionRecoveryPeriod();
   /**
    * <pre>
    * Delay time of first resolve orphaned transaction request from server.
    * </pre>
    *
-   * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
-   * @return Whether the transactionResolveDelay field is set.
+   * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+   * @return The orphanedTransactionRecoveryPeriod.
    */
-  boolean hasTransactionResolveDelay();
+  com.google.protobuf.Duration getOrphanedTransactionRecoveryPeriod();
   /**
    * <pre>
    * Delay time of first resolve orphaned transaction request from server.
    * </pre>
    *
-   * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
-   * @return The transactionResolveDelay.
+   * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
    */
-  com.google.protobuf.Duration getTransactionResolveDelay();
-  /**
-   * <pre>
-   * Delay time of first resolve orphaned transaction request from server.
-   * </pre>
-   *
-   * <code>.google.protobuf.Duration transaction_resolve_delay = 23;</code>
-   */
-  com.google.protobuf.DurationOrBuilder getTransactionResolveDelayOrBuilder();
+  com.google.protobuf.DurationOrBuilder getOrphanedTransactionRecoveryPeriodOrBuilder();
 
   public apache.rocketmq.v1.SystemAttribute.TimedDeliveryCase getTimedDeliveryCase();
 }

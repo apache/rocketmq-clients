@@ -25,8 +25,7 @@ public class SystemAttribute {
     private String producerGroup;
     private String messageGroup;
     private String traceContext;
-    private String transactionId;
-    private long transactionResolveDelayMillis;
+    private long orphanedTransactionRecoveryPeriodMillis;
     // Would set after receiving the message.
     private long decodedTimestamp;
     private Endpoints ackEndpoints;

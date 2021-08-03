@@ -118,8 +118,4 @@ public class MessageExt {
                 return MessageType.NORMAL;
         }
     }
-
-    public String getTransactionId() {
-        return this.impl.getSystemAttribute().getTransactionId();
-    }
 }

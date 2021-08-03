@@ -1093,11 +1093,9 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         mqSystemAttribute.setMessageGroup(systemAttribute.getMessageGroup());
         // trace context.
         mqSystemAttribute.setTraceContext(systemAttribute.getTraceContext());
-        // transaction id.
-        mqSystemAttribute.setTransactionId(systemAttribute.getTransactionId());
         // transaction resolve delay millis.
-        mqSystemAttribute.setTransactionResolveDelayMillis(
-                Durations.toMillis(systemAttribute.getTransactionResolveDelay()));
+        mqSystemAttribute.setOrphanedTransactionRecoveryPeriodMillis(
+                Durations.toMillis(systemAttribute.getOrphanedTransactionRecoveryPeriod()));
         // decoded timestamp.
         mqSystemAttribute.setDecodedTimestamp(System.currentTimeMillis());
         // user properties.

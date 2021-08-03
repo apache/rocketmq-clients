@@ -437,7 +437,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
         systemAttribute.setMessageType(MessageType.TRANSACTION);
         // set transaction resolve delay millis.
-        systemAttribute.setTransactionResolveDelayMillis(transactionResolveDelayMillis);
+        systemAttribute.setOrphanedTransactionRecoveryPeriodMillis(transactionResolveDelayMillis);
 
         final SendResult sendResult = send(message);
         return new TransactionImpl(sendResult, this);
@@ -511,7 +511,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             return;
         }
         final MessageExt messageExt = new MessageExt(messageImpl);
-        final String transactionId = messageExt.getTransactionId();
+        final String transactionId = request.getTransactionId();
         try {
             transactionCheckerExecutor.submit(new Runnable() {
                 @Override

@@ -194,7 +194,6 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.TOPIC, message.getTopic());
                 span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
                 span.setAttribute(TracingAttribute.GROUP, group);
-                span.setAttribute(TracingAttribute.TRANSACTION_ID, message.getTransactionId());
 
                 span.end();
                 break;
