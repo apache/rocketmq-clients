@@ -535,9 +535,8 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     }
 
     @Override
-    protected void updateTopicRouteCache(String topic, TopicRouteData topicRouteData) {
+    public void beforeTopicRouteDataUpdate(String topic, TopicRouteData topicRouteData) {
         topicPublishInfoCache.put(topic, new TopicPublishInfo(topicRouteData));
-        super.updateTopicRouteCache(topic, topicRouteData);
     }
 
     public ListenableFuture<TopicPublishInfo> getPublishInfo(final String topic) {

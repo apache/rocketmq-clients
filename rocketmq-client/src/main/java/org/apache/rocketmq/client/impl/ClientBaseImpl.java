@@ -325,7 +325,11 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         }
     }
 
-    protected void updateTopicRouteCache(String topic, TopicRouteData topicRouteData) {
+    public void beforeTopicRouteDataUpdate(String topic, TopicRouteData topicRouteData) {
+    }
+
+    private void onTopicRouteDataUpdate(String topic, TopicRouteData topicRouteData) {
+        beforeTopicRouteDataUpdate(topic, topicRouteData);
         final Set<Endpoints> before = getRouteEndpointsSet();
         topicRouteCache.put(topic, topicRouteData);
         final Set<Endpoints> after = getRouteEndpointsSet();
@@ -348,7 +352,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
             Futures.addCallback(future, new FutureCallback<TopicRouteData>() {
                 @Override
                 public void onSuccess(TopicRouteData topicRouteData) {
-                    updateTopicRouteCache(topic, topicRouteData);
+                    onTopicRouteDataUpdate(topic, topicRouteData);
                 }
 
                 @Override
@@ -393,7 +397,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
             public void onSuccess(TopicRouteData newTopicRouteData) {
                 inflightRouteFutureLock.lock();
                 try {
-                    updateTopicRouteCache(topic, newTopicRouteData);
+                    onTopicRouteDataUpdate(topic, newTopicRouteData);
                     final Set<SettableFuture<TopicRouteData>> newFutureSet = inflightRouteFutureTable.remove(topic);
                     if (null == newFutureSet) {
                         // Should never reach here.
