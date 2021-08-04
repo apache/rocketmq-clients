@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="ConsoleAppender" class="org.apache.rocketmq.shaded.ch.qos.logback.core.ConsoleAppender">
+        <append>true</append>
+        <encoder>
+            <pattern>%d{yyy-MM-dd HH:mm:ss,GMT+8} %highlight(%-5p) %magenta([%t]) %boldGreen([%logger{12}#%M:%L]) - %m%n
+            </pattern>
+            <charset class="java.nio.charset.Charset">UTF-8</charset>
+        </encoder>
+    </appender>
+<!--    TODO-->
+    <appender name="DefaultAppender" class="org.apache.rocketmq.shaded.ch.qos.logback.core.rolling.RollingFileAppender">
+        <File>${user.home}/logs/rocketmq/rocketmq-client.log</File>
+        <rollingPolicy class="org.apache.rocketmq.shaded.ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <FileNamePattern>${user.home}/logs/rocketmq/other_days/rocketmq-client-%d{yyyy-MM-dd}.log</FileNamePattern>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>20GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="org.apache.rocketmq.shaded.ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>%d{yyy-MM-dd HH:mm:ss,GMT+8} %-5p [%t] [%logger{12}#%M:%L] - %m%n</pattern>
+            <charset class="java.nio.charset.Charset">UTF-8</charset>
+        </encoder>
+    </appender>
+    <root level="debug">
+        <appender-ref ref="ConsoleAppender"/>
+        <appender-ref ref="DefaultAppender" additivity="false"/>
+    </root>
+    <logger name="io.grpc" level="warn"/>
+    <logger name="org.apache.rocketmq.shaded.io.grpc" level="warn"/>
+</configuration>

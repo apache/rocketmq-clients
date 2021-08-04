@@ -1,5 +1,3 @@
-*.log*
-
 # Intellij IDEA
 .idea/
 out/
