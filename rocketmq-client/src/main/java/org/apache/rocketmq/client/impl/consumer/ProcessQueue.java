@@ -61,19 +61,19 @@ import org.apache.rocketmq.client.remoting.Endpoints;
 
 @Slf4j
 public class ProcessQueue {
-    private static final long RECEIVE_LONG_POLLING_TIMEOUT_MILLIS = 15 * 1000L;
-    private static final long RECEIVE_AWAIT_TIME_MILLIS = 10 * 1000L;
-    private static final int RECEIVE_MAX_BATCH_SIZE = 32;
-    private static final long RECEIVE_LATER_DELAY_MILLIS = 3 * 1000L;
+    public static final long RECEIVE_LONG_POLLING_TIMEOUT_MILLIS = 15 * 1000L;
+    public static final long RECEIVE_AWAIT_TIME_MILLIS = 10 * 1000L;
+    public static final int RECEIVE_MAX_BATCH_SIZE = 32;
+    public static final long RECEIVE_LATER_DELAY_MILLIS = 3 * 1000L;
 
-    private static final long PULL_LONG_POLLING_TIMEOUT_MILLIS = 15 * 1000L;
-    private static final long PULL_AWAIT_TIME_MILLIS = 10 * 1000L;
-    private static final int PULL_MAX_BATCH_SIZE = 32;
-    private static final long PULL_LATER_DELAY_MILLIS = 3 * 1000L;
+    public static final long PULL_LONG_POLLING_TIMEOUT_MILLIS = 15 * 1000L;
+    public static final long PULL_AWAIT_TIME_MILLIS = 10 * 1000L;
+    public static final int PULL_MAX_BATCH_SIZE = 32;
+    public static final long PULL_LATER_DELAY_MILLIS = 3 * 1000L;
 
-    private static final long MAX_IDLE_MILLIS = 30 * 1000L;
-    private static final long ACK_FIFO_MESSAGE_DELAY_MILLIS = 100L;
-    private static final long REDIRECT_FIFO_MESSAGE_TO_DLQ_DELAY_MILLIS = 100L;
+    public static final long MAX_IDLE_MILLIS = 30 * 1000L;
+    public static final long ACK_FIFO_MESSAGE_DELAY_MILLIS = 100L;
+    public static final long REDIRECT_FIFO_MESSAGE_TO_DLQ_DELAY_MILLIS = 100L;
 
     @Getter
     private volatile boolean dropped;
@@ -128,16 +128,14 @@ public class ProcessQueue {
         this.dropped = true;
     }
 
-    public boolean fifoConsumptionInbound() {
+    private boolean fifoConsumptionInbound() {
         return fifoConsumptionOccupied.compareAndSet(false, true);
     }
 
-    public void fifoConsumptionOutbound() {
+    private void fifoConsumptionOutbound() {
         fifoConsumptionOccupied.compareAndSet(true, false);
     }
 
-
-    @VisibleForTesting
     public void cacheMessages(List<MessageExt> messageList) {
         pendingMessagesLock.writeLock().lock();
         try {
@@ -439,8 +437,8 @@ public class ProcessQueue {
         }
     }
 
-    private boolean throttled() {
-        final long actualMessagesQuantity = this.cachedMessageQuantity();
+    public boolean throttled() {
+        final long actualMessagesQuantity = this.cachedMessagesQuantity();
         final int cachedMessageQuantityThresholdPerQueue = consumerImpl.cachedMessagesQuantityThresholdPerQueue();
         if (cachedMessageQuantityThresholdPerQueue <= actualMessagesQuantity) {
             log.warn("Process queue total messages quantity exceeds the threshold, threshold={}, actual={}, mq={}",
@@ -448,7 +446,7 @@ public class ProcessQueue {
             return true;
         }
         final int cachedMessagesBytesPerQueue = consumerImpl.cachedMessagesBytesThresholdPerQueue();
-        final long actualCachedMessagesBytes = cachedMessageBytes();
+        final long actualCachedMessagesBytes = this.cachedMessageBytes();
         if (cachedMessagesBytesPerQueue <= actualCachedMessagesBytes) {
             log.warn("Process queue total messages memory exceeds the threshold, threshold={} bytes, actual={} bytes,"
                      + " mq={}", cachedMessagesBytesPerQueue, actualCachedMessagesBytes, mq);
@@ -1009,7 +1007,7 @@ public class ProcessQueue {
                                         Durations.toMillis(response.getInvisibleDuration()), msgFoundList);
     }
 
-    public int cachedMessageQuantity() {
+    public int cachedMessagesQuantity() {
         pendingMessagesLock.readLock().lock();
         inflightMessagesLock.readLock().lock();
         try {
@@ -1017,6 +1015,15 @@ public class ProcessQueue {
         } finally {
             inflightMessagesLock.readLock().unlock();
             pendingMessagesLock.readLock().unlock();
+        }
+    }
+
+    public int inflightMessagesQuantity() {
+        inflightMessagesLock.readLock().lock();
+        try {
+            return inflightMessages.size();
+        } finally {
+            inflightMessagesLock.readLock().unlock();
         }
     }
 
@@ -1030,9 +1037,9 @@ public class ProcessQueue {
 
     private void statsMessageConsumptionStatus(int messageSize, ConsumeStatus status) {
         if (ConsumeStatus.OK.equals(status)) {
-            consumerImpl.consumptionOkCount.addAndGet(messageSize);
+            consumerImpl.getConsumptionOkCount().addAndGet(messageSize);
             return;
         }
-        consumerImpl.consumptionErrorCount.addAndGet(messageSize);
+        consumerImpl.getConsumptionErrorCount().addAndGet(messageSize);
     }
 }

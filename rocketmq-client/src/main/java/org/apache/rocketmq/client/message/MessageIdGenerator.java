@@ -13,7 +13,7 @@ import org.apache.rocketmq.utility.UtilAll;
 public class MessageIdGenerator {
 
     private static final MessageIdGenerator instance = new MessageIdGenerator();
-    private static final String VERSION = "00";
+    private static final String VERSION = "01";
 
     private final String prefix;
     private final long secondsSinceCustomEpoch;

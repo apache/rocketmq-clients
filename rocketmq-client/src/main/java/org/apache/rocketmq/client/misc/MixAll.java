@@ -6,7 +6,7 @@ public class MixAll {
     public static final String HTTP_PREFIX = "http://";
     public static final String HTTPS_PREFIX = "https://";
 
-    public static final long MASTER_BROKER_ID = 0;
+    public static final int MASTER_BROKER_ID = 0;
 
     private MixAll() {
     }

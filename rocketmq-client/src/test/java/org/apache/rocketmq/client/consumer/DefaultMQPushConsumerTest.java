@@ -6,7 +6,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import org.apache.rocketmq.client.conf.BaseConfig;
+import org.apache.rocketmq.client.conf.TestBase;
 import org.apache.rocketmq.client.consumer.listener.ConsumeContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
@@ -15,7 +15,7 @@ import org.apache.rocketmq.client.message.MessageExt;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-public class DefaultMQPushConsumerTest extends BaseConfig {
+public class DefaultMQPushConsumerTest extends TestBase {
 
     private DefaultMQPushConsumer createPushConsumer(String consumerGroup, String topic) {
         final DefaultMQPushConsumer consumer = new DefaultMQPushConsumer(consumerGroup);
@@ -33,7 +33,7 @@ public class DefaultMQPushConsumerTest extends BaseConfig {
 
     @Test
     public void testStartWithoutListener() {
-        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer(dummyConsumerGroup);
+        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer(dummyConsumerGroup0);
         try {
             consumer.start();
             Assert.fail();
@@ -44,7 +44,7 @@ public class DefaultMQPushConsumerTest extends BaseConfig {
 
     @Test
     public void testStartWithoutSubscription() throws ClientException {
-        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer(dummyConsumerGroup);
+        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer(dummyConsumerGroup0);
         consumer.registerMessageListener(
                 new MessageListenerConcurrently() {
                     @Override
@@ -59,14 +59,14 @@ public class DefaultMQPushConsumerTest extends BaseConfig {
 
     @Test
     public void testStartAndShutdown() throws ClientException {
-        DefaultMQPushConsumer consumer = createPushConsumer(dummyConsumerGroup, dummyTopic);
+        DefaultMQPushConsumer consumer = createPushConsumer(dummyConsumerGroup0, dummyTopic0);
         consumer.start();
         consumer.shutdown();
     }
 
     @Test
     public void testBroadCasting() throws ClientException {
-        DefaultMQPushConsumer consumer = createPushConsumer(dummyConsumerGroup, dummyTopic);
+        DefaultMQPushConsumer consumer = createPushConsumer(dummyConsumerGroup0, dummyTopic0);
         consumer.setMessageModel(MessageModel.BROADCASTING);
         consumer.start();
         consumer.shutdown();
@@ -75,8 +75,8 @@ public class DefaultMQPushConsumerTest extends BaseConfig {
     @Test
     public void testStartMultiConsumers() throws ClientException {
         {
-            final DefaultMQPushConsumer consumer0 = createPushConsumer(dummyConsumerGroup0, dummyTopic);
-            final DefaultMQPushConsumer consumer1 = createPushConsumer(dummyConsumerGroup1, dummyTopic);
+            final DefaultMQPushConsumer consumer0 = createPushConsumer(dummyConsumerGroup1, dummyTopic0);
+            final DefaultMQPushConsumer consumer1 = createPushConsumer(dummyConsumerGroup2, dummyTopic0);
 
             consumer0.start();
             consumer0.shutdown();
@@ -84,8 +84,8 @@ public class DefaultMQPushConsumerTest extends BaseConfig {
             consumer1.shutdown();
         }
         {
-            final DefaultMQPushConsumer consumer0 = createPushConsumer(dummyConsumerGroup0, dummyTopic);
-            final DefaultMQPushConsumer consumer1 = createPushConsumer(dummyConsumerGroup1, dummyTopic);
+            final DefaultMQPushConsumer consumer0 = createPushConsumer(dummyConsumerGroup1, dummyTopic0);
+            final DefaultMQPushConsumer consumer1 = createPushConsumer(dummyConsumerGroup2, dummyTopic0);
 
             consumer0.start();
             consumer1.start();
@@ -93,8 +93,8 @@ public class DefaultMQPushConsumerTest extends BaseConfig {
             consumer1.shutdown();
         }
         {
-            final DefaultMQPushConsumer consumer0 = createPushConsumer(dummyConsumerGroup0, dummyTopic);
-            final DefaultMQPushConsumer consumer1 = createPushConsumer(dummyConsumerGroup1, dummyTopic);
+            final DefaultMQPushConsumer consumer0 = createPushConsumer(dummyConsumerGroup1, dummyTopic0);
+            final DefaultMQPushConsumer consumer1 = createPushConsumer(dummyConsumerGroup2, dummyTopic0);
 
             consumer0.start();
             consumer1.start();
@@ -102,8 +102,8 @@ public class DefaultMQPushConsumerTest extends BaseConfig {
             consumer1.shutdown();
         }
         {
-            final DefaultMQPushConsumer consumer0 = createPushConsumer(dummyConsumerGroup0, dummyTopic);
-            final DefaultMQPushConsumer consumer1 = createPushConsumer(dummyConsumerGroup1, dummyTopic);
+            final DefaultMQPushConsumer consumer0 = createPushConsumer(dummyConsumerGroup1, dummyTopic0);
+            final DefaultMQPushConsumer consumer1 = createPushConsumer(dummyConsumerGroup2, dummyTopic0);
 
             consumer0.start();
             consumer1.start();
@@ -114,8 +114,8 @@ public class DefaultMQPushConsumerTest extends BaseConfig {
 
     @Test(invocationCount = 16)
     public void testStartConsumersConcurrently() throws InterruptedException {
-        final DefaultMQPushConsumer consumer0 = createPushConsumer(dummyConsumerGroup0, dummyTopic);
-        final DefaultMQPushConsumer consumer1 = createPushConsumer(dummyConsumerGroup1, dummyTopic);
+        final DefaultMQPushConsumer consumer0 = createPushConsumer(dummyConsumerGroup1, dummyTopic0);
+        final DefaultMQPushConsumer consumer1 = createPushConsumer(dummyConsumerGroup2, dummyTopic0);
 
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
                 2,

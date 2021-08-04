@@ -1,19 +1,13 @@
 package org.apache.rocketmq.client.impl;
 
-import static org.testng.Assert.*;
-
-import java.util.List;
-import org.apache.rocketmq.client.conf.BaseConfig;
-import org.apache.rocketmq.client.remoting.Endpoints;
-import org.apache.rocketmq.client.route.AddressScheme;
-import org.testng.Assert;
+import org.apache.rocketmq.client.conf.TestBase;
 import org.testng.annotations.Test;
 
-public class ClientConfigTest extends BaseConfig {
+public class ClientConfigTest extends TestBase {
     private final ClientConfig clientConfig;
 
     public ClientConfigTest() {
-        this.clientConfig = new ClientConfig(dummyConsumerGroup);
+        this.clientConfig = new ClientConfig(dummyConsumerGroup0);
     }
 
     @Test

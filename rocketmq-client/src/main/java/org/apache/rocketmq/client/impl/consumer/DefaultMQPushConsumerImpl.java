@@ -83,8 +83,8 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     public final AtomicLong pullTimes;
     public final AtomicLong pulledMessagesSize;
 
-    public final AtomicLong consumptionOkCount;
-    public final AtomicLong consumptionErrorCount;
+    private final AtomicLong consumptionOkCount;
+    private final AtomicLong consumptionErrorCount;
 
     @Setter(AccessLevel.NONE)
     private MessageListener messageListener;
