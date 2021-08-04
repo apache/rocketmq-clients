@@ -386,6 +386,37 @@ public final class MessagingServiceGrpc {
     return getPullMessageMethod;
   }
 
+  private static volatile io.grpc.MethodDescriptor<apache.rocketmq.v1.UpdateOffsetRequest,
+      apache.rocketmq.v1.UpdateOffsetResponse> getUpdateOffsetMethod;
+
+  @io.grpc.stub.annotations.RpcMethod(
+      fullMethodName = SERVICE_NAME + '/' + "UpdateOffset",
+      requestType = apache.rocketmq.v1.UpdateOffsetRequest.class,
+      responseType = apache.rocketmq.v1.UpdateOffsetResponse.class,
+      methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
+  public static io.grpc.MethodDescriptor<apache.rocketmq.v1.UpdateOffsetRequest,
+      apache.rocketmq.v1.UpdateOffsetResponse> getUpdateOffsetMethod() {
+    io.grpc.MethodDescriptor<apache.rocketmq.v1.UpdateOffsetRequest, apache.rocketmq.v1.UpdateOffsetResponse> getUpdateOffsetMethod;
+    if ((getUpdateOffsetMethod = MessagingServiceGrpc.getUpdateOffsetMethod) == null) {
+      synchronized (MessagingServiceGrpc.class) {
+        if ((getUpdateOffsetMethod = MessagingServiceGrpc.getUpdateOffsetMethod) == null) {
+          MessagingServiceGrpc.getUpdateOffsetMethod = getUpdateOffsetMethod =
+              io.grpc.MethodDescriptor.<apache.rocketmq.v1.UpdateOffsetRequest, apache.rocketmq.v1.UpdateOffsetResponse>newBuilder()
+              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "UpdateOffset"))
+              .setSampledToLocalTracing(true)
+              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  apache.rocketmq.v1.UpdateOffsetRequest.getDefaultInstance()))
+              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  apache.rocketmq.v1.UpdateOffsetResponse.getDefaultInstance()))
+              .setSchemaDescriptor(new MessagingServiceMethodDescriptorSupplier("UpdateOffset"))
+              .build();
+        }
+      }
+    }
+    return getUpdateOffsetMethod;
+  }
+
   private static volatile io.grpc.MethodDescriptor<apache.rocketmq.v1.MultiplexingRequest,
       apache.rocketmq.v1.MultiplexingResponse> getMultiplexingCallMethod;
 
@@ -551,6 +582,13 @@ public final class MessagingServiceGrpc {
 
     /**
      */
+    public void updateOffset(apache.rocketmq.v1.UpdateOffsetRequest request,
+        io.grpc.stub.StreamObserver<apache.rocketmq.v1.UpdateOffsetResponse> responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getUpdateOffsetMethod(), responseObserver);
+    }
+
+    /**
+     */
     public void multiplexingCall(apache.rocketmq.v1.MultiplexingRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.MultiplexingResponse> responseObserver) {
       io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getMultiplexingCallMethod(), responseObserver);
@@ -642,6 +680,13 @@ public final class MessagingServiceGrpc {
                 apache.rocketmq.v1.PullMessageRequest,
                 apache.rocketmq.v1.PullMessageResponse>(
                   this, METHODID_PULL_MESSAGE)))
+          .addMethod(
+            getUpdateOffsetMethod(),
+            io.grpc.stub.ServerCalls.asyncUnaryCall(
+              new MethodHandlers<
+                apache.rocketmq.v1.UpdateOffsetRequest,
+                apache.rocketmq.v1.UpdateOffsetResponse>(
+                  this, METHODID_UPDATE_OFFSET)))
           .addMethod(
             getMultiplexingCallMethod(),
             io.grpc.stub.ServerCalls.asyncUnaryCall(
@@ -765,6 +810,14 @@ public final class MessagingServiceGrpc {
 
     /**
      */
+    public void updateOffset(apache.rocketmq.v1.UpdateOffsetRequest request,
+        io.grpc.stub.StreamObserver<apache.rocketmq.v1.UpdateOffsetResponse> responseObserver) {
+      io.grpc.stub.ClientCalls.asyncUnaryCall(
+          getChannel().newCall(getUpdateOffsetMethod(), getCallOptions()), request, responseObserver);
+    }
+
+    /**
+     */
     public void multiplexingCall(apache.rocketmq.v1.MultiplexingRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.MultiplexingResponse> responseObserver) {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
@@ -868,6 +921,13 @@ public final class MessagingServiceGrpc {
     public apache.rocketmq.v1.PullMessageResponse pullMessage(apache.rocketmq.v1.PullMessageRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
           getChannel(), getPullMessageMethod(), getCallOptions(), request);
+    }
+
+    /**
+     */
+    public apache.rocketmq.v1.UpdateOffsetResponse updateOffset(apache.rocketmq.v1.UpdateOffsetRequest request) {
+      return io.grpc.stub.ClientCalls.blockingUnaryCall(
+          getChannel(), getUpdateOffsetMethod(), getCallOptions(), request);
     }
 
     /**
@@ -990,6 +1050,14 @@ public final class MessagingServiceGrpc {
 
     /**
      */
+    public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.UpdateOffsetResponse> updateOffset(
+        apache.rocketmq.v1.UpdateOffsetRequest request) {
+      return io.grpc.stub.ClientCalls.futureUnaryCall(
+          getChannel().newCall(getUpdateOffsetMethod(), getCallOptions()), request);
+    }
+
+    /**
+     */
     public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.MultiplexingResponse> multiplexingCall(
         apache.rocketmq.v1.MultiplexingRequest request) {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
@@ -1009,7 +1077,8 @@ public final class MessagingServiceGrpc {
   private static final int METHODID_END_TRANSACTION = 9;
   private static final int METHODID_QUERY_OFFSET = 10;
   private static final int METHODID_PULL_MESSAGE = 11;
-  private static final int METHODID_MULTIPLEXING_CALL = 12;
+  private static final int METHODID_UPDATE_OFFSET = 12;
+  private static final int METHODID_MULTIPLEXING_CALL = 13;
 
   private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
@@ -1075,6 +1144,10 @@ public final class MessagingServiceGrpc {
         case METHODID_PULL_MESSAGE:
           serviceImpl.pullMessage((apache.rocketmq.v1.PullMessageRequest) request,
               (io.grpc.stub.StreamObserver<apache.rocketmq.v1.PullMessageResponse>) responseObserver);
+          break;
+        case METHODID_UPDATE_OFFSET:
+          serviceImpl.updateOffset((apache.rocketmq.v1.UpdateOffsetRequest) request,
+              (io.grpc.stub.StreamObserver<apache.rocketmq.v1.UpdateOffsetResponse>) responseObserver);
           break;
         case METHODID_MULTIPLEXING_CALL:
           serviceImpl.multiplexingCall((apache.rocketmq.v1.MultiplexingRequest) request,
@@ -1153,6 +1226,7 @@ public final class MessagingServiceGrpc {
               .addMethod(getEndTransactionMethod())
               .addMethod(getQueryOffsetMethod())
               .addMethod(getPullMessageMethod())
+              .addMethod(getUpdateOffsetMethod())
               .addMethod(getMultiplexingCallMethod())
               .build();
         }
