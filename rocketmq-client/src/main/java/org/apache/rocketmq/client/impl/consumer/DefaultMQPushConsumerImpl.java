@@ -208,7 +208,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         return null != offsetStore;
     }
 
-    int cachedMessageQuantityThresholdPerQueue() {
+    int cachedMessagesQuantityThresholdPerQueue() {
         if (maxTotalCachedMessagesQuantityThreshold <= 0) {
             return maxCachedMessagesQuantityThresholdPerQueue;
         }
@@ -220,7 +220,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         return Math.max(1, maxTotalCachedMessagesQuantityThreshold / size);
     }
 
-    int cachedMessageMemoryThresholdPerQueue() {
+    int cachedMessagesBytesThresholdPerQueue() {
         if (maxTotalCachedMessagesBytesThreshold <= 0) {
             return maxCachedMessagesBytesThresholdPerQueue;
         }
@@ -532,8 +532,6 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     @Override
     public HeartbeatEntry prepareHeartbeatData() {
-        Resource groupResource = Resource.newBuilder().setArn(arn).setName(group).build();
-
         List<SubscriptionEntry> subscriptionEntries = new ArrayList<SubscriptionEntry>();
         for (Map.Entry<String, FilterExpression> entry : filterExpressionTable.entrySet()) {
             final String topic = entry.getKey();
@@ -561,7 +559,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                                                             .build();
 
         final ConsumerGroup.Builder builder = ConsumerGroup.newBuilder()
-                                                           .setGroup(groupResource)
+                                                           .setGroup(getGroupResource())
                                                            .addAllSubscriptions(subscriptionEntries)
                                                            .setDeadLetterPolicy(deadLetterPolicy)
                                                            .setConsumeType(ConsumeMessageType.POP);
@@ -594,12 +592,6 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                              .setConsumerGroup(consumerGroup)
                              .build();
     }
-
-    // TODO: polish code
-    private Resource getGroupResource() {
-        return Resource.newBuilder().setArn(arn).setName(group).build();
-    }
-
 
     @Override
     public ListenableFuture<VerifyMessageConsumptionResponse> verifyConsumption(VerifyMessageConsumptionRequest
@@ -644,9 +636,8 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     @Override
     public ClientResourceBundle wrapClientResourceBundle() {
-        Resource groupResource = Resource.newBuilder().setArn(arn).setName(group).build();
         final ClientResourceBundle.Builder builder =
-                ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(groupResource);
+                ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(getGroupResource());
         for (String topic : filterExpressionTable.keySet()) {
             Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
             builder.addTopics(topicResource);

@@ -1,5 +1,12 @@
 package org.apache.rocketmq.client.conf;
 
+import apache.rocketmq.v1.Address;
+import apache.rocketmq.v1.AddressScheme;
+import apache.rocketmq.v1.Broker;
+import apache.rocketmq.v1.Endpoints;
+import apache.rocketmq.v1.Partition;
+import apache.rocketmq.v1.Permission;
+import apache.rocketmq.v1.Resource;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageQueue;
@@ -22,12 +29,19 @@ public class BaseConfig {
 
     protected String dummyMsgId = "1EE10C774F0D18B4AAC24CAB60130000";
 
-//    protected MessageQueue dummyMessageQueue =
-//            new MessageQueue(dummyTopic, dummyBrokerName, dummyQueueId);
-//    protected MessageQueue dummyMessageQueue0 =
-//            new MessageQueue(dummyTopic0, dummyBrokerName0, dummyQueueId0);
-//    protected MessageQueue dummyMessageQueue1 =
-//            new MessageQueue(dummyTopic1, dummyBrokerName1, dummyQueueId1);
+    protected Resource dummyTopicResource = Resource.newBuilder().setName(dummyTopic).build();
+    protected Address dummyAddress = Address.newBuilder().setHost("127.0.0.1").setPort(8080).build();
+    protected Endpoints dummyEndpoints =
+            Endpoints.newBuilder().setScheme(AddressScheme.IPv4).addAddresses(dummyAddress).build();
+    protected Broker dummyBroker =
+            Broker.newBuilder().setName(dummyBrokerName).setId(0).setEndpoints(dummyEndpoints).build();
+    protected Partition dummyPartition =
+            Partition.newBuilder().setTopic(dummyTopicResource).setBroker(dummyBroker).build();
+
+    protected org.apache.rocketmq.client.route.Partition dummyMqPartition =
+            new org.apache.rocketmq.client.route.Partition(dummyPartition);
+
+    protected MessageQueue dummyMessageQueue = new MessageQueue(dummyMqPartition);
 
     protected String dummyConsumerGroup = "TestConsumerGroup";
     protected String dummyConsumerGroup0 = "TestConsumerGroup0";

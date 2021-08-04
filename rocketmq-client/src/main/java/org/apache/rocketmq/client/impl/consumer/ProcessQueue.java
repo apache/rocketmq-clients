@@ -3,7 +3,6 @@ package org.apache.rocketmq.client.impl.consumer;
 import apache.rocketmq.v1.AckMessageRequest;
 import apache.rocketmq.v1.AckMessageResponse;
 import apache.rocketmq.v1.Broker;
-import apache.rocketmq.v1.ConsumeModel;
 import apache.rocketmq.v1.ConsumePolicy;
 import apache.rocketmq.v1.FilterType;
 import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest;
@@ -39,7 +38,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.client.constant.ConsumeFromWhere;
 import org.apache.rocketmq.client.consumer.MessageModel;
 import org.apache.rocketmq.client.consumer.OffsetQuery;
 import org.apache.rocketmq.client.consumer.PullMessageQuery;
@@ -95,7 +93,7 @@ public class ProcessQueue {
     private final List<MessageExt> inflightMessages;
     private final ReentrantReadWriteLock inflightMessagesLock;
 
-    private final AtomicLong totalMessagesMemory;
+    private final AtomicLong cachedMessagesBytes;
     private final AtomicBoolean fifoConsumptionOccupied;
 
     @GuardedBy("offsetsLock")
@@ -119,7 +117,7 @@ public class ProcessQueue {
         this.inflightMessages = new ArrayList<MessageExt>();
         this.inflightMessagesLock = new ReentrantReadWriteLock();
 
-        this.totalMessagesMemory = new AtomicLong(0L);
+        this.cachedMessagesBytes = new AtomicLong(0L);
         this.fifoConsumptionOccupied = new AtomicBoolean(false);
 
         this.offsets = new TreeSet<OffsetRecord>();
@@ -145,7 +143,7 @@ public class ProcessQueue {
         try {
             for (MessageExt message : messageList) {
                 pendingMessages.add(message);
-                totalMessagesMemory.addAndGet(null == message.getBody() ? 0 : message.getBody().length);
+                cachedMessagesBytes.addAndGet(null == message.getBody() ? 0 : message.getBody().length);
                 if (MessageModel.BROADCASTING.equals(consumerImpl.getMessageModel())) {
                     offsetsLock.writeLock().lock();
                     try {
@@ -320,7 +318,7 @@ public class ProcessQueue {
         try {
             for (MessageExt messageExt : messageExtList) {
                 if (inflightMessages.remove(messageExt)) {
-                    totalMessagesMemory.addAndGet(null == messageExt.getBody() ? 0 : -messageExt.getBody().length);
+                    cachedMessagesBytes.addAndGet(null == messageExt.getBody() ? 0 : -messageExt.getBody().length);
                 }
             }
         } finally {
@@ -442,18 +440,18 @@ public class ProcessQueue {
     }
 
     private boolean throttled() {
-        final long actualMessagesQuantity = this.messagesQuantity();
-        final int cachedMessageQuantityThresholdPerQueue = consumerImpl.cachedMessageQuantityThresholdPerQueue();
+        final long actualMessagesQuantity = this.cachedMessageQuantity();
+        final int cachedMessageQuantityThresholdPerQueue = consumerImpl.cachedMessagesQuantityThresholdPerQueue();
         if (cachedMessageQuantityThresholdPerQueue <= actualMessagesQuantity) {
             log.warn("Process queue total messages quantity exceeds the threshold, threshold={}, actual={}, mq={}",
                      cachedMessageQuantityThresholdPerQueue, actualMessagesQuantity, mq);
             return true;
         }
-        final int cachedMessageMemoryThresholdPerQueue = consumerImpl.cachedMessageMemoryThresholdPerQueue();
-        final long actualMessagesMemory = totalMessagesMemory.get();
-        if (cachedMessageMemoryThresholdPerQueue <= actualMessagesMemory) {
+        final int cachedMessagesBytesPerQueue = consumerImpl.cachedMessagesBytesThresholdPerQueue();
+        final long actualCachedMessagesBytes = cachedMessageBytes();
+        if (cachedMessagesBytesPerQueue <= actualCachedMessagesBytes) {
             log.warn("Process queue total messages memory exceeds the threshold, threshold={} bytes, actual={} bytes,"
-                     + " mq={}", cachedMessageMemoryThresholdPerQueue, actualMessagesMemory, mq);
+                     + " mq={}", cachedMessagesBytesPerQueue, actualCachedMessagesBytes, mq);
             return true;
         }
         return false;
@@ -869,32 +867,21 @@ public class ProcessQueue {
     }
 
     private ReceiveMessageRequest wrapReceiveMessageRequest() {
-        final Resource groupResource = Resource.newBuilder()
-                                               .setArn(this.getArn())
-                                               .setName(this.getGroup())
-                                               .build();
-
-        final Resource topicResource = Resource.newBuilder()
-                                               .setArn(this.getArn())
-                                               .setName(mq.getTopic()).build();
-
         final Broker broker = Broker.newBuilder().setName(mq.getBrokerName()).build();
-
         final Partition partition = Partition.newBuilder()
-                                             .setTopic(topicResource)
+                                             .setTopic(getTopicResource())
                                              .setId(mq.getQueueId())
                                              .setBroker(broker).build();
-
         final Duration duration = Durations.fromMillis(consumerImpl.getConsumptionTimeoutMillis());
         final ReceiveMessageRequest.Builder builder =
                 ReceiveMessageRequest.newBuilder()
-                                     .setGroup(groupResource)
-                                     .setClientId(this.getClientId())
+                                     .setGroup(getGroupResource())
+                                     .setClientId(consumerImpl.getClientId())
                                      .setPartition(partition).setBatchSize(RECEIVE_MAX_BATCH_SIZE)
                                      .setInvisibleDuration(duration)
                                      .setAwaitTime(Durations.fromMillis(RECEIVE_AWAIT_TIME_MILLIS));
 
-        switch (this.getConsumeFromWhere()) {
+        switch (consumerImpl.getConsumeFromWhere()) {
             case BEGINNING:
                 builder.setConsumePolicy(ConsumePolicy.PLAYBACK);
                 break;
@@ -935,22 +922,10 @@ public class ProcessQueue {
     }
 
     private ForwardMessageToDeadLetterQueueRequest wrapForwardMessageToDeadLetterQueueRequest(MessageExt messageExt) {
-        // Group
-        final Resource groupResource = Resource.newBuilder()
-                                               .setArn(this.getArn())
-                                               .setName(this.getGroup())
-                                               .build();
-
-        // Topic
-        final Resource topicResource = Resource.newBuilder()
-                                               .setArn(this.getArn())
-                                               .setName(messageExt.getTopic())
-                                               .build();
-
         return ForwardMessageToDeadLetterQueueRequest.newBuilder()
-                                                     .setGroup(groupResource)
-                                                     .setTopic(topicResource)
-                                                     .setClientId(this.getClientId())
+                                                     .setGroup(getGroupResource())
+                                                     .setTopic(getTopicResource())
+                                                     .setClientId(consumerImpl.getClientId())
                                                      .setReceiptHandle(messageExt.getReceiptHandle())
                                                      .setMessageId(messageExt.getMsgId())
                                                      .setDeliveryAttempt(messageExt.getDeliveryAttempt())
@@ -958,61 +933,34 @@ public class ProcessQueue {
                                                      .build();
     }
 
-    private AckMessageRequest wrapAckMessageRequest(MessageExt messageExt) {
-        // Group
-        final Resource groupResource = Resource.newBuilder()
-                                               .setArn(this.getArn())
-                                               .setName(this.getGroup())
-                                               .build();
-        // Topic
-        final Resource topicResource = Resource.newBuilder()
-                                               .setArn(this.getArn())
-                                               .setName(messageExt.getTopic())
-                                               .build();
+    private Resource getGroupResource() {
+        return Resource.newBuilder().setArn(consumerImpl.getArn()).setName(consumerImpl.getGroup()).build();
+    }
 
+    private Resource getTopicResource() {
+        return Resource.newBuilder().setArn(consumerImpl.getArn()).setName(mq.getTopic()).build();
+    }
+
+    private AckMessageRequest wrapAckMessageRequest(MessageExt messageExt) {
         return AckMessageRequest.newBuilder()
-                                .setGroup(groupResource)
-                                .setTopic(topicResource)
+                                .setGroup(getGroupResource())
+                                .setTopic(getTopicResource())
                                 .setMessageId(messageExt.getMsgId())
-                                .setClientId(this.getClientId())
+                                .setClientId(consumerImpl.getClientId())
                                 .setReceiptHandle(messageExt.getReceiptHandle())
                                 .build();
     }
 
     private NackMessageRequest wrapNackMessageRequest(MessageExt messageExt) {
-        // Group
-        final Resource groupResource = Resource.newBuilder()
-                                               .setArn(this.getArn())
-                                               .setName(this.getGroup())
-                                               .build();
-        // Topic
-        final Resource topicResource = Resource.newBuilder()
-                                               .setArn(this.getArn())
-                                               .setName(messageExt.getTopic())
-                                               .build();
-
-        final NackMessageRequest.Builder builder =
-                NackMessageRequest.newBuilder()
-                                  .setGroup(groupResource)
-                                  .setTopic(topicResource)
-                                  .setClientId(this.getClientId())
-                                  .setReceiptHandle(messageExt.getReceiptHandle())
-                                  .setMessageId(messageExt.getMsgId())
-                                  .setDeliveryAttempt(messageExt.getDeliveryAttempt())
-                                  .setMaxDeliveryAttempts(this.getMaxDeliveryAttempts());
-
-        switch (getMessageModel()) {
-            case CLUSTERING:
-                builder.setConsumeModel(ConsumeModel.CLUSTERING);
-                break;
-            case BROADCASTING:
-                builder.setConsumeModel(ConsumeModel.BROADCASTING);
-                break;
-            default:
-                builder.setConsumeModel(ConsumeModel.UNRECOGNIZED);
-        }
-
-        return builder.build();
+        return NackMessageRequest.newBuilder()
+                                 .setGroup(getGroupResource())
+                                 .setTopic(getTopicResource())
+                                 .setClientId(consumerImpl.getClientId())
+                                 .setReceiptHandle(messageExt.getReceiptHandle())
+                                 .setMessageId(messageExt.getMsgId())
+                                 .setDeliveryAttempt(messageExt.getDeliveryAttempt())
+                                 .setMaxDeliveryAttempts(consumerImpl.getMaxDeliveryAttempts())
+                                 .build();
     }
 
     // TODO: handle the case that the topic does not exist.
@@ -1061,7 +1009,7 @@ public class ProcessQueue {
                                         Durations.toMillis(response.getInvisibleDuration()), msgFoundList);
     }
 
-    public int messagesQuantity() {
+    public int cachedMessageQuantity() {
         pendingMessagesLock.readLock().lock();
         inflightMessagesLock.readLock().lock();
         try {
@@ -1070,6 +1018,10 @@ public class ProcessQueue {
             inflightMessagesLock.readLock().unlock();
             pendingMessagesLock.readLock().unlock();
         }
+    }
+
+    public long cachedMessageBytes() {
+        return cachedMessagesBytes.get();
     }
 
     private void statsMessageConsumptionStatus(ConsumeStatus status) {
@@ -1082,29 +1034,5 @@ public class ProcessQueue {
             return;
         }
         consumerImpl.consumptionErrorCount.addAndGet(messageSize);
-    }
-
-    private String getArn() {
-        return consumerImpl.getArn();
-    }
-
-    private String getGroup() {
-        return consumerImpl.getGroup();
-    }
-
-    private String getClientId() {
-        return consumerImpl.getClientId();
-    }
-
-    private int getMaxDeliveryAttempts() {
-        return consumerImpl.getMaxDeliveryAttempts();
-    }
-
-    private MessageModel getMessageModel() {
-        return consumerImpl.getMessageModel();
-    }
-
-    private ConsumeFromWhere getConsumeFromWhere() {
-        return consumerImpl.getConsumeFromWhere();
     }
 }

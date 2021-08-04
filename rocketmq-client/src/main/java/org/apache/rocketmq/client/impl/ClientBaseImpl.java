@@ -467,6 +467,10 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         }
     }
 
+    protected Resource getGroupResource() {
+        return Resource.newBuilder().setArn(arn).setName(group).build();
+    }
+
     public ListenableFuture<TopicRouteData> fetchTopicRoute(final String topic) {
         final SettableFuture<TopicRouteData> future = SettableFuture.create();
         try {

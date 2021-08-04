@@ -152,9 +152,8 @@ public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
 
     @Override
     public ClientResourceBundle wrapClientResourceBundle() {
-        Resource groupResource = Resource.newBuilder().setArn(arn).setName(group).build();
         final ClientResourceBundle.Builder builder =
-                ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(groupResource);
+                ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(getGroupResource());
         return builder.build();
     }
 

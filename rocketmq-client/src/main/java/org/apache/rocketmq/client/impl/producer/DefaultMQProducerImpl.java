@@ -731,8 +731,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
     @Override
     public HeartbeatEntry prepareHeartbeatData() {
-        Resource groupResource = Resource.newBuilder().setArn(arn).setName(group).build();
-        ProducerGroup producerGroup = ProducerGroup.newBuilder().setGroup(groupResource).build();
+        ProducerGroup producerGroup = ProducerGroup.newBuilder().setGroup(getGroupResource()).build();
         return HeartbeatEntry.newBuilder()
                              .setClientId(clientId)
                              .setProducerGroup(producerGroup)
@@ -745,9 +744,8 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
 
     @Override
     public ClientResourceBundle wrapClientResourceBundle() {
-        Resource groupResource = Resource.newBuilder().setArn(arn).setName(group).build();
         final ClientResourceBundle.Builder builder =
-                ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(groupResource);
+                ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(getGroupResource());
         for (String topic : topicPublishInfoCache.keySet()) {
             Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
             builder.addTopics(topicResource);
