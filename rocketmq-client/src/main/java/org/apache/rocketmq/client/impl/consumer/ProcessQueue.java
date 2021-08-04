@@ -493,7 +493,7 @@ public class ProcessQueue {
                 consumerImpl.dropProcessQueue(mq);
                 return;
             }
-            pullMessageImmediately(offset);
+            pullMessage(offset);
             return;
         }
 
