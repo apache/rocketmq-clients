@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.rocketmq.client.impl.producer;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -71,7 +88,7 @@ import org.apache.rocketmq.client.producer.Transaction;
 import org.apache.rocketmq.client.producer.TransactionChecker;
 import org.apache.rocketmq.client.producer.TransactionImpl;
 import org.apache.rocketmq.client.producer.TransactionResolution;
-import org.apache.rocketmq.client.remoting.Endpoints;
+import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
@@ -208,8 +225,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                     continue;
                 }
                 final ListenableFuture<HealthCheckResponse> future =
-                        clientInstance.healthCheck(endpoints, metadata, request, ioTimeoutMillis,
-                                                   TimeUnit.MILLISECONDS);
+                        clientManager.healthCheck(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
                 Futures.addCallback(future, new FutureCallback<HealthCheckResponse>() {
                     @Override
                     public void onSuccess(HealthCheckResponse response) {
@@ -267,7 +283,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                                                   .addAllKeys(message.getKeysList())
                                                   .setProducerGroup(groupResource)
                                                   .setMessageId(message.getMessageExt().getMsgId())
-                                                  .setBornHost(UtilAll.getIpv4Address())
+                                                  .setBornHost(UtilAll.hostName())
                                                   .setPartitionId(partition.getId());
         Encoding encoding = Encoding.IDENTITY;
         byte[] body = message.getBody();
@@ -478,7 +494,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
             throw new ClientException(ErrorCode.SIGNATURE_FAILURE);
         }
         final ListenableFuture<EndTransactionResponse> future =
-                clientInstance.endTransaction(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+                clientManager.endTransaction(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
         try {
             final EndTransactionResponse response = future.get(ioTimeoutMillis, TimeUnit.MILLISECONDS);
             final Status status = response.getCommon().getStatus();
@@ -639,7 +655,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         intercept(MessageHookPoint.PRE_SEND_MESSAGE, message.getMessageExt(), contextBuilder.build());
 
         final ListenableFuture<SendMessageResponse> responseFuture =
-                clientInstance.sendMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+                clientManager.sendMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
 
         // return the future of send result for current attempt.
         final ListenableFuture<SendResult> attemptFuture = Futures.transformAsync(

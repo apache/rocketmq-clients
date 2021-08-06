@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.rocketmq.utility;
 
 import java.io.CharArrayWriter;
@@ -12,7 +29,6 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 public class HttpTinyClient {
-    private static final String DEFAULT_CHARSET = "UTF-8";
     private static final String GET_METHOD = "GET";
 
     private HttpTinyClient() {
@@ -28,8 +44,9 @@ public class HttpTinyClient {
 
             conn.connect();
             int respCode = conn.getResponseCode();
-            String resp = HttpURLConnection.HTTP_OK == respCode ? toString(conn.getInputStream(), DEFAULT_CHARSET) :
-                          toString(conn.getErrorStream(), DEFAULT_CHARSET);
+            String resp = HttpURLConnection.HTTP_OK == respCode ? toString(conn.getInputStream(),
+                                                                           UtilAll.DEFAULT_CHARSET) :
+                          toString(conn.getErrorStream(), UtilAll.DEFAULT_CHARSET);
             return new HttpResult(respCode, resp);
         } finally {
             if (null != conn) {
@@ -41,8 +58,8 @@ public class HttpTinyClient {
     @AllArgsConstructor
     @Getter
     public static class HttpResult {
-        public final int code;
-        public final String content;
+        private final int code;
+        private final String content;
 
         public boolean isOk() {
             return HttpURLConnection.HTTP_OK == code;
@@ -50,7 +67,7 @@ public class HttpTinyClient {
     }
 
     public static String toString(InputStream input, String encoding) throws IOException {
-        return (null == encoding) ? toString(new InputStreamReader(input, DEFAULT_CHARSET)) :
+        return (null == encoding) ? toString(new InputStreamReader(input, UtilAll.DEFAULT_CHARSET)) :
                toString(new InputStreamReader(input, encoding));
     }
 

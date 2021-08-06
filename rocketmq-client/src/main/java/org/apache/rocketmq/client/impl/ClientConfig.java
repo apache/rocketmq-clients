@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.rocketmq.client.impl;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -5,45 +22,38 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
-import org.apache.rocketmq.utility.RemotingUtil;
 import org.apache.rocketmq.utility.UtilAll;
 
+@Getter
+@Setter
 public class ClientConfig {
     private static final String CLIENT_ID_SEPARATOR = "@";
 
     protected long ioTimeoutMillis = 3 * 1000;
 
-    @Getter
     protected final String clientId;
 
-    protected String group = "";
+    protected String group;
 
-    @Getter
     protected String arn = "";
 
-    @Getter
-    @Setter
     protected boolean messageTracingEnabled = true;
 
     // TODO: fix region_id here.
-    @Getter
     private String regionId = "cn-hangzhou";
-    @Getter
+
     private String tenantId = "";
     // TODO: fix service name here.
-    @Setter
-    @Getter
-    private String serviceName = "aone";
+    private String serviceName = "MQ";
 
-    @Getter
     private CredentialsProvider credentialsProvider = null;
 
     public ClientConfig(String group) {
         this.group = group;
 
         StringBuilder sb = new StringBuilder();
-        final String clientIp = RemotingUtil.getLocalAddress();
-        sb.append(clientIp);
+        final String hostName = UtilAll.hostName();
+        sb.append(hostName);
         sb.append(CLIENT_ID_SEPARATOR);
         sb.append(UtilAll.processId());
         sb.append(CLIENT_ID_SEPARATOR);

@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.rocketmq.client.consumer;
 
 import java.util.List;
@@ -7,8 +24,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.conf.TestBase;
-import org.apache.rocketmq.client.consumer.listener.ConsumeContext;
-import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.message.MessageExt;
@@ -125,33 +140,33 @@ public class DefaultMQPushConsumerTest extends TestBase {
                 new LinkedBlockingQueue<Runnable>());
 
         final CountDownLatch latch = new CountDownLatch(2);
-        final Runnable task0 =
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            consumer0.start();
-                            Thread.sleep(10);
-                            consumer0.shutdown();
-                            latch.countDown();
-                        } catch (Throwable ignore) {
-                        }
-                    }
-                };
+        final Runnable task0 = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    consumer0.start();
+                    Thread.sleep(10);
+                    consumer0.shutdown();
+                    latch.countDown();
+                } catch (Throwable ignore) {
+                    // Ignore on purpose.
+                }
+            }
+        };
 
-        final Runnable task1 =
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            consumer1.start();
-                            Thread.sleep(10);
-                            consumer1.shutdown();
-                            latch.countDown();
-                        } catch (Throwable ignore) {
-                        }
-                    }
-                };
+        final Runnable task1 = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    consumer1.start();
+                    Thread.sleep(10);
+                    consumer1.shutdown();
+                    latch.countDown();
+                } catch (Throwable ignore) {
+                    // Ignore on purpose.
+                }
+            }
+        };
 
         final Random random = new Random();
         if (random.nextInt() % 2 == 0) {

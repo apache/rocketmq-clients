@@ -299,7 +299,7 @@
                                 <limit>
                                     <counter>LINE</counter>
                                     <value>COVEREDRATIO</value>
-                                    <minimum>0.10</minimum>
+                                    <minimum>0.20</minimum>
                                 </limit>
                             </limits>
                         </rule>
@@ -365,6 +365,7 @@
                     <encoding>UTF-8</encoding>
                     <configLocation>style/checkstyle.xml</configLocation>
                     <excludes>**/apache/rocketmq/v1/*,**/com/google/rpc/*</excludes>
+                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
                 </configuration>
                 <executions>
                     <execution>

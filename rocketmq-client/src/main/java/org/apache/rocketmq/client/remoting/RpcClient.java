@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.rocketmq.client.remoting;
 
 import apache.rocketmq.v1.AckMessageRequest;
@@ -32,10 +49,15 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Client for all explicit RPC in RocketMQ.
+ * Client for all explicit RPCs in RocketMQ.
  */
 public interface RpcClient {
 
+    /**
+     * Record idle seconds without ongoing RPCs
+     *
+     * @return idle seconds.
+     */
     long idleSeconds();
 
     /**
@@ -122,7 +144,7 @@ public interface RpcClient {
                                                             Executor executor, long duration, TimeUnit timeUnit);
 
     /**
-     * Ack message asynchronously after consuming.
+     * Ack message asynchronously after success of consumption.
      *
      * @param metadata gRPC request header metadata.
      * @param request  ack message request.
@@ -135,7 +157,7 @@ public interface RpcClient {
                                                     long duration, TimeUnit timeUnit);
 
     /**
-     * Nack message asynchronously after consuming failure
+     * Nack message asynchronously after failure of consumption.
      *
      * @param metadata gRPC request header metadata.
      * @param request  nack message request.
@@ -148,7 +170,7 @@ public interface RpcClient {
                                                       long duration, TimeUnit timeUnit);
 
     /**
-     * Send message to dead letter queue.
+     * Send message to dead letter queue asynchronously.
      *
      * @param metadata gRPC request header metadata.
      * @param request  request of sending message to DLQ.
@@ -162,7 +184,7 @@ public interface RpcClient {
             TimeUnit timeUnit);
 
     /**
-     * Submit transaction resolution
+     * Submit transaction resolution asynchronously.
      *
      * @param metadata gRPC request header metadata.
      * @param request  end transaction request.
@@ -175,7 +197,7 @@ public interface RpcClient {
                                                             Executor executor, long duration, TimeUnit timeUnit);
 
     /**
-     * Query offset for pull
+     * Query offset asynchronously for pull
      *
      * @param metadata gRPC request header metadata.
      * @param request  query offset request.
@@ -188,7 +210,7 @@ public interface RpcClient {
                                                       long duration, TimeUnit timeUnit);
 
     /**
-     * Pull message from remote
+     * Pull message from remote asynchronously.
      *
      * @param metadata gRPC request header metadata.
      * @param request  pull message request.
@@ -201,7 +223,7 @@ public interface RpcClient {
                                                       Executor executor, long duration, TimeUnit timeUnit);
 
     /**
-     * Multiplexing call for composited request.
+     * Multiplexing call asynchronously for composited request.
      *
      * @param metadata gRPC request header metadata.
      * @param request  multiplexing call request.

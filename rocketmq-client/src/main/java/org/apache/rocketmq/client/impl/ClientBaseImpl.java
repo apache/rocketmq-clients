@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.rocketmq.client.impl;
 
 import apache.rocketmq.v1.ClientResourceBundle;
@@ -91,12 +108,12 @@ import org.apache.rocketmq.client.message.protocol.Encoding;
 import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.misc.TopAddressing;
-import org.apache.rocketmq.client.remoting.Address;
 import org.apache.rocketmq.client.remoting.ClientAuthInterceptor;
-import org.apache.rocketmq.client.remoting.Endpoints;
 import org.apache.rocketmq.client.remoting.IpNameResolverFactory;
+import org.apache.rocketmq.client.route.Address;
 import org.apache.rocketmq.client.route.AddressScheme;
 import org.apache.rocketmq.client.route.Broker;
+import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.client.tracing.TracingMessageInterceptor;
@@ -119,7 +136,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
     protected volatile Endpoints tracingEndpoints;
 
     @Getter
-    protected volatile ClientInstance clientInstance;
+    protected volatile ClientManager clientManager;
 
     private final AtomicReference<ServiceState> state;
 
@@ -181,15 +198,16 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                 log.warn("The rocketmq client base has been started before.");
                 return;
             }
-            clientInstance = ClientManager.getInstance().getClientInstance(this);
-            clientInstance.registerClientObserver(this);
+
+            clientManager = ClientManagerFactory.getInstance().getClientInstance(this);
+            clientManager.registerObserver(this);
 
             if (messageTracingEnabled) {
                 final TracingMessageInterceptor tracingInterceptor = new TracingMessageInterceptor(this);
                 registerMessageInterceptor(tracingInterceptor);
             }
 
-            final ScheduledExecutorService scheduler = clientInstance.getScheduler();
+            final ScheduledExecutorService scheduler = clientManager.getScheduler();
             if (nameServerIsNotSet()) {
                 // Acquire name server list immediately.
                 renewNameServerList();
@@ -242,7 +260,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
             if (null != updateRouteCacheFuture) {
                 updateRouteCacheFuture.cancel(false);
             }
-            clientInstance.unregisterClientObserver(this);
+            clientManager.unregisterObserver(this);
             state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
             log.info("Shutdown the rocketmq client base successfully.");
         }
@@ -266,7 +284,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
     }
 
     public ScheduledExecutorService getScheduler() {
-        return clientInstance.getScheduler();
+        return clientManager.getScheduler();
     }
 
     public ServiceState getState() {
@@ -479,7 +497,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
             final QueryRouteRequest request = QueryRouteRequest.newBuilder().setTopic(topicResource).build();
             final Metadata metadata = sign();
             final ListenableFuture<QueryRouteResponse> responseFuture =
-                    clientInstance.queryRoute(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+                    clientManager.queryRoute(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
             return Futures.transformAsync(responseFuture, new AsyncFunction<QueryRouteResponse, TopicRouteData>() {
                 @Override
                 public ListenableFuture<TopicRouteData> apply(QueryRouteResponse response) throws Exception {
@@ -527,9 +545,9 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
             return;
         }
         for (final Endpoints endpoints : routeEndpointsSet) {
-            final ListenableFuture<HeartbeatResponse> future = clientInstance.heartbeat(endpoints, metadata, request,
-                                                                                        ioTimeoutMillis,
-                                                                                        TimeUnit.MILLISECONDS);
+            final ListenableFuture<HeartbeatResponse> future = clientManager.heartbeat(endpoints, metadata, request,
+                                                                                           ioTimeoutMillis,
+                                                                                           TimeUnit.MILLISECONDS);
             Futures.addCallback(future, new FutureCallback<HeartbeatResponse>() {
                 @Override
                 public void onSuccess(HeartbeatResponse response) {
@@ -606,7 +624,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         final Endpoints endpoints = pullMessageQuery.getMessageQueue().getPartition().getBroker().getEndpoints();
         final long timeoutMillis = pullMessageQuery.getTimeoutMillis();
         final ListenableFuture<PullMessageResponse> future =
-                clientInstance.pullMessage(endpoints, metadata, request, timeoutMillis, TimeUnit.MILLISECONDS);
+                clientManager.pullMessage(endpoints, metadata, request, timeoutMillis, TimeUnit.MILLISECONDS);
         return Futures.transformAsync(future, new AsyncFunction<PullMessageResponse, PullMessageResult>() {
             @Override
             public ListenableFuture<PullMessageResult> apply(PullMessageResponse response) throws ClientException {
@@ -614,8 +632,8 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                 final Code code = Code.forNumber(status.getCode());
                 // TODO: polish code.
                 if (Code.OK != code) {
-                    log.error("Failed to pull message, pullMessageQuery={}, code={}, message={}", pullMessageQuery,
-                              code, status.getMessage());
+                    log.error("Failed to pull message, pullMessageQuery={}, code={}, status message={}",
+                              pullMessageQuery, code, status.getMessage());
                     throw new ClientException(ErrorCode.OTHER);
                 }
                 final PullMessageResult pullMessageResult = processPullMessageResponse(endpoints, response);
@@ -728,7 +746,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                 VerifyMessageConsumptionRequest verifyRequest = response.getVerifyMessageConsumptionRequest();
                 ListenableFuture<VerifyMessageConsumptionResponse> future = verifyConsumption(verifyRequest);
 
-                ScheduledExecutorService scheduler = clientInstance.getScheduler();
+                ScheduledExecutorService scheduler = clientManager.getScheduler();
                 // In case block while message consumption.
                 Futures.withTimeout(future, VERIFY_CONSUMPTION_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS, scheduler);
                 Futures.addCallback(future, new FutureCallback<VerifyMessageConsumptionResponse>() {
@@ -816,8 +834,8 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         final SettableFuture<MultiplexingResponse> future = SettableFuture.create();
         try {
             final Metadata metadata = sign();
-            return clientInstance.multiplexingCall(endpoints, metadata, request, MULTIPLEXING_CALL_TIMEOUT_MILLIS,
-                                                   TimeUnit.MILLISECONDS);
+            return clientManager.multiplexingCall(endpoints, metadata, request, MULTIPLEXING_CALL_TIMEOUT_MILLIS,
+                                                      TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
             // Failed to sign, set the future in advance.
             future.setException(t);
@@ -826,7 +844,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
     }
 
     public void multiplexingCallLater(final Endpoints endpoints, final MultiplexingRequest request) {
-        final ScheduledExecutorService scheduler = clientInstance.getScheduler();
+        final ScheduledExecutorService scheduler = clientManager.getScheduler();
         try {
             scheduler.schedule(new Runnable() {
                 @Override
@@ -929,7 +947,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         final Partition partition = offsetQuery.getMessageQueue().getPartition();
         final Endpoints endpoints = partition.getBroker().getEndpoints();
         final ListenableFuture<QueryOffsetResponse> future =
-                clientInstance.queryOffset(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+                clientManager.queryOffset(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
         return Futures.transformAsync(future, new AsyncFunction<QueryOffsetResponse, Long>() {
             @Override
             public ListenableFuture<Long> apply(QueryOffsetResponse response) throws Exception {
@@ -993,14 +1011,14 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         final String checksum = bodyDigest.getChecksum();
         switch (bodyDigest.getType()) {
             case CRC32:
-                expectedCheckSum = UtilAll.getCrc32CheckSum(body);
+                expectedCheckSum = UtilAll.crc32CheckSum(body);
                 if (expectedCheckSum.equals(checksum)) {
                     bodyDigestMatch = true;
                 }
                 break;
             case MD5:
                 try {
-                    expectedCheckSum = UtilAll.getMd5CheckSum(body);
+                    expectedCheckSum = UtilAll.md5CheckSum(body);
                     if (expectedCheckSum.equals(checksum)) {
                         bodyDigestMatch = true;
                     }
@@ -1011,7 +1029,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                 break;
             case SHA1:
                 try {
-                    expectedCheckSum = UtilAll.getSha1CheckSum(body);
+                    expectedCheckSum = UtilAll.sha1CheckSum(body);
                     if (expectedCheckSum.equals(checksum)) {
                         bodyDigestMatch = true;
                     }

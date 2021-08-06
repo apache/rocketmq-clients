@@ -1,54 +1,82 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.rocketmq.client.impl.consumer;
 
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 import apache.rocketmq.v1.AckMessageRequest;
 import apache.rocketmq.v1.AckMessageResponse;
+import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v1.NackMessageRequest;
 import apache.rocketmq.v1.NackMessageResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.RateLimiter;
+import com.google.common.util.concurrent.SettableFuture;
 import io.grpc.Metadata;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.rocketmq.client.conf.TestBase;
+import org.apache.rocketmq.client.consumer.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.MessageModel;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
-import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.exception.ClientException;
-import org.apache.rocketmq.client.impl.ClientInstance;
-import org.apache.rocketmq.client.message.Message;
+import org.apache.rocketmq.client.impl.ClientManagerImpl;
 import org.apache.rocketmq.client.message.MessageExt;
-import org.apache.rocketmq.client.remoting.Endpoints;
+import org.apache.rocketmq.client.route.Endpoints;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
-
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-@PrepareForTest(ProcessQueue.class)
-public class ProcessQueueTest extends TestBase {
+//@PrepareForTest(ProcessQueueImpl.class)
+public class ProcessQueueImplTest extends TestBase {
+    private int messageMaxDeliveryAttempts;
 
     private DefaultMQPushConsumerImpl mockedConsumerImpl;
+    private ConsumeService mockedConsumeService;
     private AtomicLong consumptionOkCounter;
     private AtomicLong consumptionErrorCounter;
-    private ClientInstance mockedClientInstance;
-    private ProcessQueue processQueue;
+    private ClientManagerImpl mockedClientManagerImpl;
+    private ProcessQueueImpl processQueueImpl;
 
     @BeforeMethod
     public void beforeMethod() throws ClientException {
+        messageMaxDeliveryAttempts = 6;
         mockedConsumerImpl = mock(DefaultMQPushConsumerImpl.class);
         when(mockedConsumerImpl.getArn()).thenReturn(dummyArn0);
+        when(mockedConsumerImpl.getMaxDeliveryAttempts()).thenReturn(messageMaxDeliveryAttempts);
+
+        mockedConsumeService = mock(ConsumeService.class);
+        when(mockedConsumerImpl.getConsumeService()).thenReturn(mockedConsumeService);
 
         consumptionOkCounter = new AtomicLong(0);
         consumptionErrorCounter = new AtomicLong(0);
@@ -60,24 +88,24 @@ public class ProcessQueueTest extends TestBase {
         when(mockedConsumerImpl.getGroup()).thenReturn(dummyConsumerGroup0);
         when(mockedConsumerImpl.getClientId()).thenReturn(dummyClientId0);
 
-        mockedClientInstance = Mockito.mock(ClientInstance.class);
+        mockedClientManagerImpl = Mockito.mock(ClientManagerImpl.class);
 
-        when(mockedConsumerImpl.getClientInstance()).thenReturn(mockedClientInstance);
+        when(mockedConsumerImpl.getClientManager()).thenReturn(mockedClientManagerImpl);
 
         final FilterExpression filterExpression = new FilterExpression(dummyTagExpression0);
-        processQueue = new ProcessQueue(mockedConsumerImpl, getDummyMessageQueue(), filterExpression);
+        processQueueImpl = new ProcessQueueImpl(mockedConsumerImpl, getDummyMessageQueue(), filterExpression);
     }
 
     @Test
     public void testExpired() {
-        Assert.assertFalse(processQueue.expired());
+        assertFalse(processQueueImpl.expired());
     }
 
     @Test
     public void testThrottled() {
         when(mockedConsumerImpl.cachedMessagesQuantityThresholdPerQueue()).thenReturn(8);
         when(mockedConsumerImpl.cachedMessagesBytesThresholdPerQueue()).thenReturn(1024);
-        Assert.assertFalse(processQueue.throttled());
+        assertFalse(processQueueImpl.throttled());
     }
 
     @Test
@@ -90,8 +118,8 @@ public class ProcessQueueTest extends TestBase {
         for (int i = 0; i < messagesQuantityThreshold; i++) {
             messageExtList.add(getDummyMessageExt(1));
         }
-        processQueue.cacheMessages(messageExtList);
-        Assert.assertTrue(processQueue.throttled());
+        processQueueImpl.cacheMessages(messageExtList);
+        assertTrue(processQueueImpl.throttled());
     }
 
     @Test
@@ -102,8 +130,8 @@ public class ProcessQueueTest extends TestBase {
         when(mockedConsumerImpl.cachedMessagesBytesThresholdPerQueue()).thenReturn(messageBytesThreshold);
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
         messageExtList.add(getDummyMessageExt(messageBytesThreshold + 1));
-        processQueue.cacheMessages(messageExtList);
-        Assert.assertTrue(processQueue.throttled());
+        processQueueImpl.cacheMessages(messageExtList);
+        assertTrue(processQueueImpl.throttled());
     }
 
     @Test
@@ -113,13 +141,13 @@ public class ProcessQueueTest extends TestBase {
         for (int i = 0; i < cachedMessageQuantity; i++) {
             messageExtList.add(getDummyMessageExt(1));
         }
-        processQueue.cacheMessages(messageExtList);
-        Assert.assertEquals(processQueue.cachedMessagesQuantity(), cachedMessageQuantity);
+        processQueueImpl.cacheMessages(messageExtList);
+        assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
         int batchMaxSize = 1;
-        final List<MessageExt> messagesTaken = processQueue.tryTakeMessages(batchMaxSize);
-        Assert.assertEquals(messagesTaken.size(), batchMaxSize);
-        Assert.assertEquals(processQueue.cachedMessagesQuantity(), cachedMessageQuantity);
-        Assert.assertEquals(processQueue.inflightMessagesQuantity(), batchMaxSize);
+        final List<MessageExt> messagesTaken = processQueueImpl.tryTakeMessages(batchMaxSize);
+        assertEquals(messagesTaken.size(), batchMaxSize);
+        assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
+        assertEquals(processQueueImpl.inflightMessagesQuantity(), batchMaxSize);
     }
 
     @Test
@@ -129,12 +157,12 @@ public class ProcessQueueTest extends TestBase {
         for (int i = 0; i < cachedMessageQuantity; i++) {
             messageExtList.add(getDummyMessageExt(1));
         }
-        processQueue.cacheMessages(messageExtList);
-        Assert.assertEquals(processQueue.cachedMessagesQuantity(), cachedMessageQuantity);
-        final List<MessageExt> messagesTaken = processQueue.tryTakeMessages(cachedMessageQuantity);
-        Assert.assertEquals(cachedMessageQuantity, messagesTaken.size());
-        Assert.assertEquals(processQueue.cachedMessagesQuantity(), cachedMessageQuantity);
-        Assert.assertEquals(processQueue.inflightMessagesQuantity(), cachedMessageQuantity);
+        processQueueImpl.cacheMessages(messageExtList);
+        assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
+        final List<MessageExt> messagesTaken = processQueueImpl.tryTakeMessages(cachedMessageQuantity);
+        assertEquals(cachedMessageQuantity, messagesTaken.size());
+        assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
+        assertEquals(processQueueImpl.inflightMessagesQuantity(), cachedMessageQuantity);
     }
 
     @Test
@@ -144,57 +172,58 @@ public class ProcessQueueTest extends TestBase {
         for (int i = 0; i < cachedMessageQuantity; i++) {
             messageExtList.add(getDummyMessageExt(1));
         }
-        processQueue.cacheMessages(messageExtList);
-        Assert.assertEquals(processQueue.cachedMessagesQuantity(), cachedMessageQuantity);
+        processQueueImpl.cacheMessages(messageExtList);
+        assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
         int batchMaxSize = 1 + cachedMessageQuantity;
-        final List<MessageExt> messagesTaken = processQueue.tryTakeMessages(batchMaxSize);
-        Assert.assertEquals(cachedMessageQuantity, messagesTaken.size());
-        Assert.assertEquals(processQueue.cachedMessagesQuantity(), cachedMessageQuantity);
-        Assert.assertEquals(processQueue.inflightMessagesQuantity(), cachedMessageQuantity);
+        final List<MessageExt> messagesTaken = processQueueImpl.tryTakeMessages(batchMaxSize);
+        assertEquals(cachedMessageQuantity, messagesTaken.size());
+        assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
+        assertEquals(processQueueImpl.inflightMessagesQuantity(), cachedMessageQuantity);
     }
 
     @Test
-    public void testTryTakeFifoMessage() throws ClientException {
+    public void testTryTakeFifoMessage() {
         int cachedMessageQuantity = 8;
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
         for (int i = 0; i < cachedMessageQuantity; i++) {
             messageExtList.add(getDummyMessageExt(1));
         }
-        processQueue.cacheMessages(messageExtList);
+        processQueueImpl.cacheMessages(messageExtList);
         // first take.
-        final MessageExt messageExt0 = processQueue.tryTakeFifoMessage();
-        Assert.assertNotNull(messageExt0);
-        Assert.assertEquals(processQueue.cachedMessagesQuantity(), cachedMessageQuantity);
-        Assert.assertEquals(processQueue.inflightMessagesQuantity(), 1);
+        final MessageExt messageExt0 = processQueueImpl.tryTakeFifoMessage();
+        assertNotNull(messageExt0);
+        assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
+        assertEquals(processQueueImpl.inflightMessagesQuantity(), 1);
         // second take, failed to lock.
-        final MessageExt messageExt1 = processQueue.tryTakeFifoMessage();
-        Assert.assertNull(messageExt1);
+        final MessageExt messageExt1 = processQueueImpl.tryTakeFifoMessage();
+        assertNull(messageExt1);
         // unlock.
         final ListenableFuture<AckMessageResponse> future0 = successAckMessageResponseFuture();
-        when(mockedConsumerImpl.getClientInstance()).thenReturn(mockedClientInstance);
-        when(mockedClientInstance.ackMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
-                                             ArgumentMatchers.<AckMessageRequest>any(), anyLong(),
-                                             ArgumentMatchers.<TimeUnit>any()))
+        when(mockedConsumerImpl.getClientManager()).thenReturn(mockedClientManagerImpl);
+        when(mockedClientManagerImpl.ackMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
+                                                ArgumentMatchers.<AckMessageRequest>any(), anyLong(),
+                                                ArgumentMatchers.<TimeUnit>any()))
                 .thenReturn(future0);
-        processQueue.eraseFifoMessage(messageExt0, ConsumeStatus.OK);
-        Assert.assertEquals(consumptionOkCounter.get(), 1);
+        processQueueImpl.eraseFifoMessage(messageExt0, ConsumeStatus.OK);
+        assertEquals(consumptionOkCounter.get(), 1);
         future0.addListener(new Runnable() {
             @Override
             public void run() {
-                verify(mockedClientInstance, times(1)).ackMessage(ArgumentMatchers.<Endpoints>any(),
-                                                                  ArgumentMatchers.<Metadata>any(),
-                                                                  ArgumentMatchers.<AckMessageRequest>any(), anyLong(),
-                                                                  ArgumentMatchers.<TimeUnit>any());
-                final MessageExt messageExt2 = processQueue.tryTakeFifoMessage();
-                Assert.assertNotNull(messageExt2);
+                verify(mockedClientManagerImpl, times(1)).ackMessage(ArgumentMatchers.<Endpoints>any(),
+                                                                     ArgumentMatchers.<Metadata>any(),
+                                                                     ArgumentMatchers.<AckMessageRequest>any(),
+                                                                     anyLong(),
+                                                                     ArgumentMatchers.<TimeUnit>any());
+                final MessageExt messageExt2 = processQueueImpl.tryTakeFifoMessage();
+                assertNotNull(messageExt2);
             }
         }, MoreExecutors.directExecutor());
     }
 
     @Test
     public void testTryTakeFifoMessageWithNoPendingMessages() {
-        final MessageExt messageExt = processQueue.tryTakeFifoMessage();
-        Assert.assertNull(messageExt);
+        final MessageExt messageExt = processQueueImpl.tryTakeFifoMessage();
+        assertNull(messageExt);
     }
 
     @Test
@@ -204,18 +233,79 @@ public class ProcessQueueTest extends TestBase {
         for (int i = 0; i < cachedMessageQuantity; i++) {
             messageExtList.add(getDummyMessageExt(1));
         }
-        processQueue.cacheMessages(messageExtList);
+        processQueueImpl.cacheMessages(messageExtList);
         RateLimiter rateLimiter = RateLimiter.create(1);
         when(mockedConsumerImpl.rateLimiter(anyString())).thenReturn(rateLimiter);
         // first take.
-        final MessageExt messageExt0 = processQueue.tryTakeFifoMessage();
-        Assert.assertNotNull(messageExt0);
-        // unlock.
-        //        processQueue.fifoConsumptionOutbound();
-        // second take, failed to lock.
-        final MessageExt messageExt1 = processQueue.tryTakeFifoMessage();
-        Assert.assertNull(messageExt1);
+        final MessageExt messageExt0 = processQueueImpl.tryTakeFifoMessage();
+        assertNotNull(messageExt0);
+        final ListenableFuture<AckMessageResponse> future0 = successAckMessageResponseFuture();
+        when(mockedConsumerImpl.getClientManager()).thenReturn(mockedClientManagerImpl);
+        when(mockedClientManagerImpl.ackMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
+                                                ArgumentMatchers.<AckMessageRequest>any(), anyLong(),
+                                                ArgumentMatchers.<TimeUnit>any()))
+                .thenReturn(future0);
+        processQueueImpl.eraseFifoMessage(messageExt0, ConsumeStatus.OK);
+        assertEquals(consumptionOkCounter.get(), 1);
+        future0.addListener(new Runnable() {
+            @Override
+            public void run() {
+                verify(mockedClientManagerImpl, times(1)).ackMessage(ArgumentMatchers.<Endpoints>any(),
+                                                                     ArgumentMatchers.<Metadata>any(),
+                                                                     ArgumentMatchers.<AckMessageRequest>any(),
+                                                                     anyLong(),
+                                                                     ArgumentMatchers.<TimeUnit>any());
+                final MessageExt messageExt1 = processQueueImpl.tryTakeFifoMessage();
+                assertNull(messageExt1);
+            }
+        }, MoreExecutors.directExecutor());
     }
+
+    @Test
+    public void testTryTakeFifoMessageWithDeliveryAttemptsExhausted() {
+        List<MessageExt> messageExtList = new ArrayList<MessageExt>();
+        messageExtList.add(getDummyMessageExt(1));
+        processQueueImpl.cacheMessages(messageExtList);
+        final MessageExt messageExt = processQueueImpl.tryTakeFifoMessage();
+        SettableFuture<ConsumeStatus> future0 = SettableFuture.create();
+        future0.set(ConsumeStatus.ERROR);
+        when(mockedConsumeService.consume(ArgumentMatchers.<MessageExt>any(), anyLong(),
+                                          ArgumentMatchers.<TimeUnit>any())).thenReturn(future0);
+        when(mockedConsumerImpl.getClientManager()).thenReturn(mockedClientManagerImpl);
+        when(mockedClientManagerImpl
+                     .forwardMessageToDeadLetterQueue(ArgumentMatchers.<Endpoints>any(),
+                                                      ArgumentMatchers.<Metadata>any(),
+                                                      ArgumentMatchers.<ForwardMessageToDeadLetterQueueRequest>any(),
+                                                      anyLong(),
+                                                      ArgumentMatchers.<TimeUnit>any()))
+                .thenReturn(successForwardMessageToDeadLetterQueueResponseListenableFuture());
+        processQueueImpl.eraseFifoMessage(messageExt, ConsumeStatus.ERROR);
+        // attempts is exhausted include the first attempt.
+        verify(mockedConsumeService, times(messageMaxDeliveryAttempts - 1))
+                .consume(ArgumentMatchers.<MessageExt>any(), anyLong(), ArgumentMatchers.<TimeUnit>any());
+    }
+
+    @Test
+    public void testTryTakeFifoMessageWithBroadcasting() {
+        int cachedMessageQuantity = 8;
+        List<MessageExt> messageExtList = new ArrayList<MessageExt>();
+        for (int i = 0; i < cachedMessageQuantity; i++) {
+            messageExtList.add(getDummyMessageExt(1));
+        }
+        processQueueImpl.cacheMessages(messageExtList);
+        RateLimiter rateLimiter = RateLimiter.create(1);
+        when(mockedConsumerImpl.rateLimiter(anyString())).thenReturn(rateLimiter);
+        when(mockedConsumerImpl.getMessageModel()).thenReturn(MessageModel.BROADCASTING);
+        // first take.
+        final MessageExt messageExt0 = processQueueImpl.tryTakeFifoMessage();
+        assertNotNull(messageExt0);
+        processQueueImpl.eraseFifoMessage(messageExt0, ConsumeStatus.OK);
+        verify(mockedClientManagerImpl, never()).ackMessage(ArgumentMatchers.<Endpoints>any(),
+                                                            ArgumentMatchers.<Metadata>any(),
+                                                            ArgumentMatchers.<AckMessageRequest>any(), anyLong(),
+                                                            ArgumentMatchers.<TimeUnit>any());
+    }
+
 
     @Test
     public void testTryTakeMessagesWithRateLimiter() {
@@ -224,21 +314,21 @@ public class ProcessQueueTest extends TestBase {
         for (int i = 0; i < cachedMessageQuantity; i++) {
             messageExtList.add(getDummyMessageExt(1));
         }
-        processQueue.cacheMessages(messageExtList);
-        Assert.assertEquals(processQueue.cachedMessagesQuantity(), cachedMessageQuantity);
+        processQueueImpl.cacheMessages(messageExtList);
+        assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
         RateLimiter rateLimiter = RateLimiter.create(1);
         when(mockedConsumerImpl.rateLimiter(anyString())).thenReturn(rateLimiter);
         // first take.
         int batchMaxSize = 1;
-        final List<MessageExt> messagesTaken0 = processQueue.tryTakeMessages(batchMaxSize);
-        Assert.assertEquals(batchMaxSize, messagesTaken0.size());
-        Assert.assertEquals(processQueue.cachedMessagesQuantity(), cachedMessageQuantity);
-        Assert.assertEquals(processQueue.inflightMessagesQuantity(), batchMaxSize);
+        final List<MessageExt> messagesTaken0 = processQueueImpl.tryTakeMessages(batchMaxSize);
+        assertEquals(batchMaxSize, messagesTaken0.size());
+        assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
+        assertEquals(processQueueImpl.inflightMessagesQuantity(), batchMaxSize);
         // second take.
-        final List<MessageExt> messagesTaken1 = processQueue.tryTakeMessages(batchMaxSize);
-        Assert.assertEquals(messagesTaken1.size(), 0);
-        Assert.assertEquals(processQueue.cachedMessagesQuantity(), cachedMessageQuantity);
-        Assert.assertEquals(processQueue.inflightMessagesQuantity(), batchMaxSize);
+        final List<MessageExt> messagesTaken1 = processQueueImpl.tryTakeMessages(batchMaxSize);
+        assertEquals(messagesTaken1.size(), 0);
+        assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
+        assertEquals(processQueueImpl.inflightMessagesQuantity(), batchMaxSize);
     }
 
     @Test
@@ -248,34 +338,34 @@ public class ProcessQueueTest extends TestBase {
         for (int i = 0; i < cachedMessageQuantity; i++) {
             messageExtList.add(getDummyMessageExt(1));
         }
-        processQueue.cacheMessages(messageExtList);
-        Assert.assertEquals(processQueue.cachedMessagesQuantity(), cachedMessageQuantity);
+        processQueueImpl.cacheMessages(messageExtList);
+        assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
         int batchMaxSize = 1;
-        final List<MessageExt> messagesTaken = processQueue.tryTakeMessages(batchMaxSize);
-        Assert.assertEquals(messagesTaken.size(), batchMaxSize);
-        Assert.assertEquals(processQueue.cachedMessagesQuantity(), cachedMessageQuantity);
-        Assert.assertEquals(processQueue.inflightMessagesQuantity(), batchMaxSize);
+        final List<MessageExt> messagesTaken = processQueueImpl.tryTakeMessages(batchMaxSize);
+        assertEquals(messagesTaken.size(), batchMaxSize);
+        assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
+        assertEquals(processQueueImpl.inflightMessagesQuantity(), batchMaxSize);
 
         final ListenableFuture<AckMessageResponse> future0 = successAckMessageResponseFuture();
-        when(mockedConsumerImpl.getClientInstance()).thenReturn(mockedClientInstance);
-        when(mockedClientInstance.ackMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
-                                             ArgumentMatchers.<AckMessageRequest>any(), anyLong(),
-                                             ArgumentMatchers.<TimeUnit>any()))
+        when(mockedConsumerImpl.getClientManager()).thenReturn(mockedClientManagerImpl);
+        when(mockedClientManagerImpl.ackMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
+                                                ArgumentMatchers.<AckMessageRequest>any(), anyLong(),
+                                                ArgumentMatchers.<TimeUnit>any()))
                 .thenReturn(future0);
-        processQueue.eraseMessages(messagesTaken, ConsumeStatus.OK);
+        processQueueImpl.eraseMessages(messagesTaken, ConsumeStatus.OK);
         future0.addListener(new Runnable() {
             @Override
             public void run() {
-                verify(mockedClientInstance, times(1)).ackMessage(ArgumentMatchers.<Endpoints>any(),
-                                                                  ArgumentMatchers.<Metadata>any(),
-                                                                  ArgumentMatchers.<AckMessageRequest>any(),
-                                                                  anyLong(),
-                                                                  ArgumentMatchers.<TimeUnit>any());
+                verify(mockedClientManagerImpl, times(1)).ackMessage(ArgumentMatchers.<Endpoints>any(),
+                                                                     ArgumentMatchers.<Metadata>any(),
+                                                                     ArgumentMatchers.<AckMessageRequest>any(),
+                                                                     anyLong(),
+                                                                     ArgumentMatchers.<TimeUnit>any());
             }
         }, MoreExecutors.directExecutor());
-        Assert.assertEquals(processQueue.cachedMessagesQuantity(), cachedMessageQuantity - messagesTaken.size());
-        Assert.assertEquals(processQueue.inflightMessagesQuantity(), 0);
-        Assert.assertEquals(consumptionOkCounter.get(), messagesTaken.size());
+        assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity - messagesTaken.size());
+        assertEquals(processQueueImpl.inflightMessagesQuantity(), 0);
+        assertEquals(consumptionOkCounter.get(), messagesTaken.size());
     }
 
     @Test
@@ -285,36 +375,36 @@ public class ProcessQueueTest extends TestBase {
         for (int i = 0; i < cachedMessageQuantity; i++) {
             messageExtList.add(getDummyMessageExt(1));
         }
-        processQueue.cacheMessages(messageExtList);
-        Assert.assertEquals(processQueue.cachedMessagesQuantity(), cachedMessageQuantity);
+        processQueueImpl.cacheMessages(messageExtList);
+        assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
         int batchMaxSize = 1;
-        final List<MessageExt> messagesTaken = processQueue.tryTakeMessages(batchMaxSize);
-        Assert.assertEquals(messagesTaken.size(), batchMaxSize);
-        Assert.assertEquals(processQueue.cachedMessagesQuantity(), cachedMessageQuantity);
-        Assert.assertEquals(processQueue.inflightMessagesQuantity(), batchMaxSize);
+        final List<MessageExt> messagesTaken = processQueueImpl.tryTakeMessages(batchMaxSize);
+        assertEquals(messagesTaken.size(), batchMaxSize);
+        assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
+        assertEquals(processQueueImpl.inflightMessagesQuantity(), batchMaxSize);
 
         final ListenableFuture<NackMessageResponse> future0 = successNackMessageResponseFuture();
-        when(mockedConsumerImpl.getClientInstance()).thenReturn(mockedClientInstance);
-        when(mockedClientInstance.nackMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
-                                              ArgumentMatchers.<NackMessageRequest>any(), anyLong(),
-                                              ArgumentMatchers.<TimeUnit>any()))
+        when(mockedConsumerImpl.getClientManager()).thenReturn(mockedClientManagerImpl);
+        when(mockedClientManagerImpl.nackMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
+                                                 ArgumentMatchers.<NackMessageRequest>any(), anyLong(),
+                                                 ArgumentMatchers.<TimeUnit>any()))
                 .thenReturn(future0);
 
-        processQueue.eraseMessages(messagesTaken, ConsumeStatus.ERROR);
+        processQueueImpl.eraseMessages(messagesTaken, ConsumeStatus.ERROR);
 
         future0.addListener(new Runnable() {
             @Override
             public void run() {
-                verify(mockedClientInstance, times(1)).nackMessage(ArgumentMatchers.<Endpoints>any(),
-                                                                   ArgumentMatchers.<Metadata>any(),
-                                                                   ArgumentMatchers.<NackMessageRequest>any(),
-                                                                   anyLong(),
-                                                                   ArgumentMatchers.<TimeUnit>any());
+                verify(mockedClientManagerImpl, times(1)).nackMessage(ArgumentMatchers.<Endpoints>any(),
+                                                                      ArgumentMatchers.<Metadata>any(),
+                                                                      ArgumentMatchers.<NackMessageRequest>any(),
+                                                                      anyLong(),
+                                                                      ArgumentMatchers.<TimeUnit>any());
             }
         }, MoreExecutors.directExecutor());
-        Assert.assertEquals(processQueue.cachedMessagesQuantity(), cachedMessageQuantity - messagesTaken.size());
-        Assert.assertEquals(processQueue.inflightMessagesQuantity(), 0);
-        Assert.assertEquals(consumptionErrorCounter.get(), messagesTaken.size());
+        assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity - messagesTaken.size());
+        assertEquals(processQueueImpl.inflightMessagesQuantity(), 0);
+        assertEquals(consumptionErrorCounter.get(), messagesTaken.size());
     }
 
     @Test
@@ -323,23 +413,20 @@ public class ProcessQueueTest extends TestBase {
         int cachedMessageQuantity = 8;
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
         for (int i = 0; i < cachedMessageQuantity; i++) {
-            byte[] bytes = new byte[1];
-            random.nextBytes(bytes);
-            final Message message = new Message(dummyTopic0, dummyTag0, bytes);
-            messageExtList.add(message.getMessageExt());
+            messageExtList.add(getDummyMessageExt(1));
         }
-        processQueue.cacheMessages(messageExtList);
-        Assert.assertEquals(processQueue.cachedMessagesQuantity(), cachedMessageQuantity);
+        processQueueImpl.cacheMessages(messageExtList);
+        assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
         int batchMaxSize = 1;
-        final List<MessageExt> messagesTaken = processQueue.tryTakeMessages(batchMaxSize);
-        Assert.assertEquals(messagesTaken.size(), batchMaxSize);
-        Assert.assertEquals(processQueue.cachedMessagesQuantity(), cachedMessageQuantity);
-        Assert.assertEquals(processQueue.inflightMessagesQuantity(), batchMaxSize);
+        final List<MessageExt> messagesTaken = processQueueImpl.tryTakeMessages(batchMaxSize);
+        assertEquals(messagesTaken.size(), batchMaxSize);
+        assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
+        assertEquals(processQueueImpl.inflightMessagesQuantity(), batchMaxSize);
 
-        processQueue.eraseMessages(messagesTaken, ConsumeStatus.OK);
-        Assert.assertEquals(processQueue.cachedMessagesQuantity(), cachedMessageQuantity - messagesTaken.size());
-        Assert.assertEquals(processQueue.inflightMessagesQuantity(), 0);
-        Assert.assertEquals(consumptionOkCounter.get(), messagesTaken.size());
+        processQueueImpl.eraseMessages(messagesTaken, ConsumeStatus.OK);
+        assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity - messagesTaken.size());
+        assertEquals(processQueueImpl.inflightMessagesQuantity(), 0);
+        assertEquals(consumptionOkCounter.get(), messagesTaken.size());
     }
 
     //    @Test
@@ -358,7 +445,7 @@ public class ProcessQueueTest extends TestBase {
     //                    processQueue,
     //                    "lastThrottledTimestamp",
     //                    System.currentTimeMillis() - ProcessQueue.MAX_POP_MESSAGE_INTERVAL_MILLIS - 1);
-    //            Assert.assertFalse(processQueue.isPopExpired());
+    //            assertFalse(processQueue.isPopExpired());
     //        }
     //
     //        {
@@ -371,7 +458,7 @@ public class ProcessQueueTest extends TestBase {
     //                    processQueue,
     //                    "lastThrottledTimestamp",
     //                    System.currentTimeMillis() - ProcessQueue.MAX_POP_MESSAGE_INTERVAL_MILLIS - 1);
-    //            Assert.assertTrue(processQueue.isPopExpired());
+    //            assertTrue(processQueue.isPopExpired());
     //        }
     //    }
     //
@@ -400,14 +487,14 @@ public class ProcessQueueTest extends TestBase {
     //        }
     //
     //        processQueue.cacheMessages(messageExtList);
-    //        Assert.assertEquals(msgCount, processQueue.getCachedMsgCount());
-    //        Assert.assertEquals(msgCount * msgBodyLength, processQueue.getCachedMsgSize());
-    //        Assert.assertEquals(processQueue.getCachedMessages(), messageExtList);
+    //        assertEquals(msgCount, processQueue.getCachedMsgCount());
+    //        assertEquals(msgCount * msgBodyLength, processQueue.getCachedMsgSize());
+    //        assertEquals(processQueue.getCachedMessages(), messageExtList);
     //
     //        processQueue.removeCachedMessages(messageExtList);
-    //        Assert.assertEquals(0, processQueue.getCachedMsgCount());
-    //        Assert.assertEquals(0, processQueue.getCachedMsgSize());
-    //        Assert.assertTrue(processQueue.getCachedMessages().isEmpty());
+    //        assertEquals(0, processQueue.getCachedMsgCount());
+    //        assertEquals(0, processQueue.getCachedMsgSize());
+    //        assertTrue(processQueue.getCachedMessages().isEmpty());
     //    }
     //
     //    @Test
@@ -436,9 +523,9 @@ public class ProcessQueueTest extends TestBase {
     //        }
     //
     //        processQueue.cacheMessages(messageExtList);
-    //        Assert.assertEquals(1, processQueue.getCachedMsgCount());
-    //        Assert.assertEquals(msgBodyLength, processQueue.getCachedMsgSize());
-    //        Assert.assertNotEquals(processQueue.getCachedMessages(), messageExtList);
+    //        assertEquals(1, processQueue.getCachedMsgCount());
+    //        assertEquals(msgBodyLength, processQueue.getCachedMsgSize());
+    //        assertNotEquals(processQueue.getCachedMessages(), messageExtList);
     //    }
     //
     //    @Test
@@ -560,7 +647,7 @@ public class ProcessQueueTest extends TestBase {
     //    public void testIsPopThrottled() throws Exception {
     //        {
     //            final ProcessQueue processQueue = initProcessQueue();
-    //            Assert.assertFalse((Boolean) Whitebox.invokeMethod(processQueue, "isPopThrottled"));
+    //            assertFalse((Boolean) Whitebox.invokeMethod(processQueue, "isPopThrottled"));
     //        }
     //        {
     //            final ProcessQueue processQueue = initProcessQueue();
@@ -577,7 +664,7 @@ public class ProcessQueueTest extends TestBase {
     //            }
     //
     //            processQueue.cacheMessages(messageExtList);
-    //            Assert.assertTrue((Boolean) Whitebox.invokeMethod(processQueue, "isPopThrottled"));
+    //            assertTrue((Boolean) Whitebox.invokeMethod(processQueue, "isPopThrottled"));
     //        }
     //        {
     //            final ProcessQueue processQueue = initProcessQueue();
@@ -593,7 +680,7 @@ public class ProcessQueueTest extends TestBase {
     //            messageExtList.add(messageExt);
     //
     //            processQueue.cacheMessages(messageExtList);
-    //            Assert.assertTrue((Boolean) Whitebox.invokeMethod(processQueue, "isPopThrottled"));
+    //            assertTrue((Boolean) Whitebox.invokeMethod(processQueue, "isPopThrottled"));
     //        }
     //    }
     //

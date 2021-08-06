@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.rocketmq.client.impl.consumer;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -48,10 +65,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ConsumeFromWhere;
 import org.apache.rocketmq.client.constant.Permission;
 import org.apache.rocketmq.client.constant.ServiceState;
+import org.apache.rocketmq.client.consumer.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.MessageModel;
 import org.apache.rocketmq.client.consumer.filter.ExpressionType;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
-import org.apache.rocketmq.client.consumer.listener.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListener;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
@@ -63,8 +80,8 @@ import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
-import org.apache.rocketmq.client.remoting.Endpoints;
 import org.apache.rocketmq.client.route.Broker;
+import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
@@ -109,6 +126,10 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     @Getter(AccessLevel.NONE)
     private volatile ScheduledFuture<?> scanAssignmentsFuture;
+
+    private long maxAwaitTimeMillisPerQueue = 0;
+
+    private int maxAwaitBatchSizePerQueue = 32;
 
     private int maxTotalCachedMessagesQuantityThreshold = -1;
 
@@ -247,7 +268,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
             this.generateConsumeService();
             consumeService.start();
-            final ScheduledExecutorService scheduler = clientInstance.getScheduler();
+            final ScheduledExecutorService scheduler = clientManager.getScheduler();
             scanAssignmentsFuture = scheduler.scheduleWithFixedDelay(
                     new Runnable() {
                         @Override
@@ -385,7 +406,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
     private ProcessQueue getProcessQueue(MessageQueue mq, final FilterExpression filterExpression) {
         if (null == processQueueTable.get(mq)) {
-            processQueueTable.putIfAbsent(mq, new ProcessQueue(this, mq, filterExpression));
+            processQueueTable.putIfAbsent(mq, new ProcessQueueImpl(this, mq, filterExpression));
         }
         return processQueueTable.get(mq);
     }
@@ -508,8 +529,8 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                     @Override
                     public ListenableFuture<QueryAssignmentResponse> apply(Endpoints endpoints) throws Exception {
                         final Metadata metadata = sign();
-                        return clientInstance.queryAssignment(endpoints, metadata, request, ioTimeoutMillis,
-                                                              TimeUnit.MILLISECONDS);
+                        return clientManager.queryAssignment(endpoints, metadata, request, ioTimeoutMillis,
+                                                                 TimeUnit.MILLISECONDS);
                     }
                 });
         return Futures.transformAsync(responseFuture, new AsyncFunction<QueryAssignmentResponse, TopicAssignment>() {
@@ -643,10 +664,6 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
             builder.addTopics(topicResource);
         }
         return builder.build();
-    }
-
-    long getIoTimeoutMillis() {
-        return ioTimeoutMillis;
     }
 
     public void setConsumptionThreadsAmount(int threadsAmount) {

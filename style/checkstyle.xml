@@ -33,6 +33,12 @@
         <property name="eachLine" value="true"/>
     </module>
 
+    <!-- header -->
+    <module name="RegexpHeader">
+        <property name="header" value="/\*\nLicensed to the Apache Software Foundation*"/>
+        <property name="fileExtensions" value="java"/>
+    </module>
+
     <!--    <module name="SuppressionFilter">-->
     <!--        <property name="file"-->
     <!--                  value="${checkstyle.suppressions.file}"-->
@@ -175,9 +181,9 @@
         </module>
 
         <!-- Constant fields must follow a defined format. -->
-        <!--        <module name="ConstantName">-->
-        <!--            <property name="format" value="^log?|[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$"/>-->
-        <!--        </module>-->
+        <module name="ConstantName">
+            <property name="format" value="^log?|[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$"/>
+        </module>
 
         <!-- Method and lambda parameters must follow a defined format. -->
         <module name="ParameterName">

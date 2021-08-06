@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.rocketmq.client.conf;
 
 import apache.rocketmq.v1.AckMessageResponse;
@@ -5,6 +22,7 @@ import apache.rocketmq.v1.Address;
 import apache.rocketmq.v1.AddressScheme;
 import apache.rocketmq.v1.Broker;
 import apache.rocketmq.v1.Endpoints;
+import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse;
 import apache.rocketmq.v1.NackMessageResponse;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.ResponseCommon;
@@ -16,6 +34,8 @@ import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
@@ -89,12 +109,18 @@ public class TestBase {
     }
 
     protected Broker getDummyBroker() {
-        return Broker.newBuilder().setName(dummyBrokerName0).setId(MixAll.MASTER_BROKER_ID).setEndpoints(getDummyEndpoints()).build();
+        return Broker.newBuilder().setName(dummyBrokerName0)
+                     .setId(MixAll.MASTER_BROKER_ID)
+                     .setEndpoints(getDummyEndpoints())
+                     .build();
     }
 
     protected Partition getDummyPartition() {
         final apache.rocketmq.v1.Partition partition =
-                apache.rocketmq.v1.Partition.newBuilder().setTopic(getDummyTopicResource()).setBroker(getDummyBroker()).build();
+                apache.rocketmq.v1.Partition.newBuilder()
+                                            .setTopic(getDummyTopicResource())
+                                            .setBroker(getDummyBroker())
+                                            .build();
         return new Partition(partition);
     }
 
@@ -105,6 +131,10 @@ public class TestBase {
     protected ThreadPoolExecutor getSingleThreadPoolExecutor() {
         return new ThreadPoolExecutor(1, 1, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(),
                                       new ThreadFactoryImpl("TestSingleWorker"));
+    }
+
+    protected ScheduledExecutorService getScheduler() {
+        return new ScheduledThreadPoolExecutor(1, new ThreadFactoryImpl("TestScheduler"));
     }
 
     protected ResponseCommon getSuccessResponseCommon() {
@@ -128,10 +158,21 @@ public class TestBase {
         return future0;
     }
 
+    protected ListenableFuture<ForwardMessageToDeadLetterQueueResponse>
+        successForwardMessageToDeadLetterQueueResponseListenableFuture() {
+        final ResponseCommon common = getSuccessResponseCommon();
+        SettableFuture<ForwardMessageToDeadLetterQueueResponse> future0 = SettableFuture.create();
+        final ForwardMessageToDeadLetterQueueResponse response =
+                ForwardMessageToDeadLetterQueueResponse.newBuilder().setCommon(common).build();
+        future0.set(response);
+        return future0;
+    }
+
     protected MessageExt getDummyMessageExt(int bodySize) {
         final SystemAttribute systemAttribute = new SystemAttribute();
         systemAttribute.setMessageId(MessageIdGenerator.getInstance().next());
         systemAttribute.setReceiptHandle(dummyReceiptHandle);
+        systemAttribute.setDeliveryAttempt(1);
         final ConcurrentMap<String, String> userAttribute = new ConcurrentHashMap<String, String>();
         final byte[] bytes = new byte[bodySize];
         random.nextBytes(bytes);

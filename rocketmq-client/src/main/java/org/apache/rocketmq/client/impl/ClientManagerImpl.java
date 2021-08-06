@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.rocketmq.client.impl;
 
 import apache.rocketmq.v1.AckMessageRequest;
@@ -43,13 +60,13 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.exception.ClientException;
-import org.apache.rocketmq.client.remoting.Endpoints;
 import org.apache.rocketmq.client.remoting.RpcClient;
 import org.apache.rocketmq.client.remoting.RpcClientImpl;
+import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 
 @Slf4j
-public class ClientInstance {
+public class ClientManagerImpl implements ClientManager {
     private static final long RPC_CLIENT_MAX_IDLE_SECONDS = 30 * 60;
 
     @Getter
@@ -57,7 +74,7 @@ public class ClientInstance {
 
     private final ConcurrentMap<Endpoints, RpcClient> rpcClientTable;
 
-    private final ConcurrentMap<String/* ClientId */, ClientObserver> clientObserverTable;
+    private final ConcurrentMap<String/* ClientId */, ClientObserver> observerTable;
 
     @Getter
     private final ScheduledExecutorService scheduler;
@@ -65,21 +82,21 @@ public class ClientInstance {
      * Public executor for all async rpc, <strong>should never submit heavy task.</strong>
      */
     @Getter
-    private final ThreadPoolExecutor asyncExecutor;
+    private final ThreadPoolExecutor asyncWorker;
 
     private final AtomicReference<ServiceState> state;
 
-    public ClientInstance(String id) {
+    public ClientManagerImpl(String id) {
         this.id = id;
         this.rpcClientTable = new ConcurrentHashMap<Endpoints, RpcClient>();
 
-        this.clientObserverTable = new ConcurrentHashMap<String, ClientObserver>();
+        this.observerTable = new ConcurrentHashMap<String, ClientObserver>();
 
         this.scheduler = new ScheduledThreadPoolExecutor(
                 Runtime.getRuntime().availableProcessors(),
                 new ThreadFactoryImpl("ClientScheduler"));
 
-        this.asyncExecutor = new ThreadPoolExecutor(
+        this.asyncWorker = new ThreadPoolExecutor(
                 Runtime.getRuntime().availableProcessors(),
                 Runtime.getRuntime().availableProcessors(),
                 60,
@@ -90,16 +107,18 @@ public class ClientInstance {
         this.state = new AtomicReference<ServiceState>(ServiceState.READY);
     }
 
-    public void registerClientObserver(ClientObserver clientObserver) {
+    @Override
+    public void registerObserver(ClientObserver observer) {
         synchronized (this) {
-            clientObserverTable.put(clientObserver.getClientId(), clientObserver);
+            observerTable.put(observer.getClientId(), observer);
         }
     }
 
-    public void unregisterClientObserver(ClientObserver clientObserver) {
+    @Override
+    public void unregisterObserver(ClientObserver observer) {
         synchronized (this) {
-            clientObserverTable.remove(clientObserver.getClientId());
-            if (clientObserverTable.isEmpty()) {
+            observerTable.remove(observer.getClientId());
+            if (observerTable.isEmpty()) {
                 shutdown();
             }
         }
@@ -107,7 +126,7 @@ public class ClientInstance {
 
     private void doHealthCheck() {
         log.info("Start to do health check for a new round.");
-        for (Map.Entry<String, ClientObserver> entry : clientObserverTable.entrySet()) {
+        for (Map.Entry<String, ClientObserver> entry : observerTable.entrySet()) {
             final ClientObserver observer = entry.getValue();
             observer.doHealthCheck();
         }
@@ -130,7 +149,7 @@ public class ClientInstance {
 
     private void doHeartbeat() {
         log.info("Start to send heartbeat for a new round.");
-        for (Map.Entry<String, ClientObserver> entry : clientObserverTable.entrySet()) {
+        for (Map.Entry<String, ClientObserver> entry : observerTable.entrySet()) {
             final String clientId = entry.getKey();
             final ClientObserver observer = entry.getValue();
             log.info("Start to send heartbeat for clientId={}", clientId);
@@ -140,7 +159,7 @@ public class ClientInstance {
 
     private void doLogStats() {
         log.info("Start to log stats for a new round");
-        for (Map.Entry<String, ClientObserver> entry : clientObserverTable.entrySet()) {
+        for (Map.Entry<String, ClientObserver> entry : observerTable.entrySet()) {
             final String clientId = entry.getKey();
             final ClientObserver observer = entry.getValue();
             log.info("Log stats for clientId={}", clientId);
@@ -153,6 +172,7 @@ public class ClientInstance {
      *
      * @throws ClientException
      */
+    @Override
     public void start() {
         synchronized (this) {
             log.info("Begin to start the client instance.");
@@ -227,6 +247,7 @@ public class ClientInstance {
         }
     }
 
+    @Override
     public void shutdown() {
         synchronized (this) {
             log.info("Begin to shutdown the client instance.");
@@ -234,9 +255,9 @@ public class ClientInstance {
                 log.warn("ClientInstance has not been started before");
                 return;
             }
-            ClientManager.getInstance().removeClientInstance(id);
+            ClientManagerFactory.getInstance().removeClientInstance(id);
             scheduler.shutdown();
-            asyncExecutor.shutdown();
+            asyncWorker.shutdown();
             state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
             log.info("Shutdown the client instance successfully.");
         }
@@ -265,12 +286,13 @@ public class ClientInstance {
         return newRpcClient;
     }
 
+    @Override
     public ListenableFuture<QueryRouteResponse> queryRoute(Endpoints endpoints, Metadata metadata,
                                                            QueryRouteRequest request, long duration,
                                                            TimeUnit timeUnit) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
-            return rpcClient.queryRoute(metadata, request, asyncExecutor, duration, timeUnit);
+            return rpcClient.queryRoute(metadata, request, asyncWorker, duration, timeUnit);
         } catch (Throwable t) {
             final SettableFuture<QueryRouteResponse> future = SettableFuture.create();
             future.setException(t);
@@ -278,11 +300,12 @@ public class ClientInstance {
         }
     }
 
+    @Override
     public ListenableFuture<HeartbeatResponse> heartbeat(Endpoints endpoints, Metadata metadata,
                                                          HeartbeatRequest request, long duration, TimeUnit timeUnit) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
-            return rpcClient.heartbeat(metadata, request, asyncExecutor, duration, timeUnit);
+            return rpcClient.heartbeat(metadata, request, asyncWorker, duration, timeUnit);
         } catch (Throwable t) {
             final SettableFuture<HeartbeatResponse> future = SettableFuture.create();
             future.setException(t);
@@ -290,12 +313,13 @@ public class ClientInstance {
         }
     }
 
+    @Override
     public ListenableFuture<HealthCheckResponse> healthCheck(Endpoints endpoints, Metadata metadata,
                                                              HealthCheckRequest request, long duration,
                                                              TimeUnit timeUnit) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
-            return rpcClient.healthCheck(metadata, request, asyncExecutor, duration, timeUnit);
+            return rpcClient.healthCheck(metadata, request, asyncWorker, duration, timeUnit);
         } catch (Throwable t) {
             final SettableFuture<HealthCheckResponse> future = SettableFuture.create();
             future.setException(t);
@@ -303,12 +327,13 @@ public class ClientInstance {
         }
     }
 
+    @Override
     public ListenableFuture<SendMessageResponse> sendMessage(Endpoints endpoints, Metadata metadata,
                                                              SendMessageRequest request, long duration,
                                                              TimeUnit timeUnit) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
-            return rpcClient.sendMessage(metadata, request, asyncExecutor, duration, timeUnit);
+            return rpcClient.sendMessage(metadata, request, asyncWorker, duration, timeUnit);
         } catch (Throwable t) {
             final SettableFuture<SendMessageResponse> future = SettableFuture.create();
             future.setException(t);
@@ -316,12 +341,13 @@ public class ClientInstance {
         }
     }
 
+    @Override
     public ListenableFuture<QueryAssignmentResponse> queryAssignment(Endpoints endpoints, Metadata metadata,
                                                                      QueryAssignmentRequest request, long duration,
                                                                      TimeUnit timeUnit) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
-            return rpcClient.queryAssignment(metadata, request, asyncExecutor, duration, timeUnit);
+            return rpcClient.queryAssignment(metadata, request, asyncWorker, duration, timeUnit);
         } catch (Throwable t) {
             final SettableFuture<QueryAssignmentResponse> future = SettableFuture.create();
             future.setException(t);
@@ -329,12 +355,13 @@ public class ClientInstance {
         }
     }
 
+    @Override
     public ListenableFuture<ReceiveMessageResponse> receiveMessage(Endpoints endpoints, Metadata metadata,
                                                                    ReceiveMessageRequest request, long duration,
                                                                    TimeUnit timeUnit) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
-            return rpcClient.receiveMessage(metadata, request, asyncExecutor, duration, timeUnit);
+            return rpcClient.receiveMessage(metadata, request, asyncWorker, duration, timeUnit);
         } catch (Throwable t) {
             final SettableFuture<ReceiveMessageResponse> future = SettableFuture.create();
             future.setException(t);
@@ -342,12 +369,13 @@ public class ClientInstance {
         }
     }
 
+    @Override
     public ListenableFuture<AckMessageResponse> ackMessage(Endpoints endpoints, Metadata metadata,
                                                            AckMessageRequest request, long duration,
                                                            TimeUnit timeUnit) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
-            return rpcClient.ackMessage(metadata, request, asyncExecutor, duration, timeUnit);
+            return rpcClient.ackMessage(metadata, request, asyncWorker, duration, timeUnit);
         } catch (Throwable t) {
             final SettableFuture<AckMessageResponse> future = SettableFuture.create();
             future.setException(t);
@@ -355,12 +383,13 @@ public class ClientInstance {
         }
     }
 
+    @Override
     public ListenableFuture<NackMessageResponse> nackMessage(Endpoints endpoints, Metadata metadata,
                                                              NackMessageRequest request, long duration,
                                                              TimeUnit timeUnit) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
-            return rpcClient.nackMessage(metadata, request, asyncExecutor, duration, timeUnit);
+            return rpcClient.nackMessage(metadata, request, asyncWorker, duration, timeUnit);
         } catch (Throwable t) {
             final SettableFuture<NackMessageResponse> future = SettableFuture.create();
             future.setException(t);
@@ -368,12 +397,13 @@ public class ClientInstance {
         }
     }
 
+    @Override
     public ListenableFuture<ForwardMessageToDeadLetterQueueResponse> forwardMessageToDeadLetterQueue(
             Endpoints endpoints, Metadata metadata, ForwardMessageToDeadLetterQueueRequest request, long duration,
             TimeUnit timeUnit) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
-            return rpcClient.forwardMessageToDeadLetterQueue(metadata, request, asyncExecutor, duration, timeUnit);
+            return rpcClient.forwardMessageToDeadLetterQueue(metadata, request, asyncWorker, duration, timeUnit);
         } catch (Throwable t) {
             final SettableFuture<ForwardMessageToDeadLetterQueueResponse> future = SettableFuture.create();
             future.setException(t);
@@ -381,12 +411,13 @@ public class ClientInstance {
         }
     }
 
+    @Override
     public ListenableFuture<EndTransactionResponse> endTransaction(Endpoints endpoints, Metadata metadata,
                                                                    EndTransactionRequest request, long duration,
                                                                    TimeUnit timeUnit) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
-            return rpcClient.endTransaction(metadata, request, asyncExecutor, duration, timeUnit);
+            return rpcClient.endTransaction(metadata, request, asyncWorker, duration, timeUnit);
         } catch (Throwable t) {
             SettableFuture<EndTransactionResponse> future = SettableFuture.create();
             future.setException(t);
@@ -394,12 +425,13 @@ public class ClientInstance {
         }
     }
 
+    @Override
     public ListenableFuture<QueryOffsetResponse> queryOffset(Endpoints endpoints, Metadata metadata,
                                                              QueryOffsetRequest request, long duration,
                                                              TimeUnit timeUnit) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
-            return rpcClient.queryOffset(metadata, request, asyncExecutor, duration, timeUnit);
+            return rpcClient.queryOffset(metadata, request, asyncWorker, duration, timeUnit);
         } catch (Throwable t) {
             final SettableFuture<QueryOffsetResponse> future = SettableFuture.create();
             future.setException(t);
@@ -407,12 +439,13 @@ public class ClientInstance {
         }
     }
 
+    @Override
     public ListenableFuture<PullMessageResponse> pullMessage(Endpoints endpoints, Metadata metadata,
                                                              PullMessageRequest request, long duration,
                                                              TimeUnit timeUnit) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
-            return rpcClient.pullMessage(metadata, request, asyncExecutor, duration, timeUnit);
+            return rpcClient.pullMessage(metadata, request, asyncWorker, duration, timeUnit);
         } catch (Throwable t) {
             final SettableFuture<PullMessageResponse> future = SettableFuture.create();
             future.setException(t);
@@ -420,12 +453,13 @@ public class ClientInstance {
         }
     }
 
+    @Override
     public ListenableFuture<MultiplexingResponse> multiplexingCall(Endpoints endpoints, Metadata metadata,
                                                                    MultiplexingRequest request, long duration,
                                                                    TimeUnit timeUnit) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
-            return rpcClient.multiplexingCall(metadata, request, asyncExecutor, duration, timeUnit);
+            return rpcClient.multiplexingCall(metadata, request, asyncWorker, duration, timeUnit);
         } catch (Throwable t) {
             final SettableFuture<MultiplexingResponse> future = SettableFuture.create();
             future.setException(t);
