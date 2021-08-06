@@ -108,7 +108,7 @@ import org.apache.rocketmq.client.message.protocol.Encoding;
 import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.misc.TopAddressing;
-import org.apache.rocketmq.client.remoting.ClientAuthInterceptor;
+import org.apache.rocketmq.client.remoting.AuthInterceptor;
 import org.apache.rocketmq.client.remoting.IpNameResolverFactory;
 import org.apache.rocketmq.client.route.Address;
 import org.apache.rocketmq.client.route.AddressScheme;
@@ -902,7 +902,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
             final NettyChannelBuilder channelBuilder =
                     NettyChannelBuilder.forTarget(randomTracingEndpoints.getFacade())
                                        .sslContext(sslContext)
-                                       .intercept(new ClientAuthInterceptor(this));
+                                       .intercept(new AuthInterceptor(this));
 
             final List<InetSocketAddress> socketAddresses = randomTracingEndpoints.convertToSocketAddresses();
             // If scheme is not domain.

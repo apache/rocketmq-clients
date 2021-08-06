@@ -21,11 +21,13 @@ import com.google.common.base.Preconditions;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.concurrent.Immutable;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
 @Getter
 @EqualsAndHashCode
+@Immutable
 public class Endpoints {
     private static final String ADDRESS_SEPARATOR = ",";
     private final AddressScheme addressScheme;

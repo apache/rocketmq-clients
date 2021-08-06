@@ -32,11 +32,11 @@ import org.apache.rocketmq.client.impl.Signature;
  * Client auth interceptor for authentication, but only serve for message tracing actually.
  */
 @Slf4j
-public class ClientAuthInterceptor implements ClientInterceptor {
+public class AuthInterceptor implements ClientInterceptor {
 
     private final ClientConfig clientConfig;
 
-    public ClientAuthInterceptor(ClientConfig clientConfig) {
+    public AuthInterceptor(ClientConfig clientConfig) {
         this.clientConfig = clientConfig;
     }
 

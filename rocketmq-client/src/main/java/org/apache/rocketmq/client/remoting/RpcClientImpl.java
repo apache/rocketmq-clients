@@ -83,7 +83,7 @@ public class RpcClientImpl implements RpcClient {
         final NettyChannelBuilder channelBuilder =
                 NettyChannelBuilder.forTarget(endpoints.getFacade())
                                    .keepAliveTime(KEEP_ALIVE_TIME_SECONDS, TimeUnit.SECONDS)
-                                   .intercept(new ClientTraceInterceptor())
+                                   .intercept(new LoggingInterceptor())
                                    .sslContext(sslContext);
         // Disable grpc's auto-retry here.
         channelBuilder.disableRetry();

@@ -28,10 +28,10 @@ import io.grpc.MethodDescriptor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Client trace interceptor, which is responsible for RPC tracing, and replace gRPC official binary log.
+ * Client logging interceptor, replace gRPC official binary log.
  */
 @Slf4j
-public class ClientTraceInterceptor implements ClientInterceptor {
+public class LoggingInterceptor implements ClientInterceptor {
     @Override
     public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(MethodDescriptor<ReqT, RespT> method,
                                                                CallOptions callOptions, Channel next) {
