@@ -1005,7 +1005,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         // digest.
         final apache.rocketmq.v1.Digest bodyDigest = systemAttribute.getBodyDigest();
         byte[] body = message.getBody().toByteArray();
-        boolean bodyDigestMatch = false;
+        boolean corrupted = false;
         String expectedCheckSum;
         DigestType digestType = DigestType.CRC32;
         final String checksum = bodyDigest.getChecksum();
@@ -1013,17 +1013,17 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
             case CRC32:
                 expectedCheckSum = UtilAll.crc32CheckSum(body);
                 if (expectedCheckSum.equals(checksum)) {
-                    bodyDigestMatch = true;
+                    corrupted = true;
                 }
                 break;
             case MD5:
                 try {
                     expectedCheckSum = UtilAll.md5CheckSum(body);
                     if (expectedCheckSum.equals(checksum)) {
-                        bodyDigestMatch = true;
+                        corrupted = true;
                     }
                 } catch (NoSuchAlgorithmException e) {
-                    bodyDigestMatch = true;
+                    corrupted = true;
                     log.warn("MD5 is not supported unexpectedly, skip it.");
                 }
                 break;
@@ -1031,19 +1031,15 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                 try {
                     expectedCheckSum = UtilAll.sha1CheckSum(body);
                     if (expectedCheckSum.equals(checksum)) {
-                        bodyDigestMatch = true;
+                        corrupted = true;
                     }
                 } catch (NoSuchAlgorithmException e) {
-                    bodyDigestMatch = true;
+                    corrupted = true;
                     log.warn("SHA-1 is not supported unexpectedly, skip it.");
                 }
                 break;
             default:
                 log.warn("Unsupported message body digest algorithm.");
-        }
-        if (!bodyDigestMatch) {
-            // Need NACK immediately ?
-            throw new ClientException("Message body checksum failure");
         }
         mqSystemAttribute.setDigest(new Digest(digestType, checksum));
 
@@ -1066,7 +1062,6 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
 
         // message type.
         MessageType messageType;
-        // TODO: messageType not set yet.
         switch (systemAttribute.getMessageType()) {
             case NORMAL:
                 messageType = MessageType.NORMAL;
@@ -1129,7 +1124,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                 new ConcurrentHashMap<String, String>(message.getUserAttributeMap());
 
         final String topic = message.getTopic().getName();
-        return new MessageImpl(topic, mqSystemAttribute, mqUserAttribute, body);
+        return new MessageImpl(topic, mqSystemAttribute, mqUserAttribute, body, corrupted);
     }
 
     @Override

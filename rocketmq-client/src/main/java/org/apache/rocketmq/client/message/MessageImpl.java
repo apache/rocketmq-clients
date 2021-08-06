@@ -29,6 +29,12 @@ public class MessageImpl {
     private final SystemAttribute systemAttribute;
     private final ConcurrentMap<String, String> userAttribute;
     private byte[] body;
+    private final boolean corrupted;
+
+    public MessageImpl(String topic, SystemAttribute systemAttribute, ConcurrentMap<String, String> userAttribute,
+                       byte[] body) {
+        this(topic, systemAttribute, userAttribute, body, false);
+    }
 
     public void setBody(byte[] body) {
         if (null == body) {
