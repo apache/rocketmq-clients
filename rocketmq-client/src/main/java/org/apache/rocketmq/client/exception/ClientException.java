@@ -21,29 +21,36 @@ import lombok.Getter;
 
 @Getter
 public class ClientException extends Exception {
+    private final ErrorCode errorCode;
 
     @Deprecated
     public ClientException(String errorMessage) {
         super("Code: " + ErrorCode.OTHER + ", " + errorMessage);
+        this.errorCode = ErrorCode.OTHER;
     }
 
     public ClientException(Throwable cause) {
         super("Code: " + ErrorCode.OTHER, cause);
+        this.errorCode = ErrorCode.OTHER;
     }
 
     public ClientException(ErrorCode errorCode) {
         super("Code: " + errorCode);
+        this.errorCode = errorCode;
     }
 
     public ClientException(ErrorCode errorCode, String errorMessage) {
         super("Code: " + errorCode + ", " + errorMessage);
+        this.errorCode = errorCode;
     }
 
     public ClientException(ErrorCode errorCode, String errorMessage, Throwable cause) {
         super("Code: " + errorCode + ", " + errorMessage, cause);
+        this.errorCode = errorCode;
     }
 
     public ClientException(ErrorCode errorCode, Throwable cause) {
         super("Code: " + errorCode, cause);
+        this.errorCode = errorCode;
     }
 }

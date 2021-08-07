@@ -67,7 +67,7 @@ import org.apache.rocketmq.client.consumer.ReceiveStatus;
 import org.apache.rocketmq.client.consumer.filter.ExpressionType;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerType;
-import org.apache.rocketmq.client.impl.ClientBaseImpl;
+import org.apache.rocketmq.client.impl.ClientImpl;
 import org.apache.rocketmq.client.impl.ClientManager;
 import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageExt;
@@ -370,7 +370,7 @@ public class ProcessQueueImpl implements ProcessQueue {
             case OK:
                 if (!messagesFound.isEmpty()) {
                     cacheMessages(messagesFound);
-                    consumerImpl.receivedMessagesSize.getAndAdd(messagesFound.size());
+                    consumerImpl.getReceivedMessagesQuantity().getAndAdd(messagesFound.size());
                     consumerImpl.getConsumeService().dispatch();
                 }
                 log.debug("Receive message with OK, mq={}, endpoints={}, messages found count={}", messageQueue,
@@ -396,9 +396,9 @@ public class ProcessQueueImpl implements ProcessQueue {
 
         switch (pullStatus) {
             case OK:
-                if (messagesFound.isEmpty()) {
+                if (!messagesFound.isEmpty()) {
                     cacheMessages(messagesFound);
-                    consumerImpl.pulledMessagesSize.getAndAdd(messagesFound.size());
+                    consumerImpl.getPulledMessagesQuantity().getAndAdd(messagesFound.size());
                     consumerImpl.getConsumeService().dispatch();
                 }
                 log.debug("Pull message with OK, mq={}, messages found count={}", messageQueue, messagesFound.size());
@@ -577,7 +577,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                     pullMessageLater(offset);
                 }
             });
-            consumerImpl.pullTimes.getAndIncrement();
+            consumerImpl.getPullTimes().getAndIncrement();
         } catch (Throwable t) {
             log.error("Exception raised while pull message, would pull message later, mq={}", messageQueue, t);
             pullMessageLater(offset);
@@ -668,7 +668,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                     receiveMessageLater();
                 }
             });
-            consumerImpl.receiveTimes.getAndIncrement();
+            consumerImpl.getReceptionTimes().getAndIncrement();
         } catch (Throwable t) {
             log.error("Exception raised while message reception, would receive later, mq={}.", messageQueue, t);
             receiveMessageLater();
@@ -1013,7 +1013,7 @@ public class ProcessQueueImpl implements ProcessQueue {
             for (Message message : messageList) {
                 MessageImpl messageImpl;
                 try {
-                    messageImpl = ClientBaseImpl.wrapMessageImpl(message);
+                    messageImpl = ClientImpl.wrapMessageImpl(message);
                 } catch (Throwable t) {
                     // TODO: need nack immediately.
                     continue;
@@ -1057,9 +1057,9 @@ public class ProcessQueueImpl implements ProcessQueue {
 
     private void statsMessageConsumptionStatus(int messageSize, ConsumeStatus status) {
         if (ConsumeStatus.OK.equals(status)) {
-            consumerImpl.getConsumptionOkCount().addAndGet(messageSize);
+            consumerImpl.getConsumptionOkCounter().addAndGet(messageSize);
             return;
         }
-        consumerImpl.getConsumptionErrorCount().addAndGet(messageSize);
+        consumerImpl.getConsumptionErrorCounter().addAndGet(messageSize);
     }
 }

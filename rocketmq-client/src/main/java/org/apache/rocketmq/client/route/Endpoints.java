@@ -41,6 +41,39 @@ public class Endpoints {
     private final String facade;
     private final List<Address> addresses;
 
+    public Endpoints(apache.rocketmq.v1.Endpoints endpoints) {
+        this.addresses = new ArrayList<Address>();
+        for (apache.rocketmq.v1.Address address : endpoints.getAddressesList()) {
+            addresses.add(new Address(address));
+        }
+        if (addresses.isEmpty()) {
+            throw new UnsupportedOperationException("No available address");
+        }
+
+        final apache.rocketmq.v1.AddressScheme scheme = endpoints.getScheme();
+
+        switch (scheme) {
+            case IPv4:
+                this.addressScheme = AddressScheme.IPv4;
+                break;
+            case IPv6:
+                this.addressScheme = AddressScheme.IPv6;
+                break;
+            case DOMAIN_NAME:
+            default:
+                this.addressScheme = AddressScheme.DOMAIN_NAME;
+                if (addresses.size() > 1) {
+                    throw new UnsupportedOperationException("Multiple addresses not allowed in domain schema.");
+                }
+        }
+        StringBuilder facadeBuilder = new StringBuilder();
+        facadeBuilder.append(addressScheme.getPrefix());
+        for (Address address : addresses) {
+            facadeBuilder.append(address.getAddress()).append(ADDRESS_SEPARATOR);
+        }
+        this.facade = facadeBuilder.substring(0, facadeBuilder.length() - 1);
+    }
+
     public Endpoints(AddressScheme addressScheme, List<Address> addresses) {
         // TODO: polish code here.
         if (AddressScheme.DOMAIN_NAME == addressScheme && addresses.size() > 1) {

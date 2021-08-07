@@ -38,7 +38,7 @@ import org.apache.rocketmq.client.consumer.PullMessageQuery;
 import org.apache.rocketmq.client.consumer.PullMessageResult;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
-import org.apache.rocketmq.client.impl.ClientBaseImpl;
+import org.apache.rocketmq.client.impl.ClientImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.route.Partition;
@@ -46,7 +46,7 @@ import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 
 @Slf4j
-public class DefaultMQPullConsumerImpl extends ClientBaseImpl {
+public class DefaultMQPullConsumerImpl extends ClientImpl {
 
     private final ThreadPoolExecutor pullCallbackExecutor;
 

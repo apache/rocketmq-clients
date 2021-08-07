@@ -25,15 +25,16 @@ import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.message.Message;
 
 public class Validators {
+
     public static final String TOPIC_REGEX = "^[%|a-zA-Z0-9._-]+$";
     public static final Pattern TOPIC_PATTERN = Pattern.compile(TOPIC_REGEX);
     public static final int TOPIC_MAX_LENGTH = 255;
 
-    public static final int MESSAGE_BODY_MAX_SIZE = 1024 * 1024 * 4;
-
-    public static final String CONSUMER_GROUP_REGEX = TOPIC_REGEX;
-    public static final Pattern CONSUMER_GROUP_PATTERN = Pattern.compile(CONSUMER_GROUP_REGEX);
+    public static final String GROUP_REGEX = TOPIC_REGEX;
+    public static final Pattern GROUP_PATTERN = Pattern.compile(GROUP_REGEX);
     public static final int CONSUMER_GROUP_MAX_LENGTH = TOPIC_MAX_LENGTH;
+
+    public static final int MESSAGE_BODY_MAX_SIZE = 1024 * 1024 * 4;
 
     private Validators() {
     }
@@ -43,7 +44,7 @@ public class Validators {
         return !matcher.matches();
     }
 
-    public static void topicCheck(String topic) throws ClientException {
+    public static void checkTopic(String topic) throws ClientException {
         if (StringUtils.isAnyBlank(topic)) {
             throw new ClientException(ErrorCode.ILLEGAL_FORMAT, "Topic is blank.");
         }
@@ -52,36 +53,34 @@ public class Validators {
         }
         if (topic.length() > TOPIC_MAX_LENGTH) {
             throw new ClientException(ErrorCode.ILLEGAL_FORMAT,
-                                        "Topic's length exceeds the threshold, masSize=" + TOPIC_MAX_LENGTH + " bytes");
+                                      "Topic's length exceeds the threshold, masSize=" + TOPIC_MAX_LENGTH + " bytes");
         }
     }
 
-    public static void consumerGroupCheck(String consumerGroup) throws ClientException {
-        if (!StringUtils.isNoneBlank(consumerGroup)) {
-            throw new ClientException(ErrorCode.ILLEGAL_FORMAT, "ConsumerGroup is blank.");
+    public static void checkGroup(String group) throws ClientException {
+        if (!StringUtils.isNoneBlank(group)) {
+            throw new ClientException(ErrorCode.ILLEGAL_FORMAT, "Group is blank.");
         }
-        if (regexNotMatched(consumerGroup, CONSUMER_GROUP_PATTERN)) {
-            throw new ClientException(ErrorCode.ILLEGAL_FORMAT, String.format("ConsumerGroup[%s] is illegal.",
-                                                                              consumerGroup));
+        if (regexNotMatched(group, GROUP_PATTERN)) {
+            throw new ClientException(ErrorCode.ILLEGAL_FORMAT, String.format("Group[%s] is illegal.", group));
         }
-        if (consumerGroup.length() > CONSUMER_GROUP_MAX_LENGTH) {
-            throw new ClientException(ErrorCode.ILLEGAL_FORMAT, "ConsumerGroup' length exceeds the threshold, maxSize"
+        if (group.length() > CONSUMER_GROUP_MAX_LENGTH) {
+            throw new ClientException(ErrorCode.ILLEGAL_FORMAT, "Group length exceeds the threshold, maxSize"
                                                                 + CONSUMER_GROUP_MAX_LENGTH + " bytes");
         }
     }
 
-    public static void check(Message message) throws ClientException {
+    public static void checkMessage(Message message) throws ClientException {
         if (null == message) {
             throw new ClientException(ErrorCode.ILLEGAL_FORMAT, "Message is null.");
         }
 
-        topicCheck(message.getTopic());
-
+        checkTopic(message.getTopic());
         final byte[] body = message.getBody();
         if (null == body) {
             throw new ClientException(ErrorCode.ILLEGAL_FORMAT, "Message body is null.");
         }
-        if (0 == body.length) {
+        if (0 >= body.length) {
             throw new ClientException(ErrorCode.ILLEGAL_FORMAT, "Message body's length is zero.");
         }
         if (body.length > MESSAGE_BODY_MAX_SIZE) {

@@ -75,7 +75,7 @@ import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.ServerException;
-import org.apache.rocketmq.client.impl.ClientBaseImpl;
+import org.apache.rocketmq.client.impl.ClientImpl;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
@@ -90,18 +90,113 @@ import org.apache.rocketmq.utility.ThreadFactoryImpl;
 @Slf4j
 @Getter
 @Setter
-public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
+public class DefaultMQPushConsumerImpl extends ClientImpl {
 
-    // for cluster consumption mode.
-    public final AtomicLong receiveTimes;
-    public final AtomicLong receivedMessagesSize;
+    /**
+     * For {@link MessageModel#CLUSTERING} only, reflects the times of message reception.
+     */
+    private final AtomicLong receptionTimes;
+    /**
+     * For {@link MessageModel#CLUSTERING} only, reflects the quantity of received messages.
+     */
+    private final AtomicLong receivedMessagesQuantity;
 
-    // for broadcasting consumption mode.
-    public final AtomicLong pullTimes;
-    public final AtomicLong pulledMessagesSize;
+    /**
+     * For {@link MessageModel#BROADCASTING} only, reflects the times of pull message.
+     */
+    private final AtomicLong pullTimes;
+    /**
+     * For {@link MessageModel#BROADCASTING} only, reflects the quantity of pulled messages.
+     */
+    private final AtomicLong pulledMessagesQuantity;
 
-    private final AtomicLong consumptionOkCount;
-    private final AtomicLong consumptionErrorCount;
+    /**
+     * Record times of successful message consumption.
+     */
+    private final AtomicLong consumptionOkCounter;
+    /**
+     * Record times of failed message consumption.
+     */
+    private final AtomicLong consumptionErrorCounter;
+
+    /**
+     * Limit cached messages quantity in all {@link ProcessQueue}, higher priority than
+     * {@link DefaultMQPushConsumerImpl#maxCachedMessagesQuantityThresholdPerQueue} if it is set. Less than zero
+     * indicates that it is not set.
+     */
+    private int maxTotalCachedMessagesQuantityThreshold = -1;
+
+    /**
+     * Limit cached messages quantity in each {@link ProcessQueue}, only make sense if
+     * {@link DefaultMQPushConsumerImpl#maxTotalCachedMessagesBytesThreshold} is not set.
+     */
+    private int maxCachedMessagesQuantityThresholdPerQueue = 1024;
+
+    /**
+     * Limit cached message memory bytes in all {@link ProcessQueue}, higher priority than
+     * {@link DefaultMQPushConsumerImpl#maxCachedMessagesQuantityThresholdPerQueue} if it is set. Less than zero
+     * indicates that it is not set.
+     */
+    private int maxTotalCachedMessagesBytesThreshold = -1;
+
+    /**
+     * Limit cached messages memory bytes in each {@link ProcessQueue}, only make sense if
+     * {@link DefaultMQPushConsumerImpl#maxTotalCachedMessagesBytesThreshold} is not set.
+     */
+    private int maxCachedMessagesBytesThresholdPerQueue = 4 * 1024 * 1024;
+
+    /**
+     * If a FIFO message was failed to consume, it would be suspend for a while to prepare for next delivery until
+     * delivery attempt times is run out.
+     */
+    private long fifoConsumptionSuspendTimeMillis = 1000L;
+
+    /**
+     * Max batch size for each message consumption. It does not make sense for FIFO message.
+     */
+    private int consumeMessageBatchMaxSize = 1;
+
+    /**
+     * Consumption thread amount, which determine the consumption speed to some degree.
+     */
+    private int consumptionThreadsAmount = 32;
+
+    /**
+     * for {@link MessageModel#CLUSTERING} only. It shows the max delivery attempts for each message.
+     */
+    private int maxDeliveryAttempts = 17;
+
+    /**
+     * Message model for current consumption group.
+     */
+    private MessageModel messageModel = MessageModel.CLUSTERING;
+
+    /**
+     * Indicates the first consumption's position of consumer.
+     *
+     * <p>In cluster consumption model, it is UNDEFINED if consumer use different timestamp in the same group.
+     */
+    private ConsumeFromWhere consumeFromWhere = ConsumeFromWhere.END;
+
+    /**
+     * Indicates first consumption's time point of consumer by timestamp. Note that setting this option does not take
+     * effect while {@link ConsumeFromWhere} is not {@link ConsumeFromWhere#TIMESTAMP}.
+     *
+     * <p>In cluster consumption model, timestamp here indicates the position of all consumer's first consumption.
+     * Which is UNDEFINED if consumers use different timestamp in same group.
+     *
+     * <p>In broadcasting consumption model, timestamp here are individual for each consumer, even though they belong
+     * to the same group.
+     */
+    private long consumeFromTimeMillis = System.currentTimeMillis();
+
+    private long consumptionTimeoutMillis = 15 * 60 * 1000L;
+
+    private long maxAwaitTimeMillisPerQueue = 0;
+
+    private int maxAwaitBatchSizePerQueue = 32;
+
+    private OffsetStore offsetStore = null;
 
     @Setter(AccessLevel.NONE)
     private MessageListener messageListener;
@@ -127,53 +222,6 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     @Getter(AccessLevel.NONE)
     private volatile ScheduledFuture<?> scanAssignmentsFuture;
 
-    private long maxAwaitTimeMillisPerQueue = 0;
-
-    private int maxAwaitBatchSizePerQueue = 32;
-
-    private int maxTotalCachedMessagesQuantityThreshold = -1;
-
-    private int maxCachedMessagesQuantityThresholdPerQueue = 1024;
-
-    private int maxTotalCachedMessagesBytesThreshold = -1;
-
-    private int maxCachedMessagesBytesThresholdPerQueue = 4 * 1024 * 1024;
-
-    private long fifoConsumptionSuspendTimeMillis = 1000L;
-
-    private int consumeMessageBatchMaxSize = 1;
-
-    private long maxBatchConsumeWaitTimeMillis = 0;
-
-    private int consumptionThreadsAmount = 32;
-
-    private int maxDeliveryAttempts = 17;
-
-    private MessageModel messageModel = MessageModel.CLUSTERING;
-
-    /**
-     * Indicates the first consumption's position of consumer.
-     *
-     * <p>In cluster consumption model, it is UNDEFINED if consumer use different timestamp in the same group.
-     */
-    private ConsumeFromWhere consumeFromWhere = ConsumeFromWhere.END;
-
-    /**
-     * Indicates first consumption's time point of consumer by timestamp. Note that setting this option does not take
-     * effect while {@link ConsumeFromWhere} is not {@link ConsumeFromWhere#TIMESTAMP}.
-     *
-     * <p>In cluster consumption model, timestamp here indicates the position of all consumer's first consumption.
-     * Which is UNDEFINED if consumers use different timestamp in same group.
-     *
-     * <p>In broadcasting consumption model, timestamp here are individual for each consumer, even though they belong
-     * to the same group.
-     */
-    private long consumeFromTimeMillis = System.currentTimeMillis();
-
-    private long consumptionTimeoutMillis = 15 * 60 * 1000L;
-
-    private OffsetStore offsetStore = null;
-
     public DefaultMQPushConsumerImpl(String group) {
         super(group);
         this.filterExpressionTable = new ConcurrentHashMap<String, FilterExpression>();
@@ -186,14 +234,14 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
 
         this.processQueueTable = new ConcurrentHashMap<MessageQueue, ProcessQueue>();
 
-        this.receiveTimes = new AtomicLong(0);
-        this.receivedMessagesSize = new AtomicLong(0);
+        this.receptionTimes = new AtomicLong(0);
+        this.receivedMessagesQuantity = new AtomicLong(0);
 
         this.pullTimes = new AtomicLong(0);
-        this.pulledMessagesSize = new AtomicLong(0);
+        this.pulledMessagesQuantity = new AtomicLong(0);
 
-        this.consumptionOkCount = new AtomicLong(0);
-        this.consumptionErrorCount = new AtomicLong(0);
+        this.consumptionOkCounter = new AtomicLong(0);
+        this.consumptionErrorCounter = new AtomicLong(0);
 
         this.consumptionExecutor = new ThreadPoolExecutor(
                 consumptionThreadsAmount,
@@ -308,14 +356,6 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         }
     }
 
-    List<ProcessQueue> processQueueList() {
-        return new ArrayList<ProcessQueue>(processQueueTable.values());
-    }
-
-    ProcessQueue getProcessQueue(MessageQueue mq) {
-        return processQueueTable.get(mq);
-    }
-
     RateLimiter rateLimiter(String topic) {
         return rateLimiterTable.get(topic);
     }
@@ -382,19 +422,19 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
     @Override
     public void doStats() {
         // for cluster consumption mode.
-        final long receiveTimes = this.receiveTimes.getAndSet(0);
-        final long receivedMessagesSize = this.receivedMessagesSize.getAndSet(0);
+        final long receiveTimes = this.receptionTimes.getAndSet(0);
+        final long receivedMessagesQuantity = this.receivedMessagesQuantity.getAndSet(0);
 
         // for broadcasting consumption mode.
         final long pullTimes = this.pullTimes.getAndSet(0);
-        final long pulledMessagesSize = this.pulledMessagesSize.getAndSet(0);
+        final long pulledMessagesSize = this.pulledMessagesQuantity.getAndSet(0);
 
-        final long consumptionOkCount = this.consumptionOkCount.getAndSet(0);
-        final long consumptionErrorCount = this.consumptionErrorCount.getAndSet(0);
+        final long consumptionOkCounter = this.consumptionOkCounter.getAndSet(0);
+        final long consumptionErrorCount = this.consumptionErrorCounter.getAndSet(0);
 
-        log.info("ConsumerGroup={}, receiveTimes={}, receivedMessagesSize={}, pullTimes={}, pulledMessagesSize={}, "
-                 + "consumptionOkCount={}, consumptionErrorCount={}", group, receiveTimes, receivedMessagesSize,
-                 pullTimes, pulledMessagesSize, consumptionOkCount, consumptionErrorCount);
+        log.info("ConsumerGroup={}, receiveTimes={}, receivedMessagesQuantity={}, pullTimes={}, pulledMessagesSize={}, "
+                 + "consumptionOkCounter={}, consumptionErrorCount={}", group, receiveTimes, receivedMessagesQuantity,
+                 pullTimes, pulledMessagesSize, consumptionOkCounter, consumptionErrorCount);
     }
 
     void dropProcessQueue(MessageQueue mq) {
@@ -530,7 +570,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
                     public ListenableFuture<QueryAssignmentResponse> apply(Endpoints endpoints) throws Exception {
                         final Metadata metadata = sign();
                         return clientManager.queryAssignment(endpoints, metadata, request, ioTimeoutMillis,
-                                                                 TimeUnit.MILLISECONDS);
+                                                             TimeUnit.MILLISECONDS);
                     }
                 });
         return Futures.transformAsync(responseFuture, new AsyncFunction<QueryAssignmentResponse, TopicAssignment>() {
@@ -644,7 +684,7 @@ public class DefaultMQPushConsumerImpl extends ClientBaseImpl {
         MessageImpl messageImpl;
         final SettableFuture<ConsumeStatus> future = SettableFuture.create();
         try {
-            messageImpl = ClientBaseImpl.wrapMessageImpl(message);
+            messageImpl = ClientImpl.wrapMessageImpl(message);
         } catch (Throwable t) {
             log.error("Message verify consumption is corrupted, partition={}, messageId={}", partition,
                       message.getSystemAttribute().getMessageId());

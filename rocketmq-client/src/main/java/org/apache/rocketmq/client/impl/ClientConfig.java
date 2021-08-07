@@ -21,6 +21,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.rocketmq.client.exception.ClientException;
+import org.apache.rocketmq.client.misc.Validators;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
 import org.apache.rocketmq.utility.UtilAll;
 
@@ -38,6 +40,8 @@ public class ClientConfig {
     protected String arn = "";
 
     protected boolean messageTracingEnabled = true;
+
+    protected boolean updateMessageTracerAsync = false;
 
     // TODO: fix region_id here.
     private String regionId = "cn-hangzhou";
@@ -61,7 +65,8 @@ public class ClientConfig {
         this.clientId = sb.toString();
     }
 
-    public void setGroup(String group) {
+    public void setGroup(String group) throws ClientException {
+        Validators.checkGroup(group);
         this.group = group;
     }
 

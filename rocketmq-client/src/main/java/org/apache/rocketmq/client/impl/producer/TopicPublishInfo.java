@@ -33,6 +33,7 @@ import org.apache.rocketmq.client.route.Broker;
 import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
+import org.apache.rocketmq.utility.UtilAll;
 
 @Slf4j
 public class TopicPublishInfo {
@@ -85,7 +86,7 @@ public class TopicPublishInfo {
             throw new ClientException(ErrorCode.NO_PERMISSION);
         }
         for (int i = 0; i < partitions.size(); i++) {
-            final Partition partition = partitions.get((index++) % partitions.size());
+            final Partition partition = partitions.get(UtilAll.positiveMod(index++, partitions.size()));
             final Broker broker = partition.getBroker();
             final String brokerName = broker.getName();
             if (!isolated.contains(broker.getEndpoints()) && !candidateBrokerNames.contains(brokerName)) {
@@ -99,7 +100,7 @@ public class TopicPublishInfo {
         // if all endpoints are isolated.
         if (candidatePartitions.isEmpty()) {
             for (int i = 0; i < partitions.size(); i++) {
-                final Partition partition = partitions.get((index++) % partitions.size());
+                final Partition partition = partitions.get(UtilAll.positiveMod(index++, partitions.size()));
                 final Broker broker = partition.getBroker();
                 final String brokerName = broker.getName();
                 if (!candidateBrokerNames.contains(brokerName)) {
@@ -114,7 +115,7 @@ public class TopicPublishInfo {
         }
         // if no enough candidates, pick up partition from isolated partition.
         for (int i = 0; i < partitions.size(); i++) {
-            final Partition partition = partitions.get((index++) % partitions.size());
+            final Partition partition = partitions.get(UtilAll.positiveMod(index++, partitions.size()));
             final Broker broker = partition.getBroker();
             final String brokerName = broker.getName();
             if (!candidateBrokerNames.contains(brokerName)) {

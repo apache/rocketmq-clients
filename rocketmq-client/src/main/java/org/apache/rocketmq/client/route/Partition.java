@@ -17,8 +17,6 @@
 
 package org.apache.rocketmq.client.route;
 
-import java.util.ArrayList;
-import java.util.List;
 import javax.annotation.concurrent.Immutable;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -62,24 +60,6 @@ public class Partition {
         final int brokerId = partition.getBroker().getId();
 
         final apache.rocketmq.v1.Endpoints endpoints = partition.getBroker().getEndpoints();
-        final apache.rocketmq.v1.AddressScheme scheme = endpoints.getScheme();
-        AddressScheme targetAddressScheme;
-
-        switch (scheme) {
-            case IPv4:
-                targetAddressScheme = AddressScheme.IPv4;
-                break;
-            case IPv6:
-                targetAddressScheme = AddressScheme.IPv6;
-                break;
-            case DOMAIN_NAME:
-            default:
-                targetAddressScheme = AddressScheme.DOMAIN_NAME;
-        }
-        List<Address> addresses = new ArrayList<Address>();
-        for (apache.rocketmq.v1.Address address : endpoints.getAddressesList()) {
-            addresses.add(new Address(address));
-        }
-        this.broker = new Broker(brokerName, brokerId, new Endpoints(targetAddressScheme, addresses));
+        this.broker = new Broker(brokerName, brokerId, new Endpoints(endpoints));
     }
 }

@@ -17,7 +17,6 @@
 
 package org.apache.rocketmq.client.impl.consumer;
 
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -30,34 +29,40 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import org.apache.rocketmq.client.conf.TestBase;
 import org.apache.rocketmq.client.consumer.ConsumeContext;
 import org.apache.rocketmq.client.consumer.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListener;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageQueue;
+import org.apache.rocketmq.client.tools.TestBase;
 import org.mockito.ArgumentMatchers;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class ConsumeConcurrentlyServiceTest extends TestBase {
-    private MessageListener mockedListener;
-    private MessageInterceptor mockedInterceptor;
-    private final ThreadPoolExecutor consumptionExecutor = getSingleThreadPoolExecutor();
-    private final ScheduledExecutorService scheduler = getScheduler();
+
+    @Mock
+    private MessageListener messageListener;
+    @Mock
+    private MessageInterceptor messageInterceptor;
+
+    private final ThreadPoolExecutor consumptionExecutor = singleThreadPoolExecutor();
+    private final ScheduledExecutorService scheduler = scheduler();
     private ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable;
     private ConsumeService consumeService;
     private int batchSize;
 
     @BeforeMethod
     public void beforeMethod() {
-        mockedListener = mock(MessageListener.class);
-        mockedInterceptor = mock(MessageInterceptor.class);
+        MockitoAnnotations.initMocks(this);
+
         processQueueTable = new ConcurrentHashMap<MessageQueue, ProcessQueue>();
         batchSize = 1;
-        consumeService = new ConsumeConcurrentlyService(mockedListener, mockedInterceptor, consumptionExecutor,
+        consumeService = new ConsumeConcurrentlyService(messageListener, messageInterceptor, consumptionExecutor,
                                                         scheduler, processQueueTable, batchSize);
         consumeService.start();
     }
@@ -69,9 +74,9 @@ public class ConsumeConcurrentlyServiceTest extends TestBase {
 
     @Test
     public void testConsume() throws ExecutionException, InterruptedException {
-        final MessageExt messageExt = getDummyMessageExt(1);
-        when(mockedListener.consume(ArgumentMatchers.<MessageExt>anyList(),
-                                    ArgumentMatchers.any(ConsumeContext.class))).thenReturn(ConsumeStatus.OK);
+        final MessageExt messageExt = dummyMessageExt(1);
+        when(messageListener.consume(ArgumentMatchers.<MessageExt>anyList(),
+                                     ArgumentMatchers.any(ConsumeContext.class))).thenReturn(ConsumeStatus.OK);
         final ListenableFuture<ConsumeStatus> future = consumeService.consume(messageExt);
         final ConsumeStatus consumeStatus = future.get();
         assertEquals(consumeStatus, ConsumeStatus.OK);
@@ -79,9 +84,9 @@ public class ConsumeConcurrentlyServiceTest extends TestBase {
 
     @Test
     public void testConsumeWithDelay() throws InterruptedException, ExecutionException {
-        final MessageExt messageExt = getDummyMessageExt(1);
-        when(mockedListener.consume(ArgumentMatchers.<MessageExt>anyList(),
-                                    ArgumentMatchers.any(ConsumeContext.class))).thenReturn(ConsumeStatus.OK);
+        final MessageExt messageExt = dummyMessageExt(1);
+        when(messageListener.consume(ArgumentMatchers.<MessageExt>anyList(),
+                                     ArgumentMatchers.any(ConsumeContext.class))).thenReturn(ConsumeStatus.OK);
         final long delayMillis = 1000;
         final ListenableFuture<ConsumeStatus> future = consumeService.consume(messageExt, delayMillis,
                                                                               TimeUnit.MILLISECONDS);

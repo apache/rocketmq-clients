@@ -31,7 +31,7 @@ public class DefaultMQPullConsumer {
         this.impl = new DefaultMQPullConsumerImpl(consumerGroup);
     }
 
-    public void setConsumerGroup(String group) {
+    public void setConsumerGroup(String group) throws ClientException {
         this.impl.setGroup(group);
     }
 

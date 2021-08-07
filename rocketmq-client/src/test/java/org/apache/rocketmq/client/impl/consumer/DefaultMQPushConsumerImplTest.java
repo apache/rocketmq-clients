@@ -20,17 +20,25 @@ package org.apache.rocketmq.client.impl.consumer;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-import org.apache.rocketmq.client.conf.TestBase;
+import org.apache.rocketmq.client.impl.ClientManager;
 import org.apache.rocketmq.client.message.MessageQueue;
+import org.apache.rocketmq.client.tools.TestBase;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class DefaultMQPushConsumerImplTest extends TestBase {
-    private DefaultMQPushConsumerImpl consumerImpl;
+    @Mock
+    private ClientManager clientManager;
+
+    @InjectMocks
+    private final DefaultMQPushConsumerImpl consumerImpl = new DefaultMQPushConsumerImpl(dummyGroup0);
 
     @BeforeMethod
     public void beforeMethod() {
-        this.consumerImpl = new DefaultMQPushConsumerImpl(dummyConsumerGroup0);
+        MockitoAnnotations.initMocks(this);
     }
 
     @Test

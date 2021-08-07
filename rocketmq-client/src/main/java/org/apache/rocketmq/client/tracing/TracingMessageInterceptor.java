@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.exception.ClientException;
-import org.apache.rocketmq.client.impl.ClientBaseImpl;
+import org.apache.rocketmq.client.impl.ClientImpl;
 import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
@@ -40,10 +40,10 @@ import org.apache.rocketmq.client.remoting.CredentialsProvider;
 @Slf4j
 public class TracingMessageInterceptor implements MessageInterceptor {
 
-    private final ClientBaseImpl client;
+    private final ClientImpl client;
     private final ConcurrentMap<String/* span id */, Span> inflightSpans;
 
-    public TracingMessageInterceptor(ClientBaseImpl client) {
+    public TracingMessageInterceptor(ClientImpl client) {
         this.client = client;
         this.inflightSpans = new ConcurrentHashMap<String, Span>();
     }

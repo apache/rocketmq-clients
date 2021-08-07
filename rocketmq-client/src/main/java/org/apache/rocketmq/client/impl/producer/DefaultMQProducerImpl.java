@@ -67,7 +67,7 @@ import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.ServerException;
-import org.apache.rocketmq.client.impl.ClientBaseImpl;
+import org.apache.rocketmq.client.impl.ClientImpl;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageExt;
@@ -97,10 +97,10 @@ import org.apache.rocketmq.utility.UtilAll;
 @Slf4j
 @Getter
 @Setter
-public class DefaultMQProducerImpl extends ClientBaseImpl {
+public class DefaultMQProducerImpl extends ClientImpl {
 
-    private static final int MESSAGE_COMPRESSION_THRESHOLD = 1024 * 4;
-    private static final int MESSAGE_COMPRESSION_LEVEL = 5;
+    public static final int MESSAGE_COMPRESSION_THRESHOLD = 1024 * 4;
+    public static final int MESSAGE_COMPRESSION_LEVEL = 5;
 
     private int maxAttempts = 3;
 
@@ -126,6 +126,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
     private final ReadWriteLock isolatedRouteEndpointsSetLock;
 
     private TransactionChecker transactionChecker;
+
     @Getter(AccessLevel.NONE)
     private final ThreadPoolExecutor transactionCheckerExecutor;
 
@@ -231,6 +232,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                     public void onSuccess(HealthCheckResponse response) {
                         final Status status = response.getCommon().getStatus();
                         final Code code = Code.forNumber(status.getCode());
+                        // target endpoints is healthy, need to release it right now.
                         if (Code.OK == code) {
                             isolatedRouteEndpointsSetLock.writeLock().lock();
                             try {
@@ -238,7 +240,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                             } finally {
                                 isolatedRouteEndpointsSetLock.writeLock().unlock();
                             }
-                            log.info("Restore isolated endpoints, clientId={}, endpoints={}", clientId, endpoints);
+                            log.info("Release isolated endpoints, clientId={}, endpoints={}", clientId, endpoints);
                             return;
                         }
                         log.warn("Failed to restore isolated endpoints, clientId={}, code={}, status message={}, "
@@ -256,6 +258,11 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         }
     }
 
+    /**
+     * Allow to custom the executor to execute the {@link SendCallback}
+     *
+     * @param executor custom executor.
+     */
     public void setCallbackExecutor(final ExecutorService executor) {
         checkNotNull(executor);
         this.customSendCallbackExecutor = executor;
@@ -387,7 +394,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
                             try {
                                 sendCallback.onSuccess(sendResult);
                             } catch (Throwable t) {
-                                log.error("Exception occurs in SendCallback#onSuccess", t);
+                                log.error("Exception raised in SendCallback#onSuccess", t);
                             }
                         }
                     });
@@ -555,7 +562,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         topicPublishInfoCache.put(topic, new TopicPublishInfo(topicRouteData));
     }
 
-    public ListenableFuture<TopicPublishInfo> getPublishInfo(final String topic) {
+    private ListenableFuture<TopicPublishInfo> getPublishInfo(final String topic) {
         SettableFuture<TopicPublishInfo> future0 = SettableFuture.create();
         final TopicPublishInfo cachedTopicPublishInfo = topicPublishInfoCache.get(topic);
         if (null != cachedTopicPublishInfo) {
@@ -573,7 +580,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         });
     }
 
-    public ListenableFuture<SendResult> send0(final Message message, final int maxAttempts) {
+    private ListenableFuture<SendResult> send0(final Message message, final int maxAttempts) {
         final ListenableFuture<TopicPublishInfo> future = getPublishInfo(message.getTopic());
         return Futures.transformAsync(future, new AsyncFunction<TopicPublishInfo, SendResult>() {
             @Override
@@ -608,13 +615,13 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         final SettableFuture<SendResult> future = SettableFuture.create();
         // filter illegal message.
         try {
-            Validators.check(message);
+            Validators.checkMessage(message);
         } catch (ClientException e) {
             future.setException(e);
             return future;
         }
 
-        // set message id, if user send message to different topic, they would have different message id.
+        // set message id, if user send message to different topic, they should have different message id.
         final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
         final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
         final String messageId = MessageIdGenerator.getInstance().next();
@@ -643,7 +650,7 @@ public class DefaultMQProducerImpl extends ClientBaseImpl {
         }
 
         // calculate the current partition.
-        final Partition partition = candidates.get((attempt - 1) % candidates.size());
+        final Partition partition = candidates.get(UtilAll.positiveMod(attempt - 1, candidates.size()));
         final Endpoints endpoints = partition.getBroker().getEndpoints();
 
         final SendMessageRequest request = wrapSendMessageRequest(message, partition);

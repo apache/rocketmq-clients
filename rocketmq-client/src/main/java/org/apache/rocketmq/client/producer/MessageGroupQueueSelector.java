@@ -21,6 +21,7 @@ import java.util.List;
 import lombok.AllArgsConstructor;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageQueue;
+import org.apache.rocketmq.utility.UtilAll;
 
 @AllArgsConstructor
 public class MessageGroupQueueSelector implements MessageQueueSelector {
@@ -29,6 +30,6 @@ public class MessageGroupQueueSelector implements MessageQueueSelector {
     @Override
     public MessageQueue select(List<MessageQueue> mqs, Message msg, Object arg) {
         final int hashCode = messageGroup.hashCode();
-        return mqs.get(Math.abs(hashCode % mqs.size()));
+        return mqs.get(UtilAll.positiveMod(hashCode, mqs.size()));
     }
 }

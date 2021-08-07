@@ -56,7 +56,7 @@ public class DefaultMQProducer {
         return this.impl.getGroup();
     }
 
-    public void setProducerGroup(String group) {
+    public void setProducerGroup(String group) throws ClientException {
         this.impl.setGroup(group);
     }
 

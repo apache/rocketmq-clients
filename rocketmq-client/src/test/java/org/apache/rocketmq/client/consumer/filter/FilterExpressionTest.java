@@ -17,6 +17,8 @@
 
 package org.apache.rocketmq.client.consumer.filter;
 
+import static org.testng.Assert.assertEquals;
+
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -26,22 +28,18 @@ public class FilterExpressionTest {
     public void testTagSubAllExpression() {
         {
             final FilterExpression filterExpression = new FilterExpression("");
-            Assert.assertEquals(
-                    filterExpression.getExpression(), FilterExpression.TAG_EXPRESSION_SUB_ALL);
-            Assert.assertEquals(filterExpression.getExpressionType(), ExpressionType.TAG);
+            assertEquals(filterExpression.getExpression(), FilterExpression.TAG_EXPRESSION_SUB_ALL);
+            assertEquals(filterExpression.getExpressionType(), ExpressionType.TAG);
         }
         {
             final FilterExpression filterExpression = new FilterExpression(null);
-            Assert.assertEquals(
-                    filterExpression.getExpression(), FilterExpression.TAG_EXPRESSION_SUB_ALL);
-            Assert.assertEquals(filterExpression.getExpressionType(), ExpressionType.TAG);
+            assertEquals(filterExpression.getExpression(), FilterExpression.TAG_EXPRESSION_SUB_ALL);
+            assertEquals(filterExpression.getExpressionType(), ExpressionType.TAG);
         }
         {
-            final FilterExpression filterExpression =
-                    new FilterExpression(FilterExpression.TAG_EXPRESSION_SUB_ALL);
-            Assert.assertEquals(
-                    filterExpression.getExpression(), FilterExpression.TAG_EXPRESSION_SUB_ALL);
-            Assert.assertEquals(filterExpression.getExpressionType(), ExpressionType.TAG);
+            final FilterExpression filterExpression = new FilterExpression(FilterExpression.TAG_EXPRESSION_SUB_ALL);
+            assertEquals(filterExpression.getExpression(), FilterExpression.TAG_EXPRESSION_SUB_ALL);
+            assertEquals(filterExpression.getExpressionType(), ExpressionType.TAG);
         }
     }
 
@@ -51,12 +49,12 @@ public class FilterExpressionTest {
             String expression = "abc ";
             final FilterExpression filterExpression = new FilterExpression(expression);
             Assert.assertNotEquals(filterExpression.getExpression(), expression);
-            Assert.assertEquals(filterExpression.getExpression(), expression.trim());
+            assertEquals(filterExpression.getExpression(), expression.trim());
         }
         {
             String expression = "abc";
             final FilterExpression filterExpression = new FilterExpression(expression);
-            Assert.assertEquals(filterExpression.getExpression(), expression);
+            assertEquals(filterExpression.getExpression(), expression);
         }
     }
 
@@ -65,7 +63,7 @@ public class FilterExpressionTest {
         {
             String expression = "||";
             final FilterExpression filterExpression = new FilterExpression(expression);
-            Assert.assertEquals(filterExpression.getExpression(), expression);
+            assertEquals(filterExpression.getExpression(), expression);
         }
     }
 }

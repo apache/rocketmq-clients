@@ -36,7 +36,7 @@ public class DefaultMQPushConsumer {
         this.impl = new DefaultMQPushConsumerImpl(group);
     }
 
-    public void setConsumerGroup(String group) {
+    public void setConsumerGroup(String group) throws ClientException {
         impl.setGroup(group);
     }
 
@@ -102,7 +102,7 @@ public class DefaultMQPushConsumer {
     }
 
     public void setMaxBatchConsumeWaitTimeMillis(long timeMillis) {
-        this.impl.setMaxBatchConsumeWaitTimeMillis(timeMillis);
+        this.impl.setMaxAwaitTimeMillisPerQueue(timeMillis);
     }
 
     public void setMessageModel(MessageModel messageModel) {

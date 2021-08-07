@@ -120,7 +120,7 @@ import org.apache.rocketmq.client.tracing.TracingMessageInterceptor;
 import org.apache.rocketmq.utility.UtilAll;
 
 @Slf4j
-public abstract class ClientBaseImpl extends ClientConfig implements ClientObserver, MessageInterceptor {
+public abstract class ClientImpl extends ClientConfig implements ClientObserver, MessageInterceptor {
 
     private static final long MULTIPLEXING_CALL_LATER_DELAY_MILLIS = 3 * 1000L;
     private static final long MULTIPLEXING_CALL_TIMEOUT_MILLIS = 60 * 1000L;
@@ -160,7 +160,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
 
     private final ConcurrentMap<String /* topic */, TopicRouteData> topicRouteCache;
 
-    public ClientBaseImpl(String group) {
+    public ClientImpl(String group) {
         super(group);
         this.state = new AtomicReference<ServiceState>(ServiceState.READY);
 
@@ -199,8 +199,10 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
                 return;
             }
 
-            clientManager = ClientManagerFactory.getInstance().getClientInstance(this);
-            clientManager.registerObserver(this);
+            if (null == clientManager) {
+                clientManager = ClientManagerFactory.getInstance().getClientInstance(this);
+                clientManager.registerObserver(this);
+            }
 
             if (messageTracingEnabled) {
                 final TracingMessageInterceptor tracingInterceptor = new TracingMessageInterceptor(this);
@@ -358,7 +360,17 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
             dispatchGenericPollRequest(endpoints);
         }
 
-        if (messageTracingEnabled) {
+        if (messageTracingEnabled && (!after.equals(before) || null == tracer)) {
+            if (updateMessageTracerAsync) {
+                // do not block route update because of tracing.
+                clientManager.getScheduler().submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        updateTracer();
+                    }
+                });
+                return;
+            }
             updateTracer();
         }
     }
@@ -476,10 +488,14 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         }
     }
 
-    private Endpoints selectNameServerEndpoints() {
+    private Endpoints selectNameServerEndpoints() throws ClientException {
         nameServerEndpointsListLock.readLock().lock();
         try {
-            return nameServerEndpointsList.get(nameServerIndex.get() % nameServerEndpointsList.size());
+            if (nameServerEndpointsList.isEmpty()) {
+                throw new ClientException(ErrorCode.NO_AVAILABLE_NAME_SERVER);
+            }
+            return nameServerEndpointsList.get(UtilAll.positiveMod(nameServerIndex.getAndIncrement(),
+                                                                   nameServerEndpointsList.size()));
         } finally {
             nameServerEndpointsListLock.readLock().unlock();
         }
@@ -546,8 +562,8 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         }
         for (final Endpoints endpoints : routeEndpointsSet) {
             final ListenableFuture<HeartbeatResponse> future = clientManager.heartbeat(endpoints, metadata, request,
-                                                                                           ioTimeoutMillis,
-                                                                                           TimeUnit.MILLISECONDS);
+                                                                                       ioTimeoutMillis,
+                                                                                       TimeUnit.MILLISECONDS);
             Futures.addCallback(future, new FutureCallback<HeartbeatResponse>() {
                 @Override
                 public void onSuccess(HeartbeatResponse response) {
@@ -681,7 +697,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
             final List<Message> messageList = response.getMessagesList();
             for (Message message : messageList) {
                 try {
-                    MessageImpl messageImpl = ClientBaseImpl.wrapMessageImpl(message);
+                    MessageImpl messageImpl = ClientImpl.wrapMessageImpl(message);
                     msgFoundList.add(new MessageExt(messageImpl));
                 } catch (ClientException e) {
                     log.error("Failed to wrap messageImpl, topic={}, messageId={}", message.getTopic(),
@@ -788,7 +804,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         }
     }
 
-    public void dispatchGenericPollRequest(Endpoints endpoints) {
+    private void dispatchGenericPollRequest(Endpoints endpoints) {
         final GenericPollingRequest genericPollingRequest = wrapGenericPollingRequest();
         MultiplexingRequest multiplexingRequest =
                 MultiplexingRequest.newBuilder().setPollingRequest(genericPollingRequest).build();
@@ -835,7 +851,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
         try {
             final Metadata metadata = sign();
             return clientManager.multiplexingCall(endpoints, metadata, request, MULTIPLEXING_CALL_TIMEOUT_MILLIS,
-                                                      TimeUnit.MILLISECONDS);
+                                                  TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
             // Failed to sign, set the future in advance.
             future.setException(t);
@@ -930,7 +946,7 @@ public abstract class ClientBaseImpl extends ClientConfig implements ClientObser
             tracer = openTelemetry.getTracer(TRACER_INSTRUMENTATION_NAME);
             tracingEndpoints = randomTracingEndpoints;
         } catch (Throwable t) {
-            log.error("Exception occurs while updating tracer.", t);
+            log.error("Exception raised while updating tracer.", t);
         }
     }
 

@@ -17,112 +17,108 @@
 
 package org.apache.rocketmq.client.misc;
 
-public class ValidatorsTest {
+import static org.testng.Assert.fail;
 
-//    private void checkIllegalTopic(String topic) {
-//        try {
-//            Validators.topicCheck(topic);
-//            Assert.fail();
-//        } catch (MQClientException ignore) {
-//        }
-//    }
-//
-//    @Test
-//    public void testTopicCheck() throws MQClientException {
-//        Validators.topicCheck("abc");
-//        // Blank case 1.
-//        checkIllegalTopic(" ");
-//        checkIllegalTopic(" abc ");
-//        checkIllegalTopic("abc ");
-//        // Blank case 2
-//        checkIllegalTopic("abc\t");
-//        checkIllegalTopic("abc\t");
-//        checkIllegalTopic("abc\n");
-//        checkIllegalTopic("abc\f");
-//        checkIllegalTopic("abc\r");
-//        // Illegal case.
-//        checkIllegalTopic("[abc]");
-//        // Too long case.
-//        final String tooLongTopic = StringUtils.repeat("a", Validators.TOPIC_MAX_LENGTH + 1);
-//        checkIllegalTopic(tooLongTopic);
-//        // Equals to default topic.
-//        checkIllegalTopic(SystemTopic.DEFAULT_TOPIC);
-//    }
-//
-//    private void checkIllegalConsumerGroup(String consumerGroup) {
-//        try {
-//            Validators.consumerGroupCheck(consumerGroup);
-//            Assert.fail();
-//        } catch (MQClientException ignore) {
-//        }
-//    }
-//
-//    @Test
-//    public void testConsumerGroupCheck() throws MQClientException {
-//        Validators.consumerGroupCheck("abc");
-//        // Blank case 1.
-//        checkIllegalConsumerGroup(" ");
-//        checkIllegalConsumerGroup(" abc ");
-//        checkIllegalConsumerGroup("abc ");
-//        // Blank case 2
-//        checkIllegalConsumerGroup("abc\t");
-//        checkIllegalConsumerGroup("abc\t");
-//        checkIllegalConsumerGroup("abc\n");
-//        checkIllegalConsumerGroup("abc\f");
-//        checkIllegalConsumerGroup("abc\r");
-//        // Illegal case.
-//        checkIllegalConsumerGroup("[abc]");
-//        // Too long case.
-//        final String tooLongConsumerGroup =
-//                StringUtils.repeat("a", Validators.CONSUMER_GROUP_MAX_LENGTH + 1);
-//        checkIllegalConsumerGroup(tooLongConsumerGroup);
-//    }
-//
-//    private void checkIllegalMessage(final Message message, final int bodyMaxSize) {
-//        try {
-//            Validators.messageCheck(message, bodyMaxSize);
-//            Assert.fail();
-//        } catch (MQClientException ignore) {
-//        }
-//    }
-//
-//    @Test
-//    public void testMessageCheck() throws MQClientException {
-//        int bodyMaxSize = 3;
-//
-//        {
-//            final Message message = new Message();
-//            message.setTopic("abc");
-//            message.setBody(new byte[bodyMaxSize]);
-//            Validators.messageCheck(message, bodyMaxSize);
-//        }
-//        // Null case.
-//        checkIllegalMessage(null, bodyMaxSize);
-//        // Topic is blank.
-//        {
-//            final Message message = new Message();
-//            message.setTopic("");
-//            checkIllegalMessage(message, bodyMaxSize);
-//        }
-//        // Body is null.
-//        {
-//            final Message message = new Message();
-//            message.setTopic("abc");
-//            checkIllegalMessage(message, bodyMaxSize);
-//        }
-//        // Body length is zero.
-//        {
-//            final Message message = new Message();
-//            message.setTopic("abc");
-//            message.setBody(new byte[0]);
-//            checkIllegalMessage(message, bodyMaxSize);
-//        }
-//        // Body length exceeds.
-//        {
-//            final Message message = new Message();
-//            message.setTopic("abc");
-//            message.setBody(new byte[bodyMaxSize + 1]);
-//            checkIllegalMessage(message, bodyMaxSize);
-//        }
-//    }
+import org.apache.commons.lang3.StringUtils;
+import org.apache.rocketmq.client.exception.ClientException;
+import org.apache.rocketmq.client.message.Message;
+import org.apache.rocketmq.client.tools.TestBase;
+import org.testng.annotations.Test;
+
+public class ValidatorsTest extends TestBase {
+
+    private void checkIllegalTopic(String topic) {
+        try {
+            Validators.checkTopic(topic);
+            fail();
+        } catch (ClientException ignore) {
+            // ignore on purpose.
+        }
+    }
+
+    @Test
+    public void testTopicCheck() throws ClientException {
+        Validators.checkTopic("abc");
+        // Blank case 1.
+        checkIllegalTopic(" ");
+        checkIllegalTopic(" abc ");
+        checkIllegalTopic("abc ");
+        // Blank case 2
+        checkIllegalTopic("abc\t");
+        checkIllegalTopic("abc\t");
+        checkIllegalTopic("abc\n");
+        checkIllegalTopic("abc\f");
+        checkIllegalTopic("abc\r");
+        // Illegal case.
+        checkIllegalTopic("[abc]");
+        // Too long case.
+        final String tooLongTopic = StringUtils.repeat("a", Validators.TOPIC_MAX_LENGTH + 1);
+        checkIllegalTopic(tooLongTopic);
+    }
+
+    private void checkGroup(String group) {
+        try {
+            Validators.checkGroup(group);
+            fail();
+        } catch (ClientException ignore) {
+            // ignore on purpose.
+        }
+    }
+
+    @Test
+    public void testConsumerGroupCheck() throws ClientException {
+        Validators.checkGroup("abc");
+        // Blank case 1.
+        checkGroup(" ");
+        checkGroup(" abc ");
+        checkGroup("abc ");
+        // Blank case 2
+        checkGroup("abc\t");
+        checkGroup("abc\t");
+        checkGroup("abc\n");
+        checkGroup("abc\f");
+        checkGroup("abc\r");
+        // Illegal case.
+        checkGroup("[abc]");
+        // Too long case.
+        final String tooLongConsumerGroup =
+                StringUtils.repeat("a", Validators.CONSUMER_GROUP_MAX_LENGTH + 1);
+        checkGroup(tooLongConsumerGroup);
+    }
+
+    private void checkMessage(Message message) {
+        try {
+            Validators.checkMessage(message);
+            fail();
+        } catch (ClientException ignore) {
+            // ignore on purpose.
+        }
+    }
+
+    @Test
+    public void testMessageCheck() throws ClientException {
+        Validators.checkMessage(dummyMessage());
+        // Null case.
+        checkMessage(null);
+        // Topic is blank.
+        {
+            final Message message = new Message("", "tag", new byte[1]);
+            checkMessage(message);
+        }
+        // Body is null.
+        {
+            final Message message = new Message(dummyTopic0, dummyTag0, null);
+            checkMessage(message);
+        }
+        // Body length is zero.
+        {
+            final Message message = new Message(dummyTopic0, dummyTag0, new byte[0]);
+            checkMessage(message);
+        }
+        // Body length exceeds.
+        {
+            final Message message = dummyMessage(1 + Validators.MESSAGE_BODY_MAX_SIZE);
+            checkMessage(message);
+        }
+    }
 }

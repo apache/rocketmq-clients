@@ -18,7 +18,6 @@
 package org.apache.rocketmq.client.impl.consumer;
 
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -26,7 +25,6 @@ import static org.testng.Assert.assertEquals;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.rocketmq.client.conf.TestBase;
 import org.apache.rocketmq.client.consumer.ConsumeContext;
 import org.apache.rocketmq.client.consumer.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListener;
@@ -34,64 +32,68 @@ import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
+import org.apache.rocketmq.client.tools.TestBase;
 import org.mockito.ArgumentMatchers;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class ConsumeTaskTest extends TestBase {
-    private MessageInterceptor mockedInterceptor;
-    private MessageListener mockedListener;
+    @Mock
+    private MessageInterceptor messageInterceptor;
+    @Mock
+    private MessageListener messageListener;
     private ConsumeTask consumerTask;
 
     @BeforeMethod
     public void beforeMethod() {
-        this.mockedInterceptor = mock(MessageInterceptor.class);
-        this.mockedListener = mock(MessageListener.class);
+        MockitoAnnotations.initMocks(this);
 
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
-        messageExtList.add(getDummyMessageExt(1));
+        messageExtList.add(dummyMessageExt(1));
 
-        this.consumerTask = new ConsumeTask(mockedInterceptor, mockedListener, messageExtList);
+        this.consumerTask = new ConsumeTask(messageInterceptor, messageListener, messageExtList);
     }
 
     @Test
     public void testCallWithConsumptionOk() {
         final ConsumeStatus status = ConsumeStatus.OK;
-        when(mockedListener.consume(ArgumentMatchers.<MessageExt>anyList(), ArgumentMatchers.<ConsumeContext>any()))
+        when(messageListener.consume(ArgumentMatchers.<MessageExt>anyList(), ArgumentMatchers.<ConsumeContext>any()))
                 .thenReturn(status);
         assertEquals(status, consumerTask.call());
-        verify(mockedInterceptor, times(1)).intercept(eq(MessageHookPoint.PRE_MESSAGE_CONSUMPTION),
-                                                      ArgumentMatchers.<MessageExt>any(),
-                                                      ArgumentMatchers.<MessageInterceptorContext>any());
-        verify(mockedInterceptor, times(1)).intercept(eq(MessageHookPoint.POST_MESSAGE_CONSUMPTION),
-                                                      ArgumentMatchers.<MessageExt>any(),
-                                                      ArgumentMatchers.<MessageInterceptorContext>any());
+        verify(messageInterceptor, times(1)).intercept(eq(MessageHookPoint.PRE_MESSAGE_CONSUMPTION),
+                                                       ArgumentMatchers.<MessageExt>any(),
+                                                       ArgumentMatchers.<MessageInterceptorContext>any());
+        verify(messageInterceptor, times(1)).intercept(eq(MessageHookPoint.POST_MESSAGE_CONSUMPTION),
+                                                       ArgumentMatchers.<MessageExt>any(),
+                                                       ArgumentMatchers.<MessageInterceptorContext>any());
     }
 
     @Test
     public void testCallWithConsumptionError() {
         final ConsumeStatus status = ConsumeStatus.ERROR;
-        when(mockedListener.consume(ArgumentMatchers.<MessageExt>anyList(), ArgumentMatchers.<ConsumeContext>any()))
+        when(messageListener.consume(ArgumentMatchers.<MessageExt>anyList(), ArgumentMatchers.<ConsumeContext>any()))
                 .thenReturn(status);
         assertEquals(status, consumerTask.call());
-        verify(mockedInterceptor, times(1)).intercept(eq(MessageHookPoint.PRE_MESSAGE_CONSUMPTION),
-                                                      ArgumentMatchers.<MessageExt>any(),
-                                                      ArgumentMatchers.<MessageInterceptorContext>any());
-        verify(mockedInterceptor, times(1)).intercept(eq(MessageHookPoint.POST_MESSAGE_CONSUMPTION),
-                                                      ArgumentMatchers.<MessageExt>any(),
-                                                      ArgumentMatchers.<MessageInterceptorContext>any());
+        verify(messageInterceptor, times(1)).intercept(eq(MessageHookPoint.PRE_MESSAGE_CONSUMPTION),
+                                                       ArgumentMatchers.<MessageExt>any(),
+                                                       ArgumentMatchers.<MessageInterceptorContext>any());
+        verify(messageInterceptor, times(1)).intercept(eq(MessageHookPoint.POST_MESSAGE_CONSUMPTION),
+                                                       ArgumentMatchers.<MessageExt>any(),
+                                                       ArgumentMatchers.<MessageInterceptorContext>any());
     }
 
     @Test
     public void testCallWithConsumptionWithThrowable() {
-        when(mockedListener.consume(ArgumentMatchers.<MessageExt>anyList(), ArgumentMatchers.<ConsumeContext>any()))
+        when(messageListener.consume(ArgumentMatchers.<MessageExt>anyList(), ArgumentMatchers.<ConsumeContext>any()))
                 .thenThrow(new RuntimeException());
         assertEquals(ConsumeStatus.ERROR, consumerTask.call());
-        verify(mockedInterceptor, times(1)).intercept(eq(MessageHookPoint.PRE_MESSAGE_CONSUMPTION),
-                                                      ArgumentMatchers.<MessageExt>any(),
-                                                      ArgumentMatchers.<MessageInterceptorContext>any());
-        verify(mockedInterceptor, times(1)).intercept(eq(MessageHookPoint.POST_MESSAGE_CONSUMPTION),
-                                                      ArgumentMatchers.<MessageExt>any(),
-                                                      ArgumentMatchers.<MessageInterceptorContext>any());
+        verify(messageInterceptor, times(1)).intercept(eq(MessageHookPoint.PRE_MESSAGE_CONSUMPTION),
+                                                       ArgumentMatchers.<MessageExt>any(),
+                                                       ArgumentMatchers.<MessageInterceptorContext>any());
+        verify(messageInterceptor, times(1)).intercept(eq(MessageHookPoint.POST_MESSAGE_CONSUMPTION),
+                                                       ArgumentMatchers.<MessageExt>any(),
+                                                       ArgumentMatchers.<MessageInterceptorContext>any());
     }
 }

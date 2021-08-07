@@ -55,6 +55,10 @@ public class UtilAll {
     private UtilAll() {
     }
 
+    public static int positiveMod(int a, int b) {
+        return (a % b + b) % b;
+    }
+
     public static byte[] macAddress() {
         if (null != MAC_ADDRESS) {
             return MAC_ADDRESS;
