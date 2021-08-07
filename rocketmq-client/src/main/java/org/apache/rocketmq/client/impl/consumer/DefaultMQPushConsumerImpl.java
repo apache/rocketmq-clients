@@ -121,27 +121,27 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
 
     /**
      * Limit cached messages quantity in all {@link ProcessQueue}, higher priority than
-     * {@link DefaultMQPushConsumerImpl#maxCachedMessagesQuantityThresholdPerQueue} if it is set. Less than zero
+     * {@link #maxCachedMessagesQuantityThresholdPerQueue} if it is set. Less than zero
      * indicates that it is not set.
      */
     private int maxTotalCachedMessagesQuantityThreshold = -1;
 
     /**
      * Limit cached messages quantity in each {@link ProcessQueue}, only make sense if
-     * {@link DefaultMQPushConsumerImpl#maxTotalCachedMessagesBytesThreshold} is not set.
+     * {@link #maxTotalCachedMessagesBytesThreshold} is not set.
      */
     private int maxCachedMessagesQuantityThresholdPerQueue = 1024;
 
     /**
      * Limit cached message memory bytes in all {@link ProcessQueue}, higher priority than
-     * {@link DefaultMQPushConsumerImpl#maxCachedMessagesQuantityThresholdPerQueue} if it is set. Less than zero
+     * {@link #maxCachedMessagesQuantityThresholdPerQueue} if it is set. Less than zero
      * indicates that it is not set.
      */
     private int maxTotalCachedMessagesBytesThreshold = -1;
 
     /**
      * Limit cached messages memory bytes in each {@link ProcessQueue}, only make sense if
-     * {@link DefaultMQPushConsumerImpl#maxTotalCachedMessagesBytesThreshold} is not set.
+     * {@link #maxTotalCachedMessagesBytesThreshold} is not set.
      */
     private int maxCachedMessagesBytesThresholdPerQueue = 4 * 1024 * 1024;
 
@@ -180,7 +180,7 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
 
     /**
      * Indicates first consumption's time point of consumer by timestamp. Note that setting this option does not take
-     * effect while {@link ConsumeFromWhere} is not {@link ConsumeFromWhere#TIMESTAMP}.
+     * effect while {@link #consumeFromWhere} is not {@link ConsumeFromWhere#TIMESTAMP}.
      *
      * <p>In cluster consumption model, timestamp here indicates the position of all consumer's first consumption.
      * Which is UNDEFINED if consumers use different timestamp in same group.

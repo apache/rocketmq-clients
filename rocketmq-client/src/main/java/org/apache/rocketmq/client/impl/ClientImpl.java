@@ -276,7 +276,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                 try {
                     interceptor.intercept(hookPoint, messageExt, context);
                 } catch (Throwable t) {
-                    log.error("Exception occurs while intercepting message, hookPoint={}, message={}", hookPoint,
+                    log.error("Exception raised while intercepting message, hookPoint={}, message={}", hookPoint,
                               messageExt, t);
                 }
             }
@@ -289,7 +289,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         return clientManager.getScheduler();
     }
 
-    public ServiceState getState() {
+    protected ServiceState getState() {
         return this.state.get();
     }
 
@@ -302,7 +302,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         }
     }
 
-    public Set<Endpoints> getRouteEndpointsSet() {
+    protected Set<Endpoints> getRouteEndpointsSet() {
         Set<Endpoints> endpointsSet = new HashSet<Endpoints>();
         for (TopicRouteData topicRouteData : topicRouteCache.values()) {
             endpointsSet.addAll(topicRouteData.allEndpoints());
@@ -310,7 +310,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         return endpointsSet;
     }
 
-    public boolean nameServerIsNotSet() {
+    private boolean nameServerIsNotSet() {
         nameServerEndpointsListLock.readLock().lock();
         try {
             return nameServerEndpointsList.isEmpty();
@@ -319,7 +319,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         }
     }
 
-    public void renewNameServerList() {
+    private void renewNameServerList() {
         log.info("Start to renew name server list for a new round");
         List<Endpoints> newNameServerList;
         try {
@@ -360,7 +360,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
             dispatchGenericPollRequest(endpoints);
         }
 
-        if (messageTracingEnabled && (!after.equals(before) || null == tracer)) {
+        if (messageTracingEnabled) {
             if (updateMessageTracerAsync) {
                 // do not block route update because of tracing.
                 clientManager.getScheduler().submit(new Runnable() {
@@ -393,7 +393,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         }
     }
 
-    public ListenableFuture<TopicRouteData> getRouteFor(final String topic) {
+    protected ListenableFuture<TopicRouteData> getRouteFor(final String topic) {
         SettableFuture<TopicRouteData> future0 = SettableFuture.create();
         TopicRouteData topicRouteData = topicRouteCache.get(topic);
         // If route was cached before, get it directly.
@@ -740,7 +740,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
     public void resolveOrphanedTransaction(Endpoints endpoints, ResolveOrphanedTransactionRequest request) {
     }
 
-    public GenericPollingRequest wrapGenericPollingRequest() {
+    private GenericPollingRequest wrapGenericPollingRequest() {
         final ClientResourceBundle bundle = wrapClientResourceBundle();
         return GenericPollingRequest.newBuilder().setClientResourceBundle(bundle).build();
     }
@@ -812,7 +812,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         multiplexingCall(endpoints, multiplexingRequest);
     }
 
-    public void multiplexingCall(final Endpoints endpoints, final MultiplexingRequest request) {
+    private void multiplexingCall(final Endpoints endpoints, final MultiplexingRequest request) {
         try {
             final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
             if (!routeEndpointsSet.contains(endpoints)) {
@@ -846,7 +846,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         }
     }
 
-    public ListenableFuture<MultiplexingResponse> multiplexingCall0(Endpoints endpoints, MultiplexingRequest request) {
+    private ListenableFuture<MultiplexingResponse> multiplexingCall0(Endpoints endpoints, MultiplexingRequest request) {
         final SettableFuture<MultiplexingResponse> future = SettableFuture.create();
         try {
             final Metadata metadata = sign();
@@ -859,7 +859,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         }
     }
 
-    public void multiplexingCallLater(final Endpoints endpoints, final MultiplexingRequest request) {
+    private void multiplexingCallLater(final Endpoints endpoints, final MultiplexingRequest request) {
         final ScheduledExecutorService scheduler = clientManager.getScheduler();
         try {
             scheduler.schedule(new Runnable() {
@@ -982,7 +982,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         });
     }
 
-    public QueryOffsetRequest wrapQueryOffsetRequest(OffsetQuery offsetQuery) {
+    private QueryOffsetRequest wrapQueryOffsetRequest(OffsetQuery offsetQuery) {
         final QueryOffsetRequest.Builder builder = QueryOffsetRequest.newBuilder();
         final QueryOffsetPolicy queryOffsetPolicy = offsetQuery.getQueryOffsetPolicy();
         switch (queryOffsetPolicy) {
