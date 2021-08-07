@@ -99,14 +99,31 @@ import org.apache.rocketmq.utility.UtilAll;
 @Setter
 public class DefaultMQProducerImpl extends ClientImpl {
 
+    /**
+     * If message body size exceeds the threshold, it would be compressed for convenience of transport.
+     */
     public static final int MESSAGE_COMPRESSION_THRESHOLD = 1024 * 4;
+    /**
+     * The default GZIP compression level for message body.
+     */
     public static final int MESSAGE_COMPRESSION_LEVEL = 5;
 
+    /**
+     * Max attempt times for auto-retry of sending message.
+     */
     private int maxAttempts = 3;
 
+    /**
+     * Sending message timeout, including the auto-retry.
+     */
     private long sendMessageTimeoutMillis = 10 * 1000;
 
+    /**
+     * It indicates the delay time of server check before the transaction message is committed/rollback.
+     */
     private long transactionResolveDelayMillis = 5 * 1000;
+
+    private TransactionChecker transactionChecker;
 
     @Getter(AccessLevel.NONE)
     private final ExecutorService defaultSendCallbackExecutor;
@@ -124,8 +141,6 @@ public class DefaultMQProducerImpl extends ClientImpl {
 
     @Getter(AccessLevel.NONE)
     private final ReadWriteLock isolatedRouteEndpointsSetLock;
-
-    private TransactionChecker transactionChecker;
 
     @Getter(AccessLevel.NONE)
     private final ThreadPoolExecutor transactionCheckerExecutor;
