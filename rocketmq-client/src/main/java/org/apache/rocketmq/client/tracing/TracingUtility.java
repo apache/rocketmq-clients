@@ -120,9 +120,8 @@ public class TracingUtility {
             return SpanContext.getInvalid();
         }
 
-        TraceFlags traceFlags =
-                TraceFlags.fromByte(
-                        OtelEncodingUtils.byteFromBase16(firstTraceFlagsChar, secondTraceFlagsChar));
+        TraceFlags traceFlags = TraceFlags.fromByte(OtelEncodingUtils.byteFromBase16(firstTraceFlagsChar,
+                                                                                     secondTraceFlagsChar));
         return SpanContext.createFromRemoteParent(traceId, spanId, traceFlags, TraceState.getDefault());
     }
 

@@ -331,6 +331,11 @@ public class DefaultMQProducerImpl extends ClientImpl {
         }
 
         final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
+        // set trace context.
+        final String traceContext = messageImpl.getSystemAttribute().getTraceContext();
+        if (null != traceContext) {
+            systemAttributeBuilder.setTraceContext(traceContext);
+        }
         switch (messageImpl.getSystemAttribute().getMessageType()) {
             case FIFO:
                 systemAttributeBuilder.setMessageType(apache.rocketmq.v1.MessageType.FIFO);
@@ -668,13 +673,13 @@ public class DefaultMQProducerImpl extends ClientImpl {
         final Partition partition = candidates.get(UtilAll.positiveMod(attempt - 1, candidates.size()));
         final Endpoints endpoints = partition.getBroker().getEndpoints();
 
-        final SendMessageRequest request = wrapSendMessageRequest(message, partition);
-        final Stopwatch stopwatch = Stopwatch.createStarted();
-
         // intercept before message sending.
         final MessageInterceptorContext.MessageInterceptorContextBuilder contextBuilder =
                 MessageInterceptorContext.builder().attempt(attempt);
         intercept(MessageHookPoint.PRE_SEND_MESSAGE, message.getMessageExt(), contextBuilder.build());
+
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+        final SendMessageRequest request = wrapSendMessageRequest(message, partition);
 
         final ListenableFuture<SendMessageResponse> responseFuture =
                 clientManager.sendMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);

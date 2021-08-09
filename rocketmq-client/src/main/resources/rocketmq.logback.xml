@@ -21,7 +21,7 @@
             <charset class="java.nio.charset.Charset">UTF-8</charset>
         </encoder>
     </appender>
-    <root level="debug">
+    <root level="info">
         <appender-ref ref="ConsoleAppender"/>
         <appender-ref ref="DefaultAppender" additivity="false"/>
     </root>

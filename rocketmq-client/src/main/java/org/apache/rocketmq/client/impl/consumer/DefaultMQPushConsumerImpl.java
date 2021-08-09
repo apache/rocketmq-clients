@@ -190,6 +190,10 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
      */
     private long consumeFromTimeMillis = System.currentTimeMillis();
 
+    /**
+     * Timeout of consumption shows failure of consumption, message would be delivered once again until run out of
+     * delivery attempt times.
+     */
     private long consumptionTimeoutMillis = 15 * 60 * 1000L;
 
     private long maxAwaitTimeMillisPerQueue = 0;

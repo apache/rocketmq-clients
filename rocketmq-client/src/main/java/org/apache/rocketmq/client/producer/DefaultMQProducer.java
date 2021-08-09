@@ -33,31 +33,26 @@ public class DefaultMQProducer {
     protected final DefaultMQProducerImpl impl;
 
     /**
-     * Constructor specifying producer group.
+     * Constructor specifying group.
      *
-     * @param group Producer group, see the name-sake field.
+     * @param group group name.
      */
     public DefaultMQProducer(final String group) {
         this.impl = new DefaultMQProducerImpl(group);
     }
 
     /**
-     * Constructor specifying arn and producer group.
+     * Set name of producer group.
      *
-     * @param arn   Means abstract resource namespace,
-     * @param group Producer group, see the name-sake field.
+     * @param group name of producer group.
+     * @throws ClientException if there is any client error.
      */
-    public DefaultMQProducer(final String arn, final String group) {
-        this(group);
-        this.impl.setArn(arn);
+    public void setProducerGroup(String group) throws ClientException {
+        this.impl.setGroup(group);
     }
 
     public String getProducerGroup() {
         return this.impl.getGroup();
-    }
-
-    public void setProducerGroup(String group) throws ClientException {
-        this.impl.setGroup(group);
     }
 
     /**

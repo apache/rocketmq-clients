@@ -360,19 +360,21 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
             dispatchGenericPollRequest(endpoints);
         }
 
-        if (messageTracingEnabled) {
-            if (updateMessageTracerAsync) {
-                // do not block route update because of tracing.
-                clientManager.getScheduler().submit(new Runnable() {
-                    @Override
-                    public void run() {
-                        updateTracer();
-                    }
-                });
-                return;
-            }
-            updateTracer();
+        if (!messageTracingEnabled) {
+            return;
         }
+
+        if (updateMessageTracerAsync) {
+            // do not block route update because of tracing.
+            clientManager.getScheduler().submit(new Runnable() {
+                @Override
+                public void run() {
+                    updateTracer();
+                }
+            });
+            return;
+        }
+        updateTracer();
     }
 
     private void updateRouteCache() {

@@ -77,7 +77,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.TOPIC, message.getTopic());
                 span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
                 span.setAttribute(TracingAttribute.GROUP, group);
-                span.setAttribute(TracingAttribute.TAGS, message.getTag());
+                span.setAttribute(TracingAttribute.TAG, message.getTag());
                 span.setAttribute(TracingAttribute.KEYS, message.getKeys());
                 span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
                 // span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
@@ -124,7 +124,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.TOPIC, message.getTopic());
                 span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
                 span.setAttribute(TracingAttribute.GROUP, group);
-                span.setAttribute(TracingAttribute.TAGS, message.getTag());
+                span.setAttribute(TracingAttribute.TAG, message.getTag());
                 span.setAttribute(TracingAttribute.KEYS, message.getKeys());
                 span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
                 // span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
@@ -147,7 +147,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.TOPIC, message.getTopic());
                 span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
                 span.setAttribute(TracingAttribute.GROUP, group);
-                span.setAttribute(TracingAttribute.TAGS, message.getTag());
+                span.setAttribute(TracingAttribute.TAG, message.getTag());
                 span.setAttribute(TracingAttribute.KEYS, message.getKeys());
                 span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
                 // span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
@@ -177,7 +177,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.TOPIC, message.getTopic());
                 span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
                 span.setAttribute(TracingAttribute.GROUP, group);
-                span.setAttribute(TracingAttribute.TAGS, message.getTag());
+                span.setAttribute(TracingAttribute.TAG, message.getTag());
                 span.setAttribute(TracingAttribute.KEYS, message.getKeys());
                 span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
                 // span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
