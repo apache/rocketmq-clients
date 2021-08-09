@@ -804,7 +804,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
         if (Code.OK == code) {
             return new SendResult(endpoints, response.getMessageId(), response.getTransactionId());
         }
-        log.debug("Response indicates failure of sending message, information={}", status.getMessage());
+        log.debug("Response indicates failure of sending message, status message={}", status.getMessage());
         throw new ServerException(ErrorCode.OTHER, status.getMessage());
     }
 

@@ -82,10 +82,10 @@ public class DefaultMQPushConsumer {
      *
      * <p> e.g: 127.0.0.1:9876;127.0.0.2:9875
      *
-     * @param namesrvAddr ip address of name server.
+     * @param address ip address of name server.
      */
-    public void setNamesrvAddr(String namesrvAddr) {
-        this.impl.setNamesrvAddr(namesrvAddr);
+    public void setNamesrvAddr(String address) {
+        this.impl.setNamesrvAddr(address);
     }
 
     /**

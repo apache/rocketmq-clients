@@ -321,25 +321,25 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
 
     private void renewNameServerList() {
         log.info("Start to renew name server list for a new round");
-        List<Endpoints> newNameServerList;
+        List<Endpoints> newNameServerEndpointsList;
         try {
-            newNameServerList = topAddressing.fetchNameServerAddresses();
+            newNameServerEndpointsList = topAddressing.fetchNameServerAddresses();
         } catch (Throwable t) {
             log.error("Failed to fetch name server list from top addressing", t);
             return;
         }
-        if (newNameServerList.isEmpty()) {
+        if (newNameServerEndpointsList.isEmpty()) {
             log.warn("Yuck, got an empty name server list.");
             return;
         }
         nameServerEndpointsListLock.writeLock().lock();
         try {
-            if (nameServerEndpointsList == newNameServerList) {
-                log.debug("Name server list remains no changed");
+            if (nameServerEndpointsList.equals(newNameServerEndpointsList)) {
+                log.debug("Name server list remains no changed, name server list={}", nameServerEndpointsList);
                 return;
             }
             nameServerEndpointsList.clear();
-            nameServerEndpointsList.addAll(newNameServerList);
+            nameServerEndpointsList.addAll(newNameServerEndpointsList);
         } finally {
             nameServerEndpointsListLock.writeLock().unlock();
         }

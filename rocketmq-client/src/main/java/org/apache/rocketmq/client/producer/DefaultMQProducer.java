@@ -24,6 +24,7 @@ import org.apache.rocketmq.client.exception.ServerException;
 import org.apache.rocketmq.client.impl.producer.DefaultMQProducerImpl;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
+import org.apache.rocketmq.client.tracing.TracingMessageInterceptor;
 
 public class DefaultMQProducer {
 
@@ -73,24 +74,60 @@ public class DefaultMQProducer {
         this.impl.shutdown();
     }
 
-    public void setNamesrvAddr(String namesrvAddr) {
-        this.impl.setNamesrvAddr(namesrvAddr);
+    /**
+     * Set ip address of name server, split multi-address by ';'.
+     *
+     * <p> e.g: 127.0.0.1:9876;127.0.0.2:9875
+     *
+     * @param address ip address of name server.
+     */
+    public void setNamesrvAddr(String address) {
+        this.impl.setNamesrvAddr(address);
     }
 
+    /**
+     * Set abstract resource name of producer.
+     *
+     * @param arn abstract resource name.
+     */
     public void setArn(String arn) {
         this.impl.setArn(arn);
     }
 
+    /**
+     * Get abstract resource name of producer.
+     *
+     * @return abstract resource name.
+     */
+    public String getArn() {
+        return this.impl.getArn();
+    }
+
+    /**
+     * Set credentials provider for consumer.
+     *
+     * @param provider credentials provider.
+     */
     public void setCredentialsProvider(CredentialsProvider provider) {
         this.impl.setCredentialsProvider(provider);
     }
 
-    public void setMessageTracingEnabled(boolean tracingEnabled) {
-        this.impl.setMessageTracingEnabled(tracingEnabled);
+    /**
+     * Enable message tracing. If enabled, <a href="https://opentelemetry.io//">OpenTelemetry</a>
+     * would be enabled to record message tracing by span. See {@link TracingMessageInterceptor} for more details.
+     *
+     * @param enabled message tracing is enabled or not.
+     */
+    public void setMessageTracingEnabled(boolean enabled) {
+        this.impl.setMessageTracingEnabled(enabled);
     }
 
-    public void setSendMessageTimeoutMillis(long timeoutMillis) {
-        this.impl.setSendMessageTimeoutMillis(timeoutMillis);
+    /**
+     *
+     * @param timeout
+     */
+    public void setSendMessageTimeoutMillis(long timeout) {
+        this.impl.setSendMessageTimeoutMillis(timeout);
     }
 
     /**
