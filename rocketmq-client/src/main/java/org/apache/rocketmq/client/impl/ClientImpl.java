@@ -106,6 +106,7 @@ import org.apache.rocketmq.client.message.protocol.Encoding;
 import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.misc.TopAddressing;
+import org.apache.rocketmq.client.misc.Validators;
 import org.apache.rocketmq.client.remoting.AuthInterceptor;
 import org.apache.rocketmq.client.remoting.IpNameResolverFactory;
 import org.apache.rocketmq.client.route.Address;
@@ -139,21 +140,25 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
      * Name for tracer. See <a href="https://opentelemetry.io">OpenTelemetry</a> for more details.
      */
     private static final String TRACER_INSTRUMENTATION_NAME = "org.apache.rocketmq.message.tracer";
+
     /**
      * Delay interval between two consecutive trace span exports to collector. See
      * <a href="https://opentelemetry.io">OpenTelemetry</a> for more details.
      */
     private static final long TRACE_EXPORTER_SCHEDULE_DELAY_MILLIS = 1000L;
+
     /**
      * Maximum time to wait for the collector to process an exported batch of spans. See
      * <a href="https://opentelemetry.io">OpenTelemetry</a> for more details.
      */
     private static final long TRACE_EXPORTER_RPC_TIMEOUT_MILLIS = 3 * 1000L;
+
     /**
      * Maximum batch size for every export of span, must be smaller than {@link #TRACE_EXPORTER_MAX_QUEUE_SIZE}.
      * See <a href="https://opentelemetry.io">OpenTelemetry</a> for more details.
      */
     private static final int TRACE_EXPORTER_BATCH_SIZE = 1024;
+
     /**
      * Maximum number of {@link Span} that are kept in the queue before start dropping. See
      * <a href="https://opentelemetry.io">OpenTelemetry</a> for more details.
@@ -512,20 +517,40 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         return future0;
     }
 
-    public void setNamesrvAddr(String namesrv) {
+    public void setNamesrvAddr(String namesrv) throws ClientException {
+        Validators.checkNamesrvAddr(namesrv);
         nameServerEndpointsListLock.writeLock().lock();
         try {
             this.nameServerEndpointsList.clear();
-            final String[] addressArray = namesrv.split(";");
-            for (String address : addressArray) {
-                // TODO: check name server format, IPv4/IPv6/DOMAIN_NAME
-                final String[] split = address.split(":");
-                String host = split[0];
-                int port = Integer.parseInt(split[1]);
-
+            if (namesrv.startsWith(MixAll.HTTP_PREFIX)) {
+                final String domainName = namesrv.substring(MixAll.HTTP_PREFIX.length());
+                final String[] split = domainName.split(":");
+                String host = split[0].replace("_", "-");
+                int port = split.length >= 2 ? Integer.parseInt(split[1]) : 80;
                 List<Address> addresses = new ArrayList<Address>();
                 addresses.add(new Address(host, port));
-                this.nameServerEndpointsList.add(new Endpoints(AddressScheme.IPv4, addresses));
+                this.nameServerEndpointsList.add(new Endpoints(AddressScheme.DOMAIN_NAME, addresses));
+            } else if (namesrv.startsWith(MixAll.HTTPS_PREFIX)) {
+                final String domainName = namesrv.substring(MixAll.HTTPS_PREFIX.length());
+                final String[] split = domainName.split(":");
+                String host = split[0];
+                int port = split.length >= 2 ? Integer.parseInt(split[1]) : 80;
+                List<Address> addresses = new ArrayList<Address>();
+                addresses.add(new Address(host, port));
+                this.nameServerEndpointsList.add(new Endpoints(AddressScheme.DOMAIN_NAME, addresses));
+            } else {
+                final String[] addressArray = namesrv.split(";");
+                for (String address : addressArray) {
+                    final String[] split = address.split(":");
+                    String host = split[0];
+                    int port = Integer.parseInt(split[1]);
+                    List<Address> addresses = new ArrayList<Address>();
+                    addresses.add(new Address(host, port));
+                    this.nameServerEndpointsList.add(new Endpoints(AddressScheme.IPv4, addresses));
+                }
+            }
+            if (Validators.NAME_SERVER_ENDPOINT_WITH_NAMESPACE_PATTERN.matcher(namesrv).matches()) {
+                this.arn = namesrv.substring(namesrv.lastIndexOf('/') + 1, namesrv.indexOf('.'));
             }
         } finally {
             nameServerEndpointsListLock.writeLock().unlock();

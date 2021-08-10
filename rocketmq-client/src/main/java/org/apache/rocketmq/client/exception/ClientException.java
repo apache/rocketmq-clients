@@ -25,32 +25,32 @@ public class ClientException extends Exception {
 
     @Deprecated
     public ClientException(String errorMessage) {
-        super("Code: " + ErrorCode.OTHER + ", " + errorMessage);
+        super("ErrorCode: " + ErrorCode.OTHER + ", " + errorMessage);
         this.errorCode = ErrorCode.OTHER;
     }
 
     public ClientException(Throwable cause) {
-        super("Code: " + ErrorCode.OTHER, cause);
+        super("ErrorCode: " + ErrorCode.OTHER, cause);
         this.errorCode = ErrorCode.OTHER;
     }
 
     public ClientException(ErrorCode errorCode) {
-        super("Code: " + errorCode);
+        super("ErrorCode: " + errorCode);
         this.errorCode = errorCode;
     }
 
     public ClientException(ErrorCode errorCode, String errorMessage) {
-        super("Code: " + errorCode + ", " + errorMessage);
+        super("ErrorCode: " + errorCode + ", " + errorMessage);
         this.errorCode = errorCode;
     }
 
     public ClientException(ErrorCode errorCode, String errorMessage, Throwable cause) {
-        super("Code: " + errorCode + ", " + errorMessage, cause);
+        super("ErrorCode: " + errorCode + ", " + errorMessage, cause);
         this.errorCode = errorCode;
     }
 
     public ClientException(ErrorCode errorCode, Throwable cause) {
-        super("Code: " + errorCode, cause);
+        super("ErrorCode: " + errorCode, cause);
         this.errorCode = errorCode;
     }
 }

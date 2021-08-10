@@ -47,7 +47,7 @@ public class DefaultMQPullConsumer {
         this.impl.shutdown();
     }
 
-    public void setNamesrvAddr(String namesrvAddr) {
+    public void setNamesrvAddr(String namesrvAddr) throws ClientException {
         this.impl.setNamesrvAddr(namesrvAddr);
     }
 

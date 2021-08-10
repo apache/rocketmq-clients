@@ -27,7 +27,7 @@ public enum AddressScheme {
     /**
      * Scheme for domain name.
      */
-    DOMAIN_NAME("dns:"),
+    DOMAIN_NAME(""),
     /**
      * Scheme for ipv4 address.
      */

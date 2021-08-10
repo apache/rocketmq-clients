@@ -25,22 +25,22 @@ public class ServerException extends IOException {
 
     @Deprecated
     public ServerException(String errorMessage) {
-        super("Code: " + ErrorCode.OTHER + ", " + errorMessage);
+        super("ErrorCode: " + ErrorCode.OTHER + ", " + errorMessage);
     }
 
     public ServerException(ErrorCode errorCode) {
-        super("Code: " + errorCode);
+        super("ErrorCode: " + errorCode);
     }
 
     public ServerException(ErrorCode errorCode, String errorMessage) {
-        super("Code: " + errorCode + ", " + errorMessage);
+        super("ErrorCode: " + errorCode + ", " + errorMessage);
     }
 
     public ServerException(ErrorCode errorCode, String errorMessage, Throwable cause) {
-        super("Code: " + errorCode + ", " + errorMessage, cause);
+        super("ErrorCode: " + errorCode + ", " + errorMessage, cause);
     }
 
     public ServerException(ErrorCode errorCode, Throwable cause) {
-        super("Code: " + errorCode, cause);
+        super("ErrorCode: " + errorCode, cause);
     }
 }

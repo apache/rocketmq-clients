@@ -36,6 +36,12 @@ public class Validators {
 
     public static final int MESSAGE_BODY_MAX_SIZE = 1024 * 1024 * 4;
 
+    public static final String INSTANCE_REGEX = "MQ_INST_\\w+_\\w+";
+
+    public static final Pattern NAME_SERVER_ENDPOINT_PATTERN = Pattern.compile("^(\\w+://|).*");
+    public static final Pattern NAME_SERVER_ENDPOINT_WITH_NAMESPACE_PATTERN =
+            Pattern.compile("^(\\w+://|)" + INSTANCE_REGEX + "\\..*");
+
     private Validators() {
     }
 
@@ -86,6 +92,16 @@ public class Validators {
         if (body.length > MESSAGE_BODY_MAX_SIZE) {
             throw new ClientException(ErrorCode.ILLEGAL_FORMAT, "Message body's length exceeds the threshold, "
                                                                 + "maxSize=" + MESSAGE_BODY_MAX_SIZE + " bytes.");
+        }
+    }
+
+    public static void checkNamesrvAddr(String namesrvAddr) throws ClientException {
+        if (!StringUtils.isNoneBlank(namesrvAddr)) {
+            throw new ClientException(ErrorCode.ILLEGAL_FORMAT, "Name server address is blank.");
+        }
+        if (!NAME_SERVER_ENDPOINT_PATTERN.matcher(namesrvAddr).matches()
+            && !NAME_SERVER_ENDPOINT_WITH_NAMESPACE_PATTERN.matcher(namesrvAddr).matches()) {
+            throw new ClientException(ErrorCode.ILLEGAL_FORMAT, "Name server address is illegal.");
         }
     }
 }

@@ -103,6 +103,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
      * If message body size exceeds the threshold, it would be compressed for convenience of transport.
      */
     public static final int MESSAGE_COMPRESSION_THRESHOLD = 1024 * 4;
+
     /**
      * The default GZIP compression level for message body.
      */

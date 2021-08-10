@@ -86,7 +86,7 @@ public class DefaultMQProducer {
      *
      * @param address ip address of name server.
      */
-    public void setNamesrvAddr(String address) {
+    public void setNamesrvAddr(String address) throws ClientException {
         this.impl.setNamesrvAddr(address);
     }
 
