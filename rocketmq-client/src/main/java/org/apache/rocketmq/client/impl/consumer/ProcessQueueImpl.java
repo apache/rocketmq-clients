@@ -187,7 +187,7 @@ public class ProcessQueueImpl implements ProcessQueue {
             // no rate limiter for current topic.
             if (null == rateLimiter) {
                 final int actualSize = Math.min(pendingMessages.size(), batchMaxSize);
-                final List<MessageExt> subList = pendingMessages.subList(0, actualSize);
+                final List<MessageExt> subList = new ArrayList<MessageExt>(pendingMessages.subList(0, actualSize));
                 messageExtList.addAll(subList);
 
                 inflightMessages.addAll(subList);
