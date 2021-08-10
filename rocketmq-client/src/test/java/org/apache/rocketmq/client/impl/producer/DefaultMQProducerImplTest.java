@@ -49,7 +49,6 @@ import org.apache.rocketmq.client.exception.ServerException;
 import org.apache.rocketmq.client.impl.ClientManager;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageExt;
-import org.apache.rocketmq.client.message.MessageIdGenerator;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.client.producer.SendStatus;
@@ -262,7 +261,7 @@ public class DefaultMQProducerImplTest extends TestBase {
                                           ArgumentMatchers.<TimeUnit>any()))
                 .thenReturn(successEndTransactionResponse());
         final Endpoints endpoints = new Endpoints(dummyEndpoints0());
-        producerImpl.commit(endpoints, MessageIdGenerator.getInstance().next(), dummyTransactionId);
+        producerImpl.commit(endpoints, dummyMessageExt(), dummyTransactionId);
         verify(clientManager, times(1)).endTransaction(ArgumentMatchers.<Endpoints>any(),
                                                        ArgumentMatchers.<Metadata>any(),
                                                        ArgumentMatchers.<EndTransactionRequest>any(),
@@ -277,7 +276,7 @@ public class DefaultMQProducerImplTest extends TestBase {
                                           ArgumentMatchers.<TimeUnit>any()))
                 .thenReturn(successEndTransactionResponse());
         final Endpoints endpoints = new Endpoints(dummyEndpoints0());
-        producerImpl.rollback(endpoints, MessageIdGenerator.getInstance().next(), dummyTransactionId);
+        producerImpl.rollback(endpoints, dummyMessageExt(), dummyTransactionId);
         verify(clientManager, times(1)).endTransaction(ArgumentMatchers.<Endpoints>any(),
                                                        ArgumentMatchers.<Metadata>any(),
                                                        ArgumentMatchers.<EndTransactionRequest>any(),

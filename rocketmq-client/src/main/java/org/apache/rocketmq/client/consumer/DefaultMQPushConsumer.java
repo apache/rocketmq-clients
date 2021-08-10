@@ -204,6 +204,11 @@ public class DefaultMQPushConsumer {
         this.impl.setMaxAwaitBatchSizePerQueue(timeMillis);
     }
 
+    /**
+     * Set message consumption model for consumer.
+     *
+     * @param messageModel mode of message consumption model.
+     */
     public void setMessageModel(MessageModel messageModel) {
         this.impl.setMessageModel(messageModel);
     }

@@ -152,17 +152,17 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
     private long fifoConsumptionSuspendTimeMillis = 1000L;
 
     /**
-     * Max batch size for each message consumption. It does not make sense for FIFO message.
+     * Maximum batch size for each message consumption. It does not make sense for FIFO message.
      */
     private int consumeMessageBatchMaxSize = 1;
 
     /**
-     * Consumption thread amount, which determine the consumption speed to some degree.
+     * Consumption thread amount, which determines the consumption speed to some degree.
      */
     private int consumptionThreadsAmount = 32;
 
     /**
-     * for {@link MessageModel#CLUSTERING} only. It shows the max delivery attempts for each message.
+     * for {@link MessageModel#CLUSTERING} only. It shows the Maximum delivery attempts for each message.
      */
     private int maxDeliveryAttempts = 17;
 
@@ -317,9 +317,9 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
                 throw new ClientException(ErrorCode.NO_LISTENER_REGISTERED);
             }
             super.start();
-
             this.generateConsumeService();
             consumeService.start();
+
             final ScheduledExecutorService scheduler = clientManager.getScheduler();
             scanAssignmentsFuture = scheduler.scheduleWithFixedDelay(
                     new Runnable() {

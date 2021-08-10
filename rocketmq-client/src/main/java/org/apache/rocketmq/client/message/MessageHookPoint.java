@@ -18,21 +18,54 @@
 package org.apache.rocketmq.client.message;
 
 public enum MessageHookPoint {
+    /**
+     * Hook point before sending.
+     */
     PRE_SEND_MESSAGE,
+    /**
+     * Hook point after sending.
+     */
     POST_SEND_MESSAGE,
 
+    /**
+     * Hook point before pull message.
+     */
     PRE_PULL_MESSAGE,
+    /**
+     * Hook point after pull message.
+     */
     POST_PULL_MESSAGE,
 
+    /**
+     * Hook point before message consumption.
+     */
     PRE_MESSAGE_CONSUMPTION,
+    /**
+     * Hook point after message consumption.
+     */
     POST_MESSAGE_CONSUMPTION,
 
+    /**
+     * Hook point before end the transaction message.
+     */
     PRE_END_MESSAGE,
+    /**
+     * Hook point after end the transaction message.
+     */
     POST_END_MESSAGE;
 
     public enum PointStatus {
+        /**
+         * Default status.
+         */
         UNSET,
+        /**
+         * Success.
+         */
         OK,
+        /**
+         * Failure.
+         */
         ERROR;
     }
 }

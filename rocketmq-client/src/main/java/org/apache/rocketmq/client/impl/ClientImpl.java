@@ -55,9 +55,8 @@ import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext;
 import io.grpc.netty.shaded.io.netty.handler.ssl.util.InsecureTrustManagerFactory;
+import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
-import io.opentelemetry.context.propagation.ContextPropagators;
 import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
@@ -88,6 +87,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.constant.Permission;
 import org.apache.rocketmq.client.constant.ServiceState;
+import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
 import org.apache.rocketmq.client.consumer.OffsetQuery;
 import org.apache.rocketmq.client.consumer.PullMessageQuery;
 import org.apache.rocketmq.client.consumer.PullMessageResult;
@@ -122,21 +122,52 @@ import org.apache.rocketmq.utility.UtilAll;
 @Slf4j
 public abstract class ClientImpl extends ClientConfig implements ClientObserver, MessageInterceptor {
 
+    /**
+     * Delay interval while multiplexing call encounters failure.
+     */
     private static final long MULTIPLEXING_CALL_LATER_DELAY_MILLIS = 3 * 1000L;
+    /**
+     * Maximum time allowed client to execute multiplexing call before being cancelled.
+     */
     private static final long MULTIPLEXING_CALL_TIMEOUT_MILLIS = 60 * 1000L;
+
+    /**
+     * For {@link DefaultMQPushConsumer} only, maximum time allowed consumer to verify specified message's consumption.
+     */
     private static final long VERIFY_CONSUMPTION_TIMEOUT_MILLIS = 15 * 1000L;
 
+    /**
+     * Name for tracer. See <a href="https://opentelemetry.io//">OpenTelemetry</a> for more details.
+     */
     private static final String TRACER_INSTRUMENTATION_NAME = "org.apache.rocketmq.message.tracer";
+    /**
+     * Delay interval between two consecutive trace span exports to collector. See
+     * <a href="https://opentelemetry.io//">OpenTelemetry</a> for more details.
+     */
     private static final long TRACE_EXPORTER_SCHEDULE_DELAY_MILLIS = 1000L;
-    private static final long TRACE_EXPORTER_RPC_TIMEOUT_MILLIS = 3000L;
-    private static final int TRACE_EXPORTER_BATCH_SIZE = 65536;
+    /**
+     * Maximum time to wait for the collector to process an exported batch of spans. See
+     * <a href="https://opentelemetry.io//">OpenTelemetry</a> for more details.
+     */
+    private static final long TRACE_EXPORTER_RPC_TIMEOUT_MILLIS = 3 * 1000L;
+    /**
+     * Maximum batch size for every export of span, must be smaller than {@link #TRACE_EXPORTER_MAX_QUEUE_SIZE}.
+     * See <a href="https://opentelemetry.io//">OpenTelemetry</a> for more details.
+     */
+    private static final int TRACE_EXPORTER_BATCH_SIZE = 1024;
+    /**
+     * Maximum number of {@link Span} that are kept in the queue before start dropping. See
+     * <a href="https://opentelemetry.io//">OpenTelemetry</a> for more details.
+     */
+    private static final int TRACE_EXPORTER_MAX_QUEUE_SIZE = 4096;
+
+    @Getter
+    protected volatile ClientManager clientManager;
 
     @Getter
     protected volatile Tracer tracer;
     protected volatile Endpoints tracingEndpoints;
-
-    @Getter
-    protected volatile ClientManager clientManager;
+    private volatile SdkTracerProvider tracerProvider;
 
     private final AtomicReference<ServiceState> state;
 
@@ -158,6 +189,9 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
     private volatile ScheduledFuture<?> renewNameServerListFuture;
     private volatile ScheduledFuture<?> updateRouteCacheFuture;
 
+    /**
+     * Cache all used topic route, route cache would be updated periodically fro name server.
+     */
     private final ConcurrentMap<String /* topic */, TopicRouteData> topicRouteCache;
 
     public ClientImpl(String group) {
@@ -166,6 +200,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
 
         this.tracer = null;
         this.tracingEndpoints = null;
+        this.tracerProvider = null;
 
         this.topAddressing = new TopAddressing();
         this.nameServerIndex = new AtomicInteger(RandomUtils.nextInt());
@@ -263,6 +298,9 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                 updateRouteCacheFuture.cancel(false);
             }
             clientManager.unregisterObserver(this);
+            if (null != tracerProvider) {
+                tracerProvider.shutdown();
+            }
             state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
             log.info("Shutdown the rocketmq client base successfully.");
         }
@@ -356,10 +394,15 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         final Set<Endpoints> diff = new HashSet<Endpoints>(Sets.difference(after, before));
 
         for (Endpoints endpoints : diff) {
-            log.info("Start multiplexing call first time, endpoints={}", endpoints);
+            log.info("Start multiplexing call for new endpoints={}", endpoints);
             dispatchGenericPollRequest(endpoints);
         }
 
+        final HeartbeatRequest request = wrapHeartbeatRequest();
+        for (Endpoints endpoints : diff) {
+            log.info("Start to send heartbeat to new endpoints={}", endpoints);
+            doHeartbeat(request, endpoints);
+        }
         if (!messageTracingEnabled) {
             return;
         }
@@ -541,31 +584,16 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
 
     public abstract HeartbeatEntry prepareHeartbeatData();
 
-    @Override
-    public void doHeartbeat() {
-        final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
-        if (routeEndpointsSet.isEmpty()) {
-            log.info("No endpoints is needed to send heartbeat at present, clientId={}", clientId);
-            return;
-        }
-        final HeartbeatRequest.Builder builder = HeartbeatRequest.newBuilder();
-        final HeartbeatEntry heartbeatEntry = prepareHeartbeatData();
-        if (null == heartbeatEntry) {
-            log.info("No heartbeat entries to send, skip it, clientId={}", clientId);
-            return;
-        }
-        builder.addHeartbeats(heartbeatEntry);
-        final HeartbeatRequest request = builder.build();
-        Metadata metadata;
+    private void doHeartbeat(HeartbeatRequest request, final Endpoints endpoints) {
         try {
-            metadata = sign();
-        } catch (Throwable t) {
-            return;
-        }
-        for (final Endpoints endpoints : routeEndpointsSet) {
-            final ListenableFuture<HeartbeatResponse> future = clientManager.heartbeat(endpoints, metadata, request,
-                                                                                       ioTimeoutMillis,
-                                                                                       TimeUnit.MILLISECONDS);
+            Metadata metadata;
+            try {
+                metadata = sign();
+            } catch (Throwable t) {
+                return;
+            }
+            final ListenableFuture<HeartbeatResponse> future = clientManager
+                    .heartbeat(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
             Futures.addCallback(future, new FutureCallback<HeartbeatResponse>() {
                 @Override
                 public void onSuccess(HeartbeatResponse response) {
@@ -584,6 +612,24 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     log.warn("Failed to send heartbeat, endpoints={}", endpoints, t);
                 }
             });
+        } catch (Throwable e) {
+            log.error("Unexpected exception raised while heartbeat, endpoints={}.", endpoints, e);
+        }
+    }
+
+    private HeartbeatRequest wrapHeartbeatRequest() {
+        final HeartbeatRequest.Builder builder = HeartbeatRequest.newBuilder();
+        final HeartbeatEntry heartbeatEntry = prepareHeartbeatData();
+        builder.addHeartbeats(heartbeatEntry);
+        return builder.build();
+    }
+
+    @Override
+    public void doHeartbeat() {
+        final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
+        final HeartbeatRequest request = wrapHeartbeatRequest();
+        for (Endpoints endpoints : routeEndpointsSet) {
+            doHeartbeat(request, endpoints);
         }
     }
 
@@ -798,7 +844,6 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                 resolveOrphanedTransaction(endpoints, orphanedRequest);
                 /* fall through on purpose. */
             case POLLING_RESPONSE:
-                log.trace("Receive polling response from remote.");
                 /* fall through on purpose. */
             default:
                 dispatchGenericPollRequest(endpoints);
@@ -899,56 +944,63 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
     }
 
     private void updateTracer() {
-        try {
-            log.debug("Start to update tracer.");
-            final Set<Endpoints> tracingEndpointsSet = getTracingEndpointsSet();
-            if (tracingEndpointsSet.isEmpty()) {
-                log.warn("No available tracing endpoints.");
-                return;
+        synchronized (this) {
+            try {
+                log.debug("Start to update tracer.");
+                final Set<Endpoints> tracingEndpointsSet = getTracingEndpointsSet();
+                if (tracingEndpointsSet.isEmpty()) {
+                    log.warn("No available tracing endpoints.");
+                    return;
+                }
+                if (null != tracingEndpoints && tracingEndpointsSet.contains(tracingEndpoints)) {
+                    log.debug("Tracing target remains unchanged");
+                    return;
+                }
+                List<Endpoints> tracingRpcTargetList = new ArrayList<Endpoints>(tracingEndpointsSet);
+                Collections.shuffle(tracingRpcTargetList);
+                // Pick up tracing rpc target randomly.
+                final Endpoints randomTracingEndpoints = tracingRpcTargetList.iterator().next();
+                final SslContext sslContext =
+                        GrpcSslContexts.forClient().trustManager(InsecureTrustManagerFactory.INSTANCE).build();
+
+                final NettyChannelBuilder channelBuilder =
+                        NettyChannelBuilder.forTarget(randomTracingEndpoints.getFacade())
+                                           .sslContext(sslContext)
+                                           .intercept(new AuthInterceptor(this));
+
+                final List<InetSocketAddress> socketAddresses = randomTracingEndpoints.convertToSocketAddresses();
+                // If scheme is not domain.
+                if (null != socketAddresses) {
+                    IpNameResolverFactory tracingResolverFactory = new IpNameResolverFactory(socketAddresses);
+                    channelBuilder.nameResolverFactory(tracingResolverFactory);
+                }
+
+                OtlpGrpcSpanExporter exporter =
+                        OtlpGrpcSpanExporter.builder().setChannel(channelBuilder.build())
+                                            .setTimeout(TRACE_EXPORTER_RPC_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                                            .build();
+
+                BatchSpanProcessor spanProcessor =
+                        BatchSpanProcessor.builder(exporter)
+                                          .setScheduleDelay(TRACE_EXPORTER_SCHEDULE_DELAY_MILLIS, TimeUnit.MILLISECONDS)
+                                          .setMaxExportBatchSize(TRACE_EXPORTER_BATCH_SIZE)
+                                          .setMaxQueueSize(TRACE_EXPORTER_MAX_QUEUE_SIZE)
+                                          .build();
+                if (null != tracerProvider) {
+                    tracerProvider.shutdown();
+                }
+                tracerProvider = SdkTracerProvider.builder().addSpanProcessor(spanProcessor).build();
+                // TODO: no need propagators here.
+                OpenTelemetrySdk openTelemetry =
+                        OpenTelemetrySdk.builder()
+                                        // .setPropagators(ContextPropagators.create(W3CTraceContextPropagator
+                                        // .getInstance()))
+                                        .setTracerProvider(tracerProvider).build();
+                tracer = openTelemetry.getTracer(TRACER_INSTRUMENTATION_NAME);
+                tracingEndpoints = randomTracingEndpoints;
+            } catch (Throwable t) {
+                log.error("Exception raised while updating tracer.", t);
             }
-            if (null != tracingEndpoints && tracingEndpointsSet.contains(tracingEndpoints)) {
-                log.debug("Tracing target remains unchanged");
-                return;
-            }
-            List<Endpoints> tracingRpcTargetList = new ArrayList<Endpoints>(tracingEndpointsSet);
-            Collections.shuffle(tracingRpcTargetList);
-            // Pick up tracing rpc target randomly.
-            final Endpoints randomTracingEndpoints = tracingRpcTargetList.iterator().next();
-            final SslContext sslContext =
-                    GrpcSslContexts.forClient().trustManager(InsecureTrustManagerFactory.INSTANCE).build();
-
-            final NettyChannelBuilder channelBuilder =
-                    NettyChannelBuilder.forTarget(randomTracingEndpoints.getFacade())
-                                       .sslContext(sslContext)
-                                       .intercept(new AuthInterceptor(this));
-
-            final List<InetSocketAddress> socketAddresses = randomTracingEndpoints.convertToSocketAddresses();
-            // If scheme is not domain.
-            if (null != socketAddresses) {
-                IpNameResolverFactory tracingResolverFactory = new IpNameResolverFactory(socketAddresses);
-                channelBuilder.nameResolverFactory(tracingResolverFactory);
-            }
-
-            OtlpGrpcSpanExporter exporter =
-                    OtlpGrpcSpanExporter.builder().setChannel(channelBuilder.build())
-                                        .setTimeout(TRACE_EXPORTER_RPC_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS).build();
-
-            BatchSpanProcessor spanProcessor =
-                    BatchSpanProcessor.builder(exporter)
-                                      .setScheduleDelay(TRACE_EXPORTER_SCHEDULE_DELAY_MILLIS, TimeUnit.MILLISECONDS)
-                                      .setMaxExportBatchSize(TRACE_EXPORTER_BATCH_SIZE)
-                                      .build();
-
-            SdkTracerProvider sdkTracerProvider = SdkTracerProvider.builder().addSpanProcessor(spanProcessor).build();
-            // TODO: no need propagators here.
-            OpenTelemetrySdk openTelemetry =
-                    OpenTelemetrySdk.builder()
-                                    .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
-                                    .setTracerProvider(sdkTracerProvider).build();
-            tracer = openTelemetry.getTracer(TRACER_INSTRUMENTATION_NAME);
-            tracingEndpoints = randomTracingEndpoints;
-        } catch (Throwable t) {
-            log.error("Exception raised while updating tracer.", t);
         }
     }
 

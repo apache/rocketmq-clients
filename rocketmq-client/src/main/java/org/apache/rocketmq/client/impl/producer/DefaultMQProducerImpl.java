@@ -483,26 +483,33 @@ public class DefaultMQProducerImpl extends ClientImpl {
         systemAttribute.setOrphanedTransactionRecoveryPeriodMillis(transactionResolveDelayMillis);
 
         final SendResult sendResult = send(message);
-        return new TransactionImpl(sendResult, this);
+        return new TransactionImpl(sendResult, message, this);
     }
 
-    public void commit(Endpoints endpoints, String messageId, String transactionId) throws ClientException,
+    public void commit(Endpoints endpoints, MessageExt messageExt, String transactionId) throws ClientException,
                                                                                            ServerException,
                                                                                            InterruptedException,
                                                                                            TimeoutException {
-        endTransaction(endpoints, messageId, transactionId, TransactionResolution.COMMIT);
+        endTransaction(endpoints, messageExt, transactionId, TransactionResolution.COMMIT);
     }
 
-    public void rollback(Endpoints endpoints, String messageId, String transactionId) throws ClientException,
+    public void rollback(Endpoints endpoints, MessageExt messageExt, String transactionId) throws ClientException,
                                                                                              ServerException,
                                                                                              InterruptedException,
                                                                                              TimeoutException {
-        endTransaction(endpoints, messageId, transactionId, TransactionResolution.ROLLBACK);
+        endTransaction(endpoints, messageExt, transactionId, TransactionResolution.ROLLBACK);
     }
 
-    private void endTransaction(Endpoints endpoints, String messageId, String transactionId,
-                                TransactionResolution resolution) throws ClientException, ServerException,
-                                                                         InterruptedException, TimeoutException {
+    private void endTransaction(Endpoints endpoints, final MessageExt messageExt, String transactionId,
+                                final TransactionResolution resolution) throws ClientException, ServerException,
+                                                                               InterruptedException, TimeoutException {
+        Metadata metadata;
+        try {
+            metadata = sign();
+        } catch (Throwable t) {
+            throw new ClientException(ErrorCode.SIGNATURE_FAILURE);
+        }
+        final String messageId = messageExt.getMsgId();
         final EndTransactionRequest.Builder builder =
                 EndTransactionRequest.newBuilder().setMessageId(messageId).setTransactionId(transactionId);
         switch (resolution) {
@@ -514,14 +521,37 @@ public class DefaultMQProducerImpl extends ClientImpl {
                 builder.setResolution(EndTransactionRequest.TransactionResolution.ROLLBACK);
         }
         final EndTransactionRequest request = builder.build();
-        Metadata metadata;
-        try {
-            metadata = sign();
-        } catch (Throwable t) {
-            throw new ClientException(ErrorCode.SIGNATURE_FAILURE);
-        }
+
+        // intercept before end message.
+        intercept(MessageHookPoint.PRE_END_MESSAGE, messageExt, MessageInterceptorContext.EMPTY);
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+
         final ListenableFuture<EndTransactionResponse> future =
                 clientManager.endTransaction(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+
+        Futures.addCallback(future, new FutureCallback<EndTransactionResponse>() {
+            @Override
+            public void onSuccess(EndTransactionResponse response) {
+                // intercept after end message.
+                MessageHookPoint.PointStatus status =
+                        Code.OK == Code.forNumber(response.getCommon().getStatus().getCode()) ?
+                        MessageHookPoint.PointStatus.OK : MessageHookPoint.PointStatus.ERROR;
+                final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
+                final MessageInterceptorContext context =
+                        MessageInterceptorContext.builder().duration(duration).status(status).build();
+                intercept(MessageHookPoint.POST_END_MESSAGE, messageExt, context);
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                // intercept after end message.
+                final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
+                final MessageInterceptorContext context =
+                        MessageInterceptorContext.builder().duration(duration).throwable(t)
+                                                 .status(MessageHookPoint.PointStatus.ERROR).build();
+                intercept(MessageHookPoint.POST_END_MESSAGE, messageExt, context);
+            }
+        });
         try {
             final EndTransactionResponse response = future.get(ioTimeoutMillis, TimeUnit.MILLISECONDS);
             final Status status = response.getCommon().getStatus();
@@ -530,6 +560,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
             if (Code.OK != code) {
                 log.error("Failed to end transaction, messageId={}, transactionId={}, code={}, status message={}",
                           messageId, transactionId, code, status.getMessage());
+
                 throw new ServerException(status.getMessage());
             }
 
@@ -564,7 +595,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
                         if (null == resolution || TransactionResolution.UNKNOWN.equals(resolution)) {
                             return;
                         }
-                        endTransaction(endpoints, messageId, transactionId, resolution);
+                        endTransaction(endpoints, messageExt, transactionId, resolution);
                     } catch (Throwable t) {
                         log.error("Exception raised while check and end transaction, messageId={}, transactionId={}, "
                                   + "endpoints={}", messageId, transactionId, endpoints, t);

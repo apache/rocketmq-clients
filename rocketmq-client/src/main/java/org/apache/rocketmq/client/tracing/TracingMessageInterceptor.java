@@ -69,26 +69,33 @@ public class TracingMessageInterceptor implements MessageInterceptor {
 
         switch (hookPoint) {
             case PRE_SEND_MESSAGE: {
-                Span span = tracer.spanBuilder(SpanName.SEND_MESSAGE).startSpan();
-                if (StringUtils.isNotEmpty(accessKey)) {
-                    span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);
+                final Span parentSpan = tracer.spanBuilder(SpanName.PARENT).startSpan();
+                try {
+                    final SpanContext parentSpanContext = parentSpan.getSpanContext();
+                    final Context parentContext = Context.current().with(Span.wrap(parentSpanContext));
+                    Span span = tracer.spanBuilder(SpanName.SEND_MESSAGE).setParent(parentContext).startSpan();
+                    if (StringUtils.isNotEmpty(accessKey)) {
+                        span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);
+                    }
+                    span.setAttribute(TracingAttribute.ARN, arn);
+                    span.setAttribute(TracingAttribute.TOPIC, message.getTopic());
+                    span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
+                    span.setAttribute(TracingAttribute.GROUP, group);
+                    span.setAttribute(TracingAttribute.TAG, message.getTag());
+                    span.setAttribute(TracingAttribute.KEYS, message.getKeys());
+                    span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
+                    span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
+                    final long deliveryTimestamp = message.getDeliveryTimestamp();
+                    if (deliveryTimestamp > 0) {
+                        span.setAttribute(TracingAttribute.DELIVERY_TIMESTAMP, deliveryTimestamp);
+                    }
+                    String traceContext = TracingUtility.injectSpanContextToTraceParent(span.getSpanContext());
+                    final String spanId = span.getSpanContext().getSpanId();
+                    inflightSpans.put(spanId, span);
+                    MessageAccessor.getMessageImpl(message).getSystemAttribute().setTraceContext(traceContext);
+                } finally {
+                    parentSpan.end();
                 }
-                span.setAttribute(TracingAttribute.ARN, arn);
-                span.setAttribute(TracingAttribute.TOPIC, message.getTopic());
-                span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
-                span.setAttribute(TracingAttribute.GROUP, group);
-                span.setAttribute(TracingAttribute.TAG, message.getTag());
-                span.setAttribute(TracingAttribute.KEYS, message.getKeys());
-                span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
-                // span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
-                final long deliveryTimestamp = message.getDeliveryTimestamp();
-                if (deliveryTimestamp > 0) {
-                    span.setAttribute(TracingAttribute.DELIVERY_TIMESTAMP, deliveryTimestamp);
-                }
-                String traceContext = TracingUtility.injectSpanContextToTraceParent(span.getSpanContext());
-                final String spanId = span.getSpanContext().getSpanId();
-                inflightSpans.put(spanId, span);
-                MessageAccessor.getMessageImpl(message).getSystemAttribute().setTraceContext(traceContext);
                 break;
             }
             case POST_SEND_MESSAGE: {
@@ -127,7 +134,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.TAG, message.getTag());
                 span.setAttribute(TracingAttribute.KEYS, message.getKeys());
                 span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
-                // span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
+                span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
                 break;
             }
             case PRE_MESSAGE_CONSUMPTION: {
@@ -150,7 +157,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.TAG, message.getTag());
                 span.setAttribute(TracingAttribute.KEYS, message.getKeys());
                 span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
-                // span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
+                span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
                 span.end();
                 break;
             }
@@ -162,7 +169,6 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                                 (context.getMessageBatchSize()
                                  - context.getMessageIndex()) * context.getDuration(),
                                 context.getTimeUnit());
-
                 final SpanBuilder spanBuilder =
                         tracer.spanBuilder(SpanName.CONSUME_MESSAGE).setStartTimestamp(startTimestamp,
                                                                                        TimeUnit.MILLISECONDS);
@@ -180,7 +186,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.TAG, message.getTag());
                 span.setAttribute(TracingAttribute.KEYS, message.getKeys());
                 span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
-                // span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
+                span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
 
                 final StatusCode statusCode = TracingUtility.convertToTraceStatus(context.getStatus());
                 span.setStatus(statusCode);

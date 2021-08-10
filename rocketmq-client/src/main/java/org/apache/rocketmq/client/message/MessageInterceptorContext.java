@@ -24,6 +24,8 @@ import lombok.Getter;
 @Getter
 @Builder
 public class MessageInterceptorContext {
+    public static MessageInterceptorContext EMPTY = MessageInterceptorContext.builder().build();
+
     @Builder.Default
     private final MessageHookPoint.PointStatus status = MessageHookPoint.PointStatus.UNSET;
     @Builder.Default
