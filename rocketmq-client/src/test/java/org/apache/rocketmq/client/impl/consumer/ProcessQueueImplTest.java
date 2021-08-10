@@ -106,8 +106,8 @@ public class ProcessQueueImplTest extends TestBase {
         when(consumerImpl.getReceivedMessagesQuantity()).thenReturn(receivedMessagesQuantity);
         when(consumerImpl.getPullTimes()).thenReturn(pullTimes);
         when(consumerImpl.getPulledMessagesQuantity()).thenReturn(pulledMessagesQuantity);
-        when(consumerImpl.getConsumptionOkCounter()).thenReturn(consumptionOkCounter);
-        when(consumerImpl.getConsumptionErrorCounter()).thenReturn(consumptionErrorCounter);
+        when(consumerImpl.getConsumptionOkQuantity()).thenReturn(consumptionOkCounter);
+        when(consumerImpl.getConsumptionErrorQuantity()).thenReturn(consumptionErrorCounter);
         when(consumerImpl.getScheduler()).thenReturn(scheduler());
         when(consumerImpl.sign()).thenReturn(metadata);
         when(consumerImpl.getConsumptionExecutor()).thenReturn(singleThreadPoolExecutor());

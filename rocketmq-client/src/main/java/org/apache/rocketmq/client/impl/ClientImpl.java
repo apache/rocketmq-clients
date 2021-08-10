@@ -990,12 +990,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     tracerProvider.shutdown();
                 }
                 tracerProvider = SdkTracerProvider.builder().addSpanProcessor(spanProcessor).build();
-                // TODO: no need propagators here.
-                OpenTelemetrySdk openTelemetry =
-                        OpenTelemetrySdk.builder()
-                                        // .setPropagators(ContextPropagators.create(W3CTraceContextPropagator
-                                        // .getInstance()))
-                                        .setTracerProvider(tracerProvider).build();
+                OpenTelemetrySdk openTelemetry = OpenTelemetrySdk.builder().setTracerProvider(tracerProvider).build();
                 tracer = openTelemetry.getTracer(TRACER_INSTRUMENTATION_NAME);
                 tracingEndpoints = randomTracingEndpoints;
             } catch (Throwable t) {

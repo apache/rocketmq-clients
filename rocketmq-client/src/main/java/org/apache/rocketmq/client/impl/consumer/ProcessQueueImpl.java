@@ -1057,9 +1057,9 @@ public class ProcessQueueImpl implements ProcessQueue {
 
     private void statsMessageConsumptionStatus(int messageSize, ConsumeStatus status) {
         if (ConsumeStatus.OK.equals(status)) {
-            consumerImpl.getConsumptionOkCounter().addAndGet(messageSize);
+            consumerImpl.getConsumptionOkQuantity().addAndGet(messageSize);
             return;
         }
-        consumerImpl.getConsumptionErrorCounter().addAndGet(messageSize);
+        consumerImpl.getConsumptionErrorQuantity().addAndGet(messageSize);
     }
 }

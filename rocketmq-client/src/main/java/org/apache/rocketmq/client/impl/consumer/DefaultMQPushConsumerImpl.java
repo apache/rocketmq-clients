@@ -72,6 +72,7 @@ import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.consumer.listener.MessageListener;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
+import org.apache.rocketmq.client.consumer.listener.MessageListenerType;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.ServerException;
@@ -113,11 +114,11 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
     /**
      * Record times of successful message consumption.
      */
-    private final AtomicLong consumptionOkCounter;
+    private final AtomicLong consumptionOkQuantity;
     /**
      * Record times of failed message consumption.
      */
-    private final AtomicLong consumptionErrorCounter;
+    private final AtomicLong consumptionErrorQuantity;
 
     /**
      * Limit cached messages quantity in all {@link ProcessQueue}, higher priority than
@@ -244,8 +245,8 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
         this.pullTimes = new AtomicLong(0);
         this.pulledMessagesQuantity = new AtomicLong(0);
 
-        this.consumptionOkCounter = new AtomicLong(0);
-        this.consumptionErrorCounter = new AtomicLong(0);
+        this.consumptionOkQuantity = new AtomicLong(0);
+        this.consumptionErrorQuantity = new AtomicLong(0);
 
         this.consumptionExecutor = new ThreadPoolExecutor(
                 consumptionThreadsAmount,
@@ -431,14 +432,15 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
 
         // for broadcasting consumption mode.
         final long pullTimes = this.pullTimes.getAndSet(0);
-        final long pulledMessagesSize = this.pulledMessagesQuantity.getAndSet(0);
+        final long pulledMessagesQuantity = this.pulledMessagesQuantity.getAndSet(0);
 
-        final long consumptionOkCounter = this.consumptionOkCounter.getAndSet(0);
-        final long consumptionErrorCount = this.consumptionErrorCounter.getAndSet(0);
+        final long consumptionOkQuantity = this.consumptionOkQuantity.getAndSet(0);
+        final long consumptionErrorQuantity = this.consumptionErrorQuantity.getAndSet(0);
 
-        log.info("ConsumerGroup={}, receiveTimes={}, receivedMessagesQuantity={}, pullTimes={}, pulledMessagesSize={}, "
-                 + "consumptionOkCounter={}, consumptionErrorCount={}", group, receiveTimes, receivedMessagesQuantity,
-                 pullTimes, pulledMessagesSize, consumptionOkCounter, consumptionErrorCount);
+        log.info("ConsumerGroup={}, receiveTimes={}, receivedMessagesQuantity={}, pullTimes={}, "
+                 + "pulledMessagesQuantity={}, consumptionOkQuantity={}, consumptionErrorQuantity={}", group,
+                 receiveTimes, receivedMessagesQuantity, pullTimes, pulledMessagesQuantity, consumptionOkQuantity,
+                 consumptionErrorQuantity);
     }
 
     void dropProcessQueue(MessageQueue mq) {
@@ -652,9 +654,11 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
                 builder.setConsumePolicy(ConsumePolicy.RESUME);
         }
         final ConsumerGroup consumerGroup = builder.build();
+
         return HeartbeatEntry.newBuilder()
                              .setClientId(clientId)
                              .setConsumerGroup(consumerGroup)
+                             .setNeedRebalance(messageListener.getListenerType().equals(MessageListenerType.ORDERLY))
                              .build();
     }
 
