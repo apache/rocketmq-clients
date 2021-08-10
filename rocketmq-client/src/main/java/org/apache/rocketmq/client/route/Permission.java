@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.constant;
+package org.apache.rocketmq.client.route;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

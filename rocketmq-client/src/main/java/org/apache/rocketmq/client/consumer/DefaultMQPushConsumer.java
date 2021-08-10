@@ -89,7 +89,7 @@ public class DefaultMQPushConsumer {
     }
 
     /**
-     * Enable message tracing. If enabled, <a href="https://opentelemetry.io//">OpenTelemetry</a>
+     * Enable message tracing. If enabled, <a href="https://opentelemetry.io">OpenTelemetry</a>
      * would be enabled to record message tracing by span. See {@link TracingMessageInterceptor} for more details.
      *
      * @param enabled message tracing is enabled or not.
@@ -196,10 +196,20 @@ public class DefaultMQPushConsumer {
         this.impl.setConsumeMessageBatchMaxSize(size);
     }
 
+    /**
+     * Set max await time for each queue.
+     *
+     * @param timeMillis await time.
+     */
     public void setMaxAwaitTimeMillisPerQueue(long timeMillis) {
         this.impl.setMaxAwaitTimeMillisPerQueue(timeMillis);
     }
 
+    /**
+     * Set max await batch size for each queue.
+     *
+     * @param timeMillis max await batch size.
+     */
     public void setMaxAwaitBatchSizePerQueue(int timeMillis) {
         this.impl.setMaxAwaitBatchSizePerQueue(timeMillis);
     }
@@ -222,6 +232,11 @@ public class DefaultMQPushConsumer {
         this.impl.setMaxDeliveryAttempts(maxAttempts);
     }
 
+    /**
+     * Get message max delivery attempt times.
+     *
+     * @return max attempts.
+     */
     public int getMaxDeliveryAttempts() {
         return this.impl.getMaxDeliveryAttempts();
     }

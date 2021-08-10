@@ -58,7 +58,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.net.ssl.SSLException;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.remoting.RpcClient;
 import org.apache.rocketmq.client.remoting.RpcClientImpl;

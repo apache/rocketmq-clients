@@ -85,8 +85,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomUtils;
-import org.apache.rocketmq.client.constant.Permission;
-import org.apache.rocketmq.client.constant.ServiceState;
 import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
 import org.apache.rocketmq.client.consumer.OffsetQuery;
 import org.apache.rocketmq.client.consumer.PullMessageQuery;
@@ -115,6 +113,7 @@ import org.apache.rocketmq.client.route.AddressScheme;
 import org.apache.rocketmq.client.route.Broker;
 import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.client.route.Partition;
+import org.apache.rocketmq.client.route.Permission;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.client.tracing.TracingMessageInterceptor;
 import org.apache.rocketmq.utility.UtilAll;
@@ -137,27 +136,27 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
     private static final long VERIFY_CONSUMPTION_TIMEOUT_MILLIS = 15 * 1000L;
 
     /**
-     * Name for tracer. See <a href="https://opentelemetry.io//">OpenTelemetry</a> for more details.
+     * Name for tracer. See <a href="https://opentelemetry.io">OpenTelemetry</a> for more details.
      */
     private static final String TRACER_INSTRUMENTATION_NAME = "org.apache.rocketmq.message.tracer";
     /**
      * Delay interval between two consecutive trace span exports to collector. See
-     * <a href="https://opentelemetry.io//">OpenTelemetry</a> for more details.
+     * <a href="https://opentelemetry.io">OpenTelemetry</a> for more details.
      */
     private static final long TRACE_EXPORTER_SCHEDULE_DELAY_MILLIS = 1000L;
     /**
      * Maximum time to wait for the collector to process an exported batch of spans. See
-     * <a href="https://opentelemetry.io//">OpenTelemetry</a> for more details.
+     * <a href="https://opentelemetry.io">OpenTelemetry</a> for more details.
      */
     private static final long TRACE_EXPORTER_RPC_TIMEOUT_MILLIS = 3 * 1000L;
     /**
      * Maximum batch size for every export of span, must be smaller than {@link #TRACE_EXPORTER_MAX_QUEUE_SIZE}.
-     * See <a href="https://opentelemetry.io//">OpenTelemetry</a> for more details.
+     * See <a href="https://opentelemetry.io">OpenTelemetry</a> for more details.
      */
     private static final int TRACE_EXPORTER_BATCH_SIZE = 1024;
     /**
      * Maximum number of {@link Span} that are kept in the queue before start dropping. See
-     * <a href="https://opentelemetry.io//">OpenTelemetry</a> for more details.
+     * <a href="https://opentelemetry.io">OpenTelemetry</a> for more details.
      */
     private static final int TRACE_EXPORTER_MAX_QUEUE_SIZE = 4096;
 

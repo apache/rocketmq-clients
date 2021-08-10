@@ -15,12 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.remoting;
+package org.apache.rocketmq.client.impl;
 
-import org.apache.rocketmq.client.message.Message;
-
-public interface RpcInterceptor {
-    void doBeforeRequest(Message request);
-
-    void doAfterResponse(Message response);
+public enum ServiceState {
+    /**
+     * Created just now.
+     */
+    READY,
+    /**
+     * Begin to start.
+     */
+    STARTING,
+    /**
+     * Started successfully.
+     */
+    STARTED,
+    /**
+     * Begin to shutdown.
+     */
+    STOPPING,
+    /**
+     * Shutdown successfully.
+     */
+    STOPPED,
 }

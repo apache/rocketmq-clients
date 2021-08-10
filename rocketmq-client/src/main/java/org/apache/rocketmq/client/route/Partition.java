@@ -21,7 +21,6 @@ import javax.annotation.concurrent.Immutable;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
-import org.apache.rocketmq.client.constant.Permission;
 import org.apache.rocketmq.client.message.protocol.Resource;
 
 @Getter

@@ -62,9 +62,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.client.constant.ConsumeFromWhere;
-import org.apache.rocketmq.client.constant.Permission;
-import org.apache.rocketmq.client.constant.ServiceState;
+import org.apache.rocketmq.client.consumer.ConsumeFromWhere;
 import org.apache.rocketmq.client.consumer.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.MessageModel;
 import org.apache.rocketmq.client.consumer.filter.ExpressionType;
@@ -77,6 +75,7 @@ import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.ServerException;
 import org.apache.rocketmq.client.impl.ClientImpl;
+import org.apache.rocketmq.client.impl.ServiceState;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
@@ -84,6 +83,7 @@ import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.route.Broker;
 import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.client.route.Partition;
+import org.apache.rocketmq.client.route.Permission;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 
@@ -197,8 +197,15 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
      */
     private long consumptionTimeoutMillis = 15 * 60 * 1000L;
 
+    /**
+     * Indicates the max time that server should hold the request if message pulled/received for queue from
+     * server is not satisfied with the {@link #maxAwaitBatchSizePerQueue}.
+     */
     private long maxAwaitTimeMillisPerQueue = 0;
 
+    /**
+     * Indicates the max batch quantity of messages that server returned for each queue.
+     */
     private int maxAwaitBatchSizePerQueue = 32;
 
     private OffsetStore offsetStore = null;
@@ -621,9 +628,9 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
             subscriptionEntries.add(subscriptionEntry);
         }
 
-        DeadLetterPolicy deadLetterPolicy = DeadLetterPolicy.newBuilder()
-                                                            .setMaxDeliveryAttempts(maxDeliveryAttempts)
-                                                            .build();
+        final DeadLetterPolicy deadLetterPolicy = DeadLetterPolicy.newBuilder()
+                                                                  .setMaxDeliveryAttempts(maxDeliveryAttempts)
+                                                                  .build();
 
         final ConsumerGroup.Builder builder = ConsumerGroup.newBuilder()
                                                            .setGroup(getGroupResource())

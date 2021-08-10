@@ -24,8 +24,17 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public enum AddressScheme {
+    /**
+     * Scheme for domain name.
+     */
     DOMAIN_NAME("dns:"),
+    /**
+     * Scheme for ipv4 address.
+     */
     IPv4("ipv4:"),
+    /**
+     * Scheme for ipv6 address.
+     */
     IPv6("ipv6:");
 
     public static final String SCHEMA_SEPARATOR = ":";

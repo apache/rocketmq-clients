@@ -17,7 +17,8 @@
 
 package org.apache.rocketmq.client.route;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
@@ -79,7 +80,7 @@ public class Endpoints {
         if (AddressScheme.DOMAIN_NAME == addressScheme && addresses.size() > 1) {
             throw new UnsupportedOperationException("Multiple addresses not allowed in domain schema.");
         }
-        Preconditions.checkNotNull(addresses);
+        checkNotNull(addresses);
         if (addresses.isEmpty()) {
             throw new UnsupportedOperationException("No available address");
         }

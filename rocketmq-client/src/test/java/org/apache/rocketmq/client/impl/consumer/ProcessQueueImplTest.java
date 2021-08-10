@@ -46,7 +46,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.rocketmq.client.constant.ConsumeFromWhere;
+import org.apache.rocketmq.client.consumer.ConsumeFromWhere;
 import org.apache.rocketmq.client.consumer.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.MessageModel;
 import org.apache.rocketmq.client.consumer.OffsetQuery;

@@ -15,7 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.remoting;
+package org.apache.rocketmq.client.consumer;
 
-public interface RpcHook {
+public enum ConsumeFromWhere {
+    /**
+     * From the latest offset.
+     */
+    END,
+    /**
+     * From the first offset exists.
+     */
+    BEGINNING,
+    /**
+     * Seek the offset by timestamp.
+     */
+    TIMESTAMP,
 }

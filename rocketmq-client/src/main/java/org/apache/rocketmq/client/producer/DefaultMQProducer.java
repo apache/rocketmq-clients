@@ -52,6 +52,11 @@ public class DefaultMQProducer {
         this.impl.setGroup(group);
     }
 
+    /**
+     * Get name of producer group.
+     *
+     * @return name of producer group.
+     */
     public String getProducerGroup() {
         return this.impl.getGroup();
     }
@@ -113,7 +118,7 @@ public class DefaultMQProducer {
     }
 
     /**
-     * Enable message tracing. If enabled, <a href="https://opentelemetry.io//">OpenTelemetry</a>
+     * Enable message tracing. If enabled, <a href="https://opentelemetry.io">OpenTelemetry</a>
      * would be enabled to record message tracing by span. See {@link TracingMessageInterceptor} for more details.
      *
      * @param enabled message tracing is enabled or not.
@@ -123,8 +128,8 @@ public class DefaultMQProducer {
     }
 
     /**
-     *
-     * @param timeout
+     * Set sending timeout for each message.
+     * @param timeout send timeout.
      */
     public void setSendMessageTimeoutMillis(long timeout) {
         this.impl.setSendMessageTimeoutMillis(timeout);
@@ -224,9 +229,7 @@ public class DefaultMQProducer {
      * @param selector Message queue selector, through which we get target message queue to deliver
      *                 message to.
      * @param arg      Argument to work along with message queue selector.
-     * @return {@link SendResult} instance to inform senders details of the deliverable, say Message
-     * ID of the message, {@link SendStatus} indicating broker storage/replication status, message
-     * queue sent to, etc.
+     * @return {@link SendResult} Inform senders details of the deliverable.
      * @throws ClientException      if there is any client error.
      * @throws InterruptedException if the sending thread is interrupted.
      */
