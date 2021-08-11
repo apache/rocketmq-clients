@@ -26,7 +26,7 @@ public class OffsetRecord implements Comparable<OffsetRecord> {
     private final long offset;
 
     @EqualsAndHashCode.Exclude
-    private boolean release = false;
+    private boolean released = false;
 
     public OffsetRecord(long offset) {
         this.offset = offset;

@@ -35,9 +35,9 @@ public class OffsetRecordTest {
     @Test
     public void testEquals() {
         OffsetRecord offsetRecord0 = new OffsetRecord(1);
-        offsetRecord0.setRelease(true);
+        offsetRecord0.setReleased(true);
         OffsetRecord offsetRecord1 = new OffsetRecord(1);
-        offsetRecord0.setRelease(false);
+        offsetRecord0.setReleased(false);
         assertEquals(offsetRecord0, offsetRecord1);
     }
 }

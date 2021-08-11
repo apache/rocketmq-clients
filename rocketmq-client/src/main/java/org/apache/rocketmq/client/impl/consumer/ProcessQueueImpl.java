@@ -107,9 +107,9 @@ public class ProcessQueueImpl implements ProcessQueue {
     private final AtomicLong cachedMessagesBytes;
     private final AtomicBoolean fifoConsumptionOccupied;
 
-    @GuardedBy("offsetsLock")
-    private final TreeSet<OffsetRecord> offsets;
-    private final ReentrantReadWriteLock offsetsLock;
+    @GuardedBy("offsetRecordsLock")
+    private final TreeSet<OffsetRecord> offsetRecords;
+    private final ReentrantReadWriteLock offsetRecordsLock;
 
     private volatile long activityNanoTime = System.nanoTime();
     private volatile long throttleNanoTime = System.nanoTime();
@@ -132,8 +132,8 @@ public class ProcessQueueImpl implements ProcessQueue {
         this.cachedMessagesBytes = new AtomicLong(0L);
         this.fifoConsumptionOccupied = new AtomicBoolean(false);
 
-        this.offsets = new TreeSet<OffsetRecord>();
-        this.offsetsLock = new ReentrantReadWriteLock();
+        this.offsetRecords = new TreeSet<OffsetRecord>();
+        this.offsetRecordsLock = new ReentrantReadWriteLock();
     }
 
     @Override
@@ -149,30 +149,43 @@ public class ProcessQueueImpl implements ProcessQueue {
         fifoConsumptionOccupied.compareAndSet(true, false);
     }
 
+    private boolean noNeedMaintainOffsetRecords() {
+        final MessageModel messageModel = consumerImpl.getMessageModel();
+        final boolean hasCustomOffsetStore = consumerImpl.hasCustomOffsetStore();
+        return !MessageModel.BROADCASTING.equals(messageModel) || !hasCustomOffsetStore;
+    }
+
     @VisibleForTesting
     public void cacheMessages(List<MessageExt> messageList) {
+        List<Long> offsetList = new ArrayList<Long>();
         pendingMessagesLock.writeLock().lock();
         try {
             for (MessageExt message : messageList) {
                 pendingMessages.add(message);
                 cachedMessagesBytes.addAndGet(null == message.getBody() ? 0 : message.getBody().length);
-                if (MessageModel.BROADCASTING.equals(consumerImpl.getMessageModel())) {
-                    offsetsLock.writeLock().lock();
-                    try {
-                        if (1 == offsets.size()) {
-                            final OffsetRecord offsetRecord = offsets.iterator().next();
-                            if (offsetRecord.isRelease()) {
-                                offsets.remove(offsetRecord);
-                            }
-                        }
-                        offsets.add(new OffsetRecord(message.getQueueOffset()));
-                    } finally {
-                        offsetsLock.writeLock().unlock();
-                    }
-                }
+                offsetList.add(message.getQueueOffset());
             }
         } finally {
             pendingMessagesLock.writeLock().unlock();
+        }
+
+        if (noNeedMaintainOffsetRecords()) {
+            return;
+        }
+        // maintain offset records.
+        offsetRecordsLock.writeLock().lock();
+        try {
+            for (Long offset : offsetList) {
+                if (1 == offsetRecords.size()) {
+                    final OffsetRecord offsetRecord = offsetRecords.iterator().next();
+                    if (offsetRecord.isReleased()) {
+                        offsetRecords.remove(offsetRecord);
+                    }
+                }
+                offsetRecords.add(new OffsetRecord(offset));
+            }
+        } finally {
+            offsetRecordsLock.writeLock().unlock();
         }
     }
 
@@ -316,22 +329,63 @@ public class ProcessQueueImpl implements ProcessQueue {
         }, consumerImpl.getConsumptionExecutor());
     }
 
+    private Long getNextOffsetInRecords() {
+        offsetRecordsLock.readLock().lock();
+        try {
+            if (offsetRecords.isEmpty()) {
+                return null;
+            }
+            final OffsetRecord offsetRecord = offsetRecords.iterator().next();
+            if (offsetRecord.isReleased()) {
+                return offsetRecord.getOffset() + 1;
+            }
+            return offsetRecord.getOffset();
+        } finally {
+            offsetRecordsLock.readLock().unlock();
+        }
+    }
+
     /**
      * Erase message list from in-flight message list, and re-calculate the total messages body size.
      *
      * @param messageExtList message list to erase.
      */
     private void eraseMessages(final List<MessageExt> messageExtList) {
+        List<Long> offsetList = new ArrayList<Long>();
         inflightMessagesLock.writeLock().lock();
         try {
             for (MessageExt messageExt : messageExtList) {
                 if (inflightMessages.remove(messageExt)) {
                     cachedMessagesBytes.addAndGet(null == messageExt.getBody() ? 0 : -messageExt.getBody().length);
                 }
+                offsetList.add(messageExt.getQueueOffset());
             }
         } finally {
             inflightMessagesLock.writeLock().unlock();
         }
+
+        if (noNeedMaintainOffsetRecords()) {
+            return;
+        }
+        // maintain offset records
+        offsetRecordsLock.writeLock().lock();
+        try {
+            for (Long offset : offsetList) {
+                final OffsetRecord offsetRecord = new OffsetRecord(offset);
+                offsetRecords.remove(offsetRecord);
+                if (offsetRecords.isEmpty()) {
+                    offsetRecord.setReleased(true);
+                    offsetRecords.add(offsetRecord);
+                }
+            }
+        } finally {
+            offsetRecordsLock.writeLock().unlock();
+        }
+        final Long nextOffset = getNextOffsetInRecords();
+        if (null == nextOffset) {
+            return;
+        }
+        consumerImpl.getOffsetStore().updateOffset(messageQueue, nextOffset);
     }
 
     /**
@@ -345,19 +399,17 @@ public class ProcessQueueImpl implements ProcessQueue {
         statsMessageConsumptionStatus(messageExtList.size(), status);
         eraseMessages(messageExtList);
         final MessageModel messageModel = consumerImpl.getMessageModel();
-        // for broadcasting mode.
-        if (MessageModel.BROADCASTING.equals(messageModel)) {
-            return;
-        }
         // for clustering mode.
-        if (ConsumeStatus.OK == status) {
-            for (MessageExt messageExt : messageExtList) {
-                ackMessage(messageExt);
+        if (MessageModel.CLUSTERING.equals(messageModel)) {
+            if (ConsumeStatus.OK == status) {
+                for (MessageExt messageExt : messageExtList) {
+                    ackMessage(messageExt);
+                }
+                return;
             }
-            return;
-        }
-        for (MessageExt messageExt : messageExtList) {
-            nackMessage(messageExt);
+            for (MessageExt messageExt : messageExtList) {
+                nackMessage(messageExt);
+            }
         }
     }
 
