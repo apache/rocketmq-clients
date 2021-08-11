@@ -1112,14 +1112,14 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         switch (bodyDigest.getType()) {
             case CRC32:
                 expectedCheckSum = UtilAll.crc32CheckSum(body);
-                if (expectedCheckSum.equals(checksum)) {
+                if (!expectedCheckSum.equals(checksum)) {
                     corrupted = true;
                 }
                 break;
             case MD5:
                 try {
                     expectedCheckSum = UtilAll.md5CheckSum(body);
-                    if (expectedCheckSum.equals(checksum)) {
+                    if (!expectedCheckSum.equals(checksum)) {
                         corrupted = true;
                     }
                 } catch (NoSuchAlgorithmException e) {
@@ -1130,7 +1130,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
             case SHA1:
                 try {
                     expectedCheckSum = UtilAll.sha1CheckSum(body);
-                    if (expectedCheckSum.equals(checksum)) {
+                    if (!expectedCheckSum.equals(checksum)) {
                         corrupted = true;
                     }
                 } catch (NoSuchAlgorithmException e) {

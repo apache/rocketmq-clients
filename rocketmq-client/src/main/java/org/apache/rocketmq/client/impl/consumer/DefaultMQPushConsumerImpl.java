@@ -226,7 +226,7 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
     private final ConcurrentMap<String /* topic */, TopicAssignment> cachedTopicAssignmentTable;
 
     @Getter(AccessLevel.NONE)
-    private final ConcurrentMap<String/* topic */, RateLimiter> rateLimiterTable;
+    private final ConcurrentMap<String /* topic */, RateLimiter> rateLimiterTable;
 
     @Getter(AccessLevel.PACKAGE)
     private final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable;
