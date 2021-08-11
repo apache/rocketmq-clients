@@ -450,6 +450,11 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
                  consumptionErrorQuantity);
     }
 
+    /**
+     * Drop {@link ProcessQueue} by {@link MessageQueue}, {@link ProcessQueue} must be removed before it is dropped.
+     *
+     * @param mq message queue.
+     */
     void dropProcessQueue(MessageQueue mq) {
         final ProcessQueue pq = processQueueTable.remove(mq);
         if (null != pq) {
@@ -457,11 +462,22 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
         }
     }
 
+    /**
+     * Get {@link ProcessQueue} by {@link MessageQueue} and {@link FilterExpression}. ensure the returned
+     * {@link ProcessQueue} has been added to the {@link #processQueueTable} and not dropped. <strong>Never
+     * </strong> return null.
+     *
+     * @param mq               message queue.
+     * @param filterExpression filter expression of topic.
+     * @return {@link ProcessQueue} by {@link MessageQueue}. <strong>Never</strong> return null.
+     */
     private ProcessQueue getProcessQueue(MessageQueue mq, final FilterExpression filterExpression) {
-        if (null == processQueueTable.get(mq)) {
-            processQueueTable.putIfAbsent(mq, new ProcessQueueImpl(this, mq, filterExpression));
+        final ProcessQueueImpl processQueue = new ProcessQueueImpl(this, mq, filterExpression);
+        final ProcessQueue previous = processQueueTable.putIfAbsent(mq, processQueue);
+        if (null != previous) {
+            return previous;
         }
-        return processQueueTable.get(mq);
+        return processQueue;
     }
 
     private void synchronizeProcessQueue(
