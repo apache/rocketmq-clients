@@ -442,6 +442,9 @@ public class ProcessQueueImpl implements ProcessQueue {
                 }
             }, RECEIVE_LATER_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
+            if (scheduler.isShutdown()) {
+                return;
+            }
             // should never reach here.
             log.error("[Bug] Failed to schedule receive message request", t);
             receiveMessageLater();
@@ -601,6 +604,9 @@ public class ProcessQueueImpl implements ProcessQueue {
                 }
             }, PULL_LATER_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
+            if (scheduler.isShutdown()) {
+                return;
+            }
             // should never reach here.
             log.error("[Bug] Failed to schedule pull message request", t);
             pullMessageLater(offset);
@@ -717,6 +723,9 @@ public class ProcessQueueImpl implements ProcessQueue {
                 }
             }, ACK_FIFO_MESSAGE_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
+            if (scheduler.isShutdown()) {
+                return;
+            }
             // should never reach here.
             log.error("[Bug] Failed to schedule ack fifo message request, mq={}, msgId={}.", messageQueue, msgId);
             ackFifoMessageLater(messageExt, 1 + attempt, future0);
@@ -767,6 +776,9 @@ public class ProcessQueueImpl implements ProcessQueue {
                 }
             }, REDIRECT_FIFO_MESSAGE_TO_DLQ_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
+            if (scheduler.isShutdown()) {
+                return;
+            }
             // should never reach here.
             log.error("[Bug] Failed to schedule DLQ message request.");
             forwardToDeadLetterQueueLater(messageExt, 1 + attempt, future0);

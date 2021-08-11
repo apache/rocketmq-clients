@@ -413,13 +413,21 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
 
         if (updateMessageTracerAsync) {
             // do not block route update because of tracing.
-            clientManager.getScheduler().submit(new Runnable() {
-                @Override
-                public void run() {
-                    updateTracer();
+            final ScheduledExecutorService scheduler = clientManager.getScheduler();
+            try {
+                scheduler.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        updateTracer();
+                    }
+                });
+                return;
+            } catch (Throwable t) {
+                if (scheduler.isShutdown()) {
+                    return;
                 }
-            });
-            return;
+                log.error("[Bug] Failed to schedule tracer update task.", t);
+            }
         }
         updateTracer();
     }
@@ -944,7 +952,10 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                 }
             }, MULTIPLEXING_CALL_LATER_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
-            log.error("Failed to schedule multiplexing request", t);
+            if (scheduler.isShutdown()) {
+                return;
+            }
+            log.error("[Bug] Failed to schedule multiplexing request", t);
             multiplexingCallLater(endpoints, request);
         }
     }
