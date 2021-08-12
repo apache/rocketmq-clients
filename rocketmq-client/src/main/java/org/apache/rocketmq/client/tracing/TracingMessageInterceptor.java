@@ -42,10 +42,12 @@ public class TracingMessageInterceptor implements MessageInterceptor {
 
     private final ClientImpl client;
     private final ConcurrentMap<String/* span id */, Span> inflightSpans;
+    private final ThreadLocal<SpanContext> waitingConsumptionSpanContextThreadLocal;
 
     public TracingMessageInterceptor(ClientImpl client) {
         this.client = client;
         this.inflightSpans = new ConcurrentHashMap<String, Span>();
+        this.waitingConsumptionSpanContextThreadLocal = new ThreadLocal<SpanContext>();
     }
 
     @Override
@@ -159,9 +161,12 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
                 span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
                 span.end();
+                waitingConsumptionSpanContextThreadLocal.set(span.getSpanContext());
                 break;
             }
             case POST_MESSAGE_CONSUMPTION: {
+                final SpanContext waitingConsumptionSpanContext = waitingConsumptionSpanContextThreadLocal.get();
+                waitingConsumptionSpanContextThreadLocal.remove();
                 final String traceContext = message.getTraceContext();
                 final SpanContext spanContext = TracingUtility.extractContextFromTraceParent(traceContext);
                 long startTimestamp =
@@ -174,6 +179,9 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                                                                                        TimeUnit.MILLISECONDS);
                 if (spanContext.isValid()) {
                     spanBuilder.setParent(Context.current().with(Span.wrap(spanContext)));
+                }
+                if (null != waitingConsumptionSpanContext) {
+                    spanBuilder.addLink(waitingConsumptionSpanContext);
                 }
                 final Span span = spanBuilder.startSpan();
                 if (StringUtils.isNotEmpty(accessKey)) {
