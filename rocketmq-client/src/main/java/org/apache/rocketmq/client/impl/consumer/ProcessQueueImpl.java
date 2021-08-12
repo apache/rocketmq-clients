@@ -78,13 +78,13 @@ import org.apache.rocketmq.client.route.Endpoints;
 
 @Slf4j
 public class ProcessQueueImpl implements ProcessQueue {
-    public static final long RECEIVE_LONG_POLLING_TIMEOUT_MILLIS = 15 * 1000L;
+    public static final long RECEIVE_LONG_POLLING_TIMEOUT_MILLIS = 30 * 1000L;
     public static final long RECEIVE_LATER_DELAY_MILLIS = 3 * 1000L;
 
-    public static final long PULL_LONG_POLLING_TIMEOUT_MILLIS = 15 * 1000L;
+    public static final long PULL_LONG_POLLING_TIMEOUT_MILLIS = 30 * 1000L;
     public static final long PULL_LATER_DELAY_MILLIS = 3 * 1000L;
 
-    public static final long MAX_IDLE_MILLIS = 30 * 1000L;
+    public static final long MAX_IDLE_MILLIS = 60 * 1000L;
     public static final long ACK_FIFO_MESSAGE_DELAY_MILLIS = 100L;
     public static final long REDIRECT_FIFO_MESSAGE_TO_DLQ_DELAY_MILLIS = 100L;
 
@@ -263,7 +263,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                 inflightMessages.add(first);
                 return first;
             }
-            // unlock cause failure of acquire the token,
+            // unlock because of the failure of acquire the token,
             if (!rateLimiter.tryAcquire()) {
                 fifoConsumptionOutbound();
                 return null;

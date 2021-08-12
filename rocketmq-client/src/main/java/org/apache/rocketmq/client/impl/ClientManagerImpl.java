@@ -77,10 +77,10 @@ public class ClientManagerImpl implements ClientManager {
 
     @Getter
     private final ScheduledExecutorService scheduler;
+
     /**
      * Public executor for all async rpc, <strong>should never submit heavy task.</strong>
      */
-    @Getter
     private final ThreadPoolExecutor asyncWorker;
 
     private final AtomicReference<ServiceState> state;
@@ -174,9 +174,9 @@ public class ClientManagerImpl implements ClientManager {
     @Override
     public void start() {
         synchronized (this) {
-            log.info("Begin to start the client instance.");
+            log.info("Begin to start the client manager.");
             if (!state.compareAndSet(ServiceState.READY, ServiceState.STARTING)) {
-                log.warn("The client instance has been started before.");
+                log.warn("The client manager has been started before.");
                 return;
             }
             scheduler.scheduleWithFixedDelay(
@@ -242,14 +242,14 @@ public class ClientManagerImpl implements ClientManager {
                     TimeUnit.SECONDS
             );
             state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
-            log.info("The client instance starts successfully.");
+            log.info("The client manager starts successfully.");
         }
     }
 
     @Override
     public void shutdown() {
         synchronized (this) {
-            log.info("Begin to shutdown the client instance.");
+            log.info("Begin to shutdown the client manager.");
             if (!state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING)) {
                 log.warn("ClientInstance has not been started before");
                 return;
@@ -258,7 +258,7 @@ public class ClientManagerImpl implements ClientManager {
             scheduler.shutdown();
             asyncWorker.shutdown();
             state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
-            log.info("Shutdown the client instance successfully.");
+            log.info("Shutdown the client manager successfully.");
         }
     }
 
