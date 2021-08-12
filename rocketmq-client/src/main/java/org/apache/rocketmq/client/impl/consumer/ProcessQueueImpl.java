@@ -602,11 +602,10 @@ public class ProcessQueueImpl implements ProcessQueue {
     public void pullMessageImmediately(final long offset) {
         try {
             final Endpoints endpoints = messageQueue.getPartition().getBroker().getEndpoints();
-            final long maxAwaitTimeMillisPerQueue = consumerImpl.getMaxAwaitTimeMillisPerQueue();
-            final int maxAwaitBatchSizePerQueue = consumerImpl.getMaxAwaitBatchSizePerQueue();
+            final long maxAwaitTimeMillis = consumerImpl.getMaxAwaitTimeMillisPerQueue();
+            final int maxAwaitBatchSize = getMaxAwaitBatchSize();
             PullMessageQuery pullMessageQuery = new PullMessageQuery(messageQueue, filterExpression, offset,
-                                                                     maxAwaitBatchSizePerQueue,
-                                                                     maxAwaitTimeMillisPerQueue,
+                                                                     maxAwaitBatchSize, maxAwaitTimeMillis,
                                                                      PULL_LONG_POLLING_TIMEOUT_MILLIS);
 
             activityNanoTime = System.nanoTime();
@@ -686,12 +685,19 @@ public class ProcessQueueImpl implements ProcessQueue {
         pullMessageImmediately(offset);
     }
 
+    private int getMaxAwaitBatchSize() {
+        final int cacheBufferSize =
+                Math.max(consumerImpl.cachedMessagesQuantityThresholdPerQueue() - this.cachedMessagesQuantity(), 1);
+        return Math.min(cacheBufferSize, consumerImpl.getMaxAwaitBatchSizePerQueue());
+    }
+
     @Override
     public void receiveMessageImmediately() {
         try {
             final ClientManager clientManager = consumerImpl.getClientManager();
             final Endpoints endpoints = messageQueue.getPartition().getBroker().getEndpoints();
-            final ReceiveMessageRequest request = wrapReceiveMessageRequest();
+            final int maxAwaitBatchSize = getMaxAwaitBatchSize();
+            final ReceiveMessageRequest request = wrapReceiveMessageRequest(maxAwaitBatchSize);
 
             activityNanoTime = System.nanoTime();
             final Metadata metadata = consumerImpl.sign();
@@ -946,20 +952,19 @@ public class ProcessQueueImpl implements ProcessQueue {
         });
     }
 
-    private ReceiveMessageRequest wrapReceiveMessageRequest() {
+    private ReceiveMessageRequest wrapReceiveMessageRequest(int maxAwaitBatchSize) {
         final Broker broker = Broker.newBuilder().setName(messageQueue.getBrokerName()).build();
         final Partition partition = Partition.newBuilder()
                                              .setTopic(getTopicResource())
                                              .setId(messageQueue.getQueueId())
                                              .setBroker(broker).build();
-        final int maxAwaitBatchSizePerQueue = consumerImpl.getMaxAwaitBatchSizePerQueue();
         final Duration invisibleDuration = Durations.fromMillis(consumerImpl.getConsumptionTimeoutMillis());
         final Duration awaitTimeDuration = Durations.fromMillis(consumerImpl.getMaxAwaitTimeMillisPerQueue());
         final ReceiveMessageRequest.Builder builder =
                 ReceiveMessageRequest.newBuilder()
                                      .setGroup(getGroupResource())
                                      .setClientId(consumerImpl.getClientId())
-                                     .setPartition(partition).setBatchSize(maxAwaitBatchSizePerQueue)
+                                     .setPartition(partition).setBatchSize(maxAwaitBatchSize)
                                      .setInvisibleDuration(invisibleDuration)
                                      .setAwaitTime(awaitTimeDuration);
 
