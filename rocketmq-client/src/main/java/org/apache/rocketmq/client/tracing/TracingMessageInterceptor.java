@@ -36,6 +36,7 @@ import org.apache.rocketmq.client.message.MessageHookPoint;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
+import org.apache.rocketmq.utility.UtilAll;
 
 @Slf4j
 public class TracingMessageInterceptor implements MessageInterceptor {
@@ -91,6 +92,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                     if (deliveryTimestamp > 0) {
                         span.setAttribute(TracingAttribute.DELIVERY_TIMESTAMP, deliveryTimestamp);
                     }
+                    span.setAttribute(TracingAttribute.HOST, UtilAll.hostName());
                     String traceContext = TracingUtility.injectSpanContextToTraceParent(span.getSpanContext());
                     final String spanId = span.getSpanContext().getSpanId();
                     inflightSpans.put(spanId, span);
@@ -134,6 +136,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
                 span.setAttribute(TracingAttribute.GROUP, group);
                 span.setAttribute(TracingAttribute.TAG, message.getTag());
+                span.setAttribute(TracingAttribute.HOST, UtilAll.hostName());
                 span.setAttribute(TracingAttribute.KEYS, message.getKeys());
                 span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
                 span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
@@ -157,6 +160,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
                 span.setAttribute(TracingAttribute.GROUP, group);
                 span.setAttribute(TracingAttribute.TAG, message.getTag());
+                span.setAttribute(TracingAttribute.HOST, UtilAll.hostName());
                 span.setAttribute(TracingAttribute.KEYS, message.getKeys());
                 span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
                 span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
@@ -192,6 +196,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
                 span.setAttribute(TracingAttribute.GROUP, group);
                 span.setAttribute(TracingAttribute.TAG, message.getTag());
+                span.setAttribute(TracingAttribute.HOST, UtilAll.hostName());
                 span.setAttribute(TracingAttribute.KEYS, message.getKeys());
                 span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
                 span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
@@ -225,6 +230,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.TOPIC, message.getTopic());
                 span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
                 span.setAttribute(TracingAttribute.GROUP, group);
+                span.setAttribute(TracingAttribute.HOST, UtilAll.hostName());
 
                 span.end();
                 break;
