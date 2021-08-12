@@ -1087,7 +1087,10 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         final MessageQueue messageQueue = offsetQuery.getMessageQueue();
         Resource topicResource = Resource.newBuilder().setArn(this.getArn()).setName(messageQueue.getTopic()).build();
         int partitionId = messageQueue.getPartition().getId();
+        final apache.rocketmq.v1.Broker broker =
+                apache.rocketmq.v1.Broker.newBuilder().setName(messageQueue.getBrokerName()).build();
         final apache.rocketmq.v1.Partition partition = apache.rocketmq.v1.Partition.newBuilder()
+                                                                                   .setBroker(broker)
                                                                                    .setTopic(topicResource)
                                                                                    .setId(partitionId)
                                                                                    .build();
