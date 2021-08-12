@@ -1088,7 +1088,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                                                                                    .setTopic(topicResource)
                                                                                    .setId(partitionId)
                                                                                    .build();
-        return QueryOffsetRequest.newBuilder().setPartition(partition).build();
+        return builder.setPartition(partition).build();
     }
 
     public static MessageImpl wrapMessageImpl(Message message) throws IOException, ClientException {
