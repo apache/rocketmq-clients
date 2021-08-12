@@ -632,7 +632,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     final Status status = response.getCommon().getStatus();
                     final Code code = Code.forNumber(status.getCode());
                     if (Code.OK != code) {
-                        log.warn("Failed to send heartbeat, code={}, status message={}, endpoints={}", code,
+                        log.warn("Failed to send heartbeat, code={}, status message=[{}], endpoints={}", code,
                                  status.getMessage(), endpoints);
                         return;
                     }
@@ -728,7 +728,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                 final Code code = Code.forNumber(status.getCode());
                 // TODO: polish code.
                 if (Code.OK != code) {
-                    log.error("Failed to pull message, pullMessageQuery={}, code={}, status message={}",
+                    log.error("Failed to pull message, pullMessageQuery={}, code={}, status message=[{}]",
                               pullMessageQuery, code, status.getMessage());
                     throw new ClientException(ErrorCode.OTHER);
                 }
@@ -750,26 +750,26 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                 break;
             case RESOURCE_EXHAUSTED:
                 pullStatus = PullStatus.RESOURCE_EXHAUSTED;
-                log.warn("Too many request in server, server endpoints={}, status message={}", endpoints,
+                log.warn("Too many request in server, server endpoints={}, status message=[{}]", endpoints,
                          status.getMessage());
                 break;
             case DEADLINE_EXCEEDED:
                 pullStatus = PullStatus.DEADLINE_EXCEEDED;
-                log.warn("Gateway timeout, server endpoints={}, status message={}", endpoints, status.getMessage());
+                log.warn("Gateway timeout, server endpoints={}, status message=[{}]", endpoints, status.getMessage());
                 break;
             case NOT_FOUND:
                 pullStatus = PullStatus.NOT_FOUND;
-                log.warn("Target partition does not exist, server endpoints={}, status message={}", endpoints,
+                log.warn("Target partition does not exist, server endpoints={}, status message=[{}]", endpoints,
                          status.getMessage());
                 break;
             case OUT_OF_RANGE:
                 pullStatus = PullStatus.OUT_OF_RANGE;
-                log.warn("Pulled offset is out of range, server endpoints={}, status message{}", endpoints,
+                log.warn("Pulled offset is out of range, server endpoints={}, status message=[{}]", endpoints,
                          status.getMessage());
                 break;
             default:
                 pullStatus = PullStatus.INTERNAL;
-                log.warn("Pull response indicated server-side error, server endpoints={}, code={}, status message{}",
+                log.warn("Pull response indicated server-side error, server endpoints={}, code={}, status message=[{}]",
                          endpoints, code, status.getMessage());
         }
         List<MessageExt> msgFoundList = new ArrayList<MessageExt>();

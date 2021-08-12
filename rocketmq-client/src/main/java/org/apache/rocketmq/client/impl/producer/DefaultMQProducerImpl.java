@@ -259,7 +259,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
                             log.info("Release isolated endpoints, clientId={}, endpoints={}", clientId, endpoints);
                             return;
                         }
-                        log.warn("Failed to restore isolated endpoints, clientId={}, code={}, status message={}, "
+                        log.warn("Failed to restore isolated endpoints, clientId={}, code={}, status message=[{}], "
                                  + "endpoints={}", clientId, code, status.getMessage(), endpoints);
                     }
 
@@ -559,7 +559,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
             final Code code = Code.forNumber(status.getCode());
 
             if (Code.OK != code) {
-                log.error("Failed to end transaction, messageId={}, transactionId={}, code={}, status message={}",
+                log.error("Failed to end transaction, messageId={}, transactionId={}, code={}, status message=[{}]",
                           messageId, transactionId, code, status.getMessage());
 
                 throw new ServerException(status.getMessage());
@@ -836,7 +836,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
         if (Code.OK == code) {
             return new SendResult(endpoints, response.getMessageId(), response.getTransactionId());
         }
-        log.debug("Response indicates failure of sending message, status message={}", status.getMessage());
+        log.debug("Response indicates failure of sending message, status message=[{}]", status.getMessage());
         throw new ServerException(ErrorCode.OTHER, status.getMessage());
     }
 

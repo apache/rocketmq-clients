@@ -862,7 +862,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                 final Code code = Code.forNumber(status.getCode());
                 if (Code.OK != code) {
                     log.error("Failed to forward message to DLQ, attempt={}, messageId={}, endpoints={}, code={}, "
-                              + "status message={}", attempt, messageId, endpoints, code, status.getMessage());
+                              + "status message=[{}]", attempt, messageId, endpoints, code, status.getMessage());
                 }
             }
 
@@ -900,7 +900,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                 final Status status = response.getCommon().getStatus();
                 final Code code = Code.forNumber(status.getCode());
                 if (Code.OK != code) {
-                    log.error("Failed to ACK, attempt={}, messageId={}, endpoints={}, code={}, status message={}",
+                    log.error("Failed to ACK, attempt={}, messageId={}, endpoints={}, code={}, status message=[{}]",
                               attempt, messageId, endpoints, code, status.getMessage());
                 }
             }
@@ -934,7 +934,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                 final Status status = response.getCommon().getStatus();
                 final Code code = Code.forNumber(status.getCode());
                 if (Code.OK != code) {
-                    log.error("Failed to NACK, messageId={}, endpoints={}, code={}, status message={}", messageId,
+                    log.error("Failed to NACK, messageId={}, endpoints={}, code={}, status message=[{}]", messageId,
                               endpoints, code, status.getMessage());
                 }
             }
@@ -1058,12 +1058,12 @@ public class ProcessQueueImpl implements ProcessQueue {
                 break;
             case RESOURCE_EXHAUSTED:
                 receiveStatus = ReceiveStatus.RESOURCE_EXHAUSTED;
-                log.warn("Too many request in server, server endpoints={}, status message={}", endpoints,
+                log.warn("Too many request in server, server endpoints={}, status message=[{}]", endpoints,
                          status.getMessage());
                 break;
             case DEADLINE_EXCEEDED:
                 receiveStatus = ReceiveStatus.DEADLINE_EXCEEDED;
-                log.warn("Gateway timeout, server endpoints={}, status message={}", endpoints, status.getMessage());
+                log.warn("Gateway timeout, server endpoints={}, status message=[{}]", endpoints, status.getMessage());
                 break;
             default:
                 receiveStatus = ReceiveStatus.INTERNAL;
