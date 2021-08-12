@@ -126,6 +126,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
      * Delay interval while multiplexing call encounters failure.
      */
     private static final long MULTIPLEXING_CALL_LATER_DELAY_MILLIS = 3 * 1000L;
+
     /**
      * Maximum time allowed client to execute multiplexing call before being cancelled.
      */

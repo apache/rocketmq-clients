@@ -110,7 +110,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
     public static final int MESSAGE_COMPRESSION_LEVEL = 5;
 
     /**
-     * Max attempt times for auto-retry of sending message.
+     * Maximum attempt times for auto-retry of sending message.
      */
     private int maxAttempts = 3;
 
