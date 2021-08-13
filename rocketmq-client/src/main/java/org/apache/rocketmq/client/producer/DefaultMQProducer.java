@@ -83,8 +83,7 @@ public class DefaultMQProducer {
      * Set address of name server.
      *
      * <p> 1. Example usage for ip list. 127.0.0.1:9876[;127.0.0.2:9875]
-     * <p> 2. Example usage for domain name: http://MQ_INST_1973281269661160_BXmPlOA6.mq-aone.mq-internal.aliyuncs
-     * .com:8081
+     * <p> 2. Example usage for domain name: http://MQ_INST_197328126_BXmPlOA6.mq-aone.mq-internal.aliyuncs.com:8081
      *
      * @param address address of name server.
      */

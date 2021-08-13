@@ -626,8 +626,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                 @Override
                 public void onFailure(Throwable t) {
                     log.error("Exception raised while pull message, would pull later, mq={}, endpoints={}",
-                              messageQueue,
-                              endpoints, t);
+                              messageQueue, endpoints, t);
                     pullMessageLater(offset);
                 }
             });
