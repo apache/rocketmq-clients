@@ -25,13 +25,15 @@ import io.grpc.ForwardingClientCall;
 import io.grpc.ForwardingClientCallListener;
 import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Client logging interceptor, replace gRPC official binary log.
  */
-@Slf4j
 public class LoggingInterceptor implements ClientInterceptor {
+    private static final Logger log = LoggerFactory.getLogger(LoggingInterceptor.class);
+
     @Override
     public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(MethodDescriptor<ReqT, RespT> method,
                                                                CallOptions callOptions, Channel next) {

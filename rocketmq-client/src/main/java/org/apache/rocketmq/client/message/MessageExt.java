@@ -18,15 +18,13 @@
 package org.apache.rocketmq.client.message;
 
 
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
 import java.util.Map;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
 import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.route.Endpoints;
 
-@EqualsAndHashCode
-@ToString
 public class MessageExt {
     protected final MessageImpl impl;
 
@@ -134,5 +132,29 @@ public class MessageExt {
             default:
                 return MessageType.NORMAL;
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        MessageExt that = (MessageExt) o;
+        return Objects.equal(impl, that.impl);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(impl);
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                          .add("impl", impl)
+                          .toString();
     }
 }

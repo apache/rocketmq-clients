@@ -17,13 +17,49 @@
 
 package org.apache.rocketmq.client.impl.consumer;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
 import org.apache.rocketmq.client.message.MessageQueue;
 
-@Data
-@AllArgsConstructor
 public class Assignment {
     private final MessageQueue messageQueue;
     private final MessageRequestMode messageRequestMode;
+
+    public Assignment(MessageQueue messageQueue, MessageRequestMode messageRequestMode) {
+        this.messageQueue = messageQueue;
+        this.messageRequestMode = messageRequestMode;
+    }
+
+    public MessageQueue getMessageQueue() {
+        return this.messageQueue;
+    }
+
+    public MessageRequestMode getMessageRequestMode() {
+        return this.messageRequestMode;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Assignment that = (Assignment) o;
+        return Objects.equal(messageQueue, that.messageQueue) && messageRequestMode == that.messageRequestMode;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(messageQueue, messageRequestMode);
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                          .add("messageQueue", messageQueue)
+                          .add("messageRequestMode", messageRequestMode)
+                          .toString();
+    }
 }

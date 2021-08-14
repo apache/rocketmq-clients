@@ -17,15 +17,12 @@
 
 package org.apache.rocketmq.client.impl.consumer;
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
 
-@Data
-@EqualsAndHashCode
 public class OffsetRecord implements Comparable<OffsetRecord> {
     private final long offset;
 
-    @EqualsAndHashCode.Exclude
     private boolean released = false;
 
     public OffsetRecord(long offset) {
@@ -41,5 +38,42 @@ public class OffsetRecord implements Comparable<OffsetRecord> {
             return 1;
         }
         return -1;
+    }
+
+    public long getOffset() {
+        return this.offset;
+    }
+
+    public boolean isReleased() {
+        return this.released;
+    }
+
+    public void setReleased(boolean released) {
+        this.released = released;
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                          .add("offset", offset)
+                          .add("released", released)
+                          .toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        OffsetRecord that = (OffsetRecord) o;
+        return offset == that.offset && released == that.released;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(offset, released);
     }
 }

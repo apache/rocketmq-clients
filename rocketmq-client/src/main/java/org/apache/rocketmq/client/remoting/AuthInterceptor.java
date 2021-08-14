@@ -24,16 +24,17 @@ import io.grpc.ClientInterceptor;
 import io.grpc.ForwardingClientCall;
 import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.impl.ClientConfig;
 import org.apache.rocketmq.client.impl.Signature;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Client auth interceptor for authentication, but only serve for message tracing actually.
  */
-@Slf4j
 public class AuthInterceptor implements ClientInterceptor {
-
+    private static final Logger log = LoggerFactory.getLogger(AuthInterceptor.class);
+    
     private final ClientConfig clientConfig;
 
     public AuthInterceptor(ClientConfig clientConfig) {

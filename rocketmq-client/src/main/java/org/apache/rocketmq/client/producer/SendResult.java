@@ -17,19 +17,15 @@
 
 package org.apache.rocketmq.client.producer;
 
-import lombok.Getter;
-import lombok.ToString;
+import com.google.common.base.MoreObjects;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.route.Endpoints;
 
-@Getter
-@ToString
 public class SendResult {
     private final SendStatus sendStatus = SendStatus.SEND_OK;
     private final String msgId;
     private final Endpoints endpoints;
 
-    @ToString.Exclude
     private final String transactionId;
 
     public SendResult(Endpoints endpoints, String msgId) {
@@ -40,5 +36,30 @@ public class SendResult {
         this.endpoints = endpoints;
         this.msgId = msgId;
         this.transactionId = transactionId;
+    }
+
+    public SendStatus getSendStatus() {
+        return this.sendStatus;
+    }
+
+    public String getMsgId() {
+        return this.msgId;
+    }
+
+    public Endpoints getEndpoints() {
+        return this.endpoints;
+    }
+
+    public String getTransactionId() {
+        return this.transactionId;
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                          .add("sendStatus", sendStatus)
+                          .add("msgId", msgId)
+                          .add("endpoints", endpoints)
+                          .toString();
     }
 }

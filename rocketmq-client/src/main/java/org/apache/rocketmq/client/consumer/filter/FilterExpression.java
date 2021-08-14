@@ -17,10 +17,8 @@
 
 package org.apache.rocketmq.client.consumer.filter;
 
-import lombok.Getter;
 import org.apache.rocketmq.client.message.MessageExt;
 
-@Getter
 public class FilterExpression {
     public static final String TAG_EXPRESSION_SUB_ALL = "*";
     private static final String TAG_EXPRESSION_SPLIT_PATTERN = "\\|\\|";
@@ -61,5 +59,17 @@ public class FilterExpression {
             }
         }
         return false;
+    }
+
+    public String getExpression() {
+        return this.expression;
+    }
+
+    public ExpressionType getExpressionType() {
+        return this.expressionType;
+    }
+
+    public long getVersion() {
+        return this.version;
     }
 }

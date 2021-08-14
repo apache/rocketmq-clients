@@ -29,7 +29,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListener;
 import org.apache.rocketmq.client.impl.ServiceState;
@@ -37,9 +36,12 @@ import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public abstract class ConsumeService {
+    private static final Logger log = LoggerFactory.getLogger(ConsumeService.class);
+
     private static final long CONSUMPTION_DISPATCH_PERIOD_MILLIS = 10;
 
     protected final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable;

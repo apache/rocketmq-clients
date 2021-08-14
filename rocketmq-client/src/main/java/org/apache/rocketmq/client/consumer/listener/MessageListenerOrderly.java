@@ -17,9 +17,11 @@
 
 package org.apache.rocketmq.client.consumer.listener;
 
-import lombok.Getter;
-
 public abstract class MessageListenerOrderly implements MessageListener {
-    @Getter
     private final MessageListenerType listenerType = MessageListenerType.ORDERLY;
+
+    @Override
+    public MessageListenerType getListenerType() {
+        return this.listenerType;
+    }
 }

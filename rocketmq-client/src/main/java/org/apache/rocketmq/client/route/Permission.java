@@ -17,11 +17,6 @@
 
 package org.apache.rocketmq.client.route;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-
-@Getter
-@AllArgsConstructor
 public enum Permission {
     /**
      * No any permission.
@@ -41,6 +36,10 @@ public enum Permission {
     READ_WRITE(3);
 
     private final int value;
+
+    private Permission(int value) {
+        this.value = value;
+    }
 
     public boolean isWritable() {
         switch (this) {
@@ -64,5 +63,9 @@ public enum Permission {
             default:
                 return false;
         }
+    }
+
+    public int getValue() {
+        return this.value;
     }
 }

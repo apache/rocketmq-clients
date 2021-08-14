@@ -19,15 +19,12 @@ package org.apache.rocketmq.client.route;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.base.Objects;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.concurrent.Immutable;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
 
-@Getter
-@EqualsAndHashCode
 @Immutable
 public class Endpoints {
     private static final String ADDRESS_SEPARATOR = ",";
@@ -114,5 +111,35 @@ public class Endpoints {
     @Override
     public String toString() {
         return facade;
+    }
+
+    public AddressScheme getAddressScheme() {
+        return this.addressScheme;
+    }
+
+    public String getFacade() {
+        return this.facade;
+    }
+
+    public List<Address> getAddresses() {
+        return this.addresses;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Endpoints endpoints = (Endpoints) o;
+        return addressScheme == endpoints.addressScheme && Objects.equal(facade, endpoints.facade) &&
+               Objects.equal(addresses, endpoints.addresses);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(addressScheme, facade, addresses);
     }
 }

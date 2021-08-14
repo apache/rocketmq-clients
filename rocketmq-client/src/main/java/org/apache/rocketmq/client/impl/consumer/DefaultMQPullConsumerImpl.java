@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.PullCallback;
 import org.apache.rocketmq.client.consumer.PullMessageQuery;
 import org.apache.rocketmq.client.consumer.PullMessageResult;
@@ -44,10 +43,12 @@ import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class DefaultMQPullConsumerImpl extends ClientImpl {
-
+    private static final Logger log = LoggerFactory.getLogger(DefaultMQPullConsumerImpl.class);
+    
     private final ThreadPoolExecutor pullCallbackExecutor;
 
     public DefaultMQPullConsumerImpl(String group) {

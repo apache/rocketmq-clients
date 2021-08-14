@@ -18,19 +18,21 @@
 package org.apache.rocketmq.client.producer;
 
 import java.util.concurrent.TimeoutException;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ServerException;
 import org.apache.rocketmq.client.impl.producer.DefaultMQProducerImpl;
 import org.apache.rocketmq.client.message.Message;
 
-@AllArgsConstructor
 public class TransactionImpl implements Transaction {
-    @Getter
     private final SendResult sendResult;
     private final Message message;
     private final DefaultMQProducerImpl producerImpl;
+
+    public TransactionImpl(SendResult sendResult, Message message, DefaultMQProducerImpl producerImpl) {
+        this.sendResult = sendResult;
+        this.message = message;
+        this.producerImpl = producerImpl;
+    }
 
     @Override
     public void commit() throws ClientException, ServerException, InterruptedException, TimeoutException {
@@ -40,5 +42,9 @@ public class TransactionImpl implements Transaction {
     @Override
     public void rollback() throws ClientException, ServerException, InterruptedException, TimeoutException {
         producerImpl.rollback(sendResult.getEndpoints(), message.getMessageExt(), sendResult.getTransactionId());
+    }
+
+    public SendResult getSendResult() {
+        return this.sendResult;
     }
 }

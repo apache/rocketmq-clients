@@ -53,8 +53,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.MessageModel;
 import org.apache.rocketmq.client.consumer.OffsetQuery;
@@ -75,8 +73,9 @@ import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.message.protocol.SystemAttribute;
 import org.apache.rocketmq.client.route.Endpoints;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class ProcessQueueImpl implements ProcessQueue {
     public static final long RECEIVE_LONG_POLLING_TIMEOUT_MILLIS = 30 * 1000L;
     public static final long RECEIVE_LATER_DELAY_MILLIS = 3 * 1000L;
@@ -88,9 +87,10 @@ public class ProcessQueueImpl implements ProcessQueue {
     public static final long ACK_FIFO_MESSAGE_DELAY_MILLIS = 100L;
     public static final long REDIRECT_FIFO_MESSAGE_TO_DLQ_DELAY_MILLIS = 100L;
 
+    private static final Logger log = LoggerFactory.getLogger(ProcessQueueImpl.class);
+
     private volatile boolean dropped;
 
-    @Getter
     private final MessageQueue messageQueue;
     private final FilterExpression filterExpression;
 
@@ -1129,5 +1129,9 @@ public class ProcessQueueImpl implements ProcessQueue {
             return;
         }
         consumerImpl.getConsumptionErrorQuantity().addAndGet(messageSize);
+    }
+
+    public MessageQueue getMessageQueue() {
+        return this.messageQueue;
     }
 }

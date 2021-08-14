@@ -17,13 +17,11 @@
 
 package org.apache.rocketmq.client.message;
 
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
 import java.util.concurrent.ConcurrentMap;
-import lombok.AllArgsConstructor;
-import lombok.Data;
 import org.apache.rocketmq.client.message.protocol.SystemAttribute;
 
-@Data
-@AllArgsConstructor
 public class MessageImpl {
     private String topic;
     private final SystemAttribute systemAttribute;
@@ -36,6 +34,15 @@ public class MessageImpl {
         this(topic, systemAttribute, userAttribute, body, false);
     }
 
+    public MessageImpl(String topic, SystemAttribute systemAttribute, ConcurrentMap<String, String> userAttribute,
+                       byte[] body, boolean corrupted) {
+        this.topic = topic;
+        this.systemAttribute = systemAttribute;
+        this.userAttribute = userAttribute;
+        this.body = body;
+        this.corrupted = corrupted;
+    }
+
     public void setBody(byte[] body) {
         if (null == body) {
             this.body = null;
@@ -46,5 +53,56 @@ public class MessageImpl {
 
     public byte[] getBody() {
         return null == body ? null : body.clone();
+    }
+
+    public String getTopic() {
+        return this.topic;
+    }
+
+    public SystemAttribute getSystemAttribute() {
+        return this.systemAttribute;
+    }
+
+    public ConcurrentMap<String, String> getUserAttribute() {
+        return this.userAttribute;
+    }
+
+    public boolean isCorrupted() {
+        return this.corrupted;
+    }
+
+    public void setTopic(String topic) {
+        this.topic = topic;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        MessageImpl message = (MessageImpl) o;
+        return corrupted == message.corrupted && Objects.equal(topic, message.topic) &&
+               Objects.equal(systemAttribute, message.systemAttribute) &&
+               Objects.equal(userAttribute, message.userAttribute) &&
+               Objects.equal(body, message.body);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(topic, systemAttribute, userAttribute, body, corrupted);
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                          .add("topic", topic)
+                          .add("systemAttribute", systemAttribute)
+                          .add("userAttribute", userAttribute)
+                          .add("body", body)
+                          .add("corrupted", corrupted)
+                          .toString();
     }
 }

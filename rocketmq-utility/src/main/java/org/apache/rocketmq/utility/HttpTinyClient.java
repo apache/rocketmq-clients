@@ -25,8 +25,6 @@ import java.io.Reader;
 import java.io.Writer;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
 
 public class HttpTinyClient {
     private static final String GET_METHOD = "GET";
@@ -55,14 +53,25 @@ public class HttpTinyClient {
         }
     }
 
-    @AllArgsConstructor
-    @Getter
     public static class HttpResult {
         private final int code;
         private final String content;
 
+        public HttpResult(int code, String content) {
+            this.code = code;
+            this.content = content;
+        }
+
         public boolean isOk() {
             return HttpURLConnection.HTTP_OK == code;
+        }
+
+        public int getCode() {
+            return this.code;
+        }
+
+        public String getContent() {
+            return this.content;
         }
     }
 

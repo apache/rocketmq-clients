@@ -17,11 +17,6 @@
 
 package org.apache.rocketmq.client.message.protocol;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-
-@AllArgsConstructor
-@Getter
 public enum MessageType {
     NORMAL("normal"),
     FIFO("fifo"),
@@ -30,4 +25,12 @@ public enum MessageType {
 
 
     private final String name;
+
+    private MessageType(String name) {
+        this.name = name;
+    }
+
+    public String getName() {
+        return this.name;
+    }
 }

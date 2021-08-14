@@ -59,10 +59,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.ServerException;
@@ -93,10 +89,9 @@ import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.apache.rocketmq.utility.UtilAll;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
-@Getter
-@Setter
 public class DefaultMQProducerImpl extends ClientImpl {
 
     /**
@@ -108,6 +103,8 @@ public class DefaultMQProducerImpl extends ClientImpl {
      * The default GZIP compression level for message body.
      */
     public static final int MESSAGE_COMPRESSION_LEVEL = 5;
+
+    private static final Logger log = LoggerFactory.getLogger(DefaultMQProducerImpl.class);
 
     /**
      * Maximum attempt times for auto-retry of sending message.
@@ -126,24 +123,17 @@ public class DefaultMQProducerImpl extends ClientImpl {
 
     private TransactionChecker transactionChecker;
 
-    @Getter(AccessLevel.NONE)
     private final ExecutorService defaultSendCallbackExecutor;
 
-    @Getter(AccessLevel.NONE)
-    @Setter(AccessLevel.NONE)
     private ExecutorService customSendCallbackExecutor = null;
 
-    @Getter(AccessLevel.NONE)
     private final ConcurrentMap<String/* topic */, TopicPublishInfo> topicPublishInfoCache;
 
-    @Getter(AccessLevel.NONE)
     @GuardedBy("isolatedRouteEndpointsSetLock")
     private final Set<Endpoints> isolatedRouteEndpointsSet;
 
-    @Getter(AccessLevel.NONE)
     private final ReadWriteLock isolatedRouteEndpointsSetLock;
 
-    @Getter(AccessLevel.NONE)
     private final ThreadPoolExecutor transactionCheckerExecutor;
 
     public DefaultMQProducerImpl(String group) {
@@ -539,7 +529,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
                         MessageHookPoint.PointStatus.OK : MessageHookPoint.PointStatus.ERROR;
                 final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
                 final MessageInterceptorContext context =
-                        MessageInterceptorContext.builder().duration(duration).status(status).build();
+                        MessageInterceptorContext.builder().setDuration(duration).setStatus(status).build();
                 intercept(MessageHookPoint.POST_END_MESSAGE, messageExt, context);
             }
 
@@ -548,8 +538,8 @@ public class DefaultMQProducerImpl extends ClientImpl {
                 // intercept after end message.
                 final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
                 final MessageInterceptorContext context =
-                        MessageInterceptorContext.builder().duration(duration).throwable(t)
-                                                 .status(MessageHookPoint.PointStatus.ERROR).build();
+                        MessageInterceptorContext.builder().setDuration(duration).setThrowable(t)
+                                                 .setStatus(MessageHookPoint.PointStatus.ERROR).build();
                 intercept(MessageHookPoint.POST_END_MESSAGE, messageExt, context);
             }
         });
@@ -706,8 +696,8 @@ public class DefaultMQProducerImpl extends ClientImpl {
         final Endpoints endpoints = partition.getBroker().getEndpoints();
 
         // intercept before message sending.
-        final MessageInterceptorContext.MessageInterceptorContextBuilder contextBuilder =
-                MessageInterceptorContext.builder().attempt(attempt);
+        final MessageInterceptorContext.Builder contextBuilder =
+                MessageInterceptorContext.builder().setAttempt(attempt);
         intercept(MessageHookPoint.PRE_SEND_MESSAGE, message.getMessageExt(), contextBuilder.build());
 
         final Stopwatch stopwatch = Stopwatch.createStarted();
@@ -739,9 +729,9 @@ public class DefaultMQProducerImpl extends ClientImpl {
                           maxAttempts, attempt);
                 // intercept after message sending.
                 final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
-                final MessageInterceptorContext context = contextBuilder.duration(duration)
-                                                                        .timeUnit(TimeUnit.MILLISECONDS)
-                                                                        .status(MessageHookPoint.PointStatus.OK)
+                final MessageInterceptorContext context = contextBuilder.setDuration(duration)
+                                                                        .setTimeUnit(TimeUnit.MILLISECONDS)
+                                                                        .setStatus(MessageHookPoint.PointStatus.OK)
                                                                         .build();
                 intercept(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
             }
@@ -750,9 +740,9 @@ public class DefaultMQProducerImpl extends ClientImpl {
             public void onFailure(Throwable t) {
                 // intercept after message sending.
                 final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
-                final MessageInterceptorContext context = contextBuilder.duration(duration)
-                                                                        .timeUnit(TimeUnit.MILLISECONDS)
-                                                                        .status(MessageHookPoint.PointStatus.ERROR)
+                final MessageInterceptorContext context = contextBuilder.setDuration(duration)
+                                                                        .setTimeUnit(TimeUnit.MILLISECONDS)
+                                                                        .setStatus(MessageHookPoint.PointStatus.ERROR)
                                                                         .build();
                 intercept(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
                 // isolate endpoints for a while.
@@ -854,5 +844,33 @@ public class DefaultMQProducerImpl extends ClientImpl {
     public void setTransactionChecker(final TransactionChecker checker) {
         checkNotNull(checker);
         this.transactionChecker = checker;
+    }
+
+    public int getMaxAttempts() {
+        return this.maxAttempts;
+    }
+
+    public long getSendMessageTimeoutMillis() {
+        return this.sendMessageTimeoutMillis;
+    }
+
+    public long getTransactionResolveDelayMillis() {
+        return this.transactionResolveDelayMillis;
+    }
+
+    public TransactionChecker getTransactionChecker() {
+        return this.transactionChecker;
+    }
+
+    public void setMaxAttempts(int maxAttempts) {
+        this.maxAttempts = maxAttempts;
+    }
+
+    public void setSendMessageTimeoutMillis(long sendMessageTimeoutMillis) {
+        this.sendMessageTimeoutMillis = sendMessageTimeoutMillis;
+    }
+
+    public void setTransactionResolveDelayMillis(long transactionResolveDelayMillis) {
+        this.transactionResolveDelayMillis = transactionResolveDelayMillis;
     }
 }

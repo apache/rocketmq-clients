@@ -21,16 +21,16 @@ import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 import java.text.SimpleDateFormat;
 import java.util.TimeZone;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.utility.HttpTinyClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class StsCredentialsProvider implements CredentialsProvider {
+    private static final Logger log = LoggerFactory.getLogger(StsCredentialsProvider.class);
+    
     private static final int HTTP_TIMEOUT_MILLIS = 3 * 1000;
     private static final SimpleDateFormat UTC_DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
     private static final String RAM_ROLE_HOST = "100.100.100.200";
@@ -51,8 +51,6 @@ public class StsCredentialsProvider implements CredentialsProvider {
         return credentials;
     }
 
-    @AllArgsConstructor
-    @Getter
     static class StsCredentials {
         public static String SUCCESS_CODE = "Success";
 
@@ -68,6 +66,40 @@ public class StsCredentialsProvider implements CredentialsProvider {
         private final String lastUpdated;
         @SerializedName("Code")
         private final String code;
+
+        public StsCredentials(String accessKeyId, String accessKeySecret, String expiration, String securityToken,
+                              String lastUpdated, String code) {
+            this.accessKeyId = accessKeyId;
+            this.accessKeySecret = accessKeySecret;
+            this.expiration = expiration;
+            this.securityToken = securityToken;
+            this.lastUpdated = lastUpdated;
+            this.code = code;
+        }
+
+        public String getAccessKeyId() {
+            return this.accessKeyId;
+        }
+
+        public String getAccessKeySecret() {
+            return this.accessKeySecret;
+        }
+
+        public String getExpiration() {
+            return this.expiration;
+        }
+
+        public String getSecurityToken() {
+            return this.securityToken;
+        }
+
+        public String getLastUpdated() {
+            return this.lastUpdated;
+        }
+
+        public String getCode() {
+            return this.code;
+        }
     }
 
     private void refresh() throws ClientException {

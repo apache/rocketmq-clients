@@ -58,10 +58,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.ConsumeFromWhere;
 import org.apache.rocketmq.client.consumer.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.MessageModel;
@@ -86,12 +82,12 @@ import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.Permission;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
-@Slf4j
-@Getter
-@Setter
 public class DefaultMQPushConsumerImpl extends ClientImpl {
+    private static final Logger log = LoggerFactory.getLogger(DefaultMQPushConsumerImpl.class);
 
     /**
      * For {@link MessageModel#CLUSTERING} only, reflects the times of message reception.
@@ -210,28 +206,20 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
 
     private OffsetStore offsetStore = null;
 
-    @Setter(AccessLevel.NONE)
     private MessageListener messageListener;
 
-    @Setter(AccessLevel.NONE)
     private volatile ConsumeService consumeService;
 
-    @Setter(AccessLevel.NONE)
     private final ThreadPoolExecutor consumptionExecutor;
 
-    @Getter(AccessLevel.NONE)
     private final ConcurrentMap<String /* topic */, FilterExpression> filterExpressionTable;
 
-    @Getter(AccessLevel.NONE)
     private final ConcurrentMap<String /* topic */, TopicAssignment> cachedTopicAssignmentTable;
 
-    @Getter(AccessLevel.NONE)
     private final ConcurrentMap<String /* topic */, RateLimiter> rateLimiterTable;
 
-    @Getter(AccessLevel.PACKAGE)
     private final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable;
 
-    @Getter(AccessLevel.NONE)
     private volatile ScheduledFuture<?> scanAssignmentsFuture;
 
     public DefaultMQPushConsumerImpl(String group) {
@@ -740,5 +728,161 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
     public void setConsumptionThreadsAmount(int threadsAmount) {
         consumptionExecutor.setCorePoolSize(threadsAmount);
         consumptionExecutor.setMaximumPoolSize(threadsAmount);
+    }
+
+    public AtomicLong getReceptionTimes() {
+        return this.receptionTimes;
+    }
+
+    public AtomicLong getReceivedMessagesQuantity() {
+        return this.receivedMessagesQuantity;
+    }
+
+    public AtomicLong getPullTimes() {
+        return this.pullTimes;
+    }
+
+    public AtomicLong getPulledMessagesQuantity() {
+        return this.pulledMessagesQuantity;
+    }
+
+    public AtomicLong getConsumptionOkQuantity() {
+        return this.consumptionOkQuantity;
+    }
+
+    public AtomicLong getConsumptionErrorQuantity() {
+        return this.consumptionErrorQuantity;
+    }
+
+    public int getMaxTotalCachedMessagesQuantityThreshold() {
+        return this.maxTotalCachedMessagesQuantityThreshold;
+    }
+
+    public int getMaxCachedMessagesQuantityThresholdPerQueue() {
+        return this.maxCachedMessagesQuantityThresholdPerQueue;
+    }
+
+    public int getMaxTotalCachedMessagesBytesThreshold() {
+        return this.maxTotalCachedMessagesBytesThreshold;
+    }
+
+    public int getMaxCachedMessagesBytesThresholdPerQueue() {
+        return this.maxCachedMessagesBytesThresholdPerQueue;
+    }
+
+    public long getFifoConsumptionSuspendTimeMillis() {
+        return this.fifoConsumptionSuspendTimeMillis;
+    }
+
+    public int getConsumeMessageBatchMaxSize() {
+        return this.consumeMessageBatchMaxSize;
+    }
+
+    public int getConsumptionThreadsAmount() {
+        return this.consumptionThreadsAmount;
+    }
+
+    public int getMaxDeliveryAttempts() {
+        return this.maxDeliveryAttempts;
+    }
+
+    public MessageModel getMessageModel() {
+        return this.messageModel;
+    }
+
+    public ConsumeFromWhere getConsumeFromWhere() {
+        return this.consumeFromWhere;
+    }
+
+    public long getConsumeFromTimeMillis() {
+        return this.consumeFromTimeMillis;
+    }
+
+    public long getConsumptionTimeoutMillis() {
+        return this.consumptionTimeoutMillis;
+    }
+
+    public long getMaxAwaitTimeMillisPerQueue() {
+        return this.maxAwaitTimeMillisPerQueue;
+    }
+
+    public int getMaxAwaitBatchSizePerQueue() {
+        return this.maxAwaitBatchSizePerQueue;
+    }
+
+    public OffsetStore getOffsetStore() {
+        return this.offsetStore;
+    }
+
+    public MessageListener getMessageListener() {
+        return this.messageListener;
+    }
+
+    public ConsumeService getConsumeService() {
+        return this.consumeService;
+    }
+
+    public ThreadPoolExecutor getConsumptionExecutor() {
+        return this.consumptionExecutor;
+    }
+
+    public void setMaxTotalCachedMessagesQuantityThreshold(int maxTotalCachedMessagesQuantityThreshold) {
+        this.maxTotalCachedMessagesQuantityThreshold = maxTotalCachedMessagesQuantityThreshold;
+    }
+
+    public void setMaxCachedMessagesQuantityThresholdPerQueue(int maxCachedMessagesQuantityThresholdPerQueue) {
+        this.maxCachedMessagesQuantityThresholdPerQueue = maxCachedMessagesQuantityThresholdPerQueue;
+    }
+
+    public void setMaxTotalCachedMessagesBytesThreshold(int maxTotalCachedMessagesBytesThreshold) {
+        this.maxTotalCachedMessagesBytesThreshold = maxTotalCachedMessagesBytesThreshold;
+    }
+
+    public void setMaxCachedMessagesBytesThresholdPerQueue(int maxCachedMessagesBytesThresholdPerQueue) {
+        this.maxCachedMessagesBytesThresholdPerQueue = maxCachedMessagesBytesThresholdPerQueue;
+    }
+
+    public void setFifoConsumptionSuspendTimeMillis(long fifoConsumptionSuspendTimeMillis) {
+        this.fifoConsumptionSuspendTimeMillis = fifoConsumptionSuspendTimeMillis;
+    }
+
+    public void setConsumeMessageBatchMaxSize(int consumeMessageBatchMaxSize) {
+        this.consumeMessageBatchMaxSize = consumeMessageBatchMaxSize;
+    }
+
+    public void setMaxDeliveryAttempts(int maxDeliveryAttempts) {
+        this.maxDeliveryAttempts = maxDeliveryAttempts;
+    }
+
+    public void setMessageModel(MessageModel messageModel) {
+        this.messageModel = messageModel;
+    }
+
+    public void setConsumeFromWhere(ConsumeFromWhere consumeFromWhere) {
+        this.consumeFromWhere = consumeFromWhere;
+    }
+
+    public void setConsumeFromTimeMillis(long consumeFromTimeMillis) {
+        this.consumeFromTimeMillis = consumeFromTimeMillis;
+    }
+
+    public void setConsumptionTimeoutMillis(long consumptionTimeoutMillis) {
+        this.consumptionTimeoutMillis = consumptionTimeoutMillis;
+    }
+
+    public void setMaxAwaitTimeMillisPerQueue(long maxAwaitTimeMillisPerQueue) {
+        this.maxAwaitTimeMillisPerQueue = maxAwaitTimeMillisPerQueue;
+    }
+
+    public void setMaxAwaitBatchSizePerQueue(int maxAwaitBatchSizePerQueue) {
+        this.maxAwaitBatchSizePerQueue = maxAwaitBatchSizePerQueue;
+    }
+
+    public void setScanAssignmentsFuture(ScheduledFuture<?> scanAssignmentsFuture) {
+        this.scanAssignmentsFuture = scanAssignmentsFuture;
+    }
+
+    ConcurrentMap<MessageQueue, ProcessQueue> getProcessQueueTable() {
+        return this.processQueueTable;
     }
 }

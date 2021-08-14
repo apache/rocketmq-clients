@@ -20,14 +20,16 @@ package org.apache.rocketmq.client.misc;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.route.Address;
 import org.apache.rocketmq.client.route.AddressScheme;
 import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.utility.HttpTinyClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class TopAddressing {
+    private static final Logger log = LoggerFactory.getLogger(TopAddressing.class);
+    
     private static final int HTTP_TIMEOUT_MILLIS = 3 * 1000;
     private static final String DEFAULT_NAME_SERVER_DOMAIN = "jmenv.tbsite.net";
     private static final String DEFAULT_NAME_SERVER_SUB_GROUP = "nsaddr";

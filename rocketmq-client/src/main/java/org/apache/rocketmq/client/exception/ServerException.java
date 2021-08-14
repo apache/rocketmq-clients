@@ -18,9 +18,7 @@
 package org.apache.rocketmq.client.exception;
 
 import java.io.IOException;
-import lombok.Getter;
 
-@Getter
 public class ServerException extends IOException {
 
     @Deprecated

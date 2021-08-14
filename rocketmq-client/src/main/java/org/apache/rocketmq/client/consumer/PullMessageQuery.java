@@ -17,11 +17,9 @@
 
 package org.apache.rocketmq.client.consumer;
 
-import lombok.Getter;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.message.MessageQueue;
 
-@Getter
 public class PullMessageQuery {
     private static final long PULL_MESSAGE_TIMEOUT_MILLIS = 3 * 1000;
 
@@ -62,5 +60,29 @@ public class PullMessageQuery {
         this.batchSize = batchSize;
         this.awaitTimeMillis = awaitTimeMillis;
         this.timeoutMillis = PULL_MESSAGE_TIMEOUT_MILLIS;
+    }
+
+    public MessageQueue getMessageQueue() {
+        return this.messageQueue;
+    }
+
+    public FilterExpression getFilterExpression() {
+        return this.filterExpression;
+    }
+
+    public long getQueueOffset() {
+        return this.queueOffset;
+    }
+
+    public int getBatchSize() {
+        return this.batchSize;
+    }
+
+    public long getAwaitTimeMillis() {
+        return this.awaitTimeMillis;
+    }
+
+    public long getTimeoutMillis() {
+        return this.timeoutMillis;
     }
 }

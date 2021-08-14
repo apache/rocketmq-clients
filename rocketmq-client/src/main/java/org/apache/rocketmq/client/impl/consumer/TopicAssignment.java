@@ -17,28 +17,26 @@
 
 package org.apache.rocketmq.client.impl.consumer;
 
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.concurrent.Immutable;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
-@ToString
-@EqualsAndHashCode
 @Immutable
 public class TopicAssignment {
+    private static final Logger log = LoggerFactory.getLogger(TopicAssignment.class);
+
     private static final ThreadLocal<AtomicInteger> PARTITION_INDEX = new ThreadLocal<AtomicInteger>();
 
-    @Getter
     private final List<Assignment> assignmentList;
 
     public TopicAssignment(TopicRouteData topicRouteData) {
@@ -81,5 +79,33 @@ public class TopicAssignment {
             PARTITION_INDEX.set(new AtomicInteger(RandomUtils.nextInt()));
         }
         return PARTITION_INDEX.get().getAndIncrement();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        TopicAssignment that = (TopicAssignment) o;
+        return Objects.equal(assignmentList, that.assignmentList);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(assignmentList);
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                          .add("assignmentList", assignmentList)
+                          .toString();
+    }
+
+    public List<Assignment> getAssignmentList() {
+        return this.assignmentList;
     }
 }

@@ -56,26 +56,25 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.net.ssl.SSLException;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.remoting.RpcClient;
 import org.apache.rocketmq.client.remoting.RpcClientImpl;
 import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class ClientManagerImpl implements ClientManager {
+    private static final Logger log = LoggerFactory.getLogger(ClientManagerImpl.class);
+
     private static final long RPC_CLIENT_MAX_IDLE_SECONDS = 30 * 60;
 
-    @Getter
     private final String id;
 
     private final ConcurrentMap<Endpoints, RpcClient> rpcClientTable;
 
     private final ConcurrentMap<String/* ClientId */, ClientObserver> observerTable;
 
-    @Getter
     private final ScheduledExecutorService scheduler;
 
     /**
@@ -464,5 +463,13 @@ public class ClientManagerImpl implements ClientManager {
             future.setException(t);
             return future;
         }
+    }
+
+    public String getId() {
+        return this.id;
+    }
+
+    public ScheduledExecutorService getScheduler() {
+        return this.scheduler;
     }
 }

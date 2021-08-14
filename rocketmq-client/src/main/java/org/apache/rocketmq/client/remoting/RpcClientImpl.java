@@ -58,15 +58,11 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLException;
-import lombok.EqualsAndHashCode;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.route.Endpoints;
 
 /**
  * Implementation for {@link RpcClient}
  */
-@Slf4j
-@EqualsAndHashCode
 public class RpcClientImpl implements RpcClient {
     private static final long KEEP_ALIVE_TIME_SECONDS = 30;
 

@@ -17,14 +17,24 @@
 
 package org.apache.rocketmq.client.message.protocol;
 
+import com.google.common.base.MoreObjects;
 import javax.annotation.concurrent.Immutable;
-import lombok.AllArgsConstructor;
-import lombok.ToString;
 
-@AllArgsConstructor
-@ToString
 @Immutable
 public class Digest {
     private final DigestType digestType;
     private final String checkSum;
+
+    public Digest(DigestType digestType, String checkSum) {
+        this.digestType = digestType;
+        this.checkSum = checkSum;
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                          .add("digestType", digestType)
+                          .add("checkSum", checkSum)
+                          .toString();
+    }
 }

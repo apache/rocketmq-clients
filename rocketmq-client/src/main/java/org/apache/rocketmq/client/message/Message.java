@@ -17,23 +17,19 @@
 
 package org.apache.rocketmq.client.message;
 
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
 import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.message.protocol.SystemAttribute;
 import org.apache.rocketmq.client.misc.MixAll;
 
 
-@EqualsAndHashCode
-@ToString
 public class Message {
     final MessageImpl impl;
-    @Getter
     private final MessageExt messageExt;
 
     public Message(String topic, String tag, byte[] body) {
@@ -136,5 +132,33 @@ public class Message {
 
     public long getBornTimeMillis() {
         return this.impl.getSystemAttribute().getBornTimeMillis();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Message message = (Message) o;
+        return Objects.equal(impl, message.impl);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(impl);
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                          .add("impl", impl)
+                          .toString();
+    }
+
+    public MessageExt getMessageExt() {
+        return this.messageExt;
     }
 }

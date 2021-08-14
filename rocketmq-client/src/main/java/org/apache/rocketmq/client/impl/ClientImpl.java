@@ -82,8 +82,6 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
 import org.apache.rocketmq.client.consumer.OffsetQuery;
@@ -118,9 +116,11 @@ import org.apache.rocketmq.client.route.Permission;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.client.tracing.TracingMessageInterceptor;
 import org.apache.rocketmq.utility.UtilAll;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public abstract class ClientImpl extends ClientConfig implements ClientObserver, MessageInterceptor {
+    private static final Logger log = LoggerFactory.getLogger(ClientImpl.class);
 
     /**
      * Delay interval while multiplexing call encounters failure.
@@ -166,10 +166,8 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
      */
     private static final int TRACE_EXPORTER_MAX_QUEUE_SIZE = 4096;
 
-    @Getter
     protected volatile ClientManager clientManager;
 
-    @Getter
     protected volatile Tracer tracer;
     protected volatile Endpoints tracingEndpoints;
     private volatile SdkTracerProvider tracerProvider;
@@ -1236,5 +1234,13 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
 
     @Override
     public void doHealthCheck() {
+    }
+
+    public ClientManager getClientManager() {
+        return this.clientManager;
+    }
+
+    public Tracer getTracer() {
+        return this.tracer;
     }
 }

@@ -21,8 +21,6 @@ import com.google.common.base.Stopwatch;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
-import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.ConsumeContext;
 import org.apache.rocketmq.client.consumer.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListener;
@@ -30,20 +28,29 @@ import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
-@AllArgsConstructor
 public class ConsumeTask implements Callable<ConsumeStatus> {
+    private static final Logger log = LoggerFactory.getLogger(ConsumeTask.class);
+
     private final MessageInterceptor interceptor;
     private final MessageListener messageListener;
     private final List<MessageExt> messageExtList;
+
+    public ConsumeTask(MessageInterceptor interceptor, MessageListener messageListener,
+                       List<MessageExt> messageExtList) {
+        this.interceptor = interceptor;
+        this.messageListener = messageListener;
+        this.messageExtList = messageExtList;
+    }
 
     @Override
     public ConsumeStatus call() {
         // intercept before message consumption.
         for (MessageExt messageExt : messageExtList) {
             final MessageInterceptorContext context =
-                    MessageInterceptorContext.builder().attempt(messageExt.getDeliveryAttempt()).build();
+                    MessageInterceptorContext.builder().setAttempt(messageExt.getDeliveryAttempt()).build();
             interceptor.intercept(MessageHookPoint.PRE_MESSAGE_CONSUMPTION, messageExt, context);
         }
 
@@ -69,12 +76,12 @@ public class ConsumeTask implements Callable<ConsumeStatus> {
             final MessageExt messageExt = messageExtList.get(i);
             final MessageInterceptorContext context =
                     MessageInterceptorContext.builder()
-                                             .attempt(messageExt.getDeliveryAttempt())
-                                             .duration(elapsedPerMessage)
-                                             .timeUnit(TimeUnit.MILLISECONDS)
-                                             .messageIndex(i)
-                                             .messageBatchSize(messageExtList.size())
-                                             .status(ConsumeStatus.OK == status ?
+                                             .setAttempt(messageExt.getDeliveryAttempt())
+                                             .setDuration(elapsedPerMessage)
+                                             .setTimeUnit(TimeUnit.MILLISECONDS)
+                                             .setMessageIndex(i)
+                                             .setMessageBatchSize(messageExtList.size())
+                                             .setStatus(ConsumeStatus.OK == status ?
                                                      MessageHookPoint.PointStatus.OK :
                                                      MessageHookPoint.PointStatus.ERROR)
                                              .build();

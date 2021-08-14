@@ -28,16 +28,17 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListener;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageQueue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class ConsumeConcurrentlyService extends ConsumeService {
-
+    private static final Logger log = LoggerFactory.getLogger(ConsumeConcurrentlyService.class);
+    
     private final int batchMaxSize;
 
     public ConsumeConcurrentlyService(MessageListener messageListener, MessageInterceptor interceptor,

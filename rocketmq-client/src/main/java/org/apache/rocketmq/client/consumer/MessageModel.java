@@ -17,22 +17,15 @@
 
 package org.apache.rocketmq.client.consumer;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-
-@AllArgsConstructor
-@Getter
 public enum MessageModel {
     /**
      * In broadcasting mode, each consumer in same group is individual, they would maintain their own consumption
      * offset, and their subscription could be different with each other.
      */
-    BROADCASTING("BROADCASTING"),
+    BROADCASTING,
     /**
      * In clustering mode, each consumer in same group would maintain consumption offset in common. Which is
      * undefined if consumers have different subscription but belongs to the same group.
      */
-    CLUSTERING("CLUSTERING");
-
-    private final String model;
+    CLUSTERING
 }

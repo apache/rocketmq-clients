@@ -17,27 +17,121 @@
 
 package org.apache.rocketmq.client.message;
 
-import java.util.concurrent.TimeUnit;
-import lombok.Builder;
-import lombok.Getter;
+import static com.google.common.base.Preconditions.checkNotNull;
 
-@Getter
-@Builder
+import java.util.concurrent.TimeUnit;
+
 public class MessageInterceptorContext {
     public static MessageInterceptorContext EMPTY = MessageInterceptorContext.builder().build();
 
-    @Builder.Default
-    private final MessageHookPoint.PointStatus status = MessageHookPoint.PointStatus.UNSET;
-    @Builder.Default
-    private final int messageBatchSize = 1;
-    @Builder.Default
-    private final int messageIndex = 0;
-    @Builder.Default
-    private final int attempt = 1;
-    @Builder.Default
-    private final long duration = 0;
-    @Builder.Default
-    private final TimeUnit timeUnit = TimeUnit.MILLISECONDS;
-    @Builder.Default
-    private final Throwable throwable = null;
+    private final MessageHookPoint.PointStatus status;
+    private final int messageBatchSize;
+    private final int messageIndex;
+    private final int attempt;
+    private final long duration;
+    private final TimeUnit timeUnit;
+    private final Throwable throwable;
+
+    MessageInterceptorContext(MessageHookPoint.PointStatus status, int messageBatchSize, int messageIndex,
+                              int attempt, long duration, TimeUnit timeUnit, Throwable throwable) {
+        this.status = status;
+        this.messageBatchSize = messageBatchSize;
+        this.messageIndex = messageIndex;
+        this.attempt = attempt;
+        this.duration = duration;
+        this.timeUnit = timeUnit;
+        this.throwable = throwable;
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public MessageHookPoint.PointStatus getStatus() {
+        return this.status;
+    }
+
+    public int getMessageBatchSize() {
+        return this.messageBatchSize;
+    }
+
+    public int getMessageIndex() {
+        return this.messageIndex;
+    }
+
+    public int getAttempt() {
+        return this.attempt;
+    }
+
+    public long getDuration() {
+        return this.duration;
+    }
+
+    public TimeUnit getTimeUnit() {
+        return this.timeUnit;
+    }
+
+    public Throwable getThrowable() {
+        return this.throwable;
+    }
+
+    public static class Builder {
+        private MessageHookPoint.PointStatus status = MessageHookPoint.PointStatus.UNSET;
+        private int messageBatchSize = 1;
+        private int messageIndex = 0;
+        private int attempt = 1;
+        private long duration = 0;
+        private TimeUnit timeUnit = TimeUnit.MILLISECONDS;
+        private Throwable throwable = null;
+
+        Builder() {
+        }
+
+        public Builder setStatus(MessageHookPoint.PointStatus status) {
+            checkNotNull(status, "status");
+            this.status = status;
+            return this;
+        }
+
+        public Builder setMessageBatchSize(int messageBatchSize) {
+            checkNotNull(status, "messageBatchSize");
+            this.messageBatchSize = messageBatchSize;
+            return this;
+        }
+
+        public Builder setMessageIndex(int messageIndex) {
+            checkNotNull(status, "messageIndex");
+            this.messageIndex = messageIndex;
+            return this;
+        }
+
+        public Builder setAttempt(int attempt) {
+            checkNotNull(status, "attempt");
+            this.attempt = attempt;
+            return this;
+        }
+
+        public Builder setDuration(long duration) {
+            checkNotNull(status, "duration");
+            this.duration = duration;
+            return this;
+        }
+
+        public Builder setTimeUnit(TimeUnit timeUnit) {
+            checkNotNull(status, "timeUnit");
+            this.timeUnit = timeUnit;
+            return this;
+        }
+
+        public Builder setThrowable(Throwable throwable) {
+            checkNotNull(status, "throwable");
+            this.throwable = throwable;
+            return this;
+        }
+
+        public MessageInterceptorContext build() {
+            return new MessageInterceptorContext(status, messageBatchSize, messageIndex, attempt, duration, timeUnit,
+                                                 throwable);
+        }
+    }
 }

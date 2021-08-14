@@ -17,16 +17,10 @@
 
 package org.apache.rocketmq.client.route;
 
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
 import javax.annotation.concurrent.Immutable;
-import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
 
-@AllArgsConstructor
-@Getter
-@EqualsAndHashCode
-@ToString
 @Immutable
 public class Address {
     private final String host;
@@ -37,7 +31,45 @@ public class Address {
         this.port = address.getPort();
     }
 
+    public Address(String host, int port) {
+        this.host = host;
+        this.port = port;
+    }
+
     public String getAddress() {
         return host + ":" + port;
+    }
+
+    public String getHost() {
+        return this.host;
+    }
+
+    public int getPort() {
+        return this.port;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Address address = (Address) o;
+        return port == address.port && Objects.equal(host, address.host);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(host, port);
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                          .add("host", host)
+                          .add("port", port)
+                          .toString();
     }
 }

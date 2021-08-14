@@ -18,13 +18,9 @@
 package org.apache.rocketmq.client.consumer;
 
 import java.util.List;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.route.Endpoints;
 
-@AllArgsConstructor
-@Getter
 public class ReceiveMessageResult {
     private final Endpoints endpoints;
     private final ReceiveStatus receiveStatus;
@@ -33,4 +29,33 @@ public class ReceiveMessageResult {
     private final long invisibleDuration;
 
     private final List<MessageExt> messagesFound;
+
+    public ReceiveMessageResult(Endpoints endpoints, ReceiveStatus receiveStatus, long receiveTimestamp,
+                                long invisibleDuration, List<MessageExt> messagesFound) {
+        this.endpoints = endpoints;
+        this.receiveStatus = receiveStatus;
+        this.receiveTimestamp = receiveTimestamp;
+        this.invisibleDuration = invisibleDuration;
+        this.messagesFound = messagesFound;
+    }
+
+    public Endpoints getEndpoints() {
+        return this.endpoints;
+    }
+
+    public ReceiveStatus getReceiveStatus() {
+        return this.receiveStatus;
+    }
+
+    public long getReceiveTimestamp() {
+        return this.receiveTimestamp;
+    }
+
+    public long getInvisibleDuration() {
+        return this.invisibleDuration;
+    }
+
+    public List<MessageExt> getMessagesFound() {
+        return this.messagesFound;
+    }
 }

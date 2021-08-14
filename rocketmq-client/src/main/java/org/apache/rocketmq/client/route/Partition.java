@@ -17,15 +17,11 @@
 
 package org.apache.rocketmq.client.route;
 
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
 import javax.annotation.concurrent.Immutable;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
 import org.apache.rocketmq.client.message.protocol.Resource;
 
-@Getter
-@ToString
-@EqualsAndHashCode
 @Immutable
 public class Partition {
     private final Resource topicResource;
@@ -60,5 +56,49 @@ public class Partition {
 
         final apache.rocketmq.v1.Endpoints endpoints = partition.getBroker().getEndpoints();
         this.broker = new Broker(brokerName, brokerId, new Endpoints(endpoints));
+    }
+
+    public Resource getTopicResource() {
+        return this.topicResource;
+    }
+
+    public Broker getBroker() {
+        return this.broker;
+    }
+
+    public int getId() {
+        return this.id;
+    }
+
+    public Permission getPermission() {
+        return this.permission;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Partition partition = (Partition) o;
+        return id == partition.id && Objects.equal(topicResource, partition.topicResource) &&
+               Objects.equal(broker, partition.broker) && permission == partition.permission;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(topicResource, broker, id, permission);
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                          .add("topicResource", topicResource)
+                          .add("broker", broker)
+                          .add("id", id)
+                          .add("permission", permission)
+                          .toString();
     }
 }

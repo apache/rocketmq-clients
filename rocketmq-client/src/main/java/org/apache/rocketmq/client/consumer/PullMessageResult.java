@@ -18,10 +18,8 @@
 package org.apache.rocketmq.client.consumer;
 
 import java.util.List;
-import lombok.Getter;
 import org.apache.rocketmq.client.message.MessageExt;
 
-@Getter
 public class PullMessageResult {
     private final PullStatus pullStatus;
     private final long nextBeginOffset;
@@ -36,5 +34,25 @@ public class PullMessageResult {
         this.minOffset = minOffset;
         this.maxOffset = maxOffset;
         this.messagesFound = messagesFound;
+    }
+
+    public PullStatus getPullStatus() {
+        return this.pullStatus;
+    }
+
+    public long getNextBeginOffset() {
+        return this.nextBeginOffset;
+    }
+
+    public long getMinOffset() {
+        return this.minOffset;
+    }
+
+    public long getMaxOffset() {
+        return this.maxOffset;
+    }
+
+    public List<MessageExt> getMessagesFound() {
+        return this.messagesFound;
     }
 }

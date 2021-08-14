@@ -25,12 +25,10 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * Name resolver factory which is customized to support multiple IPv4/IPv6 address in endpoints.
  */
-@Slf4j
 public class IpNameResolverFactory extends NameResolverProvider {
     private final List<EquivalentAddressGroup> addresses;
     private final String serviceAuthority = "IPAuthority";

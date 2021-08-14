@@ -17,18 +17,14 @@
 
 package org.apache.rocketmq.client.route;
 
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.concurrent.Immutable;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
 
-@Getter
-@EqualsAndHashCode
-@ToString
 @Immutable
 public class TopicRouteData {
     /**
@@ -55,5 +51,33 @@ public class TopicRouteData {
             endpointsSet.add(partition.getBroker().getEndpoints());
         }
         return endpointsSet;
+    }
+
+    public List<Partition> getPartitions() {
+        return this.partitions;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        TopicRouteData that = (TopicRouteData) o;
+        return Objects.equal(partitions, that.partitions);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(partitions);
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                          .add("partitions", partitions)
+                          .toString();
     }
 }

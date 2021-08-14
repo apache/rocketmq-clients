@@ -18,14 +18,16 @@
 package org.apache.rocketmq.client.producer;
 
 import java.util.List;
-import lombok.AllArgsConstructor;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.utility.UtilAll;
 
-@AllArgsConstructor
 public class MessageGroupQueueSelector implements MessageQueueSelector {
     private final String messageGroup;
+
+    public MessageGroupQueueSelector(String messageGroup) {
+        this.messageGroup = messageGroup;
+    }
 
     @Override
     public MessageQueue select(List<MessageQueue> mqs, Message msg, Object arg) {

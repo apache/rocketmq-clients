@@ -17,14 +17,59 @@
 
 package org.apache.rocketmq.client.message.protocol;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
 
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
 public class Resource {
     private String arn;
     private String name;
+
+    public Resource(String arn, String name) {
+        this.arn = arn;
+        this.name = name;
+    }
+
+    public Resource() {
+    }
+
+    public String getArn() {
+        return this.arn;
+    }
+
+    public String getName() {
+        return this.name;
+    }
+
+    public void setArn(String arn) {
+        this.arn = arn;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Resource resource = (Resource) o;
+        return Objects.equal(arn, resource.arn) && Objects.equal(name, resource.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(arn, name);
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                          .add("arn", arn)
+                          .add("name", name)
+                          .toString();
+    }
 }

@@ -19,15 +19,11 @@ package org.apache.rocketmq.client.impl;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import lombok.Getter;
-import lombok.Setter;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.misc.Validators;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
 import org.apache.rocketmq.utility.UtilAll;
 
-@Getter
-@Setter
 public class ClientConfig {
     private static final String CLIENT_ID_SEPARATOR = "@";
 
@@ -86,5 +82,65 @@ public class ClientConfig {
     public void setCredentialsProvider(CredentialsProvider credentialsProvider) {
         checkNotNull(credentialsProvider, "Credentials provider is null, please set it.");
         this.credentialsProvider = credentialsProvider;
+    }
+
+    public long getIoTimeoutMillis() {
+        return this.ioTimeoutMillis;
+    }
+
+    public String getClientId() {
+        return this.clientId;
+    }
+
+    public String getArn() {
+        return this.arn;
+    }
+
+    public boolean isMessageTracingEnabled() {
+        return this.messageTracingEnabled;
+    }
+
+    public boolean isUpdateMessageTracerAsync() {
+        return this.updateMessageTracerAsync;
+    }
+
+    public String getRegionId() {
+        return this.regionId;
+    }
+
+    public String getTenantId() {
+        return this.tenantId;
+    }
+
+    public String getServiceName() {
+        return this.serviceName;
+    }
+
+    public CredentialsProvider getCredentialsProvider() {
+        return this.credentialsProvider;
+    }
+
+    public void setIoTimeoutMillis(long ioTimeoutMillis) {
+        this.ioTimeoutMillis = ioTimeoutMillis;
+    }
+
+    public void setMessageTracingEnabled(boolean messageTracingEnabled) {
+        this.messageTracingEnabled = messageTracingEnabled;
+    }
+
+    public void setUpdateMessageTracerAsync(boolean updateMessageTracerAsync) {
+        this.updateMessageTracerAsync = updateMessageTracerAsync;
+    }
+
+    public void setRegionId(String regionId) {
+        this.regionId = regionId;
+    }
+
+    public void setTenantId(String tenantId) {
+        this.tenantId = tenantId;
+    }
+
+    public void setServiceName(String serviceName) {
+        this.serviceName = serviceName;
     }
 }

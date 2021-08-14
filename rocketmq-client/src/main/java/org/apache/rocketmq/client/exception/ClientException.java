@@ -17,9 +17,6 @@
 
 package org.apache.rocketmq.client.exception;
 
-import lombok.Getter;
-
-@Getter
 public class ClientException extends Exception {
     private final ErrorCode errorCode;
 
@@ -52,5 +49,9 @@ public class ClientException extends Exception {
     public ClientException(ErrorCode errorCode, Throwable cause) {
         super("ErrorCode: " + errorCode, cause);
         this.errorCode = errorCode;
+    }
+
+    public ErrorCode getErrorCode() {
+        return this.errorCode;
     }
 }

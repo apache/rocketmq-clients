@@ -17,12 +17,9 @@
 
 package org.apache.rocketmq.client.message;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
+import com.google.common.base.Objects;
 import org.apache.rocketmq.client.route.Partition;
 
-@Getter
-@EqualsAndHashCode
 public class MessageQueue {
     private final String topic;
     private final String brokerName;
@@ -48,5 +45,39 @@ public class MessageQueue {
     @Override
     public String toString() {
         return topic + "." + brokerName + "." + queueId;
+    }
+
+    public String getTopic() {
+        return this.topic;
+    }
+
+    public String getBrokerName() {
+        return this.brokerName;
+    }
+
+    public int getQueueId() {
+        return this.queueId;
+    }
+
+    public Partition getPartition() {
+        return this.partition;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        MessageQueue that = (MessageQueue) o;
+        return queueId == that.queueId && Objects.equal(topic, that.topic) &&
+               Objects.equal(brokerName, that.brokerName) && Objects.equal(partition, that.partition);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(topic, brokerName, queueId, partition);
     }
 }

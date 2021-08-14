@@ -38,7 +38,6 @@
         <commons-lang3.version>3.5</commons-lang3.version>
         <commons-codec.version>1.11</commons-codec.version>
         <jna.version>5.7.0</jna.version>
-        <lombk.version>1.18.16</lombk.version>
         <testng.version>6.8.21</testng.version>
         <mockito.version>2.28.2</mockito.version>
         <powermockito.version>2.0.9</powermockito.version>
@@ -214,13 +213,6 @@
                 <groupId>net.java.dev.jna</groupId>
                 <artifactId>jna-platform</artifactId>
                 <version>${jna.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.projectlombok</groupId>
-                <artifactId>lombok</artifactId>
-                <version>${lombk.version}</version>
-                <scope>provided</scope>
             </dependency>
 
             <dependency>

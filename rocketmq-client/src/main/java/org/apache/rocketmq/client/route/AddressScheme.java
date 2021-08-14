@@ -18,11 +18,6 @@
 package org.apache.rocketmq.client.route;
 
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-
-@AllArgsConstructor
-@Getter
 public enum AddressScheme {
     /**
      * Scheme for domain name.
@@ -39,4 +34,12 @@ public enum AddressScheme {
 
     public static final String SCHEMA_SEPARATOR = ":";
     private final String prefix;
+
+    private AddressScheme(String prefix) {
+        this.prefix = prefix;
+    }
+
+    public String getPrefix() {
+        return this.prefix;
+    }
 }
