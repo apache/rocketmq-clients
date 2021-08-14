@@ -35,9 +35,9 @@ import org.apache.rocketmq.client.impl.ServiceState;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageQueue;
+import org.apache.rocketmq.shaded.org.slf4j.Logger;
+import org.apache.rocketmq.shaded.org.slf4j.LoggerFactory;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public abstract class ConsumeService {
     private static final Logger log = LoggerFactory.getLogger(ConsumeService.class);

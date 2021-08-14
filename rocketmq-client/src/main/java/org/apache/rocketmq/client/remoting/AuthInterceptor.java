@@ -26,8 +26,8 @@ import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
 import org.apache.rocketmq.client.impl.ClientConfig;
 import org.apache.rocketmq.client.impl.Signature;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.rocketmq.shaded.org.slf4j.Logger;
+import org.apache.rocketmq.shaded.org.slf4j.LoggerFactory;
 
 /**
  * Client auth interceptor for authentication, but only serve for message tracing actually.

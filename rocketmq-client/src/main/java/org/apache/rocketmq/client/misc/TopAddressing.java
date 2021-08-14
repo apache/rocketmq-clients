@@ -23,9 +23,9 @@ import java.util.List;
 import org.apache.rocketmq.client.route.Address;
 import org.apache.rocketmq.client.route.AddressScheme;
 import org.apache.rocketmq.client.route.Endpoints;
+import org.apache.rocketmq.shaded.org.slf4j.Logger;
+import org.apache.rocketmq.shaded.org.slf4j.LoggerFactory;
 import org.apache.rocketmq.utility.HttpTinyClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class TopAddressing {
     private static final Logger log = LoggerFactory.getLogger(TopAddressing.class);

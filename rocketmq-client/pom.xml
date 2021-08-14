@@ -38,13 +38,8 @@
         </dependency>
 
         <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>logback-shaded</artifactId>
+            <artifactId>rocketmq-logback-shaded</artifactId>
         </dependency>
 
         <dependency>

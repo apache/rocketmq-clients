@@ -28,8 +28,8 @@ import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.rocketmq.shaded.org.slf4j.Logger;
+import org.apache.rocketmq.shaded.org.slf4j.LoggerFactory;
 
 @Immutable
 public class TopicAssignment {

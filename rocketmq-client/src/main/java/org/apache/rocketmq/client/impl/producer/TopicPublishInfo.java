@@ -32,9 +32,9 @@ import org.apache.rocketmq.client.route.Broker;
 import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
+import org.apache.rocketmq.shaded.org.slf4j.Logger;
+import org.apache.rocketmq.shaded.org.slf4j.LoggerFactory;
 import org.apache.rocketmq.utility.UtilAll;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class TopicPublishInfo {
     private static final Logger log = LoggerFactory.getLogger(TopicPublishInfo.class);

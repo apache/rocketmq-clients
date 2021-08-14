@@ -31,8 +31,7 @@
         <opentelemetry-base.version>1.2.0</opentelemetry-base.version>
         <opentelemetry-proto-base.version>1.2.0-alpha</opentelemetry-proto-base.version>
 
-        <slf4j.version>1.7.30</slf4j.version>
-        <logback-shaded.version>1.2.3-SNAPSHOT</logback-shaded.version>
+        <rocketmq-logback-shaded.version>1.2.3-SNAPSHOT</rocketmq-logback-shaded.version>
         <guava.version>20.0</guava.version>
         <annotaion-api.version>1.3.2</annotaion-api.version>
         <commons-lang3.version>3.5</commons-lang3.version>
@@ -98,15 +97,9 @@
             </dependency>
 
             <dependency>
-                <groupId>org.slf4j</groupId>
-                <artifactId>slf4j-api</artifactId>
-                <version>${slf4j.version}</version>
-            </dependency>
-
-            <dependency>
                 <groupId>${project.groupId}</groupId>
-                <artifactId>logback-shaded</artifactId>
-                <version>${logback-shaded.version}</version>
+                <artifactId>rocketmq-logback-shaded</artifactId>
+                <version>${rocketmq-logback-shaded.version}</version>
             </dependency>
 
             <dependency>

@@ -35,13 +35,13 @@ import org.apache.rocketmq.client.message.MessageHookPoint;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
+import org.apache.rocketmq.shaded.org.slf4j.Logger;
+import org.apache.rocketmq.shaded.org.slf4j.LoggerFactory;
 import org.apache.rocketmq.utility.UtilAll;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class TracingMessageInterceptor implements MessageInterceptor {
     private static final Logger log = LoggerFactory.getLogger(TracingMessageInterceptor.class);
-    
+
     private final ClientImpl client;
     private final ConcurrentMap<String/* span id */, Span> inflightSpans;
     private final ThreadLocal<SpanContext> waitingConsumptionSpanContextThreadLocal;
