@@ -6,7 +6,7 @@ layer of the fat SDK.
 ## Requirements
 
 1. Runtime: JRE>=6
-2. Build: JDK>=9 (**JDK11 is strongly recommended.**)
+2. Build: JDK>=11
 
 ## Build
 

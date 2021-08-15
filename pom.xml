@@ -49,6 +49,7 @@
         <maven-checkstyle-plugin.version>3.1.1</maven-checkstyle-plugin.version>
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
         <maven-jar-plugin.version>3.2.0</maven-jar-plugin.version>
+        <maven-enforcer-plugin.version>1.4.1</maven-enforcer-plugin.version>
         <maven-shade-plugin.version>3.2.4</maven-shade-plugin.version>
         <maven-source-plugin.version>3.2.1</maven-source-plugin.version>
     </properties>
@@ -102,6 +103,12 @@
                 <groupId>com.google.protobuf</groupId>
                 <artifactId>protobuf-java-util</artifactId>
                 <version>${protocol-buffer-base.version}-${custom-made.version.suffix}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.errorprone</groupId>
+                        <artifactId>error_prone_annotations</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -172,6 +179,28 @@
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-exporter-otlp</artifactId>
                 <version>${opentelemetry-base.version}-${custom-made.version.suffix}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.protobuf</groupId>
+                        <artifactId>protobuf-java</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.grpc</groupId>
+                        <artifactId>grpc-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.grpc</groupId>
+                        <artifactId>grpc-protobuf</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.grpc</groupId>
+                        <artifactId>grpc-stub</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>guava</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -225,6 +254,27 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>${maven-compiler-plugin.version}</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>${maven-enforcer-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>enforce</id>
+                        <configuration>
+                            <rules>
+                                <requireJavaVersion>
+                                    <version>11</version>
+                                </requireJavaVersion>
+                                <dependencyConvergence/>
+                            </rules>
+                        </configuration>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
