@@ -167,8 +167,6 @@ public class ClientManagerImpl implements ClientManager {
 
     /**
      * Start the instance.
-     *
-     * @throws ClientException
      */
     @Override
     public void start() {

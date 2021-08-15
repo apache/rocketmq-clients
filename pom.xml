@@ -24,6 +24,8 @@
 
         <project.root>${basedir}</project.root>
 
+        <!-- <maven.javadoc.skip>true</maven.javadoc.skip>-->
+
         <custom-made.version.suffix>rocketmq-SNAPSHOT</custom-made.version.suffix>
         <!-- customized dependencies-->
         <grpc-base.version>1.35.0</grpc-base.version>
@@ -52,6 +54,7 @@
         <maven-enforcer-plugin.version>1.4.1</maven-enforcer-plugin.version>
         <maven-shade-plugin.version>3.2.4</maven-shade-plugin.version>
         <maven-source-plugin.version>3.2.1</maven-source-plugin.version>
+        <maven-javadoc-plugin.version>3.3.0</maven-javadoc-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -278,6 +281,26 @@
                         <goals>
                             <goal>enforce</goal>
                         </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>${maven-javadoc-plugin.version}</version>
+                <configuration>
+                    <charset>UTF-8</charset>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                        <configuration>
+                            <sourcepath>${project.basedir}/src/main/java</sourcepath>
+                            <excludePackageNames>apache.rocketmq.v1:com.google.rpc</excludePackageNames>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

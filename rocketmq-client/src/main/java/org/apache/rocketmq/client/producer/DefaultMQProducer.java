@@ -86,6 +86,7 @@ public class DefaultMQProducer {
      * <p> 2. Example usage for domain name: http://MQ_INST_197328126_BXmPlOA6.mq-aone.mq-internal.aliyuncs.com:8081
      *
      * @param address address of name server.
+     * @throws ClientException if there is any client error.
      */
     public void setNamesrvAddr(String address) throws ClientException {
         this.impl.setNamesrvAddr(address);
@@ -130,6 +131,7 @@ public class DefaultMQProducer {
 
     /**
      * Set sending timeout for each message.
+     *
      * @param timeout send timeout.
      */
     public void setSendMessageTimeoutMillis(long timeout) {
@@ -149,6 +151,8 @@ public class DefaultMQProducer {
      * queue sent to, etc.
      * @throws ClientException      if there is any client error.
      * @throws InterruptedException if the sending thread is interrupted.
+     * @throws ServerException      if there is any server error.
+     * @throws TimeoutException     if there is any timeout error.
      */
     public SendResult send(Message msg) throws ClientException, InterruptedException, ServerException,
                                                TimeoutException {
@@ -170,6 +174,8 @@ public class DefaultMQProducer {
      * queue sent to, etc.
      * @throws ClientException      if there is any client error.
      * @throws InterruptedException if the sending thread is interrupted.
+     * @throws ServerException      if there is any server error.
+     * @throws TimeoutException     if there is any timeout error.
      */
     public SendResult send(Message msg, long timeout)
             throws ClientException, InterruptedException, ServerException, TimeoutException {
@@ -233,6 +239,8 @@ public class DefaultMQProducer {
      * @return {@link SendResult} Inform senders details of the deliverable.
      * @throws ClientException      if there is any client error.
      * @throws InterruptedException if the sending thread is interrupted.
+     * @throws ServerException      if there is any server error.
+     * @throws TimeoutException     if there is any timeout error.
      */
     public SendResult send(Message msg, MessageQueueSelector selector, Object arg)
             throws ClientException, InterruptedException, ServerException, TimeoutException {
@@ -252,6 +260,8 @@ public class DefaultMQProducer {
      * queue sent to, etc.
      * @throws ClientException      if there is any client error.
      * @throws InterruptedException if the sending thread is interrupted.
+     * @throws ServerException      if there is any server error.
+     * @throws TimeoutException     if there is any timeout error.
      */
     public SendResult send(Message msg, MessageQueueSelector selector, Object arg, long timeout)
             throws ClientException, InterruptedException, ServerException, TimeoutException {
@@ -262,7 +272,7 @@ public class DefaultMQProducer {
      * Sets an Executor to be used for executing callback methods. If the Executor is not set, will be
      * used.
      *
-     * @param callbackExecutor the instance of Executor
+     * @param executor the instance of Executor.
      */
     public void setCallbackExecutor(final ExecutorService executor) {
         this.impl.setCallbackExecutor(executor);

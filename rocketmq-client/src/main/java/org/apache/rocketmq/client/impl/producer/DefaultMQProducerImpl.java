@@ -305,7 +305,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
                 body = UtilAll.compressBytesGzip(body, MESSAGE_COMPRESSION_LEVEL);
                 encoding = Encoding.GZIP;
             } catch (IOException e) {
-                log.warn("Failed to compress message", e);
+                log.warn("Failed to compress message, messageId={}", message.getMsgId(), e);
             }
         }
 

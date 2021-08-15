@@ -85,6 +85,7 @@ public class DefaultMQPushConsumer {
      * .com:8081
      *
      * @param address address of name server.
+     * @throws ClientException if there is any client error.
      */
     public void setNamesrvAddr(String address) throws ClientException {
         this.impl.setNamesrvAddr(address);
