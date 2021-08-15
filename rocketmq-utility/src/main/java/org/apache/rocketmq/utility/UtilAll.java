@@ -17,9 +17,6 @@
 
 package org.apache.rocketmq.utility;
 
-import com.sun.jna.Native;
-import com.sun.jna.platform.win32.Kernel32;
-import com.sun.jna.platform.win32.Kernel32Util;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -37,7 +34,6 @@ import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.RandomUtils;
-import org.apache.commons.lang3.SystemUtils;
 
 public class UtilAll {
     public static final String DEFAULT_CHARSET = "UTF-8";
@@ -86,14 +82,6 @@ public class UtilAll {
         if (PROCESS_ID != PROCESS_ID_NOT_SET) {
             return PROCESS_ID;
         }
-        if (SystemUtils.IS_OS_WINDOWS) {
-            PROCESS_ID = Kernel32.INSTANCE.GetCurrentProcessId();
-            return PROCESS_ID;
-        }
-        if (SystemUtils.IS_OS_LINUX || SystemUtils.IS_OS_MAC) {
-            PROCESS_ID = CLibrary.INSTANCE.getpid();
-            return PROCESS_ID;
-        }
         RuntimeMXBean runtime = ManagementFactory.getRuntimeMXBean();
         // format: "pid@hostname"
         String name = runtime.getName();
@@ -109,23 +97,13 @@ public class UtilAll {
         if (null != HOST_NAME) {
             return HOST_NAME;
         }
-        if (SystemUtils.IS_OS_WINDOWS) {
-            HOST_NAME = Kernel32Util.getComputerName();
+        try {
+            HOST_NAME = InetAddress.getLocalHost().getHostName();
+            return HOST_NAME;
+        } catch (Throwable ignore) {
+            HOST_NAME = HOST_NAME_NOT_FOUND;
             return HOST_NAME;
         }
-        byte[] hostnameBuffer = new byte[255];
-        int result = CLibrary.INSTANCE.gethostname(hostnameBuffer, hostnameBuffer.length);
-        if (result != 0) {
-            try {
-                HOST_NAME = InetAddress.getLocalHost().getHostName();
-                return HOST_NAME;
-            } catch (Throwable ignore) {
-                HOST_NAME = HOST_NAME_NOT_FOUND;
-                return HOST_NAME;
-            }
-        }
-        HOST_NAME = Native.toString(hostnameBuffer);
-        return HOST_NAME;
     }
 
     public static byte[] compressBytesGzip(final byte[] src, final int level) throws IOException {
