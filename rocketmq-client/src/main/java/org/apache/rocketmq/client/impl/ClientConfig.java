@@ -71,14 +71,14 @@ public class ClientConfig {
     }
 
 
-    // TODO: not allowed to update after client instance started(override in producer and consumer)
+    // TODO: not allowed to update after client manager started(override in producer and consumer)
     public void setArn(String arn) {
         checkNotNull(arn, "Abstract resource name is null, please set it.");
         this.arn = arn;
     }
 
 
-    // TODO: not allowed to update after client instance started(override in producer and consumer)
+    // TODO: not allowed to update after client manager started(override in producer and consumer)
     public void setCredentialsProvider(CredentialsProvider credentialsProvider) {
         checkNotNull(credentialsProvider, "Credentials provider is null, please set it.");
         this.credentialsProvider = credentialsProvider;

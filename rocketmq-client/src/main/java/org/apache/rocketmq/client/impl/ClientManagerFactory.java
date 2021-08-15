@@ -38,7 +38,7 @@ public class ClientManagerFactory {
         return INSTANCE;
     }
 
-    public ClientManager getClientInstance(final ClientConfig clientConfig) {
+    public ClientManager getClientManager(final ClientConfig clientConfig) {
         final String arn = clientConfig.getArn();
         lock.lock();
         try {
@@ -54,7 +54,7 @@ public class ClientManagerFactory {
         }
     }
 
-    public void removeClientInstance(final String id) {
+    public void removeClientManager(final String id) {
         lock.lock();
         try {
             managersTable.remove(id);

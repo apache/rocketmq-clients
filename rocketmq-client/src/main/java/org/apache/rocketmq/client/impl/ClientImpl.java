@@ -238,7 +238,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
             }
 
             if (null == clientManager) {
-                clientManager = ClientManagerFactory.getInstance().getClientInstance(this);
+                clientManager = ClientManagerFactory.getInstance().getClientManager(this);
                 clientManager.registerObserver(this);
             }
 

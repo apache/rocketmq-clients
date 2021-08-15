@@ -166,7 +166,7 @@ public class ClientManagerImpl implements ClientManager {
     }
 
     /**
-     * Start the instance.
+     * Start the client manager.
      */
     @Override
     public void start() {
@@ -248,10 +248,10 @@ public class ClientManagerImpl implements ClientManager {
         synchronized (this) {
             log.info("Begin to shutdown the client manager.");
             if (!state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING)) {
-                log.warn("ClientInstance has not been started before");
+                log.warn("Client manager has not been started before");
                 return;
             }
-            ClientManagerFactory.getInstance().removeClientInstance(id);
+            ClientManagerFactory.getInstance().removeClientManager(id);
             scheduler.shutdown();
             asyncWorker.shutdown();
             state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
