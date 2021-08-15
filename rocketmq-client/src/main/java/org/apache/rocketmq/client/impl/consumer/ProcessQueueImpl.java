@@ -91,7 +91,7 @@ public class ProcessQueueImpl implements ProcessQueue {
 
     private volatile boolean dropped;
 
-    private final MessageQueue messageQueue;
+    private final MessageQueue mq;
     private final FilterExpression filterExpression;
 
     private final DefaultMQPushConsumerImpl consumerImpl;
@@ -114,11 +114,11 @@ public class ProcessQueueImpl implements ProcessQueue {
     private volatile long activityNanoTime = System.nanoTime();
     private volatile long throttleNanoTime = System.nanoTime();
 
-    public ProcessQueueImpl(DefaultMQPushConsumerImpl consumerImpl, MessageQueue messageQueue,
+    public ProcessQueueImpl(DefaultMQPushConsumerImpl consumerImpl, MessageQueue mq,
                             FilterExpression filterExpression) {
         this.consumerImpl = consumerImpl;
 
-        this.messageQueue = messageQueue;
+        this.mq = mq;
         this.filterExpression = filterExpression;
 
         this.dropped = false;
@@ -156,14 +156,37 @@ public class ProcessQueueImpl implements ProcessQueue {
     }
 
     @VisibleForTesting
-    public void cacheMessages(List<MessageExt> messageList) {
+    public void cacheMessages(List<MessageExt> messageExtList) {
         List<Long> offsetList = new ArrayList<Long>();
+        final MessageListenerType listenerType = consumerImpl.getMessageListener().getListenerType();
+        final MessageModel messageModel = consumerImpl.getMessageModel();
         pendingMessagesLock.writeLock().lock();
         try {
-            for (MessageExt message : messageList) {
-                pendingMessages.add(message);
-                cachedMessagesBytes.addAndGet(null == message.getBody() ? 0 : message.getBody().length);
-                offsetList.add(message.getQueueOffset());
+            for (MessageExt messageExt : messageExtList) {
+                if (MessageAccessor.getMessageImpl(messageExt).isCorrupted()) {
+                    // ignore message in broadcasting mode.
+                    if (MessageModel.BROADCASTING.equals(messageModel)) {
+                        log.error("Message is corrupted, ignore it in broadcasting mode, mq={}, messageId={}", mq,
+                                  messageExt.getMsgId());
+                        continue;
+                    }
+                    // nack message for concurrent consumption.
+                    if (MessageListenerType.CONCURRENTLY.equals(listenerType)) {
+                        log.error("Message is corrupted, nack it for concurrently consumption, mq={}, messageId={}",
+                                  mq, messageExt.getMsgId());
+                        nackMessage(messageExt);
+                    }
+                    // forward to DLQ for fifo consumption.
+                    if (MessageListenerType.ORDERLY.equals(listenerType)) {
+                        log.error("Message is corrupted, forward it to DLQ for fifo consumption, mq={}, "
+                                  + "messageId={}", mq, messageExt.getMsgId());
+                        forwardToDeadLetterQueue(messageExt);
+                    }
+                    continue;
+                }
+                pendingMessages.add(messageExt);
+                cachedMessagesBytes.addAndGet(null == messageExt.getBody() ? 0 : messageExt.getBody().length);
+                offsetList.add(messageExt.getQueueOffset());
             }
         } finally {
             pendingMessagesLock.writeLock().unlock();
@@ -195,7 +218,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         inflightMessagesLock.writeLock().lock();
         try {
             List<MessageExt> messageExtList = new ArrayList<MessageExt>();
-            final String topic = messageQueue.getTopic();
+            final String topic = mq.getTopic();
             final RateLimiter rateLimiter = consumerImpl.rateLimiter(topic);
             // no rate limiter for current topic.
             if (null == rateLimiter) {
@@ -251,10 +274,10 @@ public class ProcessQueueImpl implements ProcessQueue {
             }
             // failed to lock.
             if (!fifoConsumptionInbound()) {
-                log.debug("Fifo consumption task are not finished, mq={}", messageQueue);
+                log.debug("Fifo consumption task are not finished, mq={}", mq);
                 return null;
             }
-            final String topic = messageQueue.getTopic();
+            final String topic = mq.getTopic();
             final RateLimiter rateLimiter = consumerImpl.rateLimiter(topic);
             // no rate limiter for current topic.
             if (null == rateLimiter) {
@@ -311,7 +334,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                 @Override
                 public void onFailure(Throwable t) {
                     log.error("[Bug] Exception raised while message redelivery, mq={}, messageId={}, attempt={}, "
-                              + "maxAttempts={}", messageQueue, messageExt.getMsgId(), messageExt.getDeliveryAttempt(),
+                              + "maxAttempts={}", mq, messageExt.getMsgId(), messageExt.getDeliveryAttempt(),
                               maxAttempts, t);
                 }
             });
@@ -385,7 +408,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         if (null == nextOffset) {
             return;
         }
-        consumerImpl.getOffsetStore().updateOffset(messageQueue, nextOffset);
+        consumerImpl.getOffsetStore().updateOffset(mq, nextOffset);
     }
 
     /**
@@ -425,7 +448,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                     consumerImpl.getReceivedMessagesQuantity().getAndAdd(messagesFound.size());
                     consumerImpl.getConsumeService().dispatch();
                 }
-                log.debug("Receive message with OK, mq={}, endpoints={}, messages found count={}", messageQueue,
+                log.debug("Receive message with OK, mq={}, endpoints={}, messages found count={}", mq,
                           endpoints, messagesFound.size());
                 receiveMessage();
                 break;
@@ -437,7 +460,7 @@ public class ProcessQueueImpl implements ProcessQueue {
             case INTERNAL:
             default:
                 log.error("Receive message with status={}, mq={}, endpoints={}, messages found count={}", receiveStatus,
-                          messageQueue, endpoints, messagesFound.size());
+                          mq, endpoints, messagesFound.size());
                 receiveMessageLater();
         }
     }
@@ -453,7 +476,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                     consumerImpl.getPulledMessagesQuantity().getAndAdd(messagesFound.size());
                     consumerImpl.getConsumeService().dispatch();
                 }
-                log.debug("Pull message with OK, mq={}, messages found count={}", messageQueue, messagesFound.size());
+                log.debug("Pull message with OK, mq={}, messages found count={}", mq, messagesFound.size());
                 pullMessage(result.getNextBeginOffset());
                 break;
             // fall through on purpose.
@@ -463,7 +486,7 @@ public class ProcessQueueImpl implements ProcessQueue {
             case OUT_OF_RANGE:
             case INTERNAL:
             default:
-                log.error("Pull message with status={}, mq={}, messages found status={}", pullStatus, messageQueue,
+                log.error("Pull message with status={}, mq={}, messages found status={}", pullStatus, mq,
                           messagesFound.size());
                 pullMessageLater(result.getNextBeginOffset());
         }
@@ -472,11 +495,11 @@ public class ProcessQueueImpl implements ProcessQueue {
     @VisibleForTesting
     public void receiveMessage() {
         if (dropped) {
-            log.debug("Process queue has been dropped, no longer receive message, mq={}.", messageQueue);
+            log.debug("Process queue has been dropped, no longer receive message, mq={}.", mq);
             return;
         }
         if (this.throttled()) {
-            log.warn("Process queue is throttled, would receive message later, mq={}.", messageQueue);
+            log.warn("Process queue is throttled, would receive message later, mq={}.", mq);
             throttleNanoTime = System.nanoTime();
             receiveMessageLater();
             return;
@@ -508,14 +531,14 @@ public class ProcessQueueImpl implements ProcessQueue {
         final int cachedMessageQuantityThresholdPerQueue = consumerImpl.cachedMessagesQuantityThresholdPerQueue();
         if (cachedMessageQuantityThresholdPerQueue <= actualMessagesQuantity) {
             log.warn("Process queue total messages quantity exceeds the threshold, threshold={}, actual={}, mq={}",
-                     cachedMessageQuantityThresholdPerQueue, actualMessagesQuantity, messageQueue);
+                     cachedMessageQuantityThresholdPerQueue, actualMessagesQuantity, mq);
             return true;
         }
         final int cachedMessagesBytesPerQueue = consumerImpl.cachedMessagesBytesThresholdPerQueue();
         final long actualCachedMessagesBytes = this.cachedMessageBytes();
         if (cachedMessagesBytesPerQueue <= actualCachedMessagesBytes) {
             log.warn("Process queue total messages memory exceeds the threshold, threshold={} bytes, actual={} bytes,"
-                     + " mq={}", cachedMessagesBytesPerQueue, actualCachedMessagesBytes, messageQueue);
+                     + " mq={}", cachedMessagesBytesPerQueue, actualCachedMessagesBytes, mq);
             return true;
         }
         return false;
@@ -550,11 +573,11 @@ public class ProcessQueueImpl implements ProcessQueue {
         if (consumerImpl.hasCustomOffsetStore()) {
             long offset;
             try {
-                offset = consumerImpl.readOffset(messageQueue);
+                offset = consumerImpl.readOffset(mq);
             } catch (Throwable t) {
-                log.error("Exception raised while reading offset from offset store, mq={}", messageQueue);
+                log.error("Exception raised while reading offset from offset store, mq={}", mq);
                 // drop this pq, waiting for the next assignments scan.
-                consumerImpl.dropProcessQueue(messageQueue);
+                consumerImpl.dropProcessQueue(mq);
                 return;
             }
             pullMessage(offset);
@@ -574,20 +597,20 @@ public class ProcessQueueImpl implements ProcessQueue {
                 queryOffsetPolicy = QueryOffsetPolicy.TIME_POINT;
         }
         long timePoint = consumerImpl.getConsumeFromTimeMillis();
-        OffsetQuery offsetQuery = new OffsetQuery(messageQueue, queryOffsetPolicy, timePoint);
+        OffsetQuery offsetQuery = new OffsetQuery(mq, queryOffsetPolicy, timePoint);
         final ListenableFuture<Long> future = consumerImpl.queryOffset(offsetQuery);
         Futures.addCallback(future, new FutureCallback<Long>() {
             @Override
             public void onSuccess(Long offset) {
-                log.info("Query offset successfully from remote, mq={}, offset={}", messageQueue, offset);
+                log.info("Query offset successfully from remote, mq={}, offset={}", mq, offset);
                 pullMessage(offset);
             }
 
             @Override
             public void onFailure(Throwable t) {
-                log.error("Exception raised while query offset to pull, mq={}", messageQueue, t);
+                log.error("Exception raised while query offset to pull, mq={}", mq, t);
                 // drop this pq, waiting for the next assignments scan.
-                consumerImpl.dropProcessQueue(messageQueue);
+                consumerImpl.dropProcessQueue(mq);
             }
         });
     }
@@ -601,10 +624,10 @@ public class ProcessQueueImpl implements ProcessQueue {
      */
     public void pullMessageImmediately(final long offset) {
         try {
-            final Endpoints endpoints = messageQueue.getPartition().getBroker().getEndpoints();
+            final Endpoints endpoints = mq.getPartition().getBroker().getEndpoints();
             final long maxAwaitTimeMillis = consumerImpl.getMaxAwaitTimeMillisPerQueue();
             final int maxAwaitBatchSize = getMaxAwaitBatchSize();
-            PullMessageQuery pullMessageQuery = new PullMessageQuery(messageQueue, filterExpression, offset,
+            PullMessageQuery pullMessageQuery = new PullMessageQuery(mq, filterExpression, offset,
                                                                      maxAwaitBatchSize, maxAwaitTimeMillis,
                                                                      PULL_LONG_POLLING_TIMEOUT_MILLIS);
 
@@ -618,7 +641,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                     } catch (Throwable t) {
                         // should never reach here.
                         log.error("[Bug] Exception raised while handling pull result, would pull later, mq={}, "
-                                  + "endpoints={}", messageQueue, endpoints, t);
+                                  + "endpoints={}", mq, endpoints, t);
                         pullMessageLater(offset);
                     }
                 }
@@ -626,13 +649,13 @@ public class ProcessQueueImpl implements ProcessQueue {
                 @Override
                 public void onFailure(Throwable t) {
                     log.error("Exception raised while pull message, would pull later, mq={}, endpoints={}",
-                              messageQueue, endpoints, t);
+                              mq, endpoints, t);
                     pullMessageLater(offset);
                 }
             });
             consumerImpl.getPullTimes().getAndIncrement();
         } catch (Throwable t) {
-            log.error("Exception raised while pull message, would pull message later, mq={}", messageQueue, t);
+            log.error("Exception raised while pull message, would pull message later, mq={}", mq, t);
             pullMessageLater(offset);
         }
     }
@@ -672,11 +695,11 @@ public class ProcessQueueImpl implements ProcessQueue {
      */
     private void pullMessage(long offset) {
         if (dropped) {
-            log.info("Process queue has been dropped, no longer pull message, mq={}.", messageQueue);
+            log.info("Process queue has been dropped, no longer pull message, mq={}.", mq);
             return;
         }
         if (this.throttled()) {
-            log.warn("Process queue is throttled, would pull message later, mq={}", messageQueue);
+            log.warn("Process queue is throttled, would pull message later, mq={}", mq);
             throttleNanoTime = System.nanoTime();
             pullMessageLater(offset);
             return;
@@ -694,7 +717,7 @@ public class ProcessQueueImpl implements ProcessQueue {
     public void receiveMessageImmediately() {
         try {
             final ClientManager clientManager = consumerImpl.getClientManager();
-            final Endpoints endpoints = messageQueue.getPartition().getBroker().getEndpoints();
+            final Endpoints endpoints = mq.getPartition().getBroker().getEndpoints();
             final int maxAwaitBatchSize = getMaxAwaitBatchSize();
             final ReceiveMessageRequest request = wrapReceiveMessageRequest(maxAwaitBatchSize);
 
@@ -719,7 +742,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                     } catch (Throwable t) {
                         // should never reach here.
                         log.error("[Bug] Exception raised while handling receive result, would receive later, mq={}, "
-                                  + "endpoints={}", messageQueue, endpoints, t);
+                                  + "endpoints={}", mq, endpoints, t);
                         receiveMessageLater();
                     }
                 }
@@ -727,13 +750,13 @@ public class ProcessQueueImpl implements ProcessQueue {
                 @Override
                 public void onFailure(Throwable t) {
                     log.error("Exception raised while message reception, would receive later, mq={}, endpoints={}",
-                              messageQueue, endpoints, t);
+                              mq, endpoints, t);
                     receiveMessageLater();
                 }
             });
             consumerImpl.getReceptionTimes().getAndIncrement();
         } catch (Throwable t) {
-            log.error("Exception raised while message reception, would receive later, mq={}.", messageQueue, t);
+            log.error("Exception raised while message reception, would receive later, mq={}.", mq, t);
             receiveMessageLater();
         }
     }
@@ -768,7 +791,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                                      final SettableFuture<Void> future0) {
         final String msgId = messageExt.getMsgId();
         if (dropped) {
-            log.info("Process queue was dropped, give up to ack message. mq={}, messageId={}", messageQueue, msgId);
+            log.info("Process queue was dropped, give up to ack message. mq={}, messageId={}", mq, msgId);
             return;
         }
         final ScheduledExecutorService scheduler = consumerImpl.getScheduler();
@@ -784,7 +807,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                 return;
             }
             // should never reach here.
-            log.error("[Bug] Failed to schedule ack fifo message request, mq={}, msgId={}.", messageQueue, msgId);
+            log.error("[Bug] Failed to schedule ack fifo message request, mq={}, msgId={}.", mq, msgId);
             ackFifoMessageLater(messageExt, 1 + attempt, future0);
         }
     }
@@ -820,7 +843,7 @@ public class ProcessQueueImpl implements ProcessQueue {
     private void forwardToDeadLetterQueueLater(final MessageExt messageExt, final int attempt,
                                                final SettableFuture<Void> future0) {
         if (dropped) {
-            log.info("Process queue was dropped, give up to redirect message to DLQ, mq={}, messageId={}", messageQueue,
+            log.info("Process queue was dropped, give up to redirect message to DLQ, mq={}, messageId={}", mq,
                      messageExt.getMsgId());
             return;
         }
@@ -952,10 +975,10 @@ public class ProcessQueueImpl implements ProcessQueue {
     }
 
     private ReceiveMessageRequest wrapReceiveMessageRequest(int maxAwaitBatchSize) {
-        final Broker broker = Broker.newBuilder().setName(messageQueue.getBrokerName()).build();
+        final Broker broker = Broker.newBuilder().setName(mq.getBrokerName()).build();
         final Partition partition = Partition.newBuilder()
                                              .setTopic(getTopicResource())
-                                             .setId(messageQueue.getQueueId())
+                                             .setId(mq.getQueueId())
                                              .setBroker(broker).build();
         final Duration invisibleDuration = Durations.fromMillis(consumerImpl.getConsumptionTimeoutMillis());
         final Duration awaitTimeDuration = Durations.fromMillis(consumerImpl.getMaxAwaitTimeMillisPerQueue());
@@ -1024,7 +1047,7 @@ public class ProcessQueueImpl implements ProcessQueue {
     }
 
     private Resource getTopicResource() {
-        return Resource.newBuilder().setArn(consumerImpl.getArn()).setName(messageQueue.getTopic()).build();
+        return Resource.newBuilder().setArn(consumerImpl.getArn()).setName(mq.getTopic()).build();
     }
 
     private AckMessageRequest wrapAckMessageRequest(MessageExt messageExt) {
@@ -1132,6 +1155,6 @@ public class ProcessQueueImpl implements ProcessQueue {
     }
 
     public MessageQueue getMessageQueue() {
-        return this.messageQueue;
+        return this.mq;
     }
 }
