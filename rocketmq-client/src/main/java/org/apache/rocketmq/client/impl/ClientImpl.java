@@ -570,7 +570,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
             if (nameServerEndpointsList.isEmpty()) {
                 throw new ClientException(ErrorCode.NO_AVAILABLE_NAME_SERVER);
             }
-            return nameServerEndpointsList.get(UtilAll.positiveMod(nameServerIndex.getAndIncrement(),
+            return nameServerEndpointsList.get(UtilAll.positiveMod(nameServerIndex.get(),
                                                                    nameServerEndpointsList.size()));
         } finally {
             nameServerEndpointsListLock.readLock().unlock();
@@ -590,6 +590,17 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
             final Metadata metadata = sign();
             final ListenableFuture<QueryRouteResponse> responseFuture =
                     clientManager.queryRoute(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+            Futures.addCallback(responseFuture, new FutureCallback<QueryRouteResponse>() {
+                @Override
+                public void onSuccess(QueryRouteResponse response) {
+                }
+
+                @Override
+                public void onFailure(Throwable t) {
+                    // select different name server endpoints for next time.
+                    nameServerIndex.getAndIncrement();
+                }
+            });
             return Futures.transformAsync(responseFuture, new AsyncFunction<QueryRouteResponse, TopicRouteData>() {
                 @Override
                 public ListenableFuture<TopicRouteData> apply(QueryRouteResponse response) throws Exception {
