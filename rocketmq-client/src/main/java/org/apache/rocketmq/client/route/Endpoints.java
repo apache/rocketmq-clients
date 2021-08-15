@@ -32,9 +32,9 @@ public class Endpoints {
 
     /**
      * URI path for grpc target, e.g:
-     * <p>1. dns:rocketmq.apache.org:8080
-     * <p>2. ipv4:127.0.0.1:10911,127.0.0.2:10912
-     * <p>3. ipv6:1050:0000:0000:0000:0005:0600:300c:326b:10911,1050:0000:0000:0000:0005:0600:300c:326b:10912
+     * <p>1. domain name: rocketmq.apache.org:8080
+     * <p>2. ipv4:127.0.0.1:10911[,127.0.0.2:10912]
+     * <p>3. ipv6:1050:0000:0000:0000:0005:0600:300c:326b:10911[,1050:0000:0000:0000:0005:0600:300c:326b:10912]
      */
     private final String facade;
     private final List<Address> addresses;
@@ -113,16 +113,8 @@ public class Endpoints {
         return facade;
     }
 
-    public AddressScheme getAddressScheme() {
-        return this.addressScheme;
-    }
-
     public String getFacade() {
         return this.facade;
-    }
-
-    public List<Address> getAddresses() {
-        return this.addresses;
     }
 
     @Override

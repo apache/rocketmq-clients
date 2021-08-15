@@ -73,7 +73,7 @@ public class ClientManagerImpl implements ClientManager {
 
     private final ConcurrentMap<Endpoints, RpcClient> rpcClientTable;
 
-    private final ConcurrentMap<String/* ClientId */, ClientObserver> observerTable;
+    private final ConcurrentMap<String /* ClientId */, ClientObserver> observerTable;
 
     private final ScheduledExecutorService scheduler;
 

@@ -1154,6 +1154,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         consumerImpl.getConsumptionErrorQuantity().addAndGet(messageSize);
     }
 
+    @Override
     public MessageQueue getMessageQueue() {
         return this.mq;
     }
