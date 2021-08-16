@@ -193,7 +193,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
     private volatile ScheduledFuture<?> updateRouteCacheFuture;
 
     /**
-     * Cache all used topic route, route cache would be updated periodically fro name server.
+     * Cache all used topic route, route cache would be updated periodically from name server.
      */
     private final ConcurrentMap<String /* topic */, TopicRouteData> topicRouteCache;
 
