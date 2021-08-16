@@ -16,6 +16,7 @@ private static final long serialVersionUID = 0L;
     super(builder);
   }
   private VerifyMessageConsumptionResponse() {
+    mid_ = "";
   }
 
   @java.lang.Override
@@ -49,6 +50,12 @@ private static final long serialVersionUID = 0L;
             done = true;
             break;
           case 10: {
+            java.lang.String s = input.readStringRequireUtf8();
+
+            mid_ = s;
+            break;
+          }
+          case 18: {
             apache.rocketmq.v1.ResponseCommon.Builder subBuilder = null;
             if (common_ != null) {
               subBuilder = common_.toBuilder();
@@ -93,10 +100,48 @@ private static final long serialVersionUID = 0L;
             apache.rocketmq.v1.VerifyMessageConsumptionResponse.class, apache.rocketmq.v1.VerifyMessageConsumptionResponse.Builder.class);
   }
 
-  public static final int COMMON_FIELD_NUMBER = 1;
+  public static final int MID_FIELD_NUMBER = 1;
+  private volatile java.lang.Object mid_;
+  /**
+   * <code>string mid = 1;</code>
+   * @return The mid.
+   */
+  @java.lang.Override
+  public java.lang.String getMid() {
+    java.lang.Object ref = mid_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      mid_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string mid = 1;</code>
+   * @return The bytes for mid.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getMidBytes() {
+    java.lang.Object ref = mid_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      mid_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int COMMON_FIELD_NUMBER = 2;
   private apache.rocketmq.v1.ResponseCommon common_;
   /**
-   * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
+   * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
    * @return Whether the common field is set.
    */
   @java.lang.Override
@@ -104,7 +149,7 @@ private static final long serialVersionUID = 0L;
     return common_ != null;
   }
   /**
-   * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
+   * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
    * @return The common.
    */
   @java.lang.Override
@@ -112,7 +157,7 @@ private static final long serialVersionUID = 0L;
     return common_ == null ? apache.rocketmq.v1.ResponseCommon.getDefaultInstance() : common_;
   }
   /**
-   * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
+   * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
    */
   @java.lang.Override
   public apache.rocketmq.v1.ResponseCommonOrBuilder getCommonOrBuilder() {
@@ -133,8 +178,11 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
+    if (!getMidBytes().isEmpty()) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 1, mid_);
+    }
     if (common_ != null) {
-      output.writeMessage(1, getCommon());
+      output.writeMessage(2, getCommon());
     }
     unknownFields.writeTo(output);
   }
@@ -145,9 +193,12 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
+    if (!getMidBytes().isEmpty()) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, mid_);
+    }
     if (common_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(1, getCommon());
+        .computeMessageSize(2, getCommon());
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -164,6 +215,8 @@ private static final long serialVersionUID = 0L;
     }
     apache.rocketmq.v1.VerifyMessageConsumptionResponse other = (apache.rocketmq.v1.VerifyMessageConsumptionResponse) obj;
 
+    if (!getMid()
+        .equals(other.getMid())) return false;
     if (hasCommon() != other.hasCommon()) return false;
     if (hasCommon()) {
       if (!getCommon()
@@ -180,6 +233,8 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
+    hash = (37 * hash) + MID_FIELD_NUMBER;
+    hash = (53 * hash) + getMid().hashCode();
     if (hasCommon()) {
       hash = (37 * hash) + COMMON_FIELD_NUMBER;
       hash = (53 * hash) + getCommon().hashCode();
@@ -317,6 +372,8 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
+      mid_ = "";
+
       if (commonBuilder_ == null) {
         common_ = null;
       } else {
@@ -349,6 +406,7 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public apache.rocketmq.v1.VerifyMessageConsumptionResponse buildPartial() {
       apache.rocketmq.v1.VerifyMessageConsumptionResponse result = new apache.rocketmq.v1.VerifyMessageConsumptionResponse(this);
+      result.mid_ = mid_;
       if (commonBuilder_ == null) {
         result.common_ = common_;
       } else {
@@ -402,6 +460,10 @@ private static final long serialVersionUID = 0L;
 
     public Builder mergeFrom(apache.rocketmq.v1.VerifyMessageConsumptionResponse other) {
       if (other == apache.rocketmq.v1.VerifyMessageConsumptionResponse.getDefaultInstance()) return this;
+      if (!other.getMid().isEmpty()) {
+        mid_ = other.mid_;
+        onChanged();
+      }
       if (other.hasCommon()) {
         mergeCommon(other.getCommon());
       }
@@ -434,18 +496,94 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    private java.lang.Object mid_ = "";
+    /**
+     * <code>string mid = 1;</code>
+     * @return The mid.
+     */
+    public java.lang.String getMid() {
+      java.lang.Object ref = mid_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        mid_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string mid = 1;</code>
+     * @return The bytes for mid.
+     */
+    public com.google.protobuf.ByteString
+        getMidBytes() {
+      java.lang.Object ref = mid_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        mid_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string mid = 1;</code>
+     * @param value The mid to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMid(
+        java.lang.String value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  
+      mid_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string mid = 1;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMid() {
+      
+      mid_ = getDefaultInstance().getMid();
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string mid = 1;</code>
+     * @param value The bytes for mid to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMidBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  checkByteStringIsUtf8(value);
+      
+      mid_ = value;
+      onChanged();
+      return this;
+    }
+
     private apache.rocketmq.v1.ResponseCommon common_;
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.ResponseCommon, apache.rocketmq.v1.ResponseCommon.Builder, apache.rocketmq.v1.ResponseCommonOrBuilder> commonBuilder_;
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
+     * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
      * @return Whether the common field is set.
      */
     public boolean hasCommon() {
       return commonBuilder_ != null || common_ != null;
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
+     * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
      * @return The common.
      */
     public apache.rocketmq.v1.ResponseCommon getCommon() {
@@ -456,7 +594,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
+     * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
      */
     public Builder setCommon(apache.rocketmq.v1.ResponseCommon value) {
       if (commonBuilder_ == null) {
@@ -472,7 +610,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
+     * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
      */
     public Builder setCommon(
         apache.rocketmq.v1.ResponseCommon.Builder builderForValue) {
@@ -486,7 +624,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
+     * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
      */
     public Builder mergeCommon(apache.rocketmq.v1.ResponseCommon value) {
       if (commonBuilder_ == null) {
@@ -504,7 +642,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
+     * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
      */
     public Builder clearCommon() {
       if (commonBuilder_ == null) {
@@ -518,7 +656,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
+     * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
      */
     public apache.rocketmq.v1.ResponseCommon.Builder getCommonBuilder() {
       
@@ -526,7 +664,7 @@ private static final long serialVersionUID = 0L;
       return getCommonFieldBuilder().getBuilder();
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
+     * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
      */
     public apache.rocketmq.v1.ResponseCommonOrBuilder getCommonOrBuilder() {
       if (commonBuilder_ != null) {
@@ -537,7 +675,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
+     * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.ResponseCommon, apache.rocketmq.v1.ResponseCommon.Builder, apache.rocketmq.v1.ResponseCommonOrBuilder> 

@@ -23,12 +23,24 @@ public interface PrintThreadStackResponseOrBuilder extends
   apache.rocketmq.v1.ResponseCommonOrBuilder getCommonOrBuilder();
 
   /**
-   * <code>string stack_trace = 2;</code>
+   * <code>string mid = 2;</code>
+   * @return The mid.
+   */
+  java.lang.String getMid();
+  /**
+   * <code>string mid = 2;</code>
+   * @return The bytes for mid.
+   */
+  com.google.protobuf.ByteString
+      getMidBytes();
+
+  /**
+   * <code>string stack_trace = 3;</code>
    * @return The stackTrace.
    */
   java.lang.String getStackTrace();
   /**
-   * <code>string stack_trace = 2;</code>
+   * <code>string stack_trace = 3;</code>
    * @return The bytes for stackTrace.
    */
   com.google.protobuf.ByteString

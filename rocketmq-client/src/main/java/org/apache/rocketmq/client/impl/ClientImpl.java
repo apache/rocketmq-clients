@@ -586,7 +586,9 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         try {
             final Endpoints endpoints = selectNameServerEndpoints();
             Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
-            final QueryRouteRequest request = QueryRouteRequest.newBuilder().setTopic(topicResource).build();
+            final QueryRouteRequest request =
+                    QueryRouteRequest.newBuilder().setTopic(topicResource).setEndpoints(endpoints.toEndpoints())
+                                     .build();
             final Metadata metadata = sign();
             final ListenableFuture<QueryRouteResponse> responseFuture =
                     clientManager.queryRoute(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);

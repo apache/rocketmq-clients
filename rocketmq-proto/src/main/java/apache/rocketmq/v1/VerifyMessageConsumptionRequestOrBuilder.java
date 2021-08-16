@@ -8,32 +8,44 @@ public interface VerifyMessageConsumptionRequestOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>.apache.rocketmq.v1.Partition Partition = 1;</code>
+   * <code>string mid = 1;</code>
+   * @return The mid.
+   */
+  java.lang.String getMid();
+  /**
+   * <code>string mid = 1;</code>
+   * @return The bytes for mid.
+   */
+  com.google.protobuf.ByteString
+      getMidBytes();
+
+  /**
+   * <code>.apache.rocketmq.v1.Partition Partition = 2;</code>
    * @return Whether the partition field is set.
    */
   boolean hasPartition();
   /**
-   * <code>.apache.rocketmq.v1.Partition Partition = 1;</code>
+   * <code>.apache.rocketmq.v1.Partition Partition = 2;</code>
    * @return The partition.
    */
   apache.rocketmq.v1.Partition getPartition();
   /**
-   * <code>.apache.rocketmq.v1.Partition Partition = 1;</code>
+   * <code>.apache.rocketmq.v1.Partition Partition = 2;</code>
    */
   apache.rocketmq.v1.PartitionOrBuilder getPartitionOrBuilder();
 
   /**
-   * <code>.apache.rocketmq.v1.Message message = 2;</code>
+   * <code>.apache.rocketmq.v1.Message message = 3;</code>
    * @return Whether the message field is set.
    */
   boolean hasMessage();
   /**
-   * <code>.apache.rocketmq.v1.Message message = 2;</code>
+   * <code>.apache.rocketmq.v1.Message message = 3;</code>
    * @return The message.
    */
   apache.rocketmq.v1.Message getMessage();
   /**
-   * <code>.apache.rocketmq.v1.Message message = 2;</code>
+   * <code>.apache.rocketmq.v1.Message message = 3;</code>
    */
   apache.rocketmq.v1.MessageOrBuilder getMessageOrBuilder();
 }

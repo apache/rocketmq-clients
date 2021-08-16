@@ -32,14 +32,25 @@ public enum AddressScheme {
      */
     IPv6("ipv6:");
 
-    public static final String SCHEMA_SEPARATOR = ":";
     private final String prefix;
 
-    private AddressScheme(String prefix) {
+    AddressScheme(String prefix) {
         this.prefix = prefix;
     }
 
     public String getPrefix() {
         return this.prefix;
+    }
+
+    public apache.rocketmq.v1.AddressScheme toAddressScheme() {
+        switch (this) {
+            case IPv4:
+                return apache.rocketmq.v1.AddressScheme.IPv4;
+            case IPv6:
+                return apache.rocketmq.v1.AddressScheme.IPv6;
+            case DOMAIN_NAME:
+            default:
+                return apache.rocketmq.v1.AddressScheme.DOMAIN_NAME;
+        }
     }
 }

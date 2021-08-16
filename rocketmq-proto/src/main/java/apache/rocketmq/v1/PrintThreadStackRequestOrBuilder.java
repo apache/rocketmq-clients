@@ -6,4 +6,16 @@ package apache.rocketmq.v1;
 public interface PrintThreadStackRequestOrBuilder extends
     // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.PrintThreadStackRequest)
     com.google.protobuf.MessageOrBuilder {
+
+  /**
+   * <code>string mid = 1;</code>
+   * @return The mid.
+   */
+  java.lang.String getMid();
+  /**
+   * <code>string mid = 1;</code>
+   * @return The bytes for mid.
+   */
+  com.google.protobuf.ByteString
+      getMidBytes();
 }

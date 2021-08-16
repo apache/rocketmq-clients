@@ -108,6 +108,14 @@ public class Endpoints {
         }
     }
 
+    public apache.rocketmq.v1.Endpoints toEndpoints() {
+        final apache.rocketmq.v1.Endpoints.Builder builder = apache.rocketmq.v1.Endpoints.newBuilder();
+        for (Address address : addresses) {
+            builder.addAddresses(address.toPbAddress());
+        }
+        return builder.setScheme(addressScheme.toAddressScheme()).build();
+    }
+
     @Override
     public String toString() {
         return facade;

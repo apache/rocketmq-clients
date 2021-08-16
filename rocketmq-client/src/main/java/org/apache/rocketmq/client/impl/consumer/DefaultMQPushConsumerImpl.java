@@ -364,10 +364,11 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
         rateLimiterTable.put(topic, rateLimiter);
     }
 
-    private QueryAssignmentRequest wrapQueryAssignmentRequest(String topic) {
+    private QueryAssignmentRequest wrapQueryAssignmentRequest(String topic, Endpoints endpoints) {
         Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
         return QueryAssignmentRequest.newBuilder()
                                      .setTopic(topicResource)
+                                     .setEndpoints(endpoints.toEndpoints())
                                      .setGroup(getGroupResource())
                                      .setClientId(clientId)
                                      .build();
@@ -578,13 +579,13 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
             });
         }
         // for clustering mode.
-        final QueryAssignmentRequest request = wrapQueryAssignmentRequest(topic);
         final ListenableFuture<Endpoints> future = pickRouteEndpoints(topic);
         final ListenableFuture<QueryAssignmentResponse> responseFuture =
                 Futures.transformAsync(future, new AsyncFunction<Endpoints, QueryAssignmentResponse>() {
                     @Override
                     public ListenableFuture<QueryAssignmentResponse> apply(Endpoints endpoints) throws Exception {
                         final Metadata metadata = sign();
+                        final QueryAssignmentRequest request = wrapQueryAssignmentRequest(topic, endpoints);
                         return clientManager.queryAssignment(endpoints, metadata, request, ioTimeoutMillis,
                                                              TimeUnit.MILLISECONDS);
                     }

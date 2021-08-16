@@ -40,6 +40,10 @@ public class Address {
         return host + ":" + port;
     }
 
+    public apache.rocketmq.v1.Address toPbAddress() {
+        return apache.rocketmq.v1.Address.newBuilder().setHost(host).setPort(port).build();
+    }
+
     public String getHost() {
         return this.host;
     }

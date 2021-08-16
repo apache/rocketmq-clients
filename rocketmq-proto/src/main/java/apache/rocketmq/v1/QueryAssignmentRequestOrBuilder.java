@@ -48,4 +48,19 @@ public interface QueryAssignmentRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getClientIdBytes();
+
+  /**
+   * <code>.apache.rocketmq.v1.Endpoints endpoints = 4;</code>
+   * @return Whether the endpoints field is set.
+   */
+  boolean hasEndpoints();
+  /**
+   * <code>.apache.rocketmq.v1.Endpoints endpoints = 4;</code>
+   * @return The endpoints.
+   */
+  apache.rocketmq.v1.Endpoints getEndpoints();
+  /**
+   * <code>.apache.rocketmq.v1.Endpoints endpoints = 4;</code>
+   */
+  apache.rocketmq.v1.EndpointsOrBuilder getEndpointsOrBuilder();
 }

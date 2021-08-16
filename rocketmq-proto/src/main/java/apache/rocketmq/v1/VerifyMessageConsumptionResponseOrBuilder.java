@@ -8,17 +8,29 @@ public interface VerifyMessageConsumptionResponseOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
+   * <code>string mid = 1;</code>
+   * @return The mid.
+   */
+  java.lang.String getMid();
+  /**
+   * <code>string mid = 1;</code>
+   * @return The bytes for mid.
+   */
+  com.google.protobuf.ByteString
+      getMidBytes();
+
+  /**
+   * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
    * @return Whether the common field is set.
    */
   boolean hasCommon();
   /**
-   * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
+   * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
    * @return The common.
    */
   apache.rocketmq.v1.ResponseCommon getCommon();
   /**
-   * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
+   * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
    */
   apache.rocketmq.v1.ResponseCommonOrBuilder getCommonOrBuilder();
 }

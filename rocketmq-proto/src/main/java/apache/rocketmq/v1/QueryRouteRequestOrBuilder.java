@@ -21,4 +21,19 @@ public interface QueryRouteRequestOrBuilder extends
    * <code>.apache.rocketmq.v1.Resource topic = 1;</code>
    */
   apache.rocketmq.v1.ResourceOrBuilder getTopicOrBuilder();
+
+  /**
+   * <code>.apache.rocketmq.v1.Endpoints endpoints = 2;</code>
+   * @return Whether the endpoints field is set.
+   */
+  boolean hasEndpoints();
+  /**
+   * <code>.apache.rocketmq.v1.Endpoints endpoints = 2;</code>
+   * @return The endpoints.
+   */
+  apache.rocketmq.v1.Endpoints getEndpoints();
+  /**
+   * <code>.apache.rocketmq.v1.Endpoints endpoints = 2;</code>
+   */
+  apache.rocketmq.v1.EndpointsOrBuilder getEndpointsOrBuilder();
 }

@@ -16,6 +16,7 @@ private static final long serialVersionUID = 0L;
     super(builder);
   }
   private VerifyMessageConsumptionRequest() {
+    mid_ = "";
   }
 
   @java.lang.Override
@@ -49,6 +50,12 @@ private static final long serialVersionUID = 0L;
             done = true;
             break;
           case 10: {
+            java.lang.String s = input.readStringRequireUtf8();
+
+            mid_ = s;
+            break;
+          }
+          case 18: {
             apache.rocketmq.v1.Partition.Builder subBuilder = null;
             if (partition_ != null) {
               subBuilder = partition_.toBuilder();
@@ -61,7 +68,7 @@ private static final long serialVersionUID = 0L;
 
             break;
           }
-          case 18: {
+          case 26: {
             apache.rocketmq.v1.Message.Builder subBuilder = null;
             if (message_ != null) {
               subBuilder = message_.toBuilder();
@@ -106,10 +113,48 @@ private static final long serialVersionUID = 0L;
             apache.rocketmq.v1.VerifyMessageConsumptionRequest.class, apache.rocketmq.v1.VerifyMessageConsumptionRequest.Builder.class);
   }
 
-  public static final int PARTITION_FIELD_NUMBER = 1;
+  public static final int MID_FIELD_NUMBER = 1;
+  private volatile java.lang.Object mid_;
+  /**
+   * <code>string mid = 1;</code>
+   * @return The mid.
+   */
+  @java.lang.Override
+  public java.lang.String getMid() {
+    java.lang.Object ref = mid_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      mid_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string mid = 1;</code>
+   * @return The bytes for mid.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getMidBytes() {
+    java.lang.Object ref = mid_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      mid_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int PARTITION_FIELD_NUMBER = 2;
   private apache.rocketmq.v1.Partition partition_;
   /**
-   * <code>.apache.rocketmq.v1.Partition Partition = 1;</code>
+   * <code>.apache.rocketmq.v1.Partition Partition = 2;</code>
    * @return Whether the partition field is set.
    */
   @java.lang.Override
@@ -117,7 +162,7 @@ private static final long serialVersionUID = 0L;
     return partition_ != null;
   }
   /**
-   * <code>.apache.rocketmq.v1.Partition Partition = 1;</code>
+   * <code>.apache.rocketmq.v1.Partition Partition = 2;</code>
    * @return The partition.
    */
   @java.lang.Override
@@ -125,17 +170,17 @@ private static final long serialVersionUID = 0L;
     return partition_ == null ? apache.rocketmq.v1.Partition.getDefaultInstance() : partition_;
   }
   /**
-   * <code>.apache.rocketmq.v1.Partition Partition = 1;</code>
+   * <code>.apache.rocketmq.v1.Partition Partition = 2;</code>
    */
   @java.lang.Override
   public apache.rocketmq.v1.PartitionOrBuilder getPartitionOrBuilder() {
     return getPartition();
   }
 
-  public static final int MESSAGE_FIELD_NUMBER = 2;
+  public static final int MESSAGE_FIELD_NUMBER = 3;
   private apache.rocketmq.v1.Message message_;
   /**
-   * <code>.apache.rocketmq.v1.Message message = 2;</code>
+   * <code>.apache.rocketmq.v1.Message message = 3;</code>
    * @return Whether the message field is set.
    */
   @java.lang.Override
@@ -143,7 +188,7 @@ private static final long serialVersionUID = 0L;
     return message_ != null;
   }
   /**
-   * <code>.apache.rocketmq.v1.Message message = 2;</code>
+   * <code>.apache.rocketmq.v1.Message message = 3;</code>
    * @return The message.
    */
   @java.lang.Override
@@ -151,7 +196,7 @@ private static final long serialVersionUID = 0L;
     return message_ == null ? apache.rocketmq.v1.Message.getDefaultInstance() : message_;
   }
   /**
-   * <code>.apache.rocketmq.v1.Message message = 2;</code>
+   * <code>.apache.rocketmq.v1.Message message = 3;</code>
    */
   @java.lang.Override
   public apache.rocketmq.v1.MessageOrBuilder getMessageOrBuilder() {
@@ -172,11 +217,14 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
+    if (!getMidBytes().isEmpty()) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 1, mid_);
+    }
     if (partition_ != null) {
-      output.writeMessage(1, getPartition());
+      output.writeMessage(2, getPartition());
     }
     if (message_ != null) {
-      output.writeMessage(2, getMessage());
+      output.writeMessage(3, getMessage());
     }
     unknownFields.writeTo(output);
   }
@@ -187,13 +235,16 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
+    if (!getMidBytes().isEmpty()) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, mid_);
+    }
     if (partition_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(1, getPartition());
+        .computeMessageSize(2, getPartition());
     }
     if (message_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(2, getMessage());
+        .computeMessageSize(3, getMessage());
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -210,6 +261,8 @@ private static final long serialVersionUID = 0L;
     }
     apache.rocketmq.v1.VerifyMessageConsumptionRequest other = (apache.rocketmq.v1.VerifyMessageConsumptionRequest) obj;
 
+    if (!getMid()
+        .equals(other.getMid())) return false;
     if (hasPartition() != other.hasPartition()) return false;
     if (hasPartition()) {
       if (!getPartition()
@@ -231,6 +284,8 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
+    hash = (37 * hash) + MID_FIELD_NUMBER;
+    hash = (53 * hash) + getMid().hashCode();
     if (hasPartition()) {
       hash = (37 * hash) + PARTITION_FIELD_NUMBER;
       hash = (53 * hash) + getPartition().hashCode();
@@ -372,6 +427,8 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
+      mid_ = "";
+
       if (partitionBuilder_ == null) {
         partition_ = null;
       } else {
@@ -410,6 +467,7 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public apache.rocketmq.v1.VerifyMessageConsumptionRequest buildPartial() {
       apache.rocketmq.v1.VerifyMessageConsumptionRequest result = new apache.rocketmq.v1.VerifyMessageConsumptionRequest(this);
+      result.mid_ = mid_;
       if (partitionBuilder_ == null) {
         result.partition_ = partition_;
       } else {
@@ -468,6 +526,10 @@ private static final long serialVersionUID = 0L;
 
     public Builder mergeFrom(apache.rocketmq.v1.VerifyMessageConsumptionRequest other) {
       if (other == apache.rocketmq.v1.VerifyMessageConsumptionRequest.getDefaultInstance()) return this;
+      if (!other.getMid().isEmpty()) {
+        mid_ = other.mid_;
+        onChanged();
+      }
       if (other.hasPartition()) {
         mergePartition(other.getPartition());
       }
@@ -503,18 +565,94 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    private java.lang.Object mid_ = "";
+    /**
+     * <code>string mid = 1;</code>
+     * @return The mid.
+     */
+    public java.lang.String getMid() {
+      java.lang.Object ref = mid_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        mid_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string mid = 1;</code>
+     * @return The bytes for mid.
+     */
+    public com.google.protobuf.ByteString
+        getMidBytes() {
+      java.lang.Object ref = mid_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        mid_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string mid = 1;</code>
+     * @param value The mid to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMid(
+        java.lang.String value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  
+      mid_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string mid = 1;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMid() {
+      
+      mid_ = getDefaultInstance().getMid();
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string mid = 1;</code>
+     * @param value The bytes for mid to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMidBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  checkByteStringIsUtf8(value);
+      
+      mid_ = value;
+      onChanged();
+      return this;
+    }
+
     private apache.rocketmq.v1.Partition partition_;
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.Partition, apache.rocketmq.v1.Partition.Builder, apache.rocketmq.v1.PartitionOrBuilder> partitionBuilder_;
     /**
-     * <code>.apache.rocketmq.v1.Partition Partition = 1;</code>
+     * <code>.apache.rocketmq.v1.Partition Partition = 2;</code>
      * @return Whether the partition field is set.
      */
     public boolean hasPartition() {
       return partitionBuilder_ != null || partition_ != null;
     }
     /**
-     * <code>.apache.rocketmq.v1.Partition Partition = 1;</code>
+     * <code>.apache.rocketmq.v1.Partition Partition = 2;</code>
      * @return The partition.
      */
     public apache.rocketmq.v1.Partition getPartition() {
@@ -525,7 +663,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.Partition Partition = 1;</code>
+     * <code>.apache.rocketmq.v1.Partition Partition = 2;</code>
      */
     public Builder setPartition(apache.rocketmq.v1.Partition value) {
       if (partitionBuilder_ == null) {
@@ -541,7 +679,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Partition Partition = 1;</code>
+     * <code>.apache.rocketmq.v1.Partition Partition = 2;</code>
      */
     public Builder setPartition(
         apache.rocketmq.v1.Partition.Builder builderForValue) {
@@ -555,7 +693,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Partition Partition = 1;</code>
+     * <code>.apache.rocketmq.v1.Partition Partition = 2;</code>
      */
     public Builder mergePartition(apache.rocketmq.v1.Partition value) {
       if (partitionBuilder_ == null) {
@@ -573,7 +711,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Partition Partition = 1;</code>
+     * <code>.apache.rocketmq.v1.Partition Partition = 2;</code>
      */
     public Builder clearPartition() {
       if (partitionBuilder_ == null) {
@@ -587,7 +725,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Partition Partition = 1;</code>
+     * <code>.apache.rocketmq.v1.Partition Partition = 2;</code>
      */
     public apache.rocketmq.v1.Partition.Builder getPartitionBuilder() {
       
@@ -595,7 +733,7 @@ private static final long serialVersionUID = 0L;
       return getPartitionFieldBuilder().getBuilder();
     }
     /**
-     * <code>.apache.rocketmq.v1.Partition Partition = 1;</code>
+     * <code>.apache.rocketmq.v1.Partition Partition = 2;</code>
      */
     public apache.rocketmq.v1.PartitionOrBuilder getPartitionOrBuilder() {
       if (partitionBuilder_ != null) {
@@ -606,7 +744,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.Partition Partition = 1;</code>
+     * <code>.apache.rocketmq.v1.Partition Partition = 2;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.Partition, apache.rocketmq.v1.Partition.Builder, apache.rocketmq.v1.PartitionOrBuilder> 
@@ -626,14 +764,14 @@ private static final long serialVersionUID = 0L;
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.Message, apache.rocketmq.v1.Message.Builder, apache.rocketmq.v1.MessageOrBuilder> messageBuilder_;
     /**
-     * <code>.apache.rocketmq.v1.Message message = 2;</code>
+     * <code>.apache.rocketmq.v1.Message message = 3;</code>
      * @return Whether the message field is set.
      */
     public boolean hasMessage() {
       return messageBuilder_ != null || message_ != null;
     }
     /**
-     * <code>.apache.rocketmq.v1.Message message = 2;</code>
+     * <code>.apache.rocketmq.v1.Message message = 3;</code>
      * @return The message.
      */
     public apache.rocketmq.v1.Message getMessage() {
@@ -644,7 +782,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.Message message = 2;</code>
+     * <code>.apache.rocketmq.v1.Message message = 3;</code>
      */
     public Builder setMessage(apache.rocketmq.v1.Message value) {
       if (messageBuilder_ == null) {
@@ -660,7 +798,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Message message = 2;</code>
+     * <code>.apache.rocketmq.v1.Message message = 3;</code>
      */
     public Builder setMessage(
         apache.rocketmq.v1.Message.Builder builderForValue) {
@@ -674,7 +812,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Message message = 2;</code>
+     * <code>.apache.rocketmq.v1.Message message = 3;</code>
      */
     public Builder mergeMessage(apache.rocketmq.v1.Message value) {
       if (messageBuilder_ == null) {
@@ -692,7 +830,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Message message = 2;</code>
+     * <code>.apache.rocketmq.v1.Message message = 3;</code>
      */
     public Builder clearMessage() {
       if (messageBuilder_ == null) {
@@ -706,7 +844,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Message message = 2;</code>
+     * <code>.apache.rocketmq.v1.Message message = 3;</code>
      */
     public apache.rocketmq.v1.Message.Builder getMessageBuilder() {
       
@@ -714,7 +852,7 @@ private static final long serialVersionUID = 0L;
       return getMessageFieldBuilder().getBuilder();
     }
     /**
-     * <code>.apache.rocketmq.v1.Message message = 2;</code>
+     * <code>.apache.rocketmq.v1.Message message = 3;</code>
      */
     public apache.rocketmq.v1.MessageOrBuilder getMessageOrBuilder() {
       if (messageBuilder_ != null) {
@@ -725,7 +863,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.Message message = 2;</code>
+     * <code>.apache.rocketmq.v1.Message message = 3;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.Message, apache.rocketmq.v1.Message.Builder, apache.rocketmq.v1.MessageOrBuilder> 
