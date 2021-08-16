@@ -293,7 +293,7 @@ public class ProcessQueueImpl implements ProcessQueue {
             }
             final MessageExt first = pendingMessages.iterator().next();
             pendingMessages.remove(first);
-            pendingMessages.add(first);
+            inflightMessages.add(first);
             return first;
         } finally {
             inflightMessagesLock.writeLock().unlock();
