@@ -94,7 +94,7 @@ public class ProcessQueueImpl implements ProcessQueue {
     private final MessageQueue mq;
     private final FilterExpression filterExpression;
 
-    private final DefaultMQPushConsumerImpl consumerImpl;
+    private final PushConsumerImpl consumerImpl;
 
     @GuardedBy("pendingMessagesLock")
     private final List<MessageExt> pendingMessages;
@@ -114,7 +114,7 @@ public class ProcessQueueImpl implements ProcessQueue {
     private volatile long activityNanoTime = System.nanoTime();
     private volatile long throttleNanoTime = System.nanoTime();
 
-    public ProcessQueueImpl(DefaultMQPushConsumerImpl consumerImpl, MessageQueue mq,
+    public ProcessQueueImpl(PushConsumerImpl consumerImpl, MessageQueue mq,
                             FilterExpression filterExpression) {
         this.consumerImpl = consumerImpl;
 

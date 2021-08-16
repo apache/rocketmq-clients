@@ -20,15 +20,15 @@ package org.apache.rocketmq.client.consumer;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
 import org.apache.rocketmq.client.exception.ClientException;
-import org.apache.rocketmq.client.impl.consumer.DefaultMQPullConsumerImpl;
+import org.apache.rocketmq.client.impl.consumer.PullConsumerImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
 
 public class DefaultMQPullConsumer {
-    private final DefaultMQPullConsumerImpl impl;
+    private final PullConsumerImpl impl;
 
     public DefaultMQPullConsumer(final String consumerGroup) {
-        this.impl = new DefaultMQPullConsumerImpl(consumerGroup);
+        this.impl = new PullConsumerImpl(consumerGroup);
     }
 
     public void setConsumerGroup(String group) throws ClientException {
