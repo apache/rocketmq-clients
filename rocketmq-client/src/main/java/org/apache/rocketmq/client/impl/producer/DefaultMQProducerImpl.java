@@ -92,7 +92,7 @@ import org.apache.rocketmq.shaded.org.slf4j.LoggerFactory;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.apache.rocketmq.utility.UtilAll;
 
-public class ProducerImpl extends ClientImpl {
+public class DefaultMQProducerImpl extends ClientImpl {
 
     /**
      * If message body size exceeds the threshold, it would be compressed for convenience of transport.
@@ -104,7 +104,7 @@ public class ProducerImpl extends ClientImpl {
      */
     public static final int MESSAGE_COMPRESSION_LEVEL = 5;
 
-    private static final Logger log = LoggerFactory.getLogger(ProducerImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(DefaultMQProducerImpl.class);
 
     /**
      * Maximum attempt times for auto-retry of sending message.
@@ -136,7 +136,7 @@ public class ProducerImpl extends ClientImpl {
 
     private final ThreadPoolExecutor transactionCheckerExecutor;
 
-    public ProducerImpl(String group) {
+    public DefaultMQProducerImpl(String group) {
         super(group);
         this.defaultSendCallbackExecutor = new ThreadPoolExecutor(
                 Runtime.getRuntime().availableProcessors(),

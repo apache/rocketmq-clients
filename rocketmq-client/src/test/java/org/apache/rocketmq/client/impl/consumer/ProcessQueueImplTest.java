@@ -71,7 +71,7 @@ public class ProcessQueueImplTest extends TestBase {
     private ProcessQueueImpl processQueueImpl;
 
     @Mock
-    private PushConsumerImpl consumerImpl;
+    private DefaultMQPushConsumerImpl consumerImpl;
     @Mock
     private ConsumeService consumeService;
     @Mock

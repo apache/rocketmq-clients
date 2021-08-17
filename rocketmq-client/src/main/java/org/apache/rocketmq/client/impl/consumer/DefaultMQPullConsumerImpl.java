@@ -46,12 +46,12 @@ import org.apache.rocketmq.shaded.org.slf4j.Logger;
 import org.apache.rocketmq.shaded.org.slf4j.LoggerFactory;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 
-public class PullConsumerImpl extends ClientImpl {
-    private static final Logger log = LoggerFactory.getLogger(PullConsumerImpl.class);
+public class DefaultMQPullConsumerImpl extends ClientImpl {
+    private static final Logger log = LoggerFactory.getLogger(DefaultMQPullConsumerImpl.class);
     
     private final ThreadPoolExecutor pullCallbackExecutor;
 
-    public PullConsumerImpl(String group) {
+    public DefaultMQPullConsumerImpl(String group) {
         super(group);
         this.pullCallbackExecutor = new ThreadPoolExecutor(
                 Runtime.getRuntime().availableProcessors(),

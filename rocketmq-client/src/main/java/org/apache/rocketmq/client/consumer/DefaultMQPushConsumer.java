@@ -23,8 +23,8 @@ import org.apache.rocketmq.client.consumer.listener.MessageListener;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
 import org.apache.rocketmq.client.exception.ClientException;
+import org.apache.rocketmq.client.impl.consumer.DefaultMQPushConsumerImpl;
 import org.apache.rocketmq.client.impl.consumer.OffsetStore;
-import org.apache.rocketmq.client.impl.consumer.PushConsumerImpl;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
 import org.apache.rocketmq.client.tracing.TracingMessageInterceptor;
 
@@ -43,7 +43,7 @@ public class DefaultMQPushConsumer {
     /**
      * Wrapping internal implementations for virtually all methods presented in this class.
      */
-    protected final PushConsumerImpl impl;
+    protected final DefaultMQPushConsumerImpl impl;
 
     /**
      * Constructor specifying group.
@@ -51,7 +51,7 @@ public class DefaultMQPushConsumer {
      * @param group group name.
      */
     public DefaultMQPushConsumer(final String group) {
-        this.impl = new PushConsumerImpl(group);
+        this.impl = new DefaultMQPushConsumerImpl(group);
     }
 
     /**

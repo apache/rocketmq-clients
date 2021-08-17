@@ -22,7 +22,7 @@ import java.util.concurrent.TimeoutException;
 import javax.annotation.concurrent.ThreadSafe;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ServerException;
-import org.apache.rocketmq.client.impl.producer.ProducerImpl;
+import org.apache.rocketmq.client.impl.producer.DefaultMQProducerImpl;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
 import org.apache.rocketmq.client.tracing.TracingMessageInterceptor;
@@ -42,7 +42,7 @@ public class DefaultMQProducer {
     /**
      * Wrapping internal implementations for virtually all methods presented in this class.
      */
-    protected final ProducerImpl impl;
+    protected final DefaultMQProducerImpl impl;
 
     /**
      * Constructor specifying group.
@@ -50,7 +50,7 @@ public class DefaultMQProducer {
      * @param group group name.
      */
     public DefaultMQProducer(final String group) {
-        this.impl = new ProducerImpl(group);
+        this.impl = new DefaultMQProducerImpl(group);
     }
 
     /**

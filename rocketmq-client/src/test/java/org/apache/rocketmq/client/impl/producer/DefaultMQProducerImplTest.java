@@ -69,12 +69,12 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-public class ProducerImplTest extends TestBase {
+public class DefaultMQProducerImplTest extends TestBase {
     @Mock
     private ClientManager clientManager;
 
     @InjectMocks
-    private final ProducerImpl producerImpl = new ProducerImpl(dummyGroup0);
+    private final DefaultMQProducerImpl producerImpl = new DefaultMQProducerImpl(dummyGroup0);
 
     @BeforeTest
     public void beforeTest() throws ClientException {
@@ -119,7 +119,7 @@ public class ProducerImplTest extends TestBase {
     @Test
     public void testSendWithLargeMessage() throws ServerException, ClientException, InterruptedException,
                                                   TimeoutException {
-        final int messageBodySize = ProducerImpl.MESSAGE_COMPRESSION_THRESHOLD + 1;
+        final int messageBodySize = DefaultMQProducerImpl.MESSAGE_COMPRESSION_THRESHOLD + 1;
         final Message message = dummyMessage(messageBodySize);
         producerImpl.beforeTopicRouteDataUpdate(message.getTopic(), dummyTopicRouteData(Permission.READ_WRITE));
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
