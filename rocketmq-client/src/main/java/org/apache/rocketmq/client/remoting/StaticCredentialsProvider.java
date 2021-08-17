@@ -24,6 +24,10 @@ public class StaticCredentialsProvider implements CredentialsProvider {
         this.credentials = new Credentials(accessKey, accessSecret);
     }
 
+    public StaticCredentialsProvider(String accessKey, String accessSecret, String securityToken) {
+        this.credentials = new Credentials(accessKey, accessSecret, securityToken);
+    }
+
     @Override
     public Credentials getCredentials() {
         return credentials;

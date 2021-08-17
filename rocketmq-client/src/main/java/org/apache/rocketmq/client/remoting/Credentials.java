@@ -38,6 +38,16 @@ public class Credentials {
         this.expiredTimeMillis = Long.MAX_VALUE;
     }
 
+    public Credentials(String accessKey, String accessSecret, String securityToken) {
+        checkNotNull(accessKey, "AccessKey is null, please set it.");
+        checkNotNull(accessSecret, "SecretKey is null, please set it.");
+        checkNotNull(securityToken, "SessionToken is null, please set it.");
+        this.accessKey = accessKey;
+        this.accessSecret = accessSecret;
+        this.securityToken = securityToken;
+        this.expiredTimeMillis = Long.MAX_VALUE;
+    }
+
     public Credentials(String accessKey, String accessSecret, String securityToken, long expiredTimeMillis) {
         checkNotNull(accessKey, "AccessKey is null, please set it.");
         checkNotNull(accessSecret, "SecretKey is null, please set it.");
