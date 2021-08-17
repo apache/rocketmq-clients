@@ -114,8 +114,7 @@ public class ProcessQueueImpl implements ProcessQueue {
     private volatile long activityNanoTime = System.nanoTime();
     private volatile long throttleNanoTime = System.nanoTime();
 
-    public ProcessQueueImpl(PushConsumerImpl consumerImpl, MessageQueue mq,
-                            FilterExpression filterExpression) {
+    public ProcessQueueImpl(PushConsumerImpl consumerImpl, MessageQueue mq, FilterExpression filterExpression) {
         this.consumerImpl = consumerImpl;
 
         this.mq = mq;

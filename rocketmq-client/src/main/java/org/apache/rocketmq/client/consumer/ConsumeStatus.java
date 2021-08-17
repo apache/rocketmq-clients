@@ -19,11 +19,11 @@ package org.apache.rocketmq.client.consumer;
 
 public enum ConsumeStatus {
     /**
-     * Success consumption
+     * Successful consumption
      */
     OK,
     /**
-     * Failure consumption
+     * Failed consumption
      */
     ERROR;
 }

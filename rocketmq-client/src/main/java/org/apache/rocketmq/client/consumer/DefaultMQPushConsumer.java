@@ -17,7 +17,9 @@
 
 package org.apache.rocketmq.client.consumer;
 
+import javax.annotation.concurrent.ThreadSafe;
 import org.apache.rocketmq.client.consumer.filter.ExpressionType;
+import org.apache.rocketmq.client.consumer.listener.MessageListener;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
 import org.apache.rocketmq.client.exception.ClientException;
@@ -26,6 +28,16 @@ import org.apache.rocketmq.client.impl.consumer.PushConsumerImpl;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
 import org.apache.rocketmq.client.tracing.TracingMessageInterceptor;
 
+/**
+ * This class is the entry point for applications intending to consume messages using <strong>push</strong> mode.
+ *
+ * <p>It's fine to tune fields which exposes getter/setter methods, but keep in mind, all of them should work well
+ * out of box for most scenarios.
+ *
+ * <p>This class allows user to custom the {@link MessageListener}, which would delivery message in time according to
+ * defined consumption policy, you should not care the underlying implement.
+ */
+@ThreadSafe
 public class DefaultMQPushConsumer {
 
     /**

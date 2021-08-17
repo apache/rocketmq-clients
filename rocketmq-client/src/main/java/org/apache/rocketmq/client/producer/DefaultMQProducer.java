@@ -19,6 +19,7 @@ package org.apache.rocketmq.client.producer;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeoutException;
+import javax.annotation.concurrent.ThreadSafe;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ServerException;
 import org.apache.rocketmq.client.impl.producer.ProducerImpl;
@@ -26,6 +27,16 @@ import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
 import org.apache.rocketmq.client.tracing.TracingMessageInterceptor;
 
+/**
+ * This class is the entry point for applications intending to send messages.
+ *
+ * <p>It's fine to tune fields which exposes getter/setter methods, but keep in mind, all of them should work well
+ * out of box for most scenarios.
+ *
+ * <p>This class aggregates various <code>send</code> methods to deliver messages to servers. Each of them has pros and
+ * cons; you'd better understand strengths and weakness of them before actually coding.
+ */
+@ThreadSafe
 public class DefaultMQProducer {
 
     /**

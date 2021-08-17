@@ -18,10 +18,23 @@
 package org.apache.rocketmq.client.impl.consumer;
 
 import java.util.List;
+import javax.annotation.concurrent.ThreadSafe;
 import org.apache.rocketmq.client.consumer.ConsumeStatus;
+import org.apache.rocketmq.client.consumer.MessageModel;
+import org.apache.rocketmq.client.consumer.listener.MessageListener;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
 
+/**
+ * This class is a cache of messages in responding {@link MessageQueue} regardless of {@link MessageModel}.
+ *
+ * <p>Serve for The {@link ConsumeService}, which only in charge of take and erase message(s) from here. Each message
+ * taken from {@link ProcessQueue} must be erased with {@link ConsumeStatus}. There are different methods of
+ * take/erase for FIFO and other messages.
+ *
+ * <p>'take' means message(s) has been delivered to {@link MessageListener}, but is still cached until 'erase'.
+ */
+@ThreadSafe
 public interface ProcessQueue {
     /**
      * Get the message queue bound.
