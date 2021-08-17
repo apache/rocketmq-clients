@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.impl;
 
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.Lock;
@@ -26,12 +27,13 @@ public class ClientManagerFactory {
 
     private static final ClientManagerFactory INSTANCE = new ClientManagerFactory();
 
+    @GuardedBy("managersTableLock")
     private final Map<String, ClientManager> managersTable;
-    private final Lock lock;
+    private final Lock managersTableLock;
 
     private ClientManagerFactory() {
         this.managersTable = new HashMap<String, ClientManager>();
-        this.lock = new ReentrantLock();
+        this.managersTableLock = new ReentrantLock();
     }
 
     public static ClientManagerFactory getInstance() {
@@ -40,7 +42,7 @@ public class ClientManagerFactory {
 
     public ClientManager getClientManager(final ClientConfig clientConfig) {
         final String arn = clientConfig.getArn();
-        lock.lock();
+        managersTableLock.lock();
         try {
             ClientManager clientManager = managersTable.get(arn);
             if (null == clientManager) {
@@ -50,16 +52,16 @@ public class ClientManagerFactory {
             }
             return clientManager;
         } finally {
-            lock.unlock();
+            managersTableLock.unlock();
         }
     }
 
     public void removeClientManager(final String id) {
-        lock.lock();
+        managersTableLock.lock();
         try {
             managersTable.remove(id);
         } finally {
-            lock.unlock();
+            managersTableLock.unlock();
         }
     }
 }

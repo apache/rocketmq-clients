@@ -254,15 +254,21 @@ public class ClientManagerImpl implements ClientManager {
             ClientManagerFactory.getInstance().removeClientManager(id);
             scheduler.shutdown();
             asyncWorker.shutdown();
+            for (Map.Entry<Endpoints, RpcClient> entry : rpcClientTable.entrySet()) {
+                final Endpoints endpoints = entry.getKey();
+                final RpcClient rpcClient = entry.getValue();
+                rpcClientTable.remove(endpoints, rpcClient);
+                rpcClient.shutdown();
+            }
             state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
             log.info("Shutdown the client manager successfully.");
         }
     }
 
     /**
-     * Get rpc client by remote address, would create client automatically if it does not exist.
+     * Get rpc client by remote {@link Endpoints}, would create client automatically if it does not exist.
      *
-     * @param target remote address.
+     * @param endpoints remote endpoints.
      * @return rpc client.
      */
     private RpcClient getRpcClient(Endpoints endpoints) throws ClientException {
