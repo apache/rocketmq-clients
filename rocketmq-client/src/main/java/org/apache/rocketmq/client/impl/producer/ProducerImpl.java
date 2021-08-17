@@ -291,13 +291,13 @@ public class ProducerImpl extends ClientImpl {
 
         final apache.rocketmq.v1.SystemAttribute.Builder systemAttributeBuilder =
                 apache.rocketmq.v1.SystemAttribute.newBuilder()
-                                                  .setBornTimestamp(fromMillis(message.getBornTimeMillis()))
                                                   .setTag(message.getTag())
                                                   .addAllKeys(message.getKeysList())
-                                                  .setProducerGroup(groupResource)
                                                   .setMessageId(message.getMessageExt().getMsgId())
+                                                  .setBornTimestamp(fromMillis(message.getBornTimeMillis()))
                                                   .setBornHost(UtilAll.hostName())
-                                                  .setPartitionId(partition.getId());
+                                                  .setPartitionId(partition.getId())
+                                                  .setProducerGroup(groupResource);
         Encoding encoding = Encoding.IDENTITY;
         byte[] body = message.getBody();
         if (body.length > MESSAGE_COMPRESSION_THRESHOLD) {
