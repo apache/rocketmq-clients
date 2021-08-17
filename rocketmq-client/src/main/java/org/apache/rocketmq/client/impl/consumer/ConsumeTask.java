@@ -28,8 +28,8 @@ import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
-import org.apache.rocketmq.shaded.org.slf4j.Logger;
-import org.apache.rocketmq.shaded.org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ConsumeTask implements Callable<ConsumeStatus> {
     private static final Logger log = LoggerFactory.getLogger(ConsumeTask.class);

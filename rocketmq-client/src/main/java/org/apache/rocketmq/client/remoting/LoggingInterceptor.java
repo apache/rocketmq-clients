@@ -25,8 +25,8 @@ import io.grpc.ForwardingClientCall;
 import io.grpc.ForwardingClientCallListener;
 import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
-import org.apache.rocketmq.shaded.org.slf4j.Logger;
-import org.apache.rocketmq.shaded.org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Client logging interceptor, replace gRPC official binary log.

@@ -73,8 +73,8 @@ import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.message.protocol.SystemAttribute;
 import org.apache.rocketmq.client.route.Endpoints;
-import org.apache.rocketmq.shaded.org.slf4j.Logger;
-import org.apache.rocketmq.shaded.org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ProcessQueueImpl implements ProcessQueue {
     public static final long RECEIVE_LONG_POLLING_TIMEOUT_MILLIS = 30 * 1000L;

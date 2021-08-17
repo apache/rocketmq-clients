@@ -60,9 +60,9 @@ import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.remoting.RpcClient;
 import org.apache.rocketmq.client.remoting.RpcClientImpl;
 import org.apache.rocketmq.client.route.Endpoints;
-import org.apache.rocketmq.shaded.org.slf4j.Logger;
-import org.apache.rocketmq.shaded.org.slf4j.LoggerFactory;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ClientManagerImpl implements ClientManager {
     private static final Logger log = LoggerFactory.getLogger(ClientManagerImpl.class);
