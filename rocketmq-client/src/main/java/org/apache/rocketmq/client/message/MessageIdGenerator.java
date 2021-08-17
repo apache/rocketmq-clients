@@ -48,6 +48,8 @@ public class MessageIdGenerator {
         pidBuffer.putInt(pid);
         // Copy the lower 2 bytes
         prefixBuffer.put(pidBuffer.array(), 2, 2);
+
+        prefixBuffer.flip();
         prefix = VERSION + Hex.encodeHexString(prefixBuffer, false);
 
         secondsSinceCustomEpoch = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis() - customEpochMillis());
@@ -87,8 +89,9 @@ public class MessageIdGenerator {
         }
         deltaSecondsBuffer.putLong(seconds);
         suffixBuffer.put(deltaSecondsBuffer.array(), 4, 4);
-
         suffixBuffer.putInt(sequence.getAndIncrement());
+
+        suffixBuffer.flip();
         return prefix + Hex.encodeHexString(suffixBuffer, false);
     }
 

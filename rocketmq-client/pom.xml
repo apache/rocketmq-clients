@@ -159,6 +159,10 @@
                                     <pattern>com.google</pattern>
                                     <shadedPattern>org.apache.rocketmq.shaded.com.google</shadedPattern>
                                 </relocation>
+                                <relocation>
+                                    <pattern>org.apache.commons</pattern>
+                                    <shadedPattern>org.apache.rocketmq.shaded.commons</shadedPattern>
+                                </relocation>
                             </relocations>
                         </configuration>
                     </execution>

@@ -478,16 +478,16 @@ public class DefaultMQProducerImpl extends ClientImpl {
     }
 
     public void commit(Endpoints endpoints, MessageExt messageExt, String transactionId) throws ClientException,
-                                                                                           ServerException,
-                                                                                           InterruptedException,
-                                                                                           TimeoutException {
+                                                                                                ServerException,
+                                                                                                InterruptedException,
+                                                                                                TimeoutException {
         endTransaction(endpoints, messageExt, transactionId, TransactionResolution.COMMIT);
     }
 
     public void rollback(Endpoints endpoints, MessageExt messageExt, String transactionId) throws ClientException,
-                                                                                             ServerException,
-                                                                                             InterruptedException,
-                                                                                             TimeoutException {
+                                                                                                  ServerException,
+                                                                                                  InterruptedException,
+                                                                                                  TimeoutException {
         endTransaction(endpoints, messageExt, transactionId, TransactionResolution.ROLLBACK);
     }
 
