@@ -89,11 +89,7 @@ public class MessageExt {
     }
 
     public int getReconsumeTimes() {
-        final int deliveryAttempt = this.impl.getSystemAttribute().getDeliveryAttempt();
-        if (deliveryAttempt <= 0) {
-            return 0;
-        }
-        return deliveryAttempt - 1;
+        return this.impl.getSystemAttribute().getDeliveryAttempt() - 1;
     }
 
     public int getDeliveryAttempt() {
