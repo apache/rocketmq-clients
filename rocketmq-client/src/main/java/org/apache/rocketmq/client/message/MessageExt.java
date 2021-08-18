@@ -72,10 +72,6 @@ public class MessageExt {
         return this.impl.getSystemAttribute().getBornHost();
     }
 
-    public boolean isExpired(long tolerance) {
-        throw new UnsupportedOperationException();
-    }
-
     public long getQueueOffset() {
         return this.impl.getSystemAttribute().getPartitionOffset();
     }
