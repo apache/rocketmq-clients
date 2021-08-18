@@ -65,9 +65,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ClientManagerImpl implements ClientManager {
-    private static final Logger log = LoggerFactory.getLogger(ClientManagerImpl.class);
+    public static final long RPC_CLIENT_MAX_IDLE_SECONDS = 30 * 60;
+    public static final long HEALTH_CHECK_PERIOD_SECONDS = 15;
+    public static final long IDLE_RPC_CLIENT_PERIOD_SECONDS = 60;
+    public static final long HEART_BEAT_PERIOD_SECONDS = 10;
+    public static final long LOG_STATS_PERIOD_SECONDS = 1;
 
-    private static final long RPC_CLIENT_MAX_IDLE_SECONDS = 30 * 60;
+    private static final Logger log = LoggerFactory.getLogger(ClientManagerImpl.class);
 
     private final String id;
 
@@ -188,7 +192,7 @@ public class ClientManagerImpl implements ClientManager {
                         }
                     },
                     5,
-                    15,
+                    HEALTH_CHECK_PERIOD_SECONDS,
                     TimeUnit.SECONDS
             );
 
@@ -204,7 +208,7 @@ public class ClientManagerImpl implements ClientManager {
                         }
                     },
                     5,
-                    60,
+                    IDLE_RPC_CLIENT_PERIOD_SECONDS,
                     TimeUnit.SECONDS);
 
             scheduler.scheduleWithFixedDelay(
@@ -219,7 +223,7 @@ public class ClientManagerImpl implements ClientManager {
                         }
                     },
                     1,
-                    10,
+                    HEART_BEAT_PERIOD_SECONDS,
                     TimeUnit.SECONDS
             );
 
@@ -235,7 +239,7 @@ public class ClientManagerImpl implements ClientManager {
                         }
                     },
                     1,
-                    1,
+                    LOG_STATS_PERIOD_SECONDS,
                     TimeUnit.SECONDS
             );
             state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);

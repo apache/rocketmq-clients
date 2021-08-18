@@ -380,22 +380,18 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
             for (Map.Entry<String, FilterExpression> entry : filterExpressionTable.entrySet()) {
                 final String topic = entry.getKey();
                 final FilterExpression filterExpression = entry.getValue();
-
                 final TopicAssignment local = cachedTopicAssignmentTable.get(topic);
-
                 final ListenableFuture<TopicAssignment> future = queryAssignment(topic);
                 Futures.addCallback(future, new FutureCallback<TopicAssignment>() {
                     @Override
                     public void onSuccess(TopicAssignment remote) {
-                        // TODO: remote assignments should never be empty.
                         if (remote.getAssignmentList().isEmpty()) {
-                            log.warn("Acquired empty assignments from remote, topic={}", topic);
+                            log.info("Acquired empty assignments from remote, topic={}", topic);
                             if (null == local || local.getAssignmentList().isEmpty()) {
-                                log.warn("No available assignments now, would scan later, topic={}", topic);
+                                log.info("No available assignments now, would scan later, topic={}", topic);
                                 return;
                             }
-                            log.warn("Acquired empty assignments from remote, reuse the existing one, topic={}", topic);
-                            return;
+                            log.info("Attention!!! acquired empty assignments from remote, topic={}", topic);
                         }
 
                         if (!remote.equals(local)) {
