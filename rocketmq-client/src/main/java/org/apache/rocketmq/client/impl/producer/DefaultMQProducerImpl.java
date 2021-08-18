@@ -68,7 +68,6 @@ import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
-import org.apache.rocketmq.client.message.MessageIdGenerator;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.message.MessageQueue;
@@ -663,17 +662,11 @@ public class DefaultMQProducerImpl extends ClientImpl {
             return future;
         }
 
-        // set message id, if user send message to different topic, they should have different message id.
-        final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
-        final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
-        final String messageId = MessageIdGenerator.getInstance().next();
-        systemAttribute.setMessageId(messageId);
-
         // check if it is delay message or not.
         final int delayTimeLevel = message.getDelayTimeLevel();
         final long deliveryTimestamp = message.getDelayTimeMillis();
         if (delayTimeLevel > 0 || deliveryTimestamp > 0) {
-            systemAttribute.setMessageType(MessageType.DELAY);
+            MessageAccessor.getMessageImpl(message).getSystemAttribute().setMessageType(MessageType.DELAY);
         }
 
         send0(future, candidates, message, 1, maxAttempts);

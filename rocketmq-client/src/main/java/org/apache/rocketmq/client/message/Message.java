@@ -37,6 +37,7 @@ public class Message {
         final ConcurrentHashMap<String, String> userAttribute = new ConcurrentHashMap<String, String>();
         systemAttribute.setBornTimeMillis(System.currentTimeMillis());
         systemAttribute.setTag(tag);
+        systemAttribute.setMessageId(MessageIdGenerator.getInstance().next());
         this.impl = new MessageImpl(topic, systemAttribute, userAttribute, body);
         this.messageExt = new MessageExt(impl);
     }
@@ -48,6 +49,7 @@ public class Message {
 
     public void setTopic(String topic) {
         this.impl.setTopic(topic);
+        this.impl.getSystemAttribute().setMessageId(MessageIdGenerator.getInstance().next());
     }
 
     public String getTopic() {
@@ -60,6 +62,7 @@ public class Message {
 
     public void putUserProperty(final String name, final String value) {
         this.impl.getUserAttribute().put(name, value);
+        this.impl.getSystemAttribute().setMessageId(MessageIdGenerator.getInstance().next());
     }
 
     public String getUserProperty(final String name) {
@@ -70,14 +73,17 @@ public class Message {
         final List<String> keyList = this.impl.getSystemAttribute().getKeys();
         keyList.clear();
         keyList.add(keys.trim());
+        this.impl.getSystemAttribute().setMessageId(MessageIdGenerator.getInstance().next());
     }
 
     public void setKeys(Collection<String> keys) {
-        final List<String> keyList = this.impl.getSystemAttribute().getKeys();
+        final SystemAttribute systemAttribute = this.impl.getSystemAttribute();
+        final List<String> keyList = systemAttribute.getKeys();
         keyList.clear();
         for (String key : keys) {
             keyList.add(key.trim());
         }
+        systemAttribute.setMessageId(MessageIdGenerator.getInstance().next());
     }
 
     public String getKeys() {
@@ -97,13 +103,16 @@ public class Message {
     }
 
     public void setDelayTimeLevel(int level) {
-        this.impl.getSystemAttribute().setDelayLevel(level);
+        final SystemAttribute systemAttribute = this.impl.getSystemAttribute();
+        systemAttribute.setDelayLevel(level);
+        systemAttribute.setMessageId(MessageIdGenerator.getInstance().next());
     }
 
     public void setDeliveryTimestamp(long deliveryTimestamp) {
         final SystemAttribute systemAttribute = this.impl.getSystemAttribute();
         systemAttribute.setDeliveryTimeMillis(deliveryTimestamp);
         systemAttribute.setMessageType(MessageType.DELAY);
+        systemAttribute.setMessageId(MessageIdGenerator.getInstance().next());
     }
 
     public long getDelayTimeMillis() {
@@ -112,6 +121,7 @@ public class Message {
 
     public void setBody(byte[] body) {
         this.impl.setBody(body);
+        this.impl.getSystemAttribute().setMessageId(MessageIdGenerator.getInstance().next());
     }
 
     public byte[] getBody() {
