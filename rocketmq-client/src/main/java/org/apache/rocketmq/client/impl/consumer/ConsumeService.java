@@ -17,10 +17,12 @@
 
 package org.apache.rocketmq.client.impl.consumer;
 
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentMap;
@@ -149,8 +151,25 @@ public abstract class ConsumeService {
         if (delay <= 0) {
             return executorService.submit(task);
         }
-        final ListeningScheduledExecutorService schedulerService = MoreExecutors.listeningDecorator(scheduler);
-        return schedulerService.schedule(task, delay, timeUnit);
+        final SettableFuture<ConsumeStatus> future0 = SettableFuture.create();
+        scheduler.schedule(new Runnable() {
+            @Override
+            public void run() {
+                final ListenableFuture<ConsumeStatus> future = executorService.submit(task);
+                Futures.addCallback(future, new FutureCallback<ConsumeStatus>() {
+                    @Override
+                    public void onSuccess(ConsumeStatus consumeStatus) {
+                        future0.set(consumeStatus);
+                    }
+
+                    @Override
+                    public void onFailure(Throwable t) {
+                        log.error("[Bug] Exception raised while submitting scheduled consumption task", t);
+                    }
+                });
+            }
+        }, delay, timeUnit);
+        return future0;
     }
 
     public void dispatch() {

@@ -24,7 +24,13 @@
 
         <project.root>${basedir}</project.root>
 
-        <!-- <maven.javadoc.skip>true</maven.javadoc.skip>-->
+        <!-- <maven.javadoc.skip>true</maven.javadoc.skip> -->
+
+        <!--
+          ~ Before add new dependencies, Here is what you should pay more attention to:
+          ~  1. Whether it is essential, because the current shaded jar is fat enough.
+          ~  2. Make sure that it is compatible with Java 1.6.
+          -->
 
         <custom-made.version.suffix>rocketmq-SNAPSHOT</custom-made.version.suffix>
         <!-- customized dependencies-->
