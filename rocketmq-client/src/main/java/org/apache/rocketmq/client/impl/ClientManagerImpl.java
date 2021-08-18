@@ -117,7 +117,7 @@ public class ClientManagerImpl implements ClientManager {
     }
 
     @Override
-    public void unregisterObserver(ClientObserver observer) {
+    public void unregisterObserver(ClientObserver observer) throws InterruptedException {
         synchronized (observerTable) {
             observerTable.remove(observer.getClientId());
             if (observerTable.isEmpty()) {
@@ -134,7 +134,7 @@ public class ClientManagerImpl implements ClientManager {
         }
     }
 
-    private void clearIdleRpcClients() {
+    private void clearIdleRpcClients() throws InterruptedException {
         log.info("Start to clear idle rpc clients for a new round.");
         for (Map.Entry<Endpoints, RpcClient> entry : rpcClientTable.entrySet()) {
             final Endpoints endpoints = entry.getKey();
@@ -142,7 +142,8 @@ public class ClientManagerImpl implements ClientManager {
 
             final long idleSeconds = client.idleSeconds();
             if (idleSeconds > RPC_CLIENT_MAX_IDLE_SECONDS) {
-                rpcClientTable.remove(endpoints);
+                rpcClientTable.remove(endpoints, client);
+                client.shutdown();
                 log.info("Rpc client has been idle too long, endpoints={}, idleSeconds={}, maxIdleSeconds={}",
                          endpoints, idleSeconds, RPC_CLIENT_MAX_IDLE_SECONDS);
             }
@@ -248,7 +249,7 @@ public class ClientManagerImpl implements ClientManager {
     }
 
     @Override
-    public void shutdown() {
+    public void shutdown() throws InterruptedException {
         synchronized (this) {
             log.info("Begin to shutdown the client manager.");
             if (!state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING)) {
@@ -257,7 +258,13 @@ public class ClientManagerImpl implements ClientManager {
             }
             ClientManagerFactory.getInstance().removeClientManager(id);
             scheduler.shutdown();
+            if (!scheduler.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
+                log.error("[Bug] Timeout to shutdown the scheduler");
+            }
             asyncWorker.shutdown();
+            if (!asyncWorker.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
+                log.error("[Bug] Timeout to shutdown the async worker");
+            }
             for (Map.Entry<Endpoints, RpcClient> entry : rpcClientTable.entrySet()) {
                 final Endpoints endpoints = entry.getKey();
                 final RpcClient rpcClient = entry.getValue();

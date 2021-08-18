@@ -85,7 +85,7 @@ public class DefaultMQPushConsumer {
     /**
      * Shut down this client and releasing underlying resources.
      */
-    public void shutdown() {
+    public void shutdown() throws InterruptedException {
         this.impl.shutdown();
     }
 

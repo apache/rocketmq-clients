@@ -63,7 +63,7 @@ public interface RpcClient {
     /**
      * Shutdown the client.
      */
-    void shutdown();
+    void shutdown() throws InterruptedException;
 
     /**
      * Query topic route asynchronously.

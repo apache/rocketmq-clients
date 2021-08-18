@@ -86,7 +86,7 @@ public class DefaultMQProducer {
     /**
      * This method shuts down this producer instance and releases related resources.
      */
-    public void shutdown() {
+    public void shutdown() throws InterruptedException {
         this.impl.shutdown();
     }
 

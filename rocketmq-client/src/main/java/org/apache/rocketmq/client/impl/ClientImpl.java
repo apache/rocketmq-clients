@@ -287,7 +287,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         }
     }
 
-    public void shutdown() {
+    public void shutdown() throws InterruptedException {
         synchronized (this) {
             log.info("Begin to shutdown the rocketmq client.");
             if (!state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING)) {

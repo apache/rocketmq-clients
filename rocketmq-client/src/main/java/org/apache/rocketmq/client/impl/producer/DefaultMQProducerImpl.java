@@ -186,13 +186,16 @@ public class DefaultMQProducerImpl extends ClientImpl {
      * Shutdown the rocketmq producer.
      */
     @Override
-    public void shutdown() {
+    public void shutdown() throws InterruptedException {
         synchronized (this) {
             log.info("Begin to shutdown the rocketmq producer.");
             super.shutdown();
 
             if (ServiceState.STOPPED == getState()) {
                 defaultSendCallbackExecutor.shutdown();
+                if (!defaultSendCallbackExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
+                    log.error("[Bug] Failed to shutdown default send callback executor");
+                }
                 log.info("Shutdown the rocketmq producer successfully.");
             }
         }
@@ -281,7 +284,6 @@ public class DefaultMQProducerImpl extends ClientImpl {
     }
 
     private SendMessageRequest wrapSendMessageRequest(Message message, Partition partition) {
-
         final Resource topicResource =
                 Resource.newBuilder().setArn(arn).setName(message.getTopic()).build();
 
@@ -307,7 +309,6 @@ public class DefaultMQProducerImpl extends ClientImpl {
                 log.warn("Failed to compress message, messageId={}", message.getMsgId(), e);
             }
         }
-
         switch (encoding) {
             case GZIP:
                 systemAttributeBuilder.setBodyEncoding(apache.rocketmq.v1.Encoding.GZIP);
@@ -319,7 +320,6 @@ public class DefaultMQProducerImpl extends ClientImpl {
             default:
                 systemAttributeBuilder.setBodyEncoding(apache.rocketmq.v1.Encoding.IDENTITY);
         }
-
         final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
         // set trace context.
         final String traceContext = messageImpl.getSystemAttribute().getTraceContext();

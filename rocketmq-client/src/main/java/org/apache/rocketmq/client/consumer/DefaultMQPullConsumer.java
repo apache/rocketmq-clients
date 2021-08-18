@@ -43,7 +43,7 @@ public class DefaultMQPullConsumer {
         this.impl.start();
     }
 
-    public void shutdown() {
+    public void shutdown() throws InterruptedException {
         this.impl.shutdown();
     }
 

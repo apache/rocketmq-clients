@@ -337,7 +337,7 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
     }
 
     @Override
-    public void shutdown() {
+    public void shutdown() throws InterruptedException {
         synchronized (this) {
             log.info("Begin to shutdown the rocketmq push consumer.");
 
@@ -350,6 +350,9 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
                     consumeService.shutdown();
                 }
                 consumptionExecutor.shutdown();
+                if (!consumptionExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
+                    log.error("[Bug] Failed to shutdown the consumption executor.");
+                }
                 log.info("Shutdown the rocketmq push consumer successfully.");
             }
         }

@@ -142,12 +142,15 @@ public class DefaultMQPullConsumerImpl extends ClientImpl {
     }
 
     @Override
-    public void shutdown() {
+    public void shutdown() throws InterruptedException {
         synchronized (this) {
             log.info("Begin to shutdown the rocketmq pull consumer.");
             super.shutdown();
             if (ServiceState.STOPPED == getState()) {
                 pullCallbackExecutor.shutdown();
+                if (!pullCallbackExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
+                    log.error("[Bug] Failed to shutdown the pull executor.");
+                }
                 log.info("Shutdown the rocketmq pull consumer successfully.");
             }
         }

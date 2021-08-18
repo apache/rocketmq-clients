@@ -62,7 +62,7 @@ public interface ClientManager {
      *
      * @param observer client observer.
      */
-    void unregisterObserver(ClientObserver observer);
+    void unregisterObserver(ClientObserver observer) throws InterruptedException;
 
     /**
      * Provide for observer to share the scheduler executor.
@@ -79,7 +79,7 @@ public interface ClientManager {
     /**
      * Shutdown the client manager.
      */
-    void shutdown();
+    void shutdown() throws InterruptedException;
 
     /**
      * Query topic route asynchronously, the method ensures no throwable.

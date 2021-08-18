@@ -109,14 +109,17 @@ public abstract class ConsumeService {
         }
     }
 
-    public void shutdown() {
+    public void shutdown() throws InterruptedException {
         synchronized (this) {
             log.info("Begin to shutdown the consume service.");
             if (!state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING)) {
                 log.warn("The consume service has not been started before.");
                 return;
             }
-            this.dispatcherExecutor.shutdown();
+            dispatcherExecutor.shutdown();
+            if (!dispatcherExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
+                log.error("[Bug] Failed to shutdown the dispatcher executor.");
+            }
             state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
             log.info("Shutdown the consumer service successfully.");
         }
