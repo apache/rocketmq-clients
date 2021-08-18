@@ -111,14 +111,14 @@ public class ClientManagerImpl implements ClientManager {
 
     @Override
     public void registerObserver(ClientObserver observer) {
-        synchronized (this) {
+        synchronized (observerTable) {
             observerTable.put(observer.getClientId(), observer);
         }
     }
 
     @Override
     public void unregisterObserver(ClientObserver observer) {
-        synchronized (this) {
+        synchronized (observerTable) {
             observerTable.remove(observer.getClientId());
             if (observerTable.isEmpty()) {
                 shutdown();
@@ -276,20 +276,20 @@ public class ClientManagerImpl implements ClientManager {
      * @return rpc client.
      */
     private RpcClient getRpcClient(Endpoints endpoints) throws ClientException {
-        RpcClient rpcClient = rpcClientTable.get(endpoints);
-        if (null != rpcClient) {
+        synchronized (rpcClientTable) {
+            RpcClient rpcClient = rpcClientTable.get(endpoints);
+            if (null != rpcClient) {
+                return rpcClient;
+            }
+            try {
+                rpcClient = new RpcClientImpl(endpoints);
+            } catch (SSLException e) {
+                log.error("Failed to get rpc client, endpoints={}", endpoints);
+                throw new ClientException("Failed to get rpc client");
+            }
+            rpcClientTable.put(endpoints, rpcClient);
             return rpcClient;
         }
-        RpcClientImpl newRpcClient;
-        try {
-            newRpcClient = new RpcClientImpl(endpoints);
-        } catch (SSLException e) {
-            log.error("Failed to get rpc client, endpoints={}", endpoints);
-            throw new ClientException("Failed to get rpc client");
-        }
-        rpcClientTable.put(endpoints, newRpcClient);
-
-        return newRpcClient;
     }
 
     @Override

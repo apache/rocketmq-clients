@@ -59,12 +59,17 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLException;
 import org.apache.rocketmq.client.route.Endpoints;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Implementation for {@link RpcClient}
  */
 public class RpcClientImpl implements RpcClient {
+    private static final Logger log = LoggerFactory.getLogger(RpcClientImpl.class);
+
     private static final long KEEP_ALIVE_TIME_SECONDS = 30;
+    private static final long CHANNEL_SHUTDOWN_AWAIT_SECONDS = 3;
 
     private final ManagedChannel channel;
     private final MessagingServiceGrpc.MessagingServiceFutureStub stub;
@@ -102,8 +107,14 @@ public class RpcClientImpl implements RpcClient {
 
     @Override
     public void shutdown() {
-        if (null != channel) {
-            channel.shutdown();
+        try {
+            if (null != channel) {
+                if (!channel.shutdown().awaitTermination(CHANNEL_SHUTDOWN_AWAIT_SECONDS, TimeUnit.SECONDS)) {
+                    log.error("Timeout to shutdown channel.");
+                }
+            }
+        } catch (Throwable t) {
+            log.error("Exception raised while shutdown the rpc client.", t);
         }
     }
 
