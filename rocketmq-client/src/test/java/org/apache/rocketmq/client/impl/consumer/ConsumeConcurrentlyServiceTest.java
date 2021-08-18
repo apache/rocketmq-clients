@@ -68,7 +68,7 @@ public class ConsumeConcurrentlyServiceTest extends TestBase {
     }
 
     @AfterMethod
-    public void afterMethod() {
+    public void afterMethod() throws InterruptedException {
         consumeService.shutdown();
     }
 

@@ -47,7 +47,7 @@ public class DefaultMQPushConsumerTest extends TestBase {
     }
 
     @Test
-    public void testStartWithoutListener() {
+    public void testStartWithoutListener() throws InterruptedException {
         DefaultMQPushConsumer consumer = new DefaultMQPushConsumer(dummyGroup0);
         try {
             consumer.start();
@@ -58,7 +58,7 @@ public class DefaultMQPushConsumerTest extends TestBase {
     }
 
     @Test
-    public void testStartWithoutSubscription() throws ClientException {
+    public void testStartWithoutSubscription() throws ClientException, InterruptedException {
         DefaultMQPushConsumer consumer = new DefaultMQPushConsumer(dummyGroup0);
         consumer.registerMessageListener(
                 new MessageListenerConcurrently() {
@@ -73,14 +73,14 @@ public class DefaultMQPushConsumerTest extends TestBase {
     }
 
     @Test
-    public void testStartAndShutdown() throws ClientException {
+    public void testStartAndShutdown() throws ClientException, InterruptedException {
         DefaultMQPushConsumer consumer = createPushConsumer(dummyGroup0, dummyTopic0);
         consumer.start();
         consumer.shutdown();
     }
 
     @Test
-    public void testBroadCasting() throws ClientException {
+    public void testBroadCasting() throws ClientException, InterruptedException {
         DefaultMQPushConsumer consumer = createPushConsumer(dummyGroup0, dummyTopic0);
         consumer.setMessageModel(MessageModel.BROADCASTING);
         consumer.start();
@@ -88,7 +88,7 @@ public class DefaultMQPushConsumerTest extends TestBase {
     }
 
     @Test
-    public void testStartMultiConsumers() throws ClientException {
+    public void testStartMultiConsumers() throws ClientException, InterruptedException {
         {
             final DefaultMQPushConsumer consumer0 = createPushConsumer(dummyGroup1, dummyTopic0);
             final DefaultMQPushConsumer consumer1 = createPushConsumer(dummyGroup2, dummyTopic0);

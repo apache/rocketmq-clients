@@ -84,7 +84,7 @@ public class DefaultMQProducerImplTest extends TestBase {
     }
 
     @AfterTest
-    public void afterTest() {
+    public void afterTest() throws InterruptedException {
         producerImpl.shutdown();
     }
 

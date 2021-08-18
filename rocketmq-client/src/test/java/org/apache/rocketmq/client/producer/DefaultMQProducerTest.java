@@ -24,7 +24,7 @@ import org.testng.annotations.Test;
 public class DefaultMQProducerTest extends TestBase {
 
     @Test
-    public void testStartAndShutdown() throws ClientException {
+    public void testStartAndShutdown() throws ClientException, InterruptedException {
         final DefaultMQProducer producer = new DefaultMQProducer(dummyGroup0);
         producer.start();
         producer.shutdown();
