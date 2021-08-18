@@ -231,9 +231,9 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
 
     public void start() throws ClientException {
         synchronized (this) {
-            log.info("Begin to start the rocketmq client base.");
+            log.info("Begin to start the rocketmq client.");
             if (!state.compareAndSet(ServiceState.READY, ServiceState.STARTING)) {
-                log.warn("The rocketmq client base has been started before.");
+                log.warn("The rocketmq client has been started before.");
                 return;
             }
 
@@ -283,15 +283,15 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     30,
                     TimeUnit.SECONDS);
             state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
-            log.info("The rocketmq client base starts successfully.");
+            log.info("The rocketmq client starts successfully.");
         }
     }
 
     public void shutdown() {
         synchronized (this) {
-            log.info("Begin to shutdown the rocketmq client base.");
+            log.info("Begin to shutdown the rocketmq client.");
             if (!state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING)) {
-                log.warn("The rocketmq client base has not been started before");
+                log.warn("The rocketmq client has not been started before");
                 return;
             }
             if (null != renewNameServerListFuture) {
@@ -305,7 +305,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                 tracerProvider.shutdown();
             }
             state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
-            log.info("Shutdown the rocketmq client base successfully.");
+            log.info("Shutdown the rocketmq client successfully.");
         }
     }
 
