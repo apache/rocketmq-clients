@@ -725,6 +725,7 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
     }
 
     public void setConsumptionThreadsAmount(int threadsAmount) {
+        this.consumptionThreadsAmount = threadsAmount;
         consumptionExecutor.setCorePoolSize(threadsAmount);
         consumptionExecutor.setMaximumPoolSize(threadsAmount);
     }
