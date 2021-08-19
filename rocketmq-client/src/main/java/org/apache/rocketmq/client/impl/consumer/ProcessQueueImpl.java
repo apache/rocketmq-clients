@@ -303,7 +303,7 @@ public class ProcessQueueImpl implements ProcessQueue {
 
     @Override
     public void eraseFifoMessage(final MessageExt messageExt, final ConsumeStatus status) {
-        statsMessageConsumptionStatus(status);
+        statsConsumptionStatus(status);
 
         final MessageModel messageModel = consumerImpl.getMessageModel();
         if (MessageModel.BROADCASTING.equals(messageModel)) {
@@ -419,7 +419,7 @@ public class ProcessQueueImpl implements ProcessQueue {
      */
     @Override
     public void eraseMessages(List<MessageExt> messageExtList, ConsumeStatus status) {
-        statsMessageConsumptionStatus(messageExtList.size(), status);
+        statsConsumptionStatus(messageExtList.size(), status);
         eraseMessages(messageExtList);
         final MessageModel messageModel = consumerImpl.getMessageModel();
         // for clustering mode.
@@ -1073,8 +1073,7 @@ public class ProcessQueueImpl implements ProcessQueue {
     }
 
     // TODO: handle the case that the topic does not exist.
-    public ReceiveMessageResult processReceiveMessageResponse(Endpoints endpoints,
-                                                              ReceiveMessageResponse response) {
+    public ReceiveMessageResult processReceiveMessageResponse(Endpoints endpoints, ReceiveMessageResponse response) {
         ReceiveStatus receiveStatus;
 
         final Status status = response.getCommon().getStatus();
@@ -1103,12 +1102,7 @@ public class ProcessQueueImpl implements ProcessQueue {
             final List<Message> messageList = response.getMessagesList();
             for (Message message : messageList) {
                 MessageImpl messageImpl;
-                try {
-                    messageImpl = ClientImpl.wrapMessageImpl(message);
-                } catch (Throwable t) {
-                    // TODO: need nack immediately.
-                    continue;
-                }
+                messageImpl = ClientImpl.wrapMessageImpl(message);
                 messageImpl.getSystemAttribute().setAckEndpoints(endpoints);
                 msgFoundList.add(new MessageExt(messageImpl));
             }
@@ -1142,16 +1136,16 @@ public class ProcessQueueImpl implements ProcessQueue {
         return cachedMessagesBytes.get();
     }
 
-    private void statsMessageConsumptionStatus(ConsumeStatus status) {
-        statsMessageConsumptionStatus(1, status);
+    private void statsConsumptionStatus(ConsumeStatus status) {
+        statsConsumptionStatus(1, status);
     }
 
-    private void statsMessageConsumptionStatus(int messageSize, ConsumeStatus status) {
+    private void statsConsumptionStatus(int messageQuantity, ConsumeStatus status) {
         if (ConsumeStatus.OK.equals(status)) {
-            consumerImpl.getConsumptionOkQuantity().addAndGet(messageSize);
+            consumerImpl.getConsumptionOkQuantity().addAndGet(messageQuantity);
             return;
         }
-        consumerImpl.getConsumptionErrorQuantity().addAndGet(messageSize);
+        consumerImpl.getConsumptionErrorQuantity().addAndGet(messageQuantity);
     }
 
     @Override

@@ -791,19 +791,8 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         if (PullStatus.OK == pullStatus) {
             final List<Message> messageList = response.getMessagesList();
             for (Message message : messageList) {
-                try {
-                    MessageImpl messageImpl = ClientImpl.wrapMessageImpl(message);
-                    msgFoundList.add(new MessageExt(messageImpl));
-                } catch (ClientException e) {
-                    log.error("Failed to wrap messageImpl, topic={}, messageId={}", message.getTopic(),
-                              message.getSystemAttribute().getMessageId(), e);
-                } catch (IOException e) {
-                    log.error("Failed to wrap messageImpl, topic={}, messageId={}", message.getTopic(),
-                              message.getSystemAttribute().getMessageId(), e);
-                } catch (Throwable t) {
-                    log.error("Exception raised while wrapping messageImpl, topic={}, messageId={}",
-                              message.getTopic(), message.getSystemAttribute().getMessageId(), t);
-                }
+                MessageImpl messageImpl = ClientImpl.wrapMessageImpl(message);
+                msgFoundList.add(new MessageExt(messageImpl));
             }
         }
         return new PullMessageResult(pullStatus, response.getNextOffset(), response.getMinOffset(),
@@ -1109,7 +1098,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         return builder.setPartition(partition).build();
     }
 
-    public static MessageImpl wrapMessageImpl(Message message) throws IOException, ClientException {
+    public static MessageImpl wrapMessageImpl(Message message) {
         final org.apache.rocketmq.client.message.protocol.SystemAttribute mqSystemAttribute =
                 new org.apache.rocketmq.client.message.protocol.SystemAttribute();
         final SystemAttribute systemAttribute = message.getSystemAttribute();
@@ -1163,8 +1152,13 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
 
         switch (systemAttribute.getBodyEncoding()) {
             case GZIP:
-                body = UtilAll.uncompressBytesGzip(body);
-                mqSystemAttribute.setBodyEncoding(Encoding.GZIP);
+                try {
+                    body = UtilAll.uncompressBytesGzip(body);
+                    mqSystemAttribute.setBodyEncoding(Encoding.GZIP);
+                } catch (IOException e) {
+                    log.error("Failed to uncompress message body, messageId={}", systemAttribute.getMessageId());
+                    corrupted = true;
+                }
                 break;
             case SNAPPY:
                 // TODO
