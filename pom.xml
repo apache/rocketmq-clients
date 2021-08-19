@@ -104,6 +104,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>jul-to-slf4j</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>${project.groupId}</groupId>
                 <artifactId>rocketmq-logback-shaded</artifactId>
                 <version>${rocketmq-logback-shaded.version}</version>

@@ -63,6 +63,7 @@ import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.bridge.SLF4JBridgeHandler;
 
 public class ClientManagerImpl implements ClientManager {
     public static final long RPC_CLIENT_MAX_IDLE_SECONDS = 30 * 60;
@@ -176,6 +177,8 @@ public class ClientManagerImpl implements ClientManager {
     @Override
     public void start() {
         synchronized (this) {
+            SLF4JBridgeHandler.removeHandlersForRootLogger();
+            SLF4JBridgeHandler.install();
             log.info("Begin to start the client manager.");
             if (!state.compareAndSet(ServiceState.READY, ServiceState.STARTING)) {
                 log.warn("The client manager has been started before.");
