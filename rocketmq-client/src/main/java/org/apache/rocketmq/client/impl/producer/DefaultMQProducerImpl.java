@@ -63,7 +63,6 @@ import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.ServerException;
 import org.apache.rocketmq.client.impl.ClientImpl;
-import org.apache.rocketmq.client.impl.ServiceState;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageExt;
@@ -159,8 +158,8 @@ public class DefaultMQProducerImpl extends ClientImpl {
                 new ThreadFactoryImpl("TransactionChecker"));
     }
 
-    void ensureRunning() throws ClientException {
-        if (ServiceState.STARTED != getState()) {
+    private void ensureStarted() throws ClientException {
+        if (!isStarted()) {
             throw new ClientException(ErrorCode.CLIENT_NOT_STARTED, "Please invoke #start() first!");
         }
     }
@@ -176,7 +175,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
             log.info("Begin to start the rocketmq producer.");
             super.start();
 
-            if (ServiceState.STARTED == getState()) {
+            if (this.isStarted()) {
                 log.info("The rocketmq producer starts successfully.");
             }
         }
@@ -191,7 +190,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
             log.info("Begin to shutdown the rocketmq producer.");
             super.shutdown();
 
-            if (ServiceState.STOPPED == getState()) {
+            if (this.isStopped()) {
                 defaultSendCallbackExecutor.shutdown();
                 if (!defaultSendCallbackExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
                     log.error("[Bug] Failed to shutdown default send callback executor");
@@ -371,7 +370,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
 
     public SendResult send(Message message, long timeoutMillis)
             throws ClientException, InterruptedException, TimeoutException, ServerException {
-        ensureRunning();
+        ensureStarted();
         final ListenableFuture<SendResult> future = send0(message, maxAttempts);
         // Limit the future timeout.
         Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
@@ -389,7 +388,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
 
     public void send(Message message, final SendCallback sendCallback, long timeoutMillis)
             throws ClientException, InterruptedException {
-        ensureRunning();
+        ensureStarted();
         final ListenableFuture<SendResult> future = send0(message, maxAttempts);
         // Limit the future timeout.
         Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
@@ -434,7 +433,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
     }
 
     public void sendOneway(Message message) throws ClientException {
-        ensureRunning();
+        ensureStarted();
         send0(message, 1);
     }
 
@@ -453,7 +452,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
 
     public SendResult send(Message message, MessageQueueSelector selector, Object arg, long timeoutMillis)
             throws ClientException, ServerException, InterruptedException, TimeoutException {
-        ensureRunning();
+        ensureStarted();
         final ListenableFuture<SendResult> future = send0(message, selector, arg, maxAttempts);
         Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
         try {

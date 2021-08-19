@@ -71,7 +71,6 @@ import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.ServerException;
 import org.apache.rocketmq.client.impl.ClientImpl;
-import org.apache.rocketmq.client.impl.ServiceState;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
@@ -330,7 +329,7 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
                     1,
                     5,
                     TimeUnit.SECONDS);
-            if (ServiceState.STARTED == getState()) {
+            if (this.isStarted()) {
                 log.info("The rocketmq push consumer starts successfully.");
             }
         }
@@ -341,7 +340,7 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
         synchronized (this) {
             log.info("Begin to shutdown the rocketmq push consumer.");
 
-            if (ServiceState.STARTED == getState()) {
+            if (this.isStarted()) {
                 if (null != scanAssignmentsFuture) {
                     scanAssignmentsFuture.cancel(false);
                 }

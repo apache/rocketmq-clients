@@ -37,7 +37,6 @@ import org.apache.rocketmq.client.consumer.PullMessageResult;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.impl.ClientImpl;
-import org.apache.rocketmq.client.impl.ServiceState;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.route.Partition;
@@ -48,7 +47,7 @@ import org.slf4j.LoggerFactory;
 
 public class DefaultMQPullConsumerImpl extends ClientImpl {
     private static final Logger log = LoggerFactory.getLogger(DefaultMQPullConsumerImpl.class);
-    
+
     private final ThreadPoolExecutor pullCallbackExecutor;
 
     public DefaultMQPullConsumerImpl(String group) {
@@ -135,7 +134,7 @@ public class DefaultMQPullConsumerImpl extends ClientImpl {
         synchronized (this) {
             log.warn("Begin to start the rocketmq pull consumer.");
             super.start();
-            if (ServiceState.STARTED == getState()) {
+            if (this.isStarted()) {
                 log.info("The rocketmq pull consumer starts successfully.");
             }
         }
@@ -146,7 +145,7 @@ public class DefaultMQPullConsumerImpl extends ClientImpl {
         synchronized (this) {
             log.info("Begin to shutdown the rocketmq pull consumer.");
             super.shutdown();
-            if (ServiceState.STOPPED == getState()) {
+            if (this.isStopped()) {
                 pullCallbackExecutor.shutdown();
                 if (!pullCallbackExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
                     log.error("[Bug] Failed to shutdown the pull executor.");
@@ -177,8 +176,6 @@ public class DefaultMQPullConsumerImpl extends ClientImpl {
                 ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(getGroupResource());
         return builder.build();
     }
-
-
 }
 
 

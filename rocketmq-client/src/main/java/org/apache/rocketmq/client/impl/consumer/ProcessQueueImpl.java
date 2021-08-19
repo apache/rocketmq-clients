@@ -624,6 +624,9 @@ public class ProcessQueueImpl implements ProcessQueue {
      * @param offset offset for message queue to pull from.
      */
     public void pullMessageImmediately(final long offset) {
+        if (consumerImpl.isStopped()) {
+            return;
+        }
         try {
             final Endpoints endpoints = mq.getPartition().getBroker().getEndpoints();
             final long maxAwaitTimeMillis = consumerImpl.getMaxAwaitTimeMillisPerQueue();
@@ -716,6 +719,9 @@ public class ProcessQueueImpl implements ProcessQueue {
 
     @Override
     public void receiveMessageImmediately() {
+        if (consumerImpl.isStopped()) {
+            return;
+        }
         try {
             final ClientManager clientManager = consumerImpl.getClientManager();
             final Endpoints endpoints = mq.getPartition().getBroker().getEndpoints();

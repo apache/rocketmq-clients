@@ -330,8 +330,12 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         return clientManager.getScheduler();
     }
 
-    protected ServiceState getState() {
-        return this.state.get();
+    public boolean isStarted() {
+        return ServiceState.STARTED.equals(state.get());
+    }
+
+    public boolean isStopped() {
+        return ServiceState.STOPPED.equals(state.get());
     }
 
     public Metadata sign() throws ClientException {
