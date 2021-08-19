@@ -9,21 +9,23 @@
         </encoder>
     </appender>
     <appender name="DefaultAppender" class="org.apache.rocketmq.shaded.ch.qos.logback.core.rolling.RollingFileAppender">
-        <File>${user.home}/logs/rocketmq/rocketmq-client.log</File>
+        <File>${rocketmq.log.root:-${user.home}${file.separator}rocketmq}${file.separator}rocketmq-client.log</File>
         <rollingPolicy class="org.apache.rocketmq.shaded.ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
-            <FileNamePattern>${user.home}/logs/rocketmq/other_days/rocketmq-client-%i.log.gz</FileNamePattern>
+            <FileNamePattern>
+                ${rocketmq.log.root:-${user.home}${file.separator}rocketmq}${file.separator}other_days${file.separator}rocketmq-client-%i.log.gz
+            </FileNamePattern>
             <minIndex>1</minIndex>
-            <maxIndex>10</maxIndex>
+            <maxIndex>${rocketmq.log.file.maxIndex:-10}</maxIndex>
         </rollingPolicy>
         <triggeringPolicy class="org.apache.rocketmq.shaded.ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
-            <maxFileSize>1GB</maxFileSize>
+            <maxFileSize>64MB</maxFileSize>
         </triggeringPolicy>
         <encoder class="org.apache.rocketmq.shaded.ch.qos.logback.classic.encoder.PatternLayoutEncoder">
             <pattern>%d{yyy-MM-dd HH:mm:ss,GMT+8} %-5p [%t] [%logger{12}#%M:%L] - %m%n</pattern>
             <charset class="java.nio.charset.Charset">UTF-8</charset>
         </encoder>
     </appender>
-    <root level="info">
+    <root level="${rocketmq.log.level:-info}">
         <!-- TODO -->
         <appender-ref ref="ConsoleAppender"/>
         <appender-ref ref="DefaultAppender" additivity="false"/>
