@@ -89,6 +89,7 @@ public class TestBase {
     protected String dummyTagExpression0 = FilterExpression.TAG_EXPRESSION_SUB_ALL;
 
     protected String dummyTag0 = "TestTagA";
+    protected String dummyTag1 = "TestTagB";
 
     protected String dummyHost0 = "127.0.0.1";
 

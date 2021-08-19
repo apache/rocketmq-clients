@@ -27,7 +27,6 @@ import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.message.protocol.SystemAttribute;
 import org.apache.rocketmq.client.misc.MixAll;
 
-
 public class Message {
     final MessageImpl impl;
     private final MessageExt messageExt;
@@ -35,10 +34,9 @@ public class Message {
     public Message(String topic, String tag, byte[] body) {
         final SystemAttribute systemAttribute = new SystemAttribute();
         final ConcurrentHashMap<String, String> userAttribute = new ConcurrentHashMap<String, String>();
-        systemAttribute.setBornTimeMillis(System.currentTimeMillis());
         systemAttribute.setTag(tag);
-        systemAttribute.setMessageId(MessageIdGenerator.getInstance().next());
         this.impl = new MessageImpl(topic, systemAttribute, userAttribute, body);
+        reset();
         this.messageExt = new MessageExt(impl);
     }
 
@@ -49,11 +47,16 @@ public class Message {
 
     public void setTopic(String topic) {
         this.impl.setTopic(topic);
-        this.impl.getSystemAttribute().setMessageId(MessageIdGenerator.getInstance().next());
+        reset();
     }
 
     public String getTopic() {
         return this.impl.getTopic();
+    }
+
+    public void setTag(String tag) {
+        this.impl.getSystemAttribute().setTag(tag);
+        reset();
     }
 
     public String getTag() {
@@ -73,7 +76,7 @@ public class Message {
         final List<String> keyList = this.impl.getSystemAttribute().getKeys();
         keyList.clear();
         keyList.add(keys.trim());
-        this.impl.getSystemAttribute().setMessageId(MessageIdGenerator.getInstance().next());
+        reset();
     }
 
     public void setKeys(Collection<String> keys) {
@@ -83,7 +86,7 @@ public class Message {
         for (String key : keys) {
             keyList.add(key.trim());
         }
-        systemAttribute.setMessageId(MessageIdGenerator.getInstance().next());
+        reset();
     }
 
     public String getKeys() {
@@ -105,14 +108,14 @@ public class Message {
     public void setDelayTimeLevel(int level) {
         final SystemAttribute systemAttribute = this.impl.getSystemAttribute();
         systemAttribute.setDelayLevel(level);
-        systemAttribute.setMessageId(MessageIdGenerator.getInstance().next());
+        reset();
     }
 
     public void setDeliveryTimestamp(long deliveryTimestamp) {
         final SystemAttribute systemAttribute = this.impl.getSystemAttribute();
         systemAttribute.setDeliveryTimeMillis(deliveryTimestamp);
         systemAttribute.setMessageType(MessageType.DELAY);
-        systemAttribute.setMessageId(MessageIdGenerator.getInstance().next());
+        reset();
     }
 
     public long getDelayTimeMillis() {
@@ -121,7 +124,7 @@ public class Message {
 
     public void setBody(byte[] body) {
         this.impl.setBody(body);
-        this.impl.getSystemAttribute().setMessageId(MessageIdGenerator.getInstance().next());
+        reset();
     }
 
     public byte[] getBody() {
@@ -170,5 +173,10 @@ public class Message {
 
     public MessageExt getMessageExt() {
         return this.messageExt;
+    }
+
+    private void reset() {
+        this.impl.getSystemAttribute().setBornTimeMillis(System.currentTimeMillis());
+        this.impl.getSystemAttribute().setMessageId(MessageIdGenerator.getInstance().next());
     }
 }
