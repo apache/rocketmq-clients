@@ -17,12 +17,28 @@
 
 package org.apache.rocketmq.client.impl;
 
+import org.apache.rocketmq.client.route.Endpoints;
+
 public interface ClientObserver {
+    /**
+     * Get identification of client.
+     *
+     * @return identification of client.
+     */
     String getClientId();
 
+    /**
+     * Send heart beat to remote {@link Endpoints}.
+     */
     void doHeartbeat();
 
+    /**
+     * Check the status of remote {@link Endpoints}.
+     */
     void doHealthCheck();
 
+    /**
+     * Do some stats for client.
+     */
     void doStats();
 }

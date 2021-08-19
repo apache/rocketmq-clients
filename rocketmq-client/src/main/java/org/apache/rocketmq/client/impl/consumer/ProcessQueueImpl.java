@@ -302,6 +302,19 @@ public class ProcessQueueImpl implements ProcessQueue {
     }
 
     @Override
+    public void doStats() {
+        pendingMessagesLock.readLock().lock();
+        inflightMessagesLock.readLock().lock();
+        try {
+            log.info("mq={}, pendingMessageQuantity={}, inflightMessageQuantity={}, cachedMessagesBytes={}", mq,
+                     pendingMessages.size(), inflightMessages.size(), cachedMessagesBytes.get());
+        } finally {
+            inflightMessagesLock.readLock().unlock();
+            pendingMessagesLock.readLock().unlock();
+        }
+    }
+
+    @Override
     public void eraseFifoMessage(final MessageExt messageExt, final ConsumeStatus status) {
         statsConsumptionStatus(status);
 
@@ -333,7 +346,7 @@ public class ProcessQueueImpl implements ProcessQueue {
 
                 @Override
                 public void onFailure(Throwable t) {
-                    // shold never reach here.
+                    // should never reach here.
                     log.error("[Bug] Exception raised while message redelivery, mq={}, messageId={}, attempt={}, "
                               + "maxAttempts={}", mq, messageExt.getMsgId(), messageExt.getDeliveryAttempt(),
                               maxAttempts, t);
@@ -781,6 +794,7 @@ public class ProcessQueueImpl implements ProcessQueue {
             public void onSuccess(AckMessageResponse response) {
                 final Code code = Code.forNumber(response.getCommon().getStatus().getCode());
                 if (Code.OK != code) {
+                    log.debug("Ack message later because of failure last time, mq={}.", mq);
                     ackFifoMessageLater(messageExt, 1 + attempt, future0);
                     return;
                 }
@@ -789,6 +803,7 @@ public class ProcessQueueImpl implements ProcessQueue {
 
             @Override
             public void onFailure(Throwable t) {
+                log.debug("Ack message later because of exception last time, mq={}.", mq);
                 ackFifoMessageLater(messageExt, 1 + attempt, future0);
             }
         });
@@ -925,6 +940,8 @@ public class ProcessQueueImpl implements ProcessQueue {
             final long ioTimeoutMillis = consumerImpl.getIoTimeoutMillis();
             future = clientManager.ackMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
+            log.error("Exception raised while ACK, attempt={}, messageId={}, endpoints={}", attempt, messageId,
+                      endpoints);
             final SettableFuture<AckMessageResponse> future0 = SettableFuture.create();
             future0.setException(t);
             future = future0;

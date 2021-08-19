@@ -55,7 +55,11 @@ public class DefaultMQPushConsumerImplTest extends TestBase {
     public void testHasCustomOffsetStore() {
         OffsetStore offsetStore = new OffsetStore() {
             @Override
-            public void load() {
+            public void start() {
+            }
+
+            @Override
+            public void shutdown() {
             }
 
             @Override

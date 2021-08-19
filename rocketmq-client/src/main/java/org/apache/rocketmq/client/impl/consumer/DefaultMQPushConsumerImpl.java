@@ -434,6 +434,10 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
                  + "pulledMessagesQuantity={}, consumptionOkQuantity={}, consumptionErrorQuantity={}", arn, group,
                  receiveTimes, receivedMessagesQuantity, pullTimes, pulledMessagesQuantity, consumptionOkQuantity,
                  consumptionErrorQuantity);
+
+        for (ProcessQueue pq : processQueueTable.values()) {
+            pq.doStats();
+        }
     }
 
     /**

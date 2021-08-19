@@ -17,37 +17,33 @@
 
 package org.apache.rocketmq.client.impl.consumer;
 
-import org.apache.rocketmq.client.consumer.MessageModel;
 import org.apache.rocketmq.client.message.MessageQueue;
 
 /**
- * Allow custom offset for consumption in {@link MessageModel#BROADCASTING}. Make it possible for consumer to decide
- * the initial offset to pull and consume.
+ * Persist offset frequently is expensive in most case. Provide a simple way to persist offset per
  */
-public interface OffsetStore {
-    /**
-     * Start the store, warm-up some resources.
-     */
-    void start();
+public abstract class AbstractOffsetStore implements OffsetStore {
+    private long nanoTime;
+    private final long persistPeriodSeconds;
+
+    public AbstractOffsetStore(long persistPeriodSeconds) {
+        this.nanoTime = System.nanoTime();
+        this.persistPeriodSeconds = persistPeriodSeconds;
+    }
 
     /**
-     * Shutdown the store.
-     */
-    void shutdown();
-
-    /**
-     * Invoked while offset is updated.
+     * Persist offset to disk or other external storage.
      *
      * @param mq     offset owner.
-     * @param offset next offset of {@link MessageQueue}
+     * @param offset the next offset of {@link MessageQueue}
      */
-    void updateOffset(MessageQueue mq, long offset);
+    public abstract void persistOffset(MessageQueue mq, long offset);
 
-    /**
-     * Read offset from disk or other external storage.
-     *
-     * @param mq offset owner.
-     * @return the next offset to pull and consume.
-     */
-    long readOffset(MessageQueue mq);
+    @Override
+    public void updateOffset(MessageQueue mq, long offset) {
+        if (System.nanoTime() - nanoTime > persistPeriodSeconds) {
+            persistOffset(mq, offset);
+            nanoTime = System.nanoTime();
+        }
+    }
 }

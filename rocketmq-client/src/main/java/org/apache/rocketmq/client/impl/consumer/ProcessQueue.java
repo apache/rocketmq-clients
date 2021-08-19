@@ -95,4 +95,9 @@ public interface ProcessQueue {
      * @param status     consume status.
      */
     void eraseFifoMessage(MessageExt messageExt, ConsumeStatus status);
+
+    /**
+     * Do some stats.
+     */
+    void doStats();
 }
