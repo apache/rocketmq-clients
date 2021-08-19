@@ -486,7 +486,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     onTopicRouteDataUpdate(topic, newTopicRouteData);
                     final Set<SettableFuture<TopicRouteData>> newFutureSet = inflightRouteFutureTable.remove(topic);
                     if (null == newFutureSet) {
-                        // Should never reach here.
+                        // should never reach here.
                         log.error("[Bug] in-flight route futures was empty, topic={}", topic);
                         return;
                     }
@@ -506,7 +506,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                 try {
                     final Set<SettableFuture<TopicRouteData>> newFutureSet = inflightRouteFutureTable.remove(topic);
                     if (null == newFutureSet) {
-                        // Should never reach here.
+                        // should never reach here.
                         log.error("[Bug] in-flight route futures was empty, topic={}", topic);
                         return;
                     }
@@ -909,7 +909,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     try {
                         onMultiplexingResponse(endpoints, response);
                     } catch (Throwable t) {
-                        // Should never reach here.
+                        // should never reach here.
                         log.error("[Bug] Exception raised while handling multiplexing response, would call later, "
                                   + "endpoints={}.", endpoints, t);
                         multiplexingCallLater(endpoints, request);

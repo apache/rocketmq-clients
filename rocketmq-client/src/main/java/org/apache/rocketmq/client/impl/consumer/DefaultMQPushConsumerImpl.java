@@ -213,7 +213,7 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
 
     private final ConcurrentMap<String /* topic */, FilterExpression> filterExpressionTable;
 
-    private final ConcurrentMap<String /* topic */, TopicAssignment> cachedTopicAssignmentTable;
+    private final ConcurrentMap<String /* topic */, TopicAssignments> cachedTopicAssignmentTable;
 
     private final ConcurrentMap<String /* topic */, RateLimiter> rateLimiterTable;
 
@@ -224,7 +224,7 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
     public DefaultMQPushConsumerImpl(String group) {
         super(group);
         this.filterExpressionTable = new ConcurrentHashMap<String, FilterExpression>();
-        this.cachedTopicAssignmentTable = new ConcurrentHashMap<String, TopicAssignment>();
+        this.cachedTopicAssignmentTable = new ConcurrentHashMap<String, TopicAssignments>();
 
         this.messageListener = null;
         this.consumeService = null;
@@ -383,11 +383,11 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
             for (Map.Entry<String, FilterExpression> entry : filterExpressionTable.entrySet()) {
                 final String topic = entry.getKey();
                 final FilterExpression filterExpression = entry.getValue();
-                final TopicAssignment local = cachedTopicAssignmentTable.get(topic);
-                final ListenableFuture<TopicAssignment> future = queryAssignment(topic);
-                Futures.addCallback(future, new FutureCallback<TopicAssignment>() {
+                final TopicAssignments local = cachedTopicAssignmentTable.get(topic);
+                final ListenableFuture<TopicAssignments> future = queryAssignment(topic);
+                Futures.addCallback(future, new FutureCallback<TopicAssignments>() {
                     @Override
-                    public void onSuccess(TopicAssignment remote) {
+                    public void onSuccess(TopicAssignments remote) {
                         if (remote.getAssignmentList().isEmpty()) {
                             log.info("Acquired empty assignments from remote, topic={}", topic);
                             if (null == local || local.getAssignmentList().isEmpty()) {
@@ -431,8 +431,8 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
         final long consumptionOkQuantity = this.consumptionOkQuantity.getAndSet(0);
         final long consumptionErrorQuantity = this.consumptionErrorQuantity.getAndSet(0);
 
-        log.info("ConsumerGroup={}, receiveTimes={}, receivedMessagesQuantity={}, pullTimes={}, "
-                 + "pulledMessagesQuantity={}, consumptionOkQuantity={}, consumptionErrorQuantity={}", group,
+        log.info("arn={}, group={}, receiveTimes={}, receivedMessagesQuantity={}, pullTimes={}, "
+                 + "pulledMessagesQuantity={}, consumptionOkQuantity={}, consumptionErrorQuantity={}", arn, group,
                  receiveTimes, receivedMessagesQuantity, pullTimes, pulledMessagesQuantity, consumptionOkQuantity,
                  consumptionErrorQuantity);
     }
@@ -468,10 +468,10 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
     }
 
     private void synchronizeProcessQueue(
-            String topic, TopicAssignment topicAssignment, FilterExpression filterExpression) {
+            String topic, TopicAssignments topicAssignments, FilterExpression filterExpression) {
         Set<MessageQueue> latestMqs = new HashSet<MessageQueue>();
 
-        final List<Assignment> assignments = topicAssignment.getAssignmentList();
+        final List<Assignment> assignments = topicAssignments.getAssignmentList();
         for (Assignment assignment : assignments) {
             latestMqs.add(assignment.getMessageQueue());
         }
@@ -550,7 +550,7 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
                 final List<Partition> partitions = topicRouteData.getPartitions();
                 for (int i = 0; i < partitions.size(); i++) {
                     final Partition partition =
-                            partitions.get(TopicAssignment.getNextPartitionIndex() % partitions.size());
+                            partitions.get(TopicAssignments.getNextPartitionIndex() % partitions.size());
                     final Broker broker = partition.getBroker();
                     if (MixAll.MASTER_BROKER_ID != broker.getId()) {
                         continue;
@@ -566,14 +566,14 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
         });
     }
 
-    private ListenableFuture<TopicAssignment> queryAssignment(final String topic) {
+    private ListenableFuture<TopicAssignments> queryAssignment(final String topic) {
         // for broadcasting mode, return full topic route.
         if (MessageModel.BROADCASTING == messageModel) {
             final ListenableFuture<TopicRouteData> future = getRouteFor(topic);
-            return Futures.transform(future, new Function<TopicRouteData, TopicAssignment>() {
+            return Futures.transform(future, new Function<TopicRouteData, TopicAssignments>() {
                 @Override
-                public TopicAssignment apply(TopicRouteData topicRouteData) {
-                    return new TopicAssignment(topicRouteData);
+                public TopicAssignments apply(TopicRouteData topicRouteData) {
+                    return new TopicAssignments(topicRouteData);
                 }
             });
         }
@@ -589,10 +589,10 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
                                                              TimeUnit.MILLISECONDS);
                     }
                 });
-        return Futures.transformAsync(responseFuture, new AsyncFunction<QueryAssignmentResponse, TopicAssignment>() {
+        return Futures.transformAsync(responseFuture, new AsyncFunction<QueryAssignmentResponse, TopicAssignments>() {
             @Override
-            public ListenableFuture<TopicAssignment> apply(QueryAssignmentResponse response) throws Exception {
-                SettableFuture<TopicAssignment> future0 = SettableFuture.create();
+            public ListenableFuture<TopicAssignments> apply(QueryAssignmentResponse response) throws Exception {
+                SettableFuture<TopicAssignments> future0 = SettableFuture.create();
                 final Status status = response.getCommon().getStatus();
                 final Code code = Code.forNumber(status.getCode());
                 if (Code.OK != code) {
@@ -600,8 +600,8 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
                               status.getMessage());
                     throw new ClientException(ErrorCode.NO_ASSIGNMENT);
                 }
-                final TopicAssignment topicAssignment = new TopicAssignment(response.getAssignmentsList());
-                future0.set(topicAssignment);
+                final TopicAssignments topicAssignments = new TopicAssignments(response.getAssignmentsList());
+                future0.set(topicAssignments);
                 return future0;
             }
         });

@@ -333,6 +333,7 @@ public class ProcessQueueImpl implements ProcessQueue {
 
                 @Override
                 public void onFailure(Throwable t) {
+                    // shold never reach here.
                     log.error("[Bug] Exception raised while message redelivery, mq={}, messageId={}, attempt={}, "
                               + "maxAttempts={}", mq, messageExt.getMsgId(), messageExt.getDeliveryAttempt(),
                               maxAttempts, t);

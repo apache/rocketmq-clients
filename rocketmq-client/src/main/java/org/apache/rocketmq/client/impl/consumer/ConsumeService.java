@@ -164,6 +164,7 @@ public abstract class ConsumeService {
 
                     @Override
                     public void onFailure(Throwable t) {
+                        // should never reach here.
                         log.error("[Bug] Exception raised while submitting scheduled consumption task", t);
                     }
                 });

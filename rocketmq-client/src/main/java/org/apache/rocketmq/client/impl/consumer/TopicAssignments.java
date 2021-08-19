@@ -32,14 +32,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Immutable
-public class TopicAssignment {
-    private static final Logger log = LoggerFactory.getLogger(TopicAssignment.class);
+public class TopicAssignments {
+    private static final Logger log = LoggerFactory.getLogger(TopicAssignments.class);
 
     private static final ThreadLocal<AtomicInteger> PARTITION_INDEX = new ThreadLocal<AtomicInteger>();
 
     private final List<Assignment> assignmentList;
 
-    public TopicAssignment(TopicRouteData topicRouteData) {
+    public TopicAssignments(TopicRouteData topicRouteData) {
         this.assignmentList = new ArrayList<Assignment>();
         final List<Partition> partitions = topicRouteData.getPartitions();
         for (Partition partition : partitions) {
@@ -52,7 +52,7 @@ public class TopicAssignment {
         }
     }
 
-    public TopicAssignment(List<apache.rocketmq.v1.Assignment> assignmentList) {
+    public TopicAssignments(List<apache.rocketmq.v1.Assignment> assignmentList) {
         this.assignmentList = new ArrayList<Assignment>();
 
         for (apache.rocketmq.v1.Assignment item : assignmentList) {
@@ -89,7 +89,7 @@ public class TopicAssignment {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        TopicAssignment that = (TopicAssignment) o;
+        TopicAssignments that = (TopicAssignments) o;
         return Objects.equal(assignmentList, that.assignmentList);
     }
 
