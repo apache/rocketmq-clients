@@ -110,6 +110,13 @@ public class ClientManagerImpl implements ClientManager {
         this.state = new AtomicReference<ServiceState>(ServiceState.READY);
     }
 
+    static {
+        // redirect JUL logging to slf4j.
+        // see https://github.com/grpc/grpc-java/issues/1577
+        SLF4JBridgeHandler.removeHandlersForRootLogger();
+        SLF4JBridgeHandler.install();
+    }
+
     @Override
     public void registerObserver(ClientObserver observer) {
         synchronized (observerTable) {
@@ -177,8 +184,6 @@ public class ClientManagerImpl implements ClientManager {
     @Override
     public void start() {
         synchronized (this) {
-            SLF4JBridgeHandler.removeHandlersForRootLogger();
-            SLF4JBridgeHandler.install();
             log.info("Begin to start the client manager.");
             if (!state.compareAndSet(ServiceState.READY, ServiceState.STARTING)) {
                 log.warn("The client manager has been started before.");
