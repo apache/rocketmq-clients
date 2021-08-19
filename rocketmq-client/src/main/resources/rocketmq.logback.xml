@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<configuration>
+<configuration debug="true">
     <appender name="ConsoleAppender" class="org.apache.rocketmq.shaded.ch.qos.logback.core.ConsoleAppender">
-        <append>true</append>
         <encoder>
             <pattern>%d{yyy-MM-dd HH:mm:ss,GMT+8} %highlight(%-5p) %magenta([%t]) %boldGreen([%logger{12}#%M:%L]) - %m%n
             </pattern>
@@ -9,6 +8,7 @@
         </encoder>
     </appender>
     <appender name="DefaultAppender" class="org.apache.rocketmq.shaded.ch.qos.logback.core.rolling.RollingFileAppender">
+        <append>true</append>
         <File>
             ${rocketmq.log.root:-${user.home}${file.separator}logs${file.separator}rocketmq}${file.separator}rocketmq-client.log
         </File>
