@@ -430,10 +430,10 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
         final long consumptionOkQuantity = this.consumptionOkQuantity.getAndSet(0);
         final long consumptionErrorQuantity = this.consumptionErrorQuantity.getAndSet(0);
 
-        log.info("arn={}, group={}, receiveTimes={}, receivedMessagesQuantity={}, pullTimes={}, "
-                 + "pulledMessagesQuantity={}, consumptionOkQuantity={}, consumptionErrorQuantity={}", arn, group,
-                 receiveTimes, receivedMessagesQuantity, pullTimes, pulledMessagesQuantity, consumptionOkQuantity,
-                 consumptionErrorQuantity);
+        log.info("clientId={}, arn={}, group={}, receiveTimes={}, receivedMessagesQuantity={}, pullTimes={}, "
+                 + "pulledMessagesQuantity={}, consumptionOkQuantity={}, consumptionErrorQuantity={}", clientId, arn,
+                 group, receiveTimes, receivedMessagesQuantity, pullTimes, pulledMessagesQuantity,
+                 consumptionOkQuantity, consumptionErrorQuantity);
 
         for (ProcessQueue pq : processQueueTable.values()) {
             pq.doStats();
@@ -599,7 +599,7 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
                 final Status status = response.getCommon().getStatus();
                 final Code code = Code.forNumber(status.getCode());
                 if (Code.OK != code) {
-                    log.error("Failed to query assignment, topic={}, code={}, message={}", topic, code,
+                    log.error("Failed to query assignment, topic={}, code={}, status message=[{}]", topic, code,
                               status.getMessage());
                     throw new ClientException(ErrorCode.NO_ASSIGNMENT);
                 }

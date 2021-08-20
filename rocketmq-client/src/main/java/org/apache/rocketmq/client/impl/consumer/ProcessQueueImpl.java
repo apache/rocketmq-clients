@@ -306,8 +306,9 @@ public class ProcessQueueImpl implements ProcessQueue {
         pendingMessagesLock.readLock().lock();
         inflightMessagesLock.readLock().lock();
         try {
-            log.info("mq={}, pendingMessageQuantity={}, inflightMessageQuantity={}, cachedMessagesBytes={}", mq,
-                     pendingMessages.size(), inflightMessages.size(), cachedMessagesBytes.get());
+            log.info("clientId={}, mq={}, pendingMessageQuantity={}, inflightMessageQuantity={}, "
+                     + "cachedMessagesBytes={}", consumerImpl.getClientId(), mq, pendingMessages.size(),
+                     inflightMessages.size(), cachedMessagesBytes.get());
         } finally {
             inflightMessagesLock.readLock().unlock();
             pendingMessagesLock.readLock().unlock();
