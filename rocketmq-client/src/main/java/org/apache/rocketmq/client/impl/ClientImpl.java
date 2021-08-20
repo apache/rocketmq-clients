@@ -833,13 +833,14 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         return GenericPollingRequest.newBuilder().setClientResourceBundle(bundle).build();
     }
 
-    private void onMultiplexingResponse(final Endpoints endpoints, MultiplexingResponse response) {
+    private void onMultiplexingResponse(final Endpoints endpoints, final MultiplexingResponse response) {
         switch (response.getTypeCase()) {
             case PRINT_THREAD_STACK_REQUEST:
+                String mid = response.getPrintThreadStackRequest().getMid();
                 log.debug("Receive thread stack request from remote.");
                 final String stackTrace = UtilAll.stackTrace();
                 PrintThreadStackResponse printThreadStackResponse =
-                        PrintThreadStackResponse.newBuilder().setStackTrace(stackTrace).build();
+                        PrintThreadStackResponse.newBuilder().setStackTrace(stackTrace).setMid(mid).build();
                 MultiplexingRequest multiplexingRequest = MultiplexingRequest
                         .newBuilder().setPrintThreadStackResponse(printThreadStackResponse).build();
                 multiplexingCall(endpoints, multiplexingRequest);
@@ -851,7 +852,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                 ListenableFuture<VerifyMessageConsumptionResponse> future = verifyConsumption(verifyRequest);
 
                 ScheduledExecutorService scheduler = clientManager.getScheduler();
-                // In case block while message consumption.
+                // in case of message consumption takes too long.
                 Futures.withTimeout(future, VERIFY_CONSUMPTION_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS, scheduler);
                 Futures.addCallback(future, new FutureCallback<VerifyMessageConsumptionResponse>() {
                     @Override
@@ -869,8 +870,9 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                                               .build();
 
                         ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
+                        final String mid = response.getVerifyMessageConsumptionRequest().getMid();
                         final VerifyMessageConsumptionResponse verifyResponse =
-                                VerifyMessageConsumptionResponse.newBuilder().setCommon(common).build();
+                                VerifyMessageConsumptionResponse.newBuilder().setCommon(common).setMid(mid).build();
                         MultiplexingRequest multiplexingRequest =
                                 MultiplexingRequest.newBuilder()
                                                    .setVerifyMessageConsumptionResponse(verifyResponse).build();
