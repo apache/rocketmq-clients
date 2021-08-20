@@ -24,6 +24,8 @@
 
         <project.root>${basedir}</project.root>
 
+        <rocketmq.sdk.wrapper.version>None</rocketmq.sdk.wrapper.version>
+
         <!-- <maven.javadoc.skip>true</maven.javadoc.skip> -->
 
         <!--
