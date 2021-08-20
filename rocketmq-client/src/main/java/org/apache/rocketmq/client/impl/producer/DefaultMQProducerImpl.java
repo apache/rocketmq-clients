@@ -717,8 +717,15 @@ public class DefaultMQProducerImpl extends ClientImpl {
             public void onSuccess(SendResult sendResult) {
                 // no need more attempts.
                 future.set(sendResult);
-                log.trace("Send message successfully, topic={}, msgId={}, maxAttempts={}, attempt={}", topic, msgId,
-                          maxAttempts, attempt);
+
+                if (attempt > 1) {
+                    log.info("Resend message successfully, topic={}, msgId={}, maxAttempts={}, attempt={}.", topic,
+                             msgId, maxAttempts, attempt);
+                } else {
+                    log.trace("Send message successfully in first attempt, topic={}, msgId={}, maxAttempts={}.",
+                              topic, msgId, maxAttempts);
+                }
+
                 // intercept after message sending.
                 final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
                 final MessageInterceptorContext context = contextBuilder.setDuration(duration)
@@ -748,7 +755,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
                     return;
                 }
                 // try to do more attempts.
-                log.warn("Failed to send message, would attempt to re-send right now, maxAttempts={}, "
+                log.warn("Failed to send message, would attempt to resend right now, maxAttempts={}, "
                          + "attempt={}, topic={}, messageId={}", maxAttempts, attempt, topic, msgId, t);
                 send0(future, candidates, message, 1 + attempt, maxAttempts);
             }
