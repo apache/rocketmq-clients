@@ -35,6 +35,7 @@
           -->
 
         <custom-made.version.suffix>rocketmq-SNAPSHOT</custom-made.version.suffix>
+
         <!-- customized dependencies-->
         <grpc-base.version>1.35.0</grpc-base.version>
         <protocol-buffer-base.version>3.12.0</protocol-buffer-base.version>
@@ -271,6 +272,27 @@
             <url>http://mvnrepo.alibaba-inc.com/mvn/snapshots</url>
         </snapshotRepository>
     </distributionManagement>
+
+    <profiles>
+        <profile>
+            <id>mustang-forbidden</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <version>${maven-compiler-plugin.version}</version>
+                        <configuration>
+                            <release>8</release>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
     <build>
         <resources>

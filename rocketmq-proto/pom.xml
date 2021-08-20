@@ -41,12 +41,9 @@
 
     <profiles>
         <profile>
-            <id>gen-grpc-class</id>
+            <id>protoc-gen</id>
             <activation>
-                <property>
-                    <name>gen-class</name>
-                    <value>true</value>
-                </property>
+                <activeByDefault>false</activeByDefault>
             </activation>
             <build>
                 <plugins>
@@ -55,10 +52,12 @@
                         <artifactId>protobuf-maven-plugin</artifactId>
                         <version>${protobuf-maven-plugin.version}</version>
                         <configuration>
-                            <protocArtifact>com.google.protobuf:protoc:${protocol-buffer-base.version}:exe:${os.detected.classifier}
+                            <protocArtifact>
+                                com.google.protobuf:protoc:${protocol-buffer-base.version}:exe:${os.detected.classifier}
                             </protocArtifact>
                             <pluginId>grpc-java</pluginId>
-                            <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc-base.version}:exe:${os.detected.classifier}
+                            <pluginArtifact>
+                                io.grpc:protoc-gen-grpc-java:${grpc-base.version}:exe:${os.detected.classifier}
                             </pluginArtifact>
                             <protoSourceRoot>${basedir}/src/main/resources/proto</protoSourceRoot>
                             <outputDirectory>${basedir}/src/main/java</outputDirectory>
