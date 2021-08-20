@@ -60,6 +60,7 @@ import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.remoting.RpcClient;
 import org.apache.rocketmq.client.remoting.RpcClientImpl;
 import org.apache.rocketmq.client.route.Endpoints;
+import org.apache.rocketmq.utility.MetadataUtils;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -169,7 +170,8 @@ public class ClientManagerImpl implements ClientManager {
     }
 
     private void doLogStats() {
-        log.info("Start to log stats for a new round");
+        log.info("Start to log stats for a new round, clientVersion={}, clientWrapperVersion={}",
+                 MetadataUtils.getVersion(), MetadataUtils.getWrapperVersion());
         for (Map.Entry<String, ClientObserver> entry : observerTable.entrySet()) {
             final String clientId = entry.getKey();
             final ClientObserver observer = entry.getValue();
