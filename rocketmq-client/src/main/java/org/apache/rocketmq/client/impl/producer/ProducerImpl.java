@@ -127,10 +127,9 @@ public class ProducerImpl extends ClientImpl {
 
     private final ConcurrentMap<String/* topic */, TopicSendingPartitions> sendingPartitionsCache;
 
-    @GuardedBy("isolatedRouteEndpointsSetLock")
-    private final Set<Endpoints> isolatedRouteEndpointsSet;
-
-    private final ReadWriteLock isolatedRouteEndpointsSetLock;
+    @GuardedBy("isolatedEndpointsSetLock")
+    private final Set<Endpoints> isolatedEndpointsSet;
+    private final ReadWriteLock isolatedEndpointsSetLock;
 
     private final ThreadPoolExecutor transactionCheckerExecutor;
 
@@ -146,8 +145,8 @@ public class ProducerImpl extends ClientImpl {
 
         this.sendingPartitionsCache = new ConcurrentHashMap<String, TopicSendingPartitions>();
 
-        this.isolatedRouteEndpointsSet = new HashSet<Endpoints>();
-        this.isolatedRouteEndpointsSetLock = new ReentrantReadWriteLock();
+        this.isolatedEndpointsSet = new HashSet<Endpoints>();
+        this.isolatedEndpointsSetLock = new ReentrantReadWriteLock();
 
         this.transactionCheckerExecutor = new ThreadPoolExecutor(
                 1,
@@ -201,31 +200,30 @@ public class ProducerImpl extends ClientImpl {
     }
 
     public void isolateEndpoints(Endpoints endpoints) {
-        isolatedRouteEndpointsSetLock.writeLock().lock();
+        isolatedEndpointsSetLock.writeLock().lock();
         try {
-            isolatedRouteEndpointsSet.add(endpoints);
+            isolatedEndpointsSet.add(endpoints);
         } finally {
-            isolatedRouteEndpointsSetLock.writeLock().unlock();
+            isolatedEndpointsSetLock.writeLock().unlock();
         }
     }
 
     @Override
     public void doHealthCheck() {
-        final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
-        final Sets.SetView<Endpoints> diff = Sets.difference(routeEndpointsSet, isolatedRouteEndpointsSet);
-        final Set<Endpoints> aborted = new HashSet<Endpoints>(diff);
-        // Remove all isolated endpoints where is not in the topic route.
-        isolatedRouteEndpointsSetLock.writeLock().lock();
+        final Set<Endpoints> allEndpointsSet = getAllEndpoints();
+        final Set<Endpoints> expired = new HashSet<Endpoints>(Sets.difference(allEndpointsSet, isolatedEndpointsSet));
+        // remove all isolated endpoints which is expired.
+        isolatedEndpointsSetLock.writeLock().lock();
         try {
-            isolatedRouteEndpointsSet.removeAll(aborted);
+            isolatedEndpointsSet.removeAll(expired);
         } finally {
-            isolatedRouteEndpointsSetLock.writeLock().unlock();
+            isolatedEndpointsSetLock.writeLock().unlock();
         }
 
         HealthCheckRequest request = HealthCheckRequest.newBuilder().build();
-        isolatedRouteEndpointsSetLock.readLock().lock();
+        isolatedEndpointsSetLock.readLock().lock();
         try {
-            for (final Endpoints endpoints : isolatedRouteEndpointsSet) {
+            for (final Endpoints endpoints : isolatedEndpointsSet) {
                 Metadata metadata;
                 try {
                     metadata = sign();
@@ -239,19 +237,20 @@ public class ProducerImpl extends ClientImpl {
                     public void onSuccess(HealthCheckResponse response) {
                         final Status status = response.getCommon().getStatus();
                         final Code code = Code.forNumber(status.getCode());
-                        // target endpoints is healthy, need to release it right now.
+                        // target endpoints is healthy, rejoin it.
                         if (Code.OK == code) {
-                            isolatedRouteEndpointsSetLock.writeLock().lock();
+                            isolatedEndpointsSetLock.writeLock().lock();
                             try {
-                                isolatedRouteEndpointsSet.remove(endpoints);
+                                isolatedEndpointsSet.remove(endpoints);
                             } finally {
-                                isolatedRouteEndpointsSetLock.writeLock().unlock();
+                                isolatedEndpointsSetLock.writeLock().unlock();
                             }
-                            log.info("Release isolated endpoints, clientId={}, endpoints={}", clientId, endpoints);
+                            log.info("Rejoin endpoints which is isolated before, clientId={}, endpoints={}", clientId,
+                                     endpoints);
                             return;
                         }
-                        log.warn("Failed to restore isolated endpoints, clientId={}, code={}, status message=[{}], "
-                                 + "endpoints={}", clientId, code, status.getMessage(), endpoints);
+                        log.warn("Failed to rejoin the endpoints which is isolated before, clientId={}, code={}, "
+                                 + "status message=[{}], endpoints={}", clientId, code, status.getMessage(), endpoints);
                     }
 
                     @Override
@@ -261,7 +260,7 @@ public class ProducerImpl extends ClientImpl {
                 });
             }
         } finally {
-            isolatedRouteEndpointsSetLock.readLock().unlock();
+            isolatedEndpointsSetLock.readLock().unlock();
         }
     }
 
@@ -772,11 +771,11 @@ public class ProducerImpl extends ClientImpl {
     List<Partition> takePartitionsRoundRobin(TopicSendingPartitions sendingPartitions, int maxAttempts)
             throws ClientException {
         Set<Endpoints> isolated = new HashSet<Endpoints>();
-        isolatedRouteEndpointsSetLock.readLock().lock();
+        isolatedEndpointsSetLock.readLock().lock();
         try {
-            isolated.addAll(isolatedRouteEndpointsSet);
+            isolated.addAll(isolatedEndpointsSet);
         } finally {
-            isolatedRouteEndpointsSetLock.readLock().unlock();
+            isolatedEndpointsSetLock.readLock().unlock();
         }
         return sendingPartitions.takePartitions(isolated, maxAttempts);
     }

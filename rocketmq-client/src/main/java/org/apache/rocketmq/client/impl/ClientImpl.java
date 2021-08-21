@@ -347,12 +347,18 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         }
     }
 
-    protected Set<Endpoints> getRouteEndpointsSet() {
+    protected Set<Endpoints> getAllEndpoints() {
         Set<Endpoints> endpointsSet = new HashSet<Endpoints>();
         for (TopicRouteData topicRouteData : topicRouteCache.values()) {
             endpointsSet.addAll(topicRouteData.allEndpoints());
         }
-        return endpointsSet;
+        nameServerEndpointsListLock.readLock().lock();
+        try {
+            endpointsSet.addAll(nameServerEndpointsList);
+            return endpointsSet;
+        } finally {
+            nameServerEndpointsListLock.readLock().unlock();
+        }
     }
 
     private boolean nameServerIsNotSet() {
@@ -395,9 +401,9 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
 
     private void onTopicRouteDataUpdate(String topic, TopicRouteData topicRouteData) {
         onTopicRouteDataUpdate0(topic, topicRouteData);
-        final Set<Endpoints> before = getRouteEndpointsSet();
+        final Set<Endpoints> before = getAllEndpoints();
         topicRouteCache.put(topic, topicRouteData);
-        final Set<Endpoints> after = getRouteEndpointsSet();
+        final Set<Endpoints> after = getAllEndpoints();
         final Set<Endpoints> diff = new HashSet<Endpoints>(Sets.difference(after, before));
 
         for (Endpoints endpoints : diff) {
@@ -674,7 +680,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
 
     @Override
     public void doHeartbeat() {
-        final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
+        final Set<Endpoints> routeEndpointsSet = getAllEndpoints();
         final HeartbeatRequest request = wrapHeartbeatRequest();
         for (Endpoints endpoints : routeEndpointsSet) {
             doHeartbeat(request, endpoints);
@@ -903,7 +909,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
 
     private void multiplexingCall(final Endpoints endpoints, final MultiplexingRequest request) {
         try {
-            final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
+            final Set<Endpoints> routeEndpointsSet = getAllEndpoints();
             if (!routeEndpointsSet.contains(endpoints)) {
                 log.info("Endpoints was removed, no need to do more multiplexing call, endpoints={}", endpoints);
                 return;
