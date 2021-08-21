@@ -380,8 +380,7 @@ public class ProducerImpl extends ClientImpl {
         }
     }
 
-    public void send(Message message, SendCallback sendCallback)
-            throws ClientException, InterruptedException {
+    public void send(Message message, SendCallback sendCallback) throws ClientException, InterruptedException {
         send(message, sendCallback, sendMessageTimeoutMillis);
     }
 
