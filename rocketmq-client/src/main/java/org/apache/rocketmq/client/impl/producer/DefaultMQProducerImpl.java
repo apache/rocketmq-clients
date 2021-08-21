@@ -674,9 +674,12 @@ public class DefaultMQProducerImpl extends ClientImpl {
 
     private void send0(final SettableFuture<SendResult> future, final List<Partition> candidates,
                        final Message message, final int attempt, final int maxAttempts) {
+        final String topic = message.getTopic();
+        final String msgId = message.getMsgId();
+        // timeout, no need to proceed.
         if (future.isCancelled()) {
             log.warn("No need for sending because of timeout, topic={}, messageId={}, maxAttempts={}, attempt={}",
-                     message.getTopic(), message.getMsgId(), maxAttempts, attempt);
+                     topic, msgId, maxAttempts, attempt);
             return;
         }
 
@@ -716,8 +719,6 @@ public class DefaultMQProducerImpl extends ClientImpl {
                     }
                 });
 
-        final String topic = message.getTopic();
-        final String msgId = message.getMsgId();
         Futures.addCallback(attemptFuture, new FutureCallback<SendResult>() {
             @Override
             public void onSuccess(SendResult sendResult) {
