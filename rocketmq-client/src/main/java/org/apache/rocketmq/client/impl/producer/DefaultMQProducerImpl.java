@@ -674,6 +674,12 @@ public class DefaultMQProducerImpl extends ClientImpl {
 
     private void send0(final SettableFuture<SendResult> future, final List<Partition> candidates,
                        final Message message, final int attempt, final int maxAttempts) {
+        if (future.isCancelled()) {
+            log.warn("No need for sending because of timeout, topic={}, messageId={}, maxAttempts={}, attempt={}",
+                     message.getTopic(), message.getMsgId(), maxAttempts, attempt);
+            return;
+        }
+
         Metadata metadata;
         try {
             metadata = sign();
@@ -719,10 +725,10 @@ public class DefaultMQProducerImpl extends ClientImpl {
                 future.set(sendResult);
 
                 if (attempt > 1) {
-                    log.info("Resend message successfully, topic={}, msgId={}, maxAttempts={}, attempt={}.", topic,
+                    log.info("Resend message successfully, topic={}, messageId={}, maxAttempts={}, attempt={}.", topic,
                              msgId, maxAttempts, attempt);
                 } else {
-                    log.trace("Send message successfully in first attempt, topic={}, msgId={}, maxAttempts={}.",
+                    log.trace("Send message successfully in first attempt, topic={}, messageId={}, maxAttempts={}.",
                               topic, msgId, maxAttempts);
                 }
 
