@@ -56,14 +56,9 @@ public interface ProcessQueue {
     boolean expired();
 
     /**
-     * Start to receive message immediately.
+     * Start to fetch message from remote immediately.
      */
-    void receiveMessageImmediately();
-
-    /**
-     * Start to pull message immediately.
-     */
-    void pullMessageImmediately();
+    void fetchMessageImmediately();
 
     /**
      * Try to take messages from cache except FIFO messages.

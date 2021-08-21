@@ -512,15 +512,8 @@ public class PushConsumerImpl extends ClientImpl {
         for (MessageQueue mq : latestMqs) {
             if (!activeMqs.contains(mq)) {
                 final ProcessQueue pq = getProcessQueue(mq, filterExpression);
-                // for clustering mode.
-                if (MessageModel.CLUSTERING.equals(messageModel)) {
-                    log.info("Start to receive message from mq according to the latest assignments, mq={}", mq);
-                    pq.receiveMessageImmediately();
-                    continue;
-                }
-                // for broadcasting mode.
-                log.info("Start to pull message from mq according to the latest assignments, mq={}", mq);
-                pq.pullMessageImmediately();
+                log.info("Start to fetch message from remote, mq={}", mq);
+                pq.fetchMessageImmediately();
             }
         }
     }

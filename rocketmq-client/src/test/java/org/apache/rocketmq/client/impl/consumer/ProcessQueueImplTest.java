@@ -150,7 +150,7 @@ public class ProcessQueueImplTest extends TestBase {
                                           ArgumentMatchers.<ReceiveMessageRequest>any(), anyLong(),
                                           ArgumentMatchers.<TimeUnit>any()))
                 .thenReturn(successReceiveMessageResponse(messageList));
-        processQueueImpl.receiveMessageImmediately();
+        processQueueImpl.fetchMessageImmediately();
         Thread.sleep(ProcessQueueImpl.PULL_LATER_DELAY_MILLIS / 2);
         verify(clientManager, times(cachedMessagesQuantityThresholdPerQueue))
                 .receiveMessage(ArgumentMatchers.<Endpoints>any(),
@@ -163,6 +163,7 @@ public class ProcessQueueImplTest extends TestBase {
     @Test
     public void testPullMessageImmediately() throws InterruptedException {
         final int cachedMessagesQuantityThresholdPerQueue = 8;
+        when(consumerImpl.getMessageModel()).thenReturn(MessageModel.BROADCASTING);
         when(consumerImpl.cachedMessagesQuantityThresholdPerQueue())
                 .thenReturn(cachedMessagesQuantityThresholdPerQueue);
         when(consumerImpl.cachedMessagesBytesThresholdPerQueue()).thenReturn(Integer.MAX_VALUE);
@@ -175,7 +176,7 @@ public class ProcessQueueImplTest extends TestBase {
         SettableFuture<Long> future0 = SettableFuture.create();
         future0.set(0L);
         when(consumerImpl.queryOffset(ArgumentMatchers.<OffsetQuery>any())).thenReturn(future0);
-        processQueueImpl.pullMessageImmediately();
+        processQueueImpl.fetchMessageImmediately();
         Thread.sleep(ProcessQueueImpl.PULL_LATER_DELAY_MILLIS / 2);
         verify(consumerImpl, times(cachedMessagesQuantityThresholdPerQueue))
                 .pull(ArgumentMatchers.<PullMessageQuery>any());

@@ -583,8 +583,7 @@ public class ProcessQueueImpl implements ProcessQueue {
      * customized, it would be read from offset store, otherwise offset would be fetched from remote according to the
      * consumption policy.
      */
-    @Override
-    public void pullMessageImmediately() {
+    private void pullMessageImmediately() {
         if (consumerImpl.hasCustomOffsetStore()) {
             long offset;
             try {
@@ -732,7 +731,17 @@ public class ProcessQueueImpl implements ProcessQueue {
     }
 
     @Override
-    public void receiveMessageImmediately() {
+    public void fetchMessageImmediately() {
+        // for clustering mode.
+        if (MessageModel.CLUSTERING.equals(consumerImpl.getMessageModel())) {
+            receiveMessageImmediately();
+            return;
+        }
+        // for broadcasting mode.
+        pullMessageImmediately();
+    }
+
+    private void receiveMessageImmediately() {
         if (consumerImpl.isStopped()) {
             return;
         }
