@@ -1047,10 +1047,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         }
 
         builder.setFilterExpression(expressionBuilder.build());
-        if (MessageListenerType.ORDERLY == consumerImpl.getMessageListener().getListenerType()) {
-            builder.setFifoFlag(true);
-        }
-
+        builder.setFifoFlag(MessageListenerType.ORDERLY.equals(consumerImpl.getMessageListener().getListenerType()));
         return builder.build();
     }
 

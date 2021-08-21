@@ -17,11 +17,12 @@
 
 package org.apache.rocketmq.utility;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Properties;
 
 public class MetadataUtils {
-    private static final String METADATA_CONF_PATH = "/metadata.properties";
+    private static final String METADATA_CONF_PATH = File.separator + "metadata.properties";
     private static final Properties PROPERTIES = new Properties();
 
     private static final String VERSION_KEY = "rocketmq.version";

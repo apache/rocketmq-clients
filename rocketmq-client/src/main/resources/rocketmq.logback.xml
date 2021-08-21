@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<configuration debug="true">
+<configuration debug="false">
     <conversionRule conversionWord="pid" converterClass="org.apache.rocketmq.client.logging.ProcessIdConverter"/>
-    <appender name="ConsoleAppender" class="org.apache.rocketmq.shaded.ch.qos.logback.core.ConsoleAppender">
+    <appender name="CustomConsoleAppender" class="org.apache.rocketmq.client.logging.CustomConsoleAppender">
         <encoder>
             <pattern>%yellow(%d{yyy-MM-dd HH:mm:ss,GMT+8}) %highlight(%-5p) %boldWhite([%pid]) %magenta([%t]) %boldGreen([%logger{12}#%M:%L]) - %m%n
             </pattern>
@@ -30,7 +30,7 @@
     </appender>
     <root level="${rocketmq.log.level:-info}">
         <!-- TODO -->
-        <appender-ref ref="ConsoleAppender"/>
+        <appender-ref ref="CustomConsoleAppender"/>
         <appender-ref ref="DefaultAppender" additivity="false"/>
     </root>
     <!-- ref: https://github.com/grpc/grpc-java/issues/3033 -->

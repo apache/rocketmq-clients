@@ -17,16 +17,23 @@
 
 package org.apache.rocketmq.client.logging;
 
-import org.apache.rocketmq.shaded.ch.qos.logback.classic.pattern.ClassicConverter;
-import org.apache.rocketmq.shaded.ch.qos.logback.classic.spi.ILoggingEvent;
-import org.apache.rocketmq.utility.UtilAll;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
-/**
- * Make it possible to fetch process id in logback.
- */
-public class ProcessIdConverter extends ClassicConverter {
-    @Override
-    public String convert(ILoggingEvent iLoggingEvent) {
-        return String.valueOf(UtilAll.processId());
+import org.testng.annotations.Test;
+
+public class CustomConsoleAppenderTest {
+
+    @Test
+    public void testDisabled() {
+        CustomConsoleAppender<String> appender = new CustomConsoleAppender<String>();
+        assertFalse(appender.isEnabled());
+    }
+
+    @Test
+    public void testEnabled() {
+        System.setProperty(CustomConsoleAppender.ENABLE_CONSOLE_APPENDER_KEY, "true");
+        CustomConsoleAppender<String> appender = new CustomConsoleAppender<String>();
+        assertTrue(appender.isEnabled());
     }
 }
