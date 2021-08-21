@@ -29,12 +29,12 @@ import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class DefaultMQPushConsumerImplTest extends TestBase {
+public class PushConsumerImplTest extends TestBase {
     @Mock
     private ClientManager clientManager;
 
     @InjectMocks
-    private final DefaultMQPushConsumerImpl consumerImpl = new DefaultMQPushConsumerImpl(dummyGroup0);
+    private final PushConsumerImpl consumerImpl = new PushConsumerImpl(dummyGroup0);
 
     @BeforeMethod
     public void beforeMethod() {

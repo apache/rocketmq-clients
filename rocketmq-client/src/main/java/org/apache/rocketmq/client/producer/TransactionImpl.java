@@ -20,15 +20,15 @@ package org.apache.rocketmq.client.producer;
 import java.util.concurrent.TimeoutException;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ServerException;
-import org.apache.rocketmq.client.impl.producer.DefaultMQProducerImpl;
+import org.apache.rocketmq.client.impl.producer.ProducerImpl;
 import org.apache.rocketmq.client.message.Message;
 
 public class TransactionImpl implements Transaction {
     private final SendResult sendResult;
     private final Message message;
-    private final DefaultMQProducerImpl producerImpl;
+    private final ProducerImpl producerImpl;
 
-    public TransactionImpl(SendResult sendResult, Message message, DefaultMQProducerImpl producerImpl) {
+    public TransactionImpl(SendResult sendResult, Message message, ProducerImpl producerImpl) {
         this.sendResult = sendResult;
         this.message = message;
         this.producerImpl = producerImpl;

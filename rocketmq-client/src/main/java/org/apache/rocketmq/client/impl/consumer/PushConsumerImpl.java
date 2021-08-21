@@ -84,8 +84,8 @@ import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class DefaultMQPushConsumerImpl extends ClientImpl {
-    private static final Logger log = LoggerFactory.getLogger(DefaultMQPushConsumerImpl.class);
+public class PushConsumerImpl extends ClientImpl {
+    private static final Logger log = LoggerFactory.getLogger(PushConsumerImpl.class);
 
     /**
      * For {@link MessageModel#CLUSTERING} only, reflects the times of message reception.
@@ -220,7 +220,7 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
 
     private volatile ScheduledFuture<?> scanAssignmentsFuture;
 
-    public DefaultMQPushConsumerImpl(String group) {
+    public PushConsumerImpl(String group) {
         super(group);
         this.filterExpressionTable = new ConcurrentHashMap<String, FilterExpression>();
         this.cachedTopicAssignmentTable = new ConcurrentHashMap<String, TopicAssignments>();
