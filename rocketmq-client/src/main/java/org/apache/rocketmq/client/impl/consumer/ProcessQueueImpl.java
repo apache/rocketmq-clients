@@ -73,6 +73,7 @@ import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.message.protocol.SystemAttribute;
 import org.apache.rocketmq.client.route.Endpoints;
+import org.apache.rocketmq.utility.SimpleFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -355,8 +356,8 @@ public class ProcessQueueImpl implements ProcessQueue {
             return;
         }
         // ack message or forward it to DLQ depends on consumption status.
-        ListenableFuture<Void> future = ConsumeStatus.OK.equals(status) ? ackFifoMessage(messageExt) :
-                                        forwardToDeadLetterQueue(messageExt);
+        SimpleFuture future = ConsumeStatus.OK.equals(status) ? ackFifoMessage(messageExt) :
+                              forwardToDeadLetterQueue(messageExt);
         future.addListener(new Runnable() {
             @Override
             public void run() {
@@ -781,13 +782,13 @@ public class ProcessQueueImpl implements ProcessQueue {
         }
     }
 
-    private ListenableFuture<Void> ackFifoMessage(final MessageExt messageExt) {
-        SettableFuture<Void> future0 = SettableFuture.create();
+    private SimpleFuture ackFifoMessage(final MessageExt messageExt) {
+        SimpleFuture future0 = new SimpleFuture();
         ackFifoMessage(messageExt, 1, future0);
         return future0;
     }
 
-    private void ackFifoMessage(final MessageExt messageExt, final int attempt, final SettableFuture<Void> future0) {
+    private void ackFifoMessage(final MessageExt messageExt, final int attempt, final SimpleFuture future0) {
         final ListenableFuture<AckMessageResponse> future = ackMessage(messageExt, attempt);
         Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
             @Override
@@ -798,7 +799,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                     ackFifoMessageLater(messageExt, 1 + attempt, future0);
                     return;
                 }
-                future0.set(null);
+                future0.markAsDone();
             }
 
             @Override
@@ -809,8 +810,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         });
     }
 
-    private void ackFifoMessageLater(final MessageExt messageExt, final int attempt,
-                                     final SettableFuture<Void> future0) {
+    private void ackFifoMessageLater(final MessageExt messageExt, final int attempt, final SimpleFuture future0) {
         final String msgId = messageExt.getMsgId();
         if (dropped) {
             log.info("Process queue was dropped, give up to ack message. mq={}, messageId={}", mq, msgId);
@@ -834,14 +834,13 @@ public class ProcessQueueImpl implements ProcessQueue {
         }
     }
 
-    private ListenableFuture<Void> forwardToDeadLetterQueue(final MessageExt messageExt) {
-        final SettableFuture<Void> future0 = SettableFuture.create();
+    private SimpleFuture forwardToDeadLetterQueue(final MessageExt messageExt) {
+        final SimpleFuture future0 = new SimpleFuture();
         forwardToDeadLetterQueue(messageExt, 1, future0);
         return future0;
     }
 
-    private void forwardToDeadLetterQueue(final MessageExt messageExt, final int attempt,
-                                          final SettableFuture<Void> future0) {
+    private void forwardToDeadLetterQueue(final MessageExt messageExt, final int attempt, final SimpleFuture future0) {
         final ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future =
                 forwardToDeadLetterQueue(messageExt, attempt);
         Futures.addCallback(future, new FutureCallback<ForwardMessageToDeadLetterQueueResponse>() {
@@ -852,7 +851,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                     forwardToDeadLetterQueueLater(messageExt, 1 + attempt, future0);
                     return;
                 }
-                future0.set(null);
+                future0.markAsDone();
             }
 
             @Override
@@ -863,7 +862,7 @@ public class ProcessQueueImpl implements ProcessQueue {
     }
 
     private void forwardToDeadLetterQueueLater(final MessageExt messageExt, final int attempt,
-                                               final SettableFuture<Void> future0) {
+                                               final SimpleFuture future0) {
         if (dropped) {
             log.info("Process queue was dropped, give up to redirect message to DLQ, mq={}, messageId={}", mq,
                      messageExt.getMsgId());
