@@ -676,7 +676,7 @@ public class ProducerImpl extends ClientImpl {
         final String msgId = message.getMsgId();
         // timeout, no need to proceed.
         if (future.isCancelled()) {
-            log.warn("No need for sending because of timeout, topic={}, messageId={}, maxAttempts={}, attempt={}",
+            log.error("No need for sending because of timeout, topic={}, messageId={}, maxAttempts={}, attempt={}",
                      topic, msgId, maxAttempts, attempt);
             return;
         }
