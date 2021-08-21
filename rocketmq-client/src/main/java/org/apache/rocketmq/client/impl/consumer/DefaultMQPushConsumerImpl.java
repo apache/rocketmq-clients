@@ -545,7 +545,7 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
     }
 
     private ListenableFuture<Endpoints> pickRouteEndpoints(String topic) {
-        final ListenableFuture<TopicRouteData> future = getRouteFor(topic);
+        final ListenableFuture<TopicRouteData> future = getRouteData(topic);
         return Futures.transformAsync(future, new AsyncFunction<TopicRouteData, Endpoints>() {
             @Override
             public ListenableFuture<Endpoints> apply(TopicRouteData topicRouteData) throws Exception {
@@ -572,7 +572,7 @@ public class DefaultMQPushConsumerImpl extends ClientImpl {
     private ListenableFuture<TopicAssignments> queryAssignment(final String topic) {
         // for broadcasting mode, return full topic route.
         if (MessageModel.BROADCASTING == messageModel) {
-            final ListenableFuture<TopicRouteData> future = getRouteFor(topic);
+            final ListenableFuture<TopicRouteData> future = getRouteData(topic);
             return Futures.transform(future, new Function<TopicRouteData, TopicAssignments>() {
                 @Override
                 public TopicAssignments apply(TopicRouteData topicRouteData) {

@@ -390,11 +390,11 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         }
     }
 
-    public void beforeTopicRouteDataUpdate(String topic, TopicRouteData topicRouteData) {
+    public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
     }
 
     private void onTopicRouteDataUpdate(String topic, TopicRouteData topicRouteData) {
-        beforeTopicRouteDataUpdate(topic, topicRouteData);
+        onTopicRouteDataUpdate0(topic, topicRouteData);
         final Set<Endpoints> before = getRouteEndpointsSet();
         topicRouteCache.put(topic, topicRouteData);
         final Set<Endpoints> after = getRouteEndpointsSet();
@@ -453,7 +453,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         }
     }
 
-    protected ListenableFuture<TopicRouteData> getRouteFor(final String topic) {
+    protected ListenableFuture<TopicRouteData> getRouteData(final String topic) {
         SettableFuture<TopicRouteData> future0 = SettableFuture.create();
         TopicRouteData topicRouteData = topicRouteCache.get(topic);
         // If route was cached before, get it directly.

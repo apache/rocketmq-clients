@@ -125,7 +125,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
 
     private ExecutorService customSendCallbackExecutor = null;
 
-    private final ConcurrentMap<String/* topic */, TopicPublishInfo> topicPublishInfoCache;
+    private final ConcurrentMap<String/* topic */, TopicSendingPartitions> sendingPartitionsCache;
 
     @GuardedBy("isolatedRouteEndpointsSetLock")
     private final Set<Endpoints> isolatedRouteEndpointsSet;
@@ -144,7 +144,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
                 new LinkedBlockingQueue<Runnable>(),
                 new ThreadFactoryImpl("SendCallbackWorker"));
 
-        this.topicPublishInfoCache = new ConcurrentHashMap<String, TopicPublishInfo>();
+        this.sendingPartitionsCache = new ConcurrentHashMap<String, TopicSendingPartitions>();
 
         this.isolatedRouteEndpointsSet = new HashSet<Endpoints>();
         this.isolatedRouteEndpointsSetLock = new ReentrantReadWriteLock();
@@ -598,35 +598,35 @@ public class DefaultMQProducerImpl extends ClientImpl {
     }
 
     @Override
-    public void beforeTopicRouteDataUpdate(String topic, TopicRouteData topicRouteData) {
-        topicPublishInfoCache.put(topic, new TopicPublishInfo(topicRouteData));
+    public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
+        sendingPartitionsCache.put(topic, new TopicSendingPartitions(topicRouteData));
     }
 
-    private ListenableFuture<TopicPublishInfo> getPublishInfo(final String topic) {
-        SettableFuture<TopicPublishInfo> future0 = SettableFuture.create();
-        final TopicPublishInfo cachedTopicPublishInfo = topicPublishInfoCache.get(topic);
-        if (null != cachedTopicPublishInfo) {
-            future0.set(cachedTopicPublishInfo);
+    private ListenableFuture<TopicSendingPartitions> getSendingPartitions(final String topic) {
+        SettableFuture<TopicSendingPartitions> future0 = SettableFuture.create();
+        final TopicSendingPartitions cachedSendingPartitions = sendingPartitionsCache.get(topic);
+        if (null != cachedSendingPartitions) {
+            future0.set(cachedSendingPartitions);
             return future0;
         }
-        final ListenableFuture<TopicRouteData> future = getRouteFor(topic);
-        return Futures.transform(future, new Function<TopicRouteData, TopicPublishInfo>() {
+        final ListenableFuture<TopicRouteData> future = getRouteData(topic);
+        return Futures.transform(future, new Function<TopicRouteData, TopicSendingPartitions>() {
             @Override
-            public TopicPublishInfo apply(TopicRouteData topicRouteData) {
-                final TopicPublishInfo topicPublishInfo = new TopicPublishInfo(topicRouteData);
-                topicPublishInfoCache.put(topic, topicPublishInfo);
-                return topicPublishInfo;
+            public TopicSendingPartitions apply(TopicRouteData topicRouteData) {
+                final TopicSendingPartitions sendingPartitions = new TopicSendingPartitions(topicRouteData);
+                sendingPartitionsCache.put(topic, sendingPartitions);
+                return sendingPartitions;
             }
         });
     }
 
     private ListenableFuture<SendResult> send0(final Message message, final int maxAttempts) {
-        final ListenableFuture<TopicPublishInfo> future = getPublishInfo(message.getTopic());
-        return Futures.transformAsync(future, new AsyncFunction<TopicPublishInfo, SendResult>() {
+        final ListenableFuture<TopicSendingPartitions> future = getSendingPartitions(message.getTopic());
+        return Futures.transformAsync(future, new AsyncFunction<TopicSendingPartitions, SendResult>() {
             @Override
-            public ListenableFuture<SendResult> apply(TopicPublishInfo topicPublishInfo) throws ClientException {
-                // Prepare the candidate partitions for retry-sending in advance.
-                final List<Partition> candidates = takePartitionsRoundRobin(topicPublishInfo, maxAttempts);
+            public ListenableFuture<SendResult> apply(TopicSendingPartitions sendingPartitions) throws ClientException {
+                // prepare the candidate partitions for retry-sending in advance.
+                final List<Partition> candidates = takePartitionsRoundRobin(sendingPartitions, maxAttempts);
                 return send0(message, candidates, maxAttempts);
             }
         });
@@ -769,7 +769,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
         });
     }
 
-    List<Partition> takePartitionsRoundRobin(TopicPublishInfo topicPublishInfo, int maxAttempts)
+    List<Partition> takePartitionsRoundRobin(TopicSendingPartitions sendingPartitions, int maxAttempts)
             throws ClientException {
         Set<Endpoints> isolated = new HashSet<Endpoints>();
         isolatedRouteEndpointsSetLock.readLock().lock();
@@ -778,21 +778,21 @@ public class DefaultMQProducerImpl extends ClientImpl {
         } finally {
             isolatedRouteEndpointsSetLock.readLock().unlock();
         }
-        return topicPublishInfo.takePartitions(isolated, maxAttempts);
+        return sendingPartitions.takePartitions(isolated, maxAttempts);
     }
 
     private ListenableFuture<Partition> selectPartition(final Message message, final MessageQueueSelector selector,
                                                         final Object arg) {
         final String topic = message.getTopic();
-        final ListenableFuture<TopicPublishInfo> future = getPublishInfo(topic);
-        return Futures.transformAsync(future, new AsyncFunction<TopicPublishInfo, Partition>() {
+        final ListenableFuture<TopicSendingPartitions> future = getSendingPartitions(topic);
+        return Futures.transformAsync(future, new AsyncFunction<TopicSendingPartitions, Partition>() {
             @Override
-            public ListenableFuture<Partition> apply(TopicPublishInfo topicPublishInfo) throws ClientException {
-                if (topicPublishInfo.isEmpty()) {
+            public ListenableFuture<Partition> apply(TopicSendingPartitions sendingPartitions) throws ClientException {
+                if (sendingPartitions.isEmpty()) {
                     log.warn("No available partition for selector, topic={}", topic);
                     throw new ClientException(ErrorCode.NO_PERMISSION);
                 }
-                final MessageQueue mq = selector.select(topicPublishInfo.getMessageQueues(), message, arg);
+                final MessageQueue mq = selector.select(sendingPartitions.getMessageQueues(), message, arg);
                 final SettableFuture<Partition> future0 = SettableFuture.create();
                 future0.set(mq.getPartition());
                 return future0;
@@ -817,7 +817,7 @@ public class DefaultMQProducerImpl extends ClientImpl {
     public ClientResourceBundle wrapClientResourceBundle() {
         final ClientResourceBundle.Builder builder =
                 ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(getGroupResource());
-        for (String topic : topicPublishInfoCache.keySet()) {
+        for (String topic : sendingPartitionsCache.keySet()) {
             Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
             builder.addTopics(topicResource);
         }

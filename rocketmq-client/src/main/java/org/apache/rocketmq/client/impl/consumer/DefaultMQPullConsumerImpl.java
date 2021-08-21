@@ -62,7 +62,7 @@ public class DefaultMQPullConsumerImpl extends ClientImpl {
     }
 
     public ListenableFuture<List<MessageQueue>> getQueuesFor(String topic) {
-        final ListenableFuture<TopicRouteData> future = getRouteFor(topic);
+        final ListenableFuture<TopicRouteData> future = getRouteData(topic);
         return Futures.transformAsync(future, new AsyncFunction<TopicRouteData, List<MessageQueue>>() {
             @Override
             public ListenableFuture<List<MessageQueue>> apply(TopicRouteData topicRouteData) throws Exception {

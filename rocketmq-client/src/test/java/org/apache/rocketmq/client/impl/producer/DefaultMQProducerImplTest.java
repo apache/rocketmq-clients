@@ -101,7 +101,7 @@ public class DefaultMQProducerImplTest extends TestBase {
     @Test
     public void testSend() throws ServerException, ClientException, InterruptedException, TimeoutException {
         final Message message = dummyMessage();
-        producerImpl.beforeTopicRouteDataUpdate(message.getTopic(), dummyTopicRouteData(Permission.READ_WRITE));
+        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), dummyTopicRouteData(Permission.READ_WRITE));
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))
@@ -121,7 +121,7 @@ public class DefaultMQProducerImplTest extends TestBase {
                                                   TimeoutException {
         final int messageBodySize = DefaultMQProducerImpl.MESSAGE_COMPRESSION_THRESHOLD + 1;
         final Message message = dummyMessage(messageBodySize);
-        producerImpl.beforeTopicRouteDataUpdate(message.getTopic(), dummyTopicRouteData(Permission.READ_WRITE));
+        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), dummyTopicRouteData(Permission.READ_WRITE));
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))
@@ -140,7 +140,7 @@ public class DefaultMQProducerImplTest extends TestBase {
     @Test
     public void testSendWithNoPermission() throws ServerException, InterruptedException, TimeoutException {
         final Message message = dummyMessage();
-        producerImpl.beforeTopicRouteDataUpdate(message.getTopic(), dummyTopicRouteData(Permission.NONE));
+        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), dummyTopicRouteData(Permission.NONE));
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))
@@ -161,7 +161,7 @@ public class DefaultMQProducerImplTest extends TestBase {
     public void testSendWithFifoMessage() throws ServerException, ClientException, InterruptedException,
                                                  TimeoutException {
         final Message message = dummyFifoMessage();
-        producerImpl.beforeTopicRouteDataUpdate(message.getTopic(), dummyTopicRouteData(Permission.READ_WRITE));
+        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), dummyTopicRouteData(Permission.READ_WRITE));
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))
@@ -180,7 +180,7 @@ public class DefaultMQProducerImplTest extends TestBase {
     public void testSendWithDelayMessage() throws ServerException, ClientException, InterruptedException,
                                                   TimeoutException {
         final Message message = dummyDelayMessage();
-        producerImpl.beforeTopicRouteDataUpdate(message.getTopic(), dummyTopicRouteData(Permission.READ_WRITE));
+        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), dummyTopicRouteData(Permission.READ_WRITE));
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))
@@ -199,7 +199,7 @@ public class DefaultMQProducerImplTest extends TestBase {
     public void testSendWithTransactionMessage() throws ServerException, ClientException, InterruptedException,
                                                         TimeoutException {
         final Message message = dummyTransactionMessage();
-        producerImpl.beforeTopicRouteDataUpdate(message.getTopic(), dummyTopicRouteData(Permission.READ_WRITE));
+        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), dummyTopicRouteData(Permission.READ_WRITE));
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))
@@ -217,7 +217,7 @@ public class DefaultMQProducerImplTest extends TestBase {
     @Test
     public void testSendWithCallback() throws ClientException, InterruptedException, ExecutionException {
         final Message message = dummyMessage();
-        producerImpl.beforeTopicRouteDataUpdate(message.getTopic(), dummyTopicRouteData(Permission.READ_WRITE));
+        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), dummyTopicRouteData(Permission.READ_WRITE));
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))

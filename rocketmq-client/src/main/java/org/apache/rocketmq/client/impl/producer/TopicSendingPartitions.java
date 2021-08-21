@@ -36,14 +36,14 @@ import org.apache.rocketmq.utility.UtilAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class TopicPublishInfo {
-    private static final Logger log = LoggerFactory.getLogger(TopicPublishInfo.class);
-    
+public class TopicSendingPartitions {
+    private static final Logger log = LoggerFactory.getLogger(TopicSendingPartitions.class);
+
     private static final ThreadLocal<AtomicInteger> PARTITION_INDEX = new ThreadLocal<AtomicInteger>();
 
     private final List<Partition> partitions;
 
-    public TopicPublishInfo(TopicRouteData topicRouteData) {
+    public TopicSendingPartitions(TopicRouteData topicRouteData) {
         this.partitions = filterPartition(topicRouteData);
     }
 
@@ -77,6 +77,7 @@ public class TopicPublishInfo {
         return partitions.isEmpty();
     }
 
+    // TODO: add ut here.
     public List<Partition> takePartitions(Set<Endpoints> isolated, int count) throws ClientException {
         if (null == PARTITION_INDEX.get()) {
             PARTITION_INDEX.set(new AtomicInteger(RandomUtils.nextInt()));
