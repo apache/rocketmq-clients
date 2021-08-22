@@ -20,11 +20,11 @@ package org.apache.rocketmq.client.message;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.concurrent.TimeUnit;
+import org.apache.rocketmq.client.producer.TransactionResolution;
 
 public class MessageInterceptorContext {
-    public static MessageInterceptorContext EMPTY = MessageInterceptorContext.builder().build();
-
     private final MessageHookPointStatus status;
+    private final TransactionResolution transactionResolution;
     private final int messageBatchSize;
     private final int messageIndex;
     private final int attempt;
@@ -32,9 +32,11 @@ public class MessageInterceptorContext {
     private final TimeUnit timeUnit;
     private final Throwable throwable;
 
-    MessageInterceptorContext(MessageHookPointStatus status, int messageBatchSize, int messageIndex,
-                              int attempt, long duration, TimeUnit timeUnit, Throwable throwable) {
+    MessageInterceptorContext(MessageHookPointStatus status, TransactionResolution transactionResolution,
+                              int messageBatchSize, int messageIndex, int attempt, long duration, TimeUnit timeUnit,
+                              Throwable throwable) {
         this.status = status;
+        this.transactionResolution = transactionResolution;
         this.messageBatchSize = messageBatchSize;
         this.messageIndex = messageIndex;
         this.attempt = attempt;
@@ -49,6 +51,10 @@ public class MessageInterceptorContext {
 
     public MessageHookPointStatus getStatus() {
         return this.status;
+    }
+
+    public TransactionResolution getTransactionResolution() {
+        return transactionResolution;
     }
 
     public int getMessageBatchSize() {
@@ -77,6 +83,7 @@ public class MessageInterceptorContext {
 
     public static class Builder {
         private MessageHookPointStatus status = MessageHookPointStatus.UNSET;
+        private TransactionResolution transactionResolution = TransactionResolution.UNKNOWN;
         private int messageBatchSize = 1;
         private int messageIndex = 0;
         private int attempt = 1;
@@ -89,6 +96,11 @@ public class MessageInterceptorContext {
 
         public Builder setStatus(MessageHookPointStatus status) {
             this.status = checkNotNull(status, "status");
+            return this;
+        }
+
+        public Builder setTransactionResolution(TransactionResolution transactionResolution) {
+            this.transactionResolution = checkNotNull(transactionResolution, "transactionResolution");
             return this;
         }
 
@@ -123,8 +135,8 @@ public class MessageInterceptorContext {
         }
 
         public MessageInterceptorContext build() {
-            return new MessageInterceptorContext(status, messageBatchSize, messageIndex, attempt, duration, timeUnit,
-                                                 throwable);
+            return new MessageInterceptorContext(status, transactionResolution, messageBatchSize, messageIndex,
+                                                 attempt, duration, timeUnit, throwable);
         }
     }
 }

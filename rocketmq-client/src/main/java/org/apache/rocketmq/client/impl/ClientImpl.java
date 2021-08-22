@@ -1017,6 +1017,8 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         mqSystemAttribute.setBornTimeMillis(Timestamps.toMillis(systemAttribute.getBornTimestamp()));
         // born host.
         mqSystemAttribute.setBornHost(systemAttribute.getBornHost());
+        // store time millis
+        mqSystemAttribute.setStoreTimeMillis(Timestamps.toMillis(systemAttribute.getStoreTimestamp()));
 
         switch (systemAttribute.getTimedDeliveryCase()) {
             case DELAY_LEVEL:

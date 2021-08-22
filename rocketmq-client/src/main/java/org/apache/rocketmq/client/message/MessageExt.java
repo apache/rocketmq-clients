@@ -100,6 +100,10 @@ public class MessageExt {
         return this.impl.getSystemAttribute().getMessageGroup();
     }
 
+    public long getStoreTimestamp() {
+        return this.impl.getSystemAttribute().getStoreTimeMillis();
+    }
+
     // TODO: hide targetEndpoint here.
     public Endpoints getAckEndpoints() {
         return this.impl.getSystemAttribute().getAckEndpoints();

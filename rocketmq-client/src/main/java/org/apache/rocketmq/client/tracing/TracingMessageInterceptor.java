@@ -165,6 +165,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.KEYS, message.getKeys());
                 span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
                 span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
+                span.setAttribute(TracingAttribute.STORE_TIMESTAMP, message.getStoreTimestamp());
                 span.end();
                 waitingConsumptionSpanContextThreadLocal.set(span.getSpanContext());
                 break;
@@ -201,6 +202,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.KEYS, message.getKeys());
                 span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
                 span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
+                span.setAttribute(TracingAttribute.STORE_TIMESTAMP, message.getStoreTimestamp());
 
                 final StatusCode statusCode = TracingUtility.convertToTraceStatus(context.getStatus());
                 span.setStatus(statusCode);
@@ -232,6 +234,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
                 span.setAttribute(TracingAttribute.GROUP, group);
                 span.setAttribute(TracingAttribute.HOST, UtilAll.hostName());
+                span.setAttribute(TracingAttribute.COMMIT_ACTION, context.getTransactionResolution().getName());
 
                 span.end();
                 break;

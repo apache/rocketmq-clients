@@ -25,7 +25,7 @@ public class TracingAttribute {
     public static final String MSG_ID = "msgId";
     public static final String TAG = "tag";
     public static final String DELIVERY_TIMESTAMP = "deliveryTimestamp";
-    public static final String STORE_TIMESTAMP = "bornTimestamp";
+    public static final String STORE_TIMESTAMP = "storeTimestamp";
     public static final String COMMIT_ACTION = "commitAction";
     public static final String HOST = "host";
     public static final String KEYS = "keys";

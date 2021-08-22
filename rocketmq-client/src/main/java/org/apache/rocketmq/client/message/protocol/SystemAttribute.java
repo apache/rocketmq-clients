@@ -34,6 +34,7 @@ public class SystemAttribute {
     private MessageType messageType;
     private long bornTimeMillis;
     private String bornHost;
+    private long storeTimeMillis;
     private long deliveryTimeMillis;
     private int delayLevel;
     private String receiptHandle;
@@ -96,6 +97,10 @@ public class SystemAttribute {
 
     public String getBornHost() {
         return this.bornHost;
+    }
+
+    public long getStoreTimeMillis() {
+        return storeTimeMillis;
     }
 
     public long getDeliveryTimeMillis() {
@@ -178,6 +183,10 @@ public class SystemAttribute {
         this.bornHost = checkNotNull(bornHost, "bornHost");
     }
 
+    public void setStoreTimeMillis(long storeTimeMillis) {
+        this.storeTimeMillis = storeTimeMillis;
+    }
+
     public void setDeliveryTimeMillis(long deliveryTimeMillis) {
         this.deliveryTimeMillis = deliveryTimeMillis;
     }
@@ -239,26 +248,26 @@ public class SystemAttribute {
             return false;
         }
         SystemAttribute that = (SystemAttribute) o;
-        return bornTimeMillis == that.bornTimeMillis && deliveryTimeMillis == that.deliveryTimeMillis &&
-               delayLevel == that.delayLevel && partitionId == that.partitionId &&
-               partitionOffset == that.partitionOffset && invisiblePeriod == that.invisiblePeriod &&
-               deliveryAttempt == that.deliveryAttempt &&
+        return bornTimeMillis == that.bornTimeMillis && storeTimeMillis == that.storeTimeMillis &&
+               deliveryTimeMillis == that.deliveryTimeMillis && delayLevel == that.delayLevel &&
+               partitionId == that.partitionId && partitionOffset == that.partitionOffset &&
+               invisiblePeriod == that.invisiblePeriod && deliveryAttempt == that.deliveryAttempt &&
                orphanedTransactionRecoveryPeriodMillis == that.orphanedTransactionRecoveryPeriodMillis &&
-               decodedTimestamp == that.decodedTimestamp &&
-               Objects.equal(tag, that.tag) && Objects.equal(keys, that.keys) &&
-               Objects.equal(messageId, that.messageId) && Objects.equal(digest, that.digest) &&
-               bodyEncoding == that.bodyEncoding && messageType == that.messageType &&
-               Objects.equal(bornHost, that.bornHost) && Objects.equal(receiptHandle, that.receiptHandle) &&
-               Objects.equal(producerGroup, that.producerGroup) && Objects.equal(messageGroup, that.messageGroup) &&
-               Objects.equal(traceContext, that.traceContext) && Objects.equal(ackEndpoints, that.ackEndpoints);
+               decodedTimestamp == that.decodedTimestamp && Objects.equal(tag, that.tag) &&
+               Objects.equal(keys, that.keys) && Objects.equal(messageId, that.messageId) &&
+               Objects.equal(digest, that.digest) && bodyEncoding == that.bodyEncoding &&
+               messageType == that.messageType && Objects.equal(bornHost, that.bornHost) &&
+               Objects.equal(receiptHandle, that.receiptHandle) && Objects.equal(producerGroup, that.producerGroup) &&
+               Objects.equal(messageGroup, that.messageGroup) && Objects.equal(traceContext, that.traceContext) &&
+               Objects.equal(ackEndpoints, that.ackEndpoints);
     }
 
     @Override
     public int hashCode() {
         return Objects.hashCode(tag, keys, messageId, digest, bodyEncoding, messageType, bornTimeMillis, bornHost,
-                                deliveryTimeMillis, delayLevel, receiptHandle, partitionId, partitionOffset,
-                                invisiblePeriod, deliveryAttempt, producerGroup, messageGroup, traceContext,
-                                orphanedTransactionRecoveryPeriodMillis, decodedTimestamp, ackEndpoints);
+                                storeTimeMillis, deliveryTimeMillis, delayLevel, receiptHandle, partitionId,
+                                partitionOffset, invisiblePeriod, deliveryAttempt, producerGroup, messageGroup,
+                                traceContext, orphanedTransactionRecoveryPeriodMillis, decodedTimestamp, ackEndpoints);
     }
 
     @Override
@@ -272,6 +281,7 @@ public class SystemAttribute {
                           .add("messageType", messageType)
                           .add("bornTimeMillis", bornTimeMillis)
                           .add("bornHost", bornHost)
+                          .add("storeTimeMillis", storeTimeMillis)
                           .add("deliveryTimeMillis", deliveryTimeMillis)
                           .add("delayLevel", delayLevel)
                           .add("receiptHandle", receiptHandle)

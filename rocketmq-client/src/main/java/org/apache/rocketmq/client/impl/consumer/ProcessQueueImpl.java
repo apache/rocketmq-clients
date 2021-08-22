@@ -32,6 +32,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.RateLimiter;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.protobuf.Duration;
 import com.google.protobuf.util.Durations;
@@ -581,7 +582,6 @@ public class ProcessQueueImpl implements ProcessQueue {
         return true;
     }
 
-    // todo: no exception
     private ListenableFuture<Long> queryOffset() {
         QueryOffsetRequest.Builder builder = QueryOffsetRequest.newBuilder();
         switch (consumerImpl.getConsumeFromWhere()) {
@@ -622,8 +622,16 @@ public class ProcessQueueImpl implements ProcessQueue {
             pullMessage(offset);
             return;
         }
+        ListenableFuture<Long> future;
+        try {
+            future = queryOffset();
+        } catch (Throwable t) {
+            // should never reach here.
+            SettableFuture<Long> future0 = SettableFuture.create();
+            future0.setException(t);
+            future = future0;
+        }
         final Endpoints endpoints = mq.getPartition().getBroker().getEndpoints();
-        final ListenableFuture<Long> future = queryOffset();
         Futures.addCallback(future, new FutureCallback<Long>() {
             @Override
             public void onSuccess(Long offset) {
@@ -633,7 +641,7 @@ public class ProcessQueueImpl implements ProcessQueue {
 
             @Override
             public void onFailure(Throwable t) {
-                log.error("Exception raised while query offset to pull, mq={}, endpoints={}", mq, endpoints, t);
+                log.error("Exception raised while querying offset to pull, mq={}, endpoints={}", mq, endpoints, t);
                 // drop this pq, waiting for the next assignments scan.
                 consumerImpl.dropProcessQueue(mq);
             }

@@ -18,7 +18,26 @@
 package org.apache.rocketmq.client.producer;
 
 public enum TransactionResolution {
-    COMMIT,
-    ROLLBACK,
-    UNKNOWN;
+    /**
+     * Commit message in two-phase protocol, means message could be stored and deliver.
+     */
+    COMMIT("commit"),
+    /**
+     * Rollback message in two-phase protocol, message would be withdrawn.
+     */
+    ROLLBACK("rollback"),
+    /**
+     * Message transaction is suspend.
+     */
+    UNKNOWN("unknown");
+
+    private final String name;
+
+    TransactionResolution(String name) {
+        this.name = name;
+    }
+
+    public String getName() {
+        return name;
+    }
 }

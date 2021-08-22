@@ -510,7 +510,8 @@ public class ProducerImpl extends ClientImpl {
         final EndTransactionRequest request = builder.build();
 
         // intercept before end message.
-        intercept(MessageHookPoint.PRE_END_MESSAGE, messageExt, MessageInterceptorContext.EMPTY);
+        intercept(MessageHookPoint.PRE_END_MESSAGE, messageExt,
+                  MessageInterceptorContext.builder().setTransactionResolution(resolution).build());
         final Stopwatch stopwatch = Stopwatch.createStarted();
 
         final ListenableFuture<EndTransactionResponse> future =
@@ -524,7 +525,8 @@ public class ProducerImpl extends ClientImpl {
                                                 MessageHookPointStatus.OK : MessageHookPointStatus.ERROR;
                 final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
                 final MessageInterceptorContext context =
-                        MessageInterceptorContext.builder().setDuration(duration).setStatus(status).build();
+                        MessageInterceptorContext.builder().setDuration(duration).setStatus(status)
+                                                 .setTransactionResolution(resolution).build();
                 intercept(MessageHookPoint.POST_END_MESSAGE, messageExt, context);
             }
 
@@ -534,7 +536,8 @@ public class ProducerImpl extends ClientImpl {
                 final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
                 final MessageInterceptorContext context =
                         MessageInterceptorContext.builder().setDuration(duration).setThrowable(t)
-                                                 .setStatus(MessageHookPointStatus.ERROR).build();
+                                                 .setStatus(MessageHookPointStatus.ERROR)
+                                                 .setTransactionResolution(resolution).build();
                 intercept(MessageHookPoint.POST_END_MESSAGE, messageExt, context);
             }
         });
