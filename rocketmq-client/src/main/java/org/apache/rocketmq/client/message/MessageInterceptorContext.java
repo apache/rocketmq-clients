@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
 public class MessageInterceptorContext {
     public static MessageInterceptorContext EMPTY = MessageInterceptorContext.builder().build();
 
-    private final MessageHookPoint.PointStatus status;
+    private final MessageHookPointStatus status;
     private final int messageBatchSize;
     private final int messageIndex;
     private final int attempt;
@@ -32,7 +32,7 @@ public class MessageInterceptorContext {
     private final TimeUnit timeUnit;
     private final Throwable throwable;
 
-    MessageInterceptorContext(MessageHookPoint.PointStatus status, int messageBatchSize, int messageIndex,
+    MessageInterceptorContext(MessageHookPointStatus status, int messageBatchSize, int messageIndex,
                               int attempt, long duration, TimeUnit timeUnit, Throwable throwable) {
         this.status = status;
         this.messageBatchSize = messageBatchSize;
@@ -47,7 +47,7 @@ public class MessageInterceptorContext {
         return new Builder();
     }
 
-    public MessageHookPoint.PointStatus getStatus() {
+    public MessageHookPointStatus getStatus() {
         return this.status;
     }
 
@@ -76,7 +76,7 @@ public class MessageInterceptorContext {
     }
 
     public static class Builder {
-        private MessageHookPoint.PointStatus status = MessageHookPoint.PointStatus.UNSET;
+        private MessageHookPointStatus status = MessageHookPointStatus.UNSET;
         private int messageBatchSize = 1;
         private int messageIndex = 0;
         private int attempt = 1;
@@ -87,7 +87,7 @@ public class MessageInterceptorContext {
         Builder() {
         }
 
-        public Builder setStatus(MessageHookPoint.PointStatus status) {
+        public Builder setStatus(MessageHookPointStatus status) {
             checkNotNull(status, "status");
             this.status = status;
             return this;

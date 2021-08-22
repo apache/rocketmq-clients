@@ -53,19 +53,4 @@ public enum MessageHookPoint {
      * Hook point after end the transaction message.
      */
     POST_END_MESSAGE;
-
-    public enum PointStatus {
-        /**
-         * Default status.
-         */
-        UNSET,
-        /**
-         * Success.
-         */
-        OK,
-        /**
-         * Failure.
-         */
-        ERROR;
-    }
 }

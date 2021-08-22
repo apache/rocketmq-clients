@@ -31,7 +31,6 @@ import apache.rocketmq.v1.MultiplexingResponse;
 import apache.rocketmq.v1.NackMessageResponse;
 import apache.rocketmq.v1.Permission;
 import apache.rocketmq.v1.QueryRouteResponse;
-import apache.rocketmq.v1.ReceiveMessageResponse;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.ResponseCommon;
 import apache.rocketmq.v1.SendMessageResponse;
@@ -51,6 +50,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.apache.rocketmq.client.consumer.ReceiveMessageResult;
+import org.apache.rocketmq.client.consumer.ReceiveStatus;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageAccessor;
@@ -99,43 +100,51 @@ public class TestBase {
 
     protected String dummyReceiptHandle = "handle";
 
-    protected Resource dummyTopicResource0() {
+    protected Resource dummyProtoTopic0() {
         return Resource.newBuilder().setArn(dummyArn0).setName(dummyTopic0).build();
     }
 
-    protected Address dummyAddress() {
+    protected Address dummyProtoAddress() {
         return Address.newBuilder().setHost(dummyHost0).setPort(dummyPort0).build();
     }
 
-    protected Endpoints dummyEndpoints0() {
-        return Endpoints.newBuilder().setScheme(AddressScheme.IPv4).addAddresses(dummyAddress()).build();
+    protected Endpoints dummyProtoEndpoints0() {
+        return Endpoints.newBuilder().setScheme(AddressScheme.IPv4).addAddresses(dummyProtoAddress()).build();
     }
 
-    protected Broker dummyBroker0() {
+    protected org.apache.rocketmq.client.route.Endpoints dummyEndpoints0() {
+        return new org.apache.rocketmq.client.route.Endpoints(dummyProtoEndpoints0());
+    }
+
+    protected Broker dummyProtoBroker0() {
         return Broker.newBuilder().setName(dummyBrokerName0)
                      .setId(MixAll.MASTER_BROKER_ID)
-                     .setEndpoints(dummyEndpoints0())
+                     .setEndpoints(dummyProtoEndpoints0())
                      .build();
     }
 
-    protected apache.rocketmq.v1.Partition dummyPartition0() {
+    protected apache.rocketmq.v1.Partition dummyProtoPartition0() {
         return apache.rocketmq.v1.Partition.newBuilder()
-                                           .setTopic(dummyTopicResource0())
-                                           .setBroker(dummyBroker0())
+                                           .setTopic(dummyProtoTopic0())
+                                           .setBroker(dummyProtoBroker0())
                                            .setPermission(Permission.READ_WRITE)
                                            .build();
     }
 
-    protected apache.rocketmq.v1.Partition dummyPartition0(Permission permission) {
+    protected apache.rocketmq.v1.Partition dummyProtoPartition0(Permission permission) {
         return apache.rocketmq.v1.Partition.newBuilder()
-                                           .setTopic(dummyTopicResource0())
-                                           .setBroker(dummyBroker0())
+                                           .setTopic(dummyProtoTopic0())
+                                           .setBroker(dummyProtoBroker0())
                                            .setPermission(permission)
                                            .build();
     }
 
+    protected Partition dummyPartition0() {
+        return new Partition(dummyProtoPartition0());
+    }
+
     protected MessageQueue dummyMessageQueue() {
-        return new MessageQueue(new Partition(dummyPartition0()));
+        return new MessageQueue(dummyPartition0());
     }
 
     protected ThreadPoolExecutor singleThreadPoolExecutor() {
@@ -154,8 +163,12 @@ public class TestBase {
 
     protected TopicRouteData dummyTopicRouteData(Permission permission) {
         List<apache.rocketmq.v1.Partition> partitionList = new ArrayList<apache.rocketmq.v1.Partition>();
-        partitionList.add(dummyPartition0(permission));
+        partitionList.add(dummyProtoPartition0(permission));
         return new TopicRouteData(partitionList);
+    }
+
+    protected ReceiveMessageResult dummyReceiveMessageResult(List<MessageExt> messageExtList) {
+        return new ReceiveMessageResult(dummyEndpoints0(), ReceiveStatus.OK, 0, 0, messageExtList);
     }
 
     protected ResponseCommon successResponseCommon() {
@@ -193,7 +206,7 @@ public class TestBase {
         final ResponseCommon common = successResponseCommon();
         SettableFuture<QueryRouteResponse> future0 = SettableFuture.create();
         final QueryRouteResponse response =
-                QueryRouteResponse.newBuilder().setCommon(common).addPartitions(dummyPartition0()).build();
+                QueryRouteResponse.newBuilder().setCommon(common).addPartitions(dummyProtoPartition0()).build();
         future0.set(response);
         return future0;
     }
@@ -234,14 +247,14 @@ public class TestBase {
         return future0;
     }
 
-    protected ListenableFuture<ReceiveMessageResponse>
-        successReceiveMessageResponse(List<apache.rocketmq.v1.Message> messageList) {
-        final SettableFuture<ReceiveMessageResponse> future0 = SettableFuture.create();
-        final ReceiveMessageResponse.Builder builder = ReceiveMessageResponse.newBuilder()
-                                                                             .setCommon(successResponseCommon());
-        future0.set(builder.addAllMessages(messageList).build());
-        return future0;
-    }
+    //    protected ListenableFuture<ReceiveMessageResponse>
+    //        successReceiveMessageResponse(List<apache.rocketmq.v1.Message> messageList) {
+    //        final SettableFuture<ReceiveMessageResponse> future0 = SettableFuture.create();
+    //        final ReceiveMessageResponse.Builder builder = ReceiveMessageResponse.newBuilder()
+    //                                                                             .setCommon(successResponseCommon());
+    //        future0.set(builder.addAllMessages(messageList).build());
+    //        return future0;
+    //    }
 
     protected MessageExt dummyMessageExt() {
         return dummyMessageExt(1);
@@ -282,7 +295,7 @@ public class TestBase {
                                                                        .setChecksum("9EF61F95")
                                                                        .build())
                                                   .build();
-        return apache.rocketmq.v1.Message.newBuilder().setTopic(dummyTopicResource0()).setBody(ByteString.copyFrom(
+        return apache.rocketmq.v1.Message.newBuilder().setTopic(dummyProtoTopic0()).setBody(ByteString.copyFrom(
                 "foobar", UtilAll.DEFAULT_CHARSET)).setSystemAttribute(systemAttribute).build();
     }
 

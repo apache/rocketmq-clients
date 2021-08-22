@@ -18,7 +18,6 @@
 package org.apache.rocketmq.client.impl;
 
 import apache.rocketmq.v1.ClientResourceBundle;
-import apache.rocketmq.v1.FilterType;
 import apache.rocketmq.v1.GenericPollingRequest;
 import apache.rocketmq.v1.HeartbeatEntry;
 import apache.rocketmq.v1.HeartbeatRequest;
@@ -27,10 +26,6 @@ import apache.rocketmq.v1.Message;
 import apache.rocketmq.v1.MultiplexingRequest;
 import apache.rocketmq.v1.MultiplexingResponse;
 import apache.rocketmq.v1.PrintThreadStackResponse;
-import apache.rocketmq.v1.PullMessageRequest;
-import apache.rocketmq.v1.PullMessageResponse;
-import apache.rocketmq.v1.QueryOffsetRequest;
-import apache.rocketmq.v1.QueryOffsetResponse;
 import apache.rocketmq.v1.QueryRouteRequest;
 import apache.rocketmq.v1.QueryRouteResponse;
 import apache.rocketmq.v1.ResolveOrphanedTransactionRequest;
@@ -84,12 +79,6 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
-import org.apache.rocketmq.client.consumer.OffsetQuery;
-import org.apache.rocketmq.client.consumer.PullMessageQuery;
-import org.apache.rocketmq.client.consumer.PullMessageResult;
-import org.apache.rocketmq.client.consumer.PullStatus;
-import org.apache.rocketmq.client.consumer.QueryOffsetPolicy;
-import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.message.MessageExt;
@@ -97,7 +86,6 @@ import org.apache.rocketmq.client.message.MessageHookPoint;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
-import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.message.protocol.Digest;
 import org.apache.rocketmq.client.message.protocol.DigestType;
 import org.apache.rocketmq.client.message.protocol.Encoding;
@@ -689,125 +677,6 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
 
     public abstract ClientResourceBundle wrapClientResourceBundle();
 
-    public PullMessageRequest wrapPullMessageRequest(PullMessageQuery pullMessageQuery) {
-        final MessageQueue messageQueue = pullMessageQuery.getMessageQueue();
-        final long queueOffset = pullMessageQuery.getQueueOffset();
-        final long awaitTimeMillis = pullMessageQuery.getAwaitTimeMillis();
-        final int batchSize = pullMessageQuery.getBatchSize();
-        final String arn = this.getArn();
-        final Resource groupResource =
-                Resource.newBuilder().setArn(arn).setName(group).build();
-
-        final Resource topicResource = Resource.newBuilder().setArn(arn).setName(messageQueue.getTopic()).build();
-        final apache.rocketmq.v1.Broker broker =
-                apache.rocketmq.v1.Broker.newBuilder().setName(messageQueue.getBrokerName()).build();
-        final apache.rocketmq.v1.Partition partition =
-                apache.rocketmq.v1.Partition.newBuilder()
-                                            .setTopic(topicResource)
-                                            .setId(messageQueue.getPartition().getId())
-                                            .setBroker(broker)
-                                            .build();
-        final PullMessageRequest.Builder requestBuilder =
-                PullMessageRequest.newBuilder().setClientId(clientId)
-                                  .setAwaitTime(Durations.fromMillis(awaitTimeMillis))
-                                  .setBatchSize(batchSize)
-                                  .setGroup(groupResource)
-                                  .setPartition(partition)
-                                  .setOffset(queueOffset);
-
-        final FilterExpression filterExpression = pullMessageQuery.getFilterExpression();
-        apache.rocketmq.v1.FilterExpression.Builder filterExpressionBuilder =
-                apache.rocketmq.v1.FilterExpression.newBuilder();
-        switch (filterExpression.getExpressionType()) {
-            case TAG:
-                filterExpressionBuilder.setType(FilterType.TAG);
-                break;
-            case SQL92:
-            default:
-                filterExpressionBuilder.setType(FilterType.SQL);
-        }
-        filterExpressionBuilder.setExpression(filterExpression.getExpression());
-        requestBuilder.setFilterExpression(filterExpressionBuilder.build());
-
-        return requestBuilder.build();
-    }
-
-    public ListenableFuture<PullMessageResult> pull(final PullMessageQuery pullMessageQuery) {
-        final PullMessageRequest request = wrapPullMessageRequest(pullMessageQuery);
-        final SettableFuture<PullMessageResult> future0 = SettableFuture.create();
-        Metadata metadata;
-        try {
-            metadata = sign();
-        } catch (Throwable t) {
-            future0.setException(t);
-            return future0;
-        }
-        final Endpoints endpoints = pullMessageQuery.getMessageQueue().getPartition().getBroker().getEndpoints();
-        final long timeoutMillis = pullMessageQuery.getTimeoutMillis();
-        final ListenableFuture<PullMessageResponse> future =
-                clientManager.pullMessage(endpoints, metadata, request, timeoutMillis, TimeUnit.MILLISECONDS);
-        return Futures.transformAsync(future, new AsyncFunction<PullMessageResponse, PullMessageResult>() {
-            @Override
-            public ListenableFuture<PullMessageResult> apply(PullMessageResponse response) throws ClientException {
-                final Status status = response.getCommon().getStatus();
-                final Code code = Code.forNumber(status.getCode());
-                // TODO: polish code.
-                if (Code.OK != code) {
-                    log.error("Failed to pull message, pullMessageQuery={}, code={}, status message=[{}]",
-                              pullMessageQuery, code, status.getMessage());
-                    throw new ClientException(ErrorCode.OTHER);
-                }
-                final PullMessageResult pullMessageResult = processPullMessageResponse(endpoints, response);
-                future0.set(pullMessageResult);
-                return future0;
-            }
-        });
-    }
-
-    public static PullMessageResult processPullMessageResponse(Endpoints endpoints, PullMessageResponse response) {
-        PullStatus pullStatus;
-
-        final Status status = response.getCommon().getStatus();
-        final Code code = Code.forNumber(status.getCode());
-        switch (code != null ? code : Code.UNKNOWN) {
-            case OK:
-                pullStatus = PullStatus.OK;
-                break;
-            case RESOURCE_EXHAUSTED:
-                pullStatus = PullStatus.RESOURCE_EXHAUSTED;
-                log.warn("Too many request in server, server endpoints={}, status message=[{}]", endpoints,
-                         status.getMessage());
-                break;
-            case DEADLINE_EXCEEDED:
-                pullStatus = PullStatus.DEADLINE_EXCEEDED;
-                log.warn("Gateway timeout, server endpoints={}, status message=[{}]", endpoints, status.getMessage());
-                break;
-            case NOT_FOUND:
-                pullStatus = PullStatus.NOT_FOUND;
-                log.warn("Target partition does not exist, server endpoints={}, status message=[{}]", endpoints,
-                         status.getMessage());
-                break;
-            case OUT_OF_RANGE:
-                pullStatus = PullStatus.OUT_OF_RANGE;
-                log.warn("Pulled offset is out of range, server endpoints={}, status message=[{}]", endpoints,
-                         status.getMessage());
-                break;
-            default:
-                pullStatus = PullStatus.INTERNAL;
-                log.warn("Pull response indicated server-side error, server endpoints={}, code={}, status message=[{}]",
-                         endpoints, code, status.getMessage());
-        }
-        List<MessageExt> msgFoundList = new ArrayList<MessageExt>();
-        if (PullStatus.OK == pullStatus) {
-            final List<Message> messageList = response.getMessagesList();
-            for (Message message : messageList) {
-                MessageImpl messageImpl = ClientImpl.wrapMessageImpl(message);
-                msgFoundList.add(new MessageExt(messageImpl));
-            }
-        }
-        return new PullMessageResult(pullStatus, response.getNextOffset(), response.getMinOffset(),
-                                     response.getMaxOffset(), msgFoundList);
-    }
 
     /**
      * Verify message's consumption ,the default is not supported, only would be implemented by push consumer.
@@ -1050,66 +919,6 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         }
     }
 
-    public ListenableFuture<Long> queryOffset(final OffsetQuery offsetQuery) {
-        final QueryOffsetRequest request = wrapQueryOffsetRequest(offsetQuery);
-        final SettableFuture<Long> future0 = SettableFuture.create();
-        Metadata metadata;
-        try {
-            metadata = sign();
-        } catch (Throwable t) {
-            future0.setException(t);
-            return future0;
-        }
-        final Partition partition = offsetQuery.getMessageQueue().getPartition();
-        final Endpoints endpoints = partition.getBroker().getEndpoints();
-        final ListenableFuture<QueryOffsetResponse> future =
-                clientManager.queryOffset(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
-        return Futures.transformAsync(future, new AsyncFunction<QueryOffsetResponse, Long>() {
-            @Override
-            public ListenableFuture<Long> apply(QueryOffsetResponse response) throws Exception {
-                final Status status = response.getCommon().getStatus();
-                final Code code = Code.forNumber(status.getCode());
-                // TODO: polish code.
-                if (Code.OK != code) {
-                    log.error("Failed to query offset, offsetQuery={}, code={}, message={}", offsetQuery, code,
-                              status.getMessage());
-                    throw new ClientException(ErrorCode.OTHER);
-                }
-                final long offset = response.getOffset();
-                future0.set(offset);
-                return future0;
-            }
-        });
-    }
-
-    private QueryOffsetRequest wrapQueryOffsetRequest(OffsetQuery offsetQuery) {
-        final QueryOffsetRequest.Builder builder = QueryOffsetRequest.newBuilder();
-        final QueryOffsetPolicy queryOffsetPolicy = offsetQuery.getQueryOffsetPolicy();
-        switch (queryOffsetPolicy) {
-            case END:
-                builder.setPolicy(apache.rocketmq.v1.QueryOffsetPolicy.END);
-                break;
-            case TIME_POINT:
-                builder.setPolicy(apache.rocketmq.v1.QueryOffsetPolicy.TIME_POINT);
-                builder.setTimePoint(Timestamps.fromMillis(offsetQuery.getTimePoint()));
-                break;
-            case BEGINNING:
-            default:
-                builder.setPolicy(apache.rocketmq.v1.QueryOffsetPolicy.BEGINNING);
-        }
-        final MessageQueue messageQueue = offsetQuery.getMessageQueue();
-        Resource topicResource = Resource.newBuilder().setArn(this.getArn()).setName(messageQueue.getTopic()).build();
-        int partitionId = messageQueue.getPartition().getId();
-        final apache.rocketmq.v1.Broker broker =
-                apache.rocketmq.v1.Broker.newBuilder().setName(messageQueue.getBrokerName()).build();
-        final apache.rocketmq.v1.Partition partition = apache.rocketmq.v1.Partition.newBuilder()
-                                                                                   .setBroker(broker)
-                                                                                   .setTopic(topicResource)
-                                                                                   .setId(partitionId)
-                                                                                   .build();
-        return builder.setPartition(partition).build();
-    }
-
     public static MessageImpl wrapMessageImpl(Message message) {
         final org.apache.rocketmq.client.message.protocol.SystemAttribute mqSystemAttribute =
                 new org.apache.rocketmq.client.message.protocol.SystemAttribute();
@@ -1253,10 +1062,6 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
 
     @Override
     public void doHealthCheck() {
-    }
-
-    public ClientManager getClientManager() {
-        return this.clientManager;
     }
 
     public Tracer getTracer() {

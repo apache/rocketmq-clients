@@ -17,34 +17,27 @@
 
 package org.apache.rocketmq.client.impl.consumer;
 
-import apache.rocketmq.v1.AckMessageRequest;
 import apache.rocketmq.v1.AckMessageResponse;
 import apache.rocketmq.v1.Broker;
 import apache.rocketmq.v1.ConsumePolicy;
 import apache.rocketmq.v1.FilterType;
-import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse;
-import apache.rocketmq.v1.Message;
-import apache.rocketmq.v1.NackMessageRequest;
-import apache.rocketmq.v1.NackMessageResponse;
 import apache.rocketmq.v1.Partition;
+import apache.rocketmq.v1.PullMessageRequest;
+import apache.rocketmq.v1.QueryOffsetRequest;
 import apache.rocketmq.v1.ReceiveMessageRequest;
-import apache.rocketmq.v1.ReceiveMessageResponse;
 import apache.rocketmq.v1.Resource;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.RateLimiter;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.protobuf.Duration;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
-import io.grpc.Metadata;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeSet;
@@ -55,18 +48,13 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.rocketmq.client.consumer.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.MessageModel;
-import org.apache.rocketmq.client.consumer.OffsetQuery;
-import org.apache.rocketmq.client.consumer.PullMessageQuery;
 import org.apache.rocketmq.client.consumer.PullMessageResult;
 import org.apache.rocketmq.client.consumer.PullStatus;
-import org.apache.rocketmq.client.consumer.QueryOffsetPolicy;
 import org.apache.rocketmq.client.consumer.ReceiveMessageResult;
 import org.apache.rocketmq.client.consumer.ReceiveStatus;
 import org.apache.rocketmq.client.consumer.filter.ExpressionType;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerType;
-import org.apache.rocketmq.client.impl.ClientImpl;
-import org.apache.rocketmq.client.impl.ClientManager;
 import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageImpl;
@@ -174,7 +162,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                     if (MessageListenerType.CONCURRENTLY.equals(listenerType)) {
                         log.error("Message is corrupted, nack it for concurrently consumption, mq={}, messageId={}",
                                   mq, messageExt.getMsgId());
-                        nackMessage(messageExt);
+                        consumerImpl.nackMessage(messageExt);
                     }
                     // forward to DLQ for fifo consumption.
                     if (MessageListenerType.ORDERLY.equals(listenerType)) {
@@ -321,14 +309,15 @@ public class ProcessQueueImpl implements ProcessQueue {
 
         final MessageModel messageModel = consumerImpl.getMessageModel();
         if (MessageModel.BROADCASTING.equals(messageModel)) {
-            // for broadcasting mode, no need to ack message or forward it to DLQ.
+            // for broadcasting mode, no need to ack fifo message or forward it to DLQ.
             eraseMessage(messageExt);
             fifoConsumptionOutbound();
             return;
         }
         final int maxAttempts = consumerImpl.getMaxDeliveryAttempts();
         final int attempt = messageExt.getDeliveryAttempt();
-        // failed to consume message but deliver attempt are not exhausted.
+        // failed to consume fifo message but deliver attempt are not exhausted.
+        // need to redeliver the fifo message.
         if (ConsumeStatus.ERROR.equals(status) && attempt < maxAttempts) {
             final MessageImpl messageImpl = MessageAccessor.getMessageImpl(messageExt);
             final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
@@ -337,6 +326,9 @@ public class ProcessQueueImpl implements ProcessQueue {
             // try to deliver message once again.
             final long fifoConsumptionSuspendTimeMillis = consumerImpl.getFifoConsumptionSuspendTimeMillis();
             final ConsumeService consumeService = consumerImpl.getConsumeService();
+            log.debug("Prepare to redeliver the fifo message because of consumption failure, maxAttempt={}, "
+                      + "attempt={}, mq={}, messageId={}, suspendTime={}ms", maxAttempts,
+                      messageExt.getDeliveryAttempt(), mq, messageExt.getMsgId(), fifoConsumptionSuspendTimeMillis);
             ListenableFuture<ConsumeStatus> future = consumeService
                     .consume(messageExt, fifoConsumptionSuspendTimeMillis, TimeUnit.MILLISECONDS);
             Futures.addCallback(future, new FutureCallback<ConsumeStatus>() {
@@ -348,16 +340,20 @@ public class ProcessQueueImpl implements ProcessQueue {
                 @Override
                 public void onFailure(Throwable t) {
                     // should never reach here.
-                    log.error("[Bug] Exception raised while message redelivery, mq={}, messageId={}, attempt={}, "
+                    log.error("[Bug] Exception raised while fifo message redelivery, mq={}, messageId={}, attempt={}, "
                               + "maxAttempts={}", mq, messageExt.getMsgId(), messageExt.getDeliveryAttempt(),
                               maxAttempts, t);
                 }
             });
             return;
         }
+        boolean ok = ConsumeStatus.OK.equals(status);
+        if (!ok) {
+            log.info("Failed to consume fifo message finally, run out of attempt times, maxAttempts={}, attempt={}, "
+                     + "mq={}, messageId={}", maxAttempts, attempt, mq, messageExt.getMsgId());
+        }
         // ack message or forward it to DLQ depends on consumption status.
-        SimpleFuture future = ConsumeStatus.OK.equals(status) ? ackFifoMessage(messageExt) :
-                              forwardToDeadLetterQueue(messageExt);
+        SimpleFuture future = ok ? ackFifoMessage(messageExt) : forwardToDeadLetterQueue(messageExt);
         future.addListener(new Runnable() {
             @Override
             public void run() {
@@ -439,14 +435,22 @@ public class ProcessQueueImpl implements ProcessQueue {
         final MessageModel messageModel = consumerImpl.getMessageModel();
         // for clustering mode.
         if (MessageModel.CLUSTERING.equals(messageModel)) {
+            // for success.
             if (ConsumeStatus.OK == status) {
                 for (MessageExt messageExt : messageExtList) {
                     ackMessage(messageExt);
                 }
                 return;
             }
+            // for failure.
             for (MessageExt messageExt : messageExtList) {
-                nackMessage(messageExt);
+                final int maxAttempts = consumerImpl.getMaxDeliveryAttempts();
+                final int attempt = messageExt.getDeliveryAttempt();
+                if (maxAttempts <= attempt) {
+                    log.error("Failed to consume message finally, run out of attempt times, maxAttempts={}, "
+                              + "attempt={}, mq={}, messageId={}", maxAttempts, attempt, mq, messageExt.getMsgId());
+                }
+                consumerImpl.nackMessage(messageExt);
             }
         }
     }
@@ -576,6 +580,26 @@ public class ProcessQueueImpl implements ProcessQueue {
         return true;
     }
 
+    // todo: no exception
+    private ListenableFuture<Long> queryOffset() {
+        QueryOffsetRequest.Builder builder = QueryOffsetRequest.newBuilder();
+        switch (consumerImpl.getConsumeFromWhere()) {
+            case TIMESTAMP:
+                builder.setPolicy(apache.rocketmq.v1.QueryOffsetPolicy.TIME_POINT);
+                builder.setTimePoint(Timestamps.fromMillis(consumerImpl.getConsumeFromTimeMillis()));
+                break;
+            case BEGINNING:
+                builder.setPolicy(apache.rocketmq.v1.QueryOffsetPolicy.BEGINNING);
+                break;
+            default:
+                builder.setPolicy(apache.rocketmq.v1.QueryOffsetPolicy.END);
+        }
+        builder.setPartition(getProtoPartition());
+        final QueryOffsetRequest request = builder.build();
+        final Endpoints endpoints = mq.getPartition().getBroker().getEndpoints();
+        return consumerImpl.queryOffset(request, endpoints);
+    }
+
     /**
      * Pull message immediately.
      *
@@ -597,32 +621,18 @@ public class ProcessQueueImpl implements ProcessQueue {
             pullMessage(offset);
             return;
         }
-
-        QueryOffsetPolicy queryOffsetPolicy;
-        switch (consumerImpl.getConsumeFromWhere()) {
-            case BEGINNING:
-                queryOffsetPolicy = QueryOffsetPolicy.BEGINNING;
-                break;
-            case END:
-                queryOffsetPolicy = QueryOffsetPolicy.END;
-                break;
-            case TIMESTAMP:
-            default:
-                queryOffsetPolicy = QueryOffsetPolicy.TIME_POINT;
-        }
-        long timePoint = consumerImpl.getConsumeFromTimeMillis();
-        OffsetQuery offsetQuery = new OffsetQuery(mq, queryOffsetPolicy, timePoint);
-        final ListenableFuture<Long> future = consumerImpl.queryOffset(offsetQuery);
+        final Endpoints endpoints = mq.getPartition().getBroker().getEndpoints();
+        final ListenableFuture<Long> future = queryOffset();
         Futures.addCallback(future, new FutureCallback<Long>() {
             @Override
             public void onSuccess(Long offset) {
-                log.info("Query offset successfully from remote, mq={}, offset={}", mq, offset);
+                log.info("Query offset successfully, mq={}, endpoints={}, offset={}", mq, endpoints, offset);
                 pullMessage(offset);
             }
 
             @Override
             public void onFailure(Throwable t) {
-                log.error("Exception raised while query offset to pull, mq={}", mq, t);
+                log.error("Exception raised while query offset to pull, mq={}, endpoints={}", mq, endpoints, t);
                 // drop this pq, waiting for the next assignments scan.
                 consumerImpl.dropProcessQueue(mq);
             }
@@ -636,20 +646,16 @@ public class ProcessQueueImpl implements ProcessQueue {
      *
      * @param offset offset for message queue to pull from.
      */
-    public void pullMessageImmediately(final long offset) {
+    private void pullMessageImmediately(final long offset) {
         if (consumerImpl.isStopped()) {
             return;
         }
         try {
             final Endpoints endpoints = mq.getPartition().getBroker().getEndpoints();
-            final long maxAwaitTimeMillis = consumerImpl.getMaxAwaitTimeMillisPerQueue();
-            final int maxAwaitBatchSize = getMaxAwaitBatchSize();
-            PullMessageQuery pullMessageQuery = new PullMessageQuery(mq, filterExpression, offset,
-                                                                     maxAwaitBatchSize, maxAwaitTimeMillis,
-                                                                     PULL_LONG_POLLING_TIMEOUT_MILLIS);
-
+            final PullMessageRequest request = wrapPullMessageRequest(offset);
             activityNanoTime = System.nanoTime();
-            final ListenableFuture<PullMessageResult> future = consumerImpl.pull(pullMessageQuery);
+            final ListenableFuture<PullMessageResult> future =
+                    consumerImpl.pullMessage(request, endpoints, PULL_LONG_POLLING_TIMEOUT_MILLIS);
             Futures.addCallback(future, new FutureCallback<PullMessageResult>() {
                 @Override
                 public void onSuccess(PullMessageResult pullMessageResult) {
@@ -741,34 +747,62 @@ public class ProcessQueueImpl implements ProcessQueue {
         pullMessageImmediately();
     }
 
+    ReceiveMessageRequest wrapReceiveMessageRequest() {
+        final int maxAwaitBatchSize = getMaxAwaitBatchSize();
+        final Duration invisibleDuration = Durations.fromMillis(consumerImpl.getConsumptionTimeoutMillis());
+        final Duration maxAwaitTimeMillis = Durations.fromMillis(consumerImpl.getMaxAwaitTimeMillisPerQueue());
+        final ReceiveMessageRequest.Builder builder =
+                ReceiveMessageRequest.newBuilder()
+                                     .setGroup(getProtoGroup())
+                                     .setClientId(consumerImpl.getClientId())
+                                     .setPartition(getProtoPartition()).setBatchSize(maxAwaitBatchSize)
+                                     .setInvisibleDuration(invisibleDuration)
+                                     .setAwaitTime(maxAwaitTimeMillis);
+
+        switch (consumerImpl.getConsumeFromWhere()) {
+            case BEGINNING:
+                builder.setConsumePolicy(ConsumePolicy.PLAYBACK);
+                break;
+            case TIMESTAMP:
+                builder.setConsumePolicy(ConsumePolicy.TARGET_TIMESTAMP);
+                break;
+            case END:
+                builder.setConsumePolicy(ConsumePolicy.DISCARD);
+                break;
+            default:
+                builder.setConsumePolicy(ConsumePolicy.RESUME);
+        }
+        builder.setFilterExpression(getProtoFilterExpression());
+        builder.setFifoFlag(MessageListenerType.ORDERLY.equals(consumerImpl.getMessageListener().getListenerType()));
+        return builder.build();
+    }
+
+    PullMessageRequest wrapPullMessageRequest(long offset) {
+        final int maxAwaitBatchSize = getMaxAwaitBatchSize();
+        final long maxAwaitTimeMillis = consumerImpl.getMaxAwaitTimeMillisPerQueue();
+        return PullMessageRequest.newBuilder().setGroup(getProtoGroup()).setPartition(getProtoPartition())
+                                 .setOffset(offset).setBatchSize(maxAwaitBatchSize)
+                                 .setAwaitTime(Durations.fromMillis(maxAwaitTimeMillis))
+                                 .setFilterExpression(getProtoFilterExpression())
+                                 .setClientId(consumerImpl.getClientId())
+                                 .build();
+    }
+
     private void receiveMessageImmediately() {
         if (consumerImpl.isStopped()) {
             return;
         }
         try {
-            final ClientManager clientManager = consumerImpl.getClientManager();
             final Endpoints endpoints = mq.getPartition().getBroker().getEndpoints();
-            final int maxAwaitBatchSize = getMaxAwaitBatchSize();
-            final ReceiveMessageRequest request = wrapReceiveMessageRequest(maxAwaitBatchSize);
-
+            final ReceiveMessageRequest request = wrapReceiveMessageRequest();
             activityNanoTime = System.nanoTime();
-            final Metadata metadata = consumerImpl.sign();
-            final ListenableFuture<ReceiveMessageResponse> future0 = clientManager.receiveMessage(
-                    endpoints, metadata, request, RECEIVE_LONG_POLLING_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
-
-            final ListenableFuture<ReceiveMessageResult> future = Futures.transform(
-                    future0, new Function<ReceiveMessageResponse, ReceiveMessageResult>() {
-                        @Override
-                        public ReceiveMessageResult apply(ReceiveMessageResponse response) {
-                            return processReceiveMessageResponse(endpoints, response);
-                        }
-                    });
-
+            final ListenableFuture<ReceiveMessageResult> future =
+                    consumerImpl.receiveMessage(request, endpoints, RECEIVE_LONG_POLLING_TIMEOUT_MILLIS);
             Futures.addCallback(future, new FutureCallback<ReceiveMessageResult>() {
                 @Override
                 public void onSuccess(ReceiveMessageResult receiveMessageResult) {
                     try {
-                        ProcessQueueImpl.this.onReceiveMessageResult(receiveMessageResult);
+                        onReceiveMessageResult(receiveMessageResult);
                     } catch (Throwable t) {
                         // should never reach here.
                         log.error("[Bug] Exception raised while handling receive result, would receive later, mq={}, "
@@ -798,22 +832,31 @@ public class ProcessQueueImpl implements ProcessQueue {
     }
 
     private void ackFifoMessage(final MessageExt messageExt, final int attempt, final SimpleFuture future0) {
-        final ListenableFuture<AckMessageResponse> future = ackMessage(messageExt, attempt);
+        final Endpoints endpoints = messageExt.getAckEndpoints();
+        final ListenableFuture<AckMessageResponse> future = consumerImpl.ackMessage(messageExt);
         Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
             @Override
             public void onSuccess(AckMessageResponse response) {
-                final Code code = Code.forNumber(response.getCommon().getStatus().getCode());
+                final Status status = response.getCommon().getStatus();
+                final Code code = Code.forNumber(status.getCode());
                 if (Code.OK != code) {
-                    log.debug("Ack message later because of failure last time, mq={}.", mq);
+                    log.error("Failed to ack fifo message, would attempt to re-ack later, attempt={}, messageId={}, "
+                              + "mq={}, code={}, endpoints={}, status message=[{}].", attempt, messageExt.getMsgId(),
+                              mq, code, endpoints, status.getMessage());
                     ackFifoMessageLater(messageExt, 1 + attempt, future0);
                     return;
+                }
+                if (1 < attempt) {
+                    log.info("Re-ack fifo message successfully, attempt={}, messageId={}, mq={}, endpoints={}", attempt,
+                             messageExt.getMsgId(), mq, endpoints);
                 }
                 future0.markAsDone();
             }
 
             @Override
             public void onFailure(Throwable t) {
-                log.debug("Ack message later because of exception last time, mq={}.", mq);
+                log.error("Exception raised while ack fifo message, would attempt to re-ack later, attempt={}, "
+                          + "messageId={}, mq={}, endpoints={}.", attempt, messageExt.getMsgId(), mq, endpoints, t);
                 ackFifoMessageLater(messageExt, 1 + attempt, future0);
             }
         });
@@ -851,20 +894,30 @@ public class ProcessQueueImpl implements ProcessQueue {
 
     private void forwardToDeadLetterQueue(final MessageExt messageExt, final int attempt, final SimpleFuture future0) {
         final ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future =
-                forwardToDeadLetterQueue(messageExt, attempt);
+                consumerImpl.forwardMessageToDeadLetterQueue(messageExt);
         Futures.addCallback(future, new FutureCallback<ForwardMessageToDeadLetterQueueResponse>() {
             @Override
             public void onSuccess(ForwardMessageToDeadLetterQueueResponse response) {
-                final Code code = Code.forNumber(response.getCommon().getStatus().getCode());
+                final Status status = response.getCommon().getStatus();
+                final Code code = Code.forNumber(status.getCode());
                 if (Code.OK != code) {
+                    log.error("Failed to forward message to DLQ, would attempt to re-forward later, messageId={}, "
+                              + "attempt={}, mq={}, code={}, status message=[{}]", messageExt.getMsgId(), attempt, mq,
+                              code, status.getMessage());
                     forwardToDeadLetterQueueLater(messageExt, 1 + attempt, future0);
                     return;
+                }
+                if (1 < attempt) {
+                    log.info("Re-forward message to DLQ successfully, attempt={}, messageId={}, mq={}", attempt,
+                             messageExt.getMsgId(), mq);
                 }
                 future0.markAsDone();
             }
 
             @Override
             public void onFailure(Throwable t) {
+                log.error("Exception raised while forward message to DLQ, would attempt to re-forward later, "
+                          + "attempt={}, messageId={}, mq={}.", attempt, messageExt.getMsgId(), mq, t);
                 forwardToDeadLetterQueueLater(messageExt, 1 + attempt, future0);
             }
         });
@@ -895,147 +948,33 @@ public class ProcessQueueImpl implements ProcessQueue {
         }
     }
 
-    private ListenableFuture<ForwardMessageToDeadLetterQueueResponse> forwardToDeadLetterQueue(
-            final MessageExt messageExt, final int attempt) {
-        ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future;
-        final String messageId = messageExt.getMsgId();
-        final Endpoints endpoints = messageExt.getAckEndpoints();
-        try {
-            final ForwardMessageToDeadLetterQueueRequest request =
-                    wrapForwardMessageToDeadLetterQueueRequest(messageExt);
-            final Metadata metadata = consumerImpl.sign();
-            final ClientManager clientManager = consumerImpl.getClientManager();
-            final long ioTimeoutMillis = consumerImpl.getIoTimeoutMillis();
-            future = clientManager.forwardMessageToDeadLetterQueue(endpoints, metadata, request, ioTimeoutMillis,
-                                                                   TimeUnit.MILLISECONDS);
-        } catch (Throwable t) {
-            final SettableFuture<ForwardMessageToDeadLetterQueueResponse> future0 = SettableFuture.create();
-            future0.setException(t);
-            future = future0;
-        }
-        Futures.addCallback(future, new FutureCallback<ForwardMessageToDeadLetterQueueResponse>() {
-            @Override
-            public void onSuccess(ForwardMessageToDeadLetterQueueResponse response) {
-                final Status status = response.getCommon().getStatus();
-                final Code code = Code.forNumber(status.getCode());
-                if (Code.OK != code) {
-                    log.error("Failed to forward message to DLQ, attempt={}, messageId={}, endpoints={}, code={}, "
-                              + "status message=[{}]", attempt, messageId, endpoints, code, status.getMessage());
-                }
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-                log.error("Exception raised while forward message to DLQ, attempt={}, messageId={}, endpoints={}",
-                          attempt, messageId, endpoints, t);
-            }
-        });
-        return future;
-    }
-
-    public void ackMessage(MessageExt messageExt) {
-        ackMessage(messageExt, 1);
-    }
-
-    public ListenableFuture<AckMessageResponse> ackMessage(final MessageExt messageExt, final int attempt) {
-        ListenableFuture<AckMessageResponse> future;
-        final String messageId = messageExt.getMsgId();
-        final Endpoints endpoints = messageExt.getAckEndpoints();
-        try {
-            final AckMessageRequest request = wrapAckMessageRequest(messageExt);
-            final Metadata metadata = consumerImpl.sign();
-            final ClientManager clientManager = consumerImpl.getClientManager();
-            final long ioTimeoutMillis = consumerImpl.getIoTimeoutMillis();
-            future = clientManager.ackMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
-        } catch (Throwable t) {
-            log.error("Exception raised while ACK, attempt={}, messageId={}, endpoints={}", attempt, messageId,
-                      endpoints);
-            final SettableFuture<AckMessageResponse> future0 = SettableFuture.create();
-            future0.setException(t);
-            future = future0;
-        }
+    public void ackMessage(final MessageExt messageExt) {
+        final ListenableFuture<AckMessageResponse> future = consumerImpl.ackMessage(messageExt);
         Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
             @Override
             public void onSuccess(AckMessageResponse response) {
                 final Status status = response.getCommon().getStatus();
                 final Code code = Code.forNumber(status.getCode());
                 if (Code.OK != code) {
-                    log.error("Failed to ACK, attempt={}, messageId={}, endpoints={}, code={}, status message=[{}]",
-                              attempt, messageId, endpoints, code, status.getMessage());
+                    log.error("Failed to ack message, messageId={}, mq={}, code={}, status message=[{}]",
+                              messageExt.getMsgId(), mq, code, status.getMessage());
+                    return;
                 }
+                log.trace("Ack message successfully, messageId={}, mq={}", messageExt.getMsgId(), mq);
             }
 
             @Override
             public void onFailure(Throwable t) {
-                log.error("Exception raised while ACK, attempt={}, messageId={}, endpoints={}", attempt, messageId,
-                          endpoints, t);
-            }
-        });
-        return future;
-    }
-
-    public void nackMessage(final MessageExt messageExt) {
-        final String messageId = messageExt.getMsgId();
-        final Endpoints endpoints = messageExt.getAckEndpoints();
-        ListenableFuture<NackMessageResponse> future;
-        try {
-            final NackMessageRequest request = wrapNackMessageRequest(messageExt);
-            final Metadata metadata = consumerImpl.sign();
-            final ClientManager clientManager = consumerImpl.getClientManager();
-            final long ioTimeoutMillis = consumerImpl.getIoTimeoutMillis();
-            future = clientManager.nackMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
-        } catch (Throwable t) {
-            log.error("Failed to NACK, messageId={}, endpoints={}", messageId, endpoints, t);
-            return;
-        }
-        Futures.addCallback(future, new FutureCallback<NackMessageResponse>() {
-            @Override
-            public void onSuccess(NackMessageResponse response) {
-                final Status status = response.getCommon().getStatus();
-                final Code code = Code.forNumber(status.getCode());
-                if (Code.OK != code) {
-                    log.error("Failed to NACK, messageId={}, endpoints={}, code={}, status message=[{}]", messageId,
-                              endpoints, code, status.getMessage());
-                }
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-                log.error("Exception raised while NACK, messageId={}, endpoints={}", messageId, endpoints, t);
+                log.error("Exception raised while ack message, messageId={}, mq={}", messageExt.getMsgId(), mq, t);
             }
         });
     }
 
-    private ReceiveMessageRequest wrapReceiveMessageRequest(int maxAwaitBatchSize) {
-        final Broker broker = Broker.newBuilder().setName(mq.getBrokerName()).build();
-        final Partition partition = Partition.newBuilder()
-                                             .setTopic(getTopicResource())
-                                             .setId(mq.getQueueId())
-                                             .setBroker(broker).build();
-        final Duration invisibleDuration = Durations.fromMillis(consumerImpl.getConsumptionTimeoutMillis());
-        final Duration awaitTimeDuration = Durations.fromMillis(consumerImpl.getMaxAwaitTimeMillisPerQueue());
-        final ReceiveMessageRequest.Builder builder =
-                ReceiveMessageRequest.newBuilder()
-                                     .setGroup(getGroupResource())
-                                     .setClientId(consumerImpl.getClientId())
-                                     .setPartition(partition).setBatchSize(maxAwaitBatchSize)
-                                     .setInvisibleDuration(invisibleDuration)
-                                     .setAwaitTime(awaitTimeDuration);
+    private Resource getProtoGroup() {
+        return Resource.newBuilder().setArn(consumerImpl.getArn()).setName(consumerImpl.getGroup()).build();
+    }
 
-        switch (consumerImpl.getConsumeFromWhere()) {
-            case BEGINNING:
-                builder.setConsumePolicy(ConsumePolicy.PLAYBACK);
-                break;
-            case TIMESTAMP:
-                builder.setConsumePolicy(ConsumePolicy.TARGET_TIMESTAMP);
-                break;
-            case END:
-                builder.setConsumePolicy(ConsumePolicy.DISCARD);
-                break;
-            default:
-                builder.setConsumePolicy(ConsumePolicy.RESUME);
-        }
-
+    private apache.rocketmq.v1.FilterExpression getProtoFilterExpression() {
         final ExpressionType expressionType = filterExpression.getExpressionType();
 
         apache.rocketmq.v1.FilterExpression.Builder expressionBuilder =
@@ -1045,100 +984,17 @@ public class ProcessQueueImpl implements ProcessQueue {
         expressionBuilder.setExpression(expression);
         switch (expressionType) {
             case SQL92:
-                expressionBuilder.setType(FilterType.SQL);
-                break;
+                return expressionBuilder.setType(FilterType.SQL).build();
             case TAG:
-                expressionBuilder.setType(FilterType.TAG);
-                break;
             default:
-                log.error("Unknown filter expression type={}, expression string={}", expressionType, expression);
+                return expressionBuilder.setType(FilterType.TAG).build();
         }
-
-        builder.setFilterExpression(expressionBuilder.build());
-        builder.setFifoFlag(MessageListenerType.ORDERLY.equals(consumerImpl.getMessageListener().getListenerType()));
-        return builder.build();
     }
 
-    private ForwardMessageToDeadLetterQueueRequest wrapForwardMessageToDeadLetterQueueRequest(MessageExt messageExt) {
-        return ForwardMessageToDeadLetterQueueRequest.newBuilder()
-                                                     .setGroup(getGroupResource())
-                                                     .setTopic(getTopicResource())
-                                                     .setClientId(consumerImpl.getClientId())
-                                                     .setReceiptHandle(messageExt.getReceiptHandle())
-                                                     .setMessageId(messageExt.getMsgId())
-                                                     .setDeliveryAttempt(messageExt.getDeliveryAttempt())
-                                                     .setMaxDeliveryAttempts(consumerImpl.getMaxDeliveryAttempts())
-                                                     .build();
-    }
-
-    private Resource getGroupResource() {
-        return Resource.newBuilder().setArn(consumerImpl.getArn()).setName(consumerImpl.getGroup()).build();
-    }
-
-    private Resource getTopicResource() {
-        return Resource.newBuilder().setArn(consumerImpl.getArn()).setName(mq.getTopic()).build();
-    }
-
-    private AckMessageRequest wrapAckMessageRequest(MessageExt messageExt) {
-        return AckMessageRequest.newBuilder()
-                                .setGroup(getGroupResource())
-                                .setTopic(getTopicResource())
-                                .setMessageId(messageExt.getMsgId())
-                                .setClientId(consumerImpl.getClientId())
-                                .setReceiptHandle(messageExt.getReceiptHandle())
-                                .build();
-    }
-
-    private NackMessageRequest wrapNackMessageRequest(MessageExt messageExt) {
-        return NackMessageRequest.newBuilder()
-                                 .setGroup(getGroupResource())
-                                 .setTopic(getTopicResource())
-                                 .setClientId(consumerImpl.getClientId())
-                                 .setReceiptHandle(messageExt.getReceiptHandle())
-                                 .setMessageId(messageExt.getMsgId())
-                                 .setDeliveryAttempt(messageExt.getDeliveryAttempt())
-                                 .setMaxDeliveryAttempts(consumerImpl.getMaxDeliveryAttempts())
-                                 .build();
-    }
-
-    // TODO: handle the case that the topic does not exist.
-    public ReceiveMessageResult processReceiveMessageResponse(Endpoints endpoints, ReceiveMessageResponse response) {
-        ReceiveStatus receiveStatus;
-
-        final Status status = response.getCommon().getStatus();
-        final Code code = Code.forNumber(status.getCode());
-        switch (null != code ? code : Code.UNKNOWN) {
-            case OK:
-                receiveStatus = ReceiveStatus.OK;
-                break;
-            case RESOURCE_EXHAUSTED:
-                receiveStatus = ReceiveStatus.RESOURCE_EXHAUSTED;
-                log.warn("Too many request in server, server endpoints={}, status message=[{}]", endpoints,
-                         status.getMessage());
-                break;
-            case DEADLINE_EXCEEDED:
-                receiveStatus = ReceiveStatus.DEADLINE_EXCEEDED;
-                log.warn("Gateway timeout, server endpoints={}, status message=[{}]", endpoints, status.getMessage());
-                break;
-            default:
-                receiveStatus = ReceiveStatus.INTERNAL;
-                log.warn("Receive response indicated server-side error, server endpoints={}, code={}, status "
-                         + "message={}", endpoints, code, status.getMessage());
-        }
-
-        List<MessageExt> msgFoundList = new ArrayList<MessageExt>();
-        if (ReceiveStatus.OK == receiveStatus) {
-            final List<Message> messageList = response.getMessagesList();
-            for (Message message : messageList) {
-                MessageImpl messageImpl;
-                messageImpl = ClientImpl.wrapMessageImpl(message);
-                messageImpl.getSystemAttribute().setAckEndpoints(endpoints);
-                msgFoundList.add(new MessageExt(messageImpl));
-            }
-        }
-
-        return new ReceiveMessageResult(endpoints, receiveStatus, Timestamps.toMillis(response.getDeliveryTimestamp()),
-                                        Durations.toMillis(response.getInvisibleDuration()), msgFoundList);
+    private Partition getProtoPartition() {
+        final Resource protoTopic = Resource.newBuilder().setArn(consumerImpl.getArn()).setName(mq.getTopic()).build();
+        final Broker broker = Broker.newBuilder().setName(mq.getBrokerName()).build();
+        return Partition.newBuilder().setTopic(protoTopic).setId(mq.getQueueId()).setBroker(broker).build();
     }
 
     public int cachedMessagesQuantity() {

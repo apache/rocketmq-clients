@@ -64,7 +64,7 @@ public class DefaultMQPullConsumer {
     }
 
     public ListenableFuture<PullMessageResult> pull(PullMessageQuery pullMessageQuery) {
-        return this.impl.pull(pullMessageQuery);
+        return this.impl.pullMessage(pullMessageQuery);
     }
 
     public void pull(PullMessageQuery pullMessageQuery, final PullCallback callback) {

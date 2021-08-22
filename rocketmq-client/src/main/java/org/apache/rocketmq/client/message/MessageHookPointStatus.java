@@ -15,32 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.exception;
+package org.apache.rocketmq.client.message;
 
-public enum ErrorCode {
-    CLIENT_NOT_STARTED,
-    STS_TOKEN_GET_FAILURE,
+public enum MessageHookPointStatus {
     /**
-     *
+     * Default status.
      */
-    FETCH_TOPIC_ROUTE_FAILURE,
+    UNSET,
     /**
-     * If topic was not found or partition is empty.
+     * Success.
      */
-    TOPIC_NOT_FOUND,
+    OK,
     /**
-     *
+     * Failure.
      */
-    NO_AVAILABLE_NAME_SERVER,
-    NO_PERMISSION,
-
-    FETCH_NAME_SERVER_FAILURE,
-    SIGNATURE_FAILURE,
-
-    NO_LISTENER_REGISTERED,
-    NOT_SUPPORTED_OPERATION,
-    NO_ASSIGNMENT,
-    ILLEGAL_FORMAT,
-    SEEK_OFFSET_FAILURE,
-    OTHER;
+    ERROR;
 }

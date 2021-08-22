@@ -26,7 +26,7 @@ import io.opentelemetry.api.trace.TraceId;
 import io.opentelemetry.api.trace.TraceState;
 import java.util.HashSet;
 import java.util.Set;
-import org.apache.rocketmq.client.message.MessageHookPoint;
+import org.apache.rocketmq.client.message.MessageHookPointStatus;
 
 public class TracingUtility {
     private static final String VERSION = "00";
@@ -125,7 +125,7 @@ public class TracingUtility {
         return SpanContext.createFromRemoteParent(traceId, spanId, traceFlags, TraceState.getDefault());
     }
 
-    public static StatusCode convertToTraceStatus(MessageHookPoint.PointStatus status) {
+    public static StatusCode convertToTraceStatus(MessageHookPointStatus status) {
         switch (status) {
             case OK:
                 return StatusCode.OK;

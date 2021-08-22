@@ -67,6 +67,7 @@ import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
+import org.apache.rocketmq.client.message.MessageHookPointStatus;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.message.MessageQueue;
@@ -520,9 +521,8 @@ public class ProducerImpl extends ClientImpl {
             @Override
             public void onSuccess(EndTransactionResponse response) {
                 // intercept after end message.
-                MessageHookPoint.PointStatus status =
-                        Code.OK == Code.forNumber(response.getCommon().getStatus().getCode()) ?
-                        MessageHookPoint.PointStatus.OK : MessageHookPoint.PointStatus.ERROR;
+                MessageHookPointStatus status = Code.OK == Code.forNumber(response.getCommon().getStatus().getCode()) ?
+                        MessageHookPointStatus.OK : MessageHookPointStatus.ERROR;
                 final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
                 final MessageInterceptorContext context =
                         MessageInterceptorContext.builder().setDuration(duration).setStatus(status).build();
@@ -535,7 +535,7 @@ public class ProducerImpl extends ClientImpl {
                 final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
                 final MessageInterceptorContext context =
                         MessageInterceptorContext.builder().setDuration(duration).setThrowable(t)
-                                                 .setStatus(MessageHookPoint.PointStatus.ERROR).build();
+                                                 .setStatus(MessageHookPointStatus.ERROR).build();
                 intercept(MessageHookPoint.POST_END_MESSAGE, messageExt, context);
             }
         });
@@ -677,7 +677,7 @@ public class ProducerImpl extends ClientImpl {
         // timeout, no need to proceed.
         if (future.isCancelled()) {
             log.error("No need for sending because of timeout, topic={}, messageId={}, maxAttempts={}, attempt={}",
-                     topic, msgId, maxAttempts, attempt);
+                      topic, msgId, maxAttempts, attempt);
             return;
         }
 
@@ -723,19 +723,16 @@ public class ProducerImpl extends ClientImpl {
                 // no need more attempts.
                 future.set(sendResult);
 
-                if (attempt > 1) {
-                    log.info("Resend message successfully, topic={}, messageId={}, maxAttempts={}, attempt={}.", topic,
-                             msgId, maxAttempts, attempt);
-                } else {
-                    log.trace("Send message successfully in first attempt, topic={}, messageId={}, maxAttempts={}.",
-                              topic, msgId, maxAttempts);
+                if (1 < attempt) {
+                    log.info("Resend message successfully, topic={}, messageId={}, maxAttempts={}, attempt={}, "
+                             + "endpoints={}.", topic, msgId, maxAttempts, attempt, endpoints);
                 }
 
                 // intercept after message sending.
                 final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
                 final MessageInterceptorContext context = contextBuilder.setDuration(duration)
                                                                         .setTimeUnit(TimeUnit.MILLISECONDS)
-                                                                        .setStatus(MessageHookPoint.PointStatus.OK)
+                                                                        .setStatus(MessageHookPointStatus.OK)
                                                                         .build();
                 intercept(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
             }
@@ -746,7 +743,7 @@ public class ProducerImpl extends ClientImpl {
                 final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
                 final MessageInterceptorContext context = contextBuilder.setDuration(duration)
                                                                         .setTimeUnit(TimeUnit.MILLISECONDS)
-                                                                        .setStatus(MessageHookPoint.PointStatus.ERROR)
+                                                                        .setStatus(MessageHookPointStatus.ERROR)
                                                                         .build();
                 intercept(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
                 // isolate endpoints for a while.
@@ -755,13 +752,15 @@ public class ProducerImpl extends ClientImpl {
                 if (attempt >= maxAttempts) {
                     // no need more attempts.
                     future.setException(t);
-                    log.error("Failed to send message, attempt times is exhausted, maxAttempts={}, attempt={}, "
-                              + "topic={}, messageId={}", maxAttempts, attempt, topic, msgId, t);
+                    log.error("Failed to send message finally, run out of attempt times, maxAttempts={}, attempt={}, "
+                              + "topic={}, messageId={}, endpoints={}", maxAttempts, attempt, topic, msgId, endpoints,
+                              t);
                     return;
                 }
                 // try to do more attempts.
                 log.warn("Failed to send message, would attempt to resend right now, maxAttempts={}, "
-                         + "attempt={}, topic={}, messageId={}", maxAttempts, attempt, topic, msgId, t);
+                         + "attempt={}, topic={}, messageId={}, endpoints={}", maxAttempts, attempt, topic, msgId,
+                         endpoints, t);
                 send0(future, candidates, message, 1 + attempt, maxAttempts);
             }
         });

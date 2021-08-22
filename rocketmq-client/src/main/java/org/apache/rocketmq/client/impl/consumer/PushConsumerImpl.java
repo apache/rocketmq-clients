@@ -19,6 +19,8 @@ package org.apache.rocketmq.client.impl.consumer;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import apache.rocketmq.v1.AckMessageRequest;
+import apache.rocketmq.v1.AckMessageResponse;
 import apache.rocketmq.v1.ClientResourceBundle;
 import apache.rocketmq.v1.ConsumeMessageType;
 import apache.rocketmq.v1.ConsumeModel;
@@ -26,8 +28,12 @@ import apache.rocketmq.v1.ConsumePolicy;
 import apache.rocketmq.v1.ConsumerGroup;
 import apache.rocketmq.v1.DeadLetterPolicy;
 import apache.rocketmq.v1.FilterType;
+import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest;
+import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse;
 import apache.rocketmq.v1.HeartbeatEntry;
 import apache.rocketmq.v1.Message;
+import apache.rocketmq.v1.NackMessageRequest;
+import apache.rocketmq.v1.NackMessageResponse;
 import apache.rocketmq.v1.QueryAssignmentRequest;
 import apache.rocketmq.v1.QueryAssignmentResponse;
 import apache.rocketmq.v1.Resource;
@@ -84,7 +90,7 @@ import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class PushConsumerImpl extends ClientImpl {
+public class PushConsumerImpl extends ConsumerImpl {
     private static final Logger log = LoggerFactory.getLogger(PushConsumerImpl.class);
 
     /**
@@ -709,6 +715,101 @@ public class PushConsumerImpl extends ClientImpl {
         return consumeService.consume(messageExt);
     }
 
+    private AckMessageRequest wrapAckMessageRequest(MessageExt messageExt) {
+        return AckMessageRequest.newBuilder()
+                                .setGroup(getGroupResource())
+                                .setTopic(Resource.newBuilder().setArn(arn).setName(messageExt.getTopic()).build())
+                                .setMessageId(messageExt.getMsgId())
+                                .setClientId(clientId)
+                                .setReceiptHandle(messageExt.getReceiptHandle())
+                                .build();
+    }
+
+    public ListenableFuture<AckMessageResponse> ackMessage(final MessageExt messageExt) {
+        final Endpoints endpoints = messageExt.getAckEndpoints();
+        try {
+            final AckMessageRequest request = wrapAckMessageRequest(messageExt);
+            final Metadata metadata = sign();
+            return clientManager.ackMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+        } catch (Throwable t) {
+            final SettableFuture<AckMessageResponse> future = SettableFuture.create();
+            future.setException(t);
+            return future;
+        }
+    }
+
+    private NackMessageRequest wrapNackMessageRequest(MessageExt messageExt) {
+        return NackMessageRequest.newBuilder()
+                                 .setGroup(getGroupResource())
+                                 .setTopic(Resource.newBuilder().setArn(arn).setName(messageExt.getTopic()).build())
+                                 .setClientId(clientId)
+                                 .setReceiptHandle(messageExt.getReceiptHandle())
+                                 .setMessageId(messageExt.getMsgId())
+                                 .setDeliveryAttempt(messageExt.getDeliveryAttempt())
+                                 .setMaxDeliveryAttempts(maxDeliveryAttempts)
+                                 .build();
+    }
+
+    public void nackMessage(final MessageExt messageExt) {
+        final String messageId = messageExt.getMsgId();
+        final Endpoints endpoints = messageExt.getAckEndpoints();
+        ListenableFuture<NackMessageResponse> future;
+        try {
+            final NackMessageRequest request = wrapNackMessageRequest(messageExt);
+            final Metadata metadata = sign();
+            future = clientManager.nackMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+        } catch (Throwable t) {
+            log.error("Failed to nack, messageId={}, endpoints={}", messageId, endpoints, t);
+            return;
+        }
+        Futures.addCallback(future, new FutureCallback<NackMessageResponse>() {
+            @Override
+            public void onSuccess(NackMessageResponse response) {
+                final Status status = response.getCommon().getStatus();
+                final Code code = Code.forNumber(status.getCode());
+                if (Code.OK.equals(code)) {
+                    return;
+                }
+                log.error("Failed to nack, messageId={}, endpoints={}, code={}, status message=[{}]", messageId,
+                          endpoints, code, status.getMessage());
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                log.error("Exception raised while nack, messageId={}, endpoints={}", messageId, endpoints, t);
+            }
+        });
+    }
+
+    private ForwardMessageToDeadLetterQueueRequest wrapForwardMessageToDeadLetterQueueRequest(MessageExt messageExt) {
+        final Resource topicResource = Resource.newBuilder().setArn(arn).setName(messageExt.getTopic()).build();
+        return ForwardMessageToDeadLetterQueueRequest.newBuilder()
+                                                     .setGroup(getGroupResource())
+                                                     .setTopic(topicResource)
+                                                     .setClientId(clientId)
+                                                     .setReceiptHandle(messageExt.getReceiptHandle())
+                                                     .setMessageId(messageExt.getMsgId())
+                                                     .setDeliveryAttempt(messageExt.getDeliveryAttempt())
+                                                     .setMaxDeliveryAttempts(maxDeliveryAttempts)
+                                                     .build();
+    }
+
+    public ListenableFuture<ForwardMessageToDeadLetterQueueResponse> forwardMessageToDeadLetterQueue(
+            final MessageExt messageExt) {
+        final Endpoints endpoints = messageExt.getAckEndpoints();
+        try {
+            final ForwardMessageToDeadLetterQueueRequest request =
+                    wrapForwardMessageToDeadLetterQueueRequest(messageExt);
+            final Metadata metadata = sign();
+            return clientManager.forwardMessageToDeadLetterQueue(endpoints, metadata, request, ioTimeoutMillis,
+                                                                 TimeUnit.MILLISECONDS);
+        } catch (Throwable t) {
+            final SettableFuture<ForwardMessageToDeadLetterQueueResponse> future = SettableFuture.create();
+            future.setException(t);
+            return future;
+        }
+    }
+
     @Override
     public ClientResourceBundle wrapClientResourceBundle() {
         final ClientResourceBundle.Builder builder =
@@ -851,10 +952,12 @@ public class PushConsumerImpl extends ClientImpl {
     }
 
     public void setMessageModel(MessageModel messageModel) {
+        checkNotNull(messageModel);
         this.messageModel = messageModel;
     }
 
     public void setConsumeFromWhere(ConsumeFromWhere consumeFromWhere) {
+        checkNotNull(consumeFromWhere);
         this.consumeFromWhere = consumeFromWhere;
     }
 
@@ -872,13 +975,5 @@ public class PushConsumerImpl extends ClientImpl {
 
     public void setMaxAwaitBatchSizePerQueue(int maxAwaitBatchSizePerQueue) {
         this.maxAwaitBatchSizePerQueue = maxAwaitBatchSizePerQueue;
-    }
-
-    public void setScanAssignmentsFuture(ScheduledFuture<?> scanAssignmentsFuture) {
-        this.scanAssignmentsFuture = scanAssignmentsFuture;
-    }
-
-    ConcurrentMap<MessageQueue, ProcessQueue> getProcessQueueTable() {
-        return this.processQueueTable;
     }
 }

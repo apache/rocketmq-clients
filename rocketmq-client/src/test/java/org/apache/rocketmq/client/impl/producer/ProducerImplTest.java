@@ -260,7 +260,7 @@ public class ProducerImplTest extends TestBase {
                                           ArgumentMatchers.<EndTransactionRequest>any(), anyLong(),
                                           ArgumentMatchers.<TimeUnit>any()))
                 .thenReturn(successEndTransactionResponse());
-        final Endpoints endpoints = new Endpoints(dummyEndpoints0());
+        final Endpoints endpoints = new Endpoints(dummyProtoEndpoints0());
         producerImpl.commit(endpoints, dummyMessageExt(), dummyTransactionId);
         verify(clientManager, times(1)).endTransaction(ArgumentMatchers.<Endpoints>any(),
                                                        ArgumentMatchers.<Metadata>any(),
@@ -275,7 +275,7 @@ public class ProducerImplTest extends TestBase {
                                           ArgumentMatchers.<EndTransactionRequest>any(), anyLong(),
                                           ArgumentMatchers.<TimeUnit>any()))
                 .thenReturn(successEndTransactionResponse());
-        final Endpoints endpoints = new Endpoints(dummyEndpoints0());
+        final Endpoints endpoints = new Endpoints(dummyProtoEndpoints0());
         producerImpl.rollback(endpoints, dummyMessageExt(), dummyTransactionId);
         verify(clientManager, times(1)).endTransaction(ArgumentMatchers.<Endpoints>any(),
                                                        ArgumentMatchers.<Metadata>any(),
@@ -289,7 +289,7 @@ public class ProducerImplTest extends TestBase {
         ResolveOrphanedTransactionRequest request =
                 ResolveOrphanedTransactionRequest.newBuilder().setTransactionId(dummyTransactionId)
                                                  .setOrphanedTransactionalMessage(dummyTransactionMessage0()).build();
-        final Endpoints endpoints = new Endpoints(dummyEndpoints0());
+        final Endpoints endpoints = new Endpoints(dummyProtoEndpoints0());
         {
             producerImpl.resolveOrphanedTransaction(endpoints, request);
             verify(clientManager, never()).endTransaction(ArgumentMatchers.<Endpoints>any(),

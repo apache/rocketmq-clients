@@ -26,6 +26,7 @@ import org.apache.rocketmq.client.consumer.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListener;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
+import org.apache.rocketmq.client.message.MessageHookPointStatus;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.slf4j.Logger;
@@ -72,6 +73,8 @@ public class ConsumeTask implements Callable<ConsumeStatus> {
         // intercept after message consumption.
         final long elapsed = started.elapsed(TimeUnit.MILLISECONDS);
         final long elapsedPerMessage = elapsed / messageExtList.size();
+        final MessageHookPointStatus pointStatus = ConsumeStatus.OK.equals(status) ? MessageHookPointStatus.OK :
+                                                   MessageHookPointStatus.ERROR;
         for (int i = 0; i < messageExtList.size(); i++) {
             final MessageExt messageExt = messageExtList.get(i);
             final MessageInterceptorContext context =
@@ -81,9 +84,7 @@ public class ConsumeTask implements Callable<ConsumeStatus> {
                                              .setTimeUnit(TimeUnit.MILLISECONDS)
                                              .setMessageIndex(i)
                                              .setMessageBatchSize(messageExtList.size())
-                                             .setStatus(ConsumeStatus.OK == status ?
-                                                     MessageHookPoint.PointStatus.OK :
-                                                     MessageHookPoint.PointStatus.ERROR)
+                                             .setStatus(pointStatus)
                                              .build();
             interceptor.intercept(MessageHookPoint.POST_MESSAGE_CONSUMPTION, messageExt, context);
         }
