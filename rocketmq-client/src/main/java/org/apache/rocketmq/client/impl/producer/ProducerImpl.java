@@ -271,8 +271,7 @@ public class ProducerImpl extends ClientImpl {
      * @param executor custom executor.
      */
     public void setCallbackExecutor(final ExecutorService executor) {
-        checkNotNull(executor);
-        this.customSendCallbackExecutor = executor;
+        this.customSendCallbackExecutor = checkNotNull(executor, "executor");
     }
 
     public ExecutorService getSendCallbackExecutor() {
@@ -522,7 +521,7 @@ public class ProducerImpl extends ClientImpl {
             public void onSuccess(EndTransactionResponse response) {
                 // intercept after end message.
                 MessageHookPointStatus status = Code.OK == Code.forNumber(response.getCommon().getStatus().getCode()) ?
-                        MessageHookPointStatus.OK : MessageHookPointStatus.ERROR;
+                                                MessageHookPointStatus.OK : MessageHookPointStatus.ERROR;
                 final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
                 final MessageInterceptorContext context =
                         MessageInterceptorContext.builder().setDuration(duration).setStatus(status).build();
@@ -845,8 +844,7 @@ public class ProducerImpl extends ClientImpl {
     }
 
     public void setTransactionChecker(final TransactionChecker checker) {
-        checkNotNull(checker);
-        this.transactionChecker = checker;
+        this.transactionChecker = checkNotNull(checker, "checker");
     }
 
     public int getMaxAttempts() {

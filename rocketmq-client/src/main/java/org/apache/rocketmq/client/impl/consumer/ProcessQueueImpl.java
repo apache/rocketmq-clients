@@ -101,7 +101,7 @@ public class ProcessQueueImpl implements ProcessQueue {
     private final ReentrantReadWriteLock offsetRecordsLock;
 
     private volatile long activityNanoTime = System.nanoTime();
-    private volatile long throttleNanoTime = System.nanoTime();
+    private volatile long throttleNanoTime = Long.MIN_VALUE;
 
     public ProcessQueueImpl(PushConsumerImpl consumerImpl, MessageQueue mq, FilterExpression filterExpression) {
         this.consumerImpl = consumerImpl;
@@ -519,7 +519,6 @@ public class ProcessQueueImpl implements ProcessQueue {
         }
         if (this.throttled()) {
             log.warn("Process queue is throttled, would receive message later, mq={}.", mq);
-            throttleNanoTime = System.nanoTime();
             receiveMessageLater();
             return;
         }
@@ -551,6 +550,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         if (cachedMessageQuantityThresholdPerQueue <= actualMessagesQuantity) {
             log.warn("Process queue total messages quantity exceeds the threshold, threshold={}, actual={}, mq={}",
                      cachedMessageQuantityThresholdPerQueue, actualMessagesQuantity, mq);
+            throttleNanoTime = System.nanoTime();
             return true;
         }
         final int cachedMessagesBytesPerQueue = consumerImpl.cachedMessagesBytesThresholdPerQueue();
@@ -558,6 +558,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         if (cachedMessagesBytesPerQueue <= actualCachedMessagesBytes) {
             log.warn("Process queue total messages memory exceeds the threshold, threshold={} bytes, actual={} bytes,"
                      + " mq={}", cachedMessagesBytesPerQueue, actualCachedMessagesBytes, mq);
+            throttleNanoTime = System.nanoTime();
             return true;
         }
         return false;
@@ -723,7 +724,6 @@ public class ProcessQueueImpl implements ProcessQueue {
         }
         if (this.throttled()) {
             log.warn("Process queue is throttled, would pull message later, mq={}", mq);
-            throttleNanoTime = System.nanoTime();
             pullMessageLater(offset);
             return;
         }

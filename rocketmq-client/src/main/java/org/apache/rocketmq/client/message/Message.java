@@ -17,6 +17,8 @@
 
 package org.apache.rocketmq.client.message;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import java.util.Collection;
@@ -46,6 +48,7 @@ public class Message {
     }
 
     public void setTopic(String topic) {
+        checkNotNull(topic, "topic");
         this.impl.setTopic(topic);
         reset();
     }
@@ -55,6 +58,7 @@ public class Message {
     }
 
     public void setTag(String tag) {
+        checkNotNull(tag, "tag");
         this.impl.getSystemAttribute().setTag(tag);
         reset();
     }
@@ -73,6 +77,7 @@ public class Message {
     }
 
     public void setKeys(String keys) {
+        checkNotNull(keys, "keys");
         final List<String> keyList = this.impl.getSystemAttribute().getKeys();
         keyList.clear();
         keyList.add(keys.trim());
@@ -80,6 +85,7 @@ public class Message {
     }
 
     public void setKeys(Collection<String> keys) {
+        checkNotNull(keys, "keys");
         final SystemAttribute systemAttribute = this.impl.getSystemAttribute();
         final List<String> keyList = systemAttribute.getKeys();
         keyList.clear();

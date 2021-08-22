@@ -88,44 +88,37 @@ public class MessageInterceptorContext {
         }
 
         public Builder setStatus(MessageHookPointStatus status) {
-            checkNotNull(status, "status");
-            this.status = status;
+            this.status = checkNotNull(status, "status");
             return this;
         }
 
         public Builder setMessageBatchSize(int messageBatchSize) {
-            checkNotNull(status, "messageBatchSize");
             this.messageBatchSize = messageBatchSize;
             return this;
         }
 
         public Builder setMessageIndex(int messageIndex) {
-            checkNotNull(status, "messageIndex");
             this.messageIndex = messageIndex;
             return this;
         }
 
         public Builder setAttempt(int attempt) {
-            checkNotNull(status, "attempt");
             this.attempt = attempt;
             return this;
         }
 
         public Builder setDuration(long duration) {
-            checkNotNull(status, "duration");
             this.duration = duration;
             return this;
         }
 
         public Builder setTimeUnit(TimeUnit timeUnit) {
-            checkNotNull(status, "timeUnit");
-            this.timeUnit = timeUnit;
+            this.timeUnit = checkNotNull(timeUnit, "timeUnit");
             return this;
         }
 
         public Builder setThrowable(Throwable throwable) {
-            checkNotNull(status, "throwable");
-            this.throwable = throwable;
+            this.throwable = checkNotNull(throwable, "throwable");
             return this;
         }
 

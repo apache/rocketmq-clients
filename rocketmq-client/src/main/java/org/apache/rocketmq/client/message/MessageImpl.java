@@ -17,6 +17,8 @@
 
 package org.apache.rocketmq.client.message;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import java.util.concurrent.ConcurrentMap;
@@ -36,23 +38,19 @@ public class MessageImpl {
 
     public MessageImpl(String topic, SystemAttribute systemAttribute, ConcurrentMap<String, String> userAttribute,
                        byte[] body, boolean corrupted) {
-        this.topic = topic;
-        this.systemAttribute = systemAttribute;
-        this.userAttribute = userAttribute;
-        this.body = body;
+        this.topic = checkNotNull(topic, "topic");
+        this.systemAttribute = checkNotNull(systemAttribute, "systemAttribute");
+        this.userAttribute = checkNotNull(userAttribute, "userAttribute");
+        this.body = checkNotNull(body, "body");
         this.corrupted = corrupted;
     }
 
     public void setBody(byte[] body) {
-        if (null == body) {
-            this.body = null;
-            return;
-        }
-        this.body = body.clone();
+        this.body = checkNotNull(body, "body").clone();
     }
 
     public byte[] getBody() {
-        return null == body ? null : body.clone();
+        return body.clone();
     }
 
     public String getTopic() {
@@ -72,7 +70,7 @@ public class MessageImpl {
     }
 
     public void setTopic(String topic) {
-        this.topic = topic;
+        this.topic = checkNotNull(topic, "topic");
     }
 
     @Override

@@ -107,8 +107,12 @@ public class ValidatorsTest extends TestBase {
         }
         // Body is null.
         {
-            final Message message = new Message(dummyTopic0, dummyTag0, null);
-            checkMessage(message);
+            try {
+                new Message(dummyTopic0, dummyTag0, null);
+                fail();
+            } catch (NullPointerException t) {
+                // ignore on purpose.
+            }
         }
         // Body length is zero.
         {

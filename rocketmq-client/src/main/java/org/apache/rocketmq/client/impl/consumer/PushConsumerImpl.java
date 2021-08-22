@@ -257,8 +257,7 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     public void setOffsetStore(OffsetStore offsetStore) {
-        checkNotNull(offsetStore);
-        this.offsetStore = offsetStore;
+        this.offsetStore = checkNotNull(offsetStore, "offsetStore");
     }
 
     private void generateConsumeService() throws ClientException {
@@ -534,13 +533,11 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     public void registerMessageListener(MessageListenerConcurrently messageListenerConcurrently) {
-        checkNotNull(messageListenerConcurrently);
-        this.messageListener = messageListenerConcurrently;
+        this.messageListener = checkNotNull(messageListenerConcurrently, "messageListenerConcurrently");
     }
 
     public void registerMessageListener(MessageListenerOrderly messageListenerOrderly) {
-        checkNotNull(messageListenerOrderly);
-        this.messageListener = messageListenerOrderly;
+        this.messageListener = checkNotNull(messageListenerOrderly, "messageListenerOrderly");
     }
 
     private ListenableFuture<Endpoints> pickRouteEndpoints(String topic) {
@@ -952,13 +949,11 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     public void setMessageModel(MessageModel messageModel) {
-        checkNotNull(messageModel);
-        this.messageModel = messageModel;
+        this.messageModel = checkNotNull(messageModel, "messageModel");
     }
 
     public void setConsumeFromWhere(ConsumeFromWhere consumeFromWhere) {
-        checkNotNull(consumeFromWhere);
-        this.consumeFromWhere = consumeFromWhere;
+        this.consumeFromWhere = checkNotNull(consumeFromWhere, "consumeFromWhere");
     }
 
     public void setConsumeFromTimeMillis(long consumeFromTimeMillis) {

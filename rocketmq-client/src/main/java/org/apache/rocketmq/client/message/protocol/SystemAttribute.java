@@ -17,6 +17,8 @@
 
 package org.apache.rocketmq.client.message.protocol;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import java.util.ArrayList;
@@ -149,23 +151,23 @@ public class SystemAttribute {
     }
 
     public void setTag(String tag) {
-        this.tag = tag;
+        this.tag = checkNotNull(tag, "tag");
     }
 
     public void setMessageId(String messageId) {
-        this.messageId = messageId;
+        this.messageId = checkNotNull(messageId, "messageId");
     }
 
     public void setDigest(Digest digest) {
-        this.digest = digest;
+        this.digest = checkNotNull(digest, "digest");
     }
 
     public void setBodyEncoding(Encoding bodyEncoding) {
-        this.bodyEncoding = bodyEncoding;
+        this.bodyEncoding = checkNotNull(bodyEncoding, "bodyEncoding");
     }
 
     public void setMessageType(MessageType messageType) {
-        this.messageType = messageType;
+        this.messageType = checkNotNull(messageType, "messageType");
     }
 
     public void setBornTimeMillis(long bornTimeMillis) {
@@ -173,7 +175,7 @@ public class SystemAttribute {
     }
 
     public void setBornHost(String bornHost) {
-        this.bornHost = bornHost;
+        this.bornHost = checkNotNull(bornHost, "bornHost");
     }
 
     public void setDeliveryTimeMillis(long deliveryTimeMillis) {
@@ -185,7 +187,7 @@ public class SystemAttribute {
     }
 
     public void setReceiptHandle(String receiptHandle) {
-        this.receiptHandle = receiptHandle;
+        this.receiptHandle = checkNotNull(receiptHandle, "receiptHandle");
     }
 
     public void setPartitionId(int partitionId) {
@@ -205,15 +207,15 @@ public class SystemAttribute {
     }
 
     public void setProducerGroup(String producerGroup) {
-        this.producerGroup = producerGroup;
+        this.producerGroup = checkNotNull(producerGroup, "producerGroup");
     }
 
     public void setMessageGroup(String messageGroup) {
-        this.messageGroup = messageGroup;
+        this.messageGroup = checkNotNull(messageGroup, "messageGroup");
     }
 
     public void setTraceContext(String traceContext) {
-        this.traceContext = traceContext;
+        this.traceContext = checkNotNull(traceContext, "traceContext");
     }
 
     public void setOrphanedTransactionRecoveryPeriodMillis(long orphanedTransactionRecoveryPeriodMillis) {
@@ -225,7 +227,7 @@ public class SystemAttribute {
     }
 
     public void setAckEndpoints(Endpoints ackEndpoints) {
-        this.ackEndpoints = ackEndpoints;
+        this.ackEndpoints = checkNotNull(ackEndpoints, "ackEndpoints");
     }
 
     @Override

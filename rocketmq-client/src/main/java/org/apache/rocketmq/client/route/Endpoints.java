@@ -77,7 +77,7 @@ public class Endpoints {
         if (AddressScheme.DOMAIN_NAME == addressScheme && addresses.size() > 1) {
             throw new UnsupportedOperationException("Multiple addresses not allowed in domain schema.");
         }
-        checkNotNull(addresses);
+        checkNotNull(addresses, "addresses");
         if (addresses.isEmpty()) {
             throw new UnsupportedOperationException("No available address");
         }

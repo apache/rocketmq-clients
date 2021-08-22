@@ -63,7 +63,7 @@ public class ClientConfig {
 
     public void setGroup(String group) throws ClientException {
         Validators.checkGroup(group);
-        this.group = group;
+        this.group = checkNotNull(group, "group");
     }
 
     public String getGroup() {
@@ -73,14 +73,13 @@ public class ClientConfig {
 
     // TODO: not allowed to update after client manager started(override in producer and consumer)
     public void setArn(String arn) {
-        checkNotNull(arn, "Abstract resource name is null, please set it.");
-        this.arn = arn;
+        this.arn = checkNotNull(arn, "arn");
     }
 
 
     // TODO: not allowed to update after client manager started(override in producer and consumer)
     public void setCredentialsProvider(CredentialsProvider credentialsProvider) {
-        checkNotNull(credentialsProvider, "Credentials provider is null, please set it.");
+        checkNotNull(credentialsProvider, "credentialsProvider");
         this.credentialsProvider = credentialsProvider;
     }
 
