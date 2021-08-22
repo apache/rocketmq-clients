@@ -57,7 +57,7 @@ public class ClientConfig {
         sb.append(CLIENT_ID_SEPARATOR);
         sb.append(UtilAll.processId());
         sb.append(CLIENT_ID_SEPARATOR);
-        sb.append(System.nanoTime());
+        sb.append(Long.toString(System.nanoTime(), 36));
         this.clientId = sb.toString();
     }
 
