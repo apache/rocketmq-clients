@@ -801,7 +801,7 @@ public class ProducerImpl extends ClientImpl {
 
     @Override
     public HeartbeatEntry prepareHeartbeatData() {
-        ProducerGroup producerGroup = ProducerGroup.newBuilder().setGroup(getGroupResource()).build();
+        ProducerGroup producerGroup = ProducerGroup.newBuilder().setGroup(getProtoGroup()).build();
         return HeartbeatEntry.newBuilder()
                              .setClientId(clientId)
                              .setProducerGroup(producerGroup)
@@ -815,7 +815,7 @@ public class ProducerImpl extends ClientImpl {
     @Override
     public ClientResourceBundle wrapClientResourceBundle() {
         final ClientResourceBundle.Builder builder =
-                ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(getGroupResource());
+                ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(getProtoGroup());
         for (String topic : sendingPartitionsCache.keySet()) {
             Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
             builder.addTopics(topicResource);

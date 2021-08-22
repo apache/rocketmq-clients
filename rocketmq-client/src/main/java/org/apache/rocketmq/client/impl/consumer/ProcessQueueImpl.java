@@ -761,7 +761,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         final Duration maxAwaitTimeMillis = Durations.fromMillis(consumerImpl.getMaxAwaitTimeMillisPerQueue());
         final ReceiveMessageRequest.Builder builder =
                 ReceiveMessageRequest.newBuilder()
-                                     .setGroup(getProtoGroup())
+                                     .setGroup(consumerImpl.getProtoGroup())
                                      .setClientId(consumerImpl.getClientId())
                                      .setPartition(getProtoPartition()).setBatchSize(maxAwaitBatchSize)
                                      .setInvisibleDuration(invisibleDuration)
@@ -788,7 +788,7 @@ public class ProcessQueueImpl implements ProcessQueue {
     PullMessageRequest wrapPullMessageRequest(long offset) {
         final int maxAwaitBatchSize = getMaxAwaitBatchSize();
         final long maxAwaitTimeMillis = consumerImpl.getMaxAwaitTimeMillisPerQueue();
-        return PullMessageRequest.newBuilder().setGroup(getProtoGroup()).setPartition(getProtoPartition())
+        return PullMessageRequest.newBuilder().setGroup(consumerImpl.getProtoGroup()).setPartition(getProtoPartition())
                                  .setOffset(offset).setBatchSize(maxAwaitBatchSize)
                                  .setAwaitTime(Durations.fromMillis(maxAwaitTimeMillis))
                                  .setFilterExpression(getProtoFilterExpression())
@@ -976,10 +976,6 @@ public class ProcessQueueImpl implements ProcessQueue {
                 log.error("Exception raised while ack message, messageId={}, mq={}", messageExt.getMsgId(), mq, t);
             }
         });
-    }
-
-    private Resource getProtoGroup() {
-        return Resource.newBuilder().setArn(consumerImpl.getArn()).setName(consumerImpl.getGroup()).build();
     }
 
     private apache.rocketmq.v1.FilterExpression getProtoFilterExpression() {

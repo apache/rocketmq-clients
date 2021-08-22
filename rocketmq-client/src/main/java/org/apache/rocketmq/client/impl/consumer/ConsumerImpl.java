@@ -107,7 +107,7 @@ public abstract class ConsumerImpl extends ClientImpl {
         PullStatus pullStatus;
         final Status status = response.getCommon().getStatus();
         final Code code = Code.forNumber(status.getCode());
-        switch (code != null ? code : Code.UNKNOWN) {
+        switch (null != code ? code : Code.UNKNOWN) {
             case OK:
                 pullStatus = PullStatus.OK;
                 break;

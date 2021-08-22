@@ -49,7 +49,7 @@ public interface ProcessQueue {
     void drop();
 
     /**
-     * It would be regarded as expired if no pull/receive message for a long time.
+     * It would be regarded as expired if no fetch message for a long time.
      *
      * @return if it is expired.
      */

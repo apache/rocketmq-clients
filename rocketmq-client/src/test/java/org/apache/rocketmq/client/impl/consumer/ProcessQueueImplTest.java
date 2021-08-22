@@ -34,6 +34,7 @@ import apache.rocketmq.v1.NackMessageResponse;
 import apache.rocketmq.v1.PullMessageRequest;
 import apache.rocketmq.v1.QueryOffsetRequest;
 import apache.rocketmq.v1.ReceiveMessageRequest;
+import apache.rocketmq.v1.Resource;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.RateLimiter;
@@ -89,8 +90,11 @@ public class ProcessQueueImplTest extends TestBase {
     @BeforeMethod
     public void beforeMethod() throws ClientException {
         MockitoAnnotations.initMocks(this);
+        final Resource dummyProtoGroup = Resource.newBuilder().setArn(dummyArn0).setName(dummyGroup0).build();
 
         when(consumerImpl.getArn()).thenReturn(dummyArn0);
+        when(consumerImpl.getGroup()).thenReturn(dummyGroup0);
+        when(consumerImpl.getProtoGroup()).thenReturn(dummyProtoGroup);
         when(consumerImpl.getMaxDeliveryAttempts()).thenReturn(messageMaxDeliveryAttempts);
         when(consumerImpl.getMessageListener()).thenReturn(messageListenerConcurrently);
         when(consumerImpl.getMessageModel()).thenReturn(MessageModel.CLUSTERING);
@@ -105,7 +109,6 @@ public class ProcessQueueImplTest extends TestBase {
         when(consumerImpl.getScheduler()).thenReturn(scheduler());
         when(consumerImpl.sign()).thenReturn(metadata);
         when(consumerImpl.getConsumptionExecutor()).thenReturn(singleThreadPoolExecutor());
-        when(consumerImpl.getGroup()).thenReturn(dummyGroup0);
         when(consumerImpl.getClientId()).thenReturn(dummyClientId0);
 
         processQueueImpl = new ProcessQueueImpl(consumerImpl, dummyMessageQueue(), filterExpression);

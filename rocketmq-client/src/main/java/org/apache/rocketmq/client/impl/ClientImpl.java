@@ -575,7 +575,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         }
     }
 
-    protected Resource getGroupResource() {
+    public Resource getProtoGroup() {
         return Resource.newBuilder().setArn(arn).setName(group).build();
     }
 
