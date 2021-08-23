@@ -934,7 +934,7 @@ public class ProcessQueueImpl implements ProcessQueue {
     private void forwardToDeadLetterQueueLater(final MessageExt messageExt, final int attempt,
                                                final SimpleFuture future0) {
         if (dropped) {
-            log.info("Process queue was dropped, give up to redirect message to DLQ, mq={}, messageId={}", mq,
+            log.info("Process queue was dropped, give up to forward message to DLQ, mq={}, messageId={}", mq,
                      messageExt.getMsgId());
             return;
         }

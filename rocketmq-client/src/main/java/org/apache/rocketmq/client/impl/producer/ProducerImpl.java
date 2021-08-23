@@ -624,7 +624,7 @@ public class ProducerImpl extends ClientImpl {
             @Override
             public ListenableFuture<SendResult> apply(SendingTopicRouteData sendingRouteData) throws ClientException {
                 // prepare the candidate partitions for retry-sending in advance.
-                final List<Partition> candidates = takePartitionsRoundRobin(sendingRouteData, maxAttempts);
+                final List<Partition> candidates = takePartitions(sendingRouteData, maxAttempts);
                 return send0(message, candidates, maxAttempts);
             }
         });
@@ -768,7 +768,7 @@ public class ProducerImpl extends ClientImpl {
         });
     }
 
-    List<Partition> takePartitionsRoundRobin(SendingTopicRouteData sendingRouteData, int maxAttempts)
+    private List<Partition> takePartitions(SendingTopicRouteData sendingRouteData, int maxAttempts)
             throws ClientException {
         Set<Endpoints> isolated = new HashSet<Endpoints>();
         isolatedEndpointsSetLock.readLock().lock();
@@ -831,7 +831,8 @@ public class ProducerImpl extends ClientImpl {
         if (Code.OK == code) {
             return new SendResult(endpoints, response.getMessageId(), response.getTransactionId());
         }
-        log.debug("Response indicates failure of sending message, status message=[{}]", status.getMessage());
+        log.debug("Response indicates failure of sending message, code={}, status message=[{}]",
+                  code, status.getMessage());
         throw new ServerException(ErrorCode.OTHER, status.getMessage());
     }
 
