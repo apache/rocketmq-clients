@@ -5,8 +5,16 @@ layer of the fat SDK.
 
 ## Requirements
 
-1. Runtime: JRE>=6
-2. Build: JDK>=11
+<table>
+  <tr>
+    <td><b>Build required:</b></td>
+    <td><b>Java 11 or later</b></td>
+  </tr>
+  <tr>
+    <td><b>Runtime required:</b></td>
+    <td><b>Java 6 or later</b></td>
+  </tr>
+</table>
 
 ## Build
 
@@ -21,7 +29,24 @@ We have deployed all customized third-party jars to inner maven repository of Al
 project by executing the script below:
 
 ```bash
-mvn clean package -DskipTests
+mvn clean package
 ```
+
+Sometimes you may need to release a version whose bytecode version is 52.0 (Java 8), please add `-P mustang-forbidden`
+in your command.
+
+## Getting Started
+
+Add dependency to your `pom.xml`, and replace the `${rocketmq.version` by the latest version.
+
+```xml
+<dependency>
+    <groupId>org.apache.rocketmq</groupId>
+    <artifactId>rocketmq-thin-client</artifactId>
+    <version>${rocketmq.version}</version>
+</dependency>
+```
+
+We provide the simplest to help you to quick start, please refer to the `rocketmq-example` module.
 
 ## CI/CD
