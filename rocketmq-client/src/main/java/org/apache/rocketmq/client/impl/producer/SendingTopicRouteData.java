@@ -18,11 +18,13 @@
 package org.apache.rocketmq.client.impl.producer;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Objects;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.concurrent.Immutable;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
@@ -36,14 +38,18 @@ import org.apache.rocketmq.utility.UtilAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class TopicSendingPartitions {
-    private static final Logger log = LoggerFactory.getLogger(TopicSendingPartitions.class);
+@Immutable
+public class SendingTopicRouteData {
+    private static final Logger log = LoggerFactory.getLogger(SendingTopicRouteData.class);
 
-    private static final ThreadLocal<AtomicInteger> PARTITION_INDEX = new ThreadLocal<AtomicInteger>();
-
+    private final AtomicInteger index;
+    /**
+     * Partitions to send message.
+     */
     private final List<Partition> partitions;
 
-    public TopicSendingPartitions(TopicRouteData topicRouteData) {
+    public SendingTopicRouteData(TopicRouteData topicRouteData) {
+        this.index = new AtomicInteger(RandomUtils.nextInt());
         this.partitions = filterPartition(topicRouteData);
     }
 
@@ -77,19 +83,15 @@ public class TopicSendingPartitions {
         return partitions.isEmpty();
     }
 
-    // TODO: add ut here.
     public List<Partition> takePartitions(Set<Endpoints> isolated, int count) throws ClientException {
-        if (null == PARTITION_INDEX.get()) {
-            PARTITION_INDEX.set(new AtomicInteger(RandomUtils.nextInt()));
-        }
-        int index = PARTITION_INDEX.get().getAndIncrement();
+        int nextIndex = index.getAndIncrement();
         List<Partition> candidatePartitions = new ArrayList<Partition>();
         Set<String> candidateBrokerNames = new HashSet<String>();
         if (partitions.isEmpty()) {
             throw new ClientException(ErrorCode.NO_PERMISSION);
         }
         for (int i = 0; i < partitions.size(); i++) {
-            final Partition partition = partitions.get(UtilAll.positiveMod(index++, partitions.size()));
+            final Partition partition = partitions.get(UtilAll.positiveMod(nextIndex++, partitions.size()));
             final Broker broker = partition.getBroker();
             final String brokerName = broker.getName();
             if (!isolated.contains(broker.getEndpoints()) && !candidateBrokerNames.contains(brokerName)) {
@@ -103,7 +105,7 @@ public class TopicSendingPartitions {
         // if all endpoints are isolated.
         if (candidatePartitions.isEmpty()) {
             for (int i = 0; i < partitions.size(); i++) {
-                final Partition partition = partitions.get(UtilAll.positiveMod(index++, partitions.size()));
+                final Partition partition = partitions.get(UtilAll.positiveMod(nextIndex++, partitions.size()));
                 final Broker broker = partition.getBroker();
                 final String brokerName = broker.getName();
                 if (!candidateBrokerNames.contains(brokerName)) {
@@ -114,21 +116,24 @@ public class TopicSendingPartitions {
                     break;
                 }
             }
-            return candidatePartitions;
         }
-        // if no enough candidates, pick up partition from isolated partition.
-        for (int i = 0; i < partitions.size(); i++) {
-            final Partition partition = partitions.get(UtilAll.positiveMod(index++, partitions.size()));
-            final Broker broker = partition.getBroker();
-            final String brokerName = broker.getName();
-            if (!candidateBrokerNames.contains(brokerName)) {
-                candidateBrokerNames.add(brokerName);
-                candidatePartitions.add(partition);
-            }
-            if (candidatePartitions.size() >= count) {
-                break;
-            }
+        return candidatePartitions;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
         }
-        return partitions;
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        SendingTopicRouteData that = (SendingTopicRouteData) o;
+        return Objects.equal(partitions, that.partitions);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(partitions);
     }
 }

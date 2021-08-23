@@ -146,7 +146,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
             case PRE_MESSAGE_CONSUMPTION: {
                 String traceContext = message.getTraceContext();
                 final SpanContext spanContext = TracingUtility.extractContextFromTraceParent(traceContext);
-                final SpanBuilder spanBuilder = tracer.spanBuilder(SpanName.WAITING_CONSUMPTION)
+                final SpanBuilder spanBuilder = tracer.spanBuilder(SpanName.AWAIT_CONSUMPTION)
                                                       .setStartTimestamp(message.getDecodedTimestamp(),
                                                                          TimeUnit.MILLISECONDS);
                 if (spanContext.isValid()) {

@@ -24,7 +24,6 @@ import apache.rocketmq.v1.Broker;
 import apache.rocketmq.v1.Digest;
 import apache.rocketmq.v1.DigestType;
 import apache.rocketmq.v1.EndTransactionResponse;
-import apache.rocketmq.v1.Endpoints;
 import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse;
 import apache.rocketmq.v1.GenericPollingResponse;
 import apache.rocketmq.v1.MultiplexingResponse;
@@ -62,6 +61,7 @@ import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.message.protocol.SystemAttribute;
 import org.apache.rocketmq.client.misc.MixAll;
+import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
@@ -75,7 +75,7 @@ public class TestBase {
     protected String dummyTopic0 = "TestTopic0";
     protected String dummyTopic1 = "TestTopic1";
 
-    protected String dummyBrokerName0 = "TestBrokerName";
+    protected String dummyBrokerName0 = "TestBrokerName0";
 
     protected String dummyMessageGroup0 = "TestMessageGroup";
 
@@ -104,38 +104,57 @@ public class TestBase {
         return Resource.newBuilder().setArn(dummyArn0).setName(dummyTopic0).build();
     }
 
-    protected Address dummyProtoAddress() {
-        return Address.newBuilder().setHost(dummyHost0).setPort(dummyPort0).build();
+    protected Address dummyProtoAddress0() {
+        return dummyProtoAddress(dummyHost0, dummyPort0);
     }
 
-    protected Endpoints dummyProtoEndpoints0() {
-        return Endpoints.newBuilder().setScheme(AddressScheme.IPv4).addAddresses(dummyProtoAddress()).build();
+    protected Address dummyProtoAddress(String host, int port) {
+        return Address.newBuilder().setHost(host).setPort(port).build();
     }
 
-    protected org.apache.rocketmq.client.route.Endpoints dummyEndpoints0() {
-        return new org.apache.rocketmq.client.route.Endpoints(dummyProtoEndpoints0());
+    protected apache.rocketmq.v1.Endpoints dummyProtoEndpoints0() {
+        return dummyProtoEndpoints(dummyProtoAddress0());
+    }
+
+    protected apache.rocketmq.v1.Endpoints dummyProtoEndpoints(Address address) {
+        return apache.rocketmq.v1.Endpoints.newBuilder().setScheme(AddressScheme.IPv4).addAddresses(address).build();
+    }
+
+    protected Endpoints dummyEndpoints0() {
+        return new Endpoints(dummyProtoEndpoints0());
     }
 
     protected Broker dummyProtoBroker0() {
-        return Broker.newBuilder().setName(dummyBrokerName0)
-                     .setId(MixAll.MASTER_BROKER_ID)
-                     .setEndpoints(dummyProtoEndpoints0())
-                     .build();
+        return dummyProtoBroker(dummyBrokerName0, MixAll.MASTER_BROKER_ID, dummyProtoEndpoints0());
+    }
+
+    protected Broker dummyProtoBroker(String name) {
+        return dummyProtoBroker(name, MixAll.MASTER_BROKER_ID, dummyProtoEndpoints0());
+    }
+
+    protected Broker dummyProtoBroker(String name, int id, apache.rocketmq.v1.Endpoints endpoints) {
+        return Broker.newBuilder().setName(name).setId(id).setEndpoints(endpoints).build();
     }
 
     protected apache.rocketmq.v1.Partition dummyProtoPartition0() {
-        return apache.rocketmq.v1.Partition.newBuilder()
-                                           .setTopic(dummyProtoTopic0())
-                                           .setBroker(dummyProtoBroker0())
-                                           .setPermission(Permission.READ_WRITE)
-                                           .build();
+        return dummyProtoPartition0(Permission.READ_WRITE, 0);
     }
 
     protected apache.rocketmq.v1.Partition dummyProtoPartition0(Permission permission) {
+        return dummyProtoPartition0(permission, 0);
+    }
+
+    protected apache.rocketmq.v1.Partition dummyProtoPartition0(Permission permission, int id) {
+        return dummyProtoPartition(dummyProtoTopic0(), dummyProtoBroker0(), permission, id);
+    }
+
+    protected apache.rocketmq.v1.Partition dummyProtoPartition(Resource protoTopic, Broker broker,
+                                                               Permission permission, int id) {
         return apache.rocketmq.v1.Partition.newBuilder()
-                                           .setTopic(dummyProtoTopic0())
-                                           .setBroker(dummyProtoBroker0())
+                                           .setTopic(protoTopic)
+                                           .setBroker(broker)
                                            .setPermission(permission)
+                                           .setId(id)
                                            .build();
     }
 

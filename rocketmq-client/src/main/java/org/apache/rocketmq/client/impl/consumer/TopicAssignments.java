@@ -21,9 +21,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.concurrent.Immutable;
-import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.route.Partition;
@@ -34,8 +32,6 @@ import org.slf4j.LoggerFactory;
 @Immutable
 public class TopicAssignments {
     private static final Logger log = LoggerFactory.getLogger(TopicAssignments.class);
-
-    private static final ThreadLocal<AtomicInteger> PARTITION_INDEX = new ThreadLocal<AtomicInteger>();
 
     private final List<Assignment> assignmentList;
 
@@ -54,7 +50,6 @@ public class TopicAssignments {
 
     public TopicAssignments(List<apache.rocketmq.v1.Assignment> assignmentList) {
         this.assignmentList = new ArrayList<Assignment>();
-
         for (apache.rocketmq.v1.Assignment item : assignmentList) {
             MessageQueue messageQueue =
                     new MessageQueue(new Partition(item.getPartition()));
@@ -72,13 +67,6 @@ public class TopicAssignments {
             }
             this.assignmentList.add(new Assignment(messageQueue, mode));
         }
-    }
-
-    public static int getNextPartitionIndex() {
-        if (null == PARTITION_INDEX.get()) {
-            PARTITION_INDEX.set(new AtomicInteger(RandomUtils.nextInt()));
-        }
-        return PARTITION_INDEX.get().getAndIncrement();
     }
 
     @Override

@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.route;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import javax.annotation.concurrent.Immutable;
 
@@ -59,5 +60,14 @@ public class Broker {
     @Override
     public int hashCode() {
         return Objects.hashCode(name, id, endpoints);
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                          .add("name", name)
+                          .add("id", id)
+                          .add("endpoints", endpoints)
+                          .toString();
     }
 }

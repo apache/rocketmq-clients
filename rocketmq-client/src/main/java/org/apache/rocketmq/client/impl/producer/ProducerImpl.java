@@ -113,7 +113,7 @@ public class ProducerImpl extends ClientImpl {
     /**
      * Sending message timeout, including the auto-retry.
      */
-    private long sendMessageTimeoutMillis = 10 * 1000;
+    private long sendMessageTimeoutMillis = 5 * 1000;
 
     /**
      * It indicates the delay time of server check before the transaction message is committed/rollback.
@@ -126,7 +126,7 @@ public class ProducerImpl extends ClientImpl {
 
     private ExecutorService customSendCallbackExecutor = null;
 
-    private final ConcurrentMap<String/* topic */, TopicSendingPartitions> sendingPartitionsCache;
+    private final ConcurrentMap<String/* topic */, SendingTopicRouteData> sendingRouteDataCache;
 
     @GuardedBy("isolatedEndpointsSetLock")
     private final Set<Endpoints> isolatedEndpointsSet;
@@ -144,7 +144,7 @@ public class ProducerImpl extends ClientImpl {
                 new LinkedBlockingQueue<Runnable>(),
                 new ThreadFactoryImpl("SendCallbackWorker"));
 
-        this.sendingPartitionsCache = new ConcurrentHashMap<String, TopicSendingPartitions>();
+        this.sendingRouteDataCache = new ConcurrentHashMap<String, SendingTopicRouteData>();
 
         this.isolatedEndpointsSet = new HashSet<Endpoints>();
         this.isolatedEndpointsSetLock = new ReentrantReadWriteLock();
@@ -285,9 +285,6 @@ public class ProducerImpl extends ClientImpl {
         final Resource topicResource =
                 Resource.newBuilder().setArn(arn).setName(message.getTopic()).build();
 
-        final Resource groupResource =
-                Resource.newBuilder().setArn(arn).setName(group).build();
-
         final apache.rocketmq.v1.SystemAttribute.Builder systemAttributeBuilder =
                 apache.rocketmq.v1.SystemAttribute.newBuilder()
                                                   .setTag(message.getTag())
@@ -296,7 +293,7 @@ public class ProducerImpl extends ClientImpl {
                                                   .setBornTimestamp(fromMillis(message.getBornTimeMillis()))
                                                   .setBornHost(UtilAll.hostName())
                                                   .setPartitionId(partition.getId())
-                                                  .setProducerGroup(groupResource);
+                                                  .setProducerGroup(getProtoGroup());
         Encoding encoding = Encoding.IDENTITY;
         byte[] body = message.getBody();
         if (body.length > MESSAGE_COMPRESSION_THRESHOLD) {
@@ -599,34 +596,34 @@ public class ProducerImpl extends ClientImpl {
 
     @Override
     public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
-        sendingPartitionsCache.put(topic, new TopicSendingPartitions(topicRouteData));
+        sendingRouteDataCache.put(topic, new SendingTopicRouteData(topicRouteData));
     }
 
-    private ListenableFuture<TopicSendingPartitions> getSendingPartitions(final String topic) {
-        SettableFuture<TopicSendingPartitions> future0 = SettableFuture.create();
-        final TopicSendingPartitions cachedSendingPartitions = sendingPartitionsCache.get(topic);
-        if (null != cachedSendingPartitions) {
-            future0.set(cachedSendingPartitions);
+    private ListenableFuture<SendingTopicRouteData> getSendingTopicRouteData(final String topic) {
+        SettableFuture<SendingTopicRouteData> future0 = SettableFuture.create();
+        final SendingTopicRouteData cachedSendingRouteData = sendingRouteDataCache.get(topic);
+        if (null != cachedSendingRouteData) {
+            future0.set(cachedSendingRouteData);
             return future0;
         }
         final ListenableFuture<TopicRouteData> future = getRouteData(topic);
-        return Futures.transform(future, new Function<TopicRouteData, TopicSendingPartitions>() {
+        return Futures.transform(future, new Function<TopicRouteData, SendingTopicRouteData>() {
             @Override
-            public TopicSendingPartitions apply(TopicRouteData topicRouteData) {
-                final TopicSendingPartitions sendingPartitions = new TopicSendingPartitions(topicRouteData);
-                sendingPartitionsCache.put(topic, sendingPartitions);
-                return sendingPartitions;
+            public SendingTopicRouteData apply(TopicRouteData topicRouteData) {
+                final SendingTopicRouteData sendingRouteData = new SendingTopicRouteData(topicRouteData);
+                sendingRouteDataCache.put(topic, sendingRouteData);
+                return sendingRouteData;
             }
         });
     }
 
     private ListenableFuture<SendResult> send0(final Message message, final int maxAttempts) {
-        final ListenableFuture<TopicSendingPartitions> future = getSendingPartitions(message.getTopic());
-        return Futures.transformAsync(future, new AsyncFunction<TopicSendingPartitions, SendResult>() {
+        final ListenableFuture<SendingTopicRouteData> future = getSendingTopicRouteData(message.getTopic());
+        return Futures.transformAsync(future, new AsyncFunction<SendingTopicRouteData, SendResult>() {
             @Override
-            public ListenableFuture<SendResult> apply(TopicSendingPartitions sendingPartitions) throws ClientException {
+            public ListenableFuture<SendResult> apply(SendingTopicRouteData sendingRouteData) throws ClientException {
                 // prepare the candidate partitions for retry-sending in advance.
-                final List<Partition> candidates = takePartitionsRoundRobin(sendingPartitions, maxAttempts);
+                final List<Partition> candidates = takePartitionsRoundRobin(sendingRouteData, maxAttempts);
                 return send0(message, candidates, maxAttempts);
             }
         });
@@ -768,7 +765,7 @@ public class ProducerImpl extends ClientImpl {
         });
     }
 
-    List<Partition> takePartitionsRoundRobin(TopicSendingPartitions sendingPartitions, int maxAttempts)
+    List<Partition> takePartitionsRoundRobin(SendingTopicRouteData sendingRouteData, int maxAttempts)
             throws ClientException {
         Set<Endpoints> isolated = new HashSet<Endpoints>();
         isolatedEndpointsSetLock.readLock().lock();
@@ -777,21 +774,21 @@ public class ProducerImpl extends ClientImpl {
         } finally {
             isolatedEndpointsSetLock.readLock().unlock();
         }
-        return sendingPartitions.takePartitions(isolated, maxAttempts);
+        return sendingRouteData.takePartitions(isolated, maxAttempts);
     }
 
     private ListenableFuture<Partition> selectPartition(final Message message, final MessageQueueSelector selector,
                                                         final Object arg) {
         final String topic = message.getTopic();
-        final ListenableFuture<TopicSendingPartitions> future = getSendingPartitions(topic);
-        return Futures.transformAsync(future, new AsyncFunction<TopicSendingPartitions, Partition>() {
+        final ListenableFuture<SendingTopicRouteData> future = getSendingTopicRouteData(topic);
+        return Futures.transformAsync(future, new AsyncFunction<SendingTopicRouteData, Partition>() {
             @Override
-            public ListenableFuture<Partition> apply(TopicSendingPartitions sendingPartitions) throws ClientException {
-                if (sendingPartitions.isEmpty()) {
-                    log.warn("No available partition for selector, topic={}", topic);
+            public ListenableFuture<Partition> apply(SendingTopicRouteData sendingRouteData) throws ClientException {
+                if (sendingRouteData.isEmpty()) {
+                    log.warn("No available sending route for selector, topic={}", topic);
                     throw new ClientException(ErrorCode.NO_PERMISSION);
                 }
-                final MessageQueue mq = selector.select(sendingPartitions.getMessageQueues(), message, arg);
+                final MessageQueue mq = selector.select(sendingRouteData.getMessageQueues(), message, arg);
                 final SettableFuture<Partition> future0 = SettableFuture.create();
                 future0.set(mq.getPartition());
                 return future0;
@@ -816,7 +813,7 @@ public class ProducerImpl extends ClientImpl {
     public ClientResourceBundle wrapClientResourceBundle() {
         final ClientResourceBundle.Builder builder =
                 ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(getProtoGroup());
-        for (String topic : sendingPartitionsCache.keySet()) {
+        for (String topic : sendingRouteDataCache.keySet()) {
             Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
             builder.addTopics(topicResource);
         }

@@ -75,16 +75,12 @@ import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerType;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
-import org.apache.rocketmq.client.exception.ServerException;
 import org.apache.rocketmq.client.impl.ClientImpl;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
-import org.apache.rocketmq.client.misc.MixAll;
-import org.apache.rocketmq.client.route.Broker;
 import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.client.route.Partition;
-import org.apache.rocketmq.client.route.Permission;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.slf4j.Logger;
@@ -165,7 +161,7 @@ public class PushConsumerImpl extends ConsumerImpl {
     /**
      * for {@link MessageModel#CLUSTERING} only. It shows the Maximum delivery attempts for each message.
      */
-    private int maxDeliveryAttempts = 17;
+    private int maxDeliveryAttempts = 1 + 16;
 
     /**
      * Message model for current consumption group.
@@ -393,12 +389,12 @@ public class PushConsumerImpl extends ConsumerImpl {
                     @Override
                     public void onSuccess(TopicAssignments remote) {
                         if (remote.getAssignmentList().isEmpty()) {
-                            log.info("Acquired empty assignments from remote, topic={}", topic);
                             if (null == local || local.getAssignmentList().isEmpty()) {
-                                log.info("No available assignments now, would scan later, topic={}", topic);
+                                log.info("Acquired empty assignments from remote, would scan later, topic={}", topic);
                                 return;
                             }
-                            log.info("Attention!!! acquired empty assignments from remote, topic={}", topic);
+                            log.info("Attention!!! acquired empty assignments from remote, but local assignments is "
+                                     + "not empty, topic={}", topic);
                         }
 
                         if (!remote.equals(local)) {
@@ -493,21 +489,14 @@ public class PushConsumerImpl extends ConsumerImpl {
                 continue;
             }
 
-            if (null == pq) {
-                log.error("[Bug] Process queue is null, mq={}", mq);
-                continue;
-            }
-
             if (!latestMqs.contains(mq)) {
                 log.info("Stop to receive message queue according to the latest assignments, mq={}", mq);
-                processQueueTable.remove(mq);
                 dropProcessQueue(mq);
                 continue;
             }
 
             if (pq.expired()) {
                 log.warn("Process queue is expired, mq={}", mq);
-                processQueueTable.remove(mq);
                 dropProcessQueue(mq);
                 continue;
             }
@@ -540,27 +529,15 @@ public class PushConsumerImpl extends ConsumerImpl {
         this.messageListener = checkNotNull(messageListenerOrderly, "messageListenerOrderly");
     }
 
-    private ListenableFuture<Endpoints> pickRouteEndpoints(String topic) {
+    private ListenableFuture<Endpoints> pickRouteEndpointsToQueryAssignments(String topic) {
         final ListenableFuture<TopicRouteData> future = getRouteData(topic);
         return Futures.transformAsync(future, new AsyncFunction<TopicRouteData, Endpoints>() {
             @Override
             public ListenableFuture<Endpoints> apply(TopicRouteData topicRouteData) throws Exception {
                 final SettableFuture<Endpoints> future0 = SettableFuture.create();
-                final List<Partition> partitions = topicRouteData.getPartitions();
-                for (int i = 0; i < partitions.size(); i++) {
-                    final Partition partition =
-                            partitions.get(TopicAssignments.getNextPartitionIndex() % partitions.size());
-                    final Broker broker = partition.getBroker();
-                    if (MixAll.MASTER_BROKER_ID != broker.getId()) {
-                        continue;
-                    }
-                    if (Permission.NONE == partition.getPermission()) {
-                        continue;
-                    }
-                    future0.set(broker.getEndpoints());
-                    return future0;
-                }
-                throw new ServerException(ErrorCode.NO_PERMISSION);
+                final Endpoints endpoints = topicRouteData.pickEndpointsToQueryAssignments();
+                future0.set(endpoints);
+                return future0;
             }
         });
     }
@@ -577,7 +554,7 @@ public class PushConsumerImpl extends ConsumerImpl {
             });
         }
         // for clustering mode.
-        final ListenableFuture<Endpoints> future = pickRouteEndpoints(topic);
+        final ListenableFuture<Endpoints> future = pickRouteEndpointsToQueryAssignments(topic);
         final ListenableFuture<QueryAssignmentResponse> responseFuture =
                 Futures.transformAsync(future, new AsyncFunction<Endpoints, QueryAssignmentResponse>() {
                     @Override

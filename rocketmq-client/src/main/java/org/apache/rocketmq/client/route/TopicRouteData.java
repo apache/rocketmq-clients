@@ -23,15 +23,25 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.concurrent.Immutable;
+import org.apache.commons.lang3.RandomUtils;
+import org.apache.rocketmq.client.exception.ErrorCode;
+import org.apache.rocketmq.client.exception.ServerException;
+import org.apache.rocketmq.client.misc.MixAll;
+import org.apache.rocketmq.utility.UtilAll;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Immutable
 public class TopicRouteData {
+    private static final Logger log = LoggerFactory.getLogger(TopicRouteData.class);
+
+    private final AtomicInteger index;
     /**
      * Partitions of topic route
      */
-    final List<Partition> partitions;
-
+    private final List<Partition> partitions;
 
     /**
      * Construct topic route by partition list.
@@ -39,6 +49,7 @@ public class TopicRouteData {
      * @param partitionList partition list, should never be empty.
      */
     public TopicRouteData(List<apache.rocketmq.v1.Partition> partitionList) {
+        this.index = new AtomicInteger(RandomUtils.nextInt());
         this.partitions = new ArrayList<Partition>();
         for (apache.rocketmq.v1.Partition partition : partitionList) {
             this.partitions.add(new Partition(partition));
@@ -55,6 +66,23 @@ public class TopicRouteData {
 
     public List<Partition> getPartitions() {
         return this.partitions;
+    }
+
+    public Endpoints pickEndpointsToQueryAssignments() throws ServerException {
+        int nextIndex = index.getAndIncrement();
+        for (int i = 0; i < partitions.size(); i++) {
+            final Partition partition = partitions.get(UtilAll.positiveMod(nextIndex++, partitions.size()));
+            final Broker broker = partition.getBroker();
+            if (MixAll.MASTER_BROKER_ID != broker.getId()) {
+                continue;
+            }
+            if (Permission.NONE == partition.getPermission()) {
+                continue;
+            }
+            return broker.getEndpoints();
+        }
+        log.error("No available partition, topicRouteData={}", this);
+        throw new ServerException(ErrorCode.NO_PERMISSION);
     }
 
     @Override

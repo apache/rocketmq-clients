@@ -143,8 +143,7 @@ public class ProducerImplTest extends TestBase {
         producerImpl.onTopicRouteDataUpdate0(message.getTopic(), dummyTopicRouteData(Permission.NONE));
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
-                                       ArgumentMatchers.<TimeUnit>any()))
-                .thenReturn(successSendMessageResponse());
+                                       ArgumentMatchers.<TimeUnit>any())).thenReturn(successSendMessageResponse());
         try {
             producerImpl.send(message);
             fail();

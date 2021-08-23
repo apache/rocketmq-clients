@@ -94,12 +94,12 @@ public class ProcessQueueImpl implements ProcessQueue {
     private final List<MessageExt> inflightMessages;
     private final ReentrantReadWriteLock inflightMessagesLock;
 
-    private final AtomicLong cachedMessagesBytes;
-    private final AtomicBoolean fifoConsumptionOccupied;
-
     @GuardedBy("offsetRecordsLock")
     private final TreeSet<OffsetRecord> offsetRecords;
     private final ReentrantReadWriteLock offsetRecordsLock;
+
+    private final AtomicLong cachedMessagesBytes;
+    private final AtomicBoolean fifoConsumptionOccupied;
 
     private volatile long activityNanoTime = System.nanoTime();
     private volatile long throttleNanoTime = Long.MIN_VALUE;
@@ -167,8 +167,8 @@ public class ProcessQueueImpl implements ProcessQueue {
                     }
                     // forward to DLQ for fifo consumption.
                     if (MessageListenerType.ORDERLY.equals(listenerType)) {
-                        log.error("Message is corrupted, forward it to DLQ for fifo consumption, mq={}, "
-                                  + "messageId={}", mq, messageExt.getMsgId());
+                        log.error("Message is corrupted, forward it to DLQ for fifo consumption, mq={}, messageId={}",
+                                  mq, messageExt.getMsgId());
                         forwardToDeadLetterQueue(messageExt);
                     }
                     continue;
