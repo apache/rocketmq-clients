@@ -544,7 +544,7 @@ public class PushConsumerImpl extends ConsumerImpl {
 
     private ListenableFuture<TopicAssignments> queryAssignment(final String topic) {
         // for broadcasting mode, return full topic route.
-        if (MessageModel.BROADCASTING == messageModel) {
+        if (MessageModel.BROADCASTING.equals(messageModel)) {
             final ListenableFuture<TopicRouteData> future = getRouteData(topic);
             return Futures.transform(future, new Function<TopicRouteData, TopicAssignments>() {
                 @Override
@@ -618,14 +618,12 @@ public class PushConsumerImpl extends ConsumerImpl {
                                                            .setConsumeType(ConsumeMessageType.POP);
 
         switch (messageModel) {
-            case CLUSTERING:
-                builder.setConsumeModel(ConsumeModel.CLUSTERING);
-                break;
             case BROADCASTING:
                 builder.setConsumeModel(ConsumeModel.BROADCASTING);
                 break;
+            case CLUSTERING:
             default:
-                builder.setConsumeModel(ConsumeModel.UNRECOGNIZED);
+                builder.setConsumeModel(ConsumeModel.CLUSTERING);
         }
 
         switch (consumeFromWhere) {

@@ -878,7 +878,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                 }
                 List<Endpoints> tracingRpcTargetList = new ArrayList<Endpoints>(tracingEndpointsSet);
                 Collections.shuffle(tracingRpcTargetList);
-                // Pick up tracing rpc target randomly.
+                // pick up tracing rpc target randomly.
                 final Endpoints randomTracingEndpoints = tracingRpcTargetList.iterator().next();
                 final SslContext sslContext =
                         GrpcSslContexts.forClient().trustManager(InsecureTrustManagerFactory.INSTANCE).build();
@@ -889,7 +889,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                                            .intercept(new AuthInterceptor(this));
 
                 final List<InetSocketAddress> socketAddresses = randomTracingEndpoints.convertToSocketAddresses();
-                // If scheme is not domain.
+                // if scheme is not domain.
                 if (null != socketAddresses) {
                     IpNameResolverFactory tracingResolverFactory = new IpNameResolverFactory(socketAddresses);
                     channelBuilder.nameResolverFactory(tracingResolverFactory);

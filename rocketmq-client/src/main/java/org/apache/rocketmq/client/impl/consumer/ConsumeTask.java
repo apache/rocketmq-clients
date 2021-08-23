@@ -66,7 +66,7 @@ public class ConsumeTask implements Callable<ConsumeStatus> {
             log.error("Message listener raised an exception while consuming messages.", t);
         }
         if (null == status) {
-            log.error("Message listener returns a null pointer for consume status");
+            log.error("Message listener returns NPE for consume status");
             status = ConsumeStatus.ERROR;
         }
 

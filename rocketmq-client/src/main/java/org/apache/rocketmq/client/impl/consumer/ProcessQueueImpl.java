@@ -437,7 +437,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         // for clustering mode.
         if (MessageModel.CLUSTERING.equals(messageModel)) {
             // for success.
-            if (ConsumeStatus.OK == status) {
+            if (ConsumeStatus.OK.equals(status)) {
                 for (MessageExt messageExt : messageExtList) {
                     ackMessage(messageExt);
                 }

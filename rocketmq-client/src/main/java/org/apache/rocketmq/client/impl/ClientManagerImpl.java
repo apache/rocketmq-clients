@@ -73,6 +73,7 @@ public class ClientManagerImpl implements ClientManager {
     public static final long HEALTH_CHECK_PERIOD_SECONDS = 15;
     public static final long IDLE_RPC_CLIENT_PERIOD_SECONDS = 60;
     public static final long HEART_BEAT_PERIOD_SECONDS = 10;
+    // TODO: adjust stats frequency.
     public static final long LOG_STATS_PERIOD_SECONDS = 1;
 
     private static final Logger log = LoggerFactory.getLogger(ClientManagerImpl.class);
@@ -177,8 +178,8 @@ public class ClientManagerImpl implements ClientManager {
                 if (idleSeconds > RPC_CLIENT_MAX_IDLE_SECONDS) {
                     it.remove();
                     client.shutdown();
-                    log.info("Rpc client has been idle too long, endpoints={}, idleSeconds={}, maxIdleSeconds={}",
-                             endpoints, idleSeconds, RPC_CLIENT_MAX_IDLE_SECONDS);
+                    log.info("Rpc client has been idle for a long time, endpoints={}, idleSeconds={}, "
+                             + "maxIdleSeconds={}", endpoints, idleSeconds, RPC_CLIENT_MAX_IDLE_SECONDS);
                 }
             }
         } finally {
