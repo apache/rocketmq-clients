@@ -43,7 +43,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
     private static final Logger log = LoggerFactory.getLogger(TracingMessageInterceptor.class);
 
     private final ClientImpl client;
-    private final ConcurrentMap<String/* span id */, Span> inflightSpans;
+    private final ConcurrentMap<String /* span id */ , Span> inflightSpans;
     private final ThreadLocal<SpanContext> waitingConsumptionSpanContextThreadLocal;
 
     public TracingMessageInterceptor(ClientImpl client) {
@@ -117,30 +117,6 @@ public class TracingMessageInterceptor implements MessageInterceptor {
             case PRE_PULL_MESSAGE:
                 break;
             case POST_PULL_MESSAGE: {
-                final String traceContext = message.getTraceContext();
-                final SpanContext spanContext = TracingUtility.extractContextFromTraceParent(traceContext);
-                long startTimestamp =
-                        System.currentTimeMillis() - TimeUnit.MILLISECONDS.convert(context.getDuration(),
-                                                                                   context.getTimeUnit());
-                final SpanBuilder spanBuilder =
-                        tracer.spanBuilder(SpanName.PULL_MESSAGE).setStartTimestamp(startTimestamp,
-                                                                                    context.getTimeUnit());
-                if (spanContext.isValid()) {
-                    spanBuilder.setParent(Context.current().with(Span.wrap(spanContext)));
-                }
-                final Span span = spanBuilder.startSpan();
-                if (StringUtils.isNotEmpty(accessKey)) {
-                    span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);
-                }
-                span.setAttribute(TracingAttribute.ARN, arn);
-                span.setAttribute(TracingAttribute.TOPIC, message.getTopic());
-                span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
-                span.setAttribute(TracingAttribute.GROUP, group);
-                span.setAttribute(TracingAttribute.TAG, message.getTag());
-                span.setAttribute(TracingAttribute.HOST, UtilAll.hostName());
-                span.setAttribute(TracingAttribute.KEYS, message.getKeys());
-                span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
-                span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
                 break;
             }
             case PRE_MESSAGE_CONSUMPTION: {
@@ -165,7 +141,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.KEYS, message.getKeys());
                 span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
                 span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
-                span.setAttribute(TracingAttribute.STORE_TIMESTAMP, message.getStoreTimestamp());
+                span.setAttribute(TracingAttribute.AVAILABLE_TIMESTAMP, message.getStoreTimestamp());
                 span.end();
                 waitingConsumptionSpanContextThreadLocal.set(span.getSpanContext());
                 break;
@@ -175,11 +151,8 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 waitingConsumptionSpanContextThreadLocal.remove();
                 final String traceContext = message.getTraceContext();
                 final SpanContext spanContext = TracingUtility.extractContextFromTraceParent(traceContext);
-                long startTimestamp =
-                        System.currentTimeMillis() - TimeUnit.MILLISECONDS.convert(
-                                (context.getMessageBatchSize()
-                                 - context.getMessageIndex()) * context.getDuration(),
-                                context.getTimeUnit());
+                final long endTimestamp = System.currentTimeMillis();
+                long startTimestamp = endTimestamp - context.getTimeUnit().toMillis(context.getDuration());
                 final SpanBuilder spanBuilder =
                         tracer.spanBuilder(SpanName.CONSUME_MESSAGE).setStartTimestamp(startTimestamp,
                                                                                        TimeUnit.MILLISECONDS);
@@ -202,12 +175,12 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.KEYS, message.getKeys());
                 span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
                 span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
-                span.setAttribute(TracingAttribute.STORE_TIMESTAMP, message.getStoreTimestamp());
+                span.setAttribute(TracingAttribute.AVAILABLE_TIMESTAMP, message.getStoreTimestamp());
+                span.setAttribute(TracingAttribute.BATCH_SIZE, context.getBatchSize());
 
                 final StatusCode statusCode = TracingUtility.convertToTraceStatus(context.getStatus());
                 span.setStatus(statusCode);
 
-                final long endTimestamp = startTimestamp + context.getDuration();
                 span.end(endTimestamp, TimeUnit.MILLISECONDS);
                 break;
             }
@@ -223,8 +196,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                     spanBuilder.setParent(Context.current().with(Span.wrap(spanContext)));
                 }
                 long startTimestamp =
-                        System.currentTimeMillis() - TimeUnit.MILLISECONDS.convert(context.getDuration(),
-                                                                                   context.getTimeUnit());
+                        System.currentTimeMillis() - context.getTimeUnit().toMillis(context.getDuration());
                 final Span span = spanBuilder.setStartTimestamp(startTimestamp, TimeUnit.MILLISECONDS).startSpan();
                 if (StringUtils.isNotEmpty(accessKey)) {
                     span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);

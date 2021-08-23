@@ -17,6 +17,10 @@
 
 package org.apache.rocketmq.client.message;
 
+import java.util.concurrent.TimeUnit;
+
 public interface MessageInterceptor {
+    TimeUnit DEFAULT_TIME_UNIT = TimeUnit.NANOSECONDS;
+
     void intercept(MessageHookPoint hookPoint, MessageExt messageExt, MessageInterceptorContext context);
 }

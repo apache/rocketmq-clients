@@ -69,6 +69,7 @@ import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
 import org.apache.rocketmq.client.message.MessageHookPointStatus;
 import org.apache.rocketmq.client.message.MessageImpl;
+import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.message.protocol.Encoding;
@@ -359,8 +360,8 @@ public class ProducerImpl extends ClientImpl {
         return SendMessageRequest.newBuilder().setMessage(msg).build();
     }
 
-    public SendResult send(Message message)
-            throws ClientException, InterruptedException, ServerException, TimeoutException {
+    public SendResult send(Message message) throws ClientException, InterruptedException, ServerException,
+                                                   TimeoutException {
         return send(message, sendMessageTimeoutMillis);
     }
 
@@ -728,10 +729,11 @@ public class ProducerImpl extends ClientImpl {
                 }
 
                 // intercept after message sending.
-                final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
+                final TimeUnit timeUnit = MessageInterceptor.DEFAULT_TIME_UNIT;
+                final long duration = stopwatch.elapsed(timeUnit);
                 final MessageInterceptorContext context = contextBuilder.setDuration(duration)
-                                                                        .setTimeUnit(TimeUnit.MILLISECONDS)
                                                                         .setStatus(MessageHookPointStatus.OK)
+                                                                        .setTimeUnit(timeUnit)
                                                                         .build();
                 intercept(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
             }
@@ -739,10 +741,11 @@ public class ProducerImpl extends ClientImpl {
             @Override
             public void onFailure(Throwable t) {
                 // intercept after message sending.
-                final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
+                final TimeUnit timeUnit = MessageInterceptor.DEFAULT_TIME_UNIT;
+                final long duration = stopwatch.elapsed(timeUnit);
                 final MessageInterceptorContext context = contextBuilder.setDuration(duration)
-                                                                        .setTimeUnit(TimeUnit.MILLISECONDS)
                                                                         .setStatus(MessageHookPointStatus.ERROR)
+                                                                        .setTimeUnit(timeUnit)
                                                                         .build();
                 intercept(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
                 // isolate endpoints for a while.

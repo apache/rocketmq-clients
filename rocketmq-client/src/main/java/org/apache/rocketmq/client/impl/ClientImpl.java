@@ -134,7 +134,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
      * Delay interval between two consecutive trace span exports to collector. See
      * <a href="https://opentelemetry.io">OpenTelemetry</a> for more details.
      */
-    private static final long TRACE_EXPORTER_SCHEDULE_DELAY_MILLIS = 1000L;
+    private static final long TRACE_EXPORTER_SCHEDULE_DELAY_MILLIS = 500L;
 
     /**
      * Maximum time to wait for the collector to process an exported batch of spans. See
@@ -146,13 +146,13 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
      * Maximum batch size for every export of span, must be smaller than {@link #TRACE_EXPORTER_MAX_QUEUE_SIZE}.
      * See <a href="https://opentelemetry.io">OpenTelemetry</a> for more details.
      */
-    private static final int TRACE_EXPORTER_BATCH_SIZE = 1024;
+    private static final int TRACE_EXPORTER_BATCH_SIZE = 2048;
 
     /**
      * Maximum number of {@link Span} that are kept in the queue before start dropping. See
      * <a href="https://opentelemetry.io">OpenTelemetry</a> for more details.
      */
-    private static final int TRACE_EXPORTER_MAX_QUEUE_SIZE = 4096;
+    private static final int TRACE_EXPORTER_MAX_QUEUE_SIZE = 16384;
 
     protected volatile ClientManager clientManager;
 
