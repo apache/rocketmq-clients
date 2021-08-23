@@ -174,7 +174,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                     continue;
                 }
                 pendingMessages.add(messageExt);
-                cachedMessagesBytes.addAndGet(null == messageExt.getBody() ? 0 : messageExt.getBody().length);
+                cachedMessagesBytes.addAndGet(messageExt.getBody().length);
                 offsetList.add(messageExt.getQueueOffset());
             }
         } finally {
@@ -391,7 +391,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         try {
             for (MessageExt messageExt : messageExtList) {
                 if (inflightMessages.remove(messageExt)) {
-                    cachedMessagesBytes.addAndGet(null == messageExt.getBody() ? 0 : -messageExt.getBody().length);
+                    cachedMessagesBytes.addAndGet(-messageExt.getBody().length);
                 }
                 offsetList.add(messageExt.getQueueOffset());
             }

@@ -45,16 +45,18 @@ import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.grpc.Metadata;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.net.ssl.SSLException;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.remoting.RpcClient;
@@ -77,9 +79,13 @@ public class ClientManagerImpl implements ClientManager {
 
     private final String id;
 
-    private final ConcurrentMap<Endpoints, RpcClient> rpcClientTable;
+    @GuardedBy("rpcClientTableLock")
+    private final Map<Endpoints, RpcClient> rpcClientTable;
+    private final ReentrantReadWriteLock rpcClientTableLock;
 
-    private final ConcurrentMap<String /* ClientId */, ClientObserver> observerTable;
+    @GuardedBy("observerTableLock")
+    private final Map<String /* ClientId */, ClientObserver> observerTable;
+    private final ReentrantReadWriteLock observerTableLock;
 
     private final ScheduledExecutorService scheduler;
 
@@ -92,9 +98,12 @@ public class ClientManagerImpl implements ClientManager {
 
     public ClientManagerImpl(String id) {
         this.id = id;
-        this.rpcClientTable = new ConcurrentHashMap<Endpoints, RpcClient>();
 
-        this.observerTable = new ConcurrentHashMap<String, ClientObserver>();
+        this.rpcClientTable = new HashMap<Endpoints, RpcClient>();
+        this.rpcClientTableLock = new ReentrantReadWriteLock();
+
+        this.observerTable = new HashMap<String, ClientObserver>();
+        this.observerTableLock = new ReentrantReadWriteLock();
 
         this.scheduler = new ScheduledThreadPoolExecutor(
                 Runtime.getRuntime().availableProcessors(),
@@ -120,63 +129,91 @@ public class ClientManagerImpl implements ClientManager {
 
     @Override
     public void registerObserver(ClientObserver observer) {
-        synchronized (observerTable) {
+        observerTableLock.writeLock().lock();
+        try {
             observerTable.put(observer.getClientId(), observer);
+        } finally {
+            observerTableLock.writeLock().unlock();
         }
     }
 
     @Override
     public void unregisterObserver(ClientObserver observer) throws InterruptedException {
-        synchronized (observerTable) {
+        observerTableLock.writeLock().lock();
+        try {
             observerTable.remove(observer.getClientId());
             if (observerTable.isEmpty()) {
                 shutdown();
             }
+        } finally {
+            observerTableLock.writeLock().unlock();
         }
     }
 
     private void doHealthCheck() {
         log.info("Start to do health check for a new round.");
-        for (Map.Entry<String, ClientObserver> entry : observerTable.entrySet()) {
-            final ClientObserver observer = entry.getValue();
-            observer.doHealthCheck();
+        observerTableLock.readLock().lock();
+        try {
+            for (Map.Entry<String, ClientObserver> entry : observerTable.entrySet()) {
+                final ClientObserver observer = entry.getValue();
+                observer.doHealthCheck();
+            }
+        } finally {
+            observerTableLock.readLock().unlock();
         }
     }
 
     private void clearIdleRpcClients() throws InterruptedException {
         log.info("Start to clear idle rpc clients for a new round.");
-        for (Map.Entry<Endpoints, RpcClient> entry : rpcClientTable.entrySet()) {
-            final Endpoints endpoints = entry.getKey();
-            final RpcClient client = entry.getValue();
+        rpcClientTableLock.writeLock().lock();
+        try {
+            final Iterator<Map.Entry<Endpoints, RpcClient>> it = rpcClientTable.entrySet().iterator();
+            while (it.hasNext()) {
+                final Map.Entry<Endpoints, RpcClient> entry = it.next();
+                final Endpoints endpoints = entry.getKey();
+                final RpcClient client = entry.getValue();
 
-            final long idleSeconds = client.idleSeconds();
-            if (idleSeconds > RPC_CLIENT_MAX_IDLE_SECONDS) {
-                rpcClientTable.remove(endpoints, client);
-                client.shutdown();
-                log.info("Rpc client has been idle too long, endpoints={}, idleSeconds={}, maxIdleSeconds={}",
-                         endpoints, idleSeconds, RPC_CLIENT_MAX_IDLE_SECONDS);
+                final long idleSeconds = client.idleSeconds();
+                if (idleSeconds > RPC_CLIENT_MAX_IDLE_SECONDS) {
+                    it.remove();
+                    client.shutdown();
+                    log.info("Rpc client has been idle too long, endpoints={}, idleSeconds={}, maxIdleSeconds={}",
+                             endpoints, idleSeconds, RPC_CLIENT_MAX_IDLE_SECONDS);
+                }
             }
+        } finally {
+            rpcClientTableLock.writeLock().unlock();
         }
     }
 
     private void doHeartbeat() {
         log.info("Start to send heartbeat for a new round.");
-        for (Map.Entry<String, ClientObserver> entry : observerTable.entrySet()) {
-            final String clientId = entry.getKey();
-            final ClientObserver observer = entry.getValue();
-            log.info("Start to send heartbeat for clientId={}", clientId);
-            observer.doHeartbeat();
+        observerTableLock.readLock().lock();
+        try {
+            for (Map.Entry<String, ClientObserver> entry : observerTable.entrySet()) {
+                final String clientId = entry.getKey();
+                final ClientObserver observer = entry.getValue();
+                log.info("Start to send heartbeat for clientId={}", clientId);
+                observer.doHeartbeat();
+            }
+        } finally {
+            observerTableLock.readLock().unlock();
         }
     }
 
     private void doLogStats() {
         log.info("Start to log stats for a new round, clientVersion={}, clientWrapperVersion={}",
                  MetadataUtils.getVersion(), MetadataUtils.getWrapperVersion());
-        for (Map.Entry<String, ClientObserver> entry : observerTable.entrySet()) {
-            final String clientId = entry.getKey();
-            final ClientObserver observer = entry.getValue();
-            log.info("Log stats for clientId={}", clientId);
-            observer.doStats();
+        observerTableLock.readLock().lock();
+        try {
+            for (Map.Entry<String, ClientObserver> entry : observerTable.entrySet()) {
+                final String clientId = entry.getKey();
+                final ClientObserver observer = entry.getValue();
+                log.info("Log stats for clientId={}", clientId);
+                observer.doStats();
+            }
+        } finally {
+            observerTableLock.readLock().unlock();
         }
     }
 
@@ -275,11 +312,17 @@ public class ClientManagerImpl implements ClientManager {
             if (!asyncWorker.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
                 log.error("[Bug] Timeout to shutdown the async worker");
             }
-            for (Map.Entry<Endpoints, RpcClient> entry : rpcClientTable.entrySet()) {
-                final Endpoints endpoints = entry.getKey();
-                final RpcClient rpcClient = entry.getValue();
-                rpcClientTable.remove(endpoints, rpcClient);
-                rpcClient.shutdown();
+            rpcClientTableLock.writeLock().lock();
+            try {
+                final Iterator<Map.Entry<Endpoints, RpcClient>> it = rpcClientTable.entrySet().iterator();
+                while (it.hasNext()) {
+                    final Map.Entry<Endpoints, RpcClient> entry = it.next();
+                    final RpcClient rpcClient = entry.getValue();
+                    it.remove();
+                    rpcClient.shutdown();
+                }
+            } finally {
+                rpcClientTableLock.writeLock().unlock();
             }
             state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
             log.info("Shutdown the client manager successfully.");
@@ -287,17 +330,25 @@ public class ClientManagerImpl implements ClientManager {
     }
 
     /**
-     * Get rpc client by remote {@link Endpoints}, would create client automatically if it does not exist.
+     * Return rpc client by remote {@link Endpoints}, would create client automatically if it does not exist.
      *
      * @param endpoints remote endpoints.
      * @return rpc client.
      */
     private RpcClient getRpcClient(Endpoints endpoints) throws ClientException {
-        synchronized (rpcClientTable) {
-            RpcClient rpcClient = rpcClientTable.get(endpoints);
+        RpcClient rpcClient;
+        // in case of the occasion that rpc client is garbage collected before shutdown when invoked concurrently.
+        rpcClientTableLock.readLock().lock();
+        try {
+            rpcClient = rpcClientTable.get(endpoints);
             if (null != rpcClient) {
                 return rpcClient;
             }
+        } finally {
+            rpcClientTableLock.readLock().unlock();
+        }
+        rpcClientTableLock.writeLock().lock();
+        try {
             try {
                 rpcClient = new RpcClientImpl(endpoints);
             } catch (SSLException e) {
@@ -306,6 +357,8 @@ public class ClientManagerImpl implements ClientManager {
             }
             rpcClientTable.put(endpoints, rpcClient);
             return rpcClient;
+        } finally {
+            rpcClientTableLock.writeLock().unlock();
         }
     }
 

@@ -57,7 +57,7 @@ public class UtilAll {
 
     public static byte[] macAddress() {
         if (null != MAC_ADDRESS) {
-            return MAC_ADDRESS;
+            return MAC_ADDRESS.clone();
         }
         try {
             final Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
@@ -68,13 +68,13 @@ public class UtilAll {
                     continue;
                 }
                 MAC_ADDRESS = mac;
-                return MAC_ADDRESS;
+                return MAC_ADDRESS.clone();
             }
             MAC_ADDRESS = MAC_ADDRESS_NOT_FOUND;
-            return MAC_ADDRESS;
+            return MAC_ADDRESS.clone();
         } catch (Throwable ignore) {
             MAC_ADDRESS = MAC_ADDRESS_NOT_FOUND;
-            return MAC_ADDRESS;
+            return MAC_ADDRESS.clone();
         }
     }
 

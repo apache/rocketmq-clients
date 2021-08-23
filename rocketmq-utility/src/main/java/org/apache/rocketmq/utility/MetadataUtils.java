@@ -19,6 +19,7 @@ package org.apache.rocketmq.utility;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Properties;
 
 public class MetadataUtils {
@@ -32,10 +33,19 @@ public class MetadataUtils {
     }
 
     static {
+        InputStream stream = MetadataUtils.class.getResourceAsStream(METADATA_CONF_PATH);
         try {
-            PROPERTIES.load(MetadataUtils.class.getResourceAsStream(METADATA_CONF_PATH));
-        } catch (IOException e) {
+            PROPERTIES.load(stream);
+        } catch (Throwable e) {
             e.printStackTrace();
+        } finally {
+            try {
+                if (null != stream) {
+                    stream.close();
+                }
+            } catch (IOException ignore) {
+                // ignore on purpose.
+            }
         }
     }
 

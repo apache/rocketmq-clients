@@ -21,6 +21,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+import java.util.Arrays;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.rocketmq.client.message.protocol.SystemAttribute;
 
@@ -85,7 +86,7 @@ public class MessageImpl {
         return corrupted == message.corrupted && Objects.equal(topic, message.topic) &&
                Objects.equal(systemAttribute, message.systemAttribute) &&
                Objects.equal(userAttribute, message.userAttribute) &&
-               Objects.equal(body, message.body);
+               Arrays.equals(body, message.getBody());
     }
 
     @Override

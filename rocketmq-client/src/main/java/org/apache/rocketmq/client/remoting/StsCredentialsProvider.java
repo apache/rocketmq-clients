@@ -30,9 +30,8 @@ import org.slf4j.LoggerFactory;
 
 public class StsCredentialsProvider implements CredentialsProvider {
     private static final Logger log = LoggerFactory.getLogger(StsCredentialsProvider.class);
-    
+
     private static final int HTTP_TIMEOUT_MILLIS = 3 * 1000;
-    private static final SimpleDateFormat UTC_DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
     private static final String RAM_ROLE_HOST = "100.100.100.200";
     private static final String RAM_ROLE_URL_PREFIX = "/latest/meta-data/Ram/security-credentials/";
     private Credentials credentials;
@@ -111,8 +110,9 @@ public class StsCredentialsProvider implements CredentialsProvider {
                 Gson gson = new Gson();
                 final StsCredentials stsCredentials = gson.fromJson(content, StsCredentials.class);
                 final String expiration = stsCredentials.getExpiration();
-                UTC_DATE_FORMAT.setTimeZone(TimeZone.getTimeZone("UTC"));
-                final long expiredTimeMillis = UTC_DATE_FORMAT.parse(expiration).getTime();
+                final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+                dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+                final long expiredTimeMillis = dateFormat.parse(expiration).getTime();
 
                 final String code = stsCredentials.getCode();
                 if (StsCredentials.SUCCESS_CODE.equals(code)) {
