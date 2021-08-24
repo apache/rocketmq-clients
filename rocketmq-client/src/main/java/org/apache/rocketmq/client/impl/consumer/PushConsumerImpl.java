@@ -173,11 +173,11 @@ public class PushConsumerImpl extends ConsumerImpl {
      *
      * <p>In cluster consumption model, it is UNDEFINED if consumer use different timestamp in the same group.
      */
-    private ConsumeFromWhere consumeFromWhere = ConsumeFromWhere.END;
+    private ConsumeFromWhere consumeFromWhere = ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET;
 
     /**
      * Indicates first consumption's time point of consumer by timestamp. Note that setting this option does not take
-     * effect while {@link #consumeFromWhere} is not {@link ConsumeFromWhere#TIMESTAMP}.
+     * effect while {@link #consumeFromWhere} is not {@link ConsumeFromWhere#CONSUME_FROM_TIMESTAMP}.
      *
      * <p>In cluster consumption model, timestamp here indicates the position of all consumer's first consumption.
      * Which is UNDEFINED if consumers use different timestamp in same group.
@@ -627,13 +627,15 @@ public class PushConsumerImpl extends ConsumerImpl {
         }
 
         switch (consumeFromWhere) {
-            case BEGINNING:
+            case CONSUME_FROM_FIRST_OFFSET:
                 builder.setConsumePolicy(ConsumePolicy.PLAYBACK);
                 break;
-            case TIMESTAMP:
+            case CONSUME_FROM_TIMESTAMP:
                 builder.setConsumePolicy(ConsumePolicy.TARGET_TIMESTAMP);
                 break;
-            case END:
+            case CONSUME_FROM_MAX_OFFSET:
+                builder.setConsumePolicy(ConsumePolicy.DISCARD);
+                break;
             default:
                 builder.setConsumePolicy(ConsumePolicy.RESUME);
         }
@@ -688,13 +690,10 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     private AckMessageRequest wrapAckMessageRequest(MessageExt messageExt) {
-        return AckMessageRequest.newBuilder()
-                                .setGroup(getProtoGroup())
+        return AckMessageRequest.newBuilder().setGroup(getProtoGroup())
                                 .setTopic(Resource.newBuilder().setArn(arn).setName(messageExt.getTopic()).build())
-                                .setMessageId(messageExt.getMsgId())
-                                .setClientId(clientId)
-                                .setReceiptHandle(messageExt.getReceiptHandle())
-                                .build();
+                                .setMessageId(messageExt.getMsgId()).setClientId(clientId)
+                                .setReceiptHandle(messageExt.getReceiptHandle()).build();
     }
 
     public ListenableFuture<AckMessageResponse> ackMessage(final MessageExt messageExt) {
@@ -755,15 +754,12 @@ public class PushConsumerImpl extends ConsumerImpl {
 
     private ForwardMessageToDeadLetterQueueRequest wrapForwardMessageToDeadLetterQueueRequest(MessageExt messageExt) {
         final Resource topicResource = Resource.newBuilder().setArn(arn).setName(messageExt.getTopic()).build();
-        return ForwardMessageToDeadLetterQueueRequest.newBuilder()
-                                                     .setGroup(getProtoGroup())
-                                                     .setTopic(topicResource)
+        return ForwardMessageToDeadLetterQueueRequest.newBuilder().setGroup(getProtoGroup()).setTopic(topicResource)
                                                      .setClientId(clientId)
                                                      .setReceiptHandle(messageExt.getReceiptHandle())
                                                      .setMessageId(messageExt.getMsgId())
                                                      .setDeliveryAttempt(messageExt.getDeliveryAttempt())
-                                                     .setMaxDeliveryAttempts(maxDeliveryAttempts)
-                                                     .build();
+                                                     .setMaxDeliveryAttempts(maxDeliveryAttempts).build();
     }
 
     public ListenableFuture<ForwardMessageToDeadLetterQueueResponse> forwardMessageToDeadLetterQueue(

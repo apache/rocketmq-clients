@@ -586,11 +586,11 @@ public class ProcessQueueImpl implements ProcessQueue {
     private ListenableFuture<Long> queryOffset() {
         QueryOffsetRequest.Builder builder = QueryOffsetRequest.newBuilder();
         switch (consumerImpl.getConsumeFromWhere()) {
-            case TIMESTAMP:
+            case CONSUME_FROM_TIMESTAMP:
                 builder.setPolicy(apache.rocketmq.v1.QueryOffsetPolicy.TIME_POINT);
                 builder.setTimePoint(Timestamps.fromMillis(consumerImpl.getConsumeFromTimeMillis()));
                 break;
-            case BEGINNING:
+            case CONSUME_FROM_FIRST_OFFSET:
                 builder.setPolicy(apache.rocketmq.v1.QueryOffsetPolicy.BEGINNING);
                 break;
             default:
@@ -771,13 +771,13 @@ public class ProcessQueueImpl implements ProcessQueue {
                                      .setAwaitTime(maxAwaitTimeMillis);
 
         switch (consumerImpl.getConsumeFromWhere()) {
-            case BEGINNING:
+            case CONSUME_FROM_FIRST_OFFSET:
                 builder.setConsumePolicy(ConsumePolicy.PLAYBACK);
                 break;
-            case TIMESTAMP:
+            case CONSUME_FROM_TIMESTAMP:
                 builder.setConsumePolicy(ConsumePolicy.TARGET_TIMESTAMP);
                 break;
-            case END:
+            case CONSUME_FROM_MAX_OFFSET:
                 builder.setConsumePolicy(ConsumePolicy.DISCARD);
                 break;
             default:

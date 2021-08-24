@@ -124,11 +124,15 @@ public class ProducerImpl extends ClientImpl {
     private TransactionChecker transactionChecker;
 
     /**
-     * Default callback executor for send, if {@link #customSendCallbackExecutor} is not defined, default executor
-     * would be applied for async message sending.
+     * Default callback executor for asynchronous sending, if {@link #customSendCallbackExecutor} is not defined,
+     * default executor would be applied for asynchronous message sending.
      */
     private final ExecutorService defaultSendCallbackExecutor;
 
+    /**
+     * Custom callback executor for asynchronous sending, it is set, {@link #defaultSendCallbackExecutor} would not
+     * be applied.
+     */
     private ExecutorService customSendCallbackExecutor = null;
 
     private final ConcurrentMap<String/* topic */, SendingTopicRouteData> sendingRouteDataCache;
@@ -552,7 +556,7 @@ public class ProducerImpl extends ClientImpl {
                 log.error("Failed to end transaction, messageId={}, transactionId={}, code={}, status message=[{}]",
                           messageId, transactionId, code, status.getMessage());
 
-                throw new ServerException(status.getMessage());
+                throw new ServerException(ErrorCode.OTHER, status.getMessage());
             }
 
         } catch (ExecutionException e) {

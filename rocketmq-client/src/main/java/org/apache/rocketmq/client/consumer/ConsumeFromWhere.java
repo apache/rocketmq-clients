@@ -21,13 +21,18 @@ public enum ConsumeFromWhere {
     /**
      * From the latest offset.
      */
-    END,
+    CONSUME_FROM_MAX_OFFSET,
     /**
      * From the first offset exists.
      */
-    BEGINNING,
+    CONSUME_FROM_FIRST_OFFSET,
     /**
      * Seek the offset by timestamp.
      */
-    TIMESTAMP,
+    CONSUME_FROM_TIMESTAMP,
+
+    /**
+     * From the last offset recorded, if last offset does not exist, {@link #CONSUME_FROM_MAX_OFFSET} would be applied.
+     */
+    CONSUME_FROM_LAST_OFFSET,
 }

@@ -98,7 +98,7 @@ public class ProcessQueueImplTest extends TestBase {
         when(consumerImpl.getMaxDeliveryAttempts()).thenReturn(messageMaxDeliveryAttempts);
         when(consumerImpl.getMessageListener()).thenReturn(messageListenerConcurrently);
         when(consumerImpl.getMessageModel()).thenReturn(MessageModel.CLUSTERING);
-        when(consumerImpl.getConsumeFromWhere()).thenReturn(ConsumeFromWhere.END);
+        when(consumerImpl.getConsumeFromWhere()).thenReturn(ConsumeFromWhere.CONSUME_FROM_MAX_OFFSET);
         when(consumerImpl.getConsumeService()).thenReturn(consumeService);
         when(consumerImpl.getReceptionTimes()).thenReturn(receptionTimes);
         when(consumerImpl.getReceivedMessagesQuantity()).thenReturn(receivedMessagesQuantity);
