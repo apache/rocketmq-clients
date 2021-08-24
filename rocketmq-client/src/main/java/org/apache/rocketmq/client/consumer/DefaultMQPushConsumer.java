@@ -239,6 +239,15 @@ public class DefaultMQPushConsumer {
     }
 
     /**
+     * Set the policy to consume from.
+     *
+     * @param consumeFromWhere policy to consume from
+     */
+    public void setConsumeFromWhere(ConsumeFromWhere consumeFromWhere) {
+        this.impl.setConsumeFromWhere(consumeFromWhere);
+    }
+
+    /**
      * Set message max delivery attempt times.
      *
      * @param maxAttempts max attempts.

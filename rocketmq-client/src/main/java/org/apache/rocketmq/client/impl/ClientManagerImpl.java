@@ -50,6 +50,8 @@ import io.grpc.Metadata;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -72,7 +74,7 @@ public class ClientManagerImpl implements ClientManager {
     public static final long RPC_CLIENT_MAX_IDLE_SECONDS = 30 * 60;
     public static final long HEALTH_CHECK_PERIOD_SECONDS = 15;
     public static final long IDLE_RPC_CLIENT_PERIOD_SECONDS = 60;
-    public static final long HEART_BEAT_PERIOD_SECONDS = 10;
+    public static final long HEART_BEAT_PERIOD_SECONDS = 1;
     // TODO: adjust stats frequency.
     public static final long LOG_STATS_PERIOD_SECONDS = 1;
 
@@ -84,9 +86,7 @@ public class ClientManagerImpl implements ClientManager {
     private final Map<Endpoints, RpcClient> rpcClientTable;
     private final ReentrantReadWriteLock rpcClientTableLock;
 
-    @GuardedBy("observerTableLock")
-    private final Map<String /* ClientId */, ClientObserver> observerTable;
-    private final ReentrantReadWriteLock observerTableLock;
+    private final ConcurrentMap<String /* ClientId */, ClientObserver> observerTable;
 
     private final ScheduledExecutorService scheduler;
 
@@ -103,8 +103,7 @@ public class ClientManagerImpl implements ClientManager {
         this.rpcClientTable = new HashMap<Endpoints, RpcClient>();
         this.rpcClientTableLock = new ReentrantReadWriteLock();
 
-        this.observerTable = new HashMap<String, ClientObserver>();
-        this.observerTableLock = new ReentrantReadWriteLock();
+        this.observerTable = new ConcurrentHashMap<String, ClientObserver>();
 
         this.scheduler = new ScheduledThreadPoolExecutor(
                 Runtime.getRuntime().availableProcessors(),
@@ -130,37 +129,23 @@ public class ClientManagerImpl implements ClientManager {
 
     @Override
     public void registerObserver(ClientObserver observer) {
-        observerTableLock.writeLock().lock();
-        try {
-            observerTable.put(observer.getClientId(), observer);
-        } finally {
-            observerTableLock.writeLock().unlock();
-        }
+        observerTable.put(observer.getClientId(), observer);
     }
 
     @Override
-    public void unregisterObserver(ClientObserver observer) throws InterruptedException {
-        observerTableLock.writeLock().lock();
-        try {
-            observerTable.remove(observer.getClientId());
-            if (observerTable.isEmpty()) {
-                shutdown();
-            }
-        } finally {
-            observerTableLock.writeLock().unlock();
-        }
+    public void unregisterObserver(ClientObserver observer) {
+        observerTable.remove(observer.getClientId());
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return observerTable.isEmpty();
     }
 
     private void doHealthCheck() {
         log.info("Start to do health check for a new round.");
-        observerTableLock.readLock().lock();
-        try {
-            for (Map.Entry<String, ClientObserver> entry : observerTable.entrySet()) {
-                final ClientObserver observer = entry.getValue();
-                observer.doHealthCheck();
-            }
-        } finally {
-            observerTableLock.readLock().unlock();
+        for (ClientObserver observer : observerTable.values()) {
+            observer.doHealthCheck();
         }
     }
 
@@ -189,32 +174,22 @@ public class ClientManagerImpl implements ClientManager {
 
     private void doHeartbeat() {
         log.info("Start to send heartbeat for a new round.");
-        observerTableLock.readLock().lock();
-        try {
-            for (Map.Entry<String, ClientObserver> entry : observerTable.entrySet()) {
-                final String clientId = entry.getKey();
-                final ClientObserver observer = entry.getValue();
-                log.info("Start to send heartbeat for clientId={}", clientId);
-                observer.doHeartbeat();
-            }
-        } finally {
-            observerTableLock.readLock().unlock();
+        for (Map.Entry<String, ClientObserver> entry : observerTable.entrySet()) {
+            final String clientId = entry.getKey();
+            final ClientObserver observer = entry.getValue();
+            log.info("Start to send heartbeat for clientId={}", clientId);
+            observer.doHeartbeat();
         }
     }
 
     private void doLogStats() {
         log.info("Start to log stats for a new round, clientVersion={}, clientWrapperVersion={}",
                  MetadataUtils.getVersion(), MetadataUtils.getWrapperVersion());
-        observerTableLock.readLock().lock();
-        try {
-            for (Map.Entry<String, ClientObserver> entry : observerTable.entrySet()) {
-                final String clientId = entry.getKey();
-                final ClientObserver observer = entry.getValue();
-                log.info("Log stats for clientId={}", clientId);
-                observer.doStats();
-            }
-        } finally {
-            observerTableLock.readLock().unlock();
+        for (Map.Entry<String, ClientObserver> entry : observerTable.entrySet()) {
+            final String clientId = entry.getKey();
+            final ClientObserver observer = entry.getValue();
+            log.info("Log stats for clientId={}", clientId);
+            observer.doStats();
         }
     }
 
@@ -224,7 +199,7 @@ public class ClientManagerImpl implements ClientManager {
     @Override
     public void start() {
         synchronized (this) {
-            log.info("Begin to start the client manager.");
+            log.info("Begin to start the client manager, managerId={}", id);
             if (!state.compareAndSet(ServiceState.READY, ServiceState.STARTING)) {
                 log.warn("The client manager has been started before.");
                 return;
@@ -292,26 +267,29 @@ public class ClientManagerImpl implements ClientManager {
                     TimeUnit.SECONDS
             );
             state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
-            log.info("The client manager starts successfully.");
+            log.info("The client manager starts successfully, managerId={}", id);
         }
     }
 
     @Override
     public void shutdown() throws InterruptedException {
         synchronized (this) {
-            log.info("Begin to shutdown the client manager.");
+            log.info("Begin to shutdown the client manager, managerId={}", id);
             if (!state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING)) {
-                log.warn("Client manager has not been started before");
+                log.warn("Client manager has not been started before, managerId={}", id);
                 return;
             }
-            ClientManagerFactory.getInstance().removeClientManager(id);
             scheduler.shutdown();
             if (!scheduler.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
-                log.error("[Bug] Timeout to shutdown the scheduler");
+                log.error("[Bug] Timeout to shutdown the client scheduler, managerId={}", id);
+            } else {
+                log.info("Shutdown the client scheduler successfully, managerId={}", id);
             }
             asyncWorker.shutdown();
             if (!asyncWorker.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
-                log.error("[Bug] Timeout to shutdown the async worker");
+                log.error("[Bug] Timeout to shutdown the client async worker, managerId={}", id);
+            } else {
+                log.info("Shutdown the client async worker successfully, managerId={}", id);
             }
             rpcClientTableLock.writeLock().lock();
             try {
@@ -326,7 +304,7 @@ public class ClientManagerImpl implements ClientManager {
                 rpcClientTableLock.writeLock().unlock();
             }
             state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
-            log.info("Shutdown the client manager successfully.");
+            log.info("Shutdown the client manager successfully, managerId={}", id);
         }
     }
 
@@ -350,6 +328,10 @@ public class ClientManagerImpl implements ClientManager {
         }
         rpcClientTableLock.writeLock().lock();
         try {
+            rpcClient = rpcClientTable.get(endpoints);
+            if (null != rpcClient) {
+                return rpcClient;
+            }
             try {
                 rpcClient = new RpcClientImpl(endpoints);
             } catch (SSLException e) {

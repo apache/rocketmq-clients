@@ -43,9 +43,5 @@ public enum PullStatus {
     /**
      * Serious errors occurred in the server side.
      */
-    INTERNAL,
-    /**
-     * Only for test purpose.
-     */
-    STATUS_FOR_TEST;
+    INTERNAL
 }

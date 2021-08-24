@@ -47,7 +47,7 @@ public interface OffsetStore {
      * Read offset from disk or other external storage.
      *
      * @param mq offset owner.
-     * @return the next offset to pull and consume.
+     * @return the next offset to pull and consume. It means offset does not exist if offset is negative.
      */
     long readOffset(MessageQueue mq);
 }

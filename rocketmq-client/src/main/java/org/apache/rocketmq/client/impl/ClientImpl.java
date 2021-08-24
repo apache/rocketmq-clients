@@ -219,15 +219,14 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
 
     public void start() throws ClientException {
         synchronized (this) {
-            log.info("Begin to start the rocketmq client.");
+            log.info("Begin to start the rocketmq client, clientId={}", clientId);
             if (!state.compareAndSet(ServiceState.READY, ServiceState.STARTING)) {
-                log.warn("The rocketmq client has been started before.");
+                log.warn("The rocketmq client has been started before, clientId={}", clientId);
                 return;
             }
 
             if (null == clientManager) {
-                clientManager = ClientManagerFactory.getInstance().getClientManager(this);
-                clientManager.registerObserver(this);
+                clientManager = ClientManagerFactory.getInstance().registerObserver(arn, this);
             }
 
             if (messageTracingEnabled) {
@@ -271,15 +270,15 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     30,
                     TimeUnit.SECONDS);
             state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
-            log.info("The rocketmq client starts successfully.");
+            log.info("The rocketmq client starts successfully, clientId={}", clientId);
         }
     }
 
     public void shutdown() throws InterruptedException {
         synchronized (this) {
-            log.info("Begin to shutdown the rocketmq client.");
+            log.info("Begin to shutdown the rocketmq client, clientId={}", clientId);
             if (!state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING)) {
-                log.warn("The rocketmq client has not been started before");
+                log.warn("The rocketmq client has not been started before, clientId={}", clientId);
                 return;
             }
             if (null != renewNameServerListFuture) {
@@ -288,12 +287,12 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
             if (null != updateRouteCacheFuture) {
                 updateRouteCacheFuture.cancel(false);
             }
-            clientManager.unregisterObserver(this);
+            ClientManagerFactory.getInstance().unregisterObserver(arn, this);
             if (null != tracerProvider) {
                 tracerProvider.shutdown();
             }
             state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
-            log.info("Shutdown the rocketmq client successfully.");
+            log.info("Shutdown the rocketmq client successfully, clientId={}", clientId);
         }
     }
 
@@ -505,11 +504,11 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     final Set<SettableFuture<TopicRouteData>> newFutureSet = inflightRouteFutureTable.remove(topic);
                     if (null == newFutureSet) {
                         // should never reach here.
-                        log.error("[Bug] in-flight route futures was empty, topic={}", topic);
+                        log.error("[Bug] in-flight route futures was empty, arn={}, topic={}", arn, topic);
                         return;
                     }
-                    log.error("Failed to fetch topic route, topic={}, in-flight route future size={}", topic,
-                              newFutureSet.size(), t);
+                    log.error("Failed to fetch topic route, arn={}, topic={}, in-flight route future size={}", arn,
+                              topic, newFutureSet.size(), t);
                     for (SettableFuture<TopicRouteData> newFuture : newFutureSet) {
                         final ClientException exception = new ClientException(ErrorCode.FETCH_TOPIC_ROUTE_FAILURE, t);
                         newFuture.setException(exception);

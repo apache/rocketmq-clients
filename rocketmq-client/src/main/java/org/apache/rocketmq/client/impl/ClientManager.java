@@ -62,7 +62,14 @@ public interface ClientManager {
      *
      * @param observer client observer.
      */
-    void unregisterObserver(ClientObserver observer) throws InterruptedException;
+    void unregisterObserver(ClientObserver observer);
+
+    /**
+     * Returns {@code true} if manager contains no {@link ClientObserver}.
+     *
+     * @return {@code true} if this map contains no {@link ClientObserver}.
+     */
+    boolean isEmpty();
 
     /**
      * Provide for observer to share the scheduler executor.

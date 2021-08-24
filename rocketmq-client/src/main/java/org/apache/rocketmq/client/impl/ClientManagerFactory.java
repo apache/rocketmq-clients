@@ -40,28 +40,40 @@ public class ClientManagerFactory {
         return INSTANCE;
     }
 
-    public ClientManager getClientManager(final ClientConfig clientConfig) {
-        final String arn = clientConfig.getArn();
+    public ClientManager registerObserver(String managerId, ClientObserver observer) {
         managersTableLock.lock();
         try {
-            ClientManager clientManager = managersTable.get(arn);
-            if (null == clientManager) {
-                clientManager = new ClientManagerImpl(arn);
-                clientManager.start();
-                managersTable.put(arn, clientManager);
+            ClientManager manager = managersTable.get(managerId);
+            if (null == manager) {
+                manager = new ClientManagerImpl(managerId);
+                manager.start();
+                managersTable.put(managerId, manager);
+                manager.registerObserver(observer);
             }
-            return clientManager;
+            return manager;
         } finally {
             managersTableLock.unlock();
         }
     }
 
-    public void removeClientManager(final String id) {
+    public void unregisterObserver(String managerId, ClientObserver observer) throws InterruptedException {
+        ClientManager removedManager = null;
         managersTableLock.lock();
         try {
-            managersTable.remove(id);
+            final ClientManager manager = managersTable.get(managerId);
+            if (null == manager) {
+                return;
+            }
+            manager.unregisterObserver(observer);
+            if (manager.isEmpty()) {
+                removedManager = manager;
+                managersTable.remove(managerId);
+            }
         } finally {
             managersTableLock.unlock();
+        }
+        if (null != removedManager) {
+            removedManager.shutdown();
         }
     }
 }

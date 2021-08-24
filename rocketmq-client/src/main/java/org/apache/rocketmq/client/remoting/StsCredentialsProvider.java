@@ -18,6 +18,7 @@
 package org.apache.rocketmq.client.remoting;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.annotations.SerializedName;
 import java.text.SimpleDateFormat;
 import java.util.TimeZone;
@@ -107,7 +108,7 @@ public class StsCredentialsProvider implements CredentialsProvider {
             final HttpTinyClient.HttpResult httpResult = HttpTinyClient.httpGet(url, HTTP_TIMEOUT_MILLIS);
             if (httpResult.isOk()) {
                 final String content = httpResult.getContent();
-                Gson gson = new Gson();
+                Gson gson = new GsonBuilder().create();
                 final StsCredentials stsCredentials = gson.fromJson(content, StsCredentials.class);
                 final String expiration = stsCredentials.getExpiration();
                 final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");

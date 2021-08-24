@@ -614,13 +614,15 @@ public class ProcessQueueImpl implements ProcessQueue {
             try {
                 offset = consumerImpl.readOffset(mq);
             } catch (Throwable t) {
-                log.error("Exception raised while reading offset from offset store, mq={}", mq);
+                log.error("Exception raised while reading offset from offset store, mq={}", mq, t);
                 // drop this pq, waiting for the next assignments scan.
                 consumerImpl.dropProcessQueue(mq);
                 return;
             }
-            pullMessage(offset);
-            return;
+            if (offset >= 0) {
+                pullMessage(offset);
+                return;
+            }
         }
         ListenableFuture<Long> future;
         try {

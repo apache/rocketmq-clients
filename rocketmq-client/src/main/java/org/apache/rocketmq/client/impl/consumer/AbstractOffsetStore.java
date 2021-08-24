@@ -17,6 +17,9 @@
 
 package org.apache.rocketmq.client.impl.consumer;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.apache.rocketmq.client.message.MessageQueue;
 
 /**
@@ -26,24 +29,48 @@ public abstract class AbstractOffsetStore implements OffsetStore {
     private long nanoTime;
     private final long persistPeriodSeconds;
 
+    private final ConcurrentMap<MessageQueue, Long> offsetTable;
+
     public AbstractOffsetStore(long persistPeriodSeconds) {
         this.nanoTime = System.nanoTime();
         this.persistPeriodSeconds = persistPeriodSeconds;
+        this.offsetTable = new ConcurrentHashMap<MessageQueue, Long>();
     }
+
+    @Override
+    public void start() {
+        offsetTable.putAll(loadOffset());
+    }
+
+    /**
+     * Load offset from disk or other external storage.
+     *
+     * @return persisted offset.
+     */
+    public abstract Map<MessageQueue, Long> loadOffset();
 
     /**
      * Persist offset to disk or other external storage.
      *
-     * @param mq     offset owner.
-     * @param offset the next offset of {@link MessageQueue}
+     * @param offsetTable offset to persist.
      */
-    public abstract void persistOffset(MessageQueue mq, long offset);
+    public abstract void persistOffset(Map<MessageQueue, Long> offsetTable);
 
     @Override
     public void updateOffset(MessageQueue mq, long offset) {
+        offsetTable.put(mq, offset);
         if (System.nanoTime() - nanoTime > persistPeriodSeconds) {
-            persistOffset(mq, offset);
+            persistOffset(offsetTable);
             nanoTime = System.nanoTime();
         }
+    }
+
+    @Override
+    public long readOffset(MessageQueue mq) {
+        final Long offset = offsetTable.get(mq);
+        if (null == offset) {
+            return -1;
+        }
+        return offset;
     }
 }

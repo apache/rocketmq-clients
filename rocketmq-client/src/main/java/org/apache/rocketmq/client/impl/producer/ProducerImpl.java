@@ -188,15 +188,15 @@ public class ProducerImpl extends ClientImpl {
     @Override
     public void shutdown() throws InterruptedException {
         synchronized (this) {
-            log.info("Begin to shutdown the rocketmq producer.");
+            log.info("Begin to shutdown the rocketmq producer, clientId={}", clientId);
             super.shutdown();
 
             if (this.isStopped()) {
                 defaultSendCallbackExecutor.shutdown();
                 if (!defaultSendCallbackExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
-                    log.error("[Bug] Failed to shutdown default send callback executor");
+                    log.error("[Bug] Failed to shutdown default send callback executor, clientId={}", clientId);
                 }
-                log.info("Shutdown the rocketmq producer successfully.");
+                log.info("Shutdown the rocketmq producer successfully, clientId={}", clientId);
             }
         }
     }
