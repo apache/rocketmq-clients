@@ -339,7 +339,7 @@ public class PushConsumerImpl extends ConsumerImpl {
     @Override
     public void shutdown() throws InterruptedException {
         synchronized (this) {
-            log.info("Begin to shutdown the rocketmq push consumer.");
+            log.info("Begin to shutdown the rocketmq push consumer, clientId={}", clientId);
 
             if (this.isStarted()) {
                 if (null != scanAssignmentsFuture) {
@@ -351,9 +351,9 @@ public class PushConsumerImpl extends ConsumerImpl {
                 }
                 consumptionExecutor.shutdown();
                 if (!consumptionExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
-                    log.error("[Bug] Failed to shutdown the consumption executor.");
+                    log.error("[Bug] Failed to shutdown the consumption executor, clientId={}", clientId);
                 }
-                log.info("Shutdown the rocketmq push consumer successfully.");
+                log.info("Shutdown the rocketmq push consumer successfully, clientId={}", clientId);
             }
         }
     }

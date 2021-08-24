@@ -25,7 +25,7 @@ public class MessageQueue {
     private final String brokerName;
     private final int queueId;
 
-    private final Partition partition;
+    private final transient Partition partition;
 
     public MessageQueue(Partition partition) {
         this.topic = partition.getTopicResource().getName();

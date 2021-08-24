@@ -173,11 +173,11 @@ public class ProducerImpl extends ClientImpl {
     @Override
     public void start() throws ClientException {
         synchronized (this) {
-            log.info("Begin to start the rocketmq producer.");
+            log.info("Begin to start the rocketmq producer, clientId={}", clientId);
             super.start();
 
             if (this.isStarted()) {
-                log.info("The rocketmq producer starts successfully.");
+                log.info("The rocketmq producer starts successfully, clientId={}", clientId);
             }
         }
     }
@@ -369,7 +369,7 @@ public class ProducerImpl extends ClientImpl {
             throws ClientException, InterruptedException, TimeoutException, ServerException {
         ensureStarted();
         final ListenableFuture<SendResult> future = send0(message, maxAttempts);
-        // Limit the future timeout.
+        // limit the future timeout.
         Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
         try {
             return future.get(timeoutMillis, TimeUnit.MILLISECONDS);
@@ -386,7 +386,7 @@ public class ProducerImpl extends ClientImpl {
             throws ClientException, InterruptedException {
         ensureStarted();
         final ListenableFuture<SendResult> future = send0(message, maxAttempts);
-        // Limit the future timeout.
+        // limit the future timeout.
         Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
         final ExecutorService sendCallbackExecutor = getSendCallbackExecutor();
         Futures.addCallback(future, new FutureCallback<SendResult>() {

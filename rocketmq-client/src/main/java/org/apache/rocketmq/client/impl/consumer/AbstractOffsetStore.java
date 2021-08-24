@@ -39,7 +39,10 @@ public abstract class AbstractOffsetStore implements OffsetStore {
 
     @Override
     public void start() {
-        offsetTable.putAll(loadOffset());
+        final Map<MessageQueue, Long> queueOffsetTable = loadOffset();
+        if (null != queueOffsetTable) {
+            offsetTable.putAll(queueOffsetTable);
+        }
     }
 
     /**
