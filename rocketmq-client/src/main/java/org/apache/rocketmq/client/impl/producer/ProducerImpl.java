@@ -123,6 +123,10 @@ public class ProducerImpl extends ClientImpl {
 
     private TransactionChecker transactionChecker;
 
+    /**
+     * Default callback executor for send, if {@link #customSendCallbackExecutor} is not defined, default executor
+     * would be applied for async message sending.
+     */
     private final ExecutorService defaultSendCallbackExecutor;
 
     private ExecutorService customSendCallbackExecutor = null;

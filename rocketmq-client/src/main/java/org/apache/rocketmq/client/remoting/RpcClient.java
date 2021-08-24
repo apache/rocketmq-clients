@@ -61,7 +61,9 @@ public interface RpcClient {
     long idleSeconds();
 
     /**
-     * Shutdown the client.
+     * Shutdown the client. Please <strong>ensure invoked before it is garbage collected</strong>.
+     *
+     * @throws InterruptedException if thread has been interrupted.
      */
     void shutdown() throws InterruptedException;
 

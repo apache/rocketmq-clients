@@ -58,6 +58,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.net.ssl.SSLException;
 import org.apache.rocketmq.client.exception.ClientException;
@@ -80,14 +81,23 @@ public class ClientManagerImpl implements ClientManager {
 
     private static final Logger log = LoggerFactory.getLogger(ClientManagerImpl.class);
 
+    /**
+     * Client manager id.
+     */
     private final String id;
 
     @GuardedBy("rpcClientTableLock")
     private final Map<Endpoints, RpcClient> rpcClientTable;
-    private final ReentrantReadWriteLock rpcClientTableLock;
+    private final ReadWriteLock rpcClientTableLock;
 
-    private final ConcurrentMap<String /* ClientId */, ClientObserver> observerTable;
+    /**
+     * Contains all client observer, and key is {@link ClientConfig#clientId}.
+     */
+    private final ConcurrentMap<String, ClientObserver> observerTable;
 
+    /**
+     * In charge of all scheduled task.
+     */
     private final ScheduledExecutorService scheduler;
 
     /**
@@ -95,6 +105,9 @@ public class ClientManagerImpl implements ClientManager {
      */
     private final ThreadPoolExecutor asyncWorker;
 
+    /**
+     * Record state of client manager.
+     */
     private final AtomicReference<ServiceState> state;
 
     public ClientManagerImpl(String id) {
@@ -149,6 +162,12 @@ public class ClientManagerImpl implements ClientManager {
         }
     }
 
+    /**
+     * It is well-founded that a {@link RpcClient} is deprecated if it is idle for a long time, so it is essential to
+     * clear it.
+     *
+     * @throws InterruptedException if thread has been interrupted
+     */
     private void clearIdleRpcClients() throws InterruptedException {
         log.info("Start to clear idle rpc clients for a new round.");
         rpcClientTableLock.writeLock().lock();
@@ -271,6 +290,11 @@ public class ClientManagerImpl implements ClientManager {
         }
     }
 
+    /**
+     * Shutdown the client manager and free up the related resource.
+     *
+     * @throws InterruptedException if thread has been interrupted.
+     */
     @Override
     public void shutdown() throws InterruptedException {
         synchronized (this) {
@@ -311,12 +335,14 @@ public class ClientManagerImpl implements ClientManager {
     /**
      * Return rpc client by remote {@link Endpoints}, would create client automatically if it does not exist.
      *
+     * <p>In case of the occasion that {@link RpcClient} is garbage collected before shutdown when invoked
+     * concurrently, lock here is essential.</p>
+     *
      * @param endpoints remote endpoints.
      * @return rpc client.
      */
     private RpcClient getRpcClient(Endpoints endpoints) throws ClientException {
         RpcClient rpcClient;
-        // in case of the occasion that rpc client is garbage collected before shutdown when invoked concurrently.
         rpcClientTableLock.readLock().lock();
         try {
             rpcClient = rpcClientTable.get(endpoints);

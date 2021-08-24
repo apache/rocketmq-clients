@@ -22,7 +22,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import javax.annotation.concurrent.ThreadSafe;
 
+@ThreadSafe
 public class ClientManagerFactory {
 
     private static final ClientManagerFactory INSTANCE = new ClientManagerFactory();
@@ -40,11 +42,21 @@ public class ClientManagerFactory {
         return INSTANCE;
     }
 
+    /**
+     * Register {@link ClientObserver} to the appointed manager by manager id, start the manager if it is created newly.
+     *
+     * <p>Different observer would share the same {@link ClientManager} if they has the same manager id.
+     *
+     * @param managerId client manager id.
+     * @param observer  client observer.
+     * @return the client manager which is started.
+     */
     public ClientManager registerObserver(String managerId, ClientObserver observer) {
         managersTableLock.lock();
         try {
             ClientManager manager = managersTable.get(managerId);
             if (null == manager) {
+                // create and start manager.
                 manager = new ClientManagerImpl(managerId);
                 manager.start();
                 managersTable.put(managerId, manager);
@@ -56,6 +68,14 @@ public class ClientManagerFactory {
         }
     }
 
+    /**
+     * Unregister {@link ClientObserver} to the appointed manager by message id, shutdown the manager if no observer
+     * registered in it.
+     *
+     * @param managerId client manager id.
+     * @param observer  client observer.
+     * @throws InterruptedException if thread has been interrupted.
+     */
     public void unregisterObserver(String managerId, ClientObserver observer) throws InterruptedException {
         ClientManager removedManager = null;
         managersTableLock.lock();
@@ -65,6 +85,7 @@ public class ClientManagerFactory {
                 return;
             }
             manager.unregisterObserver(observer);
+            // shutdown the manager if no observer registered.
             if (manager.isEmpty()) {
                 removedManager = manager;
                 managersTable.remove(managerId);

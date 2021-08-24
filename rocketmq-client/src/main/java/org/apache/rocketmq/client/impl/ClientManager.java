@@ -72,9 +72,9 @@ public interface ClientManager {
     boolean isEmpty();
 
     /**
-     * Provide for observer to share the scheduler executor.
+     * Provide for observer to share the scheduler.
      *
-     * @return scheduler executor.
+     * @return shared scheduler.
      */
     ScheduledExecutorService getScheduler();
 
@@ -85,6 +85,8 @@ public interface ClientManager {
 
     /**
      * Shutdown the client manager.
+     *
+     * @throws InterruptedException if thread has been interrupted.
      */
     void shutdown() throws InterruptedException;
 

@@ -46,6 +46,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.rocketmq.client.consumer.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.MessageModel;
@@ -88,15 +89,15 @@ public class ProcessQueueImpl implements ProcessQueue {
 
     @GuardedBy("pendingMessagesLock")
     private final List<MessageExt> pendingMessages;
-    private final ReentrantReadWriteLock pendingMessagesLock;
+    private final ReadWriteLock pendingMessagesLock;
 
     @GuardedBy("inflightMessagesLock")
     private final List<MessageExt> inflightMessages;
-    private final ReentrantReadWriteLock inflightMessagesLock;
+    private final ReadWriteLock inflightMessagesLock;
 
     @GuardedBy("offsetRecordsLock")
     private final TreeSet<OffsetRecord> offsetRecords;
-    private final ReentrantReadWriteLock offsetRecordsLock;
+    private final ReadWriteLock offsetRecordsLock;
 
     private final AtomicLong cachedMessagesBytes;
     private final AtomicBoolean fifoConsumptionOccupied;
