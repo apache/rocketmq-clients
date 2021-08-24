@@ -46,8 +46,8 @@ public class SendingTopicRouteDataTest extends TestBase {
         List<apache.rocketmq.v1.Partition> partitionList = new ArrayList<apache.rocketmq.v1.Partition>();
         for (int i = 0; i < partitionCount; i++) {
             // same broker.
-            final apache.rocketmq.v1.Partition partition = dummyProtoPartition(dummyProtoTopic0(), dummyProtoBroker0(),
-                                                                               Permission.READ_WRITE, i);
+            final apache.rocketmq.v1.Partition partition = fakePbPartition(fakePbTopic0(), fakePbBroker0(),
+                                                                           Permission.READ_WRITE, i);
             partitionList.add(partition);
 
         }
@@ -83,7 +83,7 @@ public class SendingTopicRouteDataTest extends TestBase {
         List<apache.rocketmq.v1.Partition> partitionList = new ArrayList<apache.rocketmq.v1.Partition>();
         for (int i = 0; i < partitionCount; i++) {
             // different broker.
-            final apache.rocketmq.v1.Partition partition = dummyProtoPartition(dummyProtoTopic0(), dummyProtoBroker(
+            final apache.rocketmq.v1.Partition partition = fakePbPartition(fakePbTopic0(), fakePbBroker(
                     brokerNamePrefix + i), Permission.READ_WRITE, i);
             partitionList.add(partition);
 
@@ -118,14 +118,14 @@ public class SendingTopicRouteDataTest extends TestBase {
     public void testTakePartitionsWithIsolated() throws ClientException {
         int partitionNotIsolatedCount = 2;
         List<apache.rocketmq.v1.Partition> partitionList = new ArrayList<apache.rocketmq.v1.Partition>();
-        final Resource dummyTopic = dummyProtoTopic0();
+        final Resource dummyTopic = fakePbTopic0();
         for (int i = 0; i < partitionNotIsolatedCount; i++) {
             // different broker.
             final String name = brokerNamePrefix + i;
-            final Broker broker = dummyProtoBroker(name, MixAll.MASTER_BROKER_ID,
-                                                   dummyProtoEndpoints(dummyProtoAddress(endpointsHostPrefix + i, i)));
-            final apache.rocketmq.v1.Partition partition = dummyProtoPartition(dummyTopic, broker,
-                                                                               Permission.READ_WRITE, i);
+            final Broker broker = fakePbBroker(name, MixAll.MASTER_BROKER_ID,
+                                               fakePbEndpoints(fakePbAddress(endpointsHostPrefix + i, i)));
+            final apache.rocketmq.v1.Partition partition = fakePbPartition(dummyTopic, broker,
+                                                                           Permission.READ_WRITE, i);
             partitionList.add(partition);
 
         }
@@ -133,11 +133,11 @@ public class SendingTopicRouteDataTest extends TestBase {
         final String isolatedHostName = "isolatedHost";
         final String isolatedBrokerName = "isolatedBrokerName";
         final apache.rocketmq.v1.Endpoints isolatedProtoEndpoints =
-                dummyProtoEndpoints(dummyProtoAddress(isolatedHostName, 8080));
-        final Broker isolatedProtoBroker = dummyProtoBroker(isolatedBrokerName, MixAll.MASTER_BROKER_ID,
-                                                            isolatedProtoEndpoints);
-        final apache.rocketmq.v1.Partition isolatedProtoPartition = dummyProtoPartition(dummyTopic, isolatedProtoBroker,
-                                                                                        Permission.READ_WRITE, 0);
+                fakePbEndpoints(fakePbAddress(isolatedHostName, 8080));
+        final Broker isolatedProtoBroker = fakePbBroker(isolatedBrokerName, MixAll.MASTER_BROKER_ID,
+                                                        isolatedProtoEndpoints);
+        final apache.rocketmq.v1.Partition isolatedProtoPartition = fakePbPartition(dummyTopic, isolatedProtoBroker,
+                                                                                    Permission.READ_WRITE, 0);
         partitionList.add(isolatedProtoPartition);
 
         final TopicRouteData topicRouteData = new TopicRouteData(partitionList);
@@ -173,18 +173,18 @@ public class SendingTopicRouteDataTest extends TestBase {
         int partitionCount = 3;
         List<apache.rocketmq.v1.Partition> partitionList = new ArrayList<apache.rocketmq.v1.Partition>();
         Set<Endpoints> isolated = new HashSet<Endpoints>();
-        final Resource dummyTopic = dummyProtoTopic0();
+        final Resource dummyTopic = fakePbTopic0();
         for (int i = 0; i < partitionCount; i++) {
             // different broker.
             final String name = brokerNamePrefix + i;
             final apache.rocketmq.v1.Endpoints protoEndpoints =
-                    dummyProtoEndpoints(dummyProtoAddress(endpointsHostPrefix + i, i));
+                    fakePbEndpoints(fakePbAddress(endpointsHostPrefix + i, i));
             final Endpoints endpoints = new Endpoints(protoEndpoints);
             isolated.add(endpoints);
-            final Broker broker = dummyProtoBroker(name, MixAll.MASTER_BROKER_ID,
-                                                   protoEndpoints);
-            final apache.rocketmq.v1.Partition partition = dummyProtoPartition(dummyTopic, broker,
-                                                                               Permission.READ_WRITE, i);
+            final Broker broker = fakePbBroker(name, MixAll.MASTER_BROKER_ID,
+                                               protoEndpoints);
+            final apache.rocketmq.v1.Partition partition = fakePbPartition(dummyTopic, broker,
+                                                                           Permission.READ_WRITE, i);
             partitionList.add(partition);
 
         }

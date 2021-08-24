@@ -15,18 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.producer;
+package org.apache.rocketmq.client.misc;
 
-import org.apache.rocketmq.client.exception.ClientException;
-import org.apache.rocketmq.client.tools.TestBase;
+import static org.testng.Assert.assertNotNull;
+
 import org.testng.annotations.Test;
 
-public class DefaultMQProducerTest extends TestBase {
+public class MixAllTest {
 
     @Test
-    public void testStartAndShutdown() throws ClientException, InterruptedException {
-        final DefaultMQProducer producer = new DefaultMQProducer(FAKE_GROUP_0);
-        producer.start();
-        producer.shutdown();
+    public void testProtocolVersion() {
+        assertNotNull(MixAll.getProtocolVersion());
     }
 }

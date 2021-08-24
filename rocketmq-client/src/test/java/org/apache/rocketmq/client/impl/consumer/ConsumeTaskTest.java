@@ -51,7 +51,7 @@ public class ConsumeTaskTest extends TestBase {
         MockitoAnnotations.initMocks(this);
 
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
-        messageExtList.add(dummyMessageExt(1));
+        messageExtList.add(fakeMessageExt(1));
 
         this.consumerTask = new ConsumeTask(messageInterceptor, messageListener, messageExtList);
     }

@@ -372,7 +372,7 @@ public class PushConsumerImpl extends ConsumerImpl {
         return QueryAssignmentRequest.newBuilder()
                                      .setTopic(topicResource)
                                      .setEndpoints(endpoints.toEndpoints())
-                                     .setGroup(getProtoGroup())
+                                     .setGroup(getPbGroup())
                                      .setClientId(clientId)
                                      .build();
     }
@@ -612,7 +612,7 @@ public class PushConsumerImpl extends ConsumerImpl {
                                                                   .build();
 
         final ConsumerGroup.Builder builder = ConsumerGroup.newBuilder()
-                                                           .setGroup(getProtoGroup())
+                                                           .setGroup(getPbGroup())
                                                            .addAllSubscriptions(subscriptionEntries)
                                                            .setDeadLetterPolicy(deadLetterPolicy)
                                                            .setConsumeType(ConsumeMessageType.POP);
@@ -690,7 +690,7 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     private AckMessageRequest wrapAckMessageRequest(MessageExt messageExt) {
-        return AckMessageRequest.newBuilder().setGroup(getProtoGroup())
+        return AckMessageRequest.newBuilder().setGroup(getPbGroup())
                                 .setTopic(Resource.newBuilder().setArn(arn).setName(messageExt.getTopic()).build())
                                 .setMessageId(messageExt.getMsgId()).setClientId(clientId)
                                 .setReceiptHandle(messageExt.getReceiptHandle()).build();
@@ -711,7 +711,7 @@ public class PushConsumerImpl extends ConsumerImpl {
 
     private NackMessageRequest wrapNackMessageRequest(MessageExt messageExt) {
         return NackMessageRequest.newBuilder()
-                                 .setGroup(getProtoGroup())
+                                 .setGroup(getPbGroup())
                                  .setTopic(Resource.newBuilder().setArn(arn).setName(messageExt.getTopic()).build())
                                  .setClientId(clientId)
                                  .setReceiptHandle(messageExt.getReceiptHandle())
@@ -754,7 +754,7 @@ public class PushConsumerImpl extends ConsumerImpl {
 
     private ForwardMessageToDeadLetterQueueRequest wrapForwardMessageToDeadLetterQueueRequest(MessageExt messageExt) {
         final Resource topicResource = Resource.newBuilder().setArn(arn).setName(messageExt.getTopic()).build();
-        return ForwardMessageToDeadLetterQueueRequest.newBuilder().setGroup(getProtoGroup()).setTopic(topicResource)
+        return ForwardMessageToDeadLetterQueueRequest.newBuilder().setGroup(getPbGroup()).setTopic(topicResource)
                                                      .setClientId(clientId)
                                                      .setReceiptHandle(messageExt.getReceiptHandle())
                                                      .setMessageId(messageExt.getMsgId())
@@ -781,7 +781,7 @@ public class PushConsumerImpl extends ConsumerImpl {
     @Override
     public ClientResourceBundle wrapClientResourceBundle() {
         final ClientResourceBundle.Builder builder =
-                ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(getProtoGroup());
+                ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(getPbGroup());
         for (String topic : filterExpressionTable.keySet()) {
             Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
             builder.addTopics(topicResource);

@@ -41,7 +41,7 @@ public class LoggingInterceptor implements ClientInterceptor {
         return new ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT>(next.newCall(method, callOptions)) {
 
             @Override
-            public void start(Listener<RespT> listener, Metadata headers) {
+            public void start(Listener<RespT> listener, final Metadata headers) {
                 super.start(new ForwardingClientCallListener.SimpleForwardingClientCallListener<RespT>(listener) {
                     @Override
                     public void onHeaders(Metadata headers) {

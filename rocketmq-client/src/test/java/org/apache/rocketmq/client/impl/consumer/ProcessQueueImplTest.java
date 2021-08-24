@@ -84,17 +84,17 @@ public class ProcessQueueImplTest extends TestBase {
     private final AtomicLong consumptionOkCounter = new AtomicLong(0);
     private final AtomicLong consumptionErrorCounter = new AtomicLong(0);
 
-    private final FilterExpression filterExpression = new FilterExpression(dummyTagExpression0);
+    private final FilterExpression filterExpression = new FilterExpression(FAKE_TAG_EXPRESSION_0);
     private final Metadata metadata = new Metadata();
 
     @BeforeMethod
     public void beforeMethod() throws ClientException {
         MockitoAnnotations.initMocks(this);
-        final Resource dummyProtoGroup = Resource.newBuilder().setArn(dummyArn0).setName(dummyGroup0).build();
+        final Resource dummyProtoGroup = Resource.newBuilder().setArn(FAKE_ARN_0).setName(FAKE_GROUP_0).build();
 
-        when(consumerImpl.getArn()).thenReturn(dummyArn0);
-        when(consumerImpl.getGroup()).thenReturn(dummyGroup0);
-        when(consumerImpl.getProtoGroup()).thenReturn(dummyProtoGroup);
+        when(consumerImpl.getArn()).thenReturn(FAKE_ARN_0);
+        when(consumerImpl.getGroup()).thenReturn(FAKE_GROUP_0);
+        when(consumerImpl.getPbGroup()).thenReturn(dummyProtoGroup);
         when(consumerImpl.getMaxDeliveryAttempts()).thenReturn(messageMaxDeliveryAttempts);
         when(consumerImpl.getMessageListener()).thenReturn(messageListenerConcurrently);
         when(consumerImpl.getMessageModel()).thenReturn(MessageModel.CLUSTERING);
@@ -106,12 +106,12 @@ public class ProcessQueueImplTest extends TestBase {
         when(consumerImpl.getPulledMessagesQuantity()).thenReturn(pulledMessagesQuantity);
         when(consumerImpl.getConsumptionOkQuantity()).thenReturn(consumptionOkCounter);
         when(consumerImpl.getConsumptionErrorQuantity()).thenReturn(consumptionErrorCounter);
-        when(consumerImpl.getScheduler()).thenReturn(scheduler());
+        when(consumerImpl.getScheduler()).thenReturn(SCHEDULER);
         when(consumerImpl.sign()).thenReturn(metadata);
-        when(consumerImpl.getConsumptionExecutor()).thenReturn(singleThreadPoolExecutor());
-        when(consumerImpl.getClientId()).thenReturn(dummyClientId0);
+        when(consumerImpl.getConsumptionExecutor()).thenReturn(SINGLE_THREAD_POOL_EXECUTOR);
+        when(consumerImpl.getClientId()).thenReturn(FAKE_CLIENT_ID_0);
 
-        processQueueImpl = new ProcessQueueImpl(consumerImpl, dummyMessageQueue(), filterExpression);
+        processQueueImpl = new ProcessQueueImpl(consumerImpl, fakeMessageQueue(), filterExpression);
     }
 
     @AfterMethod
@@ -141,8 +141,8 @@ public class ProcessQueueImplTest extends TestBase {
         when(consumerImpl.cachedMessagesBytesThresholdPerQueue()).thenReturn(Integer.MAX_VALUE);
         SettableFuture<ReceiveMessageResult> future0 = SettableFuture.create();
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
-        messageExtList.add(dummyMessageExt());
-        future0.set(dummyReceiveMessageResult(messageExtList));
+        messageExtList.add(fakeMessageExt());
+        future0.set(fakeReceiveMessageResult(messageExtList));
         when(consumerImpl.receiveMessage(ArgumentMatchers.<ReceiveMessageRequest>any(),
                                          ArgumentMatchers.<Endpoints>any(),
                                          anyLong())).thenReturn(future0);
@@ -161,7 +161,7 @@ public class ProcessQueueImplTest extends TestBase {
                 .thenReturn(cachedMessagesQuantityThresholdPerQueue);
         when(consumerImpl.cachedMessagesBytesThresholdPerQueue()).thenReturn(Integer.MAX_VALUE);
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
-        messageExtList.add(dummyMessageExt());
+        messageExtList.add(fakeMessageExt());
         SettableFuture<PullMessageResult> future1 = SettableFuture.create();
         final PullMessageResult pullMessageResult = new PullMessageResult(PullStatus.OK, 1, 0, 1000, messageExtList);
         future1.set(pullMessageResult);
@@ -185,7 +185,7 @@ public class ProcessQueueImplTest extends TestBase {
         when(consumerImpl.cachedMessagesBytesThresholdPerQueue()).thenReturn(messageBytesThreshold);
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
         for (int i = 0; i < messagesQuantityThreshold; i++) {
-            messageExtList.add(dummyMessageExt(1));
+            messageExtList.add(fakeMessageExt(1));
         }
         processQueueImpl.cacheMessages(messageExtList);
         assertTrue(processQueueImpl.throttled());
@@ -198,7 +198,7 @@ public class ProcessQueueImplTest extends TestBase {
         when(consumerImpl.cachedMessagesQuantityThresholdPerQueue()).thenReturn(messagesQuantityThreshold);
         when(consumerImpl.cachedMessagesBytesThresholdPerQueue()).thenReturn(messageBytesThreshold);
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
-        messageExtList.add(dummyMessageExt(messageBytesThreshold + 1));
+        messageExtList.add(fakeMessageExt(messageBytesThreshold + 1));
         processQueueImpl.cacheMessages(messageExtList);
         assertTrue(processQueueImpl.throttled());
     }
@@ -208,7 +208,7 @@ public class ProcessQueueImplTest extends TestBase {
         int cachedMessageQuantity = 8;
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
         for (int i = 0; i < cachedMessageQuantity; i++) {
-            messageExtList.add(dummyMessageExt(1));
+            messageExtList.add(fakeMessageExt(1));
         }
         processQueueImpl.cacheMessages(messageExtList);
         assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
@@ -224,7 +224,7 @@ public class ProcessQueueImplTest extends TestBase {
         int cachedMessageQuantity = 8;
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
         for (int i = 0; i < cachedMessageQuantity; i++) {
-            messageExtList.add(dummyMessageExt(1));
+            messageExtList.add(fakeMessageExt(1));
         }
         processQueueImpl.cacheMessages(messageExtList);
         assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
@@ -239,7 +239,7 @@ public class ProcessQueueImplTest extends TestBase {
         int cachedMessageQuantity = 8;
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
         for (int i = 0; i < cachedMessageQuantity; i++) {
-            messageExtList.add(dummyMessageExt(1));
+            messageExtList.add(fakeMessageExt(1));
         }
         processQueueImpl.cacheMessages(messageExtList);
         assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
@@ -255,7 +255,7 @@ public class ProcessQueueImplTest extends TestBase {
         int cachedMessageQuantity = 8;
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
         for (int i = 0; i < cachedMessageQuantity; i++) {
-            messageExtList.add(dummyMessageExt(1));
+            messageExtList.add(fakeMessageExt(1));
         }
         processQueueImpl.cacheMessages(messageExtList);
         // first take.
@@ -292,7 +292,7 @@ public class ProcessQueueImplTest extends TestBase {
         int cachedMessageQuantity = 8;
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
         for (int i = 0; i < cachedMessageQuantity; i++) {
-            messageExtList.add(dummyMessageExt(1));
+            messageExtList.add(fakeMessageExt(1));
         }
         processQueueImpl.cacheMessages(messageExtList);
         RateLimiter rateLimiter = RateLimiter.create(1);
@@ -317,7 +317,7 @@ public class ProcessQueueImplTest extends TestBase {
     @Test
     public void testTryTakeFifoMessageWithDeliveryAttemptsExhausted() {
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
-        messageExtList.add(dummyMessageExt(1));
+        messageExtList.add(fakeMessageExt(1));
         processQueueImpl.cacheMessages(messageExtList);
         final MessageExt messageExt = processQueueImpl.tryTakeFifoMessage();
         SettableFuture<ConsumeStatus> future0 = SettableFuture.create();
@@ -337,7 +337,7 @@ public class ProcessQueueImplTest extends TestBase {
         int cachedMessageQuantity = 8;
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
         for (int i = 0; i < cachedMessageQuantity; i++) {
-            messageExtList.add(dummyMessageExt(1));
+            messageExtList.add(fakeMessageExt(1));
         }
         processQueueImpl.cacheMessages(messageExtList);
         RateLimiter rateLimiter = RateLimiter.create(1);
@@ -356,7 +356,7 @@ public class ProcessQueueImplTest extends TestBase {
         int cachedMessageQuantity = 8;
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
         for (int i = 0; i < cachedMessageQuantity; i++) {
-            messageExtList.add(dummyMessageExt(1));
+            messageExtList.add(fakeMessageExt(1));
         }
         processQueueImpl.cacheMessages(messageExtList);
         assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
@@ -380,7 +380,7 @@ public class ProcessQueueImplTest extends TestBase {
         int cachedMessageQuantity = 8;
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
         for (int i = 0; i < cachedMessageQuantity; i++) {
-            messageExtList.add(dummyMessageExt(1));
+            messageExtList.add(fakeMessageExt(1));
         }
         processQueueImpl.cacheMessages(messageExtList);
         assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
@@ -410,7 +410,7 @@ public class ProcessQueueImplTest extends TestBase {
         int cachedMessageQuantity = 8;
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
         for (int i = 0; i < cachedMessageQuantity; i++) {
-            messageExtList.add(dummyMessageExt(1));
+            messageExtList.add(fakeMessageExt(1));
         }
         processQueueImpl.cacheMessages(messageExtList);
         assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
@@ -440,7 +440,7 @@ public class ProcessQueueImplTest extends TestBase {
         int cachedMessageQuantity = 8;
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
         for (int i = 0; i < cachedMessageQuantity; i++) {
-            messageExtList.add(dummyMessageExt(1));
+            messageExtList.add(fakeMessageExt(1));
         }
         processQueueImpl.cacheMessages(messageExtList);
         assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);

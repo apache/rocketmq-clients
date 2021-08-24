@@ -74,11 +74,11 @@ public class ProducerImplTest extends TestBase {
     private ClientManager clientManager;
 
     @InjectMocks
-    private final ProducerImpl producerImpl = new ProducerImpl(dummyGroup0);
+    private final ProducerImpl producerImpl = new ProducerImpl(FAKE_GROUP_0);
 
     @BeforeTest
     public void beforeTest() throws ClientException {
-        producerImpl.setNamesrvAddr(dummyNameServerAddr0);
+        producerImpl.setNamesrvAddr(FAKE_NAME_SERVER_ADDR_0);
         producerImpl.setMessageTracingEnabled(false);
         producerImpl.start();
     }
@@ -91,7 +91,7 @@ public class ProducerImplTest extends TestBase {
     @BeforeMethod
     public void beforeMethod() {
         MockitoAnnotations.initMocks(this);
-        when(clientManager.getScheduler()).thenReturn(scheduler());
+        when(clientManager.getScheduler()).thenReturn(SCHEDULER);
     }
 
     @AfterMethod
@@ -100,8 +100,8 @@ public class ProducerImplTest extends TestBase {
 
     @Test
     public void testSend() throws ServerException, ClientException, InterruptedException, TimeoutException {
-        final Message message = dummyMessage();
-        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), dummyTopicRouteData(Permission.READ_WRITE));
+        final Message message = fakeMessage();
+        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), fakeTopicRouteData(Permission.READ_WRITE));
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))
@@ -120,8 +120,8 @@ public class ProducerImplTest extends TestBase {
     public void testSendWithLargeMessage() throws ServerException, ClientException, InterruptedException,
                                                   TimeoutException {
         final int messageBodySize = ProducerImpl.MESSAGE_COMPRESSION_THRESHOLD + 1;
-        final Message message = dummyMessage(messageBodySize);
-        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), dummyTopicRouteData(Permission.READ_WRITE));
+        final Message message = fakeMessage(messageBodySize);
+        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), fakeTopicRouteData(Permission.READ_WRITE));
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))
@@ -139,8 +139,8 @@ public class ProducerImplTest extends TestBase {
 
     @Test
     public void testSendWithNoPermission() throws ServerException, InterruptedException, TimeoutException {
-        final Message message = dummyMessage();
-        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), dummyTopicRouteData(Permission.NONE));
+        final Message message = fakeMessage();
+        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), fakeTopicRouteData(Permission.NONE));
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any())).thenReturn(successSendMessageResponse());
@@ -159,8 +159,8 @@ public class ProducerImplTest extends TestBase {
     @Test
     public void testSendWithFifoMessage() throws ServerException, ClientException, InterruptedException,
                                                  TimeoutException {
-        final Message message = dummyFifoMessage();
-        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), dummyTopicRouteData(Permission.READ_WRITE));
+        final Message message = fakeFifoMessage();
+        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), fakeTopicRouteData(Permission.READ_WRITE));
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))
@@ -178,8 +178,8 @@ public class ProducerImplTest extends TestBase {
     @Test
     public void testSendWithDelayMessage() throws ServerException, ClientException, InterruptedException,
                                                   TimeoutException {
-        final Message message = dummyDelayMessage();
-        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), dummyTopicRouteData(Permission.READ_WRITE));
+        final Message message = fakeDelayMessage();
+        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), fakeTopicRouteData(Permission.READ_WRITE));
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))
@@ -197,8 +197,8 @@ public class ProducerImplTest extends TestBase {
     @Test
     public void testSendWithTransactionMessage() throws ServerException, ClientException, InterruptedException,
                                                         TimeoutException {
-        final Message message = dummyTransactionMessage();
-        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), dummyTopicRouteData(Permission.READ_WRITE));
+        final Message message = fakeTransactionMessage();
+        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), fakeTopicRouteData(Permission.READ_WRITE));
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))
@@ -215,8 +215,8 @@ public class ProducerImplTest extends TestBase {
 
     @Test
     public void testSendWithCallback() throws ClientException, InterruptedException, ExecutionException {
-        final Message message = dummyMessage();
-        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), dummyTopicRouteData(Permission.READ_WRITE));
+        final Message message = fakeMessage();
+        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), fakeTopicRouteData(Permission.READ_WRITE));
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))
@@ -237,7 +237,7 @@ public class ProducerImplTest extends TestBase {
         final SendResult sendResult = future0.get();
         assertEquals(sendResult.getSendStatus(), SendStatus.SEND_OK);
         // custom callback executor.
-        producerImpl.setCallbackExecutor(sendCallbackExecutor());
+        producerImpl.setCallbackExecutor(TestBase.SEND_CALLBACK_EXECUTOR);
         final SettableFuture<SendResult> future1 = SettableFuture.create();
         producerImpl.send(message, new SendCallback() {
             @Override
@@ -259,8 +259,8 @@ public class ProducerImplTest extends TestBase {
                                           ArgumentMatchers.<EndTransactionRequest>any(), anyLong(),
                                           ArgumentMatchers.<TimeUnit>any()))
                 .thenReturn(successEndTransactionResponse());
-        final Endpoints endpoints = new Endpoints(dummyProtoEndpoints0());
-        producerImpl.commit(endpoints, dummyMessageExt(), dummyTransactionId);
+        final Endpoints endpoints = new Endpoints(fakePbEndpoints0());
+        producerImpl.commit(endpoints, fakeMessageExt(), FAKE_TRANSACTION_ID);
         verify(clientManager, times(1)).endTransaction(ArgumentMatchers.<Endpoints>any(),
                                                        ArgumentMatchers.<Metadata>any(),
                                                        ArgumentMatchers.<EndTransactionRequest>any(),
@@ -274,8 +274,8 @@ public class ProducerImplTest extends TestBase {
                                           ArgumentMatchers.<EndTransactionRequest>any(), anyLong(),
                                           ArgumentMatchers.<TimeUnit>any()))
                 .thenReturn(successEndTransactionResponse());
-        final Endpoints endpoints = new Endpoints(dummyProtoEndpoints0());
-        producerImpl.rollback(endpoints, dummyMessageExt(), dummyTransactionId);
+        final Endpoints endpoints = new Endpoints(fakePbEndpoints0());
+        producerImpl.rollback(endpoints, fakeMessageExt(), FAKE_TRANSACTION_ID);
         verify(clientManager, times(1)).endTransaction(ArgumentMatchers.<Endpoints>any(),
                                                        ArgumentMatchers.<Metadata>any(),
                                                        ArgumentMatchers.<EndTransactionRequest>any(),
@@ -286,9 +286,9 @@ public class ProducerImplTest extends TestBase {
     @Test
     public void testResolveOrphanedTransaction() throws UnsupportedEncodingException, InterruptedException {
         ResolveOrphanedTransactionRequest request =
-                ResolveOrphanedTransactionRequest.newBuilder().setTransactionId(dummyTransactionId)
-                                                 .setOrphanedTransactionalMessage(dummyTransactionMessage0()).build();
-        final Endpoints endpoints = new Endpoints(dummyProtoEndpoints0());
+                ResolveOrphanedTransactionRequest.newBuilder().setTransactionId(FAKE_TRANSACTION_ID)
+                                                 .setOrphanedTransactionalMessage(fakeTransactionMessage0()).build();
+        final Endpoints endpoints = new Endpoints(fakePbEndpoints0());
         {
             producerImpl.resolveOrphanedTransaction(endpoints, request);
             verify(clientManager, never()).endTransaction(ArgumentMatchers.<Endpoints>any(),
@@ -351,7 +351,7 @@ public class ProducerImplTest extends TestBase {
 
     @Test
     public void testMultiplexingRequest() throws InterruptedException {
-        final Message message = dummyMessage();
+        final Message message = fakeMessage();
         when(clientManager.queryRoute(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                       ArgumentMatchers.<QueryRouteRequest>any(), anyLong(),
                                       ArgumentMatchers.<TimeUnit>any()))
@@ -384,9 +384,9 @@ public class ProducerImplTest extends TestBase {
     public void testUpdateTracer() throws ServerException, ClientException, InterruptedException, TimeoutException {
         assertNull(producerImpl.getTracer());
         producerImpl.setMessageTracingEnabled(true);
-        final Message message = dummyMessage();
+        final Message message = fakeMessage();
         // fetch route from remote instead of cache.
-        message.setTopic(dummyTopic1);
+        message.setTopic(FAKE_TOPIC_1);
         when(clientManager.queryRoute(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                       ArgumentMatchers.<QueryRouteRequest>any(), anyLong(),
                                       ArgumentMatchers.<TimeUnit>any()))

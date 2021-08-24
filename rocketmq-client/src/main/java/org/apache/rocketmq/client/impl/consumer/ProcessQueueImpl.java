@@ -596,7 +596,7 @@ public class ProcessQueueImpl implements ProcessQueue {
             default:
                 builder.setPolicy(apache.rocketmq.v1.QueryOffsetPolicy.END);
         }
-        builder.setPartition(getProtoPartition());
+        builder.setPartition(getPbPartition());
         final QueryOffsetRequest request = builder.build();
         final Endpoints endpoints = mq.getPartition().getBroker().getEndpoints();
         return consumerImpl.queryOffset(request, endpoints);
@@ -764,9 +764,9 @@ public class ProcessQueueImpl implements ProcessQueue {
         final Duration maxAwaitTimeMillis = Durations.fromMillis(consumerImpl.getMaxAwaitTimeMillisPerQueue());
         final ReceiveMessageRequest.Builder builder =
                 ReceiveMessageRequest.newBuilder()
-                                     .setGroup(consumerImpl.getProtoGroup())
+                                     .setGroup(consumerImpl.getPbGroup())
                                      .setClientId(consumerImpl.getClientId())
-                                     .setPartition(getProtoPartition()).setBatchSize(maxAwaitBatchSize)
+                                     .setPartition(getPbPartition()).setBatchSize(maxAwaitBatchSize)
                                      .setInvisibleDuration(invisibleDuration)
                                      .setAwaitTime(maxAwaitTimeMillis);
 
@@ -783,7 +783,7 @@ public class ProcessQueueImpl implements ProcessQueue {
             default:
                 builder.setConsumePolicy(ConsumePolicy.RESUME);
         }
-        builder.setFilterExpression(getProtoFilterExpression());
+        builder.setFilterExpression(getPbFilterExpression());
         builder.setFifoFlag(MessageListenerType.ORDERLY.equals(consumerImpl.getMessageListener().getListenerType()));
         return builder.build();
     }
@@ -791,10 +791,10 @@ public class ProcessQueueImpl implements ProcessQueue {
     PullMessageRequest wrapPullMessageRequest(long offset) {
         final int maxAwaitBatchSize = getMaxAwaitBatchSize();
         final long maxAwaitTimeMillis = consumerImpl.getMaxAwaitTimeMillisPerQueue();
-        return PullMessageRequest.newBuilder().setGroup(consumerImpl.getProtoGroup()).setPartition(getProtoPartition())
+        return PullMessageRequest.newBuilder().setGroup(consumerImpl.getPbGroup()).setPartition(getPbPartition())
                                  .setOffset(offset).setBatchSize(maxAwaitBatchSize)
                                  .setAwaitTime(Durations.fromMillis(maxAwaitTimeMillis))
-                                 .setFilterExpression(getProtoFilterExpression())
+                                 .setFilterExpression(getPbFilterExpression())
                                  .setClientId(consumerImpl.getClientId())
                                  .build();
     }
@@ -981,7 +981,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         });
     }
 
-    private apache.rocketmq.v1.FilterExpression getProtoFilterExpression() {
+    private apache.rocketmq.v1.FilterExpression getPbFilterExpression() {
         final ExpressionType expressionType = filterExpression.getExpressionType();
 
         apache.rocketmq.v1.FilterExpression.Builder expressionBuilder =
@@ -998,7 +998,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         }
     }
 
-    private Partition getProtoPartition() {
+    private Partition getPbPartition() {
         final Resource protoTopic = Resource.newBuilder().setArn(consumerImpl.getArn()).setName(mq.getTopic()).build();
         final Broker broker = Broker.newBuilder().setName(mq.getBrokerName()).build();
         return Partition.newBuilder().setTopic(protoTopic).setId(mq.getQueueId()).setBroker(broker).build();

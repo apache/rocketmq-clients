@@ -268,7 +268,7 @@ public class PullConsumerImpl extends ConsumerImpl {
     @Override
     public ClientResourceBundle wrapClientResourceBundle() {
         final ClientResourceBundle.Builder builder =
-                ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(getProtoGroup());
+                ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(getPbGroup());
         return builder.build();
     }
 }

@@ -41,7 +41,6 @@ import com.google.rpc.Status;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -49,6 +48,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.consumer.ReceiveMessageResult;
 import org.apache.rocketmq.client.consumer.ReceiveStatus;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
@@ -68,126 +68,117 @@ import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.apache.rocketmq.utility.UtilAll;
 
 public class TestBase {
-    protected Random random = new Random();
+    protected static final String FAKE_ARN_0 = "foo-bar-arn-0";
 
-    protected String dummyArn0 = "TestArn0";
+    protected static final String FAKE_TOPIC_0 = "foo-bar-topic-0";
+    protected static final String FAKE_TOPIC_1 = "foo-bar-topic-1";
 
-    protected String dummyTopic0 = "TestTopic0";
-    protected String dummyTopic1 = "TestTopic1";
+    protected static final String FAKE_BROKER_NAME_0 = "foo-bar-broker-name-0";
 
-    protected String dummyBrokerName0 = "TestBrokerName0";
+    protected static final String FAKE_MESSAGE_GROUP_0 = "foo-bar-message-group-0";
 
-    protected String dummyMessageGroup0 = "TestMessageGroup";
+    protected static final String FAKE_CLIENT_ID_0 = "foo-bar-client-id-0";
 
-    protected String dummyClientId0 = "TestClientId0";
+    protected static final String FAKE_GROUP_0 = "foo-bar-group-0";
+    protected static final String FAKE_GROUP_1 = "foo-bar-group-1";
+    protected static final String FAKE_GROUP_2 = "foo-bar-group-2";
 
-    protected String dummyGroup0 = "TestGroup0";
-    protected String dummyGroup1 = "TestGroup1";
-    protected String dummyGroup2 = "TestGroup2";
+    protected static final String FAKE_NAME_SERVER_ADDR_0 = "127.0.0.1:9876";
 
-    protected String dummyNameServerAddr0 = "11.167.164.105:9876";
+    protected static final String FAKE_TAG_EXPRESSION_0 = FilterExpression.TAG_EXPRESSION_SUB_ALL;
 
-    protected String dummyTagExpression0 = FilterExpression.TAG_EXPRESSION_SUB_ALL;
+    protected static final String FAKE_TAG_0 = "foo-bar-tag-0";
+    protected static final String FAKE_TAG_1 = "foo-bar-tag-1";
 
-    protected String dummyTag0 = "TestTagA";
-    protected String dummyTag1 = "TestTagB";
+    protected static final String FAKE_HOST_0 = "127.0.0.1";
 
-    protected String dummyHost0 = "127.0.0.1";
+    protected static final int FAKE_PORT_0 = 8080;
 
-    protected int dummyPort0 = 8080;
+    protected static final String FAKE_TRANSACTION_ID = "foo-bar-transaction-id";
 
-    protected String dummyTransactionId = "123456";
+    protected static final String FAKE_RECEIPT_HANDLE = "foo-bar-handle";
 
-    protected String dummyReceiptHandle = "handle";
+    protected static final ThreadPoolExecutor SINGLE_THREAD_POOL_EXECUTOR =
+            new ThreadPoolExecutor(1, 1, 60, TimeUnit.SECONDS,
+                                   new LinkedBlockingQueue<Runnable>(), new ThreadFactoryImpl("TestSingleWorker"));
 
-    protected Resource dummyProtoTopic0() {
-        return Resource.newBuilder().setArn(dummyArn0).setName(dummyTopic0).build();
+    protected static final ThreadPoolExecutor SEND_CALLBACK_EXECUTOR =
+            new ThreadPoolExecutor(1, 1, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(),
+                                   new ThreadFactoryImpl("TestSendCallback"));
+
+    protected static final ScheduledExecutorService SCHEDULER =
+            new ScheduledThreadPoolExecutor(1, new ThreadFactoryImpl("TestScheduler"));
+
+    protected Resource fakePbTopic0() {
+        return Resource.newBuilder().setArn(FAKE_ARN_0).setName(FAKE_TOPIC_0).build();
     }
 
-    protected Address dummyProtoAddress0() {
-        return dummyProtoAddress(dummyHost0, dummyPort0);
+    protected Address fakePbAddress0() {
+        return fakePbAddress(FAKE_HOST_0, FAKE_PORT_0);
     }
 
-    protected Address dummyProtoAddress(String host, int port) {
+    protected Address fakePbAddress(String host, int port) {
         return Address.newBuilder().setHost(host).setPort(port).build();
     }
 
-    protected apache.rocketmq.v1.Endpoints dummyProtoEndpoints0() {
-        return dummyProtoEndpoints(dummyProtoAddress0());
+    protected apache.rocketmq.v1.Endpoints fakePbEndpoints0() {
+        return fakePbEndpoints(fakePbAddress0());
     }
 
-    protected apache.rocketmq.v1.Endpoints dummyProtoEndpoints(Address address) {
+    protected apache.rocketmq.v1.Endpoints fakePbEndpoints(Address address) {
         return apache.rocketmq.v1.Endpoints.newBuilder().setScheme(AddressScheme.IPv4).addAddresses(address).build();
     }
 
-    protected Endpoints dummyEndpoints0() {
-        return new Endpoints(dummyProtoEndpoints0());
+    protected Endpoints fakeEndpoints0() {
+        return new Endpoints(fakePbEndpoints0());
     }
 
-    protected Broker dummyProtoBroker0() {
-        return dummyProtoBroker(dummyBrokerName0, MixAll.MASTER_BROKER_ID, dummyProtoEndpoints0());
+    protected Broker fakePbBroker0() {
+        return fakePbBroker(FAKE_BROKER_NAME_0, MixAll.MASTER_BROKER_ID, fakePbEndpoints0());
     }
 
-    protected Broker dummyProtoBroker(String name) {
-        return dummyProtoBroker(name, MixAll.MASTER_BROKER_ID, dummyProtoEndpoints0());
+    protected Broker fakePbBroker(String name) {
+        return fakePbBroker(name, MixAll.MASTER_BROKER_ID, fakePbEndpoints0());
     }
 
-    protected Broker dummyProtoBroker(String name, int id, apache.rocketmq.v1.Endpoints endpoints) {
+    protected Broker fakePbBroker(String name, int id, apache.rocketmq.v1.Endpoints endpoints) {
         return Broker.newBuilder().setName(name).setId(id).setEndpoints(endpoints).build();
     }
 
-    protected apache.rocketmq.v1.Partition dummyProtoPartition0() {
-        return dummyProtoPartition0(Permission.READ_WRITE, 0);
+    protected apache.rocketmq.v1.Partition fakePbPartition0() {
+        return fakePbPartition0(Permission.READ_WRITE, 0);
     }
 
-    protected apache.rocketmq.v1.Partition dummyProtoPartition0(Permission permission) {
-        return dummyProtoPartition0(permission, 0);
+    protected apache.rocketmq.v1.Partition fakePbPartition0(Permission permission) {
+        return fakePbPartition0(permission, 0);
     }
 
-    protected apache.rocketmq.v1.Partition dummyProtoPartition0(Permission permission, int id) {
-        return dummyProtoPartition(dummyProtoTopic0(), dummyProtoBroker0(), permission, id);
+    protected apache.rocketmq.v1.Partition fakePbPartition0(Permission permission, int id) {
+        return fakePbPartition(fakePbTopic0(), fakePbBroker0(), permission, id);
     }
 
-    protected apache.rocketmq.v1.Partition dummyProtoPartition(Resource protoTopic, Broker broker,
-                                                               Permission permission, int id) {
-        return apache.rocketmq.v1.Partition.newBuilder()
-                                           .setTopic(protoTopic)
-                                           .setBroker(broker)
-                                           .setPermission(permission)
-                                           .setId(id)
-                                           .build();
+    protected apache.rocketmq.v1.Partition fakePbPartition(Resource protoTopic, Broker broker,
+                                                           Permission permission, int id) {
+        return apache.rocketmq.v1.Partition.newBuilder().setTopic(protoTopic).setBroker(broker)
+                                           .setPermission(permission).setId(id).build();
     }
 
-    protected Partition dummyPartition0() {
-        return new Partition(dummyProtoPartition0());
+    protected Partition fakePartition0() {
+        return new Partition(fakePbPartition0());
     }
 
-    protected MessageQueue dummyMessageQueue() {
-        return new MessageQueue(dummyPartition0());
+    protected MessageQueue fakeMessageQueue() {
+        return new MessageQueue(fakePartition0());
     }
 
-    protected ThreadPoolExecutor singleThreadPoolExecutor() {
-        return new ThreadPoolExecutor(1, 1, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(),
-                                      new ThreadFactoryImpl("TestSingleWorker"));
-    }
-
-    protected ThreadPoolExecutor sendCallbackExecutor() {
-        return new ThreadPoolExecutor(1, 1, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(),
-                                      new ThreadFactoryImpl("TestSendCallback"));
-    }
-
-    protected ScheduledExecutorService scheduler() {
-        return new ScheduledThreadPoolExecutor(1, new ThreadFactoryImpl("TestScheduler"));
-    }
-
-    protected TopicRouteData dummyTopicRouteData(Permission permission) {
+    protected TopicRouteData fakeTopicRouteData(Permission permission) {
         List<apache.rocketmq.v1.Partition> partitionList = new ArrayList<apache.rocketmq.v1.Partition>();
-        partitionList.add(dummyProtoPartition0(permission));
+        partitionList.add(fakePbPartition0(permission));
         return new TopicRouteData(partitionList);
     }
 
-    protected ReceiveMessageResult dummyReceiveMessageResult(List<MessageExt> messageExtList) {
-        return new ReceiveMessageResult(dummyEndpoints0(), ReceiveStatus.OK, 0, 0, messageExtList);
+    protected ReceiveMessageResult fakeReceiveMessageResult(List<MessageExt> messageExtList) {
+        return new ReceiveMessageResult(fakeEndpoints0(), ReceiveStatus.OK, 0, 0, messageExtList);
     }
 
     protected ResponseCommon successResponseCommon() {
@@ -225,7 +216,7 @@ public class TestBase {
         final ResponseCommon common = successResponseCommon();
         SettableFuture<QueryRouteResponse> future0 = SettableFuture.create();
         final QueryRouteResponse response =
-                QueryRouteResponse.newBuilder().setCommon(common).addPartitions(dummyProtoPartition0()).build();
+                QueryRouteResponse.newBuilder().setCommon(common).addPartitions(fakePbPartition0()).build();
         future0.set(response);
         return future0;
     }
@@ -249,7 +240,7 @@ public class TestBase {
         final SettableFuture<MultiplexingResponse> future0 = SettableFuture.create();
         final MultiplexingResponse response =
                 MultiplexingResponse.newBuilder().setPollingResponse(successGenericPollingResponse()).build();
-        scheduler().schedule(new Runnable() {
+        SCHEDULER.schedule(new Runnable() {
             @Override
             public void run() {
                 future0.set(response);
@@ -266,77 +257,67 @@ public class TestBase {
         return future0;
     }
 
-    //    protected ListenableFuture<ReceiveMessageResponse>
-    //        successReceiveMessageResponse(List<apache.rocketmq.v1.Message> messageList) {
-    //        final SettableFuture<ReceiveMessageResponse> future0 = SettableFuture.create();
-    //        final ReceiveMessageResponse.Builder builder = ReceiveMessageResponse.newBuilder()
-    //                                                                             .setCommon(successResponseCommon());
-    //        future0.set(builder.addAllMessages(messageList).build());
-    //        return future0;
-    //    }
-
-    protected MessageExt dummyMessageExt() {
-        return dummyMessageExt(1);
+    protected MessageExt fakeMessageExt() {
+        return fakeMessageExt(1);
     }
 
-    protected MessageExt dummyMessageExt(int bodySize) {
+    protected MessageExt fakeMessageExt(int bodySize) {
         final SystemAttribute systemAttribute = new SystemAttribute();
         systemAttribute.setMessageId(MessageIdGenerator.getInstance().next());
-        systemAttribute.setReceiptHandle(dummyReceiptHandle);
+        systemAttribute.setReceiptHandle(FAKE_RECEIPT_HANDLE);
         systemAttribute.setDeliveryAttempt(1);
         final ConcurrentMap<String, String> userAttribute = new ConcurrentHashMap<String, String>();
-        final byte[] bytes = new byte[bodySize];
-        random.nextBytes(bytes);
-        final MessageImpl messageImpl = new MessageImpl(dummyTopic0, systemAttribute, userAttribute, bytes);
+        final byte[] bytes = RandomUtils.nextBytes(bodySize);
+        final MessageImpl messageImpl = new MessageImpl(FAKE_TOPIC_0, systemAttribute, userAttribute, bytes);
         return new MessageExt(messageImpl);
     }
 
-    protected Message dummyMessage() {
-        return dummyMessage(1);
+    protected Message fakeMessage() {
+        return fakeMessage(1);
     }
 
-    protected apache.rocketmq.v1.Message dummyTransactionMessage0() throws UnsupportedEncodingException {
-        final apache.rocketmq.v1.Message message = dummyMessage0();
+    protected apache.rocketmq.v1.Message fakeTransactionMessage0() throws UnsupportedEncodingException {
+        final apache.rocketmq.v1.Message message = fakeMessage0();
         final apache.rocketmq.v1.SystemAttribute systemAttribute =
                 message.getSystemAttribute().toBuilder().setMessageType(apache.rocketmq.v1.MessageType.TRANSACTION)
                        .build();
         return message.toBuilder().setSystemAttribute(systemAttribute).build();
     }
 
-    protected apache.rocketmq.v1.Message dummyMessage0() throws UnsupportedEncodingException {
+    protected apache.rocketmq.v1.Message fakeMessage0() throws UnsupportedEncodingException {
         apache.rocketmq.v1.SystemAttribute systemAttribute =
                 apache.rocketmq.v1.SystemAttribute.newBuilder()
                                                   .setMessageType(apache.rocketmq.v1.MessageType.NORMAL)
                                                   .setMessageId(MessageIdGenerator.getInstance().next())
-                                                  .setBornHost(dummyHost0)
+                                                  .setBornHost(FAKE_HOST_0)
                                                   .setBodyDigest(Digest.newBuilder()
                                                                        .setType(DigestType.CRC32)
                                                                        .setChecksum("9EF61F95")
                                                                        .build())
                                                   .build();
-        return apache.rocketmq.v1.Message.newBuilder().setTopic(dummyProtoTopic0()).setBody(ByteString.copyFrom(
+        return apache.rocketmq.v1.Message.newBuilder().setTopic(fakePbTopic0()).setBody(ByteString.copyFrom(
                 "foobar", UtilAll.DEFAULT_CHARSET)).setSystemAttribute(systemAttribute).build();
     }
 
-    protected Message dummyMessage(int bodySize) {
+    protected Message fakeMessage(int bodySize) {
         final byte[] bytes = new byte[bodySize];
         for (int i = 0; i < bodySize; i++) {
             bytes[i] = 0x20;
         }
-        return new Message(dummyTopic0, dummyTag0, bytes);
+        return new Message(FAKE_TOPIC_0, FAKE_TAG_0, bytes);
     }
 
-    protected Message dummyFifoMessage() {
-        final Message message = dummyMessage();
+    protected Message fakeFifoMessage() {
+        final Message message = fakeMessage();
         final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
         final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
         systemAttribute.setMessageType(MessageType.FIFO);
-        systemAttribute.setMessageGroup(dummyMessageGroup0);
+        systemAttribute.setMessageGroup(FAKE_MESSAGE_GROUP_0);
         return message;
     }
 
-    protected Message dummyDelayMessage(int delayLevel, long delayTimestamp) {
-        final Message message = dummyMessage();
+    protected Message fakeDelayMessage(int delayLevel, long delayTimestamp) {
+        final Message message = fakeMessage();
         final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
         final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
         systemAttribute.setMessageType(MessageType.DELAY);
@@ -345,15 +326,15 @@ public class TestBase {
         return message;
     }
 
-    protected Message dummyTransactionMessage() {
-        final Message message = dummyMessage();
+    protected Message fakeTransactionMessage() {
+        final Message message = fakeMessage();
         final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
         final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
         systemAttribute.setMessageType(MessageType.TRANSACTION);
         return message;
     }
 
-    protected Message dummyDelayMessage() {
-        return dummyDelayMessage(0, System.currentTimeMillis() + 10 * 1000);
+    protected Message fakeDelayMessage() {
+        return fakeDelayMessage(0, System.currentTimeMillis() + 10 * 1000);
     }
 }

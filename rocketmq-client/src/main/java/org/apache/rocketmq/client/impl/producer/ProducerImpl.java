@@ -302,7 +302,7 @@ public class ProducerImpl extends ClientImpl {
                                                   .setBornTimestamp(fromMillis(message.getBornTimeMillis()))
                                                   .setBornHost(UtilAll.hostName())
                                                   .setPartitionId(partition.getId())
-                                                  .setProducerGroup(getProtoGroup());
+                                                  .setProducerGroup(getPbGroup());
         Encoding encoding = Encoding.IDENTITY;
         byte[] body = message.getBody();
         if (body.length > MESSAGE_COMPRESSION_THRESHOLD) {
@@ -809,7 +809,7 @@ public class ProducerImpl extends ClientImpl {
 
     @Override
     public HeartbeatEntry prepareHeartbeatData() {
-        ProducerGroup producerGroup = ProducerGroup.newBuilder().setGroup(getProtoGroup()).build();
+        ProducerGroup producerGroup = ProducerGroup.newBuilder().setGroup(getPbGroup()).build();
         return HeartbeatEntry.newBuilder()
                              .setClientId(clientId)
                              .setProducerGroup(producerGroup)
@@ -823,7 +823,7 @@ public class ProducerImpl extends ClientImpl {
     @Override
     public ClientResourceBundle wrapClientResourceBundle() {
         final ClientResourceBundle.Builder builder =
-                ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(getProtoGroup());
+                ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(getPbGroup());
         for (String topic : sendingRouteDataCache.keySet()) {
             Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
             builder.addTopics(topicResource);

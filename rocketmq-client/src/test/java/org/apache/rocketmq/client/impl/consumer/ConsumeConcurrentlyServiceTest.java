@@ -50,8 +50,8 @@ public class ConsumeConcurrentlyServiceTest extends TestBase {
     @Mock
     private MessageInterceptor messageInterceptor;
 
-    private final ThreadPoolExecutor consumptionExecutor = singleThreadPoolExecutor();
-    private final ScheduledExecutorService scheduler = scheduler();
+    private final ThreadPoolExecutor consumptionExecutor = SINGLE_THREAD_POOL_EXECUTOR;
+    private final ScheduledExecutorService scheduler = SCHEDULER;
     private ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable;
     private ConsumeService consumeService;
     private int batchSize;
@@ -74,7 +74,7 @@ public class ConsumeConcurrentlyServiceTest extends TestBase {
 
     @Test
     public void testConsume() throws ExecutionException, InterruptedException {
-        final MessageExt messageExt = dummyMessageExt(1);
+        final MessageExt messageExt = fakeMessageExt(1);
         when(messageListener.consume(ArgumentMatchers.<MessageExt>anyList(),
                                      ArgumentMatchers.any(ConsumeContext.class))).thenReturn(ConsumeStatus.OK);
         final ListenableFuture<ConsumeStatus> future = consumeService.consume(messageExt);
@@ -84,7 +84,7 @@ public class ConsumeConcurrentlyServiceTest extends TestBase {
 
     @Test
     public void testConsumeWithDelay() throws InterruptedException, ExecutionException {
-        final MessageExt messageExt = dummyMessageExt(1);
+        final MessageExt messageExt = fakeMessageExt(1);
         when(messageListener.consume(ArgumentMatchers.<MessageExt>anyList(),
                                      ArgumentMatchers.any(ConsumeContext.class))).thenReturn(ConsumeStatus.OK);
         final long delayMillis = 1000;

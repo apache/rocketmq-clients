@@ -27,17 +27,17 @@ public class MessageTest extends TestBase {
 
     @Test
     public void testSetTopic() {
-        final Message message = new Message(dummyTopic0, dummyTag0, RandomUtils.nextBytes(1));
+        final Message message = new Message(FAKE_TOPIC_0, FAKE_TAG_0, RandomUtils.nextBytes(1));
         final String originalMessageId = message.getMsgId();
-        message.setTopic(dummyTopic1);
+        message.setTopic(FAKE_TOPIC_1);
         assertNotEquals(message.getMsgId(), originalMessageId);
     }
 
     @Test
     public void testSetTag() {
-        final Message message = new Message(dummyTopic0, dummyTag0, RandomUtils.nextBytes(1));
+        final Message message = new Message(FAKE_TOPIC_0, FAKE_TAG_0, RandomUtils.nextBytes(1));
         final String originalMessageId = message.getMsgId();
-        message.setTag(dummyTag1);
+        message.setTag(FAKE_TAG_1);
         assertNotEquals(message.getMsgId(), originalMessageId);
     }
 }

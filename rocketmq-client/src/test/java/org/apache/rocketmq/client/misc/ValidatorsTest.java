@@ -97,7 +97,7 @@ public class ValidatorsTest extends TestBase {
 
     @Test
     public void testMessageCheck() throws ClientException {
-        Validators.checkMessage(dummyMessage());
+        Validators.checkMessage(fakeMessage());
         // Null case.
         checkMessage(null);
         // Topic is blank.
@@ -108,7 +108,7 @@ public class ValidatorsTest extends TestBase {
         // Body is null.
         {
             try {
-                new Message(dummyTopic0, dummyTag0, null);
+                new Message(FAKE_TOPIC_0, FAKE_TAG_0, null);
                 fail();
             } catch (NullPointerException t) {
                 // ignore on purpose.
@@ -116,12 +116,12 @@ public class ValidatorsTest extends TestBase {
         }
         // Body length is zero.
         {
-            final Message message = new Message(dummyTopic0, dummyTag0, new byte[0]);
+            final Message message = new Message(FAKE_TOPIC_0, FAKE_TAG_0, new byte[0]);
             checkMessage(message);
         }
         // Body length exceeds.
         {
-            final Message message = dummyMessage(1 + Validators.MESSAGE_BODY_MAX_SIZE);
+            final Message message = fakeMessage(1 + Validators.MESSAGE_BODY_MAX_SIZE);
             checkMessage(message);
         }
     }

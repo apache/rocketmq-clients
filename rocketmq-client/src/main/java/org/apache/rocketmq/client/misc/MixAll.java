@@ -17,6 +17,8 @@
 
 package org.apache.rocketmq.client.misc;
 
+import apache.rocketmq.v1.ReceiveMessageRequest;
+
 public class MixAll {
     public static final String DEFAULT_CHARSET = "UTF-8";
     public static final String MESSAGE_KEY_SEPARATOR = " ";
@@ -25,6 +27,16 @@ public class MixAll {
 
     public static final int MASTER_BROKER_ID = 0;
 
+    private static String PROTOCOL_VERSION = null;
+
     private MixAll() {
+    }
+
+    public static String getProtocolVersion() {
+        if (null != PROTOCOL_VERSION) {
+            return PROTOCOL_VERSION;
+        }
+        PROTOCOL_VERSION = ReceiveMessageRequest.class.getName().split("\\.")[2];
+        return PROTOCOL_VERSION;
     }
 }

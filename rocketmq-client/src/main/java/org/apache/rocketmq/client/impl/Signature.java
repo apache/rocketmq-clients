@@ -25,9 +25,11 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.exception.ClientException;
+import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.remoting.Credentials;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
 import org.apache.rocketmq.client.remoting.TlsHelper;
+import org.apache.rocketmq.utility.MetadataUtils;
 
 public class Signature {
     public static final String TENANT_ID_KEY = "x-mq-tenant-id";
@@ -61,7 +63,9 @@ public class Signature {
         }
 
         metadata.put(Metadata.Key.of(MQ_LANGUAGE, Metadata.ASCII_STRING_MARSHALLER), "JAVA");
-        metadata.put(Metadata.Key.of(SDK_PROTOCOL_VERSION, Metadata.ASCII_STRING_MARSHALLER), "v1");
+        metadata.put(Metadata.Key.of(SDK_PROTOCOL_VERSION, Metadata.ASCII_STRING_MARSHALLER),
+                     MixAll.getProtocolVersion());
+        metadata.put(Metadata.Key.of(SDK_VERSION, Metadata.ASCII_STRING_MARSHALLER), MetadataUtils.getVersion());
 
         final String arn = config.getArn();
         if (StringUtils.isNotBlank(arn)) {

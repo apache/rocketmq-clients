@@ -52,7 +52,7 @@ public class PushConsumerImplTest extends TestBase {
     private ClientManager clientManager;
 
     @InjectMocks
-    private final PushConsumerImpl consumerImpl = new PushConsumerImpl(dummyGroup0);
+    private final PushConsumerImpl consumerImpl = new PushConsumerImpl(FAKE_GROUP_0);
 
     @BeforeMethod
     public void beforeMethod() {
@@ -101,7 +101,7 @@ public class PushConsumerImplTest extends TestBase {
 
     @Test
     public void testPrepareHeartbeatData() {
-        consumerImpl.subscribe(dummyTopic0, "*", ExpressionType.TAG);
+        consumerImpl.subscribe(FAKE_TOPIC_0, "*", ExpressionType.TAG);
         HeartbeatEntry heartbeatEntry = consumerImpl.prepareHeartbeatData();
         assertEquals(heartbeatEntry.getClientId(), consumerImpl.getClientId());
         final ConsumerGroup consumerGroup = heartbeatEntry.getConsumerGroup();
@@ -112,7 +112,7 @@ public class PushConsumerImplTest extends TestBase {
         assertEquals(1, subscriptionsList.size());
         final SubscriptionEntry subscriptionEntry = subscriptionsList.get(0);
         final Resource topicResource = subscriptionEntry.getTopic();
-        assertEquals(dummyTopic0, topicResource.getName());
+        assertEquals(FAKE_TOPIC_0, topicResource.getName());
         final FilterExpression expression = subscriptionEntry.getExpression();
         assertEquals(expression.getType(), FilterType.TAG);
 
