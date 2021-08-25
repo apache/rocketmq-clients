@@ -49,8 +49,9 @@ public class DefaultMQPushConsumer {
      * Constructor specifying group.
      *
      * @param group group name.
+     * @throws ClientException if there is any client error.
      */
-    public DefaultMQPushConsumer(final String group) {
+    public DefaultMQPushConsumer(final String group) throws ClientException {
         this.impl = new PushConsumerImpl(group);
     }
 
@@ -122,8 +123,14 @@ public class DefaultMQPushConsumer {
         this.impl.setConsumptionThreadsAmount(amount);
     }
 
-    public void throttle(String topic, double permitsPerSecond) {
-        this.impl.throttle(topic, permitsPerSecond);
+    /**
+     * Limit the consumption rate for each topic of consumer.
+     *
+     * @param topic            topic's name.
+     * @param permitsPerSecond consumption rate for topic.
+     */
+    public void rateLimit(String topic, double permitsPerSecond) {
+        this.impl.rateLimit(topic, permitsPerSecond);
     }
 
     /**

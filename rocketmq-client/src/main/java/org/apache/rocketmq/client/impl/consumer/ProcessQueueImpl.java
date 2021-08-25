@@ -103,7 +103,7 @@ public class ProcessQueueImpl implements ProcessQueue {
     private final AtomicBoolean fifoConsumptionOccupied;
 
     private volatile long activityNanoTime = System.nanoTime();
-    private volatile long throttleNanoTime = Long.MIN_VALUE;
+    private volatile long cacheFullNanoTime = Long.MIN_VALUE;
 
     public ProcessQueueImpl(PushConsumerImpl consumerImpl, MessageQueue mq, FilterExpression filterExpression) {
         this.consumerImpl = consumerImpl;
@@ -519,8 +519,8 @@ public class ProcessQueueImpl implements ProcessQueue {
             log.debug("Process queue has been dropped, no longer receive message, mq={}.", mq);
             return;
         }
-        if (this.throttled()) {
-            log.warn("Process queue is throttled, would receive message later, mq={}.", mq);
+        if (this.isCacheFull()) {
+            log.warn("Process queue cache is full, would receive message later, mq={}.", mq);
             receiveMessageLater();
             return;
         }
@@ -546,21 +546,21 @@ public class ProcessQueueImpl implements ProcessQueue {
         }
     }
 
-    public boolean throttled() {
+    public boolean isCacheFull() {
         final long actualMessagesQuantity = this.cachedMessagesQuantity();
         final int cachedMessageQuantityThresholdPerQueue = consumerImpl.cachedMessagesQuantityThresholdPerQueue();
         if (cachedMessageQuantityThresholdPerQueue <= actualMessagesQuantity) {
-            log.warn("Process queue total messages quantity exceeds the threshold, threshold={}, actual={}, mq={}",
-                     cachedMessageQuantityThresholdPerQueue, actualMessagesQuantity, mq);
-            throttleNanoTime = System.nanoTime();
+            log.warn("Process queue total cached messages quantity exceeds the threshold, threshold={}, actual={}, "
+                     + "mq={}", cachedMessageQuantityThresholdPerQueue, actualMessagesQuantity, mq);
+            cacheFullNanoTime = System.nanoTime();
             return true;
         }
         final int cachedMessagesBytesPerQueue = consumerImpl.cachedMessagesBytesThresholdPerQueue();
         final long actualCachedMessagesBytes = this.cachedMessageBytes();
         if (cachedMessagesBytesPerQueue <= actualCachedMessagesBytes) {
-            log.warn("Process queue total messages memory exceeds the threshold, threshold={} bytes, actual={} bytes,"
-                     + " mq={}", cachedMessagesBytesPerQueue, actualCachedMessagesBytes, mq);
-            throttleNanoTime = System.nanoTime();
+            log.warn("Process queue total cached messages memory exceeds the threshold, threshold={} bytes, actual={} "
+                     + "bytes, mq={}", cachedMessagesBytesPerQueue, actualCachedMessagesBytes, mq);
+            cacheFullNanoTime = System.nanoTime();
             return true;
         }
         return false;
@@ -573,13 +573,13 @@ public class ProcessQueueImpl implements ProcessQueue {
             return false;
         }
 
-        final long throttleIdleMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - throttleNanoTime);
-        if (throttleIdleMillis < MAX_IDLE_MILLIS) {
+        final long cacheFullIdleMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - cacheFullNanoTime);
+        if (cacheFullIdleMillis < MAX_IDLE_MILLIS) {
             return false;
         }
 
-        log.warn("Process queue is idle, reception idle time={}ms, throttle idle time={}ms", idleMillis,
-                 throttleIdleMillis);
+        log.warn("Process queue is idle, reception idle time={}ms, cache full idle time={}ms", idleMillis,
+                 cacheFullIdleMillis);
         return true;
     }
 
@@ -733,8 +733,8 @@ public class ProcessQueueImpl implements ProcessQueue {
             log.info("Process queue has been dropped, no longer pull message, mq={}.", mq);
             return;
         }
-        if (this.throttled()) {
-            log.warn("Process queue is throttled, would pull message later, mq={}", mq);
+        if (this.isCacheFull()) {
+            log.warn("Process queue cache is full, would pull message later, mq={}", mq);
             pullMessageLater(offset);
             return;
         }

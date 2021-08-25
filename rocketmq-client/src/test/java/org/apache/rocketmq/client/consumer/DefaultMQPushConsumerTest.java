@@ -32,7 +32,7 @@ import org.testng.annotations.Test;
 
 public class DefaultMQPushConsumerTest extends TestBase {
 
-    private DefaultMQPushConsumer createPushConsumer(String consumerGroup, String topic) {
+    private DefaultMQPushConsumer createPushConsumer(String consumerGroup, String topic) throws ClientException {
         final DefaultMQPushConsumer consumer = new DefaultMQPushConsumer(consumerGroup);
         consumer.subscribe(topic, "*");
         consumer.registerMessageListener(
@@ -47,7 +47,7 @@ public class DefaultMQPushConsumerTest extends TestBase {
     }
 
     @Test
-    public void testStartWithoutListener() throws InterruptedException {
+    public void testStartWithoutListener() throws InterruptedException, ClientException {
         DefaultMQPushConsumer consumer = new DefaultMQPushConsumer(FAKE_GROUP_0);
         try {
             consumer.start();
@@ -128,7 +128,7 @@ public class DefaultMQPushConsumerTest extends TestBase {
     }
 
     @Test(invocationCount = 16)
-    public void testStartConsumersConcurrently() throws InterruptedException {
+    public void testStartConsumersConcurrently() throws InterruptedException, ClientException {
         final DefaultMQPushConsumer consumer0 = createPushConsumer(FAKE_GROUP_1, FAKE_TOPIC_0);
         final DefaultMQPushConsumer consumer1 = createPushConsumer(FAKE_GROUP_2, FAKE_TOPIC_0);
 

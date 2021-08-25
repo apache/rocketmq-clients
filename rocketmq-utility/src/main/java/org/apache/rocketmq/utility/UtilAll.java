@@ -37,6 +37,7 @@ import org.apache.commons.lang3.RandomUtils;
 
 public class UtilAll {
     public static final String DEFAULT_CHARSET = "UTF-8";
+    public static final Locale LOCALE = new Locale("zh", "CN");
 
     private static final int PROCESS_ID_NOT_SET = -2;
     private static final int PROCESS_ID_NOT_FOUND = -1;
@@ -165,8 +166,7 @@ public class UtilAll {
         CRC32 crc32 = new CRC32();
         // Do not use crc32.update(array) directly for the compatibility, which has been marked as since Java1.9.
         crc32.update(array, 0, array.length);
-        Locale locale = new Locale("zh", "CN");
-        return Long.toHexString(crc32.getValue()).toUpperCase(locale);
+        return Long.toHexString(crc32.getValue()).toUpperCase(LOCALE);
     }
 
     public static String md5CheckSum(byte[] array) throws NoSuchAlgorithmException {

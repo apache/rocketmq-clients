@@ -58,7 +58,7 @@ public class PullConsumerImpl extends ConsumerImpl {
 
     private final ThreadPoolExecutor pullCallbackExecutor;
 
-    public PullConsumerImpl(String group) {
+    public PullConsumerImpl(String group) throws ClientException {
         super(group);
         this.pullCallbackExecutor = new ThreadPoolExecutor(
                 Runtime.getRuntime().availableProcessors(),
@@ -250,6 +250,10 @@ public class PullConsumerImpl extends ConsumerImpl {
         }
     }
 
+    @Override
+    public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
+    }
+
 
     @Override
     public HeartbeatEntry prepareHeartbeatData() {
@@ -262,7 +266,6 @@ public class PullConsumerImpl extends ConsumerImpl {
 
     @Override
     public void doStats() {
-
     }
 
     @Override

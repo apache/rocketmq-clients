@@ -48,8 +48,9 @@ public class DefaultMQProducer {
      * Constructor specifying group.
      *
      * @param group group name.
+     * @throws ClientException if there is any client error.
      */
-    public DefaultMQProducer(final String group) {
+    public DefaultMQProducer(final String group) throws ClientException {
         this.impl = new ProducerImpl(group);
     }
 

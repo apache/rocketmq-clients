@@ -27,7 +27,7 @@ import org.apache.rocketmq.client.remoting.CredentialsProvider;
 public class DefaultMQPullConsumer {
     private final PullConsumerImpl impl;
 
-    public DefaultMQPullConsumer(final String consumerGroup) {
+    public DefaultMQPullConsumer(final String consumerGroup) throws ClientException {
         this.impl = new PullConsumerImpl(consumerGroup);
     }
 

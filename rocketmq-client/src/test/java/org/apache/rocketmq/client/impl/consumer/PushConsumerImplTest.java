@@ -37,6 +37,7 @@ import org.apache.rocketmq.client.consumer.MessageModel;
 import org.apache.rocketmq.client.consumer.filter.ExpressionType;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
+import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.impl.ClientManager;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
@@ -53,6 +54,9 @@ public class PushConsumerImplTest extends TestBase {
 
     @InjectMocks
     private final PushConsumerImpl consumerImpl = new PushConsumerImpl(FAKE_GROUP_0);
+
+    public PushConsumerImplTest() throws ClientException {
+    }
 
     @BeforeMethod
     public void beforeMethod() {
@@ -97,6 +101,10 @@ public class PushConsumerImplTest extends TestBase {
         };
         consumerImpl.setOffsetStore(offsetStore);
         assertTrue(consumerImpl.hasCustomOffsetStore());
+    }
+
+    @Test
+    public void testScanAssignments() {
     }
 
     @Test

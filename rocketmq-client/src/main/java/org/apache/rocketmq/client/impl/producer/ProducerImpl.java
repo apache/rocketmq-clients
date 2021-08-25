@@ -143,7 +143,7 @@ public class ProducerImpl extends ClientImpl {
 
     private final ThreadPoolExecutor transactionCheckerExecutor;
 
-    public ProducerImpl(String group) {
+    public ProducerImpl(String group) throws ClientException {
         super(group);
         this.defaultSendCallbackExecutor = new ThreadPoolExecutor(
                 Runtime.getRuntime().availableProcessors(),

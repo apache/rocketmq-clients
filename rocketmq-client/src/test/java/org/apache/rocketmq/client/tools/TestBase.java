@@ -277,14 +277,14 @@ public class TestBase {
     }
 
     protected apache.rocketmq.v1.Message fakeTransactionMessage0() throws UnsupportedEncodingException {
-        final apache.rocketmq.v1.Message message = fakeMessage0();
+        final apache.rocketmq.v1.Message message = fakePbMessage0();
         final apache.rocketmq.v1.SystemAttribute systemAttribute =
                 message.getSystemAttribute().toBuilder().setMessageType(apache.rocketmq.v1.MessageType.TRANSACTION)
                        .build();
         return message.toBuilder().setSystemAttribute(systemAttribute).build();
     }
 
-    protected apache.rocketmq.v1.Message fakeMessage0() throws UnsupportedEncodingException {
+    protected apache.rocketmq.v1.Message fakePbMessage0() throws UnsupportedEncodingException {
         apache.rocketmq.v1.SystemAttribute systemAttribute =
                 apache.rocketmq.v1.SystemAttribute.newBuilder()
                                                   .setMessageType(apache.rocketmq.v1.MessageType.NORMAL)

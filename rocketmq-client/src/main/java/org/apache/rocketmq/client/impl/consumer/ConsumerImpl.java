@@ -53,7 +53,7 @@ import org.slf4j.LoggerFactory;
 public abstract class ConsumerImpl extends ClientImpl {
     private static final Logger log = LoggerFactory.getLogger(ConsumerImpl.class);
 
-    public ConsumerImpl(String group) {
+    public ConsumerImpl(String group) throws ClientException {
         super(group);
     }
 
@@ -204,6 +204,10 @@ public abstract class ConsumerImpl extends ClientImpl {
 
         return new ReceiveMessageResult(endpoints, receiveStatus, Timestamps.toMillis(response.getDeliveryTimestamp()),
                                         Durations.toMillis(response.getInvisibleDuration()), msgFoundList);
+    }
+
+    @Override
+    public void doHealthCheck() {
     }
 }
 

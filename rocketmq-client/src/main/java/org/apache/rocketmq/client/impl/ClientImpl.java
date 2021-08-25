@@ -78,6 +78,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.commons.lang3.RandomUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
@@ -156,9 +157,12 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
 
     protected volatile ClientManager clientManager;
 
+    /**
+     * OpenTelemetry tracer for message tracing.
+     */
     protected volatile Tracer tracer;
-    protected volatile Endpoints tracingEndpoints;
-    private volatile SdkTracerProvider tracerProvider;
+    protected volatile Endpoints messageTracingEndpoints;
+    private volatile SdkTracerProvider messageTracerProvider;
 
     private final AtomicReference<ServiceState> state;
 
@@ -185,13 +189,13 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
      */
     private final ConcurrentMap<String /* topic */, TopicRouteData> topicRouteCache;
 
-    public ClientImpl(String group) {
+    public ClientImpl(String group) throws ClientException {
         super(group);
         this.state = new AtomicReference<ServiceState>(ServiceState.READY);
 
         this.tracer = null;
-        this.tracingEndpoints = null;
-        this.tracerProvider = null;
+        this.messageTracingEndpoints = null;
+        this.messageTracerProvider = null;
 
         this.topAddressing = new TopAddressing();
         this.nameServerIndex = new AtomicInteger(RandomUtils.nextInt());
@@ -236,7 +240,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
 
             final ScheduledExecutorService scheduler = clientManager.getScheduler();
             if (nameServerIsNotSet()) {
-                // Acquire name server list immediately.
+                // acquire name server list immediately.
                 renewNameServerList();
 
                 log.info("Name server list was not set, schedule a task to fetch and renew periodically");
@@ -288,8 +292,8 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                 updateRouteCacheFuture.cancel(false);
             }
             ClientManagerFactory.getInstance().unregisterObserver(arn, this);
-            if (null != tracerProvider) {
-                tracerProvider.shutdown();
+            if (null != messageTracerProvider) {
+                messageTracerProvider.shutdown();
             }
             state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
             log.info("Shutdown the rocketmq client successfully, clientId={}", clientId);
@@ -383,8 +387,13 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         }
     }
 
-    public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
-    }
+    /**
+     * Underlying implement could intercept the {@link TopicRouteData}.
+     *
+     * @param topic          topic's name
+     * @param topicRouteData route data of specified topic.
+     */
+    public abstract void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData);
 
     private void onTopicRouteDataUpdate(String topic, TopicRouteData topicRouteData) {
         onTopicRouteDataUpdate0(topic, topicRouteData);
@@ -406,26 +415,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         if (!messageTracingEnabled) {
             return;
         }
-
-        if (updateMessageTracerAsync) {
-            // do not block route update because of tracing.
-            final ScheduledExecutorService scheduler = clientManager.getScheduler();
-            try {
-                scheduler.submit(new Runnable() {
-                    @Override
-                    public void run() {
-                        updateTracer();
-                    }
-                });
-                return;
-            } catch (Throwable t) {
-                if (scheduler.isShutdown()) {
-                    return;
-                }
-                log.error("[Bug] Failed to schedule tracer update task.", t);
-            }
-        }
-        updateTracer();
+        updateMessageTracer();
     }
 
     private void updateRouteCache() {
@@ -449,14 +439,14 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
     protected ListenableFuture<TopicRouteData> getRouteData(final String topic) {
         SettableFuture<TopicRouteData> future0 = SettableFuture.create();
         TopicRouteData topicRouteData = topicRouteCache.get(topic);
-        // If route was cached before, get it directly.
+        // if route was cached before, get it directly.
         if (null != topicRouteData) {
             future0.set(topicRouteData);
             return future0;
         }
         inflightRouteFutureLock.lock();
         try {
-            // If route was fetched by last in-flight route request, get it directly.
+            // if route was fetched by last in-flight route request, get it directly.
             topicRouteData = topicRouteCache.get(topic);
             if (null != topicRouteData) {
                 future0.set(topicRouteData);
@@ -526,19 +516,25 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         nameServerEndpointsListLock.writeLock().lock();
         try {
             this.nameServerEndpointsList.clear();
+
+            boolean httpPatternMatched = false;
+            String httpPrefixMatched = "";
             if (namesrv.startsWith(MixAll.HTTP_PREFIX)) {
-                final String domainName = namesrv.substring(MixAll.HTTP_PREFIX.length());
-                final String[] split = domainName.split(":");
-                String host = split[0].replace("_", "-");
-                int port = split.length >= 2 ? Integer.parseInt(split[1]) : 80;
-                List<Address> addresses = new ArrayList<Address>();
-                addresses.add(new Address(host, port));
-                this.nameServerEndpointsList.add(new Endpoints(AddressScheme.DOMAIN_NAME, addresses));
+                httpPatternMatched = true;
+                httpPrefixMatched = MixAll.HTTP_PREFIX;
             } else if (namesrv.startsWith(MixAll.HTTPS_PREFIX)) {
-                final String domainName = namesrv.substring(MixAll.HTTPS_PREFIX.length());
-                final String[] split = domainName.split(":");
-                String host = split[0];
-                int port = split.length >= 2 ? Integer.parseInt(split[1]) : 80;
+                httpPatternMatched = true;
+                httpPrefixMatched = MixAll.HTTPS_PREFIX;
+            }
+            if (httpPatternMatched) {
+                final String domainName = namesrv.substring(httpPrefixMatched.length());
+                final String[] domainNameSplit = domainName.split(":");
+                String host = domainNameSplit[0].replace("_", "-").toLowerCase(UtilAll.LOCALE);
+                final String[] hostSplit = host.split("\\.");
+                if (hostSplit.length >= 2) {
+                    this.setRegionId(hostSplit[1]);
+                }
+                int port = domainNameSplit.length >= 2 ? Integer.parseInt(domainNameSplit[1]) : 80;
                 List<Address> addresses = new ArrayList<Address>();
                 addresses.add(new Address(host, port));
                 this.nameServerEndpointsList.add(new Endpoints(AddressScheme.DOMAIN_NAME, addresses));
@@ -552,6 +548,10 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     addresses.add(new Address(host, port));
                     this.nameServerEndpointsList.add(new Endpoints(AddressScheme.IPv4, addresses));
                 }
+            }
+            // arn is set before.
+            if (StringUtils.isNotBlank(arn)) {
+                return;
             }
             if (Validators.NAME_SERVER_ENDPOINT_WITH_NAMESPACE_PATTERN.matcher(namesrv).matches()) {
                 this.arn = namesrv.substring(namesrv.lastIndexOf('/') + 1, namesrv.indexOf('.'));
@@ -844,7 +844,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         }
     }
 
-    private Set<Endpoints> getTracingEndpointsSet() {
+    private Set<Endpoints> getMessageTracingEndpointsSet() {
         Set<Endpoints> tracingEndpointsSet = new HashSet<Endpoints>();
         for (TopicRouteData topicRouteData : topicRouteCache.values()) {
             final List<Partition> partitions = topicRouteData.getPartitions();
@@ -862,17 +862,17 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         return tracingEndpointsSet;
     }
 
-    private void updateTracer() {
+    private void updateMessageTracer() {
         synchronized (this) {
             try {
-                log.debug("Start to update tracer.");
-                final Set<Endpoints> tracingEndpointsSet = getTracingEndpointsSet();
+                log.debug("Start to update message tracer.");
+                final Set<Endpoints> tracingEndpointsSet = getMessageTracingEndpointsSet();
                 if (tracingEndpointsSet.isEmpty()) {
-                    log.warn("No available tracing endpoints.");
+                    log.warn("No available message tracing endpoints.");
                     return;
                 }
-                if (null != tracingEndpoints && tracingEndpointsSet.contains(tracingEndpoints)) {
-                    log.debug("Tracing target remains unchanged");
+                if (null != messageTracingEndpoints && tracingEndpointsSet.contains(messageTracingEndpoints)) {
+                    log.debug("message tracing target remains unchanged");
                     return;
                 }
                 List<Endpoints> tracingRpcTargetList = new ArrayList<Endpoints>(tracingEndpointsSet);
@@ -905,13 +905,14 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                                           .setMaxExportBatchSize(TRACE_EXPORTER_BATCH_SIZE)
                                           .setMaxQueueSize(TRACE_EXPORTER_MAX_QUEUE_SIZE)
                                           .build();
-                if (null != tracerProvider) {
-                    tracerProvider.shutdown();
+                if (null != messageTracerProvider) {
+                    messageTracerProvider.shutdown();
                 }
-                tracerProvider = SdkTracerProvider.builder().addSpanProcessor(spanProcessor).build();
-                OpenTelemetrySdk openTelemetry = OpenTelemetrySdk.builder().setTracerProvider(tracerProvider).build();
+                messageTracerProvider = SdkTracerProvider.builder().addSpanProcessor(spanProcessor).build();
+                OpenTelemetrySdk openTelemetry =
+                        OpenTelemetrySdk.builder().setTracerProvider(messageTracerProvider).build();
                 tracer = openTelemetry.getTracer(TRACER_INSTRUMENTATION_NAME);
-                tracingEndpoints = randomTracingEndpoints;
+                messageTracingEndpoints = randomTracingEndpoints;
             } catch (Throwable t) {
                 log.error("Exception raised while updating tracer.", t);
             }
@@ -1059,10 +1060,6 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
 
         final String topic = message.getTopic().getName();
         return new MessageImpl(topic, mqSystemAttribute, mqUserAttribute, body, corrupted);
-    }
-
-    @Override
-    public void doHealthCheck() {
     }
 
     public Tracer getTracer() {

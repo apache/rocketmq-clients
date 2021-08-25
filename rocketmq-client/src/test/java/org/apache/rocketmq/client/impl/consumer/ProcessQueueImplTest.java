@@ -127,10 +127,10 @@ public class ProcessQueueImplTest extends TestBase {
     }
 
     @Test
-    public void testThrottled() {
+    public void testIsCacheFull() {
         when(consumerImpl.cachedMessagesQuantityThresholdPerQueue()).thenReturn(8);
         when(consumerImpl.cachedMessagesBytesThresholdPerQueue()).thenReturn(1024);
-        assertFalse(processQueueImpl.throttled());
+        assertFalse(processQueueImpl.isCacheFull());
     }
 
     @Test
@@ -178,7 +178,7 @@ public class ProcessQueueImplTest extends TestBase {
     }
 
     @Test
-    public void testThrottledWithQuantityExceed() {
+    public void testIsCacheFullWithQuantityExceed() {
         int messagesQuantityThreshold = 8;
         int messageBytesThreshold = Integer.MAX_VALUE;
         when(consumerImpl.cachedMessagesQuantityThresholdPerQueue()).thenReturn(messagesQuantityThreshold);
@@ -188,11 +188,11 @@ public class ProcessQueueImplTest extends TestBase {
             messageExtList.add(fakeMessageExt(1));
         }
         processQueueImpl.cacheMessages(messageExtList);
-        assertTrue(processQueueImpl.throttled());
+        assertTrue(processQueueImpl.isCacheFull());
     }
 
     @Test
-    public void testThrottledWithBytesExceed() {
+    public void testIsCacheFullWithBytesExceed() {
         int messagesQuantityThreshold = Integer.MAX_VALUE;
         int messageBytesThreshold = 1024;
         when(consumerImpl.cachedMessagesQuantityThresholdPerQueue()).thenReturn(messagesQuantityThreshold);
@@ -200,7 +200,7 @@ public class ProcessQueueImplTest extends TestBase {
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
         messageExtList.add(fakeMessageExt(messageBytesThreshold + 1));
         processQueueImpl.cacheMessages(messageExtList);
-        assertTrue(processQueueImpl.throttled());
+        assertTrue(processQueueImpl.isCacheFull());
     }
 
     @Test

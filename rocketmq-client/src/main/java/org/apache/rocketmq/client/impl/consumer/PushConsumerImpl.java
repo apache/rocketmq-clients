@@ -41,6 +41,7 @@ import apache.rocketmq.v1.ResponseCommon;
 import apache.rocketmq.v1.SubscriptionEntry;
 import apache.rocketmq.v1.VerifyMessageConsumptionRequest;
 import apache.rocketmq.v1.VerifyMessageConsumptionResponse;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
@@ -222,7 +223,7 @@ public class PushConsumerImpl extends ConsumerImpl {
 
     private volatile ScheduledFuture<?> scanAssignmentsFuture;
 
-    public PushConsumerImpl(String group) {
+    public PushConsumerImpl(String group) throws ClientException {
         super(group);
         this.filterExpressionTable = new ConcurrentHashMap<String, FilterExpression>();
         this.cachedTopicAssignmentTable = new ConcurrentHashMap<String, TopicAssignments>();
@@ -358,11 +359,15 @@ public class PushConsumerImpl extends ConsumerImpl {
         }
     }
 
+    @Override
+    public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
+    }
+
     RateLimiter rateLimiter(String topic) {
         return rateLimiterTable.get(topic);
     }
 
-    public void throttle(String topic, double permitsPerSecond) {
+    public void rateLimit(String topic, double permitsPerSecond) {
         final RateLimiter rateLimiter = RateLimiter.create(permitsPerSecond);
         rateLimiterTable.put(topic, rateLimiter);
     }
@@ -377,6 +382,7 @@ public class PushConsumerImpl extends ConsumerImpl {
                                      .build();
     }
 
+    @VisibleForTesting
     public void scanAssignments() {
         try {
             log.debug("Start to scan assignments periodically");

@@ -76,6 +76,9 @@ public class ProducerImplTest extends TestBase {
     @InjectMocks
     private final ProducerImpl producerImpl = new ProducerImpl(FAKE_GROUP_0);
 
+    public ProducerImplTest() throws ClientException {
+    }
+
     @BeforeTest
     public void beforeTest() throws ClientException {
         producerImpl.setNamesrvAddr(FAKE_NAME_SERVER_ADDR_0);

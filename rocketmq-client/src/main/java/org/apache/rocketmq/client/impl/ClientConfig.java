@@ -21,35 +21,67 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.misc.Validators;
+import org.apache.rocketmq.client.remoting.Credentials;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
 import org.apache.rocketmq.utility.UtilAll;
 
 public class ClientConfig {
+    public static final String DEFAULT_REGION_ID = "unknown";
+
+    public static final String DEFAULT_SERVICE_NAME = "RocketMQ";
+
     private static final String CLIENT_ID_SEPARATOR = "@";
 
+    /**
+     * Timeout for underlying communication layer.
+     */
     protected long ioTimeoutMillis = 3 * 1000;
 
+    /**
+     * Unique identifier for each client.
+     */
     protected final String clientId;
 
+    /**
+     * Group name for producer/consumer.
+     */
     protected String group;
 
+    /**
+     * Abstract resource namespace, same topics or groups in different arn are individual.
+     */
     protected String arn = "";
 
+    /**
+     * Switch to enable message tracing or not.
+     */
     protected boolean messageTracingEnabled = true;
 
-    protected boolean updateMessageTracerAsync = false;
+    /**
+     * If your service is deployed by region, region id could be set here, which would transport with gRPC header.
+     */
+    private String regionId = DEFAULT_REGION_ID;
 
-    // TODO: fix region_id here.
-    private String regionId = "cn-hangzhou";
+    /**
+     * Custom service name.
+     */
+    private String serviceName = DEFAULT_SERVICE_NAME;
 
+    /**
+     * If your service is deployed in multi-tenant, tenant id could be set here, which would transport with gRPC header.
+     *
+     * <p> TODO: parse tenant id from name server address here.
+     */
     private String tenantId = "";
-    // TODO: fix service name here.
-    private String serviceName = "MQ";
 
+    /**
+     * Define the provider of {@link Credentials}, refer to implement of {@link Credentials} for more detail.
+     */
     private CredentialsProvider credentialsProvider = null;
 
-    public ClientConfig(String group) {
-        this.group = group;
+    public ClientConfig(String group) throws ClientException {
+        Validators.checkGroup(group);
+        this.group = checkNotNull(group, "group");
 
         StringBuilder sb = new StringBuilder();
         final String hostName = UtilAll.hostName();
@@ -70,14 +102,10 @@ public class ClientConfig {
         return group;
     }
 
-
-    // TODO: not allowed to update after client manager started(override in producer and consumer)
     public void setArn(String arn) {
         this.arn = checkNotNull(arn, "arn");
     }
 
-
-    // TODO: not allowed to update after client manager started(override in producer and consumer)
     public void setCredentialsProvider(CredentialsProvider credentialsProvider) {
         checkNotNull(credentialsProvider, "credentialsProvider");
         this.credentialsProvider = credentialsProvider;
@@ -99,20 +127,12 @@ public class ClientConfig {
         return this.messageTracingEnabled;
     }
 
-    public boolean isUpdateMessageTracerAsync() {
-        return this.updateMessageTracerAsync;
-    }
-
     public String getRegionId() {
         return this.regionId;
     }
 
     public String getTenantId() {
         return this.tenantId;
-    }
-
-    public String getServiceName() {
-        return this.serviceName;
     }
 
     public CredentialsProvider getCredentialsProvider() {
@@ -127,16 +147,16 @@ public class ClientConfig {
         this.messageTracingEnabled = messageTracingEnabled;
     }
 
-    public void setUpdateMessageTracerAsync(boolean updateMessageTracerAsync) {
-        this.updateMessageTracerAsync = updateMessageTracerAsync;
-    }
-
-    public void setRegionId(String regionId) {
+    void setRegionId(String regionId) {
         this.regionId = regionId;
     }
 
     public void setTenantId(String tenantId) {
         this.tenantId = tenantId;
+    }
+
+    public String getServiceName() {
+        return serviceName;
     }
 
     public void setServiceName(String serviceName) {
