@@ -17,29 +17,24 @@
 
 package org.apache.rocketmq.utility;
 
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicLong;
+import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertTrue;
 
-public class ThreadFactoryImpl implements ThreadFactory {
-    public static final String THREAD_PREFIX = "Rocketmq";
+import org.testng.annotations.Test;
 
-    private static final AtomicLong THREAD_INDEX = new AtomicLong(0);
-    private final String customName;
-    private final boolean daemon;
+public class ThreadFactoryImplTest {
 
-    public ThreadFactoryImpl(final String customName) {
-        this(customName, false);
-    }
-
-    public ThreadFactoryImpl(final String customName, boolean daemon) {
-        this.customName = customName;
-        this.daemon = daemon;
-    }
-
-    @Override
-    public Thread newThread(Runnable r) {
-        Thread thread = new Thread(r, THREAD_PREFIX + customName + "-" + THREAD_INDEX.incrementAndGet());
-        thread.setDaemon(daemon);
-        return thread;
+    @Test
+    public void testNewThread() {
+        String threadName = "TestThread";
+        ThreadFactoryImpl factory = new ThreadFactoryImpl(threadName);
+        final Thread thread = factory.newThread(new Runnable() {
+            @Override
+            public void run() {
+            }
+        });
+        assertNotEquals(thread.getName(), threadName);
+        assertTrue(thread.getName().contains(threadName));
+        assertTrue(thread.getName().startsWith(ThreadFactoryImpl.THREAD_PREFIX + threadName));
     }
 }

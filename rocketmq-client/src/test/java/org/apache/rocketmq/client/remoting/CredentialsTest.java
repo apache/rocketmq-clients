@@ -17,6 +17,8 @@
 
 package org.apache.rocketmq.client.remoting;
 
+import static org.testng.Assert.fail;
+
 import org.testng.annotations.Test;
 
 public class CredentialsTest {
@@ -26,5 +28,69 @@ public class CredentialsTest {
         String fakeAccessKey = "accessKey";
         String fakeSecretKey = "secretKey";
         String fakeSecurityToken = "securityToken";
+        {
+            try {
+                new Credentials(fakeAccessKey, null);
+                fail();
+            } catch (NullPointerException ignore) {
+                // ignore on purpose.
+            }
+        }
+        {
+            try {
+                new Credentials(null, fakeSecretKey);
+                fail();
+            } catch (NullPointerException ignore) {
+                // ignore on purpose.
+            }
+        }
+        {
+            try {
+                new Credentials(fakeAccessKey, fakeSecretKey, null);
+                fail();
+            } catch (NullPointerException ignore) {
+                // ignore on purpose.
+            }
+        }
+        {
+            try {
+                new Credentials(fakeAccessKey, null, fakeSecurityToken);
+                fail();
+            } catch (NullPointerException ignore) {
+                // ignore on purpose.
+            }
+        }
+        {
+            try {
+                new Credentials(null, fakeSecretKey, fakeSecurityToken, System.currentTimeMillis());
+                fail();
+            } catch (NullPointerException ignore) {
+                // ignore on purpose.
+            }
+        }
+        {
+            try {
+                new Credentials(fakeAccessKey, fakeSecretKey, null, System.currentTimeMillis());
+                fail();
+            } catch (NullPointerException ignore) {
+                // ignore on purpose.
+            }
+        }
+        {
+            try {
+                new Credentials(fakeAccessKey, null, fakeSecurityToken, System.currentTimeMillis());
+                fail();
+            } catch (NullPointerException ignore) {
+                // ignore on purpose.
+            }
+        }
+        {
+            try {
+                new Credentials(null, fakeSecretKey, fakeSecurityToken, System.currentTimeMillis());
+                fail();
+            } catch (NullPointerException ignore) {
+                // ignore on purpose.
+            }
+        }
     }
 }

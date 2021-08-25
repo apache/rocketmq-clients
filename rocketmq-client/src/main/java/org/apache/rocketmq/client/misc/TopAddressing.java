@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 
 public class TopAddressing {
     private static final Logger log = LoggerFactory.getLogger(TopAddressing.class);
-    
+
     private static final int HTTP_TIMEOUT_MILLIS = 3 * 1000;
     private static final String DEFAULT_NAME_SERVER_DOMAIN = "jmenv.tbsite.net";
     private static final String DEFAULT_NAME_SERVER_SUB_GROUP = "nsaddr";
@@ -51,7 +51,8 @@ public class TopAddressing {
     public List<Endpoints> fetchNameServerAddresses() throws IOException {
         List<Endpoints> endpointsList = new ArrayList<Endpoints>();
 
-        final HttpTinyClient.HttpResult httpResult = HttpTinyClient.httpGet(wsAddress, HTTP_TIMEOUT_MILLIS);
+        final HttpTinyClient.HttpResult httpResult = HttpTinyClient.getInstance().httpGet(wsAddress,
+                                                                                          HTTP_TIMEOUT_MILLIS);
         if (httpResult.isOk()) {
             // TODO: check result format here.
             final String content = httpResult.getContent();

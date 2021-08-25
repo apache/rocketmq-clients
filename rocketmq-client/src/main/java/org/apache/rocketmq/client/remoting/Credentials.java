@@ -19,11 +19,12 @@ package org.apache.rocketmq.client.remoting;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.base.Objects;
 import javax.annotation.concurrent.Immutable;
 
 @Immutable
 public class Credentials {
+    private static final long TOLERANCE_MILLIS = 1000;
+
     private final String accessKey;
     private final String accessSecret;
     private final String securityToken;
@@ -50,8 +51,15 @@ public class Credentials {
         this.expiredTimeMillis = expiredTimeMillis;
     }
 
-    public boolean expired() {
-        return System.currentTimeMillis() > expiredTimeMillis;
+    /**
+     * Indicates the sts token is expired soon or not.
+     *
+     * <p> If token is expired already, return true.
+     *
+     * @return is expired soon or not.
+     */
+    public boolean expiredSoon() {
+        return System.currentTimeMillis() + TOLERANCE_MILLIS > expiredTimeMillis;
     }
 
     public String getAccessKey() {
@@ -64,23 +72,5 @@ public class Credentials {
 
     public String getSecurityToken() {
         return this.securityToken;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        Credentials that = (Credentials) o;
-        return expiredTimeMillis == that.expiredTimeMillis && Objects.equal(accessKey, that.accessKey) &&
-               Objects.equal(accessSecret, that.accessSecret) && Objects.equal(securityToken, that.securityToken);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(accessKey, accessSecret, securityToken, expiredTimeMillis);
     }
 }

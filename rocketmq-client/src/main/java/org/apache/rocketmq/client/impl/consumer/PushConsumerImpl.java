@@ -91,29 +91,29 @@ public class PushConsumerImpl extends ConsumerImpl {
     private static final Logger log = LoggerFactory.getLogger(PushConsumerImpl.class);
 
     /**
-     * For {@link MessageModel#CLUSTERING} only, reflects the times of message reception.
+     * For {@link MessageModel#CLUSTERING} only, indicates the times of message reception.
      */
     private final AtomicLong receptionTimes;
     /**
-     * For {@link MessageModel#CLUSTERING} only, reflects the quantity of received messages.
+     * For {@link MessageModel#CLUSTERING} only, indicates the quantity of received messages.
      */
     private final AtomicLong receivedMessagesQuantity;
 
     /**
-     * For {@link MessageModel#BROADCASTING} only, reflects the times of pull message.
+     * For {@link MessageModel#BROADCASTING} only, indicates the times of pull message.
      */
     private final AtomicLong pullTimes;
     /**
-     * For {@link MessageModel#BROADCASTING} only, reflects the quantity of pulled messages.
+     * For {@link MessageModel#BROADCASTING} only, indicates the quantity of pulled messages.
      */
     private final AtomicLong pulledMessagesQuantity;
 
     /**
-     * Record times of successful message consumption.
+     * Indicates the times of successful message consumption.
      */
     private final AtomicLong consumptionOkQuantity;
     /**
-     * Record times of failed message consumption.
+     * Indicates the times of failed message consumption.
      */
     private final AtomicLong consumptionErrorQuantity;
 
@@ -155,7 +155,7 @@ public class PushConsumerImpl extends ConsumerImpl {
     private int consumeMessageBatchMaxSize = 1;
 
     /**
-     * Consumption thread amount, which determines the consumption speed to some degree.
+     * Consumption thread amount, which determines the consumption rate to some degree.
      */
     private int consumptionThreadsAmount = 32;
 
@@ -172,7 +172,8 @@ public class PushConsumerImpl extends ConsumerImpl {
     /**
      * Indicates the first consumption's position of consumer.
      *
-     * <p>In cluster consumption model, it is UNDEFINED if consumer use different timestamp in the same group.
+     * <p>In cluster consumption model, it is <strong>UNDEFINED</strong> if consumer use different timestamp in the
+     * same group.
      */
     private ConsumeFromWhere consumeFromWhere = ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET;
 
@@ -181,7 +182,7 @@ public class PushConsumerImpl extends ConsumerImpl {
      * effect while {@link #consumeFromWhere} is not {@link ConsumeFromWhere#CONSUME_FROM_TIMESTAMP}.
      *
      * <p>In cluster consumption model, timestamp here indicates the position of all consumer's first consumption.
-     * Which is UNDEFINED if consumers use different timestamp in same group.
+     * Which is <strong>UNDEFINED</strong> if consumers use different timestamp in same group.
      *
      * <p>In broadcasting consumption model, timestamp here are individual for each consumer, even though they belong
      * to the same group.

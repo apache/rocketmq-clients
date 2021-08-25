@@ -93,6 +93,7 @@ public class ClientManagerFactory {
         } finally {
             managersTableLock.unlock();
         }
+        // no need to hold the lock here.
         if (null != removedManager) {
             removedManager.shutdown();
         }

@@ -108,7 +108,7 @@ public class ProducerImplTest extends TestBase {
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))
-                .thenReturn(successSendMessageResponse());
+                .thenReturn(okSendMessageResponseFuture());
         final SendResult sendResult = producerImpl.send(message);
         ArgumentCaptor<SendMessageRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageRequest.class);
         verify(clientManager, times(1)).sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
@@ -128,7 +128,7 @@ public class ProducerImplTest extends TestBase {
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))
-                .thenReturn(successSendMessageResponse());
+                .thenReturn(okSendMessageResponseFuture());
         final SendResult sendResult = producerImpl.send(message);
         ArgumentCaptor<SendMessageRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageRequest.class);
         verify(clientManager, times(1)).sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
@@ -146,7 +146,7 @@ public class ProducerImplTest extends TestBase {
         producerImpl.onTopicRouteDataUpdate0(message.getTopic(), fakeTopicRouteData(Permission.NONE));
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
-                                       ArgumentMatchers.<TimeUnit>any())).thenReturn(successSendMessageResponse());
+                                       ArgumentMatchers.<TimeUnit>any())).thenReturn(okSendMessageResponseFuture());
         try {
             producerImpl.send(message);
             fail();
@@ -167,7 +167,7 @@ public class ProducerImplTest extends TestBase {
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))
-                .thenReturn(successSendMessageResponse());
+                .thenReturn(okSendMessageResponseFuture());
         final SendResult sendResult = producerImpl.send(message);
         ArgumentCaptor<SendMessageRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageRequest.class);
         verify(clientManager, times(1)).sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
@@ -186,7 +186,7 @@ public class ProducerImplTest extends TestBase {
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))
-                .thenReturn(successSendMessageResponse());
+                .thenReturn(okSendMessageResponseFuture());
         final SendResult sendResult = producerImpl.send(message);
         ArgumentCaptor<SendMessageRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageRequest.class);
         verify(clientManager, times(1)).sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
@@ -205,7 +205,7 @@ public class ProducerImplTest extends TestBase {
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))
-                .thenReturn(successSendMessageResponse());
+                .thenReturn(okSendMessageResponseFuture());
         final SendResult sendResult = producerImpl.send(message);
         ArgumentCaptor<SendMessageRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageRequest.class);
         verify(clientManager, times(1)).sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
@@ -223,7 +223,7 @@ public class ProducerImplTest extends TestBase {
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))
-                .thenReturn(successSendMessageResponse());
+                .thenReturn(okSendMessageResponseFuture());
         // no custom callback executor.
         final SettableFuture<SendResult> future0 = SettableFuture.create();
         producerImpl.send(message, new SendCallback() {
@@ -261,7 +261,7 @@ public class ProducerImplTest extends TestBase {
         when(clientManager.endTransaction(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                           ArgumentMatchers.<EndTransactionRequest>any(), anyLong(),
                                           ArgumentMatchers.<TimeUnit>any()))
-                .thenReturn(successEndTransactionResponse());
+                .thenReturn(okEndTransactionResponseFuture());
         final Endpoints endpoints = new Endpoints(fakePbEndpoints0());
         producerImpl.commit(endpoints, fakeMessageExt(), FAKE_TRANSACTION_ID);
         verify(clientManager, times(1)).endTransaction(ArgumentMatchers.<Endpoints>any(),
@@ -276,7 +276,7 @@ public class ProducerImplTest extends TestBase {
         when(clientManager.endTransaction(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                           ArgumentMatchers.<EndTransactionRequest>any(), anyLong(),
                                           ArgumentMatchers.<TimeUnit>any()))
-                .thenReturn(successEndTransactionResponse());
+                .thenReturn(okEndTransactionResponseFuture());
         final Endpoints endpoints = new Endpoints(fakePbEndpoints0());
         producerImpl.rollback(endpoints, fakeMessageExt(), FAKE_TRANSACTION_ID);
         verify(clientManager, times(1)).endTransaction(ArgumentMatchers.<Endpoints>any(),
@@ -335,7 +335,7 @@ public class ProducerImplTest extends TestBase {
             when(clientManager.endTransaction(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                               ArgumentMatchers.<EndTransactionRequest>any(), anyLong(),
                                               ArgumentMatchers.<TimeUnit>any()))
-                    .thenReturn(successEndTransactionResponse());
+                    .thenReturn(okEndTransactionResponseFuture());
             producerImpl.setTransactionChecker(new TransactionChecker() {
                 @Override
                 public TransactionResolution check(MessageExt msg) {
@@ -358,8 +358,8 @@ public class ProducerImplTest extends TestBase {
         when(clientManager.queryRoute(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                       ArgumentMatchers.<QueryRouteRequest>any(), anyLong(),
                                       ArgumentMatchers.<TimeUnit>any()))
-                .thenReturn(successQueryRouteResponse());
-        final long delayTimeMillis = 2000;
+                .thenReturn(okQueryRouteResponseFuture());
+        final long delayTimeMillis = 1000;
         int multiplexingTimes = 2;
         when(clientManager.multiplexingCall(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                             ArgumentMatchers.<MultiplexingRequest>any(), anyLong(),
@@ -367,7 +367,7 @@ public class ProducerImplTest extends TestBase {
                 .thenAnswer(new Answer<ListenableFuture<MultiplexingResponse>>() {
                     @Override
                     public ListenableFuture<MultiplexingResponse> answer(InvocationOnMock invocation) {
-                        return multiplexingResponseWithGenericPolling(delayTimeMillis, TimeUnit.MILLISECONDS);
+                        return multiplexingResponseWithGenericPollingFuture(delayTimeMillis);
                     }
                 });
         try {
@@ -393,11 +393,11 @@ public class ProducerImplTest extends TestBase {
         when(clientManager.queryRoute(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                       ArgumentMatchers.<QueryRouteRequest>any(), anyLong(),
                                       ArgumentMatchers.<TimeUnit>any()))
-                .thenReturn(successQueryRouteResponse());
+                .thenReturn(okQueryRouteResponseFuture());
         when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                        ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
                                        ArgumentMatchers.<TimeUnit>any()))
-                .thenReturn(successSendMessageResponse());
+                .thenReturn(okSendMessageResponseFuture());
         producerImpl.send(message);
         assertNotNull(producerImpl.getTracer());
     }

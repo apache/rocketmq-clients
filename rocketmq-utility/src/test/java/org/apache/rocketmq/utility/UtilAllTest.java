@@ -30,6 +30,13 @@ public class UtilAllTest {
     private final String body = "foobar";
 
     @Test
+    public void testPositiveMod() {
+        assertTrue(0 <= UtilAll.positiveMod(Integer.MIN_VALUE, 3));
+        assertTrue(0 <= UtilAll.positiveMod(Integer.MAX_VALUE, 3));
+        assertTrue(0 <= UtilAll.positiveMod(3, 3));
+    }
+
+    @Test
     public void testCompressAndUncompressByteArray() throws IOException {
         final byte[] bytes = body.getBytes(UtilAll.DEFAULT_CHARSET);
         final byte[] compressedBytes = UtilAll.compressBytesGzip(bytes, 5);

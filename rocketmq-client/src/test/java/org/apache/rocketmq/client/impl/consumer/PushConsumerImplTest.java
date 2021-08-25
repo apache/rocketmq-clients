@@ -17,6 +17,10 @@
 
 package org.apache.rocketmq.client.impl.consumer;
 
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -27,9 +31,23 @@ import apache.rocketmq.v1.ConsumerGroup;
 import apache.rocketmq.v1.FilterExpression;
 import apache.rocketmq.v1.FilterType;
 import apache.rocketmq.v1.HeartbeatEntry;
+import apache.rocketmq.v1.MultiplexingRequest;
+import apache.rocketmq.v1.MultiplexingResponse;
+import apache.rocketmq.v1.QueryAssignmentRequest;
+import apache.rocketmq.v1.QueryRouteRequest;
+import apache.rocketmq.v1.ReceiveMessageRequest;
+import apache.rocketmq.v1.ReceiveMessageResponse;
 import apache.rocketmq.v1.Resource;
+import apache.rocketmq.v1.ResponseCommon;
 import apache.rocketmq.v1.SubscriptionEntry;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
+import com.google.rpc.Code;
+import com.google.rpc.Status;
+import io.grpc.Metadata;
+import java.io.UnsupportedEncodingException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.consumer.ConsumeContext;
 import org.apache.rocketmq.client.consumer.ConsumeFromWhere;
 import org.apache.rocketmq.client.consumer.ConsumeStatus;
@@ -41,10 +59,14 @@ import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.impl.ClientManager;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
+import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.client.tools.TestBase;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -53,20 +75,19 @@ public class PushConsumerImplTest extends TestBase {
     private ClientManager clientManager;
 
     @InjectMocks
-    private final PushConsumerImpl consumerImpl = new PushConsumerImpl(FAKE_GROUP_0);
-
-    public PushConsumerImplTest() throws ClientException {
-    }
+    private PushConsumerImpl consumerImpl;
 
     @BeforeMethod
-    public void beforeMethod() {
-        MockitoAnnotations.initMocks(this);
+    public void beforeMethod() throws ClientException {
+        this.consumerImpl = new PushConsumerImpl(FAKE_GROUP_0);
+        consumerImpl.setNamesrvAddr(FAKE_NAME_SERVER_ADDR_0);
         consumerImpl.registerMessageListener(new MessageListenerConcurrently() {
             @Override
             public ConsumeStatus consume(List<MessageExt> messages, ConsumeContext context) {
                 return null;
             }
         });
+        MockitoAnnotations.initMocks(this);
     }
 
     @Test
@@ -104,7 +125,61 @@ public class PushConsumerImplTest extends TestBase {
     }
 
     @Test
-    public void testScanAssignments() {
+    public void testScanAssignments() throws UnsupportedEncodingException {
+        consumerImpl.subscribe(FAKE_TOPIC_0, "*", ExpressionType.TAG);
+        when(clientManager.queryRoute(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
+                                      ArgumentMatchers.<QueryRouteRequest>any(), anyLong(),
+                                      ArgumentMatchers.<TimeUnit>any())).thenReturn(okQueryRouteResponseFuture());
+        when(clientManager.queryAssignment(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
+                                           ArgumentMatchers.<QueryAssignmentRequest>any(), anyLong(),
+                                           ArgumentMatchers.<TimeUnit>any()))
+                .thenReturn(okQueryAssignmentResponseFuture());
+
+        final long delayMillis = 50;
+        when(clientManager.multiplexingCall(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
+                                            ArgumentMatchers.<MultiplexingRequest>any(), anyLong(),
+                                            ArgumentMatchers.<TimeUnit>any()))
+                .thenAnswer(new Answer<ListenableFuture<MultiplexingResponse>>() {
+                    @Override
+                    public ListenableFuture<MultiplexingResponse> answer(InvocationOnMock invocation) {
+                        return multiplexingResponseWithGenericPollingFuture(delayMillis);
+                    }
+                });
+
+        final Status status = Status.newBuilder().setCode(Code.OK_VALUE).build();
+        final ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
+        final ReceiveMessageResponse response =
+                ReceiveMessageResponse.newBuilder().setCommon(common).addMessages(fakePbMessage0()).build();
+        final SettableFuture<ReceiveMessageResponse> future0 = SettableFuture.create();
+        when(clientManager.receiveMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
+                                          ArgumentMatchers.<ReceiveMessageRequest>any(), anyLong(),
+                                          ArgumentMatchers.<TimeUnit>any()))
+                .thenAnswer(new Answer<ListenableFuture<ReceiveMessageResponse>>() {
+                    @Override
+                    public ListenableFuture<ReceiveMessageResponse> answer(InvocationOnMock invocation) {
+                        SCHEDULER.schedule(new Runnable() {
+                            @Override
+                            public void run() {
+                                future0.set(response);
+                            }
+                        }, delayMillis, TimeUnit.MILLISECONDS);
+                        return future0;
+                    }
+                });
+
+        consumerImpl.scanAssignments();
+        verify(clientManager, times(1)).queryRoute(ArgumentMatchers.<Endpoints>any(),
+                                                   ArgumentMatchers.<Metadata>any(),
+                                                   ArgumentMatchers.<QueryRouteRequest>any(), anyLong(),
+                                                   ArgumentMatchers.<TimeUnit>any());
+        verify(clientManager, times(1)).queryAssignment(ArgumentMatchers.<Endpoints>any(),
+                                                        ArgumentMatchers.<Metadata>any(),
+                                                        ArgumentMatchers.<QueryAssignmentRequest>any(),
+                                                        anyLong(), ArgumentMatchers.<TimeUnit>any());
+        verify(clientManager, times(1)).receiveMessage(ArgumentMatchers.<Endpoints>any(),
+                                                       ArgumentMatchers.<Metadata>any(),
+                                                       ArgumentMatchers.<ReceiveMessageRequest>any(),
+                                                       anyLong(), ArgumentMatchers.<TimeUnit>any());
     }
 
     @Test

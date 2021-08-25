@@ -218,6 +218,9 @@ public class ProducerImpl extends ClientImpl {
         }
     }
 
+    /**
+     * Check the status of isolated {@link Endpoints}, rejoin it if it is healthy.
+     */
     @Override
     public void doHealthCheck() {
         final Set<Endpoints> allEndpointsSet = getAllEndpoints();
@@ -358,12 +361,9 @@ public class ProducerImpl extends ClientImpl {
         final apache.rocketmq.v1.SystemAttribute systemAttribute = systemAttributeBuilder.build();
 
         final apache.rocketmq.v1.Message msg =
-                apache.rocketmq.v1.Message.newBuilder()
-                                          .setTopic(topicResource)
-                                          .setSystemAttribute(systemAttribute)
+                apache.rocketmq.v1.Message.newBuilder().setTopic(topicResource).setSystemAttribute(systemAttribute)
                                           .putAllUserAttribute(message.getUserProperties())
-                                          .setBody(ByteString.copyFrom(body))
-                                          .build();
+                                          .setBody(ByteString.copyFrom(body)).build();
 
         return SendMessageRequest.newBuilder().setMessage(msg).build();
     }
@@ -731,6 +731,7 @@ public class ProducerImpl extends ClientImpl {
                 // no need more attempts.
                 future.set(sendResult);
 
+                // resend message successfully.
                 if (1 < attempt) {
                     log.info("Resend message successfully, topic={}, messageId={}, maxAttempts={}, attempt={}, "
                              + "endpoints={}.", topic, msgId, maxAttempts, attempt, endpoints);

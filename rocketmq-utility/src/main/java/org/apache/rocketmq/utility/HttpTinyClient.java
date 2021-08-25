@@ -17,6 +17,8 @@
 
 package org.apache.rocketmq.utility;
 
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import java.io.CharArrayWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,14 +27,41 @@ import java.io.Reader;
 import java.io.Writer;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.concurrent.ExecutorService;
 
 public class HttpTinyClient {
     private static final String GET_METHOD = "GET";
 
+    private static final HttpTinyClient INSTANCE = new HttpTinyClient();
+
     private HttpTinyClient() {
     }
 
-    public static HttpResult httpGet(String url, int timeoutMillis) throws IOException {
+    public static HttpTinyClient getInstance() {
+        return INSTANCE;
+    }
+
+    public ListenableFuture<HttpResult> httpGet(final String url, final int timeoutMillis, ExecutorService executor) {
+        final SettableFuture<HttpResult> future0 = SettableFuture.create();
+        try {
+            executor.submit(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        final HttpResult httpResult = httpGet(url, timeoutMillis);
+                        future0.set(httpResult);
+                    } catch (Throwable t) {
+                        future0.setException(t);
+                    }
+                }
+            });
+        } catch (Throwable t) {
+            future0.setException(t);
+        }
+        return future0;
+    }
+
+    public HttpResult httpGet(String url, int timeoutMillis) throws IOException {
         HttpURLConnection conn = null;
         try {
             conn = (HttpURLConnection) new URL(url).openConnection();

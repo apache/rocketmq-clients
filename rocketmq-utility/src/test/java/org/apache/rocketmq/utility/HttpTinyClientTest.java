@@ -19,7 +19,15 @@ package org.apache.rocketmq.utility;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
+import com.google.common.util.concurrent.ListenableFuture;
+import java.net.HttpURLConnection;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -27,6 +35,10 @@ import org.testng.annotations.Test;
 public class HttpTinyClientTest {
     private static final int PORT = 8080;
     private final HttpTinyServer httpTinyServer = new HttpTinyServer(PORT);
+    private final HttpTinyClient httpTinyClient = HttpTinyClient.getInstance();
+    private final String httpUrl = "http://127.0.0.1:" + PORT;
+    private final ExecutorService executor = new ThreadPoolExecutor(1, 1, 60, TimeUnit.SECONDS,
+                                                                    new LinkedBlockingQueue<Runnable>());
 
     @BeforeTest
     public void beforeTest() throws Exception {
@@ -40,8 +52,27 @@ public class HttpTinyClientTest {
 
     @Test
     public void testHttpGet() throws Exception {
-        final HttpTinyClient.HttpResult httpResult = HttpTinyClient.httpGet("http://127.0.0.1:" + PORT, 3 * 1000);
+        final HttpTinyClient.HttpResult httpResult = httpTinyClient.httpGet(httpUrl, 3 * 1000);
         assertTrue(httpResult.isOk());
+        assertEquals(httpResult.getCode(), HttpURLConnection.HTTP_OK);
         assertEquals(HttpTinyServer.content, httpResult.getContent());
+    }
+
+    @Test
+    public void testHttpGetAsync() throws ExecutionException, InterruptedException {
+        final ListenableFuture<HttpTinyClient.HttpResult> future = httpTinyClient.httpGet(httpUrl, 3 * 1000, executor);
+        final HttpTinyClient.HttpResult httpResult = future.get();
+        assertTrue(httpResult.isOk());
+        assertEquals(httpResult.getCode(), HttpURLConnection.HTTP_OK);
+        assertEquals(HttpTinyServer.content, httpResult.getContent());
+    }
+
+    @Test(expectedExceptions = Throwable.class)
+    public void testHttpGetAsyncError() throws ExecutionException, InterruptedException {
+        String fakeHttpUrl = "http://127.0.0.2:" + PORT;
+        final ListenableFuture<HttpTinyClient.HttpResult> future = httpTinyClient.httpGet(fakeHttpUrl, 100,
+                                                                                          executor);
+        future.get();
+        fail();
     }
 }

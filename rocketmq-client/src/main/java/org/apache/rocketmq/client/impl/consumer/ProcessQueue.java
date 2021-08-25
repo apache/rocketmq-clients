@@ -26,13 +26,15 @@ import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageQueue;
 
 /**
- * This class is a cache of messages in responding {@link MessageQueue} regardless of {@link MessageModel}.
+ * This class is a cache of messages for {@link MessageQueue} regardless of {@link MessageModel}.
  *
- * <p>Serve for The {@link ConsumeService}, which only in charge of take and erase message(s) from here. Each message
- * taken from {@link ProcessQueue} must be erased with {@link ConsumeStatus}. There are different methods of
+ * <p>for {@link ConsumeService}'s convenience, which only in charge of taking and erasing message(s) from here. Each
+ * message taken from {@link ProcessQueue} must be erased with {@link ConsumeStatus}. There are different methods of
  * take/erase for FIFO and other messages.
  *
  * <p>'take' means message(s) has been delivered to {@link MessageListener}, but is still cached until 'erase'.
+ *
+ * <p>'erase' means message(s) was removed from cache totally.
  */
 @ThreadSafe
 public interface ProcessQueue {
@@ -44,12 +46,12 @@ public interface ProcessQueue {
     MessageQueue getMessageQueue();
 
     /**
-     * Drop current process queue, it would not pull/receive message any more if dropped.
+     * Drop current process queue, it would not fetch message from remote any more if dropped.
      */
     void drop();
 
     /**
-     * It would be regarded as expired if no fetch message for a long time.
+     * {@link ProcessQueue} would be regarded as expired if no fetch message for a long time.
      *
      * @return if it is expired.
      */

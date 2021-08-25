@@ -7,7 +7,7 @@
 
     <!--    TODO: remove match here. -->
     <Match>
-        <Package name="~org\.apache\.rocketmq\.client\.impl.*"/>
+        <Package name="~org\.apache\.rocketmq\.client.*"/>
         <Bug pattern="NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE"/>
     </Match>
 

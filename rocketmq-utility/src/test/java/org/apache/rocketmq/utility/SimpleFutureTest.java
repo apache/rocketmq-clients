@@ -17,29 +17,26 @@
 
 package org.apache.rocketmq.utility;
 
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicLong;
+import static org.testng.Assert.assertTrue;
 
-public class ThreadFactoryImpl implements ThreadFactory {
-    public static final String THREAD_PREFIX = "Rocketmq";
+import com.google.common.util.concurrent.MoreExecutors;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import org.testng.annotations.Test;
 
-    private static final AtomicLong THREAD_INDEX = new AtomicLong(0);
-    private final String customName;
-    private final boolean daemon;
+public class SimpleFutureTest {
 
-    public ThreadFactoryImpl(final String customName) {
-        this(customName, false);
-    }
-
-    public ThreadFactoryImpl(final String customName, boolean daemon) {
-        this.customName = customName;
-        this.daemon = daemon;
-    }
-
-    @Override
-    public Thread newThread(Runnable r) {
-        Thread thread = new Thread(r, THREAD_PREFIX + customName + "-" + THREAD_INDEX.incrementAndGet());
-        thread.setDaemon(daemon);
-        return thread;
+    @Test
+    public void testAddListener() throws InterruptedException {
+        final CountDownLatch latch = new CountDownLatch(1);
+        final SimpleFuture future = new SimpleFuture();
+        future.addListener(new Runnable() {
+            @Override
+            public void run() {
+                latch.countDown();
+            }
+        }, MoreExecutors.directExecutor());
+        future.markAsDone();
+        assertTrue(latch.await(1, TimeUnit.MILLISECONDS));
     }
 }

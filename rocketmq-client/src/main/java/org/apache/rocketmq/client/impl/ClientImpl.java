@@ -482,6 +482,10 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     for (SettableFuture<TopicRouteData> newFuture : newFutureSet) {
                         newFuture.set(newTopicRouteData);
                     }
+                } catch (Throwable t) {
+                    // should never reach here.
+                    log.error("[Bug] Exception raises while update route data, clientId={}, arn={}, topic={}",
+                              clientId, arn, topic, t);
                 } finally {
                     inflightRouteFutureLock.unlock();
                 }

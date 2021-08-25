@@ -267,7 +267,7 @@ public class ProcessQueueImplTest extends TestBase {
         final MessageExt messageExt1 = processQueueImpl.tryTakeFifoMessage();
         assertNull(messageExt1);
         // unlock.
-        final ListenableFuture<AckMessageResponse> future0 = successAckMessageResponseFuture();
+        final ListenableFuture<AckMessageResponse> future0 = okAckMessageResponseFuture();
         when(consumerImpl.ackMessage(ArgumentMatchers.<MessageExt>any())).thenReturn(future0);
         processQueueImpl.eraseFifoMessage(messageExt0, ConsumeStatus.OK);
         assertEquals(consumptionOkCounter.get(), 1);
@@ -300,7 +300,7 @@ public class ProcessQueueImplTest extends TestBase {
         // first take.
         final MessageExt messageExt0 = processQueueImpl.tryTakeFifoMessage();
         assertNotNull(messageExt0);
-        final ListenableFuture<AckMessageResponse> future0 = successAckMessageResponseFuture();
+        final ListenableFuture<AckMessageResponse> future0 = okAckMessageResponseFuture();
         when(consumerImpl.ackMessage(ArgumentMatchers.<MessageExt>any())).thenReturn(future0);
         processQueueImpl.eraseFifoMessage(messageExt0, ConsumeStatus.OK);
         assertEquals(consumptionOkCounter.get(), 1);
@@ -325,7 +325,7 @@ public class ProcessQueueImplTest extends TestBase {
         when(consumeService.consume(ArgumentMatchers.<MessageExt>any(), anyLong(),
                                     ArgumentMatchers.<TimeUnit>any())).thenReturn(future0);
         when(consumerImpl.forwardMessageToDeadLetterQueue(ArgumentMatchers.<MessageExt>any()))
-                .thenReturn(successForwardMessageToDeadLetterQueueResponseListenableFuture());
+                .thenReturn(okForwardMessageToDeadLetterQueueResponseListenableFuture());
         processQueueImpl.eraseFifoMessage(messageExt, ConsumeStatus.ERROR);
         // attempts is exhausted include the first attempt.
         verify(consumeService, times(messageMaxDeliveryAttempts - 1))
@@ -390,7 +390,7 @@ public class ProcessQueueImplTest extends TestBase {
         assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
         assertEquals(processQueueImpl.inflightMessagesQuantity(), batchMaxSize);
 
-        final ListenableFuture<AckMessageResponse> future0 = successAckMessageResponseFuture();
+        final ListenableFuture<AckMessageResponse> future0 = okAckMessageResponseFuture();
         when(consumerImpl.ackMessage(ArgumentMatchers.<MessageExt>any()))
                 .thenReturn(future0);
         processQueueImpl.eraseMessages(messagesTaken, ConsumeStatus.OK);
@@ -420,7 +420,7 @@ public class ProcessQueueImplTest extends TestBase {
         assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
         assertEquals(processQueueImpl.inflightMessagesQuantity(), batchMaxSize);
 
-        final ListenableFuture<NackMessageResponse> future0 = successNackMessageResponseFuture();
+        final ListenableFuture<NackMessageResponse> future0 = okNackMessageResponseFuture();
         processQueueImpl.eraseMessages(messagesTaken, ConsumeStatus.ERROR);
 
         future0.addListener(new Runnable() {

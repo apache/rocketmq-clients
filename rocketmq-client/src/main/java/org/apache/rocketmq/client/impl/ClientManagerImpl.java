@@ -336,7 +336,7 @@ public class ClientManagerImpl implements ClientManager {
      * Return rpc client by remote {@link Endpoints}, would create client automatically if it does not exist.
      *
      * <p>In case of the occasion that {@link RpcClient} is garbage collected before shutdown when invoked
-     * concurrently, lock here is essential.</p>
+     * concurrently, lock here is essential.
      *
      * @param endpoints remote endpoints.
      * @return rpc client.

@@ -20,6 +20,7 @@ package org.apache.rocketmq.client.tools;
 import apache.rocketmq.v1.AckMessageResponse;
 import apache.rocketmq.v1.Address;
 import apache.rocketmq.v1.AddressScheme;
+import apache.rocketmq.v1.Assignment;
 import apache.rocketmq.v1.Broker;
 import apache.rocketmq.v1.Digest;
 import apache.rocketmq.v1.DigestType;
@@ -29,6 +30,7 @@ import apache.rocketmq.v1.GenericPollingResponse;
 import apache.rocketmq.v1.MultiplexingResponse;
 import apache.rocketmq.v1.NackMessageResponse;
 import apache.rocketmq.v1.Permission;
+import apache.rocketmq.v1.QueryAssignmentResponse;
 import apache.rocketmq.v1.QueryRouteResponse;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.ResponseCommon;
@@ -181,21 +183,21 @@ public class TestBase {
         return new ReceiveMessageResult(fakeEndpoints0(), ReceiveStatus.OK, 0, 0, messageExtList);
     }
 
-    protected ResponseCommon successResponseCommon() {
+    protected ResponseCommon okResponseCommon() {
         final Status status = Status.newBuilder().setCode(Code.OK_VALUE).build();
         return ResponseCommon.newBuilder().setStatus(status).build();
     }
 
-    protected ListenableFuture<AckMessageResponse> successAckMessageResponseFuture() {
-        final ResponseCommon common = successResponseCommon();
+    protected ListenableFuture<AckMessageResponse> okAckMessageResponseFuture() {
+        final ResponseCommon common = okResponseCommon();
         SettableFuture<AckMessageResponse> future0 = SettableFuture.create();
         final AckMessageResponse response = AckMessageResponse.newBuilder().setCommon(common).build();
         future0.set(response);
         return future0;
     }
 
-    protected ListenableFuture<NackMessageResponse> successNackMessageResponseFuture() {
-        final ResponseCommon common = successResponseCommon();
+    protected ListenableFuture<NackMessageResponse> okNackMessageResponseFuture() {
+        final ResponseCommon common = okResponseCommon();
         SettableFuture<NackMessageResponse> future0 = SettableFuture.create();
         final NackMessageResponse response = NackMessageResponse.newBuilder().setCommon(common).build();
         future0.set(response);
@@ -203,8 +205,8 @@ public class TestBase {
     }
 
     protected ListenableFuture<ForwardMessageToDeadLetterQueueResponse>
-        successForwardMessageToDeadLetterQueueResponseListenableFuture() {
-        final ResponseCommon common = successResponseCommon();
+        okForwardMessageToDeadLetterQueueResponseListenableFuture() {
+        final ResponseCommon common = okResponseCommon();
         SettableFuture<ForwardMessageToDeadLetterQueueResponse> future0 = SettableFuture.create();
         final ForwardMessageToDeadLetterQueueResponse response =
                 ForwardMessageToDeadLetterQueueResponse.newBuilder().setCommon(common).build();
@@ -212,8 +214,8 @@ public class TestBase {
         return future0;
     }
 
-    protected ListenableFuture<QueryRouteResponse> successQueryRouteResponse() {
-        final ResponseCommon common = successResponseCommon();
+    protected ListenableFuture<QueryRouteResponse> okQueryRouteResponseFuture() {
+        final ResponseCommon common = okResponseCommon();
         SettableFuture<QueryRouteResponse> future0 = SettableFuture.create();
         final QueryRouteResponse response =
                 QueryRouteResponse.newBuilder().setCommon(common).addPartitions(fakePbPartition0()).build();
@@ -221,8 +223,18 @@ public class TestBase {
         return future0;
     }
 
-    protected ListenableFuture<EndTransactionResponse> successEndTransactionResponse() {
-        final ResponseCommon common = successResponseCommon();
+    protected ListenableFuture<QueryAssignmentResponse> okQueryAssignmentResponseFuture() {
+        final ResponseCommon common = okResponseCommon();
+        SettableFuture<QueryAssignmentResponse> future0 = SettableFuture.create();
+        Assignment assignment = Assignment.newBuilder().setPartition(fakePbPartition0()).build();
+        final QueryAssignmentResponse response =
+                QueryAssignmentResponse.newBuilder().setCommon(common).addAssignments(assignment).build();
+        future0.set(response);
+        return future0;
+    }
+
+    protected ListenableFuture<EndTransactionResponse> okEndTransactionResponseFuture() {
+        final ResponseCommon common = okResponseCommon();
         SettableFuture<EndTransactionResponse> future0 = SettableFuture.create();
         final EndTransactionResponse response =
                 EndTransactionResponse.newBuilder().setCommon(common).build();
@@ -230,29 +242,28 @@ public class TestBase {
         return future0;
     }
 
-    protected GenericPollingResponse successGenericPollingResponse() {
-        final ResponseCommon common = successResponseCommon();
+    protected GenericPollingResponse okGenericPollingResponseFuture() {
+        final ResponseCommon common = okResponseCommon();
         return GenericPollingResponse.newBuilder().setCommon(common).build();
     }
 
-    protected ListenableFuture<MultiplexingResponse> multiplexingResponseWithGenericPolling(long delay,
-                                                                                            TimeUnit timeUnit) {
+    protected ListenableFuture<MultiplexingResponse> multiplexingResponseWithGenericPollingFuture(long delayMillis) {
         final SettableFuture<MultiplexingResponse> future0 = SettableFuture.create();
         final MultiplexingResponse response =
-                MultiplexingResponse.newBuilder().setPollingResponse(successGenericPollingResponse()).build();
+                MultiplexingResponse.newBuilder().setPollingResponse(okGenericPollingResponseFuture()).build();
         SCHEDULER.schedule(new Runnable() {
             @Override
             public void run() {
                 future0.set(response);
             }
-        }, delay, timeUnit);
+        }, delayMillis, TimeUnit.MILLISECONDS);
         return future0;
     }
 
-    protected ListenableFuture<SendMessageResponse> successSendMessageResponse() {
+    protected ListenableFuture<SendMessageResponse> okSendMessageResponseFuture() {
         final SettableFuture<SendMessageResponse> future0 = SettableFuture.create();
         final SendMessageResponse response = SendMessageResponse.newBuilder()
-                                                                .setCommon(successResponseCommon()).build();
+                                                                .setCommon(okResponseCommon()).build();
         future0.set(response);
         return future0;
     }
