@@ -51,10 +51,12 @@ public class SystemAttribute {
     private Endpoints ackEndpoints;
 
     public SystemAttribute() {
+        this.tag = "";
         this.keys = new ArrayList<String>();
         this.messageType = MessageType.NORMAL;
         this.deliveryTimeMillis = 0;
         this.delayLevel = 0;
+        this.messageGroup = "";
     }
 
     public void setKeys(List<String> keys) {
