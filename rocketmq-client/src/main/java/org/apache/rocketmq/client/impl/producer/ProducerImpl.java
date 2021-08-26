@@ -303,7 +303,7 @@ public class ProducerImpl extends ClientImpl {
                                                   .addAllKeys(message.getKeysList())
                                                   .setMessageId(message.getMessageExt().getMsgId())
                                                   .setBornTimestamp(fromMillis(message.getBornTimeMillis()))
-                                                  .setBornHost(UtilAll.hostName())
+                                                  .setBornHost(message.getBornHost())
                                                   .setPartitionId(partition.getId())
                                                   .setProducerGroup(getPbGroup());
         Encoding encoding = Encoding.IDENTITY;

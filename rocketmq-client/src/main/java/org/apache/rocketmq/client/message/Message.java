@@ -30,6 +30,7 @@ import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.message.protocol.SystemAttribute;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.utility.MessageIdGenerator;
+import org.apache.rocketmq.utility.UtilAll;
 
 public class Message {
     final MessageImpl impl;
@@ -39,6 +40,7 @@ public class Message {
         final SystemAttribute systemAttribute = new SystemAttribute();
         final ConcurrentMap<String, String> userAttribute = new ConcurrentHashMap<String, String>();
         systemAttribute.setTag(tag);
+        systemAttribute.setBornHost(UtilAll.hostName());
         this.impl = new MessageImpl(topic, systemAttribute, userAttribute, body);
         reset();
         this.messageExt = new MessageExt(impl);
@@ -151,6 +153,10 @@ public class Message {
 
     public long getBornTimeMillis() {
         return this.impl.getSystemAttribute().getBornTimeMillis();
+    }
+
+    public String getBornHost() {
+        return this.impl.getSystemAttribute().getBornHost();
     }
 
     @Override
