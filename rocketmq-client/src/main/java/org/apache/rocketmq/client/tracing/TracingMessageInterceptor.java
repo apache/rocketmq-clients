@@ -89,6 +89,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                     span.setAttribute(TracingAttribute.KEYS, message.getKeys());
                     span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
                     span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
+                    span.setAttribute(TracingAttribute.CLIENT_ID, client.getClientId());
                     final long deliveryTimestamp = message.getDeliveryTimestamp();
                     if (deliveryTimestamp > 0) {
                         span.setAttribute(TracingAttribute.DELIVERY_TIMESTAMP, deliveryTimestamp);
@@ -142,6 +143,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
                 span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
                 span.setAttribute(TracingAttribute.AVAILABLE_TIMESTAMP, message.getStoreTimestamp());
+                span.setAttribute(TracingAttribute.CLIENT_ID, client.getClientId());
                 span.end();
                 waitingConsumptionSpanContextThreadLocal.set(span.getSpanContext());
                 break;
@@ -177,6 +179,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
                 span.setAttribute(TracingAttribute.AVAILABLE_TIMESTAMP, message.getStoreTimestamp());
                 span.setAttribute(TracingAttribute.BATCH_SIZE, context.getBatchSize());
+                span.setAttribute(TracingAttribute.CLIENT_ID, client.getClientId());
 
                 final StatusCode statusCode = TracingUtility.convertToTraceStatus(context.getStatus());
                 span.setStatus(statusCode);
@@ -207,6 +210,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.GROUP, group);
                 span.setAttribute(TracingAttribute.HOST, UtilAll.hostName());
                 span.setAttribute(TracingAttribute.COMMIT_ACTION, context.getTransactionResolution().getName());
+                span.setAttribute(TracingAttribute.CLIENT_ID, client.getClientId());
 
                 span.end();
                 break;

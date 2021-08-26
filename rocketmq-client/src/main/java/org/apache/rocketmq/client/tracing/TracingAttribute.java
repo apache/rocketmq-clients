@@ -32,6 +32,7 @@ public class TracingAttribute {
     public static final String ATTEMPT = "attempt";
     public static final String MSG_TYPE = "msgType";
     public static final String BATCH_SIZE = "batchSize";
+    public static final String CLIENT_ID = "clientId";
 
     private TracingAttribute() {
     }
