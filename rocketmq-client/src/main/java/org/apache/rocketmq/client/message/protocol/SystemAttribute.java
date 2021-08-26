@@ -46,17 +46,22 @@ public class SystemAttribute {
     private String messageGroup;
     private String traceContext;
     private long orphanedTransactionRecoveryPeriodMillis;
-    // Would set after receiving the message.
+    // set after receiving the message.
     private long decodedTimestamp;
     private Endpoints ackEndpoints;
 
     public SystemAttribute() {
         this.tag = "";
         this.keys = new ArrayList<String>();
+        this.messageId = "";
         this.messageType = MessageType.NORMAL;
+        this.bornHost = "";
         this.deliveryTimeMillis = 0;
         this.delayLevel = 0;
+        this.receiptHandle = "";
+        this.producerGroup = "";
         this.messageGroup = "";
+        this.traceContext = "";
     }
 
     public void setKeys(List<String> keys) {
