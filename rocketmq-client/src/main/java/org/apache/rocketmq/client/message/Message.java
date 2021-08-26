@@ -48,8 +48,7 @@ public class Message {
     }
 
     public void setTopic(String topic) {
-        checkNotNull(topic, "topic");
-        this.impl.setTopic(topic);
+        this.impl.setTopic(checkNotNull(topic, "topic"));
         reset();
     }
 
@@ -58,7 +57,6 @@ public class Message {
     }
 
     public void setTag(String tag) {
-        checkNotNull(tag, "tag");
         this.impl.getSystemAttribute().setTag(tag);
         reset();
     }
