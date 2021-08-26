@@ -52,6 +52,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -103,7 +104,7 @@ public class ClientManagerImpl implements ClientManager {
     /**
      * Public executor for all async rpc, <strong>should never submit heavy task.</strong>
      */
-    private final ThreadPoolExecutor asyncWorker;
+    private final ExecutorService asyncWorker;
 
     /**
      * Record state of client manager.

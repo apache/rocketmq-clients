@@ -24,20 +24,23 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.Enumeration;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Random;
 import java.util.zip.CRC32;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
-import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.lang3.RandomUtils;
 
 public class UtilAll {
     public static final String DEFAULT_CHARSET = "UTF-8";
     public static final Locale LOCALE = new Locale("zh", "CN");
+
+    private static final Random RANDOM = new SecureRandom();
 
     private static final int PROCESS_ID_NOT_SET = -2;
     private static final int PROCESS_ID_NOT_FOUND = -1;
@@ -46,8 +49,20 @@ public class UtilAll {
     private static final String HOST_NAME_NOT_FOUND = "HOST_NAME_NOT_FOUND";
     private static String HOST_NAME = null;
 
-    private static final byte[] MAC_ADDRESS_NOT_FOUND = RandomUtils.nextBytes(6);
     private static byte[] MAC_ADDRESS = null;
+
+    /**
+     * Used to build output as Hex
+     */
+    private static final char[] DIGITS_LOWER = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd',
+                                                'e', 'f'};
+
+    /**
+     * Used to build output as Hex
+     */
+    private static final char[] DIGITS_UPPER = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D',
+                                                'E', 'F'};
+
 
     private UtilAll() {
     }
@@ -71,12 +86,13 @@ public class UtilAll {
                 MAC_ADDRESS = mac;
                 return MAC_ADDRESS.clone();
             }
-            MAC_ADDRESS = MAC_ADDRESS_NOT_FOUND;
-            return MAC_ADDRESS.clone();
         } catch (Throwable ignore) {
-            MAC_ADDRESS = MAC_ADDRESS_NOT_FOUND;
-            return MAC_ADDRESS.clone();
+            // ignore on purpose.
         }
+        byte[] randomBytes = new byte[6];
+        RANDOM.nextBytes(randomBytes);
+        MAC_ADDRESS = randomBytes;
+        return MAC_ADDRESS.clone();
     }
 
     public static int processId() {
@@ -162,9 +178,40 @@ public class UtilAll {
         }
     }
 
+    public static String encodeHexString(ByteBuffer byteBuffer, boolean toLowerCase) {
+        return new String(encodeHex(byteBuffer, toLowerCase));
+    }
+
+    public static char[] encodeHex(ByteBuffer byteBuffer, boolean toLowerCase) {
+        return encodeHex(byteBuffer, toLowerCase ? DIGITS_LOWER : DIGITS_UPPER);
+    }
+
+    public static String encodeHexString(final byte[] data, final boolean toLowerCase) {
+        return new String(encodeHex(data, toLowerCase));
+    }
+
+    public static char[] encodeHex(final byte[] data, final boolean toLowerCase) {
+        return encodeHex(data, toLowerCase ? DIGITS_LOWER : DIGITS_UPPER);
+    }
+
+    protected static char[] encodeHex(final ByteBuffer data, final char[] toDigits) {
+        return encodeHex(data.array(), toDigits);
+    }
+
+    protected static char[] encodeHex(final byte[] data, final char[] toDigits) {
+        final int l = data.length;
+        final char[] out = new char[l << 1];
+        // two characters form the hex value.
+        for (int i = 0, j = 0; i < l; i++) {
+            out[j++] = toDigits[(0xF0 & data[i]) >>> 4];
+            out[j++] = toDigits[0x0F & data[i]];
+        }
+        return out;
+    }
+
     public static String crc32CheckSum(byte[] array) {
         CRC32 crc32 = new CRC32();
-        // Do not use crc32.update(array) directly for the compatibility, which has been marked as since Java1.9.
+        // Do not use crc32.update(array) directly for the compatibility, which has been marked as 'since Java1.9'.
         crc32.update(array, 0, array.length);
         return Long.toHexString(crc32.getValue()).toUpperCase(LOCALE);
     }
@@ -172,13 +219,13 @@ public class UtilAll {
     public static String md5CheckSum(byte[] array) throws NoSuchAlgorithmException {
         final MessageDigest digest = MessageDigest.getInstance("MD5");
         digest.update(array);
-        return Hex.encodeHexString(digest.digest(), false);
+        return encodeHexString(digest.digest(), false);
     }
 
     public static String sha1CheckSum(byte[] array) throws NoSuchAlgorithmException {
         final MessageDigest digest = MessageDigest.getInstance("SHA-1");
         digest.update(array);
-        return Hex.encodeHexString(digest.digest(), false);
+        return encodeHexString(digest.digest(), false);
     }
 
     public static String stackTrace() {

@@ -25,9 +25,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.message.protocol.SystemAttribute;
 import org.apache.rocketmq.client.misc.MixAll;
+import org.apache.rocketmq.utility.MessageIdGenerator;
 
 public class Message {
     final MessageImpl impl;
@@ -35,7 +37,7 @@ public class Message {
 
     public Message(String topic, String tag, byte[] body) {
         final SystemAttribute systemAttribute = new SystemAttribute();
-        final ConcurrentHashMap<String, String> userAttribute = new ConcurrentHashMap<String, String>();
+        final ConcurrentMap<String, String> userAttribute = new ConcurrentHashMap<String, String>();
         systemAttribute.setTag(tag);
         this.impl = new MessageImpl(topic, systemAttribute, userAttribute, body);
         reset();

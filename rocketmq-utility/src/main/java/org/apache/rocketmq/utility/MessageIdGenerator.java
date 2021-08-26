@@ -15,18 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.message;
+package org.apache.rocketmq.utility;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Calendar;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.commons.codec.binary.Hex;
-import org.apache.rocketmq.utility.UtilAll;
 
 public class MessageIdGenerator {
-
     private static final MessageIdGenerator INSTANCE = new MessageIdGenerator();
     private static final String VERSION = "01";
 
@@ -50,7 +47,7 @@ public class MessageIdGenerator {
         prefixBuffer.put(pidBuffer.array(), 2, 2);
 
         prefixBuffer.flip();
-        prefix = VERSION + Hex.encodeHexString(prefixBuffer, false);
+        prefix = VERSION + UtilAll.encodeHexString(prefixBuffer, false);
 
         secondsSinceCustomEpoch = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis() - customEpochMillis());
         secondsStartTimestamp = TimeUnit.NANOSECONDS.toSeconds(System.nanoTime());
@@ -92,7 +89,7 @@ public class MessageIdGenerator {
         suffixBuffer.putInt(sequence.getAndIncrement());
 
         suffixBuffer.flip();
-        return prefix + Hex.encodeHexString(suffixBuffer, false);
+        return prefix + UtilAll.encodeHexString(suffixBuffer, false);
     }
 
     private long deltaSeconds() {

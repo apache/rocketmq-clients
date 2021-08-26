@@ -18,7 +18,17 @@
 package org.apache.rocketmq.client.producer;
 
 public interface SendCallback {
+    /**
+     * Invoked while sending message successfully.
+     *
+     * @param sendResult result of sending message.
+     */
     void onSuccess(final SendResult sendResult);
 
+    /**
+     * Invoked while exception raised during the period of sending message.
+     *
+     * @param e any throwable during the period of sending message.
+     */
     void onException(final Throwable e);
 }

@@ -22,8 +22,8 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import org.apache.commons.codec.binary.Hex;
 import org.apache.rocketmq.client.misc.MixAll;
+import org.apache.rocketmq.utility.UtilAll;
 
 public class TlsHelper {
 
@@ -41,6 +41,6 @@ public class TlsHelper {
         mac = Mac.getInstance(HMAC_SHA1_ALGORITHM);
         mac.init(signingKey);
 
-        return Hex.encodeHexString(mac.doFinal(dateTime.getBytes(MixAll.DEFAULT_CHARSET)), false);
+        return UtilAll.encodeHexString(mac.doFinal(dateTime.getBytes(MixAll.DEFAULT_CHARSET)), false);
     }
 }
