@@ -91,7 +91,7 @@ public class MessageImpl {
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(topic, systemAttribute, userAttribute, body, corrupted);
+        return Objects.hashCode(topic, systemAttribute, userAttribute, Arrays.hashCode(body), corrupted);
     }
 
     @Override
