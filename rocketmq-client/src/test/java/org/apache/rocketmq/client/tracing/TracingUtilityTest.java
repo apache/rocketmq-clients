@@ -25,25 +25,25 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 public class TracingUtilityTest {
+    public static final String FAKE_SERIALIZED_SPAN_CONTEXT = "00-0102030405060708090a0b0c0d0e0f10-0102030405060708-01";
 
-    private final String dummyTraceIdHex = "0102030405060708090a0b0c0d0e0f10";
-    private final String dummySpanIdHex = "0102030405060708";
-    private final String dummySerializedSpanContext = "00-0102030405060708090a0b0c0d0e0f10-0102030405060708-01";
+    private static final String FAKE_TRACE_ID_HEX = "0102030405060708090a0b0c0d0e0f10";
+    private static final String FAKE_SPAN_ID_HEX = "0102030405060708";
 
     @Test
     public void testInjectSpanContextToTraceParent() {
-        SpanContext spanContext = SpanContext.createFromRemoteParent(dummyTraceIdHex,
-                                                                     dummySpanIdHex, TraceFlags.getSampled(),
+        SpanContext spanContext = SpanContext.createFromRemoteParent(FAKE_TRACE_ID_HEX,
+                                                                     FAKE_SPAN_ID_HEX, TraceFlags.getSampled(),
                                                                      TraceState.getDefault());
-        Assert.assertEquals(TracingUtility.injectSpanContextToTraceParent(spanContext), dummySerializedSpanContext);
+        Assert.assertEquals(TracingUtility.injectSpanContextToTraceParent(spanContext), FAKE_SERIALIZED_SPAN_CONTEXT);
     }
 
 
     @Test
     public void testExtractContextFromTraceParent() {
-        final SpanContext spanContext = TracingUtility.extractContextFromTraceParent(dummySerializedSpanContext);
-        Assert.assertEquals(spanContext.getTraceId(), dummyTraceIdHex);
-        Assert.assertEquals(spanContext.getSpanId(), dummySpanIdHex);
+        final SpanContext spanContext = TracingUtility.extractContextFromTraceParent(FAKE_SERIALIZED_SPAN_CONTEXT);
+        Assert.assertEquals(spanContext.getTraceId(), FAKE_TRACE_ID_HEX);
+        Assert.assertEquals(spanContext.getSpanId(), FAKE_SPAN_ID_HEX);
         Assert.assertTrue(spanContext.isSampled());
         Assert.assertTrue(spanContext.isRemote());
     }

@@ -338,18 +338,12 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         }
     }
 
-    protected Set<Endpoints> getAllEndpoints() {
+    protected Set<Endpoints> getRouteEndpointsSet() {
         Set<Endpoints> endpointsSet = new HashSet<Endpoints>();
         for (TopicRouteData topicRouteData : topicRouteCache.values()) {
             endpointsSet.addAll(topicRouteData.allEndpoints());
         }
-        nameServerEndpointsListLock.readLock().lock();
-        try {
-            endpointsSet.addAll(nameServerEndpointsList);
-            return endpointsSet;
-        } finally {
-            nameServerEndpointsListLock.readLock().unlock();
-        }
+        return endpointsSet;
     }
 
     private boolean nameServerIsNotSet() {
@@ -397,9 +391,9 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
 
     private void onTopicRouteDataUpdate(String topic, TopicRouteData topicRouteData) {
         onTopicRouteDataUpdate0(topic, topicRouteData);
-        final Set<Endpoints> before = getAllEndpoints();
+        final Set<Endpoints> before = getRouteEndpointsSet();
         topicRouteCache.put(topic, topicRouteData);
-        final Set<Endpoints> after = getAllEndpoints();
+        final Set<Endpoints> after = getRouteEndpointsSet();
         final Set<Endpoints> diff = new HashSet<Endpoints>(Sets.difference(after, before));
 
         for (Endpoints endpoints : diff) {
@@ -671,7 +665,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
 
     @Override
     public void doHeartbeat() {
-        final Set<Endpoints> routeEndpointsSet = getAllEndpoints();
+        final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
         final HeartbeatRequest request = wrapHeartbeatRequest();
         for (Endpoints endpoints : routeEndpointsSet) {
             doHeartbeat(request, endpoints);
@@ -715,14 +709,14 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         switch (response.getTypeCase()) {
             case PRINT_THREAD_STACK_REQUEST:
                 String mid = response.getPrintThreadStackRequest().getMid();
-                log.debug("Receive thread stack request from remote.");
+                log.info("Receive thread stack request from remote.");
                 final String stackTrace = UtilAll.stackTrace();
                 PrintThreadStackResponse printThreadStackResponse =
                         PrintThreadStackResponse.newBuilder().setStackTrace(stackTrace).setMid(mid).build();
                 MultiplexingRequest multiplexingRequest = MultiplexingRequest
                         .newBuilder().setPrintThreadStackResponse(printThreadStackResponse).build();
                 multiplexingCall(endpoints, multiplexingRequest);
-                log.debug("Send thread stack response to remote.");
+                log.info("Send thread stack response to remote.");
                 break;
             case VERIFY_MESSAGE_CONSUMPTION_REQUEST:
                 log.debug("Receive verify message consumption request from remote.");
@@ -781,7 +775,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
 
     private void multiplexingCall(final Endpoints endpoints, final MultiplexingRequest request) {
         try {
-            final Set<Endpoints> routeEndpointsSet = getAllEndpoints();
+            final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
             if (!routeEndpointsSet.contains(endpoints)) {
                 log.info("Endpoints was removed, no need to do more multiplexing call, endpoints={}", endpoints);
                 return;

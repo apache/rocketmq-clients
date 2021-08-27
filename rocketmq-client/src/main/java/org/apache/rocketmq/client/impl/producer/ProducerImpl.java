@@ -223,8 +223,8 @@ public class ProducerImpl extends ClientImpl {
      */
     @Override
     public void doHealthCheck() {
-        final Set<Endpoints> allEndpointsSet = getAllEndpoints();
-        final Set<Endpoints> expired = new HashSet<Endpoints>(Sets.difference(allEndpointsSet, isolatedEndpointsSet));
+        final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
+        final Set<Endpoints> expired = new HashSet<Endpoints>(Sets.difference(routeEndpointsSet, isolatedEndpointsSet));
         // remove all isolated endpoints which is expired.
         isolatedEndpointsSetLock.writeLock().lock();
         try {

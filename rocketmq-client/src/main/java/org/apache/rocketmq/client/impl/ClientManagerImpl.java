@@ -193,22 +193,16 @@ public class ClientManagerImpl implements ClientManager {
     }
 
     private void doHeartbeat() {
-        log.info("Start to send heartbeat for a new round.");
-        for (Map.Entry<String, ClientObserver> entry : observerTable.entrySet()) {
-            final String clientId = entry.getKey();
-            final ClientObserver observer = entry.getValue();
-            log.info("Start to send heartbeat for clientId={}", clientId);
+        log.info("Start to send heartbeat for a new round, clientManagerId={}", id);
+        for (ClientObserver observer : observerTable.values()) {
             observer.doHeartbeat();
         }
     }
 
     private void doLogStats() {
-        log.info("Start to log stats for a new round, clientVersion={}, clientWrapperVersion={}",
-                 MetadataUtils.getVersion(), MetadataUtils.getWrapperVersion());
-        for (Map.Entry<String, ClientObserver> entry : observerTable.entrySet()) {
-            final String clientId = entry.getKey();
-            final ClientObserver observer = entry.getValue();
-            log.info("Log stats for clientId={}", clientId);
+        log.info("Start to log stats for a new round, clientVersion={}, clientWrapperVersion={}, clientManagerId={}",
+                 MetadataUtils.getVersion(), MetadataUtils.getWrapperVersion(), id);
+        for (ClientObserver observer : observerTable.values()) {
             observer.doStats();
         }
     }
@@ -219,7 +213,7 @@ public class ClientManagerImpl implements ClientManager {
     @Override
     public void start() {
         synchronized (this) {
-            log.info("Begin to start the client manager, managerId={}", id);
+            log.info("Begin to start the client manager, clientManagerId={}", id);
             if (!state.compareAndSet(ServiceState.READY, ServiceState.STARTING)) {
                 log.warn("The client manager has been started before.");
                 return;
@@ -287,7 +281,7 @@ public class ClientManagerImpl implements ClientManager {
                     TimeUnit.SECONDS
             );
             state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
-            log.info("The client manager starts successfully, managerId={}", id);
+            log.info("The client manager starts successfully, clientManagerId={}", id);
         }
     }
 
@@ -299,22 +293,22 @@ public class ClientManagerImpl implements ClientManager {
     @Override
     public void shutdown() throws InterruptedException {
         synchronized (this) {
-            log.info("Begin to shutdown the client manager, managerId={}", id);
+            log.info("Begin to shutdown the client manager, clientManagerId={}", id);
             if (!state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING)) {
-                log.warn("Client manager has not been started before, managerId={}", id);
+                log.warn("Client manager has not been started before, clientManagerId={}", id);
                 return;
             }
             scheduler.shutdown();
             if (!scheduler.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
-                log.error("[Bug] Timeout to shutdown the client scheduler, managerId={}", id);
+                log.error("[Bug] Timeout to shutdown the client scheduler, clientManagerId={}", id);
             } else {
-                log.info("Shutdown the client scheduler successfully, managerId={}", id);
+                log.info("Shutdown the client scheduler successfully, clientManagerId={}", id);
             }
             asyncWorker.shutdown();
             if (!asyncWorker.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
-                log.error("[Bug] Timeout to shutdown the client async worker, managerId={}", id);
+                log.error("[Bug] Timeout to shutdown the client async worker, clientManagerId={}", id);
             } else {
-                log.info("Shutdown the client async worker successfully, managerId={}", id);
+                log.info("Shutdown the client async worker successfully, clientManagerId={}", id);
             }
             rpcClientTableLock.writeLock().lock();
             try {
@@ -329,7 +323,7 @@ public class ClientManagerImpl implements ClientManager {
                 rpcClientTableLock.writeLock().unlock();
             }
             state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
-            log.info("Shutdown the client manager successfully, managerId={}", id);
+            log.info("Shutdown the client manager successfully, clientManagerId={}", id);
         }
     }
 
