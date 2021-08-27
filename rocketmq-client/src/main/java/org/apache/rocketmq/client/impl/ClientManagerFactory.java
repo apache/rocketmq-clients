@@ -60,8 +60,8 @@ public class ClientManagerFactory {
                 manager = new ClientManagerImpl(managerId);
                 manager.start();
                 managersTable.put(managerId, manager);
-                manager.registerObserver(observer);
             }
+            manager.registerObserver(observer);
             return manager;
         } finally {
             managersTableLock.unlock();
