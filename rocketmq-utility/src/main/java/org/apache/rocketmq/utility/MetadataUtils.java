@@ -23,7 +23,7 @@ import java.io.InputStream;
 import java.util.Properties;
 
 public class MetadataUtils {
-    private static final String METADATA_CONF_PATH = File.separator + "metadata.properties";
+    private static final String METADATA_CONF_PATH = "metadata.properties";
     private static final Properties PROPERTIES = new Properties();
 
     private static final String VERSION_KEY = "rocketmq.version";
@@ -33,7 +33,7 @@ public class MetadataUtils {
     }
 
     static {
-        InputStream stream = MetadataUtils.class.getResourceAsStream(METADATA_CONF_PATH);
+        InputStream stream = MetadataUtils.class.getClassLoader().getResourceAsStream(METADATA_CONF_PATH);
         try {
             PROPERTIES.load(stream);
         } catch (Throwable e) {
