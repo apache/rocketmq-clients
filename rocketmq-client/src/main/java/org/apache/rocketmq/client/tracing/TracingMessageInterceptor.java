@@ -32,8 +32,10 @@ import org.apache.rocketmq.client.impl.ClientImpl;
 import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
+import org.apache.rocketmq.client.message.MessageHookPointStatus;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
+import org.apache.rocketmq.client.producer.TransactionResolution;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
 import org.apache.rocketmq.utility.UtilAll;
 import org.slf4j.Logger;
@@ -109,15 +111,10 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 final SpanContext spanContext = TracingUtility.extractContextFromTraceParent(traceContext);
                 Span span = inflightSpans.remove(spanContext.getSpanId());
                 if (null != span) {
-                    final StatusCode statusCode = TracingUtility.convertToTraceStatus(context.getStatus());
+                    final StatusCode statusCode = TracingUtility.convertToTraceStatus(context.getBizStatus());
                     span.setStatus(statusCode);
                     span.end();
                 }
-                break;
-            }
-            case PRE_PULL_MESSAGE:
-                break;
-            case POST_PULL_MESSAGE: {
                 break;
             }
             case PRE_MESSAGE_CONSUMPTION: {
@@ -181,13 +178,10 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.BATCH_SIZE, context.getBatchSize());
                 span.setAttribute(TracingAttribute.CLIENT_ID, client.getClientId());
 
-                final StatusCode statusCode = TracingUtility.convertToTraceStatus(context.getStatus());
+                final StatusCode statusCode = TracingUtility.convertToTraceStatus(context.getBizStatus());
                 span.setStatus(statusCode);
 
                 span.end(endTimestamp, TimeUnit.MILLISECONDS);
-                break;
-            }
-            case PRE_END_MESSAGE: {
                 break;
             }
             case POST_END_MESSAGE: {
@@ -209,13 +203,16 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                 span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
                 span.setAttribute(TracingAttribute.GROUP, group);
                 span.setAttribute(TracingAttribute.HOST, UtilAll.hostName());
-                span.setAttribute(TracingAttribute.COMMIT_ACTION, context.getTransactionResolution().getName());
+                TransactionResolution resolution = MessageHookPointStatus.OK.equals(context.getBizStatus()) ?
+                                                   TransactionResolution.COMMIT : TransactionResolution.ROLLBACK;
+                span.setAttribute(TracingAttribute.COMMIT_ACTION, resolution.getName());
                 span.setAttribute(TracingAttribute.CLIENT_ID, client.getClientId());
 
                 span.end();
                 break;
             }
             default:
+                break;
         }
     }
 }
