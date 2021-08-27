@@ -280,13 +280,17 @@ public class TestBase {
     }
 
     protected MessageExt fakeMessageExt(int bodySize) {
+        return fakeMessageExt(bodySize, false);
+    }
+
+    protected MessageExt fakeMessageExt(int bodySize, boolean corrupted) {
         final SystemAttribute systemAttribute = new SystemAttribute();
         systemAttribute.setMessageId(MessageIdGenerator.getInstance().next());
         systemAttribute.setReceiptHandle(FAKE_RECEIPT_HANDLE);
         systemAttribute.setDeliveryAttempt(1);
         final ConcurrentMap<String, String> userAttribute = new ConcurrentHashMap<String, String>();
         final byte[] bytes = RandomUtils.nextBytes(bodySize);
-        final MessageImpl messageImpl = new MessageImpl(FAKE_TOPIC_0, systemAttribute, userAttribute, bytes);
+        final MessageImpl messageImpl = new MessageImpl(FAKE_TOPIC_0, systemAttribute, userAttribute, bytes, corrupted);
         return new MessageExt(messageImpl);
     }
 

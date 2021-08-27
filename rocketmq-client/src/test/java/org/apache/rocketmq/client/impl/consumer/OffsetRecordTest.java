@@ -21,6 +21,7 @@ package org.apache.rocketmq.client.impl.consumer;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+import java.util.TreeSet;
 import org.testng.annotations.Test;
 
 public class OffsetRecordTest {
@@ -39,5 +40,11 @@ public class OffsetRecordTest {
         OffsetRecord offsetRecord1 = new OffsetRecord(1);
         offsetRecord0.setReleased(false);
         assertEquals(offsetRecord0, offsetRecord1);
+
+        TreeSet<OffsetRecord> offsetRecords = new TreeSet<OffsetRecord>();
+        offsetRecords.add(offsetRecord0);
+        offsetRecords.add(offsetRecord1);
+        final OffsetRecord offsetRecord = offsetRecords.iterator().next();
+        assertEquals(offsetRecord, offsetRecord1);
     }
 }

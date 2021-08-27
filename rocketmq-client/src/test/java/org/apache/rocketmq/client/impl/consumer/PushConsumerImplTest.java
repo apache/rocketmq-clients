@@ -66,7 +66,6 @@ import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.impl.ClientManager;
 import org.apache.rocketmq.client.message.MessageExt;
-import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.client.tools.TestBase;
 import org.mockito.ArgumentMatchers;
@@ -109,30 +108,6 @@ public class PushConsumerImplTest extends TestBase {
         } catch (NullPointerException ignore) {
             // Ignore on purpose.
         }
-    }
-
-    @Test
-    public void testHasCustomOffsetStore() {
-        OffsetStore offsetStore = new OffsetStore() {
-            @Override
-            public void start() {
-            }
-
-            @Override
-            public void shutdown() {
-            }
-
-            @Override
-            public void updateOffset(MessageQueue mq, long offset) {
-            }
-
-            @Override
-            public long readOffset(MessageQueue mq) {
-                return 0;
-            }
-        };
-        consumerImpl.setOffsetStore(offsetStore);
-        assertTrue(consumerImpl.hasCustomOffsetStore());
     }
 
     @Test

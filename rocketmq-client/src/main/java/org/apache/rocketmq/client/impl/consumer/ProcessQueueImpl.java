@@ -41,7 +41,6 @@ import com.google.rpc.Code;
 import com.google.rpc.Status;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.TreeSet;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -95,9 +94,7 @@ public class ProcessQueueImpl implements ProcessQueue {
     private final List<MessageExt> inflightMessages;
     private final ReadWriteLock inflightMessagesLock;
 
-    @GuardedBy("offsetRecordsLock")
-    private final TreeSet<OffsetRecord> offsetRecords;
-    private final ReadWriteLock offsetRecordsLock;
+    private final NextOffsetRecord nextOffsetRecord;
 
     private final AtomicLong cachedMessagesBytes;
     private final AtomicBoolean fifoConsumptionOccupied;
@@ -122,8 +119,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         this.cachedMessagesBytes = new AtomicLong(0L);
         this.fifoConsumptionOccupied = new AtomicBoolean(false);
 
-        this.offsetRecords = new TreeSet<OffsetRecord>();
-        this.offsetRecordsLock = new ReentrantReadWriteLock();
+        this.nextOffsetRecord = new NextOffsetRecord();
     }
 
     @Override
@@ -139,10 +135,9 @@ public class ProcessQueueImpl implements ProcessQueue {
         fifoConsumptionOccupied.compareAndSet(true, false);
     }
 
-    private boolean noNeedMaintainOffsetRecords() {
+    private boolean ignoreOffsetRecords() {
         final MessageModel messageModel = consumerImpl.getMessageModel();
-        final boolean hasCustomOffsetStore = consumerImpl.hasCustomOffsetStore();
-        return !MessageModel.BROADCASTING.equals(messageModel) || !hasCustomOffsetStore;
+        return !MessageModel.BROADCASTING.equals(messageModel) || null == consumerImpl.getOffsetStore();
     }
 
     @VisibleForTesting
@@ -182,24 +177,10 @@ public class ProcessQueueImpl implements ProcessQueue {
             pendingMessagesLock.writeLock().unlock();
         }
 
-        if (noNeedMaintainOffsetRecords()) {
+        if (ignoreOffsetRecords()) {
             return;
         }
-        // maintain offset records.
-        offsetRecordsLock.writeLock().lock();
-        try {
-            for (Long offset : offsetList) {
-                if (1 == offsetRecords.size()) {
-                    final OffsetRecord offsetRecord = offsetRecords.iterator().next();
-                    if (offsetRecord.isReleased()) {
-                        offsetRecords.remove(offsetRecord);
-                    }
-                }
-                offsetRecords.add(new OffsetRecord(offset));
-            }
-        } finally {
-            offsetRecordsLock.writeLock().unlock();
-        }
+        nextOffsetRecord.add(offsetList);
     }
 
     @Override
@@ -365,22 +346,6 @@ public class ProcessQueueImpl implements ProcessQueue {
         }, consumerImpl.getConsumptionExecutor());
     }
 
-    private Long getNextOffsetInRecords() {
-        offsetRecordsLock.readLock().lock();
-        try {
-            if (offsetRecords.isEmpty()) {
-                return null;
-            }
-            final OffsetRecord offsetRecord = offsetRecords.iterator().next();
-            if (offsetRecord.isReleased()) {
-                return offsetRecord.getOffset() + 1;
-            }
-            return offsetRecord.getOffset();
-        } finally {
-            offsetRecordsLock.readLock().unlock();
-        }
-    }
-
     /**
      * Erase message list from in-flight message list, and re-calculate the total messages body size.
      *
@@ -400,24 +365,12 @@ public class ProcessQueueImpl implements ProcessQueue {
             inflightMessagesLock.writeLock().unlock();
         }
 
-        if (noNeedMaintainOffsetRecords()) {
+        if (ignoreOffsetRecords()) {
             return;
         }
         // maintain offset records
-        offsetRecordsLock.writeLock().lock();
-        try {
-            for (Long offset : offsetList) {
-                final OffsetRecord offsetRecord = new OffsetRecord(offset);
-                offsetRecords.remove(offsetRecord);
-                if (offsetRecords.isEmpty()) {
-                    offsetRecord.setReleased(true);
-                    offsetRecords.add(offsetRecord);
-                }
-            }
-        } finally {
-            offsetRecordsLock.writeLock().unlock();
-        }
-        final Long nextOffset = getNextOffsetInRecords();
+        nextOffsetRecord.remove(offsetList);
+        final Long nextOffset = nextOffsetRecord.next();
         if (null == nextOffset) {
             return;
         }
@@ -605,12 +558,12 @@ public class ProcessQueueImpl implements ProcessQueue {
     /**
      * Pull message immediately.
      *
-     * <p> Actually, offset for message queue to pull from must be fetched before pull. If offset store was
-     * customized, it would be read from offset store, otherwise offset would be fetched from remote according to the
-     * consumption policy.
+     * <p> Actually, offset for message queue to pull from must be fetched before. If offset store was customized, it
+     * would be read from offset store, otherwise offset would be fetched from remote according to the consumption
+     * policy.
      */
     private void pullMessageImmediately() {
-        if (consumerImpl.hasCustomOffsetStore()) {
+        if (null != consumerImpl.getOffsetStore()) {
             long offset;
             try {
                 offset = consumerImpl.readOffset(mq);

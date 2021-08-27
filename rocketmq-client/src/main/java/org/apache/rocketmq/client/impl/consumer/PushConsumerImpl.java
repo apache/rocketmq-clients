@@ -274,10 +274,6 @@ public class PushConsumerImpl extends ConsumerImpl {
         }
     }
 
-    public boolean hasCustomOffsetStore() {
-        return null != offsetStore;
-    }
-
     int cachedMessagesQuantityThresholdPerQueue() {
         if (maxTotalCachedMessagesQuantityThreshold <= 0) {
             return maxCachedMessagesQuantityThresholdPerQueue;
