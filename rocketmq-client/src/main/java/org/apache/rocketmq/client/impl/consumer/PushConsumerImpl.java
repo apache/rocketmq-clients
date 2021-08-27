@@ -728,7 +728,7 @@ public class PushConsumerImpl extends ConsumerImpl {
                                  .build();
     }
 
-    public void nackMessage(final MessageExt messageExt) {
+    public ListenableFuture<NackMessageResponse> nackMessage(final MessageExt messageExt) {
         final String messageId = messageExt.getMsgId();
         final Endpoints endpoints = messageExt.getAckEndpoints();
         ListenableFuture<NackMessageResponse> future;
@@ -737,8 +737,9 @@ public class PushConsumerImpl extends ConsumerImpl {
             final Metadata metadata = sign();
             future = clientManager.nackMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
-            log.error("Failed to nack, messageId={}, endpoints={}", messageId, endpoints, t);
-            return;
+            final SettableFuture<NackMessageResponse> future0 = SettableFuture.create();
+            future0.setException(t);
+            future = future0;
         }
         Futures.addCallback(future, new FutureCallback<NackMessageResponse>() {
             @Override
@@ -757,6 +758,7 @@ public class PushConsumerImpl extends ConsumerImpl {
                 log.error("Exception raised while nack, messageId={}, endpoints={}", messageId, endpoints, t);
             }
         });
+        return future;
     }
 
     private ForwardMessageToDeadLetterQueueRequest wrapForwardMessageToDeadLetterQueueRequest(MessageExt messageExt) {

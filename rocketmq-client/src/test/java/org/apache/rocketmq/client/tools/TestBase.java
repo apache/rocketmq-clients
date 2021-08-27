@@ -35,6 +35,7 @@ import apache.rocketmq.v1.QueryRouteResponse;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.ResponseCommon;
 import apache.rocketmq.v1.SendMessageResponse;
+import apache.rocketmq.v1.VerifyMessageConsumptionRequest;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.ByteString;
@@ -202,6 +203,12 @@ public class TestBase {
         final NackMessageResponse response = NackMessageResponse.newBuilder().setCommon(common).build();
         future0.set(response);
         return future0;
+    }
+
+    protected VerifyMessageConsumptionRequest fakeVerifyMessageConsumptionRequest()
+            throws UnsupportedEncodingException {
+        return VerifyMessageConsumptionRequest.newBuilder().setMessage(fakePbMessage0())
+                                              .setPartition(fakePbPartition0()).build();
     }
 
     protected ListenableFuture<ForwardMessageToDeadLetterQueueResponse>

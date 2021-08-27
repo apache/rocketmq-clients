@@ -23,9 +23,12 @@ import java.util.Map;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import javax.annotation.concurrent.ThreadSafe;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @ThreadSafe
 public class ClientManagerFactory {
+    private static final Logger log = LoggerFactory.getLogger(ClientManagerFactory.class);
 
     private static final ClientManagerFactory INSTANCE = new ClientManagerFactory();
 
@@ -72,17 +75,18 @@ public class ClientManagerFactory {
      * Unregister {@link ClientObserver} to the appointed manager by message id, shutdown the manager if no observer
      * registered in it.
      *
-     * @param managerId client manager id.
-     * @param observer  client observer.
+     * @return {@link ClientManager} is removed or not.
      * @throws InterruptedException if thread has been interrupted.
      */
-    public void unregisterObserver(String managerId, ClientObserver observer) throws InterruptedException {
+    public boolean unregisterObserver(String managerId, ClientObserver observer) throws InterruptedException {
         ClientManager removedManager = null;
         managersTableLock.lock();
         try {
             final ClientManager manager = managersTable.get(managerId);
             if (null == manager) {
-                return;
+                // should never reach here.
+                log.error("[Bug] manager not found by managerId={}", managerId);
+                return false;
             }
             manager.unregisterObserver(observer);
             // shutdown the manager if no observer registered.
@@ -97,5 +101,6 @@ public class ClientManagerFactory {
         if (null != removedManager) {
             removedManager.shutdown();
         }
+        return null != removedManager;
     }
 }
