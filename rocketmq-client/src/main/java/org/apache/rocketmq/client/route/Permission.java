@@ -37,7 +37,7 @@ public enum Permission {
 
     private final int value;
 
-    private Permission(int value) {
+    Permission(int value) {
         this.value = value;
     }
 
