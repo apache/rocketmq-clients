@@ -569,22 +569,22 @@ public class ProducerImpl extends ClientImpl {
     }
 
     @Override
-    public void resolveOrphanedTransaction(final Endpoints endpoints, ResolveOrphanedTransactionRequest request) {
+    public void resolveOrphanedTransaction(final Endpoints endpoints, final ResolveOrphanedTransactionRequest request) {
         final apache.rocketmq.v1.Message message = request.getOrphanedTransactionalMessage();
         final String messageId = message.getSystemAttribute().getMessageId();
         if (null == transactionChecker) {
             log.error("No transaction checker registered, ignore it, messageId={}", messageId);
             return;
         }
-        MessageImpl messageImpl;
+        final MessageExt messageExt;
         try {
-            messageImpl = wrapMessageImpl(message);
+            MessageImpl messageImpl = wrapMessageImpl(message);
+            messageExt = new MessageExt(messageImpl);
         } catch (Throwable t) {
-            log.error("Failed to decode message, ignore it, messageId={}", messageId);
+            log.error("[Bug] Failed to decode message while resolving orphaned transaction, messageId={}", messageId,
+                      t);
             return;
         }
-        final MessageExt messageExt = new MessageExt(messageImpl);
-        final String transactionId = request.getTransactionId();
         try {
             transactionCheckerExecutor.submit(new Runnable() {
                 @Override
@@ -594,16 +594,16 @@ public class ProducerImpl extends ClientImpl {
                         if (null == resolution || TransactionResolution.UNKNOWN.equals(resolution)) {
                             return;
                         }
-                        endTransaction(endpoints, messageExt, transactionId, resolution);
+                        endTransaction(endpoints, messageExt, request.getTransactionId(), resolution);
                     } catch (Throwable t) {
                         log.error("Exception raised while check and end transaction, messageId={}, transactionId={}, "
-                                  + "endpoints={}", messageId, transactionId, endpoints, t);
+                                  + "endpoints={}", messageId, request.getTransactionId(), endpoints, t);
                     }
                 }
             });
         } catch (Throwable t) {
             log.error("Failed to submit task for check and end transaction, messageId={}, transactionId={}",
-                      messageId, transactionId, t);
+                      messageId, request.getTransactionId(), t);
         }
     }
 

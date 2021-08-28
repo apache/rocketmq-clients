@@ -709,18 +709,20 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         switch (response.getTypeCase()) {
             case PRINT_THREAD_STACK_REQUEST:
                 String mid = response.getPrintThreadStackRequest().getMid();
-                log.info("Receive thread stack request from remote.");
+                log.info("Receive thread stack request from remote, clientId={}", clientId);
                 final String stackTrace = UtilAll.stackTrace();
                 PrintThreadStackResponse printThreadStackResponse =
                         PrintThreadStackResponse.newBuilder().setStackTrace(stackTrace).setMid(mid).build();
                 MultiplexingRequest multiplexingRequest = MultiplexingRequest
                         .newBuilder().setPrintThreadStackResponse(printThreadStackResponse).build();
                 multiplexingCall(endpoints, multiplexingRequest);
-                log.info("Send thread stack response to remote.");
+                log.info("Send thread stack response to remote, clientId={}", clientId);
                 break;
             case VERIFY_MESSAGE_CONSUMPTION_REQUEST:
-                log.debug("Receive verify message consumption request from remote.");
                 VerifyMessageConsumptionRequest verifyRequest = response.getVerifyMessageConsumptionRequest();
+                final String messageId = verifyRequest.getMessage().getSystemAttribute().getMessageId();
+                log.info("Receive verify message consumption request from remote, clientId={}, messageId={}",
+                         clientId, messageId);
                 ListenableFuture<VerifyMessageConsumptionResponse> future = verifyConsumption(verifyRequest);
 
                 ScheduledExecutorService scheduler = clientManager.getScheduler();
@@ -731,16 +733,15 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     public void onSuccess(VerifyMessageConsumptionResponse response) {
                         MultiplexingRequest multiplexingRequest = MultiplexingRequest
                                 .newBuilder().setVerifyMessageConsumptionResponse(response).build();
+                        log.info("Send verify message consumption response to remote, clientId={}, messageId={}",
+                                 clientId, messageId);
                         multiplexingCall(endpoints, multiplexingRequest);
                     }
 
                     @Override
                     public void onFailure(Throwable t) {
-                        Status status = Status.newBuilder()
-                                              .setCode(Code.ABORTED_VALUE)
-                                              .setMessage(t.getMessage())
+                        Status status = Status.newBuilder().setCode(Code.ABORTED_VALUE).setMessage(t.getMessage())
                                               .build();
-
                         ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
                         final String mid = response.getVerifyMessageConsumptionRequest().getMid();
                         final VerifyMessageConsumptionResponse verifyResponse =
@@ -748,13 +749,17 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                         MultiplexingRequest multiplexingRequest =
                                 MultiplexingRequest.newBuilder()
                                                    .setVerifyMessageConsumptionResponse(verifyResponse).build();
+                        log.info("Send verify message consumption response to remote, clientId={}, messageId={}",
+                                 clientId, messageId);
                         multiplexingCall(endpoints, multiplexingRequest);
                     }
                 });
                 break;
             case RESOLVE_ORPHANED_TRANSACTION_REQUEST:
-                log.trace("Receive resolve orphaned transaction request from remote.");
                 ResolveOrphanedTransactionRequest orphanedRequest = response.getResolveOrphanedTransactionRequest();
+                log.debug("Receive resolve orphaned transaction request from remote, clientId={}, messageId={}",
+                          clientId, orphanedRequest.getOrphanedTransactionalMessage().getSystemAttribute()
+                                                   .getMessageId());
                 resolveOrphanedTransaction(endpoints, orphanedRequest);
                 /* fall through on purpose. */
             case POLLING_RESPONSE:

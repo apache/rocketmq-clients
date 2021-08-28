@@ -81,7 +81,6 @@ import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.route.Endpoints;
-import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.slf4j.Logger;
@@ -654,40 +653,38 @@ public class PushConsumerImpl extends ConsumerImpl {
     @Override
     public ListenableFuture<VerifyMessageConsumptionResponse> verifyConsumption(VerifyMessageConsumptionRequest
                                                                                         request) {
-        final ListenableFuture<ConsumeStatus> future = verifyConsumption0(request);
-        return Futures.transform(future, new Function<ConsumeStatus, VerifyMessageConsumptionResponse>() {
-            @Override
-            public VerifyMessageConsumptionResponse apply(ConsumeStatus consumeStatus) {
-                final Status.Builder builder = Status.newBuilder();
-                Status status;
-                switch (consumeStatus) {
-                    case OK:
-                        status = builder.setCode(Code.OK_VALUE).build();
-                        break;
-                    case ERROR:
-                    default:
-                        status = builder.setCode(Code.ABORTED_VALUE).build();
-                        break;
+        try {
+            final ListenableFuture<ConsumeStatus> future = verifyConsumption0(request);
+            return Futures.transform(future, new Function<ConsumeStatus, VerifyMessageConsumptionResponse>() {
+                @Override
+                public VerifyMessageConsumptionResponse apply(ConsumeStatus consumeStatus) {
+                    final Status.Builder builder = Status.newBuilder();
+                    Status status;
+                    switch (consumeStatus) {
+                        case OK:
+                            status = builder.setCode(Code.OK_VALUE).build();
+                            break;
+                        case ERROR:
+                        default:
+                            status = builder.setCode(Code.ABORTED_VALUE).build();
+                            break;
+                    }
+                    ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
+                    return VerifyMessageConsumptionResponse.newBuilder().setCommon(common).build();
                 }
-                ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
-                return VerifyMessageConsumptionResponse.newBuilder().setCommon(common).build();
-            }
-        });
+            });
+        } catch (Throwable t) {
+            log.error("[Bug] Exception raised while verifying message consumption, messageId={}",
+                      request.getMessage().getSystemAttribute().getMessageId());
+            SettableFuture<VerifyMessageConsumptionResponse> future0 = SettableFuture.create();
+            future0.setException(t);
+            return future0;
+        }
     }
 
     public ListenableFuture<ConsumeStatus> verifyConsumption0(VerifyMessageConsumptionRequest request) {
-        final Partition partition = new Partition(request.getPartition());
         final Message message = request.getMessage();
-        MessageImpl messageImpl;
-        final SettableFuture<ConsumeStatus> future = SettableFuture.create();
-        try {
-            messageImpl = ClientImpl.wrapMessageImpl(message);
-        } catch (Throwable t) {
-            log.error("Message verify consumption is corrupted, partition={}, messageId={}", partition,
-                      message.getSystemAttribute().getMessageId());
-            future.setException(t);
-            return future;
-        }
+        MessageImpl messageImpl = ClientImpl.wrapMessageImpl(message);
         final MessageExt messageExt = new MessageExt(messageImpl);
         return consumeService.consume(messageExt);
     }
