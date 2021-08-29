@@ -601,7 +601,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
             final Endpoints endpoints = selectNameServerEndpoints();
             Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
             final QueryRouteRequest request =
-                    QueryRouteRequest.newBuilder().setTopic(topicResource).setEndpoints(endpoints.toEndpoints())
+                    QueryRouteRequest.newBuilder().setTopic(topicResource).setEndpoints(endpoints.toPbEndpoints())
                                      .build();
             final Metadata metadata = sign();
             final ListenableFuture<QueryRouteResponse> responseFuture =
@@ -909,7 +909,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                                            .sslContext(sslContext)
                                            .intercept(new AuthInterceptor(this));
 
-                final List<InetSocketAddress> socketAddresses = randomTracingEndpoints.convertToSocketAddresses();
+                final List<InetSocketAddress> socketAddresses = randomTracingEndpoints.toSocketAddresses();
                 // if scheme is not domain.
                 if (null != socketAddresses) {
                     IpNameResolverFactory tracingResolverFactory = new IpNameResolverFactory(socketAddresses);

@@ -372,7 +372,7 @@ public class PushConsumerImpl extends ConsumerImpl {
         Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
         return QueryAssignmentRequest.newBuilder()
                                      .setTopic(topicResource)
-                                     .setEndpoints(endpoints.toEndpoints())
+                                     .setEndpoints(endpoints.toPbEndpoints())
                                      .setGroup(getPbGroup())
                                      .setClientId(clientId)
                                      .build();

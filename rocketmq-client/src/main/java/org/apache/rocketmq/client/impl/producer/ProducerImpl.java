@@ -59,6 +59,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.ServerException;
@@ -444,6 +445,9 @@ public class ProducerImpl extends ClientImpl {
 
     public SendResult send(Message message, String messageGroup) throws ServerException, ClientException,
                                                                         InterruptedException, TimeoutException {
+        if (StringUtils.isBlank(messageGroup)) {
+            throw new ClientException(ErrorCode.ILLEGAL_FORMAT, "message group is blank");
+        }
         final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
         messageImpl.getSystemAttribute().setMessageGroup(messageGroup);
         final MessageGroupQueueSelector selector = new MessageGroupQueueSelector(messageGroup);

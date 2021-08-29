@@ -84,7 +84,7 @@ public class RpcClientImpl implements RpcClient {
         // Disable grpc's auto-retry here.
         channelBuilder.disableRetry();
 
-        final List<InetSocketAddress> socketAddresses = endpoints.convertToSocketAddresses();
+        final List<InetSocketAddress> socketAddresses = endpoints.toSocketAddresses();
         if (null != socketAddresses) {
             final IpNameResolverFactory ipNameResolverFactory = new IpNameResolverFactory(socketAddresses);
             channelBuilder.nameResolverFactory(ipNameResolverFactory);

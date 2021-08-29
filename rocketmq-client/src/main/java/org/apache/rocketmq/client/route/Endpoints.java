@@ -92,7 +92,7 @@ public class Endpoints {
         this.facade = facadeBuilder.substring(0, facadeBuilder.length() - 1);
     }
 
-    public List<InetSocketAddress> convertToSocketAddresses() {
+    public List<InetSocketAddress> toSocketAddresses() {
         switch (addressScheme) {
             case DOMAIN_NAME:
                 return null;
@@ -108,7 +108,7 @@ public class Endpoints {
         }
     }
 
-    public apache.rocketmq.v1.Endpoints toEndpoints() {
+    public apache.rocketmq.v1.Endpoints toPbEndpoints() {
         final apache.rocketmq.v1.Endpoints.Builder builder = apache.rocketmq.v1.Endpoints.newBuilder();
         for (Address address : addresses) {
             builder.addAddresses(address.toPbAddress());
