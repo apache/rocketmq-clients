@@ -167,10 +167,11 @@ public class ProducerImpl extends ClientImpl {
                 new ThreadFactoryImpl("TransactionChecker"));
     }
 
-    private void ensureStarted() throws ClientException {
+    private void preconditionCheck(Message message) throws ClientException {
         if (!isStarted()) {
             throw new ClientException(ErrorCode.CLIENT_NOT_STARTED, "Please invoke #start() first!");
         }
+        Validators.checkMessage(message);
     }
 
     /**
@@ -375,7 +376,7 @@ public class ProducerImpl extends ClientImpl {
 
     public SendResult send(Message message, long timeoutMillis)
             throws ClientException, InterruptedException, TimeoutException, ServerException {
-        ensureStarted();
+        preconditionCheck(message);
         final ListenableFuture<SendResult> future = send0(message, maxAttempts);
         // limit the future timeout.
         Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
@@ -392,7 +393,7 @@ public class ProducerImpl extends ClientImpl {
 
     public void send(Message message, final SendCallback sendCallback, long timeoutMillis)
             throws ClientException, InterruptedException {
-        ensureStarted();
+        preconditionCheck(message);
         final ListenableFuture<SendResult> future = send0(message, maxAttempts);
         // limit the future timeout.
         Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
@@ -437,7 +438,7 @@ public class ProducerImpl extends ClientImpl {
     }
 
     public void sendOneway(Message message) throws ClientException {
-        ensureStarted();
+        preconditionCheck(message);
         send0(message, 1);
     }
 
@@ -456,7 +457,7 @@ public class ProducerImpl extends ClientImpl {
 
     public SendResult send(Message message, MessageQueueSelector selector, Object arg, long timeoutMillis)
             throws ClientException, ServerException, InterruptedException, TimeoutException {
-        ensureStarted();
+        preconditionCheck(message);
         final ListenableFuture<SendResult> future = send0(message, selector, arg, maxAttempts);
         Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
         try {
@@ -663,14 +664,6 @@ public class ProducerImpl extends ClientImpl {
     private ListenableFuture<SendResult> send0(final Message message, final List<Partition> candidates,
                                                int maxAttempts) {
         final SettableFuture<SendResult> future = SettableFuture.create();
-        // filter illegal message.
-        try {
-            Validators.checkMessage(message);
-        } catch (ClientException e) {
-            future.setException(e);
-            return future;
-        }
-
         // check if it is delay message or not.
         final int delayTimeLevel = message.getDelayTimeLevel();
         final long deliveryTimestamp = message.getDelayTimeMillis();
