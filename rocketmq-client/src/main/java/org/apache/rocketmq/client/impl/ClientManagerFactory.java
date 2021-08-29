@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import javax.annotation.concurrent.ThreadSafe;
+import org.apache.rocketmq.client.exception.ClientException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,7 +55,7 @@ public class ClientManagerFactory {
      * @param observer  client observer.
      * @return the client manager which is started.
      */
-    public ClientManager registerObserver(String managerId, ClientObserver observer) {
+    public ClientManager registerObserver(String managerId, ClientObserver observer) throws ClientException {
         managersTableLock.lock();
         try {
             ClientManager manager = managersTable.get(managerId);

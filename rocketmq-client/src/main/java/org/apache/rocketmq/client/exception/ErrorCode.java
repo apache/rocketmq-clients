@@ -18,7 +18,9 @@
 package org.apache.rocketmq.client.exception;
 
 public enum ErrorCode {
-    CLIENT_NOT_STARTED,
+    NOT_STARTED,
+    STARTED_BEFORE,
+
     STS_TOKEN_GET_FAILURE,
     /**
      *

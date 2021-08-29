@@ -31,7 +31,7 @@ public enum ServiceState {
      */
     STARTED,
     /**
-     * Begin to shutdown.
+     * Begin to shut down.
      */
     STOPPING,
     /**

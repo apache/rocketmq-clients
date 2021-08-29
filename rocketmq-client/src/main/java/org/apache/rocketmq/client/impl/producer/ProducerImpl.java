@@ -169,7 +169,7 @@ public class ProducerImpl extends ClientImpl {
 
     private void preconditionCheck(Message message) throws ClientException {
         if (!isStarted()) {
-            throw new ClientException(ErrorCode.CLIENT_NOT_STARTED, "Please invoke #start() first!");
+            throw new ClientException(ErrorCode.NOT_STARTED, "Please invoke #start() first!");
         }
         Validators.checkMessage(message);
     }

@@ -27,6 +27,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.apache.rocketmq.client.exception.ClientException;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -79,7 +80,7 @@ public class ClientManagerFactoryTest {
     }
 
     @Test
-    public void testUnregisterObserver() throws InterruptedException {
+    public void testUnregisterObserver() throws InterruptedException, ClientException {
         ClientManagerFactory.getInstance().registerObserver(clientManagerId, observer0);
         ClientManagerFactory.getInstance().registerObserver(clientManagerId, observer1);
         assertFalse(ClientManagerFactory.getInstance().unregisterObserver(clientManagerId, observer0));

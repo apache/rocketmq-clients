@@ -30,9 +30,10 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.rocketmq.client.consumer.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListener;
+import org.apache.rocketmq.client.exception.ClientException;
+import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.impl.ServiceState;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageInterceptor;
@@ -53,7 +54,7 @@ public abstract class ConsumeService {
     private final ThreadPoolExecutor consumptionExecutor;
     private final ScheduledExecutorService scheduler;
 
-    private final AtomicReference<ServiceState> state;
+    private volatile ServiceState state;
 
     private final Object dispatcherConditionVariable;
     private final ThreadPoolExecutor dispatcherExecutor;
@@ -68,7 +69,7 @@ public abstract class ConsumeService {
         this.scheduler = scheduler;
         this.processQueueTable = processQueueTable;
 
-        this.state = new AtomicReference<ServiceState>(ServiceState.READY);
+        this.state = ServiceState.READY;
         this.dispatcherConditionVariable = new Object();
         this.dispatcherExecutor = new ThreadPoolExecutor(
                 1,
@@ -79,51 +80,71 @@ public abstract class ConsumeService {
                 new ThreadFactoryImpl("ConsumptionDispatcher"));
     }
 
-    public void start() {
+    public void start() throws ClientException {
         synchronized (this) {
-            log.info("Begin to start the consume service.");
-            if (!state.compareAndSet(ServiceState.READY, ServiceState.STARTING)) {
-                log.warn("The consume service has been started before.");
-                return;
-            }
-            try {
-                dispatcherExecutor.submit(new Runnable() {
-                    @Override
-                    public void run() {
-                        while (ServiceState.STARTED == state.get()) {
-                            try {
-                                dispatch0();
-                                synchronized (dispatcherConditionVariable) {
-                                    dispatcherConditionVariable.wait(CONSUMPTION_DISPATCH_PERIOD_MILLIS);
+            switch (state) {
+                case READY:
+                    log.info("Begin to start the consume service.");
+                    this.state = ServiceState.STARTING;
+                    try {
+                        dispatcherExecutor.submit(new Runnable() {
+                            @Override
+                            public void run() {
+                                while (ServiceState.STARTED.equals(state)) {
+                                    try {
+                                        dispatch0();
+                                        synchronized (dispatcherConditionVariable) {
+                                            dispatcherConditionVariable.wait(CONSUMPTION_DISPATCH_PERIOD_MILLIS);
+                                        }
+                                    } catch (Throwable t) {
+                                        log.error("Exception raised while schedule message consumption dispatcher", t);
+                                    }
                                 }
-                            } catch (Throwable t) {
-                                log.error("Exception raised while schedule message consumption dispatcher", t);
                             }
-                        }
+                        });
+                    } catch (Throwable t) {
+                        log.error("[Bug] Failed to submit task to dispatch message.", t);
+                        return;
                     }
-                });
-            } catch (Throwable t) {
-                log.error("[Bug] Failed to submit task to dispatch message.", t);
-                return;
+                    this.state = ServiceState.STARTED;
+                    log.info("The consume service starts successfully.");
+                    break;
+                case STARTING:
+                case STARTED:
+                case STOPPING:
+                case STOPPED:
+                default:
+                    throw new ClientException(ErrorCode.STARTED_BEFORE, "consume service may has been started before.");
             }
-            state.compareAndSet(ServiceState.STARTING, ServiceState.STARTED);
-            log.info("Start the consume service successfully.");
         }
     }
 
     public void shutdown() throws InterruptedException {
         synchronized (this) {
-            log.info("Begin to shutdown the consume service.");
-            if (!state.compareAndSet(ServiceState.STARTED, ServiceState.STOPPING)) {
-                log.warn("The consume service has not been started before.");
-                return;
+            switch (state) {
+                case STARTED:
+                    log.info("Begin to shutdown the consume service.");
+                    this.state = ServiceState.STOPPING;
+                    dispatcherExecutor.shutdown();
+                    if (!dispatcherExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
+                        log.error("[Bug] Failed to shutdown the dispatcher executor.");
+                    }
+                    this.state = ServiceState.STOPPED;
+                    log.info("Shutdown the consume service successfully.");
+                    break;
+                case READY:
+                    log.info("The consume service has not been started before.");
+                    break;
+                case STARTING:
+                case STOPPING:
+                    log.error("[Bug] The consume service state is abnormal, state={}", state);
+                    break;
+                case STOPPED:
+                    log.info("The consume service has been shutdown before.");
+                    // fall through on purpose.
+                default:
+                    break;
             }
-            dispatcherExecutor.shutdown();
-            if (!dispatcherExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
-                log.error("[Bug] Failed to shutdown the dispatcher executor.");
-            }
-            state.compareAndSet(ServiceState.STOPPING, ServiceState.STOPPED);
-            log.info("Shutdown the consumer service successfully.");
         }
     }
 
