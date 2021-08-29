@@ -44,6 +44,7 @@ public class TransactionImpl implements Transaction {
         producerImpl.rollback(sendResult.getEndpoints(), message.getMessageExt(), sendResult.getTransactionId());
     }
 
+    @Override
     public SendResult getSendResult() {
         return this.sendResult;
     }
