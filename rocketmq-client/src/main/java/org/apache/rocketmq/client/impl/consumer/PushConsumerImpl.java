@@ -651,7 +651,7 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     @Override
-    public ListenableFuture<VerifyMessageConsumptionResponse> verifyConsumption(VerifyMessageConsumptionRequest
+    public ListenableFuture<VerifyMessageConsumptionResponse> verifyConsumption(final VerifyMessageConsumptionRequest
                                                                                         request) {
         try {
             final ListenableFuture<ConsumeStatus> future = verifyConsumption0(request);
@@ -670,7 +670,8 @@ public class PushConsumerImpl extends ConsumerImpl {
                             break;
                     }
                     ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
-                    return VerifyMessageConsumptionResponse.newBuilder().setCommon(common).build();
+                    return VerifyMessageConsumptionResponse.newBuilder().setCommon(common).setMid(request.getMid())
+                                                           .build();
                 }
             });
         } catch (Throwable t) {
