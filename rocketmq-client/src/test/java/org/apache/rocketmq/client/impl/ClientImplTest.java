@@ -18,6 +18,7 @@
 package org.apache.rocketmq.client.impl;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 import apache.rocketmq.v1.ClientResourceBundle;
 import apache.rocketmq.v1.HeartbeatEntry;
@@ -61,6 +62,14 @@ public class ClientImplTest extends TestBase {
         client.setNamesrvAddr(nameServerEndpoint);
         assertEquals(client.getArn(), "");
         assertEquals(client.getRegionId(), ClientConfig.DEFAULT_REGION_ID);
+
+        nameServerEndpoint = "foobar";
+        try {
+            client.setNamesrvAddr(nameServerEndpoint);
+            fail();
+        } catch (ClientException ignore) {
+            // ignore on purpose.
+        }
 
         client.setArn("");
         nameServerEndpoint = "http://onsaddr.cn-hangzhou.mq-internal.aliyuncs.com:8080";

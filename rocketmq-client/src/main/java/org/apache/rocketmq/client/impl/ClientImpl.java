@@ -543,6 +543,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                 httpPatternMatched = true;
                 httpPrefixMatched = MixAll.HTTPS_PREFIX;
             }
+            // for http pattern.
             if (httpPatternMatched) {
                 final String domainName = namesrv.substring(httpPrefixMatched.length());
                 final String[] domainNameSplit = domainName.split(":");
@@ -555,7 +556,18 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                 List<Address> addresses = new ArrayList<Address>();
                 addresses.add(new Address(host, port));
                 this.nameServerEndpointsList.add(new Endpoints(AddressScheme.DOMAIN_NAME, addresses));
-            } else {
+
+                // arn is set before.
+                if (StringUtils.isNotBlank(arn)) {
+                    return;
+                }
+                if (Validators.NAME_SERVER_ENDPOINT_WITH_NAMESPACE_PATTERN.matcher(namesrv).matches()) {
+                    this.arn = namesrv.substring(namesrv.lastIndexOf('/') + 1, namesrv.indexOf('.'));
+                }
+                return;
+            }
+            // for ip pattern.
+            try {
                 final String[] addressArray = namesrv.split(";");
                 for (String address : addressArray) {
                     final String[] split = address.split(":");
@@ -565,13 +577,9 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     addresses.add(new Address(host, port));
                     this.nameServerEndpointsList.add(new Endpoints(AddressScheme.IPv4, addresses));
                 }
-            }
-            // arn is set before.
-            if (StringUtils.isNotBlank(arn)) {
-                return;
-            }
-            if (Validators.NAME_SERVER_ENDPOINT_WITH_NAMESPACE_PATTERN.matcher(namesrv).matches()) {
-                this.arn = namesrv.substring(namesrv.lastIndexOf('/') + 1, namesrv.indexOf('.'));
+            } catch (Throwable t) {
+                log.error("Exception raises while parse name server address.", t);
+                throw new ClientException(ErrorCode.ILLEGAL_FORMAT, t);
             }
         } finally {
             nameServerEndpointsListLock.writeLock().unlock();

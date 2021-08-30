@@ -26,6 +26,7 @@ public class ClientException extends Exception {
         this.errorCode = ErrorCode.OTHER;
     }
 
+    @Deprecated
     public ClientException(Throwable cause) {
         super("ErrorCode: " + ErrorCode.OTHER, cause);
         this.errorCode = ErrorCode.OTHER;
