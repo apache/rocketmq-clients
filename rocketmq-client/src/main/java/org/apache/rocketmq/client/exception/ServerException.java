@@ -21,11 +21,6 @@ import java.io.IOException;
 
 public class ServerException extends IOException {
 
-    @Deprecated
-    public ServerException(String errorMessage) {
-        super("ErrorCode: " + ErrorCode.OTHER + ", " + errorMessage);
-    }
-
     public ServerException(ErrorCode errorCode) {
         super("ErrorCode: " + errorCode);
     }

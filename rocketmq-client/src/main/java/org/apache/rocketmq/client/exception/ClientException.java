@@ -20,18 +20,6 @@ package org.apache.rocketmq.client.exception;
 public class ClientException extends Exception {
     private final ErrorCode errorCode;
 
-    @Deprecated
-    public ClientException(String errorMessage) {
-        super("ErrorCode: " + ErrorCode.OTHER + ", " + errorMessage);
-        this.errorCode = ErrorCode.OTHER;
-    }
-
-    @Deprecated
-    public ClientException(Throwable cause) {
-        super("ErrorCode: " + ErrorCode.OTHER, cause);
-        this.errorCode = ErrorCode.OTHER;
-    }
-
     public ClientException(ErrorCode errorCode) {
         super("ErrorCode: " + errorCode);
         this.errorCode = errorCode;

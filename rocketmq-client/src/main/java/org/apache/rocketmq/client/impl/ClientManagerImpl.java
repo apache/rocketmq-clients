@@ -378,7 +378,7 @@ public class ClientManagerImpl implements ClientManager {
                 rpcClient = new RpcClientImpl(endpoints);
             } catch (SSLException e) {
                 log.error("Failed to get rpc client, endpoints={}", endpoints);
-                throw new ClientException("Failed to get rpc client");
+                throw new ClientException(ErrorCode.SSL_FAILURE, "Failed to get rpc client");
             }
             rpcClientTable.put(endpoints, rpcClient);
             return rpcClient;
