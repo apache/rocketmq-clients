@@ -72,7 +72,7 @@ public abstract class AbstractOffsetStore implements OffsetStore {
     public long readOffset(MessageQueue mq) {
         final Long offset = offsetTable.get(mq);
         if (null == offset) {
-            return -1;
+            return NULL_OFFSET;
         }
         return offset;
     }

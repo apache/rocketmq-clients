@@ -20,7 +20,6 @@ package org.apache.rocketmq.client.message.protocol;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Objects;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.rocketmq.client.route.Endpoints;
@@ -244,37 +243,6 @@ public class SystemAttribute {
 
     public void setAckEndpoints(Endpoints ackEndpoints) {
         this.ackEndpoints = checkNotNull(ackEndpoints, "ackEndpoints");
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        SystemAttribute that = (SystemAttribute) o;
-        return bornTimeMillis == that.bornTimeMillis && storeTimeMillis == that.storeTimeMillis &&
-               deliveryTimeMillis == that.deliveryTimeMillis && delayLevel == that.delayLevel &&
-               partitionId == that.partitionId && partitionOffset == that.partitionOffset &&
-               invisiblePeriod == that.invisiblePeriod && deliveryAttempt == that.deliveryAttempt &&
-               orphanedTransactionRecoveryPeriodMillis == that.orphanedTransactionRecoveryPeriodMillis &&
-               decodedTimestamp == that.decodedTimestamp && Objects.equal(tag, that.tag) &&
-               Objects.equal(keys, that.keys) && Objects.equal(messageId, that.messageId) &&
-               Objects.equal(digest, that.digest) && bodyEncoding == that.bodyEncoding &&
-               messageType == that.messageType && Objects.equal(bornHost, that.bornHost) &&
-               Objects.equal(receiptHandle, that.receiptHandle) && Objects.equal(producerGroup, that.producerGroup) &&
-               Objects.equal(messageGroup, that.messageGroup) && Objects.equal(traceContext, that.traceContext) &&
-               Objects.equal(ackEndpoints, that.ackEndpoints);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(tag, keys, messageId, digest, bodyEncoding, messageType, bornTimeMillis, bornHost,
-                                storeTimeMillis, deliveryTimeMillis, delayLevel, receiptHandle, partitionId,
-                                partitionOffset, invisiblePeriod, deliveryAttempt, producerGroup, messageGroup,
-                                traceContext, orphanedTransactionRecoveryPeriodMillis, decodedTimestamp, ackEndpoints);
     }
 
     @Override

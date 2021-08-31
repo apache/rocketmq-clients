@@ -25,6 +25,8 @@ import org.apache.rocketmq.client.message.MessageQueue;
  * the initial offset to pull and consume.
  */
 public interface OffsetStore {
+    long NULL_OFFSET = -1L;
+
     /**
      * Start the store, warm-up some resources.
      */

@@ -211,6 +211,14 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         this.topicRouteCache = new ConcurrentHashMap<String, TopicRouteData>();
     }
 
+    /**
+     * Underlying implement could intercept the {@link TopicRouteData}.
+     *
+     * @param topic          topic's name
+     * @param topicRouteData route data of specified topic.
+     */
+    public abstract void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData);
+
     public void registerMessageInterceptor(MessageInterceptor messageInterceptor) {
         messageInterceptorsLock.writeLock().lock();
         try {
@@ -236,7 +244,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     }
 
                     final ScheduledExecutorService scheduler = clientManager.getScheduler();
-                    if (nameServerIsNotSet()) {
+                    if (isNameServerNotSet()) {
                         // acquire name server list immediately.
                         renewNameServerList();
 
@@ -353,7 +361,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
             return Signature.sign(this);
         } catch (Throwable t) {
             log.error("Failed to calculate signature", t);
-            throw new ClientException(ErrorCode.SIGNATURE_FAILURE);
+            throw new ClientException(ErrorCode.SIGNATURE_FAILURE, t);
         }
     }
 
@@ -365,7 +373,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         return endpointsSet;
     }
 
-    private boolean nameServerIsNotSet() {
+    private boolean isNameServerNotSet() {
         nameServerEndpointsListLock.readLock().lock();
         try {
             return nameServerEndpointsList.isEmpty();
@@ -384,7 +392,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
             return;
         }
         if (newNameServerEndpointsList.isEmpty()) {
-            log.warn("Yuck, got an empty name server list.");
+            log.warn("Got an empty name server list.");
             return;
         }
         nameServerEndpointsListLock.writeLock().lock();
@@ -399,14 +407,6 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
             nameServerEndpointsListLock.writeLock().unlock();
         }
     }
-
-    /**
-     * Underlying implement could intercept the {@link TopicRouteData}.
-     *
-     * @param topic          topic's name
-     * @param topicRouteData route data of specified topic.
-     */
-    public abstract void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData);
 
     private void onTopicRouteDataUpdate(String topic, TopicRouteData topicRouteData) {
         onTopicRouteDataUpdate0(topic, topicRouteData);

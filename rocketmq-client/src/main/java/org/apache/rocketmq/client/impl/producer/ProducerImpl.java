@@ -505,7 +505,7 @@ public class ProducerImpl extends ClientImpl {
         try {
             metadata = sign();
         } catch (Throwable t) {
-            throw new ClientException(ErrorCode.SIGNATURE_FAILURE);
+            throw new ClientException(ErrorCode.SIGNATURE_FAILURE, t);
         }
         final String messageId = messageExt.getMsgId();
         final EndTransactionRequest.Builder builder =

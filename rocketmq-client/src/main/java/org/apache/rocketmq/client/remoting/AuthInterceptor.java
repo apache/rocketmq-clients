@@ -30,7 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Client auth interceptor for authentication, but only serve for message tracing actually.
+ * Client auth interceptor for authentication, but only serve for message tracing, actually.
  */
 public class AuthInterceptor implements ClientInterceptor {
     private static final Logger log = LoggerFactory.getLogger(AuthInterceptor.class);
