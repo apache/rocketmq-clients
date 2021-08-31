@@ -49,7 +49,7 @@ public class ClientManagerFactory {
     /**
      * Register {@link ClientObserver} to the appointed manager by manager id, start the manager if it is created newly.
      *
-     * <p>Different observer would share the same {@link ClientManager} if they has the same manager id.
+     * <p>Different observer would share the same {@link ClientManager} if they have the same manager id.
      *
      * @param managerId client manager id.
      * @param observer  client observer.
