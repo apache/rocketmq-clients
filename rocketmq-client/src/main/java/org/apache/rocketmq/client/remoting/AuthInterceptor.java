@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
  */
 public class AuthInterceptor implements ClientInterceptor {
     private static final Logger log = LoggerFactory.getLogger(AuthInterceptor.class);
-    
+
     private final ClientConfig clientConfig;
 
     public AuthInterceptor(ClientConfig clientConfig) {

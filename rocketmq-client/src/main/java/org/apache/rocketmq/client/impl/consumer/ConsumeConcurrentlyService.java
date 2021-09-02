@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
 
 public class ConsumeConcurrentlyService extends ConsumeService {
     private static final Logger log = LoggerFactory.getLogger(ConsumeConcurrentlyService.class);
-    
+
     private final int batchMaxSize;
 
     public ConsumeConcurrentlyService(MessageListener messageListener, MessageInterceptor interceptor,
@@ -49,7 +49,7 @@ public class ConsumeConcurrentlyService extends ConsumeService {
     }
 
     @Override
-    public void dispatch0() {
+    public boolean dispatch0() {
         final List<ProcessQueue> processQueues = new ArrayList<ProcessQueue>(processQueueTable.values());
         // shuffle all process queue in case messages are always consumed firstly in one message queue.
         Collections.shuffle(processQueues);
@@ -79,7 +79,7 @@ public class ConsumeConcurrentlyService extends ConsumeService {
 
         // no new message arrived for current round.
         if (messageExtList.isEmpty()) {
-            return;
+            return false;
         }
 
         final ListenableFuture<ConsumeStatus> future = consume(messageExtList);
@@ -95,15 +95,14 @@ public class ConsumeConcurrentlyService extends ConsumeService {
                     }
                     pq.eraseMessages(messageExtList, status);
                 }
-                ConsumeConcurrentlyService.this.dispatch();
             }
 
             @Override
             public void onFailure(Throwable t) {
                 // should never reach here.
                 log.error("[Bug] Exception raised in consumption callback.", t);
-                ConsumeConcurrentlyService.this.dispatch();
             }
         });
+        return true;
     }
 }

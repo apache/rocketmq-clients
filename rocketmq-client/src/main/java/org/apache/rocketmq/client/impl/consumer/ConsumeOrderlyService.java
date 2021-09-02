@@ -44,7 +44,8 @@ public class ConsumeOrderlyService extends ConsumeService {
     }
 
     @Override
-    public void dispatch0() {
+    public boolean dispatch0() {
+        boolean dispatched = false;
         final List<ProcessQueue> processQueueImpls = new ArrayList<ProcessQueue>(processQueueTable.values());
         Collections.shuffle(processQueueImpls);
 
@@ -53,23 +54,22 @@ public class ConsumeOrderlyService extends ConsumeService {
             if (null == messageExt) {
                 continue;
             }
-
+            dispatched = true;
             log.debug("Take fifo message already, messageId={}", messageExt);
             final ListenableFuture<ConsumeStatus> future = consume(messageExt);
             Futures.addCallback(future, new FutureCallback<ConsumeStatus>() {
                 @Override
                 public void onSuccess(ConsumeStatus status) {
                     pq.eraseFifoMessage(messageExt, status);
-                    ConsumeOrderlyService.this.dispatch();
                 }
 
                 @Override
                 public void onFailure(Throwable t) {
                     // should never reach here.
                     log.error("[Bug] Exception raised in consumption callback.", t);
-                    ConsumeOrderlyService.this.dispatch();
                 }
             });
         }
+        return dispatched;
     }
 }

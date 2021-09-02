@@ -420,7 +420,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                 if (!messagesFound.isEmpty()) {
                     cacheMessages(messagesFound);
                     consumerImpl.getReceivedMessagesQuantity().getAndAdd(messagesFound.size());
-                    consumerImpl.getConsumeService().dispatch();
+                    consumerImpl.getConsumeService().signalImmediately();
                 }
                 log.debug("Receive message with OK, mq={}, endpoints={}, messages found count={}", mq,
                           endpoints, messagesFound.size());
@@ -448,7 +448,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                 if (!messagesFound.isEmpty()) {
                     cacheMessages(messagesFound);
                     consumerImpl.getPulledMessagesQuantity().getAndAdd(messagesFound.size());
-                    consumerImpl.getConsumeService().dispatch();
+                    consumerImpl.getConsumeService().signalImmediately();
                 }
                 log.debug("Pull message with OK, mq={}, messages found count={}", mq, messagesFound.size());
                 pullMessage(result.getNextBeginOffset());

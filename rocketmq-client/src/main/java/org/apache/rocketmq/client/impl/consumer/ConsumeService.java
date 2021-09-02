@@ -26,7 +26,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -38,14 +37,14 @@ import org.apache.rocketmq.client.impl.ServiceState;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageQueue;
-import org.apache.rocketmq.utility.ThreadFactoryImpl;
+import org.apache.rocketmq.client.misc.Dispatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public abstract class ConsumeService {
+public abstract class ConsumeService extends Dispatcher {
     private static final Logger log = LoggerFactory.getLogger(ConsumeService.class);
 
-    private static final long CONSUMPTION_DISPATCH_PERIOD_MILLIS = 10;
+    private static final long SIGNAL_DELAY_MILLIS = 10;
 
     protected final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable;
 
@@ -56,13 +55,10 @@ public abstract class ConsumeService {
 
     private volatile ServiceState state;
 
-    private final Object dispatcherConditionVariable;
-    private final ThreadPoolExecutor dispatcherExecutor;
-
-
     public ConsumeService(MessageListener messageListener, MessageInterceptor interceptor,
                           ThreadPoolExecutor consumptionExecutor, ScheduledExecutorService scheduler,
                           ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable) {
+        super(SIGNAL_DELAY_MILLIS, scheduler);
         this.messageListener = messageListener;
         this.interceptor = interceptor;
         this.consumptionExecutor = consumptionExecutor;
@@ -70,14 +66,6 @@ public abstract class ConsumeService {
         this.processQueueTable = processQueueTable;
 
         this.state = ServiceState.READY;
-        this.dispatcherConditionVariable = new Object();
-        this.dispatcherExecutor = new ThreadPoolExecutor(
-                1,
-                1,
-                60,
-                TimeUnit.SECONDS,
-                new LinkedBlockingQueue<Runnable>(),
-                new ThreadFactoryImpl("ConsumptionDispatcher"));
     }
 
     public void start() throws ClientException {
@@ -85,27 +73,6 @@ public abstract class ConsumeService {
             switch (state) {
                 case READY:
                     log.info("Begin to start the consume service.");
-                    this.state = ServiceState.STARTING;
-                    try {
-                        dispatcherExecutor.submit(new Runnable() {
-                            @Override
-                            public void run() {
-                                while (ServiceState.STARTED.equals(state)) {
-                                    try {
-                                        dispatch0();
-                                        synchronized (dispatcherConditionVariable) {
-                                            dispatcherConditionVariable.wait(CONSUMPTION_DISPATCH_PERIOD_MILLIS);
-                                        }
-                                    } catch (Throwable t) {
-                                        log.error("Exception raised while schedule message consumption dispatcher", t);
-                                    }
-                                }
-                            }
-                        });
-                    } catch (Throwable t) {
-                        log.error("[Bug] Failed to submit task to dispatch message.", t);
-                        return;
-                    }
                     this.state = ServiceState.STARTED;
                     log.info("The consume service starts successfully.");
                     break;
@@ -125,10 +92,7 @@ public abstract class ConsumeService {
                 case STARTED:
                     log.info("Begin to shutdown the consume service.");
                     this.state = ServiceState.STOPPING;
-                    dispatcherExecutor.shutdown();
-                    if (!dispatcherExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
-                        log.error("[Bug] Failed to shutdown the dispatcher executor.");
-                    }
+                    super.shutdown();
                     this.state = ServiceState.STOPPED;
                     log.info("Shutdown the consume service successfully.");
                     break;
@@ -148,7 +112,23 @@ public abstract class ConsumeService {
         }
     }
 
-    public abstract void dispatch0();
+    /**
+     * Underlying implement of message dispatch.
+     *
+     * @return message is dispatched or not.
+     */
+    public abstract boolean dispatch0();
+
+    /**
+     * Loop of message dispatch, signal dispatcher to dispatch later if no new message is dispatched.
+     */
+    public void dispatch() {
+        boolean dispatched;
+        do {
+            dispatched = dispatch0();
+        } while (dispatched);
+        signalLater();
+    }
 
     public ListenableFuture<ConsumeStatus> consume(MessageExt messageExt) {
         final List<MessageExt> messageExtList = new ArrayList<MessageExt>();
@@ -192,11 +172,5 @@ public abstract class ConsumeService {
             }
         }, delay, timeUnit);
         return future0;
-    }
-
-    public void dispatch() {
-        synchronized (dispatcherConditionVariable) {
-            dispatcherConditionVariable.notifyAll();
-        }
     }
 }
