@@ -299,6 +299,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         }
         final int maxAttempts = consumerImpl.getMaxDeliveryAttempts();
         final int attempt = messageExt.getDeliveryAttempt();
+        final ConsumeService consumeService = consumerImpl.getConsumeService();
         // failed to consume fifo message but deliver attempt are not exhausted.
         // need to redeliver the fifo message.
         if (ConsumeStatus.ERROR.equals(status) && attempt < maxAttempts) {
@@ -308,7 +309,6 @@ public class ProcessQueueImpl implements ProcessQueue {
             systemAttribute.setDeliveryAttempt(1 + attempt);
             // try to deliver message once again.
             final long fifoConsumptionSuspendTimeMillis = consumerImpl.getFifoConsumptionSuspendTimeMillis();
-            final ConsumeService consumeService = consumerImpl.getConsumeService();
             log.debug("Prepare to redeliver the fifo message because of consumption failure, maxAttempt={}, "
                       + "attempt={}, mq={}, messageId={}, suspendTime={}ms", maxAttempts,
                       messageExt.getDeliveryAttempt(), mq, messageExt.getMsgId(), fifoConsumptionSuspendTimeMillis);
@@ -342,6 +342,8 @@ public class ProcessQueueImpl implements ProcessQueue {
             public void run() {
                 eraseMessage(messageExt);
                 fifoConsumptionOutbound();
+                // need to signal to dispatch message immediately because of the end of last message's life cycle.
+                consumeService.signalImmediately();
             }
         }, consumerImpl.getConsumptionExecutor());
     }
