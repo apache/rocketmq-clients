@@ -46,10 +46,10 @@ public class ConsumeOrderlyService extends ConsumeService {
     @Override
     public boolean dispatch0() {
         boolean dispatched = false;
-        final List<ProcessQueue> processQueueImpls = new ArrayList<ProcessQueue>(processQueueTable.values());
-        Collections.shuffle(processQueueImpls);
+        final List<ProcessQueue> processQueues = new ArrayList<ProcessQueue>(processQueueTable.values());
+        Collections.shuffle(processQueues);
 
-        for (final ProcessQueue pq : processQueueImpls) {
+        for (final ProcessQueue pq : processQueues) {
             final MessageExt messageExt = pq.tryTakeFifoMessage();
             if (null == messageExt) {
                 continue;
