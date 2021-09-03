@@ -233,7 +233,7 @@ public class ProcessQueueImpl implements ProcessQueue {
      * to {@link ProcessQueueImpl#inflightMessages}. each fifo message taken from MUST be erased by
      * {@link ProcessQueueImpl#eraseFifoMessage(MessageExt, ConsumeStatus)}
      *
-     * @return message which has been taken, or null if no message available
+     * @return message which has been taken, or {@link Optional#absent()} if no message.
      */
     @Override
     public Optional<MessageExt> tryTakeFifoMessage() {
