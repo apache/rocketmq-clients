@@ -128,6 +128,7 @@ public class DefaultMQPushConsumer {
      *
      * @param topic            topic's name.
      * @param permitsPerSecond consumption rate for topic.
+     * @since 5.0.0
      */
     public void rateLimit(String topic, double permitsPerSecond) {
         this.impl.rateLimit(topic, permitsPerSecond);

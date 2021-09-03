@@ -494,13 +494,13 @@ public class PushConsumerImpl extends ConsumerImpl {
             }
 
             if (!latestMqs.contains(mq)) {
-                log.info("Stop to receive message queue according to the latest assignments, mq={}", mq);
+                log.info("Drop message queue according to the latest assignments, mq={}", mq);
                 dropProcessQueue(mq);
                 continue;
             }
 
             if (pq.expired()) {
-                log.warn("Process queue is expired, mq={}", mq);
+                log.warn("Drop message queue because it is expired, mq={}", mq);
                 dropProcessQueue(mq);
                 continue;
             }

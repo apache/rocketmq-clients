@@ -74,7 +74,9 @@ public class ProcessQueueImpl implements ProcessQueue {
     public static final long PULL_LONG_POLLING_TIMEOUT_MILLIS = 30 * 1000L;
     public static final long PULL_LATER_DELAY_MILLIS = 3 * 1000L;
 
-    public static final long MAX_IDLE_MILLIS = 60 * 1000L;
+    public static final long MAX_IDLE_MILLIS = 2 * Math.max(RECEIVE_LONG_POLLING_TIMEOUT_MILLIS,
+                                                            PULL_LONG_POLLING_TIMEOUT_MILLIS);
+
     public static final long ACK_FIFO_MESSAGE_DELAY_MILLIS = 100L;
     public static final long REDIRECT_FIFO_MESSAGE_TO_DLQ_DELAY_MILLIS = 100L;
 
@@ -575,7 +577,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                     return;
                 }
             } catch (Throwable t) {
-                log.error("Exception raised while reading offset from offset store, mq={}", mq, t);
+                log.error("Exception raised while reading offset from offset store, drop message queue, mq={}", mq, t);
                 // drop this pq, waiting for the next assignments scan.
                 consumerImpl.dropProcessQueue(mq);
                 return;
@@ -600,7 +602,8 @@ public class ProcessQueueImpl implements ProcessQueue {
 
             @Override
             public void onFailure(Throwable t) {
-                log.error("Exception raised while querying offset to pull, mq={}, endpoints={}", mq, endpoints, t);
+                log.error("Exception raised while querying offset to pull, drop message queue, mq={}, endpoints={}", mq,
+                          endpoints, t);
                 // drop this pq, waiting for the next assignments scan.
                 consumerImpl.dropProcessQueue(mq);
             }
