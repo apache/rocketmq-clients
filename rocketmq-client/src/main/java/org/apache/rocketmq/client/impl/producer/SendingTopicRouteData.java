@@ -19,6 +19,7 @@ package org.apache.rocketmq.client.impl.producer;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
 import com.google.common.math.IntMath;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -46,7 +47,7 @@ public class SendingTopicRouteData {
     /**
      * Partitions to send message.
      */
-    private final List<Partition> partitions;
+    private final ImmutableList<Partition> partitions;
 
     public SendingTopicRouteData(TopicRouteData topicRouteData) {
         this.index = new AtomicInteger(RandomUtils.nextInt());
@@ -62,8 +63,8 @@ public class SendingTopicRouteData {
     }
 
     @VisibleForTesting
-    public static List<Partition> filterPartition(TopicRouteData topicRouteData) {
-        List<Partition> partitions = new ArrayList<Partition>();
+    public static ImmutableList<Partition> filterPartition(TopicRouteData topicRouteData) {
+        final ImmutableList.Builder<Partition> builder = ImmutableList.builder();
         for (Partition partition : topicRouteData.getPartitions()) {
             if (!partition.getPermission().isWritable()) {
                 continue;
@@ -71,12 +72,13 @@ public class SendingTopicRouteData {
             if (MixAll.MASTER_BROKER_ID != partition.getBroker().getId()) {
                 continue;
             }
-            partitions.add(partition);
+            builder.add(partition);
         }
-        if (partitions.isEmpty()) {
+        final ImmutableList<Partition> partitions0 = builder.build();
+        if (partitions0.isEmpty()) {
             log.warn("No available partition, topicRouteData={}", topicRouteData);
         }
-        return partitions;
+        return partitions0;
     }
 
     public boolean isEmpty() {

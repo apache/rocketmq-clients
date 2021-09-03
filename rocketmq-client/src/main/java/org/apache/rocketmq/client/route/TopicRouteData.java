@@ -19,8 +19,8 @@ package org.apache.rocketmq.client.route;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
 import com.google.common.math.IntMath;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -41,7 +41,7 @@ public class TopicRouteData {
     /**
      * Partitions of topic route
      */
-    private final List<Partition> partitions;
+    private final ImmutableList<Partition> partitions;
 
     /**
      * Construct topic route by partition list.
@@ -50,10 +50,11 @@ public class TopicRouteData {
      */
     public TopicRouteData(List<apache.rocketmq.v1.Partition> partitionList) {
         this.index = new AtomicInteger(RandomUtils.nextInt());
-        this.partitions = new ArrayList<Partition>();
+        final ImmutableList.Builder<Partition> builder = ImmutableList.builder();
         for (apache.rocketmq.v1.Partition partition : partitionList) {
-            this.partitions.add(new Partition(partition));
+            builder.add(new Partition(partition));
         }
+        this.partitions = builder.build();
     }
 
     public Set<Endpoints> allEndpoints() {
