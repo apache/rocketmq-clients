@@ -25,8 +25,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import apache.rocketmq.v1.AckMessageResponse;
@@ -35,6 +33,7 @@ import apache.rocketmq.v1.PullMessageRequest;
 import apache.rocketmq.v1.QueryOffsetRequest;
 import apache.rocketmq.v1.ReceiveMessageRequest;
 import apache.rocketmq.v1.Resource;
+import com.google.common.base.Optional;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.RateLimiter;
@@ -262,32 +261,32 @@ public class ProcessQueueImplTest extends TestBase {
         }
         processQueueImpl.cacheMessages(messageExtList);
         // first take.
-        final MessageExt messageExt0 = processQueueImpl.tryTakeFifoMessage();
-        assertNotNull(messageExt0);
+        final Optional<MessageExt> optionalMessageExt0 = processQueueImpl.tryTakeFifoMessage();
+        assertTrue(optionalMessageExt0.isPresent());
         assertEquals(processQueueImpl.cachedMessagesQuantity(), cachedMessageQuantity);
         assertEquals(processQueueImpl.inflightMessagesQuantity(), 1);
         // second take, failed to lock.
-        final MessageExt messageExt1 = processQueueImpl.tryTakeFifoMessage();
-        assertNull(messageExt1);
+        final Optional<MessageExt> optionalMessageExt1 = processQueueImpl.tryTakeFifoMessage();
+        assertFalse(optionalMessageExt1.isPresent());
         // unlock.
         final ListenableFuture<AckMessageResponse> future0 = okAckMessageResponseFuture();
         when(consumerImpl.ackMessage(ArgumentMatchers.<MessageExt>any())).thenReturn(future0);
-        processQueueImpl.eraseFifoMessage(messageExt0, ConsumeStatus.OK);
+        processQueueImpl.eraseFifoMessage(optionalMessageExt0.get(), ConsumeStatus.OK);
         assertEquals(consumptionOkCounter.get(), 1);
         future0.addListener(new Runnable() {
             @Override
             public void run() {
                 verify(consumerImpl, times(1)).ackMessage(ArgumentMatchers.<MessageExt>any());
-                final MessageExt messageExt2 = processQueueImpl.tryTakeFifoMessage();
-                assertNotNull(messageExt2);
+                final Optional<MessageExt> optionalMessageExt2 = processQueueImpl.tryTakeFifoMessage();
+                assertTrue(optionalMessageExt2.isPresent());
             }
         }, MoreExecutors.directExecutor());
     }
 
     @Test
     public void testTryTakeFifoMessageWithNoPendingMessages() {
-        final MessageExt messageExt = processQueueImpl.tryTakeFifoMessage();
-        assertNull(messageExt);
+        final Optional<MessageExt> optionalMessageExt = processQueueImpl.tryTakeFifoMessage();
+        assertFalse(optionalMessageExt.isPresent());
     }
 
     @Test
@@ -301,18 +300,18 @@ public class ProcessQueueImplTest extends TestBase {
         RateLimiter rateLimiter = RateLimiter.create(1);
         when(consumerImpl.rateLimiter(anyString())).thenReturn(rateLimiter);
         // first take.
-        final MessageExt messageExt0 = processQueueImpl.tryTakeFifoMessage();
-        assertNotNull(messageExt0);
+        final Optional<MessageExt> optionalMessageExt0 = processQueueImpl.tryTakeFifoMessage();
+        assertTrue(optionalMessageExt0.isPresent());
         final ListenableFuture<AckMessageResponse> future0 = okAckMessageResponseFuture();
         when(consumerImpl.ackMessage(ArgumentMatchers.<MessageExt>any())).thenReturn(future0);
-        processQueueImpl.eraseFifoMessage(messageExt0, ConsumeStatus.OK);
+        processQueueImpl.eraseFifoMessage(optionalMessageExt0.get(), ConsumeStatus.OK);
         assertEquals(consumptionOkCounter.get(), 1);
         future0.addListener(new Runnable() {
             @Override
             public void run() {
                 verify(consumerImpl, times(1)).ackMessage(ArgumentMatchers.<MessageExt>any());
-                final MessageExt messageExt1 = processQueueImpl.tryTakeFifoMessage();
-                assertNull(messageExt1);
+                final Optional<MessageExt> optionalMessageExt1 = processQueueImpl.tryTakeFifoMessage();
+                assertFalse(optionalMessageExt1.isPresent());
             }
         }, MoreExecutors.directExecutor());
     }
@@ -322,14 +321,15 @@ public class ProcessQueueImplTest extends TestBase {
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
         messageExtList.add(fakeMessageExt(1));
         processQueueImpl.cacheMessages(messageExtList);
-        final MessageExt messageExt = processQueueImpl.tryTakeFifoMessage();
+        final Optional<MessageExt> optionalMessageExt = processQueueImpl.tryTakeFifoMessage();
+        assertTrue(optionalMessageExt.isPresent());
         SettableFuture<ConsumeStatus> future0 = SettableFuture.create();
         future0.set(ConsumeStatus.ERROR);
         when(consumeService.consume(ArgumentMatchers.<MessageExt>any(), anyLong(),
                                     ArgumentMatchers.<TimeUnit>any())).thenReturn(future0);
         when(consumerImpl.forwardMessageToDeadLetterQueue(ArgumentMatchers.<MessageExt>any()))
                 .thenReturn(okForwardMessageToDeadLetterQueueResponseListenableFuture());
-        processQueueImpl.eraseFifoMessage(messageExt, ConsumeStatus.ERROR);
+        processQueueImpl.eraseFifoMessage(optionalMessageExt.get(), ConsumeStatus.ERROR);
         // attempts is exhausted include the first attempt.
         verify(consumeService, times(messageMaxDeliveryAttempts - 1))
                 .consume(ArgumentMatchers.<MessageExt>any(), anyLong(), ArgumentMatchers.<TimeUnit>any());
@@ -347,9 +347,9 @@ public class ProcessQueueImplTest extends TestBase {
         when(consumerImpl.rateLimiter(anyString())).thenReturn(rateLimiter);
         when(consumerImpl.getMessageModel()).thenReturn(MessageModel.BROADCASTING);
         // first take.
-        final MessageExt messageExt0 = processQueueImpl.tryTakeFifoMessage();
-        assertNotNull(messageExt0);
-        processQueueImpl.eraseFifoMessage(messageExt0, ConsumeStatus.OK);
+        final Optional<MessageExt> optionalMessageExt0 = processQueueImpl.tryTakeFifoMessage();
+        assertTrue(optionalMessageExt0.isPresent());
+        processQueueImpl.eraseFifoMessage(optionalMessageExt0.get(), ConsumeStatus.OK);
         verify(consumerImpl, never()).ackMessage(ArgumentMatchers.<MessageExt>any());
     }
 

@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.impl.consumer;
 
+import com.google.common.base.Optional;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -50,17 +51,17 @@ public class ConsumeOrderlyService extends ConsumeService {
         Collections.shuffle(processQueues);
 
         for (final ProcessQueue pq : processQueues) {
-            final MessageExt messageExt = pq.tryTakeFifoMessage();
-            if (null == messageExt) {
+            final Optional<MessageExt> messageExt = pq.tryTakeFifoMessage();
+            if (!messageExt.isPresent()) {
                 continue;
             }
             dispatched = true;
             log.debug("Take fifo message already, messageId={}", messageExt);
-            final ListenableFuture<ConsumeStatus> future = consume(messageExt);
+            final ListenableFuture<ConsumeStatus> future = consume(messageExt.get());
             Futures.addCallback(future, new FutureCallback<ConsumeStatus>() {
                 @Override
                 public void onSuccess(ConsumeStatus status) {
-                    pq.eraseFifoMessage(messageExt, status);
+                    pq.eraseFifoMessage(messageExt.get(), status);
                 }
 
                 @Override

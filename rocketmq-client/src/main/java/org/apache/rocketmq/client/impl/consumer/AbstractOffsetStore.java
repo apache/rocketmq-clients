@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.impl.consumer;
 
+import com.google.common.base.Optional;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -70,11 +71,11 @@ public abstract class AbstractOffsetStore implements OffsetStore {
     }
 
     @Override
-    public long readOffset(MessageQueue mq) {
+    public Optional<Long> readOffset(MessageQueue mq) {
         final Long offset = offsetTable.get(mq);
         if (null == offset) {
-            return NULL_OFFSET;
+            return Optional.absent();
         }
-        return offset;
+        return Optional.of(offset);
     }
 }

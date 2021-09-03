@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.impl.consumer;
 
+import com.google.common.base.Optional;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.util.List;
 import java.util.TreeSet;
@@ -60,17 +61,17 @@ public class NextOffsetRecord {
      *
      * @return next offset. or null if not offset exists.
      */
-    public Long next() {
+    public Optional<Long> next() {
         offsetRecordsLock.readLock().lock();
         try {
             if (offsetRecords.isEmpty()) {
-                return null;
+                return Optional.absent();
             }
             final OffsetRecord record = offsetRecords.iterator().next();
             if (record.isReleased()) {
-                return record.getOffset() + 1;
+                return Optional.of(1 + record.getOffset());
             }
-            return record.getOffset();
+            return Optional.of(record.getOffset());
         } finally {
             offsetRecordsLock.readLock().unlock();
         }

@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.impl.consumer;
 
+import com.google.common.base.Optional;
 import org.apache.rocketmq.client.consumer.MessageModel;
 import org.apache.rocketmq.client.message.MessageQueue;
 
@@ -25,8 +26,6 @@ import org.apache.rocketmq.client.message.MessageQueue;
  * the initial offset to pull and consume.
  */
 public interface OffsetStore {
-    long NULL_OFFSET = -1L;
-
     /**
      * Start the store, warm-up some resources.
      */
@@ -49,7 +48,7 @@ public interface OffsetStore {
      * Read offset from disk or other external storage.
      *
      * @param mq offset owner.
-     * @return the next offset to pull and consume. It means offset does not exist if offset is negative.
+     * @return the next offset to pull and consume. or {@link Optional#absent()} if no offset exists
      */
-    long readOffset(MessageQueue mq);
+    Optional<Long> readOffset(MessageQueue mq);
 }

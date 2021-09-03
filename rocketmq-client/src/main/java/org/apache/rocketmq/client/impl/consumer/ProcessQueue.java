@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.impl.consumer;
 
+import com.google.common.base.Optional;
 import java.util.List;
 import javax.annotation.concurrent.ThreadSafe;
 import org.apache.rocketmq.client.consumer.ConsumeStatus;
@@ -81,9 +82,9 @@ public interface ProcessQueue {
     /**
      * Try to take FIFO message from cache.
      *
-     * @return message which has been taken, or null if no message.
+     * @return message which has been taken, or {@link Optional#absent()} if no message.
      */
-    MessageExt tryTakeFifoMessage();
+    Optional<MessageExt> tryTakeFifoMessage();
 
     /**
      * Erase FIFO message which has been taken.

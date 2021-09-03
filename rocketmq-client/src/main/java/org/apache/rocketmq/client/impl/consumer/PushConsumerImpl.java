@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.impl.consumer;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import apache.rocketmq.v1.AckMessageRequest;
@@ -43,6 +44,7 @@ import apache.rocketmq.v1.VerifyMessageConsumptionRequest;
 import apache.rocketmq.v1.VerifyMessageConsumptionResponse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -297,7 +299,7 @@ public class PushConsumerImpl extends ConsumerImpl {
         return Math.max(1, maxTotalCachedMessagesBytesThreshold / size);
     }
 
-    public long readOffset(MessageQueue mq) {
+    public Optional<Long> readOffset(MessageQueue mq) {
         return offsetStore.readOffset(mq);
     }
 
@@ -614,10 +616,10 @@ public class PushConsumerImpl extends ConsumerImpl {
                                                                   .build();
 
         final ConsumerData.Builder builder = ConsumerData.newBuilder()
-                                                          .setGroup(getPbGroup())
-                                                          .addAllSubscriptions(subscriptionEntries)
-                                                          .setDeadLetterPolicy(deadLetterPolicy)
-                                                          .setConsumeType(ConsumeMessageType.POP);
+                                                         .setGroup(getPbGroup())
+                                                         .addAllSubscriptions(subscriptionEntries)
+                                                         .setDeadLetterPolicy(deadLetterPolicy)
+                                                         .setConsumeType(ConsumeMessageType.POP);
 
         switch (messageModel) {
             case BROADCASTING:
@@ -644,10 +646,10 @@ public class PushConsumerImpl extends ConsumerImpl {
         final ConsumerData consumerData = builder.build();
 
         return HeartbeatRequest.newBuilder()
-                             .setClientId(clientId)
-                             .setConsumerData(consumerData)
-                             .setFifoFlag(messageListener.getListenerType().equals(MessageListenerType.ORDERLY))
-                             .build();
+                               .setClientId(clientId)
+                               .setConsumerData(consumerData)
+                               .setFifoFlag(messageListener.getListenerType().equals(MessageListenerType.ORDERLY))
+                               .build();
     }
 
     @Override
@@ -798,6 +800,7 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     public void setConsumptionThreadsAmount(int threadsAmount) {
+        checkArgument(threadsAmount > 0, "threadsAmount must be positive");
         this.consumptionThreadsAmount = threadsAmount;
         consumptionExecutor.setCorePoolSize(threadsAmount);
         consumptionExecutor.setMaximumPoolSize(threadsAmount);

@@ -28,6 +28,7 @@ import apache.rocketmq.v1.QueryOffsetRequest;
 import apache.rocketmq.v1.ReceiveMessageRequest;
 import apache.rocketmq.v1.Resource;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -235,18 +236,18 @@ public class ProcessQueueImpl implements ProcessQueue {
      * @return message which has been taken, or null if no message available
      */
     @Override
-    public MessageExt tryTakeFifoMessage() {
+    public Optional<MessageExt> tryTakeFifoMessage() {
         pendingMessagesLock.writeLock().lock();
         inflightMessagesLock.writeLock().lock();
         try {
             // no new message arrived.
             if (pendingMessages.isEmpty()) {
-                return null;
+                return Optional.absent();
             }
             // failed to lock.
             if (!fifoConsumptionInbound()) {
                 log.debug("Fifo consumption task are not finished, mq={}", mq);
-                return null;
+                return Optional.absent();
             }
             final String topic = mq.getTopic();
             final RateLimiter rateLimiter = consumerImpl.rateLimiter(topic);
@@ -255,17 +256,17 @@ public class ProcessQueueImpl implements ProcessQueue {
                 final MessageExt first = pendingMessages.iterator().next();
                 pendingMessages.remove(first);
                 inflightMessages.add(first);
-                return first;
+                return Optional.of(first);
             }
             // unlock because of the failure of acquire the token,
             if (!rateLimiter.tryAcquire()) {
                 fifoConsumptionOutbound();
-                return null;
+                return Optional.absent();
             }
             final MessageExt first = pendingMessages.iterator().next();
             pendingMessages.remove(first);
             inflightMessages.add(first);
-            return first;
+            return Optional.of(first);
         } finally {
             inflightMessagesLock.writeLock().unlock();
             pendingMessagesLock.writeLock().unlock();
@@ -372,11 +373,11 @@ public class ProcessQueueImpl implements ProcessQueue {
         }
         // maintain offset records
         nextOffsetRecord.remove(offsetList);
-        final Long nextOffset = nextOffsetRecord.next();
-        if (null == nextOffset) {
+        final Optional<Long> optionalOffset = nextOffsetRecord.next();
+        if (!optionalOffset.isPresent()) {
             return;
         }
-        consumerImpl.getOffsetStore().updateOffset(mq, nextOffset);
+        consumerImpl.getOffsetStore().updateOffset(mq, optionalOffset.get());
     }
 
     /**
@@ -566,17 +567,17 @@ public class ProcessQueueImpl implements ProcessQueue {
      */
     private void pullMessageImmediately() {
         if (null != consumerImpl.getOffsetStore()) {
-            long offset;
+            Optional<Long> optionalOffset;
             try {
-                offset = consumerImpl.readOffset(mq);
+                optionalOffset = consumerImpl.readOffset(mq);
             } catch (Throwable t) {
                 log.error("Exception raised while reading offset from offset store, mq={}", mq, t);
                 // drop this pq, waiting for the next assignments scan.
                 consumerImpl.dropProcessQueue(mq);
                 return;
             }
-            if (offset >= 0) {
-                pullMessage(offset);
+            if (optionalOffset.isPresent()) {
+                pullMessage(optionalOffset.get());
                 return;
             }
         }

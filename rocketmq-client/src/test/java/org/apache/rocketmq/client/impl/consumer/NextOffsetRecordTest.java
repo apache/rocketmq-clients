@@ -18,7 +18,8 @@
 package org.apache.rocketmq.client.impl.consumer;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,62 +31,71 @@ public class NextOffsetRecordTest {
     public void testAdd() {
         final NextOffsetRecord nextOffsetRecord = new NextOffsetRecord();
 
-        assertNull(nextOffsetRecord.next());
+        assertFalse(nextOffsetRecord.next().isPresent());
         List<Long> offsetsToAdd0 = new ArrayList<Long>();
         offsetsToAdd0.add(3L);
         nextOffsetRecord.add(offsetsToAdd0);
-        assertEquals((long) nextOffsetRecord.next(), 3L);
+        assertTrue(nextOffsetRecord.next().isPresent());
+        assertEquals((long) nextOffsetRecord.next().get(), 3L);
 
         List<Long> offsetsToAdd1 = new ArrayList<Long>();
         offsetsToAdd1.add(3L);
         offsetsToAdd1.add(4L);
         offsetsToAdd1.add(5L);
         nextOffsetRecord.add(offsetsToAdd1);
-        assertEquals((long) nextOffsetRecord.next(), 3L);
+        assertTrue(nextOffsetRecord.next().isPresent());
+        assertEquals((long) nextOffsetRecord.next().get(), 3L);
 
         List<Long> offsetsToAdd2 = new ArrayList<Long>();
         offsetsToAdd2.add(4L);
         offsetsToAdd2.add(5L);
         nextOffsetRecord.add(offsetsToAdd2);
-        assertEquals((long) nextOffsetRecord.next(), 3L);
+        assertTrue(nextOffsetRecord.next().isPresent());
+        assertEquals((long) nextOffsetRecord.next().get(), 3L);
 
         List<Long> offsetsToAdd3 = new ArrayList<Long>();
         offsetsToAdd3.add(9L);
         offsetsToAdd3.add(10L);
         nextOffsetRecord.add(offsetsToAdd3);
-        assertEquals((long) nextOffsetRecord.next(), 3L);
+        assertTrue(nextOffsetRecord.next().isPresent());
+        assertEquals((long) nextOffsetRecord.next().get(), 3L);
 
         List<Long> offsetsToAdd4 = new ArrayList<Long>();
         offsetsToAdd4.add(1L);
         nextOffsetRecord.add(offsetsToAdd4);
-        assertEquals((long) nextOffsetRecord.next(), 1L);
+        assertTrue(nextOffsetRecord.next().isPresent());
+        assertEquals((long) nextOffsetRecord.next().get(), 1L);
     }
 
     @Test
     public void testRemove() {
         final NextOffsetRecord nextOffsetRecord = new NextOffsetRecord();
 
-        assertNull(nextOffsetRecord.next());
+        assertFalse(nextOffsetRecord.next().isPresent());
         List<Long> offsetsToAdd0 = new ArrayList<Long>();
         offsetsToAdd0.add(1L);
         offsetsToAdd0.add(2L);
         offsetsToAdd0.add(3L);
         nextOffsetRecord.add(offsetsToAdd0);
-        assertEquals((long) nextOffsetRecord.next(), 1L);
+        assertTrue(nextOffsetRecord.next().isPresent());
+        assertEquals((long) nextOffsetRecord.next().get(), 1L);
 
         List<Long> offsetsToRemove0 = new ArrayList<Long>();
         offsetsToRemove0.add(1L);
         nextOffsetRecord.remove(offsetsToRemove0);
-        assertEquals((long) nextOffsetRecord.next(), 2L);
+        assertTrue(nextOffsetRecord.next().isPresent());
+        assertEquals((long) nextOffsetRecord.next().get(), 2L);
 
         List<Long> offsetsToRemove1 = new ArrayList<Long>();
         offsetsToRemove1.add(3L);
         nextOffsetRecord.remove(offsetsToRemove1);
-        assertEquals((long) nextOffsetRecord.next(), 2L);
+        assertTrue(nextOffsetRecord.next().isPresent());
+        assertEquals((long) nextOffsetRecord.next().get(), 2L);
 
         List<Long> offsetsToRemove2 = new ArrayList<Long>();
         offsetsToRemove2.add(2L);
         nextOffsetRecord.remove(offsetsToRemove2);
-        assertEquals((long) nextOffsetRecord.next(), 3L);
+        assertTrue(nextOffsetRecord.next().isPresent());
+        assertEquals((long) nextOffsetRecord.next().get(), 3L);
     }
 }
