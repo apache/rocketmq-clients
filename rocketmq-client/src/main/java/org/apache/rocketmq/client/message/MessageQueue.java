@@ -34,6 +34,14 @@ public class MessageQueue {
         this.partition = partition;
     }
 
+    @Deprecated
+    public MessageQueue(String topic, String brokerName, int queueId) {
+        this.topic = topic;
+        this.brokerName = brokerName;
+        this.queueId = queueId;
+        this.partition = null;
+    }
+
     @Override
     public String toString() {
         return topic + "." + brokerName + "." + queueId;
