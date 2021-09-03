@@ -56,9 +56,9 @@ import org.apache.rocketmq.client.consumer.ReceiveMessageResult;
 import org.apache.rocketmq.client.consumer.ReceiveStatus;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.message.Message;
-import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageImpl;
+import org.apache.rocketmq.client.message.MessageImplAccessor;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.message.protocol.SystemAttribute;
@@ -331,7 +331,7 @@ public class TestBase {
 
     protected Message fakeFifoMessage() {
         final Message message = fakeMessage();
-        final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
+        final MessageImpl messageImpl = MessageImplAccessor.getMessageImpl(message);
         final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
         systemAttribute.setMessageType(MessageType.FIFO);
         systemAttribute.setMessageGroup(FAKE_MESSAGE_GROUP_0);
@@ -340,7 +340,7 @@ public class TestBase {
 
     protected Message fakeDelayMessage(int delayLevel, long delayTimestamp) {
         final Message message = fakeMessage();
-        final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
+        final MessageImpl messageImpl = MessageImplAccessor.getMessageImpl(message);
         final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
         systemAttribute.setMessageType(MessageType.DELAY);
         systemAttribute.setDelayLevel(delayLevel);
@@ -350,7 +350,7 @@ public class TestBase {
 
     protected Message fakeTransactionMessage() {
         final Message message = fakeMessage();
-        final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
+        final MessageImpl messageImpl = MessageImplAccessor.getMessageImpl(message);
         final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
         systemAttribute.setMessageType(MessageType.TRANSACTION);
         return message;

@@ -22,6 +22,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.rocketmq.utility.ExecutorServices;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,7 +61,7 @@ public abstract class Dispatcher {
 
     public void shutdown() throws InterruptedException {
         dispatcherExecutor.shutdown();
-        if (!dispatcherExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
+        if (!ExecutorServices.awaitTerminated(dispatcherExecutor)) {
             log.error("[Bug] Failed to shutdown the batch dispatcher.");
         }
     }

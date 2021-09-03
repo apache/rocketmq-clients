@@ -22,6 +22,7 @@ import apache.rocketmq.v1.ReceiveMessageRequest;
 public class MixAll {
     public static final String DEFAULT_CHARSET = "UTF-8";
     public static final String MESSAGE_KEY_SEPARATOR = " ";
+    @SuppressWarnings("HttpUrlsUsage")
     public static final String HTTP_PREFIX = "http://";
     public static final String HTTPS_PREFIX = "https://";
 

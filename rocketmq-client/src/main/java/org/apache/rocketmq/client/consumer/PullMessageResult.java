@@ -20,6 +20,7 @@ package org.apache.rocketmq.client.consumer;
 import java.util.List;
 import org.apache.rocketmq.client.message.MessageExt;
 
+@SuppressWarnings("unused")
 public class PullMessageResult {
     private final PullStatus pullStatus;
     private final long nextBeginOffset;

@@ -57,9 +57,9 @@ import org.apache.rocketmq.client.consumer.ReceiveStatus;
 import org.apache.rocketmq.client.consumer.filter.ExpressionType;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerType;
-import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageImpl;
+import org.apache.rocketmq.client.message.MessageImplAccessor;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.message.protocol.SystemAttribute;
 import org.apache.rocketmq.client.route.Endpoints;
@@ -152,7 +152,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         pendingMessagesLock.writeLock().lock();
         try {
             for (MessageExt messageExt : messageExtList) {
-                if (MessageAccessor.getMessageImpl(messageExt).isCorrupted()) {
+                if (MessageImplAccessor.getMessageImpl(messageExt).isCorrupted()) {
                     // ignore message in broadcasting mode.
                     if (MessageModel.BROADCASTING.equals(messageModel)) {
                         log.error("Message is corrupted, ignore it in broadcasting mode, mq={}, messageId={}", mq,
@@ -307,7 +307,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         // failed to consume fifo message but deliver attempt are not exhausted.
         // need to redeliver the fifo message.
         if (ConsumeStatus.ERROR.equals(status) && attempt < maxAttempts) {
-            final MessageImpl messageImpl = MessageAccessor.getMessageImpl(messageExt);
+            final MessageImpl messageImpl = MessageImplAccessor.getMessageImpl(messageExt);
             final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
             // increment the delivery attempt and prepare to deliver message once again.
             systemAttribute.setDeliveryAttempt(1 + attempt);

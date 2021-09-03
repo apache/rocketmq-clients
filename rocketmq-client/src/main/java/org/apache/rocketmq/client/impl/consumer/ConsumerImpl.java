@@ -46,6 +46,7 @@ import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.impl.ClientImpl;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageImpl;
+import org.apache.rocketmq.client.message.MessageImplAccessor;
 import org.apache.rocketmq.client.route.Endpoints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -142,7 +143,7 @@ public abstract class ConsumerImpl extends ClientImpl {
         if (PullStatus.OK.equals(pullStatus)) {
             final List<Message> messageList = response.getMessagesList();
             for (Message message : messageList) {
-                MessageImpl messageImpl = ClientImpl.wrapMessageImpl(message);
+                MessageImpl messageImpl = MessageImplAccessor.wrapMessageImpl(message);
                 msgFoundList.add(new MessageExt(messageImpl));
             }
         }
@@ -199,7 +200,7 @@ public abstract class ConsumerImpl extends ClientImpl {
             final List<Message> messageList = response.getMessagesList();
             for (Message message : messageList) {
                 MessageImpl messageImpl;
-                messageImpl = ClientImpl.wrapMessageImpl(message);
+                messageImpl = MessageImplAccessor.wrapMessageImpl(message);
                 messageImpl.getSystemAttribute().setAckEndpoints(endpoints);
                 msgFoundList.add(new MessageExt(messageImpl));
             }

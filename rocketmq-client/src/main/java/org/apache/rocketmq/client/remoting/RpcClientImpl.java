@@ -71,6 +71,7 @@ public class RpcClientImpl implements RpcClient {
 
     private long activityNanoTime;
 
+    @SuppressWarnings("deprecation")
     public RpcClientImpl(Endpoints endpoints) throws SSLException {
         final SslContextBuilder builder = GrpcSslContexts.forClient();
         builder.trustManager(InsecureTrustManagerFactory.INSTANCE);

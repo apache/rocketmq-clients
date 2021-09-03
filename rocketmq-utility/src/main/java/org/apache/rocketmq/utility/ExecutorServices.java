@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.message;
+package org.apache.rocketmq.utility;
 
-public class MessageAccessor {
-    private MessageAccessor() {
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+
+public class ExecutorServices {
+    private ExecutorServices() {
     }
 
-    public static MessageImpl getMessageImpl(Message message) {
-        return message.impl;
-    }
-
-    public static MessageImpl getMessageImpl(MessageExt messageExt) {
-        return messageExt.impl;
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+    public static boolean awaitTerminated(ExecutorService executor) throws InterruptedException {
+        return executor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
     }
 }

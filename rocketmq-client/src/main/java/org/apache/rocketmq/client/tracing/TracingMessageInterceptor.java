@@ -29,10 +29,10 @@ import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.impl.ClientImpl;
-import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
 import org.apache.rocketmq.client.message.MessageHookPointStatus;
+import org.apache.rocketmq.client.message.MessageImplAccessor;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.producer.TransactionResolution;
@@ -95,7 +95,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
             String traceContext = TracingUtility.injectSpanContextToTraceParent(span.getSpanContext());
             final String spanId = span.getSpanContext().getSpanId();
             inflightSpans.put(spanId, span);
-            MessageAccessor.getMessageImpl(message).getSystemAttribute().setTraceContext(traceContext);
+            MessageImplAccessor.getMessageImpl(message).getSystemAttribute().setTraceContext(traceContext);
         } finally {
             parentSpan.end();
         }

@@ -21,6 +21,7 @@ import java.util.List;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.route.Endpoints;
 
+@SuppressWarnings("unused")
 public class ReceiveMessageResult {
     private final Endpoints endpoints;
     private final ReceiveStatus receiveStatus;

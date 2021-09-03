@@ -78,12 +78,13 @@ import org.apache.rocketmq.client.consumer.listener.MessageListenerOrderly;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerType;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
-import org.apache.rocketmq.client.impl.ClientImpl;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageImpl;
+import org.apache.rocketmq.client.message.MessageImplAccessor;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.client.route.TopicRouteData;
+import org.apache.rocketmq.utility.ExecutorServices;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -339,7 +340,7 @@ public class PushConsumerImpl extends ConsumerImpl {
     @Override
     public void shutdown() throws InterruptedException {
         synchronized (this) {
-            log.info("Begin to shutdown the rocketmq push consumer, clientId={}", clientId);
+            log.info("Begin to shutdown the rocketmq push consumer, clientId={}", id);
 
             if (this.isStarted()) {
                 if (null != scanAssignmentsFuture) {
@@ -350,10 +351,10 @@ public class PushConsumerImpl extends ConsumerImpl {
                     consumeService.shutdown();
                 }
                 consumptionExecutor.shutdown();
-                if (!consumptionExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
-                    log.error("[Bug] Failed to shutdown the consumption executor, clientId={}", clientId);
+                if (!ExecutorServices.awaitTerminated(consumptionExecutor)) {
+                    log.error("[Bug] Failed to shutdown the consumption executor, clientId={}", id);
                 }
-                log.info("Shutdown the rocketmq push consumer successfully, clientId={}", clientId);
+                log.info("Shutdown the rocketmq push consumer successfully, clientId={}", id);
             }
         }
     }
@@ -373,12 +374,8 @@ public class PushConsumerImpl extends ConsumerImpl {
 
     private QueryAssignmentRequest wrapQueryAssignmentRequest(String topic, Endpoints endpoints) {
         Resource topicResource = Resource.newBuilder().setResourceNamespace(namespace).setName(topic).build();
-        return QueryAssignmentRequest.newBuilder()
-                                     .setTopic(topicResource)
-                                     .setEndpoints(endpoints.toPbEndpoints())
-                                     .setGroup(getPbGroup())
-                                     .setClientId(clientId)
-                                     .build();
+        return QueryAssignmentRequest.newBuilder().setTopic(topicResource).setEndpoints(endpoints.toPbEndpoints())
+                                     .setGroup(getPbGroup()).setClientId(id).build();
     }
 
     @VisibleForTesting
@@ -437,7 +434,7 @@ public class PushConsumerImpl extends ConsumerImpl {
         final long consumptionErrorQuantity = this.consumptionErrorQuantity.getAndSet(0);
 
         log.info("clientId={}, namespace={}, group={}, receiveTimes={}, receivedMessagesQuantity={}, pullTimes={}, "
-                 + "pulledMessagesQuantity={}, consumptionOkQuantity={}, consumptionErrorQuantity={}", clientId,
+                 + "pulledMessagesQuantity={}, consumptionOkQuantity={}, consumptionErrorQuantity={}", id,
                  namespace, group, receiveTimes, receivedMessagesQuantity, pullTimes, pulledMessagesQuantity,
                  consumptionOkQuantity, consumptionErrorQuantity);
 
@@ -647,7 +644,7 @@ public class PushConsumerImpl extends ConsumerImpl {
         final ConsumerData consumerData = builder.build();
 
         return HeartbeatRequest.newBuilder()
-                               .setClientId(clientId)
+                               .setClientId(id)
                                .setConsumerData(consumerData)
                                .setFifoFlag(messageListener.getListenerType().equals(MessageListenerType.ORDERLY))
                                .build();
@@ -688,7 +685,7 @@ public class PushConsumerImpl extends ConsumerImpl {
 
     public ListenableFuture<ConsumeStatus> verifyConsumption0(VerifyMessageConsumptionRequest request) {
         final Message message = request.getMessage();
-        MessageImpl messageImpl = ClientImpl.wrapMessageImpl(message);
+        MessageImpl messageImpl = MessageImplAccessor.wrapMessageImpl(message);
         final MessageExt messageExt = new MessageExt(messageImpl);
         return consumeService.consume(messageExt);
     }
@@ -698,7 +695,7 @@ public class PushConsumerImpl extends ConsumerImpl {
                 Resource.newBuilder().setResourceNamespace(namespace).setName(messageExt.getTopic()).build();
         return AckMessageRequest.newBuilder().setGroup(getPbGroup())
                                 .setTopic(topicResource)
-                                .setMessageId(messageExt.getMsgId()).setClientId(clientId)
+                                .setMessageId(messageExt.getMsgId()).setClientId(id)
                                 .setReceiptHandle(messageExt.getReceiptHandle()).build();
     }
 
@@ -721,7 +718,7 @@ public class PushConsumerImpl extends ConsumerImpl {
         return NackMessageRequest.newBuilder()
                                  .setGroup(getPbGroup())
                                  .setTopic(topicResource)
-                                 .setClientId(clientId)
+                                 .setClientId(id)
                                  .setReceiptHandle(messageExt.getReceiptHandle())
                                  .setMessageId(messageExt.getMsgId())
                                  .setDeliveryAttempt(messageExt.getDeliveryAttempt())
@@ -766,7 +763,7 @@ public class PushConsumerImpl extends ConsumerImpl {
         final Resource topicResource =
                 Resource.newBuilder().setResourceNamespace(namespace).setName(messageExt.getTopic()).build();
         return ForwardMessageToDeadLetterQueueRequest.newBuilder().setGroup(getPbGroup()).setTopic(topicResource)
-                                                     .setClientId(clientId)
+                                                     .setClientId(id)
                                                      .setReceiptHandle(messageExt.getReceiptHandle())
                                                      .setMessageId(messageExt.getMsgId())
                                                      .setDeliveryAttempt(messageExt.getDeliveryAttempt())
@@ -792,7 +789,7 @@ public class PushConsumerImpl extends ConsumerImpl {
     @Override
     public GenericPollingRequest wrapGenericPollingRequest() {
         final GenericPollingRequest.Builder builder =
-                GenericPollingRequest.newBuilder().setClientId(clientId).setProducerGroup(getPbGroup());
+                GenericPollingRequest.newBuilder().setClientId(id).setProducerGroup(getPbGroup());
         for (String topic : filterExpressionTable.keySet()) {
             Resource topicResource = Resource.newBuilder().setResourceNamespace(namespace).setName(topic).build();
             builder.addTopics(topicResource);

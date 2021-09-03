@@ -66,11 +66,11 @@ import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.ServerException;
 import org.apache.rocketmq.client.impl.ClientImpl;
 import org.apache.rocketmq.client.message.Message;
-import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
 import org.apache.rocketmq.client.message.MessageHookPointStatus;
 import org.apache.rocketmq.client.message.MessageImpl;
+import org.apache.rocketmq.client.message.MessageImplAccessor;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.message.MessageQueue;
@@ -89,6 +89,7 @@ import org.apache.rocketmq.client.producer.TransactionResolution;
 import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
+import org.apache.rocketmq.utility.ExecutorServices;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.apache.rocketmq.utility.UtilAll;
 import org.slf4j.Logger;
@@ -185,11 +186,11 @@ public class ProducerImpl extends ClientImpl {
     @Override
     public void start() throws ClientException {
         synchronized (this) {
-            log.info("Begin to start the rocketmq producer, clientId={}", clientId);
+            log.info("Begin to start the rocketmq producer, clientId={}", id);
             super.start();
 
             if (this.isStarted()) {
-                log.info("The rocketmq producer starts successfully, clientId={}", clientId);
+                log.info("The rocketmq producer starts successfully, clientId={}", id);
             }
         }
     }
@@ -200,15 +201,15 @@ public class ProducerImpl extends ClientImpl {
     @Override
     public void shutdown() throws InterruptedException {
         synchronized (this) {
-            log.info("Begin to shutdown the rocketmq producer, clientId={}", clientId);
+            log.info("Begin to shutdown the rocketmq producer, clientId={}", id);
             super.shutdown();
 
             if (this.isStopped()) {
                 defaultSendCallbackExecutor.shutdown();
-                if (!defaultSendCallbackExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
-                    log.error("[Bug] Failed to shutdown default send callback executor, clientId={}", clientId);
+                if (!ExecutorServices.awaitTerminated(defaultSendCallbackExecutor)) {
+                    log.error("[Bug] Failed to shutdown default send callback executor, clientId={}", id);
                 }
-                log.info("Shutdown the rocketmq producer successfully, clientId={}", clientId);
+                log.info("Shutdown the rocketmq producer successfully, clientId={}", id);
             }
         }
     }
@@ -262,17 +263,17 @@ public class ProducerImpl extends ClientImpl {
                             } finally {
                                 isolatedEndpointsSetLock.writeLock().unlock();
                             }
-                            log.info("Rejoin endpoints which is isolated before, clientId={}, endpoints={}", clientId,
+                            log.info("Rejoin endpoints which is isolated before, clientId={}, endpoints={}", id,
                                      endpoints);
                             return;
                         }
                         log.warn("Failed to rejoin the endpoints which is isolated before, clientId={}, code={}, "
-                                 + "status message=[{}], endpoints={}", clientId, code, status.getMessage(), endpoints);
+                                 + "status message=[{}], endpoints={}", id, code, status.getMessage(), endpoints);
                     }
 
                     @Override
                     public void onFailure(Throwable t) {
-                        log.error("Failed to do health check, clientId={}, endpoints={}", clientId, endpoints, t);
+                        log.error("Failed to do health check, clientId={}, endpoints={}", id, endpoints, t);
                     }
                 });
             }
@@ -328,7 +329,7 @@ public class ProducerImpl extends ClientImpl {
             default:
                 systemAttributeBuilder.setBodyEncoding(apache.rocketmq.v1.Encoding.IDENTITY);
         }
-        final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
+        final MessageImpl messageImpl = MessageImplAccessor.getMessageImpl(message);
         // set trace context.
         final String traceContext = messageImpl.getSystemAttribute().getTraceContext();
         if (null != traceContext) {
@@ -447,7 +448,7 @@ public class ProducerImpl extends ClientImpl {
         if (StringUtils.isBlank(messageGroup)) {
             throw new ClientException(ErrorCode.ILLEGAL_FORMAT, "message group is blank");
         }
-        final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
+        final MessageImpl messageImpl = MessageImplAccessor.getMessageImpl(message);
         messageImpl.getSystemAttribute().setMessageGroup(messageGroup);
         final MessageGroupQueueSelector selector = new MessageGroupQueueSelector(messageGroup);
         return send(message, selector, null);
@@ -473,7 +474,7 @@ public class ProducerImpl extends ClientImpl {
     public Transaction prepare(Message message) throws ServerException, InterruptedException,
                                                        ClientException, TimeoutException {
         // set message type as transaction.
-        final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
+        final MessageImpl messageImpl = MessageImplAccessor.getMessageImpl(message);
         final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
         systemAttribute.setMessageType(MessageType.TRANSACTION);
         // set transaction resolve delay millis.
@@ -582,7 +583,7 @@ public class ProducerImpl extends ClientImpl {
         }
         final MessageExt messageExt;
         try {
-            MessageImpl messageImpl = wrapMessageImpl(message);
+            MessageImpl messageImpl = MessageImplAccessor.wrapMessageImpl(message);
             messageExt = new MessageExt(messageImpl);
         } catch (Throwable t) {
             log.error("[Bug] Failed to decode message while resolving orphaned transaction, messageId={}", messageId,
@@ -649,7 +650,7 @@ public class ProducerImpl extends ClientImpl {
     private ListenableFuture<SendResult> send0(final Message message, MessageQueueSelector selector, Object arg,
                                                final int maxAttempts) {
         // set message type as fifo.
-        final MessageImpl messageImpl = MessageAccessor.getMessageImpl(message);
+        final MessageImpl messageImpl = MessageImplAccessor.getMessageImpl(message);
         final SystemAttribute systemAttribute = messageImpl.getSystemAttribute();
         systemAttribute.setMessageType(MessageType.FIFO);
 
@@ -671,7 +672,7 @@ public class ProducerImpl extends ClientImpl {
         final int delayTimeLevel = message.getDelayTimeLevel();
         final long deliveryTimestamp = message.getDelayTimeMillis();
         if (delayTimeLevel > 0 || deliveryTimestamp > 0) {
-            MessageAccessor.getMessageImpl(message).getSystemAttribute().setMessageType(MessageType.DELAY);
+            MessageImplAccessor.getMessageImpl(message).getSystemAttribute().setMessageType(MessageType.DELAY);
         }
 
         send0(future, candidates, message, 1, maxAttempts);
@@ -811,7 +812,7 @@ public class ProducerImpl extends ClientImpl {
     @Override
     public HeartbeatRequest wrapHeartbeatRequest() {
         ProducerData producerData = ProducerData.newBuilder().setGroup(getPbGroup()).build();
-        return HeartbeatRequest.newBuilder().setClientId(clientId).setProducerData(producerData).build();
+        return HeartbeatRequest.newBuilder().setClientId(id).setProducerData(producerData).build();
     }
 
     @Override
@@ -821,7 +822,7 @@ public class ProducerImpl extends ClientImpl {
     @Override
     public GenericPollingRequest wrapGenericPollingRequest() {
         final GenericPollingRequest.Builder builder =
-                GenericPollingRequest.newBuilder().setClientId(clientId).setProducerGroup(getPbGroup());
+                GenericPollingRequest.newBuilder().setClientId(id).setProducerGroup(getPbGroup());
         for (String topic : sendingRouteDataCache.keySet()) {
             Resource topicResource = Resource.newBuilder().setResourceNamespace(namespace).setName(topic).build();
             builder.addTopics(topicResource);

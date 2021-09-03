@@ -26,9 +26,9 @@ import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import org.apache.rocketmq.client.impl.ClientImpl;
-import org.apache.rocketmq.client.message.MessageAccessor;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
+import org.apache.rocketmq.client.message.MessageImplAccessor;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.tools.TestBase;
 import org.mockito.ArgumentMatchers;
@@ -76,7 +76,7 @@ public class TracingMessageInterceptorTest extends TestBase {
         MessageInterceptorContext context = MessageInterceptorContext.builder().build();
         final MessageExt fakeMessageExt = fakeMessageExt();
         interceptor.intercept(MessageHookPoint.PRE_SEND_MESSAGE, fakeMessageExt, context);
-        assertEquals(MessageAccessor.getMessageImpl(fakeMessageExt).getSystemAttribute().getTraceContext(),
+        assertEquals(MessageImplAccessor.getMessageImpl(fakeMessageExt).getSystemAttribute().getTraceContext(),
                      TracingUtilityTest.FAKE_SERIALIZED_SPAN_CONTEXT);
         assertEquals(interceptor.getInflightSpanSize(), 1);
         interceptor.intercept(MessageHookPoint.POST_SEND_MESSAGE, fakeMessageExt, context);

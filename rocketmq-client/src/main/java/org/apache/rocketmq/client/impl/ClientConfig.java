@@ -40,7 +40,7 @@ public class ClientConfig {
     /**
      * Unique identifier for each client.
      */
-    protected final String clientId;
+    protected final String id;
 
     /**
      * Group name for producer/consumer.
@@ -90,7 +90,7 @@ public class ClientConfig {
         sb.append(UtilAll.processId());
         sb.append(CLIENT_ID_SEPARATOR);
         sb.append(Long.toString(System.nanoTime(), 36));
-        this.clientId = sb.toString();
+        this.id = sb.toString();
     }
 
     public void setGroup(String group) throws ClientException {
@@ -116,7 +116,7 @@ public class ClientConfig {
     }
 
     public String id() {
-        return this.clientId;
+        return this.id;
     }
 
     public String getNamespace() {

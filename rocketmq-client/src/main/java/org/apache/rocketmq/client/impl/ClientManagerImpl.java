@@ -66,6 +66,7 @@ import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.remoting.RpcClient;
 import org.apache.rocketmq.client.remoting.RpcClientImpl;
 import org.apache.rocketmq.client.route.Endpoints;
+import org.apache.rocketmq.utility.ExecutorServices;
 import org.apache.rocketmq.utility.MetadataUtils;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.slf4j.Logger;
@@ -92,7 +93,7 @@ public class ClientManagerImpl implements ClientManager {
     private final ReadWriteLock rpcClientTableLock;
 
     /**
-     * Contains all client, key is {@link ClientConfig#clientId}.
+     * Contains all client, key is {@link ClientConfig#id}.
      */
     private final ConcurrentMap<String, Client> clientTable;
 
@@ -305,13 +306,13 @@ public class ClientManagerImpl implements ClientManager {
                     log.info("Begin to shutdown the client manager, clientManagerId={}", id);
                     this.state = ServiceState.STOPPING;
                     scheduler.shutdown();
-                    if (!scheduler.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
+                    if (!ExecutorServices.awaitTerminated(scheduler)) {
                         log.error("[Bug] Timeout to shutdown the client scheduler, clientManagerId={}", id);
                     } else {
                         log.info("Shutdown the client scheduler successfully, clientManagerId={}", id);
                     }
                     asyncWorker.shutdown();
-                    if (!asyncWorker.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS)) {
+                    if (!ExecutorServices.awaitTerminated(asyncWorker)) {
                         log.error("[Bug] Timeout to shutdown the client async worker, clientManagerId={}", id);
                     } else {
                         log.info("Shutdown the client async worker successfully, clientManagerId={}", id);

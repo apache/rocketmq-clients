@@ -20,7 +20,6 @@ package org.apache.rocketmq.client.impl;
 import apache.rocketmq.v1.GenericPollingRequest;
 import apache.rocketmq.v1.HeartbeatRequest;
 import apache.rocketmq.v1.HeartbeatResponse;
-import apache.rocketmq.v1.Message;
 import apache.rocketmq.v1.MultiplexingRequest;
 import apache.rocketmq.v1.MultiplexingResponse;
 import apache.rocketmq.v1.PrintThreadStackResponse;
@@ -29,7 +28,6 @@ import apache.rocketmq.v1.QueryRouteResponse;
 import apache.rocketmq.v1.ResolveOrphanedTransactionRequest;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.ResponseCommon;
-import apache.rocketmq.v1.SystemAttribute;
 import apache.rocketmq.v1.VerifyMessageConsumptionRequest;
 import apache.rocketmq.v1.VerifyMessageConsumptionResponse;
 import com.google.common.collect.Sets;
@@ -40,8 +38,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
-import com.google.protobuf.util.Durations;
-import com.google.protobuf.util.Timestamps;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
 import io.grpc.Metadata;
@@ -55,9 +51,7 @@ import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
-import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -82,13 +76,8 @@ import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
-import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
-import org.apache.rocketmq.client.message.protocol.Digest;
-import org.apache.rocketmq.client.message.protocol.DigestType;
-import org.apache.rocketmq.client.message.protocol.Encoding;
-import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.misc.TopAddressing;
 import org.apache.rocketmq.client.misc.Validators;
@@ -232,7 +221,7 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
         synchronized (this) {
             switch (state) {
                 case READY:
-                    log.info("Begin to start the rocketmq client, clientId={}", clientId);
+                    log.info("Begin to start the rocketmq client, clientId={}", id);
                     this.state = ServiceState.STARTING;
                     if (null == clientManager) {
                         clientManager = ClientManagerFactory.getInstance().registerClient(namespace, this);
@@ -280,7 +269,7 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
                             30,
                             TimeUnit.SECONDS);
                     this.state = ServiceState.STARTED;
-                    log.info("The rocketmq client starts successfully, clientId={}", clientId);
+                    log.info("The rocketmq client starts successfully, clientId={}", id);
                     break;
                 case STARTING:
                 case STARTED:
@@ -296,7 +285,7 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
         synchronized (this) {
             switch (state) {
                 case STARTED:
-                    log.info("Begin to shutdown the rocketmq client, clientId={}", clientId);
+                    log.info("Begin to shutdown the rocketmq client, clientId={}", id);
                     this.state = ServiceState.STOPPING;
                     if (null != renewNameServerListFuture) {
                         renewNameServerListFuture.cancel(false);
@@ -309,17 +298,17 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
                         messageTracerProvider.shutdown();
                     }
                     this.state = ServiceState.STOPPED;
-                    log.info("Shutdown the rocketmq client successfully, clientId={}", clientId);
+                    log.info("Shutdown the rocketmq client successfully, clientId={}", id);
                     break;
                 case READY:
-                    log.info("The rocketmq client has not been started before, clientId={}", clientId);
+                    log.info("The rocketmq client has not been started before, clientId={}", id);
                     break;
                 case STARTING:
                 case STOPPING:
-                    log.error("[Bug] The rocketmq client state is abnormal, clientId={}, state={}", clientId, state);
+                    log.error("[Bug] The rocketmq client state is abnormal, clientId={}, state={}", id, state);
                     break;
                 case STOPPED:
-                    log.info("The rocketmq client has been shutdown before, clientId={}", clientId);
+                    log.info("The rocketmq client has been shutdown before, clientId={}", id);
                     // fall through on purpose.
                 default:
                     break;
@@ -498,7 +487,7 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
                 } catch (Throwable t) {
                     // should never reach here.
                     log.error("[Bug] Exception raises while update route data, clientId={}, namespace={}, topic={}",
-                              clientId, namespace, topic, t);
+                              id, namespace, topic, t);
                 } finally {
                     inflightRouteFutureLock.unlock();
                 }
@@ -725,20 +714,20 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
         switch (response.getTypeCase()) {
             case PRINT_THREAD_STACK_REQUEST:
                 String mid = response.getPrintThreadStackRequest().getMid();
-                log.info("Receive thread stack request from remote, clientId={}", clientId);
+                log.info("Receive thread stack request from remote, clientId={}", id);
                 final String stackTrace = UtilAll.stackTrace();
                 PrintThreadStackResponse printThreadStackResponse =
                         PrintThreadStackResponse.newBuilder().setStackTrace(stackTrace).setMid(mid).build();
                 MultiplexingRequest multiplexingRequest = MultiplexingRequest
                         .newBuilder().setPrintThreadStackResponse(printThreadStackResponse).build();
                 multiplexingCall(endpoints, multiplexingRequest);
-                log.info("Send thread stack response to remote, clientId={}", clientId);
+                log.info("Send thread stack response to remote, clientId={}", id);
                 break;
             case VERIFY_MESSAGE_CONSUMPTION_REQUEST:
                 VerifyMessageConsumptionRequest verifyRequest = response.getVerifyMessageConsumptionRequest();
                 final String messageId = verifyRequest.getMessage().getSystemAttribute().getMessageId();
                 log.info("Receive verify message consumption request from remote, clientId={}, messageId={}",
-                         clientId, messageId);
+                         id, messageId);
                 ListenableFuture<VerifyMessageConsumptionResponse> future = verifyConsumption(verifyRequest);
 
                 ScheduledExecutorService scheduler = clientManager.getScheduler();
@@ -750,7 +739,7 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
                         MultiplexingRequest multiplexingRequest = MultiplexingRequest
                                 .newBuilder().setVerifyMessageConsumptionResponse(response).build();
                         log.info("Send verify message consumption response to remote, clientId={}, messageId={}",
-                                 clientId, messageId);
+                                 id, messageId);
                         multiplexingCall(endpoints, multiplexingRequest);
                     }
 
@@ -766,7 +755,7 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
                                 MultiplexingRequest.newBuilder()
                                                    .setVerifyMessageConsumptionResponse(verifyResponse).build();
                         log.info("Send verify message consumption response to remote, clientId={}, messageId={}",
-                                 clientId, messageId);
+                                 id, messageId);
                         multiplexingCall(endpoints, multiplexingRequest);
                     }
                 });
@@ -774,8 +763,8 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
             case RESOLVE_ORPHANED_TRANSACTION_REQUEST:
                 ResolveOrphanedTransactionRequest orphanedRequest = response.getResolveOrphanedTransactionRequest();
                 log.debug("Receive resolve orphaned transaction request from remote, clientId={}, messageId={}",
-                          clientId, orphanedRequest.getOrphanedTransactionalMessage().getSystemAttribute()
-                                                   .getMessageId());
+                          id, orphanedRequest.getOrphanedTransactionalMessage().getSystemAttribute()
+                                             .getMessageId());
                 resolveOrphanedTransaction(endpoints, orphanedRequest);
                 /* fall through on purpose. */
             case POLLING_RESPONSE:
@@ -936,144 +925,6 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
                 log.error("Exception raised while updating tracer.", t);
             }
         }
-    }
-
-    public static MessageImpl wrapMessageImpl(Message message) {
-        final org.apache.rocketmq.client.message.protocol.SystemAttribute mqSystemAttribute =
-                new org.apache.rocketmq.client.message.protocol.SystemAttribute();
-        final SystemAttribute systemAttribute = message.getSystemAttribute();
-        // tag.
-        mqSystemAttribute.setTag(systemAttribute.getTag());
-        // keys.
-        List<String> keys = new ArrayList<String>(systemAttribute.getKeysList());
-        mqSystemAttribute.setKeys(keys);
-        // message id.
-        mqSystemAttribute.setMessageId(systemAttribute.getMessageId());
-        // digest.
-        final apache.rocketmq.v1.Digest bodyDigest = systemAttribute.getBodyDigest();
-        byte[] body = message.getBody().toByteArray();
-        boolean corrupted = false;
-        String expectedCheckSum;
-        DigestType digestType = DigestType.CRC32;
-        final String checksum = bodyDigest.getChecksum();
-        switch (bodyDigest.getType()) {
-            case CRC32:
-                expectedCheckSum = UtilAll.crc32CheckSum(body);
-                if (!expectedCheckSum.equals(checksum)) {
-                    corrupted = true;
-                }
-                break;
-            case MD5:
-                try {
-                    expectedCheckSum = UtilAll.md5CheckSum(body);
-                    if (!expectedCheckSum.equals(checksum)) {
-                        corrupted = true;
-                    }
-                } catch (NoSuchAlgorithmException e) {
-                    corrupted = true;
-                    log.warn("MD5 is not supported unexpectedly, skip it.");
-                }
-                break;
-            case SHA1:
-                try {
-                    expectedCheckSum = UtilAll.sha1CheckSum(body);
-                    if (!expectedCheckSum.equals(checksum)) {
-                        corrupted = true;
-                    }
-                } catch (NoSuchAlgorithmException e) {
-                    corrupted = true;
-                    log.warn("SHA-1 is not supported unexpectedly, skip it.");
-                }
-                break;
-            default:
-                log.warn("Unsupported message body digest algorithm.");
-        }
-        mqSystemAttribute.setDigest(new Digest(digestType, checksum));
-
-        switch (systemAttribute.getBodyEncoding()) {
-            case GZIP:
-                try {
-                    body = UtilAll.uncompressBytesGzip(body);
-                    mqSystemAttribute.setBodyEncoding(Encoding.GZIP);
-                } catch (IOException e) {
-                    log.error("Failed to uncompress message body, messageId={}", systemAttribute.getMessageId());
-                    corrupted = true;
-                }
-                break;
-            case IDENTITY:
-                mqSystemAttribute.setBodyEncoding(Encoding.IDENTITY);
-                break;
-            default:
-                log.warn("Unsupported message encoding algorithm.");
-        }
-
-        // message type.
-        MessageType messageType;
-        switch (systemAttribute.getMessageType()) {
-            case NORMAL:
-                messageType = MessageType.NORMAL;
-                break;
-            case FIFO:
-                messageType = MessageType.FIFO;
-                break;
-            case DELAY:
-                messageType = MessageType.DELAY;
-                break;
-            case TRANSACTION:
-                messageType = MessageType.TRANSACTION;
-                break;
-            default:
-                messageType = MessageType.NORMAL;
-                log.warn("Unknown message type, fall through to normal type");
-        }
-        mqSystemAttribute.setMessageType(messageType);
-        // born time millis.
-        mqSystemAttribute.setBornTimeMillis(Timestamps.toMillis(systemAttribute.getBornTimestamp()));
-        // born host.
-        mqSystemAttribute.setBornHost(systemAttribute.getBornHost());
-        // store time millis
-        mqSystemAttribute.setStoreTimeMillis(Timestamps.toMillis(systemAttribute.getStoreTimestamp()));
-
-        switch (systemAttribute.getTimedDeliveryCase()) {
-            case DELAY_LEVEL:
-                // delay level
-                mqSystemAttribute.setDelayLevel(systemAttribute.getDelayLevel());
-                break;
-            case DELIVERY_TIMESTAMP:
-                // delay timestamp
-                mqSystemAttribute.setDeliveryTimeMillis(Timestamps.toMillis(systemAttribute.getDeliveryTimestamp()));
-                break;
-            case TIMEDDELIVERY_NOT_SET:
-            default:
-                break;
-        }
-        // receipt handle.
-        mqSystemAttribute.setReceiptHandle(systemAttribute.getReceiptHandle());
-        // partition id.
-        mqSystemAttribute.setPartitionId(systemAttribute.getPartitionId());
-        // partition offset.
-        mqSystemAttribute.setPartitionOffset(systemAttribute.getPartitionOffset());
-        // invisible period.
-        mqSystemAttribute.setInvisiblePeriod(Durations.toMillis(systemAttribute.getInvisiblePeriod()));
-        // delivery attempt
-        mqSystemAttribute.setDeliveryAttempt(systemAttribute.getDeliveryAttempt());
-        // producer group.
-        mqSystemAttribute.setProducerGroup(systemAttribute.getProducerGroup().getName());
-        // message group.
-        mqSystemAttribute.setMessageGroup(systemAttribute.getMessageGroup());
-        // trace context.
-        mqSystemAttribute.setTraceContext(systemAttribute.getTraceContext());
-        // transaction resolve delay millis.
-        mqSystemAttribute.setOrphanedTransactionRecoveryPeriodMillis(
-                Durations.toMillis(systemAttribute.getOrphanedTransactionRecoveryPeriod()));
-        // decoded timestamp.
-        mqSystemAttribute.setDecodedTimestamp(System.currentTimeMillis());
-        // user properties.
-        final ConcurrentHashMap<String, String> mqUserAttribute =
-                new ConcurrentHashMap<String, String>(message.getUserAttributeMap());
-
-        final String topic = message.getTopic().getName();
-        return new MessageImpl(topic, mqSystemAttribute, mqUserAttribute, body, corrupted);
     }
 
     public Tracer getTracer() {
