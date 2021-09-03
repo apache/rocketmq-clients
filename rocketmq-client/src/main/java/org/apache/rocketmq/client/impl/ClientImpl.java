@@ -632,6 +632,7 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
                     if (Code.OK != code) {
                         throw new ClientException(ErrorCode.TOPIC_NOT_FOUND, status.toString());
                     }
+                    // TODO: consider to remove defensive programming here.
                     final List<apache.rocketmq.v1.Partition> partitionsList = response.getPartitionsList();
                     if (partitionsList.isEmpty()) {
                         throw new ClientException(ErrorCode.TOPIC_NOT_FOUND, "Partitions is empty unexpectedly.");
