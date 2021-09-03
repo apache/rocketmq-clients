@@ -23,7 +23,8 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.rocketmq.client.message.MessageQueue;
 
 /**
- * Persist offset frequently is expensive in most case. Provide a simple way to persist offset per
+ * Persist offset frequently is expensive in most case. Provide a simple way to persist offset for each
+ * {@link MessageQueue}
  */
 public abstract class AbstractOffsetStore implements OffsetStore {
     private long nanoTime;
