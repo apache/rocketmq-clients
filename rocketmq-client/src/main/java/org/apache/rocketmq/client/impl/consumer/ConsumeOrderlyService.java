@@ -35,6 +35,7 @@ import org.apache.rocketmq.client.message.MessageQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@SuppressWarnings(value = {"UnstableApiUsage", "NullableProblems"})
 public class ConsumeOrderlyService extends ConsumeService {
     private static final Logger log = LoggerFactory.getLogger(ConsumeOrderlyService.class);
 

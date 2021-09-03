@@ -88,6 +88,7 @@ import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@SuppressWarnings(value = {"UnstableApiUsage", "NullableProblems"})
 public class PushConsumerImpl extends ConsumerImpl {
     private static final Logger log = LoggerFactory.getLogger(PushConsumerImpl.class);
 

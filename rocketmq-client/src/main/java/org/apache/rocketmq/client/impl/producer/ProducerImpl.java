@@ -94,6 +94,7 @@ import org.apache.rocketmq.utility.UtilAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@SuppressWarnings(value = {"UnstableApiUsage", "NullableProblems"})
 public class ProducerImpl extends ClientImpl {
 
     /**

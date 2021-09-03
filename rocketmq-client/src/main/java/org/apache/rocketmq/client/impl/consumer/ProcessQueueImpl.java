@@ -67,6 +67,7 @@ import org.apache.rocketmq.utility.SimpleFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@SuppressWarnings(value = {"UnstableApiUsage", "NullableProblems"})
 public class ProcessQueueImpl implements ProcessQueue {
     public static final long RECEIVE_LONG_POLLING_TIMEOUT_MILLIS = 30 * 1000L;
     public static final long RECEIVE_LATER_DELAY_MILLIS = 3 * 1000L;

@@ -106,6 +106,7 @@ import org.apache.rocketmq.utility.UtilAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@SuppressWarnings(value = {"UnstableApiUsage", "NullableProblems"})
 public abstract class ClientImpl extends ClientConfig implements Client, MessageInterceptor {
     private static final Logger log = LoggerFactory.getLogger(ClientImpl.class);
 
