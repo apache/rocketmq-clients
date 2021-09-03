@@ -831,7 +831,7 @@ public class ProducerImpl extends ClientImpl {
             throws ServerException {
         final Status status = response.getCommon().getStatus();
         final Code code = Code.forNumber(status.getCode());
-        if (Code.OK == code) {
+        if (Code.OK.equals(code)) {
             return new SendResult(endpoints, response.getMessageId(), response.getTransactionId());
         }
         log.debug("Response indicates failure of sending message, code={}, status message=[{}]",

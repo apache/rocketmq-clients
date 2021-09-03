@@ -49,7 +49,12 @@ public class FilterExpression {
         this.version = System.currentTimeMillis();
     }
 
-    // TODO: if client connect to broker bypass the proxy, the message received may not be filter totally.
+    /**
+     * Judge message could be accepted or not if client connection to broker bypass the proxy.
+     *
+     * @param messageExt messageExt to accept.
+     * @return accepted or not.
+     */
     public boolean accept(MessageExt messageExt) {
         final String[] split = expression.split(TAG_EXPRESSION_SPLIT_PATTERN);
         final String messageTag = messageExt.getTag();

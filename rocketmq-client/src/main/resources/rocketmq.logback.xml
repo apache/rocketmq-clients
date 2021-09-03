@@ -29,7 +29,6 @@
         </encoder>
     </appender>
     <root level="${rocketmq.log.level:-info}">
-        <!-- TODO -->
         <appender-ref ref="CustomConsoleAppender"/>
         <appender-ref ref="DefaultAppender" additivity="false"/>
     </root>
