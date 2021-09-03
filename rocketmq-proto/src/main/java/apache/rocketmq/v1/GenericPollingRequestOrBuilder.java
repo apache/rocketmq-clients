@@ -8,17 +8,70 @@ public interface GenericPollingRequestOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>.apache.rocketmq.v1.ClientResourceBundle client_resource_bundle = 1;</code>
-   * @return Whether the clientResourceBundle field is set.
+   * <code>string client_id = 1;</code>
+   * @return The clientId.
    */
-  boolean hasClientResourceBundle();
+  java.lang.String getClientId();
   /**
-   * <code>.apache.rocketmq.v1.ClientResourceBundle client_resource_bundle = 1;</code>
-   * @return The clientResourceBundle.
+   * <code>string client_id = 1;</code>
+   * @return The bytes for clientId.
    */
-  apache.rocketmq.v1.ClientResourceBundle getClientResourceBundle();
+  com.google.protobuf.ByteString
+      getClientIdBytes();
+
   /**
-   * <code>.apache.rocketmq.v1.ClientResourceBundle client_resource_bundle = 1;</code>
+   * <code>repeated .apache.rocketmq.v1.Resource topics = 2;</code>
    */
-  apache.rocketmq.v1.ClientResourceBundleOrBuilder getClientResourceBundleOrBuilder();
+  java.util.List<apache.rocketmq.v1.Resource> 
+      getTopicsList();
+  /**
+   * <code>repeated .apache.rocketmq.v1.Resource topics = 2;</code>
+   */
+  apache.rocketmq.v1.Resource getTopics(int index);
+  /**
+   * <code>repeated .apache.rocketmq.v1.Resource topics = 2;</code>
+   */
+  int getTopicsCount();
+  /**
+   * <code>repeated .apache.rocketmq.v1.Resource topics = 2;</code>
+   */
+  java.util.List<? extends apache.rocketmq.v1.ResourceOrBuilder> 
+      getTopicsOrBuilderList();
+  /**
+   * <code>repeated .apache.rocketmq.v1.Resource topics = 2;</code>
+   */
+  apache.rocketmq.v1.ResourceOrBuilder getTopicsOrBuilder(
+      int index);
+
+  /**
+   * <code>.apache.rocketmq.v1.Resource producer_group = 3;</code>
+   * @return Whether the producerGroup field is set.
+   */
+  boolean hasProducerGroup();
+  /**
+   * <code>.apache.rocketmq.v1.Resource producer_group = 3;</code>
+   * @return The producerGroup.
+   */
+  apache.rocketmq.v1.Resource getProducerGroup();
+  /**
+   * <code>.apache.rocketmq.v1.Resource producer_group = 3;</code>
+   */
+  apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder();
+
+  /**
+   * <code>.apache.rocketmq.v1.Resource consumer_group = 4;</code>
+   * @return Whether the consumerGroup field is set.
+   */
+  boolean hasConsumerGroup();
+  /**
+   * <code>.apache.rocketmq.v1.Resource consumer_group = 4;</code>
+   * @return The consumerGroup.
+   */
+  apache.rocketmq.v1.Resource getConsumerGroup();
+  /**
+   * <code>.apache.rocketmq.v1.Resource consumer_group = 4;</code>
+   */
+  apache.rocketmq.v1.ResourceOrBuilder getConsumerGroupOrBuilder();
+
+  public apache.rocketmq.v1.GenericPollingRequest.GroupCase getGroupCase();
 }

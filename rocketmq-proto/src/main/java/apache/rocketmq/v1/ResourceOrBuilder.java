@@ -8,24 +8,16 @@ public interface ResourceOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <pre>
-   * Abstract resource namespace
-   * </pre>
-   *
-   * <code>string arn = 1;</code>
-   * @return The arn.
+   * <code>string resource_namespace = 1;</code>
+   * @return The resourceNamespace.
    */
-  java.lang.String getArn();
+  java.lang.String getResourceNamespace();
   /**
-   * <pre>
-   * Abstract resource namespace
-   * </pre>
-   *
-   * <code>string arn = 1;</code>
-   * @return The bytes for arn.
+   * <code>string resource_namespace = 1;</code>
+   * @return The bytes for resourceNamespace.
    */
   com.google.protobuf.ByteString
-      getArnBytes();
+      getResourceNamespaceBytes();
 
   /**
    * <pre>

@@ -16,7 +16,7 @@ private static final long serialVersionUID = 0L;
     super(builder);
   }
   private Resource() {
-    arn_ = "";
+    resourceNamespace_ = "";
     name_ = "";
   }
 
@@ -53,7 +53,7 @@ private static final long serialVersionUID = 0L;
           case 10: {
             java.lang.String s = input.readStringRequireUtf8();
 
-            arn_ = s;
+            resourceNamespace_ = s;
             break;
           }
           case 18: {
@@ -94,46 +94,38 @@ private static final long serialVersionUID = 0L;
             apache.rocketmq.v1.Resource.class, apache.rocketmq.v1.Resource.Builder.class);
   }
 
-  public static final int ARN_FIELD_NUMBER = 1;
-  private volatile java.lang.Object arn_;
+  public static final int RESOURCE_NAMESPACE_FIELD_NUMBER = 1;
+  private volatile java.lang.Object resourceNamespace_;
   /**
-   * <pre>
-   * Abstract resource namespace
-   * </pre>
-   *
-   * <code>string arn = 1;</code>
-   * @return The arn.
+   * <code>string resource_namespace = 1;</code>
+   * @return The resourceNamespace.
    */
   @java.lang.Override
-  public java.lang.String getArn() {
-    java.lang.Object ref = arn_;
+  public java.lang.String getResourceNamespace() {
+    java.lang.Object ref = resourceNamespace_;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
       com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
-      arn_ = s;
+      resourceNamespace_ = s;
       return s;
     }
   }
   /**
-   * <pre>
-   * Abstract resource namespace
-   * </pre>
-   *
-   * <code>string arn = 1;</code>
-   * @return The bytes for arn.
+   * <code>string resource_namespace = 1;</code>
+   * @return The bytes for resourceNamespace.
    */
   @java.lang.Override
   public com.google.protobuf.ByteString
-      getArnBytes() {
-    java.lang.Object ref = arn_;
+      getResourceNamespaceBytes() {
+    java.lang.Object ref = resourceNamespace_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
-      arn_ = b;
+      resourceNamespace_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
@@ -200,8 +192,8 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (!getArnBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 1, arn_);
+    if (!getResourceNamespaceBytes().isEmpty()) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 1, resourceNamespace_);
     }
     if (!getNameBytes().isEmpty()) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 2, name_);
@@ -215,8 +207,8 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (!getArnBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, arn_);
+    if (!getResourceNamespaceBytes().isEmpty()) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, resourceNamespace_);
     }
     if (!getNameBytes().isEmpty()) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, name_);
@@ -236,8 +228,8 @@ private static final long serialVersionUID = 0L;
     }
     apache.rocketmq.v1.Resource other = (apache.rocketmq.v1.Resource) obj;
 
-    if (!getArn()
-        .equals(other.getArn())) return false;
+    if (!getResourceNamespace()
+        .equals(other.getResourceNamespace())) return false;
     if (!getName()
         .equals(other.getName())) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
@@ -251,8 +243,8 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    hash = (37 * hash) + ARN_FIELD_NUMBER;
-    hash = (53 * hash) + getArn().hashCode();
+    hash = (37 * hash) + RESOURCE_NAMESPACE_FIELD_NUMBER;
+    hash = (53 * hash) + getResourceNamespace().hashCode();
     hash = (37 * hash) + NAME_FIELD_NUMBER;
     hash = (53 * hash) + getName().hashCode();
     hash = (29 * hash) + unknownFields.hashCode();
@@ -388,7 +380,7 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
-      arn_ = "";
+      resourceNamespace_ = "";
 
       name_ = "";
 
@@ -418,7 +410,7 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public apache.rocketmq.v1.Resource buildPartial() {
       apache.rocketmq.v1.Resource result = new apache.rocketmq.v1.Resource(this);
-      result.arn_ = arn_;
+      result.resourceNamespace_ = resourceNamespace_;
       result.name_ = name_;
       onBuilt();
       return result;
@@ -468,8 +460,8 @@ private static final long serialVersionUID = 0L;
 
     public Builder mergeFrom(apache.rocketmq.v1.Resource other) {
       if (other == apache.rocketmq.v1.Resource.getDefaultInstance()) return this;
-      if (!other.getArn().isEmpty()) {
-        arn_ = other.arn_;
+      if (!other.getResourceNamespace().isEmpty()) {
+        resourceNamespace_ = other.resourceNamespace_;
         onChanged();
       }
       if (!other.getName().isEmpty()) {
@@ -505,98 +497,78 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private java.lang.Object arn_ = "";
+    private java.lang.Object resourceNamespace_ = "";
     /**
-     * <pre>
-     * Abstract resource namespace
-     * </pre>
-     *
-     * <code>string arn = 1;</code>
-     * @return The arn.
+     * <code>string resource_namespace = 1;</code>
+     * @return The resourceNamespace.
      */
-    public java.lang.String getArn() {
-      java.lang.Object ref = arn_;
+    public java.lang.String getResourceNamespace() {
+      java.lang.Object ref = resourceNamespace_;
       if (!(ref instanceof java.lang.String)) {
         com.google.protobuf.ByteString bs =
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
-        arn_ = s;
+        resourceNamespace_ = s;
         return s;
       } else {
         return (java.lang.String) ref;
       }
     }
     /**
-     * <pre>
-     * Abstract resource namespace
-     * </pre>
-     *
-     * <code>string arn = 1;</code>
-     * @return The bytes for arn.
+     * <code>string resource_namespace = 1;</code>
+     * @return The bytes for resourceNamespace.
      */
     public com.google.protobuf.ByteString
-        getArnBytes() {
-      java.lang.Object ref = arn_;
+        getResourceNamespaceBytes() {
+      java.lang.Object ref = resourceNamespace_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        arn_ = b;
+        resourceNamespace_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
     /**
-     * <pre>
-     * Abstract resource namespace
-     * </pre>
-     *
-     * <code>string arn = 1;</code>
-     * @param value The arn to set.
+     * <code>string resource_namespace = 1;</code>
+     * @param value The resourceNamespace to set.
      * @return This builder for chaining.
      */
-    public Builder setArn(
+    public Builder setResourceNamespace(
         java.lang.String value) {
       if (value == null) {
     throw new NullPointerException();
   }
   
-      arn_ = value;
+      resourceNamespace_ = value;
       onChanged();
       return this;
     }
     /**
-     * <pre>
-     * Abstract resource namespace
-     * </pre>
-     *
-     * <code>string arn = 1;</code>
+     * <code>string resource_namespace = 1;</code>
      * @return This builder for chaining.
      */
-    public Builder clearArn() {
+    public Builder clearResourceNamespace() {
       
-      arn_ = getDefaultInstance().getArn();
+      resourceNamespace_ = getDefaultInstance().getResourceNamespace();
       onChanged();
       return this;
     }
     /**
-     * <pre>
-     * Abstract resource namespace
-     * </pre>
-     *
-     * <code>string arn = 1;</code>
-     * @param value The bytes for arn to set.
+     * <code>string resource_namespace = 1;</code>
+     * @param value The bytes for resourceNamespace to set.
      * @return This builder for chaining.
      */
-    public Builder setArnBytes(
+    public Builder setResourceNamespaceBytes(
         com.google.protobuf.ByteString value) {
       if (value == null) {
     throw new NullPointerException();
   }
   checkByteStringIsUtf8(value);
       
-      arn_ = value;
+      resourceNamespace_ = value;
       onChanged();
       return this;
     }

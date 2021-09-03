@@ -8,12 +8,27 @@ public interface HealthCheckRequestOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>string client_host = 1;</code>
+   * <code>.apache.rocketmq.v1.Resource group = 1;</code>
+   * @return Whether the group field is set.
+   */
+  boolean hasGroup();
+  /**
+   * <code>.apache.rocketmq.v1.Resource group = 1;</code>
+   * @return The group.
+   */
+  apache.rocketmq.v1.Resource getGroup();
+  /**
+   * <code>.apache.rocketmq.v1.Resource group = 1;</code>
+   */
+  apache.rocketmq.v1.ResourceOrBuilder getGroupOrBuilder();
+
+  /**
+   * <code>string client_host = 2;</code>
    * @return The clientHost.
    */
   java.lang.String getClientHost();
   /**
-   * <code>string client_host = 1;</code>
+   * <code>string client_host = 2;</code>
    * @return The bytes for clientHost.
    */
   com.google.protobuf.ByteString

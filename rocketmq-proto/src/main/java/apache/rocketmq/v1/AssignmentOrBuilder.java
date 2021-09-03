@@ -23,19 +23,11 @@ public interface AssignmentOrBuilder extends
   apache.rocketmq.v1.PartitionOrBuilder getPartitionOrBuilder();
 
   /**
-   * <pre>
-   * to delete.
-   * </pre>
-   *
    * <code>.apache.rocketmq.v1.ConsumeMessageType mode = 2;</code>
    * @return The enum numeric value on the wire for mode.
    */
   int getModeValue();
   /**
-   * <pre>
-   * to delete.
-   * </pre>
-   *
    * <code>.apache.rocketmq.v1.ConsumeMessageType mode = 2;</code>
    * @return The mode.
    */

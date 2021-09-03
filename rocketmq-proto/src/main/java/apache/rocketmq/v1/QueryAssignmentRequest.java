@@ -219,6 +219,10 @@ private static final long serialVersionUID = 0L;
   public static final int ENDPOINTS_FIELD_NUMBER = 4;
   private apache.rocketmq.v1.Endpoints endpoints_;
   /**
+   * <pre>
+   * Service access point
+   * </pre>
+   *
    * <code>.apache.rocketmq.v1.Endpoints endpoints = 4;</code>
    * @return Whether the endpoints field is set.
    */
@@ -227,6 +231,10 @@ private static final long serialVersionUID = 0L;
     return endpoints_ != null;
   }
   /**
+   * <pre>
+   * Service access point
+   * </pre>
+   *
    * <code>.apache.rocketmq.v1.Endpoints endpoints = 4;</code>
    * @return The endpoints.
    */
@@ -235,6 +243,10 @@ private static final long serialVersionUID = 0L;
     return endpoints_ == null ? apache.rocketmq.v1.Endpoints.getDefaultInstance() : endpoints_;
   }
   /**
+   * <pre>
+   * Service access point
+   * </pre>
+   *
    * <code>.apache.rocketmq.v1.Endpoints endpoints = 4;</code>
    */
   @java.lang.Override
@@ -952,6 +964,10 @@ private static final long serialVersionUID = 0L;
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.Endpoints, apache.rocketmq.v1.Endpoints.Builder, apache.rocketmq.v1.EndpointsOrBuilder> endpointsBuilder_;
     /**
+     * <pre>
+     * Service access point
+     * </pre>
+     *
      * <code>.apache.rocketmq.v1.Endpoints endpoints = 4;</code>
      * @return Whether the endpoints field is set.
      */
@@ -959,6 +975,10 @@ private static final long serialVersionUID = 0L;
       return endpointsBuilder_ != null || endpoints_ != null;
     }
     /**
+     * <pre>
+     * Service access point
+     * </pre>
+     *
      * <code>.apache.rocketmq.v1.Endpoints endpoints = 4;</code>
      * @return The endpoints.
      */
@@ -970,6 +990,10 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * Service access point
+     * </pre>
+     *
      * <code>.apache.rocketmq.v1.Endpoints endpoints = 4;</code>
      */
     public Builder setEndpoints(apache.rocketmq.v1.Endpoints value) {
@@ -986,6 +1010,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Service access point
+     * </pre>
+     *
      * <code>.apache.rocketmq.v1.Endpoints endpoints = 4;</code>
      */
     public Builder setEndpoints(
@@ -1000,6 +1028,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Service access point
+     * </pre>
+     *
      * <code>.apache.rocketmq.v1.Endpoints endpoints = 4;</code>
      */
     public Builder mergeEndpoints(apache.rocketmq.v1.Endpoints value) {
@@ -1018,6 +1050,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Service access point
+     * </pre>
+     *
      * <code>.apache.rocketmq.v1.Endpoints endpoints = 4;</code>
      */
     public Builder clearEndpoints() {
@@ -1032,6 +1068,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Service access point
+     * </pre>
+     *
      * <code>.apache.rocketmq.v1.Endpoints endpoints = 4;</code>
      */
     public apache.rocketmq.v1.Endpoints.Builder getEndpointsBuilder() {
@@ -1040,6 +1080,10 @@ private static final long serialVersionUID = 0L;
       return getEndpointsFieldBuilder().getBuilder();
     }
     /**
+     * <pre>
+     * Service access point
+     * </pre>
+     *
      * <code>.apache.rocketmq.v1.Endpoints endpoints = 4;</code>
      */
     public apache.rocketmq.v1.EndpointsOrBuilder getEndpointsOrBuilder() {
@@ -1051,6 +1095,10 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * Service access point
+     * </pre>
+     *
      * <code>.apache.rocketmq.v1.Endpoints endpoints = 4;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<

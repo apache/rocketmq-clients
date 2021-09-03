@@ -113,7 +113,7 @@ public class TestBase {
             new ScheduledThreadPoolExecutor(1, new ThreadFactoryImpl("TestScheduler"));
 
     protected Resource fakePbTopic0() {
-        return Resource.newBuilder().setArn(FAKE_ARN_0).setName(FAKE_TOPIC_0).build();
+        return Resource.newBuilder().setResourceNamespace(FAKE_ARN_0).setName(FAKE_TOPIC_0).build();
     }
 
     protected Address fakePbAddress0() {

@@ -49,14 +49,14 @@ private static final long serialVersionUID = 0L;
             done = true;
             break;
           case 10: {
-            apache.rocketmq.v1.ConsumerGroup.Builder subBuilder = null;
-            if (consumerGroup_ != null) {
-              subBuilder = consumerGroup_.toBuilder();
+            apache.rocketmq.v1.ConsumerData.Builder subBuilder = null;
+            if (consumerData_ != null) {
+              subBuilder = consumerData_.toBuilder();
             }
-            consumerGroup_ = input.readMessage(apache.rocketmq.v1.ConsumerGroup.parser(), extensionRegistry);
+            consumerData_ = input.readMessage(apache.rocketmq.v1.ConsumerData.parser(), extensionRegistry);
             if (subBuilder != null) {
-              subBuilder.mergeFrom(consumerGroup_);
-              consumerGroup_ = subBuilder.buildPartial();
+              subBuilder.mergeFrom(consumerData_);
+              consumerData_ = subBuilder.buildPartial();
             }
 
             break;
@@ -106,30 +106,30 @@ private static final long serialVersionUID = 0L;
             apache.rocketmq.v1.UpdateConsumerGroupRequest.class, apache.rocketmq.v1.UpdateConsumerGroupRequest.Builder.class);
   }
 
-  public static final int CONSUMER_GROUP_FIELD_NUMBER = 1;
-  private apache.rocketmq.v1.ConsumerGroup consumerGroup_;
+  public static final int CONSUMER_DATA_FIELD_NUMBER = 1;
+  private apache.rocketmq.v1.ConsumerData consumerData_;
   /**
-   * <code>.apache.rocketmq.v1.ConsumerGroup consumer_group = 1;</code>
-   * @return Whether the consumerGroup field is set.
+   * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 1;</code>
+   * @return Whether the consumerData field is set.
    */
   @java.lang.Override
-  public boolean hasConsumerGroup() {
-    return consumerGroup_ != null;
+  public boolean hasConsumerData() {
+    return consumerData_ != null;
   }
   /**
-   * <code>.apache.rocketmq.v1.ConsumerGroup consumer_group = 1;</code>
-   * @return The consumerGroup.
+   * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 1;</code>
+   * @return The consumerData.
    */
   @java.lang.Override
-  public apache.rocketmq.v1.ConsumerGroup getConsumerGroup() {
-    return consumerGroup_ == null ? apache.rocketmq.v1.ConsumerGroup.getDefaultInstance() : consumerGroup_;
+  public apache.rocketmq.v1.ConsumerData getConsumerData() {
+    return consumerData_ == null ? apache.rocketmq.v1.ConsumerData.getDefaultInstance() : consumerData_;
   }
   /**
-   * <code>.apache.rocketmq.v1.ConsumerGroup consumer_group = 1;</code>
+   * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 1;</code>
    */
   @java.lang.Override
-  public apache.rocketmq.v1.ConsumerGroupOrBuilder getConsumerGroupOrBuilder() {
-    return getConsumerGroup();
+  public apache.rocketmq.v1.ConsumerDataOrBuilder getConsumerDataOrBuilder() {
+    return getConsumerData();
   }
 
   public static final int UPDATE_MASK_FIELD_NUMBER = 2;
@@ -172,8 +172,8 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (consumerGroup_ != null) {
-      output.writeMessage(1, getConsumerGroup());
+    if (consumerData_ != null) {
+      output.writeMessage(1, getConsumerData());
     }
     if (updateMask_ != null) {
       output.writeMessage(2, getUpdateMask());
@@ -187,9 +187,9 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (consumerGroup_ != null) {
+    if (consumerData_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(1, getConsumerGroup());
+        .computeMessageSize(1, getConsumerData());
     }
     if (updateMask_ != null) {
       size += com.google.protobuf.CodedOutputStream
@@ -210,10 +210,10 @@ private static final long serialVersionUID = 0L;
     }
     apache.rocketmq.v1.UpdateConsumerGroupRequest other = (apache.rocketmq.v1.UpdateConsumerGroupRequest) obj;
 
-    if (hasConsumerGroup() != other.hasConsumerGroup()) return false;
-    if (hasConsumerGroup()) {
-      if (!getConsumerGroup()
-          .equals(other.getConsumerGroup())) return false;
+    if (hasConsumerData() != other.hasConsumerData()) return false;
+    if (hasConsumerData()) {
+      if (!getConsumerData()
+          .equals(other.getConsumerData())) return false;
     }
     if (hasUpdateMask() != other.hasUpdateMask()) return false;
     if (hasUpdateMask()) {
@@ -231,9 +231,9 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    if (hasConsumerGroup()) {
-      hash = (37 * hash) + CONSUMER_GROUP_FIELD_NUMBER;
-      hash = (53 * hash) + getConsumerGroup().hashCode();
+    if (hasConsumerData()) {
+      hash = (37 * hash) + CONSUMER_DATA_FIELD_NUMBER;
+      hash = (53 * hash) + getConsumerData().hashCode();
     }
     if (hasUpdateMask()) {
       hash = (37 * hash) + UPDATE_MASK_FIELD_NUMBER;
@@ -372,11 +372,11 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
-      if (consumerGroupBuilder_ == null) {
-        consumerGroup_ = null;
+      if (consumerDataBuilder_ == null) {
+        consumerData_ = null;
       } else {
-        consumerGroup_ = null;
-        consumerGroupBuilder_ = null;
+        consumerData_ = null;
+        consumerDataBuilder_ = null;
       }
       if (updateMaskBuilder_ == null) {
         updateMask_ = null;
@@ -410,10 +410,10 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public apache.rocketmq.v1.UpdateConsumerGroupRequest buildPartial() {
       apache.rocketmq.v1.UpdateConsumerGroupRequest result = new apache.rocketmq.v1.UpdateConsumerGroupRequest(this);
-      if (consumerGroupBuilder_ == null) {
-        result.consumerGroup_ = consumerGroup_;
+      if (consumerDataBuilder_ == null) {
+        result.consumerData_ = consumerData_;
       } else {
-        result.consumerGroup_ = consumerGroupBuilder_.build();
+        result.consumerData_ = consumerDataBuilder_.build();
       }
       if (updateMaskBuilder_ == null) {
         result.updateMask_ = updateMask_;
@@ -468,8 +468,8 @@ private static final long serialVersionUID = 0L;
 
     public Builder mergeFrom(apache.rocketmq.v1.UpdateConsumerGroupRequest other) {
       if (other == apache.rocketmq.v1.UpdateConsumerGroupRequest.getDefaultInstance()) return this;
-      if (other.hasConsumerGroup()) {
-        mergeConsumerGroup(other.getConsumerGroup());
+      if (other.hasConsumerData()) {
+        mergeConsumerData(other.getConsumerData());
       }
       if (other.hasUpdateMask()) {
         mergeUpdateMask(other.getUpdateMask());
@@ -503,123 +503,123 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private apache.rocketmq.v1.ConsumerGroup consumerGroup_;
+    private apache.rocketmq.v1.ConsumerData consumerData_;
     private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.ConsumerGroup, apache.rocketmq.v1.ConsumerGroup.Builder, apache.rocketmq.v1.ConsumerGroupOrBuilder> consumerGroupBuilder_;
+        apache.rocketmq.v1.ConsumerData, apache.rocketmq.v1.ConsumerData.Builder, apache.rocketmq.v1.ConsumerDataOrBuilder> consumerDataBuilder_;
     /**
-     * <code>.apache.rocketmq.v1.ConsumerGroup consumer_group = 1;</code>
-     * @return Whether the consumerGroup field is set.
+     * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 1;</code>
+     * @return Whether the consumerData field is set.
      */
-    public boolean hasConsumerGroup() {
-      return consumerGroupBuilder_ != null || consumerGroup_ != null;
+    public boolean hasConsumerData() {
+      return consumerDataBuilder_ != null || consumerData_ != null;
     }
     /**
-     * <code>.apache.rocketmq.v1.ConsumerGroup consumer_group = 1;</code>
-     * @return The consumerGroup.
+     * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 1;</code>
+     * @return The consumerData.
      */
-    public apache.rocketmq.v1.ConsumerGroup getConsumerGroup() {
-      if (consumerGroupBuilder_ == null) {
-        return consumerGroup_ == null ? apache.rocketmq.v1.ConsumerGroup.getDefaultInstance() : consumerGroup_;
+    public apache.rocketmq.v1.ConsumerData getConsumerData() {
+      if (consumerDataBuilder_ == null) {
+        return consumerData_ == null ? apache.rocketmq.v1.ConsumerData.getDefaultInstance() : consumerData_;
       } else {
-        return consumerGroupBuilder_.getMessage();
+        return consumerDataBuilder_.getMessage();
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.ConsumerGroup consumer_group = 1;</code>
+     * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 1;</code>
      */
-    public Builder setConsumerGroup(apache.rocketmq.v1.ConsumerGroup value) {
-      if (consumerGroupBuilder_ == null) {
+    public Builder setConsumerData(apache.rocketmq.v1.ConsumerData value) {
+      if (consumerDataBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
         }
-        consumerGroup_ = value;
+        consumerData_ = value;
         onChanged();
       } else {
-        consumerGroupBuilder_.setMessage(value);
+        consumerDataBuilder_.setMessage(value);
       }
 
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.ConsumerGroup consumer_group = 1;</code>
+     * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 1;</code>
      */
-    public Builder setConsumerGroup(
-        apache.rocketmq.v1.ConsumerGroup.Builder builderForValue) {
-      if (consumerGroupBuilder_ == null) {
-        consumerGroup_ = builderForValue.build();
+    public Builder setConsumerData(
+        apache.rocketmq.v1.ConsumerData.Builder builderForValue) {
+      if (consumerDataBuilder_ == null) {
+        consumerData_ = builderForValue.build();
         onChanged();
       } else {
-        consumerGroupBuilder_.setMessage(builderForValue.build());
+        consumerDataBuilder_.setMessage(builderForValue.build());
       }
 
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.ConsumerGroup consumer_group = 1;</code>
+     * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 1;</code>
      */
-    public Builder mergeConsumerGroup(apache.rocketmq.v1.ConsumerGroup value) {
-      if (consumerGroupBuilder_ == null) {
-        if (consumerGroup_ != null) {
-          consumerGroup_ =
-            apache.rocketmq.v1.ConsumerGroup.newBuilder(consumerGroup_).mergeFrom(value).buildPartial();
+    public Builder mergeConsumerData(apache.rocketmq.v1.ConsumerData value) {
+      if (consumerDataBuilder_ == null) {
+        if (consumerData_ != null) {
+          consumerData_ =
+            apache.rocketmq.v1.ConsumerData.newBuilder(consumerData_).mergeFrom(value).buildPartial();
         } else {
-          consumerGroup_ = value;
+          consumerData_ = value;
         }
         onChanged();
       } else {
-        consumerGroupBuilder_.mergeFrom(value);
+        consumerDataBuilder_.mergeFrom(value);
       }
 
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.ConsumerGroup consumer_group = 1;</code>
+     * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 1;</code>
      */
-    public Builder clearConsumerGroup() {
-      if (consumerGroupBuilder_ == null) {
-        consumerGroup_ = null;
+    public Builder clearConsumerData() {
+      if (consumerDataBuilder_ == null) {
+        consumerData_ = null;
         onChanged();
       } else {
-        consumerGroup_ = null;
-        consumerGroupBuilder_ = null;
+        consumerData_ = null;
+        consumerDataBuilder_ = null;
       }
 
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.ConsumerGroup consumer_group = 1;</code>
+     * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 1;</code>
      */
-    public apache.rocketmq.v1.ConsumerGroup.Builder getConsumerGroupBuilder() {
+    public apache.rocketmq.v1.ConsumerData.Builder getConsumerDataBuilder() {
       
       onChanged();
-      return getConsumerGroupFieldBuilder().getBuilder();
+      return getConsumerDataFieldBuilder().getBuilder();
     }
     /**
-     * <code>.apache.rocketmq.v1.ConsumerGroup consumer_group = 1;</code>
+     * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 1;</code>
      */
-    public apache.rocketmq.v1.ConsumerGroupOrBuilder getConsumerGroupOrBuilder() {
-      if (consumerGroupBuilder_ != null) {
-        return consumerGroupBuilder_.getMessageOrBuilder();
+    public apache.rocketmq.v1.ConsumerDataOrBuilder getConsumerDataOrBuilder() {
+      if (consumerDataBuilder_ != null) {
+        return consumerDataBuilder_.getMessageOrBuilder();
       } else {
-        return consumerGroup_ == null ?
-            apache.rocketmq.v1.ConsumerGroup.getDefaultInstance() : consumerGroup_;
+        return consumerData_ == null ?
+            apache.rocketmq.v1.ConsumerData.getDefaultInstance() : consumerData_;
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.ConsumerGroup consumer_group = 1;</code>
+     * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 1;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.ConsumerGroup, apache.rocketmq.v1.ConsumerGroup.Builder, apache.rocketmq.v1.ConsumerGroupOrBuilder> 
-        getConsumerGroupFieldBuilder() {
-      if (consumerGroupBuilder_ == null) {
-        consumerGroupBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            apache.rocketmq.v1.ConsumerGroup, apache.rocketmq.v1.ConsumerGroup.Builder, apache.rocketmq.v1.ConsumerGroupOrBuilder>(
-                getConsumerGroup(),
+        apache.rocketmq.v1.ConsumerData, apache.rocketmq.v1.ConsumerData.Builder, apache.rocketmq.v1.ConsumerDataOrBuilder> 
+        getConsumerDataFieldBuilder() {
+      if (consumerDataBuilder_ == null) {
+        consumerDataBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+            apache.rocketmq.v1.ConsumerData, apache.rocketmq.v1.ConsumerData.Builder, apache.rocketmq.v1.ConsumerDataOrBuilder>(
+                getConsumerData(),
                 getParentForChildren(),
                 isClean());
-        consumerGroup_ = null;
+        consumerData_ = null;
       }
-      return consumerGroupBuilder_;
+      return consumerDataBuilder_;
     }
 
     private com.google.protobuf.FieldMask updateMask_;

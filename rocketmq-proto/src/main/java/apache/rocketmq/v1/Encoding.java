@@ -16,10 +16,6 @@ public enum Encoding
    * <code>GZIP = 1;</code>
    */
   GZIP(1),
-  /**
-   * <code>SNAPPY = 2;</code>
-   */
-  SNAPPY(2),
   UNRECOGNIZED(-1),
   ;
 
@@ -31,10 +27,6 @@ public enum Encoding
    * <code>GZIP = 1;</code>
    */
   public static final int GZIP_VALUE = 1;
-  /**
-   * <code>SNAPPY = 2;</code>
-   */
-  public static final int SNAPPY_VALUE = 2;
 
 
   public final int getNumber() {
@@ -63,7 +55,6 @@ public enum Encoding
     switch (value) {
       case 0: return IDENTITY;
       case 1: return GZIP;
-      case 2: return SNAPPY;
       default: return null;
     }
   }
@@ -94,7 +85,7 @@ public enum Encoding
   }
   public static final com.google.protobuf.Descriptors.EnumDescriptor
       getDescriptor() {
-    return apache.rocketmq.v1.MQDomain.getDescriptor().getEnumTypes().get(8);
+    return apache.rocketmq.v1.MQDomain.getDescriptor().getEnumTypes().get(7);
   }
 
   private static final Encoding[] VALUES = values();

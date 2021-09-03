@@ -20,13 +20,13 @@ package org.apache.rocketmq.client.impl.producer;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.protobuf.util.Timestamps.fromMillis;
 
-import apache.rocketmq.v1.ClientResourceBundle;
 import apache.rocketmq.v1.EndTransactionRequest;
 import apache.rocketmq.v1.EndTransactionResponse;
+import apache.rocketmq.v1.GenericPollingRequest;
 import apache.rocketmq.v1.HealthCheckRequest;
 import apache.rocketmq.v1.HealthCheckResponse;
-import apache.rocketmq.v1.HeartbeatEntry;
-import apache.rocketmq.v1.ProducerGroup;
+import apache.rocketmq.v1.HeartbeatRequest;
+import apache.rocketmq.v1.ProducerData;
 import apache.rocketmq.v1.ResolveOrphanedTransactionRequest;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.SendMessageRequest;
@@ -297,7 +297,7 @@ public class ProducerImpl extends ClientImpl {
 
     private SendMessageRequest wrapSendMessageRequest(Message message, Partition partition) {
         final Resource topicResource =
-                Resource.newBuilder().setArn(arn).setName(message.getTopic()).build();
+                Resource.newBuilder().setResourceNamespace(namespace).setName(message.getTopic()).build();
 
         final apache.rocketmq.v1.SystemAttribute.Builder systemAttributeBuilder =
                 apache.rocketmq.v1.SystemAttribute.newBuilder()
@@ -321,9 +321,6 @@ public class ProducerImpl extends ClientImpl {
         switch (encoding) {
             case GZIP:
                 systemAttributeBuilder.setBodyEncoding(apache.rocketmq.v1.Encoding.GZIP);
-                break;
-            case SNAPPY:
-                systemAttributeBuilder.setBodyEncoding(apache.rocketmq.v1.Encoding.SNAPPY);
                 break;
             case IDENTITY:
             default:
@@ -810,12 +807,9 @@ public class ProducerImpl extends ClientImpl {
     }
 
     @Override
-    public HeartbeatEntry prepareHeartbeatData() {
-        ProducerGroup producerGroup = ProducerGroup.newBuilder().setGroup(getPbGroup()).build();
-        return HeartbeatEntry.newBuilder()
-                             .setClientId(clientId)
-                             .setProducerGroup(producerGroup)
-                             .build();
+    public HeartbeatRequest wrapHeartbeatRequest() {
+        ProducerData producerData = ProducerData.newBuilder().setGroup(getPbGroup()).build();
+        return HeartbeatRequest.newBuilder().setClientId(clientId).setProducerData(producerData).build();
     }
 
     @Override
@@ -823,16 +817,15 @@ public class ProducerImpl extends ClientImpl {
     }
 
     @Override
-    public ClientResourceBundle wrapClientResourceBundle() {
-        final ClientResourceBundle.Builder builder =
-                ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(getPbGroup());
+    public GenericPollingRequest wrapGenericPollingRequest() {
+        final GenericPollingRequest.Builder builder =
+                GenericPollingRequest.newBuilder().setClientId(clientId).setProducerGroup(getPbGroup());
         for (String topic : sendingRouteDataCache.keySet()) {
-            Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
+            Resource topicResource = Resource.newBuilder().setResourceNamespace(namespace).setName(topic).build();
             builder.addTopics(topicResource);
         }
         return builder.build();
     }
-
 
     public static SendResult processSendResponse(Endpoints endpoints, SendMessageResponse response)
             throws ServerException {

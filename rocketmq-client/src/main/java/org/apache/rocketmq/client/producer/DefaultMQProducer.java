@@ -107,10 +107,10 @@ public class DefaultMQProducer {
     /**
      * Set abstract resource name of producer.
      *
-     * @param arn abstract resource name.
+     * @param namespace abstract resource name.
      */
-    public void setArn(String arn) {
-        this.impl.setArn(arn);
+    public void setNamespace(String namespace) {
+        this.impl.setNamespace(namespace);
     }
 
     /**
@@ -118,8 +118,8 @@ public class DefaultMQProducer {
      *
      * @return abstract resource name.
      */
-    public String getArn() {
-        return this.impl.getArn();
+    public String getNamespace() {
+        return this.impl.getNamespace();
     }
 
     /**

@@ -20,8 +20,8 @@ package org.apache.rocketmq.client.impl;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-import apache.rocketmq.v1.ClientResourceBundle;
-import apache.rocketmq.v1.HeartbeatEntry;
+import apache.rocketmq.v1.GenericPollingRequest;
+import apache.rocketmq.v1.HeartbeatRequest;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.client.tools.TestBase;
@@ -37,12 +37,12 @@ public class ClientImplTest extends TestBase {
             }
 
             @Override
-            public HeartbeatEntry prepareHeartbeatData() {
+            public HeartbeatRequest wrapHeartbeatRequest() {
                 return null;
             }
 
             @Override
-            public ClientResourceBundle wrapClientResourceBundle() {
+            public GenericPollingRequest wrapGenericPollingRequest() {
                 return null;
             }
 
@@ -60,7 +60,7 @@ public class ClientImplTest extends TestBase {
     public void testSetNamesrvAddr() throws ClientException {
         String nameServerEndpoint = "127.0.0.1:9876";
         client.setNamesrvAddr(nameServerEndpoint);
-        assertEquals(client.getArn(), "");
+        assertEquals(client.getNamespace(), "");
         assertEquals(client.getRegionId(), ClientConfig.DEFAULT_REGION_ID);
 
         nameServerEndpoint = "foobar";
@@ -71,40 +71,40 @@ public class ClientImplTest extends TestBase {
             // ignore on purpose.
         }
 
-        client.setArn("");
+        client.setNamespace("");
         nameServerEndpoint = "http://onsaddr.cn-hangzhou.mq-internal.aliyuncs.com:8080";
         client.setNamesrvAddr(nameServerEndpoint);
-        assertEquals(client.getArn(), "");
+        assertEquals(client.getNamespace(), "");
         assertEquals(client.getRegionId(), "cn-hangzhou");
 
-        client.setArn("");
+        client.setNamespace("");
         nameServerEndpoint = "http://onsaddr.cn-hangzhou.mq-internal.aliyuncs.com";
         client.setNamesrvAddr(nameServerEndpoint);
-        assertEquals(client.getArn(), "");
+        assertEquals(client.getNamespace(), "");
         assertEquals(client.getRegionId(), "cn-hangzhou");
 
-        client.setArn("");
+        client.setNamespace("");
         nameServerEndpoint = "https://onsaddr.cn-hangzhou.mq-internal.aliyuncs.com:8080";
         client.setNamesrvAddr(nameServerEndpoint);
-        assertEquals(client.getArn(), "");
+        assertEquals(client.getNamespace(), "");
         assertEquals(client.getRegionId(), "cn-hangzhou");
 
-        client.setArn("");
+        client.setNamespace("");
         nameServerEndpoint = "http://MQ_INST_1080056302921134_BXQdPCN6.mq-internet-access.mq-internet.aliyuncs.com:80";
         client.setNamesrvAddr(nameServerEndpoint);
-        assertEquals(client.getArn(), "MQ_INST_1080056302921134_BXQdPCN6");
+        assertEquals(client.getNamespace(), "MQ_INST_1080056302921134_BXQdPCN6");
         assertEquals(client.getRegionId(), "mq-internet-access");
 
-        client.setArn("");
+        client.setNamespace("");
         nameServerEndpoint = "https://MQ_INST_1080056302921134_BXQdPCN6.mq-internet-access.mq-internet.aliyuncs.com:80";
         client.setNamesrvAddr(nameServerEndpoint);
-        assertEquals(client.getArn(), "MQ_INST_1080056302921134_BXQdPCN6");
+        assertEquals(client.getNamespace(), "MQ_INST_1080056302921134_BXQdPCN6");
         assertEquals(client.getRegionId(), "mq-internet-access");
 
-        client.setArn(FAKE_ARN_0);
+        client.setNamespace(FAKE_ARN_0);
         nameServerEndpoint = "https://MQ_INST_1080056302921134_BXQdPCN6.mq-internet-access.mq-internet.aliyuncs.com:80";
         client.setNamesrvAddr(nameServerEndpoint);
-        assertEquals(client.getArn(), FAKE_ARN_0);
+        assertEquals(client.getNamespace(), FAKE_ARN_0);
         assertEquals(client.getRegionId(), "mq-internet-access");
     }
 }

@@ -50,7 +50,7 @@ public class ClientConfig {
     /**
      * Abstract resource namespace, same topics or groups in different arn are individual.
      */
-    protected String arn = "";
+    protected String namespace = "";
 
     /**
      * Switch to enable message tracing or not.
@@ -102,8 +102,8 @@ public class ClientConfig {
         return group;
     }
 
-    public void setArn(String arn) {
-        this.arn = checkNotNull(arn, "arn");
+    public void setNamespace(String namespace) {
+        this.namespace = checkNotNull(namespace, "namespace");
     }
 
     public void setCredentialsProvider(CredentialsProvider credentialsProvider) {
@@ -119,8 +119,8 @@ public class ClientConfig {
         return this.clientId;
     }
 
-    public String getArn() {
-        return this.arn;
+    public String getNamespace() {
+        return this.namespace;
     }
 
     public boolean isMessageTracingEnabled() {

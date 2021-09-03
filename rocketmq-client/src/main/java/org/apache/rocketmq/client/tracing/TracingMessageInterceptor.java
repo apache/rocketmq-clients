@@ -78,7 +78,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
             if (StringUtils.isNotEmpty(accessKey)) {
                 span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);
             }
-            span.setAttribute(TracingAttribute.ARN, client.getArn());
+            span.setAttribute(TracingAttribute.ARN, client.getNamespace());
             span.setAttribute(TracingAttribute.TOPIC, message.getTopic());
             span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
             span.setAttribute(TracingAttribute.GROUP, client.getGroup());
@@ -126,7 +126,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         if (StringUtils.isNotEmpty(accessKey)) {
             span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);
         }
-        span.setAttribute(TracingAttribute.ARN, client.getArn());
+        span.setAttribute(TracingAttribute.ARN, client.getNamespace());
         span.setAttribute(TracingAttribute.TOPIC, message.getTopic());
         span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
         span.setAttribute(TracingAttribute.GROUP, client.getGroup());
@@ -162,7 +162,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         if (StringUtils.isNotEmpty(accessKey)) {
             span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);
         }
-        span.setAttribute(TracingAttribute.ARN, client.getArn());
+        span.setAttribute(TracingAttribute.ARN, client.getNamespace());
         span.setAttribute(TracingAttribute.TOPIC, message.getTopic());
         span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
         span.setAttribute(TracingAttribute.GROUP, client.getGroup());
@@ -196,7 +196,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         if (StringUtils.isNotEmpty(accessKey)) {
             span.setAttribute(TracingAttribute.ACCESS_KEY, accessKey);
         }
-        span.setAttribute(TracingAttribute.ARN, client.getArn());
+        span.setAttribute(TracingAttribute.ARN, client.getNamespace());
         span.setAttribute(TracingAttribute.TOPIC, message.getTopic());
         span.setAttribute(TracingAttribute.MSG_ID, message.getMsgId());
         span.setAttribute(TracingAttribute.GROUP, client.getGroup());

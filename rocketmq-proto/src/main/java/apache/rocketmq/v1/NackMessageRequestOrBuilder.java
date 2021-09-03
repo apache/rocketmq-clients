@@ -84,23 +84,4 @@ public interface NackMessageRequestOrBuilder extends
    * @return The maxDeliveryAttempts.
    */
   int getMaxDeliveryAttempts();
-
-  /**
-   * <pre>
-   * to delete.
-   * </pre>
-   *
-   * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 8;</code>
-   * @return The enum numeric value on the wire for consumeModel.
-   */
-  int getConsumeModelValue();
-  /**
-   * <pre>
-   * to delete.
-   * </pre>
-   *
-   * <code>.apache.rocketmq.v1.ConsumeModel consume_model = 8;</code>
-   * @return The consumeModel.
-   */
-  apache.rocketmq.v1.ConsumeModel getConsumeModel();
 }

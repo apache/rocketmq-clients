@@ -196,12 +196,7 @@ private static final long serialVersionUID = 0L;
             deliveryAttempt_ = input.readInt32();
             break;
           }
-          case 144: {
-
-            maxDeliveryAttempts_ = input.readInt32();
-            break;
-          }
-          case 154: {
+          case 146: {
             apache.rocketmq.v1.Resource.Builder subBuilder = null;
             if (producerGroup_ != null) {
               subBuilder = producerGroup_.toBuilder();
@@ -214,19 +209,19 @@ private static final long serialVersionUID = 0L;
 
             break;
           }
-          case 162: {
+          case 154: {
             java.lang.String s = input.readStringRequireUtf8();
 
             messageGroup_ = s;
             break;
           }
-          case 170: {
+          case 162: {
             java.lang.String s = input.readStringRequireUtf8();
 
             traceContext_ = s;
             break;
           }
-          case 178: {
+          case 170: {
             com.google.protobuf.Duration.Builder subBuilder = null;
             if (orphanedTransactionRecoveryPeriod_ != null) {
               subBuilder = orphanedTransactionRecoveryPeriod_.toBuilder();
@@ -910,29 +905,14 @@ private static final long serialVersionUID = 0L;
     return deliveryAttempt_;
   }
 
-  public static final int MAX_DELIVERY_ATTEMPTS_FIELD_NUMBER = 18;
-  private int maxDeliveryAttempts_;
-  /**
-   * <pre>
-   * Message's max delivery attempts count, if message's delivery count exceed this value, it will be sent to dlq topic.
-   * </pre>
-   *
-   * <code>int32 max_delivery_attempts = 18;</code>
-   * @return The maxDeliveryAttempts.
-   */
-  @java.lang.Override
-  public int getMaxDeliveryAttempts() {
-    return maxDeliveryAttempts_;
-  }
-
-  public static final int PRODUCER_GROUP_FIELD_NUMBER = 19;
+  public static final int PRODUCER_GROUP_FIELD_NUMBER = 18;
   private apache.rocketmq.v1.Resource producerGroup_;
   /**
    * <pre>
    * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
    * @return Whether the producerGroup field is set.
    */
   @java.lang.Override
@@ -944,7 +924,7 @@ private static final long serialVersionUID = 0L;
    * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
    * @return The producerGroup.
    */
   @java.lang.Override
@@ -956,17 +936,17 @@ private static final long serialVersionUID = 0L;
    * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
    */
   @java.lang.Override
   public apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder() {
     return getProducerGroup();
   }
 
-  public static final int MESSAGE_GROUP_FIELD_NUMBER = 20;
+  public static final int MESSAGE_GROUP_FIELD_NUMBER = 19;
   private volatile java.lang.Object messageGroup_;
   /**
-   * <code>string message_group = 20;</code>
+   * <code>string message_group = 19;</code>
    * @return The messageGroup.
    */
   @java.lang.Override
@@ -983,7 +963,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string message_group = 20;</code>
+   * <code>string message_group = 19;</code>
    * @return The bytes for messageGroup.
    */
   @java.lang.Override
@@ -1001,14 +981,14 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int TRACE_CONTEXT_FIELD_NUMBER = 21;
+  public static final int TRACE_CONTEXT_FIELD_NUMBER = 20;
   private volatile java.lang.Object traceContext_;
   /**
    * <pre>
    * Trace context.
    * </pre>
    *
-   * <code>string trace_context = 21;</code>
+   * <code>string trace_context = 20;</code>
    * @return The traceContext.
    */
   @java.lang.Override
@@ -1029,7 +1009,7 @@ private static final long serialVersionUID = 0L;
    * Trace context.
    * </pre>
    *
-   * <code>string trace_context = 21;</code>
+   * <code>string trace_context = 20;</code>
    * @return The bytes for traceContext.
    */
   @java.lang.Override
@@ -1047,14 +1027,14 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int ORPHANED_TRANSACTION_RECOVERY_PERIOD_FIELD_NUMBER = 22;
+  public static final int ORPHANED_TRANSACTION_RECOVERY_PERIOD_FIELD_NUMBER = 21;
   private com.google.protobuf.Duration orphanedTransactionRecoveryPeriod_;
   /**
    * <pre>
    * Delay time of first resolve orphaned transaction request from server.
    * </pre>
    *
-   * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+   * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
    * @return Whether the orphanedTransactionRecoveryPeriod field is set.
    */
   @java.lang.Override
@@ -1066,7 +1046,7 @@ private static final long serialVersionUID = 0L;
    * Delay time of first resolve orphaned transaction request from server.
    * </pre>
    *
-   * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+   * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
    * @return The orphanedTransactionRecoveryPeriod.
    */
   @java.lang.Override
@@ -1078,7 +1058,7 @@ private static final long serialVersionUID = 0L;
    * Delay time of first resolve orphaned transaction request from server.
    * </pre>
    *
-   * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+   * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
    */
   @java.lang.Override
   public com.google.protobuf.DurationOrBuilder getOrphanedTransactionRecoveryPeriodOrBuilder() {
@@ -1151,20 +1131,17 @@ private static final long serialVersionUID = 0L;
     if (deliveryAttempt_ != 0) {
       output.writeInt32(17, deliveryAttempt_);
     }
-    if (maxDeliveryAttempts_ != 0) {
-      output.writeInt32(18, maxDeliveryAttempts_);
-    }
     if (producerGroup_ != null) {
-      output.writeMessage(19, getProducerGroup());
+      output.writeMessage(18, getProducerGroup());
     }
     if (!getMessageGroupBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 20, messageGroup_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 19, messageGroup_);
     }
     if (!getTraceContextBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 21, traceContext_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 20, traceContext_);
     }
     if (orphanedTransactionRecoveryPeriod_ != null) {
-      output.writeMessage(22, getOrphanedTransactionRecoveryPeriod());
+      output.writeMessage(21, getOrphanedTransactionRecoveryPeriod());
     }
     unknownFields.writeTo(output);
   }
@@ -1243,23 +1220,19 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(17, deliveryAttempt_);
     }
-    if (maxDeliveryAttempts_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(18, maxDeliveryAttempts_);
-    }
     if (producerGroup_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(19, getProducerGroup());
+        .computeMessageSize(18, getProducerGroup());
     }
     if (!getMessageGroupBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(20, messageGroup_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(19, messageGroup_);
     }
     if (!getTraceContextBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(21, traceContext_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(20, traceContext_);
     }
     if (orphanedTransactionRecoveryPeriod_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(22, getOrphanedTransactionRecoveryPeriod());
+        .computeMessageSize(21, getOrphanedTransactionRecoveryPeriod());
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -1316,8 +1289,6 @@ private static final long serialVersionUID = 0L;
     }
     if (getDeliveryAttempt()
         != other.getDeliveryAttempt()) return false;
-    if (getMaxDeliveryAttempts()
-        != other.getMaxDeliveryAttempts()) return false;
     if (hasProducerGroup() != other.hasProducerGroup()) return false;
     if (hasProducerGroup()) {
       if (!getProducerGroup()
@@ -1397,8 +1368,6 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + DELIVERY_ATTEMPT_FIELD_NUMBER;
     hash = (53 * hash) + getDeliveryAttempt();
-    hash = (37 * hash) + MAX_DELIVERY_ATTEMPTS_FIELD_NUMBER;
-    hash = (53 * hash) + getMaxDeliveryAttempts();
     if (hasProducerGroup()) {
       hash = (37 * hash) + PRODUCER_GROUP_FIELD_NUMBER;
       hash = (53 * hash) + getProducerGroup().hashCode();
@@ -1602,8 +1571,6 @@ private static final long serialVersionUID = 0L;
       }
       deliveryAttempt_ = 0;
 
-      maxDeliveryAttempts_ = 0;
-
       if (producerGroupBuilder_ == null) {
         producerGroup_ = null;
       } else {
@@ -1694,7 +1661,6 @@ private static final long serialVersionUID = 0L;
         result.invisiblePeriod_ = invisiblePeriodBuilder_.build();
       }
       result.deliveryAttempt_ = deliveryAttempt_;
-      result.maxDeliveryAttempts_ = maxDeliveryAttempts_;
       if (producerGroupBuilder_ == null) {
         result.producerGroup_ = producerGroup_;
       } else {
@@ -1812,9 +1778,6 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getDeliveryAttempt() != 0) {
         setDeliveryAttempt(other.getDeliveryAttempt());
-      }
-      if (other.getMaxDeliveryAttempts() != 0) {
-        setMaxDeliveryAttempts(other.getMaxDeliveryAttempts());
       }
       if (other.hasProducerGroup()) {
         mergeProducerGroup(other.getProducerGroup());
@@ -3642,49 +3605,6 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private int maxDeliveryAttempts_ ;
-    /**
-     * <pre>
-     * Message's max delivery attempts count, if message's delivery count exceed this value, it will be sent to dlq topic.
-     * </pre>
-     *
-     * <code>int32 max_delivery_attempts = 18;</code>
-     * @return The maxDeliveryAttempts.
-     */
-    @java.lang.Override
-    public int getMaxDeliveryAttempts() {
-      return maxDeliveryAttempts_;
-    }
-    /**
-     * <pre>
-     * Message's max delivery attempts count, if message's delivery count exceed this value, it will be sent to dlq topic.
-     * </pre>
-     *
-     * <code>int32 max_delivery_attempts = 18;</code>
-     * @param value The maxDeliveryAttempts to set.
-     * @return This builder for chaining.
-     */
-    public Builder setMaxDeliveryAttempts(int value) {
-      
-      maxDeliveryAttempts_ = value;
-      onChanged();
-      return this;
-    }
-    /**
-     * <pre>
-     * Message's max delivery attempts count, if message's delivery count exceed this value, it will be sent to dlq topic.
-     * </pre>
-     *
-     * <code>int32 max_delivery_attempts = 18;</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearMaxDeliveryAttempts() {
-      
-      maxDeliveryAttempts_ = 0;
-      onChanged();
-      return this;
-    }
-
     private apache.rocketmq.v1.Resource producerGroup_;
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> producerGroupBuilder_;
@@ -3693,7 +3613,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
      * @return Whether the producerGroup field is set.
      */
     public boolean hasProducerGroup() {
@@ -3704,7 +3624,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
      * @return The producerGroup.
      */
     public apache.rocketmq.v1.Resource getProducerGroup() {
@@ -3719,7 +3639,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
      */
     public Builder setProducerGroup(apache.rocketmq.v1.Resource value) {
       if (producerGroupBuilder_ == null) {
@@ -3739,7 +3659,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
      */
     public Builder setProducerGroup(
         apache.rocketmq.v1.Resource.Builder builderForValue) {
@@ -3757,7 +3677,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
      */
     public Builder mergeProducerGroup(apache.rocketmq.v1.Resource value) {
       if (producerGroupBuilder_ == null) {
@@ -3779,7 +3699,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
      */
     public Builder clearProducerGroup() {
       if (producerGroupBuilder_ == null) {
@@ -3797,7 +3717,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
      */
     public apache.rocketmq.v1.Resource.Builder getProducerGroupBuilder() {
       
@@ -3809,7 +3729,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
      */
     public apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder() {
       if (producerGroupBuilder_ != null) {
@@ -3824,7 +3744,7 @@ private static final long serialVersionUID = 0L;
      * Message producer load-balance group if applicable.
      * </pre>
      *
-     * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> 
@@ -3842,7 +3762,7 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object messageGroup_ = "";
     /**
-     * <code>string message_group = 20;</code>
+     * <code>string message_group = 19;</code>
      * @return The messageGroup.
      */
     public java.lang.String getMessageGroup() {
@@ -3858,7 +3778,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string message_group = 20;</code>
+     * <code>string message_group = 19;</code>
      * @return The bytes for messageGroup.
      */
     public com.google.protobuf.ByteString
@@ -3875,7 +3795,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string message_group = 20;</code>
+     * <code>string message_group = 19;</code>
      * @param value The messageGroup to set.
      * @return This builder for chaining.
      */
@@ -3890,7 +3810,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string message_group = 20;</code>
+     * <code>string message_group = 19;</code>
      * @return This builder for chaining.
      */
     public Builder clearMessageGroup() {
@@ -3900,7 +3820,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string message_group = 20;</code>
+     * <code>string message_group = 19;</code>
      * @param value The bytes for messageGroup to set.
      * @return This builder for chaining.
      */
@@ -3922,7 +3842,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 21;</code>
+     * <code>string trace_context = 20;</code>
      * @return The traceContext.
      */
     public java.lang.String getTraceContext() {
@@ -3942,7 +3862,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 21;</code>
+     * <code>string trace_context = 20;</code>
      * @return The bytes for traceContext.
      */
     public com.google.protobuf.ByteString
@@ -3963,7 +3883,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 21;</code>
+     * <code>string trace_context = 20;</code>
      * @param value The traceContext to set.
      * @return This builder for chaining.
      */
@@ -3982,7 +3902,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 21;</code>
+     * <code>string trace_context = 20;</code>
      * @return This builder for chaining.
      */
     public Builder clearTraceContext() {
@@ -3996,7 +3916,7 @@ private static final long serialVersionUID = 0L;
      * Trace context.
      * </pre>
      *
-     * <code>string trace_context = 21;</code>
+     * <code>string trace_context = 20;</code>
      * @param value The bytes for traceContext to set.
      * @return This builder for chaining.
      */
@@ -4020,7 +3940,7 @@ private static final long serialVersionUID = 0L;
      * Delay time of first resolve orphaned transaction request from server.
      * </pre>
      *
-     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
      * @return Whether the orphanedTransactionRecoveryPeriod field is set.
      */
     public boolean hasOrphanedTransactionRecoveryPeriod() {
@@ -4031,7 +3951,7 @@ private static final long serialVersionUID = 0L;
      * Delay time of first resolve orphaned transaction request from server.
      * </pre>
      *
-     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
      * @return The orphanedTransactionRecoveryPeriod.
      */
     public com.google.protobuf.Duration getOrphanedTransactionRecoveryPeriod() {
@@ -4046,7 +3966,7 @@ private static final long serialVersionUID = 0L;
      * Delay time of first resolve orphaned transaction request from server.
      * </pre>
      *
-     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
      */
     public Builder setOrphanedTransactionRecoveryPeriod(com.google.protobuf.Duration value) {
       if (orphanedTransactionRecoveryPeriodBuilder_ == null) {
@@ -4066,7 +3986,7 @@ private static final long serialVersionUID = 0L;
      * Delay time of first resolve orphaned transaction request from server.
      * </pre>
      *
-     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
      */
     public Builder setOrphanedTransactionRecoveryPeriod(
         com.google.protobuf.Duration.Builder builderForValue) {
@@ -4084,7 +4004,7 @@ private static final long serialVersionUID = 0L;
      * Delay time of first resolve orphaned transaction request from server.
      * </pre>
      *
-     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
      */
     public Builder mergeOrphanedTransactionRecoveryPeriod(com.google.protobuf.Duration value) {
       if (orphanedTransactionRecoveryPeriodBuilder_ == null) {
@@ -4106,7 +4026,7 @@ private static final long serialVersionUID = 0L;
      * Delay time of first resolve orphaned transaction request from server.
      * </pre>
      *
-     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
      */
     public Builder clearOrphanedTransactionRecoveryPeriod() {
       if (orphanedTransactionRecoveryPeriodBuilder_ == null) {
@@ -4124,7 +4044,7 @@ private static final long serialVersionUID = 0L;
      * Delay time of first resolve orphaned transaction request from server.
      * </pre>
      *
-     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
      */
     public com.google.protobuf.Duration.Builder getOrphanedTransactionRecoveryPeriodBuilder() {
       
@@ -4136,7 +4056,7 @@ private static final long serialVersionUID = 0L;
      * Delay time of first resolve orphaned transaction request from server.
      * </pre>
      *
-     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
      */
     public com.google.protobuf.DurationOrBuilder getOrphanedTransactionRecoveryPeriodOrBuilder() {
       if (orphanedTransactionRecoveryPeriodBuilder_ != null) {
@@ -4151,7 +4071,7 @@ private static final long serialVersionUID = 0L;
      * Delay time of first resolve orphaned transaction request from server.
      * </pre>
      *
-     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+     * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.protobuf.Duration, com.google.protobuf.Duration.Builder, com.google.protobuf.DurationOrBuilder> 

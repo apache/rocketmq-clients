@@ -55,13 +55,13 @@ private static final long serialVersionUID = 0L;
             break;
           case 10: {
             apache.rocketmq.v1.Resource.Builder subBuilder = null;
-            if (producerGroup_ != null) {
-              subBuilder = producerGroup_.toBuilder();
+            if (group_ != null) {
+              subBuilder = group_.toBuilder();
             }
-            producerGroup_ = input.readMessage(apache.rocketmq.v1.Resource.parser(), extensionRegistry);
+            group_ = input.readMessage(apache.rocketmq.v1.Resource.parser(), extensionRegistry);
             if (subBuilder != null) {
-              subBuilder.mergeFrom(producerGroup_);
-              producerGroup_ = subBuilder.buildPartial();
+              subBuilder.mergeFrom(group_);
+              group_ = subBuilder.buildPartial();
             }
 
             break;
@@ -344,30 +344,30 @@ private static final long serialVersionUID = 0L;
     // @@protoc_insertion_point(enum_scope:apache.rocketmq.v1.EndTransactionRequest.Source)
   }
 
-  public static final int PRODUCER_GROUP_FIELD_NUMBER = 1;
-  private apache.rocketmq.v1.Resource producerGroup_;
+  public static final int GROUP_FIELD_NUMBER = 1;
+  private apache.rocketmq.v1.Resource group_;
   /**
-   * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
-   * @return Whether the producerGroup field is set.
+   * <code>.apache.rocketmq.v1.Resource group = 1;</code>
+   * @return Whether the group field is set.
    */
   @java.lang.Override
-  public boolean hasProducerGroup() {
-    return producerGroup_ != null;
+  public boolean hasGroup() {
+    return group_ != null;
   }
   /**
-   * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
-   * @return The producerGroup.
+   * <code>.apache.rocketmq.v1.Resource group = 1;</code>
+   * @return The group.
    */
   @java.lang.Override
-  public apache.rocketmq.v1.Resource getProducerGroup() {
-    return producerGroup_ == null ? apache.rocketmq.v1.Resource.getDefaultInstance() : producerGroup_;
+  public apache.rocketmq.v1.Resource getGroup() {
+    return group_ == null ? apache.rocketmq.v1.Resource.getDefaultInstance() : group_;
   }
   /**
-   * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+   * <code>.apache.rocketmq.v1.Resource group = 1;</code>
    */
   @java.lang.Override
-  public apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder() {
-    return getProducerGroup();
+  public apache.rocketmq.v1.ResourceOrBuilder getGroupOrBuilder() {
+    return getGroup();
   }
 
   public static final int MESSAGE_ID_FIELD_NUMBER = 2;
@@ -536,8 +536,8 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (producerGroup_ != null) {
-      output.writeMessage(1, getProducerGroup());
+    if (group_ != null) {
+      output.writeMessage(1, getGroup());
     }
     if (!getMessageIdBytes().isEmpty()) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 2, messageId_);
@@ -563,9 +563,9 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (producerGroup_ != null) {
+    if (group_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(1, getProducerGroup());
+        .computeMessageSize(1, getGroup());
     }
     if (!getMessageIdBytes().isEmpty()) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, messageId_);
@@ -599,10 +599,10 @@ private static final long serialVersionUID = 0L;
     }
     apache.rocketmq.v1.EndTransactionRequest other = (apache.rocketmq.v1.EndTransactionRequest) obj;
 
-    if (hasProducerGroup() != other.hasProducerGroup()) return false;
-    if (hasProducerGroup()) {
-      if (!getProducerGroup()
-          .equals(other.getProducerGroup())) return false;
+    if (hasGroup() != other.hasGroup()) return false;
+    if (hasGroup()) {
+      if (!getGroup()
+          .equals(other.getGroup())) return false;
     }
     if (!getMessageId()
         .equals(other.getMessageId())) return false;
@@ -623,9 +623,9 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    if (hasProducerGroup()) {
-      hash = (37 * hash) + PRODUCER_GROUP_FIELD_NUMBER;
-      hash = (53 * hash) + getProducerGroup().hashCode();
+    if (hasGroup()) {
+      hash = (37 * hash) + GROUP_FIELD_NUMBER;
+      hash = (53 * hash) + getGroup().hashCode();
     }
     hash = (37 * hash) + MESSAGE_ID_FIELD_NUMBER;
     hash = (53 * hash) + getMessageId().hashCode();
@@ -770,11 +770,11 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
-      if (producerGroupBuilder_ == null) {
-        producerGroup_ = null;
+      if (groupBuilder_ == null) {
+        group_ = null;
       } else {
-        producerGroup_ = null;
-        producerGroupBuilder_ = null;
+        group_ = null;
+        groupBuilder_ = null;
       }
       messageId_ = "";
 
@@ -812,10 +812,10 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public apache.rocketmq.v1.EndTransactionRequest buildPartial() {
       apache.rocketmq.v1.EndTransactionRequest result = new apache.rocketmq.v1.EndTransactionRequest(this);
-      if (producerGroupBuilder_ == null) {
-        result.producerGroup_ = producerGroup_;
+      if (groupBuilder_ == null) {
+        result.group_ = group_;
       } else {
-        result.producerGroup_ = producerGroupBuilder_.build();
+        result.group_ = groupBuilder_.build();
       }
       result.messageId_ = messageId_;
       result.transactionId_ = transactionId_;
@@ -870,8 +870,8 @@ private static final long serialVersionUID = 0L;
 
     public Builder mergeFrom(apache.rocketmq.v1.EndTransactionRequest other) {
       if (other == apache.rocketmq.v1.EndTransactionRequest.getDefaultInstance()) return this;
-      if (other.hasProducerGroup()) {
-        mergeProducerGroup(other.getProducerGroup());
+      if (other.hasGroup()) {
+        mergeGroup(other.getGroup());
       }
       if (!other.getMessageId().isEmpty()) {
         messageId_ = other.messageId_;
@@ -920,123 +920,123 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private apache.rocketmq.v1.Resource producerGroup_;
+    private apache.rocketmq.v1.Resource group_;
     private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> producerGroupBuilder_;
+        apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> groupBuilder_;
     /**
-     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
-     * @return Whether the producerGroup field is set.
+     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
+     * @return Whether the group field is set.
      */
-    public boolean hasProducerGroup() {
-      return producerGroupBuilder_ != null || producerGroup_ != null;
+    public boolean hasGroup() {
+      return groupBuilder_ != null || group_ != null;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
-     * @return The producerGroup.
+     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
+     * @return The group.
      */
-    public apache.rocketmq.v1.Resource getProducerGroup() {
-      if (producerGroupBuilder_ == null) {
-        return producerGroup_ == null ? apache.rocketmq.v1.Resource.getDefaultInstance() : producerGroup_;
+    public apache.rocketmq.v1.Resource getGroup() {
+      if (groupBuilder_ == null) {
+        return group_ == null ? apache.rocketmq.v1.Resource.getDefaultInstance() : group_;
       } else {
-        return producerGroupBuilder_.getMessage();
+        return groupBuilder_.getMessage();
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
      */
-    public Builder setProducerGroup(apache.rocketmq.v1.Resource value) {
-      if (producerGroupBuilder_ == null) {
+    public Builder setGroup(apache.rocketmq.v1.Resource value) {
+      if (groupBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
         }
-        producerGroup_ = value;
+        group_ = value;
         onChanged();
       } else {
-        producerGroupBuilder_.setMessage(value);
+        groupBuilder_.setMessage(value);
       }
 
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
      */
-    public Builder setProducerGroup(
+    public Builder setGroup(
         apache.rocketmq.v1.Resource.Builder builderForValue) {
-      if (producerGroupBuilder_ == null) {
-        producerGroup_ = builderForValue.build();
+      if (groupBuilder_ == null) {
+        group_ = builderForValue.build();
         onChanged();
       } else {
-        producerGroupBuilder_.setMessage(builderForValue.build());
+        groupBuilder_.setMessage(builderForValue.build());
       }
 
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
      */
-    public Builder mergeProducerGroup(apache.rocketmq.v1.Resource value) {
-      if (producerGroupBuilder_ == null) {
-        if (producerGroup_ != null) {
-          producerGroup_ =
-            apache.rocketmq.v1.Resource.newBuilder(producerGroup_).mergeFrom(value).buildPartial();
+    public Builder mergeGroup(apache.rocketmq.v1.Resource value) {
+      if (groupBuilder_ == null) {
+        if (group_ != null) {
+          group_ =
+            apache.rocketmq.v1.Resource.newBuilder(group_).mergeFrom(value).buildPartial();
         } else {
-          producerGroup_ = value;
+          group_ = value;
         }
         onChanged();
       } else {
-        producerGroupBuilder_.mergeFrom(value);
+        groupBuilder_.mergeFrom(value);
       }
 
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
      */
-    public Builder clearProducerGroup() {
-      if (producerGroupBuilder_ == null) {
-        producerGroup_ = null;
+    public Builder clearGroup() {
+      if (groupBuilder_ == null) {
+        group_ = null;
         onChanged();
       } else {
-        producerGroup_ = null;
-        producerGroupBuilder_ = null;
+        group_ = null;
+        groupBuilder_ = null;
       }
 
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
      */
-    public apache.rocketmq.v1.Resource.Builder getProducerGroupBuilder() {
+    public apache.rocketmq.v1.Resource.Builder getGroupBuilder() {
       
       onChanged();
-      return getProducerGroupFieldBuilder().getBuilder();
+      return getGroupFieldBuilder().getBuilder();
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
      */
-    public apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder() {
-      if (producerGroupBuilder_ != null) {
-        return producerGroupBuilder_.getMessageOrBuilder();
+    public apache.rocketmq.v1.ResourceOrBuilder getGroupOrBuilder() {
+      if (groupBuilder_ != null) {
+        return groupBuilder_.getMessageOrBuilder();
       } else {
-        return producerGroup_ == null ?
-            apache.rocketmq.v1.Resource.getDefaultInstance() : producerGroup_;
+        return group_ == null ?
+            apache.rocketmq.v1.Resource.getDefaultInstance() : group_;
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> 
-        getProducerGroupFieldBuilder() {
-      if (producerGroupBuilder_ == null) {
-        producerGroupBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+        getGroupFieldBuilder() {
+      if (groupBuilder_ == null) {
+        groupBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
             apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder>(
-                getProducerGroup(),
+                getGroup(),
                 getParentForChildren(),
                 isClean());
-        producerGroup_ = null;
+        group_ = null;
       }
-      return producerGroupBuilder_;
+      return groupBuilder_;
     }
 
     private java.lang.Object messageId_ = "";

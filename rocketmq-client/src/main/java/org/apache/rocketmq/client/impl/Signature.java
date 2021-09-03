@@ -67,7 +67,7 @@ public class Signature {
                      MixAll.getProtocolVersion());
         metadata.put(Metadata.Key.of(SDK_VERSION, Metadata.ASCII_STRING_MARSHALLER), MetadataUtils.getVersion());
 
-        final String arn = config.getArn();
+        final String arn = config.getNamespace();
         if (StringUtils.isNotBlank(arn)) {
             metadata.put(Metadata.Key.of(ARN_KEY, Metadata.ASCII_STRING_MARSHALLER), arn);
         }

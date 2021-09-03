@@ -277,8 +277,8 @@ public class ProcessQueueImpl implements ProcessQueue {
         pendingMessagesLock.readLock().lock();
         inflightMessagesLock.readLock().lock();
         try {
-            log.info("clientId={}, arn={}, mq={}, pendingMessageQuantity={}, inflightMessageQuantity={}, "
-                     + "cachedMessagesBytes={}", consumerImpl.getClientId(), consumerImpl.getArn(), mq,
+            log.info("clientId={}, namespace={}, mq={}, pendingMessageQuantity={}, inflightMessageQuantity={}, "
+                     + "cachedMessagesBytes={}", consumerImpl.getClientId(), consumerImpl.getNamespace(), mq,
                      pendingMessages.size(), inflightMessages.size(), cachedMessagesBytes.get());
         } finally {
             inflightMessagesLock.readLock().unlock();
@@ -954,7 +954,8 @@ public class ProcessQueueImpl implements ProcessQueue {
     }
 
     private Partition getPbPartition() {
-        final Resource protoTopic = Resource.newBuilder().setArn(consumerImpl.getArn()).setName(mq.getTopic()).build();
+        final Resource protoTopic =
+                Resource.newBuilder().setResourceNamespace(consumerImpl.getNamespace()).setName(mq.getTopic()).build();
         final Broker broker = Broker.newBuilder().setName(mq.getBrokerName()).build();
         return Partition.newBuilder().setTopic(protoTopic).setId(mq.getQueueId()).setBroker(broker).build();
     }

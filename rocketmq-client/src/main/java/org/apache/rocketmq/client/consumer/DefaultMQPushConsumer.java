@@ -185,10 +185,10 @@ public class DefaultMQPushConsumer {
     /**
      * Set abstract resource name of consumer.
      *
-     * @param arn abstract resource name.
+     * @param namespace abstract resource name.
      */
-    public void setArn(String arn) {
-        this.impl.setArn(arn);
+    public void setNamespace(String namespace) {
+        this.impl.setNamespace(namespace);
     }
 
     /**
@@ -197,7 +197,7 @@ public class DefaultMQPushConsumer {
      * @return abstract resource name.
      */
     public String getArn() {
-        return this.impl.getArn();
+        return this.impl.getNamespace();
     }
 
     /**

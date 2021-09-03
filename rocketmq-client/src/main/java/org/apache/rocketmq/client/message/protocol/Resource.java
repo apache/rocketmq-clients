@@ -21,27 +21,27 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 
 public class Resource {
-    private String arn;
+    private String namespace;
     private String name;
 
-    public Resource(String arn, String name) {
-        this.arn = arn;
+    public Resource(String namespace, String name) {
+        this.namespace = namespace;
         this.name = name;
     }
 
     public Resource() {
     }
 
-    public String getArn() {
-        return this.arn;
+    public String getNamespace() {
+        return this.namespace;
     }
 
     public String getName() {
         return this.name;
     }
 
-    public void setArn(String arn) {
-        this.arn = arn;
+    public void setNamespace(String namespace) {
+        this.namespace = namespace;
     }
 
     public void setName(String name) {
@@ -57,18 +57,18 @@ public class Resource {
             return false;
         }
         Resource resource = (Resource) o;
-        return Objects.equal(arn, resource.arn) && Objects.equal(name, resource.name);
+        return Objects.equal(namespace, resource.namespace) && Objects.equal(name, resource.name);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(arn, name);
+        return Objects.hashCode(namespace, name);
     }
 
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
-                          .add("arn", arn)
+                          .add("namespace", namespace)
                           .add("name", name)
                           .toString();
     }

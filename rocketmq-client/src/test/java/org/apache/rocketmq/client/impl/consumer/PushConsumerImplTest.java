@@ -29,12 +29,12 @@ import apache.rocketmq.v1.AckMessageRequest;
 import apache.rocketmq.v1.AckMessageResponse;
 import apache.rocketmq.v1.ConsumeModel;
 import apache.rocketmq.v1.ConsumePolicy;
-import apache.rocketmq.v1.ConsumerGroup;
+import apache.rocketmq.v1.ConsumerData;
 import apache.rocketmq.v1.FilterExpression;
 import apache.rocketmq.v1.FilterType;
 import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse;
-import apache.rocketmq.v1.HeartbeatEntry;
+import apache.rocketmq.v1.HeartbeatRequest;
 import apache.rocketmq.v1.MultiplexingRequest;
 import apache.rocketmq.v1.MultiplexingResponse;
 import apache.rocketmq.v1.NackMessageRequest;
@@ -264,13 +264,13 @@ public class PushConsumerImplTest extends TestBase {
     @Test
     public void testPrepareHeartbeatData() {
         consumerImpl.subscribe(FAKE_TOPIC_0, "*", ExpressionType.TAG);
-        HeartbeatEntry heartbeatEntry = consumerImpl.prepareHeartbeatData();
-        assertEquals(heartbeatEntry.getClientId(), consumerImpl.getClientId());
-        final ConsumerGroup consumerGroup = heartbeatEntry.getConsumerGroup();
-        final Resource group = consumerGroup.getGroup();
+        HeartbeatRequest heartbeatRequest = consumerImpl.wrapHeartbeatRequest();
+        assertEquals(heartbeatRequest.getClientId(), consumerImpl.getClientId());
+        final ConsumerData consumerData = heartbeatRequest.getConsumerData();
+        final Resource group = consumerData.getGroup();
         assertEquals(group.getName(), consumerImpl.getGroup());
-        assertEquals(group.getArn(), consumerImpl.getArn());
-        final List<SubscriptionEntry> subscriptionsList = consumerGroup.getSubscriptionsList();
+        assertEquals(group.getResourceNamespace(), consumerImpl.getNamespace());
+        final List<SubscriptionEntry> subscriptionsList = consumerData.getSubscriptionsList();
         assertEquals(1, subscriptionsList.size());
         final SubscriptionEntry subscriptionEntry = subscriptionsList.get(0);
         final Resource topicResource = subscriptionEntry.getTopic();
@@ -279,28 +279,28 @@ public class PushConsumerImplTest extends TestBase {
         assertEquals(expression.getType(), FilterType.TAG);
 
         consumerImpl.setMessageModel(MessageModel.BROADCASTING);
-        heartbeatEntry = consumerImpl.prepareHeartbeatData();
-        assertEquals(ConsumeModel.BROADCASTING, heartbeatEntry.getConsumerGroup().getConsumeModel());
+        heartbeatRequest = consumerImpl.wrapHeartbeatRequest();
+        assertEquals(ConsumeModel.BROADCASTING, heartbeatRequest.getConsumerData().getConsumeModel());
 
         consumerImpl.setMessageModel(MessageModel.CLUSTERING);
-        heartbeatEntry = consumerImpl.prepareHeartbeatData();
-        assertEquals(ConsumeModel.CLUSTERING, heartbeatEntry.getConsumerGroup().getConsumeModel());
+        heartbeatRequest = consumerImpl.wrapHeartbeatRequest();
+        assertEquals(ConsumeModel.CLUSTERING, heartbeatRequest.getConsumerData().getConsumeModel());
 
         consumerImpl.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_FIRST_OFFSET);
-        heartbeatEntry = consumerImpl.prepareHeartbeatData();
-        assertEquals(ConsumePolicy.PLAYBACK, heartbeatEntry.getConsumerGroup().getConsumePolicy());
+        heartbeatRequest = consumerImpl.wrapHeartbeatRequest();
+        assertEquals(ConsumePolicy.PLAYBACK, heartbeatRequest.getConsumerData().getConsumePolicy());
 
         consumerImpl.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_MAX_OFFSET);
-        heartbeatEntry = consumerImpl.prepareHeartbeatData();
-        assertEquals(ConsumePolicy.DISCARD, heartbeatEntry.getConsumerGroup().getConsumePolicy());
+        heartbeatRequest = consumerImpl.wrapHeartbeatRequest();
+        assertEquals(ConsumePolicy.DISCARD, heartbeatRequest.getConsumerData().getConsumePolicy());
 
         consumerImpl.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_TIMESTAMP);
-        heartbeatEntry = consumerImpl.prepareHeartbeatData();
-        assertEquals(ConsumePolicy.TARGET_TIMESTAMP, heartbeatEntry.getConsumerGroup().getConsumePolicy());
+        heartbeatRequest = consumerImpl.wrapHeartbeatRequest();
+        assertEquals(ConsumePolicy.TARGET_TIMESTAMP, heartbeatRequest.getConsumerData().getConsumePolicy());
 
         consumerImpl.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET);
-        heartbeatEntry = consumerImpl.prepareHeartbeatData();
-        assertEquals(ConsumePolicy.RESUME, heartbeatEntry.getConsumerGroup().getConsumePolicy());
+        heartbeatRequest = consumerImpl.wrapHeartbeatRequest();
+        assertEquals(ConsumePolicy.RESUME, heartbeatRequest.getConsumerData().getConsumePolicy());
 
         consumerImpl.registerMessageListener(new MessageListenerOrderly() {
             @Override
@@ -308,7 +308,7 @@ public class PushConsumerImplTest extends TestBase {
                 return null;
             }
         });
-        heartbeatEntry = consumerImpl.prepareHeartbeatData();
-        assertTrue(heartbeatEntry.getNeedRebalance());
+        heartbeatRequest = consumerImpl.wrapHeartbeatRequest();
+        assertTrue(heartbeatRequest.getFifoFlag());
     }
 }

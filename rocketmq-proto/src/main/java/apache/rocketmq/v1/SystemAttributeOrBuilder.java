@@ -366,20 +366,10 @@ public interface SystemAttributeOrBuilder extends
 
   /**
    * <pre>
-   * Message's max delivery attempts count, if message's delivery count exceed this value, it will be sent to dlq topic.
-   * </pre>
-   *
-   * <code>int32 max_delivery_attempts = 18;</code>
-   * @return The maxDeliveryAttempts.
-   */
-  int getMaxDeliveryAttempts();
-
-  /**
-   * <pre>
    * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
    * @return Whether the producerGroup field is set.
    */
   boolean hasProducerGroup();
@@ -388,7 +378,7 @@ public interface SystemAttributeOrBuilder extends
    * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
    * @return The producerGroup.
    */
   apache.rocketmq.v1.Resource getProducerGroup();
@@ -397,17 +387,17 @@ public interface SystemAttributeOrBuilder extends
    * Message producer load-balance group if applicable.
    * </pre>
    *
-   * <code>.apache.rocketmq.v1.Resource producer_group = 19;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 18;</code>
    */
   apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder();
 
   /**
-   * <code>string message_group = 20;</code>
+   * <code>string message_group = 19;</code>
    * @return The messageGroup.
    */
   java.lang.String getMessageGroup();
   /**
-   * <code>string message_group = 20;</code>
+   * <code>string message_group = 19;</code>
    * @return The bytes for messageGroup.
    */
   com.google.protobuf.ByteString
@@ -418,7 +408,7 @@ public interface SystemAttributeOrBuilder extends
    * Trace context.
    * </pre>
    *
-   * <code>string trace_context = 21;</code>
+   * <code>string trace_context = 20;</code>
    * @return The traceContext.
    */
   java.lang.String getTraceContext();
@@ -427,7 +417,7 @@ public interface SystemAttributeOrBuilder extends
    * Trace context.
    * </pre>
    *
-   * <code>string trace_context = 21;</code>
+   * <code>string trace_context = 20;</code>
    * @return The bytes for traceContext.
    */
   com.google.protobuf.ByteString
@@ -438,7 +428,7 @@ public interface SystemAttributeOrBuilder extends
    * Delay time of first resolve orphaned transaction request from server.
    * </pre>
    *
-   * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+   * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
    * @return Whether the orphanedTransactionRecoveryPeriod field is set.
    */
   boolean hasOrphanedTransactionRecoveryPeriod();
@@ -447,7 +437,7 @@ public interface SystemAttributeOrBuilder extends
    * Delay time of first resolve orphaned transaction request from server.
    * </pre>
    *
-   * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+   * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
    * @return The orphanedTransactionRecoveryPeriod.
    */
   com.google.protobuf.Duration getOrphanedTransactionRecoveryPeriod();
@@ -456,7 +446,7 @@ public interface SystemAttributeOrBuilder extends
    * Delay time of first resolve orphaned transaction request from server.
    * </pre>
    *
-   * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 22;</code>
+   * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
    */
   com.google.protobuf.DurationOrBuilder getOrphanedTransactionRecoveryPeriodOrBuilder();
 

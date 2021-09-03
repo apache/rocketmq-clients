@@ -92,9 +92,10 @@ public class ProcessQueueImplTest extends TestBase {
     @BeforeMethod
     public void beforeMethod() throws ClientException {
         MockitoAnnotations.initMocks(this);
-        final Resource dummyProtoGroup = Resource.newBuilder().setArn(FAKE_ARN_0).setName(FAKE_GROUP_0).build();
+        final Resource dummyProtoGroup = Resource.newBuilder().setResourceNamespace(FAKE_ARN_0).setName(FAKE_GROUP_0)
+                                                 .build();
 
-        when(consumerImpl.getArn()).thenReturn(FAKE_ARN_0);
+        when(consumerImpl.getNamespace()).thenReturn(FAKE_ARN_0);
         when(consumerImpl.getGroup()).thenReturn(FAKE_GROUP_0);
         when(consumerImpl.getPbGroup()).thenReturn(dummyProtoGroup);
         when(consumerImpl.getMaxDeliveryAttempts()).thenReturn(messageMaxDeliveryAttempts);

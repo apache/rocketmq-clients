@@ -21,16 +21,16 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import apache.rocketmq.v1.AckMessageRequest;
 import apache.rocketmq.v1.AckMessageResponse;
-import apache.rocketmq.v1.ClientResourceBundle;
 import apache.rocketmq.v1.ConsumeMessageType;
 import apache.rocketmq.v1.ConsumeModel;
 import apache.rocketmq.v1.ConsumePolicy;
-import apache.rocketmq.v1.ConsumerGroup;
+import apache.rocketmq.v1.ConsumerData;
 import apache.rocketmq.v1.DeadLetterPolicy;
 import apache.rocketmq.v1.FilterType;
 import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse;
-import apache.rocketmq.v1.HeartbeatEntry;
+import apache.rocketmq.v1.GenericPollingRequest;
+import apache.rocketmq.v1.HeartbeatRequest;
 import apache.rocketmq.v1.Message;
 import apache.rocketmq.v1.NackMessageRequest;
 import apache.rocketmq.v1.NackMessageResponse;
@@ -369,7 +369,7 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     private QueryAssignmentRequest wrapQueryAssignmentRequest(String topic, Endpoints endpoints) {
-        Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
+        Resource topicResource = Resource.newBuilder().setResourceNamespace(namespace).setName(topic).build();
         return QueryAssignmentRequest.newBuilder()
                                      .setTopic(topicResource)
                                      .setEndpoints(endpoints.toPbEndpoints())
@@ -433,9 +433,9 @@ public class PushConsumerImpl extends ConsumerImpl {
         final long consumptionOkQuantity = this.consumptionOkQuantity.getAndSet(0);
         final long consumptionErrorQuantity = this.consumptionErrorQuantity.getAndSet(0);
 
-        log.info("clientId={}, arn={}, group={}, receiveTimes={}, receivedMessagesQuantity={}, pullTimes={}, "
-                 + "pulledMessagesQuantity={}, consumptionOkQuantity={}, consumptionErrorQuantity={}", clientId, arn,
-                 group, receiveTimes, receivedMessagesQuantity, pullTimes, pulledMessagesQuantity,
+        log.info("clientId={}, namespace={}, group={}, receiveTimes={}, receivedMessagesQuantity={}, pullTimes={}, "
+                 + "pulledMessagesQuantity={}, consumptionOkQuantity={}, consumptionErrorQuantity={}", clientId,
+                 namespace, group, receiveTimes, receivedMessagesQuantity, pullTimes, pulledMessagesQuantity,
                  consumptionOkQuantity, consumptionErrorQuantity);
 
         for (ProcessQueue pq : processQueueTable.values()) {
@@ -586,13 +586,13 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     @Override
-    public HeartbeatEntry prepareHeartbeatData() {
+    public HeartbeatRequest wrapHeartbeatRequest() {
         List<SubscriptionEntry> subscriptionEntries = new ArrayList<SubscriptionEntry>();
         for (Map.Entry<String, FilterExpression> entry : filterExpressionTable.entrySet()) {
             final String topic = entry.getKey();
             final FilterExpression filterExpression = entry.getValue();
 
-            Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
+            Resource topicResource = Resource.newBuilder().setResourceNamespace(namespace).setName(topic).build();
             final apache.rocketmq.v1.FilterExpression.Builder builder =
                     apache.rocketmq.v1.FilterExpression.newBuilder().setExpression(filterExpression.getExpression());
             switch (filterExpression.getExpressionType()) {
@@ -613,11 +613,11 @@ public class PushConsumerImpl extends ConsumerImpl {
                                                                   .setMaxDeliveryAttempts(maxDeliveryAttempts)
                                                                   .build();
 
-        final ConsumerGroup.Builder builder = ConsumerGroup.newBuilder()
-                                                           .setGroup(getPbGroup())
-                                                           .addAllSubscriptions(subscriptionEntries)
-                                                           .setDeadLetterPolicy(deadLetterPolicy)
-                                                           .setConsumeType(ConsumeMessageType.POP);
+        final ConsumerData.Builder builder = ConsumerData.newBuilder()
+                                                          .setGroup(getPbGroup())
+                                                          .addAllSubscriptions(subscriptionEntries)
+                                                          .setDeadLetterPolicy(deadLetterPolicy)
+                                                          .setConsumeType(ConsumeMessageType.POP);
 
         switch (messageModel) {
             case BROADCASTING:
@@ -641,12 +641,12 @@ public class PushConsumerImpl extends ConsumerImpl {
             default:
                 builder.setConsumePolicy(ConsumePolicy.RESUME);
         }
-        final ConsumerGroup consumerGroup = builder.build();
+        final ConsumerData consumerData = builder.build();
 
-        return HeartbeatEntry.newBuilder()
+        return HeartbeatRequest.newBuilder()
                              .setClientId(clientId)
-                             .setConsumerGroup(consumerGroup)
-                             .setNeedRebalance(messageListener.getListenerType().equals(MessageListenerType.ORDERLY))
+                             .setConsumerData(consumerData)
+                             .setFifoFlag(messageListener.getListenerType().equals(MessageListenerType.ORDERLY))
                              .build();
     }
 
@@ -691,8 +691,10 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     private AckMessageRequest wrapAckMessageRequest(MessageExt messageExt) {
+        final Resource topicResource =
+                Resource.newBuilder().setResourceNamespace(namespace).setName(messageExt.getTopic()).build();
         return AckMessageRequest.newBuilder().setGroup(getPbGroup())
-                                .setTopic(Resource.newBuilder().setArn(arn).setName(messageExt.getTopic()).build())
+                                .setTopic(topicResource)
                                 .setMessageId(messageExt.getMsgId()).setClientId(clientId)
                                 .setReceiptHandle(messageExt.getReceiptHandle()).build();
     }
@@ -711,9 +713,11 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     private NackMessageRequest wrapNackMessageRequest(MessageExt messageExt) {
+        final Resource topicResource =
+                Resource.newBuilder().setResourceNamespace(namespace).setName(messageExt.getTopic()).build();
         return NackMessageRequest.newBuilder()
                                  .setGroup(getPbGroup())
-                                 .setTopic(Resource.newBuilder().setArn(arn).setName(messageExt.getTopic()).build())
+                                 .setTopic(topicResource)
                                  .setClientId(clientId)
                                  .setReceiptHandle(messageExt.getReceiptHandle())
                                  .setMessageId(messageExt.getMsgId())
@@ -756,7 +760,8 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     private ForwardMessageToDeadLetterQueueRequest wrapForwardMessageToDeadLetterQueueRequest(MessageExt messageExt) {
-        final Resource topicResource = Resource.newBuilder().setArn(arn).setName(messageExt.getTopic()).build();
+        final Resource topicResource =
+                Resource.newBuilder().setResourceNamespace(namespace).setName(messageExt.getTopic()).build();
         return ForwardMessageToDeadLetterQueueRequest.newBuilder().setGroup(getPbGroup()).setTopic(topicResource)
                                                      .setClientId(clientId)
                                                      .setReceiptHandle(messageExt.getReceiptHandle())
@@ -782,11 +787,11 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     @Override
-    public ClientResourceBundle wrapClientResourceBundle() {
-        final ClientResourceBundle.Builder builder =
-                ClientResourceBundle.newBuilder().setClientId(clientId).setProducerGroup(getPbGroup());
+    public GenericPollingRequest wrapGenericPollingRequest() {
+        final GenericPollingRequest.Builder builder =
+                GenericPollingRequest.newBuilder().setClientId(clientId).setProducerGroup(getPbGroup());
         for (String topic : filterExpressionTable.keySet()) {
-            Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
+            Resource topicResource = Resource.newBuilder().setResourceNamespace(namespace).setName(topic).build();
             builder.addTopics(topicResource);
         }
         return builder.build();

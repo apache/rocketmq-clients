@@ -21,8 +21,8 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-import apache.rocketmq.v1.ClientResourceBundle;
-import apache.rocketmq.v1.HeartbeatEntry;
+import apache.rocketmq.v1.GenericPollingRequest;
+import apache.rocketmq.v1.HeartbeatRequest;
 import apache.rocketmq.v1.PullMessageResponse;
 import apache.rocketmq.v1.ReceiveMessageResponse;
 import apache.rocketmq.v1.ResponseCommon;
@@ -45,12 +45,12 @@ public class ConsumerImplTest extends TestBase {
         }
 
         @Override
-        public HeartbeatEntry prepareHeartbeatData() {
+        public HeartbeatRequest wrapHeartbeatRequest() {
             return null;
         }
 
         @Override
-        public ClientResourceBundle wrapClientResourceBundle() {
+        public GenericPollingRequest wrapGenericPollingRequest() {
             return null;
         }
 

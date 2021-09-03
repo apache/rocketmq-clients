@@ -4,25 +4,25 @@
 package apache.rocketmq.v1;
 
 /**
- * Protobuf type {@code apache.rocketmq.v1.ProducerGroup}
+ * Protobuf type {@code apache.rocketmq.v1.ProducerData}
  */
-public final class ProducerGroup extends
+public final class ProducerData extends
     com.google.protobuf.GeneratedMessageV3 implements
-    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.ProducerGroup)
-    ProducerGroupOrBuilder {
+    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.ProducerData)
+    ProducerDataOrBuilder {
 private static final long serialVersionUID = 0L;
-  // Use ProducerGroup.newBuilder() to construct.
-  private ProducerGroup(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+  // Use ProducerData.newBuilder() to construct.
+  private ProducerData(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
-  private ProducerGroup() {
+  private ProducerData() {
   }
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
   protected java.lang.Object newInstance(
       UnusedPrivateParameter unused) {
-    return new ProducerGroup();
+    return new ProducerData();
   }
 
   @java.lang.Override
@@ -30,7 +30,7 @@ private static final long serialVersionUID = 0L;
   getUnknownFields() {
     return this.unknownFields;
   }
-  private ProducerGroup(
+  private ProducerData(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
@@ -82,15 +82,15 @@ private static final long serialVersionUID = 0L;
   }
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_ProducerGroup_descriptor;
+    return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_ProducerData_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_ProducerGroup_fieldAccessorTable
+    return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_ProducerData_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            apache.rocketmq.v1.ProducerGroup.class, apache.rocketmq.v1.ProducerGroup.Builder.class);
+            apache.rocketmq.v1.ProducerData.class, apache.rocketmq.v1.ProducerData.Builder.class);
   }
 
   public static final int GROUP_FIELD_NUMBER = 1;
@@ -159,10 +159,10 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof apache.rocketmq.v1.ProducerGroup)) {
+    if (!(obj instanceof apache.rocketmq.v1.ProducerData)) {
       return super.equals(obj);
     }
-    apache.rocketmq.v1.ProducerGroup other = (apache.rocketmq.v1.ProducerGroup) obj;
+    apache.rocketmq.v1.ProducerData other = (apache.rocketmq.v1.ProducerData) obj;
 
     if (hasGroup() != other.hasGroup()) return false;
     if (hasGroup()) {
@@ -189,69 +189,69 @@ private static final long serialVersionUID = 0L;
     return hash;
   }
 
-  public static apache.rocketmq.v1.ProducerGroup parseFrom(
+  public static apache.rocketmq.v1.ProducerData parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.ProducerGroup parseFrom(
+  public static apache.rocketmq.v1.ProducerData parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.ProducerGroup parseFrom(
+  public static apache.rocketmq.v1.ProducerData parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.ProducerGroup parseFrom(
+  public static apache.rocketmq.v1.ProducerData parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.ProducerGroup parseFrom(byte[] data)
+  public static apache.rocketmq.v1.ProducerData parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.ProducerGroup parseFrom(
+  public static apache.rocketmq.v1.ProducerData parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.ProducerGroup parseFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.ProducerData parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.ProducerGroup parseFrom(
+  public static apache.rocketmq.v1.ProducerData parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.ProducerGroup parseDelimitedFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.ProducerData parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.ProducerGroup parseDelimitedFrom(
+  public static apache.rocketmq.v1.ProducerData parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.ProducerGroup parseFrom(
+  public static apache.rocketmq.v1.ProducerData parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.ProducerGroup parseFrom(
+  public static apache.rocketmq.v1.ProducerData parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -264,7 +264,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(apache.rocketmq.v1.ProducerGroup prototype) {
+  public static Builder newBuilder(apache.rocketmq.v1.ProducerData prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -280,26 +280,26 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
-   * Protobuf type {@code apache.rocketmq.v1.ProducerGroup}
+   * Protobuf type {@code apache.rocketmq.v1.ProducerData}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.ProducerGroup)
-      apache.rocketmq.v1.ProducerGroupOrBuilder {
+      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.ProducerData)
+      apache.rocketmq.v1.ProducerDataOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_ProducerGroup_descriptor;
+      return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_ProducerData_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_ProducerGroup_fieldAccessorTable
+      return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_ProducerData_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              apache.rocketmq.v1.ProducerGroup.class, apache.rocketmq.v1.ProducerGroup.Builder.class);
+              apache.rocketmq.v1.ProducerData.class, apache.rocketmq.v1.ProducerData.Builder.class);
     }
 
-    // Construct using apache.rocketmq.v1.ProducerGroup.newBuilder()
+    // Construct using apache.rocketmq.v1.ProducerData.newBuilder()
     private Builder() {
       maybeForceBuilderInitialization();
     }
@@ -329,17 +329,17 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_ProducerGroup_descriptor;
+      return apache.rocketmq.v1.MQDomain.internal_static_apache_rocketmq_v1_ProducerData_descriptor;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.ProducerGroup getDefaultInstanceForType() {
-      return apache.rocketmq.v1.ProducerGroup.getDefaultInstance();
+    public apache.rocketmq.v1.ProducerData getDefaultInstanceForType() {
+      return apache.rocketmq.v1.ProducerData.getDefaultInstance();
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.ProducerGroup build() {
-      apache.rocketmq.v1.ProducerGroup result = buildPartial();
+    public apache.rocketmq.v1.ProducerData build() {
+      apache.rocketmq.v1.ProducerData result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -347,8 +347,8 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.ProducerGroup buildPartial() {
-      apache.rocketmq.v1.ProducerGroup result = new apache.rocketmq.v1.ProducerGroup(this);
+    public apache.rocketmq.v1.ProducerData buildPartial() {
+      apache.rocketmq.v1.ProducerData result = new apache.rocketmq.v1.ProducerData(this);
       if (groupBuilder_ == null) {
         result.group_ = group_;
       } else {
@@ -392,16 +392,16 @@ private static final long serialVersionUID = 0L;
     }
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof apache.rocketmq.v1.ProducerGroup) {
-        return mergeFrom((apache.rocketmq.v1.ProducerGroup)other);
+      if (other instanceof apache.rocketmq.v1.ProducerData) {
+        return mergeFrom((apache.rocketmq.v1.ProducerData)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(apache.rocketmq.v1.ProducerGroup other) {
-      if (other == apache.rocketmq.v1.ProducerGroup.getDefaultInstance()) return this;
+    public Builder mergeFrom(apache.rocketmq.v1.ProducerData other) {
+      if (other == apache.rocketmq.v1.ProducerData.getDefaultInstance()) return this;
       if (other.hasGroup()) {
         mergeGroup(other.getGroup());
       }
@@ -420,11 +420,11 @@ private static final long serialVersionUID = 0L;
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      apache.rocketmq.v1.ProducerGroup parsedMessage = null;
+      apache.rocketmq.v1.ProducerData parsedMessage = null;
       try {
         parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        parsedMessage = (apache.rocketmq.v1.ProducerGroup) e.getUnfinishedMessage();
+        parsedMessage = (apache.rocketmq.v1.ProducerData) e.getUnfinishedMessage();
         throw e.unwrapIOException();
       } finally {
         if (parsedMessage != null) {
@@ -565,41 +565,41 @@ private static final long serialVersionUID = 0L;
     }
 
 
-    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.ProducerGroup)
+    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.ProducerData)
   }
 
-  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.ProducerGroup)
-  private static final apache.rocketmq.v1.ProducerGroup DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.ProducerData)
+  private static final apache.rocketmq.v1.ProducerData DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new apache.rocketmq.v1.ProducerGroup();
+    DEFAULT_INSTANCE = new apache.rocketmq.v1.ProducerData();
   }
 
-  public static apache.rocketmq.v1.ProducerGroup getDefaultInstance() {
+  public static apache.rocketmq.v1.ProducerData getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<ProducerGroup>
-      PARSER = new com.google.protobuf.AbstractParser<ProducerGroup>() {
+  private static final com.google.protobuf.Parser<ProducerData>
+      PARSER = new com.google.protobuf.AbstractParser<ProducerData>() {
     @java.lang.Override
-    public ProducerGroup parsePartialFrom(
+    public ProducerData parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
-      return new ProducerGroup(input, extensionRegistry);
+      return new ProducerData(input, extensionRegistry);
     }
   };
 
-  public static com.google.protobuf.Parser<ProducerGroup> parser() {
+  public static com.google.protobuf.Parser<ProducerData> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<ProducerGroup> getParserForType() {
+  public com.google.protobuf.Parser<ProducerData> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public apache.rocketmq.v1.ProducerGroup getDefaultInstanceForType() {
+  public apache.rocketmq.v1.ProducerData getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

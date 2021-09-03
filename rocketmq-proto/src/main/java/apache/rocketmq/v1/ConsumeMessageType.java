@@ -105,7 +105,7 @@ public enum ConsumeMessageType
   }
   public static final com.google.protobuf.Descriptors.EnumDescriptor
       getDescriptor() {
-    return apache.rocketmq.v1.MQDomain.getDescriptor().getEnumTypes().get(9);
+    return apache.rocketmq.v1.MQDomain.getDescriptor().getEnumTypes().get(8);
   }
 
   private static final ConsumeMessageType[] VALUES = values();

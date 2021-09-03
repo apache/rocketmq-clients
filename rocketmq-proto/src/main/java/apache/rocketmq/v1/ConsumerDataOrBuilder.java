@@ -3,8 +3,8 @@
 
 package apache.rocketmq.v1;
 
-public interface ConsumerGroupOrBuilder extends
-    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.ConsumerGroup)
+public interface ConsumerDataOrBuilder extends
+    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.ConsumerData)
     com.google.protobuf.MessageOrBuilder {
 
   /**

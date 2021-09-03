@@ -8,26 +8,52 @@ public interface HeartbeatRequestOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
+   * <code>string client_id = 1;</code>
+   * @return The clientId.
    */
-  java.util.List<apache.rocketmq.v1.HeartbeatEntry> 
-      getHeartbeatsList();
+  java.lang.String getClientId();
   /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
+   * <code>string client_id = 1;</code>
+   * @return The bytes for clientId.
    */
-  apache.rocketmq.v1.HeartbeatEntry getHeartbeats(int index);
+  com.google.protobuf.ByteString
+      getClientIdBytes();
+
   /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
+   * <code>.apache.rocketmq.v1.ProducerData producer_data = 2;</code>
+   * @return Whether the producerData field is set.
    */
-  int getHeartbeatsCount();
+  boolean hasProducerData();
   /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
+   * <code>.apache.rocketmq.v1.ProducerData producer_data = 2;</code>
+   * @return The producerData.
    */
-  java.util.List<? extends apache.rocketmq.v1.HeartbeatEntryOrBuilder> 
-      getHeartbeatsOrBuilderList();
+  apache.rocketmq.v1.ProducerData getProducerData();
   /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
+   * <code>.apache.rocketmq.v1.ProducerData producer_data = 2;</code>
    */
-  apache.rocketmq.v1.HeartbeatEntryOrBuilder getHeartbeatsOrBuilder(
-      int index);
+  apache.rocketmq.v1.ProducerDataOrBuilder getProducerDataOrBuilder();
+
+  /**
+   * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 3;</code>
+   * @return Whether the consumerData field is set.
+   */
+  boolean hasConsumerData();
+  /**
+   * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 3;</code>
+   * @return The consumerData.
+   */
+  apache.rocketmq.v1.ConsumerData getConsumerData();
+  /**
+   * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 3;</code>
+   */
+  apache.rocketmq.v1.ConsumerDataOrBuilder getConsumerDataOrBuilder();
+
+  /**
+   * <code>bool fifo_flag = 4;</code>
+   * @return The fifoFlag.
+   */
+  boolean getFifoFlag();
+
+  public apache.rocketmq.v1.HeartbeatRequest.ClientDataCase getClientDataCase();
 }

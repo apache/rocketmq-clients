@@ -99,34 +99,34 @@ public final class ACS {
       "GetTopicRequest\022+\n\005topic\030\001 \001(\0132\034.apache." +
       "rocketmq.v1.Resource\"C\n\032DeleteConsumerGr" +
       "oupRequest\022\023\n\013instance_id\030\001 \001(\t\022\020\n\010group" +
-      "_id\030\002 \001(\t\"\210\001\n\032UpdateConsumerGroupRequest" +
-      "\0229\n\016consumer_group\030\001 \001(\0132!.apache.rocket" +
-      "mq.v1.ConsumerGroup\022/\n\013update_mask\030\002 \001(\013" +
-      "2\032.google.protobuf.FieldMask\"W\n\031ListCons" +
-      "umerGroupsRequest\022\023\n\013instance_id\030\001 \001(\t\022\021" +
-      "\n\tpage_size\030\002 \001(\005\022\022\n\npage_token\030\003 \001(\t\"k\n" +
-      "\032ListConsumerGroupsResponse\0224\n\016consumer_" +
-      "group\030\001 \003(\0132\034.apache.rocketmq.v1.Resourc" +
-      "e\022\027\n\017next_page_token\030\002 \001(\t2\325\005\n\005Admin\022i\n\016" +
-      "ChangeLogLevel\022).apache.rocketmq.v1.Chan" +
-      "geLogLevelRequest\032*.apache.rocketmq.v1.C" +
-      "hangeLogLevelResponse\"\000\022O\n\010GetTopic\022#.ap" +
-      "ache.rocketmq.v1.GetTopicRequest\032\034.apach" +
-      "e.rocketmq.v1.Resource\"\000\022K\n\013CreateTopic\022" +
-      "\034.apache.rocketmq.v1.Resource\032\034.apache.r" +
-      "ocketmq.v1.Resource\"\000\022U\n\013UpdateTopic\022&.a" +
-      "pache.rocketmq.v1.UpdateTopicRequest\032\034.a" +
-      "pache.rocketmq.v1.Resource\"\000\022O\n\013DeleteTo" +
-      "pic\022&.apache.rocketmq.v1.DeleteTopicRequ" +
-      "est\032\026.google.protobuf.Empty\"\000\022S\n\023CreateC" +
-      "onsumerGroup\022\034.apache.rocketmq.v1.Resour" +
-      "ce\032\034.apache.rocketmq.v1.Resource\"\000\022_\n\023De" +
-      "leteConsumerGroup\022..apache.rocketmq.v1.D" +
-      "eleteConsumerGroupRequest\032\026.google.proto" +
-      "buf.Empty\"\000\022e\n\023UpdateConsumerGroup\022..apa" +
-      "che.rocketmq.v1.UpdateConsumerGroupReque" +
-      "st\032\034.apache.rocketmq.v1.Resource\"\000B$\n\022ap" +
-      "ache.rocketmq.v1B\003ACSP\001\240\001\001\330\001\001\370\001\001b\006proto3"
+      "_id\030\002 \001(\t\"\206\001\n\032UpdateConsumerGroupRequest" +
+      "\0227\n\rconsumer_data\030\001 \001(\0132 .apache.rocketm" +
+      "q.v1.ConsumerData\022/\n\013update_mask\030\002 \001(\0132\032" +
+      ".google.protobuf.FieldMask\"W\n\031ListConsum" +
+      "erGroupsRequest\022\023\n\013instance_id\030\001 \001(\t\022\021\n\t" +
+      "page_size\030\002 \001(\005\022\022\n\npage_token\030\003 \001(\t\"k\n\032L" +
+      "istConsumerGroupsResponse\0224\n\016consumer_gr" +
+      "oup\030\001 \003(\0132\034.apache.rocketmq.v1.Resource\022" +
+      "\027\n\017next_page_token\030\002 \001(\t2\325\005\n\005Admin\022i\n\016Ch" +
+      "angeLogLevel\022).apache.rocketmq.v1.Change" +
+      "LogLevelRequest\032*.apache.rocketmq.v1.Cha" +
+      "ngeLogLevelResponse\"\000\022O\n\010GetTopic\022#.apac" +
+      "he.rocketmq.v1.GetTopicRequest\032\034.apache." +
+      "rocketmq.v1.Resource\"\000\022K\n\013CreateTopic\022\034." +
+      "apache.rocketmq.v1.Resource\032\034.apache.roc" +
+      "ketmq.v1.Resource\"\000\022U\n\013UpdateTopic\022&.apa" +
+      "che.rocketmq.v1.UpdateTopicRequest\032\034.apa" +
+      "che.rocketmq.v1.Resource\"\000\022O\n\013DeleteTopi" +
+      "c\022&.apache.rocketmq.v1.DeleteTopicReques" +
+      "t\032\026.google.protobuf.Empty\"\000\022S\n\023CreateCon" +
+      "sumerGroup\022\034.apache.rocketmq.v1.Resource" +
+      "\032\034.apache.rocketmq.v1.Resource\"\000\022_\n\023Dele" +
+      "teConsumerGroup\022..apache.rocketmq.v1.Del" +
+      "eteConsumerGroupRequest\032\026.google.protobu" +
+      "f.Empty\"\000\022e\n\023UpdateConsumerGroup\022..apach" +
+      "e.rocketmq.v1.UpdateConsumerGroupRequest" +
+      "\032\034.apache.rocketmq.v1.Resource\"\000B$\n\022apac" +
+      "he.rocketmq.v1B\003ACSP\001\240\001\001\330\001\001\370\001\001b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -188,7 +188,7 @@ public final class ACS {
     internal_static_apache_rocketmq_v1_UpdateConsumerGroupRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_apache_rocketmq_v1_UpdateConsumerGroupRequest_descriptor,
-        new java.lang.String[] { "ConsumerGroup", "UpdateMask", });
+        new java.lang.String[] { "ConsumerData", "UpdateMask", });
     internal_static_apache_rocketmq_v1_ListConsumerGroupsRequest_descriptor =
       getDescriptor().getMessageTypes().get(9);
     internal_static_apache_rocketmq_v1_ListConsumerGroupsRequest_fieldAccessorTable = new

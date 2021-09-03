@@ -17,9 +17,7 @@
 
 package org.apache.rocketmq.client.impl;
 
-import apache.rocketmq.v1.ClientResourceBundle;
 import apache.rocketmq.v1.GenericPollingRequest;
-import apache.rocketmq.v1.HeartbeatEntry;
 import apache.rocketmq.v1.HeartbeatRequest;
 import apache.rocketmq.v1.HeartbeatResponse;
 import apache.rocketmq.v1.Message;
@@ -235,7 +233,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     log.info("Begin to start the rocketmq client, clientId={}", clientId);
                     this.state = ServiceState.STARTING;
                     if (null == clientManager) {
-                        clientManager = ClientManagerFactory.getInstance().registerObserver(arn, this);
+                        clientManager = ClientManagerFactory.getInstance().registerObserver(namespace, this);
                     }
 
                     if (messageTracingEnabled) {
@@ -304,7 +302,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     if (null != updateRouteCacheFuture) {
                         updateRouteCacheFuture.cancel(false);
                     }
-                    ClientManagerFactory.getInstance().unregisterObserver(arn, this);
+                    ClientManagerFactory.getInstance().unregisterObserver(namespace, this);
                     if (null != messageTracerProvider) {
                         messageTracerProvider.shutdown();
                     }
@@ -497,8 +495,8 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     }
                 } catch (Throwable t) {
                     // should never reach here.
-                    log.error("[Bug] Exception raises while update route data, clientId={}, arn={}, topic={}",
-                              clientId, arn, topic, t);
+                    log.error("[Bug] Exception raises while update route data, clientId={}, namespace={}, topic={}",
+                              clientId, namespace, topic, t);
                 } finally {
                     inflightRouteFutureLock.unlock();
                 }
@@ -511,10 +509,11 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     final Set<SettableFuture<TopicRouteData>> newFutureSet = inflightRouteFutureTable.remove(topic);
                     if (null == newFutureSet) {
                         // should never reach here.
-                        log.error("[Bug] in-flight route futures was empty, arn={}, topic={}", arn, topic);
+                        log.error("[Bug] in-flight route futures was empty, namespace={}, topic={}", namespace, topic);
                         return;
                     }
-                    log.error("Failed to fetch topic route, arn={}, topic={}, in-flight route future size={}", arn,
+                    log.error("Failed to fetch topic route, namespace={}, topic={}, in-flight route future size={}",
+                              namespace,
                               topic, newFutureSet.size(), t);
                     for (SettableFuture<TopicRouteData> newFuture : newFutureSet) {
                         final ClientException exception = new ClientException(ErrorCode.FETCH_TOPIC_ROUTE_FAILURE, t);
@@ -558,11 +557,11 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                 this.nameServerEndpointsList.add(new Endpoints(AddressScheme.DOMAIN_NAME, addresses));
 
                 // arn is set before.
-                if (StringUtils.isNotBlank(arn)) {
+                if (StringUtils.isNotBlank(namespace)) {
                     return;
                 }
                 if (Validators.NAME_SERVER_ENDPOINT_WITH_NAMESPACE_PATTERN.matcher(namesrv).matches()) {
-                    this.arn = namesrv.substring(namesrv.lastIndexOf('/') + 1, namesrv.indexOf('.'));
+                    this.namespace = namesrv.substring(namesrv.lastIndexOf('/') + 1, namesrv.indexOf('.'));
                 }
                 return;
             }
@@ -600,14 +599,14 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
     }
 
     public Resource getPbGroup() {
-        return Resource.newBuilder().setArn(arn).setName(group).build();
+        return Resource.newBuilder().setResourceNamespace(namespace).setName(group).build();
     }
 
     public ListenableFuture<TopicRouteData> fetchTopicRoute(final String topic) {
         final SettableFuture<TopicRouteData> future = SettableFuture.create();
         try {
             final Endpoints endpoints = selectNameServerEndpoints();
-            Resource topicResource = Resource.newBuilder().setArn(arn).setName(topic).build();
+            Resource topicResource = Resource.newBuilder().setResourceNamespace(namespace).setName(topic).build();
             final QueryRouteRequest request =
                     QueryRouteRequest.newBuilder().setTopic(topicResource).setEndpoints(endpoints.toPbEndpoints())
                                      .build();
@@ -648,7 +647,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         }
     }
 
-    public abstract HeartbeatEntry prepareHeartbeatData();
+    public abstract HeartbeatRequest wrapHeartbeatRequest();
 
     private void doHeartbeat(HeartbeatRequest request, final Endpoints endpoints) {
         try {
@@ -683,13 +682,6 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         }
     }
 
-    private HeartbeatRequest wrapHeartbeatRequest() {
-        final HeartbeatRequest.Builder builder = HeartbeatRequest.newBuilder();
-        final HeartbeatEntry heartbeatEntry = prepareHeartbeatData();
-        builder.addHeartbeats(heartbeatEntry);
-        return builder.build();
-    }
-
     @Override
     public void doHeartbeat() {
         final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
@@ -699,7 +691,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
         }
     }
 
-    public abstract ClientResourceBundle wrapClientResourceBundle();
+    public abstract GenericPollingRequest wrapGenericPollingRequest();
 
 
     /**
@@ -725,11 +717,6 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
      * @param request   resolve orphaned transaction request.
      */
     public void resolveOrphanedTransaction(Endpoints endpoints, ResolveOrphanedTransactionRequest request) {
-    }
-
-    private GenericPollingRequest wrapGenericPollingRequest() {
-        final ClientResourceBundle bundle = wrapClientResourceBundle();
-        return GenericPollingRequest.newBuilder().setClientResourceBundle(bundle).build();
     }
 
     private void onMultiplexingResponse(final Endpoints endpoints, final MultiplexingResponse response) {
@@ -1010,11 +997,6 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     log.error("Failed to uncompress message body, messageId={}", systemAttribute.getMessageId());
                     corrupted = true;
                 }
-                break;
-            case SNAPPY:
-                // TODO
-                mqSystemAttribute.setBodyEncoding(Encoding.SNAPPY);
-                log.warn("SNAPPY encoding algorithm is not supported.");
                 break;
             case IDENTITY:
                 mqSystemAttribute.setBodyEncoding(Encoding.IDENTITY);

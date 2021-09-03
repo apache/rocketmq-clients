@@ -32,7 +32,7 @@ public class Partition {
 
     public Partition(apache.rocketmq.v1.Partition partition) {
         final apache.rocketmq.v1.Resource resource = partition.getTopic();
-        this.topicResource = new Resource(resource.getArn(), resource.getName());
+        this.topicResource = new Resource(resource.getResourceNamespace(), resource.getName());
         this.id = partition.getId();
         final apache.rocketmq.v1.Permission perm = partition.getPermission();
         switch (perm) {

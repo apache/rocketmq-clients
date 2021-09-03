@@ -16,7 +16,7 @@ private static final long serialVersionUID = 0L;
     super(builder);
   }
   private HeartbeatRequest() {
-    heartbeats_ = java.util.Collections.emptyList();
+    clientId_ = "";
   }
 
   @java.lang.Override
@@ -39,7 +39,6 @@ private static final long serialVersionUID = 0L;
     if (extensionRegistry == null) {
       throw new java.lang.NullPointerException();
     }
-    int mutable_bitField0_ = 0;
     com.google.protobuf.UnknownFieldSet.Builder unknownFields =
         com.google.protobuf.UnknownFieldSet.newBuilder();
     try {
@@ -51,12 +50,42 @@ private static final long serialVersionUID = 0L;
             done = true;
             break;
           case 10: {
-            if (!((mutable_bitField0_ & 0x00000001) != 0)) {
-              heartbeats_ = new java.util.ArrayList<apache.rocketmq.v1.HeartbeatEntry>();
-              mutable_bitField0_ |= 0x00000001;
+            java.lang.String s = input.readStringRequireUtf8();
+
+            clientId_ = s;
+            break;
+          }
+          case 18: {
+            apache.rocketmq.v1.ProducerData.Builder subBuilder = null;
+            if (clientDataCase_ == 2) {
+              subBuilder = ((apache.rocketmq.v1.ProducerData) clientData_).toBuilder();
             }
-            heartbeats_.add(
-                input.readMessage(apache.rocketmq.v1.HeartbeatEntry.parser(), extensionRegistry));
+            clientData_ =
+                input.readMessage(apache.rocketmq.v1.ProducerData.parser(), extensionRegistry);
+            if (subBuilder != null) {
+              subBuilder.mergeFrom((apache.rocketmq.v1.ProducerData) clientData_);
+              clientData_ = subBuilder.buildPartial();
+            }
+            clientDataCase_ = 2;
+            break;
+          }
+          case 26: {
+            apache.rocketmq.v1.ConsumerData.Builder subBuilder = null;
+            if (clientDataCase_ == 3) {
+              subBuilder = ((apache.rocketmq.v1.ConsumerData) clientData_).toBuilder();
+            }
+            clientData_ =
+                input.readMessage(apache.rocketmq.v1.ConsumerData.parser(), extensionRegistry);
+            if (subBuilder != null) {
+              subBuilder.mergeFrom((apache.rocketmq.v1.ConsumerData) clientData_);
+              clientData_ = subBuilder.buildPartial();
+            }
+            clientDataCase_ = 3;
+            break;
+          }
+          case 32: {
+
+            fifoFlag_ = input.readBool();
             break;
           }
           default: {
@@ -74,9 +103,6 @@ private static final long serialVersionUID = 0L;
       throw new com.google.protobuf.InvalidProtocolBufferException(
           e).setUnfinishedMessage(this);
     } finally {
-      if (((mutable_bitField0_ & 0x00000001) != 0)) {
-        heartbeats_ = java.util.Collections.unmodifiableList(heartbeats_);
-      }
       this.unknownFields = unknownFields.build();
       makeExtensionsImmutable();
     }
@@ -94,44 +120,156 @@ private static final long serialVersionUID = 0L;
             apache.rocketmq.v1.HeartbeatRequest.class, apache.rocketmq.v1.HeartbeatRequest.Builder.class);
   }
 
-  public static final int HEARTBEATS_FIELD_NUMBER = 1;
-  private java.util.List<apache.rocketmq.v1.HeartbeatEntry> heartbeats_;
+  private int clientDataCase_ = 0;
+  private java.lang.Object clientData_;
+  public enum ClientDataCase
+      implements com.google.protobuf.Internal.EnumLite,
+          com.google.protobuf.AbstractMessage.InternalOneOfEnum {
+    PRODUCER_DATA(2),
+    CONSUMER_DATA(3),
+    CLIENTDATA_NOT_SET(0);
+    private final int value;
+    private ClientDataCase(int value) {
+      this.value = value;
+    }
+    /**
+     * @param value The number of the enum to look for.
+     * @return The enum associated with the given number.
+     * @deprecated Use {@link #forNumber(int)} instead.
+     */
+    @java.lang.Deprecated
+    public static ClientDataCase valueOf(int value) {
+      return forNumber(value);
+    }
+
+    public static ClientDataCase forNumber(int value) {
+      switch (value) {
+        case 2: return PRODUCER_DATA;
+        case 3: return CONSUMER_DATA;
+        case 0: return CLIENTDATA_NOT_SET;
+        default: return null;
+      }
+    }
+    public int getNumber() {
+      return this.value;
+    }
+  };
+
+  public ClientDataCase
+  getClientDataCase() {
+    return ClientDataCase.forNumber(
+        clientDataCase_);
+  }
+
+  public static final int CLIENT_ID_FIELD_NUMBER = 1;
+  private volatile java.lang.Object clientId_;
   /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
+   * <code>string client_id = 1;</code>
+   * @return The clientId.
    */
   @java.lang.Override
-  public java.util.List<apache.rocketmq.v1.HeartbeatEntry> getHeartbeatsList() {
-    return heartbeats_;
+  public java.lang.String getClientId() {
+    java.lang.Object ref = clientId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      clientId_ = s;
+      return s;
+    }
   }
   /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
+   * <code>string client_id = 1;</code>
+   * @return The bytes for clientId.
    */
   @java.lang.Override
-  public java.util.List<? extends apache.rocketmq.v1.HeartbeatEntryOrBuilder> 
-      getHeartbeatsOrBuilderList() {
-    return heartbeats_;
+  public com.google.protobuf.ByteString
+      getClientIdBytes() {
+    java.lang.Object ref = clientId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      clientId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int PRODUCER_DATA_FIELD_NUMBER = 2;
+  /**
+   * <code>.apache.rocketmq.v1.ProducerData producer_data = 2;</code>
+   * @return Whether the producerData field is set.
+   */
+  @java.lang.Override
+  public boolean hasProducerData() {
+    return clientDataCase_ == 2;
   }
   /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
+   * <code>.apache.rocketmq.v1.ProducerData producer_data = 2;</code>
+   * @return The producerData.
    */
   @java.lang.Override
-  public int getHeartbeatsCount() {
-    return heartbeats_.size();
+  public apache.rocketmq.v1.ProducerData getProducerData() {
+    if (clientDataCase_ == 2) {
+       return (apache.rocketmq.v1.ProducerData) clientData_;
+    }
+    return apache.rocketmq.v1.ProducerData.getDefaultInstance();
   }
   /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
+   * <code>.apache.rocketmq.v1.ProducerData producer_data = 2;</code>
    */
   @java.lang.Override
-  public apache.rocketmq.v1.HeartbeatEntry getHeartbeats(int index) {
-    return heartbeats_.get(index);
+  public apache.rocketmq.v1.ProducerDataOrBuilder getProducerDataOrBuilder() {
+    if (clientDataCase_ == 2) {
+       return (apache.rocketmq.v1.ProducerData) clientData_;
+    }
+    return apache.rocketmq.v1.ProducerData.getDefaultInstance();
+  }
+
+  public static final int CONSUMER_DATA_FIELD_NUMBER = 3;
+  /**
+   * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 3;</code>
+   * @return Whether the consumerData field is set.
+   */
+  @java.lang.Override
+  public boolean hasConsumerData() {
+    return clientDataCase_ == 3;
   }
   /**
-   * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
+   * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 3;</code>
+   * @return The consumerData.
    */
   @java.lang.Override
-  public apache.rocketmq.v1.HeartbeatEntryOrBuilder getHeartbeatsOrBuilder(
-      int index) {
-    return heartbeats_.get(index);
+  public apache.rocketmq.v1.ConsumerData getConsumerData() {
+    if (clientDataCase_ == 3) {
+       return (apache.rocketmq.v1.ConsumerData) clientData_;
+    }
+    return apache.rocketmq.v1.ConsumerData.getDefaultInstance();
+  }
+  /**
+   * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 3;</code>
+   */
+  @java.lang.Override
+  public apache.rocketmq.v1.ConsumerDataOrBuilder getConsumerDataOrBuilder() {
+    if (clientDataCase_ == 3) {
+       return (apache.rocketmq.v1.ConsumerData) clientData_;
+    }
+    return apache.rocketmq.v1.ConsumerData.getDefaultInstance();
+  }
+
+  public static final int FIFO_FLAG_FIELD_NUMBER = 4;
+  private boolean fifoFlag_;
+  /**
+   * <code>bool fifo_flag = 4;</code>
+   * @return The fifoFlag.
+   */
+  @java.lang.Override
+  public boolean getFifoFlag() {
+    return fifoFlag_;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -148,8 +286,17 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    for (int i = 0; i < heartbeats_.size(); i++) {
-      output.writeMessage(1, heartbeats_.get(i));
+    if (!getClientIdBytes().isEmpty()) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 1, clientId_);
+    }
+    if (clientDataCase_ == 2) {
+      output.writeMessage(2, (apache.rocketmq.v1.ProducerData) clientData_);
+    }
+    if (clientDataCase_ == 3) {
+      output.writeMessage(3, (apache.rocketmq.v1.ConsumerData) clientData_);
+    }
+    if (fifoFlag_ != false) {
+      output.writeBool(4, fifoFlag_);
     }
     unknownFields.writeTo(output);
   }
@@ -160,9 +307,20 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    for (int i = 0; i < heartbeats_.size(); i++) {
+    if (!getClientIdBytes().isEmpty()) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, clientId_);
+    }
+    if (clientDataCase_ == 2) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(1, heartbeats_.get(i));
+        .computeMessageSize(2, (apache.rocketmq.v1.ProducerData) clientData_);
+    }
+    if (clientDataCase_ == 3) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(3, (apache.rocketmq.v1.ConsumerData) clientData_);
+    }
+    if (fifoFlag_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(4, fifoFlag_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -179,8 +337,23 @@ private static final long serialVersionUID = 0L;
     }
     apache.rocketmq.v1.HeartbeatRequest other = (apache.rocketmq.v1.HeartbeatRequest) obj;
 
-    if (!getHeartbeatsList()
-        .equals(other.getHeartbeatsList())) return false;
+    if (!getClientId()
+        .equals(other.getClientId())) return false;
+    if (getFifoFlag()
+        != other.getFifoFlag()) return false;
+    if (!getClientDataCase().equals(other.getClientDataCase())) return false;
+    switch (clientDataCase_) {
+      case 2:
+        if (!getProducerData()
+            .equals(other.getProducerData())) return false;
+        break;
+      case 3:
+        if (!getConsumerData()
+            .equals(other.getConsumerData())) return false;
+        break;
+      case 0:
+      default:
+    }
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -192,9 +365,22 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    if (getHeartbeatsCount() > 0) {
-      hash = (37 * hash) + HEARTBEATS_FIELD_NUMBER;
-      hash = (53 * hash) + getHeartbeatsList().hashCode();
+    hash = (37 * hash) + CLIENT_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getClientId().hashCode();
+    hash = (37 * hash) + FIFO_FLAG_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getFifoFlag());
+    switch (clientDataCase_) {
+      case 2:
+        hash = (37 * hash) + PRODUCER_DATA_FIELD_NUMBER;
+        hash = (53 * hash) + getProducerData().hashCode();
+        break;
+      case 3:
+        hash = (37 * hash) + CONSUMER_DATA_FIELD_NUMBER;
+        hash = (53 * hash) + getConsumerData().hashCode();
+        break;
+      case 0:
+      default:
     }
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
@@ -324,18 +510,17 @@ private static final long serialVersionUID = 0L;
     private void maybeForceBuilderInitialization() {
       if (com.google.protobuf.GeneratedMessageV3
               .alwaysUseFieldBuilders) {
-        getHeartbeatsFieldBuilder();
       }
     }
     @java.lang.Override
     public Builder clear() {
       super.clear();
-      if (heartbeatsBuilder_ == null) {
-        heartbeats_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000001);
-      } else {
-        heartbeatsBuilder_.clear();
-      }
+      clientId_ = "";
+
+      fifoFlag_ = false;
+
+      clientDataCase_ = 0;
+      clientData_ = null;
       return this;
     }
 
@@ -362,16 +547,23 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public apache.rocketmq.v1.HeartbeatRequest buildPartial() {
       apache.rocketmq.v1.HeartbeatRequest result = new apache.rocketmq.v1.HeartbeatRequest(this);
-      int from_bitField0_ = bitField0_;
-      if (heartbeatsBuilder_ == null) {
-        if (((bitField0_ & 0x00000001) != 0)) {
-          heartbeats_ = java.util.Collections.unmodifiableList(heartbeats_);
-          bitField0_ = (bitField0_ & ~0x00000001);
+      result.clientId_ = clientId_;
+      if (clientDataCase_ == 2) {
+        if (producerDataBuilder_ == null) {
+          result.clientData_ = clientData_;
+        } else {
+          result.clientData_ = producerDataBuilder_.build();
         }
-        result.heartbeats_ = heartbeats_;
-      } else {
-        result.heartbeats_ = heartbeatsBuilder_.build();
       }
+      if (clientDataCase_ == 3) {
+        if (consumerDataBuilder_ == null) {
+          result.clientData_ = clientData_;
+        } else {
+          result.clientData_ = consumerDataBuilder_.build();
+        }
+      }
+      result.fifoFlag_ = fifoFlag_;
+      result.clientDataCase_ = clientDataCase_;
       onBuilt();
       return result;
     }
@@ -420,30 +612,24 @@ private static final long serialVersionUID = 0L;
 
     public Builder mergeFrom(apache.rocketmq.v1.HeartbeatRequest other) {
       if (other == apache.rocketmq.v1.HeartbeatRequest.getDefaultInstance()) return this;
-      if (heartbeatsBuilder_ == null) {
-        if (!other.heartbeats_.isEmpty()) {
-          if (heartbeats_.isEmpty()) {
-            heartbeats_ = other.heartbeats_;
-            bitField0_ = (bitField0_ & ~0x00000001);
-          } else {
-            ensureHeartbeatsIsMutable();
-            heartbeats_.addAll(other.heartbeats_);
-          }
-          onChanged();
+      if (!other.getClientId().isEmpty()) {
+        clientId_ = other.clientId_;
+        onChanged();
+      }
+      if (other.getFifoFlag() != false) {
+        setFifoFlag(other.getFifoFlag());
+      }
+      switch (other.getClientDataCase()) {
+        case PRODUCER_DATA: {
+          mergeProducerData(other.getProducerData());
+          break;
         }
-      } else {
-        if (!other.heartbeats_.isEmpty()) {
-          if (heartbeatsBuilder_.isEmpty()) {
-            heartbeatsBuilder_.dispose();
-            heartbeatsBuilder_ = null;
-            heartbeats_ = other.heartbeats_;
-            bitField0_ = (bitField0_ & ~0x00000001);
-            heartbeatsBuilder_ = 
-              com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
-                 getHeartbeatsFieldBuilder() : null;
-          } else {
-            heartbeatsBuilder_.addAllMessages(other.heartbeats_);
-          }
+        case CONSUMER_DATA: {
+          mergeConsumerData(other.getConsumerData());
+          break;
+        }
+        case CLIENTDATA_NOT_SET: {
+          break;
         }
       }
       this.mergeUnknownFields(other.unknownFields);
@@ -474,246 +660,409 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
-    private int bitField0_;
-
-    private java.util.List<apache.rocketmq.v1.HeartbeatEntry> heartbeats_ =
-      java.util.Collections.emptyList();
-    private void ensureHeartbeatsIsMutable() {
-      if (!((bitField0_ & 0x00000001) != 0)) {
-        heartbeats_ = new java.util.ArrayList<apache.rocketmq.v1.HeartbeatEntry>(heartbeats_);
-        bitField0_ |= 0x00000001;
-       }
+    private int clientDataCase_ = 0;
+    private java.lang.Object clientData_;
+    public ClientDataCase
+        getClientDataCase() {
+      return ClientDataCase.forNumber(
+          clientDataCase_);
     }
 
-    private com.google.protobuf.RepeatedFieldBuilderV3<
-        apache.rocketmq.v1.HeartbeatEntry, apache.rocketmq.v1.HeartbeatEntry.Builder, apache.rocketmq.v1.HeartbeatEntryOrBuilder> heartbeatsBuilder_;
+    public Builder clearClientData() {
+      clientDataCase_ = 0;
+      clientData_ = null;
+      onChanged();
+      return this;
+    }
 
+
+    private java.lang.Object clientId_ = "";
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
+     * <code>string client_id = 1;</code>
+     * @return The clientId.
      */
-    public java.util.List<apache.rocketmq.v1.HeartbeatEntry> getHeartbeatsList() {
-      if (heartbeatsBuilder_ == null) {
-        return java.util.Collections.unmodifiableList(heartbeats_);
+    public java.lang.String getClientId() {
+      java.lang.Object ref = clientId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        clientId_ = s;
+        return s;
       } else {
-        return heartbeatsBuilder_.getMessageList();
+        return (java.lang.String) ref;
       }
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
+     * <code>string client_id = 1;</code>
+     * @return The bytes for clientId.
      */
-    public int getHeartbeatsCount() {
-      if (heartbeatsBuilder_ == null) {
-        return heartbeats_.size();
+    public com.google.protobuf.ByteString
+        getClientIdBytes() {
+      java.lang.Object ref = clientId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        clientId_ = b;
+        return b;
       } else {
-        return heartbeatsBuilder_.getCount();
+        return (com.google.protobuf.ByteString) ref;
       }
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
+     * <code>string client_id = 1;</code>
+     * @param value The clientId to set.
+     * @return This builder for chaining.
      */
-    public apache.rocketmq.v1.HeartbeatEntry getHeartbeats(int index) {
-      if (heartbeatsBuilder_ == null) {
-        return heartbeats_.get(index);
+    public Builder setClientId(
+        java.lang.String value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  
+      clientId_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string client_id = 1;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearClientId() {
+      
+      clientId_ = getDefaultInstance().getClientId();
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string client_id = 1;</code>
+     * @param value The bytes for clientId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setClientIdBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  checkByteStringIsUtf8(value);
+      
+      clientId_ = value;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.SingleFieldBuilderV3<
+        apache.rocketmq.v1.ProducerData, apache.rocketmq.v1.ProducerData.Builder, apache.rocketmq.v1.ProducerDataOrBuilder> producerDataBuilder_;
+    /**
+     * <code>.apache.rocketmq.v1.ProducerData producer_data = 2;</code>
+     * @return Whether the producerData field is set.
+     */
+    @java.lang.Override
+    public boolean hasProducerData() {
+      return clientDataCase_ == 2;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.ProducerData producer_data = 2;</code>
+     * @return The producerData.
+     */
+    @java.lang.Override
+    public apache.rocketmq.v1.ProducerData getProducerData() {
+      if (producerDataBuilder_ == null) {
+        if (clientDataCase_ == 2) {
+          return (apache.rocketmq.v1.ProducerData) clientData_;
+        }
+        return apache.rocketmq.v1.ProducerData.getDefaultInstance();
       } else {
-        return heartbeatsBuilder_.getMessage(index);
+        if (clientDataCase_ == 2) {
+          return producerDataBuilder_.getMessage();
+        }
+        return apache.rocketmq.v1.ProducerData.getDefaultInstance();
       }
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
+     * <code>.apache.rocketmq.v1.ProducerData producer_data = 2;</code>
      */
-    public Builder setHeartbeats(
-        int index, apache.rocketmq.v1.HeartbeatEntry value) {
-      if (heartbeatsBuilder_ == null) {
+    public Builder setProducerData(apache.rocketmq.v1.ProducerData value) {
+      if (producerDataBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
         }
-        ensureHeartbeatsIsMutable();
-        heartbeats_.set(index, value);
+        clientData_ = value;
         onChanged();
       } else {
-        heartbeatsBuilder_.setMessage(index, value);
+        producerDataBuilder_.setMessage(value);
       }
+      clientDataCase_ = 2;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
+     * <code>.apache.rocketmq.v1.ProducerData producer_data = 2;</code>
      */
-    public Builder setHeartbeats(
-        int index, apache.rocketmq.v1.HeartbeatEntry.Builder builderForValue) {
-      if (heartbeatsBuilder_ == null) {
-        ensureHeartbeatsIsMutable();
-        heartbeats_.set(index, builderForValue.build());
+    public Builder setProducerData(
+        apache.rocketmq.v1.ProducerData.Builder builderForValue) {
+      if (producerDataBuilder_ == null) {
+        clientData_ = builderForValue.build();
         onChanged();
       } else {
-        heartbeatsBuilder_.setMessage(index, builderForValue.build());
+        producerDataBuilder_.setMessage(builderForValue.build());
       }
+      clientDataCase_ = 2;
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
+     * <code>.apache.rocketmq.v1.ProducerData producer_data = 2;</code>
      */
-    public Builder addHeartbeats(apache.rocketmq.v1.HeartbeatEntry value) {
-      if (heartbeatsBuilder_ == null) {
-        if (value == null) {
-          throw new NullPointerException();
+    public Builder mergeProducerData(apache.rocketmq.v1.ProducerData value) {
+      if (producerDataBuilder_ == null) {
+        if (clientDataCase_ == 2 &&
+            clientData_ != apache.rocketmq.v1.ProducerData.getDefaultInstance()) {
+          clientData_ = apache.rocketmq.v1.ProducerData.newBuilder((apache.rocketmq.v1.ProducerData) clientData_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          clientData_ = value;
         }
-        ensureHeartbeatsIsMutable();
-        heartbeats_.add(value);
         onChanged();
       } else {
-        heartbeatsBuilder_.addMessage(value);
-      }
-      return this;
-    }
-    /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
-     */
-    public Builder addHeartbeats(
-        int index, apache.rocketmq.v1.HeartbeatEntry value) {
-      if (heartbeatsBuilder_ == null) {
-        if (value == null) {
-          throw new NullPointerException();
+        if (clientDataCase_ == 2) {
+          producerDataBuilder_.mergeFrom(value);
         }
-        ensureHeartbeatsIsMutable();
-        heartbeats_.add(index, value);
-        onChanged();
+        producerDataBuilder_.setMessage(value);
+      }
+      clientDataCase_ = 2;
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.ProducerData producer_data = 2;</code>
+     */
+    public Builder clearProducerData() {
+      if (producerDataBuilder_ == null) {
+        if (clientDataCase_ == 2) {
+          clientDataCase_ = 0;
+          clientData_ = null;
+          onChanged();
+        }
       } else {
-        heartbeatsBuilder_.addMessage(index, value);
+        if (clientDataCase_ == 2) {
+          clientDataCase_ = 0;
+          clientData_ = null;
+        }
+        producerDataBuilder_.clear();
       }
       return this;
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
+     * <code>.apache.rocketmq.v1.ProducerData producer_data = 2;</code>
      */
-    public Builder addHeartbeats(
-        apache.rocketmq.v1.HeartbeatEntry.Builder builderForValue) {
-      if (heartbeatsBuilder_ == null) {
-        ensureHeartbeatsIsMutable();
-        heartbeats_.add(builderForValue.build());
-        onChanged();
+    public apache.rocketmq.v1.ProducerData.Builder getProducerDataBuilder() {
+      return getProducerDataFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.apache.rocketmq.v1.ProducerData producer_data = 2;</code>
+     */
+    @java.lang.Override
+    public apache.rocketmq.v1.ProducerDataOrBuilder getProducerDataOrBuilder() {
+      if ((clientDataCase_ == 2) && (producerDataBuilder_ != null)) {
+        return producerDataBuilder_.getMessageOrBuilder();
       } else {
-        heartbeatsBuilder_.addMessage(builderForValue.build());
-      }
-      return this;
-    }
-    /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
-     */
-    public Builder addHeartbeats(
-        int index, apache.rocketmq.v1.HeartbeatEntry.Builder builderForValue) {
-      if (heartbeatsBuilder_ == null) {
-        ensureHeartbeatsIsMutable();
-        heartbeats_.add(index, builderForValue.build());
-        onChanged();
-      } else {
-        heartbeatsBuilder_.addMessage(index, builderForValue.build());
-      }
-      return this;
-    }
-    /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
-     */
-    public Builder addAllHeartbeats(
-        java.lang.Iterable<? extends apache.rocketmq.v1.HeartbeatEntry> values) {
-      if (heartbeatsBuilder_ == null) {
-        ensureHeartbeatsIsMutable();
-        com.google.protobuf.AbstractMessageLite.Builder.addAll(
-            values, heartbeats_);
-        onChanged();
-      } else {
-        heartbeatsBuilder_.addAllMessages(values);
-      }
-      return this;
-    }
-    /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
-     */
-    public Builder clearHeartbeats() {
-      if (heartbeatsBuilder_ == null) {
-        heartbeats_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000001);
-        onChanged();
-      } else {
-        heartbeatsBuilder_.clear();
-      }
-      return this;
-    }
-    /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
-     */
-    public Builder removeHeartbeats(int index) {
-      if (heartbeatsBuilder_ == null) {
-        ensureHeartbeatsIsMutable();
-        heartbeats_.remove(index);
-        onChanged();
-      } else {
-        heartbeatsBuilder_.remove(index);
-      }
-      return this;
-    }
-    /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
-     */
-    public apache.rocketmq.v1.HeartbeatEntry.Builder getHeartbeatsBuilder(
-        int index) {
-      return getHeartbeatsFieldBuilder().getBuilder(index);
-    }
-    /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
-     */
-    public apache.rocketmq.v1.HeartbeatEntryOrBuilder getHeartbeatsOrBuilder(
-        int index) {
-      if (heartbeatsBuilder_ == null) {
-        return heartbeats_.get(index);  } else {
-        return heartbeatsBuilder_.getMessageOrBuilder(index);
+        if (clientDataCase_ == 2) {
+          return (apache.rocketmq.v1.ProducerData) clientData_;
+        }
+        return apache.rocketmq.v1.ProducerData.getDefaultInstance();
       }
     }
     /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
+     * <code>.apache.rocketmq.v1.ProducerData producer_data = 2;</code>
      */
-    public java.util.List<? extends apache.rocketmq.v1.HeartbeatEntryOrBuilder> 
-         getHeartbeatsOrBuilderList() {
-      if (heartbeatsBuilder_ != null) {
-        return heartbeatsBuilder_.getMessageOrBuilderList();
-      } else {
-        return java.util.Collections.unmodifiableList(heartbeats_);
-      }
-    }
-    /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
-     */
-    public apache.rocketmq.v1.HeartbeatEntry.Builder addHeartbeatsBuilder() {
-      return getHeartbeatsFieldBuilder().addBuilder(
-          apache.rocketmq.v1.HeartbeatEntry.getDefaultInstance());
-    }
-    /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
-     */
-    public apache.rocketmq.v1.HeartbeatEntry.Builder addHeartbeatsBuilder(
-        int index) {
-      return getHeartbeatsFieldBuilder().addBuilder(
-          index, apache.rocketmq.v1.HeartbeatEntry.getDefaultInstance());
-    }
-    /**
-     * <code>repeated .apache.rocketmq.v1.HeartbeatEntry heartbeats = 1;</code>
-     */
-    public java.util.List<apache.rocketmq.v1.HeartbeatEntry.Builder> 
-         getHeartbeatsBuilderList() {
-      return getHeartbeatsFieldBuilder().getBuilderList();
-    }
-    private com.google.protobuf.RepeatedFieldBuilderV3<
-        apache.rocketmq.v1.HeartbeatEntry, apache.rocketmq.v1.HeartbeatEntry.Builder, apache.rocketmq.v1.HeartbeatEntryOrBuilder> 
-        getHeartbeatsFieldBuilder() {
-      if (heartbeatsBuilder_ == null) {
-        heartbeatsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
-            apache.rocketmq.v1.HeartbeatEntry, apache.rocketmq.v1.HeartbeatEntry.Builder, apache.rocketmq.v1.HeartbeatEntryOrBuilder>(
-                heartbeats_,
-                ((bitField0_ & 0x00000001) != 0),
+    private com.google.protobuf.SingleFieldBuilderV3<
+        apache.rocketmq.v1.ProducerData, apache.rocketmq.v1.ProducerData.Builder, apache.rocketmq.v1.ProducerDataOrBuilder> 
+        getProducerDataFieldBuilder() {
+      if (producerDataBuilder_ == null) {
+        if (!(clientDataCase_ == 2)) {
+          clientData_ = apache.rocketmq.v1.ProducerData.getDefaultInstance();
+        }
+        producerDataBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+            apache.rocketmq.v1.ProducerData, apache.rocketmq.v1.ProducerData.Builder, apache.rocketmq.v1.ProducerDataOrBuilder>(
+                (apache.rocketmq.v1.ProducerData) clientData_,
                 getParentForChildren(),
                 isClean());
-        heartbeats_ = null;
+        clientData_ = null;
       }
-      return heartbeatsBuilder_;
+      clientDataCase_ = 2;
+      onChanged();;
+      return producerDataBuilder_;
+    }
+
+    private com.google.protobuf.SingleFieldBuilderV3<
+        apache.rocketmq.v1.ConsumerData, apache.rocketmq.v1.ConsumerData.Builder, apache.rocketmq.v1.ConsumerDataOrBuilder> consumerDataBuilder_;
+    /**
+     * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 3;</code>
+     * @return Whether the consumerData field is set.
+     */
+    @java.lang.Override
+    public boolean hasConsumerData() {
+      return clientDataCase_ == 3;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 3;</code>
+     * @return The consumerData.
+     */
+    @java.lang.Override
+    public apache.rocketmq.v1.ConsumerData getConsumerData() {
+      if (consumerDataBuilder_ == null) {
+        if (clientDataCase_ == 3) {
+          return (apache.rocketmq.v1.ConsumerData) clientData_;
+        }
+        return apache.rocketmq.v1.ConsumerData.getDefaultInstance();
+      } else {
+        if (clientDataCase_ == 3) {
+          return consumerDataBuilder_.getMessage();
+        }
+        return apache.rocketmq.v1.ConsumerData.getDefaultInstance();
+      }
+    }
+    /**
+     * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 3;</code>
+     */
+    public Builder setConsumerData(apache.rocketmq.v1.ConsumerData value) {
+      if (consumerDataBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        clientData_ = value;
+        onChanged();
+      } else {
+        consumerDataBuilder_.setMessage(value);
+      }
+      clientDataCase_ = 3;
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 3;</code>
+     */
+    public Builder setConsumerData(
+        apache.rocketmq.v1.ConsumerData.Builder builderForValue) {
+      if (consumerDataBuilder_ == null) {
+        clientData_ = builderForValue.build();
+        onChanged();
+      } else {
+        consumerDataBuilder_.setMessage(builderForValue.build());
+      }
+      clientDataCase_ = 3;
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 3;</code>
+     */
+    public Builder mergeConsumerData(apache.rocketmq.v1.ConsumerData value) {
+      if (consumerDataBuilder_ == null) {
+        if (clientDataCase_ == 3 &&
+            clientData_ != apache.rocketmq.v1.ConsumerData.getDefaultInstance()) {
+          clientData_ = apache.rocketmq.v1.ConsumerData.newBuilder((apache.rocketmq.v1.ConsumerData) clientData_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          clientData_ = value;
+        }
+        onChanged();
+      } else {
+        if (clientDataCase_ == 3) {
+          consumerDataBuilder_.mergeFrom(value);
+        }
+        consumerDataBuilder_.setMessage(value);
+      }
+      clientDataCase_ = 3;
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 3;</code>
+     */
+    public Builder clearConsumerData() {
+      if (consumerDataBuilder_ == null) {
+        if (clientDataCase_ == 3) {
+          clientDataCase_ = 0;
+          clientData_ = null;
+          onChanged();
+        }
+      } else {
+        if (clientDataCase_ == 3) {
+          clientDataCase_ = 0;
+          clientData_ = null;
+        }
+        consumerDataBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 3;</code>
+     */
+    public apache.rocketmq.v1.ConsumerData.Builder getConsumerDataBuilder() {
+      return getConsumerDataFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 3;</code>
+     */
+    @java.lang.Override
+    public apache.rocketmq.v1.ConsumerDataOrBuilder getConsumerDataOrBuilder() {
+      if ((clientDataCase_ == 3) && (consumerDataBuilder_ != null)) {
+        return consumerDataBuilder_.getMessageOrBuilder();
+      } else {
+        if (clientDataCase_ == 3) {
+          return (apache.rocketmq.v1.ConsumerData) clientData_;
+        }
+        return apache.rocketmq.v1.ConsumerData.getDefaultInstance();
+      }
+    }
+    /**
+     * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 3;</code>
+     */
+    private com.google.protobuf.SingleFieldBuilderV3<
+        apache.rocketmq.v1.ConsumerData, apache.rocketmq.v1.ConsumerData.Builder, apache.rocketmq.v1.ConsumerDataOrBuilder> 
+        getConsumerDataFieldBuilder() {
+      if (consumerDataBuilder_ == null) {
+        if (!(clientDataCase_ == 3)) {
+          clientData_ = apache.rocketmq.v1.ConsumerData.getDefaultInstance();
+        }
+        consumerDataBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+            apache.rocketmq.v1.ConsumerData, apache.rocketmq.v1.ConsumerData.Builder, apache.rocketmq.v1.ConsumerDataOrBuilder>(
+                (apache.rocketmq.v1.ConsumerData) clientData_,
+                getParentForChildren(),
+                isClean());
+        clientData_ = null;
+      }
+      clientDataCase_ = 3;
+      onChanged();;
+      return consumerDataBuilder_;
+    }
+
+    private boolean fifoFlag_ ;
+    /**
+     * <code>bool fifo_flag = 4;</code>
+     * @return The fifoFlag.
+     */
+    @java.lang.Override
+    public boolean getFifoFlag() {
+      return fifoFlag_;
+    }
+    /**
+     * <code>bool fifo_flag = 4;</code>
+     * @param value The fifoFlag to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFifoFlag(boolean value) {
+      
+      fifoFlag_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool fifo_flag = 4;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFifoFlag() {
+      
+      fifoFlag_ = false;
+      onChanged();
+      return this;
     }
     @java.lang.Override
     public final Builder setUnknownFields(

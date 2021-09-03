@@ -3,8 +3,8 @@
 
 package apache.rocketmq.v1;
 
-public interface ProducerGroupOrBuilder extends
-    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.ProducerGroup)
+public interface ProducerDataOrBuilder extends
+    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.ProducerData)
     com.google.protobuf.MessageOrBuilder {
 
   /**

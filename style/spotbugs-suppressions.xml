@@ -5,7 +5,6 @@
         <Bug pattern="SF_SWITCH_FALLTHROUGH,SIC_INNER_SHOULD_BE_STATIC_ANON,URF_UNREAD_FIELD,UUF_UNUSED_FIELD,SS_SHOULD_BE_STATIC,UW_UNCOND_WAIT"/>
     </Match>
 
-    <!--    TODO: remove match here. -->
     <Match>
         <Package name="~org\.apache\.rocketmq\.client.*"/>
         <Bug pattern="NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE"/>

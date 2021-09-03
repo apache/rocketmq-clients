@@ -8,19 +8,19 @@ public interface UpdateConsumerGroupRequestOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>.apache.rocketmq.v1.ConsumerGroup consumer_group = 1;</code>
-   * @return Whether the consumerGroup field is set.
+   * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 1;</code>
+   * @return Whether the consumerData field is set.
    */
-  boolean hasConsumerGroup();
+  boolean hasConsumerData();
   /**
-   * <code>.apache.rocketmq.v1.ConsumerGroup consumer_group = 1;</code>
-   * @return The consumerGroup.
+   * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 1;</code>
+   * @return The consumerData.
    */
-  apache.rocketmq.v1.ConsumerGroup getConsumerGroup();
+  apache.rocketmq.v1.ConsumerData getConsumerData();
   /**
-   * <code>.apache.rocketmq.v1.ConsumerGroup consumer_group = 1;</code>
+   * <code>.apache.rocketmq.v1.ConsumerData consumer_data = 1;</code>
    */
-  apache.rocketmq.v1.ConsumerGroupOrBuilder getConsumerGroupOrBuilder();
+  apache.rocketmq.v1.ConsumerDataOrBuilder getConsumerDataOrBuilder();
 
   /**
    * <code>.google.protobuf.FieldMask update_mask = 2;</code>
