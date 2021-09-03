@@ -111,7 +111,7 @@ public class ProcessQueueImplTest extends TestBase {
         when(consumerImpl.getScheduler()).thenReturn(SCHEDULER);
         when(consumerImpl.sign()).thenReturn(metadata);
         when(consumerImpl.getConsumptionExecutor()).thenReturn(SINGLE_THREAD_POOL_EXECUTOR);
-        when(consumerImpl.getClientId()).thenReturn(FAKE_CLIENT_ID_0);
+        when(consumerImpl.id()).thenReturn(FAKE_CLIENT_ID_0);
 
         processQueueImpl = new ProcessQueueImpl(consumerImpl, fakeMessageQueue(), filterExpression);
     }

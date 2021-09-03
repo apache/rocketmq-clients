@@ -265,7 +265,7 @@ public class PushConsumerImplTest extends TestBase {
     public void testPrepareHeartbeatData() {
         consumerImpl.subscribe(FAKE_TOPIC_0, "*", ExpressionType.TAG);
         HeartbeatRequest heartbeatRequest = consumerImpl.wrapHeartbeatRequest();
-        assertEquals(heartbeatRequest.getClientId(), consumerImpl.getClientId());
+        assertEquals(heartbeatRequest.getClientId(), consumerImpl.id());
         final ConsumerData consumerData = heartbeatRequest.getConsumerData();
         final Resource group = consumerData.getGroup();
         assertEquals(group.getName(), consumerImpl.getGroup());

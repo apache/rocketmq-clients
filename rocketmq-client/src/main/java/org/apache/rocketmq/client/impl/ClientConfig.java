@@ -115,7 +115,7 @@ public class ClientConfig {
         return this.ioTimeoutMillis;
     }
 
-    public String getClientId() {
+    public String id() {
         return this.clientId;
     }
 

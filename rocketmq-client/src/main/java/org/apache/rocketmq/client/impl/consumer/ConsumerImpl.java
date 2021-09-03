@@ -50,6 +50,9 @@ import org.apache.rocketmq.client.route.Endpoints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Base class of {@link PushConsumerImpl} and PullConsumerImpl which is WIP.
+ */
 public abstract class ConsumerImpl extends ClientImpl {
     private static final Logger log = LoggerFactory.getLogger(ConsumerImpl.class);
 

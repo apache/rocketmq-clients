@@ -92,9 +92,9 @@ public class ClientManagerImpl implements ClientManager {
     private final ReadWriteLock rpcClientTableLock;
 
     /**
-     * Contains all client observer, and key is {@link ClientConfig#clientId}.
+     * Contains all client, key is {@link ClientConfig#clientId}.
      */
-    private final ConcurrentMap<String, ClientObserver> observerTable;
+    private final ConcurrentMap<String, Client> clientTable;
 
     /**
      * In charge of all scheduled task.
@@ -117,7 +117,7 @@ public class ClientManagerImpl implements ClientManager {
         this.rpcClientTable = new HashMap<Endpoints, RpcClient>();
         this.rpcClientTableLock = new ReentrantReadWriteLock();
 
-        this.observerTable = new ConcurrentHashMap<String, ClientObserver>();
+        this.clientTable = new ConcurrentHashMap<String, Client>();
 
         this.scheduler = new ScheduledThreadPoolExecutor(
                 Runtime.getRuntime().availableProcessors(),
@@ -142,24 +142,24 @@ public class ClientManagerImpl implements ClientManager {
     }
 
     @Override
-    public void registerObserver(ClientObserver observer) {
-        observerTable.put(observer.getClientId(), observer);
+    public void registerClient(Client client) {
+        clientTable.put(client.id(), client);
     }
 
     @Override
-    public void unregisterObserver(ClientObserver observer) {
-        observerTable.remove(observer.getClientId());
+    public void unregisterClient(Client client) {
+        clientTable.remove(client.id());
     }
 
     @Override
     public boolean isEmpty() {
-        return observerTable.isEmpty();
+        return clientTable.isEmpty();
     }
 
     private void doHealthCheck() {
         log.info("Start to do health check for a new round.");
-        for (ClientObserver observer : observerTable.values()) {
-            observer.doHealthCheck();
+        for (Client client : clientTable.values()) {
+            client.doHealthCheck();
         }
     }
 
@@ -194,16 +194,16 @@ public class ClientManagerImpl implements ClientManager {
 
     private void doHeartbeat() {
         log.info("Start to send heartbeat for a new round, clientManagerId={}", id);
-        for (ClientObserver observer : observerTable.values()) {
-            observer.doHeartbeat();
+        for (Client client : clientTable.values()) {
+            client.doHeartbeat();
         }
     }
 
     private void doLogStats() {
         log.info("Start to log stats for a new round, clientVersion={}, clientWrapperVersion={}, clientManagerId={}",
                  MetadataUtils.getVersion(), MetadataUtils.getWrapperVersion(), id);
-        for (ClientObserver observer : observerTable.values()) {
-            observer.doStats();
+        for (Client client : clientTable.values()) {
+            client.doStats();
         }
     }
 

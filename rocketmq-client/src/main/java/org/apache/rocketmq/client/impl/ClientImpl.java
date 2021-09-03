@@ -106,7 +106,7 @@ import org.apache.rocketmq.utility.UtilAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public abstract class ClientImpl extends ClientConfig implements ClientObserver, MessageInterceptor {
+public abstract class ClientImpl extends ClientConfig implements Client, MessageInterceptor {
     private static final Logger log = LoggerFactory.getLogger(ClientImpl.class);
 
     /**
@@ -234,7 +234,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     log.info("Begin to start the rocketmq client, clientId={}", clientId);
                     this.state = ServiceState.STARTING;
                     if (null == clientManager) {
-                        clientManager = ClientManagerFactory.getInstance().registerObserver(namespace, this);
+                        clientManager = ClientManagerFactory.getInstance().registerClient(namespace, this);
                     }
 
                     if (messageTracingEnabled) {
@@ -303,7 +303,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
                     if (null != updateRouteCacheFuture) {
                         updateRouteCacheFuture.cancel(false);
                     }
-                    ClientManagerFactory.getInstance().unregisterObserver(namespace, this);
+                    ClientManagerFactory.getInstance().unregisterClient(namespace, this);
                     if (null != messageTracerProvider) {
                         messageTracerProvider.shutdown();
                     }

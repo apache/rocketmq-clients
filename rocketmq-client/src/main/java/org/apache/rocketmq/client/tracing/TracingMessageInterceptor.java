@@ -86,7 +86,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
             span.setAttribute(TracingAttribute.KEYS, message.getKeys());
             span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
             span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
-            span.setAttribute(TracingAttribute.CLIENT_ID, client.getClientId());
+            span.setAttribute(TracingAttribute.CLIENT_ID, client.id());
             final long deliveryTimestamp = message.getDeliveryTimestamp();
             if (deliveryTimestamp > 0) {
                 span.setAttribute(TracingAttribute.DELIVERY_TIMESTAMP, deliveryTimestamp);
@@ -136,7 +136,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         span.setAttribute(TracingAttribute.ATTEMPT, context.getAttempt());
         span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
         span.setAttribute(TracingAttribute.AVAILABLE_TIMESTAMP, message.getStoreTimestamp());
-        span.setAttribute(TracingAttribute.CLIENT_ID, client.getClientId());
+        span.setAttribute(TracingAttribute.CLIENT_ID, client.id());
         span.end();
         waitingConsumptionSpanContextThreadLocal.set(span.getSpanContext());
     }
@@ -173,7 +173,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         span.setAttribute(TracingAttribute.MSG_TYPE, message.getMsgType().getName());
         span.setAttribute(TracingAttribute.AVAILABLE_TIMESTAMP, message.getStoreTimestamp());
         span.setAttribute(TracingAttribute.BATCH_SIZE, context.getBatchSize());
-        span.setAttribute(TracingAttribute.CLIENT_ID, client.getClientId());
+        span.setAttribute(TracingAttribute.CLIENT_ID, client.id());
 
         final StatusCode statusCode = TracingUtility.convertToTraceStatus(context.getBizStatus());
         span.setStatus(statusCode);
@@ -204,7 +204,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         TransactionResolution resolution = MessageHookPointStatus.OK.equals(context.getBizStatus()) ?
                                            TransactionResolution.COMMIT : TransactionResolution.ROLLBACK;
         span.setAttribute(TracingAttribute.COMMIT_ACTION, resolution.getName());
-        span.setAttribute(TracingAttribute.CLIENT_ID, client.getClientId());
+        span.setAttribute(TracingAttribute.CLIENT_ID, client.id());
 
         span.end();
     }
@@ -223,7 +223,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
             try {
                 accessKey = credentialsProvider.getCredentials().getAccessKey();
             } catch (ClientException e) {
-                log.error("Failed to fetch accessKey, clientId={}", client.getClientId(), e);
+                log.error("Failed to fetch accessKey, clientId={}", client.id(), e);
             }
         }
         switch (hookPoint) {

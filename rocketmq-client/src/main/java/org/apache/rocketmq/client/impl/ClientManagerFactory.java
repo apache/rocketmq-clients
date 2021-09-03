@@ -47,15 +47,15 @@ public class ClientManagerFactory {
     }
 
     /**
-     * Register {@link ClientObserver} to the appointed manager by manager id, start the manager if it is created newly.
+     * Register {@link Client} to the appointed manager by manager id, start the manager if it is created newly.
      *
-     * <p>Different observer would share the same {@link ClientManager} if they have the same manager id.
+     * <p>Different client would share the same {@link ClientManager} if they have the same manager id.
      *
      * @param managerId client manager id.
-     * @param observer  client observer.
+     * @param client    client.
      * @return the client manager which is started.
      */
-    public ClientManager registerObserver(String managerId, ClientObserver observer) throws ClientException {
+    public ClientManager registerClient(String managerId, Client client) throws ClientException {
         managersTableLock.lock();
         try {
             ClientManager manager = managersTable.get(managerId);
@@ -65,7 +65,7 @@ public class ClientManagerFactory {
                 manager.start();
                 managersTable.put(managerId, manager);
             }
-            manager.registerObserver(observer);
+            manager.registerClient(client);
             return manager;
         } finally {
             managersTableLock.unlock();
@@ -73,13 +73,13 @@ public class ClientManagerFactory {
     }
 
     /**
-     * Unregister {@link ClientObserver} to the appointed manager by message id, shutdown the manager if no observer
+     * Unregister {@link Client} to the appointed manager by message id, shutdown the manager if no client
      * registered in it.
      *
      * @return {@link ClientManager} is removed or not.
      * @throws InterruptedException if thread has been interrupted.
      */
-    public boolean unregisterObserver(String managerId, ClientObserver observer) throws InterruptedException {
+    public boolean unregisterClient(String managerId, Client client) throws InterruptedException {
         ClientManager removedManager = null;
         managersTableLock.lock();
         try {
@@ -89,8 +89,8 @@ public class ClientManagerFactory {
                 log.error("[Bug] manager not found by managerId={}", managerId);
                 return false;
             }
-            manager.unregisterObserver(observer);
-            // shutdown the manager if no observer registered.
+            manager.unregisterClient(client);
+            // shutdown the manager if no client registered.
             if (manager.isEmpty()) {
                 removedManager = manager;
                 managersTable.remove(managerId);

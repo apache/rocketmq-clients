@@ -52,28 +52,28 @@ import org.apache.rocketmq.client.route.Endpoints;
 
 public interface ClientManager {
     /**
-     * Register client observer.
+     * Register client.
      *
-     * @param observer client observer.
+     * @param client client.
      */
-    void registerObserver(ClientObserver observer);
+    void registerClient(Client client);
 
     /**
-     * Unregister client observer.
+     * Unregister client.
      *
-     * @param observer client observer.
+     * @param client client.
      */
-    void unregisterObserver(ClientObserver observer);
+    void unregisterClient(Client client);
 
     /**
-     * Returns {@code true} if manager contains no {@link ClientObserver}.
+     * Returns {@code true} if manager contains no {@link Client}.
      *
-     * @return {@code true} if this map contains no {@link ClientObserver}.
+     * @return {@code true} if this map contains no {@link Client}.
      */
     boolean isEmpty();
 
     /**
-     * Provide for observer to share the scheduler.
+     * Provide for client to share the scheduler.
      *
      * @return shared scheduler.
      */

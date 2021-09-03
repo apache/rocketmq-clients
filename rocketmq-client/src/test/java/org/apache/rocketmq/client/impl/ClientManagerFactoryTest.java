@@ -37,13 +37,13 @@ public class ClientManagerFactoryTest {
     private final String clientId0 = "0";
     private final String clientId1 = "1";
 
-    private final ClientObserver observer0;
-    private final ClientObserver observer1;
+    private final Client client0;
+    private final Client client1;
 
     public ClientManagerFactoryTest() {
-        this.observer0 = new ClientObserver() {
+        this.client0 = new Client() {
             @Override
-            public String getClientId() {
+            public String id() {
                 return clientId0;
             }
 
@@ -59,9 +59,9 @@ public class ClientManagerFactoryTest {
             public void doStats() {
             }
         };
-        this.observer1 = new ClientObserver() {
+        this.client1 = new Client() {
             @Override
-            public String getClientId() {
+            public String id() {
                 return clientId1;
             }
 
@@ -80,15 +80,15 @@ public class ClientManagerFactoryTest {
     }
 
     @Test
-    public void testUnregisterObserver() throws InterruptedException, ClientException {
-        ClientManagerFactory.getInstance().registerObserver(clientManagerId, observer0);
-        ClientManagerFactory.getInstance().registerObserver(clientManagerId, observer1);
-        assertFalse(ClientManagerFactory.getInstance().unregisterObserver(clientManagerId, observer0));
-        assertTrue(ClientManagerFactory.getInstance().unregisterObserver(clientManagerId, observer1));
+    public void testUnregisterClient() throws InterruptedException, ClientException {
+        ClientManagerFactory.getInstance().registerClient(clientManagerId, client0);
+        ClientManagerFactory.getInstance().registerClient(clientManagerId, client1);
+        assertFalse(ClientManagerFactory.getInstance().unregisterClient(clientManagerId, client0));
+        assertTrue(ClientManagerFactory.getInstance().unregisterClient(clientManagerId, client1));
     }
 
     @Test(invocationCount = 6)
-    public void testUnregisterObserverConcurrently() throws InterruptedException {
+    public void testUnregisterClientConcurrently() throws InterruptedException {
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
                 2,
                 2,
@@ -102,10 +102,10 @@ public class ClientManagerFactoryTest {
             @Override
             public void run() {
                 try {
-                    ClientManagerFactory.getInstance().registerObserver(clientManagerId, observer0);
+                    ClientManagerFactory.getInstance().registerClient(clientManagerId, client0);
                     Thread.sleep(5);
-                    final boolean removed = ClientManagerFactory.getInstance().unregisterObserver(clientManagerId,
-                                                                                                  observer0);
+                    final boolean removed = ClientManagerFactory.getInstance().unregisterClient(clientManagerId,
+                                                                                                client0);
                     clientManagerRemoved.add(removed);
                     latch.countDown();
                 } catch (Throwable ignore) {
@@ -118,10 +118,10 @@ public class ClientManagerFactoryTest {
             @Override
             public void run() {
                 try {
-                    ClientManagerFactory.getInstance().registerObserver(clientManagerId, observer1);
+                    ClientManagerFactory.getInstance().registerClient(clientManagerId, client1);
                     Thread.sleep(5);
-                    final boolean removed = ClientManagerFactory.getInstance().unregisterObserver(clientManagerId,
-                                                                                                  observer1);
+                    final boolean removed = ClientManagerFactory.getInstance().unregisterClient(clientManagerId,
+                                                                                                client1);
                     clientManagerRemoved.add(removed);
                     latch.countDown();
                 } catch (Throwable ignore) {

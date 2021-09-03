@@ -279,7 +279,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         inflightMessagesLock.readLock().lock();
         try {
             log.info("clientId={}, namespace={}, mq={}, pendingMessageQuantity={}, inflightMessageQuantity={}, "
-                     + "cachedMessagesBytes={}", consumerImpl.getClientId(), consumerImpl.getNamespace(), mq,
+                     + "cachedMessagesBytes={}", consumerImpl.id(), consumerImpl.getNamespace(), mq,
                      pendingMessages.size(), inflightMessages.size(), cachedMessagesBytes.get());
         } finally {
             inflightMessagesLock.readLock().unlock();
@@ -721,7 +721,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         final ReceiveMessageRequest.Builder builder =
                 ReceiveMessageRequest.newBuilder()
                                      .setGroup(consumerImpl.getPbGroup())
-                                     .setClientId(consumerImpl.getClientId())
+                                     .setClientId(consumerImpl.id())
                                      .setPartition(getPbPartition()).setBatchSize(maxAwaitBatchSize)
                                      .setInvisibleDuration(invisibleDuration)
                                      .setAwaitTime(maxAwaitTimeMillis);
@@ -751,7 +751,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                                  .setOffset(offset).setBatchSize(maxAwaitBatchSize)
                                  .setAwaitTime(Durations.fromMillis(maxAwaitTimeMillis))
                                  .setFilterExpression(getPbFilterExpression())
-                                 .setClientId(consumerImpl.getClientId())
+                                 .setClientId(consumerImpl.id())
                                  .build();
     }
 
