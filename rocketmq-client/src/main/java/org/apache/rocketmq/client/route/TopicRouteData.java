@@ -19,6 +19,7 @@ package org.apache.rocketmq.client.route;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+import com.google.common.math.IntMath;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -29,7 +30,6 @@ import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.exception.ServerException;
 import org.apache.rocketmq.client.misc.MixAll;
-import org.apache.rocketmq.utility.UtilAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,7 +71,7 @@ public class TopicRouteData {
     public Endpoints pickEndpointsToQueryAssignments() throws ServerException {
         int nextIndex = index.getAndIncrement();
         for (int i = 0; i < partitions.size(); i++) {
-            final Partition partition = partitions.get(UtilAll.positiveMod(nextIndex++, partitions.size()));
+            final Partition partition = partitions.get(IntMath.mod(nextIndex++, partitions.size()));
             final Broker broker = partition.getBroker();
             if (MixAll.MASTER_BROKER_ID != broker.getId()) {
                 continue;

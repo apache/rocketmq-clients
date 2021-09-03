@@ -17,10 +17,10 @@
 
 package org.apache.rocketmq.client.producer;
 
+import com.google.common.math.IntMath;
 import java.util.List;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.message.MessageQueue;
-import org.apache.rocketmq.utility.UtilAll;
 
 public class MessageGroupQueueSelector implements MessageQueueSelector {
     private final String messageGroup;
@@ -32,6 +32,6 @@ public class MessageGroupQueueSelector implements MessageQueueSelector {
     @Override
     public MessageQueue select(List<MessageQueue> mqs, Message msg, Object arg) {
         final int hashCode = messageGroup.hashCode();
-        return mqs.get(UtilAll.positiveMod(hashCode, mqs.size()));
+        return mqs.get(IntMath.mod(hashCode, mqs.size()));
     }
 }

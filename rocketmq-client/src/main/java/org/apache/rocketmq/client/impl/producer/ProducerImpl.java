@@ -34,6 +34,7 @@ import apache.rocketmq.v1.SendMessageResponse;
 import com.google.common.base.Function;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Sets;
+import com.google.common.math.IntMath;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -697,7 +698,7 @@ public class ProducerImpl extends ClientImpl {
         }
 
         // calculate the current partition.
-        final Partition partition = candidates.get(UtilAll.positiveMod(attempt - 1, candidates.size()));
+        final Partition partition = candidates.get(IntMath.mod(attempt - 1, candidates.size()));
         final Endpoints endpoints = partition.getBroker().getEndpoints();
 
         // intercept before message sending.

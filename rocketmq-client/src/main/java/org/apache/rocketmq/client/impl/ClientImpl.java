@@ -33,6 +33,7 @@ import apache.rocketmq.v1.SystemAttribute;
 import apache.rocketmq.v1.VerifyMessageConsumptionRequest;
 import apache.rocketmq.v1.VerifyMessageConsumptionResponse;
 import com.google.common.collect.Sets;
+import com.google.common.math.IntMath;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -591,8 +592,7 @@ public abstract class ClientImpl extends ClientConfig implements ClientObserver,
             if (nameServerEndpointsList.isEmpty()) {
                 throw new ClientException(ErrorCode.NO_AVAILABLE_NAME_SERVER);
             }
-            return nameServerEndpointsList.get(UtilAll.positiveMod(nameServerIndex.get(),
-                                                                   nameServerEndpointsList.size()));
+            return nameServerEndpointsList.get(IntMath.mod(nameServerIndex.get(), nameServerEndpointsList.size()));
         } finally {
             nameServerEndpointsListLock.readLock().unlock();
         }

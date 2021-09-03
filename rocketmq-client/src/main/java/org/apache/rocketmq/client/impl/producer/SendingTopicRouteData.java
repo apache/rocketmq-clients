@@ -19,6 +19,7 @@ package org.apache.rocketmq.client.impl.producer;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
+import com.google.common.math.IntMath;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -34,7 +35,6 @@ import org.apache.rocketmq.client.route.Broker;
 import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
-import org.apache.rocketmq.utility.UtilAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -91,7 +91,7 @@ public class SendingTopicRouteData {
             throw new ClientException(ErrorCode.NO_PERMISSION);
         }
         for (int i = 0; i < partitions.size(); i++) {
-            final Partition partition = partitions.get(UtilAll.positiveMod(nextIndex++, partitions.size()));
+            final Partition partition = partitions.get(IntMath.mod(nextIndex++, partitions.size()));
             final Broker broker = partition.getBroker();
             final String brokerName = broker.getName();
             if (!isolated.contains(broker.getEndpoints()) && !candidateBrokerNames.contains(brokerName)) {
@@ -105,7 +105,7 @@ public class SendingTopicRouteData {
         // if all endpoints are isolated.
         if (candidatePartitions.isEmpty()) {
             for (int i = 0; i < partitions.size(); i++) {
-                final Partition partition = partitions.get(UtilAll.positiveMod(nextIndex++, partitions.size()));
+                final Partition partition = partitions.get(IntMath.mod(nextIndex++, partitions.size()));
                 final Broker broker = partition.getBroker();
                 final String brokerName = broker.getName();
                 if (!candidateBrokerNames.contains(brokerName)) {
