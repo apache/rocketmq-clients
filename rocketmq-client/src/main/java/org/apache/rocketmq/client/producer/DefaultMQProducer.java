@@ -105,9 +105,9 @@ public class DefaultMQProducer {
     }
 
     /**
-     * Set abstract resource name of producer.
+     * Set abstract resource namespace of producer.
      *
-     * @param namespace abstract resource name.
+     * @param namespace abstract resource namespace.
      */
     public void setNamespace(String namespace) {
         this.impl.setNamespace(namespace);

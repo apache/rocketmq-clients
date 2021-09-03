@@ -192,9 +192,9 @@ public class DefaultMQPushConsumer {
     }
 
     /**
-     * Get abstract resource name of consumer.
+     * Get abstract resource namespace of consumer.
      *
-     * @return abstract resource name.
+     * @return abstract resource namespace.
      */
     public String getArn() {
         return this.impl.getNamespace();
