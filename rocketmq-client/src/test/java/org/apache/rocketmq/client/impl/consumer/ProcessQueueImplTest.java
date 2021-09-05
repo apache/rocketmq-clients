@@ -62,6 +62,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 public class ProcessQueueImplTest extends TestBase {
@@ -112,6 +113,7 @@ public class ProcessQueueImplTest extends TestBase {
         when(consumerImpl.sign()).thenReturn(metadata);
         when(consumerImpl.getConsumptionExecutor()).thenReturn(SINGLE_THREAD_POOL_EXECUTOR);
         when(consumerImpl.id()).thenReturn(FAKE_CLIENT_ID_0);
+        when(consumerImpl.isRunning()).thenReturn(true);
 
         processQueueImpl = new ProcessQueueImpl(consumerImpl, fakeMessageQueue(), filterExpression);
     }
@@ -121,6 +123,11 @@ public class ProcessQueueImplTest extends TestBase {
         // reset counter.
         consumptionOkCounter.set(0);
         consumptionErrorCounter.set(0);
+    }
+
+    @BeforeTest
+    public void beforeTest() {
+        processQueueImpl = new ProcessQueueImpl(consumerImpl, fakeMessageQueue(), filterExpression);
     }
 
     @Test
@@ -253,7 +260,7 @@ public class ProcessQueueImplTest extends TestBase {
     }
 
     @Test
-    public void testTryTakeFifoMessage() {
+    public void testTryTakeFifoMessage() throws InterruptedException {
         int cachedMessageQuantity = 8;
         List<MessageExt> messageExtList = new ArrayList<MessageExt>();
         for (int i = 0; i < cachedMessageQuantity; i++) {
@@ -273,6 +280,7 @@ public class ProcessQueueImplTest extends TestBase {
         when(consumerImpl.ackMessage(ArgumentMatchers.<MessageExt>any())).thenReturn(future0);
         processQueueImpl.eraseFifoMessage(optionalMessageExt0.get(), ConsumeStatus.OK);
         assertEquals(consumptionOkCounter.get(), 1);
+        Thread.sleep(50);
         future0.addListener(new Runnable() {
             @Override
             public void run() {

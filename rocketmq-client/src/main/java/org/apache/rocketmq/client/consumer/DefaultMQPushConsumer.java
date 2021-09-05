@@ -76,17 +76,15 @@ public class DefaultMQPushConsumer {
 
     /**
      * This method gets internal infrastructure readily to serve. Instances must call this method after configuration.
-     *
-     * @throws ClientException if there is any client error.
      */
-    public void start() throws ClientException {
+    public void start() {
         this.impl.start();
     }
 
     /**
      * Shut down this client and releasing underlying resources.
      */
-    public void shutdown() throws InterruptedException {
+    public void shutdown() {
         this.impl.shutdown();
     }
 
@@ -111,7 +109,7 @@ public class DefaultMQPushConsumer {
      * @param enabled message tracing is enabled or not.
      */
     public void setMessageTracingEnabled(boolean enabled) {
-        this.impl.setMessageTracingEnabled(enabled);
+        this.impl.setTracingEnabled(enabled);
     }
 
     /**

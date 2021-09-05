@@ -18,7 +18,7 @@
 package org.apache.rocketmq.client.impl.consumer;
 
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -75,6 +75,7 @@ import org.mockito.MockitoAnnotations;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 public class PushConsumerImplTest extends TestBase {
@@ -88,8 +89,13 @@ public class PushConsumerImplTest extends TestBase {
     private PushConsumerImpl consumerImpl;
 
     @BeforeMethod
-    public void beforeMethod() throws ClientException {
-        this.consumerImpl = new PushConsumerImpl(FAKE_GROUP_0);
+    public void beforeMethod() {
+        MockitoAnnotations.initMocks(this);
+    }
+
+    @BeforeTest
+    public void beforeTest() throws ClientException {
+        consumerImpl = new PushConsumerImpl(FAKE_GROUP_0);
         consumerImpl.setNamesrvAddr(FAKE_NAME_SERVER_ADDR_0);
         consumerImpl.registerMessageListener(new MessageListenerConcurrently() {
             @Override
@@ -97,7 +103,6 @@ public class PushConsumerImplTest extends TestBase {
                 return null;
             }
         });
-        MockitoAnnotations.initMocks(this);
     }
 
     @Test
@@ -121,7 +126,7 @@ public class PushConsumerImplTest extends TestBase {
                                            ArgumentMatchers.<TimeUnit>any()))
                 .thenReturn(okQueryAssignmentResponseFuture());
 
-        final long delayMillis = 50;
+        final long delayMillis = 1000;
         when(clientManager.multiplexingCall(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                             ArgumentMatchers.<MultiplexingRequest>any(), anyLong(),
                                             ArgumentMatchers.<TimeUnit>any()))
@@ -154,18 +159,14 @@ public class PushConsumerImplTest extends TestBase {
                 });
 
         consumerImpl.scanAssignments();
-        verify(clientManager, times(1)).queryRoute(ArgumentMatchers.<Endpoints>any(),
-                                                   ArgumentMatchers.<Metadata>any(),
-                                                   ArgumentMatchers.<QueryRouteRequest>any(), anyLong(),
-                                                   ArgumentMatchers.<TimeUnit>any());
-        verify(clientManager, times(1)).queryAssignment(ArgumentMatchers.<Endpoints>any(),
-                                                        ArgumentMatchers.<Metadata>any(),
-                                                        ArgumentMatchers.<QueryAssignmentRequest>any(),
-                                                        anyLong(), ArgumentMatchers.<TimeUnit>any());
-        verify(clientManager, times(1)).receiveMessage(ArgumentMatchers.<Endpoints>any(),
-                                                       ArgumentMatchers.<Metadata>any(),
-                                                       ArgumentMatchers.<ReceiveMessageRequest>any(),
-                                                       anyLong(), ArgumentMatchers.<TimeUnit>any());
+        verify(clientManager, atLeast(1)).queryRoute(ArgumentMatchers.<Endpoints>any(),
+                                                     ArgumentMatchers.<Metadata>any(),
+                                                     ArgumentMatchers.<QueryRouteRequest>any(), anyLong(),
+                                                     ArgumentMatchers.<TimeUnit>any());
+        verify(clientManager, atLeast(1)).queryAssignment(ArgumentMatchers.<Endpoints>any(),
+                                                          ArgumentMatchers.<Metadata>any(),
+                                                          ArgumentMatchers.<QueryAssignmentRequest>any(),
+                                                          anyLong(), ArgumentMatchers.<TimeUnit>any());
     }
 
     @Test

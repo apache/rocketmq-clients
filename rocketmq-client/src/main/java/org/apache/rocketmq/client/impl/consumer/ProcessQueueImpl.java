@@ -619,7 +619,7 @@ public class ProcessQueueImpl implements ProcessQueue {
      * @param offset offset for message queue to pull from.
      */
     private void pullMessageImmediately(final long offset) {
-        if (consumerImpl.isStopped()) {
+        if (!consumerImpl.isRunning()) {
             return;
         }
         try {
@@ -760,7 +760,7 @@ public class ProcessQueueImpl implements ProcessQueue {
     }
 
     private void receiveMessageImmediately() {
-        if (consumerImpl.isStopped()) {
+        if (!consumerImpl.isRunning()) {
             return;
         }
         try {

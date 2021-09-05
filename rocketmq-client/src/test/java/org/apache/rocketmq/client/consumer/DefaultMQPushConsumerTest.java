@@ -47,13 +47,13 @@ public class DefaultMQPushConsumerTest extends TestBase {
     }
 
     @Test
-    public void testStartWithoutListener() throws InterruptedException, ClientException {
+    public void testStartWithoutListener() throws ClientException {
         DefaultMQPushConsumer consumer = new DefaultMQPushConsumer(FAKE_GROUP_0);
         try {
             consumer.start();
             Assert.fail();
-        } catch (ClientException ignore) {
-            consumer.shutdown();
+        } catch (IllegalStateException ignore) {
+            // ignore on purpose.
         }
     }
 

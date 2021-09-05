@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.misc;
 
+import com.google.common.util.concurrent.AbstractIdleService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -30,7 +31,8 @@ import org.slf4j.LoggerFactory;
 /**
  * Aggregate multi-dispatch task into one as possible.
  */
-public abstract class Dispatcher {
+@SuppressWarnings("UnstableApiUsage")
+public abstract class Dispatcher extends AbstractIdleService {
     private static final Logger log = LoggerFactory.getLogger(Dispatcher.class);
 
     private final AtomicBoolean dispatchTaskInQueue;
@@ -59,7 +61,12 @@ public abstract class Dispatcher {
 
     public abstract void dispatch();
 
-    public void shutdown() throws InterruptedException {
+    @Override
+    protected void startUp() {
+    }
+
+    @Override
+    protected void shutDown() throws InterruptedException {
         dispatcherExecutor.shutdown();
         if (!ExecutorServices.awaitTerminated(dispatcherExecutor)) {
             log.error("[Bug] Failed to shutdown the batch dispatcher.");

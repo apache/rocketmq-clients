@@ -43,6 +43,7 @@ import apache.rocketmq.v1.ReceiveMessageRequest;
 import apache.rocketmq.v1.ReceiveMessageResponse;
 import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
+import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -73,7 +74,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
-public class ClientManagerImpl implements ClientManager {
+@SuppressWarnings("UnstableApiUsage")
+public class ClientManagerImpl extends AbstractIdleService implements ClientManager {
     public static final long RPC_CLIENT_MAX_IDLE_SECONDS = 30 * 60;
     public static final long HEALTH_CHECK_PERIOD_SECONDS = 15;
     public static final long IDLE_RPC_CLIENT_PERIOD_SECONDS = 60;
@@ -107,11 +109,6 @@ public class ClientManagerImpl implements ClientManager {
      */
     private final ExecutorService asyncWorker;
 
-    /**
-     * Record state of client manager.
-     */
-    private volatile ServiceState state;
-
     public ClientManagerImpl(String id) {
         this.id = id;
 
@@ -131,8 +128,6 @@ public class ClientManagerImpl implements ClientManager {
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<Runnable>(),
                 new ThreadFactoryImpl("ClientAsyncWorker"));
-
-        this.state = ServiceState.READY;
     }
 
     static {
@@ -155,6 +150,104 @@ public class ClientManagerImpl implements ClientManager {
     @Override
     public boolean isEmpty() {
         return clientTable.isEmpty();
+    }
+
+    @Override
+    protected void startUp() {
+        log.info("Begin to start the client manager, clientManagerId={}", id);
+        scheduler.scheduleWithFixedDelay(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            doHealthCheck();
+                        } catch (Throwable t) {
+                            log.error("Exception raised while health check.", t);
+                        }
+                    }
+                },
+                5,
+                HEALTH_CHECK_PERIOD_SECONDS,
+                TimeUnit.SECONDS
+        );
+
+        scheduler.scheduleWithFixedDelay(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            clearIdleRpcClients();
+                        } catch (Throwable t) {
+                            log.error("Exception raised while clear idle rpc clients.", t);
+                        }
+                    }
+                },
+                5,
+                IDLE_RPC_CLIENT_PERIOD_SECONDS,
+                TimeUnit.SECONDS);
+
+        scheduler.scheduleWithFixedDelay(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            doHeartbeat();
+                        } catch (Throwable t) {
+                            log.error("Exception raised while heartbeat.", t);
+                        }
+                    }
+                },
+                1,
+                HEART_BEAT_PERIOD_SECONDS,
+                TimeUnit.SECONDS
+        );
+
+        scheduler.scheduleWithFixedDelay(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            doLogStats();
+                        } catch (Throwable t) {
+                            log.error("Exception raised while log stats", t);
+                        }
+                    }
+                },
+                1,
+                LOG_STATS_PERIOD_SECONDS,
+                TimeUnit.SECONDS
+        );
+        log.info("The client manager starts successfully, clientManagerId={}", id);
+    }
+
+    @Override
+    protected void shutDown() throws Exception {
+        log.info("Begin to shutdown the client manager, clientManagerId={}", id);
+        scheduler.shutdown();
+        if (!ExecutorServices.awaitTerminated(scheduler)) {
+            log.error("[Bug] Timeout to shutdown the client scheduler, clientManagerId={}", id);
+        } else {
+            log.info("Shutdown the client scheduler successfully, clientManagerId={}", id);
+        }
+        asyncWorker.shutdown();
+        if (!ExecutorServices.awaitTerminated(asyncWorker)) {
+            log.error("[Bug] Timeout to shutdown the client async worker, clientManagerId={}", id);
+        } else {
+            log.info("Shutdown the client async worker successfully, clientManagerId={}", id);
+        }
+        rpcClientTableLock.writeLock().lock();
+        try {
+            final Iterator<Map.Entry<Endpoints, RpcClient>> it = rpcClientTable.entrySet().iterator();
+            while (it.hasNext()) {
+                final Map.Entry<Endpoints, RpcClient> entry = it.next();
+                final RpcClient rpcClient = entry.getValue();
+                it.remove();
+                rpcClient.shutdown();
+            }
+        } finally {
+            rpcClientTableLock.writeLock().unlock();
+        }
+        log.info("Shutdown the client manager successfully, clientManagerId={}", id);
     }
 
     private void doHealthCheck() {
@@ -205,147 +298,6 @@ public class ClientManagerImpl implements ClientManager {
                  MetadataUtils.getVersion(), MetadataUtils.getWrapperVersion(), id);
         for (Client client : clientTable.values()) {
             client.doStats();
-        }
-    }
-
-    /**
-     * Start the client manager.
-     */
-    @Override
-    public void start() throws ClientException {
-        synchronized (this) {
-            switch (state) {
-                case READY:
-                    log.info("Begin to start the client manager, clientManagerId={}", id);
-                    this.state = ServiceState.STARTING;
-                    scheduler.scheduleWithFixedDelay(
-                            new Runnable() {
-                                @Override
-                                public void run() {
-                                    try {
-                                        doHealthCheck();
-                                    } catch (Throwable t) {
-                                        log.error("Exception raised while health check.", t);
-                                    }
-                                }
-                            },
-                            5,
-                            HEALTH_CHECK_PERIOD_SECONDS,
-                            TimeUnit.SECONDS
-                    );
-
-                    scheduler.scheduleWithFixedDelay(
-                            new Runnable() {
-                                @Override
-                                public void run() {
-                                    try {
-                                        clearIdleRpcClients();
-                                    } catch (Throwable t) {
-                                        log.error("Exception raised while clear idle rpc clients.", t);
-                                    }
-                                }
-                            },
-                            5,
-                            IDLE_RPC_CLIENT_PERIOD_SECONDS,
-                            TimeUnit.SECONDS);
-
-                    scheduler.scheduleWithFixedDelay(
-                            new Runnable() {
-                                @Override
-                                public void run() {
-                                    try {
-                                        doHeartbeat();
-                                    } catch (Throwable t) {
-                                        log.error("Exception raised while heartbeat.", t);
-                                    }
-                                }
-                            },
-                            1,
-                            HEART_BEAT_PERIOD_SECONDS,
-                            TimeUnit.SECONDS
-                    );
-
-                    scheduler.scheduleWithFixedDelay(
-                            new Runnable() {
-                                @Override
-                                public void run() {
-                                    try {
-                                        doLogStats();
-                                    } catch (Throwable t) {
-                                        log.error("Exception raised while log stats", t);
-                                    }
-                                }
-                            },
-                            1,
-                            LOG_STATS_PERIOD_SECONDS,
-                            TimeUnit.SECONDS
-                    );
-                    this.state = ServiceState.STARTED;
-                    log.info("The client manager starts successfully, clientManagerId={}", id);
-                    break;
-                case STARTING:
-                case STARTED:
-                case STOPPING:
-                case STOPPED:
-                default:
-                    throw new ClientException(ErrorCode.STARTED_BEFORE, "client manager has been started before.");
-            }
-        }
-    }
-
-    /**
-     * Shutdown the client manager and free up the related resource.
-     *
-     * @throws InterruptedException if thread has been interrupted.
-     */
-    @Override
-    public void shutdown() throws InterruptedException {
-        synchronized (this) {
-            switch (state) {
-                case STARTED:
-                    log.info("Begin to shutdown the client manager, clientManagerId={}", id);
-                    this.state = ServiceState.STOPPING;
-                    scheduler.shutdown();
-                    if (!ExecutorServices.awaitTerminated(scheduler)) {
-                        log.error("[Bug] Timeout to shutdown the client scheduler, clientManagerId={}", id);
-                    } else {
-                        log.info("Shutdown the client scheduler successfully, clientManagerId={}", id);
-                    }
-                    asyncWorker.shutdown();
-                    if (!ExecutorServices.awaitTerminated(asyncWorker)) {
-                        log.error("[Bug] Timeout to shutdown the client async worker, clientManagerId={}", id);
-                    } else {
-                        log.info("Shutdown the client async worker successfully, clientManagerId={}", id);
-                    }
-                    rpcClientTableLock.writeLock().lock();
-                    try {
-                        final Iterator<Map.Entry<Endpoints, RpcClient>> it = rpcClientTable.entrySet().iterator();
-                        while (it.hasNext()) {
-                            final Map.Entry<Endpoints, RpcClient> entry = it.next();
-                            final RpcClient rpcClient = entry.getValue();
-                            it.remove();
-                            rpcClient.shutdown();
-                        }
-                    } finally {
-                        rpcClientTableLock.writeLock().unlock();
-                    }
-                    this.state = ServiceState.STOPPED;
-                    log.info("Shutdown the client manager successfully, clientManagerId={}", id);
-                    break;
-                case READY:
-                    log.info("The client manager has not been started before, clientManagerId={}", id);
-                    break;
-                case STARTING:
-                case STOPPING:
-                    log.error("[Bug] The client manager state is abnormal , clientManagerId={}, state={}", id, state);
-                    break;
-                case STOPPED:
-                    log.info("The client manager has been shutdown before, clientManagerId={}", id);
-                    // fall through on purpose.
-                default:
-                    break;
-
-            }
         }
     }
 

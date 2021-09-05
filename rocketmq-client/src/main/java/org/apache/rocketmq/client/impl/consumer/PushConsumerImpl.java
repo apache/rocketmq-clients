@@ -147,7 +147,7 @@ public class PushConsumerImpl extends ConsumerImpl {
     private int maxCachedMessagesBytesThresholdPerQueue = 4 * 1024 * 1024;
 
     /**
-     * If a FIFO message was failed to consume, it would be suspend for a while to prepare for next delivery until
+     * If a FIFO message was failed to consume, it would be suspended for a while to prepare for next delivery until
      * delivery attempt times is run out.
      */
     private long fifoConsumptionSuspendTimeMillis = 1000L;
@@ -306,57 +306,56 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     @Override
-    public void start() throws ClientException {
-        synchronized (this) {
-            log.info("Begin to start the rocketmq push consumer");
-            if (null == messageListener) {
-                throw new ClientException(ErrorCode.NO_LISTENER_REGISTERED);
-            }
-            super.start();
-            this.generateConsumeService();
-            consumeService.start();
-
-            final ScheduledExecutorService scheduler = clientManager.getScheduler();
-            scanAssignmentsFuture = scheduler.scheduleWithFixedDelay(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                scanAssignments();
-                            } catch (Throwable t) {
-                                log.error("Exception raised while scanning the load assignments.", t);
-                            }
-                        }
-                    },
-                    1,
-                    5,
-                    TimeUnit.SECONDS);
-            if (this.isStarted()) {
-                log.info("The rocketmq push consumer starts successfully.");
-            }
+    public void setUp() throws ClientException {
+        log.info("Begin to start the rocketmq push consumer.");
+        if (null == messageListener) {
+            throw new ClientException(ErrorCode.NO_LISTENER_REGISTERED);
         }
+        super.setUp();
+        this.generateConsumeService();
+        consumeService.startAsync().awaitRunning();
+
+        final ScheduledExecutorService scheduler = clientManager.getScheduler();
+        scanAssignmentsFuture = scheduler.scheduleWithFixedDelay(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            scanAssignments();
+                        } catch (Throwable t) {
+                            log.error("Exception raised while scanning the load assignments.", t);
+                        }
+                    }
+                },
+                1,
+                5,
+                TimeUnit.SECONDS);
+        log.info("The rocketmq push consumer starts successfully.");
     }
 
     @Override
-    public void shutdown() throws InterruptedException {
-        synchronized (this) {
-            log.info("Begin to shutdown the rocketmq push consumer, clientId={}", id);
-
-            if (this.isStarted()) {
-                if (null != scanAssignmentsFuture) {
-                    scanAssignmentsFuture.cancel(false);
-                }
-                super.shutdown();
-                if (null != consumeService) {
-                    consumeService.shutdown();
-                }
-                consumptionExecutor.shutdown();
-                if (!ExecutorServices.awaitTerminated(consumptionExecutor)) {
-                    log.error("[Bug] Failed to shutdown the consumption executor, clientId={}", id);
-                }
-                log.info("Shutdown the rocketmq push consumer successfully, clientId={}", id);
-            }
+    public void tearDown() throws InterruptedException {
+        log.info("Begin to shutdown the rocketmq push consumer, clientId={}", id);
+        if (null != scanAssignmentsFuture) {
+            scanAssignmentsFuture.cancel(false);
         }
+        super.tearDown();
+        if (null != consumeService) {
+            consumeService.stopAsync().awaitTerminated();
+        }
+        consumptionExecutor.shutdown();
+        if (!ExecutorServices.awaitTerminated(consumptionExecutor)) {
+            log.error("[Bug] Failed to shutdown the consumption executor, clientId={}", id);
+        }
+        log.info("Shutdown the rocketmq push consumer successfully, clientId={}", id);
+    }
+
+    public void start() {
+        service.startAsync().awaitRunning();
+    }
+
+    public void shutdown() {
+        service.stopAsync().awaitTerminated();
     }
 
     @Override

@@ -82,12 +82,12 @@ public class ProducerImplTest extends TestBase {
     @BeforeTest
     public void beforeTest() throws ClientException {
         producerImpl.setNamesrvAddr(FAKE_NAME_SERVER_ADDR_0);
-        producerImpl.setMessageTracingEnabled(false);
+        producerImpl.setTracingEnabled(false);
         producerImpl.start();
     }
 
     @AfterTest
-    public void afterTest() throws InterruptedException {
+    public void afterTest() {
         producerImpl.shutdown();
     }
 
@@ -386,7 +386,7 @@ public class ProducerImplTest extends TestBase {
     @Test
     public void testUpdateTracer() throws ServerException, ClientException, InterruptedException, TimeoutException {
         assertNull(producerImpl.getTracer());
-        producerImpl.setMessageTracingEnabled(true);
+        producerImpl.setTracingEnabled(true);
         final Message message = fakeMessage();
         // fetch route from remote instead of cache.
         message.setTopic(FAKE_TOPIC_1);

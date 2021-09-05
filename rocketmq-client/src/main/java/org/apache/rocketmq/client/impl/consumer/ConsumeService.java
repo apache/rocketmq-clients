@@ -31,9 +31,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.consumer.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListener;
-import org.apache.rocketmq.client.exception.ClientException;
-import org.apache.rocketmq.client.exception.ErrorCode;
-import org.apache.rocketmq.client.impl.ServiceState;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageQueue;
@@ -53,8 +50,6 @@ public abstract class ConsumeService extends Dispatcher {
     private final ThreadPoolExecutor consumptionExecutor;
     private final ScheduledExecutorService scheduler;
 
-    private volatile ServiceState state;
-
     public ConsumeService(MessageListener messageListener, MessageInterceptor interceptor,
                           ThreadPoolExecutor consumptionExecutor, ScheduledExecutorService scheduler,
                           ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable) {
@@ -64,52 +59,20 @@ public abstract class ConsumeService extends Dispatcher {
         this.consumptionExecutor = consumptionExecutor;
         this.scheduler = scheduler;
         this.processQueueTable = processQueueTable;
-
-        this.state = ServiceState.READY;
     }
 
-    public void start() throws ClientException {
-        synchronized (this) {
-            switch (state) {
-                case READY:
-                    log.info("Begin to start the consume service.");
-                    this.state = ServiceState.STARTED;
-                    log.info("The consume service starts successfully.");
-                    break;
-                case STARTING:
-                case STARTED:
-                case STOPPING:
-                case STOPPED:
-                default:
-                    throw new ClientException(ErrorCode.STARTED_BEFORE, "consume service may has been started before.");
-            }
-        }
+    @Override
+    protected void startUp() {
+        log.info("Begin to start the consume service.");
+        super.startUp();
+        log.info("The consume service starts successfully.");
     }
 
-    public void shutdown() throws InterruptedException {
-        synchronized (this) {
-            switch (state) {
-                case STARTED:
-                    log.info("Begin to shutdown the consume service.");
-                    this.state = ServiceState.STOPPING;
-                    super.shutdown();
-                    this.state = ServiceState.STOPPED;
-                    log.info("Shutdown the consume service successfully.");
-                    break;
-                case READY:
-                    log.info("The consume service has not been started before.");
-                    break;
-                case STARTING:
-                case STOPPING:
-                    log.error("[Bug] The consume service state is abnormal, state={}", state);
-                    break;
-                case STOPPED:
-                    log.info("The consume service has been shutdown before.");
-                    // fall through on purpose.
-                default:
-                    break;
-            }
-        }
+    @Override
+    protected void shutDown() throws InterruptedException {
+        log.info("Begin to shutdown th consume service.");
+        super.shutDown();
+        log.info("Shutdown the consume service successfully.");
     }
 
     /**

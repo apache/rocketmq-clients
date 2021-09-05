@@ -77,17 +77,15 @@ public class DefaultMQProducer {
      * Start this producer instance. <strong> Much internal initializing procedures are carried out to
      * make this instance prepared, thus, it's a must to invoke this method before sending messages.
      * </strong>
-     *
-     * @throws ClientException if there is any unexpected error.
      */
-    public void start() throws ClientException {
+    public void start() {
         this.impl.start();
     }
 
     /**
      * This method shuts down this producer instance and releases related resources.
      */
-    public void shutdown() throws InterruptedException {
+    public void shutdown() {
         this.impl.shutdown();
     }
 
@@ -138,7 +136,7 @@ public class DefaultMQProducer {
      * @param enabled message tracing is enabled or not.
      */
     public void setMessageTracingEnabled(boolean enabled) {
-        this.impl.setMessageTracingEnabled(enabled);
+        this.impl.setTracingEnabled(enabled);
     }
 
     /**

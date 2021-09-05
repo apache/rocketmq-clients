@@ -32,6 +32,7 @@ import apache.rocketmq.v1.VerifyMessageConsumptionRequest;
 import apache.rocketmq.v1.VerifyMessageConsumptionResponse;
 import com.google.common.collect.Sets;
 import com.google.common.math.IntMath;
+import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -145,14 +146,13 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
 
     protected volatile ClientManager clientManager;
 
+    protected final ClientService service;
     /**
      * OpenTelemetry tracer for message tracing.
      */
     protected volatile Tracer tracer;
     protected volatile Endpoints messageTracingEndpoints;
     private volatile SdkTracerProvider messageTracerProvider;
-
-    private volatile ServiceState state;
 
     private final TopAddressing topAddressing;
     private final AtomicInteger nameServerIndex;
@@ -179,7 +179,8 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
 
     public ClientImpl(String group) throws ClientException {
         super(group);
-        this.state = ServiceState.READY;
+
+        this.service = new ClientService();
 
         this.tracer = null;
         this.messageTracingEndpoints = null;
@@ -208,6 +209,23 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
      */
     public abstract void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData);
 
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+    public boolean isRunning() {
+        return service.isRunning();
+    }
+
+    public class ClientService extends AbstractIdleService {
+        @Override
+        protected void startUp() throws Exception {
+            ClientImpl.this.setUp();
+        }
+
+        @Override
+        protected void shutDown() throws Exception {
+            ClientImpl.this.tearDown();
+        }
+    }
+
     public void registerMessageInterceptor(MessageInterceptor messageInterceptor) {
         messageInterceptorsLock.writeLock().lock();
         try {
@@ -217,103 +235,69 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
         }
     }
 
-    public void start() throws ClientException {
-        synchronized (this) {
-            switch (state) {
-                case READY:
-                    log.info("Begin to start the rocketmq client, clientId={}", id);
-                    this.state = ServiceState.STARTING;
-                    if (null == clientManager) {
-                        clientManager = ClientManagerFactory.getInstance().registerClient(namespace, this);
-                    }
-
-                    if (messageTracingEnabled) {
-                        final TracingMessageInterceptor interceptor = new TracingMessageInterceptor(this);
-                        registerMessageInterceptor(interceptor);
-                    }
-
-                    final ScheduledExecutorService scheduler = clientManager.getScheduler();
-                    if (isNameServerNotSet()) {
-                        // acquire name server list immediately.
-                        renewNameServerList();
-
-                        log.info("Name server list was not set, schedule a task to fetch and renew periodically");
-                        renewNameServerListFuture = scheduler.scheduleWithFixedDelay(
-                                new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        try {
-                                            renewNameServerList();
-                                        } catch (Throwable t) {
-                                            log.error("Exception raised while updating nameserver from top "
-                                                      + "addressing", t);
-                                        }
-                                    }
-                                },
-                                0,
-                                30,
-                                TimeUnit.SECONDS);
-                    }
-                    updateRouteCacheFuture = scheduler.scheduleWithFixedDelay(
-                            new Runnable() {
-                                @Override
-                                public void run() {
-                                    try {
-                                        updateRouteCache();
-                                    } catch (Throwable t) {
-                                        log.error("Exception raised while updating topic route cache", t);
-                                    }
-                                }
-                            },
-                            10,
-                            30,
-                            TimeUnit.SECONDS);
-                    this.state = ServiceState.STARTED;
-                    log.info("The rocketmq client starts successfully, clientId={}", id);
-                    break;
-                case STARTING:
-                case STARTED:
-                case STOPPING:
-                case STOPPED:
-                default:
-                    throw new ClientException(ErrorCode.STARTED_BEFORE, "client may has been started before.");
-            }
+    protected void setUp() throws ClientException {
+        log.info("Begin to start the rocketmq client, clientId={}", id);
+        if (null == clientManager) {
+            clientManager = ClientManagerFactory.getInstance().registerClient(namespace, this);
         }
+
+        if (tracingEnabled) {
+            final TracingMessageInterceptor interceptor = new TracingMessageInterceptor(this);
+            registerMessageInterceptor(interceptor);
+        }
+
+        final ScheduledExecutorService scheduler = clientManager.getScheduler();
+        if (isNameServerNotSet()) {
+            // acquire name server list immediately.
+            renewNameServerList();
+
+            log.info("Name server list was not set, schedule a task to fetch and renew periodically");
+            renewNameServerListFuture = scheduler.scheduleWithFixedDelay(
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                renewNameServerList();
+                            } catch (Throwable t) {
+                                log.error("Exception raised while updating nameserver from top "
+                                          + "addressing", t);
+                            }
+                        }
+                    },
+                    0,
+                    30,
+                    TimeUnit.SECONDS);
+        }
+        updateRouteCacheFuture = scheduler.scheduleWithFixedDelay(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            updateRouteCache();
+                        } catch (Throwable t) {
+                            log.error("Exception raised while updating topic route cache", t);
+                        }
+                    }
+                },
+                10,
+                30,
+                TimeUnit.SECONDS);
+        log.info("The rocketmq client starts successfully, clientId={}", id);
     }
 
-    public void shutdown() throws InterruptedException {
-        synchronized (this) {
-            switch (state) {
-                case STARTED:
-                    log.info("Begin to shutdown the rocketmq client, clientId={}", id);
-                    this.state = ServiceState.STOPPING;
-                    if (null != renewNameServerListFuture) {
-                        renewNameServerListFuture.cancel(false);
-                    }
-                    if (null != updateRouteCacheFuture) {
-                        updateRouteCacheFuture.cancel(false);
-                    }
-                    ClientManagerFactory.getInstance().unregisterClient(namespace, this);
-                    if (null != messageTracerProvider) {
-                        messageTracerProvider.shutdown();
-                    }
-                    this.state = ServiceState.STOPPED;
-                    log.info("Shutdown the rocketmq client successfully, clientId={}", id);
-                    break;
-                case READY:
-                    log.info("The rocketmq client has not been started before, clientId={}", id);
-                    break;
-                case STARTING:
-                case STOPPING:
-                    log.error("[Bug] The rocketmq client state is abnormal, clientId={}, state={}", id, state);
-                    break;
-                case STOPPED:
-                    log.info("The rocketmq client has been shutdown before, clientId={}", id);
-                    // fall through on purpose.
-                default:
-                    break;
-            }
+    protected void tearDown() throws InterruptedException {
+        log.info("Begin to shutdown the rocketmq client, clientId={}", id);
+        if (null != renewNameServerListFuture) {
+            renewNameServerListFuture.cancel(false);
         }
+        if (null != updateRouteCacheFuture) {
+            updateRouteCacheFuture.cancel(false);
+        }
+        ClientManagerFactory.getInstance().unregisterClient(namespace, this);
+        if (null != messageTracerProvider) {
+            messageTracerProvider.shutdown();
+        }
+        log.info("Shutdown the rocketmq client successfully, clientId={}", id);
     }
 
     @Override
@@ -335,14 +319,6 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
 
     public ScheduledExecutorService getScheduler() {
         return clientManager.getScheduler();
-    }
-
-    public boolean isStarted() {
-        return ServiceState.STARTED.equals(state);
-    }
-
-    public boolean isStopped() {
-        return ServiceState.STOPPED.equals(state);
     }
 
     public Metadata sign() throws ClientException {
@@ -414,7 +390,7 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
             log.info("Start to send heartbeat to new endpoints={}", endpoints);
             doHeartbeat(request, endpoints);
         }
-        if (!messageTracingEnabled) {
+        if (!tracingEnabled) {
             return;
         }
         updateMessageTracer();
@@ -852,7 +828,7 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
         }
     }
 
-    private Set<Endpoints> getMessageTracingEndpointsSet() {
+    private Set<Endpoints> getTracingEndpointsSet() {
         Set<Endpoints> tracingEndpointsSet = new HashSet<Endpoints>();
         for (TopicRouteData topicRouteData : topicRouteCache.values()) {
             final List<Partition> partitions = topicRouteData.getPartitions();
@@ -874,7 +850,7 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
         synchronized (this) {
             try {
                 log.debug("Start to update message tracer.");
-                final Set<Endpoints> tracingEndpointsSet = getMessageTracingEndpointsSet();
+                final Set<Endpoints> tracingEndpointsSet = getTracingEndpointsSet();
                 if (tracingEndpointsSet.isEmpty()) {
                     log.warn("No available message tracing endpoints.");
                     return;

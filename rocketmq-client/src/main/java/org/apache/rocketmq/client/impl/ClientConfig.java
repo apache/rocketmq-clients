@@ -55,7 +55,7 @@ public class ClientConfig {
     /**
      * Switch to enable message tracing or not.
      */
-    protected boolean messageTracingEnabled = true;
+    protected boolean tracingEnabled = true;
 
     /**
      * If your service is deployed by region, region id could be set here, which would transport with gRPC header.
@@ -123,8 +123,8 @@ public class ClientConfig {
         return this.namespace;
     }
 
-    public boolean isMessageTracingEnabled() {
-        return this.messageTracingEnabled;
+    public boolean isTracingEnabled() {
+        return this.tracingEnabled;
     }
 
     public String getRegionId() {
@@ -143,8 +143,8 @@ public class ClientConfig {
         this.ioTimeoutMillis = ioTimeoutMillis;
     }
 
-    public void setMessageTracingEnabled(boolean messageTracingEnabled) {
-        this.messageTracingEnabled = messageTracingEnabled;
+    public void setTracingEnabled(boolean tracingEnabled) {
+        this.tracingEnabled = tracingEnabled;
     }
 
     void setRegionId(String regionId) {

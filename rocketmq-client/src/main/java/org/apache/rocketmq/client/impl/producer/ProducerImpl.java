@@ -172,7 +172,7 @@ public class ProducerImpl extends ClientImpl {
     }
 
     private void preconditionCheck(Message message) throws ClientException {
-        if (!isStarted()) {
+        if (!service.isRunning()) {
             throw new ClientException(ErrorCode.NOT_STARTED, "Please invoke #start() first!");
         }
         Validators.checkMessage(message);
@@ -184,34 +184,32 @@ public class ProducerImpl extends ClientImpl {
      * @throws ClientException the mq client exception.
      */
     @Override
-    public void start() throws ClientException {
-        synchronized (this) {
-            log.info("Begin to start the rocketmq producer, clientId={}", id);
-            super.start();
-
-            if (this.isStarted()) {
-                log.info("The rocketmq producer starts successfully, clientId={}", id);
-            }
-        }
+    protected void setUp() throws ClientException {
+        log.info("Begin to start the rocketmq producer, clientId={}", id);
+        super.setUp();
+        log.info("The rocketmq producer starts successfully, clientId={}", id);
     }
 
     /**
      * Shutdown the rocketmq producer.
      */
     @Override
-    public void shutdown() throws InterruptedException {
-        synchronized (this) {
-            log.info("Begin to shutdown the rocketmq producer, clientId={}", id);
-            super.shutdown();
-
-            if (this.isStopped()) {
-                defaultSendCallbackExecutor.shutdown();
-                if (!ExecutorServices.awaitTerminated(defaultSendCallbackExecutor)) {
-                    log.error("[Bug] Failed to shutdown default send callback executor, clientId={}", id);
-                }
-                log.info("Shutdown the rocketmq producer successfully, clientId={}", id);
-            }
+    protected void tearDown() throws InterruptedException {
+        log.info("Begin to shutdown the rocketmq producer, clientId={}", id);
+        super.tearDown();
+        defaultSendCallbackExecutor.shutdown();
+        if (!ExecutorServices.awaitTerminated(defaultSendCallbackExecutor)) {
+            log.error("[Bug] Failed to shutdown default send callback executor, clientId={}", id);
         }
+        log.info("Shutdown the rocketmq producer successfully, clientId={}", id);
+    }
+
+    public void start() {
+        service.startAsync().awaitRunning();
+    }
+
+    public void shutdown() {
+        service.stopAsync().awaitTerminated();
     }
 
     public void isolateEndpoints(Endpoints endpoints) {

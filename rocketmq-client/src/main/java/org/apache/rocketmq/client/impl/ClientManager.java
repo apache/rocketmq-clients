@@ -47,7 +47,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.grpc.Metadata;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.route.Endpoints;
 
 public interface ClientManager {
@@ -78,18 +77,6 @@ public interface ClientManager {
      * @return shared scheduler.
      */
     ScheduledExecutorService getScheduler();
-
-    /**
-     * Start the client manager.
-     */
-    void start() throws ClientException;
-
-    /**
-     * Shutdown the client manager.
-     *
-     * @throws InterruptedException if thread has been interrupted.
-     */
-    void shutdown() throws InterruptedException;
 
     /**
      * Query topic route asynchronously, the method ensures no throwable.

@@ -32,7 +32,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.consumer.ConsumeContext;
 import org.apache.rocketmq.client.consumer.ConsumeStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListener;
-import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageQueue;
@@ -58,19 +57,21 @@ public class ConsumeConcurrentlyServiceTest extends TestBase {
     private int batchSize;
 
     @BeforeMethod
-    public void beforeMethod() throws ClientException {
+    @SuppressWarnings("UnstableApiUsage")
+    public void beforeMethod() {
         MockitoAnnotations.initMocks(this);
 
         processQueueTable = new ConcurrentHashMap<MessageQueue, ProcessQueue>();
         batchSize = 1;
         consumeService = new ConsumeConcurrentlyService(messageListener, messageInterceptor, consumptionExecutor,
                                                         scheduler, processQueueTable, batchSize);
-        consumeService.start();
+        consumeService.startAsync().awaitRunning();
     }
 
     @AfterMethod
-    public void afterMethod() throws InterruptedException {
-        consumeService.shutdown();
+    @SuppressWarnings("UnstableApiUsage")
+    public void afterMethod() {
+        consumeService.stopAsync().awaitTerminated();
     }
 
     @Test

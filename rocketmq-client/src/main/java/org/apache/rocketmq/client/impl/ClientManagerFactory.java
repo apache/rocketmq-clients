@@ -23,22 +23,22 @@ import java.util.Map;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import javax.annotation.concurrent.ThreadSafe;
-import org.apache.rocketmq.client.exception.ClientException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @ThreadSafe
+@SuppressWarnings("UnstableApiUsage")
 public class ClientManagerFactory {
     private static final Logger log = LoggerFactory.getLogger(ClientManagerFactory.class);
 
     private static final ClientManagerFactory INSTANCE = new ClientManagerFactory();
 
     @GuardedBy("managersTableLock")
-    private final Map<String, ClientManager> managersTable;
+    private final Map<String, ClientManagerImpl> managersTable;
     private final Lock managersTableLock;
 
     private ClientManagerFactory() {
-        this.managersTable = new HashMap<String, ClientManager>();
+        this.managersTable = new HashMap<String, ClientManagerImpl>();
         this.managersTableLock = new ReentrantLock();
     }
 
@@ -55,14 +55,14 @@ public class ClientManagerFactory {
      * @param client    client.
      * @return the client manager which is started.
      */
-    public ClientManager registerClient(String managerId, Client client) throws ClientException {
+    public ClientManager registerClient(String managerId, Client client) {
         managersTableLock.lock();
         try {
-            ClientManager manager = managersTable.get(managerId);
+            ClientManagerImpl manager = managersTable.get(managerId);
             if (null == manager) {
                 // create and start manager.
                 manager = new ClientManagerImpl(managerId);
-                manager.start();
+                manager.startAsync().awaitRunning();
                 managersTable.put(managerId, manager);
             }
             manager.registerClient(client);
@@ -77,13 +77,12 @@ public class ClientManagerFactory {
      * registered in it.
      *
      * @return {@link ClientManager} is removed or not.
-     * @throws InterruptedException if thread has been interrupted.
      */
-    public boolean unregisterClient(String managerId, Client client) throws InterruptedException {
-        ClientManager removedManager = null;
+    public boolean unregisterClient(String managerId, Client client) {
+        ClientManagerImpl removedManager = null;
         managersTableLock.lock();
         try {
-            final ClientManager manager = managersTable.get(managerId);
+            final ClientManagerImpl manager = managersTable.get(managerId);
             if (null == manager) {
                 // should never reach here.
                 log.error("[Bug] manager not found by managerId={}", managerId);
@@ -100,7 +99,7 @@ public class ClientManagerFactory {
         }
         // no need to hold the lock here.
         if (null != removedManager) {
-            removedManager.shutdown();
+            removedManager.stopAsync().awaitTerminated();
         }
         return null != removedManager;
     }
