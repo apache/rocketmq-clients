@@ -33,7 +33,7 @@ import org.apache.rocketmq.utility.MetadataUtils;
 
 public class Signature {
     public static final String TENANT_ID_KEY = "x-mq-tenant-id";
-    public static final String ARN_KEY = "x-mq-arn";
+    public static final String NAMESPACE_KEY = "x-mq-namespace";
     public static final String AUTHORIZATION = "authorization";
     public static final String DATE_TIME_KEY = "x-mq-date-time";
 
@@ -67,9 +67,9 @@ public class Signature {
                      MixAll.getProtocolVersion());
         metadata.put(Metadata.Key.of(SDK_VERSION, Metadata.ASCII_STRING_MARSHALLER), MetadataUtils.getVersion());
 
-        final String arn = config.getNamespace();
-        if (StringUtils.isNotBlank(arn)) {
-            metadata.put(Metadata.Key.of(ARN_KEY, Metadata.ASCII_STRING_MARSHALLER), arn);
+        final String namespace = config.getNamespace();
+        if (StringUtils.isNotBlank(namespace)) {
+            metadata.put(Metadata.Key.of(NAMESPACE_KEY, Metadata.ASCII_STRING_MARSHALLER), namespace);
         }
 
         String dateTime = new SimpleDateFormat(DATE_TIME_FORMAT).format(new Date());
