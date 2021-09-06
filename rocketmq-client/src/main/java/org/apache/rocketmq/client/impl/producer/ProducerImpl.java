@@ -97,7 +97,6 @@ import org.slf4j.LoggerFactory;
 
 @SuppressWarnings(value = {"UnstableApiUsage", "NullableProblems"})
 public class ProducerImpl extends ClientImpl {
-
     /**
      * If message body size exceeds the threshold, it would be compressed for convenience of transport.
      */
@@ -172,7 +171,7 @@ public class ProducerImpl extends ClientImpl {
     }
 
     private void preconditionCheck(Message message) throws ClientException {
-        if (!service.isRunning()) {
+        if (!clientService.isRunning()) {
             throw new ClientException(ErrorCode.NOT_STARTED, "Please invoke #start() first!");
         }
         Validators.checkMessage(message);
@@ -205,11 +204,11 @@ public class ProducerImpl extends ClientImpl {
     }
 
     public void start() {
-        service.startAsync().awaitRunning();
+        clientService.startAsync().awaitRunning();
     }
 
     public void shutdown() {
-        service.stopAsync().awaitTerminated();
+        clientService.stopAsync().awaitTerminated();
     }
 
     public void isolateEndpoints(Endpoints endpoints) {
@@ -517,13 +516,17 @@ public class ProducerImpl extends ClientImpl {
                 builder.setResolution(EndTransactionRequest.TransactionResolution.ROLLBACK);
         }
         final EndTransactionRequest request = builder.build();
-
-        final MessageHookPointStatus bizStatus = TransactionResolution.COMMIT.equals(resolution) ?
-                                                 MessageHookPointStatus.OK : MessageHookPointStatus.ERROR;
+        final MessageHookPoint preHookPoint = TransactionResolution.COMMIT.equals(resolution) ?
+                                              MessageHookPoint.PRE_COMMIT_MESSAGE :
+                                              MessageHookPoint.PRE_ROLLBACK_MESSAGE;
+        final MessageHookPoint postHookPoint = TransactionResolution.COMMIT.equals(resolution) ?
+                                               MessageHookPoint.POST_COMMIT_MESSAGE :
+                                               MessageHookPoint.POST_ROLLBACK_MESSAGE;
 
         // intercept before end message.
-        intercept(MessageHookPoint.PRE_END_MESSAGE, messageExt,
-                  MessageInterceptorContext.builder().setBizStatus(bizStatus).build());
+        final MessageInterceptorContext context = MessageInterceptorContext.builder()
+                                                                           .setTopic(messageExt.getTopic()).build();
+        intercept(preHookPoint, messageExt, context);
         final Stopwatch stopwatch = Stopwatch.createStarted();
 
         final ListenableFuture<EndTransactionResponse> future =
@@ -536,22 +539,20 @@ public class ProducerImpl extends ClientImpl {
                 // intercept after end message.
                 MessageHookPointStatus status = Code.OK.equals(code) ? MessageHookPointStatus.OK
                                                                      : MessageHookPointStatus.ERROR;
-                final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
+                final long duration = stopwatch.elapsed(MessageInterceptor.DEFAULT_TIME_UNIT);
                 final MessageInterceptorContext context =
-                        MessageInterceptorContext.builder().setDuration(duration).setRpcStatus(status)
-                                                 .setBizStatus(bizStatus).build();
-                intercept(MessageHookPoint.POST_END_MESSAGE, messageExt, context);
+                        MessageInterceptorContext.builder().setDuration(duration).setStatus(status).build();
+                intercept(postHookPoint, messageExt, context);
             }
 
             @Override
             public void onFailure(Throwable t) {
                 // intercept after end message.
-                final long duration = stopwatch.elapsed(TimeUnit.MILLISECONDS);
+                final long duration = stopwatch.elapsed(MessageInterceptor.DEFAULT_TIME_UNIT);
                 final MessageInterceptorContext context =
                         MessageInterceptorContext.builder().setDuration(duration).setThrowable(t)
-                                                 .setRpcStatus(MessageHookPointStatus.ERROR)
-                                                 .setBizStatus(bizStatus).build();
-                intercept(MessageHookPoint.POST_END_MESSAGE, messageExt, context);
+                                                 .setStatus(MessageHookPointStatus.ERROR).build();
+                intercept(postHookPoint, messageExt, context);
             }
         });
         try {
@@ -740,7 +741,7 @@ public class ProducerImpl extends ClientImpl {
                 final TimeUnit timeUnit = MessageInterceptor.DEFAULT_TIME_UNIT;
                 final long duration = stopwatch.elapsed(timeUnit);
                 final MessageInterceptorContext context = contextBuilder.setDuration(duration)
-                                                                        .setRpcStatus(MessageHookPointStatus.OK)
+                                                                        .setStatus(MessageHookPointStatus.OK)
                                                                         .setTimeUnit(timeUnit)
                                                                         .build();
                 intercept(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
@@ -752,7 +753,7 @@ public class ProducerImpl extends ClientImpl {
                 final TimeUnit timeUnit = MessageInterceptor.DEFAULT_TIME_UNIT;
                 final long duration = stopwatch.elapsed(timeUnit);
                 final MessageInterceptorContext context = contextBuilder.setDuration(duration)
-                                                                        .setRpcStatus(MessageHookPointStatus.ERROR)
+                                                                        .setStatus(MessageHookPointStatus.ERROR)
                                                                         .setTimeUnit(timeUnit)
                                                                         .build();
                 intercept(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);

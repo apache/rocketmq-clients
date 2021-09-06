@@ -26,16 +26,22 @@ public enum MessageHookPoint {
      * Hook point after sending.
      */
     POST_SEND_MESSAGE,
-
     /**
-     * Hook point before pull message.
+     * Hook point before pull.
      */
-    PRE_PULL_MESSAGE,
+    PRE_PULL,
     /**
-     * Hook point after pull message.
+     * Hook point after pull.
      */
-    POST_PULL_MESSAGE,
-
+    POST_PULL,
+    /**
+     * Hook point before receive.
+     */
+    PRE_RECEIVE,
+    /**
+     * Hook point after receive.
+     */
+    POST_RECEIVE,
     /**
      * Hook point before message consumption.
      */
@@ -44,13 +50,44 @@ public enum MessageHookPoint {
      * Hook point after message consumption.
      */
     POST_MESSAGE_CONSUMPTION,
-
     /**
-     * Hook point before end the transaction message.
+     * Hook point before ack message.
      */
-    PRE_END_MESSAGE,
+    PRE_ACK_MESSAGE,
     /**
-     * Hook point after end the transaction message.
+     * Hook point before ack message.
      */
-    POST_END_MESSAGE;
+    POST_ACK_MESSAGE,
+    /**
+     * Hook point before nack message.
+     */
+    PRE_NACK_MESSAGE,
+    /**
+     * Hook point before nack message.
+     */
+    POST_NACK_MESSAGE,
+    /**
+     * Hook point before commit transaction message.
+     */
+    PRE_COMMIT_MESSAGE,
+    /**
+     * Hook point after commit message.
+     */
+    POST_COMMIT_MESSAGE,
+    /**
+     * Hook point before rollback transaction message.
+     */
+    PRE_ROLLBACK_MESSAGE,
+    /**
+     * Hook point after rollback transaction message.
+     */
+    POST_ROLLBACK_MESSAGE,
+    /**
+     * Hook point before forward message to DLQ;
+     */
+    PRE_FORWARD_MESSAGE_TO_DLQ,
+    /**
+     * Hook point after forward message to DLQ;
+     */
+    POST_FORWARD_MESSAGE_TO_DLQ
 }

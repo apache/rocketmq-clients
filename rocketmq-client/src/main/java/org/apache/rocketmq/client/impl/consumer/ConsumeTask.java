@@ -82,8 +82,8 @@ public class ConsumeTask implements Callable<ConsumeStatus> {
                                                                                .setAttempt(attempt)
                                                                                .setDuration(duration)
                                                                                .setTimeUnit(timeUnit)
-                                                                               .setMessageBatchSize(batchSize)
-                                                                               .setBizStatus(pointStatus).build();
+                                                                               .setBatchSize(batchSize)
+                                                                               .setStatus(pointStatus).build();
             interceptor.intercept(MessageHookPoint.POST_MESSAGE_CONSUMPTION, messageExt, context);
         }
         return status;

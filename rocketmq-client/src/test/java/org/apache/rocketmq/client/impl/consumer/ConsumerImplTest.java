@@ -68,7 +68,7 @@ public class ConsumerImplTest extends TestBase {
         final ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
         PullMessageResponse response =
                 PullMessageResponse.newBuilder().setCommon(common).addMessages(fakePbMessage0()).build();
-        PullMessageResult result = ConsumerImpl.processPullMessageResponse(fakeEndpoints0(), response);
+        PullMessageResult result = consumer.processPullMessageResponse(fakeEndpoints0(), response);
         assertEquals(result.getPullStatus(), PullStatus.OK);
         assertFalse(result.getMessagesFound().isEmpty());
         assertEquals(result.getMessagesFound().size(), 1);
@@ -79,7 +79,7 @@ public class ConsumerImplTest extends TestBase {
         final Status status = Status.newBuilder().setCode(Code.OK_VALUE).build();
         final ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
         PullMessageResponse response = PullMessageResponse.newBuilder().setCommon(common).build();
-        PullMessageResult result = ConsumerImpl.processPullMessageResponse(fakeEndpoints0(), response);
+        PullMessageResult result = consumer.processPullMessageResponse(fakeEndpoints0(), response);
         assertEquals(result.getPullStatus(), PullStatus.OK);
         assertTrue(result.getMessagesFound().isEmpty());
     }
@@ -89,7 +89,7 @@ public class ConsumerImplTest extends TestBase {
         final Status status = Status.newBuilder().setCode(Code.RESOURCE_EXHAUSTED_VALUE).build();
         final ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
         PullMessageResponse response = PullMessageResponse.newBuilder().setCommon(common).build();
-        PullMessageResult result = ConsumerImpl.processPullMessageResponse(fakeEndpoints0(), response);
+        PullMessageResult result = consumer.processPullMessageResponse(fakeEndpoints0(), response);
         assertEquals(result.getPullStatus(), PullStatus.RESOURCE_EXHAUSTED);
         assertTrue(result.getMessagesFound().isEmpty());
     }
@@ -99,7 +99,7 @@ public class ConsumerImplTest extends TestBase {
         final Status status = Status.newBuilder().setCode(Code.DEADLINE_EXCEEDED_VALUE).build();
         final ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
         PullMessageResponse response = PullMessageResponse.newBuilder().setCommon(common).build();
-        PullMessageResult result = ConsumerImpl.processPullMessageResponse(fakeEndpoints0(), response);
+        PullMessageResult result = consumer.processPullMessageResponse(fakeEndpoints0(), response);
         assertEquals(result.getPullStatus(), PullStatus.DEADLINE_EXCEEDED);
         assertTrue(result.getMessagesFound().isEmpty());
     }
@@ -109,7 +109,7 @@ public class ConsumerImplTest extends TestBase {
         final Status status = Status.newBuilder().setCode(Code.NOT_FOUND_VALUE).build();
         final ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
         PullMessageResponse response = PullMessageResponse.newBuilder().setCommon(common).build();
-        PullMessageResult result = ConsumerImpl.processPullMessageResponse(fakeEndpoints0(), response);
+        PullMessageResult result = consumer.processPullMessageResponse(fakeEndpoints0(), response);
         assertEquals(result.getPullStatus(), PullStatus.NOT_FOUND);
         assertTrue(result.getMessagesFound().isEmpty());
     }
@@ -119,7 +119,7 @@ public class ConsumerImplTest extends TestBase {
         final Status status = Status.newBuilder().setCode(Code.OUT_OF_RANGE_VALUE).build();
         final ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
         PullMessageResponse response = PullMessageResponse.newBuilder().setCommon(common).build();
-        PullMessageResult result = ConsumerImpl.processPullMessageResponse(fakeEndpoints0(), response);
+        PullMessageResult result = consumer.processPullMessageResponse(fakeEndpoints0(), response);
         assertEquals(result.getPullStatus(), PullStatus.OUT_OF_RANGE);
         assertTrue(result.getMessagesFound().isEmpty());
     }
@@ -129,7 +129,7 @@ public class ConsumerImplTest extends TestBase {
         final Status status = Status.newBuilder().setCode(Code.INTERNAL_VALUE).build();
         final ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
         PullMessageResponse response = PullMessageResponse.newBuilder().setCommon(common).build();
-        PullMessageResult result = ConsumerImpl.processPullMessageResponse(fakeEndpoints0(), response);
+        PullMessageResult result = consumer.processPullMessageResponse(fakeEndpoints0(), response);
         assertEquals(result.getPullStatus(), PullStatus.INTERNAL);
         assertTrue(result.getMessagesFound().isEmpty());
     }
@@ -139,7 +139,7 @@ public class ConsumerImplTest extends TestBase {
         final Status status = Status.newBuilder().setCode(999).build();
         final ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
         PullMessageResponse response = PullMessageResponse.newBuilder().setCommon(common).build();
-        PullMessageResult result = ConsumerImpl.processPullMessageResponse(fakeEndpoints0(), response);
+        PullMessageResult result = consumer.processPullMessageResponse(fakeEndpoints0(), response);
         assertEquals(result.getPullStatus(), PullStatus.INTERNAL);
         assertTrue(result.getMessagesFound().isEmpty());
     }
@@ -150,7 +150,7 @@ public class ConsumerImplTest extends TestBase {
         final ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
         ReceiveMessageResponse response =
                 ReceiveMessageResponse.newBuilder().setCommon(common).addMessages(fakePbMessage0()).build();
-        ReceiveMessageResult result = ConsumerImpl.processReceiveMessageResponse(fakeEndpoints0(), response);
+        ReceiveMessageResult result = consumer.processReceiveMessageResponse(fakeEndpoints0(), response);
         assertEquals(result.getReceiveStatus(), ReceiveStatus.OK);
         assertFalse(result.getMessagesFound().isEmpty());
         assertEquals(result.getMessagesFound().size(), 1);
@@ -162,7 +162,7 @@ public class ConsumerImplTest extends TestBase {
         final ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
         ReceiveMessageResponse response =
                 ReceiveMessageResponse.newBuilder().setCommon(common).build();
-        ReceiveMessageResult result = ConsumerImpl.processReceiveMessageResponse(fakeEndpoints0(), response);
+        ReceiveMessageResult result = consumer.processReceiveMessageResponse(fakeEndpoints0(), response);
         assertEquals(result.getReceiveStatus(), ReceiveStatus.OK);
         assertTrue(result.getMessagesFound().isEmpty());
     }
@@ -172,7 +172,7 @@ public class ConsumerImplTest extends TestBase {
         final Status status = Status.newBuilder().setCode(Code.RESOURCE_EXHAUSTED_VALUE).build();
         final ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
         ReceiveMessageResponse response = ReceiveMessageResponse.newBuilder().setCommon(common).build();
-        ReceiveMessageResult result = ConsumerImpl.processReceiveMessageResponse(fakeEndpoints0(), response);
+        ReceiveMessageResult result = consumer.processReceiveMessageResponse(fakeEndpoints0(), response);
         assertEquals(result.getReceiveStatus(), ReceiveStatus.RESOURCE_EXHAUSTED);
         assertTrue(result.getMessagesFound().isEmpty());
     }
@@ -182,7 +182,7 @@ public class ConsumerImplTest extends TestBase {
         final Status status = Status.newBuilder().setCode(Code.DEADLINE_EXCEEDED_VALUE).build();
         final ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
         ReceiveMessageResponse response = ReceiveMessageResponse.newBuilder().setCommon(common).build();
-        ReceiveMessageResult result = ConsumerImpl.processReceiveMessageResponse(fakeEndpoints0(), response);
+        ReceiveMessageResult result = consumer.processReceiveMessageResponse(fakeEndpoints0(), response);
         assertEquals(result.getReceiveStatus(), ReceiveStatus.DEADLINE_EXCEEDED);
         assertTrue(result.getMessagesFound().isEmpty());
     }
@@ -192,7 +192,7 @@ public class ConsumerImplTest extends TestBase {
         final Status status = Status.newBuilder().setCode(Code.INTERNAL_VALUE).build();
         final ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
         ReceiveMessageResponse response = ReceiveMessageResponse.newBuilder().setCommon(common).build();
-        ReceiveMessageResult result = ConsumerImpl.processReceiveMessageResponse(fakeEndpoints0(), response);
+        ReceiveMessageResult result = consumer.processReceiveMessageResponse(fakeEndpoints0(), response);
         assertEquals(result.getReceiveStatus(), ReceiveStatus.INTERNAL);
         assertTrue(result.getMessagesFound().isEmpty());
     }
@@ -202,7 +202,7 @@ public class ConsumerImplTest extends TestBase {
         final Status status = Status.newBuilder().setCode(999).build();
         final ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
         ReceiveMessageResponse response = ReceiveMessageResponse.newBuilder().setCommon(common).build();
-        ReceiveMessageResult result = ConsumerImpl.processReceiveMessageResponse(fakeEndpoints0(), response);
+        ReceiveMessageResult result = consumer.processReceiveMessageResponse(fakeEndpoints0(), response);
         assertEquals(result.getReceiveStatus(), ReceiveStatus.INTERNAL);
         assertTrue(result.getMessagesFound().isEmpty());
     }

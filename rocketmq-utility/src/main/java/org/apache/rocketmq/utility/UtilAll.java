@@ -91,6 +91,33 @@ public class UtilAll {
         return MAC_ADDRESS.clone();
     }
 
+    public static String getOsName() {
+        try {
+            return System.getProperty("os.name");
+        } catch (Throwable t) {
+            // ignore on purpose.
+            return null;
+        }
+    }
+
+    public static String getOsVersion() {
+        try {
+            return System.getProperty("os.version");
+        } catch (Throwable t) {
+            // ignore on purpose.
+            return null;
+        }
+    }
+
+    public static String getJavaHome() {
+        try {
+            return System.getProperty("java.home");
+        } catch (Throwable t) {
+            // ignore on purpose.
+            return null;
+        }
+    }
+
     public static int processId() {
         if (PROCESS_ID != PROCESS_ID_NOT_SET) {
             return PROCESS_ID;

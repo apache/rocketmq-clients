@@ -15,34 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.impl;
+package org.apache.rocketmq.client.trace;
 
-import org.apache.rocketmq.client.exception.ClientException;
-import org.apache.rocketmq.client.route.Endpoints;
+public enum RocketmqOperation {
+    SEND("send"),
+    COMMIT("commit"),
+    ROLLBACK("rollback"),
+    PULL("pull"),
+    RECEIVE("receive"),
+    AWAIT("await"),
+    PROCESS("process"),
+    ACK("ack"),
+    NACK("nack"),
+    DLQ("dlq");
 
-public abstract class Client extends ClientConfig {
-    /**
-     * Constructor by specifying group.
-     *
-     * @param group client group.
-     * @throws ClientException if there is any client error.
-     */
-    public Client(String group) throws ClientException {
-        super(group);
+    private final String name;
+
+    RocketmqOperation(String name) {
+        this.name = name;
     }
 
-    /**
-     * Send heart beat to remote {@link Endpoints}.
-     */
-    public abstract void doHeartbeat();
-
-    /**
-     * Check the status of remote {@link Endpoints}.
-     */
-    public abstract void doHealthCheck();
-
-    /**
-     * Do some stats for client.
-     */
-    public abstract void doStats();
+    public String getName() {
+        return name;
+    }
 }

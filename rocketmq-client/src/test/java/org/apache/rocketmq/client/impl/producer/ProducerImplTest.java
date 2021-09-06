@@ -23,8 +23,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -381,24 +379,5 @@ public class ProducerImplTest extends TestBase {
                                                                          ArgumentMatchers.<MultiplexingRequest>any(),
                                                                          anyLong(),
                                                                          ArgumentMatchers.<TimeUnit>any());
-    }
-
-    @Test
-    public void testUpdateTracer() throws ServerException, ClientException, InterruptedException, TimeoutException {
-        assertNull(producerImpl.getTracer());
-        producerImpl.setTracingEnabled(true);
-        final Message message = fakeMessage();
-        // fetch route from remote instead of cache.
-        message.setTopic(FAKE_TOPIC_1);
-        when(clientManager.queryRoute(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
-                                      ArgumentMatchers.<QueryRouteRequest>any(), anyLong(),
-                                      ArgumentMatchers.<TimeUnit>any()))
-                .thenReturn(okQueryRouteResponseFuture());
-        when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
-                                       ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
-                                       ArgumentMatchers.<TimeUnit>any()))
-                .thenReturn(okSendMessageResponseFuture());
-        producerImpl.send(message);
-        assertNotNull(producerImpl.getTracer());
     }
 }

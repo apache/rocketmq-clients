@@ -43,7 +43,7 @@ public class SystemAttribute {
     private int deliveryAttempt;
     private String producerGroup;
     private String messageGroup;
-    private String traceContext;
+    private volatile String traceContext;
     private long orphanedTransactionRecoveryPeriodMillis;
     // set after receiving the message.
     private long decodedTimestamp;

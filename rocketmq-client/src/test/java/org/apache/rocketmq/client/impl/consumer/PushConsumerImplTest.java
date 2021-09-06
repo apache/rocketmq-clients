@@ -201,7 +201,7 @@ public class PushConsumerImplTest extends TestBase {
                                                            ArgumentMatchers.<TimeUnit>any()))
                 .thenReturn(okForwardMessageToDeadLetterQueueResponseListenableFuture());
         ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future = consumerImpl
-                .forwardMessageToDeadLetterQueue(fakeMessageExt());
+                .forwardMessageToDeadLetterQueue(fakeMessageExt(), 1);
         final ForwardMessageToDeadLetterQueueResponse response = future.get();
         assertEquals(response.getCommon().getStatus().getCode(), Code.OK_VALUE);
 
@@ -212,7 +212,7 @@ public class PushConsumerImplTest extends TestBase {
                                                                    .<ForwardMessageToDeadLetterQueueRequest>any(),
                                                            anyLong(),
                                                            ArgumentMatchers.<TimeUnit>any())).thenThrow(throwable);
-        future = consumerImpl.forwardMessageToDeadLetterQueue(fakeMessageExt());
+        future = consumerImpl.forwardMessageToDeadLetterQueue(fakeMessageExt(), 1);
         try {
             future.get();
             fail();

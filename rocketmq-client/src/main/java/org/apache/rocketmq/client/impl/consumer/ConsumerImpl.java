@@ -54,6 +54,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Base class of {@link PushConsumerImpl} and PullConsumerImpl which is WIP.
  */
+@SuppressWarnings("UnstableApiUsage")
 public abstract class ConsumerImpl extends ClientImpl {
     private static final Logger log = LoggerFactory.getLogger(ConsumerImpl.class);
 
@@ -107,7 +108,7 @@ public abstract class ConsumerImpl extends ClientImpl {
         }
     }
 
-    public static PullMessageResult processPullMessageResponse(Endpoints endpoints, PullMessageResponse response) {
+    public PullMessageResult processPullMessageResponse(Endpoints endpoints, PullMessageResponse response) {
         PullStatus pullStatus;
         final Status status = response.getCommon().getStatus();
         final Code code = Code.forNumber(status.getCode());
@@ -170,8 +171,8 @@ public abstract class ConsumerImpl extends ClientImpl {
         }
     }
 
-    public static ReceiveMessageResult processReceiveMessageResponse(Endpoints endpoints,
-                                                                     ReceiveMessageResponse response) {
+    public ReceiveMessageResult processReceiveMessageResponse(Endpoints endpoints,
+                                                              ReceiveMessageResponse response) {
         ReceiveStatus receiveStatus;
         final Status status = response.getCommon().getStatus();
         final Code code = Code.forNumber(status.getCode());

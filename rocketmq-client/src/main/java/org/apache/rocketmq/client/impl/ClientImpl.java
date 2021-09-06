@@ -42,19 +42,7 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
 import io.grpc.Metadata;
-import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
-import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
-import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext;
-import io.grpc.netty.shaded.io.netty.handler.ssl.util.InsecureTrustManagerFactory;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter;
-import io.opentelemetry.sdk.OpenTelemetrySdk;
-import io.opentelemetry.sdk.trace.SdkTracerProvider;
-import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
-import java.net.InetSocketAddress;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -82,8 +70,6 @@ import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.misc.TopAddressing;
 import org.apache.rocketmq.client.misc.Validators;
-import org.apache.rocketmq.client.remoting.AuthInterceptor;
-import org.apache.rocketmq.client.remoting.IpNameResolverFactory;
 import org.apache.rocketmq.client.route.Address;
 import org.apache.rocketmq.client.route.AddressScheme;
 import org.apache.rocketmq.client.route.Broker;
@@ -91,13 +77,14 @@ import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.Permission;
 import org.apache.rocketmq.client.route.TopicRouteData;
-import org.apache.rocketmq.client.tracing.TracingMessageInterceptor;
+import org.apache.rocketmq.client.trace.MessageTracer;
+import org.apache.rocketmq.client.trace.TraceEndpointsProvider;
 import org.apache.rocketmq.utility.UtilAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @SuppressWarnings(value = {"UnstableApiUsage", "NullableProblems"})
-public abstract class ClientImpl extends ClientConfig implements Client, MessageInterceptor {
+public abstract class ClientImpl extends Client implements MessageInterceptor, TraceEndpointsProvider {
     private static final Logger log = LoggerFactory.getLogger(ClientImpl.class);
 
     /**
@@ -115,44 +102,11 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
      */
     private static final long VERIFY_CONSUMPTION_TIMEOUT_MILLIS = 15 * 1000L;
 
-    /**
-     * Name for tracer. See <a href="https://opentelemetry.io">OpenTelemetry</a> for more details.
-     */
-    private static final String TRACER_INSTRUMENTATION_NAME = "org.apache.rocketmq.message.tracer";
-
-    /**
-     * Delay interval between two consecutive trace span exports to collector. See
-     * <a href="https://opentelemetry.io">OpenTelemetry</a> for more details.
-     */
-    private static final long TRACE_EXPORTER_SCHEDULE_DELAY_MILLIS = 500L;
-
-    /**
-     * Maximum time to wait for the collector to process an exported batch of spans. See
-     * <a href="https://opentelemetry.io">OpenTelemetry</a> for more details.
-     */
-    private static final long TRACE_EXPORTER_RPC_TIMEOUT_MILLIS = 3 * 1000L;
-
-    /**
-     * Maximum batch size for every export of span, must be smaller than {@link #TRACE_EXPORTER_MAX_QUEUE_SIZE}.
-     * See <a href="https://opentelemetry.io">OpenTelemetry</a> for more details.
-     */
-    private static final int TRACE_EXPORTER_BATCH_SIZE = 2048;
-
-    /**
-     * Maximum number of {@link Span} that are kept in the queue before start dropping. See
-     * <a href="https://opentelemetry.io">OpenTelemetry</a> for more details.
-     */
-    private static final int TRACE_EXPORTER_MAX_QUEUE_SIZE = 16384;
-
     protected volatile ClientManager clientManager;
 
-    protected final ClientService service;
-    /**
-     * OpenTelemetry tracer for message tracing.
-     */
-    protected volatile Tracer tracer;
-    protected volatile Endpoints messageTracingEndpoints;
-    private volatile SdkTracerProvider messageTracerProvider;
+    protected final ClientService clientService;
+
+    private final MessageTracer messageTracer;
 
     private final TopAddressing topAddressing;
     private final AtomicInteger nameServerIndex;
@@ -180,11 +134,9 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
     public ClientImpl(String group) throws ClientException {
         super(group);
 
-        this.service = new ClientService();
+        this.clientService = new ClientService();
 
-        this.tracer = null;
-        this.messageTracingEndpoints = null;
-        this.messageTracerProvider = null;
+        this.messageTracer = new MessageTracer(this);
 
         this.topAddressing = new TopAddressing();
         this.nameServerIndex = new AtomicInteger(RandomUtils.nextInt());
@@ -211,7 +163,7 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
 
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean isRunning() {
-        return service.isRunning();
+        return clientService.isRunning();
     }
 
     public class ClientService extends AbstractIdleService {
@@ -241,10 +193,7 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
             clientManager = ClientManagerFactory.getInstance().registerClient(namespace, this);
         }
 
-        if (tracingEnabled) {
-            final TracingMessageInterceptor interceptor = new TracingMessageInterceptor(this);
-            registerMessageInterceptor(interceptor);
-        }
+        messageTracer.init();
 
         final ScheduledExecutorService scheduler = clientManager.getScheduler();
         if (isNameServerNotSet()) {
@@ -294,10 +243,11 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
             updateRouteCacheFuture.cancel(false);
         }
         ClientManagerFactory.getInstance().unregisterClient(namespace, this);
-        if (null != messageTracerProvider) {
-            messageTracerProvider.shutdown();
-        }
         log.info("Shutdown the rocketmq client successfully, clientId={}", id);
+    }
+
+    public void intercept(MessageHookPoint hookPoint, MessageInterceptorContext context) {
+        intercept(hookPoint, null, context);
     }
 
     @Override
@@ -390,10 +340,7 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
             log.info("Start to send heartbeat to new endpoints={}", endpoints);
             doHeartbeat(request, endpoints);
         }
-        if (!tracingEnabled) {
-            return;
-        }
-        updateMessageTracer();
+        messageTracer.refresh();
     }
 
     private void updateRouteCache() {
@@ -494,24 +441,24 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
         return future0;
     }
 
-    public void setNamesrvAddr(String namesrv) throws ClientException {
-        Validators.checkNamesrvAddr(namesrv);
+    public void setNamesrvAddr(String nameServerStr) throws ClientException {
+        Validators.checkNamesrvAddr(nameServerStr);
         nameServerEndpointsListLock.writeLock().lock();
         try {
             this.nameServerEndpointsList.clear();
 
             boolean httpPatternMatched = false;
             String httpPrefixMatched = "";
-            if (namesrv.startsWith(MixAll.HTTP_PREFIX)) {
+            if (nameServerStr.startsWith(MixAll.HTTP_PREFIX)) {
                 httpPatternMatched = true;
                 httpPrefixMatched = MixAll.HTTP_PREFIX;
-            } else if (namesrv.startsWith(MixAll.HTTPS_PREFIX)) {
+            } else if (nameServerStr.startsWith(MixAll.HTTPS_PREFIX)) {
                 httpPatternMatched = true;
                 httpPrefixMatched = MixAll.HTTPS_PREFIX;
             }
             // for http pattern.
             if (httpPatternMatched) {
-                final String domainName = namesrv.substring(httpPrefixMatched.length());
+                final String domainName = nameServerStr.substring(httpPrefixMatched.length());
                 final String[] domainNameSplit = domainName.split(":");
                 String host = domainNameSplit[0].replace("_", "-").toLowerCase(UtilAll.LOCALE);
                 final String[] hostSplit = host.split("\\.");
@@ -527,14 +474,15 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
                 if (StringUtils.isNotBlank(namespace)) {
                     return;
                 }
-                if (Validators.NAME_SERVER_ENDPOINT_WITH_NAMESPACE_PATTERN.matcher(namesrv).matches()) {
-                    this.namespace = namesrv.substring(namesrv.lastIndexOf('/') + 1, namesrv.indexOf('.'));
+                if (Validators.NAME_SERVER_ENDPOINT_WITH_NAMESPACE_PATTERN.matcher(nameServerStr).matches()) {
+                    this.namespace = nameServerStr.substring(nameServerStr.lastIndexOf('/') + 1,
+                                                             nameServerStr.indexOf('.'));
                 }
                 return;
             }
             // for ip pattern.
             try {
-                final String[] addressArray = namesrv.split(";");
+                final String[] addressArray = nameServerStr.split(";");
                 for (String address : addressArray) {
                     final String[] split = address.split(":");
                     String host = split[0];
@@ -547,6 +495,7 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
                 log.error("Exception raises while parse name server address.", t);
                 throw new ClientException(ErrorCode.ILLEGAL_FORMAT, t);
             }
+            this.nameServerStr = nameServerStr;
         } finally {
             nameServerEndpointsListLock.writeLock().unlock();
         }
@@ -828,8 +777,9 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
         }
     }
 
-    private Set<Endpoints> getTracingEndpointsSet() {
-        Set<Endpoints> tracingEndpointsSet = new HashSet<Endpoints>();
+    @Override
+    public List<Endpoints> getTraceCandidates() {
+        Set<Endpoints> set = new HashSet<Endpoints>();
         for (TopicRouteData topicRouteData : topicRouteCache.values()) {
             final List<Partition> partitions = topicRouteData.getPartitions();
             for (Partition partition : partitions) {
@@ -837,73 +787,12 @@ public abstract class ClientImpl extends ClientConfig implements Client, Message
                 if (MixAll.MASTER_BROKER_ID != broker.getId()) {
                     continue;
                 }
-                if (Permission.NONE == partition.getPermission()) {
+                if (Permission.NONE.equals(partition.getPermission())) {
                     continue;
                 }
-                tracingEndpointsSet.add(broker.getEndpoints());
+                set.add(broker.getEndpoints());
             }
         }
-        return tracingEndpointsSet;
-    }
-
-    private void updateMessageTracer() {
-        synchronized (this) {
-            try {
-                log.debug("Start to update message tracer.");
-                final Set<Endpoints> tracingEndpointsSet = getTracingEndpointsSet();
-                if (tracingEndpointsSet.isEmpty()) {
-                    log.warn("No available message tracing endpoints.");
-                    return;
-                }
-                if (null != messageTracingEndpoints && tracingEndpointsSet.contains(messageTracingEndpoints)) {
-                    log.debug("message tracing target remains unchanged");
-                    return;
-                }
-                List<Endpoints> tracingRpcTargetList = new ArrayList<Endpoints>(tracingEndpointsSet);
-                Collections.shuffle(tracingRpcTargetList);
-                // pick up tracing rpc target randomly.
-                final Endpoints randomTracingEndpoints = tracingRpcTargetList.iterator().next();
-                final SslContext sslContext =
-                        GrpcSslContexts.forClient().trustManager(InsecureTrustManagerFactory.INSTANCE).build();
-
-                final NettyChannelBuilder channelBuilder =
-                        NettyChannelBuilder.forTarget(randomTracingEndpoints.getFacade())
-                                           .sslContext(sslContext)
-                                           .intercept(new AuthInterceptor(this));
-
-                final List<InetSocketAddress> socketAddresses = randomTracingEndpoints.toSocketAddresses();
-                // if scheme is not domain.
-                if (null != socketAddresses) {
-                    IpNameResolverFactory tracingResolverFactory = new IpNameResolverFactory(socketAddresses);
-                    channelBuilder.nameResolverFactory(tracingResolverFactory);
-                }
-
-                OtlpGrpcSpanExporter exporter =
-                        OtlpGrpcSpanExporter.builder().setChannel(channelBuilder.build())
-                                            .setTimeout(TRACE_EXPORTER_RPC_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-                                            .build();
-
-                BatchSpanProcessor spanProcessor =
-                        BatchSpanProcessor.builder(exporter)
-                                          .setScheduleDelay(TRACE_EXPORTER_SCHEDULE_DELAY_MILLIS, TimeUnit.MILLISECONDS)
-                                          .setMaxExportBatchSize(TRACE_EXPORTER_BATCH_SIZE)
-                                          .setMaxQueueSize(TRACE_EXPORTER_MAX_QUEUE_SIZE)
-                                          .build();
-                if (null != messageTracerProvider) {
-                    messageTracerProvider.shutdown();
-                }
-                messageTracerProvider = SdkTracerProvider.builder().addSpanProcessor(spanProcessor).build();
-                OpenTelemetrySdk openTelemetry =
-                        OpenTelemetrySdk.builder().setTracerProvider(messageTracerProvider).build();
-                tracer = openTelemetry.getTracer(TRACER_INSTRUMENTATION_NAME);
-                messageTracingEndpoints = randomTracingEndpoints;
-            } catch (Throwable t) {
-                log.error("Exception raised while updating tracer.", t);
-            }
-        }
-    }
-
-    public Tracer getTracer() {
-        return this.tracer;
+        return new ArrayList<Endpoints>(set);
     }
 }

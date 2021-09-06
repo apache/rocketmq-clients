@@ -15,34 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.impl;
 
-import org.apache.rocketmq.client.exception.ClientException;
-import org.apache.rocketmq.client.route.Endpoints;
+package org.apache.rocketmq.client.trace;
 
-public abstract class Client extends ClientConfig {
-    /**
-     * Constructor by specifying group.
-     *
-     * @param group client group.
-     * @throws ClientException if there is any client error.
-     */
-    public Client(String group) throws ClientException {
-        super(group);
+import io.opentelemetry.sdk.common.Clock;
+import io.opentelemetry.sdk.internal.MonotonicClock;
+import io.opentelemetry.sdk.internal.SystemClock;
+
+public class TraceClock {
+    private static final TraceClock INSTANCE = new TraceClock();
+    private final Clock clock;
+
+    public TraceClock() {
+        this.clock = MonotonicClock.create(SystemClock.getInstance());
     }
 
-    /**
-     * Send heart beat to remote {@link Endpoints}.
-     */
-    public abstract void doHeartbeat();
+    public static TraceClock getInstance() {
+        return INSTANCE;
+    }
 
-    /**
-     * Check the status of remote {@link Endpoints}.
-     */
-    public abstract void doHealthCheck();
-
-    /**
-     * Do some stats for client.
-     */
-    public abstract void doStats();
+    public long nanoTime() {
+        return clock.now();
+    }
 }

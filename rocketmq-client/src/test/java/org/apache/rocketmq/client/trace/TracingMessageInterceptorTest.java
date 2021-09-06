@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.tracing;
+package org.apache.rocketmq.client.trace;
 
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -23,9 +23,11 @@ import static org.testng.Assert.assertEquals;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.SpanContext;
+import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
-import org.apache.rocketmq.client.impl.ClientImpl;
+import org.apache.rocketmq.client.exception.ClientException;
+import org.apache.rocketmq.client.impl.ClientConfig;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
 import org.apache.rocketmq.client.message.MessageImplAccessor;
@@ -49,24 +51,29 @@ public class TracingMessageInterceptorTest extends TestBase {
     private Span span;
 
     @Mock
-    private ClientImpl client;
+    private MessageTracer messageTracer;
 
     @InjectMocks
     private TracingMessageInterceptor interceptor;
 
     private final SpanContext spanContext;
 
-    public TracingMessageInterceptorTest() {
+    private final ClientConfig config;
+
+    public TracingMessageInterceptorTest() throws ClientException {
         this.spanContext =
                 TracingUtility.extractContextFromTraceParent(TracingUtilityTest.FAKE_SERIALIZED_SPAN_CONTEXT);
+        this.config = new ClientConfig(FAKE_GROUP_0);
     }
 
     @BeforeMethod
     public void beforeMethod() {
         MockitoAnnotations.initMocks(this);
-        when(client.getTracer()).thenReturn(tracer);
+        when(messageTracer.getTracer()).thenReturn(tracer);
+        when(messageTracer.getClientConfig()).thenReturn(config);
         when(tracer.spanBuilder(ArgumentMatchers.<String>any())).thenReturn(spanBuilder);
         when(spanBuilder.startSpan()).thenReturn(span);
+        when(spanBuilder.setSpanKind(ArgumentMatchers.<SpanKind>any())).thenReturn(spanBuilder);
         when(spanBuilder.setParent(ArgumentMatchers.<Context>any())).thenReturn(spanBuilder);
         when(span.getSpanContext()).thenReturn(spanContext);
     }

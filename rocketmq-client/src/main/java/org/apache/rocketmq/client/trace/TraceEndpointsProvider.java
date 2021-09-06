@@ -15,17 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.tracing;
+package org.apache.rocketmq.client.trace;
 
-public class SpanName {
-    public static final String PARENT = "Parent";
+import java.util.List;
+import org.apache.rocketmq.client.route.Endpoints;
 
-    public static final String SEND_MESSAGE = "SendMessage";
-    public static final String AWAIT_CONSUMPTION = "AwaitConsumption";
-    public static final String CONSUME_MESSAGE = "ConsumeMessage";
-    public static final String END_MESSAGE = "EndMessage";
-    public static final String PULL_MESSAGE = "PullMessage";
-
-    private SpanName() {
-    }
+public interface TraceEndpointsProvider {
+    List<Endpoints> getTraceCandidates();
 }

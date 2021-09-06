@@ -45,6 +45,7 @@ import apache.rocketmq.v1.VerifyMessageConsumptionResponse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -79,8 +80,12 @@ import org.apache.rocketmq.client.consumer.listener.MessageListenerType;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.message.MessageExt;
+import org.apache.rocketmq.client.message.MessageHookPoint;
+import org.apache.rocketmq.client.message.MessageHookPointStatus;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageImplAccessor;
+import org.apache.rocketmq.client.message.MessageInterceptor;
+import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.client.route.TopicRouteData;
@@ -351,11 +356,11 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     public void start() {
-        service.startAsync().awaitRunning();
+        clientService.startAsync().awaitRunning();
     }
 
     public void shutdown() {
-        service.stopAsync().awaitTerminated();
+        clientService.stopAsync().awaitTerminated();
     }
 
     @Override
@@ -699,16 +704,51 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     public ListenableFuture<AckMessageResponse> ackMessage(final MessageExt messageExt) {
+        return ackMessage(messageExt, 1);
+    }
+
+    public ListenableFuture<AckMessageResponse> ackMessage(final MessageExt messageExt, int attempt) {
+        // intercept before nack
+        final MessageInterceptorContext preContext = MessageInterceptorContext.builder().setTopic(messageExt.getTopic())
+                                                                              .setAttempt(attempt).build();
+        intercept(MessageHookPoint.PRE_ACK_MESSAGE, messageExt, preContext);
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+
         final Endpoints endpoints = messageExt.getAckEndpoints();
+        ListenableFuture<AckMessageResponse> future;
         try {
             final AckMessageRequest request = wrapAckMessageRequest(messageExt);
             final Metadata metadata = sign();
-            return clientManager.ackMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+            future = clientManager.ackMessage(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
-            final SettableFuture<AckMessageResponse> future = SettableFuture.create();
-            future.setException(t);
-            return future;
+            final SettableFuture<AckMessageResponse> future0 = SettableFuture.create();
+            future0.setException(t);
+            future = future0;
         }
+        Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
+            @Override
+            public void onSuccess(AckMessageResponse response) {
+                // intercept after ack.
+                final Code code = Code.forNumber(response.getCommon().getStatus().getCode());
+                MessageHookPointStatus hookPointStatus = Code.OK.equals(code) ? MessageHookPointStatus.OK
+                                                                              : MessageHookPointStatus.ERROR;
+                final long duration = stopwatch.elapsed(MessageInterceptor.DEFAULT_TIME_UNIT);
+                final MessageInterceptorContext postContext =
+                        preContext.toBuilder().setStatus(hookPointStatus).setDuration(duration).build();
+                intercept(MessageHookPoint.POST_ACK_MESSAGE, messageExt, postContext);
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                // intercept after ack.
+                final long duration = stopwatch.elapsed(MessageInterceptor.DEFAULT_TIME_UNIT);
+                final MessageInterceptorContext postContext =
+                        preContext.toBuilder().setStatus(MessageHookPointStatus.ERROR).setThrowable(t)
+                                  .setDuration(duration).build();
+                intercept(MessageHookPoint.POST_ACK_MESSAGE, messageExt, postContext);
+            }
+        });
+        return future;
     }
 
     private NackMessageRequest wrapNackMessageRequest(MessageExt messageExt) {
@@ -726,6 +766,12 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     public ListenableFuture<NackMessageResponse> nackMessage(final MessageExt messageExt) {
+        // intercept before nack.
+        final MessageInterceptorContext preContext = MessageInterceptorContext.builder().setTopic(messageExt.getTopic())
+                                                                              .build();
+        intercept(MessageHookPoint.PRE_NACK_MESSAGE, messageExt, preContext);
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+
         final String messageId = messageExt.getMsgId();
         final Endpoints endpoints = messageExt.getAckEndpoints();
         ListenableFuture<NackMessageResponse> future;
@@ -743,6 +789,15 @@ public class PushConsumerImpl extends ConsumerImpl {
             public void onSuccess(NackMessageResponse response) {
                 final Status status = response.getCommon().getStatus();
                 final Code code = Code.forNumber(status.getCode());
+
+                // intercept after nack.
+                MessageHookPointStatus hookPointStatus = Code.OK.equals(code) ? MessageHookPointStatus.OK
+                                                                              : MessageHookPointStatus.ERROR;
+                final long duration = stopwatch.elapsed(MessageInterceptor.DEFAULT_TIME_UNIT);
+                final MessageInterceptorContext postContext =
+                        preContext.toBuilder().setStatus(hookPointStatus).setDuration(duration).build();
+                intercept(MessageHookPoint.POST_NACK_MESSAGE, messageExt, postContext);
+
                 if (Code.OK.equals(code)) {
                     return;
                 }
@@ -752,6 +807,12 @@ public class PushConsumerImpl extends ConsumerImpl {
 
             @Override
             public void onFailure(Throwable t) {
+                // intercept after nack
+                final long duration = stopwatch.elapsed(MessageInterceptor.DEFAULT_TIME_UNIT);
+                final MessageInterceptorContext postContext =
+                        preContext.toBuilder().setStatus(MessageHookPointStatus.ERROR).setDuration(duration).build();
+                intercept(MessageHookPoint.POST_NACK_MESSAGE, messageExt, postContext);
+
                 log.error("Exception raised while nack, messageId={}, endpoints={}", messageId, endpoints, t);
             }
         });
@@ -770,19 +831,50 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     public ListenableFuture<ForwardMessageToDeadLetterQueueResponse> forwardMessageToDeadLetterQueue(
-            final MessageExt messageExt) {
+            final MessageExt messageExt, int attempt) {
+        // intercept before forward message to dlq
+        final MessageInterceptorContext preContext = MessageInterceptorContext.builder().setTopic(messageExt.getTopic())
+                                                                              .setAttempt(attempt).build();
+        intercept(MessageHookPoint.PRE_FORWARD_MESSAGE_TO_DLQ, messageExt, preContext);
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+
         final Endpoints endpoints = messageExt.getAckEndpoints();
+        ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future;
         try {
             final ForwardMessageToDeadLetterQueueRequest request =
                     wrapForwardMessageToDeadLetterQueueRequest(messageExt);
             final Metadata metadata = sign();
-            return clientManager.forwardMessageToDeadLetterQueue(endpoints, metadata, request, ioTimeoutMillis,
-                                                                 TimeUnit.MILLISECONDS);
+            future = clientManager.forwardMessageToDeadLetterQueue(endpoints, metadata, request, ioTimeoutMillis,
+                                                                   TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
-            final SettableFuture<ForwardMessageToDeadLetterQueueResponse> future = SettableFuture.create();
-            future.setException(t);
-            return future;
+            final SettableFuture<ForwardMessageToDeadLetterQueueResponse> future0 = SettableFuture.create();
+            future0.setException(t);
+            future = future0;
         }
+        Futures.addCallback(future, new FutureCallback<ForwardMessageToDeadLetterQueueResponse>() {
+            @Override
+            public void onSuccess(ForwardMessageToDeadLetterQueueResponse response) {
+                // intercept after forward message to dlq.
+                final Code code = Code.forNumber(response.getCommon().getStatus().getCode());
+                MessageHookPointStatus hookPointStatus = Code.OK.equals(code) ? MessageHookPointStatus.OK
+                                                                              : MessageHookPointStatus.ERROR;
+                final long duration = stopwatch.elapsed(MessageInterceptor.DEFAULT_TIME_UNIT);
+                final MessageInterceptorContext postContext =
+                        preContext.toBuilder().setStatus(hookPointStatus).setDuration(duration).build();
+                intercept(MessageHookPoint.POST_FORWARD_MESSAGE_TO_DLQ, messageExt, postContext);
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                // intercept after forward message to dlq.
+                final long duration = stopwatch.elapsed(MessageInterceptor.DEFAULT_TIME_UNIT);
+                final MessageInterceptorContext postContext =
+                        preContext.toBuilder().setStatus(MessageHookPointStatus.ERROR).setThrowable(t)
+                                  .setDuration(duration).setThrowable(t).build();
+                intercept(MessageHookPoint.POST_FORWARD_MESSAGE_TO_DLQ, messageExt, postContext);
+            }
+        });
+        return future;
     }
 
     @Override

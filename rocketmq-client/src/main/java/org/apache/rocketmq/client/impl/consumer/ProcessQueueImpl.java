@@ -29,6 +29,7 @@ import apache.rocketmq.v1.ReceiveMessageRequest;
 import apache.rocketmq.v1.Resource;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
+import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -58,8 +59,12 @@ import org.apache.rocketmq.client.consumer.filter.ExpressionType;
 import org.apache.rocketmq.client.consumer.filter.FilterExpression;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerType;
 import org.apache.rocketmq.client.message.MessageExt;
+import org.apache.rocketmq.client.message.MessageHookPoint;
+import org.apache.rocketmq.client.message.MessageHookPointStatus;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageImplAccessor;
+import org.apache.rocketmq.client.message.MessageInterceptor;
+import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.message.protocol.SystemAttribute;
 import org.apache.rocketmq.client.route.Endpoints;
@@ -626,13 +631,33 @@ public class ProcessQueueImpl implements ProcessQueue {
             final Endpoints endpoints = mq.getPartition().getBroker().getEndpoints();
             final PullMessageRequest request = wrapPullMessageRequest(offset);
             activityNanoTime = System.nanoTime();
+
+            final TimeUnit timeUnit = MessageInterceptor.DEFAULT_TIME_UNIT;
+            final MessageInterceptorContext preContext = MessageInterceptorContext.builder()
+                                                                                  .setBatchSize(request.getBatchSize())
+                                                                                  .setTopic(mq.getTopic()).build();
+            consumerImpl.intercept(MessageHookPoint.PRE_PULL, preContext);
+            final Stopwatch stopwatch = Stopwatch.createStarted();
             final ListenableFuture<PullMessageResult> future =
                     consumerImpl.pullMessage(request, endpoints, PULL_LONG_POLLING_TIMEOUT_MILLIS);
             Futures.addCallback(future, new FutureCallback<PullMessageResult>() {
                 @Override
                 public void onSuccess(PullMessageResult pullMessageResult) {
+                    final long elapsed = stopwatch.elapsed(timeUnit);
+                    final List<MessageExt> messagesFound = pullMessageResult.getMessagesFound();
+                    MessageHookPointStatus status = PullStatus.OK.equals(pullMessageResult.getPullStatus()) ?
+                                                    MessageHookPointStatus.OK : MessageHookPointStatus.ERROR;
+                    final MessageInterceptorContext postContext = preContext.toBuilder().setTimeUnit(timeUnit)
+                                                                            .setDuration(elapsed).setTimeUnit(timeUnit)
+                                                                            .setStatus(status).build();
+                    if (messagesFound.isEmpty()) {
+                        consumerImpl.intercept(MessageHookPoint.POST_PULL, postContext);
+                    }
+                    for (MessageExt messageExt : messagesFound) {
+                        consumerImpl.intercept(MessageHookPoint.POST_PULL, messageExt, postContext);
+                    }
                     try {
-                        ProcessQueueImpl.this.onPullMessageResult(pullMessageResult);
+                        onPullMessageResult(pullMessageResult);
                     } catch (Throwable t) {
                         // should never reach here.
                         log.error("[Bug] Exception raised while handling pull result, would pull later, mq={}, "
@@ -643,6 +668,12 @@ public class ProcessQueueImpl implements ProcessQueue {
 
                 @Override
                 public void onFailure(Throwable t) {
+                    final long elapsed = stopwatch.elapsed(timeUnit);
+                    final MessageInterceptorContext context = preContext.toBuilder().setTimeUnit(timeUnit)
+                                                                        .setDuration(elapsed).setTimeUnit(timeUnit)
+                                                                        .setStatus(MessageHookPointStatus.ERROR)
+                                                                        .setThrowable(t).build();
+                    consumerImpl.intercept(MessageHookPoint.POST_PULL, context);
                     log.error("Exception raised while pull message, would pull later, mq={}, endpoints={}",
                               mq, endpoints, t);
                     pullMessageLater(offset);
@@ -767,11 +798,31 @@ public class ProcessQueueImpl implements ProcessQueue {
             final Endpoints endpoints = mq.getPartition().getBroker().getEndpoints();
             final ReceiveMessageRequest request = wrapReceiveMessageRequest();
             activityNanoTime = System.nanoTime();
+
+            final TimeUnit timeUnit = MessageInterceptor.DEFAULT_TIME_UNIT;
+            final MessageInterceptorContext preContext = MessageInterceptorContext.builder()
+                                                                                  .setBatchSize(request.getBatchSize())
+                                                                                  .setTopic(mq.getTopic()).build();
+            consumerImpl.intercept(MessageHookPoint.PRE_RECEIVE, preContext);
+            final Stopwatch stopwatch = Stopwatch.createStarted();
             final ListenableFuture<ReceiveMessageResult> future =
                     consumerImpl.receiveMessage(request, endpoints, RECEIVE_LONG_POLLING_TIMEOUT_MILLIS);
             Futures.addCallback(future, new FutureCallback<ReceiveMessageResult>() {
                 @Override
                 public void onSuccess(ReceiveMessageResult receiveMessageResult) {
+                    final long elapsed = stopwatch.elapsed(timeUnit);
+                    final List<MessageExt> messagesFound = receiveMessageResult.getMessagesFound();
+                    MessageHookPointStatus status = ReceiveStatus.OK.equals(receiveMessageResult.getReceiveStatus()) ?
+                                                    MessageHookPointStatus.OK : MessageHookPointStatus.ERROR;
+                    final MessageInterceptorContext postContext = preContext.toBuilder().setTimeUnit(timeUnit)
+                                                                            .setDuration(elapsed).setTimeUnit(timeUnit)
+                                                                            .setStatus(status).build();
+                    if (messagesFound.isEmpty()) {
+                        consumerImpl.intercept(MessageHookPoint.POST_RECEIVE, postContext);
+                    }
+                    for (MessageExt messageExt : messagesFound) {
+                        consumerImpl.intercept(MessageHookPoint.POST_RECEIVE, messageExt, postContext);
+                    }
                     try {
                         onReceiveMessageResult(receiveMessageResult);
                     } catch (Throwable t) {
@@ -784,6 +835,12 @@ public class ProcessQueueImpl implements ProcessQueue {
 
                 @Override
                 public void onFailure(Throwable t) {
+                    final long elapsed = stopwatch.elapsed(timeUnit);
+                    final MessageInterceptorContext context = preContext.toBuilder().setTimeUnit(timeUnit)
+                                                                        .setDuration(elapsed).setTimeUnit(timeUnit)
+                                                                        .setStatus(MessageHookPointStatus.ERROR)
+                                                                        .setThrowable(t).build();
+                    consumerImpl.intercept(MessageHookPoint.POST_RECEIVE, context);
                     log.error("Exception raised while message reception, would receive later, mq={}, endpoints={}",
                               mq, endpoints, t);
                     receiveMessageLater();
@@ -804,7 +861,7 @@ public class ProcessQueueImpl implements ProcessQueue {
 
     private void ackFifoMessage(final MessageExt messageExt, final int attempt, final SimpleFuture future0) {
         final Endpoints endpoints = messageExt.getAckEndpoints();
-        final ListenableFuture<AckMessageResponse> future = consumerImpl.ackMessage(messageExt);
+        final ListenableFuture<AckMessageResponse> future = consumerImpl.ackMessage(messageExt, attempt);
         Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
             @Override
             public void onSuccess(AckMessageResponse response) {
@@ -865,7 +922,7 @@ public class ProcessQueueImpl implements ProcessQueue {
 
     private void forwardToDeadLetterQueue(final MessageExt messageExt, final int attempt, final SimpleFuture future0) {
         final ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future =
-                consumerImpl.forwardMessageToDeadLetterQueue(messageExt);
+                consumerImpl.forwardMessageToDeadLetterQueue(messageExt, attempt);
         Futures.addCallback(future, new FutureCallback<ForwardMessageToDeadLetterQueueResponse>() {
             @Override
             public void onSuccess(ForwardMessageToDeadLetterQueueResponse response) {

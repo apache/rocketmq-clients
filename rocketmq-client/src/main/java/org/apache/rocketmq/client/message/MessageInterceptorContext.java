@@ -22,24 +22,20 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.util.concurrent.TimeUnit;
 
 public class MessageInterceptorContext {
-    /**
-     * Business status, equal to {@link #rpcStatus} if not set.
-     */
-    private final MessageHookPointStatus bizStatus;
-    /**
-     * Rpc status, only make sense for the {@link MessageHookPoint} related with network.
-     */
-    private final MessageHookPointStatus rpcStatus;
+    private final Builder builder;
+    private final MessageHookPointStatus status;
+    private final String topic;
     private final int batchSize;
     private final int attempt;
     private final long duration;
     private final TimeUnit timeUnit;
     private final Throwable throwable;
 
-    MessageInterceptorContext(MessageHookPointStatus bizStatus, MessageHookPointStatus rpcStatus,
-                              int batchSize, int attempt, long duration, TimeUnit timeUnit, Throwable throwable) {
-        this.bizStatus = bizStatus;
-        this.rpcStatus = rpcStatus;
+    MessageInterceptorContext(Builder builder, MessageHookPointStatus status, String topic, int batchSize, int attempt,
+                              long duration, TimeUnit timeUnit, Throwable throwable) {
+        this.builder = builder;
+        this.status = status;
+        this.topic = topic;
         this.batchSize = batchSize;
         this.attempt = attempt;
         this.duration = duration;
@@ -51,12 +47,16 @@ public class MessageInterceptorContext {
         return new Builder();
     }
 
-    public MessageHookPointStatus getBizStatus() {
-        return bizStatus;
+    public Builder toBuilder() {
+        return builder;
     }
 
-    public MessageHookPointStatus getRpcStatus() {
-        return rpcStatus;
+    public MessageHookPointStatus getStatus() {
+        return status;
+    }
+
+    public String getTopic() {
+        return topic;
     }
 
     public int getBatchSize() {
@@ -80,32 +80,29 @@ public class MessageInterceptorContext {
     }
 
     public static class Builder {
-        private MessageHookPointStatus bizStatus = MessageHookPointStatus.UNSET;
-        private MessageHookPointStatus rpcStatus = MessageHookPointStatus.UNSET;
-        private int messageBatchSize = 1;
+        private MessageHookPointStatus status = MessageHookPointStatus.UNSET;
+        private String topic;
+        private int batchSize = 1;
         private int attempt = 1;
         private long duration = 0;
-        private TimeUnit timeUnit = TimeUnit.MILLISECONDS;
+        private TimeUnit timeUnit = MessageInterceptor.DEFAULT_TIME_UNIT;
         private Throwable throwable = null;
 
         Builder() {
         }
 
-        public Builder setBizStatus(MessageHookPointStatus bizStatus) {
-            this.bizStatus = checkNotNull(bizStatus, "bizStatus");
+        public Builder setStatus(MessageHookPointStatus status) {
+            this.status = checkNotNull(status, "status");
             return this;
         }
 
-        public Builder setRpcStatus(MessageHookPointStatus rpcStatus) {
-            this.rpcStatus = checkNotNull(rpcStatus, "rpcStatus");
-            if (MessageHookPointStatus.UNSET.equals(bizStatus)) {
-                setBizStatus(rpcStatus);
-            }
+        public Builder setTopic(String topic) {
+            this.topic = topic;
             return this;
         }
 
-        public Builder setMessageBatchSize(int messageBatchSize) {
-            this.messageBatchSize = messageBatchSize;
+        public Builder setBatchSize(int batchSize) {
+            this.batchSize = batchSize;
             return this;
         }
 
@@ -130,7 +127,7 @@ public class MessageInterceptorContext {
         }
 
         public MessageInterceptorContext build() {
-            return new MessageInterceptorContext(bizStatus, rpcStatus, messageBatchSize, attempt, duration,
+            return new MessageInterceptorContext(this, status, topic, batchSize, attempt, duration,
                                                  timeUnit, throwable);
         }
     }

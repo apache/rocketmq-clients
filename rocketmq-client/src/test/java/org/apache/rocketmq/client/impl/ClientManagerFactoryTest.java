@@ -28,10 +28,11 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.exception.ClientException;
+import org.apache.rocketmq.client.tools.TestBase;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-public class ClientManagerFactoryTest {
+public class ClientManagerFactoryTest extends TestBase {
     private final String clientManagerId = "managerId";
 
     private final String clientId0 = "0";
@@ -40,8 +41,8 @@ public class ClientManagerFactoryTest {
     private final Client client0;
     private final Client client1;
 
-    public ClientManagerFactoryTest() {
-        this.client0 = new Client() {
+    public ClientManagerFactoryTest() throws ClientException {
+        this.client0 = new Client(FAKE_GROUP_0) {
             @Override
             public String id() {
                 return clientId0;
@@ -59,7 +60,7 @@ public class ClientManagerFactoryTest {
             public void doStats() {
             }
         };
-        this.client1 = new Client() {
+        this.client1 = new Client(FAKE_GROUP_1) {
             @Override
             public String id() {
                 return clientId1;

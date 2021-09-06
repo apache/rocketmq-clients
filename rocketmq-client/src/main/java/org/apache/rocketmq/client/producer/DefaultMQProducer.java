@@ -25,7 +25,7 @@ import org.apache.rocketmq.client.exception.ServerException;
 import org.apache.rocketmq.client.impl.producer.ProducerImpl;
 import org.apache.rocketmq.client.message.Message;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
-import org.apache.rocketmq.client.tracing.TracingMessageInterceptor;
+import org.apache.rocketmq.client.trace.TracingMessageInterceptor;
 
 /**
  * This class is the entry point for applications intending to send messages.

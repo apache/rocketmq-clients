@@ -48,6 +48,11 @@ public class ClientConfig {
     protected String group;
 
     /**
+     * Name server string.
+     */
+    protected String nameServerStr;
+
+    /**
      * Abstract resource namespace, same topics or groups in different arn are individual.
      */
     protected String namespace = "";
@@ -161,5 +166,9 @@ public class ClientConfig {
 
     public void setServiceName(String serviceName) {
         this.serviceName = serviceName;
+    }
+
+    public String getNameServerStr() {
+        return nameServerStr;
     }
 }
