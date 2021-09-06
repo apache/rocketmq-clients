@@ -29,7 +29,6 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.message.protocol.SystemAttribute;
 import org.apache.rocketmq.client.misc.MixAll;
-import org.apache.rocketmq.utility.MessageIdGenerator;
 import org.apache.rocketmq.utility.UtilAll;
 
 public class Message {
@@ -71,7 +70,7 @@ public class Message {
 
     public void putUserProperty(final String name, final String value) {
         this.impl.getUserAttribute().put(name, value);
-        this.impl.getSystemAttribute().setMessageId(MessageIdGenerator.getInstance().next());
+        reset();
     }
 
     public String getUserProperty(final String name) {

@@ -15,13 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.utility;
+package org.apache.rocketmq.client.message;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Calendar;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.rocketmq.utility.UtilAll;
 
 public class MessageIdGenerator {
     private static final MessageIdGenerator INSTANCE = new MessageIdGenerator();

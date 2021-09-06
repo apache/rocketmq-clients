@@ -15,14 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.utility;
+package org.apache.rocketmq.client.message;
 
 import static org.testng.Assert.assertEquals;
 
 import org.testng.annotations.Test;
 
 public class MessageIdGeneratorTest {
-
     @Test
     public void testNext() {
         final String messageId = MessageIdGenerator.getInstance().next();
