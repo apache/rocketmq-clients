@@ -23,7 +23,11 @@ import java.util.Properties;
 
 public class MetadataUtils {
     private static final String METADATA_CONF_PATH = "rocketmq.metadata.properties";
-    private static final Properties PROPERTIES = new Properties();
+    private static final String WRAPPER_METADATA_CONF_PATH = "rocketmq.wrapper.metadata.properties";
+
+    private static final Properties METADATA_PROPERTIES = new Properties();
+    private static final Properties WRAPPER_METADATA_PROPERTIES = new Properties();
+
 
     private static final String VERSION_KEY = "rocketmq.version";
     private static final String WRAPPER_VERSION_KEY = "rocketmq.wrapper.version";
@@ -31,12 +35,12 @@ public class MetadataUtils {
     private MetadataUtils() {
     }
 
-    static {
-        InputStream stream = MetadataUtils.class.getClassLoader().getResourceAsStream(METADATA_CONF_PATH);
+    private static void load(String path, Properties properties) {
+        InputStream stream = MetadataUtils.class.getClassLoader().getResourceAsStream(path);
         try {
-            PROPERTIES.load(stream);
-        } catch (Throwable e) {
-            e.printStackTrace();
+            properties.load(stream);
+        } catch (Throwable ignore) {
+            // ignore on purpose.
         } finally {
             try {
                 if (null != stream) {
@@ -48,11 +52,16 @@ public class MetadataUtils {
         }
     }
 
+    static {
+        load(METADATA_CONF_PATH, METADATA_PROPERTIES);
+        load(WRAPPER_METADATA_CONF_PATH, WRAPPER_METADATA_PROPERTIES);
+    }
+
     public static String getVersion() {
-        return PROPERTIES.getProperty(VERSION_KEY);
+        return METADATA_PROPERTIES.getProperty(VERSION_KEY);
     }
 
     public static String getWrapperVersion() {
-        return PROPERTIES.getProperty(WRAPPER_VERSION_KEY);
+        return WRAPPER_METADATA_PROPERTIES.getProperty(WRAPPER_VERSION_KEY);
     }
 }
