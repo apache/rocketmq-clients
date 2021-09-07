@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration debug="false">
-    <conversionRule conversionWord="pid" converterClass="org.apache.rocketmq.client.logging.ProcessIdConverter"/>
-    <appender name="CustomConsoleAppender" class="org.apache.rocketmq.client.logging.CustomConsoleAppender">
+    <conversionRule conversionWord="pid" converterClass="org.apache.rocketmq.logback.extensions.ProcessIdConverter"/>
+    <appender name="CustomConsoleAppender" class="org.apache.rocketmq.logback.extensions.CustomConsoleAppender">
         <encoder>
             <pattern>%yellow(%d{yyy-MM-dd HH:mm:ss,GMT+8}) %highlight(%-5p) %boldWhite([%pid]) %magenta([%t]) %boldGreen([%logger{12}#%M:%L]) - %m%n
             </pattern>
