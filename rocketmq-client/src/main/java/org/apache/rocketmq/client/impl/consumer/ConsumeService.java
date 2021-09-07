@@ -82,10 +82,14 @@ public abstract class ConsumeService extends Dispatcher {
     public abstract void dispatch0();
 
     /**
-     * Loop of message dispatch, signal dispatcher to dispatch later if no new message is dispatched.
+     * Loop of message dispatch.
      */
     public void dispatch() {
-        dispatch0();
+        try {
+            dispatch0();
+        } catch (Throwable t) {
+            log.error("[Bug] Exception raised while dispatching message.", t);
+        }
         signalLater();
     }
 
