@@ -38,6 +38,7 @@ import org.apache.rocketmq.client.misc.Dispatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@SuppressWarnings(value = {"UnstableApiUsage", "NullableProblems"})
 public abstract class ConsumeService extends Dispatcher {
     private static final Logger log = LoggerFactory.getLogger(ConsumeService.class);
 
