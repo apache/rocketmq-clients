@@ -1,3 +1,33 @@
+# Thin Client for Apache RocketMQ
+
+## Getting Started
+
+Add dependency to your `pom.xml`, and replace the `${rocketmq.version}` by the latest version.
+
+```xml
+<dependency>
+    <groupId>org.apache.rocketmq</groupId>
+    <artifactId>rocketmq-thin-client</artifactId>
+    <classifier>shade</classifier>
+    <version>${rocketmq.version}</version>
+</dependency>
+```
+
+You may need a shaded client in most case, but we also provided the no-shaded client.
+
+```xml
+<dependency>
+    <groupId>org.apache.rocketmq</groupId>
+    <artifactId>rocketmq-thin-client</artifactId>
+    <!-- What you should pay extra attention to is that
+         the no-shaded client depends on a no-shaded slf4j,
+         which may clash with other project.-->
+    <version>${rocketmq.version}</version>
+</dependency>
+```
+
+We provide the simplest to help you to quick start, please refer to the `rocketmq-example` module.
+
 ## Introduction
 
 The current repository is a thin SDK for rocketmq based on [gRPC](https://grpc.io/), which replaces the communication
@@ -35,18 +65,8 @@ mvn clean package
 Sometimes you may need to release a version whose bytecode version is 52.0 (Java 8), please add `-P mustang-forbidden`
 in your command.
 
-## Getting Started
+## License
 
-Add dependency to your `pom.xml`, and replace the `${rocketmq.version` by the latest version.
-
-```xml
-<dependency>
-    <groupId>org.apache.rocketmq</groupId>
-    <artifactId>rocketmq-thin-client</artifactId>
-    <version>${rocketmq.version}</version>
-</dependency>
-```
-
-We provide the simplest to help you to quick start, please refer to the `rocketmq-example` module.
+[Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.html) Copyright (C) Apache Software Foundation
 
 ## CI/CD
