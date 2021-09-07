@@ -50,7 +50,7 @@ public class ConsumeConcurrentlyService extends ConsumeService {
     }
 
     @Override
-    public boolean dispatch0() {
+    public void dispatch0() {
         final List<ProcessQueue> processQueues = new ArrayList<ProcessQueue>(processQueueTable.values());
         // shuffle all process queue in case messages are always consumed firstly in one message queue.
         Collections.shuffle(processQueues);
@@ -80,7 +80,7 @@ public class ConsumeConcurrentlyService extends ConsumeService {
 
         // no new message arrived for current round.
         if (messageExtList.isEmpty()) {
-            return false;
+            return;
         }
 
         final ListenableFuture<ConsumeStatus> future = consume(messageExtList);
@@ -104,6 +104,5 @@ public class ConsumeConcurrentlyService extends ConsumeService {
                 log.error("[Bug] Exception raised in consumption callback.", t);
             }
         });
-        return true;
     }
 }

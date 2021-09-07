@@ -46,8 +46,7 @@ public class ConsumeOrderlyService extends ConsumeService {
     }
 
     @Override
-    public boolean dispatch0() {
-        boolean dispatched = false;
+    public void dispatch0() {
         final List<ProcessQueue> processQueues = new ArrayList<ProcessQueue>(processQueueTable.values());
         Collections.shuffle(processQueues);
 
@@ -56,7 +55,6 @@ public class ConsumeOrderlyService extends ConsumeService {
             if (!messageExt.isPresent()) {
                 continue;
             }
-            dispatched = true;
             log.debug("Take fifo message already, messageId={}", messageExt);
             final ListenableFuture<ConsumeStatus> future = consume(messageExt.get());
             Futures.addCallback(future, new FutureCallback<ConsumeStatus>() {
@@ -72,6 +70,5 @@ public class ConsumeOrderlyService extends ConsumeService {
                 }
             });
         }
-        return dispatched;
     }
 }

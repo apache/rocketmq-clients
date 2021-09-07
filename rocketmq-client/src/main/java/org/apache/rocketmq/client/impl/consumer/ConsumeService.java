@@ -77,19 +77,14 @@ public abstract class ConsumeService extends Dispatcher {
 
     /**
      * Underlying implement of message dispatch.
-     *
-     * @return message is dispatched or not.
      */
-    public abstract boolean dispatch0();
+    public abstract void dispatch0();
 
     /**
      * Loop of message dispatch, signal dispatcher to dispatch later if no new message is dispatched.
      */
     public void dispatch() {
-        boolean dispatched;
-        do {
-            dispatched = dispatch0();
-        } while (dispatched);
+        dispatch0();
         signalLater();
     }
 
