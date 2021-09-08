@@ -17,8 +17,11 @@
 
 package org.apache.rocketmq.client.message;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.tools.TestBase;
 import org.testng.annotations.Test;
@@ -39,5 +42,35 @@ public class MessageTest extends TestBase {
         final String originalMessageId = message.getMsgId();
         message.setTag(FAKE_TAG_1);
         assertNotEquals(message.getMsgId(), originalMessageId);
+    }
+
+    @Test
+    public void testSetKeys() {
+        final Message message = new Message(FAKE_TOPIC_0, FAKE_TAG_0, RandomUtils.nextBytes(1));
+        List<String> keys = new ArrayList<String>();
+        keys.add("keyA");
+        message.setKeys(keys);
+        assertEquals(message.getKeysList(), keys);
+        assertEquals(message.getKeys(), "keyA");
+    }
+
+    @Test
+    public void testPutUserProperty() {
+        final Message message = new Message(FAKE_TOPIC_0, FAKE_TAG_0, RandomUtils.nextBytes(1));
+        final String oldMsgId = message.getMsgId();
+        message.putUserProperty("key", "value");
+        final String newMsgId = message.getMsgId();
+        assertNotEquals(oldMsgId, newMsgId);
+        assertEquals(message.getUserProperty("key"), "value");
+    }
+
+    @Test
+    public void testSetDelayTimeLevel() {
+        final Message message = new Message(FAKE_TOPIC_0, FAKE_TAG_0, RandomUtils.nextBytes(1));
+        final String oldMsgId = message.getMsgId();
+        message.setDelayTimeLevel(1);
+        final String newMsgId = message.getMsgId();
+        assertNotEquals(oldMsgId, newMsgId);
+        assertEquals(message.getDelayTimeLevel(), 1);
     }
 }

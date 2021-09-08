@@ -19,6 +19,7 @@ package org.apache.rocketmq.client.message;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import java.util.Collection;
@@ -77,31 +78,18 @@ public class Message {
         return this.impl.getUserAttribute().get(name);
     }
 
-    public void setKeys(String keys) {
-        checkNotNull(keys, "keys");
-        final List<String> keyList = this.impl.getSystemAttribute().getKeys();
-        keyList.clear();
-        keyList.add(keys.trim());
-        reset();
-    }
-
     public void setKeys(Collection<String> keys) {
         checkNotNull(keys, "keys");
         final SystemAttribute systemAttribute = this.impl.getSystemAttribute();
         final List<String> keyList = systemAttribute.getKeys();
         keyList.clear();
-        for (String key : keys) {
-            keyList.add(key.trim());
-        }
+        keyList.addAll(keys);
         reset();
     }
 
     public String getKeys() {
-        StringBuilder keys = new StringBuilder();
-        for (String key : this.impl.getSystemAttribute().getKeys()) {
-            keys.append(key).append(MixAll.MESSAGE_KEY_SEPARATOR);
-        }
-        return keys.toString().trim();
+        Joiner joiner = Joiner.on(MixAll.MESSAGE_KEY_SEPARATOR);
+        return joiner.join(this.impl.getSystemAttribute().getKeys());
     }
 
     public List<String> getKeysList() {
