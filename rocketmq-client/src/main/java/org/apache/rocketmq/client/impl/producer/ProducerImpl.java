@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.impl.producer;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.protobuf.util.Timestamps.fromMillis;
 
@@ -523,10 +524,10 @@ public class ProducerImpl extends ClientImpl {
                                                MessageHookPoint.POST_COMMIT_MESSAGE :
                                                MessageHookPoint.POST_ROLLBACK_MESSAGE;
 
-        // intercept before end message.
-        final MessageInterceptorContext context = MessageInterceptorContext.builder()
-                                                                           .setTopic(messageExt.getTopic()).build();
-        intercept(preHookPoint, messageExt, context);
+        final String topic = messageExt.getTopic();
+        // intercept before commit/rollback message.
+        final MessageInterceptorContext preContext = MessageInterceptorContext.builder().setTopic(topic).build();
+        intercept(preHookPoint, messageExt, preContext);
         final Stopwatch stopwatch = Stopwatch.createStarted();
 
         final ListenableFuture<EndTransactionResponse> future =
@@ -536,23 +537,23 @@ public class ProducerImpl extends ClientImpl {
             @Override
             public void onSuccess(EndTransactionResponse response) {
                 final Code code = Code.forNumber(response.getCommon().getStatus().getCode());
-                // intercept after end message.
+                // intercept after commit/rollback message.
                 MessageHookPointStatus status = Code.OK.equals(code) ? MessageHookPointStatus.OK
                                                                      : MessageHookPointStatus.ERROR;
                 final long duration = stopwatch.elapsed(MessageInterceptor.DEFAULT_TIME_UNIT);
-                final MessageInterceptorContext context =
-                        MessageInterceptorContext.builder().setDuration(duration).setStatus(status).build();
-                intercept(postHookPoint, messageExt, context);
+                final MessageInterceptorContext postContext = preContext.toBuilder().setDuration(duration)
+                                                                        .setStatus(status).build();
+                intercept(postHookPoint, messageExt, postContext);
             }
 
             @Override
             public void onFailure(Throwable t) {
-                // intercept after end message.
+                // intercept after commit/rollback message.
                 final long duration = stopwatch.elapsed(MessageInterceptor.DEFAULT_TIME_UNIT);
-                final MessageInterceptorContext context =
-                        MessageInterceptorContext.builder().setDuration(duration).setThrowable(t)
-                                                 .setStatus(MessageHookPointStatus.ERROR).build();
-                intercept(postHookPoint, messageExt, context);
+                final MessageInterceptorContext postContext = preContext.toBuilder().setDuration(duration)
+                                                                        .setStatus(MessageHookPointStatus.ERROR)
+                                                                        .setThrowable(t).build();
+                intercept(postHookPoint, messageExt, postContext);
             }
         });
         try {
@@ -561,12 +562,11 @@ public class ProducerImpl extends ClientImpl {
             final Code code = Code.forNumber(status.getCode());
 
             if (Code.OK != code) {
-                log.error("Failed to end transaction, messageId={}, transactionId={}, code={}, status message=[{}]",
-                          messageId, transactionId, code, status.getMessage());
+                log.error("Failed to end transaction, topic={} messageId={}, transactionId={}, code={}, status "
+                          + "message=[{}]", topic, messageId, transactionId, code, status.getMessage());
 
                 throw new ServerException(ErrorCode.OTHER, status.getMessage());
             }
-
         } catch (ExecutionException e) {
             throw onExecutionException(e);
         }
@@ -703,9 +703,9 @@ public class ProducerImpl extends ClientImpl {
         final Endpoints endpoints = partition.getBroker().getEndpoints();
 
         // intercept before message sending.
-        final MessageInterceptorContext.Builder contextBuilder =
-                MessageInterceptorContext.builder().setAttempt(attempt);
-        intercept(MessageHookPoint.PRE_SEND_MESSAGE, message.getMessageExt(), contextBuilder.build());
+        final MessageInterceptorContext preContext = MessageInterceptorContext.builder().setAttempt(attempt)
+                                                                              .setTopic(topic).build();
+        intercept(MessageHookPoint.PRE_SEND_MESSAGE, message.getMessageExt(), preContext);
 
         final Stopwatch stopwatch = Stopwatch.createStarted();
         final SendMessageRequest request = wrapSendMessageRequest(message, partition);
@@ -738,24 +738,21 @@ public class ProducerImpl extends ClientImpl {
                 }
 
                 // intercept after message sending.
-                final TimeUnit timeUnit = MessageInterceptor.DEFAULT_TIME_UNIT;
-                final long duration = stopwatch.elapsed(timeUnit);
-                final MessageInterceptorContext context = contextBuilder.setDuration(duration)
-                                                                        .setStatus(MessageHookPointStatus.OK)
-                                                                        .setTimeUnit(timeUnit)
-                                                                        .build();
+                final long duration = stopwatch.elapsed(MessageInterceptor.DEFAULT_TIME_UNIT);
+                final MessageInterceptorContext context = preContext.toBuilder().setDuration(duration)
+                                                                    .setStatus(MessageHookPointStatus.OK)
+                                                                    .build();
                 intercept(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
             }
 
             @Override
             public void onFailure(Throwable t) {
                 // intercept after message sending.
-                final TimeUnit timeUnit = MessageInterceptor.DEFAULT_TIME_UNIT;
-                final long duration = stopwatch.elapsed(timeUnit);
-                final MessageInterceptorContext context = contextBuilder.setDuration(duration)
-                                                                        .setStatus(MessageHookPointStatus.ERROR)
-                                                                        .setTimeUnit(timeUnit)
-                                                                        .build();
+                final long duration = stopwatch.elapsed(MessageInterceptor.DEFAULT_TIME_UNIT);
+                final MessageInterceptorContext context = preContext.toBuilder().setDuration(duration)
+                                                                    .setStatus(MessageHookPointStatus.ERROR)
+                                                                    .setThrowable(t)
+                                                                    .build();
                 intercept(MessageHookPoint.POST_SEND_MESSAGE, message.getMessageExt(), context);
                 // isolate endpoints for a while.
                 isolateEndpoints(endpoints);
@@ -873,14 +870,17 @@ public class ProducerImpl extends ClientImpl {
     }
 
     public void setMaxAttempts(int maxAttempts) {
+        checkArgument(maxAttempts > 0, "Must be positive");
         this.maxAttempts = maxAttempts;
     }
 
     public void setSendMessageTimeoutMillis(long sendMessageTimeoutMillis) {
+        checkArgument(sendMessageTimeoutMillis > 0, "Must be positive");
         this.sendMessageTimeoutMillis = sendMessageTimeoutMillis;
     }
 
     public void setTransactionResolveDelayMillis(long transactionResolveDelayMillis) {
+        checkArgument(transactionResolveDelayMillis > 0, "Must be positive");
         this.transactionResolveDelayMillis = transactionResolveDelayMillis;
     }
 }

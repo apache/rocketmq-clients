@@ -68,8 +68,12 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         this.processSpanThreadLocal = new ThreadLocal<Span>();
     }
 
-    public int getInflightSpanSize() {
+    public int getInflightSendSpanSize() {
         return inflightSendSpans.size();
+    }
+
+    public int getInflightAwaitSpanSize() {
+        return inflightAwaitSpans.size();
     }
 
     private String getSpanName(String topic, RocketmqOperation operation) {
@@ -116,19 +120,11 @@ public class TracingMessageInterceptor implements MessageInterceptor {
     }
 
     private void interceptPreSendMessage(Tracer tracer, MessageExt messageExt, MessageInterceptorContext context) {
-        final Span parentSpan = tracer.spanBuilder("Root").setSpanKind(SpanKind.CLIENT).startSpan();
-        try {
-            final SpanContext parentSpanContext = parentSpan.getSpanContext();
-            final Context parentContext = Context.current().with(Span.wrap(parentSpanContext));
-            final String sendSpanName = getSpanName(context.getTopic(), RocketmqOperation.SEND);
-            Span span = tracer.spanBuilder(sendSpanName).setParent(parentContext)
-                              .setSpanKind(SpanKind.PRODUCER).startSpan();
-            String traceContext = TracingUtility.injectSpanContextToTraceParent(span.getSpanContext());
-            inflightSendSpans.put(traceContext, span);
-            MessageImplAccessor.getMessageImpl(messageExt).getSystemAttribute().setTraceContext(traceContext);
-        } finally {
-            parentSpan.end();
-        }
+        final String sendSpanName = getSpanName(context.getTopic(), RocketmqOperation.SEND);
+        Span span = tracer.spanBuilder(sendSpanName).setSpanKind(SpanKind.PRODUCER).startSpan();
+        String traceContext = TracingUtility.injectSpanContextToTraceParent(span.getSpanContext());
+        inflightSendSpans.put(traceContext, span);
+        MessageImplAccessor.getMessageImpl(messageExt).getSystemAttribute().setTraceContext(traceContext);
     }
 
     private void interceptPostSendMessage(MessageExt messageExt, MessageInterceptorContext context) {

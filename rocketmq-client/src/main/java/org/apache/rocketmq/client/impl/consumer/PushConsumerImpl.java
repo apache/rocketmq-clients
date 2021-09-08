@@ -617,8 +617,7 @@ public class PushConsumerImpl extends ConsumerImpl {
                                                                   .setMaxDeliveryAttempts(maxDeliveryAttempts)
                                                                   .build();
 
-        final ConsumerData.Builder builder = ConsumerData.newBuilder()
-                                                         .setGroup(getPbGroup())
+        final ConsumerData.Builder builder = ConsumerData.newBuilder().setGroup(getPbGroup())
                                                          .addAllSubscriptions(subscriptionEntries)
                                                          .setDeadLetterPolicy(deadLetterPolicy)
                                                          .setConsumeType(ConsumeMessageType.POP);
@@ -647,9 +646,7 @@ public class PushConsumerImpl extends ConsumerImpl {
         }
         final ConsumerData consumerData = builder.build();
 
-        return HeartbeatRequest.newBuilder()
-                               .setClientId(id)
-                               .setConsumerData(consumerData)
+        return HeartbeatRequest.newBuilder().setClientId(id).setConsumerData(consumerData)
                                .setFifoFlag(messageListener.getListenerType().equals(MessageListenerType.ORDERLY))
                                .build();
     }
@@ -697,8 +694,7 @@ public class PushConsumerImpl extends ConsumerImpl {
     private AckMessageRequest wrapAckMessageRequest(MessageExt messageExt) {
         final Resource topicResource =
                 Resource.newBuilder().setResourceNamespace(namespace).setName(messageExt.getTopic()).build();
-        return AckMessageRequest.newBuilder().setGroup(getPbGroup())
-                                .setTopic(topicResource)
+        return AckMessageRequest.newBuilder().setGroup(getPbGroup()).setTopic(topicResource)
                                 .setMessageId(messageExt.getMsgId()).setClientId(id)
                                 .setReceiptHandle(messageExt.getReceiptHandle()).build();
     }
@@ -754,15 +750,10 @@ public class PushConsumerImpl extends ConsumerImpl {
     private NackMessageRequest wrapNackMessageRequest(MessageExt messageExt) {
         final Resource topicResource =
                 Resource.newBuilder().setResourceNamespace(namespace).setName(messageExt.getTopic()).build();
-        return NackMessageRequest.newBuilder()
-                                 .setGroup(getPbGroup())
-                                 .setTopic(topicResource)
-                                 .setClientId(id)
-                                 .setReceiptHandle(messageExt.getReceiptHandle())
-                                 .setMessageId(messageExt.getMsgId())
+        return NackMessageRequest.newBuilder().setGroup(getPbGroup()).setTopic(topicResource).setClientId(id)
+                                 .setReceiptHandle(messageExt.getReceiptHandle()).setMessageId(messageExt.getMsgId())
                                  .setDeliveryAttempt(messageExt.getDeliveryAttempt())
-                                 .setMaxDeliveryAttempts(maxDeliveryAttempts)
-                                 .build();
+                                 .setMaxDeliveryAttempts(maxDeliveryAttempts).build();
     }
 
     public ListenableFuture<NackMessageResponse> nackMessage(final MessageExt messageExt) {
@@ -823,8 +814,7 @@ public class PushConsumerImpl extends ConsumerImpl {
         final Resource topicResource =
                 Resource.newBuilder().setResourceNamespace(namespace).setName(messageExt.getTopic()).build();
         return ForwardMessageToDeadLetterQueueRequest.newBuilder().setGroup(getPbGroup()).setTopic(topicResource)
-                                                     .setClientId(id)
-                                                     .setReceiptHandle(messageExt.getReceiptHandle())
+                                                     .setClientId(id).setReceiptHandle(messageExt.getReceiptHandle())
                                                      .setMessageId(messageExt.getMsgId())
                                                      .setDeliveryAttempt(messageExt.getDeliveryAttempt())
                                                      .setMaxDeliveryAttempts(maxDeliveryAttempts).build();
@@ -859,8 +849,8 @@ public class PushConsumerImpl extends ConsumerImpl {
                 MessageHookPointStatus hookPointStatus = Code.OK.equals(code) ? MessageHookPointStatus.OK
                                                                               : MessageHookPointStatus.ERROR;
                 final long duration = stopwatch.elapsed(MessageInterceptor.DEFAULT_TIME_UNIT);
-                final MessageInterceptorContext postContext =
-                        preContext.toBuilder().setStatus(hookPointStatus).setDuration(duration).build();
+                final MessageInterceptorContext postContext = preContext.toBuilder().setStatus(hookPointStatus)
+                                                                        .setDuration(duration).build();
                 intercept(MessageHookPoint.POST_FORWARD_MESSAGE_TO_DLQ, messageExt, postContext);
             }
 
@@ -868,9 +858,9 @@ public class PushConsumerImpl extends ConsumerImpl {
             public void onFailure(Throwable t) {
                 // intercept after forward message to dlq.
                 final long duration = stopwatch.elapsed(MessageInterceptor.DEFAULT_TIME_UNIT);
-                final MessageInterceptorContext postContext =
-                        preContext.toBuilder().setStatus(MessageHookPointStatus.ERROR).setThrowable(t)
-                                  .setDuration(duration).setThrowable(t).build();
+                final MessageInterceptorContext postContext = preContext.toBuilder()
+                                                                        .setStatus(MessageHookPointStatus.ERROR)
+                                                                        .setThrowable(t).setDuration(duration).build();
                 intercept(MessageHookPoint.POST_FORWARD_MESSAGE_TO_DLQ, messageExt, postContext);
             }
         });
@@ -889,7 +879,7 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     public void setConsumptionThreadsAmount(int threadsAmount) {
-        checkArgument(threadsAmount > 0, "threadsAmount must be positive");
+        checkArgument(threadsAmount > 0, "Must be positive");
         this.consumptionThreadsAmount = threadsAmount;
         consumptionExecutor.setCorePoolSize(threadsAmount);
         consumptionExecutor.setMaximumPoolSize(threadsAmount);
@@ -992,30 +982,37 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     public void setMaxTotalCachedMessagesQuantityThreshold(int maxTotalCachedMessagesQuantityThreshold) {
+        checkArgument(maxTotalCachedMessagesQuantityThreshold > 0, "Must be positive");
         this.maxTotalCachedMessagesQuantityThreshold = maxTotalCachedMessagesQuantityThreshold;
     }
 
     public void setMaxCachedMessagesQuantityThresholdPerQueue(int maxCachedMessagesQuantityThresholdPerQueue) {
+        checkArgument(maxCachedMessagesQuantityThresholdPerQueue > 0, "Must be positive");
         this.maxCachedMessagesQuantityThresholdPerQueue = maxCachedMessagesQuantityThresholdPerQueue;
     }
 
     public void setMaxTotalCachedMessagesBytesThreshold(int maxTotalCachedMessagesBytesThreshold) {
+        checkArgument(maxTotalCachedMessagesBytesThreshold > 0, "Must be positive");
         this.maxTotalCachedMessagesBytesThreshold = maxTotalCachedMessagesBytesThreshold;
     }
 
     public void setMaxCachedMessagesBytesThresholdPerQueue(int maxCachedMessagesBytesThresholdPerQueue) {
+        checkArgument(maxCachedMessagesBytesThresholdPerQueue > 0, "Must be positive");
         this.maxCachedMessagesBytesThresholdPerQueue = maxCachedMessagesBytesThresholdPerQueue;
     }
 
     public void setFifoConsumptionSuspendTimeMillis(long fifoConsumptionSuspendTimeMillis) {
+        checkArgument(fifoConsumptionSuspendTimeMillis > 0, "Must be positive");
         this.fifoConsumptionSuspendTimeMillis = fifoConsumptionSuspendTimeMillis;
     }
 
     public void setConsumeMessageBatchMaxSize(int consumeMessageBatchMaxSize) {
+        checkArgument(consumeMessageBatchMaxSize > 0, "Must be positive");
         this.consumeMessageBatchMaxSize = consumeMessageBatchMaxSize;
     }
 
     public void setMaxDeliveryAttempts(int maxDeliveryAttempts) {
+        checkArgument(maxDeliveryAttempts > 0, "Must be positive");
         this.maxDeliveryAttempts = maxDeliveryAttempts;
     }
 
@@ -1028,10 +1025,12 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     public void setConsumeFromTimeMillis(long consumeFromTimeMillis) {
+        checkArgument(consumeFromTimeMillis > 0, "Must be positive");
         this.consumeFromTimeMillis = consumeFromTimeMillis;
     }
 
     public void setConsumptionTimeoutMillis(long consumptionTimeoutMillis) {
+        checkArgument(consumptionTimeoutMillis > 0, "Must be positive");
         this.consumptionTimeoutMillis = consumptionTimeoutMillis;
     }
 
