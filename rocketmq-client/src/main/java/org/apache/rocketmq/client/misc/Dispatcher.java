@@ -20,6 +20,7 @@ package org.apache.rocketmq.client.misc;
 import com.google.common.util.concurrent.AbstractIdleService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -36,18 +37,18 @@ public abstract class Dispatcher extends AbstractIdleService {
     private static final Logger log = LoggerFactory.getLogger(Dispatcher.class);
 
     private final AtomicBoolean dispatchTaskInQueue;
-    private final AtomicBoolean signalTaskInQueue;
 
-    private final long signalDelayMillis;
+    private final long signalPeriodMillis;
 
     private final ScheduledExecutorService scheduler;
     private final ThreadPoolExecutor dispatcherExecutor;
 
+    private volatile ScheduledFuture<?> dispatchFuture;
+
     public Dispatcher(long signalDelayMillis, ScheduledExecutorService scheduler) {
         this.dispatchTaskInQueue = new AtomicBoolean(false);
-        this.signalTaskInQueue = new AtomicBoolean(false);
 
-        this.signalDelayMillis = signalDelayMillis;
+        this.signalPeriodMillis = signalDelayMillis;
 
         this.scheduler = scheduler;
         this.dispatcherExecutor = new ThreadPoolExecutor(
@@ -63,35 +64,30 @@ public abstract class Dispatcher extends AbstractIdleService {
 
     @Override
     protected void startUp() {
+        dispatchFuture = scheduler.scheduleWithFixedDelay(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    signal();
+                } catch (Throwable t) {
+                    log.error("Exception raised while signal dispatcher.", t);
+                }
+            }
+        }, 0, signalPeriodMillis, TimeUnit.MILLISECONDS);
     }
 
     @Override
     protected void shutDown() throws InterruptedException {
+        if (null != dispatchFuture) {
+            dispatchFuture.cancel(false);
+        }
         dispatcherExecutor.shutdown();
         if (!ExecutorServices.awaitTerminated(dispatcherExecutor)) {
             log.error("[Bug] Failed to shutdown the batch dispatcher.");
         }
     }
 
-    public void signalLater() {
-        if (signalTaskInQueue.compareAndSet(false, true)) {
-            try {
-                scheduler.schedule(new Runnable() {
-                    @Override
-                    public void run() {
-                        signalTaskInQueue.compareAndSet(true, false);
-                        signalImmediately();
-                    }
-                }, signalDelayMillis, TimeUnit.MILLISECONDS);
-            } catch (Throwable t) {
-                if (!scheduler.isShutdown()) {
-                    log.error("[Bug] Failed to schedule dispatch task.", t);
-                }
-            }
-        }
-    }
-
-    public void signalImmediately() {
+    public void signal() {
         if (dispatchTaskInQueue.compareAndSet(false, true)) {
             try {
                 dispatcherExecutor.submit(new DispatchTask());

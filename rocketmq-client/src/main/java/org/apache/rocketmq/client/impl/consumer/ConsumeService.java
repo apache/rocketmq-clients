@@ -79,18 +79,16 @@ public abstract class ConsumeService extends Dispatcher {
     /**
      * Underlying implement of message dispatch.
      */
-    public abstract void dispatch0();
+    public abstract boolean dispatch0();
 
     /**
      * Loop of message dispatch.
      */
     public void dispatch() {
-        try {
-            dispatch0();
-        } catch (Throwable t) {
-            log.error("[Bug] Exception raised while dispatching message.", t);
-        }
-        signalLater();
+        boolean dispatched;
+        do {
+            dispatched = dispatch0();
+        } while (dispatched);
     }
 
     public ListenableFuture<ConsumeStatus> consume(MessageExt messageExt) {

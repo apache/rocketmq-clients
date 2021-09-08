@@ -386,7 +386,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                 eraseMessage(messageExt);
                 fifoConsumptionOutbound();
                 // need to signal to dispatch message immediately because of the end of last message's life cycle.
-                consumeService.signalImmediately();
+                consumeService.signal();
             }
         }, consumerImpl.getConsumptionExecutor());
     }
@@ -465,7 +465,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                 if (!messagesFound.isEmpty()) {
                     cacheMessages(messagesFound);
                     consumerImpl.getReceivedMessagesQuantity().getAndAdd(messagesFound.size());
-                    consumerImpl.getConsumeService().signalImmediately();
+                    consumerImpl.getConsumeService().signal();
                 }
                 log.debug("Receive message with OK, mq={}, endpoints={}, messages found count={}", mq,
                           endpoints, messagesFound.size());
@@ -493,7 +493,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                 if (!messagesFound.isEmpty()) {
                     cacheMessages(messagesFound);
                     consumerImpl.getPulledMessagesQuantity().getAndAdd(messagesFound.size());
-                    consumerImpl.getConsumeService().signalImmediately();
+                    consumerImpl.getConsumeService().signal();
                 }
                 log.debug("Pull message with OK, mq={}, messages found count={}", mq, messagesFound.size());
                 pullMessage(result.getNextBeginOffset());
