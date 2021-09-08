@@ -19,6 +19,7 @@ package org.apache.rocketmq.client.impl.consumer;
 
 import apache.rocketmq.v1.AckMessageResponse;
 import apache.rocketmq.v1.Broker;
+import apache.rocketmq.v1.ConsumeModel;
 import apache.rocketmq.v1.ConsumePolicy;
 import apache.rocketmq.v1.FilterType;
 import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse;
@@ -72,6 +73,19 @@ import org.apache.rocketmq.utility.SimpleFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Take over the remote interaction of the message.
+ *
+ * <ul>
+ *   <li>Once message was fetched from remote, it would be cached in {@link #pendingMessages} firstly. if message was
+ *       taken ,it would be moved from {@link #pendingMessages} to {@link #inflightMessages}
+ *   <li>Once message was consumed, it would be remove from {@link #inflightMessages}, which means message is remove
+ *       from cache totally.
+ *   <li>if message is not erased/consumed in time, which may cause large memory footprint, {@link #isCacheFull()}
+ *       here could help to identify this case, <i>once this happens, the whole procedure of fetch message would be
+ *       suspended until this situation is eased.</i>
+ * </ul>
+ */
 @SuppressWarnings(value = {"UnstableApiUsage", "NullableProblems"})
 public class ProcessQueueImpl implements ProcessQueue {
     public static final long RECEIVE_LONG_POLLING_TIMEOUT_MILLIS = 30 * 1000L;
@@ -88,23 +102,43 @@ public class ProcessQueueImpl implements ProcessQueue {
 
     private static final Logger log = LoggerFactory.getLogger(ProcessQueueImpl.class);
 
+    /**
+     * Dropped means {@link ProcessQueue} is deprecated, which not fetch message from remote anymore.
+     */
     private volatile boolean dropped;
 
     private final MessageQueue mq;
+
+    /**
+     * Expression to filter message.
+     */
     private final FilterExpression filterExpression;
 
     private final PushConsumerImpl consumerImpl;
 
+    /**
+     * Messages which is pending means have been cached, but are not taken by consumer dispatcher yet.
+     */
     @GuardedBy("pendingMessagesLock")
     private final List<MessageExt> pendingMessages;
     private final ReadWriteLock pendingMessagesLock;
 
+    /**
+     * Message which is in-flight means have been dispatched, but the consumption process is not accomplished.
+     */
     @GuardedBy("inflightMessagesLock")
     private final List<MessageExt> inflightMessages;
     private final ReadWriteLock inflightMessagesLock;
 
+    /**
+     * Only make sense in {@link ConsumeModel#CLUSTERING} and {@link OffsetStore} is customized.
+     */
     private final NextOffsetRecord nextOffsetRecord;
 
+    /**
+     * Total memory bytes of cached messages, include all message in {@link #pendingMessages} and
+     * {@link #inflightMessages}.
+     */
     private final AtomicLong cachedMessagesBytes;
     private final AtomicBoolean fifoConsumptionOccupied;
 

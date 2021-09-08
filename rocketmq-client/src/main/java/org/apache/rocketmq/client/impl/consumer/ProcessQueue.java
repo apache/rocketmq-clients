@@ -47,7 +47,7 @@ public interface ProcessQueue {
     MessageQueue getMessageQueue();
 
     /**
-     * Drop current process queue, it would not fetch message from remote any more if dropped.
+     * Drop current process queue, it would not fetch message from remote anymore if dropped.
      */
     void drop();
 

@@ -102,6 +102,7 @@ public class PushConsumerImpl extends ConsumerImpl {
      * For {@link MessageModel#CLUSTERING} only, indicates the times of message reception.
      */
     private final AtomicLong receptionTimes;
+
     /**
      * For {@link MessageModel#CLUSTERING} only, indicates the quantity of received messages.
      */
@@ -111,6 +112,7 @@ public class PushConsumerImpl extends ConsumerImpl {
      * For {@link MessageModel#BROADCASTING} only, indicates the times of pull message.
      */
     private final AtomicLong pullTimes;
+
     /**
      * For {@link MessageModel#BROADCASTING} only, indicates the quantity of pulled messages.
      */
@@ -120,6 +122,7 @@ public class PushConsumerImpl extends ConsumerImpl {
      * Indicates the times of successful message consumption.
      */
     private final AtomicLong consumptionOkQuantity;
+
     /**
      * Indicates the times of failed message consumption.
      */
