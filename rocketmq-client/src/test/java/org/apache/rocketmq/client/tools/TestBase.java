@@ -71,6 +71,10 @@ import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.apache.rocketmq.utility.UtilAll;
 
 public class TestBase {
+    protected static final String FAKE_ACCESS_KEY = "foo-bar-access-key";
+    protected static final String FAKE_SECRET_KEY = "foo-bar-secret-key";
+    protected static final String FAKE_SECURITY_TOKEN = "foo-bar-security-token";
+
     protected static final String FAKE_ARN_0 = "foo-bar-arn-0";
 
     protected static final String FAKE_TOPIC_0 = "foo-bar-topic-0";
