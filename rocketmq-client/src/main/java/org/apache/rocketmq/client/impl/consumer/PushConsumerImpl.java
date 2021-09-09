@@ -399,15 +399,17 @@ public class PushConsumerImpl extends ConsumerImpl {
                     public void onSuccess(TopicAssignments remote) {
                         if (remote.getAssignmentList().isEmpty()) {
                             if (null == local || local.getAssignmentList().isEmpty()) {
-                                log.info("Acquired empty assignments from remote, would scan later, topic={}", topic);
+                                log.info("Acquired empty assignments from remote, would scan later, namespace={}, "
+                                         + "topic={}", namespace, topic);
                                 return;
                             }
                             log.info("Attention!!! acquired empty assignments from remote, but local assignments is "
-                                     + "not empty, topic={}", topic);
+                                     + "not empty, namespace={}, topic={}", namespace, topic);
                         }
 
                         if (!remote.equals(local)) {
-                            log.info("Assignments of topic={} has changed, {} -> {}", topic, local, remote);
+                            log.info("Assignments of topic={}[namespace={}] has changed, {} -> {}", topic, namespace,
+                                     local, remote);
                             synchronizeProcessQueue(topic, remote, filterExpression);
                             cachedTopicAssignmentTable.put(topic, remote);
                             return;
@@ -418,7 +420,8 @@ public class PushConsumerImpl extends ConsumerImpl {
 
                     @Override
                     public void onFailure(Throwable t) {
-                        log.error("Exception raised while scanning the assignments, topic={}", topic, t);
+                        log.error("Exception raised while scanning the assignments, namespace={}, topic={}", namespace,
+                                  topic, t);
                     }
                 });
             }
@@ -581,9 +584,10 @@ public class PushConsumerImpl extends ConsumerImpl {
                 final Status status = response.getCommon().getStatus();
                 final Code code = Code.forNumber(status.getCode());
                 if (Code.OK != code) {
-                    log.error("Failed to query assignment, topic={}, code={}, status message=[{}]", topic, code,
-                              status.getMessage());
-                    throw new ClientException(ErrorCode.NO_ASSIGNMENT);
+                    final String statusMessage = status.getMessage();
+                    log.error("Failed to query assignment, namespace={}, topic={}, code={}, status message=[{}]",
+                              namespace, topic, code, statusMessage);
+                    throw new ClientException(ErrorCode.NO_ASSIGNMENT, statusMessage);
                 }
                 final TopicAssignments topicAssignments = new TopicAssignments(response.getAssignmentsList());
                 future0.set(topicAssignments);

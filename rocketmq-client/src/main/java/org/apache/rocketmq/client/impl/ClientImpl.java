@@ -216,8 +216,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                             try {
                                 renewNameServerList();
                             } catch (Throwable t) {
-                                log.error("Exception raised while updating nameserver from top "
-                                          + "addressing", t);
+                                log.error("Exception raised while updating nameserver from top addressing", t);
                             }
                         }
                     },
@@ -380,7 +379,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
 
                 @Override
                 public void onFailure(Throwable t) {
-                    log.error("Failed to fetch topic route, topic={}", topic, t);
+                    log.error("Failed to fetch topic route, namespace={}, topic={}", namespace, topic, t);
                 }
             });
         }
@@ -424,11 +423,11 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                     final Set<SettableFuture<TopicRouteData>> newFutureSet = inflightRouteFutureTable.remove(topic);
                     if (null == newFutureSet) {
                         // should never reach here.
-                        log.error("[Bug] in-flight route futures was empty, topic={}", topic);
+                        log.error("[Bug] in-flight route futures was empty, namespace={}, topic={}", namespace, topic);
                         return;
                     }
-                    log.debug("Fetch topic route successfully, topic={}, in-flight route future size={}", topic,
-                              newFutureSet.size());
+                    log.debug("Fetch topic route successfully, namespace={}, topic={}, in-flight route future size={}",
+                              namespace, topic, newFutureSet.size());
                     for (SettableFuture<TopicRouteData> newFuture : newFutureSet) {
                         newFuture.set(newTopicRouteData);
                     }

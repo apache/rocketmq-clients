@@ -560,8 +560,9 @@ public class ProducerImpl extends ClientImpl {
             final Code code = Code.forNumber(status.getCode());
 
             if (Code.OK != code) {
-                log.error("Failed to end transaction, topic={} messageId={}, transactionId={}, code={}, status "
-                          + "message=[{}]", topic, messageId, transactionId, code, status.getMessage());
+                log.error("Failed to end transaction, namespace={}, topic={}, messageId={}, transactionId={}, "
+                          + "resolution={}, code={}, status message=[{}]", namespace, topic, messageId, transactionId,
+                          resolution, code, status.getMessage());
 
                 throw new ServerException(ErrorCode.OTHER, status.getMessage());
             }
@@ -682,8 +683,8 @@ public class ProducerImpl extends ClientImpl {
         final String msgId = message.getMsgId();
         // timeout, no need to proceed.
         if (future.isCancelled()) {
-            log.error("No need for sending because of timeout, topic={}, messageId={}, maxAttempts={}, attempt={}",
-                      topic, msgId, maxAttempts, attempt);
+            log.error("No need for sending because of timeout, namespace={}, topic={}, messageId={}, maxAttempts={}, "
+                      + "attempt={}", namespace, topic, msgId, maxAttempts, attempt);
             return;
         }
 
@@ -731,8 +732,8 @@ public class ProducerImpl extends ClientImpl {
 
                 // resend message successfully.
                 if (1 < attempt) {
-                    log.info("Resend message successfully, topic={}, messageId={}, maxAttempts={}, attempt={}, "
-                             + "endpoints={}.", topic, msgId, maxAttempts, attempt, endpoints);
+                    log.info("Resend message successfully, namespace={}, topic={}, messageId={}, maxAttempts={}, "
+                             + "attempt={}, endpoints={}.", namespace, topic, msgId, maxAttempts, attempt, endpoints);
                 }
 
                 // intercept after message sending.
@@ -759,14 +760,14 @@ public class ProducerImpl extends ClientImpl {
                     // no need more attempts.
                     future.setException(t);
                     log.error("Failed to send message finally, run out of attempt times, maxAttempts={}, attempt={}, "
-                              + "topic={}, messageId={}, endpoints={}", maxAttempts, attempt, topic, msgId, endpoints,
-                              t);
+                              + ", namespace={}, topic={}, messageId={}, endpoints={}", maxAttempts, attempt,
+                              namespace, topic, msgId, endpoints, t);
                     return;
                 }
                 // try to do more attempts.
                 log.warn("Failed to send message, would attempt to resend right now, maxAttempts={}, "
-                         + "attempt={}, topic={}, messageId={}, endpoints={}", maxAttempts, attempt, topic, msgId,
-                         endpoints, t);
+                         + "attempt={}, namespace={}, topic={}, messageId={}, endpoints={}", maxAttempts, attempt,
+                         namespace, topic, msgId, endpoints, t);
                 send0(future, candidates, message, 1 + attempt, maxAttempts);
             }
         });
@@ -792,7 +793,7 @@ public class ProducerImpl extends ClientImpl {
             @Override
             public ListenableFuture<Partition> apply(SendingTopicRouteData sendingRouteData) throws ClientException {
                 if (sendingRouteData.isEmpty()) {
-                    log.warn("No available sending route for selector, topic={}", topic);
+                    log.warn("No available sending route for selector, namespace={}, topic={}", namespace, topic);
                     throw new ClientException(ErrorCode.NO_PERMISSION);
                 }
                 final MessageQueue mq = selector.select(sendingRouteData.getMessageQueues(), message, arg);
