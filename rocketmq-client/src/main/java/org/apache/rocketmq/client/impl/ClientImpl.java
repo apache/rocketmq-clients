@@ -282,8 +282,8 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                 try {
                     interceptor.intercept(hookPoint, messageExt, context);
                 } catch (Throwable t) {
-                    log.error("Exception raised while intercepting message, hookPoint={}, message={}", hookPoint,
-                              messageExt, t);
+                    log.warn("Exception raised while intercepting message, hookPoint={}, messageId={}", hookPoint,
+                              messageExt.getMsgId());
                 }
             }
         } finally {
