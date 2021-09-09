@@ -40,10 +40,12 @@ public class MessageIdGenerator {
 
         byte[] prefix0 = UtilAll.macAddress();
         prefixBuffer.put(prefix0, 0, 6);
+
         ByteBuffer pidBuffer = ByteBuffer.allocate(4);
         pidBuffer.order(ByteOrder.BIG_ENDIAN);
         final int pid = UtilAll.processId();
         pidBuffer.putInt(pid);
+
         // Copy the lower 2 bytes
         prefixBuffer.put(pidBuffer.array(), 2, 2);
 

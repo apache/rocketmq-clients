@@ -77,7 +77,9 @@ public abstract class ConsumeService extends Dispatcher {
     }
 
     /**
-     * Underlying implement of message dispatch.
+     * dispatch message(s) once
+     *
+     * @return if message is dispatched.
      */
     public abstract boolean dispatch0();
 

@@ -30,6 +30,7 @@ import org.apache.rocketmq.client.remoting.Credentials;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
 import org.apache.rocketmq.client.remoting.TlsHelper;
 import org.apache.rocketmq.utility.MetadataUtils;
+import org.apache.rocketmq.utility.RequestIdGenerator;
 
 public class Signature {
     public static final String TENANT_ID_KEY = "x-mq-tenant-id";
@@ -99,6 +100,9 @@ public class Signature {
         if (StringUtils.isNotBlank(securityToken)) {
             metadata.put(Metadata.Key.of(SESSION_TOKEN, Metadata.ASCII_STRING_MARSHALLER), securityToken);
         }
+
+        final String requestId = RequestIdGenerator.getInstance().next();
+        metadata.put(Metadata.Key.of(REQUEST_ID_KEY, Metadata.ASCII_STRING_MARSHALLER), requestId);
 
         final String regionId = config.getRegionId();
         final String serviceName = config.getServiceName();
