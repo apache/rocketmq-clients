@@ -156,7 +156,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
-                clientService.stopAsync();
+                clientService.stopAsync().awaitTerminated();
             }
         });
     }
