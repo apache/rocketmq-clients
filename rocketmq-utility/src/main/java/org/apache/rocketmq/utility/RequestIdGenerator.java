@@ -26,10 +26,6 @@ public class RequestIdGenerator {
 
     private final byte[] name;
 
-    public static RequestIdGenerator getInstance() {
-        return INSTANCE;
-    }
-
     private RequestIdGenerator() {
         ByteBuffer nameBuffer = ByteBuffer.allocate(16);
         final byte[] macAddressBytes = UtilAll.macAddress();
@@ -41,8 +37,12 @@ public class RequestIdGenerator {
         pidBuffer.putInt(pid);
 
         nameBuffer.put(pidBuffer.array(), 2, 2);
-        nameBuffer.putLong(System.nanoTime());
+        nameBuffer.putLong(System.currentTimeMillis());
         this.name = nameBuffer.array();
+    }
+
+    public static RequestIdGenerator getInstance() {
+        return INSTANCE;
     }
 
     public String next() {
