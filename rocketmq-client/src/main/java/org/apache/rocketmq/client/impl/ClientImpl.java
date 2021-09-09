@@ -243,6 +243,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
     }
 
     private void notifyClientTermination() {
+        log.info("Notify that client is terminated, clientId={}", id);
         final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
         final NotifyClientTerminationRequest notifyClientTerminationRequest =
                 NotifyClientTerminationRequest.newBuilder().setClientId(id).setGroup(getPbGroup()).build();
@@ -253,7 +254,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                                                       ioTimeoutMillis, TimeUnit.MILLISECONDS);
             }
         } catch (Throwable t) {
-            log.error("Failed to notify client's termination.", t);
+            log.error("Failed to notify client's termination, clientId={}", id, t);
         }
     }
 
