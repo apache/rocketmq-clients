@@ -152,6 +152,13 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
         this.inflightRouteFutureLock = new ReentrantLock();
 
         this.topicRouteCache = new ConcurrentHashMap<String, TopicRouteData>();
+
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override
+            public void run() {
+                clientService.stopAsync();
+            }
+        });
     }
 
     /**
@@ -444,8 +451,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                         return;
                     }
                     log.error("Failed to fetch topic route, namespace={}, topic={}, in-flight route future size={}",
-                              namespace,
-                              topic, newFutureSet.size(), t);
+                              namespace, topic, newFutureSet.size(), t);
                     for (SettableFuture<TopicRouteData> newFuture : newFutureSet) {
                         final ClientException exception = new ClientException(ErrorCode.FETCH_TOPIC_ROUTE_FAILURE, t);
                         newFuture.setException(exception);
