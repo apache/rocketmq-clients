@@ -110,9 +110,6 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_MESSAGE_TAG, messageExt.getTag());
         span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_MESSAGE_KEYS, messageExt.getKeys());
         span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_MESSAGE_TYPE, messageExt.getMsgType().getName());
-        span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_MESSAGE_TAG, messageExt.getTag());
-        span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_MESSAGE_TAG, messageExt.getTag());
-        span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_MESSAGE_TAG, messageExt.getTag());
         final long deliveryTimestamp = messageExt.getDeliveryTimestamp();
         if (deliveryTimestamp > 0) {
             span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_DELIVERY_TIMESTAMP, deliveryTimestamp);

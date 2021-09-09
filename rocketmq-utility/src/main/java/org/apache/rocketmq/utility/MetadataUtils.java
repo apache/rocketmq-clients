@@ -28,7 +28,6 @@ public class MetadataUtils {
     private static final Properties METADATA_PROPERTIES = new Properties();
     private static final Properties WRAPPER_METADATA_PROPERTIES = new Properties();
 
-
     private static final String VERSION_KEY = "rocketmq.version";
     private static final String WRAPPER_VERSION_KEY = "rocketmq.wrapper.version";
 
