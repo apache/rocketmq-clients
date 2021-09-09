@@ -26,13 +26,9 @@ import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.misc.MixAll;
 import org.apache.rocketmq.client.route.Partition;
 import org.apache.rocketmq.client.route.TopicRouteData;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Immutable
 public class TopicAssignments {
-    private static final Logger log = LoggerFactory.getLogger(TopicAssignments.class);
-
     private final List<Assignment> assignmentList;
 
     public TopicAssignments(TopicRouteData topicRouteData) {
@@ -43,7 +39,7 @@ public class TopicAssignments {
                 continue;
             }
             final MessageQueue mq = new MessageQueue(partition);
-            final Assignment assignment = new Assignment(mq, MessageRequestMode.PULL);
+            final Assignment assignment = new Assignment(mq);
             assignmentList.add(assignment);
         }
     }
@@ -51,21 +47,8 @@ public class TopicAssignments {
     public TopicAssignments(List<apache.rocketmq.v1.Assignment> assignmentList) {
         this.assignmentList = new ArrayList<Assignment>();
         for (apache.rocketmq.v1.Assignment item : assignmentList) {
-            MessageQueue messageQueue =
-                    new MessageQueue(new Partition(item.getPartition()));
-
-            MessageRequestMode mode = MessageRequestMode.POP;
-            switch (item.getMode()) {
-                case PULL:
-                    mode = MessageRequestMode.PULL;
-                    break;
-                case POP:
-                    mode = MessageRequestMode.POP;
-                    break;
-                default:
-                    log.warn("Unknown message request mode={}, default to pop.", item.getMode());
-            }
-            this.assignmentList.add(new Assignment(messageQueue, mode));
+            MessageQueue messageQueue = new MessageQueue(new Partition(item.getPartition()));
+            this.assignmentList.add(new Assignment(messageQueue));
         }
     }
 

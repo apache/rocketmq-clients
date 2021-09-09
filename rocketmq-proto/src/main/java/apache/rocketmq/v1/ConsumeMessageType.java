@@ -9,44 +9,24 @@ package apache.rocketmq.v1;
 public enum ConsumeMessageType
     implements com.google.protobuf.ProtocolMessageEnum {
   /**
-   * <pre>
-   * Partition-based pull. Client is responsible to first seek to a position in the partition and then
-   * initiate a sequence of pull request to fetch messages within given range.
-   * </pre>
-   *
-   * <code>PULL = 0;</code>
+   * <code>ACTIVE = 0;</code>
    */
-  PULL(0),
+  ACTIVE(0),
   /**
-   * <pre>
-   * Offsets are implicitly managed by brokers. Clients generally perform stateless pop requests from
-   * logical queues pertaining to the specified topic.
-   * </pre>
-   *
-   * <code>POP = 1;</code>
+   * <code>PASSIVE = 1;</code>
    */
-  POP(1),
+  PASSIVE(1),
   UNRECOGNIZED(-1),
   ;
 
   /**
-   * <pre>
-   * Partition-based pull. Client is responsible to first seek to a position in the partition and then
-   * initiate a sequence of pull request to fetch messages within given range.
-   * </pre>
-   *
-   * <code>PULL = 0;</code>
+   * <code>ACTIVE = 0;</code>
    */
-  public static final int PULL_VALUE = 0;
+  public static final int ACTIVE_VALUE = 0;
   /**
-   * <pre>
-   * Offsets are implicitly managed by brokers. Clients generally perform stateless pop requests from
-   * logical queues pertaining to the specified topic.
-   * </pre>
-   *
-   * <code>POP = 1;</code>
+   * <code>PASSIVE = 1;</code>
    */
-  public static final int POP_VALUE = 1;
+  public static final int PASSIVE_VALUE = 1;
 
 
   public final int getNumber() {
@@ -73,8 +53,8 @@ public enum ConsumeMessageType
    */
   public static ConsumeMessageType forNumber(int value) {
     switch (value) {
-      case 0: return PULL;
-      case 1: return POP;
+      case 0: return ACTIVE;
+      case 1: return PASSIVE;
       default: return null;
     }
   }
@@ -105,7 +85,7 @@ public enum ConsumeMessageType
   }
   public static final com.google.protobuf.Descriptors.EnumDescriptor
       getDescriptor() {
-    return apache.rocketmq.v1.MQDomain.getDescriptor().getEnumTypes().get(8);
+    return apache.rocketmq.v1.MQDomain.getDescriptor().getEnumTypes().get(4);
   }
 
   private static final ConsumeMessageType[] VALUES = values();

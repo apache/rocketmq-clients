@@ -3,8 +3,8 @@
 
 package apache.rocketmq.v1;
 
-public interface ResolveOrphanedTransactionRequestOrBuilder extends
-    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.ResolveOrphanedTransactionRequest)
+public interface RecoverOrphanedTransactionRequestOrBuilder extends
+    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.RecoverOrphanedTransactionRequest)
     com.google.protobuf.MessageOrBuilder {
 
   /**

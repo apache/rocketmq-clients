@@ -229,7 +229,8 @@ public interface SystemAttributeOrBuilder extends
 
   /**
    * <pre>
-   * The broker that stores this message. It may be name, IP or arbitrary identifier that uniquely identify the broker.
+   * The broker that stores this message. It may be name, IP or arbitrary
+   * identifier that uniquely identify the broker.
    * </pre>
    *
    * <code>string store_host = 10;</code>
@@ -238,7 +239,8 @@ public interface SystemAttributeOrBuilder extends
   java.lang.String getStoreHost();
   /**
    * <pre>
-   * The broker that stores this message. It may be name, IP or arbitrary identifier that uniquely identify the broker.
+   * The broker that stores this message. It may be name, IP or arbitrary
+   * identifier that uniquely identify the broker.
    * </pre>
    *
    * <code>string store_host = 10;</code>
@@ -286,8 +288,9 @@ public interface SystemAttributeOrBuilder extends
 
   /**
    * <pre>
-   * If a message is acquired by way of POP, this field holds the receipt. Clients use the receipt to
-   * acknowledge or negatively acknowledge the message.
+   * If a message is acquired by way of POP, this field holds the receipt.
+   * Clients use the receipt to acknowledge or negatively acknowledge the
+   * message.
    * </pre>
    *
    * <code>string receipt_handle = 13;</code>
@@ -296,8 +299,9 @@ public interface SystemAttributeOrBuilder extends
   java.lang.String getReceiptHandle();
   /**
    * <pre>
-   * If a message is acquired by way of POP, this field holds the receipt. Clients use the receipt to
-   * acknowledge or negatively acknowledge the message.
+   * If a message is acquired by way of POP, this field holds the receipt.
+   * Clients use the receipt to acknowledge or negatively acknowledge the
+   * message.
    * </pre>
    *
    * <code>string receipt_handle = 13;</code>
@@ -355,8 +359,9 @@ public interface SystemAttributeOrBuilder extends
 
   /**
    * <pre>
-   * Business code may failed to process messages for the moment. Hence, clients may request servers to deliver them
-   * again using certain back-off strategy, the attempt is 1 not 0 if message is delivered first time.
+   * Business code may failed to process messages for the moment. Hence, clients
+   * may request servers to deliver them again using certain back-off strategy,
+   * the attempt is 1 not 0 if message is delivered first time.
    * </pre>
    *
    * <code>int32 delivery_attempt = 17;</code>
@@ -425,7 +430,7 @@ public interface SystemAttributeOrBuilder extends
 
   /**
    * <pre>
-   * Delay time of first resolve orphaned transaction request from server.
+   * Delay time of first recover orphaned transaction request from server.
    * </pre>
    *
    * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
@@ -434,7 +439,7 @@ public interface SystemAttributeOrBuilder extends
   boolean hasOrphanedTransactionRecoveryPeriod();
   /**
    * <pre>
-   * Delay time of first resolve orphaned transaction request from server.
+   * Delay time of first recover orphaned transaction request from server.
    * </pre>
    *
    * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
@@ -443,7 +448,7 @@ public interface SystemAttributeOrBuilder extends
   com.google.protobuf.Duration getOrphanedTransactionRecoveryPeriod();
   /**
    * <pre>
-   * Delay time of first resolve orphaned transaction request from server.
+   * Delay time of first recover orphaned transaction request from server.
    * </pre>
    *
    * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>

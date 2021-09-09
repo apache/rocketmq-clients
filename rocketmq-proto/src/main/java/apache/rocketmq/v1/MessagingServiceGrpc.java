@@ -448,6 +448,37 @@ public final class MessagingServiceGrpc {
     return getMultiplexingCallMethod;
   }
 
+  private static volatile io.grpc.MethodDescriptor<apache.rocketmq.v1.NotifyClientTerminationRequest,
+      apache.rocketmq.v1.NotifyClientTerminationResponse> getNotifyClientTerminationMethod;
+
+  @io.grpc.stub.annotations.RpcMethod(
+      fullMethodName = SERVICE_NAME + '/' + "NotifyClientTermination",
+      requestType = apache.rocketmq.v1.NotifyClientTerminationRequest.class,
+      responseType = apache.rocketmq.v1.NotifyClientTerminationResponse.class,
+      methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
+  public static io.grpc.MethodDescriptor<apache.rocketmq.v1.NotifyClientTerminationRequest,
+      apache.rocketmq.v1.NotifyClientTerminationResponse> getNotifyClientTerminationMethod() {
+    io.grpc.MethodDescriptor<apache.rocketmq.v1.NotifyClientTerminationRequest, apache.rocketmq.v1.NotifyClientTerminationResponse> getNotifyClientTerminationMethod;
+    if ((getNotifyClientTerminationMethod = MessagingServiceGrpc.getNotifyClientTerminationMethod) == null) {
+      synchronized (MessagingServiceGrpc.class) {
+        if ((getNotifyClientTerminationMethod = MessagingServiceGrpc.getNotifyClientTerminationMethod) == null) {
+          MessagingServiceGrpc.getNotifyClientTerminationMethod = getNotifyClientTerminationMethod =
+              io.grpc.MethodDescriptor.<apache.rocketmq.v1.NotifyClientTerminationRequest, apache.rocketmq.v1.NotifyClientTerminationResponse>newBuilder()
+              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "NotifyClientTermination"))
+              .setSampledToLocalTracing(true)
+              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  apache.rocketmq.v1.NotifyClientTerminationRequest.getDefaultInstance()))
+              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  apache.rocketmq.v1.NotifyClientTerminationResponse.getDefaultInstance()))
+              .setSchemaDescriptor(new MessagingServiceMethodDescriptorSupplier("NotifyClientTermination"))
+              .build();
+        }
+      }
+    }
+    return getNotifyClientTerminationMethod;
+  }
+
   /**
    * Creates a new async stub that supports all call types for the service
    */
@@ -594,6 +625,13 @@ public final class MessagingServiceGrpc {
       io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getMultiplexingCallMethod(), responseObserver);
     }
 
+    /**
+     */
+    public void notifyClientTermination(apache.rocketmq.v1.NotifyClientTerminationRequest request,
+        io.grpc.stub.StreamObserver<apache.rocketmq.v1.NotifyClientTerminationResponse> responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getNotifyClientTerminationMethod(), responseObserver);
+    }
+
     @java.lang.Override public final io.grpc.ServerServiceDefinition bindService() {
       return io.grpc.ServerServiceDefinition.builder(getServiceDescriptor())
           .addMethod(
@@ -694,6 +732,13 @@ public final class MessagingServiceGrpc {
                 apache.rocketmq.v1.MultiplexingRequest,
                 apache.rocketmq.v1.MultiplexingResponse>(
                   this, METHODID_MULTIPLEXING_CALL)))
+          .addMethod(
+            getNotifyClientTerminationMethod(),
+            io.grpc.stub.ServerCalls.asyncUnaryCall(
+              new MethodHandlers<
+                apache.rocketmq.v1.NotifyClientTerminationRequest,
+                apache.rocketmq.v1.NotifyClientTerminationResponse>(
+                  this, METHODID_NOTIFY_CLIENT_TERMINATION)))
           .build();
     }
   }
@@ -823,6 +868,14 @@ public final class MessagingServiceGrpc {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
           getChannel().newCall(getMultiplexingCallMethod(), getCallOptions()), request, responseObserver);
     }
+
+    /**
+     */
+    public void notifyClientTermination(apache.rocketmq.v1.NotifyClientTerminationRequest request,
+        io.grpc.stub.StreamObserver<apache.rocketmq.v1.NotifyClientTerminationResponse> responseObserver) {
+      io.grpc.stub.ClientCalls.asyncUnaryCall(
+          getChannel().newCall(getNotifyClientTerminationMethod(), getCallOptions()), request, responseObserver);
+    }
   }
 
   /**
@@ -935,6 +988,13 @@ public final class MessagingServiceGrpc {
     public apache.rocketmq.v1.MultiplexingResponse multiplexingCall(apache.rocketmq.v1.MultiplexingRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
           getChannel(), getMultiplexingCallMethod(), getCallOptions(), request);
+    }
+
+    /**
+     */
+    public apache.rocketmq.v1.NotifyClientTerminationResponse notifyClientTermination(apache.rocketmq.v1.NotifyClientTerminationRequest request) {
+      return io.grpc.stub.ClientCalls.blockingUnaryCall(
+          getChannel(), getNotifyClientTerminationMethod(), getCallOptions(), request);
     }
   }
 
@@ -1063,6 +1123,14 @@ public final class MessagingServiceGrpc {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
           getChannel().newCall(getMultiplexingCallMethod(), getCallOptions()), request);
     }
+
+    /**
+     */
+    public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.NotifyClientTerminationResponse> notifyClientTermination(
+        apache.rocketmq.v1.NotifyClientTerminationRequest request) {
+      return io.grpc.stub.ClientCalls.futureUnaryCall(
+          getChannel().newCall(getNotifyClientTerminationMethod(), getCallOptions()), request);
+    }
   }
 
   private static final int METHODID_QUERY_ROUTE = 0;
@@ -1079,6 +1147,7 @@ public final class MessagingServiceGrpc {
   private static final int METHODID_PULL_MESSAGE = 11;
   private static final int METHODID_UPDATE_OFFSET = 12;
   private static final int METHODID_MULTIPLEXING_CALL = 13;
+  private static final int METHODID_NOTIFY_CLIENT_TERMINATION = 14;
 
   private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
@@ -1152,6 +1221,10 @@ public final class MessagingServiceGrpc {
         case METHODID_MULTIPLEXING_CALL:
           serviceImpl.multiplexingCall((apache.rocketmq.v1.MultiplexingRequest) request,
               (io.grpc.stub.StreamObserver<apache.rocketmq.v1.MultiplexingResponse>) responseObserver);
+          break;
+        case METHODID_NOTIFY_CLIENT_TERMINATION:
+          serviceImpl.notifyClientTermination((apache.rocketmq.v1.NotifyClientTerminationRequest) request,
+              (io.grpc.stub.StreamObserver<apache.rocketmq.v1.NotifyClientTerminationResponse>) responseObserver);
           break;
         default:
           throw new AssertionError();
@@ -1228,6 +1301,7 @@ public final class MessagingServiceGrpc {
               .addMethod(getPullMessageMethod())
               .addMethod(getUpdateOffsetMethod())
               .addMethod(getMultiplexingCallMethod())
+              .addMethod(getNotifyClientTerminationMethod())
               .build();
         }
       }

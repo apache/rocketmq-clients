@@ -26,7 +26,7 @@ You may need a shaded client in most case, but we also provided the no-shaded cl
 </dependency>
 ```
 
-We provide the simplest to help you to quick start, please refer to the `rocketmq-example` module.
+We provide the simplest demo to help you to quick start, please refer to the `rocketmq-example` module.
 
 ## Introduction
 

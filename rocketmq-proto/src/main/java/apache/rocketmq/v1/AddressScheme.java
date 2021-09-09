@@ -94,7 +94,7 @@ public enum AddressScheme
   }
   public static final com.google.protobuf.Descriptors.EnumDescriptor
       getDescriptor() {
-    return apache.rocketmq.v1.MQDomain.getDescriptor().getEnumTypes().get(4);
+    return apache.rocketmq.v1.MQDomain.getDescriptor().getEnumTypes().get(5);
   }
 
   private static final AddressScheme[] VALUES = values();

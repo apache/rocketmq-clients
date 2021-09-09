@@ -28,7 +28,7 @@ import apache.rocketmq.v1.HealthCheckRequest;
 import apache.rocketmq.v1.HealthCheckResponse;
 import apache.rocketmq.v1.HeartbeatRequest;
 import apache.rocketmq.v1.ProducerData;
-import apache.rocketmq.v1.ResolveOrphanedTransactionRequest;
+import apache.rocketmq.v1.RecoverOrphanedTransactionRequest;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
@@ -301,13 +301,11 @@ public class ProducerImpl extends ClientImpl {
                 Resource.newBuilder().setResourceNamespace(namespace).setName(message.getTopic()).build();
 
         final apache.rocketmq.v1.SystemAttribute.Builder systemAttributeBuilder =
-                apache.rocketmq.v1.SystemAttribute.newBuilder()
-                                                  .setTag(message.getTag())
+                apache.rocketmq.v1.SystemAttribute.newBuilder().setTag(message.getTag())
                                                   .addAllKeys(message.getKeysList())
                                                   .setMessageId(message.getMessageExt().getMsgId())
                                                   .setBornTimestamp(fromMillis(message.getBornTimeMillis()))
-                                                  .setBornHost(message.getBornHost())
-                                                  .setPartitionId(partition.getId())
+                                                  .setBornHost(message.getBornHost()).setPartitionId(partition.getId())
                                                   .setProducerGroup(getPbGroup());
         Encoding encoding = Encoding.IDENTITY;
         byte[] body = message.getBody();
@@ -573,7 +571,7 @@ public class ProducerImpl extends ClientImpl {
     }
 
     @Override
-    public void resolveOrphanedTransaction(final Endpoints endpoints, final ResolveOrphanedTransactionRequest request) {
+    public void recoverOrphanedTransaction(final Endpoints endpoints, final RecoverOrphanedTransactionRequest request) {
         final apache.rocketmq.v1.Message message = request.getOrphanedTransactionalMessage();
         final String messageId = message.getSystemAttribute().getMessageId();
         if (null == transactionChecker) {

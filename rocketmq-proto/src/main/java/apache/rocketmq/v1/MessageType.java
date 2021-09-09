@@ -30,7 +30,8 @@ public enum MessageType
   DELAY(2),
   /**
    * <pre>
-   * Messages that are transactional. Only committed messages are delivered to subscribers.
+   * Messages that are transactional. Only committed messages are delivered to
+   * subscribers.
    * </pre>
    *
    * <code>TRANSACTION = 3;</code>
@@ -61,7 +62,8 @@ public enum MessageType
   public static final int DELAY_VALUE = 2;
   /**
    * <pre>
-   * Messages that are transactional. Only committed messages are delivered to subscribers.
+   * Messages that are transactional. Only committed messages are delivered to
+   * subscribers.
    * </pre>
    *
    * <code>TRANSACTION = 3;</code>
@@ -127,7 +129,7 @@ public enum MessageType
   }
   public static final com.google.protobuf.Descriptors.EnumDescriptor
       getDescriptor() {
-    return apache.rocketmq.v1.MQDomain.getDescriptor().getEnumTypes().get(5);
+    return apache.rocketmq.v1.MQDomain.getDescriptor().getEnumTypes().get(6);
   }
 
   private static final MessageType[] VALUES = values();

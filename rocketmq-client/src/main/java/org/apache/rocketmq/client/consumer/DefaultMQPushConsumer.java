@@ -35,7 +35,7 @@ import org.apache.rocketmq.client.trace.TracingMessageInterceptor;
  * out of box for most scenarios.
  *
  * <p>This class allows user to custom the {@link MessageListener}, which would delivery message in time according to
- * defined consumption policy, you should not care the underlying implement.
+ * defined consumption policy.
  */
 @ThreadSafe
 public class DefaultMQPushConsumer {

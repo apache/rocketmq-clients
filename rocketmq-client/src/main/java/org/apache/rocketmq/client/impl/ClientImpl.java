@@ -25,7 +25,7 @@ import apache.rocketmq.v1.MultiplexingResponse;
 import apache.rocketmq.v1.PrintThreadStackResponse;
 import apache.rocketmq.v1.QueryRouteRequest;
 import apache.rocketmq.v1.QueryRouteResponse;
-import apache.rocketmq.v1.ResolveOrphanedTransactionRequest;
+import apache.rocketmq.v1.RecoverOrphanedTransactionRequest;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.ResponseCommon;
 import apache.rocketmq.v1.VerifyMessageConsumptionRequest;
@@ -632,7 +632,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
      * @param endpoints remote endpoints.
      * @param request   resolve orphaned transaction request.
      */
-    public void resolveOrphanedTransaction(Endpoints endpoints, ResolveOrphanedTransactionRequest request) {
+    public void recoverOrphanedTransaction(Endpoints endpoints, RecoverOrphanedTransactionRequest request) {
     }
 
     private void onMultiplexingResponse(final Endpoints endpoints, final MultiplexingResponse response) {
@@ -685,12 +685,12 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                     }
                 });
                 break;
-            case RESOLVE_ORPHANED_TRANSACTION_REQUEST:
-                ResolveOrphanedTransactionRequest orphanedRequest = response.getResolveOrphanedTransactionRequest();
+            case RECOVER_ORPHANED_TRANSACTION_REQUEST:
+                RecoverOrphanedTransactionRequest orphanedRequest = response.getRecoverOrphanedTransactionRequest();
                 log.debug("Receive resolve orphaned transaction request from remote, clientId={}, messageId={}",
                           id, orphanedRequest.getOrphanedTransactionalMessage().getSystemAttribute()
                                              .getMessageId());
-                resolveOrphanedTransaction(endpoints, orphanedRequest);
+                recoverOrphanedTransaction(endpoints, orphanedRequest);
                 /* fall through on purpose. */
             case POLLING_RESPONSE:
                 /* fall through on purpose. */

@@ -21,7 +21,8 @@ public interface ResourceOrBuilder extends
 
   /**
    * <pre>
-   * Resource name identifier, which remains unique within the abstract resource namespace.
+   * Resource name identifier, which remains unique within the abstract resource
+   * namespace.
    * </pre>
    *
    * <code>string name = 2;</code>
@@ -30,7 +31,8 @@ public interface ResourceOrBuilder extends
   java.lang.String getName();
   /**
    * <pre>
-   * Resource name identifier, which remains unique within the abstract resource namespace.
+   * Resource name identifier, which remains unique within the abstract resource
+   * namespace.
    * </pre>
    *
    * <code>string name = 2;</code>

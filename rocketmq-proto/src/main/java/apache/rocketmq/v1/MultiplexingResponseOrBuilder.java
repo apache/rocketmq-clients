@@ -53,19 +53,19 @@ public interface MultiplexingResponseOrBuilder extends
   apache.rocketmq.v1.VerifyMessageConsumptionRequestOrBuilder getVerifyMessageConsumptionRequestOrBuilder();
 
   /**
-   * <code>.apache.rocketmq.v1.ResolveOrphanedTransactionRequest resolve_orphaned_transaction_request = 4;</code>
-   * @return Whether the resolveOrphanedTransactionRequest field is set.
+   * <code>.apache.rocketmq.v1.RecoverOrphanedTransactionRequest recover_orphaned_transaction_request = 4;</code>
+   * @return Whether the recoverOrphanedTransactionRequest field is set.
    */
-  boolean hasResolveOrphanedTransactionRequest();
+  boolean hasRecoverOrphanedTransactionRequest();
   /**
-   * <code>.apache.rocketmq.v1.ResolveOrphanedTransactionRequest resolve_orphaned_transaction_request = 4;</code>
-   * @return The resolveOrphanedTransactionRequest.
+   * <code>.apache.rocketmq.v1.RecoverOrphanedTransactionRequest recover_orphaned_transaction_request = 4;</code>
+   * @return The recoverOrphanedTransactionRequest.
    */
-  apache.rocketmq.v1.ResolveOrphanedTransactionRequest getResolveOrphanedTransactionRequest();
+  apache.rocketmq.v1.RecoverOrphanedTransactionRequest getRecoverOrphanedTransactionRequest();
   /**
-   * <code>.apache.rocketmq.v1.ResolveOrphanedTransactionRequest resolve_orphaned_transaction_request = 4;</code>
+   * <code>.apache.rocketmq.v1.RecoverOrphanedTransactionRequest recover_orphaned_transaction_request = 4;</code>
    */
-  apache.rocketmq.v1.ResolveOrphanedTransactionRequestOrBuilder getResolveOrphanedTransactionRequestOrBuilder();
+  apache.rocketmq.v1.RecoverOrphanedTransactionRequestOrBuilder getRecoverOrphanedTransactionRequestOrBuilder();
 
   public apache.rocketmq.v1.MultiplexingResponse.TypeCase getTypeCase();
 }

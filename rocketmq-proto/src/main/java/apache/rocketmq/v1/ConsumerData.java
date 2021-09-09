@@ -319,7 +319,7 @@ private static final long serialVersionUID = 0L;
     if (deadLetterPolicy_ != null) {
       output.writeMessage(5, getDeadLetterPolicy());
     }
-    if (consumeType_ != apache.rocketmq.v1.ConsumeMessageType.PULL.getNumber()) {
+    if (consumeType_ != apache.rocketmq.v1.ConsumeMessageType.ACTIVE.getNumber()) {
       output.writeEnum(6, consumeType_);
     }
     unknownFields.writeTo(output);
@@ -351,7 +351,7 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(5, getDeadLetterPolicy());
     }
-    if (consumeType_ != apache.rocketmq.v1.ConsumeMessageType.PULL.getNumber()) {
+    if (consumeType_ != apache.rocketmq.v1.ConsumeMessageType.ACTIVE.getNumber()) {
       size += com.google.protobuf.CodedOutputStream
         .computeEnumSize(6, consumeType_);
     }

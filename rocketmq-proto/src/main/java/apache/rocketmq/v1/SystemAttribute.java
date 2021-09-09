@@ -671,7 +671,8 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object storeHost_;
   /**
    * <pre>
-   * The broker that stores this message. It may be name, IP or arbitrary identifier that uniquely identify the broker.
+   * The broker that stores this message. It may be name, IP or arbitrary
+   * identifier that uniquely identify the broker.
    * </pre>
    *
    * <code>string store_host = 10;</code>
@@ -692,7 +693,8 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * The broker that stores this message. It may be name, IP or arbitrary identifier that uniquely identify the broker.
+   * The broker that stores this message. It may be name, IP or arbitrary
+   * identifier that uniquely identify the broker.
    * </pre>
    *
    * <code>string store_host = 10;</code>
@@ -777,8 +779,9 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object receiptHandle_;
   /**
    * <pre>
-   * If a message is acquired by way of POP, this field holds the receipt. Clients use the receipt to
-   * acknowledge or negatively acknowledge the message.
+   * If a message is acquired by way of POP, this field holds the receipt.
+   * Clients use the receipt to acknowledge or negatively acknowledge the
+   * message.
    * </pre>
    *
    * <code>string receipt_handle = 13;</code>
@@ -799,8 +802,9 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * If a message is acquired by way of POP, this field holds the receipt. Clients use the receipt to
-   * acknowledge or negatively acknowledge the message.
+   * If a message is acquired by way of POP, this field holds the receipt.
+   * Clients use the receipt to acknowledge or negatively acknowledge the
+   * message.
    * </pre>
    *
    * <code>string receipt_handle = 13;</code>
@@ -893,8 +897,9 @@ private static final long serialVersionUID = 0L;
   private int deliveryAttempt_;
   /**
    * <pre>
-   * Business code may failed to process messages for the moment. Hence, clients may request servers to deliver them
-   * again using certain back-off strategy, the attempt is 1 not 0 if message is delivered first time.
+   * Business code may failed to process messages for the moment. Hence, clients
+   * may request servers to deliver them again using certain back-off strategy,
+   * the attempt is 1 not 0 if message is delivered first time.
    * </pre>
    *
    * <code>int32 delivery_attempt = 17;</code>
@@ -1031,7 +1036,7 @@ private static final long serialVersionUID = 0L;
   private com.google.protobuf.Duration orphanedTransactionRecoveryPeriod_;
   /**
    * <pre>
-   * Delay time of first resolve orphaned transaction request from server.
+   * Delay time of first recover orphaned transaction request from server.
    * </pre>
    *
    * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
@@ -1043,7 +1048,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Delay time of first resolve orphaned transaction request from server.
+   * Delay time of first recover orphaned transaction request from server.
    * </pre>
    *
    * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
@@ -1055,7 +1060,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Delay time of first resolve orphaned transaction request from server.
+   * Delay time of first recover orphaned transaction request from server.
    * </pre>
    *
    * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
@@ -2901,7 +2906,8 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object storeHost_ = "";
     /**
      * <pre>
-     * The broker that stores this message. It may be name, IP or arbitrary identifier that uniquely identify the broker.
+     * The broker that stores this message. It may be name, IP or arbitrary
+     * identifier that uniquely identify the broker.
      * </pre>
      *
      * <code>string store_host = 10;</code>
@@ -2921,7 +2927,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The broker that stores this message. It may be name, IP or arbitrary identifier that uniquely identify the broker.
+     * The broker that stores this message. It may be name, IP or arbitrary
+     * identifier that uniquely identify the broker.
      * </pre>
      *
      * <code>string store_host = 10;</code>
@@ -2942,7 +2949,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The broker that stores this message. It may be name, IP or arbitrary identifier that uniquely identify the broker.
+     * The broker that stores this message. It may be name, IP or arbitrary
+     * identifier that uniquely identify the broker.
      * </pre>
      *
      * <code>string store_host = 10;</code>
@@ -2961,7 +2969,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The broker that stores this message. It may be name, IP or arbitrary identifier that uniquely identify the broker.
+     * The broker that stores this message. It may be name, IP or arbitrary
+     * identifier that uniquely identify the broker.
      * </pre>
      *
      * <code>string store_host = 10;</code>
@@ -2975,7 +2984,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The broker that stores this message. It may be name, IP or arbitrary identifier that uniquely identify the broker.
+     * The broker that stores this message. It may be name, IP or arbitrary
+     * identifier that uniquely identify the broker.
      * </pre>
      *
      * <code>string store_host = 10;</code>
@@ -3220,8 +3230,9 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object receiptHandle_ = "";
     /**
      * <pre>
-     * If a message is acquired by way of POP, this field holds the receipt. Clients use the receipt to
-     * acknowledge or negatively acknowledge the message.
+     * If a message is acquired by way of POP, this field holds the receipt.
+     * Clients use the receipt to acknowledge or negatively acknowledge the
+     * message.
      * </pre>
      *
      * <code>string receipt_handle = 13;</code>
@@ -3241,8 +3252,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * If a message is acquired by way of POP, this field holds the receipt. Clients use the receipt to
-     * acknowledge or negatively acknowledge the message.
+     * If a message is acquired by way of POP, this field holds the receipt.
+     * Clients use the receipt to acknowledge or negatively acknowledge the
+     * message.
      * </pre>
      *
      * <code>string receipt_handle = 13;</code>
@@ -3263,8 +3275,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * If a message is acquired by way of POP, this field holds the receipt. Clients use the receipt to
-     * acknowledge or negatively acknowledge the message.
+     * If a message is acquired by way of POP, this field holds the receipt.
+     * Clients use the receipt to acknowledge or negatively acknowledge the
+     * message.
      * </pre>
      *
      * <code>string receipt_handle = 13;</code>
@@ -3283,8 +3296,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * If a message is acquired by way of POP, this field holds the receipt. Clients use the receipt to
-     * acknowledge or negatively acknowledge the message.
+     * If a message is acquired by way of POP, this field holds the receipt.
+     * Clients use the receipt to acknowledge or negatively acknowledge the
+     * message.
      * </pre>
      *
      * <code>string receipt_handle = 13;</code>
@@ -3298,8 +3312,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * If a message is acquired by way of POP, this field holds the receipt. Clients use the receipt to
-     * acknowledge or negatively acknowledge the message.
+     * If a message is acquired by way of POP, this field holds the receipt.
+     * Clients use the receipt to acknowledge or negatively acknowledge the
+     * message.
      * </pre>
      *
      * <code>string receipt_handle = 13;</code>
@@ -3562,8 +3577,9 @@ private static final long serialVersionUID = 0L;
     private int deliveryAttempt_ ;
     /**
      * <pre>
-     * Business code may failed to process messages for the moment. Hence, clients may request servers to deliver them
-     * again using certain back-off strategy, the attempt is 1 not 0 if message is delivered first time.
+     * Business code may failed to process messages for the moment. Hence, clients
+     * may request servers to deliver them again using certain back-off strategy,
+     * the attempt is 1 not 0 if message is delivered first time.
      * </pre>
      *
      * <code>int32 delivery_attempt = 17;</code>
@@ -3575,8 +3591,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Business code may failed to process messages for the moment. Hence, clients may request servers to deliver them
-     * again using certain back-off strategy, the attempt is 1 not 0 if message is delivered first time.
+     * Business code may failed to process messages for the moment. Hence, clients
+     * may request servers to deliver them again using certain back-off strategy,
+     * the attempt is 1 not 0 if message is delivered first time.
      * </pre>
      *
      * <code>int32 delivery_attempt = 17;</code>
@@ -3591,8 +3608,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Business code may failed to process messages for the moment. Hence, clients may request servers to deliver them
-     * again using certain back-off strategy, the attempt is 1 not 0 if message is delivered first time.
+     * Business code may failed to process messages for the moment. Hence, clients
+     * may request servers to deliver them again using certain back-off strategy,
+     * the attempt is 1 not 0 if message is delivered first time.
      * </pre>
      *
      * <code>int32 delivery_attempt = 17;</code>
@@ -3937,7 +3955,7 @@ private static final long serialVersionUID = 0L;
         com.google.protobuf.Duration, com.google.protobuf.Duration.Builder, com.google.protobuf.DurationOrBuilder> orphanedTransactionRecoveryPeriodBuilder_;
     /**
      * <pre>
-     * Delay time of first resolve orphaned transaction request from server.
+     * Delay time of first recover orphaned transaction request from server.
      * </pre>
      *
      * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
@@ -3948,7 +3966,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Delay time of first resolve orphaned transaction request from server.
+     * Delay time of first recover orphaned transaction request from server.
      * </pre>
      *
      * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
@@ -3963,7 +3981,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Delay time of first resolve orphaned transaction request from server.
+     * Delay time of first recover orphaned transaction request from server.
      * </pre>
      *
      * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
@@ -3983,7 +4001,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Delay time of first resolve orphaned transaction request from server.
+     * Delay time of first recover orphaned transaction request from server.
      * </pre>
      *
      * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
@@ -4001,7 +4019,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Delay time of first resolve orphaned transaction request from server.
+     * Delay time of first recover orphaned transaction request from server.
      * </pre>
      *
      * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
@@ -4023,7 +4041,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Delay time of first resolve orphaned transaction request from server.
+     * Delay time of first recover orphaned transaction request from server.
      * </pre>
      *
      * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
@@ -4041,7 +4059,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Delay time of first resolve orphaned transaction request from server.
+     * Delay time of first recover orphaned transaction request from server.
      * </pre>
      *
      * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
@@ -4053,7 +4071,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Delay time of first resolve orphaned transaction request from server.
+     * Delay time of first recover orphaned transaction request from server.
      * </pre>
      *
      * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>
@@ -4068,7 +4086,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Delay time of first resolve orphaned transaction request from server.
+     * Delay time of first recover orphaned transaction request from server.
      * </pre>
      *
      * <code>.google.protobuf.Duration orphaned_transaction_recovery_period = 21;</code>

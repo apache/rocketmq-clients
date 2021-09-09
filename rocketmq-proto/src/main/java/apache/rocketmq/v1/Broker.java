@@ -155,8 +155,8 @@ private static final long serialVersionUID = 0L;
   private int id_;
   /**
    * <pre>
-   * Broker index. Canonically, index = 0 implies that the broker is playing leader role while brokers with index &gt; 0
-   * play follower role.
+   * Broker index. Canonically, index = 0 implies that the broker is playing
+   * leader role while brokers with index &gt; 0 play follower role.
    * </pre>
    *
    * <code>int32 id = 2;</code>
@@ -662,8 +662,8 @@ private static final long serialVersionUID = 0L;
     private int id_ ;
     /**
      * <pre>
-     * Broker index. Canonically, index = 0 implies that the broker is playing leader role while brokers with index &gt; 0
-     * play follower role.
+     * Broker index. Canonically, index = 0 implies that the broker is playing
+     * leader role while brokers with index &gt; 0 play follower role.
      * </pre>
      *
      * <code>int32 id = 2;</code>
@@ -675,8 +675,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Broker index. Canonically, index = 0 implies that the broker is playing leader role while brokers with index &gt; 0
-     * play follower role.
+     * Broker index. Canonically, index = 0 implies that the broker is playing
+     * leader role while brokers with index &gt; 0 play follower role.
      * </pre>
      *
      * <code>int32 id = 2;</code>
@@ -691,8 +691,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Broker index. Canonically, index = 0 implies that the broker is playing leader role while brokers with index &gt; 0
-     * play follower role.
+     * Broker index. Canonically, index = 0 implies that the broker is playing
+     * leader role while brokers with index &gt; 0 play follower role.
      * </pre>
      *
      * <code>int32 id = 2;</code>

@@ -623,7 +623,7 @@ public class PushConsumerImpl extends ConsumerImpl {
         final ConsumerData.Builder builder = ConsumerData.newBuilder().setGroup(getPbGroup())
                                                          .addAllSubscriptions(subscriptionEntries)
                                                          .setDeadLetterPolicy(deadLetterPolicy)
-                                                         .setConsumeType(ConsumeMessageType.POP);
+                                                         .setConsumeType(ConsumeMessageType.PASSIVE);
 
         switch (messageModel) {
             case BROADCASTING:

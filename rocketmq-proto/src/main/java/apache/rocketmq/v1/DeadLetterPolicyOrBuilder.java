@@ -9,8 +9,7 @@ public interface DeadLetterPolicyOrBuilder extends
 
   /**
    * <pre>
-   * The maximum number of delivery attempts for any message. The value must be
-   * between 5 and 100.
+   * The maximum number of delivery attempts for any message.
    * This field will be honored on a best effort basis.
    * If this parameter is 0, a default value of 5 is used.
    * </pre>

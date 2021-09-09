@@ -211,8 +211,7 @@ public class TestBase {
 
     protected VerifyMessageConsumptionRequest fakeVerifyMessageConsumptionRequest()
             throws UnsupportedEncodingException {
-        return VerifyMessageConsumptionRequest.newBuilder().setMessage(fakePbMessage0())
-                                              .setPartition(fakePbPartition0()).build();
+        return VerifyMessageConsumptionRequest.newBuilder().setMessage(fakePbMessage0()).build();
     }
 
     protected ListenableFuture<ForwardMessageToDeadLetterQueueResponse>

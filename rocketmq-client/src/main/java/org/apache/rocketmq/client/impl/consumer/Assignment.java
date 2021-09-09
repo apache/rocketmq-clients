@@ -23,20 +23,15 @@ import org.apache.rocketmq.client.message.MessageQueue;
 
 public class Assignment {
     private final MessageQueue messageQueue;
-    private final MessageRequestMode messageRequestMode;
 
-    public Assignment(MessageQueue messageQueue, MessageRequestMode messageRequestMode) {
+    public Assignment(MessageQueue messageQueue) {
         this.messageQueue = messageQueue;
-        this.messageRequestMode = messageRequestMode;
     }
 
     public MessageQueue getMessageQueue() {
         return this.messageQueue;
     }
 
-    public MessageRequestMode getMessageRequestMode() {
-        return this.messageRequestMode;
-    }
 
     @Override
     public boolean equals(Object o) {
@@ -47,19 +42,18 @@ public class Assignment {
             return false;
         }
         Assignment that = (Assignment) o;
-        return Objects.equal(messageQueue, that.messageQueue) && messageRequestMode == that.messageRequestMode;
+        return Objects.equal(messageQueue, that.messageQueue);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(messageQueue, messageRequestMode);
+        return Objects.hashCode(messageQueue);
     }
 
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
                           .add("messageQueue", messageQueue)
-                          .add("messageRequestMode", messageRequestMode)
                           .toString();
     }
 }

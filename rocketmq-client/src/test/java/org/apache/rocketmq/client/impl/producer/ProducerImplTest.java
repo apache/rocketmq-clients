@@ -32,7 +32,7 @@ import apache.rocketmq.v1.MultiplexingRequest;
 import apache.rocketmq.v1.MultiplexingResponse;
 import apache.rocketmq.v1.Permission;
 import apache.rocketmq.v1.QueryRouteRequest;
-import apache.rocketmq.v1.ResolveOrphanedTransactionRequest;
+import apache.rocketmq.v1.RecoverOrphanedTransactionRequest;
 import apache.rocketmq.v1.SendMessageRequest;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -285,13 +285,13 @@ public class ProducerImplTest extends TestBase {
     }
 
     @Test
-    public void testResolveOrphanedTransaction() throws UnsupportedEncodingException, InterruptedException {
-        ResolveOrphanedTransactionRequest request =
-                ResolveOrphanedTransactionRequest.newBuilder().setTransactionId(FAKE_TRANSACTION_ID)
+    public void testRecoverOrphanedTransaction() throws UnsupportedEncodingException, InterruptedException {
+        RecoverOrphanedTransactionRequest request =
+                RecoverOrphanedTransactionRequest.newBuilder().setTransactionId(FAKE_TRANSACTION_ID)
                                                  .setOrphanedTransactionalMessage(fakeTransactionMessage0()).build();
         final Endpoints endpoints = new Endpoints(fakePbEndpoints0());
         {
-            producerImpl.resolveOrphanedTransaction(endpoints, request);
+            producerImpl.recoverOrphanedTransaction(endpoints, request);
             verify(clientManager, never()).endTransaction(ArgumentMatchers.<Endpoints>any(),
                                                           ArgumentMatchers.<Metadata>any(),
                                                           ArgumentMatchers.<EndTransactionRequest>any(),
@@ -306,7 +306,7 @@ public class ProducerImplTest extends TestBase {
                     return null;
                 }
             });
-            producerImpl.resolveOrphanedTransaction(endpoints, request);
+            producerImpl.recoverOrphanedTransaction(endpoints, request);
             verify(clientManager, never()).endTransaction(ArgumentMatchers.<Endpoints>any(),
                                                           ArgumentMatchers.<Metadata>any(),
                                                           ArgumentMatchers.<EndTransactionRequest>any(),
@@ -321,7 +321,7 @@ public class ProducerImplTest extends TestBase {
                     return TransactionResolution.UNKNOWN;
                 }
             });
-            producerImpl.resolveOrphanedTransaction(endpoints, request);
+            producerImpl.recoverOrphanedTransaction(endpoints, request);
             verify(clientManager, never()).endTransaction(ArgumentMatchers.<Endpoints>any(),
                                                           ArgumentMatchers.<Metadata>any(),
                                                           ArgumentMatchers.<EndTransactionRequest>any(),
@@ -340,7 +340,7 @@ public class ProducerImplTest extends TestBase {
                     return TransactionResolution.COMMIT;
                 }
             });
-            producerImpl.resolveOrphanedTransaction(endpoints, request);
+            producerImpl.recoverOrphanedTransaction(endpoints, request);
             Thread.sleep(50);
             verify(clientManager, times(1)).endTransaction(ArgumentMatchers.<Endpoints>any(),
                                                            ArgumentMatchers.<Metadata>any(),

@@ -157,25 +157,23 @@ public final class MQDomain {
       "ssage.UserAttributeEntry\022=\n\020system_attri" +
       "bute\030\003 \001(\0132#.apache.rocketmq.v1.SystemAt" +
       "tribute\022\014\n\004body\030\004 \001(\014\0324\n\022UserAttributeEn" +
-      "try\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"t\n\nA" +
+      "try\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\">\n\nA" +
       "ssignment\0220\n\tPartition\030\001 \001(\0132\035.apache.ro" +
-      "cketmq.v1.Partition\0224\n\004mode\030\002 \001(\0162&.apac" +
-      "he.rocketmq.v1.ConsumeMessageType*;\n\nPer" +
-      "mission\022\010\n\004NONE\020\000\022\010\n\004READ\020\001\022\t\n\005WRITE\020\002\022\016" +
-      "\n\nREAD_WRITE\020\003*\036\n\nFilterType\022\007\n\003TAG\020\000\022\007\n" +
-      "\003SQL\020\001*0\n\014ConsumeModel\022\016\n\nCLUSTERING\020\000\022\020" +
-      "\n\014BROADCASTING\020\001*L\n\rConsumePolicy\022\n\n\006RES" +
-      "UME\020\000\022\014\n\010PLAYBACK\020\001\022\013\n\007DISCARD\020\002\022\024\n\020TARG" +
-      "ET_TIMESTAMP\020\003*4\n\rAddressScheme\022\010\n\004IPv4\020" +
-      "\000\022\010\n\004IPv6\020\001\022\017\n\013DOMAIN_NAME\020\002*?\n\013MessageT" +
-      "ype\022\n\n\006NORMAL\020\000\022\010\n\004FIFO\020\001\022\t\n\005DELAY\020\002\022\017\n\013" +
-      "TRANSACTION\020\003**\n\nDigestType\022\t\n\005CRC32\020\000\022\007" +
-      "\n\003MD5\020\001\022\010\n\004SHA1\020\002*\"\n\010Encoding\022\014\n\010IDENTIT" +
-      "Y\020\000\022\010\n\004GZIP\020\001*\'\n\022ConsumeMessageType\022\010\n\004P" +
-      "ULL\020\000\022\007\n\003POP\020\001*;\n\021QueryOffsetPolicy\022\r\n\tB" +
-      "EGINNING\020\000\022\007\n\003END\020\001\022\016\n\nTIME_POINT\020\002B&\n\022a" +
-      "pache.rocketmq.v1B\010MQDomainP\001\240\001\001\330\001\001b\006pro" +
-      "to3"
+      "cketmq.v1.Partition*;\n\nPermission\022\010\n\004NON" +
+      "E\020\000\022\010\n\004READ\020\001\022\t\n\005WRITE\020\002\022\016\n\nREAD_WRITE\020\003" +
+      "*\036\n\nFilterType\022\007\n\003TAG\020\000\022\007\n\003SQL\020\001*0\n\014Cons" +
+      "umeModel\022\016\n\nCLUSTERING\020\000\022\020\n\014BROADCASTING" +
+      "\020\001*L\n\rConsumePolicy\022\n\n\006RESUME\020\000\022\014\n\010PLAYB" +
+      "ACK\020\001\022\013\n\007DISCARD\020\002\022\024\n\020TARGET_TIMESTAMP\020\003" +
+      "*-\n\022ConsumeMessageType\022\n\n\006ACTIVE\020\000\022\013\n\007PA" +
+      "SSIVE\020\001*4\n\rAddressScheme\022\010\n\004IPv4\020\000\022\010\n\004IP" +
+      "v6\020\001\022\017\n\013DOMAIN_NAME\020\002*?\n\013MessageType\022\n\n\006" +
+      "NORMAL\020\000\022\010\n\004FIFO\020\001\022\t\n\005DELAY\020\002\022\017\n\013TRANSAC" +
+      "TION\020\003**\n\nDigestType\022\t\n\005CRC32\020\000\022\007\n\003MD5\020\001" +
+      "\022\010\n\004SHA1\020\002*\"\n\010Encoding\022\014\n\010IDENTITY\020\000\022\010\n\004" +
+      "GZIP\020\001*;\n\021QueryOffsetPolicy\022\r\n\tBEGINNING" +
+      "\020\000\022\007\n\003END\020\001\022\016\n\nTIME_POINT\020\002B&\n\022apache.ro" +
+      "cketmq.v1B\010MQDomainP\001\240\001\001\330\001\001b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -272,7 +270,7 @@ public final class MQDomain {
     internal_static_apache_rocketmq_v1_Assignment_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_apache_rocketmq_v1_Assignment_descriptor,
-        new java.lang.String[] { "Partition", "Mode", });
+        new java.lang.String[] { "Partition", });
     com.google.protobuf.TimestampProto.getDescriptor();
     com.google.protobuf.DurationProto.getDescriptor();
   }

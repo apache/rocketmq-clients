@@ -10,7 +10,8 @@ public enum DigestType
     implements com.google.protobuf.ProtocolMessageEnum {
   /**
    * <pre>
-   * CRC algorithm achieves goal of detecting random data error with lowest computation overhead.
+   * CRC algorithm achieves goal of detecting random data error with lowest
+   * computation overhead.
    * </pre>
    *
    * <code>CRC32 = 0;</code>
@@ -18,7 +19,8 @@ public enum DigestType
   CRC32(0),
   /**
    * <pre>
-   * MD5 algorithm achieves good balance between collision rate and computation overhead.
+   * MD5 algorithm achieves good balance between collision rate and computation
+   * overhead.
    * </pre>
    *
    * <code>MD5 = 1;</code>
@@ -26,7 +28,8 @@ public enum DigestType
   MD5(1),
   /**
    * <pre>
-   * SHA-family has substantially fewer collision with fair amount of computation.
+   * SHA-family has substantially fewer collision with fair amount of
+   * computation.
    * </pre>
    *
    * <code>SHA1 = 2;</code>
@@ -37,7 +40,8 @@ public enum DigestType
 
   /**
    * <pre>
-   * CRC algorithm achieves goal of detecting random data error with lowest computation overhead.
+   * CRC algorithm achieves goal of detecting random data error with lowest
+   * computation overhead.
    * </pre>
    *
    * <code>CRC32 = 0;</code>
@@ -45,7 +49,8 @@ public enum DigestType
   public static final int CRC32_VALUE = 0;
   /**
    * <pre>
-   * MD5 algorithm achieves good balance between collision rate and computation overhead.
+   * MD5 algorithm achieves good balance between collision rate and computation
+   * overhead.
    * </pre>
    *
    * <code>MD5 = 1;</code>
@@ -53,7 +58,8 @@ public enum DigestType
   public static final int MD5_VALUE = 1;
   /**
    * <pre>
-   * SHA-family has substantially fewer collision with fair amount of computation.
+   * SHA-family has substantially fewer collision with fair amount of
+   * computation.
    * </pre>
    *
    * <code>SHA1 = 2;</code>
@@ -118,7 +124,7 @@ public enum DigestType
   }
   public static final com.google.protobuf.Descriptors.EnumDescriptor
       getDescriptor() {
-    return apache.rocketmq.v1.MQDomain.getDescriptor().getEnumTypes().get(6);
+    return apache.rocketmq.v1.MQDomain.getDescriptor().getEnumTypes().get(7);
   }
 
   private static final DigestType[] VALUES = values();

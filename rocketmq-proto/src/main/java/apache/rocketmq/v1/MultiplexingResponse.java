@@ -91,14 +91,14 @@ private static final long serialVersionUID = 0L;
             break;
           }
           case 34: {
-            apache.rocketmq.v1.ResolveOrphanedTransactionRequest.Builder subBuilder = null;
+            apache.rocketmq.v1.RecoverOrphanedTransactionRequest.Builder subBuilder = null;
             if (typeCase_ == 4) {
-              subBuilder = ((apache.rocketmq.v1.ResolveOrphanedTransactionRequest) type_).toBuilder();
+              subBuilder = ((apache.rocketmq.v1.RecoverOrphanedTransactionRequest) type_).toBuilder();
             }
             type_ =
-                input.readMessage(apache.rocketmq.v1.ResolveOrphanedTransactionRequest.parser(), extensionRegistry);
+                input.readMessage(apache.rocketmq.v1.RecoverOrphanedTransactionRequest.parser(), extensionRegistry);
             if (subBuilder != null) {
-              subBuilder.mergeFrom((apache.rocketmq.v1.ResolveOrphanedTransactionRequest) type_);
+              subBuilder.mergeFrom((apache.rocketmq.v1.RecoverOrphanedTransactionRequest) type_);
               type_ = subBuilder.buildPartial();
             }
             typeCase_ = 4;
@@ -144,7 +144,7 @@ private static final long serialVersionUID = 0L;
     POLLING_RESPONSE(1),
     PRINT_THREAD_STACK_REQUEST(2),
     VERIFY_MESSAGE_CONSUMPTION_REQUEST(3),
-    RESOLVE_ORPHANED_TRANSACTION_REQUEST(4),
+    RECOVER_ORPHANED_TRANSACTION_REQUEST(4),
     TYPE_NOT_SET(0);
     private final int value;
     private TypeCase(int value) {
@@ -165,7 +165,7 @@ private static final long serialVersionUID = 0L;
         case 1: return POLLING_RESPONSE;
         case 2: return PRINT_THREAD_STACK_REQUEST;
         case 3: return VERIFY_MESSAGE_CONSUMPTION_REQUEST;
-        case 4: return RESOLVE_ORPHANED_TRANSACTION_REQUEST;
+        case 4: return RECOVER_ORPHANED_TRANSACTION_REQUEST;
         case 0: return TYPE_NOT_SET;
         default: return null;
       }
@@ -274,35 +274,35 @@ private static final long serialVersionUID = 0L;
     return apache.rocketmq.v1.VerifyMessageConsumptionRequest.getDefaultInstance();
   }
 
-  public static final int RESOLVE_ORPHANED_TRANSACTION_REQUEST_FIELD_NUMBER = 4;
+  public static final int RECOVER_ORPHANED_TRANSACTION_REQUEST_FIELD_NUMBER = 4;
   /**
-   * <code>.apache.rocketmq.v1.ResolveOrphanedTransactionRequest resolve_orphaned_transaction_request = 4;</code>
-   * @return Whether the resolveOrphanedTransactionRequest field is set.
+   * <code>.apache.rocketmq.v1.RecoverOrphanedTransactionRequest recover_orphaned_transaction_request = 4;</code>
+   * @return Whether the recoverOrphanedTransactionRequest field is set.
    */
   @java.lang.Override
-  public boolean hasResolveOrphanedTransactionRequest() {
+  public boolean hasRecoverOrphanedTransactionRequest() {
     return typeCase_ == 4;
   }
   /**
-   * <code>.apache.rocketmq.v1.ResolveOrphanedTransactionRequest resolve_orphaned_transaction_request = 4;</code>
-   * @return The resolveOrphanedTransactionRequest.
+   * <code>.apache.rocketmq.v1.RecoverOrphanedTransactionRequest recover_orphaned_transaction_request = 4;</code>
+   * @return The recoverOrphanedTransactionRequest.
    */
   @java.lang.Override
-  public apache.rocketmq.v1.ResolveOrphanedTransactionRequest getResolveOrphanedTransactionRequest() {
+  public apache.rocketmq.v1.RecoverOrphanedTransactionRequest getRecoverOrphanedTransactionRequest() {
     if (typeCase_ == 4) {
-       return (apache.rocketmq.v1.ResolveOrphanedTransactionRequest) type_;
+       return (apache.rocketmq.v1.RecoverOrphanedTransactionRequest) type_;
     }
-    return apache.rocketmq.v1.ResolveOrphanedTransactionRequest.getDefaultInstance();
+    return apache.rocketmq.v1.RecoverOrphanedTransactionRequest.getDefaultInstance();
   }
   /**
-   * <code>.apache.rocketmq.v1.ResolveOrphanedTransactionRequest resolve_orphaned_transaction_request = 4;</code>
+   * <code>.apache.rocketmq.v1.RecoverOrphanedTransactionRequest recover_orphaned_transaction_request = 4;</code>
    */
   @java.lang.Override
-  public apache.rocketmq.v1.ResolveOrphanedTransactionRequestOrBuilder getResolveOrphanedTransactionRequestOrBuilder() {
+  public apache.rocketmq.v1.RecoverOrphanedTransactionRequestOrBuilder getRecoverOrphanedTransactionRequestOrBuilder() {
     if (typeCase_ == 4) {
-       return (apache.rocketmq.v1.ResolveOrphanedTransactionRequest) type_;
+       return (apache.rocketmq.v1.RecoverOrphanedTransactionRequest) type_;
     }
-    return apache.rocketmq.v1.ResolveOrphanedTransactionRequest.getDefaultInstance();
+    return apache.rocketmq.v1.RecoverOrphanedTransactionRequest.getDefaultInstance();
   }
 
   private byte memoizedIsInitialized = -1;
@@ -329,7 +329,7 @@ private static final long serialVersionUID = 0L;
       output.writeMessage(3, (apache.rocketmq.v1.VerifyMessageConsumptionRequest) type_);
     }
     if (typeCase_ == 4) {
-      output.writeMessage(4, (apache.rocketmq.v1.ResolveOrphanedTransactionRequest) type_);
+      output.writeMessage(4, (apache.rocketmq.v1.RecoverOrphanedTransactionRequest) type_);
     }
     unknownFields.writeTo(output);
   }
@@ -354,7 +354,7 @@ private static final long serialVersionUID = 0L;
     }
     if (typeCase_ == 4) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(4, (apache.rocketmq.v1.ResolveOrphanedTransactionRequest) type_);
+        .computeMessageSize(4, (apache.rocketmq.v1.RecoverOrphanedTransactionRequest) type_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -386,8 +386,8 @@ private static final long serialVersionUID = 0L;
             .equals(other.getVerifyMessageConsumptionRequest())) return false;
         break;
       case 4:
-        if (!getResolveOrphanedTransactionRequest()
-            .equals(other.getResolveOrphanedTransactionRequest())) return false;
+        if (!getRecoverOrphanedTransactionRequest()
+            .equals(other.getRecoverOrphanedTransactionRequest())) return false;
         break;
       case 0:
       default:
@@ -417,8 +417,8 @@ private static final long serialVersionUID = 0L;
         hash = (53 * hash) + getVerifyMessageConsumptionRequest().hashCode();
         break;
       case 4:
-        hash = (37 * hash) + RESOLVE_ORPHANED_TRANSACTION_REQUEST_FIELD_NUMBER;
-        hash = (53 * hash) + getResolveOrphanedTransactionRequest().hashCode();
+        hash = (37 * hash) + RECOVER_ORPHANED_TRANSACTION_REQUEST_FIELD_NUMBER;
+        hash = (53 * hash) + getRecoverOrphanedTransactionRequest().hashCode();
         break;
       case 0:
       default:
@@ -606,10 +606,10 @@ private static final long serialVersionUID = 0L;
         }
       }
       if (typeCase_ == 4) {
-        if (resolveOrphanedTransactionRequestBuilder_ == null) {
+        if (recoverOrphanedTransactionRequestBuilder_ == null) {
           result.type_ = type_;
         } else {
-          result.type_ = resolveOrphanedTransactionRequestBuilder_.build();
+          result.type_ = recoverOrphanedTransactionRequestBuilder_.build();
         }
       }
       result.typeCase_ = typeCase_;
@@ -674,8 +674,8 @@ private static final long serialVersionUID = 0L;
           mergeVerifyMessageConsumptionRequest(other.getVerifyMessageConsumptionRequest());
           break;
         }
-        case RESOLVE_ORPHANED_TRANSACTION_REQUEST: {
-          mergeResolveOrphanedTransactionRequest(other.getResolveOrphanedTransactionRequest());
+        case RECOVER_ORPHANED_TRANSACTION_REQUEST: {
+          mergeRecoverOrphanedTransactionRequest(other.getRecoverOrphanedTransactionRequest());
           break;
         }
         case TYPE_NOT_SET: {
@@ -1150,71 +1150,71 @@ private static final long serialVersionUID = 0L;
     }
 
     private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.ResolveOrphanedTransactionRequest, apache.rocketmq.v1.ResolveOrphanedTransactionRequest.Builder, apache.rocketmq.v1.ResolveOrphanedTransactionRequestOrBuilder> resolveOrphanedTransactionRequestBuilder_;
+        apache.rocketmq.v1.RecoverOrphanedTransactionRequest, apache.rocketmq.v1.RecoverOrphanedTransactionRequest.Builder, apache.rocketmq.v1.RecoverOrphanedTransactionRequestOrBuilder> recoverOrphanedTransactionRequestBuilder_;
     /**
-     * <code>.apache.rocketmq.v1.ResolveOrphanedTransactionRequest resolve_orphaned_transaction_request = 4;</code>
-     * @return Whether the resolveOrphanedTransactionRequest field is set.
+     * <code>.apache.rocketmq.v1.RecoverOrphanedTransactionRequest recover_orphaned_transaction_request = 4;</code>
+     * @return Whether the recoverOrphanedTransactionRequest field is set.
      */
     @java.lang.Override
-    public boolean hasResolveOrphanedTransactionRequest() {
+    public boolean hasRecoverOrphanedTransactionRequest() {
       return typeCase_ == 4;
     }
     /**
-     * <code>.apache.rocketmq.v1.ResolveOrphanedTransactionRequest resolve_orphaned_transaction_request = 4;</code>
-     * @return The resolveOrphanedTransactionRequest.
+     * <code>.apache.rocketmq.v1.RecoverOrphanedTransactionRequest recover_orphaned_transaction_request = 4;</code>
+     * @return The recoverOrphanedTransactionRequest.
      */
     @java.lang.Override
-    public apache.rocketmq.v1.ResolveOrphanedTransactionRequest getResolveOrphanedTransactionRequest() {
-      if (resolveOrphanedTransactionRequestBuilder_ == null) {
+    public apache.rocketmq.v1.RecoverOrphanedTransactionRequest getRecoverOrphanedTransactionRequest() {
+      if (recoverOrphanedTransactionRequestBuilder_ == null) {
         if (typeCase_ == 4) {
-          return (apache.rocketmq.v1.ResolveOrphanedTransactionRequest) type_;
+          return (apache.rocketmq.v1.RecoverOrphanedTransactionRequest) type_;
         }
-        return apache.rocketmq.v1.ResolveOrphanedTransactionRequest.getDefaultInstance();
+        return apache.rocketmq.v1.RecoverOrphanedTransactionRequest.getDefaultInstance();
       } else {
         if (typeCase_ == 4) {
-          return resolveOrphanedTransactionRequestBuilder_.getMessage();
+          return recoverOrphanedTransactionRequestBuilder_.getMessage();
         }
-        return apache.rocketmq.v1.ResolveOrphanedTransactionRequest.getDefaultInstance();
+        return apache.rocketmq.v1.RecoverOrphanedTransactionRequest.getDefaultInstance();
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.ResolveOrphanedTransactionRequest resolve_orphaned_transaction_request = 4;</code>
+     * <code>.apache.rocketmq.v1.RecoverOrphanedTransactionRequest recover_orphaned_transaction_request = 4;</code>
      */
-    public Builder setResolveOrphanedTransactionRequest(apache.rocketmq.v1.ResolveOrphanedTransactionRequest value) {
-      if (resolveOrphanedTransactionRequestBuilder_ == null) {
+    public Builder setRecoverOrphanedTransactionRequest(apache.rocketmq.v1.RecoverOrphanedTransactionRequest value) {
+      if (recoverOrphanedTransactionRequestBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
         }
         type_ = value;
         onChanged();
       } else {
-        resolveOrphanedTransactionRequestBuilder_.setMessage(value);
+        recoverOrphanedTransactionRequestBuilder_.setMessage(value);
       }
       typeCase_ = 4;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.ResolveOrphanedTransactionRequest resolve_orphaned_transaction_request = 4;</code>
+     * <code>.apache.rocketmq.v1.RecoverOrphanedTransactionRequest recover_orphaned_transaction_request = 4;</code>
      */
-    public Builder setResolveOrphanedTransactionRequest(
-        apache.rocketmq.v1.ResolveOrphanedTransactionRequest.Builder builderForValue) {
-      if (resolveOrphanedTransactionRequestBuilder_ == null) {
+    public Builder setRecoverOrphanedTransactionRequest(
+        apache.rocketmq.v1.RecoverOrphanedTransactionRequest.Builder builderForValue) {
+      if (recoverOrphanedTransactionRequestBuilder_ == null) {
         type_ = builderForValue.build();
         onChanged();
       } else {
-        resolveOrphanedTransactionRequestBuilder_.setMessage(builderForValue.build());
+        recoverOrphanedTransactionRequestBuilder_.setMessage(builderForValue.build());
       }
       typeCase_ = 4;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.ResolveOrphanedTransactionRequest resolve_orphaned_transaction_request = 4;</code>
+     * <code>.apache.rocketmq.v1.RecoverOrphanedTransactionRequest recover_orphaned_transaction_request = 4;</code>
      */
-    public Builder mergeResolveOrphanedTransactionRequest(apache.rocketmq.v1.ResolveOrphanedTransactionRequest value) {
-      if (resolveOrphanedTransactionRequestBuilder_ == null) {
+    public Builder mergeRecoverOrphanedTransactionRequest(apache.rocketmq.v1.RecoverOrphanedTransactionRequest value) {
+      if (recoverOrphanedTransactionRequestBuilder_ == null) {
         if (typeCase_ == 4 &&
-            type_ != apache.rocketmq.v1.ResolveOrphanedTransactionRequest.getDefaultInstance()) {
-          type_ = apache.rocketmq.v1.ResolveOrphanedTransactionRequest.newBuilder((apache.rocketmq.v1.ResolveOrphanedTransactionRequest) type_)
+            type_ != apache.rocketmq.v1.RecoverOrphanedTransactionRequest.getDefaultInstance()) {
+          type_ = apache.rocketmq.v1.RecoverOrphanedTransactionRequest.newBuilder((apache.rocketmq.v1.RecoverOrphanedTransactionRequest) type_)
               .mergeFrom(value).buildPartial();
         } else {
           type_ = value;
@@ -1222,18 +1222,18 @@ private static final long serialVersionUID = 0L;
         onChanged();
       } else {
         if (typeCase_ == 4) {
-          resolveOrphanedTransactionRequestBuilder_.mergeFrom(value);
+          recoverOrphanedTransactionRequestBuilder_.mergeFrom(value);
         }
-        resolveOrphanedTransactionRequestBuilder_.setMessage(value);
+        recoverOrphanedTransactionRequestBuilder_.setMessage(value);
       }
       typeCase_ = 4;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.ResolveOrphanedTransactionRequest resolve_orphaned_transaction_request = 4;</code>
+     * <code>.apache.rocketmq.v1.RecoverOrphanedTransactionRequest recover_orphaned_transaction_request = 4;</code>
      */
-    public Builder clearResolveOrphanedTransactionRequest() {
-      if (resolveOrphanedTransactionRequestBuilder_ == null) {
+    public Builder clearRecoverOrphanedTransactionRequest() {
+      if (recoverOrphanedTransactionRequestBuilder_ == null) {
         if (typeCase_ == 4) {
           typeCase_ = 0;
           type_ = null;
@@ -1244,50 +1244,50 @@ private static final long serialVersionUID = 0L;
           typeCase_ = 0;
           type_ = null;
         }
-        resolveOrphanedTransactionRequestBuilder_.clear();
+        recoverOrphanedTransactionRequestBuilder_.clear();
       }
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.ResolveOrphanedTransactionRequest resolve_orphaned_transaction_request = 4;</code>
+     * <code>.apache.rocketmq.v1.RecoverOrphanedTransactionRequest recover_orphaned_transaction_request = 4;</code>
      */
-    public apache.rocketmq.v1.ResolveOrphanedTransactionRequest.Builder getResolveOrphanedTransactionRequestBuilder() {
-      return getResolveOrphanedTransactionRequestFieldBuilder().getBuilder();
+    public apache.rocketmq.v1.RecoverOrphanedTransactionRequest.Builder getRecoverOrphanedTransactionRequestBuilder() {
+      return getRecoverOrphanedTransactionRequestFieldBuilder().getBuilder();
     }
     /**
-     * <code>.apache.rocketmq.v1.ResolveOrphanedTransactionRequest resolve_orphaned_transaction_request = 4;</code>
+     * <code>.apache.rocketmq.v1.RecoverOrphanedTransactionRequest recover_orphaned_transaction_request = 4;</code>
      */
     @java.lang.Override
-    public apache.rocketmq.v1.ResolveOrphanedTransactionRequestOrBuilder getResolveOrphanedTransactionRequestOrBuilder() {
-      if ((typeCase_ == 4) && (resolveOrphanedTransactionRequestBuilder_ != null)) {
-        return resolveOrphanedTransactionRequestBuilder_.getMessageOrBuilder();
+    public apache.rocketmq.v1.RecoverOrphanedTransactionRequestOrBuilder getRecoverOrphanedTransactionRequestOrBuilder() {
+      if ((typeCase_ == 4) && (recoverOrphanedTransactionRequestBuilder_ != null)) {
+        return recoverOrphanedTransactionRequestBuilder_.getMessageOrBuilder();
       } else {
         if (typeCase_ == 4) {
-          return (apache.rocketmq.v1.ResolveOrphanedTransactionRequest) type_;
+          return (apache.rocketmq.v1.RecoverOrphanedTransactionRequest) type_;
         }
-        return apache.rocketmq.v1.ResolveOrphanedTransactionRequest.getDefaultInstance();
+        return apache.rocketmq.v1.RecoverOrphanedTransactionRequest.getDefaultInstance();
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.ResolveOrphanedTransactionRequest resolve_orphaned_transaction_request = 4;</code>
+     * <code>.apache.rocketmq.v1.RecoverOrphanedTransactionRequest recover_orphaned_transaction_request = 4;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.ResolveOrphanedTransactionRequest, apache.rocketmq.v1.ResolveOrphanedTransactionRequest.Builder, apache.rocketmq.v1.ResolveOrphanedTransactionRequestOrBuilder> 
-        getResolveOrphanedTransactionRequestFieldBuilder() {
-      if (resolveOrphanedTransactionRequestBuilder_ == null) {
+        apache.rocketmq.v1.RecoverOrphanedTransactionRequest, apache.rocketmq.v1.RecoverOrphanedTransactionRequest.Builder, apache.rocketmq.v1.RecoverOrphanedTransactionRequestOrBuilder> 
+        getRecoverOrphanedTransactionRequestFieldBuilder() {
+      if (recoverOrphanedTransactionRequestBuilder_ == null) {
         if (!(typeCase_ == 4)) {
-          type_ = apache.rocketmq.v1.ResolveOrphanedTransactionRequest.getDefaultInstance();
+          type_ = apache.rocketmq.v1.RecoverOrphanedTransactionRequest.getDefaultInstance();
         }
-        resolveOrphanedTransactionRequestBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            apache.rocketmq.v1.ResolveOrphanedTransactionRequest, apache.rocketmq.v1.ResolveOrphanedTransactionRequest.Builder, apache.rocketmq.v1.ResolveOrphanedTransactionRequestOrBuilder>(
-                (apache.rocketmq.v1.ResolveOrphanedTransactionRequest) type_,
+        recoverOrphanedTransactionRequestBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+            apache.rocketmq.v1.RecoverOrphanedTransactionRequest, apache.rocketmq.v1.RecoverOrphanedTransactionRequest.Builder, apache.rocketmq.v1.RecoverOrphanedTransactionRequestOrBuilder>(
+                (apache.rocketmq.v1.RecoverOrphanedTransactionRequest) type_,
                 getParentForChildren(),
                 isClean());
         type_ = null;
       }
       typeCase_ = 4;
       onChanged();;
-      return resolveOrphanedTransactionRequestBuilder_;
+      return recoverOrphanedTransactionRequestBuilder_;
     }
     @java.lang.Override
     public final Builder setUnknownFields(
