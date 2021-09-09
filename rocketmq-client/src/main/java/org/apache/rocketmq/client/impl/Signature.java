@@ -76,6 +76,9 @@ public class Signature {
         String dateTime = new SimpleDateFormat(DATE_TIME_FORMAT).format(new Date());
         metadata.put(Metadata.Key.of(DATE_TIME_KEY, Metadata.ASCII_STRING_MARSHALLER), dateTime);
 
+        final String requestId = RequestIdGenerator.getInstance().next();
+        metadata.put(Metadata.Key.of(REQUEST_ID_KEY, Metadata.ASCII_STRING_MARSHALLER), requestId);
+
         final CredentialsProvider provider = config.getCredentialsProvider();
         if (null == provider) {
             return metadata;
@@ -83,6 +86,11 @@ public class Signature {
         final Credentials credentials = provider.getCredentials();
         if (null == credentials) {
             return metadata;
+        }
+
+        final String securityToken = credentials.getSecurityToken();
+        if (StringUtils.isNotBlank(securityToken)) {
+            metadata.put(Metadata.Key.of(SESSION_TOKEN, Metadata.ASCII_STRING_MARSHALLER), securityToken);
         }
 
         final String accessKey = credentials.getAccessKey();
@@ -95,14 +103,6 @@ public class Signature {
         if (StringUtils.isBlank(accessSecret)) {
             return metadata;
         }
-
-        final String securityToken = credentials.getSecurityToken();
-        if (StringUtils.isNotBlank(securityToken)) {
-            metadata.put(Metadata.Key.of(SESSION_TOKEN, Metadata.ASCII_STRING_MARSHALLER), securityToken);
-        }
-
-        final String requestId = RequestIdGenerator.getInstance().next();
-        metadata.put(Metadata.Key.of(REQUEST_ID_KEY, Metadata.ASCII_STRING_MARSHALLER), requestId);
 
         final String regionId = config.getRegionId();
         final String serviceName = config.getServiceName();
