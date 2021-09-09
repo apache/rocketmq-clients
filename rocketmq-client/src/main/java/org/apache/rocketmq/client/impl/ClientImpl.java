@@ -254,7 +254,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                                                       ioTimeoutMillis, TimeUnit.MILLISECONDS);
             }
         } catch (Throwable t) {
-            log.error("Failed to notify client's termination, clientId={}", id, t);
+            log.error("Exception raised while notifying client's termination, clientId={}", id, t);
         }
     }
 
