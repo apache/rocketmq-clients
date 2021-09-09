@@ -31,6 +31,8 @@ import apache.rocketmq.v1.MultiplexingRequest;
 import apache.rocketmq.v1.MultiplexingResponse;
 import apache.rocketmq.v1.NackMessageRequest;
 import apache.rocketmq.v1.NackMessageResponse;
+import apache.rocketmq.v1.NotifyClientTerminationRequest;
+import apache.rocketmq.v1.NotifyClientTerminationResponse;
 import apache.rocketmq.v1.PullMessageRequest;
 import apache.rocketmq.v1.PullMessageResponse;
 import apache.rocketmq.v1.QueryAssignmentRequest;
@@ -516,6 +518,20 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
             return rpcClient.multiplexingCall(metadata, request, asyncWorker, duration, timeUnit);
         } catch (Throwable t) {
             final SettableFuture<MultiplexingResponse> future = SettableFuture.create();
+            future.setException(t);
+            return future;
+        }
+    }
+
+    @Override
+    public ListenableFuture<NotifyClientTerminationResponse> notifyClientTermination(
+            Endpoints endpoints, Metadata metadata, NotifyClientTerminationRequest request, long duration,
+            TimeUnit timeUnit) {
+        try {
+            final RpcClient rpcClient = getRpcClient(endpoints);
+            return rpcClient.notifyClientTermination(metadata, request, asyncWorker, duration, timeUnit);
+        } catch (Throwable t) {
+            final SettableFuture<NotifyClientTerminationResponse> future = SettableFuture.create();
             future.setException(t);
             return future;
         }

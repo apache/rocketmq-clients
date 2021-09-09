@@ -23,6 +23,7 @@ import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v1.HeartbeatRequest;
 import apache.rocketmq.v1.MultiplexingRequest;
 import apache.rocketmq.v1.NackMessageRequest;
+import apache.rocketmq.v1.NotifyClientTerminationRequest;
 import apache.rocketmq.v1.PullMessageRequest;
 import apache.rocketmq.v1.QueryAssignmentRequest;
 import apache.rocketmq.v1.QueryOffsetRequest;
@@ -139,5 +140,13 @@ public class ClientManagerImplTest extends TestBase {
         MultiplexingRequest request = MultiplexingRequest.newBuilder().build();
         clientManager.multiplexingCall(fakeEndpoints0(), metadata, request, 1, TimeUnit.SECONDS);
         clientManager.multiplexingCall(null, metadata, request, 1, TimeUnit.SECONDS);
+    }
+
+    @Test(description = "Expect no throwable")
+    public void testNotifyClientTermination() {
+        Metadata metadata = new Metadata();
+        NotifyClientTerminationRequest request = NotifyClientTerminationRequest.newBuilder().build();
+        clientManager.notifyClientTermination(fakeEndpoints0(), metadata, request, 1, TimeUnit.SECONDS);
+        clientManager.notifyClientTermination(null, metadata, request, 1, TimeUnit.SECONDS);
     }
 }

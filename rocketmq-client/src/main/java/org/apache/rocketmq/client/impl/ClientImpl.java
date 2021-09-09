@@ -22,6 +22,7 @@ import apache.rocketmq.v1.HeartbeatRequest;
 import apache.rocketmq.v1.HeartbeatResponse;
 import apache.rocketmq.v1.MultiplexingRequest;
 import apache.rocketmq.v1.MultiplexingResponse;
+import apache.rocketmq.v1.NotifyClientTerminationRequest;
 import apache.rocketmq.v1.PrintThreadStackResponse;
 import apache.rocketmq.v1.QueryRouteRequest;
 import apache.rocketmq.v1.QueryRouteResponse;
@@ -234,8 +235,24 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
         log.info("The rocketmq client starts successfully, clientId={}", id);
     }
 
+    private void notifyClientTermination() {
+        final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
+        final NotifyClientTerminationRequest notifyClientTerminationRequest =
+                NotifyClientTerminationRequest.newBuilder().setClientId(id).setGroup(getPbGroup()).build();
+        try {
+            final Metadata metadata = sign();
+            for (Endpoints endpoints : routeEndpointsSet) {
+                clientManager.notifyClientTermination(endpoints, metadata, notifyClientTerminationRequest,
+                                                      ioTimeoutMillis, TimeUnit.MILLISECONDS);
+            }
+        } catch (Throwable t) {
+            log.error("Failed to notify client's termination.", t);
+        }
+    }
+
     protected void tearDown() throws InterruptedException {
         log.info("Begin to shutdown the rocketmq client, clientId={}", id);
+        notifyClientTermination();
         if (null != renewNameServerListFuture) {
             renewNameServerListFuture.cancel(false);
         }

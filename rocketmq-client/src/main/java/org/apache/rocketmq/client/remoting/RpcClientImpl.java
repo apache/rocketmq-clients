@@ -32,6 +32,8 @@ import apache.rocketmq.v1.MultiplexingRequest;
 import apache.rocketmq.v1.MultiplexingResponse;
 import apache.rocketmq.v1.NackMessageRequest;
 import apache.rocketmq.v1.NackMessageResponse;
+import apache.rocketmq.v1.NotifyClientTerminationRequest;
+import apache.rocketmq.v1.NotifyClientTerminationResponse;
 import apache.rocketmq.v1.PullMessageRequest;
 import apache.rocketmq.v1.PullMessageResponse;
 import apache.rocketmq.v1.QueryAssignmentRequest;
@@ -213,5 +215,14 @@ public class RpcClientImpl implements RpcClient {
         this.activityNanoTime = System.nanoTime();
         return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
                             .withDeadlineAfter(duration, timeUnit).multiplexingCall(request);
+    }
+
+    @Override
+    public ListenableFuture<NotifyClientTerminationResponse> notifyClientTermination(
+            Metadata metadata, NotifyClientTerminationRequest request, Executor executor, long duration,
+            TimeUnit timeUnit) {
+        this.activityNanoTime = System.nanoTime();
+        return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
+                            .withDeadlineAfter(duration, timeUnit).notifyClientTermination(request);
     }
 }

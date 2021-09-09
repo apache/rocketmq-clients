@@ -31,6 +31,8 @@ import apache.rocketmq.v1.MultiplexingRequest;
 import apache.rocketmq.v1.MultiplexingResponse;
 import apache.rocketmq.v1.NackMessageRequest;
 import apache.rocketmq.v1.NackMessageResponse;
+import apache.rocketmq.v1.NotifyClientTerminationRequest;
+import apache.rocketmq.v1.NotifyClientTerminationResponse;
 import apache.rocketmq.v1.PullMessageRequest;
 import apache.rocketmq.v1.PullMessageResponse;
 import apache.rocketmq.v1.QueryAssignmentRequest;
@@ -236,4 +238,19 @@ public interface RpcClient {
      */
     ListenableFuture<MultiplexingResponse> multiplexingCall(Metadata metadata, MultiplexingRequest request,
                                                             Executor executor, long duration, TimeUnit timeUnit);
+
+    /**
+     * Asynchronously notify server that client is terminated.
+     *
+     * @param metadata gRPC request header metadata.
+     * @param request  notify client termination request.
+     * @param executor gRPC asynchronous executor.
+     * @param duration request max duration.
+     * @param timeUnit duration time unit.
+     * @return response future of notification of client termination.
+     */
+    ListenableFuture<NotifyClientTerminationResponse> notifyClientTermination(Metadata metadata,
+                                                                              NotifyClientTerminationRequest request,
+                                                                              Executor executor, long duration,
+                                                                              TimeUnit timeUnit);
 }
