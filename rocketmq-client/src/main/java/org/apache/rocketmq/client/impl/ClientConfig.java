@@ -53,7 +53,7 @@ public class ClientConfig {
     protected String nameServerStr;
 
     /**
-     * Abstract resource namespace, same topics or groups in different arn are individual.
+     * Abstract resource namespace, same topics or groups in different namespace are individual.
      */
     protected String namespace = "";
 

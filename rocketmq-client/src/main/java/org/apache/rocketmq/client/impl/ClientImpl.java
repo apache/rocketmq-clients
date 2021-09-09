@@ -494,7 +494,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                 addresses.add(new Address(host, port));
                 this.nameServerEndpointsList.add(new Endpoints(AddressScheme.DOMAIN_NAME, addresses));
 
-                // arn is set before.
+                // namespace is set before.
                 if (StringUtils.isNotBlank(namespace)) {
                     return;
                 }
