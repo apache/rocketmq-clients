@@ -266,7 +266,6 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
      * @throws InterruptedException if thread has been interrupted
      */
     private void clearIdleRpcClients() throws InterruptedException {
-        log.info("Start to clear idle rpc clients for a new round.");
         rpcClientTableLock.writeLock().lock();
         try {
             final Iterator<Map.Entry<Endpoints, RpcClient>> it = rpcClientTable.entrySet().iterator();
@@ -289,7 +288,6 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
     }
 
     private void doHeartbeat() {
-        log.info("Start to send heartbeat for a new round, clientManagerId={}", id);
         for (Client client : clientTable.values()) {
             client.doHeartbeat();
         }
