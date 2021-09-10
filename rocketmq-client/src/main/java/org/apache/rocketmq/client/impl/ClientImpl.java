@@ -347,13 +347,16 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
         }
     }
 
-    private void onTopicRouteDataUpdate(String topic, TopicRouteData topicRouteData) {
-        onTopicRouteDataUpdate0(topic, topicRouteData);
+    private synchronized Set<Endpoints> updateTopicRouteCache(String topic, TopicRouteData topicRouteData) {
         final Set<Endpoints> before = getRouteEndpointsSet();
         topicRouteCache.put(topic, topicRouteData);
         final Set<Endpoints> after = getRouteEndpointsSet();
-        final Set<Endpoints> diff = new HashSet<Endpoints>(Sets.difference(after, before));
+        return new HashSet<Endpoints>(Sets.difference(after, before));
+    }
 
+    private void onTopicRouteDataUpdate(String topic, TopicRouteData topicRouteData) {
+        onTopicRouteDataUpdate0(topic, topicRouteData);
+        final Set<Endpoints> diff = updateTopicRouteCache(topic, topicRouteData);
         for (Endpoints endpoints : diff) {
             log.info("Start multiplexing call for new endpoints={}", endpoints);
             dispatchGenericPollRequest(endpoints);
