@@ -56,7 +56,7 @@ public class ConsumeOrderlyService extends ConsumeService {
                 continue;
             }
             dispatched = true;
-            log.debug("Take fifo message already, messageId={}", messageExt);
+            log.debug("Take fifo message already, messageId={}", messageExt.get().getMsgId());
             final ListenableFuture<ConsumeStatus> future = consume(messageExt.get());
             Futures.addCallback(future, new FutureCallback<ConsumeStatus>() {
                 @Override
