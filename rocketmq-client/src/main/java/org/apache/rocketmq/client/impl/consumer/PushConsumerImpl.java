@@ -32,6 +32,7 @@ import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse;
 import apache.rocketmq.v1.GenericPollingRequest;
 import apache.rocketmq.v1.HeartbeatRequest;
+import apache.rocketmq.v1.HeartbeatResponse;
 import apache.rocketmq.v1.Message;
 import apache.rocketmq.v1.NackMessageRequest;
 import apache.rocketmq.v1.NackMessageResponse;
@@ -63,7 +64,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -90,6 +90,7 @@ import org.apache.rocketmq.client.message.MessageQueue;
 import org.apache.rocketmq.client.route.Endpoints;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.utility.ExecutorServices;
+import org.apache.rocketmq.utility.SimpleCallable;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -313,6 +314,46 @@ public class PushConsumerImpl extends ConsumerImpl {
         return offsetStore.readOffset(mq);
     }
 
+    private void promptAssignmentsScan() {
+        List<ListenableFuture<TopicRouteData>> futureList = new ArrayList<ListenableFuture<TopicRouteData>>();
+        for (String topic : filterExpressionTable.keySet()) {
+            futureList.add(getRouteData(topic));
+        }
+        Futures.whenAllComplete(futureList).call(new SimpleCallable() {
+            @Override
+            public void run() {
+                promptAssignmentsScan0();
+            }
+        });
+    }
+
+    private void promptAssignmentsScan0() {
+        List<ListenableFuture<HeartbeatResponse>> futureList = new ArrayList<ListenableFuture<HeartbeatResponse>>();
+        final HeartbeatRequest request = wrapHeartbeatRequest();
+        for (Endpoints endpoints : getRouteEndpointsSet()) {
+            futureList.add(doHeartbeat(request, endpoints));
+        }
+        Futures.whenAllComplete(futureList).call(new SimpleCallable() {
+            @Override
+            public void run() {
+                scanAssignmentsFuture = clientManager.getScheduler().scheduleWithFixedDelay(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    scanAssignments();
+                                } catch (Throwable t) {
+                                    log.error("Exception raised while scanning the load assignments.", t);
+                                }
+                            }
+                        },
+                        1,
+                        5,
+                        TimeUnit.SECONDS);
+            }
+        });
+    }
+
     @Override
     public void setUp() throws ClientException {
         log.info("Begin to start the rocketmq push consumer.");
@@ -322,22 +363,7 @@ public class PushConsumerImpl extends ConsumerImpl {
         super.setUp();
         this.generateConsumeService();
         consumeService.startAsync().awaitRunning();
-
-        final ScheduledExecutorService scheduler = clientManager.getScheduler();
-        scanAssignmentsFuture = scheduler.scheduleWithFixedDelay(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            scanAssignments();
-                        } catch (Throwable t) {
-                            log.error("Exception raised while scanning the load assignments.", t);
-                        }
-                    }
-                },
-                1,
-                5,
-                TimeUnit.SECONDS);
+        promptAssignmentsScan();
         log.info("The rocketmq push consumer starts successfully.");
     }
 

@@ -283,7 +283,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                     interceptor.intercept(hookPoint, messageExt, context);
                 } catch (Throwable t) {
                     log.warn("Exception raised while intercepting message, hookPoint={}, messageId={}", hookPoint,
-                              messageExt.getMsgId());
+                             messageExt.getMsgId());
                 }
             }
         } finally {
@@ -357,12 +357,6 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
         for (Endpoints endpoints : diff) {
             log.info("Start multiplexing call for new endpoints={}", endpoints);
             dispatchGenericPollRequest(endpoints);
-        }
-
-        final HeartbeatRequest request = wrapHeartbeatRequest();
-        for (Endpoints endpoints : diff) {
-            log.info("Start to send heartbeat to new endpoints={}", endpoints);
-            doHeartbeat(request, endpoints);
         }
         messageTracer.refresh();
     }
@@ -540,7 +534,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
         return Resource.newBuilder().setResourceNamespace(namespace).setName(group).build();
     }
 
-    public ListenableFuture<TopicRouteData> fetchTopicRoute(final String topic) {
+    private ListenableFuture<TopicRouteData> fetchTopicRoute(final String topic) {
         final SettableFuture<TopicRouteData> future = SettableFuture.create();
         try {
             final Endpoints endpoints = selectNameServerEndpoints();
@@ -588,14 +582,9 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
 
     public abstract HeartbeatRequest wrapHeartbeatRequest();
 
-    private void doHeartbeat(HeartbeatRequest request, final Endpoints endpoints) {
+    protected ListenableFuture<HeartbeatResponse> doHeartbeat(HeartbeatRequest request, final Endpoints endpoints) {
         try {
-            Metadata metadata;
-            try {
-                metadata = sign();
-            } catch (Throwable t) {
-                return;
-            }
+            Metadata metadata = sign();
             final ListenableFuture<HeartbeatResponse> future = clientManager
                     .heartbeat(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
             Futures.addCallback(future, new FutureCallback<HeartbeatResponse>() {
@@ -616,8 +605,12 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                     log.warn("Failed to send heartbeat, endpoints={}", endpoints, t);
                 }
             });
+            return future;
         } catch (Throwable e) {
-            log.error("Unexpected exception raised while heartbeat, endpoints={}.", endpoints, e);
+            log.error("Exception raised while heartbeat, endpoints={}", endpoints, e);
+            SettableFuture<HeartbeatResponse> future0 = SettableFuture.create();
+            future0.setException(e);
+            return future0;
         }
     }
 
