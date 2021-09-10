@@ -15,7 +15,7 @@
   limitations under the License.
   -->
 
-<code_scheme name="ONS Java SDK 2.0">
+<code_scheme name="Apache RocketMQ Thin SDK">
     <option name="GENERATE_FINAL_LOCALS" value="false"/>
     <option name="CLASS_COUNT_TO_USE_IMPORT_ON_DEMAND" value="9999"/>
     <option name="NAMES_COUNT_TO_USE_IMPORT_ON_DEMAND" value="9999999"/>
