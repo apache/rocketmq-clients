@@ -73,8 +73,7 @@ public class Endpoints {
     }
 
     public Endpoints(AddressScheme addressScheme, List<Address> addresses) {
-        // TODO: polish code here.
-        if (AddressScheme.DOMAIN_NAME == addressScheme && addresses.size() > 1) {
+        if (AddressScheme.DOMAIN_NAME.equals(addressScheme) && addresses.size() > 1) {
             throw new UnsupportedOperationException("Multiple addresses not allowed in domain schema.");
         }
         checkNotNull(addresses, "addresses");
