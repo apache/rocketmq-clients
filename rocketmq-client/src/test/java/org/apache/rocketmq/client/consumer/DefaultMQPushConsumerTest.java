@@ -17,6 +17,9 @@
 
 package org.apache.rocketmq.client.consumer;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
@@ -58,7 +61,7 @@ public class DefaultMQPushConsumerTest extends TestBase {
     }
 
     @Test
-    public void testStartWithoutSubscription() throws ClientException, InterruptedException {
+    public void testStartWithoutSubscription() throws ClientException {
         DefaultMQPushConsumer consumer = new DefaultMQPushConsumer(FAKE_GROUP_0);
         consumer.registerMessageListener(
                 new MessageListenerConcurrently() {
@@ -73,14 +76,14 @@ public class DefaultMQPushConsumerTest extends TestBase {
     }
 
     @Test
-    public void testStartAndShutdown() throws ClientException, InterruptedException {
+    public void testStartAndShutdown() throws ClientException {
         DefaultMQPushConsumer consumer = createPushConsumer(FAKE_GROUP_0, FAKE_TOPIC_0);
         consumer.start();
         consumer.shutdown();
     }
 
     @Test
-    public void testBroadCasting() throws ClientException, InterruptedException {
+    public void testBroadCasting() throws ClientException {
         DefaultMQPushConsumer consumer = createPushConsumer(FAKE_GROUP_0, FAKE_TOPIC_0);
         consumer.setMessageModel(MessageModel.BROADCASTING);
         consumer.start();
@@ -88,7 +91,7 @@ public class DefaultMQPushConsumerTest extends TestBase {
     }
 
     @Test
-    public void testStartMultiConsumers() throws ClientException, InterruptedException {
+    public void testStartMultiConsumers() throws ClientException {
         {
             final DefaultMQPushConsumer consumer0 = createPushConsumer(FAKE_GROUP_1, FAKE_TOPIC_0);
             final DefaultMQPushConsumer consumer1 = createPushConsumer(FAKE_GROUP_2, FAKE_TOPIC_0);
@@ -180,5 +183,96 @@ public class DefaultMQPushConsumerTest extends TestBase {
         if (!await) {
             Assert.fail("Timeout to wait shutdown of consumer.");
         }
+    }
+
+    @Test
+    public void testSetMessageModel() throws ClientException {
+        DefaultMQPushConsumer consumer = createPushConsumer(FAKE_GROUP_0, FAKE_TOPIC_0);
+        consumer.setMessageModel(MessageModel.BROADCASTING);
+        assertEquals(consumer.getMessageModel(), MessageModel.BROADCASTING);
+    }
+
+    @Test
+    public void testSetConsumerGroup() throws ClientException {
+        DefaultMQPushConsumer consumer = createPushConsumer(FAKE_GROUP_0, FAKE_TOPIC_0);
+        consumer.setConsumerGroup("FakeGroup");
+        assertEquals(consumer.getConsumerGroup(), "FakeGroup");
+    }
+
+    @Test
+    public void testSetNamespace() throws ClientException {
+        DefaultMQPushConsumer consumer = createPushConsumer(FAKE_GROUP_0, FAKE_TOPIC_0);
+        consumer.setNamespace("fakeNamespace");
+        assertEquals(consumer.getNamespace(), "fakeNamespace");
+    }
+
+    @Test
+    public void testSetConsumeMessageBatchMaxSize() throws ClientException {
+        DefaultMQPushConsumer consumer = createPushConsumer(FAKE_GROUP_0, FAKE_TOPIC_0);
+        consumer.setConsumeMessageBatchMaxSize(1);
+        assertEquals(consumer.getConsumeMessageBatchMaxSize(), 1);
+    }
+
+    @Test
+    public void testSetMaxAwaitBatchSizePerQueue() throws ClientException {
+        DefaultMQPushConsumer consumer = createPushConsumer(FAKE_GROUP_0, FAKE_TOPIC_0);
+        consumer.setMaxAwaitBatchSizePerQueue(1);
+        assertEquals(consumer.getMaxAwaitBatchSizePerQueue(), 1);
+    }
+
+    @Test
+    public void testSetMaxDeliveryAttempts() throws ClientException {
+        DefaultMQPushConsumer consumer = createPushConsumer(FAKE_GROUP_0, FAKE_TOPIC_0);
+        consumer.setMaxDeliveryAttempts(1);
+        assertEquals(consumer.getMaxDeliveryAttempts(), 1);
+    }
+
+    @Test
+    public void testSetFifoConsumptionSuspendTimeMillis() throws ClientException {
+        DefaultMQPushConsumer consumer = createPushConsumer(FAKE_GROUP_0, FAKE_TOPIC_0);
+        consumer.setFifoConsumptionSuspendTimeMillis(1);
+        assertEquals(consumer.getFifoConsumptionSuspendTimeMillis(), 1);
+    }
+
+    @Test
+    public void testSetMaxTotalCachedMessagesQuantityThreshold() throws ClientException {
+        DefaultMQPushConsumer consumer = createPushConsumer(FAKE_GROUP_0, FAKE_TOPIC_0);
+        consumer.setMaxTotalCachedMessagesQuantityThreshold(1);
+        assertEquals(consumer.getMaxTotalCachedMessagesQuantityThreshold(), 1);
+    }
+
+    @Test
+    public void testSetConsumptionTimeoutMillis() throws ClientException {
+        DefaultMQPushConsumer consumer = createPushConsumer(FAKE_GROUP_0, FAKE_TOPIC_0);
+        consumer.setConsumptionTimeoutMillis(1);
+        assertEquals(consumer.getConsumptionTimeoutMillis(), 1);
+    }
+
+    @Test
+    public void testSetMaxTotalCachedMessagesBytesThreshold() throws ClientException {
+        DefaultMQPushConsumer consumer = createPushConsumer(FAKE_GROUP_0, FAKE_TOPIC_0);
+        consumer.setMaxTotalCachedMessagesBytesThreshold(1);
+        assertEquals(consumer.getMaxTotalCachedMessagesBytesThreshold(), 1);
+    }
+
+    @Test
+    public void testSetConsumeFromWhere() throws ClientException {
+        DefaultMQPushConsumer consumer = createPushConsumer(FAKE_GROUP_0, FAKE_TOPIC_0);
+        consumer.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_TIMESTAMP);
+        assertEquals(consumer.getConsumeFromWhere(), ConsumeFromWhere.CONSUME_FROM_TIMESTAMP);
+    }
+
+    @Test
+    public void testSetConsumptionThreadsAmount() throws ClientException {
+        DefaultMQPushConsumer consumer = createPushConsumer(FAKE_GROUP_0, FAKE_TOPIC_0);
+        consumer.setConsumptionThreadsAmount(3);
+        assertEquals(consumer.getConsumptionThreadsAmount(), 3);
+    }
+
+    @Test
+    public void testSetMessageTracingEnabled() throws ClientException {
+        DefaultMQPushConsumer consumer = createPushConsumer(FAKE_GROUP_0, FAKE_TOPIC_0);
+        consumer.setMessageTracingEnabled(false);
+        assertFalse(consumer.getMessageTracingEnabled());
     }
 }

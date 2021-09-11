@@ -56,6 +56,9 @@ public class FilterExpression {
      * @return accepted or not.
      */
     public boolean accept(MessageExt messageExt) {
+        if (TAG_EXPRESSION_SUB_ALL.equals(expression)) {
+            return true;
+        }
         final String[] split = expression.split(TAG_EXPRESSION_SPLIT_PATTERN);
         final String messageTag = messageExt.getTag();
         for (String tag : split) {

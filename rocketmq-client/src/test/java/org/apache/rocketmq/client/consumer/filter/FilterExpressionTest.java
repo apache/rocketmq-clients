@@ -18,11 +18,17 @@
 package org.apache.rocketmq.client.consumer.filter;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
+import org.apache.rocketmq.client.message.MessageExt;
+import org.apache.rocketmq.client.message.MessageImpl;
+import org.apache.rocketmq.client.message.MessageImplAccessor;
+import org.apache.rocketmq.client.tools.TestBase;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-public class FilterExpressionTest {
+public class FilterExpressionTest extends TestBase {
 
     @Test
     public void testTagSubAllExpression() {
@@ -65,5 +71,18 @@ public class FilterExpressionTest {
             final FilterExpression filterExpression = new FilterExpression(expression);
             assertEquals(filterExpression.getExpression(), expression);
         }
+    }
+
+    @Test
+    public void testAccept() {
+        final MessageExt messageExt = fakeMessageExt();
+        FilterExpression filterExpression = new FilterExpression();
+        assertTrue(filterExpression.accept(messageExt));
+        final MessageImpl messageImpl = MessageImplAccessor.getMessageImpl(messageExt);
+        messageImpl.getSystemAttribute().setTag("tagA");
+        filterExpression = new FilterExpression("tagA");
+        assertTrue(filterExpression.accept(messageExt));
+        messageImpl.getSystemAttribute().setTag("tagB");
+        assertFalse(filterExpression.accept(messageExt));
     }
 }

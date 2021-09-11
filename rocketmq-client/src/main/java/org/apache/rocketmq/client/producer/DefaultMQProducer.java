@@ -139,13 +139,26 @@ public class DefaultMQProducer {
         this.impl.setTracingEnabled(enabled);
     }
 
+    public boolean getMessageTracingEnabled() {
+        return this.impl.getTracingEnabled();
+    }
+
     /**
      * Set sending timeout for each message.
      *
-     * @param timeout send timeout.
+     * @param timeout sending timeout.
      */
     public void setSendMessageTimeoutMillis(long timeout) {
         this.impl.setSendMessageTimeoutMillis(timeout);
+    }
+
+    /**
+     * Get sending timeout for each message.
+     *
+     * @return sending timeout.
+     */
+    public long getSendMessageTimeoutMillis() {
+        return this.impl.getSendMessageTimeoutMillis();
     }
 
     /**
@@ -297,7 +310,11 @@ public class DefaultMQProducer {
         this.impl.setTransactionChecker(checker);
     }
 
-    public void setTransactionResolveDelayMillis(final long delayMillis) {
-        this.impl.setTransactionResolveDelayMillis(delayMillis);
+    public void setTransactionRecoverDelayMillis(final long delayMillis) {
+        this.impl.setTransactionRecoverDelayMillis(delayMillis);
+    }
+
+    public long getTransactionRecoverDelayMillis() {
+        return this.impl.getTransactionRecoverDelayMillis();
     }
 }

@@ -860,7 +860,7 @@ public class ProducerImpl extends ClientImpl {
         return this.sendMessageTimeoutMillis;
     }
 
-    public long getTransactionResolveDelayMillis() {
+    public long getTransactionRecoverDelayMillis() {
         return this.transactionResolveDelayMillis;
     }
 
@@ -878,7 +878,7 @@ public class ProducerImpl extends ClientImpl {
         this.sendMessageTimeoutMillis = sendMessageTimeoutMillis;
     }
 
-    public void setTransactionResolveDelayMillis(long transactionResolveDelayMillis) {
+    public void setTransactionRecoverDelayMillis(long transactionResolveDelayMillis) {
         checkArgument(transactionResolveDelayMillis > 0, "Must be positive");
         this.transactionResolveDelayMillis = transactionResolveDelayMillis;
     }

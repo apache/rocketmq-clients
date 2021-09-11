@@ -152,6 +152,10 @@ public class ClientConfig {
         this.tracingEnabled = tracingEnabled;
     }
 
+    public boolean getTracingEnabled() {
+        return tracingEnabled;
+    }
+
     void setRegionId(String regionId) {
         this.regionId = regionId;
     }

@@ -112,6 +112,11 @@ public class DefaultMQPushConsumer {
         this.impl.setTracingEnabled(enabled);
     }
 
+
+    public boolean getMessageTracingEnabled() {
+        return this.impl.getTracingEnabled();
+    }
+
     /**
      * Set message consumption threads amount.
      *
@@ -119,6 +124,15 @@ public class DefaultMQPushConsumer {
      */
     public void setConsumptionThreadsAmount(int amount) {
         this.impl.setConsumptionThreadsAmount(amount);
+    }
+
+    /**
+     * Get message consumption threads amount.
+     *
+     * @return threads amount.
+     */
+    public int getConsumptionThreadsAmount() {
+        return this.impl.getConsumptionThreadsAmount();
     }
 
     /**
@@ -218,6 +232,15 @@ public class DefaultMQPushConsumer {
     }
 
     /**
+     * Get message consumption max batch size.
+     *
+     * @return max batch size.
+     */
+    public int getConsumeMessageBatchMaxSize() {
+        return this.impl.getConsumeMessageBatchMaxSize();
+    }
+
+    /**
      * Set max await time for each queue.
      *
      * @param timeMillis await time.
@@ -229,10 +252,14 @@ public class DefaultMQPushConsumer {
     /**
      * Set max await batch size for each queue.
      *
-     * @param timeMillis max await batch size.
+     * @param size max batch size.
      */
-    public void setMaxAwaitBatchSizePerQueue(int timeMillis) {
-        this.impl.setMaxAwaitBatchSizePerQueue(timeMillis);
+    public void setMaxAwaitBatchSizePerQueue(int size) {
+        this.impl.setMaxAwaitBatchSizePerQueue(size);
+    }
+
+    public int getMaxAwaitBatchSizePerQueue() {
+        return this.impl.getMaxAwaitBatchSizePerQueue();
     }
 
     /**
@@ -244,6 +271,10 @@ public class DefaultMQPushConsumer {
         this.impl.setMessageModel(messageModel);
     }
 
+    public MessageModel getMessageModel() {
+        return this.impl.getMessageModel();
+    }
+
     /**
      * Set the policy to consume from.
      *
@@ -251,6 +282,15 @@ public class DefaultMQPushConsumer {
      */
     public void setConsumeFromWhere(ConsumeFromWhere consumeFromWhere) {
         this.impl.setConsumeFromWhere(consumeFromWhere);
+    }
+
+    /**
+     * Get the policy to consume from
+     *
+     * @return consumeFromWhere policy to consume from
+     */
+    public ConsumeFromWhere getConsumeFromWhere() {
+        return this.impl.getConsumeFromWhere();
     }
 
     /**
@@ -280,6 +320,10 @@ public class DefaultMQPushConsumer {
         this.impl.setFifoConsumptionSuspendTimeMillis(time);
     }
 
+    public long getFifoConsumptionSuspendTimeMillis() {
+        return this.impl.getFifoConsumptionSuspendTimeMillis();
+    }
+
     /**
      * Set max quantity threshold of total cached messages.
      *
@@ -290,12 +334,30 @@ public class DefaultMQPushConsumer {
     }
 
     /**
+     * Get max quantity threshold of total cached messages.
+     *
+     * @return max quantity threshold.
+     */
+    public int getMaxTotalCachedMessagesQuantityThreshold() {
+        return this.impl.getMaxTotalCachedMessagesQuantityThreshold();
+    }
+
+    /**
      * Set max bytes threshold of bodies of total cached messages.
      *
      * @param bytes bytes of bodies of messages.
      */
-    public void setMaxTotalCachedMessageBytesThreshold(int bytes) {
+    public void setMaxTotalCachedMessagesBytesThreshold(int bytes) {
         this.impl.setMaxTotalCachedMessagesBytesThreshold(bytes);
+    }
+
+    /**
+     * Get max bytes threshold of bodies of total cached messages.
+     *
+     * @return bytes of bodies of messages.
+     */
+    public int getMaxTotalCachedMessagesBytesThreshold() {
+        return this.impl.getMaxTotalCachedMessagesBytesThreshold();
     }
 
     /**
@@ -305,6 +367,15 @@ public class DefaultMQPushConsumer {
      */
     public void setConsumptionTimeoutMillis(long timeout) {
         this.impl.setConsumptionTimeoutMillis(timeout);
+    }
+
+    /**
+     * Get timeout of message consumption.
+     *
+     * @return consumption timeout.
+     */
+    public long getConsumptionTimeoutMillis() {
+        return this.impl.getConsumptionTimeoutMillis();
     }
 
     public void setOffsetStore(OffsetStore offsetStore) {
