@@ -343,7 +343,8 @@ public class PushConsumerImpl extends ConsumerImpl {
                                 try {
                                     scanAssignments();
                                 } catch (Throwable t) {
-                                    log.error("Exception raised while scanning the load assignments.", t);
+                                    log.error("Exception raised while scanning the load assignments, clientId={}",
+                                              id, t);
                                 }
                             }
                         },
@@ -426,16 +427,16 @@ public class PushConsumerImpl extends ConsumerImpl {
                         if (remote.getAssignmentList().isEmpty()) {
                             if (null == local || local.getAssignmentList().isEmpty()) {
                                 log.info("Acquired empty assignments from remote, would scan later, namespace={}, "
-                                         + "topic={}", namespace, topic);
+                                         + "topic={}, clientId={}", namespace, topic, id);
                                 return;
                             }
                             log.info("Attention!!! acquired empty assignments from remote, but local assignments is "
-                                     + "not empty, namespace={}, topic={}", namespace, topic);
+                                     + "not empty, namespace={}, topic={}, clientId={}", namespace, topic, id);
                         }
 
                         if (!remote.equals(local)) {
-                            log.info("Assignments of topic={}[namespace={}] has changed, {} -> {}", topic, namespace,
-                                     local, remote);
+                            log.info("Assignments of topic={}[namespace={}] has changed, {} -> {}, clientId={}", topic,
+                                     namespace, local, remote, id);
                             synchronizeProcessQueue(topic, remote, filterExpression);
                             cachedTopicAssignmentTable.put(topic, remote);
                             return;
@@ -446,13 +447,13 @@ public class PushConsumerImpl extends ConsumerImpl {
 
                     @Override
                     public void onFailure(Throwable t) {
-                        log.error("Exception raised while scanning the assignments, namespace={}, topic={}", namespace,
-                                  topic, t);
+                        log.error("Exception raised while scanning the assignments, namespace={}, topic={}, "
+                                  + "clientId={}", namespace, topic, id, t);
                     }
                 });
             }
         } catch (Throwable t) {
-            log.error("Exception raised while scanning the assignments for all topics.", t);
+            log.error("Exception raised while scanning the assignments for all topics, clientId={}", id, t);
         }
     }
 
@@ -528,13 +529,13 @@ public class PushConsumerImpl extends ConsumerImpl {
             }
 
             if (!latestMqs.contains(mq)) {
-                log.info("Drop message queue according to the latest assignments, mq={}", mq);
+                log.info("Drop message queue according to the latest assignments, mq={}, clientId={}", mq, id);
                 dropProcessQueue(mq);
                 continue;
             }
 
             if (pq.expired()) {
-                log.warn("Drop message queue because it is expired, mq={}", mq);
+                log.warn("Drop message queue because it is expired, mq={}, clientId={}", mq, id);
                 dropProcessQueue(mq);
                 continue;
             }
@@ -544,7 +545,7 @@ public class PushConsumerImpl extends ConsumerImpl {
         for (MessageQueue mq : latestMqs) {
             if (!activeMqs.contains(mq)) {
                 final ProcessQueue pq = getProcessQueue(mq, filterExpression);
-                log.info("Start to fetch message from remote, mq={}", mq);
+                log.info("Start to fetch message from remote, mq={}, clientId={}", mq, id);
                 pq.fetchMessageImmediately();
             }
         }
@@ -611,8 +612,8 @@ public class PushConsumerImpl extends ConsumerImpl {
                 final Code code = Code.forNumber(status.getCode());
                 if (Code.OK != code) {
                     final String statusMessage = status.getMessage();
-                    log.error("Failed to query assignment, namespace={}, topic={}, code={}, status message=[{}]",
-                              namespace, topic, code, statusMessage);
+                    log.error("Failed to query assignment, namespace={}, topic={}, clientId={}, code={}, status "
+                              + "message=[{}]", namespace, topic, id, code, statusMessage);
                     throw new ClientException(ErrorCode.NO_ASSIGNMENT, statusMessage);
                 }
                 final TopicAssignments topicAssignments = new TopicAssignments(response.getAssignmentsList());
@@ -709,8 +710,8 @@ public class PushConsumerImpl extends ConsumerImpl {
                 }
             });
         } catch (Throwable t) {
-            log.error("[Bug] Exception raised while verifying message consumption, messageId={}",
-                      request.getMessage().getSystemAttribute().getMessageId());
+            log.error("[Bug] Exception raised while verifying message consumption, messageId={}, clientId={}",
+                      request.getMessage().getSystemAttribute().getMessageId(), id);
             SettableFuture<VerifyMessageConsumptionResponse> future0 = SettableFuture.create();
             future0.setException(t);
             return future0;
@@ -825,8 +826,8 @@ public class PushConsumerImpl extends ConsumerImpl {
                 if (Code.OK.equals(code)) {
                     return;
                 }
-                log.error("Failed to nack, messageId={}, endpoints={}, code={}, status message=[{}]", messageId,
-                          endpoints, code, status.getMessage());
+                log.error("Failed to nack, messageId={}, endpoints={}, code={}, status message=[{}], clientId={}",
+                          messageId, endpoints, code, status.getMessage(), id);
             }
 
             @Override
@@ -837,7 +838,8 @@ public class PushConsumerImpl extends ConsumerImpl {
                         preContext.toBuilder().setStatus(MessageHookPointStatus.ERROR).setDuration(duration).build();
                 intercept(MessageHookPoint.POST_NACK_MESSAGE, messageExt, postContext);
 
-                log.error("Exception raised while nack, messageId={}, endpoints={}", messageId, endpoints, t);
+                log.error("Exception raised while nack, messageId={}, endpoints={}, clientId={}", messageId, endpoints,
+                          id, t);
             }
         });
         return future;
