@@ -17,35 +17,16 @@
 
 package org.apache.rocketmq.utility;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.UUID;
 
 public class RequestIdGenerator {
     private static final RequestIdGenerator INSTANCE = new RequestIdGenerator();
-
-    private final byte[] name;
-
-    private RequestIdGenerator() {
-        ByteBuffer nameBuffer = ByteBuffer.allocate(16);
-        final byte[] macAddressBytes = UtilAll.macAddress();
-        nameBuffer.put(macAddressBytes, 0, 6);
-
-        ByteBuffer pidBuffer = ByteBuffer.allocate(4);
-        pidBuffer.order(ByteOrder.BIG_ENDIAN);
-        final int pid = UtilAll.processId();
-        pidBuffer.putInt(pid);
-
-        nameBuffer.put(pidBuffer.array(), 2, 2);
-        nameBuffer.putLong(System.currentTimeMillis());
-        this.name = nameBuffer.array();
-    }
 
     public static RequestIdGenerator getInstance() {
         return INSTANCE;
     }
 
     public String next() {
-        return UUID.nameUUIDFromBytes(name).toString();
+        return UUID.randomUUID().toString();
     }
 }
