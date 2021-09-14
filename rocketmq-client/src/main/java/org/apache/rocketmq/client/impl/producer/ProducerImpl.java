@@ -733,7 +733,7 @@ public class ProducerImpl extends ClientImpl {
                 // resend message successfully.
                 if (1 < attempt) {
                     log.info("Resend message successfully, namespace={}, topic={}, messageId={}, maxAttempts={}, "
-                             + "attempt={}, endpoints={}.", namespace, topic, msgId, maxAttempts, attempt, endpoints);
+                             + "attempt={}, endpoints={}", namespace, topic, msgId, maxAttempts, attempt, endpoints);
                 }
 
                 // intercept after message sending.

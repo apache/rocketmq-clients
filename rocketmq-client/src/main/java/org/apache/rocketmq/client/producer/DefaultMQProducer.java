@@ -165,7 +165,7 @@ public class DefaultMQProducer {
      * Send message in synchronous mode. This method returns only when the sending procedure totally
      * completes. <strong>Warn:</strong> this method has internal retry-mechanism, that is, internal
      * implementation will retry before claiming failure. As a result, multiple messages may
-     * potentially delivered to broker(s). It's up to the application developers to resolve potential
+     * potentially be delivered to broker(s). It's up to the application developers to resolve potential
      * duplication issue.
      *
      * @param msg Message to send.
