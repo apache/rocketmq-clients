@@ -21,6 +21,7 @@ import com.google.common.base.Optional;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.message.MessageQueue;
 
 /**
@@ -64,7 +65,7 @@ public abstract class AbstractOffsetStore implements OffsetStore {
     @Override
     public void updateOffset(MessageQueue mq, long offset) {
         offsetTable.put(mq, offset);
-        if (System.nanoTime() - nanoTime > persistPeriodSeconds) {
+        if (TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - nanoTime) > persistPeriodSeconds) {
             persistOffset(offsetTable);
             nanoTime = System.nanoTime();
         }
