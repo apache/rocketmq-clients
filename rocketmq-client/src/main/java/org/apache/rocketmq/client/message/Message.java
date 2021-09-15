@@ -81,7 +81,7 @@ public class Message {
     public void setKeys(Collection<String> keys) {
         checkNotNull(keys, "keys");
         final SystemAttribute systemAttribute = this.impl.getSystemAttribute();
-        final List<String> keyList = systemAttribute.getKeys();
+        final List<String> keyList = systemAttribute.getKeyList();
         keyList.clear();
         keyList.addAll(keys);
         reset();
@@ -89,11 +89,11 @@ public class Message {
 
     public String getKeys() {
         Joiner joiner = Joiner.on(MixAll.MESSAGE_KEY_SEPARATOR);
-        return joiner.join(this.impl.getSystemAttribute().getKeys());
+        return joiner.join(this.impl.getSystemAttribute().getKeyList());
     }
 
     public List<String> getKeysList() {
-        return this.impl.getSystemAttribute().getKeys();
+        return this.impl.getSystemAttribute().getKeyList();
     }
 
     public int getDelayTimeLevel() {

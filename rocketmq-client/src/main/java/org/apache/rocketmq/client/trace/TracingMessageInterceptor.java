@@ -24,6 +24,7 @@ import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
@@ -36,7 +37,6 @@ import org.apache.rocketmq.client.message.MessageImplAccessor;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.misc.MixAll;
-import org.apache.rocketmq.utility.MetadataUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -93,7 +93,6 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_NAMESPACE, config.getNamespace());
         span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_CLIENT_ID, config.id());
         span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_CLIENT_GROUP, config.getGroup());
-        span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_VERSION, MetadataUtils.getVersion());
         span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_OPERATION, operation.getName());
         try {
             final String accessKey = config.getCredentialsProvider().getCredentials().getAccessKey();
@@ -108,7 +107,10 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         span.setAttribute(MessagingAttributes.MESSAGING_MESSAGE_PAYLOAD_SIZE_BYTES, messageExt.getBody().length);
 
         span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_MESSAGE_TAG, messageExt.getTag());
-        span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_MESSAGE_KEYS, messageExt.getKeys());
+        final List<String> keyList = MessageImplAccessor.getMessageImpl(messageExt).getSystemAttribute().getKeyList();
+        if (!keyList.isEmpty()) {
+            span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_MESSAGE_KEYS, keyList);
+        }
         span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_MESSAGE_TYPE, messageExt.getMsgType().getName());
         final long deliveryTimestamp = messageExt.getDeliveryTimestamp();
         if (deliveryTimestamp > 0) {

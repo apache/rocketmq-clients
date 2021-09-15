@@ -53,9 +53,9 @@ public class MessageImplAccessor {
         final SystemAttribute systemAttribute = message.getSystemAttribute();
         // tag.
         mqSystemAttribute.setTag(systemAttribute.getTag());
-        // keys.
-        List<String> keys = new ArrayList<String>(systemAttribute.getKeysList());
-        mqSystemAttribute.setKeys(keys);
+        // keyList.
+        List<String> keyList = new ArrayList<String>(systemAttribute.getKeysList());
+        mqSystemAttribute.setKeyList(keyList);
         // message id.
         mqSystemAttribute.setMessageId(systemAttribute.getMessageId());
         // digest.

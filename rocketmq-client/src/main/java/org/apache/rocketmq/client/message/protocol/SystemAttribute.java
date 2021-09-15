@@ -63,9 +63,9 @@ public class SystemAttribute {
         this.traceContext = "";
     }
 
-    public void setKeys(List<String> keys) {
+    public void setKeyList(List<String> keyList) {
         this.keys.clear();
-        this.keys.addAll(keys);
+        this.keys.addAll(keyList);
     }
 
     public void setKey(String key) {
@@ -77,7 +77,7 @@ public class SystemAttribute {
         return this.tag;
     }
 
-    public List<String> getKeys() {
+    public List<String> getKeyList() {
         return this.keys;
     }
 

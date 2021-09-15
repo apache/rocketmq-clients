@@ -46,7 +46,7 @@ public class MessageExt {
 
     public String getKeys() {
         StringBuilder keys = new StringBuilder();
-        for (String key : this.impl.getSystemAttribute().getKeys()) {
+        for (String key : this.impl.getSystemAttribute().getKeyList()) {
             keys.append(key).append(MixAll.MESSAGE_KEY_SEPARATOR);
         }
         return keys.toString().trim();

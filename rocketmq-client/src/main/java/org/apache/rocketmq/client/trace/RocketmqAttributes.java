@@ -19,9 +19,11 @@
 package org.apache.rocketmq.client.trace;
 
 import static io.opentelemetry.api.common.AttributeKey.longKey;
+import static io.opentelemetry.api.common.AttributeKey.stringArrayKey;
 import static io.opentelemetry.api.common.AttributeKey.stringKey;
 
 import io.opentelemetry.api.common.AttributeKey;
+import java.util.List;
 
 public class RocketmqAttributes {
 
@@ -32,8 +34,8 @@ public class RocketmqAttributes {
     public static final AttributeKey<String> MESSAGING_ROCKETMQ_MESSAGE_TAG =
             stringKey("messaging.rocketmq.message_tag");
 
-    public static final AttributeKey<String> MESSAGING_ROCKETMQ_MESSAGE_KEYS =
-            stringKey("messaging.rocketmq.message_keys");
+    public static final AttributeKey<List<String>> MESSAGING_ROCKETMQ_MESSAGE_KEYS =
+            stringArrayKey("messaging.rocketmq.message_keys");
 
     public static final AttributeKey<String> MESSAGING_ROCKETMQ_CLIENT_ID = stringKey("messaging.rocketmq.client_id");
 
@@ -52,9 +54,6 @@ public class RocketmqAttributes {
 
     public static final AttributeKey<Long> MESSAGING_ROCKETMQ_AVAILABLE_TIMESTAMP =
             longKey("messaging.rocketmq.available_timestamp");
-
-    public static final AttributeKey<String> MESSAGING_ROCKETMQ_VERSION =
-            stringKey("messaging.rocketmq.version");
 
     public static final AttributeKey<String> MESSAGING_ROCKETMQ_ACCESS_KEY = stringKey("messaging.rocketmq.access_key");
 
