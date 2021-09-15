@@ -98,7 +98,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                                                             PULL_LONG_POLLING_TIMEOUT_MILLIS);
 
     public static final long ACK_FIFO_MESSAGE_DELAY_MILLIS = 100L;
-    public static final long REDIRECT_FIFO_MESSAGE_TO_DLQ_DELAY_MILLIS = 100L;
+    public static final long FORWARD_FIFO_MESSAGE_TO_DLQ_DELAY_MILLIS = 100L;
 
     private static final Logger log = LoggerFactory.getLogger(ProcessQueueImpl.class);
 
@@ -1001,7 +1001,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                 public void run() {
                     forwardToDeadLetterQueue(messageExt, attempt, future0);
                 }
-            }, REDIRECT_FIFO_MESSAGE_TO_DLQ_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+            }, FORWARD_FIFO_MESSAGE_TO_DLQ_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
             if (scheduler.isShutdown()) {
                 return;
