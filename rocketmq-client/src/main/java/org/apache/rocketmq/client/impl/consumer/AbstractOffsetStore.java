@@ -37,14 +37,12 @@ import org.slf4j.LoggerFactory;
 public abstract class AbstractOffsetStore implements OffsetStore {
     private static final Logger log = LoggerFactory.getLogger(AbstractOffsetStore.class);
 
-    private long nanoTime;
     private final long persistPeriodSeconds;
 
     private final ConcurrentMap<MessageQueue, Long> offsetTable;
     private final ScheduledExecutorService offsetPersistScheduler;
 
     public AbstractOffsetStore(long persistPeriodSeconds) {
-        this.nanoTime = System.nanoTime();
         this.persistPeriodSeconds = persistPeriodSeconds;
         this.offsetTable = new ConcurrentHashMap<MessageQueue, Long>();
         this.offsetPersistScheduler = new ScheduledThreadPoolExecutor(
@@ -102,10 +100,6 @@ public abstract class AbstractOffsetStore implements OffsetStore {
     @Override
     public void updateOffset(MessageQueue mq, long offset) {
         offsetTable.put(mq, offset);
-        if (TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - nanoTime) > persistPeriodSeconds) {
-            persistOffset(offsetTable);
-            nanoTime = System.nanoTime();
-        }
     }
 
     @Override
