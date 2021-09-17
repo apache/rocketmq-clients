@@ -288,7 +288,8 @@ public class ProcessQueueImpl implements ProcessQueue {
             }
             // failed to lock.
             if (!fifoConsumptionInbound()) {
-                log.debug("Fifo consumption task are not finished, mq={}", mq);
+                log.debug("Fifo consumption task are not finished, namespace={}, mq={}", consumerImpl.getNamespace(),
+                          mq);
                 return Optional.absent();
             }
             final String topic = mq.getTopic();
@@ -343,6 +344,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         final int maxAttempts = consumerImpl.getMaxDeliveryAttempts();
         final int attempt = messageExt.getDeliveryAttempt();
         final ConsumeService consumeService = consumerImpl.getConsumeService();
+        final String namespace = consumerImpl.getNamespace();
         // failed to consume fifo message but deliver attempt are not exhausted.
         // need to redeliver the fifo message.
         if (ConsumeStatus.ERROR.equals(status) && attempt < maxAttempts) {
@@ -353,8 +355,9 @@ public class ProcessQueueImpl implements ProcessQueue {
             // try to deliver message once again.
             final long fifoConsumptionSuspendTimeMillis = consumerImpl.getFifoConsumptionSuspendTimeMillis();
             log.debug("Prepare to redeliver the fifo message because of consumption failure, maxAttempt={}, "
-                      + "attempt={}, mq={}, messageId={}, suspendTime={}ms", maxAttempts,
-                      messageExt.getDeliveryAttempt(), mq, messageExt.getMsgId(), fifoConsumptionSuspendTimeMillis);
+                      + "attempt={}, namespace={}, mq={}, messageId={}, suspendTime={}ms", maxAttempts,
+                      messageExt.getDeliveryAttempt(), namespace, mq, messageExt.getMsgId(),
+                      fifoConsumptionSuspendTimeMillis);
             ListenableFuture<ConsumeStatus> future = consumeService
                     .consume(messageExt, fifoConsumptionSuspendTimeMillis, TimeUnit.MILLISECONDS);
             Futures.addCallback(future, new FutureCallback<ConsumeStatus>() {
@@ -366,9 +369,9 @@ public class ProcessQueueImpl implements ProcessQueue {
                 @Override
                 public void onFailure(Throwable t) {
                     // should never reach here.
-                    log.error("[Bug] Exception raised while fifo message redelivery, mq={}, messageId={}, attempt={}, "
-                              + "maxAttempts={}", mq, messageExt.getMsgId(), messageExt.getDeliveryAttempt(),
-                              maxAttempts, t);
+                    log.error("[Bug] Exception raised while fifo message redelivery, namespace={}, mq={}, "
+                              + "messageId={}, attempt={}, maxAttempts={}", namespace, mq, messageExt.getMsgId(),
+                              messageExt.getDeliveryAttempt(), maxAttempts, t);
                 }
             });
             return;
@@ -376,7 +379,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         boolean ok = ConsumeStatus.OK.equals(status);
         if (!ok) {
             log.info("Failed to consume fifo message finally, run out of attempt times, maxAttempts={}, attempt={}, "
-                     + "mq={}, messageId={}", maxAttempts, attempt, mq, messageExt.getMsgId());
+                     + "namespace={}, mq={}, messageId={}", maxAttempts, attempt, namespace, mq, messageExt.getMsgId());
         }
         // ack message or forward it to DLQ depends on consumption status.
         SimpleFuture future = ok ? ackFifoMessage(messageExt) : forwardToDeadLetterQueue(messageExt);
@@ -423,7 +426,8 @@ public class ProcessQueueImpl implements ProcessQueue {
         try {
             consumerImpl.getOffsetStore().updateOffset(mq, offset);
         } catch (Throwable t) {
-            log.error("Exception raised while update offset, mq={}, offset={}", mq, offset);
+            log.error("Exception raised while update offset, namespace={}, mq={}, offset={}",
+                      consumerImpl.getNamespace(), mq, offset);
         }
     }
 
@@ -453,7 +457,8 @@ public class ProcessQueueImpl implements ProcessQueue {
                 final int attempt = messageExt.getDeliveryAttempt();
                 if (maxAttempts <= attempt) {
                     log.error("Failed to consume message finally, run out of attempt times, maxAttempts={}, "
-                              + "attempt={}, mq={}, messageId={}", maxAttempts, attempt, mq, messageExt.getMsgId());
+                              + "attempt={}, namespace={}, mq={}, messageId={}", maxAttempts, attempt,
+                              consumerImpl.getNamespace(), mq, messageExt.getMsgId());
                 }
                 consumerImpl.nackMessage(messageExt);
             }
@@ -472,8 +477,8 @@ public class ProcessQueueImpl implements ProcessQueue {
                     consumerImpl.getReceivedMessagesQuantity().getAndAdd(messagesFound.size());
                     consumerImpl.getConsumeService().signal();
                 }
-                log.debug("Receive message with OK, mq={}, endpoints={}, messages found count={}", mq,
-                          endpoints, messagesFound.size());
+                log.debug("Receive message with OK, namespace={}, mq={}, endpoints={}, messages found count={}",
+                          consumerImpl.getNamespace(), mq, endpoints, messagesFound.size());
                 receiveMessage();
                 break;
             // fall through on purpose.
@@ -483,8 +488,8 @@ public class ProcessQueueImpl implements ProcessQueue {
             case DATA_CORRUPTED:
             case INTERNAL:
             default:
-                log.error("Receive message with status={}, mq={}, endpoints={}, messages found count={}", receiveStatus,
-                          mq, endpoints, messagesFound.size());
+                log.error("Receive message with status={}, namespace={}, mq={}, endpoints={}, messages found count={}",
+                          receiveStatus, consumerImpl.getNamespace(), mq, endpoints, messagesFound.size());
                 receiveMessageLater();
         }
     }
@@ -500,7 +505,8 @@ public class ProcessQueueImpl implements ProcessQueue {
                     consumerImpl.getPulledMessagesQuantity().getAndAdd(messagesFound.size());
                     consumerImpl.getConsumeService().signal();
                 }
-                log.debug("Pull message with OK, mq={}, messages found count={}", mq, messagesFound.size());
+                log.debug("Pull message with OK, namespace={}, mq={}, messages found count={}",
+                          consumerImpl.getNamespace(), mq, messagesFound.size());
                 pullMessage(result.getNextBeginOffset());
                 break;
             // fall through on purpose.
@@ -510,8 +516,8 @@ public class ProcessQueueImpl implements ProcessQueue {
             case OUT_OF_RANGE:
             case INTERNAL:
             default:
-                log.error("Pull message with status={}, mq={}, messages found status={}", pullStatus, mq,
-                          messagesFound.size());
+                log.error("Pull message with status={}, namespace={}, mq={}, messages found status={}", pullStatus,
+                          consumerImpl.getNamespace(), mq, messagesFound.size());
                 pullMessageLater(result.getNextBeginOffset());
         }
     }
@@ -519,11 +525,13 @@ public class ProcessQueueImpl implements ProcessQueue {
     @VisibleForTesting
     public void receiveMessage() {
         if (dropped) {
-            log.debug("Process queue has been dropped, no longer receive message, mq={}.", mq);
+            log.debug("Process queue has been dropped, no longer receive message, namespace={}, mq={}",
+                      consumerImpl.getNamespace(), mq);
             return;
         }
         if (this.isCacheFull()) {
-            log.warn("Process queue cache is full, would receive message later, mq={}.", mq);
+            log.warn("Process queue cache is full, would receive message later, namespace={}, mq={}.",
+                     consumerImpl.getNamespace(), mq);
             receiveMessageLater();
             return;
         }
@@ -554,7 +562,8 @@ public class ProcessQueueImpl implements ProcessQueue {
         final int cachedMessageQuantityThresholdPerQueue = consumerImpl.cachedMessagesQuantityThresholdPerQueue();
         if (cachedMessageQuantityThresholdPerQueue <= actualMessagesQuantity) {
             log.warn("Process queue total cached messages quantity exceeds the threshold, threshold={}, actual={}, "
-                     + "mq={}", cachedMessageQuantityThresholdPerQueue, actualMessagesQuantity, mq);
+                     + "namespace={}, mq={}", cachedMessageQuantityThresholdPerQueue, actualMessagesQuantity,
+                     consumerImpl.getNamespace(), mq);
             cacheFullNanoTime = System.nanoTime();
             return true;
         }
@@ -562,7 +571,8 @@ public class ProcessQueueImpl implements ProcessQueue {
         final long actualCachedMessagesBytes = this.cachedMessageBytes();
         if (cachedMessagesBytesPerQueue <= actualCachedMessagesBytes) {
             log.warn("Process queue total cached messages memory exceeds the threshold, threshold={} bytes, actual={} "
-                     + "bytes, mq={}", cachedMessagesBytesPerQueue, actualCachedMessagesBytes, mq);
+                     + "bytes, namespace={}, mq={}", cachedMessagesBytesPerQueue, actualCachedMessagesBytes,
+                     consumerImpl.getNamespace(), mq);
             cacheFullNanoTime = System.nanoTime();
             return true;
         }
@@ -622,7 +632,8 @@ public class ProcessQueueImpl implements ProcessQueue {
                     return;
                 }
             } catch (Throwable t) {
-                log.error("Exception raised while reading offset from offset store, drop message queue, mq={}", mq, t);
+                log.error("Exception raised while reading offset from offset store, drop message queue, "
+                          + "namespace={}, mq={}", consumerImpl.getNamespace(), mq, t);
                 // drop this pq, waiting for the next assignments scan.
                 consumerImpl.dropProcessQueue(mq);
                 return;
@@ -641,14 +652,15 @@ public class ProcessQueueImpl implements ProcessQueue {
         Futures.addCallback(future, new FutureCallback<Long>() {
             @Override
             public void onSuccess(Long offset) {
-                log.info("Query offset successfully, mq={}, endpoints={}, offset={}", mq, endpoints, offset);
+                log.info("Query offset successfully, namespace={}, mq={}, endpoints={}, offset={}",
+                         consumerImpl.getNamespace(), mq, endpoints, offset);
                 pullMessage(offset);
             }
 
             @Override
             public void onFailure(Throwable t) {
-                log.error("Exception raised while querying offset to pull, drop message queue, mq={}, endpoints={}", mq,
-                          endpoints, t);
+                log.error("Exception raised while querying offset to pull, drop message queue, namespace={}, mq={}, "
+                          + "endpoints={}", consumerImpl.getNamespace(), mq, endpoints, t);
                 // drop this pq, waiting for the next assignments scan.
                 consumerImpl.dropProcessQueue(mq);
             }
@@ -700,8 +712,8 @@ public class ProcessQueueImpl implements ProcessQueue {
                         onPullMessageResult(pullMessageResult);
                     } catch (Throwable t) {
                         // should never reach here.
-                        log.error("[Bug] Exception raised while handling pull result, would pull later, mq={}, "
-                                  + "endpoints={}", mq, endpoints, t);
+                        log.error("[Bug] Exception raised while handling pull result, would pull later, namespace={} "
+                                  + "mq={}, endpoints={}", consumerImpl.getNamespace(), mq, endpoints, t);
                         pullMessageLater(offset);
                     }
                 }
@@ -715,14 +727,15 @@ public class ProcessQueueImpl implements ProcessQueue {
                                                                         .setThrowable(t).build();
                     consumerImpl.intercept(MessageHookPoint.POST_PULL, context);
 
-                    log.error("Exception raised while pull message, would pull later, mq={}, endpoints={}",
-                              mq, endpoints, t);
+                    log.error("Exception raised while pull message, would pull later, namespace={}, mq={}, "
+                              + "endpoints={}", consumerImpl.getNamespace(), mq, endpoints, t);
                     pullMessageLater(offset);
                 }
             });
             consumerImpl.getPullTimes().getAndIncrement();
         } catch (Throwable t) {
-            log.error("Exception raised while pull message, would pull message later, mq={}", mq, t);
+            log.error("Exception raised while pull message, would pull message later, namespace={}, mq={}",
+                      consumerImpl.getNamespace(), mq, t);
             pullMessageLater(offset);
         }
     }
@@ -762,11 +775,13 @@ public class ProcessQueueImpl implements ProcessQueue {
      */
     private void pullMessage(long offset) {
         if (dropped) {
-            log.info("Process queue has been dropped, no longer pull message, mq={}.", mq);
+            log.info("Process queue has been dropped, no longer pull message, namespace={}, mq={}",
+                     consumerImpl.getNamespace(), mq);
             return;
         }
         if (this.isCacheFull()) {
-            log.warn("Process queue cache is full, would pull message later, mq={}", mq);
+            log.warn("Process queue cache is full, would pull message later, namespace={}, mq={}",
+                     consumerImpl.getNamespace(), mq);
             pullMessageLater(offset);
             return;
         }
@@ -868,8 +883,8 @@ public class ProcessQueueImpl implements ProcessQueue {
                         onReceiveMessageResult(receiveMessageResult);
                     } catch (Throwable t) {
                         // should never reach here.
-                        log.error("[Bug] Exception raised while handling receive result, would receive later, mq={}, "
-                                  + "endpoints={}", mq, endpoints, t);
+                        log.error("[Bug] Exception raised while handling receive result, would receive later, "
+                                  + "namespace={}, mq={}, endpoints={}", consumerImpl.getNamespace(), mq, endpoints, t);
                         receiveMessageLater();
                     }
                 }
@@ -882,14 +897,15 @@ public class ProcessQueueImpl implements ProcessQueue {
                                                                         .setStatus(MessageHookPointStatus.ERROR)
                                                                         .setThrowable(t).build();
                     consumerImpl.intercept(MessageHookPoint.POST_RECEIVE, context);
-                    log.error("Exception raised while message reception, would receive later, mq={}, endpoints={}",
-                              mq, endpoints, t);
+                    log.error("Exception raised while message reception, would receive later, namespace={}, mq={}, "
+                              + "endpoints={}", consumerImpl.getNamespace(), mq, endpoints, t);
                     receiveMessageLater();
                 }
             });
             consumerImpl.getReceptionTimes().getAndIncrement();
         } catch (Throwable t) {
-            log.error("Exception raised while message reception, would receive later, mq={}.", mq, t);
+            log.error("Exception raised while message reception, would receive later, namespace={}, mq={}",
+                      consumerImpl.getNamespace(), mq, t);
             receiveMessageLater();
         }
     }
@@ -902,6 +918,7 @@ public class ProcessQueueImpl implements ProcessQueue {
 
     private void ackFifoMessage(final MessageExt messageExt, final int attempt, final SimpleFuture future0) {
         final Endpoints endpoints = messageExt.getAckEndpoints();
+        final String namespace = consumerImpl.getNamespace();
         final ListenableFuture<AckMessageResponse> future = consumerImpl.ackMessage(messageExt, attempt);
         Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
             @Override
@@ -910,14 +927,14 @@ public class ProcessQueueImpl implements ProcessQueue {
                 final Code code = Code.forNumber(status.getCode());
                 if (Code.OK != code) {
                     log.error("Failed to ack fifo message, would attempt to re-ack later, attempt={}, messageId={}, "
-                              + "mq={}, code={}, endpoints={}, status message=[{}].", attempt, messageExt.getMsgId(),
-                              mq, code, endpoints, status.getMessage());
+                              + "namespace={}, mq={}, code={}, endpoints={}, status message=[{}].", attempt,
+                              messageExt.getMsgId(), namespace, mq, code, endpoints, status.getMessage());
                     ackFifoMessageLater(messageExt, 1 + attempt, future0);
                     return;
                 }
                 if (1 < attempt) {
-                    log.info("Re-ack fifo message successfully, attempt={}, messageId={}, mq={}, endpoints={}", attempt,
-                             messageExt.getMsgId(), mq, endpoints);
+                    log.info("Re-ack fifo message successfully, attempt={}, messageId={}, namespace={}, mq={}, "
+                             + "endpoints={}", attempt, messageExt.getMsgId(), namespace, mq, endpoints);
                 }
                 future0.markAsDone();
             }
@@ -925,7 +942,8 @@ public class ProcessQueueImpl implements ProcessQueue {
             @Override
             public void onFailure(Throwable t) {
                 log.error("Exception raised while ack fifo message, would attempt to re-ack later, attempt={}, "
-                          + "messageId={}, mq={}, endpoints={}.", attempt, messageExt.getMsgId(), mq, endpoints, t);
+                          + "messageId={}, namespace={}, mq={}, endpoints={}.", attempt, messageExt.getMsgId(),
+                          namespace, mq, endpoints, t);
                 ackFifoMessageLater(messageExt, 1 + attempt, future0);
             }
         });
@@ -934,7 +952,8 @@ public class ProcessQueueImpl implements ProcessQueue {
     private void ackFifoMessageLater(final MessageExt messageExt, final int attempt, final SimpleFuture future0) {
         final String msgId = messageExt.getMsgId();
         if (dropped) {
-            log.info("Process queue was dropped, give up to ack message. mq={}, messageId={}", mq, msgId);
+            log.info("Process queue was dropped, give up to ack message, namespace={}, mq={}, messageId={}",
+                     consumerImpl.getNamespace(), mq, msgId);
             return;
         }
         final ScheduledExecutorService scheduler = consumerImpl.getScheduler();
@@ -950,7 +969,8 @@ public class ProcessQueueImpl implements ProcessQueue {
                 return;
             }
             // should never reach here.
-            log.error("[Bug] Failed to schedule ack fifo message request, mq={}, msgId={}.", mq, msgId);
+            log.error("[Bug] Failed to schedule ack fifo message request, namespace={}, mq={}, msgId={}",
+                      consumerImpl.getNamespace(), mq, msgId);
             ackFifoMessageLater(messageExt, 1 + attempt, future0);
         }
     }
@@ -964,6 +984,7 @@ public class ProcessQueueImpl implements ProcessQueue {
     private void forwardToDeadLetterQueue(final MessageExt messageExt, final int attempt, final SimpleFuture future0) {
         final ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future =
                 consumerImpl.forwardMessageToDeadLetterQueue(messageExt, attempt);
+        final String namespace = consumerImpl.getNamespace();
         Futures.addCallback(future, new FutureCallback<ForwardMessageToDeadLetterQueueResponse>() {
             @Override
             public void onSuccess(ForwardMessageToDeadLetterQueueResponse response) {
@@ -971,14 +992,14 @@ public class ProcessQueueImpl implements ProcessQueue {
                 final Code code = Code.forNumber(status.getCode());
                 if (Code.OK != code) {
                     log.error("Failed to forward message to DLQ, would attempt to re-forward later, messageId={}, "
-                              + "attempt={}, mq={}, code={}, status message=[{}]", messageExt.getMsgId(), attempt, mq,
-                              code, status.getMessage());
+                              + "attempt={}, namespace={}, mq={}, code={}, status message=[{}]", messageExt.getMsgId(),
+                              attempt, namespace, mq, code, status.getMessage());
                     forwardToDeadLetterQueueLater(messageExt, 1 + attempt, future0);
                     return;
                 }
                 if (1 < attempt) {
-                    log.info("Re-forward message to DLQ successfully, attempt={}, messageId={}, mq={}", attempt,
-                             messageExt.getMsgId(), mq);
+                    log.info("Re-forward message to DLQ successfully, attempt={}, messageId={}, namespace={}, mq={}",
+                             attempt, messageExt.getMsgId(), namespace, mq);
                 }
                 future0.markAsDone();
             }
@@ -986,7 +1007,8 @@ public class ProcessQueueImpl implements ProcessQueue {
             @Override
             public void onFailure(Throwable t) {
                 log.error("Exception raised while forward message to DLQ, would attempt to re-forward later, "
-                          + "attempt={}, messageId={}, mq={}.", attempt, messageExt.getMsgId(), mq, t);
+                          + "attempt={}, messageId={}, namespace={}, mq={}", attempt, messageExt.getMsgId(),
+                          namespace, mq, t);
                 forwardToDeadLetterQueueLater(messageExt, 1 + attempt, future0);
             }
         });
@@ -995,8 +1017,8 @@ public class ProcessQueueImpl implements ProcessQueue {
     private void forwardToDeadLetterQueueLater(final MessageExt messageExt, final int attempt,
                                                final SimpleFuture future0) {
         if (dropped) {
-            log.info("Process queue was dropped, give up to forward message to DLQ, mq={}, messageId={}", mq,
-                     messageExt.getMsgId());
+            log.info("Process queue was dropped, give up to forward message to DLQ, namespace={}, mq={}, messageId={}",
+                     consumerImpl.getNamespace(), mq, messageExt.getMsgId());
             return;
         }
         final ScheduledExecutorService scheduler = consumerImpl.getScheduler();
@@ -1019,22 +1041,25 @@ public class ProcessQueueImpl implements ProcessQueue {
 
     public void ackMessage(final MessageExt messageExt) {
         final ListenableFuture<AckMessageResponse> future = consumerImpl.ackMessage(messageExt);
+        final String namespace = consumerImpl.getNamespace();
         Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
             @Override
             public void onSuccess(AckMessageResponse response) {
                 final Status status = response.getCommon().getStatus();
                 final Code code = Code.forNumber(status.getCode());
                 if (Code.OK != code) {
-                    log.error("Failed to ack message, messageId={}, mq={}, code={}, status message=[{}]",
-                              messageExt.getMsgId(), mq, code, status.getMessage());
+                    log.error("Failed to ack message, messageId={}, namespace={}, mq={}, code={}, status message=[{}]",
+                              messageExt.getMsgId(), namespace, mq, code, status.getMessage());
                     return;
                 }
-                log.trace("Ack message successfully, messageId={}, mq={}", messageExt.getMsgId(), mq);
+                log.trace("Ack message successfully, messageId={}, namespace={}, mq={}", messageExt.getMsgId(),
+                          namespace, mq);
             }
 
             @Override
             public void onFailure(Throwable t) {
-                log.error("Exception raised while ack message, messageId={}, mq={}", messageExt.getMsgId(), mq, t);
+                log.error("Exception raised while ack message, messageId={}, namespace={}, mq={}",
+                          messageExt.getMsgId(), namespace, mq, t);
             }
         });
     }

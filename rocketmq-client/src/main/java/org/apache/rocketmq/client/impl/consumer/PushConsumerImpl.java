@@ -529,13 +529,15 @@ public class PushConsumerImpl extends ConsumerImpl {
             }
 
             if (!latestMqs.contains(mq)) {
-                log.info("Drop message queue according to the latest assignments, mq={}, clientId={}", mq, id);
+                log.info("Drop message queue according to the latest assignments, namespace={}, mq={}, clientId={}",
+                         namespace, mq, id);
                 dropProcessQueue(mq);
                 continue;
             }
 
             if (pq.expired()) {
-                log.warn("Drop message queue because it is expired, mq={}, clientId={}", mq, id);
+                log.warn("Drop message queue because it is expired, namespace={}, mq={}, clientId={}", namespace, mq,
+                         id);
                 dropProcessQueue(mq);
                 continue;
             }
@@ -545,7 +547,7 @@ public class PushConsumerImpl extends ConsumerImpl {
         for (MessageQueue mq : latestMqs) {
             if (!activeMqs.contains(mq)) {
                 final ProcessQueue pq = getProcessQueue(mq, filterExpression);
-                log.info("Start to fetch message from remote, mq={}, clientId={}", mq, id);
+                log.info("Start to fetch message from remote, namespace={}, mq={}, clientId={}", namespace, mq, id);
                 pq.fetchMessageImmediately();
             }
         }
