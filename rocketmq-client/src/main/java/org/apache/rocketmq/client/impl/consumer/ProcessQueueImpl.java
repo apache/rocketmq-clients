@@ -178,11 +178,6 @@ public class ProcessQueueImpl implements ProcessQueue {
         fifoConsumptionOccupied.compareAndSet(true, false);
     }
 
-    private boolean ignoreOffsetRecords() {
-        final MessageModel messageModel = consumerImpl.getMessageModel();
-        return !MessageModel.BROADCASTING.equals(messageModel) || null == consumerImpl.getOffsetStore();
-    }
-
     @VisibleForTesting
     public void cacheMessages(List<MessageExt> messageExtList) {
         List<Long> offsetList = new ArrayList<Long>();
@@ -221,7 +216,7 @@ public class ProcessQueueImpl implements ProcessQueue {
             pendingMessagesLock.writeLock().unlock();
         }
 
-        if (ignoreOffsetRecords()) {
+        if (!consumerImpl.isOffsetRecorded()) {
             return;
         }
         nextOffsetRecord.add(offsetList);
@@ -414,7 +409,7 @@ public class ProcessQueueImpl implements ProcessQueue {
             inflightMessagesLock.writeLock().unlock();
         }
 
-        if (ignoreOffsetRecords()) {
+        if (!consumerImpl.isOffsetRecorded()) {
             return;
         }
         // maintain offset records
@@ -424,12 +419,7 @@ public class ProcessQueueImpl implements ProcessQueue {
             return;
         }
         final Long offset = optionalOffset.get();
-        try {
-            consumerImpl.getOffsetStore().updateOffset(mq, offset);
-        } catch (Throwable t) {
-            log.error("Exception raised while update offset, namespace={}, mq={}, offset={}",
-                      consumerImpl.getNamespace(), mq, offset);
-        }
+        consumerImpl.updateOffset(mq, offset);
     }
 
     /**
@@ -624,7 +614,7 @@ public class ProcessQueueImpl implements ProcessQueue {
      * policy.
      */
     private void pullMessageImmediately() {
-        if (null != consumerImpl.getOffsetStore()) {
+        if (consumerImpl.isOffsetRecorded()) {
             Optional<Long> optionalOffset;
             try {
                 optionalOffset = consumerImpl.readOffset(mq);
@@ -657,6 +647,9 @@ public class ProcessQueueImpl implements ProcessQueue {
             public void onSuccess(Long offset) {
                 log.info("Query offset successfully, namespace={}, mq={}, endpoints={}, offset={}",
                          consumerImpl.getNamespace(), mq, endpoints, offset);
+                if (consumerImpl.isOffsetRecorded()) {
+                    consumerImpl.updateOffset(mq, offset);
+                }
                 pullMessage(offset);
             }
 

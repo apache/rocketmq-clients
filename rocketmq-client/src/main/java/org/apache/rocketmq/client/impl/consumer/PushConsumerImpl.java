@@ -310,8 +310,20 @@ public class PushConsumerImpl extends ConsumerImpl {
         return Math.max(1, maxTotalCachedMessagesBytesThreshold / size);
     }
 
-    public Optional<Long> readOffset(MessageQueue mq) {
+    boolean isOffsetRecorded() {
+        return MessageModel.BROADCASTING.equals(messageModel) && null != offsetStore;
+    }
+
+    Optional<Long> readOffset(MessageQueue mq) {
         return offsetStore.readOffset(mq);
+    }
+
+    void updateOffset(MessageQueue mq, long offset) {
+        try {
+            offsetStore.updateOffset(mq, offset);
+        } catch (Throwable t) {
+            log.error("Exception raises while update offset, namespace={}, mq={}, offset={}", namespace, mq, offset);
+        }
     }
 
     private void promptAssignmentsScan() {
