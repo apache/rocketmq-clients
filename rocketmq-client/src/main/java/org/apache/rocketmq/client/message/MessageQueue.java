@@ -63,6 +63,13 @@ public class MessageQueue {
         return this.partition;
     }
 
+    /**
+     * Note: compare {@link #partition} only when it exists.
+     *
+     * @param o object to compare
+     * @return {@code true} if this object is the same as the obj
+     * argument; {@code false} otherwise.
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -72,12 +79,16 @@ public class MessageQueue {
             return false;
         }
         MessageQueue that = (MessageQueue) o;
+        if (null == partition || null == ((MessageQueue) o).getPartition()) {
+            return queueId == that.queueId && Objects.equal(topic, that.topic) &&
+                   Objects.equal(brokerName, that.brokerName);
+        }
         return queueId == that.queueId && Objects.equal(topic, that.topic) &&
                Objects.equal(brokerName, that.brokerName) && Objects.equal(partition, that.partition);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(topic, brokerName, queueId, partition);
+        return Objects.hashCode(topic, brokerName, queueId);
     }
 }
