@@ -419,7 +419,12 @@ public class ProcessQueueImpl implements ProcessQueue {
         if (!optionalOffset.isPresent()) {
             return;
         }
-        consumerImpl.getOffsetStore().updateOffset(mq, optionalOffset.get());
+        final Long offset = optionalOffset.get();
+        try {
+            consumerImpl.getOffsetStore().updateOffset(mq, offset);
+        } catch (Throwable t) {
+            log.error("Exception raised while update offset, mq={}, offset={}", mq, offset);
+        }
     }
 
     /**
