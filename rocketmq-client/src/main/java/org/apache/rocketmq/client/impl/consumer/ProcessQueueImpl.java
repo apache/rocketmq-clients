@@ -640,6 +640,8 @@ public class ProcessQueueImpl implements ProcessQueue {
             }
         }
         ListenableFuture<Long> future;
+        log.info("Offset not found, try to query offset from remote, namespace={}, mq={}",
+                 consumerImpl.getNamespace(), mq);
         try {
             future = queryOffset();
         } catch (Throwable t) {
