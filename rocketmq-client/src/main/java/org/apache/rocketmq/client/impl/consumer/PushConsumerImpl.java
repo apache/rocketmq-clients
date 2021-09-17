@@ -612,7 +612,7 @@ public class PushConsumerImpl extends ConsumerImpl {
                 SettableFuture<TopicAssignments> future0 = SettableFuture.create();
                 final Status status = response.getCommon().getStatus();
                 final Code code = Code.forNumber(status.getCode());
-                if (Code.OK != code) {
+                if (!Code.OK.equals(code)) {
                     final String statusMessage = status.getMessage();
                     log.error("Failed to query assignment, namespace={}, topic={}, clientId={}, code={}, status "
                               + "message=[{}]", namespace, topic, id, code, statusMessage);

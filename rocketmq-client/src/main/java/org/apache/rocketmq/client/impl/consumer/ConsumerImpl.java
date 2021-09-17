@@ -73,7 +73,7 @@ public abstract class ConsumerImpl extends ClientImpl {
                 public ListenableFuture<Long> apply(QueryOffsetResponse response) throws Exception {
                     final Status status = response.getCommon().getStatus();
                     final Code code = Code.forNumber(status.getCode());
-                    if (Code.OK != code) {
+                    if (!Code.OK.equals(code)) {
                         log.error("Failed to query offset, endpoints={}, code={}, status message=[{}]", endpoints, code,
                                   status.getMessage());
                         throw new ClientException(ErrorCode.SEEK_OFFSET_FAILURE, status.getMessage());

@@ -254,7 +254,7 @@ public class ProducerImpl extends ClientImpl {
                         final Status status = response.getCommon().getStatus();
                         final Code code = Code.forNumber(status.getCode());
                         // target endpoints is healthy, rejoin it.
-                        if (Code.OK == code) {
+                        if (Code.OK.equals(code)) {
                             isolatedEndpointsSetLock.writeLock().lock();
                             try {
                                 isolatedEndpointsSet.remove(endpoints);
@@ -559,7 +559,7 @@ public class ProducerImpl extends ClientImpl {
             final Status status = response.getCommon().getStatus();
             final Code code = Code.forNumber(status.getCode());
 
-            if (Code.OK != code) {
+            if (!Code.OK.equals(code)) {
                 log.error("Failed to end transaction, namespace={}, topic={}, messageId={}, transactionId={}, "
                           + "resolution={}, code={}, status message=[{}]", namespace, topic, messageId, transactionId,
                           resolution, code, status.getMessage());

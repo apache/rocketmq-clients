@@ -188,26 +188,27 @@ public class ProcessQueueImpl implements ProcessQueue {
         List<Long> offsetList = new ArrayList<Long>();
         final MessageListenerType listenerType = consumerImpl.getMessageListener().getListenerType();
         final MessageModel messageModel = consumerImpl.getMessageModel();
+        final String namespace = consumerImpl.getNamespace();
         pendingMessagesLock.writeLock().lock();
         try {
             for (MessageExt messageExt : messageExtList) {
                 if (MessageImplAccessor.getMessageImpl(messageExt).isCorrupted()) {
                     // ignore message in broadcasting mode.
                     if (MessageModel.BROADCASTING.equals(messageModel)) {
-                        log.error("Message is corrupted, ignore it in broadcasting mode, mq={}, messageId={}", mq,
-                                  messageExt.getMsgId());
+                        log.error("Message is corrupted, ignore it in broadcasting mode, namespace={}, mq={}, "
+                                  + "messageId={}", namespace, mq, messageExt.getMsgId());
                         continue;
                     }
                     // nack message for concurrent consumption.
                     if (MessageListenerType.CONCURRENTLY.equals(listenerType)) {
-                        log.error("Message is corrupted, nack it for concurrently consumption, mq={}, messageId={}",
-                                  mq, messageExt.getMsgId());
+                        log.error("Message is corrupted, nack it for concurrently consumption, namespace={}, mq={}, "
+                                  + "messageId={}", namespace, mq, messageExt.getMsgId());
                         consumerImpl.nackMessage(messageExt);
                     }
                     // forward to DLQ for fifo consumption.
                     if (MessageListenerType.ORDERLY.equals(listenerType)) {
-                        log.error("Message is corrupted, forward it to DLQ for fifo consumption, mq={}, messageId={}",
-                                  mq, messageExt.getMsgId());
+                        log.error("Message is corrupted, forward it to DLQ for fifo consumption, namespace={}, mq={}, "
+                                  + "messageId={}", namespace, mq, messageExt.getMsgId());
                         forwardToDeadLetterQueue(messageExt);
                     }
                     continue;
@@ -530,7 +531,7 @@ public class ProcessQueueImpl implements ProcessQueue {
             return;
         }
         if (this.isCacheFull()) {
-            log.warn("Process queue cache is full, would receive message later, namespace={}, mq={}.",
+            log.warn("Process queue cache is full, would receive message later, namespace={}, mq={}",
                      consumerImpl.getNamespace(), mq);
             receiveMessageLater();
             return;
@@ -927,7 +928,7 @@ public class ProcessQueueImpl implements ProcessQueue {
             public void onSuccess(AckMessageResponse response) {
                 final Status status = response.getCommon().getStatus();
                 final Code code = Code.forNumber(status.getCode());
-                if (Code.OK != code) {
+                if (!Code.OK.equals(code)) {
                     log.error("Failed to ack fifo message, would attempt to re-ack later, attempt={}, messageId={}, "
                               + "namespace={}, mq={}, code={}, endpoints={}, status message=[{}].", attempt,
                               messageExt.getMsgId(), namespace, mq, code, endpoints, status.getMessage());
@@ -992,7 +993,7 @@ public class ProcessQueueImpl implements ProcessQueue {
             public void onSuccess(ForwardMessageToDeadLetterQueueResponse response) {
                 final Status status = response.getCommon().getStatus();
                 final Code code = Code.forNumber(status.getCode());
-                if (Code.OK != code) {
+                if (!Code.OK.equals(code)) {
                     log.error("Failed to forward message to DLQ, would attempt to re-forward later, messageId={}, "
                               + "attempt={}, namespace={}, mq={}, code={}, status message=[{}]", messageExt.getMsgId(),
                               attempt, namespace, mq, code, status.getMessage());
@@ -1049,7 +1050,7 @@ public class ProcessQueueImpl implements ProcessQueue {
             public void onSuccess(AckMessageResponse response) {
                 final Status status = response.getCommon().getStatus();
                 final Code code = Code.forNumber(status.getCode());
-                if (Code.OK != code) {
+                if (!Code.OK.equals(code)) {
                     log.error("Failed to ack message, messageId={}, namespace={}, mq={}, code={}, status message=[{}]",
                               messageExt.getMsgId(), namespace, mq, code, status.getMessage());
                     return;

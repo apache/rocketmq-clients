@@ -565,7 +565,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                 public ListenableFuture<TopicRouteData> apply(QueryRouteResponse response) throws Exception {
                     final Status status = response.getCommon().getStatus();
                     final Code code = Code.forNumber(status.getCode());
-                    if (Code.OK != code) {
+                    if (!Code.OK.equals(code)) {
                         throw new ClientException(ErrorCode.TOPIC_NOT_FOUND, status.toString());
                     }
                     // TODO: consider to remove defensive programming here.
@@ -596,7 +596,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                 public void onSuccess(HeartbeatResponse response) {
                     final Status status = response.getCommon().getStatus();
                     final Code code = Code.forNumber(status.getCode());
-                    if (Code.OK != code) {
+                    if (!Code.OK.equals(code)) {
                         log.warn("Failed to send heartbeat, code={}, status message=[{}], endpoints={}", code,
                                  status.getMessage(), endpoints);
                         return;
