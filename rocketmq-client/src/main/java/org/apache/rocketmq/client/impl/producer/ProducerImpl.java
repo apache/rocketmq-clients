@@ -388,13 +388,14 @@ public class ProducerImpl extends ClientImpl {
         send(message, sendCallback, sendMessageTimeoutMillis);
     }
 
-    public void send(Message message, final SendCallback sendCallback, long timeoutMillis)
+    public void send(final Message message, final SendCallback sendCallback, long timeoutMillis)
             throws ClientException, InterruptedException {
         preconditionCheck(message);
         final ListenableFuture<SendResult> future = send0(message, maxAttempts);
         // limit the future timeout.
         Futures.withTimeout(future, timeoutMillis, TimeUnit.MILLISECONDS, this.getScheduler());
         final ExecutorService sendCallbackExecutor = getSendCallbackExecutor();
+        final String messageId = message.getMsgId();
         Futures.addCallback(future, new FutureCallback<SendResult>() {
             @Override
             public void onSuccess(final SendResult sendResult) {
@@ -405,12 +406,14 @@ public class ProducerImpl extends ClientImpl {
                             try {
                                 sendCallback.onSuccess(sendResult);
                             } catch (Throwable t) {
-                                log.error("Exception raised in SendCallback#onSuccess", t);
+                                log.error("Exception raised in SendCallback#onSuccess, namespace={}, messageId={}, "
+                                          + "clientId={}", namespace, messageId, id, t);
                             }
                         }
                     });
                 } catch (Throwable t) {
-                    log.error("Exception occurs while submitting task to send callback executor", t);
+                    log.error("Exception occurs while submitting task to send callback executor, namespace={}, "
+                              + "messageId={}, clientId={}", namespace, messageId, id, t);
                 }
             }
 
@@ -423,12 +426,14 @@ public class ProducerImpl extends ClientImpl {
                             try {
                                 sendCallback.onException(t);
                             } catch (Throwable t) {
-                                log.error("Exception occurs in SendCallback#onException", t);
+                                log.error("Exception occurs in SendCallback#onException, namespace={}, messageId={}, "
+                                          + "clientId={}", namespace, messageId, id, t);
                             }
                         }
                     });
                 } catch (Throwable t0) {
-                    log.error("Exception occurs while submitting task to send callback executor", t0);
+                    log.error("Exception occurs while submitting task to send callback executor, namespace={}, "
+                              + "messageId={}, clientId={}", namespace, messageId, id, t0);
                 }
             }
         });
