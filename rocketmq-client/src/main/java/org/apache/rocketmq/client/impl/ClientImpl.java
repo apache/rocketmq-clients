@@ -690,8 +690,8 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
 
                     @Override
                     public void onFailure(Throwable t) {
-                        Status status = Status.newBuilder().setCode(Code.ABORTED_VALUE).setMessage(t.getMessage())
-                                              .build();
+                        Status status = Status.newBuilder().setCode(Code.DEADLINE_EXCEEDED_VALUE)
+                                              .setMessage(t.getMessage()).build();
                         ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
                         final String mid = response.getVerifyMessageConsumptionRequest().getMid();
                         final VerifyMessageConsumptionResponse verifyResponse =
