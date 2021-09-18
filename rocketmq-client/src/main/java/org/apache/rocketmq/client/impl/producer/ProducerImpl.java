@@ -765,7 +765,7 @@ public class ProducerImpl extends ClientImpl {
                     // no need more attempts.
                     future.setException(t);
                     log.error("Failed to send message finally, run out of attempt times, maxAttempts={}, attempt={}, "
-                              + ", namespace={}, topic={}, messageId={}, endpoints={}", maxAttempts, attempt,
+                              + "namespace={}, topic={}, messageId={}, endpoints={}", maxAttempts, attempt,
                               namespace, topic, msgId, endpoints, t);
                     return;
                 }

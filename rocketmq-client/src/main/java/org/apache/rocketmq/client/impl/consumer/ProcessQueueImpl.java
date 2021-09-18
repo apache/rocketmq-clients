@@ -938,7 +938,7 @@ public class ProcessQueueImpl implements ProcessQueue {
             @Override
             public void onFailure(Throwable t) {
                 log.error("Exception raised while ack fifo message, would attempt to re-ack later, attempt={}, "
-                          + "messageId={}, namespace={}, mq={}, endpoints={}.", attempt, messageExt.getMsgId(),
+                          + "messageId={}, namespace={}, mq={}, endpoints={}", attempt, messageExt.getMsgId(),
                           namespace, mq, endpoints, t);
                 ackFifoMessageLater(messageExt, 1 + attempt, future0);
             }

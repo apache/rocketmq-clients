@@ -744,20 +744,20 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                     } catch (Throwable t) {
                         // should never reach here.
                         log.error("[Bug] Exception raised while handling multiplexing response, would call later, "
-                                  + "endpoints={}.", endpoints, t);
+                                  + "endpoints={}", endpoints, t);
                         multiplexingCallLater(endpoints, request);
                     }
                 }
 
                 @Override
                 public void onFailure(Throwable t) {
-                    log.error("Exception raised while multiplexing call, would call later, endpoints={}.", endpoints,
+                    log.error("Exception raised while multiplexing call, would call later, endpoints={}", endpoints,
                               t);
                     multiplexingCallLater(endpoints, request);
                 }
             });
         } catch (Throwable t) {
-            log.error("Exception raised while multiplexing call, would call later, endpoints={}.", endpoints, t);
+            log.error("Exception raised while multiplexing call, would call later, endpoints={}", endpoints, t);
             multiplexingCallLater(endpoints, request);
         }
     }
