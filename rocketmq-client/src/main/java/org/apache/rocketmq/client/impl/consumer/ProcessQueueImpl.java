@@ -923,7 +923,7 @@ public class ProcessQueueImpl implements ProcessQueue {
                 final Code code = Code.forNumber(status.getCode());
                 if (!Code.OK.equals(code)) {
                     log.error("Failed to ack fifo message, would attempt to re-ack later, attempt={}, messageId={}, "
-                              + "namespace={}, mq={}, code={}, endpoints={}, status message=[{}].", attempt,
+                              + "namespace={}, mq={}, code={}, endpoints={}, status message=[{}]", attempt,
                               messageExt.getMsgId(), namespace, mq, code, endpoints, status.getMessage());
                     ackFifoMessageLater(messageExt, 1 + attempt, future0);
                     return;
