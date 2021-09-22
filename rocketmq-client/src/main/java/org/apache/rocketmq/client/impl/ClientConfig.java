@@ -82,7 +82,7 @@ public class ClientConfig {
     /**
      * Define the provider of {@link Credentials}, refer to implement of {@link Credentials} for more detail.
      */
-    private CredentialsProvider credentialsProvider = null;
+    private volatile CredentialsProvider credentialsProvider = null;
 
     public ClientConfig(String group) throws ClientException {
         Validators.checkGroup(group);
