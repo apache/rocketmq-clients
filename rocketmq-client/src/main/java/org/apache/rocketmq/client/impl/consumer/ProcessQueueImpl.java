@@ -507,7 +507,7 @@ public class ProcessQueueImpl implements ProcessQueue {
             case OUT_OF_RANGE:
             case INTERNAL:
             default:
-                log.error("Pull message with status={}, namespace={}, mq={}, messages found status={}", pullStatus,
+                log.error("Pull message with status={}, namespace={}, mq={}, messages found count={}", pullStatus,
                           consumerImpl.getNamespace(), mq, messagesFound.size());
                 pullMessageLater(result.getNextBeginOffset());
         }
