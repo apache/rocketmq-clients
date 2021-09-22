@@ -24,6 +24,15 @@ import io.opentelemetry.api.common.AttributeKey;
 
 public class ResourceAttributes {
     /**
+     * Logical name of the service.
+     *
+     * <p>Note: MUST be the same for all instances of horizontally scaled services. If the value was
+     * not specified, SDKs MUST fall back to `unknown_service:` concatenated with
+     * [`process.executable.name`](process.md#process), e.g. `unknown_service:bash`. If
+     * `process.executable.name` is not available, the value MUST be set to `unknown_service`.
+     */
+    public static final AttributeKey<String> SERVICE_NAME = stringKey("service.name");
+    /**
      * Name of the host. On Unix systems, it may contain what the hostname command returns, or the
      * fully qualified hostname, or another name specified by the user.
      */

@@ -535,10 +535,6 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
         }
     }
 
-    public String getId() {
-        return this.id;
-    }
-
     @Override
     public ScheduledExecutorService getScheduler() {
         return this.scheduler;

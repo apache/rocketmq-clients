@@ -31,6 +31,8 @@ public abstract class Client extends ClientConfig {
         super(group);
     }
 
+    public abstract String getId();
+
     /**
      * Send heart beat to remote {@link Endpoints}.
      */

@@ -30,6 +30,7 @@ import org.apache.rocketmq.utility.UtilAll;
  * Factory of a {@link Resource} which provides information about the related info.
  */
 public class TraceResource {
+    private static final String SERVICE_NAME = "rocketmq-client";
     private static final Resource INSTANCE = buildResource();
 
     private TraceResource() {
@@ -47,11 +48,13 @@ public class TraceResource {
     static Resource buildResource() {
         AttributesBuilder attributesBuilder = Attributes.builder();
         final Attributes defaultAttributes = Resource.getDefault().getAttributes();
+        attributesBuilder.putAll(defaultAttributes);
 
+        attributesBuilder.put(ResourceAttributes.SERVICE_NAME, SERVICE_NAME);
         attributesBuilder.put(ResourceAttributes.HOST_NAME, UtilAll.hostName());
+
         final Attributes osAttributes = buildOsAttributes();
         final Attributes processAttributes = buildProcessAttributes();
-        attributesBuilder.putAll(defaultAttributes);
         attributesBuilder.putAll(osAttributes);
         attributesBuilder.putAll(processAttributes);
         return Resource.create(attributesBuilder.build());

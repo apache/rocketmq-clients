@@ -170,6 +170,11 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
      */
     public abstract void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData);
 
+    @Override
+    public String getId() {
+        return id;
+    }
+
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean isRunning() {
         return clientService.isRunning();

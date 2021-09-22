@@ -49,6 +49,11 @@ public class ClientManagerFactoryTest extends TestBase {
             }
 
             @Override
+            public String getId() {
+                return "client0";
+            }
+
+            @Override
             public void doHeartbeat() {
             }
 
@@ -64,6 +69,11 @@ public class ClientManagerFactoryTest extends TestBase {
             @Override
             public String id() {
                 return clientId1;
+            }
+
+            @Override
+            public String getId() {
+                return "client1";
             }
 
             @Override
