@@ -272,6 +272,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
         if (null != updateRouteCacheFuture) {
             updateRouteCacheFuture.cancel(false);
         }
+        messageTracer.shutdown();
         ClientManagerFactory.getInstance().unregisterClient(namespace, this);
         log.info("Shutdown the rocketmq client successfully, clientId={}", id);
     }
