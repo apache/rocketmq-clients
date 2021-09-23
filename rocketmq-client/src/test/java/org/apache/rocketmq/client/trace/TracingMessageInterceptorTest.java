@@ -114,7 +114,7 @@ public class TracingMessageInterceptorTest extends TestBase {
 
         verify(spanBuilder, never()).setParent(ArgumentMatchers.<Context>any());
         verify(spanBuilder, times(1)).startSpan();
-        verify(span, times(1)).end();
+        verify(span, times(1)).end(anyLong(), ArgumentMatchers.<TimeUnit>any());
         verify(span, times(1)).setStatus(ArgumentMatchers.<StatusCode>any());
         ArgumentCaptor<SpanKind> spanKindArgumentCaptor = ArgumentCaptor.forClass(SpanKind.class);
         verify(spanBuilder, times(1)).setSpanKind(spanKindArgumentCaptor.capture());
@@ -127,7 +127,7 @@ public class TracingMessageInterceptorTest extends TestBase {
 
         verify(spanBuilder, times(1)).setParent(ArgumentMatchers.<Context>any());
         verify(spanBuilder, times(2)).startSpan();
-        verify(span, times(2)).end();
+        verify(span, times(2)).end(anyLong(), ArgumentMatchers.<TimeUnit>any());
         verify(span, times(2)).setStatus(ArgumentMatchers.<StatusCode>any());
         verify(spanBuilder, times(2)).setSpanKind(spanKindArgumentCaptor.capture());
         assertEquals(spanKindArgumentCaptor.getValue(), SpanKind.PRODUCER);
@@ -141,7 +141,7 @@ public class TracingMessageInterceptorTest extends TestBase {
 
         verify(spanBuilder, never()).setParent(ArgumentMatchers.<Context>any());
         verify(spanBuilder, times(1)).startSpan();
-        verify(span, times(1)).end();
+        verify(span, times(1)).end(anyLong(), ArgumentMatchers.<TimeUnit>any());
         verify(span, times(1)).setStatus(ArgumentMatchers.<StatusCode>any());
         ArgumentCaptor<SpanKind> spanKindArgumentCaptor = ArgumentCaptor.forClass(SpanKind.class);
         verify(spanBuilder, times(1)).setSpanKind(spanKindArgumentCaptor.capture());
@@ -154,7 +154,7 @@ public class TracingMessageInterceptorTest extends TestBase {
 
         verify(spanBuilder, times(1)).setParent(ArgumentMatchers.<Context>any());
         verify(spanBuilder, times(2)).startSpan();
-        verify(span, times(2)).end();
+        verify(span, times(2)).end(anyLong(), ArgumentMatchers.<TimeUnit>any());
         verify(span, times(2)).setStatus(ArgumentMatchers.<StatusCode>any());
         verify(spanBuilder, times(2)).setSpanKind(spanKindArgumentCaptor.capture());
         assertEquals(spanKindArgumentCaptor.getValue(), SpanKind.PRODUCER);
@@ -252,7 +252,7 @@ public class TracingMessageInterceptorTest extends TestBase {
         verify(spanBuilder, times(1)).setSpanKind(spanKindArgumentCaptor.capture());
         assertEquals(spanKindArgumentCaptor.getValue(), SpanKind.CONSUMER);
         verify(span, times(1)).setStatus(ArgumentMatchers.<StatusCode>any());
-        verify(span, times(1)).end();
+        verify(span, times(1)).end(anyLong(), ArgumentMatchers.<TimeUnit>any());
 
         final MessageImpl messageImpl = MessageImplAccessor.getMessageImpl(fakeMessageExt);
         messageImpl.getSystemAttribute().setTraceContext(TracingUtilityTest.FAKE_SERIALIZED_SPAN_CONTEXT);
@@ -261,7 +261,7 @@ public class TracingMessageInterceptorTest extends TestBase {
         verify(spanBuilder, times(2)).setSpanKind(spanKindArgumentCaptor.capture());
         assertEquals(spanKindArgumentCaptor.getValue(), SpanKind.CONSUMER);
         verify(span, times(2)).setStatus(ArgumentMatchers.<StatusCode>any());
-        verify(span, times(2)).end();
+        verify(span, times(2)).end(anyLong(), ArgumentMatchers.<TimeUnit>any());
     }
 
     @Test
@@ -274,7 +274,7 @@ public class TracingMessageInterceptorTest extends TestBase {
         verify(spanBuilder, times(1)).setSpanKind(spanKindArgumentCaptor.capture());
         assertEquals(spanKindArgumentCaptor.getValue(), SpanKind.CONSUMER);
         verify(span, times(1)).setStatus(ArgumentMatchers.<StatusCode>any());
-        verify(span, times(1)).end();
+        verify(span, times(1)).end(anyLong(), ArgumentMatchers.<TimeUnit>any());
 
         final MessageImpl messageImpl = MessageImplAccessor.getMessageImpl(fakeMessageExt);
         messageImpl.getSystemAttribute().setTraceContext(TracingUtilityTest.FAKE_SERIALIZED_SPAN_CONTEXT);
@@ -283,7 +283,7 @@ public class TracingMessageInterceptorTest extends TestBase {
         verify(spanBuilder, times(2)).setSpanKind(spanKindArgumentCaptor.capture());
         assertEquals(spanKindArgumentCaptor.getValue(), SpanKind.CONSUMER);
         verify(span, times(2)).setStatus(ArgumentMatchers.<StatusCode>any());
-        verify(span, times(2)).end();
+        verify(span, times(2)).end(anyLong(), ArgumentMatchers.<TimeUnit>any());
     }
 
     @Test
@@ -296,7 +296,7 @@ public class TracingMessageInterceptorTest extends TestBase {
         verify(spanBuilder, times(1)).setSpanKind(spanKindArgumentCaptor.capture());
         assertEquals(spanKindArgumentCaptor.getValue(), SpanKind.CONSUMER);
         verify(span, times(1)).setStatus(ArgumentMatchers.<StatusCode>any());
-        verify(span, times(1)).end();
+        verify(span, times(1)).end(anyLong(), ArgumentMatchers.<TimeUnit>any());
 
         final MessageImpl messageImpl = MessageImplAccessor.getMessageImpl(fakeMessageExt);
         messageImpl.getSystemAttribute().setTraceContext(TracingUtilityTest.FAKE_SERIALIZED_SPAN_CONTEXT);
@@ -305,6 +305,6 @@ public class TracingMessageInterceptorTest extends TestBase {
         verify(spanBuilder, times(2)).setSpanKind(spanKindArgumentCaptor.capture());
         assertEquals(spanKindArgumentCaptor.getValue(), SpanKind.CONSUMER);
         verify(span, times(2)).setStatus(ArgumentMatchers.<StatusCode>any());
-        verify(span, times(2)).end();
+        verify(span, times(2)).end(anyLong(), ArgumentMatchers.<TimeUnit>any());
     }
 }

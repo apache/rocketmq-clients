@@ -140,7 +140,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
     }
 
     private void interceptPostCommitMessage(Tracer tracer, MessageExt messageExt, MessageInterceptorContext context) {
-        final long endNanoTime = TraceClock.getInstance().nanoTime();
+        final long endNanoTime = TimeUnit.MILLISECONDS.toNanos(System.currentTimeMillis());
         long startNanoTime = endNanoTime - context.getTimeUnit().toNanos(context.getDuration());
         final String commitSpanName = getSpanName(context.getTopic(), RocketmqOperation.COMMIT);
         final SpanBuilder commitSpanBuilder = tracer.spanBuilder(commitSpanName)
@@ -157,11 +157,11 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         addMessageUniversalAttributes(commitSpan, messageExt);
         final StatusCode statusCode = TracingUtility.convertToTraceStatus(context.getStatus());
         commitSpan.setStatus(statusCode);
-        commitSpan.end();
+        commitSpan.end(endNanoTime, TimeUnit.NANOSECONDS);
     }
 
     private void interceptPostRollbackMessage(Tracer tracer, MessageExt messageExt, MessageInterceptorContext context) {
-        final long endNanoTime = TraceClock.getInstance().nanoTime();
+        final long endNanoTime = TimeUnit.MILLISECONDS.toNanos(System.currentTimeMillis());
         long startNanoTime = endNanoTime - context.getTimeUnit().toNanos(context.getDuration());
         final String rollbackSpanName = getSpanName(context.getTopic(), RocketmqOperation.ROLLBACK);
         final SpanBuilder rollbackSpanBuilder = tracer.spanBuilder(rollbackSpanName)
@@ -178,11 +178,11 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         addMessageUniversalAttributes(rollbackSpan, messageExt);
         final StatusCode statusCode = TracingUtility.convertToTraceStatus(context.getStatus());
         rollbackSpan.setStatus(statusCode);
-        rollbackSpan.end();
+        rollbackSpan.end(endNanoTime, TimeUnit.NANOSECONDS);
     }
 
     private void interceptPostPull(Tracer tracer, MessageExt messageExt, MessageInterceptorContext context) {
-        final long endNanoTime = TraceClock.getInstance().nanoTime();
+        final long endNanoTime = TimeUnit.MILLISECONDS.toNanos(System.currentTimeMillis());
         long startNanoTime = endNanoTime - context.getTimeUnit().toNanos(context.getDuration());
         final String pullSpanName = getSpanName(context.getTopic(), RocketmqOperation.PULL);
         final SpanBuilder pullSpanBuilder = tracer.spanBuilder(pullSpanName)
@@ -215,7 +215,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
     }
 
     private void interceptPostReceive(Tracer tracer, MessageExt messageExt, MessageInterceptorContext context) {
-        final long endNanoTime = TraceClock.getInstance().nanoTime();
+        final long endNanoTime = TimeUnit.MILLISECONDS.toNanos(System.currentTimeMillis());
         long startNanoTime = endNanoTime - context.getTimeUnit().toNanos(context.getDuration());
         final String receiveSpanName = getSpanName(context.getTopic(), RocketmqOperation.RECEIVE);
         final SpanBuilder receiveSpanBuilder = tracer.spanBuilder(receiveSpanName)
@@ -287,7 +287,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
     }
 
     private void interceptPostAckMessage(Tracer tracer, MessageExt messageExt, MessageInterceptorContext context) {
-        final long endNanoTime = TraceClock.getInstance().nanoTime();
+        final long endNanoTime = TimeUnit.MILLISECONDS.toNanos(System.currentTimeMillis());
         long startNanoTime = endNanoTime - context.getTimeUnit().toNanos(context.getDuration());
         final String ackSpanName = getSpanName(messageExt.getTopic(), RocketmqOperation.ACK);
         final SpanBuilder ackSpanBuilder = tracer.spanBuilder(ackSpanName)
@@ -305,12 +305,12 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         addMessageUniversalAttributes(ackSpan, messageExt);
         final StatusCode statusCode = TracingUtility.convertToTraceStatus(context.getStatus());
         ackSpan.setStatus(statusCode);
-        ackSpan.end();
+        ackSpan.end(endNanoTime, TimeUnit.NANOSECONDS);
     }
 
     private void interceptPostNackMessage(Tracer tracer, MessageExt messageExt,
                                           MessageInterceptorContext context) {
-        final long endNanoTime = TraceClock.getInstance().nanoTime();
+        final long endNanoTime = TimeUnit.MILLISECONDS.toNanos(System.currentTimeMillis());
         long startNanoTime = endNanoTime - context.getTimeUnit().toNanos(context.getDuration());
         final String nackSpanName = getSpanName(messageExt.getTopic(), RocketmqOperation.NACK);
         final SpanBuilder nackSpanBuilder = tracer.spanBuilder(nackSpanName)
@@ -328,12 +328,12 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         addMessageUniversalAttributes(nackSpan, messageExt);
         final StatusCode statusCode = TracingUtility.convertToTraceStatus(context.getStatus());
         nackSpan.setStatus(statusCode);
-        nackSpan.end();
+        nackSpan.end(endNanoTime, TimeUnit.NANOSECONDS);
     }
 
     private void interceptPostForwardMessageToDLQ(Tracer tracer, MessageExt messageExt,
                                                   MessageInterceptorContext context) {
-        final long endNanoTime = TraceClock.getInstance().nanoTime();
+        final long endNanoTime = TimeUnit.MILLISECONDS.toNanos(System.currentTimeMillis());
         long startNanoTime = endNanoTime - context.getTimeUnit().toNanos(context.getDuration());
         final String dlqSpanName = getSpanName(messageExt.getTopic(), RocketmqOperation.DLQ);
         final SpanBuilder dlqSpanBuilder = tracer.spanBuilder(dlqSpanName)
@@ -351,7 +351,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         addMessageUniversalAttributes(dlqSpan, messageExt);
         final StatusCode statusCode = TracingUtility.convertToTraceStatus(context.getStatus());
         dlqSpan.setStatus(statusCode);
-        dlqSpan.end();
+        dlqSpan.end(endNanoTime, TimeUnit.NANOSECONDS);
     }
 
     @Override
