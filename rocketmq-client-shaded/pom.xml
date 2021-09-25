@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>rocketmq-java</artifactId>
+        <groupId>org.apache.rocketmq</groupId>
+        <version>5.0.0-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>rocketmq-thin-client-shaded</artifactId>
+
+    <properties>
+        <maven.compiler.release>6</maven.compiler.release>
+        <project.root>${basedir}/..</project.root>
+        <!-- rename dynamic link library for shade -->
+        <classesShadedDir>${project.build.directory}/classes-shaded</classesShadedDir>
+        <classesShadedNativeDir>${classesShadedDir}/META-INF/native</classesShadedNativeDir>
+        <shadingNettyNativePrefix>org_apache_rocketmq_shaded</shadingNettyNativePrefix>
+        <shadeJarName>${project.build.finalName}.${project.packaging}</shadeJarName>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>rocketmq-thin-client</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>${maven-shade-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <minimizeJar>false</minimizeJar>
+                            <createSourcesJar>true</createSourcesJar>
+                            <shadeSourcesContent>true</shadeSourcesContent>
+                            <transformers>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer"/>
+                            </transformers>
+                            <filters>
+                                <!-- <filter>
+                                    <artifact>com.google.protobuf:protobuf-java</artifact>
+                                    <excludes>
+                                        <exclude>google/**/*.proto</exclude>
+                                    </excludes>
+                                </filter> -->
+                                <!-- <filter>
+                                   <artifact>com.google.api.grpc:proto-google-common-protos</artifact>
+                                   <excludes>
+                                       <exclude>google/**/*.proto</exclude>
+                                   </excludes>
+                               </filter> -->
+                                <!-- <filter>
+                                    <artifact>io.opentelemetry:opentelemetry-proto</artifact>
+                                    <excludes>
+                                        <exclude>opentelemetry/proto/**/*.proto</exclude>
+                                    </excludes>
+                                </filter> -->
+                                <filter>
+                                    <artifact>org.apache.rocketmq:rocketmq-protobuf</artifact>
+                                    <excludes>
+                                        <exclude>google/**/*.proto</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.apache.rocketmq:rocketmq-grpc</artifact>
+                                    <excludes>
+                                        <exclude>google/**/*.proto</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.apache.rocketmq:rocketmq-opentelemetry</artifact>
+                                    <excludes>
+                                        <exclude>opentelemetry/proto/**/*.proto</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.apache.rocketmq:rocketmq-proto</artifact>
+                                    <excludes>
+                                        <exclude>proto/**/*.proto</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.slf4j</pattern>
+                                    <shadedPattern>org.apache.rocketmq.shaded.org.slf4j</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.grpc.netty.shaded.io.grpc</pattern>
+                                    <shadedPattern>org.apache.rocketmq.shaded.grpc</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.grpc</pattern>
+                                    <shadedPattern>org.apache.rocketmq.shaded.io.grpc</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.opentelemetry</pattern>
+                                    <shadedPattern>org.apache.rocketmq.shaded.io.opentelemetry</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.google</pattern>
+                                    <shadedPattern>org.apache.rocketmq.shaded.com.google</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.commons</pattern>
+                                    <shadedPattern>org.apache.rocketmq.shaded.commons</shadedPattern>
+                                </relocation>
+                            </relocations>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>${maven-antrun-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <unzip dest="${classesShadedDir}">
+                                    <fileset dir="${project.build.directory}">
+                                        <include name="${shadeJarName}"/>
+                                    </fileset>
+                                </unzip>
+                                <move file="${classesShadedNativeDir}/io_grpc_netty_shaded_netty_tcnative_windows_x86_64.dll"
+                                      tofile="${classesShadedNativeDir}/${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_windows_x86_64.dll"/>
+
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_tcnative_linux_aarch64.so"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_linux_aarch64.so"/>
+
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_tcnative_linux_x86_64.so"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_linux_x86_64.so"/>
+
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_tcnative_osx_x86_64.jnilib"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_osx_x86_64.jnilib"/>
+
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_transport_native_epoll_x86_64.so"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_transport_native_epoll_x86_64.so"/>
+
+                                <jar destfile="${project.build.directory}/${shadeJarName}"
+                                     basedir="${classesShadedDir}"/>
+                                <!-- <delete dir="${classesShadedDir}"/> -->
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

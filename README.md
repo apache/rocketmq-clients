@@ -7,8 +7,7 @@ Add dependency to your `pom.xml`, and replace the `${rocketmq.version}` by the l
 ```xml
 <dependency>
     <groupId>org.apache.rocketmq</groupId>
-    <artifactId>rocketmq-thin-client</artifactId>
-    <classifier>shade</classifier>
+    <artifactId>rocketmq-thin-client-shaded</artifactId>
     <version>${rocketmq.version}</version>
 </dependency>
 ```
