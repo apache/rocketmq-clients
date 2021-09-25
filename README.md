@@ -55,8 +55,11 @@ could be referred below:
 * [Customized Protocol Buffer](http://gitlab.alibaba-inc.com/rocketmq-client/protobuf)
 * [Customized openTelemetry](http://gitlab.alibaba-inc.com/rocketmq-client/opentelemetry-java)
 
-We have deployed all customized third-party jars to inner maven repository of Alibaba group, so you can compile the
-project by executing the script below:
+We have shaded and deployed all customized third-party jars to inner maven repository of Alibaba group, refer to:
+
+* [Rocketmq deps](http://gitlab.alibaba-inc.com/rocketmq-client/rocketmq-java-deps)
+
+Now you can compile the project by executing the script below:
 
 ```bash
 mvn clean package
