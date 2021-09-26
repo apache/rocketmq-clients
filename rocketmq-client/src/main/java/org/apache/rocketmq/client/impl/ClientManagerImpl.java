@@ -82,8 +82,7 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
     public static final long HEALTH_CHECK_PERIOD_SECONDS = 15;
     public static final long IDLE_RPC_CLIENT_PERIOD_SECONDS = 60;
     public static final long HEART_BEAT_PERIOD_SECONDS = 10;
-    // TODO: adjust stats frequency.
-    public static final long LOG_STATS_PERIOD_SECONDS = 1;
+    public static final long LOG_STATS_PERIOD_SECONDS = 60;
 
     private static final Logger log = LoggerFactory.getLogger(ClientManagerImpl.class);
 
