@@ -17,7 +17,7 @@
 
 package org.apache.rocketmq.client.message;
 
-
+import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import java.util.Map;
@@ -45,11 +45,8 @@ public class MessageExt {
     }
 
     public String getKeys() {
-        StringBuilder keys = new StringBuilder();
-        for (String key : this.impl.getSystemAttribute().getKeyList()) {
-            keys.append(key).append(MixAll.MESSAGE_KEY_SEPARATOR);
-        }
-        return keys.toString().trim();
+        Joiner joiner = Joiner.on(MixAll.MESSAGE_KEY_SEPARATOR);
+        return joiner.join(this.impl.getSystemAttribute().getKeyList());
     }
 
     public int getDelayTimeLevel() {
