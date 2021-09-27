@@ -67,7 +67,7 @@ import org.apache.rocketmq.client.route.Endpoints;
  */
 public class RpcClientImpl implements RpcClient {
     private static final long KEEP_ALIVE_TIME_SECONDS = 30;
-    private static final int GRPC_MAX_MESSAGE_SIZE = 1024 * 1024 * 8;
+    private static final int GRPC_MAX_MESSAGE_SIZE = Integer.MAX_VALUE;
 
     private final ManagedChannel channel;
     private final MessagingServiceGrpc.MessagingServiceFutureStub stub;
