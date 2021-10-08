@@ -22,18 +22,10 @@ import java.io.IOException;
 public class ServerException extends IOException {
 
     public ServerException(ErrorCode errorCode) {
-        super("ErrorCode: " + errorCode);
+        super("error code: " + errorCode);
     }
 
     public ServerException(ErrorCode errorCode, String errorMessage) {
-        super("ErrorCode: " + errorCode + ", " + errorMessage);
-    }
-
-    public ServerException(ErrorCode errorCode, String errorMessage, Throwable cause) {
-        super("ErrorCode: " + errorCode + ", " + errorMessage, cause);
-    }
-
-    public ServerException(ErrorCode errorCode, Throwable cause) {
-        super("ErrorCode: " + errorCode, cause);
+        super("error code: " + errorCode + ", " + errorMessage);
     }
 }

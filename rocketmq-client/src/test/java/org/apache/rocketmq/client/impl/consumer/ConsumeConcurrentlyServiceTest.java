@@ -52,17 +52,16 @@ public class ConsumeConcurrentlyServiceTest extends TestBase {
 
     private final ThreadPoolExecutor consumptionExecutor = SINGLE_THREAD_POOL_EXECUTOR;
     private final ScheduledExecutorService scheduler = SCHEDULER;
-    private ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable;
     private ConsumeService consumeService;
-    private int batchSize;
 
     @BeforeMethod
     @SuppressWarnings("UnstableApiUsage")
     public void beforeMethod() {
         MockitoAnnotations.initMocks(this);
 
-        processQueueTable = new ConcurrentHashMap<MessageQueue, ProcessQueue>();
-        batchSize = 1;
+        ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable = new ConcurrentHashMap<MessageQueue,
+                ProcessQueue>();
+        int batchSize = 1;
         consumeService = new ConsumeConcurrentlyService(messageListener, messageInterceptor, consumptionExecutor,
                                                         scheduler, processQueueTable, batchSize);
         consumeService.startAsync().awaitRunning();

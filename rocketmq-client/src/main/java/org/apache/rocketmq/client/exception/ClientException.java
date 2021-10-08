@@ -21,22 +21,22 @@ public class ClientException extends Exception {
     private final ErrorCode errorCode;
 
     public ClientException(ErrorCode errorCode) {
-        super("ErrorCode: " + errorCode);
+        super("error code: " + errorCode);
         this.errorCode = errorCode;
     }
 
     public ClientException(ErrorCode errorCode, String errorMessage) {
-        super("ErrorCode: " + errorCode + ", " + errorMessage);
+        super("error code: " + errorCode + ", " + errorMessage);
         this.errorCode = errorCode;
     }
 
     public ClientException(ErrorCode errorCode, String errorMessage, Throwable cause) {
-        super("ErrorCode: " + errorCode + ", " + errorMessage, cause);
+        super("error code: " + errorCode + ", " + errorMessage, cause);
         this.errorCode = errorCode;
     }
 
     public ClientException(ErrorCode errorCode, Throwable cause) {
-        super("ErrorCode: " + errorCode, cause);
+        super("error code: " + errorCode, cause);
         this.errorCode = errorCode;
     }
 

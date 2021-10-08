@@ -35,20 +35,20 @@ import org.apache.rocketmq.utility.RequestIdGenerator;
 public class Signature {
     public static final String TENANT_ID_KEY = "x-mq-tenant-id";
     public static final String NAMESPACE_KEY = "x-mq-namespace";
-    public static final String AUTHORIZATION = "authorization";
+    public static final String AUTHORIZATION_KEY = "authorization";
     public static final String DATE_TIME_KEY = "x-mq-date-time";
 
-    public static final String SESSION_TOKEN = "x-mq-session-token";
+    public static final String SESSION_TOKEN_KEY = "x-mq-session-token";
 
     public static final String REQUEST_ID_KEY = "x-mq-request-id";
-    public static final String MQ_LANGUAGE = "x-mq-language";
-    public static final String SDK_VERSION = "x-mq-client-version";
-    public static final String SDK_PROTOCOL_VERSION = "x-mq-protocol";
+    public static final String LANGUAGE_KEY = "x-mq-language";
+    public static final String CLIENT_VERSION_KEY = "x-mq-client-version";
+    public static final String PROTOCOL_VERSION = "x-mq-protocol";
 
-    public static final String ALGORITHM_KEY = "MQv2-HMAC-SHA1";
-    public static final String CREDENTIAL_KEY = "Credential";
-    public static final String SIGNED_HEADERS_KEY = "SignedHeaders";
-    public static final String SIGNATURE_KEY = "Signature";
+    public static final String ALGORITHM = "MQv2-HMAC-SHA1";
+    public static final String CREDENTIAL = "Credential";
+    public static final String SIGNED_HEADERS = "SignedHeaders";
+    public static final String SIGNATURE = "Signature";
     public static final String DATE_TIME_FORMAT = "yyyyMMdd'T'HHmmss'Z'";
 
     private Signature() {
@@ -63,10 +63,10 @@ public class Signature {
             metadata.put(Metadata.Key.of(TENANT_ID_KEY, Metadata.ASCII_STRING_MARSHALLER), tenantId);
         }
 
-        metadata.put(Metadata.Key.of(MQ_LANGUAGE, Metadata.ASCII_STRING_MARSHALLER), "JAVA");
-        metadata.put(Metadata.Key.of(SDK_PROTOCOL_VERSION, Metadata.ASCII_STRING_MARSHALLER),
+        metadata.put(Metadata.Key.of(LANGUAGE_KEY, Metadata.ASCII_STRING_MARSHALLER), "JAVA");
+        metadata.put(Metadata.Key.of(PROTOCOL_VERSION, Metadata.ASCII_STRING_MARSHALLER),
                      MixAll.getProtocolVersion());
-        metadata.put(Metadata.Key.of(SDK_VERSION, Metadata.ASCII_STRING_MARSHALLER), MetadataUtils.getVersion());
+        metadata.put(Metadata.Key.of(CLIENT_VERSION_KEY, Metadata.ASCII_STRING_MARSHALLER), MetadataUtils.getVersion());
 
         final String namespace = config.getNamespace();
         if (StringUtils.isNotBlank(namespace)) {
@@ -90,7 +90,7 @@ public class Signature {
 
         final String securityToken = credentials.getSecurityToken();
         if (StringUtils.isNotBlank(securityToken)) {
-            metadata.put(Metadata.Key.of(SESSION_TOKEN, Metadata.ASCII_STRING_MARSHALLER), securityToken);
+            metadata.put(Metadata.Key.of(SESSION_TOKEN_KEY, Metadata.ASCII_STRING_MARSHALLER), securityToken);
         }
 
         final String accessKey = credentials.getAccessKey();
@@ -109,9 +109,9 @@ public class Signature {
 
         String sign = TlsHelper.sign(accessSecret, dateTime);
 
-        final String authorization = ALGORITHM_KEY
+        final String authorization = ALGORITHM
                                      + " "
-                                     + CREDENTIAL_KEY
+                                     + CREDENTIAL
                                      + "="
                                      + accessKey
                                      + "/"
@@ -119,15 +119,15 @@ public class Signature {
                                      + "/"
                                      + serviceName
                                      + ", "
-                                     + SIGNED_HEADERS_KEY
+                                     + SIGNED_HEADERS
                                      + "="
                                      + DATE_TIME_KEY
                                      + ", "
-                                     + SIGNATURE_KEY
+                                     + SIGNATURE
                                      + "="
                                      + sign;
 
-        metadata.put(Metadata.Key.of(AUTHORIZATION, Metadata.ASCII_STRING_MARSHALLER), authorization);
+        metadata.put(Metadata.Key.of(AUTHORIZATION_KEY, Metadata.ASCII_STRING_MARSHALLER), authorization);
         return metadata;
     }
 }

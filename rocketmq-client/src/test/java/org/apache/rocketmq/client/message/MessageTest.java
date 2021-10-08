@@ -18,6 +18,7 @@
 package org.apache.rocketmq.client.message;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 
 import java.util.ArrayList;
@@ -72,5 +73,11 @@ public class MessageTest extends TestBase {
         final String newMsgId = message.getMsgId();
         assertNotEquals(oldMsgId, newMsgId);
         assertEquals(message.getDelayTimeLevel(), 1);
+    }
+
+    @Test
+    public void testToString() {
+        final Message message = new Message(FAKE_TOPIC_0, FAKE_TAG_0, RandomUtils.nextBytes(1));
+        assertFalse(message.toString().isEmpty());
     }
 }
