@@ -89,10 +89,10 @@ import org.slf4j.LoggerFactory;
 @SuppressWarnings(value = {"UnstableApiUsage", "NullableProblems"})
 public class ProcessQueueImpl implements ProcessQueue {
     public static final long RECEIVE_LONG_POLLING_TIMEOUT_MILLIS = 30 * 1000L;
-    public static final long RECEIVE_LATER_DELAY_MILLIS = 3 * 1000L;
+    public static final long RECEIVE_LATER_DELAY_MILLIS = 1000L;
 
     public static final long PULL_LONG_POLLING_TIMEOUT_MILLIS = 30 * 1000L;
-    public static final long PULL_LATER_DELAY_MILLIS = 3 * 1000L;
+    public static final long PULL_LATER_DELAY_MILLIS = 1000L;
 
     public static final long MAX_IDLE_MILLIS = 2 * Math.max(RECEIVE_LONG_POLLING_TIMEOUT_MILLIS,
                                                             PULL_LONG_POLLING_TIMEOUT_MILLIS);
