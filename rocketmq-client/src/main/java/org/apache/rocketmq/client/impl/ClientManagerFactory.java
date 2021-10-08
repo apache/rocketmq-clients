@@ -52,7 +52,7 @@ public class ClientManagerFactory {
      * <p>Different client would share the same {@link ClientManager} if they have the same manager id.
      *
      * @param managerId client manager id.
-     * @param client    client.
+     * @param client    client to register.
      * @return the client manager which is started.
      */
     public ClientManager registerClient(String managerId, Client client) {
@@ -76,6 +76,8 @@ public class ClientManagerFactory {
      * Unregister {@link Client} to the appointed manager by message id, shutdown the manager if no client
      * registered in it.
      *
+     * @param managerId identification of client manager.
+     * @param client    client to unregister.
      * @return {@link ClientManager} is removed or not.
      */
     public boolean unregisterClient(String managerId, Client client) {

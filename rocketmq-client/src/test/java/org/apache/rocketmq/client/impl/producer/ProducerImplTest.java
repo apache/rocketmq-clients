@@ -18,6 +18,7 @@
 package org.apache.rocketmq.client.impl.producer;
 
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -34,6 +35,7 @@ import apache.rocketmq.v1.Permission;
 import apache.rocketmq.v1.QueryRouteRequest;
 import apache.rocketmq.v1.RecoverOrphanedTransactionRequest;
 import apache.rocketmq.v1.SendMessageRequest;
+import apache.rocketmq.v1.SendMessageResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.grpc.Metadata;
@@ -114,6 +116,65 @@ public class ProducerImplTest extends TestBase {
                                                     ArgumentMatchers.<TimeUnit>any());
         final SendMessageRequest request = requestCaptor.getValue();
         assertEquals(request.getMessage().getSystemAttribute().getMessageType(), MessageType.NORMAL);
+        assertEquals(sendResult.getSendStatus(), SendStatus.SEND_OK);
+    }
+
+    @Test
+    public void testSendFailure() {
+        final Message message = fakeMessage();
+        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), fakeTopicRouteData(Permission.READ_WRITE));
+        final RuntimeException exception = new RuntimeException();
+        SettableFuture<SendMessageResponse> future = SettableFuture.create();
+        future.setException(exception);
+        when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
+                                       ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
+                                       ArgumentMatchers.<TimeUnit>any()))
+                .thenReturn(future);
+        try {
+            producerImpl.send(message);
+        } catch (Throwable t) {
+            assertEquals(t.getCause(), exception);
+        }
+        ArgumentCaptor<SendMessageRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageRequest.class);
+        verify(clientManager, atLeast(1)).sendMessage(ArgumentMatchers.<Endpoints>any(),
+                                                      ArgumentMatchers.<Metadata>any(),
+                                                      requestCaptor.capture(), anyLong(),
+                                                      ArgumentMatchers.<TimeUnit>any());
+    }
+
+    @Test
+    public void testSendOneway() throws ClientException {
+        final Message message = fakeMessage();
+        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), fakeTopicRouteData(Permission.READ_WRITE));
+        when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
+                                       ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
+                                       ArgumentMatchers.<TimeUnit>any()))
+                .thenReturn(okSendMessageResponseFuture());
+        producerImpl.sendOneway(message);
+        ArgumentCaptor<SendMessageRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageRequest.class);
+        verify(clientManager, times(1)).sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
+                                                    requestCaptor.capture(), anyLong(),
+                                                    ArgumentMatchers.<TimeUnit>any());
+        final SendMessageRequest request = requestCaptor.getValue();
+        assertEquals(request.getMessage().getSystemAttribute().getMessageType(), MessageType.NORMAL);
+    }
+
+    @Test
+    public void testSendFifoMessage() throws ServerException, ClientException, InterruptedException,
+                                             TimeoutException {
+        final Message message = fakeMessage();
+        producerImpl.onTopicRouteDataUpdate0(message.getTopic(), fakeTopicRouteData(Permission.READ_WRITE));
+        when(clientManager.sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
+                                       ArgumentMatchers.<SendMessageRequest>any(), anyLong(),
+                                       ArgumentMatchers.<TimeUnit>any()))
+                .thenReturn(okSendMessageResponseFuture());
+        final SendResult sendResult = producerImpl.send(message, "messageGroup");
+        ArgumentCaptor<SendMessageRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageRequest.class);
+        verify(clientManager, times(1)).sendMessage(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
+                                                    requestCaptor.capture(), anyLong(),
+                                                    ArgumentMatchers.<TimeUnit>any());
+        final SendMessageRequest request = requestCaptor.getValue();
+        assertEquals(request.getMessage().getSystemAttribute().getMessageType(), MessageType.FIFO);
         assertEquals(sendResult.getSendStatus(), SendStatus.SEND_OK);
     }
 

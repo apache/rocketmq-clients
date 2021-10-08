@@ -39,6 +39,8 @@ public class TraceResource {
     /**
      * Returns a factory for a {@link Resource} which provides information about the current operating
      * system.
+     *
+     * @return trace resource instance.
      */
     public static Resource get() {
         return INSTANCE;

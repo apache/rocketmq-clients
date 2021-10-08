@@ -230,12 +230,6 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
         } else {
             log.info("Shutdown the client scheduler successfully, clientManagerId={}", id);
         }
-        asyncWorker.shutdown();
-        if (!ExecutorServices.awaitTerminated(asyncWorker)) {
-            log.error("[Bug] Timeout to shutdown the client async worker, clientManagerId={}", id);
-        } else {
-            log.info("Shutdown the client async worker successfully, clientManagerId={}", id);
-        }
         rpcClientTableLock.writeLock().lock();
         try {
             final Iterator<Map.Entry<Endpoints, RpcClient>> it = rpcClientTable.entrySet().iterator();
@@ -247,6 +241,12 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
             }
         } finally {
             rpcClientTableLock.writeLock().unlock();
+        }
+        asyncWorker.shutdown();
+        if (!ExecutorServices.awaitTerminated(asyncWorker)) {
+            log.error("[Bug] Timeout to shutdown the client async worker, clientManagerId={}", id);
+        } else {
+            log.info("Shutdown the client async worker successfully, clientManagerId={}", id);
         }
         log.info("Shutdown the client manager successfully, clientManagerId={}", id);
     }

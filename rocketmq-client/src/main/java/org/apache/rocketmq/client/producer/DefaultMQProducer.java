@@ -24,6 +24,7 @@ import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ServerException;
 import org.apache.rocketmq.client.impl.producer.ProducerImpl;
 import org.apache.rocketmq.client.message.Message;
+import org.apache.rocketmq.client.message.protocol.MessageType;
 import org.apache.rocketmq.client.remoting.CredentialsProvider;
 import org.apache.rocketmq.client.trace.TracingMessageInterceptor;
 
@@ -182,6 +183,20 @@ public class DefaultMQProducer {
         return this.impl.send(msg);
     }
 
+    /**
+     * Send {@link MessageType#FIFO} with message group in synchronous mode. message in the same message group would
+     * be considered as orderly.
+     *
+     * @param msg          FIFO Message to send.
+     * @param messageGroup group of message.
+     * @return {@link SendResult} instance to inform senders details of the deliverable, say Message
+     * ID of the message, {@link SendStatus} indicating broker storage/replication status, message
+     * queue sent to, etc.
+     * @throws ServerException      if there is any client error.
+     * @throws ClientException      if the sending thread is interrupted.
+     * @throws InterruptedException if there is any server error.
+     * @throws TimeoutException     if there is any timeout error.
+     */
     public SendResult send(Message msg, String messageGroup) throws ServerException, ClientException,
                                                                     InterruptedException, TimeoutException {
         return this.impl.send(msg, messageGroup);

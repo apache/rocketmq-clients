@@ -856,6 +856,9 @@ public class ProducerImpl extends ClientImpl {
         if (cause instanceof ServerException) {
             throw (ServerException) cause;
         }
+        if (null != cause) {
+            return new ClientException(ErrorCode.OTHER, cause);
+        }
         return new ClientException(ErrorCode.OTHER, e);
     }
 
