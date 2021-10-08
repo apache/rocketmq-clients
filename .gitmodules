@@ -1,3 +1,0 @@
-[submodule "rocketmq-proto/src/main/resources/proto"]
-	path = rocketmq-proto/src/main/resources/proto
-	url = git@gitlab.alibaba-inc.com:messaging/api.git
