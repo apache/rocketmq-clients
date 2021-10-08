@@ -242,6 +242,7 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
         } finally {
             rpcClientTableLock.writeLock().unlock();
         }
+        log.info("Shutdown all rpc client(s) successfully, clientManagerId={}", id);
         asyncWorker.shutdown();
         if (!ExecutorServices.awaitTerminated(asyncWorker)) {
             log.error("[Bug] Timeout to shutdown the client async worker, clientManagerId={}", id);
