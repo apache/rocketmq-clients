@@ -253,7 +253,7 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
     }
 
     private void doHealthCheck() {
-        log.info("Start to do health check for a new round.");
+        log.info("Start to do health check for a new round, clientManagerId={}", id);
         for (Client client : clientTable.values()) {
             client.doHealthCheck();
         }

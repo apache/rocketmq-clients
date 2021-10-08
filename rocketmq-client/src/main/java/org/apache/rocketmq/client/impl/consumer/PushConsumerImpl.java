@@ -447,7 +447,7 @@ public class PushConsumerImpl extends ConsumerImpl {
                         }
 
                         if (!remote.equals(local)) {
-                            log.info("Assignments of topic={}[namespace={}] has changed, {} -> {}, clientId={}", topic,
+                            log.info("Assignments of topic={}[namespace={}] has changed, {} => {}, clientId={}", topic,
                                      namespace, local, remote, id);
                             synchronizeProcessQueue(topic, remote, filterExpression);
                             cachedTopicAssignmentTable.put(topic, remote);

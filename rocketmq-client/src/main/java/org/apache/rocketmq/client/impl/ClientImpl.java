@@ -216,7 +216,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
             // acquire name server list immediately.
             renewNameServerList();
 
-            log.info("Name server list was not set, schedule a task to fetch and renew periodically");
+            log.info("Name server list was not set, schedule a task to fetch and renew periodically, clientId={}", id);
             renewNameServerListFuture = scheduler.scheduleWithFixedDelay(
                     new Runnable() {
                         @Override
@@ -224,7 +224,8 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                             try {
                                 renewNameServerList();
                             } catch (Throwable t) {
-                                log.error("Exception raised while updating nameserver from top addressing", t);
+                                log.error("Exception raised while updating nameserver from top addressing, clientId={}",
+                                          id, t);
                             }
                         }
                     },
@@ -239,7 +240,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                         try {
                             updateRouteCache();
                         } catch (Throwable t) {
-                            log.error("Exception raised while updating topic route cache", t);
+                            log.error("Exception raised while updating topic route cache, clientId={}", id, t);
                         }
                     }
                 },
@@ -290,8 +291,8 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                 try {
                     interceptor.intercept(hookPoint, messageExt, context);
                 } catch (Throwable t) {
-                    log.warn("Exception raised while intercepting message, hookPoint={}, messageId={}", hookPoint,
-                             messageExt.getMsgId());
+                    log.warn("Exception raised while intercepting message, hookPoint={}, messageId={}, clientId={}",
+                             hookPoint, messageExt.getMsgId(), id);
                 }
             }
         } finally {
@@ -307,7 +308,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
         try {
             return Signature.sign(this);
         } catch (Throwable t) {
-            log.error("Failed to calculate signature", t);
+            log.error("Failed to calculate signature, clientId={}", id, t);
             throw new ClientException(ErrorCode.SIGNATURE_FAILURE, t);
         }
     }
@@ -330,7 +331,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
     }
 
     private void renewNameServerList() {
-        log.info("Start to renew name server list for a new round");
+        log.info("Start to renew name server list for a new round, clientId={}", id);
         List<Endpoints> newNameServerEndpointsList;
         try {
             newNameServerEndpointsList = topAddressing.fetchNameServerAddresses();
@@ -339,13 +340,14 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
             return;
         }
         if (newNameServerEndpointsList.isEmpty()) {
-            log.warn("Got an empty name server list.");
+            log.warn("Got an empty name server list, clientId={}", id);
             return;
         }
         nameServerEndpointsListLock.writeLock().lock();
         try {
             if (nameServerEndpointsList.equals(newNameServerEndpointsList)) {
-                log.debug("Name server list remains no changed, name server list={}", nameServerEndpointsList);
+                log.debug("Name server list remains the same, name server list={}, clientId={}",
+                          nameServerEndpointsList, id);
                 return;
             }
             nameServerEndpointsList.clear();
@@ -357,7 +359,14 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
 
     private synchronized Set<Endpoints> updateTopicRouteCache(String topic, TopicRouteData topicRouteData) {
         final Set<Endpoints> before = getRouteEndpointsSet();
-        topicRouteCache.put(topic, topicRouteData);
+        final TopicRouteData oldTopicRouteData = topicRouteCache.put(topic, topicRouteData);
+        // topicRouteData here is never be null.
+        if (topicRouteData.equals(oldTopicRouteData)) {
+            log.info("Topic route remains the same, namespace={}, topic={}", namespace, topic);
+        } else {
+            log.info("Topic route is updated, namespace={}, topic={}, {} => {}", namespace, topic, oldTopicRouteData,
+                     topicRouteData);
+        }
         final Set<Endpoints> after = getRouteEndpointsSet();
         return new HashSet<Endpoints>(Sets.difference(after, before));
     }
@@ -366,14 +375,14 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
         onTopicRouteDataUpdate0(topic, topicRouteData);
         final Set<Endpoints> diff = updateTopicRouteCache(topic, topicRouteData);
         for (Endpoints endpoints : diff) {
-            log.info("Start multiplexing call for new endpoints={}", endpoints);
+            log.info("Start multiplexing call for new endpoints={}, clientId={}", endpoints, id);
             dispatchGenericPollRequest(endpoints);
         }
         messageTracer.refresh();
     }
 
     private void updateRouteCache() {
-        log.info("Start to update route cache for a new round");
+        log.info("Start to update route cache for a new round, clientId={}", id);
         for (final String topic : topicRouteCache.keySet()) {
             final ListenableFuture<TopicRouteData> future = fetchTopicRoute(topic);
             Futures.addCallback(future, new FutureCallback<TopicRouteData>() {
@@ -384,8 +393,8 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
 
                 @Override
                 public void onFailure(Throwable t) {
-                    log.error("Failed to fetch topic route for update cache, namespace={}, topic={}", namespace, topic,
-                              t);
+                    log.error("Failed to fetch topic route for update cache, namespace={}, topic={}, clientId={}",
+                              namespace, topic, id, t);
                 }
             });
         }
@@ -429,18 +438,19 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                     final Set<SettableFuture<TopicRouteData>> newFutureSet = inflightRouteFutureTable.remove(topic);
                     if (null == newFutureSet) {
                         // should never reach here.
-                        log.error("[Bug] in-flight route futures was empty, namespace={}, topic={}", namespace, topic);
+                        log.error("[Bug] in-flight route futures was empty, namespace={}, topic={}, clientId={}",
+                                  namespace, topic, id);
                         return;
                     }
-                    log.debug("Fetch topic route successfully, namespace={}, topic={}, in-flight route future size={}",
-                              namespace, topic, newFutureSet.size());
+                    log.debug("Fetch topic route successfully, namespace={}, topic={}, in-flight route future "
+                              + "size={}, clientId={}", namespace, topic, newFutureSet.size(), id);
                     for (SettableFuture<TopicRouteData> newFuture : newFutureSet) {
                         newFuture.set(newTopicRouteData);
                     }
                 } catch (Throwable t) {
                     // should never reach here.
-                    log.error("[Bug] Exception raises while update route data, clientId={}, namespace={}, topic={}",
-                              id, namespace, topic, t);
+                    log.error("[Bug] Exception raises while update route data, clientId={}, namespace={}, topic={}, "
+                              + "clientId={}", id, namespace, topic, id, t);
                 } finally {
                     inflightRouteFutureLock.unlock();
                 }
@@ -453,11 +463,12 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                     final Set<SettableFuture<TopicRouteData>> newFutureSet = inflightRouteFutureTable.remove(topic);
                     if (null == newFutureSet) {
                         // should never reach here.
-                        log.error("[Bug] in-flight route futures was empty, namespace={}, topic={}", namespace, topic);
+                        log.error("[Bug] in-flight route futures was empty, namespace={}, topic={}, clientId={}",
+                                  namespace, topic, id);
                         return;
                     }
-                    log.error("Failed to fetch topic route, namespace={}, topic={}, in-flight route future size={}",
-                              namespace, topic, newFutureSet.size(), t);
+                    log.error("Failed to fetch topic route, namespace={}, topic={}, in-flight route future size={}, "
+                              + "clientId={}", namespace, topic, newFutureSet.size(), id, t);
                     for (SettableFuture<TopicRouteData> newFuture : newFutureSet) {
                         final ClientException exception = new ClientException(ErrorCode.FETCH_TOPIC_ROUTE_FAILURE, t);
                         newFuture.setException(exception);
@@ -521,7 +532,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                     this.nameServerEndpointsList.add(new Endpoints(AddressScheme.IPv4, addresses));
                 }
             } catch (Throwable t) {
-                log.error("Exception raises while parse name server address.", t);
+                log.error("Exception raises while parse name server address, clientId={}", id, t);
                 throw new ClientException(ErrorCode.ILLEGAL_FORMAT, t);
             }
             this.nameServerStr = nameServerStr;
@@ -566,7 +577,8 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                 @Override
                 public void onFailure(Throwable t) {
                     log.error("Exception raised while fetch topic route from name server endpoints={}, namespace={}, "
-                              + "topic={}, choose the another one for the next round.", endpoints, namespace, topic, t);
+                              + "topic={}, clientId={}, choose the another one for the next round.", endpoints,
+                              namespace, topic, id, t);
                     nameServerIndex.getAndIncrement();
                 }
             });
@@ -607,21 +619,21 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                     final Status status = response.getCommon().getStatus();
                     final Code code = Code.forNumber(status.getCode());
                     if (!Code.OK.equals(code)) {
-                        log.warn("Failed to send heartbeat, code={}, status message=[{}], endpoints={}", code,
-                                 status.getMessage(), endpoints);
+                        log.warn("Failed to send heartbeat, code={}, status message=[{}], endpoints={}, clientId={}",
+                                 code, status.getMessage(), endpoints, id);
                         return;
                     }
-                    log.info("Send heartbeat successfully, endpoints={}", endpoints);
+                    log.info("Send heartbeat successfully, endpoints={}, clientId={}", endpoints, id);
                 }
 
                 @Override
                 public void onFailure(Throwable t) {
-                    log.warn("Failed to send heartbeat, endpoints={}", endpoints, t);
+                    log.warn("Failed to send heartbeat, endpoints={}, clientId={}", endpoints, id, t);
                 }
             });
             return future;
         } catch (Throwable e) {
-            log.error("Exception raised while heartbeat, endpoints={}", endpoints, e);
+            log.error("Exception raised while heartbeat, endpoints={}, clientId={}", endpoints, id, e);
             SettableFuture<HeartbeatResponse> future0 = SettableFuture.create();
             future0.setException(e);
             return future0;
@@ -734,7 +746,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
         final GenericPollingRequest genericPollingRequest = wrapGenericPollingRequest();
         MultiplexingRequest multiplexingRequest =
                 MultiplexingRequest.newBuilder().setPollingRequest(genericPollingRequest).build();
-        log.debug("Start to dispatch generic poll request, endpoints={}", endpoints);
+        log.debug("Start to dispatch generic poll request, endpoints={}, clientId={}", endpoints, id);
         multiplexingCall(endpoints, multiplexingRequest);
     }
 
@@ -742,7 +754,8 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
         try {
             final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
             if (!routeEndpointsSet.contains(endpoints)) {
-                log.info("Endpoints was removed, no need to do more multiplexing call, endpoints={}", endpoints);
+                log.info("Endpoints was removed, no need to do more multiplexing call, endpoints={}, clientId={}",
+                         endpoints, id);
                 return;
             }
             final ListenableFuture<MultiplexingResponse> future = multiplexingCall0(endpoints, request);
@@ -754,20 +767,21 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                     } catch (Throwable t) {
                         // should never reach here.
                         log.error("[Bug] Exception raised while handling multiplexing response, would call later, "
-                                  + "endpoints={}", endpoints, t);
+                                  + "endpoints={}, clientId={}", endpoints, id, t);
                         multiplexingCallLater(endpoints, request);
                     }
                 }
 
                 @Override
                 public void onFailure(Throwable t) {
-                    log.error("Exception raised while multiplexing call, would call later, endpoints={}", endpoints,
-                              t);
+                    log.error("Exception raised while multiplexing call, would call later, endpoints={}, clientId={}",
+                              endpoints, id, t);
                     multiplexingCallLater(endpoints, request);
                 }
             });
         } catch (Throwable t) {
-            log.error("Exception raised while multiplexing call, would call later, endpoints={}", endpoints, t);
+            log.error("Exception raised while multiplexing call, would call later, endpoints={}, clientId={}",
+                      endpoints, id, t);
             multiplexingCallLater(endpoints, request);
         }
     }
@@ -802,7 +816,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
             if (scheduler.isShutdown()) {
                 return;
             }
-            log.error("[Bug] Failed to schedule multiplexing request", t);
+            log.error("[Bug] Failed to schedule multiplexing request, clientId={}", id, t);
             multiplexingCallLater(endpoints, request);
         }
     }
