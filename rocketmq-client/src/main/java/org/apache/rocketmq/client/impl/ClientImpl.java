@@ -170,6 +170,8 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
      */
     public abstract void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData);
 
+    public abstract NotifyClientTerminationRequest wrapNotifyClientTerminationRequest();
+
     @Override
     public String getId() {
         return id;
@@ -250,8 +252,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
     private void notifyClientTermination() {
         log.info("Notify that client is terminated, clientId={}", id);
         final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
-        final NotifyClientTerminationRequest notifyClientTerminationRequest =
-                NotifyClientTerminationRequest.newBuilder().setClientId(id).setGroup(getPbGroup()).build();
+        final NotifyClientTerminationRequest notifyClientTerminationRequest = wrapNotifyClientTerminationRequest();
         try {
             final Metadata metadata = sign();
             for (Endpoints endpoints : routeEndpointsSet) {

@@ -3,6 +3,13 @@ package apache.rocketmq.v1;
 import static io.grpc.MethodDescriptor.generateFullMethodName;
 
 /**
+ * <pre>
+ * For all the rpcs in MessagingService may return below erros:
+ * If the request doesn't have a valid authentication credentials, returns `UNAUTHENTICATED`.
+ * If the caller doesn't permission to execute the specified operation, returns `PERMISSION_DENIED`.
+ * If the per-user rate quota has been exceeded, returns `RESOURCE_EXHAUSTED`.
+ * If any unexpected server-side exception occurs, returns `INTERNAL`.
+ * </pre>
  */
 @javax.annotation.Generated(
     value = "by gRPC proto compiler (version 1.35.0)",
@@ -386,37 +393,6 @@ public final class MessagingServiceGrpc {
     return getPullMessageMethod;
   }
 
-  private static volatile io.grpc.MethodDescriptor<apache.rocketmq.v1.UpdateOffsetRequest,
-      apache.rocketmq.v1.UpdateOffsetResponse> getUpdateOffsetMethod;
-
-  @io.grpc.stub.annotations.RpcMethod(
-      fullMethodName = SERVICE_NAME + '/' + "UpdateOffset",
-      requestType = apache.rocketmq.v1.UpdateOffsetRequest.class,
-      responseType = apache.rocketmq.v1.UpdateOffsetResponse.class,
-      methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
-  public static io.grpc.MethodDescriptor<apache.rocketmq.v1.UpdateOffsetRequest,
-      apache.rocketmq.v1.UpdateOffsetResponse> getUpdateOffsetMethod() {
-    io.grpc.MethodDescriptor<apache.rocketmq.v1.UpdateOffsetRequest, apache.rocketmq.v1.UpdateOffsetResponse> getUpdateOffsetMethod;
-    if ((getUpdateOffsetMethod = MessagingServiceGrpc.getUpdateOffsetMethod) == null) {
-      synchronized (MessagingServiceGrpc.class) {
-        if ((getUpdateOffsetMethod = MessagingServiceGrpc.getUpdateOffsetMethod) == null) {
-          MessagingServiceGrpc.getUpdateOffsetMethod = getUpdateOffsetMethod =
-              io.grpc.MethodDescriptor.<apache.rocketmq.v1.UpdateOffsetRequest, apache.rocketmq.v1.UpdateOffsetResponse>newBuilder()
-              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
-              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "UpdateOffset"))
-              .setSampledToLocalTracing(true)
-              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  apache.rocketmq.v1.UpdateOffsetRequest.getDefaultInstance()))
-              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  apache.rocketmq.v1.UpdateOffsetResponse.getDefaultInstance()))
-              .setSchemaDescriptor(new MessagingServiceMethodDescriptorSupplier("UpdateOffset"))
-              .build();
-        }
-      }
-    }
-    return getUpdateOffsetMethod;
-  }
-
   private static volatile io.grpc.MethodDescriptor<apache.rocketmq.v1.MultiplexingRequest,
       apache.rocketmq.v1.MultiplexingResponse> getMultiplexingCallMethod;
 
@@ -524,10 +500,22 @@ public final class MessagingServiceGrpc {
   }
 
   /**
+   * <pre>
+   * For all the rpcs in MessagingService may return below erros:
+   * If the request doesn't have a valid authentication credentials, returns `UNAUTHENTICATED`.
+   * If the caller doesn't permission to execute the specified operation, returns `PERMISSION_DENIED`.
+   * If the per-user rate quota has been exceeded, returns `RESOURCE_EXHAUSTED`.
+   * If any unexpected server-side exception occurs, returns `INTERNAL`.
+   * </pre>
    */
   public static abstract class MessagingServiceImplBase implements io.grpc.BindableService {
 
     /**
+     * <pre>
+     * Querys the route info of a topic from specific endpoints, the server returns a set of partition if success.
+     * If the corresponding topic doesn't exist, returns `NOT_FOUND`.
+     * If the specific endpoints is emtpy, returns `INVALID_ARGUMENT`.
+     * </pre>
      */
     public void queryRoute(apache.rocketmq.v1.QueryRouteRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.QueryRouteResponse> responseObserver) {
@@ -535,6 +523,11 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Producer or consumer sends HeartbeatRequest to server in order to report necessary
+     * client-side information, like subscription data of consumer. Returns `OK` if success.
+     * If the client language info is invalid, returns `INVALID_ARGUMENT`
+     * </pre>
      */
     public void heartbeat(apache.rocketmq.v1.HeartbeatRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.HeartbeatResponse> responseObserver) {
@@ -542,6 +535,10 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Checks the health status of message server, returns `OK` if no network issues.
+     * Clients could use this RPC to detect the availability of server, and adpot necessary isolation measures. 
+     * </pre>
      */
     public void healthCheck(apache.rocketmq.v1.HealthCheckRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.HealthCheckResponse> responseObserver) {
@@ -549,6 +546,10 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Sends one message to the specific partition of a topic, returns message id or transaction id with status `OK`.
+     * If the corresponding topic doesn't exist, returns `NOT_FOUND`.
+     * </pre>
      */
     public void sendMessage(apache.rocketmq.v1.SendMessageRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.SendMessageResponse> responseObserver) {
@@ -556,6 +557,12 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Querys the assigned partition route info of a topic for current consumer, 
+     * the returned assignment result is descided by server-side load balacner.
+     * If the corresponding topic doesn't exist, returns `NOT_FOUND`.
+     * If the specific endpoints is emtpy, returns `INVALID_ARGUMENT`.
+     * </pre>
      */
     public void queryAssignment(apache.rocketmq.v1.QueryAssignmentRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.QueryAssignmentResponse> responseObserver) {
@@ -563,6 +570,15 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Receives messages from the server in batch manner, returns a set of messages if success.
+     * The received messages should be acked or uacked after processed.
+     * If the pending concurrent receive requests exceed the quota of the given consumer group, returns `UNAVAILABLE`.
+     * If the upstream store server hangs, return `DEADLINE_EXCEEDED` in a timely manner.
+     * If the corresponding topic or consumer group doesn't exist, returns `NOT_FOUND`.
+     * If there is no new message in the specific topic, returns `OK` with an empty message set. Please note that client
+     * may suffer from false empty responses.
+     * </pre>
      */
     public void receiveMessage(apache.rocketmq.v1.ReceiveMessageRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.ReceiveMessageResponse> responseObserver) {
@@ -570,6 +586,12 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Acknowledges the message associated with the `receipt_handle` or `offset` in the
+     * `AckMessageRequest`, it means the message has been successfully processed.
+     * Returns `OK` if the message server remove the relevant message successfully.
+     * If the given receipt_handle is illegal or out of date, returns `INVALID_ARGUMENT`.
+     * </pre>
      */
     public void ackMessage(apache.rocketmq.v1.AckMessageRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.AckMessageResponse> responseObserver) {
@@ -577,6 +599,11 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Signals that the message has not been successfully processed. The message server should resend the message
+     * follow the retry policy defined at server-side.
+     * If the corresponding topic or consumer group doesn't exist, returns `NOT_FOUND`.
+     * </pre>
      */
     public void nackMessage(apache.rocketmq.v1.NackMessageRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.NackMessageResponse> responseObserver) {
@@ -584,6 +611,10 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Forwards one message to dead letter queue if the DeadLetterPolicy is triggered by this message at client-side,
+     * return `OK` if success.
+     * </pre>
      */
     public void forwardMessageToDeadLetterQueue(apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse> responseObserver) {
@@ -591,6 +622,9 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Commits or rollback one transactional message.
+     * </pre>
      */
     public void endTransaction(apache.rocketmq.v1.EndTransactionRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.EndTransactionResponse> responseObserver) {
@@ -598,6 +632,10 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Querys the offset of the specific partition, returns the offset with `OK` if success.
+     * The message server should maintain a numerical offset for each message in a parition.
+     * </pre>
      */
     public void queryOffset(apache.rocketmq.v1.QueryOffsetRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.QueryOffsetResponse> responseObserver) {
@@ -605,17 +643,20 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Pulls messages from the specific partition, returns a set of messages with next pull offset.
+     * The pulled messages can't be acked or nacked, while the client is responsible for manage offesets for consumer,
+     * typically update consume offset to local memory or a third-party storage service.
+     * If the pending concurrent receive requests exceed the quota of the given consumer group, returns `UNAVAILABLE`.
+     * If the upstream store server hangs, return `DEADLINE_EXCEEDED` in a timely manner.
+     * If the corresponding topic or consumer group doesn't exist, returns `NOT_FOUND`.
+     * If there is no new message in the specific topic, returns `OK` with an empty message set. Please note that client
+     * may suffer from false empty responses.
+     * </pre>
      */
     public void pullMessage(apache.rocketmq.v1.PullMessageRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.PullMessageResponse> responseObserver) {
       io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getPullMessageMethod(), responseObserver);
-    }
-
-    /**
-     */
-    public void updateOffset(apache.rocketmq.v1.UpdateOffsetRequest request,
-        io.grpc.stub.StreamObserver<apache.rocketmq.v1.UpdateOffsetResponse> responseObserver) {
-      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getUpdateOffsetMethod(), responseObserver);
     }
 
     /**
@@ -719,13 +760,6 @@ public final class MessagingServiceGrpc {
                 apache.rocketmq.v1.PullMessageResponse>(
                   this, METHODID_PULL_MESSAGE)))
           .addMethod(
-            getUpdateOffsetMethod(),
-            io.grpc.stub.ServerCalls.asyncUnaryCall(
-              new MethodHandlers<
-                apache.rocketmq.v1.UpdateOffsetRequest,
-                apache.rocketmq.v1.UpdateOffsetResponse>(
-                  this, METHODID_UPDATE_OFFSET)))
-          .addMethod(
             getMultiplexingCallMethod(),
             io.grpc.stub.ServerCalls.asyncUnaryCall(
               new MethodHandlers<
@@ -744,6 +778,13 @@ public final class MessagingServiceGrpc {
   }
 
   /**
+   * <pre>
+   * For all the rpcs in MessagingService may return below erros:
+   * If the request doesn't have a valid authentication credentials, returns `UNAUTHENTICATED`.
+   * If the caller doesn't permission to execute the specified operation, returns `PERMISSION_DENIED`.
+   * If the per-user rate quota has been exceeded, returns `RESOURCE_EXHAUSTED`.
+   * If any unexpected server-side exception occurs, returns `INTERNAL`.
+   * </pre>
    */
   public static final class MessagingServiceStub extends io.grpc.stub.AbstractAsyncStub<MessagingServiceStub> {
     private MessagingServiceStub(
@@ -758,6 +799,11 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Querys the route info of a topic from specific endpoints, the server returns a set of partition if success.
+     * If the corresponding topic doesn't exist, returns `NOT_FOUND`.
+     * If the specific endpoints is emtpy, returns `INVALID_ARGUMENT`.
+     * </pre>
      */
     public void queryRoute(apache.rocketmq.v1.QueryRouteRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.QueryRouteResponse> responseObserver) {
@@ -766,6 +812,11 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Producer or consumer sends HeartbeatRequest to server in order to report necessary
+     * client-side information, like subscription data of consumer. Returns `OK` if success.
+     * If the client language info is invalid, returns `INVALID_ARGUMENT`
+     * </pre>
      */
     public void heartbeat(apache.rocketmq.v1.HeartbeatRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.HeartbeatResponse> responseObserver) {
@@ -774,6 +825,10 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Checks the health status of message server, returns `OK` if no network issues.
+     * Clients could use this RPC to detect the availability of server, and adpot necessary isolation measures. 
+     * </pre>
      */
     public void healthCheck(apache.rocketmq.v1.HealthCheckRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.HealthCheckResponse> responseObserver) {
@@ -782,6 +837,10 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Sends one message to the specific partition of a topic, returns message id or transaction id with status `OK`.
+     * If the corresponding topic doesn't exist, returns `NOT_FOUND`.
+     * </pre>
      */
     public void sendMessage(apache.rocketmq.v1.SendMessageRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.SendMessageResponse> responseObserver) {
@@ -790,6 +849,12 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Querys the assigned partition route info of a topic for current consumer, 
+     * the returned assignment result is descided by server-side load balacner.
+     * If the corresponding topic doesn't exist, returns `NOT_FOUND`.
+     * If the specific endpoints is emtpy, returns `INVALID_ARGUMENT`.
+     * </pre>
      */
     public void queryAssignment(apache.rocketmq.v1.QueryAssignmentRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.QueryAssignmentResponse> responseObserver) {
@@ -798,6 +863,15 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Receives messages from the server in batch manner, returns a set of messages if success.
+     * The received messages should be acked or uacked after processed.
+     * If the pending concurrent receive requests exceed the quota of the given consumer group, returns `UNAVAILABLE`.
+     * If the upstream store server hangs, return `DEADLINE_EXCEEDED` in a timely manner.
+     * If the corresponding topic or consumer group doesn't exist, returns `NOT_FOUND`.
+     * If there is no new message in the specific topic, returns `OK` with an empty message set. Please note that client
+     * may suffer from false empty responses.
+     * </pre>
      */
     public void receiveMessage(apache.rocketmq.v1.ReceiveMessageRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.ReceiveMessageResponse> responseObserver) {
@@ -806,6 +880,12 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Acknowledges the message associated with the `receipt_handle` or `offset` in the
+     * `AckMessageRequest`, it means the message has been successfully processed.
+     * Returns `OK` if the message server remove the relevant message successfully.
+     * If the given receipt_handle is illegal or out of date, returns `INVALID_ARGUMENT`.
+     * </pre>
      */
     public void ackMessage(apache.rocketmq.v1.AckMessageRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.AckMessageResponse> responseObserver) {
@@ -814,6 +894,11 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Signals that the message has not been successfully processed. The message server should resend the message
+     * follow the retry policy defined at server-side.
+     * If the corresponding topic or consumer group doesn't exist, returns `NOT_FOUND`.
+     * </pre>
      */
     public void nackMessage(apache.rocketmq.v1.NackMessageRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.NackMessageResponse> responseObserver) {
@@ -822,6 +907,10 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Forwards one message to dead letter queue if the DeadLetterPolicy is triggered by this message at client-side,
+     * return `OK` if success.
+     * </pre>
      */
     public void forwardMessageToDeadLetterQueue(apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse> responseObserver) {
@@ -830,6 +919,9 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Commits or rollback one transactional message.
+     * </pre>
      */
     public void endTransaction(apache.rocketmq.v1.EndTransactionRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.EndTransactionResponse> responseObserver) {
@@ -838,6 +930,10 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Querys the offset of the specific partition, returns the offset with `OK` if success.
+     * The message server should maintain a numerical offset for each message in a parition.
+     * </pre>
      */
     public void queryOffset(apache.rocketmq.v1.QueryOffsetRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.QueryOffsetResponse> responseObserver) {
@@ -846,19 +942,21 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Pulls messages from the specific partition, returns a set of messages with next pull offset.
+     * The pulled messages can't be acked or nacked, while the client is responsible for manage offesets for consumer,
+     * typically update consume offset to local memory or a third-party storage service.
+     * If the pending concurrent receive requests exceed the quota of the given consumer group, returns `UNAVAILABLE`.
+     * If the upstream store server hangs, return `DEADLINE_EXCEEDED` in a timely manner.
+     * If the corresponding topic or consumer group doesn't exist, returns `NOT_FOUND`.
+     * If there is no new message in the specific topic, returns `OK` with an empty message set. Please note that client
+     * may suffer from false empty responses.
+     * </pre>
      */
     public void pullMessage(apache.rocketmq.v1.PullMessageRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.PullMessageResponse> responseObserver) {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
           getChannel().newCall(getPullMessageMethod(), getCallOptions()), request, responseObserver);
-    }
-
-    /**
-     */
-    public void updateOffset(apache.rocketmq.v1.UpdateOffsetRequest request,
-        io.grpc.stub.StreamObserver<apache.rocketmq.v1.UpdateOffsetResponse> responseObserver) {
-      io.grpc.stub.ClientCalls.asyncUnaryCall(
-          getChannel().newCall(getUpdateOffsetMethod(), getCallOptions()), request, responseObserver);
     }
 
     /**
@@ -879,6 +977,13 @@ public final class MessagingServiceGrpc {
   }
 
   /**
+   * <pre>
+   * For all the rpcs in MessagingService may return below erros:
+   * If the request doesn't have a valid authentication credentials, returns `UNAUTHENTICATED`.
+   * If the caller doesn't permission to execute the specified operation, returns `PERMISSION_DENIED`.
+   * If the per-user rate quota has been exceeded, returns `RESOURCE_EXHAUSTED`.
+   * If any unexpected server-side exception occurs, returns `INTERNAL`.
+   * </pre>
    */
   public static final class MessagingServiceBlockingStub extends io.grpc.stub.AbstractBlockingStub<MessagingServiceBlockingStub> {
     private MessagingServiceBlockingStub(
@@ -893,6 +998,11 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Querys the route info of a topic from specific endpoints, the server returns a set of partition if success.
+     * If the corresponding topic doesn't exist, returns `NOT_FOUND`.
+     * If the specific endpoints is emtpy, returns `INVALID_ARGUMENT`.
+     * </pre>
      */
     public apache.rocketmq.v1.QueryRouteResponse queryRoute(apache.rocketmq.v1.QueryRouteRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
@@ -900,6 +1010,11 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Producer or consumer sends HeartbeatRequest to server in order to report necessary
+     * client-side information, like subscription data of consumer. Returns `OK` if success.
+     * If the client language info is invalid, returns `INVALID_ARGUMENT`
+     * </pre>
      */
     public apache.rocketmq.v1.HeartbeatResponse heartbeat(apache.rocketmq.v1.HeartbeatRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
@@ -907,6 +1022,10 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Checks the health status of message server, returns `OK` if no network issues.
+     * Clients could use this RPC to detect the availability of server, and adpot necessary isolation measures. 
+     * </pre>
      */
     public apache.rocketmq.v1.HealthCheckResponse healthCheck(apache.rocketmq.v1.HealthCheckRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
@@ -914,6 +1033,10 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Sends one message to the specific partition of a topic, returns message id or transaction id with status `OK`.
+     * If the corresponding topic doesn't exist, returns `NOT_FOUND`.
+     * </pre>
      */
     public apache.rocketmq.v1.SendMessageResponse sendMessage(apache.rocketmq.v1.SendMessageRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
@@ -921,6 +1044,12 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Querys the assigned partition route info of a topic for current consumer, 
+     * the returned assignment result is descided by server-side load balacner.
+     * If the corresponding topic doesn't exist, returns `NOT_FOUND`.
+     * If the specific endpoints is emtpy, returns `INVALID_ARGUMENT`.
+     * </pre>
      */
     public apache.rocketmq.v1.QueryAssignmentResponse queryAssignment(apache.rocketmq.v1.QueryAssignmentRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
@@ -928,6 +1057,15 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Receives messages from the server in batch manner, returns a set of messages if success.
+     * The received messages should be acked or uacked after processed.
+     * If the pending concurrent receive requests exceed the quota of the given consumer group, returns `UNAVAILABLE`.
+     * If the upstream store server hangs, return `DEADLINE_EXCEEDED` in a timely manner.
+     * If the corresponding topic or consumer group doesn't exist, returns `NOT_FOUND`.
+     * If there is no new message in the specific topic, returns `OK` with an empty message set. Please note that client
+     * may suffer from false empty responses.
+     * </pre>
      */
     public apache.rocketmq.v1.ReceiveMessageResponse receiveMessage(apache.rocketmq.v1.ReceiveMessageRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
@@ -935,6 +1073,12 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Acknowledges the message associated with the `receipt_handle` or `offset` in the
+     * `AckMessageRequest`, it means the message has been successfully processed.
+     * Returns `OK` if the message server remove the relevant message successfully.
+     * If the given receipt_handle is illegal or out of date, returns `INVALID_ARGUMENT`.
+     * </pre>
      */
     public apache.rocketmq.v1.AckMessageResponse ackMessage(apache.rocketmq.v1.AckMessageRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
@@ -942,6 +1086,11 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Signals that the message has not been successfully processed. The message server should resend the message
+     * follow the retry policy defined at server-side.
+     * If the corresponding topic or consumer group doesn't exist, returns `NOT_FOUND`.
+     * </pre>
      */
     public apache.rocketmq.v1.NackMessageResponse nackMessage(apache.rocketmq.v1.NackMessageRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
@@ -949,6 +1098,10 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Forwards one message to dead letter queue if the DeadLetterPolicy is triggered by this message at client-side,
+     * return `OK` if success.
+     * </pre>
      */
     public apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse forwardMessageToDeadLetterQueue(apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
@@ -956,6 +1109,9 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Commits or rollback one transactional message.
+     * </pre>
      */
     public apache.rocketmq.v1.EndTransactionResponse endTransaction(apache.rocketmq.v1.EndTransactionRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
@@ -963,6 +1119,10 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Querys the offset of the specific partition, returns the offset with `OK` if success.
+     * The message server should maintain a numerical offset for each message in a parition.
+     * </pre>
      */
     public apache.rocketmq.v1.QueryOffsetResponse queryOffset(apache.rocketmq.v1.QueryOffsetRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
@@ -970,17 +1130,20 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Pulls messages from the specific partition, returns a set of messages with next pull offset.
+     * The pulled messages can't be acked or nacked, while the client is responsible for manage offesets for consumer,
+     * typically update consume offset to local memory or a third-party storage service.
+     * If the pending concurrent receive requests exceed the quota of the given consumer group, returns `UNAVAILABLE`.
+     * If the upstream store server hangs, return `DEADLINE_EXCEEDED` in a timely manner.
+     * If the corresponding topic or consumer group doesn't exist, returns `NOT_FOUND`.
+     * If there is no new message in the specific topic, returns `OK` with an empty message set. Please note that client
+     * may suffer from false empty responses.
+     * </pre>
      */
     public apache.rocketmq.v1.PullMessageResponse pullMessage(apache.rocketmq.v1.PullMessageRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
           getChannel(), getPullMessageMethod(), getCallOptions(), request);
-    }
-
-    /**
-     */
-    public apache.rocketmq.v1.UpdateOffsetResponse updateOffset(apache.rocketmq.v1.UpdateOffsetRequest request) {
-      return io.grpc.stub.ClientCalls.blockingUnaryCall(
-          getChannel(), getUpdateOffsetMethod(), getCallOptions(), request);
     }
 
     /**
@@ -999,6 +1162,13 @@ public final class MessagingServiceGrpc {
   }
 
   /**
+   * <pre>
+   * For all the rpcs in MessagingService may return below erros:
+   * If the request doesn't have a valid authentication credentials, returns `UNAUTHENTICATED`.
+   * If the caller doesn't permission to execute the specified operation, returns `PERMISSION_DENIED`.
+   * If the per-user rate quota has been exceeded, returns `RESOURCE_EXHAUSTED`.
+   * If any unexpected server-side exception occurs, returns `INTERNAL`.
+   * </pre>
    */
   public static final class MessagingServiceFutureStub extends io.grpc.stub.AbstractFutureStub<MessagingServiceFutureStub> {
     private MessagingServiceFutureStub(
@@ -1013,6 +1183,11 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Querys the route info of a topic from specific endpoints, the server returns a set of partition if success.
+     * If the corresponding topic doesn't exist, returns `NOT_FOUND`.
+     * If the specific endpoints is emtpy, returns `INVALID_ARGUMENT`.
+     * </pre>
      */
     public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.QueryRouteResponse> queryRoute(
         apache.rocketmq.v1.QueryRouteRequest request) {
@@ -1021,6 +1196,11 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Producer or consumer sends HeartbeatRequest to server in order to report necessary
+     * client-side information, like subscription data of consumer. Returns `OK` if success.
+     * If the client language info is invalid, returns `INVALID_ARGUMENT`
+     * </pre>
      */
     public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.HeartbeatResponse> heartbeat(
         apache.rocketmq.v1.HeartbeatRequest request) {
@@ -1029,6 +1209,10 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Checks the health status of message server, returns `OK` if no network issues.
+     * Clients could use this RPC to detect the availability of server, and adpot necessary isolation measures. 
+     * </pre>
      */
     public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.HealthCheckResponse> healthCheck(
         apache.rocketmq.v1.HealthCheckRequest request) {
@@ -1037,6 +1221,10 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Sends one message to the specific partition of a topic, returns message id or transaction id with status `OK`.
+     * If the corresponding topic doesn't exist, returns `NOT_FOUND`.
+     * </pre>
      */
     public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.SendMessageResponse> sendMessage(
         apache.rocketmq.v1.SendMessageRequest request) {
@@ -1045,6 +1233,12 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Querys the assigned partition route info of a topic for current consumer, 
+     * the returned assignment result is descided by server-side load balacner.
+     * If the corresponding topic doesn't exist, returns `NOT_FOUND`.
+     * If the specific endpoints is emtpy, returns `INVALID_ARGUMENT`.
+     * </pre>
      */
     public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.QueryAssignmentResponse> queryAssignment(
         apache.rocketmq.v1.QueryAssignmentRequest request) {
@@ -1053,6 +1247,15 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Receives messages from the server in batch manner, returns a set of messages if success.
+     * The received messages should be acked or uacked after processed.
+     * If the pending concurrent receive requests exceed the quota of the given consumer group, returns `UNAVAILABLE`.
+     * If the upstream store server hangs, return `DEADLINE_EXCEEDED` in a timely manner.
+     * If the corresponding topic or consumer group doesn't exist, returns `NOT_FOUND`.
+     * If there is no new message in the specific topic, returns `OK` with an empty message set. Please note that client
+     * may suffer from false empty responses.
+     * </pre>
      */
     public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.ReceiveMessageResponse> receiveMessage(
         apache.rocketmq.v1.ReceiveMessageRequest request) {
@@ -1061,6 +1264,12 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Acknowledges the message associated with the `receipt_handle` or `offset` in the
+     * `AckMessageRequest`, it means the message has been successfully processed.
+     * Returns `OK` if the message server remove the relevant message successfully.
+     * If the given receipt_handle is illegal or out of date, returns `INVALID_ARGUMENT`.
+     * </pre>
      */
     public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.AckMessageResponse> ackMessage(
         apache.rocketmq.v1.AckMessageRequest request) {
@@ -1069,6 +1278,11 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Signals that the message has not been successfully processed. The message server should resend the message
+     * follow the retry policy defined at server-side.
+     * If the corresponding topic or consumer group doesn't exist, returns `NOT_FOUND`.
+     * </pre>
      */
     public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.NackMessageResponse> nackMessage(
         apache.rocketmq.v1.NackMessageRequest request) {
@@ -1077,6 +1291,10 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Forwards one message to dead letter queue if the DeadLetterPolicy is triggered by this message at client-side,
+     * return `OK` if success.
+     * </pre>
      */
     public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse> forwardMessageToDeadLetterQueue(
         apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest request) {
@@ -1085,6 +1303,9 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Commits or rollback one transactional message.
+     * </pre>
      */
     public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.EndTransactionResponse> endTransaction(
         apache.rocketmq.v1.EndTransactionRequest request) {
@@ -1093,6 +1314,10 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Querys the offset of the specific partition, returns the offset with `OK` if success.
+     * The message server should maintain a numerical offset for each message in a parition.
+     * </pre>
      */
     public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.QueryOffsetResponse> queryOffset(
         apache.rocketmq.v1.QueryOffsetRequest request) {
@@ -1101,19 +1326,21 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Pulls messages from the specific partition, returns a set of messages with next pull offset.
+     * The pulled messages can't be acked or nacked, while the client is responsible for manage offesets for consumer,
+     * typically update consume offset to local memory or a third-party storage service.
+     * If the pending concurrent receive requests exceed the quota of the given consumer group, returns `UNAVAILABLE`.
+     * If the upstream store server hangs, return `DEADLINE_EXCEEDED` in a timely manner.
+     * If the corresponding topic or consumer group doesn't exist, returns `NOT_FOUND`.
+     * If there is no new message in the specific topic, returns `OK` with an empty message set. Please note that client
+     * may suffer from false empty responses.
+     * </pre>
      */
     public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.PullMessageResponse> pullMessage(
         apache.rocketmq.v1.PullMessageRequest request) {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
           getChannel().newCall(getPullMessageMethod(), getCallOptions()), request);
-    }
-
-    /**
-     */
-    public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.UpdateOffsetResponse> updateOffset(
-        apache.rocketmq.v1.UpdateOffsetRequest request) {
-      return io.grpc.stub.ClientCalls.futureUnaryCall(
-          getChannel().newCall(getUpdateOffsetMethod(), getCallOptions()), request);
     }
 
     /**
@@ -1145,9 +1372,8 @@ public final class MessagingServiceGrpc {
   private static final int METHODID_END_TRANSACTION = 9;
   private static final int METHODID_QUERY_OFFSET = 10;
   private static final int METHODID_PULL_MESSAGE = 11;
-  private static final int METHODID_UPDATE_OFFSET = 12;
-  private static final int METHODID_MULTIPLEXING_CALL = 13;
-  private static final int METHODID_NOTIFY_CLIENT_TERMINATION = 14;
+  private static final int METHODID_MULTIPLEXING_CALL = 12;
+  private static final int METHODID_NOTIFY_CLIENT_TERMINATION = 13;
 
   private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
@@ -1213,10 +1439,6 @@ public final class MessagingServiceGrpc {
         case METHODID_PULL_MESSAGE:
           serviceImpl.pullMessage((apache.rocketmq.v1.PullMessageRequest) request,
               (io.grpc.stub.StreamObserver<apache.rocketmq.v1.PullMessageResponse>) responseObserver);
-          break;
-        case METHODID_UPDATE_OFFSET:
-          serviceImpl.updateOffset((apache.rocketmq.v1.UpdateOffsetRequest) request,
-              (io.grpc.stub.StreamObserver<apache.rocketmq.v1.UpdateOffsetResponse>) responseObserver);
           break;
         case METHODID_MULTIPLEXING_CALL:
           serviceImpl.multiplexingCall((apache.rocketmq.v1.MultiplexingRequest) request,
@@ -1299,7 +1521,6 @@ public final class MessagingServiceGrpc {
               .addMethod(getEndTransactionMethod())
               .addMethod(getQueryOffsetMethod())
               .addMethod(getPullMessageMethod())
-              .addMethod(getUpdateOffsetMethod())
               .addMethod(getMultiplexingCallMethod())
               .addMethod(getNotifyClientTerminationMethod())
               .build();

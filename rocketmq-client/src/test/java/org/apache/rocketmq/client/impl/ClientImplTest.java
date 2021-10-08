@@ -22,6 +22,7 @@ import static org.testng.Assert.fail;
 
 import apache.rocketmq.v1.GenericPollingRequest;
 import apache.rocketmq.v1.HeartbeatRequest;
+import apache.rocketmq.v1.NotifyClientTerminationRequest;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.client.tools.TestBase;
@@ -34,6 +35,11 @@ public class ClientImplTest extends TestBase {
         this.client = new ClientImpl(FAKE_GROUP_0) {
             @Override
             public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
+            }
+
+            @Override
+            public NotifyClientTerminationRequest wrapNotifyClientTerminationRequest() {
+                return null;
             }
 
             @Override

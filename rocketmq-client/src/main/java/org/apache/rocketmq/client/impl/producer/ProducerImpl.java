@@ -27,6 +27,7 @@ import apache.rocketmq.v1.GenericPollingRequest;
 import apache.rocketmq.v1.HealthCheckRequest;
 import apache.rocketmq.v1.HealthCheckResponse;
 import apache.rocketmq.v1.HeartbeatRequest;
+import apache.rocketmq.v1.NotifyClientTerminationRequest;
 import apache.rocketmq.v1.ProducerData;
 import apache.rocketmq.v1.RecoverOrphanedTransactionRequest;
 import apache.rocketmq.v1.Resource;
@@ -618,6 +619,11 @@ public class ProducerImpl extends ClientImpl {
     @Override
     public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
         sendingRouteDataCache.put(topic, new SendingTopicRouteData(topicRouteData));
+    }
+
+    @Override
+    public NotifyClientTerminationRequest wrapNotifyClientTerminationRequest() {
+        return NotifyClientTerminationRequest.newBuilder().setClientId(id).setProducerGroup(getPbGroup()).build();
     }
 
     private ListenableFuture<SendingTopicRouteData> getSendingTopicRouteData(final String topic) {

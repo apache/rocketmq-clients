@@ -51,18 +51,33 @@ private static final long serialVersionUID = 0L;
             break;
           case 10: {
             apache.rocketmq.v1.Resource.Builder subBuilder = null;
-            if (group_ != null) {
-              subBuilder = group_.toBuilder();
+            if (groupCase_ == 1) {
+              subBuilder = ((apache.rocketmq.v1.Resource) group_).toBuilder();
             }
-            group_ = input.readMessage(apache.rocketmq.v1.Resource.parser(), extensionRegistry);
+            group_ =
+                input.readMessage(apache.rocketmq.v1.Resource.parser(), extensionRegistry);
             if (subBuilder != null) {
-              subBuilder.mergeFrom(group_);
+              subBuilder.mergeFrom((apache.rocketmq.v1.Resource) group_);
               group_ = subBuilder.buildPartial();
             }
-
+            groupCase_ = 1;
             break;
           }
           case 18: {
+            apache.rocketmq.v1.Resource.Builder subBuilder = null;
+            if (groupCase_ == 2) {
+              subBuilder = ((apache.rocketmq.v1.Resource) group_).toBuilder();
+            }
+            group_ =
+                input.readMessage(apache.rocketmq.v1.Resource.parser(), extensionRegistry);
+            if (subBuilder != null) {
+              subBuilder.mergeFrom((apache.rocketmq.v1.Resource) group_);
+              group_ = subBuilder.buildPartial();
+            }
+            groupCase_ = 2;
+            break;
+          }
+          case 26: {
             java.lang.String s = input.readStringRequireUtf8();
 
             clientId_ = s;
@@ -100,36 +115,113 @@ private static final long serialVersionUID = 0L;
             apache.rocketmq.v1.NotifyClientTerminationRequest.class, apache.rocketmq.v1.NotifyClientTerminationRequest.Builder.class);
   }
 
-  public static final int GROUP_FIELD_NUMBER = 1;
-  private apache.rocketmq.v1.Resource group_;
-  /**
-   * <code>.apache.rocketmq.v1.Resource group = 1;</code>
-   * @return Whether the group field is set.
-   */
-  @java.lang.Override
-  public boolean hasGroup() {
-    return group_ != null;
-  }
-  /**
-   * <code>.apache.rocketmq.v1.Resource group = 1;</code>
-   * @return The group.
-   */
-  @java.lang.Override
-  public apache.rocketmq.v1.Resource getGroup() {
-    return group_ == null ? apache.rocketmq.v1.Resource.getDefaultInstance() : group_;
-  }
-  /**
-   * <code>.apache.rocketmq.v1.Resource group = 1;</code>
-   */
-  @java.lang.Override
-  public apache.rocketmq.v1.ResourceOrBuilder getGroupOrBuilder() {
-    return getGroup();
+  private int groupCase_ = 0;
+  private java.lang.Object group_;
+  public enum GroupCase
+      implements com.google.protobuf.Internal.EnumLite,
+          com.google.protobuf.AbstractMessage.InternalOneOfEnum {
+    PRODUCER_GROUP(1),
+    CONSUMER_GROUP(2),
+    GROUP_NOT_SET(0);
+    private final int value;
+    private GroupCase(int value) {
+      this.value = value;
+    }
+    /**
+     * @param value The number of the enum to look for.
+     * @return The enum associated with the given number.
+     * @deprecated Use {@link #forNumber(int)} instead.
+     */
+    @java.lang.Deprecated
+    public static GroupCase valueOf(int value) {
+      return forNumber(value);
+    }
+
+    public static GroupCase forNumber(int value) {
+      switch (value) {
+        case 1: return PRODUCER_GROUP;
+        case 2: return CONSUMER_GROUP;
+        case 0: return GROUP_NOT_SET;
+        default: return null;
+      }
+    }
+    public int getNumber() {
+      return this.value;
+    }
+  };
+
+  public GroupCase
+  getGroupCase() {
+    return GroupCase.forNumber(
+        groupCase_);
   }
 
-  public static final int CLIENT_ID_FIELD_NUMBER = 2;
+  public static final int PRODUCER_GROUP_FIELD_NUMBER = 1;
+  /**
+   * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+   * @return Whether the producerGroup field is set.
+   */
+  @java.lang.Override
+  public boolean hasProducerGroup() {
+    return groupCase_ == 1;
+  }
+  /**
+   * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+   * @return The producerGroup.
+   */
+  @java.lang.Override
+  public apache.rocketmq.v1.Resource getProducerGroup() {
+    if (groupCase_ == 1) {
+       return (apache.rocketmq.v1.Resource) group_;
+    }
+    return apache.rocketmq.v1.Resource.getDefaultInstance();
+  }
+  /**
+   * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+   */
+  @java.lang.Override
+  public apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder() {
+    if (groupCase_ == 1) {
+       return (apache.rocketmq.v1.Resource) group_;
+    }
+    return apache.rocketmq.v1.Resource.getDefaultInstance();
+  }
+
+  public static final int CONSUMER_GROUP_FIELD_NUMBER = 2;
+  /**
+   * <code>.apache.rocketmq.v1.Resource consumer_group = 2;</code>
+   * @return Whether the consumerGroup field is set.
+   */
+  @java.lang.Override
+  public boolean hasConsumerGroup() {
+    return groupCase_ == 2;
+  }
+  /**
+   * <code>.apache.rocketmq.v1.Resource consumer_group = 2;</code>
+   * @return The consumerGroup.
+   */
+  @java.lang.Override
+  public apache.rocketmq.v1.Resource getConsumerGroup() {
+    if (groupCase_ == 2) {
+       return (apache.rocketmq.v1.Resource) group_;
+    }
+    return apache.rocketmq.v1.Resource.getDefaultInstance();
+  }
+  /**
+   * <code>.apache.rocketmq.v1.Resource consumer_group = 2;</code>
+   */
+  @java.lang.Override
+  public apache.rocketmq.v1.ResourceOrBuilder getConsumerGroupOrBuilder() {
+    if (groupCase_ == 2) {
+       return (apache.rocketmq.v1.Resource) group_;
+    }
+    return apache.rocketmq.v1.Resource.getDefaultInstance();
+  }
+
+  public static final int CLIENT_ID_FIELD_NUMBER = 3;
   private volatile java.lang.Object clientId_;
   /**
-   * <code>string client_id = 2;</code>
+   * <code>string client_id = 3;</code>
    * @return The clientId.
    */
   @java.lang.Override
@@ -146,7 +238,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string client_id = 2;</code>
+   * <code>string client_id = 3;</code>
    * @return The bytes for clientId.
    */
   @java.lang.Override
@@ -178,11 +270,14 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (group_ != null) {
-      output.writeMessage(1, getGroup());
+    if (groupCase_ == 1) {
+      output.writeMessage(1, (apache.rocketmq.v1.Resource) group_);
+    }
+    if (groupCase_ == 2) {
+      output.writeMessage(2, (apache.rocketmq.v1.Resource) group_);
     }
     if (!getClientIdBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 2, clientId_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 3, clientId_);
     }
     unknownFields.writeTo(output);
   }
@@ -193,12 +288,16 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (group_ != null) {
+    if (groupCase_ == 1) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(1, getGroup());
+        .computeMessageSize(1, (apache.rocketmq.v1.Resource) group_);
+    }
+    if (groupCase_ == 2) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(2, (apache.rocketmq.v1.Resource) group_);
     }
     if (!getClientIdBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, clientId_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, clientId_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -215,13 +314,21 @@ private static final long serialVersionUID = 0L;
     }
     apache.rocketmq.v1.NotifyClientTerminationRequest other = (apache.rocketmq.v1.NotifyClientTerminationRequest) obj;
 
-    if (hasGroup() != other.hasGroup()) return false;
-    if (hasGroup()) {
-      if (!getGroup()
-          .equals(other.getGroup())) return false;
-    }
     if (!getClientId()
         .equals(other.getClientId())) return false;
+    if (!getGroupCase().equals(other.getGroupCase())) return false;
+    switch (groupCase_) {
+      case 1:
+        if (!getProducerGroup()
+            .equals(other.getProducerGroup())) return false;
+        break;
+      case 2:
+        if (!getConsumerGroup()
+            .equals(other.getConsumerGroup())) return false;
+        break;
+      case 0:
+      default:
+    }
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -233,12 +340,20 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    if (hasGroup()) {
-      hash = (37 * hash) + GROUP_FIELD_NUMBER;
-      hash = (53 * hash) + getGroup().hashCode();
-    }
     hash = (37 * hash) + CLIENT_ID_FIELD_NUMBER;
     hash = (53 * hash) + getClientId().hashCode();
+    switch (groupCase_) {
+      case 1:
+        hash = (37 * hash) + PRODUCER_GROUP_FIELD_NUMBER;
+        hash = (53 * hash) + getProducerGroup().hashCode();
+        break;
+      case 2:
+        hash = (37 * hash) + CONSUMER_GROUP_FIELD_NUMBER;
+        hash = (53 * hash) + getConsumerGroup().hashCode();
+        break;
+      case 0:
+      default:
+    }
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -372,14 +487,10 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
-      if (groupBuilder_ == null) {
-        group_ = null;
-      } else {
-        group_ = null;
-        groupBuilder_ = null;
-      }
       clientId_ = "";
 
+      groupCase_ = 0;
+      group_ = null;
       return this;
     }
 
@@ -406,12 +517,22 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public apache.rocketmq.v1.NotifyClientTerminationRequest buildPartial() {
       apache.rocketmq.v1.NotifyClientTerminationRequest result = new apache.rocketmq.v1.NotifyClientTerminationRequest(this);
-      if (groupBuilder_ == null) {
-        result.group_ = group_;
-      } else {
-        result.group_ = groupBuilder_.build();
+      if (groupCase_ == 1) {
+        if (producerGroupBuilder_ == null) {
+          result.group_ = group_;
+        } else {
+          result.group_ = producerGroupBuilder_.build();
+        }
+      }
+      if (groupCase_ == 2) {
+        if (consumerGroupBuilder_ == null) {
+          result.group_ = group_;
+        } else {
+          result.group_ = consumerGroupBuilder_.build();
+        }
       }
       result.clientId_ = clientId_;
+      result.groupCase_ = groupCase_;
       onBuilt();
       return result;
     }
@@ -460,12 +581,22 @@ private static final long serialVersionUID = 0L;
 
     public Builder mergeFrom(apache.rocketmq.v1.NotifyClientTerminationRequest other) {
       if (other == apache.rocketmq.v1.NotifyClientTerminationRequest.getDefaultInstance()) return this;
-      if (other.hasGroup()) {
-        mergeGroup(other.getGroup());
-      }
       if (!other.getClientId().isEmpty()) {
         clientId_ = other.clientId_;
         onChanged();
+      }
+      switch (other.getGroupCase()) {
+        case PRODUCER_GROUP: {
+          mergeProducerGroup(other.getProducerGroup());
+          break;
+        }
+        case CONSUMER_GROUP: {
+          mergeConsumerGroup(other.getConsumerGroup());
+          break;
+        }
+        case GROUP_NOT_SET: {
+          break;
+        }
       }
       this.mergeUnknownFields(other.unknownFields);
       onChanged();
@@ -495,129 +626,307 @@ private static final long serialVersionUID = 0L;
       }
       return this;
     }
+    private int groupCase_ = 0;
+    private java.lang.Object group_;
+    public GroupCase
+        getGroupCase() {
+      return GroupCase.forNumber(
+          groupCase_);
+    }
 
-    private apache.rocketmq.v1.Resource group_;
+    public Builder clearGroup() {
+      groupCase_ = 0;
+      group_ = null;
+      onChanged();
+      return this;
+    }
+
+
     private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> groupBuilder_;
+        apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> producerGroupBuilder_;
     /**
-     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
-     * @return Whether the group field is set.
+     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+     * @return Whether the producerGroup field is set.
      */
-    public boolean hasGroup() {
-      return groupBuilder_ != null || group_ != null;
+    @java.lang.Override
+    public boolean hasProducerGroup() {
+      return groupCase_ == 1;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
-     * @return The group.
+     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+     * @return The producerGroup.
      */
-    public apache.rocketmq.v1.Resource getGroup() {
-      if (groupBuilder_ == null) {
-        return group_ == null ? apache.rocketmq.v1.Resource.getDefaultInstance() : group_;
+    @java.lang.Override
+    public apache.rocketmq.v1.Resource getProducerGroup() {
+      if (producerGroupBuilder_ == null) {
+        if (groupCase_ == 1) {
+          return (apache.rocketmq.v1.Resource) group_;
+        }
+        return apache.rocketmq.v1.Resource.getDefaultInstance();
       } else {
-        return groupBuilder_.getMessage();
+        if (groupCase_ == 1) {
+          return producerGroupBuilder_.getMessage();
+        }
+        return apache.rocketmq.v1.Resource.getDefaultInstance();
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
      */
-    public Builder setGroup(apache.rocketmq.v1.Resource value) {
-      if (groupBuilder_ == null) {
+    public Builder setProducerGroup(apache.rocketmq.v1.Resource value) {
+      if (producerGroupBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
         }
         group_ = value;
         onChanged();
       } else {
-        groupBuilder_.setMessage(value);
+        producerGroupBuilder_.setMessage(value);
       }
-
+      groupCase_ = 1;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
      */
-    public Builder setGroup(
+    public Builder setProducerGroup(
         apache.rocketmq.v1.Resource.Builder builderForValue) {
-      if (groupBuilder_ == null) {
+      if (producerGroupBuilder_ == null) {
         group_ = builderForValue.build();
         onChanged();
       } else {
-        groupBuilder_.setMessage(builderForValue.build());
+        producerGroupBuilder_.setMessage(builderForValue.build());
       }
-
+      groupCase_ = 1;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
      */
-    public Builder mergeGroup(apache.rocketmq.v1.Resource value) {
-      if (groupBuilder_ == null) {
-        if (group_ != null) {
-          group_ =
-            apache.rocketmq.v1.Resource.newBuilder(group_).mergeFrom(value).buildPartial();
+    public Builder mergeProducerGroup(apache.rocketmq.v1.Resource value) {
+      if (producerGroupBuilder_ == null) {
+        if (groupCase_ == 1 &&
+            group_ != apache.rocketmq.v1.Resource.getDefaultInstance()) {
+          group_ = apache.rocketmq.v1.Resource.newBuilder((apache.rocketmq.v1.Resource) group_)
+              .mergeFrom(value).buildPartial();
         } else {
           group_ = value;
         }
         onChanged();
       } else {
-        groupBuilder_.mergeFrom(value);
+        if (groupCase_ == 1) {
+          producerGroupBuilder_.mergeFrom(value);
+        }
+        producerGroupBuilder_.setMessage(value);
       }
-
+      groupCase_ = 1;
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
      */
-    public Builder clearGroup() {
-      if (groupBuilder_ == null) {
-        group_ = null;
-        onChanged();
+    public Builder clearProducerGroup() {
+      if (producerGroupBuilder_ == null) {
+        if (groupCase_ == 1) {
+          groupCase_ = 0;
+          group_ = null;
+          onChanged();
+        }
       } else {
-        group_ = null;
-        groupBuilder_ = null;
+        if (groupCase_ == 1) {
+          groupCase_ = 0;
+          group_ = null;
+        }
+        producerGroupBuilder_.clear();
       }
-
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
      */
-    public apache.rocketmq.v1.Resource.Builder getGroupBuilder() {
-      
-      onChanged();
-      return getGroupFieldBuilder().getBuilder();
+    public apache.rocketmq.v1.Resource.Builder getProducerGroupBuilder() {
+      return getProducerGroupFieldBuilder().getBuilder();
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
      */
-    public apache.rocketmq.v1.ResourceOrBuilder getGroupOrBuilder() {
-      if (groupBuilder_ != null) {
-        return groupBuilder_.getMessageOrBuilder();
+    @java.lang.Override
+    public apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder() {
+      if ((groupCase_ == 1) && (producerGroupBuilder_ != null)) {
+        return producerGroupBuilder_.getMessageOrBuilder();
       } else {
-        return group_ == null ?
-            apache.rocketmq.v1.Resource.getDefaultInstance() : group_;
+        if (groupCase_ == 1) {
+          return (apache.rocketmq.v1.Resource) group_;
+        }
+        return apache.rocketmq.v1.Resource.getDefaultInstance();
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.Resource group = 1;</code>
+     * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> 
-        getGroupFieldBuilder() {
-      if (groupBuilder_ == null) {
-        groupBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+        getProducerGroupFieldBuilder() {
+      if (producerGroupBuilder_ == null) {
+        if (!(groupCase_ == 1)) {
+          group_ = apache.rocketmq.v1.Resource.getDefaultInstance();
+        }
+        producerGroupBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
             apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder>(
-                getGroup(),
+                (apache.rocketmq.v1.Resource) group_,
                 getParentForChildren(),
                 isClean());
         group_ = null;
       }
-      return groupBuilder_;
+      groupCase_ = 1;
+      onChanged();;
+      return producerGroupBuilder_;
+    }
+
+    private com.google.protobuf.SingleFieldBuilderV3<
+        apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> consumerGroupBuilder_;
+    /**
+     * <code>.apache.rocketmq.v1.Resource consumer_group = 2;</code>
+     * @return Whether the consumerGroup field is set.
+     */
+    @java.lang.Override
+    public boolean hasConsumerGroup() {
+      return groupCase_ == 2;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Resource consumer_group = 2;</code>
+     * @return The consumerGroup.
+     */
+    @java.lang.Override
+    public apache.rocketmq.v1.Resource getConsumerGroup() {
+      if (consumerGroupBuilder_ == null) {
+        if (groupCase_ == 2) {
+          return (apache.rocketmq.v1.Resource) group_;
+        }
+        return apache.rocketmq.v1.Resource.getDefaultInstance();
+      } else {
+        if (groupCase_ == 2) {
+          return consumerGroupBuilder_.getMessage();
+        }
+        return apache.rocketmq.v1.Resource.getDefaultInstance();
+      }
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Resource consumer_group = 2;</code>
+     */
+    public Builder setConsumerGroup(apache.rocketmq.v1.Resource value) {
+      if (consumerGroupBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        group_ = value;
+        onChanged();
+      } else {
+        consumerGroupBuilder_.setMessage(value);
+      }
+      groupCase_ = 2;
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Resource consumer_group = 2;</code>
+     */
+    public Builder setConsumerGroup(
+        apache.rocketmq.v1.Resource.Builder builderForValue) {
+      if (consumerGroupBuilder_ == null) {
+        group_ = builderForValue.build();
+        onChanged();
+      } else {
+        consumerGroupBuilder_.setMessage(builderForValue.build());
+      }
+      groupCase_ = 2;
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Resource consumer_group = 2;</code>
+     */
+    public Builder mergeConsumerGroup(apache.rocketmq.v1.Resource value) {
+      if (consumerGroupBuilder_ == null) {
+        if (groupCase_ == 2 &&
+            group_ != apache.rocketmq.v1.Resource.getDefaultInstance()) {
+          group_ = apache.rocketmq.v1.Resource.newBuilder((apache.rocketmq.v1.Resource) group_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          group_ = value;
+        }
+        onChanged();
+      } else {
+        if (groupCase_ == 2) {
+          consumerGroupBuilder_.mergeFrom(value);
+        }
+        consumerGroupBuilder_.setMessage(value);
+      }
+      groupCase_ = 2;
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Resource consumer_group = 2;</code>
+     */
+    public Builder clearConsumerGroup() {
+      if (consumerGroupBuilder_ == null) {
+        if (groupCase_ == 2) {
+          groupCase_ = 0;
+          group_ = null;
+          onChanged();
+        }
+      } else {
+        if (groupCase_ == 2) {
+          groupCase_ = 0;
+          group_ = null;
+        }
+        consumerGroupBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Resource consumer_group = 2;</code>
+     */
+    public apache.rocketmq.v1.Resource.Builder getConsumerGroupBuilder() {
+      return getConsumerGroupFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Resource consumer_group = 2;</code>
+     */
+    @java.lang.Override
+    public apache.rocketmq.v1.ResourceOrBuilder getConsumerGroupOrBuilder() {
+      if ((groupCase_ == 2) && (consumerGroupBuilder_ != null)) {
+        return consumerGroupBuilder_.getMessageOrBuilder();
+      } else {
+        if (groupCase_ == 2) {
+          return (apache.rocketmq.v1.Resource) group_;
+        }
+        return apache.rocketmq.v1.Resource.getDefaultInstance();
+      }
+    }
+    /**
+     * <code>.apache.rocketmq.v1.Resource consumer_group = 2;</code>
+     */
+    private com.google.protobuf.SingleFieldBuilderV3<
+        apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder> 
+        getConsumerGroupFieldBuilder() {
+      if (consumerGroupBuilder_ == null) {
+        if (!(groupCase_ == 2)) {
+          group_ = apache.rocketmq.v1.Resource.getDefaultInstance();
+        }
+        consumerGroupBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+            apache.rocketmq.v1.Resource, apache.rocketmq.v1.Resource.Builder, apache.rocketmq.v1.ResourceOrBuilder>(
+                (apache.rocketmq.v1.Resource) group_,
+                getParentForChildren(),
+                isClean());
+        group_ = null;
+      }
+      groupCase_ = 2;
+      onChanged();;
+      return consumerGroupBuilder_;
     }
 
     private java.lang.Object clientId_ = "";
     /**
-     * <code>string client_id = 2;</code>
+     * <code>string client_id = 3;</code>
      * @return The clientId.
      */
     public java.lang.String getClientId() {
@@ -633,7 +942,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string client_id = 2;</code>
+     * <code>string client_id = 3;</code>
      * @return The bytes for clientId.
      */
     public com.google.protobuf.ByteString
@@ -650,7 +959,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string client_id = 2;</code>
+     * <code>string client_id = 3;</code>
      * @param value The clientId to set.
      * @return This builder for chaining.
      */
@@ -665,7 +974,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string client_id = 2;</code>
+     * <code>string client_id = 3;</code>
      * @return This builder for chaining.
      */
     public Builder clearClientId() {
@@ -675,7 +984,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string client_id = 2;</code>
+     * <code>string client_id = 3;</code>
      * @param value The bytes for clientId to set.
      * @return This builder for chaining.
      */

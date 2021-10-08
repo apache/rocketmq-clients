@@ -8,29 +8,46 @@ public interface NotifyClientTerminationRequestOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>.apache.rocketmq.v1.Resource group = 1;</code>
-   * @return Whether the group field is set.
+   * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+   * @return Whether the producerGroup field is set.
    */
-  boolean hasGroup();
+  boolean hasProducerGroup();
   /**
-   * <code>.apache.rocketmq.v1.Resource group = 1;</code>
-   * @return The group.
+   * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
+   * @return The producerGroup.
    */
-  apache.rocketmq.v1.Resource getGroup();
+  apache.rocketmq.v1.Resource getProducerGroup();
   /**
-   * <code>.apache.rocketmq.v1.Resource group = 1;</code>
+   * <code>.apache.rocketmq.v1.Resource producer_group = 1;</code>
    */
-  apache.rocketmq.v1.ResourceOrBuilder getGroupOrBuilder();
+  apache.rocketmq.v1.ResourceOrBuilder getProducerGroupOrBuilder();
 
   /**
-   * <code>string client_id = 2;</code>
+   * <code>.apache.rocketmq.v1.Resource consumer_group = 2;</code>
+   * @return Whether the consumerGroup field is set.
+   */
+  boolean hasConsumerGroup();
+  /**
+   * <code>.apache.rocketmq.v1.Resource consumer_group = 2;</code>
+   * @return The consumerGroup.
+   */
+  apache.rocketmq.v1.Resource getConsumerGroup();
+  /**
+   * <code>.apache.rocketmq.v1.Resource consumer_group = 2;</code>
+   */
+  apache.rocketmq.v1.ResourceOrBuilder getConsumerGroupOrBuilder();
+
+  /**
+   * <code>string client_id = 3;</code>
    * @return The clientId.
    */
   java.lang.String getClientId();
   /**
-   * <code>string client_id = 2;</code>
+   * <code>string client_id = 3;</code>
    * @return The bytes for clientId.
    */
   com.google.protobuf.ByteString
       getClientIdBytes();
+
+  public apache.rocketmq.v1.NotifyClientTerminationRequest.GroupCase getGroupCase();
 }

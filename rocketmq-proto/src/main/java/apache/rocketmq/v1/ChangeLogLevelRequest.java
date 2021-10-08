@@ -76,13 +76,13 @@ private static final long serialVersionUID = 0L;
   }
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return apache.rocketmq.v1.ACS.internal_static_apache_rocketmq_v1_ChangeLogLevelRequest_descriptor;
+    return apache.rocketmq.v1.MQAdmin.internal_static_apache_rocketmq_v1_ChangeLogLevelRequest_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return apache.rocketmq.v1.ACS.internal_static_apache_rocketmq_v1_ChangeLogLevelRequest_fieldAccessorTable
+    return apache.rocketmq.v1.MQAdmin.internal_static_apache_rocketmq_v1_ChangeLogLevelRequest_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
             apache.rocketmq.v1.ChangeLogLevelRequest.class, apache.rocketmq.v1.ChangeLogLevelRequest.Builder.class);
   }
@@ -404,13 +404,13 @@ private static final long serialVersionUID = 0L;
       apache.rocketmq.v1.ChangeLogLevelRequestOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return apache.rocketmq.v1.ACS.internal_static_apache_rocketmq_v1_ChangeLogLevelRequest_descriptor;
+      return apache.rocketmq.v1.MQAdmin.internal_static_apache_rocketmq_v1_ChangeLogLevelRequest_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return apache.rocketmq.v1.ACS.internal_static_apache_rocketmq_v1_ChangeLogLevelRequest_fieldAccessorTable
+      return apache.rocketmq.v1.MQAdmin.internal_static_apache_rocketmq_v1_ChangeLogLevelRequest_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
               apache.rocketmq.v1.ChangeLogLevelRequest.class, apache.rocketmq.v1.ChangeLogLevelRequest.Builder.class);
     }
@@ -441,7 +441,7 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return apache.rocketmq.v1.ACS.internal_static_apache_rocketmq_v1_ChangeLogLevelRequest_descriptor;
+      return apache.rocketmq.v1.MQAdmin.internal_static_apache_rocketmq_v1_ChangeLogLevelRequest_descriptor;
     }
 
     @java.lang.Override

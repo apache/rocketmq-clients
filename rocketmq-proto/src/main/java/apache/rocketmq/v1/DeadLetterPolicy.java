@@ -98,7 +98,7 @@ private static final long serialVersionUID = 0L;
    * <pre>
    * The maximum number of delivery attempts for any message.
    * This field will be honored on a best effort basis.
-   * If this parameter is 0, a default value of 5 is used.
+   * If this parameter is 0, a default value of 16 is used.
    * </pre>
    *
    * <code>int32 max_delivery_attempts = 1;</code>
@@ -423,7 +423,7 @@ private static final long serialVersionUID = 0L;
      * <pre>
      * The maximum number of delivery attempts for any message.
      * This field will be honored on a best effort basis.
-     * If this parameter is 0, a default value of 5 is used.
+     * If this parameter is 0, a default value of 16 is used.
      * </pre>
      *
      * <code>int32 max_delivery_attempts = 1;</code>
@@ -437,7 +437,7 @@ private static final long serialVersionUID = 0L;
      * <pre>
      * The maximum number of delivery attempts for any message.
      * This field will be honored on a best effort basis.
-     * If this parameter is 0, a default value of 5 is used.
+     * If this parameter is 0, a default value of 16 is used.
      * </pre>
      *
      * <code>int32 max_delivery_attempts = 1;</code>
@@ -454,7 +454,7 @@ private static final long serialVersionUID = 0L;
      * <pre>
      * The maximum number of delivery attempts for any message.
      * This field will be honored on a best effort basis.
-     * If this parameter is 0, a default value of 5 is used.
+     * If this parameter is 0, a default value of 16 is used.
      * </pre>
      *
      * <code>int32 max_delivery_attempts = 1;</code>

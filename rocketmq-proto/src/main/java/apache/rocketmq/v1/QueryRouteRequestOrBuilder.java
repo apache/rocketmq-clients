@@ -24,7 +24,8 @@ public interface QueryRouteRequestOrBuilder extends
 
   /**
    * <pre>
-   * Service access point
+   * The service access points used to issue QueryRouteRequest
+   * The QueryRouteResponse will indicate the adress of subsequent RPCs.
    * </pre>
    *
    * <code>.apache.rocketmq.v1.Endpoints endpoints = 2;</code>
@@ -33,7 +34,8 @@ public interface QueryRouteRequestOrBuilder extends
   boolean hasEndpoints();
   /**
    * <pre>
-   * Service access point
+   * The service access points used to issue QueryRouteRequest
+   * The QueryRouteResponse will indicate the adress of subsequent RPCs.
    * </pre>
    *
    * <code>.apache.rocketmq.v1.Endpoints endpoints = 2;</code>
@@ -42,7 +44,8 @@ public interface QueryRouteRequestOrBuilder extends
   apache.rocketmq.v1.Endpoints getEndpoints();
   /**
    * <pre>
-   * Service access point
+   * The service access points used to issue QueryRouteRequest
+   * The QueryRouteResponse will indicate the adress of subsequent RPCs.
    * </pre>
    *
    * <code>.apache.rocketmq.v1.Endpoints endpoints = 2;</code>

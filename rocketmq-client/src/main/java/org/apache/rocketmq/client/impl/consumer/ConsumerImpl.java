@@ -18,6 +18,7 @@
 package org.apache.rocketmq.client.impl.consumer;
 
 import apache.rocketmq.v1.Message;
+import apache.rocketmq.v1.NotifyClientTerminationRequest;
 import apache.rocketmq.v1.PullMessageRequest;
 import apache.rocketmq.v1.PullMessageResponse;
 import apache.rocketmq.v1.QueryOffsetRequest;
@@ -60,6 +61,10 @@ public abstract class ConsumerImpl extends ClientImpl {
 
     public ConsumerImpl(String group) throws ClientException {
         super(group);
+    }
+
+    public NotifyClientTerminationRequest wrapNotifyClientTerminationRequest() {
+        return NotifyClientTerminationRequest.newBuilder().setClientId(id).setConsumerGroup(getPbGroup()).build();
     }
 
     protected ListenableFuture<Long> queryOffset(QueryOffsetRequest request, final Endpoints endpoints) {
