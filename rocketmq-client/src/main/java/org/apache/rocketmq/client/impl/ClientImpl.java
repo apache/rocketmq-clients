@@ -384,7 +384,8 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
 
                 @Override
                 public void onFailure(Throwable t) {
-                    log.error("Failed to fetch topic route, namespace={}, topic={}", namespace, topic, t);
+                    log.error("Failed to fetch topic route for update cache, namespace={}, topic={}", namespace, topic,
+                              t);
                 }
             });
         }
@@ -559,11 +560,13 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
             Futures.addCallback(responseFuture, new FutureCallback<QueryRouteResponse>() {
                 @Override
                 public void onSuccess(QueryRouteResponse response) {
+                    // Response is processed by caller.
                 }
 
                 @Override
                 public void onFailure(Throwable t) {
-                    // select different name server endpoints for next time.
+                    log.error("Exception raised while fetch topic route from name server endpoints={}, namespace={}, "
+                              + "topic={}, choose the another one for the next round.", endpoints, namespace, topic, t);
                     nameServerIndex.getAndIncrement();
                 }
             });
