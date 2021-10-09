@@ -362,10 +362,10 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
         final TopicRouteData oldTopicRouteData = topicRouteCache.put(topic, topicRouteData);
         // topicRouteData here is never be null.
         if (topicRouteData.equals(oldTopicRouteData)) {
-            log.info("Topic route remains the same, namespace={}, topic={}", namespace, topic);
+            log.info("Topic route remains the same, namespace={}, topic={}, clientId={}", namespace, topic, id);
         } else {
-            log.info("Topic route is updated, namespace={}, topic={}, {} => {}", namespace, topic, oldTopicRouteData,
-                     topicRouteData);
+            log.info("Topic route is updated, namespace={}, topic={}, clientId={}, {} => {}", namespace, topic,
+                     id, oldTopicRouteData, topicRouteData);
         }
         final Set<Endpoints> after = getRouteEndpointsSet();
         return new HashSet<Endpoints>(Sets.difference(after, before));
