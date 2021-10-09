@@ -67,6 +67,13 @@ mvn clean package
 Sometimes you may need to release a version whose bytecode version is 52.0 (Java 8), please add `-P mustang-forbidden`
 in your command.
 
+## About logging system
+
+We use logback as our logging system and redirect log of gRPC to logback as well. to prevent the clash of configuration
+file while both of rocketmq client and standard logback is introduced in the same project, we shaded a new logback,
+which using `rocketmq.logback.xml/rocketmq.logback-test.xml/rocketmq.logback.groovy`
+instead of `logback.xml/logback-test.xml/logback.groovy` as its configuration file.
+
 ## License
 
 [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.html) Copyright (C) Apache Software Foundation
