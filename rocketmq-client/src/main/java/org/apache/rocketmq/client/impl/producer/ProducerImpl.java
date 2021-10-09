@@ -315,7 +315,7 @@ public class ProducerImpl extends ClientImpl {
                 body = UtilAll.compressBytesGzip(body, MESSAGE_COMPRESSION_LEVEL);
                 encoding = Encoding.GZIP;
             } catch (IOException e) {
-                log.warn("Failed to compress message, messageId={}", message.getMsgId(), e);
+                log.warn("Failed to compress message, clientId={}, messageId={}", id, message.getMsgId(), e);
             }
         }
         switch (encoding) {
@@ -566,9 +566,9 @@ public class ProducerImpl extends ClientImpl {
             final Code code = Code.forNumber(status.getCode());
 
             if (!Code.OK.equals(code)) {
-                log.error("Failed to end transaction, namespace={}, topic={}, messageId={}, transactionId={}, "
-                          + "resolution={}, code={}, status message=[{}]", namespace, topic, messageId, transactionId,
-                          resolution, code, status.getMessage());
+                log.error("Failed to end transaction, clientId={}, namespace={}, topic={}, messageId={}, "
+                          + "transactionId={}, resolution={}, code={}, status message=[{}]", id, namespace, topic,
+                          messageId, transactionId, resolution, code, status.getMessage());
 
                 throw new ServerException(ErrorCode.OTHER, status.getMessage());
             }
@@ -582,7 +582,7 @@ public class ProducerImpl extends ClientImpl {
         final apache.rocketmq.v1.Message message = request.getOrphanedTransactionalMessage();
         final String messageId = message.getSystemAttribute().getMessageId();
         if (null == transactionChecker) {
-            log.error("No transaction checker registered, ignore it, messageId={}", messageId);
+            log.error("No transaction checker registered, ignore it, messageId={}, clientId={}", messageId, id);
             return;
         }
         final MessageExt messageExt;
@@ -590,8 +590,8 @@ public class ProducerImpl extends ClientImpl {
             MessageImpl messageImpl = MessageImplAccessor.wrapMessageImpl(message);
             messageExt = new MessageExt(messageImpl);
         } catch (Throwable t) {
-            log.error("[Bug] Failed to decode message while resolving orphaned transaction, messageId={}", messageId,
-                      t);
+            log.error("[Bug] Failed to decode message while resolving orphaned transaction, messageId={}, clientId={}",
+                      messageId, id, t);
             return;
         }
         try {
@@ -606,13 +606,14 @@ public class ProducerImpl extends ClientImpl {
                         endTransaction(endpoints, messageExt, request.getTransactionId(), resolution);
                     } catch (Throwable t) {
                         log.error("Exception raised while check and end transaction, messageId={}, transactionId={}, "
-                                  + "endpoints={}", messageId, request.getTransactionId(), endpoints, t);
+                                  + "endpoints={}, clientId={}", messageId, request.getTransactionId(), endpoints, id,
+                                  t);
                     }
                 }
             });
         } catch (Throwable t) {
-            log.error("Failed to submit task for check and end transaction, messageId={}, transactionId={}",
-                      messageId, request.getTransactionId(), t);
+            log.error("Failed to submit task for check and end transaction, messageId={}, transactionId={}, "
+                      + "clientId={}", messageId, request.getTransactionId(), id, t);
         }
     }
 
@@ -695,7 +696,7 @@ public class ProducerImpl extends ClientImpl {
         // timeout, no need to proceed.
         if (future.isCancelled()) {
             log.error("No need for sending because of timeout, namespace={}, topic={}, messageId={}, maxAttempts={}, "
-                      + "attempt={}", namespace, topic, msgId, maxAttempts, attempt);
+                      + "attempt={}, clientId={}", namespace, topic, msgId, maxAttempts, attempt, id);
             return;
         }
 
@@ -744,7 +745,8 @@ public class ProducerImpl extends ClientImpl {
                 // resend message successfully.
                 if (1 < attempt) {
                     log.info("Resend message successfully, namespace={}, topic={}, messageId={}, maxAttempts={}, "
-                             + "attempt={}, endpoints={}", namespace, topic, msgId, maxAttempts, attempt, endpoints);
+                             + "attempt={}, endpoints={}, clientId={}", namespace, topic, msgId, maxAttempts, attempt,
+                             endpoints, id);
                 }
 
                 // intercept after message sending.
@@ -771,14 +773,14 @@ public class ProducerImpl extends ClientImpl {
                     // no need more attempts.
                     future.setException(t);
                     log.error("Failed to send message finally, run out of attempt times, maxAttempts={}, attempt={}, "
-                              + "namespace={}, topic={}, messageId={}, endpoints={}", maxAttempts, attempt,
-                              namespace, topic, msgId, endpoints, t);
+                              + "namespace={}, topic={}, messageId={}, endpoints={}, clientId={}", maxAttempts, attempt,
+                              namespace, topic, msgId, endpoints, id, t);
                     return;
                 }
                 // try to do more attempts.
                 log.warn("Failed to send message, would attempt to resend right now, maxAttempts={}, "
-                         + "attempt={}, namespace={}, topic={}, messageId={}, endpoints={}", maxAttempts, attempt,
-                         namespace, topic, msgId, endpoints, t);
+                         + "attempt={}, namespace={}, topic={}, messageId={}, endpoints={}, clientId={}", maxAttempts,
+                         attempt, namespace, topic, msgId, endpoints, id, t);
                 send0(future, candidates, message, 1 + attempt, maxAttempts);
             }
         });
@@ -804,7 +806,8 @@ public class ProducerImpl extends ClientImpl {
             @Override
             public ListenableFuture<Partition> apply(SendingTopicRouteData sendingRouteData) throws ClientException {
                 if (sendingRouteData.isEmpty()) {
-                    log.warn("No available sending route for selector, namespace={}, topic={}", namespace, topic);
+                    log.warn("No available sending route for selector, namespace={}, topic={}, clientId={}", namespace,
+                             topic, id);
                     throw new ClientException(ErrorCode.NO_PERMISSION);
                 }
                 final MessageQueue mq = selector.select(sendingRouteData.getMessageQueues(), message, arg);

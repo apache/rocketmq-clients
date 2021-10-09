@@ -69,9 +69,10 @@ in your command.
 
 ## About logging system
 
-We use logback as our logging system and redirect log of gRPC to logback as well. to prevent the clash of configuration
-file while both of rocketmq client and standard logback is introduced in the same project, we shaded a new logback,
-which using `rocketmq.logback.xml/rocketmq.logback-test.xml/rocketmq.logback.groovy`
+We use logback as our logging system and redirect log of gRPC to logback as well.
+
+To prevent the clash of configuration file while both of rocketmq client and standard logback is introduced in the same
+project, we shaded a new logback, which using `rocketmq.logback.xml/rocketmq.logback-test.xml/rocketmq.logback.groovy`
 instead of `logback.xml/logback-test.xml/logback.groovy` as its configuration file.
 
 ## License
