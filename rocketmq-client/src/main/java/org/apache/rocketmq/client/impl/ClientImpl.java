@@ -17,20 +17,19 @@
 
 package org.apache.rocketmq.client.impl;
 
-import apache.rocketmq.v1.GenericPollingRequest;
 import apache.rocketmq.v1.HeartbeatRequest;
 import apache.rocketmq.v1.HeartbeatResponse;
-import apache.rocketmq.v1.MultiplexingRequest;
-import apache.rocketmq.v1.MultiplexingResponse;
 import apache.rocketmq.v1.NotifyClientTerminationRequest;
-import apache.rocketmq.v1.PrintThreadStackResponse;
+import apache.rocketmq.v1.PollCommandRequest;
+import apache.rocketmq.v1.PollCommandResponse;
+import apache.rocketmq.v1.PrintThreadStackTraceCommand;
 import apache.rocketmq.v1.QueryRouteRequest;
 import apache.rocketmq.v1.QueryRouteResponse;
-import apache.rocketmq.v1.RecoverOrphanedTransactionRequest;
+import apache.rocketmq.v1.RecoverOrphanedTransactionCommand;
+import apache.rocketmq.v1.ReportThreadStackTraceRequest;
+import apache.rocketmq.v1.ReportThreadStackTraceResponse;
 import apache.rocketmq.v1.Resource;
-import apache.rocketmq.v1.ResponseCommon;
-import apache.rocketmq.v1.VerifyMessageConsumptionRequest;
-import apache.rocketmq.v1.VerifyMessageConsumptionResponse;
+import apache.rocketmq.v1.VerifyMessageConsumptionCommand;
 import com.google.common.collect.Sets;
 import com.google.common.math.IntMath;
 import com.google.common.util.concurrent.AbstractIdleService;
@@ -51,8 +50,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
@@ -61,7 +62,6 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
 import org.apache.rocketmq.client.message.MessageExt;
@@ -80,6 +80,7 @@ import org.apache.rocketmq.client.route.Permission;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.client.trace.MessageTracer;
 import org.apache.rocketmq.client.trace.TraceEndpointsProvider;
+import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.apache.rocketmq.utility.UtilAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,23 +90,20 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
     private static final Logger log = LoggerFactory.getLogger(ClientImpl.class);
 
     /**
-     * Delay interval while multiplexing call encounters failure.
+     * Delay interval while polling command encounters failure.
      */
-    private static final long MULTIPLEXING_CALL_LATER_DELAY_MILLIS = 3 * 1000L;
+    private static final long POLL_COMMAND_LATER_DELAY_MILLIS = 1000L;
 
     /**
-     * Maximum time allowed client to execute multiplexing call before being cancelled.
+     * Maximum time allowed client to execute polling call before being cancelled.
      */
-    private static final long MULTIPLEXING_CALL_TIMEOUT_MILLIS = 60 * 1000L;
-
-    /**
-     * For {@link DefaultMQPushConsumer} only, maximum time allowed consumer to verify specified message's consumption.
-     */
-    private static final long VERIFY_CONSUMPTION_TIMEOUT_MILLIS = 15 * 1000L;
+    private static final long POLL_COMMAND_TIMEOUT_MILLIS = 60 * 1000L;
 
     protected volatile ClientManager clientManager;
 
     protected final ClientService clientService;
+
+    protected final ThreadPoolExecutor commandExecutor;
 
     private final MessageTracer messageTracer;
 
@@ -152,6 +150,14 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
         this.inflightRouteFutureLock = new ReentrantLock();
 
         this.topicRouteCache = new ConcurrentHashMap<String, TopicRouteData>();
+
+        this.commandExecutor = new ThreadPoolExecutor(
+                1,
+                1,
+                60,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<Runnable>(128),
+                new ThreadFactoryImpl("CommandExecutor"));
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
@@ -375,8 +381,8 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
         onTopicRouteDataUpdate0(topic, topicRouteData);
         final Set<Endpoints> diff = updateTopicRouteCache(topic, topicRouteData);
         for (Endpoints endpoints : diff) {
-            log.info("Start multiplexing call for new endpoints={}, clientId={}", endpoints, id);
-            dispatchGenericPollRequest(endpoints);
+            log.info("Start polling command for new endpoints={}, clientId={}", endpoints, id);
+            pollCommand(endpoints);
         }
         messageTracer.refresh();
     }
@@ -649,149 +655,140 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
         }
     }
 
-    public abstract GenericPollingRequest wrapGenericPollingRequest();
-
-
-    /**
-     * Verify message's consumption ,the default is not supported, only would be implemented by push consumer.
-     *
-     * @param request request of verify message consumption.
-     * @return future of verify message consumption response.
-     */
-    public ListenableFuture<VerifyMessageConsumptionResponse> verifyConsumption(VerifyMessageConsumptionRequest
-                                                                                        request) {
-        SettableFuture<VerifyMessageConsumptionResponse> future = SettableFuture.create();
-        final ClientException exception = new ClientException(ErrorCode.NOT_SUPPORTED_OPERATION);
-        future.setException(exception);
-        return future;
-    }
+    public abstract PollCommandRequest wrapPollCommandRequest();
 
     /**
-     * Resolve orphaned transaction message, only would be implemented by producer.
+     * Verify message consumption , only be implemented by push consumer.
      *
      * <p>SHOULD NEVER THROW ANY EXCEPTION.</p>
      *
      * @param endpoints remote endpoints.
-     * @param request   resolve orphaned transaction request.
+     * @param command   verify message consumption command.
      */
-    public void recoverOrphanedTransaction(Endpoints endpoints, RecoverOrphanedTransactionRequest request) {
+    public void verifyMessageConsumption(Endpoints endpoints, VerifyMessageConsumptionCommand command) {
     }
 
-    private void onMultiplexingResponse(final Endpoints endpoints, final MultiplexingResponse response) {
-        switch (response.getTypeCase()) {
-            case PRINT_THREAD_STACK_REQUEST:
-                String mid = response.getPrintThreadStackRequest().getMid();
-                log.info("Receive thread stack request from remote, clientId={}", id);
-                final String stackTrace = UtilAll.stackTrace();
-                PrintThreadStackResponse printThreadStackResponse =
-                        PrintThreadStackResponse.newBuilder().setStackTrace(stackTrace).setMid(mid).build();
-                MultiplexingRequest multiplexingRequest = MultiplexingRequest
-                        .newBuilder().setPrintThreadStackResponse(printThreadStackResponse).build();
-                multiplexingCall(endpoints, multiplexingRequest);
-                log.info("Send thread stack response to remote, clientId={}", id);
-                break;
-            case VERIFY_MESSAGE_CONSUMPTION_REQUEST:
-                VerifyMessageConsumptionRequest verifyRequest = response.getVerifyMessageConsumptionRequest();
-                final String messageId = verifyRequest.getMessage().getSystemAttribute().getMessageId();
-                log.info("Receive verify message consumption request from remote, clientId={}, messageId={}",
-                         id, messageId);
-                ListenableFuture<VerifyMessageConsumptionResponse> future = verifyConsumption(verifyRequest);
+    /**
+     * Recover orphaned transaction message, only be implemented by producer.
+     *
+     * <p>SHOULD NEVER THROW ANY EXCEPTION.</p>
+     *
+     * @param endpoints remote endpoints.
+     * @param command   orphaned transaction command.
+     */
+    public void recoverOrphanedTransaction(Endpoints endpoints, RecoverOrphanedTransactionCommand command) {
+    }
 
-                ScheduledExecutorService scheduler = clientManager.getScheduler();
-                // in case of message consumption takes too long.
-                Futures.withTimeout(future, VERIFY_CONSUMPTION_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS, scheduler);
-                Futures.addCallback(future, new FutureCallback<VerifyMessageConsumptionResponse>() {
+    public void printThreadStackTrace(final Endpoints endpoints, final PrintThreadStackTraceCommand command) {
+        final Runnable task = new Runnable() {
+            @Override
+            public void run() {
+                ListenableFuture<ReportThreadStackTraceResponse> future;
+                try {
+                    final String threadStackTrace = UtilAll.stackTrace();
+                    ReportThreadStackTraceRequest request =
+                            ReportThreadStackTraceRequest.newBuilder().setThreadStackTrace(threadStackTrace)
+                                                         .setCommandId(command.getCommandId()).build();
+                    final Metadata metadata = sign();
+                    future = clientManager.reportThreadStackTrace(endpoints, metadata, request, ioTimeoutMillis,
+                                                                  TimeUnit.MILLISECONDS);
+                } catch (Throwable t) {
+                    SettableFuture<ReportThreadStackTraceResponse> future0 = SettableFuture.create();
+                    future0.setException(t);
+                    future = future0;
+                }
+                Futures.addCallback(future, new FutureCallback<ReportThreadStackTraceResponse>() {
                     @Override
-                    public void onSuccess(VerifyMessageConsumptionResponse response) {
-                        MultiplexingRequest multiplexingRequest = MultiplexingRequest
-                                .newBuilder().setVerifyMessageConsumptionResponse(response).build();
-                        log.info("Send verify message consumption response to remote, clientId={}, messageId={}",
-                                 id, messageId);
-                        multiplexingCall(endpoints, multiplexingRequest);
+                    public void onSuccess(ReportThreadStackTraceResponse response) {
+                        final Status status = response.getCommon().getStatus();
+                        final Code code = Code.forNumber(status.getCode());
+                        if (!Code.OK.equals(code)) {
+                            log.error("Failed to report thread stack trace, clientId={}, code={}, status "
+                                      + "message=[{}]", id, code, status.getMessage());
+                        }
                     }
 
                     @Override
                     public void onFailure(Throwable t) {
-                        Status status = Status.newBuilder().setCode(Code.DEADLINE_EXCEEDED_VALUE)
-                                              .setMessage(t.getMessage()).build();
-                        ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
-                        final String mid = response.getVerifyMessageConsumptionRequest().getMid();
-                        final VerifyMessageConsumptionResponse verifyResponse =
-                                VerifyMessageConsumptionResponse.newBuilder().setCommon(common).setMid(mid).build();
-                        MultiplexingRequest multiplexingRequest =
-                                MultiplexingRequest.newBuilder()
-                                                   .setVerifyMessageConsumptionResponse(verifyResponse).build();
-                        log.info("Send verify message consumption response to remote, clientId={}, messageId={}",
-                                 id, messageId);
-                        multiplexingCall(endpoints, multiplexingRequest);
+                        log.error("Exception raised while reporting thread stack trace, clientId={}", id, t);
                     }
                 });
-                break;
-            case RECOVER_ORPHANED_TRANSACTION_REQUEST:
-                RecoverOrphanedTransactionRequest orphanedRequest = response.getRecoverOrphanedTransactionRequest();
-                log.debug("Receive resolve orphaned transaction request from remote, clientId={}, messageId={}",
-                          id, orphanedRequest.getOrphanedTransactionalMessage().getSystemAttribute()
-                                             .getMessageId());
-                recoverOrphanedTransaction(endpoints, orphanedRequest);
-                /* fall through on purpose. */
-            case POLLING_RESPONSE:
-                /* fall through on purpose. */
-            default:
-                dispatchGenericPollRequest(endpoints);
-                break;
+            }
+        };
+        try {
+            commandExecutor.submit(task);
+        } catch (Throwable t) {
+            // should never reach here.
+            log.error("[Bug] Exception raised while submitting task to print thread stack trace.", t);
         }
     }
 
-    private void dispatchGenericPollRequest(Endpoints endpoints) {
-        final GenericPollingRequest genericPollingRequest = wrapGenericPollingRequest();
-        MultiplexingRequest multiplexingRequest =
-                MultiplexingRequest.newBuilder().setPollingRequest(genericPollingRequest).build();
-        log.debug("Start to dispatch generic poll request, endpoints={}, clientId={}", endpoints, id);
-        multiplexingCall(endpoints, multiplexingRequest);
+    private void onPollCommandResponse(final Endpoints endpoints, final PollCommandResponse response) {
+        switch (response.getTypeCase()) {
+            case PRINT_THREAD_STACK_TRACE_COMMAND:
+                log.info("Receive command to print thread stack trace, clientId={}", id);
+                printThreadStackTrace(endpoints, response.getPrintThreadStackTraceCommand());
+                break;
+            case VERIFY_MESSAGE_CONSUMPTION_COMMAND:
+                log.info("Receive command to verify message consumption, clientId={}", id);
+                verifyMessageConsumption(endpoints, response.getVerifyMessageConsumptionCommand());
+                break;
+            case RECOVER_ORPHANED_TRANSACTION_COMMAND:
+                log.info("Receive command to recover orphaned transaction, clientId={}", id);
+                recoverOrphanedTransaction(endpoints, response.getRecoverOrphanedTransactionCommand());
+                break;
+            case NOOP_COMMAND:
+                log.debug("Receive noop command, clientId={}", id);
+                break;
+            default:
+                break;
+        }
+        pollCommand(endpoints);
     }
 
-    private void multiplexingCall(final Endpoints endpoints, final MultiplexingRequest request) {
+    private void pollCommand(final Endpoints endpoints) {
         try {
+            final PollCommandRequest request = wrapPollCommandRequest();
             final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
             if (!routeEndpointsSet.contains(endpoints)) {
-                log.info("Endpoints was removed, no need to do more multiplexing call, endpoints={}, clientId={}",
+                log.info("Endpoints was removed, no need to poll command, endpoints={}, clientId={}",
                          endpoints, id);
                 return;
             }
-            final ListenableFuture<MultiplexingResponse> future = multiplexingCall0(endpoints, request);
-            Futures.addCallback(future, new FutureCallback<MultiplexingResponse>() {
+            final ListenableFuture<PollCommandResponse> future = pollCommand0(endpoints, request);
+            Futures.addCallback(future, new FutureCallback<PollCommandResponse>() {
                 @Override
-                public void onSuccess(MultiplexingResponse response) {
+                public void onSuccess(PollCommandResponse response) {
                     try {
-                        onMultiplexingResponse(endpoints, response);
+                        onPollCommandResponse(endpoints, response);
                     } catch (Throwable t) {
                         // should never reach here.
-                        log.error("[Bug] Exception raised while handling multiplexing response, would call later, "
+                        log.error("[Bug] Exception raised while handling polling response, would call later, "
                                   + "endpoints={}, clientId={}", endpoints, id, t);
-                        multiplexingCallLater(endpoints, request);
+                        pollCommandLater(endpoints);
                     }
                 }
 
                 @Override
                 public void onFailure(Throwable t) {
-                    log.error("Exception raised while multiplexing call, would call later, endpoints={}, clientId={}",
+                    log.error("Exception raised while polling command, would call later, endpoints={}, clientId={}",
                               endpoints, id, t);
-                    multiplexingCallLater(endpoints, request);
+                    pollCommandLater(endpoints);
                 }
             });
         } catch (Throwable t) {
-            log.error("Exception raised while multiplexing call, would call later, endpoints={}, clientId={}",
+            log.error("Exception raised while polling command, would call later, endpoints={}, clientId={}",
                       endpoints, id, t);
-            multiplexingCallLater(endpoints, request);
+            pollCommandLater(endpoints);
         }
     }
 
-    private ListenableFuture<MultiplexingResponse> multiplexingCall0(Endpoints endpoints, MultiplexingRequest request) {
-        final SettableFuture<MultiplexingResponse> future = SettableFuture.create();
+    private ListenableFuture<PollCommandResponse> pollCommand0(Endpoints endpoints, PollCommandRequest request) {
+        final SettableFuture<PollCommandResponse> future = SettableFuture.create();
         try {
             final Metadata metadata = sign();
-            return clientManager.multiplexingCall(endpoints, metadata, request, MULTIPLEXING_CALL_TIMEOUT_MILLIS,
-                                                  TimeUnit.MILLISECONDS);
+            return clientManager.pollCommand(endpoints, metadata, request, POLL_COMMAND_TIMEOUT_MILLIS,
+                                             TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
             // Failed to sign, set the future in advance.
             future.setException(t);
@@ -799,25 +796,25 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
         }
     }
 
-    private void multiplexingCallLater(final Endpoints endpoints, final MultiplexingRequest request) {
+    private void pollCommandLater(final Endpoints endpoints) {
         final ScheduledExecutorService scheduler = clientManager.getScheduler();
         try {
             scheduler.schedule(new Runnable() {
                 @Override
                 public void run() {
                     try {
-                        multiplexingCall(endpoints, request);
+                        pollCommand(endpoints);
                     } catch (Throwable t) {
-                        multiplexingCallLater(endpoints, request);
+                        pollCommandLater(endpoints);
                     }
                 }
-            }, MULTIPLEXING_CALL_LATER_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+            }, POLL_COMMAND_LATER_DELAY_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
             if (scheduler.isShutdown()) {
                 return;
             }
-            log.error("[Bug] Failed to schedule multiplexing request, clientId={}", id, t);
-            multiplexingCallLater(endpoints, request);
+            log.error("[Bug] Failed to schedule polling command, clientId={}", id, t);
+            pollCommandLater(endpoints);
         }
     }
 

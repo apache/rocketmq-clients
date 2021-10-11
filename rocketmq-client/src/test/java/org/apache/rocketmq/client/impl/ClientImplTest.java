@@ -20,9 +20,9 @@ package org.apache.rocketmq.client.impl;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-import apache.rocketmq.v1.GenericPollingRequest;
 import apache.rocketmq.v1.HeartbeatRequest;
 import apache.rocketmq.v1.NotifyClientTerminationRequest;
+import apache.rocketmq.v1.PollCommandRequest;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.client.tools.TestBase;
@@ -48,7 +48,7 @@ public class ClientImplTest extends TestBase {
             }
 
             @Override
-            public GenericPollingRequest wrapGenericPollingRequest() {
+            public PollCommandRequest wrapPollCommandRequest() {
                 return null;
             }
 

@@ -35,10 +35,10 @@ import apache.rocketmq.v1.FilterType;
 import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse;
 import apache.rocketmq.v1.HeartbeatRequest;
-import apache.rocketmq.v1.MultiplexingRequest;
-import apache.rocketmq.v1.MultiplexingResponse;
 import apache.rocketmq.v1.NackMessageRequest;
 import apache.rocketmq.v1.NackMessageResponse;
+import apache.rocketmq.v1.PollCommandRequest;
+import apache.rocketmq.v1.PollCommandResponse;
 import apache.rocketmq.v1.QueryAssignmentRequest;
 import apache.rocketmq.v1.QueryRouteRequest;
 import apache.rocketmq.v1.ReceiveMessageRequest;
@@ -46,7 +46,6 @@ import apache.rocketmq.v1.ReceiveMessageResponse;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.ResponseCommon;
 import apache.rocketmq.v1.SubscriptionEntry;
-import apache.rocketmq.v1.VerifyMessageConsumptionResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.rpc.Code;
@@ -127,13 +126,13 @@ public class PushConsumerImplTest extends TestBase {
                 .thenReturn(okQueryAssignmentResponseFuture());
 
         final long delayMillis = 1000;
-        when(clientManager.multiplexingCall(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
-                                            ArgumentMatchers.<MultiplexingRequest>any(), anyLong(),
-                                            ArgumentMatchers.<TimeUnit>any()))
-                .thenAnswer(new Answer<ListenableFuture<MultiplexingResponse>>() {
+        when(clientManager.pollCommand(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
+                                       ArgumentMatchers.<PollCommandRequest>any(), anyLong(),
+                                       ArgumentMatchers.<TimeUnit>any()))
+                .thenAnswer(new Answer<ListenableFuture<PollCommandResponse>>() {
                     @Override
-                    public ListenableFuture<MultiplexingResponse> answer(InvocationOnMock invocation) {
-                        return multiplexingResponseWithGenericPollingFuture(delayMillis);
+                    public ListenableFuture<PollCommandResponse> answer(InvocationOnMock invocation) {
+                        return pollingCommandResponseWithNoopCommand(delayMillis);
                     }
                 });
 
@@ -251,15 +250,15 @@ public class PushConsumerImplTest extends TestBase {
         SettableFuture<ConsumeStatus> okFuture = SettableFuture.create();
         okFuture.set(ConsumeStatus.OK);
         when(consumeService.consume(ArgumentMatchers.<MessageExt>any())).thenReturn(okFuture);
-        ListenableFuture<VerifyMessageConsumptionResponse> future =
-                consumerImpl.verifyConsumption(fakeVerifyMessageConsumptionRequest());
-        assertEquals(future.get().getCommon().getStatus().getCode(), Code.OK_VALUE);
+        ListenableFuture<ConsumeStatus> future =
+                consumerImpl.verifyMessageConsumption0(fakeVerifyMessageConsumptionCommand());
+        assertEquals(future.get(), ConsumeStatus.OK);
 
         SettableFuture<ConsumeStatus> errorFuture = SettableFuture.create();
         errorFuture.set(ConsumeStatus.ERROR);
         when(consumeService.consume(ArgumentMatchers.<MessageExt>any())).thenReturn(errorFuture);
-        future = consumerImpl.verifyConsumption(fakeVerifyMessageConsumptionRequest());
-        assertEquals(future.get().getCommon().getStatus().getCode(), Code.ABORTED_VALUE);
+        future = consumerImpl.verifyMessageConsumption0(fakeVerifyMessageConsumptionCommand());
+        assertEquals(future.get(), ConsumeStatus.ERROR);
     }
 
     @Test

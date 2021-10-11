@@ -4,18 +4,18 @@
 package apache.rocketmq.v1;
 
 /**
- * Protobuf type {@code apache.rocketmq.v1.RecoverOrphanedTransactionRequest}
+ * Protobuf type {@code apache.rocketmq.v1.RecoverOrphanedTransactionCommand}
  */
-public final class RecoverOrphanedTransactionRequest extends
+public final class RecoverOrphanedTransactionCommand extends
     com.google.protobuf.GeneratedMessageV3 implements
-    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.RecoverOrphanedTransactionRequest)
-    RecoverOrphanedTransactionRequestOrBuilder {
+    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.RecoverOrphanedTransactionCommand)
+    RecoverOrphanedTransactionCommandOrBuilder {
 private static final long serialVersionUID = 0L;
-  // Use RecoverOrphanedTransactionRequest.newBuilder() to construct.
-  private RecoverOrphanedTransactionRequest(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+  // Use RecoverOrphanedTransactionCommand.newBuilder() to construct.
+  private RecoverOrphanedTransactionCommand(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
-  private RecoverOrphanedTransactionRequest() {
+  private RecoverOrphanedTransactionCommand() {
     transactionId_ = "";
   }
 
@@ -23,7 +23,7 @@ private static final long serialVersionUID = 0L;
   @SuppressWarnings({"unused"})
   protected java.lang.Object newInstance(
       UnusedPrivateParameter unused) {
-    return new RecoverOrphanedTransactionRequest();
+    return new RecoverOrphanedTransactionCommand();
   }
 
   @java.lang.Override
@@ -31,7 +31,7 @@ private static final long serialVersionUID = 0L;
   getUnknownFields() {
     return this.unknownFields;
   }
-  private RecoverOrphanedTransactionRequest(
+  private RecoverOrphanedTransactionCommand(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
@@ -89,15 +89,15 @@ private static final long serialVersionUID = 0L;
   }
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_RecoverOrphanedTransactionRequest_descriptor;
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_RecoverOrphanedTransactionCommand_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_RecoverOrphanedTransactionRequest_fieldAccessorTable
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_RecoverOrphanedTransactionCommand_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            apache.rocketmq.v1.RecoverOrphanedTransactionRequest.class, apache.rocketmq.v1.RecoverOrphanedTransactionRequest.Builder.class);
+            apache.rocketmq.v1.RecoverOrphanedTransactionCommand.class, apache.rocketmq.v1.RecoverOrphanedTransactionCommand.Builder.class);
   }
 
   public static final int ORPHANED_TRANSACTIONAL_MESSAGE_FIELD_NUMBER = 1;
@@ -210,10 +210,10 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof apache.rocketmq.v1.RecoverOrphanedTransactionRequest)) {
+    if (!(obj instanceof apache.rocketmq.v1.RecoverOrphanedTransactionCommand)) {
       return super.equals(obj);
     }
-    apache.rocketmq.v1.RecoverOrphanedTransactionRequest other = (apache.rocketmq.v1.RecoverOrphanedTransactionRequest) obj;
+    apache.rocketmq.v1.RecoverOrphanedTransactionCommand other = (apache.rocketmq.v1.RecoverOrphanedTransactionCommand) obj;
 
     if (hasOrphanedTransactionalMessage() != other.hasOrphanedTransactionalMessage()) return false;
     if (hasOrphanedTransactionalMessage()) {
@@ -244,69 +244,69 @@ private static final long serialVersionUID = 0L;
     return hash;
   }
 
-  public static apache.rocketmq.v1.RecoverOrphanedTransactionRequest parseFrom(
+  public static apache.rocketmq.v1.RecoverOrphanedTransactionCommand parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.RecoverOrphanedTransactionRequest parseFrom(
+  public static apache.rocketmq.v1.RecoverOrphanedTransactionCommand parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.RecoverOrphanedTransactionRequest parseFrom(
+  public static apache.rocketmq.v1.RecoverOrphanedTransactionCommand parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.RecoverOrphanedTransactionRequest parseFrom(
+  public static apache.rocketmq.v1.RecoverOrphanedTransactionCommand parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.RecoverOrphanedTransactionRequest parseFrom(byte[] data)
+  public static apache.rocketmq.v1.RecoverOrphanedTransactionCommand parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.RecoverOrphanedTransactionRequest parseFrom(
+  public static apache.rocketmq.v1.RecoverOrphanedTransactionCommand parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.RecoverOrphanedTransactionRequest parseFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.RecoverOrphanedTransactionCommand parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.RecoverOrphanedTransactionRequest parseFrom(
+  public static apache.rocketmq.v1.RecoverOrphanedTransactionCommand parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.RecoverOrphanedTransactionRequest parseDelimitedFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.RecoverOrphanedTransactionCommand parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.RecoverOrphanedTransactionRequest parseDelimitedFrom(
+  public static apache.rocketmq.v1.RecoverOrphanedTransactionCommand parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.RecoverOrphanedTransactionRequest parseFrom(
+  public static apache.rocketmq.v1.RecoverOrphanedTransactionCommand parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.RecoverOrphanedTransactionRequest parseFrom(
+  public static apache.rocketmq.v1.RecoverOrphanedTransactionCommand parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -319,7 +319,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(apache.rocketmq.v1.RecoverOrphanedTransactionRequest prototype) {
+  public static Builder newBuilder(apache.rocketmq.v1.RecoverOrphanedTransactionCommand prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -335,26 +335,26 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
-   * Protobuf type {@code apache.rocketmq.v1.RecoverOrphanedTransactionRequest}
+   * Protobuf type {@code apache.rocketmq.v1.RecoverOrphanedTransactionCommand}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.RecoverOrphanedTransactionRequest)
-      apache.rocketmq.v1.RecoverOrphanedTransactionRequestOrBuilder {
+      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.RecoverOrphanedTransactionCommand)
+      apache.rocketmq.v1.RecoverOrphanedTransactionCommandOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_RecoverOrphanedTransactionRequest_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_RecoverOrphanedTransactionCommand_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_RecoverOrphanedTransactionRequest_fieldAccessorTable
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_RecoverOrphanedTransactionCommand_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              apache.rocketmq.v1.RecoverOrphanedTransactionRequest.class, apache.rocketmq.v1.RecoverOrphanedTransactionRequest.Builder.class);
+              apache.rocketmq.v1.RecoverOrphanedTransactionCommand.class, apache.rocketmq.v1.RecoverOrphanedTransactionCommand.Builder.class);
     }
 
-    // Construct using apache.rocketmq.v1.RecoverOrphanedTransactionRequest.newBuilder()
+    // Construct using apache.rocketmq.v1.RecoverOrphanedTransactionCommand.newBuilder()
     private Builder() {
       maybeForceBuilderInitialization();
     }
@@ -386,17 +386,17 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_RecoverOrphanedTransactionRequest_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_RecoverOrphanedTransactionCommand_descriptor;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.RecoverOrphanedTransactionRequest getDefaultInstanceForType() {
-      return apache.rocketmq.v1.RecoverOrphanedTransactionRequest.getDefaultInstance();
+    public apache.rocketmq.v1.RecoverOrphanedTransactionCommand getDefaultInstanceForType() {
+      return apache.rocketmq.v1.RecoverOrphanedTransactionCommand.getDefaultInstance();
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.RecoverOrphanedTransactionRequest build() {
-      apache.rocketmq.v1.RecoverOrphanedTransactionRequest result = buildPartial();
+    public apache.rocketmq.v1.RecoverOrphanedTransactionCommand build() {
+      apache.rocketmq.v1.RecoverOrphanedTransactionCommand result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -404,8 +404,8 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.RecoverOrphanedTransactionRequest buildPartial() {
-      apache.rocketmq.v1.RecoverOrphanedTransactionRequest result = new apache.rocketmq.v1.RecoverOrphanedTransactionRequest(this);
+    public apache.rocketmq.v1.RecoverOrphanedTransactionCommand buildPartial() {
+      apache.rocketmq.v1.RecoverOrphanedTransactionCommand result = new apache.rocketmq.v1.RecoverOrphanedTransactionCommand(this);
       if (orphanedTransactionalMessageBuilder_ == null) {
         result.orphanedTransactionalMessage_ = orphanedTransactionalMessage_;
       } else {
@@ -450,16 +450,16 @@ private static final long serialVersionUID = 0L;
     }
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof apache.rocketmq.v1.RecoverOrphanedTransactionRequest) {
-        return mergeFrom((apache.rocketmq.v1.RecoverOrphanedTransactionRequest)other);
+      if (other instanceof apache.rocketmq.v1.RecoverOrphanedTransactionCommand) {
+        return mergeFrom((apache.rocketmq.v1.RecoverOrphanedTransactionCommand)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(apache.rocketmq.v1.RecoverOrphanedTransactionRequest other) {
-      if (other == apache.rocketmq.v1.RecoverOrphanedTransactionRequest.getDefaultInstance()) return this;
+    public Builder mergeFrom(apache.rocketmq.v1.RecoverOrphanedTransactionCommand other) {
+      if (other == apache.rocketmq.v1.RecoverOrphanedTransactionCommand.getDefaultInstance()) return this;
       if (other.hasOrphanedTransactionalMessage()) {
         mergeOrphanedTransactionalMessage(other.getOrphanedTransactionalMessage());
       }
@@ -482,11 +482,11 @@ private static final long serialVersionUID = 0L;
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      apache.rocketmq.v1.RecoverOrphanedTransactionRequest parsedMessage = null;
+      apache.rocketmq.v1.RecoverOrphanedTransactionCommand parsedMessage = null;
       try {
         parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        parsedMessage = (apache.rocketmq.v1.RecoverOrphanedTransactionRequest) e.getUnfinishedMessage();
+        parsedMessage = (apache.rocketmq.v1.RecoverOrphanedTransactionCommand) e.getUnfinishedMessage();
         throw e.unwrapIOException();
       } finally {
         if (parsedMessage != null) {
@@ -703,41 +703,41 @@ private static final long serialVersionUID = 0L;
     }
 
 
-    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.RecoverOrphanedTransactionRequest)
+    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.RecoverOrphanedTransactionCommand)
   }
 
-  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.RecoverOrphanedTransactionRequest)
-  private static final apache.rocketmq.v1.RecoverOrphanedTransactionRequest DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.RecoverOrphanedTransactionCommand)
+  private static final apache.rocketmq.v1.RecoverOrphanedTransactionCommand DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new apache.rocketmq.v1.RecoverOrphanedTransactionRequest();
+    DEFAULT_INSTANCE = new apache.rocketmq.v1.RecoverOrphanedTransactionCommand();
   }
 
-  public static apache.rocketmq.v1.RecoverOrphanedTransactionRequest getDefaultInstance() {
+  public static apache.rocketmq.v1.RecoverOrphanedTransactionCommand getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<RecoverOrphanedTransactionRequest>
-      PARSER = new com.google.protobuf.AbstractParser<RecoverOrphanedTransactionRequest>() {
+  private static final com.google.protobuf.Parser<RecoverOrphanedTransactionCommand>
+      PARSER = new com.google.protobuf.AbstractParser<RecoverOrphanedTransactionCommand>() {
     @java.lang.Override
-    public RecoverOrphanedTransactionRequest parsePartialFrom(
+    public RecoverOrphanedTransactionCommand parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
-      return new RecoverOrphanedTransactionRequest(input, extensionRegistry);
+      return new RecoverOrphanedTransactionCommand(input, extensionRegistry);
     }
   };
 
-  public static com.google.protobuf.Parser<RecoverOrphanedTransactionRequest> parser() {
+  public static com.google.protobuf.Parser<RecoverOrphanedTransactionCommand> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<RecoverOrphanedTransactionRequest> getParserForType() {
+  public com.google.protobuf.Parser<RecoverOrphanedTransactionCommand> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public apache.rocketmq.v1.RecoverOrphanedTransactionRequest getDefaultInstanceForType() {
+  public apache.rocketmq.v1.RecoverOrphanedTransactionCommand getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

@@ -27,12 +27,12 @@ import apache.rocketmq.v1.HealthCheckRequest;
 import apache.rocketmq.v1.HealthCheckResponse;
 import apache.rocketmq.v1.HeartbeatRequest;
 import apache.rocketmq.v1.HeartbeatResponse;
-import apache.rocketmq.v1.MultiplexingRequest;
-import apache.rocketmq.v1.MultiplexingResponse;
 import apache.rocketmq.v1.NackMessageRequest;
 import apache.rocketmq.v1.NackMessageResponse;
 import apache.rocketmq.v1.NotifyClientTerminationRequest;
 import apache.rocketmq.v1.NotifyClientTerminationResponse;
+import apache.rocketmq.v1.PollCommandRequest;
+import apache.rocketmq.v1.PollCommandResponse;
 import apache.rocketmq.v1.PullMessageRequest;
 import apache.rocketmq.v1.PullMessageResponse;
 import apache.rocketmq.v1.QueryAssignmentRequest;
@@ -43,6 +43,10 @@ import apache.rocketmq.v1.QueryRouteRequest;
 import apache.rocketmq.v1.QueryRouteResponse;
 import apache.rocketmq.v1.ReceiveMessageRequest;
 import apache.rocketmq.v1.ReceiveMessageResponse;
+import apache.rocketmq.v1.ReportMessageConsumptionResultRequest;
+import apache.rocketmq.v1.ReportMessageConsumptionResultResponse;
+import apache.rocketmq.v1.ReportThreadStackTraceRequest;
+import apache.rocketmq.v1.ReportThreadStackTraceResponse;
 import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
 import com.google.common.util.concurrent.AbstractIdleService;
@@ -508,14 +512,42 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
     }
 
     @Override
-    public ListenableFuture<MultiplexingResponse> multiplexingCall(Endpoints endpoints, Metadata metadata,
-                                                                   MultiplexingRequest request, long duration,
-                                                                   TimeUnit timeUnit) {
+    public ListenableFuture<PollCommandResponse> pollCommand(Endpoints endpoints, Metadata metadata,
+                                                             PollCommandRequest request, long duration,
+                                                             TimeUnit timeUnit) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
-            return rpcClient.multiplexingCall(metadata, request, asyncWorker, duration, timeUnit);
+            return rpcClient.pollCommand(metadata, request, asyncWorker, duration, timeUnit);
         } catch (Throwable t) {
-            final SettableFuture<MultiplexingResponse> future = SettableFuture.create();
+            final SettableFuture<PollCommandResponse> future = SettableFuture.create();
+            future.setException(t);
+            return future;
+        }
+    }
+
+    @Override
+    public ListenableFuture<ReportThreadStackTraceResponse> reportThreadStackTrace(
+            Endpoints endpoints, Metadata metadata, ReportThreadStackTraceRequest request, long duration,
+            TimeUnit timeUnit) {
+        try {
+            final RpcClient rpcClient = getRpcClient(endpoints);
+            return rpcClient.reportThreadStackTrace(metadata, request, asyncWorker, duration, timeUnit);
+        } catch (Throwable t) {
+            final SettableFuture<ReportThreadStackTraceResponse> future = SettableFuture.create();
+            future.setException(t);
+            return future;
+        }
+    }
+
+    @Override
+    public ListenableFuture<ReportMessageConsumptionResultResponse> reportMessageConsumption(
+            Endpoints endpoints, Metadata metadata, ReportMessageConsumptionResultRequest request, long duration,
+            TimeUnit timeUnit) {
+        try {
+            final RpcClient rpcClient = getRpcClient(endpoints);
+            return rpcClient.reportMessageConsumptionResult(metadata, request, asyncWorker, duration, timeUnit);
+        } catch (Throwable t) {
+            final SettableFuture<ReportMessageConsumptionResultResponse> future = SettableFuture.create();
             future.setException(t);
             return future;
         }

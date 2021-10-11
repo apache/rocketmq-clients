@@ -393,35 +393,97 @@ public final class MessagingServiceGrpc {
     return getPullMessageMethod;
   }
 
-  private static volatile io.grpc.MethodDescriptor<apache.rocketmq.v1.MultiplexingRequest,
-      apache.rocketmq.v1.MultiplexingResponse> getMultiplexingCallMethod;
+  private static volatile io.grpc.MethodDescriptor<apache.rocketmq.v1.PollCommandRequest,
+      apache.rocketmq.v1.PollCommandResponse> getPollCommandMethod;
 
   @io.grpc.stub.annotations.RpcMethod(
-      fullMethodName = SERVICE_NAME + '/' + "MultiplexingCall",
-      requestType = apache.rocketmq.v1.MultiplexingRequest.class,
-      responseType = apache.rocketmq.v1.MultiplexingResponse.class,
+      fullMethodName = SERVICE_NAME + '/' + "PollCommand",
+      requestType = apache.rocketmq.v1.PollCommandRequest.class,
+      responseType = apache.rocketmq.v1.PollCommandResponse.class,
       methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
-  public static io.grpc.MethodDescriptor<apache.rocketmq.v1.MultiplexingRequest,
-      apache.rocketmq.v1.MultiplexingResponse> getMultiplexingCallMethod() {
-    io.grpc.MethodDescriptor<apache.rocketmq.v1.MultiplexingRequest, apache.rocketmq.v1.MultiplexingResponse> getMultiplexingCallMethod;
-    if ((getMultiplexingCallMethod = MessagingServiceGrpc.getMultiplexingCallMethod) == null) {
+  public static io.grpc.MethodDescriptor<apache.rocketmq.v1.PollCommandRequest,
+      apache.rocketmq.v1.PollCommandResponse> getPollCommandMethod() {
+    io.grpc.MethodDescriptor<apache.rocketmq.v1.PollCommandRequest, apache.rocketmq.v1.PollCommandResponse> getPollCommandMethod;
+    if ((getPollCommandMethod = MessagingServiceGrpc.getPollCommandMethod) == null) {
       synchronized (MessagingServiceGrpc.class) {
-        if ((getMultiplexingCallMethod = MessagingServiceGrpc.getMultiplexingCallMethod) == null) {
-          MessagingServiceGrpc.getMultiplexingCallMethod = getMultiplexingCallMethod =
-              io.grpc.MethodDescriptor.<apache.rocketmq.v1.MultiplexingRequest, apache.rocketmq.v1.MultiplexingResponse>newBuilder()
+        if ((getPollCommandMethod = MessagingServiceGrpc.getPollCommandMethod) == null) {
+          MessagingServiceGrpc.getPollCommandMethod = getPollCommandMethod =
+              io.grpc.MethodDescriptor.<apache.rocketmq.v1.PollCommandRequest, apache.rocketmq.v1.PollCommandResponse>newBuilder()
               .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
-              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "MultiplexingCall"))
+              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "PollCommand"))
               .setSampledToLocalTracing(true)
               .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  apache.rocketmq.v1.MultiplexingRequest.getDefaultInstance()))
+                  apache.rocketmq.v1.PollCommandRequest.getDefaultInstance()))
               .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  apache.rocketmq.v1.MultiplexingResponse.getDefaultInstance()))
-              .setSchemaDescriptor(new MessagingServiceMethodDescriptorSupplier("MultiplexingCall"))
+                  apache.rocketmq.v1.PollCommandResponse.getDefaultInstance()))
+              .setSchemaDescriptor(new MessagingServiceMethodDescriptorSupplier("PollCommand"))
               .build();
         }
       }
     }
-    return getMultiplexingCallMethod;
+    return getPollCommandMethod;
+  }
+
+  private static volatile io.grpc.MethodDescriptor<apache.rocketmq.v1.ReportThreadStackTraceRequest,
+      apache.rocketmq.v1.ReportThreadStackTraceResponse> getReportThreadStackTraceMethod;
+
+  @io.grpc.stub.annotations.RpcMethod(
+      fullMethodName = SERVICE_NAME + '/' + "ReportThreadStackTrace",
+      requestType = apache.rocketmq.v1.ReportThreadStackTraceRequest.class,
+      responseType = apache.rocketmq.v1.ReportThreadStackTraceResponse.class,
+      methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
+  public static io.grpc.MethodDescriptor<apache.rocketmq.v1.ReportThreadStackTraceRequest,
+      apache.rocketmq.v1.ReportThreadStackTraceResponse> getReportThreadStackTraceMethod() {
+    io.grpc.MethodDescriptor<apache.rocketmq.v1.ReportThreadStackTraceRequest, apache.rocketmq.v1.ReportThreadStackTraceResponse> getReportThreadStackTraceMethod;
+    if ((getReportThreadStackTraceMethod = MessagingServiceGrpc.getReportThreadStackTraceMethod) == null) {
+      synchronized (MessagingServiceGrpc.class) {
+        if ((getReportThreadStackTraceMethod = MessagingServiceGrpc.getReportThreadStackTraceMethod) == null) {
+          MessagingServiceGrpc.getReportThreadStackTraceMethod = getReportThreadStackTraceMethod =
+              io.grpc.MethodDescriptor.<apache.rocketmq.v1.ReportThreadStackTraceRequest, apache.rocketmq.v1.ReportThreadStackTraceResponse>newBuilder()
+              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "ReportThreadStackTrace"))
+              .setSampledToLocalTracing(true)
+              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  apache.rocketmq.v1.ReportThreadStackTraceRequest.getDefaultInstance()))
+              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  apache.rocketmq.v1.ReportThreadStackTraceResponse.getDefaultInstance()))
+              .setSchemaDescriptor(new MessagingServiceMethodDescriptorSupplier("ReportThreadStackTrace"))
+              .build();
+        }
+      }
+    }
+    return getReportThreadStackTraceMethod;
+  }
+
+  private static volatile io.grpc.MethodDescriptor<apache.rocketmq.v1.ReportMessageConsumptionResultRequest,
+      apache.rocketmq.v1.ReportMessageConsumptionResultResponse> getReportMessageConsumptionResultMethod;
+
+  @io.grpc.stub.annotations.RpcMethod(
+      fullMethodName = SERVICE_NAME + '/' + "ReportMessageConsumptionResult",
+      requestType = apache.rocketmq.v1.ReportMessageConsumptionResultRequest.class,
+      responseType = apache.rocketmq.v1.ReportMessageConsumptionResultResponse.class,
+      methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
+  public static io.grpc.MethodDescriptor<apache.rocketmq.v1.ReportMessageConsumptionResultRequest,
+      apache.rocketmq.v1.ReportMessageConsumptionResultResponse> getReportMessageConsumptionResultMethod() {
+    io.grpc.MethodDescriptor<apache.rocketmq.v1.ReportMessageConsumptionResultRequest, apache.rocketmq.v1.ReportMessageConsumptionResultResponse> getReportMessageConsumptionResultMethod;
+    if ((getReportMessageConsumptionResultMethod = MessagingServiceGrpc.getReportMessageConsumptionResultMethod) == null) {
+      synchronized (MessagingServiceGrpc.class) {
+        if ((getReportMessageConsumptionResultMethod = MessagingServiceGrpc.getReportMessageConsumptionResultMethod) == null) {
+          MessagingServiceGrpc.getReportMessageConsumptionResultMethod = getReportMessageConsumptionResultMethod =
+              io.grpc.MethodDescriptor.<apache.rocketmq.v1.ReportMessageConsumptionResultRequest, apache.rocketmq.v1.ReportMessageConsumptionResultResponse>newBuilder()
+              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "ReportMessageConsumptionResult"))
+              .setSampledToLocalTracing(true)
+              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  apache.rocketmq.v1.ReportMessageConsumptionResultRequest.getDefaultInstance()))
+              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  apache.rocketmq.v1.ReportMessageConsumptionResultResponse.getDefaultInstance()))
+              .setSchemaDescriptor(new MessagingServiceMethodDescriptorSupplier("ReportMessageConsumptionResult"))
+              .build();
+        }
+      }
+    }
+    return getReportMessageConsumptionResultMethod;
   }
 
   private static volatile io.grpc.MethodDescriptor<apache.rocketmq.v1.NotifyClientTerminationRequest,
@@ -660,13 +722,52 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Multiplexing RPC(s) for various polling requests, which issue different
+     * commands to client.
+     * Sometimes client may need to receive and process the command from server.
+     * To prevent the complexity of streaming RPC(s), a unary RPC using
+     * long-polling is another solution.
+     * To mark the request-response of corresponding command, `command_id` in
+     * message is recorded in the subsequent RPC(s). For example, after receiving
+     * command of printing thread stack trace, client would send
+     * `ReportMessageConsumptionResultRequest` to server, which contain both of
+     * the stack trace and `command_id`.
+     * At same time, `NoopCommand` is delivered from server when no new command is
+     * needed, it is essential for client to maintain the ping-pong.
+     * </pre>
      */
-    public void multiplexingCall(apache.rocketmq.v1.MultiplexingRequest request,
-        io.grpc.stub.StreamObserver<apache.rocketmq.v1.MultiplexingResponse> responseObserver) {
-      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getMultiplexingCallMethod(), responseObserver);
+    public void pollCommand(apache.rocketmq.v1.PollCommandRequest request,
+        io.grpc.stub.StreamObserver<apache.rocketmq.v1.PollCommandResponse> responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getPollCommandMethod(), responseObserver);
     }
 
     /**
+     * <pre>
+     * After receiving the corresponding polling command, the thread stack trace
+     * is reported to the server.
+     * </pre>
+     */
+    public void reportThreadStackTrace(apache.rocketmq.v1.ReportThreadStackTraceRequest request,
+        io.grpc.stub.StreamObserver<apache.rocketmq.v1.ReportThreadStackTraceResponse> responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getReportThreadStackTraceMethod(), responseObserver);
+    }
+
+    /**
+     * <pre>
+     * After receiving the corresponding polling command, the consumption result
+     * of appointed message is reported to the server.
+     * </pre>
+     */
+    public void reportMessageConsumptionResult(apache.rocketmq.v1.ReportMessageConsumptionResultRequest request,
+        io.grpc.stub.StreamObserver<apache.rocketmq.v1.ReportMessageConsumptionResultResponse> responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getReportMessageConsumptionResultMethod(), responseObserver);
+    }
+
+    /**
+     * <pre>
+     * Notify the server that the client is terminated.
+     * </pre>
      */
     public void notifyClientTermination(apache.rocketmq.v1.NotifyClientTerminationRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.NotifyClientTerminationResponse> responseObserver) {
@@ -760,12 +861,26 @@ public final class MessagingServiceGrpc {
                 apache.rocketmq.v1.PullMessageResponse>(
                   this, METHODID_PULL_MESSAGE)))
           .addMethod(
-            getMultiplexingCallMethod(),
+            getPollCommandMethod(),
             io.grpc.stub.ServerCalls.asyncUnaryCall(
               new MethodHandlers<
-                apache.rocketmq.v1.MultiplexingRequest,
-                apache.rocketmq.v1.MultiplexingResponse>(
-                  this, METHODID_MULTIPLEXING_CALL)))
+                apache.rocketmq.v1.PollCommandRequest,
+                apache.rocketmq.v1.PollCommandResponse>(
+                  this, METHODID_POLL_COMMAND)))
+          .addMethod(
+            getReportThreadStackTraceMethod(),
+            io.grpc.stub.ServerCalls.asyncUnaryCall(
+              new MethodHandlers<
+                apache.rocketmq.v1.ReportThreadStackTraceRequest,
+                apache.rocketmq.v1.ReportThreadStackTraceResponse>(
+                  this, METHODID_REPORT_THREAD_STACK_TRACE)))
+          .addMethod(
+            getReportMessageConsumptionResultMethod(),
+            io.grpc.stub.ServerCalls.asyncUnaryCall(
+              new MethodHandlers<
+                apache.rocketmq.v1.ReportMessageConsumptionResultRequest,
+                apache.rocketmq.v1.ReportMessageConsumptionResultResponse>(
+                  this, METHODID_REPORT_MESSAGE_CONSUMPTION_RESULT)))
           .addMethod(
             getNotifyClientTerminationMethod(),
             io.grpc.stub.ServerCalls.asyncUnaryCall(
@@ -960,14 +1075,55 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Multiplexing RPC(s) for various polling requests, which issue different
+     * commands to client.
+     * Sometimes client may need to receive and process the command from server.
+     * To prevent the complexity of streaming RPC(s), a unary RPC using
+     * long-polling is another solution.
+     * To mark the request-response of corresponding command, `command_id` in
+     * message is recorded in the subsequent RPC(s). For example, after receiving
+     * command of printing thread stack trace, client would send
+     * `ReportMessageConsumptionResultRequest` to server, which contain both of
+     * the stack trace and `command_id`.
+     * At same time, `NoopCommand` is delivered from server when no new command is
+     * needed, it is essential for client to maintain the ping-pong.
+     * </pre>
      */
-    public void multiplexingCall(apache.rocketmq.v1.MultiplexingRequest request,
-        io.grpc.stub.StreamObserver<apache.rocketmq.v1.MultiplexingResponse> responseObserver) {
+    public void pollCommand(apache.rocketmq.v1.PollCommandRequest request,
+        io.grpc.stub.StreamObserver<apache.rocketmq.v1.PollCommandResponse> responseObserver) {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
-          getChannel().newCall(getMultiplexingCallMethod(), getCallOptions()), request, responseObserver);
+          getChannel().newCall(getPollCommandMethod(), getCallOptions()), request, responseObserver);
     }
 
     /**
+     * <pre>
+     * After receiving the corresponding polling command, the thread stack trace
+     * is reported to the server.
+     * </pre>
+     */
+    public void reportThreadStackTrace(apache.rocketmq.v1.ReportThreadStackTraceRequest request,
+        io.grpc.stub.StreamObserver<apache.rocketmq.v1.ReportThreadStackTraceResponse> responseObserver) {
+      io.grpc.stub.ClientCalls.asyncUnaryCall(
+          getChannel().newCall(getReportThreadStackTraceMethod(), getCallOptions()), request, responseObserver);
+    }
+
+    /**
+     * <pre>
+     * After receiving the corresponding polling command, the consumption result
+     * of appointed message is reported to the server.
+     * </pre>
+     */
+    public void reportMessageConsumptionResult(apache.rocketmq.v1.ReportMessageConsumptionResultRequest request,
+        io.grpc.stub.StreamObserver<apache.rocketmq.v1.ReportMessageConsumptionResultResponse> responseObserver) {
+      io.grpc.stub.ClientCalls.asyncUnaryCall(
+          getChannel().newCall(getReportMessageConsumptionResultMethod(), getCallOptions()), request, responseObserver);
+    }
+
+    /**
+     * <pre>
+     * Notify the server that the client is terminated.
+     * </pre>
      */
     public void notifyClientTermination(apache.rocketmq.v1.NotifyClientTerminationRequest request,
         io.grpc.stub.StreamObserver<apache.rocketmq.v1.NotifyClientTerminationResponse> responseObserver) {
@@ -1147,13 +1303,52 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Multiplexing RPC(s) for various polling requests, which issue different
+     * commands to client.
+     * Sometimes client may need to receive and process the command from server.
+     * To prevent the complexity of streaming RPC(s), a unary RPC using
+     * long-polling is another solution.
+     * To mark the request-response of corresponding command, `command_id` in
+     * message is recorded in the subsequent RPC(s). For example, after receiving
+     * command of printing thread stack trace, client would send
+     * `ReportMessageConsumptionResultRequest` to server, which contain both of
+     * the stack trace and `command_id`.
+     * At same time, `NoopCommand` is delivered from server when no new command is
+     * needed, it is essential for client to maintain the ping-pong.
+     * </pre>
      */
-    public apache.rocketmq.v1.MultiplexingResponse multiplexingCall(apache.rocketmq.v1.MultiplexingRequest request) {
+    public apache.rocketmq.v1.PollCommandResponse pollCommand(apache.rocketmq.v1.PollCommandRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
-          getChannel(), getMultiplexingCallMethod(), getCallOptions(), request);
+          getChannel(), getPollCommandMethod(), getCallOptions(), request);
     }
 
     /**
+     * <pre>
+     * After receiving the corresponding polling command, the thread stack trace
+     * is reported to the server.
+     * </pre>
+     */
+    public apache.rocketmq.v1.ReportThreadStackTraceResponse reportThreadStackTrace(apache.rocketmq.v1.ReportThreadStackTraceRequest request) {
+      return io.grpc.stub.ClientCalls.blockingUnaryCall(
+          getChannel(), getReportThreadStackTraceMethod(), getCallOptions(), request);
+    }
+
+    /**
+     * <pre>
+     * After receiving the corresponding polling command, the consumption result
+     * of appointed message is reported to the server.
+     * </pre>
+     */
+    public apache.rocketmq.v1.ReportMessageConsumptionResultResponse reportMessageConsumptionResult(apache.rocketmq.v1.ReportMessageConsumptionResultRequest request) {
+      return io.grpc.stub.ClientCalls.blockingUnaryCall(
+          getChannel(), getReportMessageConsumptionResultMethod(), getCallOptions(), request);
+    }
+
+    /**
+     * <pre>
+     * Notify the server that the client is terminated.
+     * </pre>
      */
     public apache.rocketmq.v1.NotifyClientTerminationResponse notifyClientTermination(apache.rocketmq.v1.NotifyClientTerminationRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
@@ -1344,14 +1539,55 @@ public final class MessagingServiceGrpc {
     }
 
     /**
+     * <pre>
+     * Multiplexing RPC(s) for various polling requests, which issue different
+     * commands to client.
+     * Sometimes client may need to receive and process the command from server.
+     * To prevent the complexity of streaming RPC(s), a unary RPC using
+     * long-polling is another solution.
+     * To mark the request-response of corresponding command, `command_id` in
+     * message is recorded in the subsequent RPC(s). For example, after receiving
+     * command of printing thread stack trace, client would send
+     * `ReportMessageConsumptionResultRequest` to server, which contain both of
+     * the stack trace and `command_id`.
+     * At same time, `NoopCommand` is delivered from server when no new command is
+     * needed, it is essential for client to maintain the ping-pong.
+     * </pre>
      */
-    public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.MultiplexingResponse> multiplexingCall(
-        apache.rocketmq.v1.MultiplexingRequest request) {
+    public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.PollCommandResponse> pollCommand(
+        apache.rocketmq.v1.PollCommandRequest request) {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
-          getChannel().newCall(getMultiplexingCallMethod(), getCallOptions()), request);
+          getChannel().newCall(getPollCommandMethod(), getCallOptions()), request);
     }
 
     /**
+     * <pre>
+     * After receiving the corresponding polling command, the thread stack trace
+     * is reported to the server.
+     * </pre>
+     */
+    public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.ReportThreadStackTraceResponse> reportThreadStackTrace(
+        apache.rocketmq.v1.ReportThreadStackTraceRequest request) {
+      return io.grpc.stub.ClientCalls.futureUnaryCall(
+          getChannel().newCall(getReportThreadStackTraceMethod(), getCallOptions()), request);
+    }
+
+    /**
+     * <pre>
+     * After receiving the corresponding polling command, the consumption result
+     * of appointed message is reported to the server.
+     * </pre>
+     */
+    public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.ReportMessageConsumptionResultResponse> reportMessageConsumptionResult(
+        apache.rocketmq.v1.ReportMessageConsumptionResultRequest request) {
+      return io.grpc.stub.ClientCalls.futureUnaryCall(
+          getChannel().newCall(getReportMessageConsumptionResultMethod(), getCallOptions()), request);
+    }
+
+    /**
+     * <pre>
+     * Notify the server that the client is terminated.
+     * </pre>
      */
     public com.google.common.util.concurrent.ListenableFuture<apache.rocketmq.v1.NotifyClientTerminationResponse> notifyClientTermination(
         apache.rocketmq.v1.NotifyClientTerminationRequest request) {
@@ -1372,8 +1608,10 @@ public final class MessagingServiceGrpc {
   private static final int METHODID_END_TRANSACTION = 9;
   private static final int METHODID_QUERY_OFFSET = 10;
   private static final int METHODID_PULL_MESSAGE = 11;
-  private static final int METHODID_MULTIPLEXING_CALL = 12;
-  private static final int METHODID_NOTIFY_CLIENT_TERMINATION = 13;
+  private static final int METHODID_POLL_COMMAND = 12;
+  private static final int METHODID_REPORT_THREAD_STACK_TRACE = 13;
+  private static final int METHODID_REPORT_MESSAGE_CONSUMPTION_RESULT = 14;
+  private static final int METHODID_NOTIFY_CLIENT_TERMINATION = 15;
 
   private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
@@ -1440,9 +1678,17 @@ public final class MessagingServiceGrpc {
           serviceImpl.pullMessage((apache.rocketmq.v1.PullMessageRequest) request,
               (io.grpc.stub.StreamObserver<apache.rocketmq.v1.PullMessageResponse>) responseObserver);
           break;
-        case METHODID_MULTIPLEXING_CALL:
-          serviceImpl.multiplexingCall((apache.rocketmq.v1.MultiplexingRequest) request,
-              (io.grpc.stub.StreamObserver<apache.rocketmq.v1.MultiplexingResponse>) responseObserver);
+        case METHODID_POLL_COMMAND:
+          serviceImpl.pollCommand((apache.rocketmq.v1.PollCommandRequest) request,
+              (io.grpc.stub.StreamObserver<apache.rocketmq.v1.PollCommandResponse>) responseObserver);
+          break;
+        case METHODID_REPORT_THREAD_STACK_TRACE:
+          serviceImpl.reportThreadStackTrace((apache.rocketmq.v1.ReportThreadStackTraceRequest) request,
+              (io.grpc.stub.StreamObserver<apache.rocketmq.v1.ReportThreadStackTraceResponse>) responseObserver);
+          break;
+        case METHODID_REPORT_MESSAGE_CONSUMPTION_RESULT:
+          serviceImpl.reportMessageConsumptionResult((apache.rocketmq.v1.ReportMessageConsumptionResultRequest) request,
+              (io.grpc.stub.StreamObserver<apache.rocketmq.v1.ReportMessageConsumptionResultResponse>) responseObserver);
           break;
         case METHODID_NOTIFY_CLIENT_TERMINATION:
           serviceImpl.notifyClientTermination((apache.rocketmq.v1.NotifyClientTerminationRequest) request,
@@ -1521,7 +1767,9 @@ public final class MessagingServiceGrpc {
               .addMethod(getEndTransactionMethod())
               .addMethod(getQueryOffsetMethod())
               .addMethod(getPullMessageMethod())
-              .addMethod(getMultiplexingCallMethod())
+              .addMethod(getPollCommandMethod())
+              .addMethod(getReportThreadStackTraceMethod())
+              .addMethod(getReportMessageConsumptionResultMethod())
               .addMethod(getNotifyClientTerminationMethod())
               .build();
         }

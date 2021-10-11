@@ -3,21 +3,21 @@
 
 package apache.rocketmq.v1;
 
-public interface VerifyMessageConsumptionRequestOrBuilder extends
-    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.VerifyMessageConsumptionRequest)
+public interface VerifyMessageConsumptionCommandOrBuilder extends
+    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.VerifyMessageConsumptionCommand)
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>string mid = 1;</code>
-   * @return The mid.
+   * <code>string command_id = 1;</code>
+   * @return The commandId.
    */
-  java.lang.String getMid();
+  java.lang.String getCommandId();
   /**
-   * <code>string mid = 1;</code>
-   * @return The bytes for mid.
+   * <code>string command_id = 1;</code>
+   * @return The bytes for commandId.
    */
   com.google.protobuf.ByteString
-      getMidBytes();
+      getCommandIdBytes();
 
   /**
    * <code>.apache.rocketmq.v1.Message message = 2;</code>

@@ -29,11 +29,11 @@ import static org.testng.Assert.fail;
 
 import apache.rocketmq.v1.EndTransactionRequest;
 import apache.rocketmq.v1.MessageType;
-import apache.rocketmq.v1.MultiplexingRequest;
-import apache.rocketmq.v1.MultiplexingResponse;
 import apache.rocketmq.v1.Permission;
+import apache.rocketmq.v1.PollCommandRequest;
+import apache.rocketmq.v1.PollCommandResponse;
 import apache.rocketmq.v1.QueryRouteRequest;
-import apache.rocketmq.v1.RecoverOrphanedTransactionRequest;
+import apache.rocketmq.v1.RecoverOrphanedTransactionCommand;
 import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -347,8 +347,8 @@ public class ProducerImplTest extends TestBase {
 
     @Test
     public void testRecoverOrphanedTransaction() throws UnsupportedEncodingException, InterruptedException {
-        RecoverOrphanedTransactionRequest request =
-                RecoverOrphanedTransactionRequest.newBuilder().setTransactionId(FAKE_TRANSACTION_ID)
+        RecoverOrphanedTransactionCommand request =
+                RecoverOrphanedTransactionCommand.newBuilder().setTransactionId(FAKE_TRANSACTION_ID)
                                                  .setOrphanedTransactionalMessage(fakeTransactionMessage0()).build();
         final Endpoints endpoints = new Endpoints(fakePbEndpoints0());
         {
@@ -412,21 +412,21 @@ public class ProducerImplTest extends TestBase {
     }
 
     @Test
-    public void testMultiplexingRequest() throws InterruptedException {
+    public void testPollingCommand() throws InterruptedException {
         final Message message = fakeMessage();
         when(clientManager.queryRoute(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
                                       ArgumentMatchers.<QueryRouteRequest>any(), anyLong(),
                                       ArgumentMatchers.<TimeUnit>any()))
                 .thenReturn(okQueryRouteResponseFuture());
         final long delayTimeMillis = 1000;
-        int multiplexingTimes = 2;
-        when(clientManager.multiplexingCall(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
-                                            ArgumentMatchers.<MultiplexingRequest>any(), anyLong(),
-                                            ArgumentMatchers.<TimeUnit>any()))
-                .thenAnswer(new Answer<ListenableFuture<MultiplexingResponse>>() {
+        int pollingTimes = 2;
+        when(clientManager.pollCommand(ArgumentMatchers.<Endpoints>any(), ArgumentMatchers.<Metadata>any(),
+                                       ArgumentMatchers.<PollCommandRequest>any(), anyLong(),
+                                       ArgumentMatchers.<TimeUnit>any()))
+                .thenAnswer(new Answer<ListenableFuture<PollCommandResponse>>() {
                     @Override
-                    public ListenableFuture<MultiplexingResponse> answer(InvocationOnMock invocation) {
-                        return multiplexingResponseWithGenericPollingFuture(delayTimeMillis);
+                    public ListenableFuture<PollCommandResponse> answer(InvocationOnMock invocation) {
+                        return pollingCommandResponseWithNoopCommand(delayTimeMillis);
                     }
                 });
         try {
@@ -434,10 +434,10 @@ public class ProducerImplTest extends TestBase {
         } catch (Throwable ignore) {
             // ignore on purpose.
         }
-        Thread.sleep(multiplexingTimes * delayTimeMillis - delayTimeMillis / 2);
-        verify(clientManager, times(multiplexingTimes)).multiplexingCall(ArgumentMatchers.<Endpoints>any(),
+        Thread.sleep(pollingTimes * delayTimeMillis - delayTimeMillis / 2);
+        verify(clientManager, times(pollingTimes)).pollCommand(ArgumentMatchers.<Endpoints>any(),
                                                                          ArgumentMatchers.<Metadata>any(),
-                                                                         ArgumentMatchers.<MultiplexingRequest>any(),
+                                                                         ArgumentMatchers.<PollCommandRequest>any(),
                                                                          anyLong(),
                                                                          ArgumentMatchers.<TimeUnit>any());
     }

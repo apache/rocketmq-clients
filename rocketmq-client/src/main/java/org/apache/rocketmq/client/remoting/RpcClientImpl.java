@@ -28,12 +28,12 @@ import apache.rocketmq.v1.HealthCheckResponse;
 import apache.rocketmq.v1.HeartbeatRequest;
 import apache.rocketmq.v1.HeartbeatResponse;
 import apache.rocketmq.v1.MessagingServiceGrpc;
-import apache.rocketmq.v1.MultiplexingRequest;
-import apache.rocketmq.v1.MultiplexingResponse;
 import apache.rocketmq.v1.NackMessageRequest;
 import apache.rocketmq.v1.NackMessageResponse;
 import apache.rocketmq.v1.NotifyClientTerminationRequest;
 import apache.rocketmq.v1.NotifyClientTerminationResponse;
+import apache.rocketmq.v1.PollCommandRequest;
+import apache.rocketmq.v1.PollCommandResponse;
 import apache.rocketmq.v1.PullMessageRequest;
 import apache.rocketmq.v1.PullMessageResponse;
 import apache.rocketmq.v1.QueryAssignmentRequest;
@@ -44,6 +44,10 @@ import apache.rocketmq.v1.QueryRouteRequest;
 import apache.rocketmq.v1.QueryRouteResponse;
 import apache.rocketmq.v1.ReceiveMessageRequest;
 import apache.rocketmq.v1.ReceiveMessageResponse;
+import apache.rocketmq.v1.ReportMessageConsumptionResultRequest;
+import apache.rocketmq.v1.ReportMessageConsumptionResultResponse;
+import apache.rocketmq.v1.ReportThreadStackTraceRequest;
+import apache.rocketmq.v1.ReportThreadStackTraceResponse;
 import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -211,12 +215,30 @@ public class RpcClientImpl implements RpcClient {
     }
 
     @Override
-    public ListenableFuture<MultiplexingResponse> multiplexingCall(Metadata metadata, MultiplexingRequest request,
-                                                                   Executor executor, long duration,
-                                                                   TimeUnit timeUnit) {
+    public ListenableFuture<PollCommandResponse> pollCommand(Metadata metadata, PollCommandRequest request,
+                                                             Executor executor, long duration,
+                                                             TimeUnit timeUnit) {
         this.activityNanoTime = System.nanoTime();
         return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
-                            .withDeadlineAfter(duration, timeUnit).multiplexingCall(request);
+                            .withDeadlineAfter(duration, timeUnit).pollCommand(request);
+    }
+
+    @Override
+    public ListenableFuture<ReportThreadStackTraceResponse> reportThreadStackTrace(
+            Metadata metadata, ReportThreadStackTraceRequest request, Executor executor, long duration,
+            TimeUnit timeUnit) {
+        this.activityNanoTime = System.nanoTime();
+        return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
+                            .withDeadlineAfter(duration, timeUnit).reportThreadStackTrace(request);
+    }
+
+    @Override
+    public ListenableFuture<ReportMessageConsumptionResultResponse> reportMessageConsumptionResult(
+            Metadata metadata, ReportMessageConsumptionResultRequest request, Executor executor, long duration,
+            TimeUnit timeUnit) {
+        this.activityNanoTime = System.nanoTime();
+        return MetadataUtils.attachHeaders(stub, metadata).withExecutor(executor)
+                            .withDeadlineAfter(duration, timeUnit).reportMessageConsumptionResult(request);
     }
 
     @Override

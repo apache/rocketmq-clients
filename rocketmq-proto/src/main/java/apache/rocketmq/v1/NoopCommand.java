@@ -4,26 +4,25 @@
 package apache.rocketmq.v1;
 
 /**
- * Protobuf type {@code apache.rocketmq.v1.PrintThreadStackRequest}
+ * Protobuf type {@code apache.rocketmq.v1.NoopCommand}
  */
-public final class PrintThreadStackRequest extends
+public final class NoopCommand extends
     com.google.protobuf.GeneratedMessageV3 implements
-    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.PrintThreadStackRequest)
-    PrintThreadStackRequestOrBuilder {
+    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.NoopCommand)
+    NoopCommandOrBuilder {
 private static final long serialVersionUID = 0L;
-  // Use PrintThreadStackRequest.newBuilder() to construct.
-  private PrintThreadStackRequest(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+  // Use NoopCommand.newBuilder() to construct.
+  private NoopCommand(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
-  private PrintThreadStackRequest() {
-    mid_ = "";
+  private NoopCommand() {
   }
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
   protected java.lang.Object newInstance(
       UnusedPrivateParameter unused) {
-    return new PrintThreadStackRequest();
+    return new NoopCommand();
   }
 
   @java.lang.Override
@@ -31,7 +30,7 @@ private static final long serialVersionUID = 0L;
   getUnknownFields() {
     return this.unknownFields;
   }
-  private PrintThreadStackRequest(
+  private NoopCommand(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
@@ -49,12 +48,6 @@ private static final long serialVersionUID = 0L;
           case 0:
             done = true;
             break;
-          case 10: {
-            java.lang.String s = input.readStringRequireUtf8();
-
-            mid_ = s;
-            break;
-          }
           default: {
             if (!parseUnknownField(
                 input, unknownFields, extensionRegistry, tag)) {
@@ -76,53 +69,15 @@ private static final long serialVersionUID = 0L;
   }
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PrintThreadStackRequest_descriptor;
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_NoopCommand_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PrintThreadStackRequest_fieldAccessorTable
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_NoopCommand_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            apache.rocketmq.v1.PrintThreadStackRequest.class, apache.rocketmq.v1.PrintThreadStackRequest.Builder.class);
-  }
-
-  public static final int MID_FIELD_NUMBER = 1;
-  private volatile java.lang.Object mid_;
-  /**
-   * <code>string mid = 1;</code>
-   * @return The mid.
-   */
-  @java.lang.Override
-  public java.lang.String getMid() {
-    java.lang.Object ref = mid_;
-    if (ref instanceof java.lang.String) {
-      return (java.lang.String) ref;
-    } else {
-      com.google.protobuf.ByteString bs = 
-          (com.google.protobuf.ByteString) ref;
-      java.lang.String s = bs.toStringUtf8();
-      mid_ = s;
-      return s;
-    }
-  }
-  /**
-   * <code>string mid = 1;</code>
-   * @return The bytes for mid.
-   */
-  @java.lang.Override
-  public com.google.protobuf.ByteString
-      getMidBytes() {
-    java.lang.Object ref = mid_;
-    if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
-      mid_ = b;
-      return b;
-    } else {
-      return (com.google.protobuf.ByteString) ref;
-    }
+            apache.rocketmq.v1.NoopCommand.class, apache.rocketmq.v1.NoopCommand.Builder.class);
   }
 
   private byte memoizedIsInitialized = -1;
@@ -139,9 +94,6 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (!getMidBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 1, mid_);
-    }
     unknownFields.writeTo(output);
   }
 
@@ -151,9 +103,6 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (!getMidBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, mid_);
-    }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
     return size;
@@ -164,13 +113,11 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof apache.rocketmq.v1.PrintThreadStackRequest)) {
+    if (!(obj instanceof apache.rocketmq.v1.NoopCommand)) {
       return super.equals(obj);
     }
-    apache.rocketmq.v1.PrintThreadStackRequest other = (apache.rocketmq.v1.PrintThreadStackRequest) obj;
+    apache.rocketmq.v1.NoopCommand other = (apache.rocketmq.v1.NoopCommand) obj;
 
-    if (!getMid()
-        .equals(other.getMid())) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -182,76 +129,74 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    hash = (37 * hash) + MID_FIELD_NUMBER;
-    hash = (53 * hash) + getMid().hashCode();
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
     return hash;
   }
 
-  public static apache.rocketmq.v1.PrintThreadStackRequest parseFrom(
+  public static apache.rocketmq.v1.NoopCommand parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.PrintThreadStackRequest parseFrom(
+  public static apache.rocketmq.v1.NoopCommand parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.PrintThreadStackRequest parseFrom(
+  public static apache.rocketmq.v1.NoopCommand parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.PrintThreadStackRequest parseFrom(
+  public static apache.rocketmq.v1.NoopCommand parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.PrintThreadStackRequest parseFrom(byte[] data)
+  public static apache.rocketmq.v1.NoopCommand parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.PrintThreadStackRequest parseFrom(
+  public static apache.rocketmq.v1.NoopCommand parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.PrintThreadStackRequest parseFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.NoopCommand parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.PrintThreadStackRequest parseFrom(
+  public static apache.rocketmq.v1.NoopCommand parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.PrintThreadStackRequest parseDelimitedFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.NoopCommand parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.PrintThreadStackRequest parseDelimitedFrom(
+  public static apache.rocketmq.v1.NoopCommand parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.PrintThreadStackRequest parseFrom(
+  public static apache.rocketmq.v1.NoopCommand parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.PrintThreadStackRequest parseFrom(
+  public static apache.rocketmq.v1.NoopCommand parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -264,7 +209,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(apache.rocketmq.v1.PrintThreadStackRequest prototype) {
+  public static Builder newBuilder(apache.rocketmq.v1.NoopCommand prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -280,26 +225,26 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
-   * Protobuf type {@code apache.rocketmq.v1.PrintThreadStackRequest}
+   * Protobuf type {@code apache.rocketmq.v1.NoopCommand}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.PrintThreadStackRequest)
-      apache.rocketmq.v1.PrintThreadStackRequestOrBuilder {
+      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.NoopCommand)
+      apache.rocketmq.v1.NoopCommandOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PrintThreadStackRequest_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_NoopCommand_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PrintThreadStackRequest_fieldAccessorTable
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_NoopCommand_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              apache.rocketmq.v1.PrintThreadStackRequest.class, apache.rocketmq.v1.PrintThreadStackRequest.Builder.class);
+              apache.rocketmq.v1.NoopCommand.class, apache.rocketmq.v1.NoopCommand.Builder.class);
     }
 
-    // Construct using apache.rocketmq.v1.PrintThreadStackRequest.newBuilder()
+    // Construct using apache.rocketmq.v1.NoopCommand.newBuilder()
     private Builder() {
       maybeForceBuilderInitialization();
     }
@@ -317,25 +262,23 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
-      mid_ = "";
-
       return this;
     }
 
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PrintThreadStackRequest_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_NoopCommand_descriptor;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.PrintThreadStackRequest getDefaultInstanceForType() {
-      return apache.rocketmq.v1.PrintThreadStackRequest.getDefaultInstance();
+    public apache.rocketmq.v1.NoopCommand getDefaultInstanceForType() {
+      return apache.rocketmq.v1.NoopCommand.getDefaultInstance();
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.PrintThreadStackRequest build() {
-      apache.rocketmq.v1.PrintThreadStackRequest result = buildPartial();
+    public apache.rocketmq.v1.NoopCommand build() {
+      apache.rocketmq.v1.NoopCommand result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -343,9 +286,8 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.PrintThreadStackRequest buildPartial() {
-      apache.rocketmq.v1.PrintThreadStackRequest result = new apache.rocketmq.v1.PrintThreadStackRequest(this);
-      result.mid_ = mid_;
+    public apache.rocketmq.v1.NoopCommand buildPartial() {
+      apache.rocketmq.v1.NoopCommand result = new apache.rocketmq.v1.NoopCommand(this);
       onBuilt();
       return result;
     }
@@ -384,20 +326,16 @@ private static final long serialVersionUID = 0L;
     }
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof apache.rocketmq.v1.PrintThreadStackRequest) {
-        return mergeFrom((apache.rocketmq.v1.PrintThreadStackRequest)other);
+      if (other instanceof apache.rocketmq.v1.NoopCommand) {
+        return mergeFrom((apache.rocketmq.v1.NoopCommand)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(apache.rocketmq.v1.PrintThreadStackRequest other) {
-      if (other == apache.rocketmq.v1.PrintThreadStackRequest.getDefaultInstance()) return this;
-      if (!other.getMid().isEmpty()) {
-        mid_ = other.mid_;
-        onChanged();
-      }
+    public Builder mergeFrom(apache.rocketmq.v1.NoopCommand other) {
+      if (other == apache.rocketmq.v1.NoopCommand.getDefaultInstance()) return this;
       this.mergeUnknownFields(other.unknownFields);
       onChanged();
       return this;
@@ -413,93 +351,17 @@ private static final long serialVersionUID = 0L;
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      apache.rocketmq.v1.PrintThreadStackRequest parsedMessage = null;
+      apache.rocketmq.v1.NoopCommand parsedMessage = null;
       try {
         parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        parsedMessage = (apache.rocketmq.v1.PrintThreadStackRequest) e.getUnfinishedMessage();
+        parsedMessage = (apache.rocketmq.v1.NoopCommand) e.getUnfinishedMessage();
         throw e.unwrapIOException();
       } finally {
         if (parsedMessage != null) {
           mergeFrom(parsedMessage);
         }
       }
-      return this;
-    }
-
-    private java.lang.Object mid_ = "";
-    /**
-     * <code>string mid = 1;</code>
-     * @return The mid.
-     */
-    public java.lang.String getMid() {
-      java.lang.Object ref = mid_;
-      if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        mid_ = s;
-        return s;
-      } else {
-        return (java.lang.String) ref;
-      }
-    }
-    /**
-     * <code>string mid = 1;</code>
-     * @return The bytes for mid.
-     */
-    public com.google.protobuf.ByteString
-        getMidBytes() {
-      java.lang.Object ref = mid_;
-      if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        mid_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-    /**
-     * <code>string mid = 1;</code>
-     * @param value The mid to set.
-     * @return This builder for chaining.
-     */
-    public Builder setMid(
-        java.lang.String value) {
-      if (value == null) {
-    throw new NullPointerException();
-  }
-  
-      mid_ = value;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>string mid = 1;</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearMid() {
-      
-      mid_ = getDefaultInstance().getMid();
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>string mid = 1;</code>
-     * @param value The bytes for mid to set.
-     * @return This builder for chaining.
-     */
-    public Builder setMidBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) {
-    throw new NullPointerException();
-  }
-  checkByteStringIsUtf8(value);
-      
-      mid_ = value;
-      onChanged();
       return this;
     }
     @java.lang.Override
@@ -515,41 +377,41 @@ private static final long serialVersionUID = 0L;
     }
 
 
-    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.PrintThreadStackRequest)
+    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.NoopCommand)
   }
 
-  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.PrintThreadStackRequest)
-  private static final apache.rocketmq.v1.PrintThreadStackRequest DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.NoopCommand)
+  private static final apache.rocketmq.v1.NoopCommand DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new apache.rocketmq.v1.PrintThreadStackRequest();
+    DEFAULT_INSTANCE = new apache.rocketmq.v1.NoopCommand();
   }
 
-  public static apache.rocketmq.v1.PrintThreadStackRequest getDefaultInstance() {
+  public static apache.rocketmq.v1.NoopCommand getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<PrintThreadStackRequest>
-      PARSER = new com.google.protobuf.AbstractParser<PrintThreadStackRequest>() {
+  private static final com.google.protobuf.Parser<NoopCommand>
+      PARSER = new com.google.protobuf.AbstractParser<NoopCommand>() {
     @java.lang.Override
-    public PrintThreadStackRequest parsePartialFrom(
+    public NoopCommand parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
-      return new PrintThreadStackRequest(input, extensionRegistry);
+      return new NoopCommand(input, extensionRegistry);
     }
   };
 
-  public static com.google.protobuf.Parser<PrintThreadStackRequest> parser() {
+  public static com.google.protobuf.Parser<NoopCommand> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<PrintThreadStackRequest> getParserForType() {
+  public com.google.protobuf.Parser<NoopCommand> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public apache.rocketmq.v1.PrintThreadStackRequest getDefaultInstanceForType() {
+  public apache.rocketmq.v1.NoopCommand getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

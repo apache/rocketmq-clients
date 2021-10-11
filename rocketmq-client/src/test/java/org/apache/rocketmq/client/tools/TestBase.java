@@ -26,16 +26,16 @@ import apache.rocketmq.v1.Digest;
 import apache.rocketmq.v1.DigestType;
 import apache.rocketmq.v1.EndTransactionResponse;
 import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse;
-import apache.rocketmq.v1.GenericPollingResponse;
-import apache.rocketmq.v1.MultiplexingResponse;
 import apache.rocketmq.v1.NackMessageResponse;
+import apache.rocketmq.v1.NoopCommand;
 import apache.rocketmq.v1.Permission;
+import apache.rocketmq.v1.PollCommandResponse;
 import apache.rocketmq.v1.QueryAssignmentResponse;
 import apache.rocketmq.v1.QueryRouteResponse;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.ResponseCommon;
 import apache.rocketmq.v1.SendMessageResponse;
-import apache.rocketmq.v1.VerifyMessageConsumptionRequest;
+import apache.rocketmq.v1.VerifyMessageConsumptionCommand;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.ByteString;
@@ -209,9 +209,9 @@ public class TestBase {
         return future0;
     }
 
-    protected VerifyMessageConsumptionRequest fakeVerifyMessageConsumptionRequest()
+    protected VerifyMessageConsumptionCommand fakeVerifyMessageConsumptionCommand()
             throws UnsupportedEncodingException {
-        return VerifyMessageConsumptionRequest.newBuilder().setMessage(fakePbMessage0()).build();
+        return VerifyMessageConsumptionCommand.newBuilder().setMessage(fakePbMessage0()).build();
     }
 
     protected ListenableFuture<ForwardMessageToDeadLetterQueueResponse>
@@ -252,15 +252,14 @@ public class TestBase {
         return future0;
     }
 
-    protected GenericPollingResponse okGenericPollingResponseFuture() {
-        final ResponseCommon common = okResponseCommon();
-        return GenericPollingResponse.newBuilder().setCommon(common).build();
+    protected NoopCommand noopCommandFuture() {
+        return NoopCommand.newBuilder().build();
     }
 
-    protected ListenableFuture<MultiplexingResponse> multiplexingResponseWithGenericPollingFuture(long delayMillis) {
-        final SettableFuture<MultiplexingResponse> future0 = SettableFuture.create();
-        final MultiplexingResponse response =
-                MultiplexingResponse.newBuilder().setPollingResponse(okGenericPollingResponseFuture()).build();
+    protected ListenableFuture<PollCommandResponse> pollingCommandResponseWithNoopCommand(long delayMillis) {
+        final SettableFuture<PollCommandResponse> future0 = SettableFuture.create();
+        final PollCommandResponse response =
+                PollCommandResponse.newBuilder().setNoopCommand(noopCommandFuture()).build();
         SCHEDULER.schedule(new Runnable() {
             @Override
             public void run() {

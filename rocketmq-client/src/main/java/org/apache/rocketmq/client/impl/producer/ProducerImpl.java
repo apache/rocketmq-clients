@@ -23,13 +23,13 @@ import static com.google.protobuf.util.Timestamps.fromMillis;
 
 import apache.rocketmq.v1.EndTransactionRequest;
 import apache.rocketmq.v1.EndTransactionResponse;
-import apache.rocketmq.v1.GenericPollingRequest;
 import apache.rocketmq.v1.HealthCheckRequest;
 import apache.rocketmq.v1.HealthCheckResponse;
 import apache.rocketmq.v1.HeartbeatRequest;
 import apache.rocketmq.v1.NotifyClientTerminationRequest;
+import apache.rocketmq.v1.PollCommandRequest;
 import apache.rocketmq.v1.ProducerData;
-import apache.rocketmq.v1.RecoverOrphanedTransactionRequest;
+import apache.rocketmq.v1.RecoverOrphanedTransactionCommand;
 import apache.rocketmq.v1.Resource;
 import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
@@ -41,6 +41,8 @@ import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.protobuf.ByteString;
@@ -52,6 +54,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
@@ -146,8 +149,6 @@ public class ProducerImpl extends ClientImpl {
     private final Set<Endpoints> isolatedEndpointsSet;
     private final ReadWriteLock isolatedEndpointsSetLock;
 
-    private final ThreadPoolExecutor transactionCheckerExecutor;
-
     public ProducerImpl(String group) throws ClientException {
         super(group);
         this.defaultSendCallbackExecutor = new ThreadPoolExecutor(
@@ -162,14 +163,6 @@ public class ProducerImpl extends ClientImpl {
 
         this.isolatedEndpointsSet = new HashSet<Endpoints>();
         this.isolatedEndpointsSetLock = new ReentrantReadWriteLock();
-
-        this.transactionCheckerExecutor = new ThreadPoolExecutor(
-                1,
-                1,
-                60,
-                TimeUnit.SECONDS,
-                new LinkedBlockingQueue<Runnable>(128),
-                new ThreadFactoryImpl("TransactionChecker"));
     }
 
     private void preconditionCheck(Message message) throws ClientException {
@@ -578,8 +571,8 @@ public class ProducerImpl extends ClientImpl {
     }
 
     @Override
-    public void recoverOrphanedTransaction(final Endpoints endpoints, final RecoverOrphanedTransactionRequest request) {
-        final apache.rocketmq.v1.Message message = request.getOrphanedTransactionalMessage();
+    public void recoverOrphanedTransaction(final Endpoints endpoints, final RecoverOrphanedTransactionCommand command) {
+        final apache.rocketmq.v1.Message message = command.getOrphanedTransactionalMessage();
         final String messageId = message.getSystemAttribute().getMessageId();
         if (null == transactionChecker) {
             log.error("No transaction checker registered, ignore it, messageId={}, clientId={}", messageId, id);
@@ -590,31 +583,38 @@ public class ProducerImpl extends ClientImpl {
             MessageImpl messageImpl = MessageImplAccessor.wrapMessageImpl(message);
             messageExt = new MessageExt(messageImpl);
         } catch (Throwable t) {
-            log.error("[Bug] Failed to decode message while resolving orphaned transaction, messageId={}, clientId={}",
+            log.error("[Bug] Failed to decode message while recovering orphaned transaction, messageId={}, clientId={}",
                       messageId, id, t);
             return;
         }
-        try {
-            transactionCheckerExecutor.submit(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        final TransactionResolution resolution = transactionChecker.check(messageExt);
-                        if (null == resolution || TransactionResolution.UNKNOWN.equals(resolution)) {
-                            return;
-                        }
-                        endTransaction(endpoints, messageExt, request.getTransactionId(), resolution);
-                    } catch (Throwable t) {
-                        log.error("Exception raised while check and end transaction, messageId={}, transactionId={}, "
-                                  + "endpoints={}, clientId={}", messageId, request.getTransactionId(), endpoints, id,
-                                  t);
+        final ListeningExecutorService commandService = MoreExecutors.listeningDecorator(commandExecutor);
+        final Callable<TransactionResolution> task = new Callable<TransactionResolution>() {
+            @Override
+            public TransactionResolution call() {
+                return transactionChecker.check(messageExt);
+            }
+        };
+        final ListenableFuture<TransactionResolution> future = commandService.submit(task);
+        Futures.addCallback(future, new FutureCallback<TransactionResolution>() {
+            @Override
+            public void onSuccess(TransactionResolution resolution) {
+                try {
+                    if (null == resolution || TransactionResolution.UNKNOWN.equals(resolution)) {
+                        return;
                     }
+                    endTransaction(endpoints, messageExt, command.getTransactionId(), resolution);
+                } catch (Throwable t) {
+                    log.error("Exception raised while check and end transaction, messageId={}, transactionId={}, "
+                              + "endpoints={}, clientId={}", messageId, command.getTransactionId(), endpoints, id, t);
                 }
-            });
-        } catch (Throwable t) {
-            log.error("Failed to submit task for check and end transaction, messageId={}, transactionId={}, "
-                      + "clientId={}", messageId, request.getTransactionId(), id, t);
-        }
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                log.error("Exception raised while recover orphaned transaction, messageId={}, endpoints={}, "
+                          + "clientId={}", messageId, endpoints, id, t);
+            }
+        });
     }
 
     @Override
@@ -829,9 +829,9 @@ public class ProducerImpl extends ClientImpl {
     }
 
     @Override
-    public GenericPollingRequest wrapGenericPollingRequest() {
-        final GenericPollingRequest.Builder builder =
-                GenericPollingRequest.newBuilder().setClientId(id).setProducerGroup(getPbGroup());
+    public PollCommandRequest wrapPollCommandRequest() {
+        final PollCommandRequest.Builder builder =
+                PollCommandRequest.newBuilder().setClientId(id).setProducerGroup(getPbGroup());
         for (String topic : sendingRouteDataCache.keySet()) {
             Resource topicResource = Resource.newBuilder().setResourceNamespace(namespace).setName(topic).build();
             builder.addTopics(topicResource);

@@ -27,12 +27,12 @@ import apache.rocketmq.v1.HealthCheckRequest;
 import apache.rocketmq.v1.HealthCheckResponse;
 import apache.rocketmq.v1.HeartbeatRequest;
 import apache.rocketmq.v1.HeartbeatResponse;
-import apache.rocketmq.v1.MultiplexingRequest;
-import apache.rocketmq.v1.MultiplexingResponse;
 import apache.rocketmq.v1.NackMessageRequest;
 import apache.rocketmq.v1.NackMessageResponse;
 import apache.rocketmq.v1.NotifyClientTerminationRequest;
 import apache.rocketmq.v1.NotifyClientTerminationResponse;
+import apache.rocketmq.v1.PollCommandRequest;
+import apache.rocketmq.v1.PollCommandResponse;
 import apache.rocketmq.v1.PullMessageRequest;
 import apache.rocketmq.v1.PullMessageResponse;
 import apache.rocketmq.v1.QueryAssignmentRequest;
@@ -43,6 +43,10 @@ import apache.rocketmq.v1.QueryRouteRequest;
 import apache.rocketmq.v1.QueryRouteResponse;
 import apache.rocketmq.v1.ReceiveMessageRequest;
 import apache.rocketmq.v1.ReceiveMessageResponse;
+import apache.rocketmq.v1.ReportMessageConsumptionResultRequest;
+import apache.rocketmq.v1.ReportMessageConsumptionResultResponse;
+import apache.rocketmq.v1.ReportThreadStackTraceRequest;
+import apache.rocketmq.v1.ReportThreadStackTraceResponse;
 import apache.rocketmq.v1.SendMessageRequest;
 import apache.rocketmq.v1.SendMessageResponse;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -227,17 +231,47 @@ public interface RpcClient {
                                                       Executor executor, long duration, TimeUnit timeUnit);
 
     /**
-     * Multiplexing call asynchronously for composited request.
+     * Polling request asynchronously for composited request.
      *
      * @param metadata gRPC request header metadata.
-     * @param request  multiplexing call request.
+     * @param request  polling command request.
      * @param executor gRPC asynchronous executor.
      * @param duration request max duration.
      * @param timeUnit duration time unit.
-     * @return response future of multiplexing call.
+     * @return response future of polling call.
      */
-    ListenableFuture<MultiplexingResponse> multiplexingCall(Metadata metadata, MultiplexingRequest request,
-                                                            Executor executor, long duration, TimeUnit timeUnit);
+    ListenableFuture<PollCommandResponse> pollCommand(Metadata metadata, PollCommandRequest request,
+                                                      Executor executor, long duration, TimeUnit timeUnit);
+
+
+    /**
+     * Report thread stack trace asynchronously.
+     *
+     * @param metadata gRPC request header metadata.
+     * @param request  reported thread stack request.
+     * @param executor gRPC asynchronous executor.
+     * @param duration request max duration.
+     * @param timeUnit duration time unit.
+     * @return response future of reporting thread stack trace.
+     */
+    ListenableFuture<ReportThreadStackTraceResponse> reportThreadStackTrace(Metadata metadata,
+                                                                            ReportThreadStackTraceRequest request,
+                                                                            Executor executor, long duration,
+                                                                            TimeUnit timeUnit);
+
+    /**
+     * Report message consumption result asynchronously.
+     *
+     * @param metadata gRPC request header metadata.
+     * @param request  reported thread stack request.
+     * @param executor gRPC asynchronous executor.
+     * @param duration request max duration.
+     * @param timeUnit duration time unit.
+     * @return response future of reporting message consumption result.
+     */
+    ListenableFuture<ReportMessageConsumptionResultResponse> reportMessageConsumptionResult(
+            Metadata metadata, ReportMessageConsumptionResultRequest request, Executor executor, long duration,
+            TimeUnit timeUnit);
 
     /**
      * Asynchronously notify server that client is terminated.

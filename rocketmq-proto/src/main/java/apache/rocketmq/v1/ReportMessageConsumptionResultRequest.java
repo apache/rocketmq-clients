@@ -4,26 +4,26 @@
 package apache.rocketmq.v1;
 
 /**
- * Protobuf type {@code apache.rocketmq.v1.VerifyMessageConsumptionResponse}
+ * Protobuf type {@code apache.rocketmq.v1.ReportMessageConsumptionResultRequest}
  */
-public final class VerifyMessageConsumptionResponse extends
+public final class ReportMessageConsumptionResultRequest extends
     com.google.protobuf.GeneratedMessageV3 implements
-    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.VerifyMessageConsumptionResponse)
-    VerifyMessageConsumptionResponseOrBuilder {
+    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.ReportMessageConsumptionResultRequest)
+    ReportMessageConsumptionResultRequestOrBuilder {
 private static final long serialVersionUID = 0L;
-  // Use VerifyMessageConsumptionResponse.newBuilder() to construct.
-  private VerifyMessageConsumptionResponse(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+  // Use ReportMessageConsumptionResultRequest.newBuilder() to construct.
+  private ReportMessageConsumptionResultRequest(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
-  private VerifyMessageConsumptionResponse() {
-    mid_ = "";
+  private ReportMessageConsumptionResultRequest() {
+    commandId_ = "";
   }
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
   protected java.lang.Object newInstance(
       UnusedPrivateParameter unused) {
-    return new VerifyMessageConsumptionResponse();
+    return new ReportMessageConsumptionResultRequest();
   }
 
   @java.lang.Override
@@ -31,7 +31,7 @@ private static final long serialVersionUID = 0L;
   getUnknownFields() {
     return this.unknownFields;
   }
-  private VerifyMessageConsumptionResponse(
+  private ReportMessageConsumptionResultRequest(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
@@ -52,18 +52,18 @@ private static final long serialVersionUID = 0L;
           case 10: {
             java.lang.String s = input.readStringRequireUtf8();
 
-            mid_ = s;
+            commandId_ = s;
             break;
           }
           case 18: {
-            apache.rocketmq.v1.ResponseCommon.Builder subBuilder = null;
-            if (common_ != null) {
-              subBuilder = common_.toBuilder();
+            com.google.rpc.Status.Builder subBuilder = null;
+            if (status_ != null) {
+              subBuilder = status_.toBuilder();
             }
-            common_ = input.readMessage(apache.rocketmq.v1.ResponseCommon.parser(), extensionRegistry);
+            status_ = input.readMessage(com.google.rpc.Status.parser(), extensionRegistry);
             if (subBuilder != null) {
-              subBuilder.mergeFrom(common_);
-              common_ = subBuilder.buildPartial();
+              subBuilder.mergeFrom(status_);
+              status_ = subBuilder.buildPartial();
             }
 
             break;
@@ -89,79 +89,79 @@ private static final long serialVersionUID = 0L;
   }
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_VerifyMessageConsumptionResponse_descriptor;
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_ReportMessageConsumptionResultRequest_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_VerifyMessageConsumptionResponse_fieldAccessorTable
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_ReportMessageConsumptionResultRequest_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            apache.rocketmq.v1.VerifyMessageConsumptionResponse.class, apache.rocketmq.v1.VerifyMessageConsumptionResponse.Builder.class);
+            apache.rocketmq.v1.ReportMessageConsumptionResultRequest.class, apache.rocketmq.v1.ReportMessageConsumptionResultRequest.Builder.class);
   }
 
-  public static final int MID_FIELD_NUMBER = 1;
-  private volatile java.lang.Object mid_;
+  public static final int COMMAND_ID_FIELD_NUMBER = 1;
+  private volatile java.lang.Object commandId_;
   /**
-   * <code>string mid = 1;</code>
-   * @return The mid.
+   * <code>string command_id = 1;</code>
+   * @return The commandId.
    */
   @java.lang.Override
-  public java.lang.String getMid() {
-    java.lang.Object ref = mid_;
+  public java.lang.String getCommandId() {
+    java.lang.Object ref = commandId_;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
       com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
-      mid_ = s;
+      commandId_ = s;
       return s;
     }
   }
   /**
-   * <code>string mid = 1;</code>
-   * @return The bytes for mid.
+   * <code>string command_id = 1;</code>
+   * @return The bytes for commandId.
    */
   @java.lang.Override
   public com.google.protobuf.ByteString
-      getMidBytes() {
-    java.lang.Object ref = mid_;
+      getCommandIdBytes() {
+    java.lang.Object ref = commandId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
-      mid_ = b;
+      commandId_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
     }
   }
 
-  public static final int COMMON_FIELD_NUMBER = 2;
-  private apache.rocketmq.v1.ResponseCommon common_;
+  public static final int STATUS_FIELD_NUMBER = 2;
+  private com.google.rpc.Status status_;
   /**
-   * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
-   * @return Whether the common field is set.
+   * <code>.google.rpc.Status status = 2;</code>
+   * @return Whether the status field is set.
    */
   @java.lang.Override
-  public boolean hasCommon() {
-    return common_ != null;
+  public boolean hasStatus() {
+    return status_ != null;
   }
   /**
-   * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
-   * @return The common.
+   * <code>.google.rpc.Status status = 2;</code>
+   * @return The status.
    */
   @java.lang.Override
-  public apache.rocketmq.v1.ResponseCommon getCommon() {
-    return common_ == null ? apache.rocketmq.v1.ResponseCommon.getDefaultInstance() : common_;
+  public com.google.rpc.Status getStatus() {
+    return status_ == null ? com.google.rpc.Status.getDefaultInstance() : status_;
   }
   /**
-   * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
+   * <code>.google.rpc.Status status = 2;</code>
    */
   @java.lang.Override
-  public apache.rocketmq.v1.ResponseCommonOrBuilder getCommonOrBuilder() {
-    return getCommon();
+  public com.google.rpc.StatusOrBuilder getStatusOrBuilder() {
+    return getStatus();
   }
 
   private byte memoizedIsInitialized = -1;
@@ -178,11 +178,11 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (!getMidBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 1, mid_);
+    if (!getCommandIdBytes().isEmpty()) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 1, commandId_);
     }
-    if (common_ != null) {
-      output.writeMessage(2, getCommon());
+    if (status_ != null) {
+      output.writeMessage(2, getStatus());
     }
     unknownFields.writeTo(output);
   }
@@ -193,12 +193,12 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (!getMidBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, mid_);
+    if (!getCommandIdBytes().isEmpty()) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, commandId_);
     }
-    if (common_ != null) {
+    if (status_ != null) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(2, getCommon());
+        .computeMessageSize(2, getStatus());
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -210,17 +210,17 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof apache.rocketmq.v1.VerifyMessageConsumptionResponse)) {
+    if (!(obj instanceof apache.rocketmq.v1.ReportMessageConsumptionResultRequest)) {
       return super.equals(obj);
     }
-    apache.rocketmq.v1.VerifyMessageConsumptionResponse other = (apache.rocketmq.v1.VerifyMessageConsumptionResponse) obj;
+    apache.rocketmq.v1.ReportMessageConsumptionResultRequest other = (apache.rocketmq.v1.ReportMessageConsumptionResultRequest) obj;
 
-    if (!getMid()
-        .equals(other.getMid())) return false;
-    if (hasCommon() != other.hasCommon()) return false;
-    if (hasCommon()) {
-      if (!getCommon()
-          .equals(other.getCommon())) return false;
+    if (!getCommandId()
+        .equals(other.getCommandId())) return false;
+    if (hasStatus() != other.hasStatus()) return false;
+    if (hasStatus()) {
+      if (!getStatus()
+          .equals(other.getStatus())) return false;
     }
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
@@ -233,80 +233,80 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    hash = (37 * hash) + MID_FIELD_NUMBER;
-    hash = (53 * hash) + getMid().hashCode();
-    if (hasCommon()) {
-      hash = (37 * hash) + COMMON_FIELD_NUMBER;
-      hash = (53 * hash) + getCommon().hashCode();
+    hash = (37 * hash) + COMMAND_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getCommandId().hashCode();
+    if (hasStatus()) {
+      hash = (37 * hash) + STATUS_FIELD_NUMBER;
+      hash = (53 * hash) + getStatus().hashCode();
     }
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
     return hash;
   }
 
-  public static apache.rocketmq.v1.VerifyMessageConsumptionResponse parseFrom(
+  public static apache.rocketmq.v1.ReportMessageConsumptionResultRequest parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionResponse parseFrom(
+  public static apache.rocketmq.v1.ReportMessageConsumptionResultRequest parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionResponse parseFrom(
+  public static apache.rocketmq.v1.ReportMessageConsumptionResultRequest parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionResponse parseFrom(
+  public static apache.rocketmq.v1.ReportMessageConsumptionResultRequest parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionResponse parseFrom(byte[] data)
+  public static apache.rocketmq.v1.ReportMessageConsumptionResultRequest parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionResponse parseFrom(
+  public static apache.rocketmq.v1.ReportMessageConsumptionResultRequest parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionResponse parseFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.ReportMessageConsumptionResultRequest parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionResponse parseFrom(
+  public static apache.rocketmq.v1.ReportMessageConsumptionResultRequest parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionResponse parseDelimitedFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.ReportMessageConsumptionResultRequest parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionResponse parseDelimitedFrom(
+  public static apache.rocketmq.v1.ReportMessageConsumptionResultRequest parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionResponse parseFrom(
+  public static apache.rocketmq.v1.ReportMessageConsumptionResultRequest parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionResponse parseFrom(
+  public static apache.rocketmq.v1.ReportMessageConsumptionResultRequest parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -319,7 +319,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(apache.rocketmq.v1.VerifyMessageConsumptionResponse prototype) {
+  public static Builder newBuilder(apache.rocketmq.v1.ReportMessageConsumptionResultRequest prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -335,26 +335,26 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
-   * Protobuf type {@code apache.rocketmq.v1.VerifyMessageConsumptionResponse}
+   * Protobuf type {@code apache.rocketmq.v1.ReportMessageConsumptionResultRequest}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.VerifyMessageConsumptionResponse)
-      apache.rocketmq.v1.VerifyMessageConsumptionResponseOrBuilder {
+      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.ReportMessageConsumptionResultRequest)
+      apache.rocketmq.v1.ReportMessageConsumptionResultRequestOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_VerifyMessageConsumptionResponse_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_ReportMessageConsumptionResultRequest_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_VerifyMessageConsumptionResponse_fieldAccessorTable
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_ReportMessageConsumptionResultRequest_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              apache.rocketmq.v1.VerifyMessageConsumptionResponse.class, apache.rocketmq.v1.VerifyMessageConsumptionResponse.Builder.class);
+              apache.rocketmq.v1.ReportMessageConsumptionResultRequest.class, apache.rocketmq.v1.ReportMessageConsumptionResultRequest.Builder.class);
     }
 
-    // Construct using apache.rocketmq.v1.VerifyMessageConsumptionResponse.newBuilder()
+    // Construct using apache.rocketmq.v1.ReportMessageConsumptionResultRequest.newBuilder()
     private Builder() {
       maybeForceBuilderInitialization();
     }
@@ -372,13 +372,13 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
-      mid_ = "";
+      commandId_ = "";
 
-      if (commonBuilder_ == null) {
-        common_ = null;
+      if (statusBuilder_ == null) {
+        status_ = null;
       } else {
-        common_ = null;
-        commonBuilder_ = null;
+        status_ = null;
+        statusBuilder_ = null;
       }
       return this;
     }
@@ -386,17 +386,17 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_VerifyMessageConsumptionResponse_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_ReportMessageConsumptionResultRequest_descriptor;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.VerifyMessageConsumptionResponse getDefaultInstanceForType() {
-      return apache.rocketmq.v1.VerifyMessageConsumptionResponse.getDefaultInstance();
+    public apache.rocketmq.v1.ReportMessageConsumptionResultRequest getDefaultInstanceForType() {
+      return apache.rocketmq.v1.ReportMessageConsumptionResultRequest.getDefaultInstance();
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.VerifyMessageConsumptionResponse build() {
-      apache.rocketmq.v1.VerifyMessageConsumptionResponse result = buildPartial();
+    public apache.rocketmq.v1.ReportMessageConsumptionResultRequest build() {
+      apache.rocketmq.v1.ReportMessageConsumptionResultRequest result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -404,13 +404,13 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.VerifyMessageConsumptionResponse buildPartial() {
-      apache.rocketmq.v1.VerifyMessageConsumptionResponse result = new apache.rocketmq.v1.VerifyMessageConsumptionResponse(this);
-      result.mid_ = mid_;
-      if (commonBuilder_ == null) {
-        result.common_ = common_;
+    public apache.rocketmq.v1.ReportMessageConsumptionResultRequest buildPartial() {
+      apache.rocketmq.v1.ReportMessageConsumptionResultRequest result = new apache.rocketmq.v1.ReportMessageConsumptionResultRequest(this);
+      result.commandId_ = commandId_;
+      if (statusBuilder_ == null) {
+        result.status_ = status_;
       } else {
-        result.common_ = commonBuilder_.build();
+        result.status_ = statusBuilder_.build();
       }
       onBuilt();
       return result;
@@ -450,22 +450,22 @@ private static final long serialVersionUID = 0L;
     }
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof apache.rocketmq.v1.VerifyMessageConsumptionResponse) {
-        return mergeFrom((apache.rocketmq.v1.VerifyMessageConsumptionResponse)other);
+      if (other instanceof apache.rocketmq.v1.ReportMessageConsumptionResultRequest) {
+        return mergeFrom((apache.rocketmq.v1.ReportMessageConsumptionResultRequest)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(apache.rocketmq.v1.VerifyMessageConsumptionResponse other) {
-      if (other == apache.rocketmq.v1.VerifyMessageConsumptionResponse.getDefaultInstance()) return this;
-      if (!other.getMid().isEmpty()) {
-        mid_ = other.mid_;
+    public Builder mergeFrom(apache.rocketmq.v1.ReportMessageConsumptionResultRequest other) {
+      if (other == apache.rocketmq.v1.ReportMessageConsumptionResultRequest.getDefaultInstance()) return this;
+      if (!other.getCommandId().isEmpty()) {
+        commandId_ = other.commandId_;
         onChanged();
       }
-      if (other.hasCommon()) {
-        mergeCommon(other.getCommon());
+      if (other.hasStatus()) {
+        mergeStatus(other.getStatus());
       }
       this.mergeUnknownFields(other.unknownFields);
       onChanged();
@@ -482,11 +482,11 @@ private static final long serialVersionUID = 0L;
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      apache.rocketmq.v1.VerifyMessageConsumptionResponse parsedMessage = null;
+      apache.rocketmq.v1.ReportMessageConsumptionResultRequest parsedMessage = null;
       try {
         parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        parsedMessage = (apache.rocketmq.v1.VerifyMessageConsumptionResponse) e.getUnfinishedMessage();
+        parsedMessage = (apache.rocketmq.v1.ReportMessageConsumptionResultRequest) e.getUnfinishedMessage();
         throw e.unwrapIOException();
       } finally {
         if (parsedMessage != null) {
@@ -496,199 +496,199 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private java.lang.Object mid_ = "";
+    private java.lang.Object commandId_ = "";
     /**
-     * <code>string mid = 1;</code>
-     * @return The mid.
+     * <code>string command_id = 1;</code>
+     * @return The commandId.
      */
-    public java.lang.String getMid() {
-      java.lang.Object ref = mid_;
+    public java.lang.String getCommandId() {
+      java.lang.Object ref = commandId_;
       if (!(ref instanceof java.lang.String)) {
         com.google.protobuf.ByteString bs =
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
-        mid_ = s;
+        commandId_ = s;
         return s;
       } else {
         return (java.lang.String) ref;
       }
     }
     /**
-     * <code>string mid = 1;</code>
-     * @return The bytes for mid.
+     * <code>string command_id = 1;</code>
+     * @return The bytes for commandId.
      */
     public com.google.protobuf.ByteString
-        getMidBytes() {
-      java.lang.Object ref = mid_;
+        getCommandIdBytes() {
+      java.lang.Object ref = commandId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        mid_ = b;
+        commandId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
     /**
-     * <code>string mid = 1;</code>
-     * @param value The mid to set.
+     * <code>string command_id = 1;</code>
+     * @param value The commandId to set.
      * @return This builder for chaining.
      */
-    public Builder setMid(
+    public Builder setCommandId(
         java.lang.String value) {
       if (value == null) {
     throw new NullPointerException();
   }
   
-      mid_ = value;
+      commandId_ = value;
       onChanged();
       return this;
     }
     /**
-     * <code>string mid = 1;</code>
+     * <code>string command_id = 1;</code>
      * @return This builder for chaining.
      */
-    public Builder clearMid() {
+    public Builder clearCommandId() {
       
-      mid_ = getDefaultInstance().getMid();
+      commandId_ = getDefaultInstance().getCommandId();
       onChanged();
       return this;
     }
     /**
-     * <code>string mid = 1;</code>
-     * @param value The bytes for mid to set.
+     * <code>string command_id = 1;</code>
+     * @param value The bytes for commandId to set.
      * @return This builder for chaining.
      */
-    public Builder setMidBytes(
+    public Builder setCommandIdBytes(
         com.google.protobuf.ByteString value) {
       if (value == null) {
     throw new NullPointerException();
   }
   checkByteStringIsUtf8(value);
       
-      mid_ = value;
+      commandId_ = value;
       onChanged();
       return this;
     }
 
-    private apache.rocketmq.v1.ResponseCommon common_;
+    private com.google.rpc.Status status_;
     private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.ResponseCommon, apache.rocketmq.v1.ResponseCommon.Builder, apache.rocketmq.v1.ResponseCommonOrBuilder> commonBuilder_;
+        com.google.rpc.Status, com.google.rpc.Status.Builder, com.google.rpc.StatusOrBuilder> statusBuilder_;
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
-     * @return Whether the common field is set.
+     * <code>.google.rpc.Status status = 2;</code>
+     * @return Whether the status field is set.
      */
-    public boolean hasCommon() {
-      return commonBuilder_ != null || common_ != null;
+    public boolean hasStatus() {
+      return statusBuilder_ != null || status_ != null;
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
-     * @return The common.
+     * <code>.google.rpc.Status status = 2;</code>
+     * @return The status.
      */
-    public apache.rocketmq.v1.ResponseCommon getCommon() {
-      if (commonBuilder_ == null) {
-        return common_ == null ? apache.rocketmq.v1.ResponseCommon.getDefaultInstance() : common_;
+    public com.google.rpc.Status getStatus() {
+      if (statusBuilder_ == null) {
+        return status_ == null ? com.google.rpc.Status.getDefaultInstance() : status_;
       } else {
-        return commonBuilder_.getMessage();
+        return statusBuilder_.getMessage();
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
+     * <code>.google.rpc.Status status = 2;</code>
      */
-    public Builder setCommon(apache.rocketmq.v1.ResponseCommon value) {
-      if (commonBuilder_ == null) {
+    public Builder setStatus(com.google.rpc.Status value) {
+      if (statusBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
         }
-        common_ = value;
+        status_ = value;
         onChanged();
       } else {
-        commonBuilder_.setMessage(value);
+        statusBuilder_.setMessage(value);
       }
 
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
+     * <code>.google.rpc.Status status = 2;</code>
      */
-    public Builder setCommon(
-        apache.rocketmq.v1.ResponseCommon.Builder builderForValue) {
-      if (commonBuilder_ == null) {
-        common_ = builderForValue.build();
+    public Builder setStatus(
+        com.google.rpc.Status.Builder builderForValue) {
+      if (statusBuilder_ == null) {
+        status_ = builderForValue.build();
         onChanged();
       } else {
-        commonBuilder_.setMessage(builderForValue.build());
+        statusBuilder_.setMessage(builderForValue.build());
       }
 
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
+     * <code>.google.rpc.Status status = 2;</code>
      */
-    public Builder mergeCommon(apache.rocketmq.v1.ResponseCommon value) {
-      if (commonBuilder_ == null) {
-        if (common_ != null) {
-          common_ =
-            apache.rocketmq.v1.ResponseCommon.newBuilder(common_).mergeFrom(value).buildPartial();
+    public Builder mergeStatus(com.google.rpc.Status value) {
+      if (statusBuilder_ == null) {
+        if (status_ != null) {
+          status_ =
+            com.google.rpc.Status.newBuilder(status_).mergeFrom(value).buildPartial();
         } else {
-          common_ = value;
+          status_ = value;
         }
         onChanged();
       } else {
-        commonBuilder_.mergeFrom(value);
+        statusBuilder_.mergeFrom(value);
       }
 
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
+     * <code>.google.rpc.Status status = 2;</code>
      */
-    public Builder clearCommon() {
-      if (commonBuilder_ == null) {
-        common_ = null;
+    public Builder clearStatus() {
+      if (statusBuilder_ == null) {
+        status_ = null;
         onChanged();
       } else {
-        common_ = null;
-        commonBuilder_ = null;
+        status_ = null;
+        statusBuilder_ = null;
       }
 
       return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
+     * <code>.google.rpc.Status status = 2;</code>
      */
-    public apache.rocketmq.v1.ResponseCommon.Builder getCommonBuilder() {
+    public com.google.rpc.Status.Builder getStatusBuilder() {
       
       onChanged();
-      return getCommonFieldBuilder().getBuilder();
+      return getStatusFieldBuilder().getBuilder();
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
+     * <code>.google.rpc.Status status = 2;</code>
      */
-    public apache.rocketmq.v1.ResponseCommonOrBuilder getCommonOrBuilder() {
-      if (commonBuilder_ != null) {
-        return commonBuilder_.getMessageOrBuilder();
+    public com.google.rpc.StatusOrBuilder getStatusOrBuilder() {
+      if (statusBuilder_ != null) {
+        return statusBuilder_.getMessageOrBuilder();
       } else {
-        return common_ == null ?
-            apache.rocketmq.v1.ResponseCommon.getDefaultInstance() : common_;
+        return status_ == null ?
+            com.google.rpc.Status.getDefaultInstance() : status_;
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 2;</code>
+     * <code>.google.rpc.Status status = 2;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.ResponseCommon, apache.rocketmq.v1.ResponseCommon.Builder, apache.rocketmq.v1.ResponseCommonOrBuilder> 
-        getCommonFieldBuilder() {
-      if (commonBuilder_ == null) {
-        commonBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            apache.rocketmq.v1.ResponseCommon, apache.rocketmq.v1.ResponseCommon.Builder, apache.rocketmq.v1.ResponseCommonOrBuilder>(
-                getCommon(),
+        com.google.rpc.Status, com.google.rpc.Status.Builder, com.google.rpc.StatusOrBuilder> 
+        getStatusFieldBuilder() {
+      if (statusBuilder_ == null) {
+        statusBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+            com.google.rpc.Status, com.google.rpc.Status.Builder, com.google.rpc.StatusOrBuilder>(
+                getStatus(),
                 getParentForChildren(),
                 isClean());
-        common_ = null;
+        status_ = null;
       }
-      return commonBuilder_;
+      return statusBuilder_;
     }
     @java.lang.Override
     public final Builder setUnknownFields(
@@ -703,41 +703,41 @@ private static final long serialVersionUID = 0L;
     }
 
 
-    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.VerifyMessageConsumptionResponse)
+    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.ReportMessageConsumptionResultRequest)
   }
 
-  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.VerifyMessageConsumptionResponse)
-  private static final apache.rocketmq.v1.VerifyMessageConsumptionResponse DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.ReportMessageConsumptionResultRequest)
+  private static final apache.rocketmq.v1.ReportMessageConsumptionResultRequest DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new apache.rocketmq.v1.VerifyMessageConsumptionResponse();
+    DEFAULT_INSTANCE = new apache.rocketmq.v1.ReportMessageConsumptionResultRequest();
   }
 
-  public static apache.rocketmq.v1.VerifyMessageConsumptionResponse getDefaultInstance() {
+  public static apache.rocketmq.v1.ReportMessageConsumptionResultRequest getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<VerifyMessageConsumptionResponse>
-      PARSER = new com.google.protobuf.AbstractParser<VerifyMessageConsumptionResponse>() {
+  private static final com.google.protobuf.Parser<ReportMessageConsumptionResultRequest>
+      PARSER = new com.google.protobuf.AbstractParser<ReportMessageConsumptionResultRequest>() {
     @java.lang.Override
-    public VerifyMessageConsumptionResponse parsePartialFrom(
+    public ReportMessageConsumptionResultRequest parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
-      return new VerifyMessageConsumptionResponse(input, extensionRegistry);
+      return new ReportMessageConsumptionResultRequest(input, extensionRegistry);
     }
   };
 
-  public static com.google.protobuf.Parser<VerifyMessageConsumptionResponse> parser() {
+  public static com.google.protobuf.Parser<ReportMessageConsumptionResultRequest> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<VerifyMessageConsumptionResponse> getParserForType() {
+  public com.google.protobuf.Parser<ReportMessageConsumptionResultRequest> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public apache.rocketmq.v1.VerifyMessageConsumptionResponse getDefaultInstanceForType() {
+  public apache.rocketmq.v1.ReportMessageConsumptionResultRequest getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

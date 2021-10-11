@@ -3,8 +3,8 @@
 
 package apache.rocketmq.v1;
 
-public interface GenericPollingResponseOrBuilder extends
-    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.GenericPollingResponse)
+public interface ReportThreadStackTraceResponseOrBuilder extends
+    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.ReportThreadStackTraceResponse)
     com.google.protobuf.MessageOrBuilder {
 
   /**

@@ -4,26 +4,26 @@
 package apache.rocketmq.v1;
 
 /**
- * Protobuf type {@code apache.rocketmq.v1.VerifyMessageConsumptionRequest}
+ * Protobuf type {@code apache.rocketmq.v1.VerifyMessageConsumptionCommand}
  */
-public final class VerifyMessageConsumptionRequest extends
+public final class VerifyMessageConsumptionCommand extends
     com.google.protobuf.GeneratedMessageV3 implements
-    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.VerifyMessageConsumptionRequest)
-    VerifyMessageConsumptionRequestOrBuilder {
+    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.VerifyMessageConsumptionCommand)
+    VerifyMessageConsumptionCommandOrBuilder {
 private static final long serialVersionUID = 0L;
-  // Use VerifyMessageConsumptionRequest.newBuilder() to construct.
-  private VerifyMessageConsumptionRequest(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+  // Use VerifyMessageConsumptionCommand.newBuilder() to construct.
+  private VerifyMessageConsumptionCommand(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
-  private VerifyMessageConsumptionRequest() {
-    mid_ = "";
+  private VerifyMessageConsumptionCommand() {
+    commandId_ = "";
   }
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
   protected java.lang.Object newInstance(
       UnusedPrivateParameter unused) {
-    return new VerifyMessageConsumptionRequest();
+    return new VerifyMessageConsumptionCommand();
   }
 
   @java.lang.Override
@@ -31,7 +31,7 @@ private static final long serialVersionUID = 0L;
   getUnknownFields() {
     return this.unknownFields;
   }
-  private VerifyMessageConsumptionRequest(
+  private VerifyMessageConsumptionCommand(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
@@ -52,7 +52,7 @@ private static final long serialVersionUID = 0L;
           case 10: {
             java.lang.String s = input.readStringRequireUtf8();
 
-            mid_ = s;
+            commandId_ = s;
             break;
           }
           case 18: {
@@ -89,49 +89,49 @@ private static final long serialVersionUID = 0L;
   }
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_VerifyMessageConsumptionRequest_descriptor;
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_VerifyMessageConsumptionCommand_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_VerifyMessageConsumptionRequest_fieldAccessorTable
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_VerifyMessageConsumptionCommand_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            apache.rocketmq.v1.VerifyMessageConsumptionRequest.class, apache.rocketmq.v1.VerifyMessageConsumptionRequest.Builder.class);
+            apache.rocketmq.v1.VerifyMessageConsumptionCommand.class, apache.rocketmq.v1.VerifyMessageConsumptionCommand.Builder.class);
   }
 
-  public static final int MID_FIELD_NUMBER = 1;
-  private volatile java.lang.Object mid_;
+  public static final int COMMAND_ID_FIELD_NUMBER = 1;
+  private volatile java.lang.Object commandId_;
   /**
-   * <code>string mid = 1;</code>
-   * @return The mid.
+   * <code>string command_id = 1;</code>
+   * @return The commandId.
    */
   @java.lang.Override
-  public java.lang.String getMid() {
-    java.lang.Object ref = mid_;
+  public java.lang.String getCommandId() {
+    java.lang.Object ref = commandId_;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
       com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
-      mid_ = s;
+      commandId_ = s;
       return s;
     }
   }
   /**
-   * <code>string mid = 1;</code>
-   * @return The bytes for mid.
+   * <code>string command_id = 1;</code>
+   * @return The bytes for commandId.
    */
   @java.lang.Override
   public com.google.protobuf.ByteString
-      getMidBytes() {
-    java.lang.Object ref = mid_;
+      getCommandIdBytes() {
+    java.lang.Object ref = commandId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
-      mid_ = b;
+      commandId_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
@@ -178,8 +178,8 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (!getMidBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 1, mid_);
+    if (!getCommandIdBytes().isEmpty()) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 1, commandId_);
     }
     if (message_ != null) {
       output.writeMessage(2, getMessage());
@@ -193,8 +193,8 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (!getMidBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, mid_);
+    if (!getCommandIdBytes().isEmpty()) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, commandId_);
     }
     if (message_ != null) {
       size += com.google.protobuf.CodedOutputStream
@@ -210,13 +210,13 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof apache.rocketmq.v1.VerifyMessageConsumptionRequest)) {
+    if (!(obj instanceof apache.rocketmq.v1.VerifyMessageConsumptionCommand)) {
       return super.equals(obj);
     }
-    apache.rocketmq.v1.VerifyMessageConsumptionRequest other = (apache.rocketmq.v1.VerifyMessageConsumptionRequest) obj;
+    apache.rocketmq.v1.VerifyMessageConsumptionCommand other = (apache.rocketmq.v1.VerifyMessageConsumptionCommand) obj;
 
-    if (!getMid()
-        .equals(other.getMid())) return false;
+    if (!getCommandId()
+        .equals(other.getCommandId())) return false;
     if (hasMessage() != other.hasMessage()) return false;
     if (hasMessage()) {
       if (!getMessage()
@@ -233,8 +233,8 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    hash = (37 * hash) + MID_FIELD_NUMBER;
-    hash = (53 * hash) + getMid().hashCode();
+    hash = (37 * hash) + COMMAND_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getCommandId().hashCode();
     if (hasMessage()) {
       hash = (37 * hash) + MESSAGE_FIELD_NUMBER;
       hash = (53 * hash) + getMessage().hashCode();
@@ -244,69 +244,69 @@ private static final long serialVersionUID = 0L;
     return hash;
   }
 
-  public static apache.rocketmq.v1.VerifyMessageConsumptionRequest parseFrom(
+  public static apache.rocketmq.v1.VerifyMessageConsumptionCommand parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionRequest parseFrom(
+  public static apache.rocketmq.v1.VerifyMessageConsumptionCommand parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionRequest parseFrom(
+  public static apache.rocketmq.v1.VerifyMessageConsumptionCommand parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionRequest parseFrom(
+  public static apache.rocketmq.v1.VerifyMessageConsumptionCommand parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionRequest parseFrom(byte[] data)
+  public static apache.rocketmq.v1.VerifyMessageConsumptionCommand parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionRequest parseFrom(
+  public static apache.rocketmq.v1.VerifyMessageConsumptionCommand parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionRequest parseFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.VerifyMessageConsumptionCommand parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionRequest parseFrom(
+  public static apache.rocketmq.v1.VerifyMessageConsumptionCommand parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionRequest parseDelimitedFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.VerifyMessageConsumptionCommand parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionRequest parseDelimitedFrom(
+  public static apache.rocketmq.v1.VerifyMessageConsumptionCommand parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionRequest parseFrom(
+  public static apache.rocketmq.v1.VerifyMessageConsumptionCommand parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.VerifyMessageConsumptionRequest parseFrom(
+  public static apache.rocketmq.v1.VerifyMessageConsumptionCommand parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -319,7 +319,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(apache.rocketmq.v1.VerifyMessageConsumptionRequest prototype) {
+  public static Builder newBuilder(apache.rocketmq.v1.VerifyMessageConsumptionCommand prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -335,26 +335,26 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
-   * Protobuf type {@code apache.rocketmq.v1.VerifyMessageConsumptionRequest}
+   * Protobuf type {@code apache.rocketmq.v1.VerifyMessageConsumptionCommand}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.VerifyMessageConsumptionRequest)
-      apache.rocketmq.v1.VerifyMessageConsumptionRequestOrBuilder {
+      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.VerifyMessageConsumptionCommand)
+      apache.rocketmq.v1.VerifyMessageConsumptionCommandOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_VerifyMessageConsumptionRequest_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_VerifyMessageConsumptionCommand_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_VerifyMessageConsumptionRequest_fieldAccessorTable
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_VerifyMessageConsumptionCommand_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              apache.rocketmq.v1.VerifyMessageConsumptionRequest.class, apache.rocketmq.v1.VerifyMessageConsumptionRequest.Builder.class);
+              apache.rocketmq.v1.VerifyMessageConsumptionCommand.class, apache.rocketmq.v1.VerifyMessageConsumptionCommand.Builder.class);
     }
 
-    // Construct using apache.rocketmq.v1.VerifyMessageConsumptionRequest.newBuilder()
+    // Construct using apache.rocketmq.v1.VerifyMessageConsumptionCommand.newBuilder()
     private Builder() {
       maybeForceBuilderInitialization();
     }
@@ -372,7 +372,7 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
-      mid_ = "";
+      commandId_ = "";
 
       if (messageBuilder_ == null) {
         message_ = null;
@@ -386,17 +386,17 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_VerifyMessageConsumptionRequest_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_VerifyMessageConsumptionCommand_descriptor;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.VerifyMessageConsumptionRequest getDefaultInstanceForType() {
-      return apache.rocketmq.v1.VerifyMessageConsumptionRequest.getDefaultInstance();
+    public apache.rocketmq.v1.VerifyMessageConsumptionCommand getDefaultInstanceForType() {
+      return apache.rocketmq.v1.VerifyMessageConsumptionCommand.getDefaultInstance();
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.VerifyMessageConsumptionRequest build() {
-      apache.rocketmq.v1.VerifyMessageConsumptionRequest result = buildPartial();
+    public apache.rocketmq.v1.VerifyMessageConsumptionCommand build() {
+      apache.rocketmq.v1.VerifyMessageConsumptionCommand result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -404,9 +404,9 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.VerifyMessageConsumptionRequest buildPartial() {
-      apache.rocketmq.v1.VerifyMessageConsumptionRequest result = new apache.rocketmq.v1.VerifyMessageConsumptionRequest(this);
-      result.mid_ = mid_;
+    public apache.rocketmq.v1.VerifyMessageConsumptionCommand buildPartial() {
+      apache.rocketmq.v1.VerifyMessageConsumptionCommand result = new apache.rocketmq.v1.VerifyMessageConsumptionCommand(this);
+      result.commandId_ = commandId_;
       if (messageBuilder_ == null) {
         result.message_ = message_;
       } else {
@@ -450,18 +450,18 @@ private static final long serialVersionUID = 0L;
     }
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof apache.rocketmq.v1.VerifyMessageConsumptionRequest) {
-        return mergeFrom((apache.rocketmq.v1.VerifyMessageConsumptionRequest)other);
+      if (other instanceof apache.rocketmq.v1.VerifyMessageConsumptionCommand) {
+        return mergeFrom((apache.rocketmq.v1.VerifyMessageConsumptionCommand)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(apache.rocketmq.v1.VerifyMessageConsumptionRequest other) {
-      if (other == apache.rocketmq.v1.VerifyMessageConsumptionRequest.getDefaultInstance()) return this;
-      if (!other.getMid().isEmpty()) {
-        mid_ = other.mid_;
+    public Builder mergeFrom(apache.rocketmq.v1.VerifyMessageConsumptionCommand other) {
+      if (other == apache.rocketmq.v1.VerifyMessageConsumptionCommand.getDefaultInstance()) return this;
+      if (!other.getCommandId().isEmpty()) {
+        commandId_ = other.commandId_;
         onChanged();
       }
       if (other.hasMessage()) {
@@ -482,11 +482,11 @@ private static final long serialVersionUID = 0L;
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      apache.rocketmq.v1.VerifyMessageConsumptionRequest parsedMessage = null;
+      apache.rocketmq.v1.VerifyMessageConsumptionCommand parsedMessage = null;
       try {
         parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        parsedMessage = (apache.rocketmq.v1.VerifyMessageConsumptionRequest) e.getUnfinishedMessage();
+        parsedMessage = (apache.rocketmq.v1.VerifyMessageConsumptionCommand) e.getUnfinishedMessage();
         throw e.unwrapIOException();
       } finally {
         if (parsedMessage != null) {
@@ -496,78 +496,78 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private java.lang.Object mid_ = "";
+    private java.lang.Object commandId_ = "";
     /**
-     * <code>string mid = 1;</code>
-     * @return The mid.
+     * <code>string command_id = 1;</code>
+     * @return The commandId.
      */
-    public java.lang.String getMid() {
-      java.lang.Object ref = mid_;
+    public java.lang.String getCommandId() {
+      java.lang.Object ref = commandId_;
       if (!(ref instanceof java.lang.String)) {
         com.google.protobuf.ByteString bs =
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
-        mid_ = s;
+        commandId_ = s;
         return s;
       } else {
         return (java.lang.String) ref;
       }
     }
     /**
-     * <code>string mid = 1;</code>
-     * @return The bytes for mid.
+     * <code>string command_id = 1;</code>
+     * @return The bytes for commandId.
      */
     public com.google.protobuf.ByteString
-        getMidBytes() {
-      java.lang.Object ref = mid_;
+        getCommandIdBytes() {
+      java.lang.Object ref = commandId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        mid_ = b;
+        commandId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
     /**
-     * <code>string mid = 1;</code>
-     * @param value The mid to set.
+     * <code>string command_id = 1;</code>
+     * @param value The commandId to set.
      * @return This builder for chaining.
      */
-    public Builder setMid(
+    public Builder setCommandId(
         java.lang.String value) {
       if (value == null) {
     throw new NullPointerException();
   }
   
-      mid_ = value;
+      commandId_ = value;
       onChanged();
       return this;
     }
     /**
-     * <code>string mid = 1;</code>
+     * <code>string command_id = 1;</code>
      * @return This builder for chaining.
      */
-    public Builder clearMid() {
+    public Builder clearCommandId() {
       
-      mid_ = getDefaultInstance().getMid();
+      commandId_ = getDefaultInstance().getCommandId();
       onChanged();
       return this;
     }
     /**
-     * <code>string mid = 1;</code>
-     * @param value The bytes for mid to set.
+     * <code>string command_id = 1;</code>
+     * @param value The bytes for commandId to set.
      * @return This builder for chaining.
      */
-    public Builder setMidBytes(
+    public Builder setCommandIdBytes(
         com.google.protobuf.ByteString value) {
       if (value == null) {
     throw new NullPointerException();
   }
   checkByteStringIsUtf8(value);
       
-      mid_ = value;
+      commandId_ = value;
       onChanged();
       return this;
     }
@@ -703,41 +703,41 @@ private static final long serialVersionUID = 0L;
     }
 
 
-    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.VerifyMessageConsumptionRequest)
+    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.VerifyMessageConsumptionCommand)
   }
 
-  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.VerifyMessageConsumptionRequest)
-  private static final apache.rocketmq.v1.VerifyMessageConsumptionRequest DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.VerifyMessageConsumptionCommand)
+  private static final apache.rocketmq.v1.VerifyMessageConsumptionCommand DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new apache.rocketmq.v1.VerifyMessageConsumptionRequest();
+    DEFAULT_INSTANCE = new apache.rocketmq.v1.VerifyMessageConsumptionCommand();
   }
 
-  public static apache.rocketmq.v1.VerifyMessageConsumptionRequest getDefaultInstance() {
+  public static apache.rocketmq.v1.VerifyMessageConsumptionCommand getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<VerifyMessageConsumptionRequest>
-      PARSER = new com.google.protobuf.AbstractParser<VerifyMessageConsumptionRequest>() {
+  private static final com.google.protobuf.Parser<VerifyMessageConsumptionCommand>
+      PARSER = new com.google.protobuf.AbstractParser<VerifyMessageConsumptionCommand>() {
     @java.lang.Override
-    public VerifyMessageConsumptionRequest parsePartialFrom(
+    public VerifyMessageConsumptionCommand parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
-      return new VerifyMessageConsumptionRequest(input, extensionRegistry);
+      return new VerifyMessageConsumptionCommand(input, extensionRegistry);
     }
   };
 
-  public static com.google.protobuf.Parser<VerifyMessageConsumptionRequest> parser() {
+  public static com.google.protobuf.Parser<VerifyMessageConsumptionCommand> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<VerifyMessageConsumptionRequest> getParserForType() {
+  public com.google.protobuf.Parser<VerifyMessageConsumptionCommand> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public apache.rocketmq.v1.VerifyMessageConsumptionRequest getDefaultInstanceForType() {
+  public apache.rocketmq.v1.VerifyMessageConsumptionCommand getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

@@ -30,19 +30,19 @@ import apache.rocketmq.v1.DeadLetterPolicy;
 import apache.rocketmq.v1.FilterType;
 import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueResponse;
-import apache.rocketmq.v1.GenericPollingRequest;
 import apache.rocketmq.v1.HeartbeatRequest;
 import apache.rocketmq.v1.HeartbeatResponse;
 import apache.rocketmq.v1.Message;
 import apache.rocketmq.v1.NackMessageRequest;
 import apache.rocketmq.v1.NackMessageResponse;
+import apache.rocketmq.v1.PollCommandRequest;
 import apache.rocketmq.v1.QueryAssignmentRequest;
 import apache.rocketmq.v1.QueryAssignmentResponse;
+import apache.rocketmq.v1.ReportMessageConsumptionResultRequest;
+import apache.rocketmq.v1.ReportMessageConsumptionResultResponse;
 import apache.rocketmq.v1.Resource;
-import apache.rocketmq.v1.ResponseCommon;
 import apache.rocketmq.v1.SubscriptionEntry;
-import apache.rocketmq.v1.VerifyMessageConsumptionRequest;
-import apache.rocketmq.v1.VerifyMessageConsumptionResponse;
+import apache.rocketmq.v1.VerifyMessageConsumptionCommand;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -700,40 +700,67 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     @Override
-    public ListenableFuture<VerifyMessageConsumptionResponse> verifyConsumption(final VerifyMessageConsumptionRequest
-                                                                                        request) {
+    public void verifyMessageConsumption(final Endpoints endpoints, VerifyMessageConsumptionCommand command) {
+        final String messageId = command.getMessage().getSystemAttribute().getMessageId();
+        ListenableFuture<ReportMessageConsumptionResultResponse> future;
         try {
-            final ListenableFuture<ConsumeStatus> future = verifyConsumption0(request);
-            return Futures.transform(future, new Function<ConsumeStatus, VerifyMessageConsumptionResponse>() {
+            final ListenableFuture<ConsumeStatus> consumptionFuture = verifyMessageConsumption0(command);
+            future = Futures.transformAsync(consumptionFuture, new AsyncFunction<ConsumeStatus,
+                    ReportMessageConsumptionResultResponse>() {
                 @Override
-                public VerifyMessageConsumptionResponse apply(ConsumeStatus consumeStatus) {
-                    final Status.Builder builder = Status.newBuilder();
-                    Status status;
+                public ListenableFuture<ReportMessageConsumptionResultResponse> apply(ConsumeStatus consumeStatus)
+                        throws ClientException {
+                    Code code = Code.UNKNOWN;
                     switch (consumeStatus) {
                         case OK:
-                            status = builder.setCode(Code.OK_VALUE).build();
+                            code = Code.OK;
                             break;
                         case ERROR:
+                            code = Code.ABORTED;
+                            break;
                         default:
-                            status = builder.setCode(Code.ABORTED_VALUE).build();
                             break;
                     }
-                    ResponseCommon common = ResponseCommon.newBuilder().setStatus(status).build();
-                    return VerifyMessageConsumptionResponse.newBuilder().setCommon(common).setMid(request.getMid())
-                                                           .build();
+                    Status status = Status.newBuilder().setCode(code.getNumber()).build();
+                    ReportMessageConsumptionResultRequest request = ReportMessageConsumptionResultRequest
+                            .newBuilder().setStatus(status).build();
+                    final Metadata metadata = sign();
+                    return clientManager.reportMessageConsumption(endpoints, metadata, request, ioTimeoutMillis,
+                                                                  TimeUnit.MILLISECONDS);
+
                 }
             });
         } catch (Throwable t) {
             log.error("[Bug] Exception raised while verifying message consumption, messageId={}, clientId={}",
-                      request.getMessage().getSystemAttribute().getMessageId(), id);
-            SettableFuture<VerifyMessageConsumptionResponse> future0 = SettableFuture.create();
+                      messageId, id);
+            SettableFuture<ReportMessageConsumptionResultResponse> future0 = SettableFuture.create();
             future0.setException(t);
-            return future0;
+            future = future0;
         }
+        Futures.addCallback(future, new FutureCallback<ReportMessageConsumptionResultResponse>() {
+            @Override
+            public void onSuccess(ReportMessageConsumptionResultResponse response) {
+                final Status status = response.getCommon().getStatus();
+                final Code code = Code.forNumber(status.getCode());
+                if (!Code.OK.equals(code)) {
+                    log.error("Failed to report message consumption result, clientId={}, messageId={}, code={}, status "
+                              + "message=[{}]", id, messageId, code, status.getMessage());
+                    return;
+                }
+                log.info("Report message consumption result, clientId={}, messageId={}, code={}", id,
+                         messageId, code);
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                log.error("Exception raised while reporting message consumption, clientId={}, messageId={}", id,
+                          messageId);
+            }
+        });
     }
 
-    public ListenableFuture<ConsumeStatus> verifyConsumption0(VerifyMessageConsumptionRequest request) {
-        final Message message = request.getMessage();
+    public ListenableFuture<ConsumeStatus> verifyMessageConsumption0(VerifyMessageConsumptionCommand command) {
+        final Message message = command.getMessage();
         MessageImpl messageImpl = MessageImplAccessor.wrapMessageImpl(message);
         final MessageExt messageExt = new MessageExt(messageImpl);
         return consumeService.consume(messageExt);
@@ -917,9 +944,9 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     @Override
-    public GenericPollingRequest wrapGenericPollingRequest() {
-        final GenericPollingRequest.Builder builder =
-                GenericPollingRequest.newBuilder().setClientId(id).setProducerGroup(getPbGroup());
+    public PollCommandRequest wrapPollCommandRequest() {
+        final PollCommandRequest.Builder builder =
+                PollCommandRequest.newBuilder().setClientId(id).setProducerGroup(getPbGroup());
         for (String topic : filterExpressionTable.keySet()) {
             Resource topicResource = Resource.newBuilder().setResourceNamespace(namespace).setName(topic).build();
             builder.addTopics(topicResource);

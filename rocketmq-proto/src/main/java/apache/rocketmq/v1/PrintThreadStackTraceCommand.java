@@ -4,25 +4,26 @@
 package apache.rocketmq.v1;
 
 /**
- * Protobuf type {@code apache.rocketmq.v1.GenericPollingResponse}
+ * Protobuf type {@code apache.rocketmq.v1.PrintThreadStackTraceCommand}
  */
-public final class GenericPollingResponse extends
+public final class PrintThreadStackTraceCommand extends
     com.google.protobuf.GeneratedMessageV3 implements
-    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.GenericPollingResponse)
-    GenericPollingResponseOrBuilder {
+    // @@protoc_insertion_point(message_implements:apache.rocketmq.v1.PrintThreadStackTraceCommand)
+    PrintThreadStackTraceCommandOrBuilder {
 private static final long serialVersionUID = 0L;
-  // Use GenericPollingResponse.newBuilder() to construct.
-  private GenericPollingResponse(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+  // Use PrintThreadStackTraceCommand.newBuilder() to construct.
+  private PrintThreadStackTraceCommand(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
-  private GenericPollingResponse() {
+  private PrintThreadStackTraceCommand() {
+    commandId_ = "";
   }
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
   protected java.lang.Object newInstance(
       UnusedPrivateParameter unused) {
-    return new GenericPollingResponse();
+    return new PrintThreadStackTraceCommand();
   }
 
   @java.lang.Override
@@ -30,7 +31,7 @@ private static final long serialVersionUID = 0L;
   getUnknownFields() {
     return this.unknownFields;
   }
-  private GenericPollingResponse(
+  private PrintThreadStackTraceCommand(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
@@ -49,16 +50,9 @@ private static final long serialVersionUID = 0L;
             done = true;
             break;
           case 10: {
-            apache.rocketmq.v1.ResponseCommon.Builder subBuilder = null;
-            if (common_ != null) {
-              subBuilder = common_.toBuilder();
-            }
-            common_ = input.readMessage(apache.rocketmq.v1.ResponseCommon.parser(), extensionRegistry);
-            if (subBuilder != null) {
-              subBuilder.mergeFrom(common_);
-              common_ = subBuilder.buildPartial();
-            }
+            java.lang.String s = input.readStringRequireUtf8();
 
+            commandId_ = s;
             break;
           }
           default: {
@@ -82,41 +76,53 @@ private static final long serialVersionUID = 0L;
   }
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_GenericPollingResponse_descriptor;
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PrintThreadStackTraceCommand_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_GenericPollingResponse_fieldAccessorTable
+    return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PrintThreadStackTraceCommand_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            apache.rocketmq.v1.GenericPollingResponse.class, apache.rocketmq.v1.GenericPollingResponse.Builder.class);
+            apache.rocketmq.v1.PrintThreadStackTraceCommand.class, apache.rocketmq.v1.PrintThreadStackTraceCommand.Builder.class);
   }
 
-  public static final int COMMON_FIELD_NUMBER = 1;
-  private apache.rocketmq.v1.ResponseCommon common_;
+  public static final int COMMAND_ID_FIELD_NUMBER = 1;
+  private volatile java.lang.Object commandId_;
   /**
-   * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
-   * @return Whether the common field is set.
+   * <code>string command_id = 1;</code>
+   * @return The commandId.
    */
   @java.lang.Override
-  public boolean hasCommon() {
-    return common_ != null;
+  public java.lang.String getCommandId() {
+    java.lang.Object ref = commandId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      commandId_ = s;
+      return s;
+    }
   }
   /**
-   * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
-   * @return The common.
+   * <code>string command_id = 1;</code>
+   * @return The bytes for commandId.
    */
   @java.lang.Override
-  public apache.rocketmq.v1.ResponseCommon getCommon() {
-    return common_ == null ? apache.rocketmq.v1.ResponseCommon.getDefaultInstance() : common_;
-  }
-  /**
-   * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
-   */
-  @java.lang.Override
-  public apache.rocketmq.v1.ResponseCommonOrBuilder getCommonOrBuilder() {
-    return getCommon();
+  public com.google.protobuf.ByteString
+      getCommandIdBytes() {
+    java.lang.Object ref = commandId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      commandId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
   }
 
   private byte memoizedIsInitialized = -1;
@@ -133,8 +139,8 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (common_ != null) {
-      output.writeMessage(1, getCommon());
+    if (!getCommandIdBytes().isEmpty()) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 1, commandId_);
     }
     unknownFields.writeTo(output);
   }
@@ -145,9 +151,8 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (common_ != null) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(1, getCommon());
+    if (!getCommandIdBytes().isEmpty()) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, commandId_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -159,16 +164,13 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof apache.rocketmq.v1.GenericPollingResponse)) {
+    if (!(obj instanceof apache.rocketmq.v1.PrintThreadStackTraceCommand)) {
       return super.equals(obj);
     }
-    apache.rocketmq.v1.GenericPollingResponse other = (apache.rocketmq.v1.GenericPollingResponse) obj;
+    apache.rocketmq.v1.PrintThreadStackTraceCommand other = (apache.rocketmq.v1.PrintThreadStackTraceCommand) obj;
 
-    if (hasCommon() != other.hasCommon()) return false;
-    if (hasCommon()) {
-      if (!getCommon()
-          .equals(other.getCommon())) return false;
-    }
+    if (!getCommandId()
+        .equals(other.getCommandId())) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -180,78 +182,76 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    if (hasCommon()) {
-      hash = (37 * hash) + COMMON_FIELD_NUMBER;
-      hash = (53 * hash) + getCommon().hashCode();
-    }
+    hash = (37 * hash) + COMMAND_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getCommandId().hashCode();
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
     return hash;
   }
 
-  public static apache.rocketmq.v1.GenericPollingResponse parseFrom(
+  public static apache.rocketmq.v1.PrintThreadStackTraceCommand parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.GenericPollingResponse parseFrom(
+  public static apache.rocketmq.v1.PrintThreadStackTraceCommand parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.GenericPollingResponse parseFrom(
+  public static apache.rocketmq.v1.PrintThreadStackTraceCommand parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.GenericPollingResponse parseFrom(
+  public static apache.rocketmq.v1.PrintThreadStackTraceCommand parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.GenericPollingResponse parseFrom(byte[] data)
+  public static apache.rocketmq.v1.PrintThreadStackTraceCommand parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static apache.rocketmq.v1.GenericPollingResponse parseFrom(
+  public static apache.rocketmq.v1.PrintThreadStackTraceCommand parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static apache.rocketmq.v1.GenericPollingResponse parseFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.PrintThreadStackTraceCommand parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.GenericPollingResponse parseFrom(
+  public static apache.rocketmq.v1.PrintThreadStackTraceCommand parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.GenericPollingResponse parseDelimitedFrom(java.io.InputStream input)
+  public static apache.rocketmq.v1.PrintThreadStackTraceCommand parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.GenericPollingResponse parseDelimitedFrom(
+  public static apache.rocketmq.v1.PrintThreadStackTraceCommand parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static apache.rocketmq.v1.GenericPollingResponse parseFrom(
+  public static apache.rocketmq.v1.PrintThreadStackTraceCommand parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static apache.rocketmq.v1.GenericPollingResponse parseFrom(
+  public static apache.rocketmq.v1.PrintThreadStackTraceCommand parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -264,7 +264,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(apache.rocketmq.v1.GenericPollingResponse prototype) {
+  public static Builder newBuilder(apache.rocketmq.v1.PrintThreadStackTraceCommand prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -280,26 +280,26 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
-   * Protobuf type {@code apache.rocketmq.v1.GenericPollingResponse}
+   * Protobuf type {@code apache.rocketmq.v1.PrintThreadStackTraceCommand}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.GenericPollingResponse)
-      apache.rocketmq.v1.GenericPollingResponseOrBuilder {
+      // @@protoc_insertion_point(builder_implements:apache.rocketmq.v1.PrintThreadStackTraceCommand)
+      apache.rocketmq.v1.PrintThreadStackTraceCommandOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_GenericPollingResponse_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PrintThreadStackTraceCommand_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_GenericPollingResponse_fieldAccessorTable
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PrintThreadStackTraceCommand_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              apache.rocketmq.v1.GenericPollingResponse.class, apache.rocketmq.v1.GenericPollingResponse.Builder.class);
+              apache.rocketmq.v1.PrintThreadStackTraceCommand.class, apache.rocketmq.v1.PrintThreadStackTraceCommand.Builder.class);
     }
 
-    // Construct using apache.rocketmq.v1.GenericPollingResponse.newBuilder()
+    // Construct using apache.rocketmq.v1.PrintThreadStackTraceCommand.newBuilder()
     private Builder() {
       maybeForceBuilderInitialization();
     }
@@ -317,29 +317,25 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public Builder clear() {
       super.clear();
-      if (commonBuilder_ == null) {
-        common_ = null;
-      } else {
-        common_ = null;
-        commonBuilder_ = null;
-      }
+      commandId_ = "";
+
       return this;
     }
 
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_GenericPollingResponse_descriptor;
+      return apache.rocketmq.v1.MQService.internal_static_apache_rocketmq_v1_PrintThreadStackTraceCommand_descriptor;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.GenericPollingResponse getDefaultInstanceForType() {
-      return apache.rocketmq.v1.GenericPollingResponse.getDefaultInstance();
+    public apache.rocketmq.v1.PrintThreadStackTraceCommand getDefaultInstanceForType() {
+      return apache.rocketmq.v1.PrintThreadStackTraceCommand.getDefaultInstance();
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.GenericPollingResponse build() {
-      apache.rocketmq.v1.GenericPollingResponse result = buildPartial();
+    public apache.rocketmq.v1.PrintThreadStackTraceCommand build() {
+      apache.rocketmq.v1.PrintThreadStackTraceCommand result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -347,13 +343,9 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public apache.rocketmq.v1.GenericPollingResponse buildPartial() {
-      apache.rocketmq.v1.GenericPollingResponse result = new apache.rocketmq.v1.GenericPollingResponse(this);
-      if (commonBuilder_ == null) {
-        result.common_ = common_;
-      } else {
-        result.common_ = commonBuilder_.build();
-      }
+    public apache.rocketmq.v1.PrintThreadStackTraceCommand buildPartial() {
+      apache.rocketmq.v1.PrintThreadStackTraceCommand result = new apache.rocketmq.v1.PrintThreadStackTraceCommand(this);
+      result.commandId_ = commandId_;
       onBuilt();
       return result;
     }
@@ -392,18 +384,19 @@ private static final long serialVersionUID = 0L;
     }
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof apache.rocketmq.v1.GenericPollingResponse) {
-        return mergeFrom((apache.rocketmq.v1.GenericPollingResponse)other);
+      if (other instanceof apache.rocketmq.v1.PrintThreadStackTraceCommand) {
+        return mergeFrom((apache.rocketmq.v1.PrintThreadStackTraceCommand)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(apache.rocketmq.v1.GenericPollingResponse other) {
-      if (other == apache.rocketmq.v1.GenericPollingResponse.getDefaultInstance()) return this;
-      if (other.hasCommon()) {
-        mergeCommon(other.getCommon());
+    public Builder mergeFrom(apache.rocketmq.v1.PrintThreadStackTraceCommand other) {
+      if (other == apache.rocketmq.v1.PrintThreadStackTraceCommand.getDefaultInstance()) return this;
+      if (!other.getCommandId().isEmpty()) {
+        commandId_ = other.commandId_;
+        onChanged();
       }
       this.mergeUnknownFields(other.unknownFields);
       onChanged();
@@ -420,11 +413,11 @@ private static final long serialVersionUID = 0L;
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      apache.rocketmq.v1.GenericPollingResponse parsedMessage = null;
+      apache.rocketmq.v1.PrintThreadStackTraceCommand parsedMessage = null;
       try {
         parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        parsedMessage = (apache.rocketmq.v1.GenericPollingResponse) e.getUnfinishedMessage();
+        parsedMessage = (apache.rocketmq.v1.PrintThreadStackTraceCommand) e.getUnfinishedMessage();
         throw e.unwrapIOException();
       } finally {
         if (parsedMessage != null) {
@@ -434,123 +427,80 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private apache.rocketmq.v1.ResponseCommon common_;
-    private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.ResponseCommon, apache.rocketmq.v1.ResponseCommon.Builder, apache.rocketmq.v1.ResponseCommonOrBuilder> commonBuilder_;
+    private java.lang.Object commandId_ = "";
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
-     * @return Whether the common field is set.
+     * <code>string command_id = 1;</code>
+     * @return The commandId.
      */
-    public boolean hasCommon() {
-      return commonBuilder_ != null || common_ != null;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
-     * @return The common.
-     */
-    public apache.rocketmq.v1.ResponseCommon getCommon() {
-      if (commonBuilder_ == null) {
-        return common_ == null ? apache.rocketmq.v1.ResponseCommon.getDefaultInstance() : common_;
+    public java.lang.String getCommandId() {
+      java.lang.Object ref = commandId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        commandId_ = s;
+        return s;
       } else {
-        return commonBuilder_.getMessage();
+        return (java.lang.String) ref;
       }
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
+     * <code>string command_id = 1;</code>
+     * @return The bytes for commandId.
      */
-    public Builder setCommon(apache.rocketmq.v1.ResponseCommon value) {
-      if (commonBuilder_ == null) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        common_ = value;
-        onChanged();
+    public com.google.protobuf.ByteString
+        getCommandIdBytes() {
+      java.lang.Object ref = commandId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        commandId_ = b;
+        return b;
       } else {
-        commonBuilder_.setMessage(value);
+        return (com.google.protobuf.ByteString) ref;
       }
-
-      return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
+     * <code>string command_id = 1;</code>
+     * @param value The commandId to set.
+     * @return This builder for chaining.
      */
-    public Builder setCommon(
-        apache.rocketmq.v1.ResponseCommon.Builder builderForValue) {
-      if (commonBuilder_ == null) {
-        common_ = builderForValue.build();
-        onChanged();
-      } else {
-        commonBuilder_.setMessage(builderForValue.build());
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
-     */
-    public Builder mergeCommon(apache.rocketmq.v1.ResponseCommon value) {
-      if (commonBuilder_ == null) {
-        if (common_ != null) {
-          common_ =
-            apache.rocketmq.v1.ResponseCommon.newBuilder(common_).mergeFrom(value).buildPartial();
-        } else {
-          common_ = value;
-        }
-        onChanged();
-      } else {
-        commonBuilder_.mergeFrom(value);
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
-     */
-    public Builder clearCommon() {
-      if (commonBuilder_ == null) {
-        common_ = null;
-        onChanged();
-      } else {
-        common_ = null;
-        commonBuilder_ = null;
-      }
-
-      return this;
-    }
-    /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
-     */
-    public apache.rocketmq.v1.ResponseCommon.Builder getCommonBuilder() {
-      
+    public Builder setCommandId(
+        java.lang.String value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  
+      commandId_ = value;
       onChanged();
-      return getCommonFieldBuilder().getBuilder();
+      return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
+     * <code>string command_id = 1;</code>
+     * @return This builder for chaining.
      */
-    public apache.rocketmq.v1.ResponseCommonOrBuilder getCommonOrBuilder() {
-      if (commonBuilder_ != null) {
-        return commonBuilder_.getMessageOrBuilder();
-      } else {
-        return common_ == null ?
-            apache.rocketmq.v1.ResponseCommon.getDefaultInstance() : common_;
-      }
+    public Builder clearCommandId() {
+      
+      commandId_ = getDefaultInstance().getCommandId();
+      onChanged();
+      return this;
     }
     /**
-     * <code>.apache.rocketmq.v1.ResponseCommon common = 1;</code>
+     * <code>string command_id = 1;</code>
+     * @param value The bytes for commandId to set.
+     * @return This builder for chaining.
      */
-    private com.google.protobuf.SingleFieldBuilderV3<
-        apache.rocketmq.v1.ResponseCommon, apache.rocketmq.v1.ResponseCommon.Builder, apache.rocketmq.v1.ResponseCommonOrBuilder> 
-        getCommonFieldBuilder() {
-      if (commonBuilder_ == null) {
-        commonBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-            apache.rocketmq.v1.ResponseCommon, apache.rocketmq.v1.ResponseCommon.Builder, apache.rocketmq.v1.ResponseCommonOrBuilder>(
-                getCommon(),
-                getParentForChildren(),
-                isClean());
-        common_ = null;
-      }
-      return commonBuilder_;
+    public Builder setCommandIdBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  checkByteStringIsUtf8(value);
+      
+      commandId_ = value;
+      onChanged();
+      return this;
     }
     @java.lang.Override
     public final Builder setUnknownFields(
@@ -565,41 +515,41 @@ private static final long serialVersionUID = 0L;
     }
 
 
-    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.GenericPollingResponse)
+    // @@protoc_insertion_point(builder_scope:apache.rocketmq.v1.PrintThreadStackTraceCommand)
   }
 
-  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.GenericPollingResponse)
-  private static final apache.rocketmq.v1.GenericPollingResponse DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:apache.rocketmq.v1.PrintThreadStackTraceCommand)
+  private static final apache.rocketmq.v1.PrintThreadStackTraceCommand DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new apache.rocketmq.v1.GenericPollingResponse();
+    DEFAULT_INSTANCE = new apache.rocketmq.v1.PrintThreadStackTraceCommand();
   }
 
-  public static apache.rocketmq.v1.GenericPollingResponse getDefaultInstance() {
+  public static apache.rocketmq.v1.PrintThreadStackTraceCommand getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<GenericPollingResponse>
-      PARSER = new com.google.protobuf.AbstractParser<GenericPollingResponse>() {
+  private static final com.google.protobuf.Parser<PrintThreadStackTraceCommand>
+      PARSER = new com.google.protobuf.AbstractParser<PrintThreadStackTraceCommand>() {
     @java.lang.Override
-    public GenericPollingResponse parsePartialFrom(
+    public PrintThreadStackTraceCommand parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
-      return new GenericPollingResponse(input, extensionRegistry);
+      return new PrintThreadStackTraceCommand(input, extensionRegistry);
     }
   };
 
-  public static com.google.protobuf.Parser<GenericPollingResponse> parser() {
+  public static com.google.protobuf.Parser<PrintThreadStackTraceCommand> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<GenericPollingResponse> getParserForType() {
+  public com.google.protobuf.Parser<PrintThreadStackTraceCommand> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public apache.rocketmq.v1.GenericPollingResponse getDefaultInstanceForType() {
+  public apache.rocketmq.v1.PrintThreadStackTraceCommand getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

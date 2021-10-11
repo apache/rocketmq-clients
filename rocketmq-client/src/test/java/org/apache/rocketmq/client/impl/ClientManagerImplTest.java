@@ -21,14 +21,16 @@ import apache.rocketmq.v1.AckMessageRequest;
 import apache.rocketmq.v1.EndTransactionRequest;
 import apache.rocketmq.v1.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v1.HeartbeatRequest;
-import apache.rocketmq.v1.MultiplexingRequest;
 import apache.rocketmq.v1.NackMessageRequest;
 import apache.rocketmq.v1.NotifyClientTerminationRequest;
+import apache.rocketmq.v1.PollCommandRequest;
 import apache.rocketmq.v1.PullMessageRequest;
 import apache.rocketmq.v1.QueryAssignmentRequest;
 import apache.rocketmq.v1.QueryOffsetRequest;
 import apache.rocketmq.v1.QueryRouteRequest;
 import apache.rocketmq.v1.ReceiveMessageRequest;
+import apache.rocketmq.v1.ReportMessageConsumptionResultRequest;
+import apache.rocketmq.v1.ReportThreadStackTraceRequest;
 import apache.rocketmq.v1.SendMessageRequest;
 import io.grpc.Metadata;
 import java.util.concurrent.TimeUnit;
@@ -135,11 +137,28 @@ public class ClientManagerImplTest extends TestBase {
     }
 
     @Test(description = "Expect no throwable")
-    public void testMultiplexingCall() {
+    public void testPollCommand() {
         Metadata metadata = new Metadata();
-        MultiplexingRequest request = MultiplexingRequest.newBuilder().build();
-        clientManager.multiplexingCall(fakeEndpoints0(), metadata, request, 1, TimeUnit.SECONDS);
-        clientManager.multiplexingCall(null, metadata, request, 1, TimeUnit.SECONDS);
+        PollCommandRequest request = PollCommandRequest.newBuilder().build();
+        clientManager.pollCommand(fakeEndpoints0(), metadata, request, 1, TimeUnit.SECONDS);
+        clientManager.pollCommand(null, metadata, request, 1, TimeUnit.SECONDS);
+    }
+
+    @Test(description = "Expect no throwable")
+    public void testReportThreadStackTrace() {
+        Metadata metadata = new Metadata();
+        final ReportThreadStackTraceRequest request = ReportThreadStackTraceRequest.newBuilder().build();
+        clientManager.reportThreadStackTrace(fakeEndpoints0(), metadata, request, 1, TimeUnit.SECONDS);
+        clientManager.reportThreadStackTrace(null, metadata, request, 1, TimeUnit.SECONDS);
+    }
+
+    @Test(description = "Expect no throwable")
+    public void testReportMessageConsumption() {
+        Metadata metadata = new Metadata();
+        final ReportMessageConsumptionResultRequest request =
+                ReportMessageConsumptionResultRequest.newBuilder().build();
+        clientManager.reportMessageConsumption(fakeEndpoints0(), metadata, request, 1, TimeUnit.SECONDS);
+        clientManager.reportMessageConsumption(null, metadata, request, 1, TimeUnit.SECONDS);
     }
 
     @Test(description = "Expect no throwable")

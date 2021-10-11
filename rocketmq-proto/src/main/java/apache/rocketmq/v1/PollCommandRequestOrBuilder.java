@@ -3,8 +3,8 @@
 
 package apache.rocketmq.v1;
 
-public interface GenericPollingRequestOrBuilder extends
-    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.GenericPollingRequest)
+public interface PollCommandRequestOrBuilder extends
+    // @@protoc_insertion_point(interface_extends:apache.rocketmq.v1.PollCommandRequest)
     com.google.protobuf.MessageOrBuilder {
 
   /**
@@ -73,5 +73,5 @@ public interface GenericPollingRequestOrBuilder extends
    */
   apache.rocketmq.v1.ResourceOrBuilder getConsumerGroupOrBuilder();
 
-  public apache.rocketmq.v1.GenericPollingRequest.GroupCase getGroupCase();
+  public apache.rocketmq.v1.PollCommandRequest.GroupCase getGroupCase();
 }
