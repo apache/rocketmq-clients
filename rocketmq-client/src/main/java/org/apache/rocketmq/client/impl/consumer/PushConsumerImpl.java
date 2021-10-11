@@ -700,7 +700,7 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     @Override
-    public void verifyMessageConsumption(final Endpoints endpoints, VerifyMessageConsumptionCommand command) {
+    public void verifyMessageConsumption(final Endpoints endpoints, final VerifyMessageConsumptionCommand command) {
         final String messageId = command.getMessage().getSystemAttribute().getMessageId();
         ListenableFuture<ReportMessageConsumptionResultResponse> future;
         try {
@@ -754,7 +754,7 @@ public class PushConsumerImpl extends ConsumerImpl {
             @Override
             public void onFailure(Throwable t) {
                 log.error("Exception raised while reporting message consumption, clientId={}, messageId={}", id,
-                          messageId);
+                          messageId, t);
             }
         });
     }

@@ -587,14 +587,21 @@ public class ProducerImpl extends ClientImpl {
                       messageId, id, t);
             return;
         }
-        final ListeningExecutorService commandService = MoreExecutors.listeningDecorator(commandExecutor);
-        final Callable<TransactionResolution> task = new Callable<TransactionResolution>() {
-            @Override
-            public TransactionResolution call() {
-                return transactionChecker.check(messageExt);
-            }
-        };
-        final ListenableFuture<TransactionResolution> future = commandService.submit(task);
+        ListenableFuture<TransactionResolution> future;
+        try {
+            final ListeningExecutorService commandService = MoreExecutors.listeningDecorator(commandExecutor);
+            final Callable<TransactionResolution> task = new Callable<TransactionResolution>() {
+                @Override
+                public TransactionResolution call() {
+                    return transactionChecker.check(messageExt);
+                }
+            };
+            future = commandService.submit(task);
+        } catch (Throwable t) {
+            SettableFuture<TransactionResolution> future0 = SettableFuture.create();
+            future0.setException(t);
+            future = future0;
+        }
         Futures.addCallback(future, new FutureCallback<TransactionResolution>() {
             @Override
             public void onSuccess(TransactionResolution resolution) {

@@ -156,7 +156,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                 1,
                 60,
                 TimeUnit.SECONDS,
-                new LinkedBlockingQueue<Runnable>(128),
+                new LinkedBlockingQueue<Runnable>(),
                 new ThreadFactoryImpl("CommandExecutor"));
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -455,8 +455,8 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                     }
                 } catch (Throwable t) {
                     // should never reach here.
-                    log.error("[Bug] Exception raises while update route data, clientId={}, namespace={}, topic={}, "
-                              + "clientId={}", id, namespace, topic, id, t);
+                    log.error("[Bug] Exception raises while update route data, clientId={}, namespace={}, topic={}",
+                              id, namespace, topic, t);
                 } finally {
                     inflightRouteFutureLock.unlock();
                 }
@@ -665,7 +665,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
      * @param endpoints remote endpoints.
      * @param command   verify message consumption command.
      */
-    public void verifyMessageConsumption(Endpoints endpoints, VerifyMessageConsumptionCommand command) {
+    public void verifyMessageConsumption(final Endpoints endpoints, final VerifyMessageConsumptionCommand command) {
     }
 
     /**
@@ -676,7 +676,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
      * @param endpoints remote endpoints.
      * @param command   orphaned transaction command.
      */
-    public void recoverOrphanedTransaction(Endpoints endpoints, RecoverOrphanedTransactionCommand command) {
+    public void recoverOrphanedTransaction(final Endpoints endpoints, final RecoverOrphanedTransactionCommand command) {
     }
 
     public void printThreadStackTrace(final Endpoints endpoints, final PrintThreadStackTraceCommand command) {
@@ -719,7 +719,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
             commandExecutor.submit(task);
         } catch (Throwable t) {
             // should never reach here.
-            log.error("[Bug] Exception raised while submitting task to print thread stack trace.", t);
+            log.error("[Bug] Exception raised while submitting task to print thread stack trace, clientId={}", id, t);
         }
     }
 
@@ -751,8 +751,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
             final PollCommandRequest request = wrapPollCommandRequest();
             final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
             if (!routeEndpointsSet.contains(endpoints)) {
-                log.info("Endpoints was removed, no need to poll command, endpoints={}, clientId={}",
-                         endpoints, id);
+                log.info("Endpoints was removed, no need to poll command, endpoints={}, clientId={}", endpoints, id);
                 return;
             }
             final ListenableFuture<PollCommandResponse> future = pollCommand0(endpoints, request);

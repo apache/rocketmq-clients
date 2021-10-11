@@ -37,6 +37,7 @@ import org.apache.rocketmq.client.message.MessageImplAccessor;
 import org.apache.rocketmq.client.message.MessageInterceptor;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
 import org.apache.rocketmq.client.misc.MixAll;
+import org.apache.rocketmq.client.remoting.CredentialsProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -94,11 +95,16 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_CLIENT_ID, config.id());
         span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_CLIENT_GROUP, config.getGroup());
         span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_OPERATION, operation.getName());
+        final CredentialsProvider credentialsProvider = config.getCredentialsProvider();
+        // No credential provider was set.
+        if (null == credentialsProvider) {
+            return;
+        }
         try {
-            final String accessKey = config.getCredentialsProvider().getCredentials().getAccessKey();
+            final String accessKey = credentialsProvider.getCredentials().getAccessKey();
             span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_ACCESS_KEY, accessKey);
         } catch (Throwable t) {
-            log.warn("Failed to parse accessKey.", t);
+            log.warn("Failed to parse accessKey from credentials provider for tracing, clientId={}", config.id(), t);
         }
     }
 
