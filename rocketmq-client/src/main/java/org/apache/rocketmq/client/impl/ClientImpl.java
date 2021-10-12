@@ -178,11 +178,6 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
 
     public abstract NotifyClientTerminationRequest wrapNotifyClientTerminationRequest();
 
-    @Override
-    public String getId() {
-        return id;
-    }
-
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean isRunning() {
         return clientService.isRunning();

@@ -120,7 +120,7 @@ public class ClientConfig {
         return this.ioTimeoutMillis;
     }
 
-    public String id() {
+    public String getId() {
         return this.id;
     }
 

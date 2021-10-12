@@ -207,7 +207,7 @@ public abstract class ConsumerImpl extends ClientImpl {
             for (Message message : messageList) {
                 MessageImpl messageImpl;
                 messageImpl = MessageImplAccessor.wrapMessageImpl(message);
-                messageImpl.getSystemAttribute().setAckEndpoints(endpoints);
+                messageImpl.getSystemAttribute().setEndpoints(endpoints);
                 msgFoundList.add(new MessageExt(messageImpl));
             }
         }

@@ -35,19 +35,11 @@ import org.testng.annotations.Test;
 public class ClientManagerFactoryTest extends TestBase {
     private final String clientManagerId = "managerId";
 
-    private final String clientId0 = "0";
-    private final String clientId1 = "1";
-
     private final Client client0;
     private final Client client1;
 
     public ClientManagerFactoryTest() throws ClientException {
         this.client0 = new Client(FAKE_GROUP_0) {
-            @Override
-            public String id() {
-                return clientId0;
-            }
-
             @Override
             public String getId() {
                 return "client0";
@@ -66,11 +58,6 @@ public class ClientManagerFactoryTest extends TestBase {
             }
         };
         this.client1 = new Client(FAKE_GROUP_1) {
-            @Override
-            public String id() {
-                return clientId1;
-            }
-
             @Override
             public String getId() {
                 return "client1";
@@ -91,7 +78,7 @@ public class ClientManagerFactoryTest extends TestBase {
     }
 
     @Test
-    public void testUnregisterClient() throws InterruptedException, ClientException {
+    public void testUnregisterClient() {
         ClientManagerFactory.getInstance().registerClient(clientManagerId, client0);
         ClientManagerFactory.getInstance().registerClient(clientManagerId, client1);
         assertFalse(ClientManagerFactory.getInstance().unregisterClient(clientManagerId, client0));

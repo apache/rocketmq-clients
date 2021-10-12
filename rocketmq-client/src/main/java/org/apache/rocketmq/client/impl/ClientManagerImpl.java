@@ -144,12 +144,12 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
 
     @Override
     public void registerClient(Client client) {
-        clientTable.put(client.id(), client);
+        clientTable.put(client.getId(), client);
     }
 
     @Override
     public void unregisterClient(Client client) {
-        clientTable.remove(client.id());
+        clientTable.remove(client.getId());
     }
 
     @Override

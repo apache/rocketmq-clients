@@ -47,7 +47,7 @@ public class SystemAttribute {
     private long orphanedTransactionRecoveryPeriodMillis;
     // set after receiving the message.
     private long decodedTimestamp;
-    private Endpoints ackEndpoints;
+    private Endpoints endpoints;
 
     public SystemAttribute() {
         this.tag = "";
@@ -157,8 +157,8 @@ public class SystemAttribute {
         return this.decodedTimestamp;
     }
 
-    public Endpoints getAckEndpoints() {
-        return this.ackEndpoints;
+    public Endpoints getEndpoints() {
+        return this.endpoints;
     }
 
     public void setTag(String tag) {
@@ -241,8 +241,8 @@ public class SystemAttribute {
         this.decodedTimestamp = decodedTimestamp;
     }
 
-    public void setAckEndpoints(Endpoints ackEndpoints) {
-        this.ackEndpoints = checkNotNull(ackEndpoints, "ackEndpoints");
+    public void setEndpoints(Endpoints endpoints) {
+        this.endpoints = checkNotNull(endpoints, "endpoints");
     }
 
     @Override
@@ -269,7 +269,7 @@ public class SystemAttribute {
                           .add("traceContext", traceContext)
                           .add("orphanedTransactionRecoveryPeriodMillis", orphanedTransactionRecoveryPeriodMillis)
                           .add("decodedTimestamp", decodedTimestamp)
-                          .add("ackEndpoints", ackEndpoints)
+                          .add("endpoints", endpoints)
                           .toString();
     }
 }

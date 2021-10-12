@@ -102,8 +102,8 @@ public class MessageExt {
     }
 
     // TODO: hide targetEndpoint here.
-    public Endpoints getAckEndpoints() {
-        return this.impl.getSystemAttribute().getAckEndpoints();
+    public Endpoints getEndpoints() {
+        return this.impl.getSystemAttribute().getEndpoints();
     }
 
     public String getTraceContext() {

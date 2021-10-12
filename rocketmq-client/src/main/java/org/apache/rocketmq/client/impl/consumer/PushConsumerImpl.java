@@ -785,7 +785,7 @@ public class PushConsumerImpl extends ConsumerImpl {
         intercept(MessageHookPoint.PRE_ACK_MESSAGE, messageExt, preContext);
         final Stopwatch stopwatch = Stopwatch.createStarted();
 
-        final Endpoints endpoints = messageExt.getAckEndpoints();
+        final Endpoints endpoints = messageExt.getEndpoints();
         ListenableFuture<AckMessageResponse> future;
         try {
             final AckMessageRequest request = wrapAckMessageRequest(messageExt);
@@ -839,7 +839,7 @@ public class PushConsumerImpl extends ConsumerImpl {
         final Stopwatch stopwatch = Stopwatch.createStarted();
 
         final String messageId = messageExt.getMsgId();
-        final Endpoints endpoints = messageExt.getAckEndpoints();
+        final Endpoints endpoints = messageExt.getEndpoints();
         ListenableFuture<NackMessageResponse> future;
         try {
             final NackMessageRequest request = wrapNackMessageRequest(messageExt);
@@ -904,7 +904,7 @@ public class PushConsumerImpl extends ConsumerImpl {
         intercept(MessageHookPoint.PRE_FORWARD_MESSAGE_TO_DLQ, messageExt, preContext);
         final Stopwatch stopwatch = Stopwatch.createStarted();
 
-        final Endpoints endpoints = messageExt.getAckEndpoints();
+        final Endpoints endpoints = messageExt.getEndpoints();
         ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future;
         try {
             final ForwardMessageToDeadLetterQueueRequest request =

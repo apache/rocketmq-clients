@@ -318,7 +318,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         inflightMessagesLock.readLock().lock();
         try {
             log.info("clientId={}, namespace={}, mq={}, pendingMessageQuantity={}, inflightMessageQuantity={}, "
-                     + "cachedMessagesBytes={}", consumerImpl.id(), consumerImpl.getNamespace(), mq,
+                     + "cachedMessagesBytes={}", consumerImpl.getId(), consumerImpl.getNamespace(), mq,
                      pendingMessages.size(), inflightMessages.size(), cachedMessagesBytes.get());
         } finally {
             inflightMessagesLock.readLock().unlock();
@@ -672,6 +672,8 @@ public class ProcessQueueImpl implements ProcessQueue {
      */
     private void pullMessageImmediately(final long offset) {
         if (!consumerImpl.isRunning()) {
+            log.info("Stop to pull message because consumer is not running, namespace={}, mq={}, clientId={}",
+                     consumerImpl.getNamespace(), mq, consumerImpl.getId());
             return;
         }
         try {
@@ -770,14 +772,15 @@ public class ProcessQueueImpl implements ProcessQueue {
      * @param offset offset for message queue to pull from.
      */
     private void pullMessage(long offset) {
+        final String id = consumerImpl.getId();
         if (dropped) {
-            log.info("Process queue has been dropped, no longer pull message, namespace={}, mq={}",
-                     consumerImpl.getNamespace(), mq);
+            log.info("Process queue has been dropped, no longer pull message, namespace={}, mq={}, clientId={}",
+                     consumerImpl.getNamespace(), mq, id);
             return;
         }
         if (this.isCacheFull()) {
-            log.warn("Process queue cache is full, would pull message later, namespace={}, mq={}",
-                     consumerImpl.getNamespace(), mq);
+            log.warn("Process queue cache is full, would pull message later, namespace={}, mq={}, clientId={}",
+                     consumerImpl.getNamespace(), mq, id);
             pullMessageLater(offset);
             return;
         }
@@ -808,7 +811,7 @@ public class ProcessQueueImpl implements ProcessQueue {
         final ReceiveMessageRequest.Builder builder =
                 ReceiveMessageRequest.newBuilder()
                                      .setGroup(consumerImpl.getPbGroup())
-                                     .setClientId(consumerImpl.id())
+                                     .setClientId(consumerImpl.getId())
                                      .setPartition(getPbPartition()).setBatchSize(maxAwaitBatchSize)
                                      .setInvisibleDuration(invisibleDuration)
                                      .setAwaitTime(maxAwaitTimeMillis);
@@ -838,12 +841,14 @@ public class ProcessQueueImpl implements ProcessQueue {
                                  .setOffset(offset).setBatchSize(maxAwaitBatchSize)
                                  .setAwaitTime(Durations.fromMillis(maxAwaitTimeMillis))
                                  .setFilterExpression(getPbFilterExpression())
-                                 .setClientId(consumerImpl.id())
+                                 .setClientId(consumerImpl.getId())
                                  .build();
     }
 
     private void receiveMessageImmediately() {
         if (!consumerImpl.isRunning()) {
+            log.info("Stop to receive message because consumer is not running, namespace={}, mq={}, clientId={}",
+                     consumerImpl.getNamespace(), mq, consumerImpl.getId());
             return;
         }
         try {
@@ -894,7 +899,8 @@ public class ProcessQueueImpl implements ProcessQueue {
                                                                         .setThrowable(t).build();
                     consumerImpl.intercept(MessageHookPoint.POST_RECEIVE, context);
                     log.error("Exception raised while message reception, would receive later, namespace={}, mq={}, "
-                              + "endpoints={}", consumerImpl.getNamespace(), mq, endpoints, t);
+                              + "endpoints={}, clientId={}", consumerImpl.getNamespace(), mq, endpoints,
+                              consumerImpl.getId(), t);
                     receiveMessageLater();
                 }
             });
@@ -913,7 +919,7 @@ public class ProcessQueueImpl implements ProcessQueue {
     }
 
     private void ackFifoMessage(final MessageExt messageExt, final int attempt, final SimpleFuture future0) {
-        final Endpoints endpoints = messageExt.getAckEndpoints();
+        final Endpoints endpoints = messageExt.getEndpoints();
         final String namespace = consumerImpl.getNamespace();
         final ListenableFuture<AckMessageResponse> future = consumerImpl.ackMessage(messageExt, attempt);
         Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {

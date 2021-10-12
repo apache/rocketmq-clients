@@ -92,7 +92,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         span.setAttribute(MessagingAttributes.MESSAGING_URL, config.getNameServerStr());
 
         span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_NAMESPACE, config.getNamespace());
-        span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_CLIENT_ID, config.id());
+        span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_CLIENT_ID, config.getId());
         span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_CLIENT_GROUP, config.getGroup());
         span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_OPERATION, operation.getName());
         final CredentialsProvider credentialsProvider = config.getCredentialsProvider();
@@ -104,7 +104,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
             final String accessKey = credentialsProvider.getCredentials().getAccessKey();
             span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_ACCESS_KEY, accessKey);
         } catch (Throwable t) {
-            log.warn("Failed to parse accessKey from credentials provider for tracing, clientId={}", config.id(), t);
+            log.warn("Failed to parse accessKey from credentials provider for tracing, clientId={}", config.getId(), t);
         }
     }
 
