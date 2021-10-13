@@ -214,6 +214,11 @@ public class TestBase {
         return VerifyMessageConsumptionCommand.newBuilder().setMessage(fakePbMessage0()).build();
     }
 
+    protected VerifyMessageConsumptionCommand fakeVerifyCorruptedMessageConsumptionCommand()
+            throws UnsupportedEncodingException {
+        return VerifyMessageConsumptionCommand.newBuilder().setMessage(fakeCorruptedPbMessage0()).build();
+    }
+
     protected ListenableFuture<ForwardMessageToDeadLetterQueueResponse>
         okForwardMessageToDeadLetterQueueResponseListenableFuture() {
         final ResponseCommon common = okResponseCommon();
@@ -306,6 +311,21 @@ public class TestBase {
                 message.getSystemAttribute().toBuilder().setMessageType(apache.rocketmq.v1.MessageType.TRANSACTION)
                        .build();
         return message.toBuilder().setSystemAttribute(systemAttribute).build();
+    }
+
+    protected apache.rocketmq.v1.Message fakeCorruptedPbMessage0() throws UnsupportedEncodingException {
+        apache.rocketmq.v1.SystemAttribute systemAttribute =
+                apache.rocketmq.v1.SystemAttribute.newBuilder()
+                                                  .setMessageType(apache.rocketmq.v1.MessageType.NORMAL)
+                                                  .setMessageId(MessageIdGenerator.getInstance().next())
+                                                  .setBornHost(FAKE_HOST_0)
+                                                  .setBodyDigest(Digest.newBuilder()
+                                                                       .setType(DigestType.CRC32)
+                                                                       .setChecksum("9EF61F96")
+                                                                       .build())
+                                                  .build();
+        return apache.rocketmq.v1.Message.newBuilder().setTopic(fakePbTopic0()).setBody(ByteString.copyFrom(
+                "foobar", UtilAll.DEFAULT_CHARSET)).setSystemAttribute(systemAttribute).build();
     }
 
     protected apache.rocketmq.v1.Message fakePbMessage0() throws UnsupportedEncodingException {

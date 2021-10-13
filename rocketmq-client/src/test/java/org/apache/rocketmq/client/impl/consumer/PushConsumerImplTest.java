@@ -259,6 +259,9 @@ public class PushConsumerImplTest extends TestBase {
         when(consumeService.consume(ArgumentMatchers.<MessageExt>any())).thenReturn(errorFuture);
         future = consumerImpl.verifyMessageConsumption0(fakeVerifyMessageConsumptionCommand());
         assertEquals(future.get().getCode(), Code.INTERNAL_VALUE);
+
+        future = consumerImpl.verifyMessageConsumption0(fakeVerifyCorruptedMessageConsumptionCommand());
+        assertEquals(future.get().getCode(), Code.INVALID_ARGUMENT_VALUE);
     }
 
     @Test
