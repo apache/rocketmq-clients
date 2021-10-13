@@ -250,15 +250,15 @@ public class PushConsumerImplTest extends TestBase {
         SettableFuture<ConsumeStatus> okFuture = SettableFuture.create();
         okFuture.set(ConsumeStatus.OK);
         when(consumeService.consume(ArgumentMatchers.<MessageExt>any())).thenReturn(okFuture);
-        ListenableFuture<ConsumeStatus> future =
+        ListenableFuture<Status> future =
                 consumerImpl.verifyMessageConsumption0(fakeVerifyMessageConsumptionCommand());
-        assertEquals(future.get(), ConsumeStatus.OK);
+        assertEquals(future.get().getCode(), Code.OK_VALUE);
 
         SettableFuture<ConsumeStatus> errorFuture = SettableFuture.create();
         errorFuture.set(ConsumeStatus.ERROR);
         when(consumeService.consume(ArgumentMatchers.<MessageExt>any())).thenReturn(errorFuture);
         future = consumerImpl.verifyMessageConsumption0(fakeVerifyMessageConsumptionCommand());
-        assertEquals(future.get(), ConsumeStatus.ERROR);
+        assertEquals(future.get().getCode(), Code.INTERNAL_VALUE);
     }
 
     @Test

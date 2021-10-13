@@ -504,7 +504,8 @@ public class ProducerImpl extends ClientImpl {
         }
         final String messageId = messageExt.getMsgId();
         final EndTransactionRequest.Builder builder =
-                EndTransactionRequest.newBuilder().setMessageId(messageId).setTransactionId(transactionId);
+                EndTransactionRequest.newBuilder().setMessageId(messageId).setTransactionId(transactionId)
+                                     .setGroup(getPbGroup());
         switch (resolution) {
             case COMMIT:
                 builder.setResolution(EndTransactionRequest.TransactionResolution.COMMIT);

@@ -57,7 +57,8 @@ public class MessageImplAccessor {
         List<String> keyList = new ArrayList<String>(systemAttribute.getKeysList());
         mqSystemAttribute.setKeyList(keyList);
         // message id.
-        mqSystemAttribute.setMessageId(systemAttribute.getMessageId());
+        final String messageId = systemAttribute.getMessageId();
+        mqSystemAttribute.setMessageId(messageId);
         // digest.
         final apache.rocketmq.v1.Digest bodyDigest = systemAttribute.getBodyDigest();
         byte[] body = message.getBody().toByteArray();
@@ -80,7 +81,7 @@ public class MessageImplAccessor {
                     }
                 } catch (NoSuchAlgorithmException e) {
                     corrupted = true;
-                    log.warn("MD5 is not supported unexpectedly, skip it.");
+                    log.warn("MD5 is not supported unexpectedly, skip it, messageId={}", messageId);
                 }
                 break;
             case SHA1:
@@ -91,7 +92,7 @@ public class MessageImplAccessor {
                     }
                 } catch (NoSuchAlgorithmException e) {
                     corrupted = true;
-                    log.warn("SHA-1 is not supported unexpectedly, skip it.");
+                    log.warn("SHA-1 is not supported unexpectedly, skip it, messageId={}", messageId);
                 }
                 break;
             default:
@@ -105,7 +106,7 @@ public class MessageImplAccessor {
                     body = UtilAll.uncompressBytesGzip(body);
                     mqSystemAttribute.setBodyEncoding(Encoding.GZIP);
                 } catch (IOException e) {
-                    log.error("Failed to uncompress message body, messageId={}", systemAttribute.getMessageId());
+                    log.error("Failed to uncompress message body, messageId={}", messageId);
                     corrupted = true;
                 }
                 break;

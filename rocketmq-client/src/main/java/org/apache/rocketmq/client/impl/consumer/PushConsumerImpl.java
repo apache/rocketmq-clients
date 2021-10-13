@@ -704,24 +704,12 @@ public class PushConsumerImpl extends ConsumerImpl {
         final String messageId = command.getMessage().getSystemAttribute().getMessageId();
         ListenableFuture<ReportMessageConsumptionResultResponse> future;
         try {
-            final ListenableFuture<ConsumeStatus> consumptionFuture = verifyMessageConsumption0(command);
-            future = Futures.transformAsync(consumptionFuture, new AsyncFunction<ConsumeStatus,
+            final ListenableFuture<Status> statusFuture = verifyMessageConsumption0(command);
+            future = Futures.transformAsync(statusFuture, new AsyncFunction<Status,
                     ReportMessageConsumptionResultResponse>() {
                 @Override
-                public ListenableFuture<ReportMessageConsumptionResultResponse> apply(ConsumeStatus consumeStatus)
+                public ListenableFuture<ReportMessageConsumptionResultResponse> apply(Status status)
                         throws ClientException {
-                    Code code = Code.UNKNOWN;
-                    switch (consumeStatus) {
-                        case OK:
-                            code = Code.OK;
-                            break;
-                        case ERROR:
-                            code = Code.ABORTED;
-                            break;
-                        default:
-                            break;
-                    }
-                    Status status = Status.newBuilder().setCode(code.getNumber()).build();
                     ReportMessageConsumptionResultRequest request = ReportMessageConsumptionResultRequest
                             .newBuilder().setStatus(status).build();
                     final Metadata metadata = sign();
@@ -732,7 +720,7 @@ public class PushConsumerImpl extends ConsumerImpl {
             });
         } catch (Throwable t) {
             log.error("[Bug] Exception raised while verifying message consumption, messageId={}, clientId={}",
-                      messageId, id);
+                      messageId, id, t);
             SettableFuture<ReportMessageConsumptionResultResponse> future0 = SettableFuture.create();
             future0.setException(t);
             future = future0;
@@ -759,11 +747,36 @@ public class PushConsumerImpl extends ConsumerImpl {
         });
     }
 
-    public ListenableFuture<ConsumeStatus> verifyMessageConsumption0(VerifyMessageConsumptionCommand command) {
+    public ListenableFuture<Status> verifyMessageConsumption0(VerifyMessageConsumptionCommand command) {
         final Message message = command.getMessage();
         MessageImpl messageImpl = MessageImplAccessor.wrapMessageImpl(message);
+        // message is corrupted, would not consume the message.
+        if (messageImpl.isCorrupted()) {
+            log.error("Message is corrupted, ignore it for consumption verification, messageId={}, clientId={}",
+                     messageImpl.getSystemAttribute().getMessageId(), id);
+            SettableFuture<Status> future0 = SettableFuture.create();
+            future0.set(Status.newBuilder().setCode(Code.INVALID_ARGUMENT.getNumber()).build());
+            return future0;
+        }
         final MessageExt messageExt = new MessageExt(messageImpl);
-        return consumeService.consume(messageExt);
+        final ListenableFuture<ConsumeStatus> future = consumeService.consume(messageExt);
+        return Futures.transform(future, new Function<ConsumeStatus, Status>() {
+            @Override
+            public Status apply(ConsumeStatus consumeStatus) {
+                Code code = Code.UNKNOWN;
+                switch (consumeStatus) {
+                    case OK:
+                        code = Code.OK;
+                        break;
+                    case ERROR:
+                        code = Code.INTERNAL;
+                        break;
+                    default:
+                        break;
+                }
+                return Status.newBuilder().setCode(code.getNumber()).build();
+            }
+        });
     }
 
     private AckMessageRequest wrapAckMessageRequest(MessageExt messageExt) {
