@@ -21,6 +21,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.math.IntMath;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -35,6 +36,9 @@ import org.slf4j.LoggerFactory;
 
 @Immutable
 public class TopicRouteData {
+    public static final TopicRouteData EMPTY =
+            new TopicRouteData(Collections.<apache.rocketmq.v1.Partition>emptyList());
+
     private static final Logger log = LoggerFactory.getLogger(TopicRouteData.class);
 
     private final AtomicInteger index;
@@ -82,8 +86,8 @@ public class TopicRouteData {
             }
             return broker.getEndpoints();
         }
-        log.error("No available partition, topicRouteData={}", this);
-        throw new ServerException(ErrorCode.NO_PERMISSION);
+        log.error("No available endpoints, topicRouteData={}", this);
+        throw new ServerException(ErrorCode.NO_PERMISSION, "No available endpoints to pick for query assignments");
     }
 
     @Override

@@ -588,15 +588,16 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                 public ListenableFuture<TopicRouteData> apply(QueryRouteResponse response) throws Exception {
                     final Status status = response.getCommon().getStatus();
                     final Code code = Code.forNumber(status.getCode());
+                    if (Code.NOT_FOUND.equals(code)) {
+                        log.error("Topic not found, namespace={}, topic={}, clientId={}, endpoints={}, status "
+                                  + "message=[{}]", namespace, topic, id, endpoints, status.getMessage());
+                        future.set(TopicRouteData.EMPTY);
+                        return future;
+                    }
                     if (!Code.OK.equals(code)) {
-                        throw new ClientException(ErrorCode.TOPIC_NOT_FOUND, status.toString());
+                        throw new ClientException(ErrorCode.OTHER, status.toString());
                     }
-                    // TODO: consider to remove defensive programming here.
-                    final List<apache.rocketmq.v1.Partition> partitionsList = response.getPartitionsList();
-                    if (partitionsList.isEmpty()) {
-                        throw new ClientException(ErrorCode.TOPIC_NOT_FOUND, "Partitions is empty unexpectedly.");
-                    }
-                    final TopicRouteData topicRouteData = new TopicRouteData(partitionsList);
+                    final TopicRouteData topicRouteData = new TopicRouteData(response.getPartitionsList());
                     future.set(topicRouteData);
                     return future;
                 }
