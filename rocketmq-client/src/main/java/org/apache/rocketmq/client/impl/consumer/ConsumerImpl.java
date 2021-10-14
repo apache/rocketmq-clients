@@ -79,8 +79,8 @@ public abstract class ConsumerImpl extends ClientImpl {
                     final Status status = response.getCommon().getStatus();
                     final Code code = Code.forNumber(status.getCode());
                     if (!Code.OK.equals(code)) {
-                        log.error("Failed to query offset, endpoints={}, code={}, status message=[{}]", endpoints, code,
-                                  status.getMessage());
+                        log.error("Failed to query offset, clientId={}, endpoints={}, code={}, status message=[{}]",
+                                  id, endpoints, code, status.getMessage());
                         throw new ClientException(ErrorCode.SEEK_OFFSET_FAILURE, status.getMessage());
                     }
                     final long offset = response.getOffset();
@@ -123,27 +123,28 @@ public abstract class ConsumerImpl extends ClientImpl {
                 break;
             case RESOURCE_EXHAUSTED:
                 pullStatus = PullStatus.RESOURCE_EXHAUSTED;
-                log.warn("Too many request in server, endpoints={}, status message=[{}]", endpoints,
+                log.warn("Too many request in server, clientId={}, endpoints={}, status message=[{}]", id, endpoints,
                          status.getMessage());
                 break;
             case DEADLINE_EXCEEDED:
                 pullStatus = PullStatus.DEADLINE_EXCEEDED;
-                log.warn("Gateway timeout, endpoints={}, status message=[{}]", endpoints, status.getMessage());
+                log.warn("Gateway timeout, clientId={}, endpoints={}, status message=[{}]", endpoints, id,
+                         status.getMessage());
                 break;
             case NOT_FOUND:
                 pullStatus = PullStatus.NOT_FOUND;
-                log.warn("Target partition does not exist, endpoints={}, status message=[{}]", endpoints,
-                         status.getMessage());
+                log.warn("Target partition does not exist, clientId={}, endpoints={}, status message=[{}]", id,
+                         endpoints, status.getMessage());
                 break;
             case OUT_OF_RANGE:
                 pullStatus = PullStatus.OUT_OF_RANGE;
-                log.warn("Pulled offset is out of range, endpoints={}, status message=[{}]", endpoints,
+                log.warn("Pulled offset is out of range, clientId={}, endpoints={}, status message=[{}]", id, endpoints,
                          status.getMessage());
                 break;
             default:
                 pullStatus = PullStatus.INTERNAL;
-                log.warn("Pull response indicated server-side error, endpoints={}, code={}, status message=[{}]",
-                         endpoints, code, status.getMessage());
+                log.warn("Pull response indicated server-side error, clientId={}, endpoints={}, code={}, status "
+                         + "message=[{}]", id, endpoints, code, status.getMessage());
         }
         List<MessageExt> msgFoundList = new ArrayList<MessageExt>();
         if (PullStatus.OK.equals(pullStatus)) {
@@ -187,18 +188,18 @@ public abstract class ConsumerImpl extends ClientImpl {
                 break;
             case RESOURCE_EXHAUSTED:
                 receiveStatus = ReceiveStatus.RESOURCE_EXHAUSTED;
-                log.warn("Too many request in server, endpoints={}, status message=[{}]", endpoints,
+                log.warn("Too many request in server, clientId={}, endpoints={}, status message=[{}]", id, endpoints,
                          status.getMessage());
                 break;
             case DEADLINE_EXCEEDED:
                 receiveStatus = ReceiveStatus.DEADLINE_EXCEEDED;
-                log.warn("Gateway timeout, endpoints={}, status message=[{}]", endpoints,
+                log.warn("Gateway timeout, clientId={}, endpoints={}, status message=[{}]", id, endpoints,
                          status.getMessage());
                 break;
             default:
                 receiveStatus = ReceiveStatus.INTERNAL;
-                log.warn("Receive response indicated server-side error, endpoints={}, code={}, status message=[{}]",
-                         endpoints, code, status.getMessage());
+                log.warn("Receive response indicated server-side error, clientId={}, endpoints={}, code={}, status "
+                         + "message=[{}]", id, endpoints, code, status.getMessage());
         }
 
         List<MessageExt> msgFoundList = new ArrayList<MessageExt>();
