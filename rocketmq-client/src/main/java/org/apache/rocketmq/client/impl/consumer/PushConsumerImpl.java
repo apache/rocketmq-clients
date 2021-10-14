@@ -702,6 +702,7 @@ public class PushConsumerImpl extends ConsumerImpl {
     @Override
     public void verifyMessageConsumption(final Endpoints endpoints, final VerifyMessageConsumptionCommand command) {
         final String messageId = command.getMessage().getSystemAttribute().getMessageId();
+        final String commandId = command.getCommandId();
         ListenableFuture<ReportMessageConsumptionResultResponse> future;
         try {
             final ListenableFuture<Status> statusFuture = verifyMessageConsumption0(command);
@@ -711,7 +712,7 @@ public class PushConsumerImpl extends ConsumerImpl {
                 public ListenableFuture<ReportMessageConsumptionResultResponse> apply(Status status)
                         throws ClientException {
                     ReportMessageConsumptionResultRequest request = ReportMessageConsumptionResultRequest
-                            .newBuilder().setStatus(status).build();
+                            .newBuilder().setStatus(status).setCommandId(commandId).build();
                     final Metadata metadata = sign();
                     return clientManager.reportMessageConsumption(endpoints, metadata, request, ioTimeoutMillis,
                                                                   TimeUnit.MILLISECONDS);
@@ -719,8 +720,8 @@ public class PushConsumerImpl extends ConsumerImpl {
                 }
             });
         } catch (Throwable t) {
-            log.error("[Bug] Exception raised while verifying message consumption, messageId={}, clientId={}",
-                      messageId, id, t);
+            log.error("[Bug] Exception raised while verifying message consumption, messageId={}, clientId={}, "
+                      + "commandId={}", messageId, id, commandId, t);
             SettableFuture<ReportMessageConsumptionResultResponse> future0 = SettableFuture.create();
             future0.setException(t);
             future = future0;
@@ -731,18 +732,19 @@ public class PushConsumerImpl extends ConsumerImpl {
                 final Status status = response.getCommon().getStatus();
                 final Code code = Code.forNumber(status.getCode());
                 if (!Code.OK.equals(code)) {
-                    log.error("Failed to report message consumption result, clientId={}, messageId={}, code={}, status "
-                              + "message=[{}]", id, messageId, code, status.getMessage());
+                    log.error("Failed to report message consumption result, clientId={}, messageId={}, "
+                              + "commandId={}, code={}, status message=[{}]", id, messageId, commandId, code,
+                              status.getMessage());
                     return;
                 }
-                log.info("Report message consumption result, clientId={}, messageId={}, code={}", id,
-                         messageId, code);
+                log.info("Report message consumption result, clientId={}, messageId={}, commandId={}, code={}", id,
+                         messageId, commandId, code);
             }
 
             @Override
             public void onFailure(Throwable t) {
-                log.error("Exception raised while reporting message consumption, clientId={}, messageId={}", id,
-                          messageId, t);
+                log.error("Exception raised while reporting message consumption, clientId={}, messageId={}, "
+                          + "commandId={}", id, messageId, commandId, t);
             }
         });
     }
@@ -753,7 +755,7 @@ public class PushConsumerImpl extends ConsumerImpl {
         // message is corrupted, would not consume the message.
         if (messageImpl.isCorrupted()) {
             log.error("Message is corrupted, ignore it for consumption verification, messageId={}, clientId={}",
-                     messageImpl.getSystemAttribute().getMessageId(), id);
+                      messageImpl.getSystemAttribute().getMessageId(), id);
             SettableFuture<Status> future0 = SettableFuture.create();
             future0.set(Status.newBuilder().setCode(Code.INVALID_ARGUMENT.getNumber()).build());
             return future0;

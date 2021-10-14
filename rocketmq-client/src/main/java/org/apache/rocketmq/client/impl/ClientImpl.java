@@ -676,6 +676,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
     }
 
     public void printThreadStackTrace(final Endpoints endpoints, final PrintThreadStackTraceCommand command) {
+        final String commandId = command.getCommandId();
         final Runnable task = new Runnable() {
             @Override
             public void run() {
@@ -684,7 +685,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                     final String threadStackTrace = UtilAll.stackTrace();
                     ReportThreadStackTraceRequest request =
                             ReportThreadStackTraceRequest.newBuilder().setThreadStackTrace(threadStackTrace)
-                                                         .setCommandId(command.getCommandId()).build();
+                                                         .setCommandId(commandId).build();
                     final Metadata metadata = sign();
                     future = clientManager.reportThreadStackTrace(endpoints, metadata, request, ioTimeoutMillis,
                                                                   TimeUnit.MILLISECONDS);
@@ -699,14 +700,17 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                         final Status status = response.getCommon().getStatus();
                         final Code code = Code.forNumber(status.getCode());
                         if (!Code.OK.equals(code)) {
-                            log.error("Failed to report thread stack trace, clientId={}, code={}, status "
-                                      + "message=[{}]", id, code, status.getMessage());
+                            log.error("Failed to report thread stack trace, clientId={}, commandId={}, code={}, status "
+                                      + "message=[{}]", id, commandId, code, status.getMessage());
+                            return;
                         }
+                        log.info("Report thread stack trace response, clientId={}, commandId={}", id, commandId);
                     }
 
                     @Override
                     public void onFailure(Throwable t) {
-                        log.error("Exception raised while reporting thread stack trace, clientId={}", id, t);
+                        log.error("Exception raised while reporting thread stack trace, clientId={}, commandId={}",
+                                  id, commandId, t);
                     }
                 });
             }
@@ -715,18 +719,21 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
             commandExecutor.submit(task);
         } catch (Throwable t) {
             // should never reach here.
-            log.error("[Bug] Exception raised while submitting task to print thread stack trace, clientId={}", id, t);
+            log.error("[Bug] Exception raised while submitting task to print thread stack trace, clientId={}, "
+                      + "commandId={}", id, commandId, t);
         }
     }
 
     private void onPollCommandResponse(final Endpoints endpoints, final PollCommandResponse response) {
         switch (response.getTypeCase()) {
             case PRINT_THREAD_STACK_TRACE_COMMAND:
-                log.info("Receive command to print thread stack trace, clientId={}", id);
+                log.info("Receive command to print thread stack trace, clientId={}, commandId={}", id,
+                         response.getPrintThreadStackTraceCommand().getCommandId());
                 printThreadStackTrace(endpoints, response.getPrintThreadStackTraceCommand());
                 break;
             case VERIFY_MESSAGE_CONSUMPTION_COMMAND:
-                log.info("Receive command to verify message consumption, clientId={}", id);
+                log.info("Receive command to verify message consumption, clientId={}, commandId={}", id,
+                         response.getVerifyMessageConsumptionCommand().getCommandId());
                 verifyMessageConsumption(endpoints, response.getVerifyMessageConsumptionCommand());
                 break;
             case RECOVER_ORPHANED_TRANSACTION_COMMAND:
