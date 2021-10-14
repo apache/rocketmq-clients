@@ -101,7 +101,7 @@ public class MessageExt {
         return this.impl.getSystemAttribute().getStoreTimeMillis();
     }
 
-    // TODO: hide targetEndpoint here.
+    // TODO: hide endpoints here.
     public Endpoints getEndpoints() {
         return this.impl.getSystemAttribute().getEndpoints();
     }
