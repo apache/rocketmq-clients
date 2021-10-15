@@ -26,7 +26,8 @@ public interface MessageOrBuilder extends
    * <pre>
    * User defined key-value pairs.
    * If user_attribute contains the reserved keys by RocketMQ,
-   * the send message request will be aborted with status `INVALID_ARGUMENT`. See below links for the reserved keys
+   * the send message request will be aborted with status `INVALID_ARGUMENT`.
+   * See below links for the reserved keys
    * https://github.com/apache/rocketmq/blob/master/common/src/main/java/org/apache/rocketmq/common/message/MessageConst.java#L58
    * </pre>
    *
@@ -37,7 +38,8 @@ public interface MessageOrBuilder extends
    * <pre>
    * User defined key-value pairs.
    * If user_attribute contains the reserved keys by RocketMQ,
-   * the send message request will be aborted with status `INVALID_ARGUMENT`. See below links for the reserved keys
+   * the send message request will be aborted with status `INVALID_ARGUMENT`.
+   * See below links for the reserved keys
    * https://github.com/apache/rocketmq/blob/master/common/src/main/java/org/apache/rocketmq/common/message/MessageConst.java#L58
    * </pre>
    *
@@ -55,7 +57,8 @@ public interface MessageOrBuilder extends
    * <pre>
    * User defined key-value pairs.
    * If user_attribute contains the reserved keys by RocketMQ,
-   * the send message request will be aborted with status `INVALID_ARGUMENT`. See below links for the reserved keys
+   * the send message request will be aborted with status `INVALID_ARGUMENT`.
+   * See below links for the reserved keys
    * https://github.com/apache/rocketmq/blob/master/common/src/main/java/org/apache/rocketmq/common/message/MessageConst.java#L58
    * </pre>
    *
@@ -67,7 +70,8 @@ public interface MessageOrBuilder extends
    * <pre>
    * User defined key-value pairs.
    * If user_attribute contains the reserved keys by RocketMQ,
-   * the send message request will be aborted with status `INVALID_ARGUMENT`. See below links for the reserved keys
+   * the send message request will be aborted with status `INVALID_ARGUMENT`.
+   * See below links for the reserved keys
    * https://github.com/apache/rocketmq/blob/master/common/src/main/java/org/apache/rocketmq/common/message/MessageConst.java#L58
    * </pre>
    *
@@ -81,7 +85,8 @@ public interface MessageOrBuilder extends
    * <pre>
    * User defined key-value pairs.
    * If user_attribute contains the reserved keys by RocketMQ,
-   * the send message request will be aborted with status `INVALID_ARGUMENT`. See below links for the reserved keys
+   * the send message request will be aborted with status `INVALID_ARGUMENT`.
+   * See below links for the reserved keys
    * https://github.com/apache/rocketmq/blob/master/common/src/main/java/org/apache/rocketmq/common/message/MessageConst.java#L58
    * </pre>
    *

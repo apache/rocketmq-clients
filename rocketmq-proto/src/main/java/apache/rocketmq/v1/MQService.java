@@ -334,83 +334,83 @@ public final class MQService {
       "v1.ResponseCommonJ\004\010\002\020A\"i\n\037VerifyMessage" +
       "ConsumptionCommand\022\022\n\ncommand_id\030\001 \001(\t\022," +
       "\n\007message\030\002 \001(\0132\033.apache.rocketmq.v1.Mes" +
-      "sageJ\004\010\003\020A\"_\n%ReportMessageConsumptionRe" +
+      "sageJ\004\010\003\020A\"e\n%ReportMessageConsumptionRe" +
       "sultRequest\022\022\n\ncommand_id\030\001 \001(\t\022\"\n\006statu" +
-      "s\030\002 \001(\0132\022.google.rpc.Status\"b\n&ReportMes" +
-      "sageConsumptionResultResponse\0222\n\006common\030" +
-      "\001 \001(\0132\".apache.rocketmq.v1.ResponseCommo" +
-      "nJ\004\010\002\020A\"\206\001\n!RecoverOrphanedTransactionCo" +
-      "mmand\022C\n\036orphaned_transactional_message\030" +
-      "\001 \001(\0132\033.apache.rocketmq.v1.Message\022\026\n\016tr" +
-      "ansaction_id\030\002 \001(\tJ\004\010\003\020A\"\324\001\n\022PollCommand" +
-      "Request\022\021\n\tclient_id\030\001 \001(\t\022,\n\006topics\030\002 \003" +
-      "(\0132\034.apache.rocketmq.v1.Resource\0226\n\016prod" +
-      "ucer_group\030\003 \001(\0132\034.apache.rocketmq.v1.Re" +
-      "sourceH\000\0226\n\016consumer_group\030\004 \001(\0132\034.apach" +
-      "e.rocketmq.v1.ResourceH\000B\007\n\005groupJ\004\010\005\020A\"" +
-      "\204\003\n\023PollCommandResponse\0227\n\014noop_command\030" +
-      "\001 \001(\0132\037.apache.rocketmq.v1.NoopCommandH\000" +
-      "\022\\\n print_thread_stack_trace_command\030\002 \001" +
-      "(\01320.apache.rocketmq.v1.PrintThreadStack" +
-      "TraceCommandH\000\022a\n\"verify_message_consump" +
-      "tion_command\030\003 \001(\01323.apache.rocketmq.v1." +
-      "VerifyMessageConsumptionCommandH\000\022e\n$rec" +
-      "over_orphaned_transaction_command\030\004 \001(\0132" +
-      "5.apache.rocketmq.v1.RecoverOrphanedTran" +
-      "sactionCommandH\000B\006\n\004typeJ\004\010\005\020A\"\262\001\n\036Notif" +
-      "yClientTerminationRequest\0226\n\016producer_gr" +
-      "oup\030\001 \001(\0132\034.apache.rocketmq.v1.ResourceH" +
-      "\000\0226\n\016consumer_group\030\002 \001(\0132\034.apache.rocke" +
-      "tmq.v1.ResourceH\000\022\021\n\tclient_id\030\003 \001(\tB\007\n\005" +
-      "groupJ\004\010\004\020A\"[\n\037NotifyClientTerminationRe" +
-      "sponse\0222\n\006common\030\001 \001(\0132\".apache.rocketmq" +
-      ".v1.ResponseCommonJ\004\010\002\020A2\202\016\n\020MessagingSe" +
-      "rvice\022]\n\nQueryRoute\022%.apache.rocketmq.v1" +
-      ".QueryRouteRequest\032&.apache.rocketmq.v1." +
-      "QueryRouteResponse\"\000\022Z\n\tHeartbeat\022$.apac" +
-      "he.rocketmq.v1.HeartbeatRequest\032%.apache" +
-      ".rocketmq.v1.HeartbeatResponse\"\000\022`\n\013Heal" +
-      "thCheck\022&.apache.rocketmq.v1.HealthCheck" +
-      "Request\032\'.apache.rocketmq.v1.HealthCheck" +
-      "Response\"\000\022`\n\013SendMessage\022&.apache.rocke" +
-      "tmq.v1.SendMessageRequest\032\'.apache.rocke" +
-      "tmq.v1.SendMessageResponse\"\000\022l\n\017QueryAss" +
-      "ignment\022*.apache.rocketmq.v1.QueryAssign" +
-      "mentRequest\032+.apache.rocketmq.v1.QueryAs" +
-      "signmentResponse\"\000\022i\n\016ReceiveMessage\022).a" +
-      "pache.rocketmq.v1.ReceiveMessageRequest\032" +
-      "*.apache.rocketmq.v1.ReceiveMessageRespo" +
-      "nse\"\000\022]\n\nAckMessage\022%.apache.rocketmq.v1" +
-      ".AckMessageRequest\032&.apache.rocketmq.v1." +
-      "AckMessageResponse\"\000\022`\n\013NackMessage\022&.ap" +
-      "ache.rocketmq.v1.NackMessageRequest\032\'.ap" +
-      "ache.rocketmq.v1.NackMessageResponse\"\000\022\234" +
-      "\001\n\037ForwardMessageToDeadLetterQueue\022:.apa" +
-      "che.rocketmq.v1.ForwardMessageToDeadLett" +
-      "erQueueRequest\032;.apache.rocketmq.v1.Forw" +
-      "ardMessageToDeadLetterQueueResponse\"\000\022i\n" +
-      "\016EndTransaction\022).apache.rocketmq.v1.End" +
-      "TransactionRequest\032*.apache.rocketmq.v1." +
-      "EndTransactionResponse\"\000\022`\n\013QueryOffset\022" +
-      "&.apache.rocketmq.v1.QueryOffsetRequest\032" +
-      "\'.apache.rocketmq.v1.QueryOffsetResponse" +
-      "\"\000\022`\n\013PullMessage\022&.apache.rocketmq.v1.P" +
-      "ullMessageRequest\032\'.apache.rocketmq.v1.P" +
-      "ullMessageResponse\"\000\022`\n\013PollCommand\022&.ap" +
-      "ache.rocketmq.v1.PollCommandRequest\032\'.ap" +
-      "ache.rocketmq.v1.PollCommandResponse\"\000\022\201" +
-      "\001\n\026ReportThreadStackTrace\0221.apache.rocke" +
-      "tmq.v1.ReportThreadStackTraceRequest\0322.a" +
-      "pache.rocketmq.v1.ReportThreadStackTrace" +
-      "Response\"\000\022\231\001\n\036ReportMessageConsumptionR" +
-      "esult\0229.apache.rocketmq.v1.ReportMessage" +
-      "ConsumptionResultRequest\032:.apache.rocket" +
-      "mq.v1.ReportMessageConsumptionResultResp" +
-      "onse\"\000\022\204\001\n\027NotifyClientTermination\0222.apa" +
-      "che.rocketmq.v1.NotifyClientTerminationR" +
-      "equest\0323.apache.rocketmq.v1.NotifyClient" +
-      "TerminationResponse\"\000B\'\n\022apache.rocketmq" +
-      ".v1B\tMQServiceP\001\240\001\001\330\001\001b\006proto3"
+      "s\030\002 \001(\0132\022.google.rpc.StatusJ\004\010\003\020A\"b\n&Rep" +
+      "ortMessageConsumptionResultResponse\0222\n\006c" +
+      "ommon\030\001 \001(\0132\".apache.rocketmq.v1.Respons" +
+      "eCommonJ\004\010\002\020A\"\206\001\n!RecoverOrphanedTransac" +
+      "tionCommand\022C\n\036orphaned_transactional_me" +
+      "ssage\030\001 \001(\0132\033.apache.rocketmq.v1.Message" +
+      "\022\026\n\016transaction_id\030\002 \001(\tJ\004\010\003\020A\"\324\001\n\022PollC" +
+      "ommandRequest\022\021\n\tclient_id\030\001 \001(\t\022,\n\006topi" +
+      "cs\030\002 \003(\0132\034.apache.rocketmq.v1.Resource\0226" +
+      "\n\016producer_group\030\003 \001(\0132\034.apache.rocketmq" +
+      ".v1.ResourceH\000\0226\n\016consumer_group\030\004 \001(\0132\034" +
+      ".apache.rocketmq.v1.ResourceH\000B\007\n\005groupJ" +
+      "\004\010\005\020A\"\204\003\n\023PollCommandResponse\0227\n\014noop_co" +
+      "mmand\030\001 \001(\0132\037.apache.rocketmq.v1.NoopCom" +
+      "mandH\000\022\\\n print_thread_stack_trace_comma" +
+      "nd\030\002 \001(\01320.apache.rocketmq.v1.PrintThrea" +
+      "dStackTraceCommandH\000\022a\n\"verify_message_c" +
+      "onsumption_command\030\003 \001(\01323.apache.rocket" +
+      "mq.v1.VerifyMessageConsumptionCommandH\000\022" +
+      "e\n$recover_orphaned_transaction_command\030" +
+      "\004 \001(\01325.apache.rocketmq.v1.RecoverOrphan" +
+      "edTransactionCommandH\000B\006\n\004typeJ\004\010\005\020A\"\262\001\n" +
+      "\036NotifyClientTerminationRequest\0226\n\016produ" +
+      "cer_group\030\001 \001(\0132\034.apache.rocketmq.v1.Res" +
+      "ourceH\000\0226\n\016consumer_group\030\002 \001(\0132\034.apache" +
+      ".rocketmq.v1.ResourceH\000\022\021\n\tclient_id\030\003 \001" +
+      "(\tB\007\n\005groupJ\004\010\004\020A\"[\n\037NotifyClientTermina" +
+      "tionResponse\0222\n\006common\030\001 \001(\0132\".apache.ro" +
+      "cketmq.v1.ResponseCommonJ\004\010\002\020A2\202\016\n\020Messa" +
+      "gingService\022]\n\nQueryRoute\022%.apache.rocke" +
+      "tmq.v1.QueryRouteRequest\032&.apache.rocket" +
+      "mq.v1.QueryRouteResponse\"\000\022Z\n\tHeartbeat\022" +
+      "$.apache.rocketmq.v1.HeartbeatRequest\032%." +
+      "apache.rocketmq.v1.HeartbeatResponse\"\000\022`" +
+      "\n\013HealthCheck\022&.apache.rocketmq.v1.Healt" +
+      "hCheckRequest\032\'.apache.rocketmq.v1.Healt" +
+      "hCheckResponse\"\000\022`\n\013SendMessage\022&.apache" +
+      ".rocketmq.v1.SendMessageRequest\032\'.apache" +
+      ".rocketmq.v1.SendMessageResponse\"\000\022l\n\017Qu" +
+      "eryAssignment\022*.apache.rocketmq.v1.Query" +
+      "AssignmentRequest\032+.apache.rocketmq.v1.Q" +
+      "ueryAssignmentResponse\"\000\022i\n\016ReceiveMessa" +
+      "ge\022).apache.rocketmq.v1.ReceiveMessageRe" +
+      "quest\032*.apache.rocketmq.v1.ReceiveMessag" +
+      "eResponse\"\000\022]\n\nAckMessage\022%.apache.rocke" +
+      "tmq.v1.AckMessageRequest\032&.apache.rocket" +
+      "mq.v1.AckMessageResponse\"\000\022`\n\013NackMessag" +
+      "e\022&.apache.rocketmq.v1.NackMessageReques" +
+      "t\032\'.apache.rocketmq.v1.NackMessageRespon" +
+      "se\"\000\022\234\001\n\037ForwardMessageToDeadLetterQueue" +
+      "\022:.apache.rocketmq.v1.ForwardMessageToDe" +
+      "adLetterQueueRequest\032;.apache.rocketmq.v" +
+      "1.ForwardMessageToDeadLetterQueueRespons" +
+      "e\"\000\022i\n\016EndTransaction\022).apache.rocketmq." +
+      "v1.EndTransactionRequest\032*.apache.rocket" +
+      "mq.v1.EndTransactionResponse\"\000\022`\n\013QueryO" +
+      "ffset\022&.apache.rocketmq.v1.QueryOffsetRe" +
+      "quest\032\'.apache.rocketmq.v1.QueryOffsetRe" +
+      "sponse\"\000\022`\n\013PullMessage\022&.apache.rocketm" +
+      "q.v1.PullMessageRequest\032\'.apache.rocketm" +
+      "q.v1.PullMessageResponse\"\000\022`\n\013PollComman" +
+      "d\022&.apache.rocketmq.v1.PollCommandReques" +
+      "t\032\'.apache.rocketmq.v1.PollCommandRespon" +
+      "se\"\000\022\201\001\n\026ReportThreadStackTrace\0221.apache" +
+      ".rocketmq.v1.ReportThreadStackTraceReque" +
+      "st\0322.apache.rocketmq.v1.ReportThreadStac" +
+      "kTraceResponse\"\000\022\231\001\n\036ReportMessageConsum" +
+      "ptionResult\0229.apache.rocketmq.v1.ReportM" +
+      "essageConsumptionResultRequest\032:.apache." +
+      "rocketmq.v1.ReportMessageConsumptionResu" +
+      "ltResponse\"\000\022\204\001\n\027NotifyClientTermination" +
+      "\0222.apache.rocketmq.v1.NotifyClientTermin" +
+      "ationRequest\0323.apache.rocketmq.v1.Notify" +
+      "ClientTerminationResponse\"\000B\'\n\022apache.ro" +
+      "cketmq.v1B\tMQServiceP\001\240\001\001\330\001\001b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

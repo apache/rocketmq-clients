@@ -20,16 +20,34 @@ public interface ReportMessageConsumptionResultRequestOrBuilder extends
       getCommandIdBytes();
 
   /**
+   * <pre>
+   * 1. Return `INVALID_ARGUMENT` if message is corrupted.
+   * 2. Return `INTERNAL` if failed to consume message.
+   * 3. Return `OK` if success.
+   * </pre>
+   *
    * <code>.google.rpc.Status status = 2;</code>
    * @return Whether the status field is set.
    */
   boolean hasStatus();
   /**
+   * <pre>
+   * 1. Return `INVALID_ARGUMENT` if message is corrupted.
+   * 2. Return `INTERNAL` if failed to consume message.
+   * 3. Return `OK` if success.
+   * </pre>
+   *
    * <code>.google.rpc.Status status = 2;</code>
    * @return The status.
    */
   com.google.rpc.Status getStatus();
   /**
+   * <pre>
+   * 1. Return `INVALID_ARGUMENT` if message is corrupted.
+   * 2. Return `INTERNAL` if failed to consume message.
+   * 3. Return `OK` if success.
+   * </pre>
+   *
    * <code>.google.rpc.Status status = 2;</code>
    */
   com.google.rpc.StatusOrBuilder getStatusOrBuilder();

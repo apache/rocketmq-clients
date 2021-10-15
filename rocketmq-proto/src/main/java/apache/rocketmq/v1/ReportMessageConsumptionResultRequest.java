@@ -141,6 +141,12 @@ private static final long serialVersionUID = 0L;
   public static final int STATUS_FIELD_NUMBER = 2;
   private com.google.rpc.Status status_;
   /**
+   * <pre>
+   * 1. Return `INVALID_ARGUMENT` if message is corrupted.
+   * 2. Return `INTERNAL` if failed to consume message.
+   * 3. Return `OK` if success.
+   * </pre>
+   *
    * <code>.google.rpc.Status status = 2;</code>
    * @return Whether the status field is set.
    */
@@ -149,6 +155,12 @@ private static final long serialVersionUID = 0L;
     return status_ != null;
   }
   /**
+   * <pre>
+   * 1. Return `INVALID_ARGUMENT` if message is corrupted.
+   * 2. Return `INTERNAL` if failed to consume message.
+   * 3. Return `OK` if success.
+   * </pre>
+   *
    * <code>.google.rpc.Status status = 2;</code>
    * @return The status.
    */
@@ -157,6 +169,12 @@ private static final long serialVersionUID = 0L;
     return status_ == null ? com.google.rpc.Status.getDefaultInstance() : status_;
   }
   /**
+   * <pre>
+   * 1. Return `INVALID_ARGUMENT` if message is corrupted.
+   * 2. Return `INTERNAL` if failed to consume message.
+   * 3. Return `OK` if success.
+   * </pre>
+   *
    * <code>.google.rpc.Status status = 2;</code>
    */
   @java.lang.Override
@@ -576,6 +594,12 @@ private static final long serialVersionUID = 0L;
     private com.google.protobuf.SingleFieldBuilderV3<
         com.google.rpc.Status, com.google.rpc.Status.Builder, com.google.rpc.StatusOrBuilder> statusBuilder_;
     /**
+     * <pre>
+     * 1. Return `INVALID_ARGUMENT` if message is corrupted.
+     * 2. Return `INTERNAL` if failed to consume message.
+     * 3. Return `OK` if success.
+     * </pre>
+     *
      * <code>.google.rpc.Status status = 2;</code>
      * @return Whether the status field is set.
      */
@@ -583,6 +607,12 @@ private static final long serialVersionUID = 0L;
       return statusBuilder_ != null || status_ != null;
     }
     /**
+     * <pre>
+     * 1. Return `INVALID_ARGUMENT` if message is corrupted.
+     * 2. Return `INTERNAL` if failed to consume message.
+     * 3. Return `OK` if success.
+     * </pre>
+     *
      * <code>.google.rpc.Status status = 2;</code>
      * @return The status.
      */
@@ -594,6 +624,12 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * 1. Return `INVALID_ARGUMENT` if message is corrupted.
+     * 2. Return `INTERNAL` if failed to consume message.
+     * 3. Return `OK` if success.
+     * </pre>
+     *
      * <code>.google.rpc.Status status = 2;</code>
      */
     public Builder setStatus(com.google.rpc.Status value) {
@@ -610,6 +646,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * 1. Return `INVALID_ARGUMENT` if message is corrupted.
+     * 2. Return `INTERNAL` if failed to consume message.
+     * 3. Return `OK` if success.
+     * </pre>
+     *
      * <code>.google.rpc.Status status = 2;</code>
      */
     public Builder setStatus(
@@ -624,6 +666,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * 1. Return `INVALID_ARGUMENT` if message is corrupted.
+     * 2. Return `INTERNAL` if failed to consume message.
+     * 3. Return `OK` if success.
+     * </pre>
+     *
      * <code>.google.rpc.Status status = 2;</code>
      */
     public Builder mergeStatus(com.google.rpc.Status value) {
@@ -642,6 +690,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * 1. Return `INVALID_ARGUMENT` if message is corrupted.
+     * 2. Return `INTERNAL` if failed to consume message.
+     * 3. Return `OK` if success.
+     * </pre>
+     *
      * <code>.google.rpc.Status status = 2;</code>
      */
     public Builder clearStatus() {
@@ -656,6 +710,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * 1. Return `INVALID_ARGUMENT` if message is corrupted.
+     * 2. Return `INTERNAL` if failed to consume message.
+     * 3. Return `OK` if success.
+     * </pre>
+     *
      * <code>.google.rpc.Status status = 2;</code>
      */
     public com.google.rpc.Status.Builder getStatusBuilder() {
@@ -664,6 +724,12 @@ private static final long serialVersionUID = 0L;
       return getStatusFieldBuilder().getBuilder();
     }
     /**
+     * <pre>
+     * 1. Return `INVALID_ARGUMENT` if message is corrupted.
+     * 2. Return `INTERNAL` if failed to consume message.
+     * 3. Return `OK` if success.
+     * </pre>
+     *
      * <code>.google.rpc.Status status = 2;</code>
      */
     public com.google.rpc.StatusOrBuilder getStatusOrBuilder() {
@@ -675,6 +741,12 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * 1. Return `INVALID_ARGUMENT` if message is corrupted.
+     * 2. Return `INTERNAL` if failed to consume message.
+     * 3. Return `OK` if success.
+     * </pre>
+     *
      * <code>.google.rpc.Status status = 2;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<

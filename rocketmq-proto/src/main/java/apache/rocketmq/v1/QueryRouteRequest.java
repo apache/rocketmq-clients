@@ -5,8 +5,20 @@ package apache.rocketmq.v1;
 
 /**
  * <pre>
- * A QueryRouteRequest requests a set of Partitions of the specific topic with
- * necessary route infos.
+ * Topics are destination of messages to publish to or subscribe from. Similar
+ * to domain names, they will be addressable after resolution through the
+ * provided access point.
+ * Access points are usually the addresses of name servers, which fulfill
+ * service discovery, load-balancing and other auxillary services. Name servers
+ * receive periodic heartbeats from affiliate brokers and erase those which
+ * failed to maintain alive status.
+ * Name servers answer queries of QueryRouteRequest, responding clients with
+ * addressable partitions, which they may directly publish messages to or
+ * subscribe messages from.
+ * QueryRouteRequest shall include source endpoints, aka, configured
+ * access-point, which annotates tenant-id, instance-id or other
+ * vendor-specific settings. Purpose-built name servers may respond customized
+ * results based on these particular requirements.
  * </pre>
  *
  * Protobuf type {@code apache.rocketmq.v1.QueryRouteRequest}
@@ -140,11 +152,6 @@ private static final long serialVersionUID = 0L;
   public static final int ENDPOINTS_FIELD_NUMBER = 2;
   private apache.rocketmq.v1.Endpoints endpoints_;
   /**
-   * <pre>
-   * The service access points used to issue QueryRouteRequest
-   * The QueryRouteResponse will indicate the adress of subsequent RPCs.
-   * </pre>
-   *
    * <code>.apache.rocketmq.v1.Endpoints endpoints = 2;</code>
    * @return Whether the endpoints field is set.
    */
@@ -153,11 +160,6 @@ private static final long serialVersionUID = 0L;
     return endpoints_ != null;
   }
   /**
-   * <pre>
-   * The service access points used to issue QueryRouteRequest
-   * The QueryRouteResponse will indicate the adress of subsequent RPCs.
-   * </pre>
-   *
    * <code>.apache.rocketmq.v1.Endpoints endpoints = 2;</code>
    * @return The endpoints.
    */
@@ -166,11 +168,6 @@ private static final long serialVersionUID = 0L;
     return endpoints_ == null ? apache.rocketmq.v1.Endpoints.getDefaultInstance() : endpoints_;
   }
   /**
-   * <pre>
-   * The service access points used to issue QueryRouteRequest
-   * The QueryRouteResponse will indicate the adress of subsequent RPCs.
-   * </pre>
-   *
    * <code>.apache.rocketmq.v1.Endpoints endpoints = 2;</code>
    */
   @java.lang.Override
@@ -356,8 +353,20 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * A QueryRouteRequest requests a set of Partitions of the specific topic with
-   * necessary route infos.
+   * Topics are destination of messages to publish to or subscribe from. Similar
+   * to domain names, they will be addressable after resolution through the
+   * provided access point.
+   * Access points are usually the addresses of name servers, which fulfill
+   * service discovery, load-balancing and other auxillary services. Name servers
+   * receive periodic heartbeats from affiliate brokers and erase those which
+   * failed to maintain alive status.
+   * Name servers answer queries of QueryRouteRequest, responding clients with
+   * addressable partitions, which they may directly publish messages to or
+   * subscribe messages from.
+   * QueryRouteRequest shall include source endpoints, aka, configured
+   * access-point, which annotates tenant-id, instance-id or other
+   * vendor-specific settings. Purpose-built name servers may respond customized
+   * results based on these particular requirements.
    * </pre>
    *
    * Protobuf type {@code apache.rocketmq.v1.QueryRouteRequest}
@@ -651,11 +660,6 @@ private static final long serialVersionUID = 0L;
     private com.google.protobuf.SingleFieldBuilderV3<
         apache.rocketmq.v1.Endpoints, apache.rocketmq.v1.Endpoints.Builder, apache.rocketmq.v1.EndpointsOrBuilder> endpointsBuilder_;
     /**
-     * <pre>
-     * The service access points used to issue QueryRouteRequest
-     * The QueryRouteResponse will indicate the adress of subsequent RPCs.
-     * </pre>
-     *
      * <code>.apache.rocketmq.v1.Endpoints endpoints = 2;</code>
      * @return Whether the endpoints field is set.
      */
@@ -663,11 +667,6 @@ private static final long serialVersionUID = 0L;
       return endpointsBuilder_ != null || endpoints_ != null;
     }
     /**
-     * <pre>
-     * The service access points used to issue QueryRouteRequest
-     * The QueryRouteResponse will indicate the adress of subsequent RPCs.
-     * </pre>
-     *
      * <code>.apache.rocketmq.v1.Endpoints endpoints = 2;</code>
      * @return The endpoints.
      */
@@ -679,11 +678,6 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <pre>
-     * The service access points used to issue QueryRouteRequest
-     * The QueryRouteResponse will indicate the adress of subsequent RPCs.
-     * </pre>
-     *
      * <code>.apache.rocketmq.v1.Endpoints endpoints = 2;</code>
      */
     public Builder setEndpoints(apache.rocketmq.v1.Endpoints value) {
@@ -700,11 +694,6 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <pre>
-     * The service access points used to issue QueryRouteRequest
-     * The QueryRouteResponse will indicate the adress of subsequent RPCs.
-     * </pre>
-     *
      * <code>.apache.rocketmq.v1.Endpoints endpoints = 2;</code>
      */
     public Builder setEndpoints(
@@ -719,11 +708,6 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <pre>
-     * The service access points used to issue QueryRouteRequest
-     * The QueryRouteResponse will indicate the adress of subsequent RPCs.
-     * </pre>
-     *
      * <code>.apache.rocketmq.v1.Endpoints endpoints = 2;</code>
      */
     public Builder mergeEndpoints(apache.rocketmq.v1.Endpoints value) {
@@ -742,11 +726,6 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <pre>
-     * The service access points used to issue QueryRouteRequest
-     * The QueryRouteResponse will indicate the adress of subsequent RPCs.
-     * </pre>
-     *
      * <code>.apache.rocketmq.v1.Endpoints endpoints = 2;</code>
      */
     public Builder clearEndpoints() {
@@ -761,11 +740,6 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <pre>
-     * The service access points used to issue QueryRouteRequest
-     * The QueryRouteResponse will indicate the adress of subsequent RPCs.
-     * </pre>
-     *
      * <code>.apache.rocketmq.v1.Endpoints endpoints = 2;</code>
      */
     public apache.rocketmq.v1.Endpoints.Builder getEndpointsBuilder() {
@@ -774,11 +748,6 @@ private static final long serialVersionUID = 0L;
       return getEndpointsFieldBuilder().getBuilder();
     }
     /**
-     * <pre>
-     * The service access points used to issue QueryRouteRequest
-     * The QueryRouteResponse will indicate the adress of subsequent RPCs.
-     * </pre>
-     *
      * <code>.apache.rocketmq.v1.Endpoints endpoints = 2;</code>
      */
     public apache.rocketmq.v1.EndpointsOrBuilder getEndpointsOrBuilder() {
@@ -790,11 +759,6 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <pre>
-     * The service access points used to issue QueryRouteRequest
-     * The QueryRouteResponse will indicate the adress of subsequent RPCs.
-     * </pre>
-     *
      * <code>.apache.rocketmq.v1.Endpoints endpoints = 2;</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<

@@ -4,6 +4,21 @@
 package apache.rocketmq.v1;
 
 /**
+ * <pre>
+ * When publishing messages to or subscribing messages from brokers, clients
+ * shall include or validate digests of message body to ensure data integrity.
+ * For message publishment, when an invalid digest were detected, brokers need
+ * respond client with BAD_REQUEST.
+ * For messags subscription, when an invalid digest were detected, consumers
+ * need to handle this case according to message type:
+ * 1) Standard messages should be negatively acknowledged instantly, causing
+ * immediate re-delivery; 2) FIFO messages require special RPC, to re-fetch
+ * previously acquired messages batch;
+ * Message consumption model also affects how invalid digest are handled. When
+ * messages are consumed in broadcasting way,
+ * TODO: define semantics of invalid-digest-when-broadcasting.
+ * </pre>
+ *
  * Protobuf type {@code apache.rocketmq.v1.Digest}
  */
 public final class Digest extends
@@ -316,6 +331,21 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
+   * <pre>
+   * When publishing messages to or subscribing messages from brokers, clients
+   * shall include or validate digests of message body to ensure data integrity.
+   * For message publishment, when an invalid digest were detected, brokers need
+   * respond client with BAD_REQUEST.
+   * For messags subscription, when an invalid digest were detected, consumers
+   * need to handle this case according to message type:
+   * 1) Standard messages should be negatively acknowledged instantly, causing
+   * immediate re-delivery; 2) FIFO messages require special RPC, to re-fetch
+   * previously acquired messages batch;
+   * Message consumption model also affects how invalid digest are handled. When
+   * messages are consumed in broadcasting way,
+   * TODO: define semantics of invalid-digest-when-broadcasting.
+   * </pre>
+   *
    * Protobuf type {@code apache.rocketmq.v1.Digest}
    */
   public static final class Builder extends
