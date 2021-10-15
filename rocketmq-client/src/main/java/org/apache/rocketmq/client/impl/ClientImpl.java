@@ -595,7 +595,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                         return future;
                     }
                     if (!Code.OK.equals(code)) {
-                        throw new ClientException(ErrorCode.OTHER, status.toString());
+                        throw new ClientException(ErrorCode.FETCH_TOPIC_ROUTE_FAILURE, status.toString());
                     }
                     final TopicRouteData topicRouteData = new TopicRouteData(response.getPartitionsList());
                     future.set(topicRouteData);
