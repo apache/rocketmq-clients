@@ -26,10 +26,15 @@ import io.opentelemetry.api.common.AttributeKey;
 import java.util.List;
 
 public class RocketmqAttributes {
-
-    public static final AttributeKey<String> MESSAGING_ROCKETMQ_OPERATION = stringKey("messaging.rocketmq.operation");
-
     public static final AttributeKey<String> MESSAGING_ROCKETMQ_NAMESPACE = stringKey("messaging.rocketmq.namespace");
+
+    public static final AttributeKey<String> MESSAGING_ROCKETMQ_CLIENT_GROUP =
+            stringKey("messaging.rocketmq.client_group");
+
+    public static final AttributeKey<String> MESSAGING_ROCKETMQ_CLIENT_ID = stringKey("messaging.rocketmq.client_id");
+
+    public static final AttributeKey<String> MESSAGING_ROCKETMQ_MESSAGE_TYPE =
+            stringKey("messaging.rocketmq.message_type");
 
     public static final AttributeKey<String> MESSAGING_ROCKETMQ_MESSAGE_TAG =
             stringKey("messaging.rocketmq.message_tag");
@@ -37,13 +42,11 @@ public class RocketmqAttributes {
     public static final AttributeKey<List<String>> MESSAGING_ROCKETMQ_MESSAGE_KEYS =
             stringArrayKey("messaging.rocketmq.message_keys");
 
-    public static final AttributeKey<String> MESSAGING_ROCKETMQ_CLIENT_ID = stringKey("messaging.rocketmq.client_id");
+    // TODO: supply consumption model
+    public static final AttributeKey<String> MESSAGING_ROCKETMQ_CONSUMPTION_MODEL =
+            stringKey("messaging.rocketmq.consumption_model");
 
-    public static final AttributeKey<String> MESSAGING_ROCKETMQ_MESSAGE_TYPE =
-            stringKey("messaging.rocketmq.message_type");
-
-    public static final AttributeKey<String> MESSAGING_ROCKETMQ_CLIENT_GROUP =
-            stringKey("messaging.rocketmq.client_group");
+    public static final AttributeKey<String> MESSAGING_ROCKETMQ_OPERATION = stringKey("messaging.rocketmq.operation");
 
     public static final AttributeKey<Long> MESSAGING_ROCKETMQ_ATTEMPT = longKey("messaging.rocketmq.attempt");
 
