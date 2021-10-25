@@ -42,7 +42,7 @@ import org.slf4j.LoggerFactory;
 public abstract class ConsumeService extends Dispatcher {
     private static final Logger log = LoggerFactory.getLogger(ConsumeService.class);
 
-    private static final long SIGNAL_DELAY_MILLIS = 10;
+    private static final long SIGNAL_PERIOD_MILLIS = 10;
 
     protected final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable;
 
@@ -54,7 +54,7 @@ public abstract class ConsumeService extends Dispatcher {
     public ConsumeService(MessageListener messageListener, MessageInterceptor interceptor,
                           ThreadPoolExecutor consumptionExecutor, ScheduledExecutorService scheduler,
                           ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable) {
-        super(SIGNAL_DELAY_MILLIS, scheduler);
+        super(SIGNAL_PERIOD_MILLIS, scheduler);
         this.messageListener = messageListener;
         this.interceptor = interceptor;
         this.consumptionExecutor = consumptionExecutor;

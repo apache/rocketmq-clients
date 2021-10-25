@@ -45,10 +45,10 @@ public abstract class Dispatcher extends AbstractIdleService {
 
     private volatile ScheduledFuture<?> dispatchFuture;
 
-    public Dispatcher(long signalDelayMillis, ScheduledExecutorService scheduler) {
+    public Dispatcher(long signalPeriodMillis, ScheduledExecutorService scheduler) {
         this.dispatchTaskInQueue = new AtomicBoolean(false);
 
-        this.signalPeriodMillis = signalDelayMillis;
+        this.signalPeriodMillis = signalPeriodMillis;
 
         this.scheduler = scheduler;
         this.dispatcherExecutor = new ThreadPoolExecutor(

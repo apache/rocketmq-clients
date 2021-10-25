@@ -32,7 +32,6 @@ import org.apache.rocketmq.client.impl.ClientConfig;
 import org.apache.rocketmq.client.impl.ClientImpl;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
-import org.apache.rocketmq.client.message.MessageHookPointStatus;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageImplAccessor;
 import org.apache.rocketmq.client.message.MessageInterceptor;
@@ -290,7 +289,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         processSpan.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_BATCH_SIZE, context.getBatchSize());
         addUniversalAttributes(RocketmqOperation.PROCESS, processSpan, context);
         addMessageUniversalAttributes(processSpan, messageExt);
-        processSpan.setStatus(MessageHookPointStatus.OK.equals(context.getStatus()) ? StatusCode.OK : StatusCode.ERROR);
+        processSpan.setStatus(TracingUtility.convertToTraceStatus(context.getStatus()));
         processSpan.end();
     }
 
