@@ -483,6 +483,7 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
     }
 
     public void setNamesrvAddr(String nameServerStr) throws ClientException {
+        this.nameServerStr = nameServerStr;
         Validators.checkNamesrvAddr(nameServerStr);
         nameServerEndpointsListLock.writeLock().lock();
         try {
@@ -536,7 +537,6 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
                 log.error("Exception raises while parse name server address, clientId={}", id, t);
                 throw new ClientException(ErrorCode.ILLEGAL_FORMAT, t);
             }
-            this.nameServerStr = nameServerStr;
         } finally {
             nameServerEndpointsListLock.writeLock().unlock();
         }
