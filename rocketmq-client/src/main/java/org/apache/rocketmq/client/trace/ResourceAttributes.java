@@ -34,6 +34,11 @@ public class ResourceAttributes {
     public static final AttributeKey<String> SERVICE_NAME = stringKey("service.name");
 
     /**
+     * The version string of the service API or implementation.
+     */
+    public static final AttributeKey<String> SERVICE_VERSION = stringKey("service.version");
+
+    /**
      * Name of the host. On Unix systems, it may contain what the hostname command returns, or the
      * fully qualified hostname, or another name specified by the user.
      */

@@ -24,6 +24,7 @@ import io.opentelemetry.sdk.resources.Resource;
 import java.io.File;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
+import org.apache.rocketmq.utility.MetadataUtils;
 import org.apache.rocketmq.utility.UtilAll;
 
 /**
@@ -53,6 +54,7 @@ public class TraceResource {
         attributesBuilder.putAll(defaultAttributes);
 
         attributesBuilder.put(ResourceAttributes.SERVICE_NAME, SERVICE_NAME);
+        attributesBuilder.put(ResourceAttributes.SERVICE_VERSION, MetadataUtils.getVersion());
         attributesBuilder.put(ResourceAttributes.HOST_NAME, UtilAll.hostName());
 
         final Attributes osAttributes = buildOsAttributes();
