@@ -25,6 +25,9 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+import apache.rocketmq.v1.HeartbeatRequest;
+import apache.rocketmq.v1.NotifyClientTerminationRequest;
+import apache.rocketmq.v1.PollCommandRequest;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.SpanContext;
@@ -35,12 +38,13 @@ import io.opentelemetry.context.Context;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.exception.ClientException;
-import org.apache.rocketmq.client.impl.ClientConfig;
+import org.apache.rocketmq.client.impl.ClientImpl;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
 import org.apache.rocketmq.client.message.MessageImpl;
 import org.apache.rocketmq.client.message.MessageImplAccessor;
 import org.apache.rocketmq.client.message.MessageInterceptorContext;
+import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.client.tools.TestBase;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
@@ -62,12 +66,39 @@ public class TracingMessageInterceptorTest extends TestBase {
     @InjectMocks
     private TracingMessageInterceptor interceptor;
     private final SpanContext spanContext;
-    private final ClientConfig config;
+    private final ClientImpl clientImpl;
 
     public TracingMessageInterceptorTest() throws ClientException {
         this.spanContext =
                 TracingUtility.extractContextFromTraceParent(TracingUtilityTest.FAKE_SERIALIZED_SPAN_CONTEXT);
-        this.config = new ClientConfig(FAKE_GROUP_0);
+        this.clientImpl = new ClientImpl(FAKE_GROUP_0) {
+            @Override
+            public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
+            }
+
+            @Override
+            public NotifyClientTerminationRequest wrapNotifyClientTerminationRequest() {
+                return null;
+            }
+
+            @Override
+            public HeartbeatRequest wrapHeartbeatRequest() {
+                return null;
+            }
+
+            @Override
+            public PollCommandRequest wrapPollCommandRequest() {
+                return null;
+            }
+
+            @Override
+            public void doHealthCheck() {
+            }
+
+            @Override
+            public void doStats() {
+            }
+        };
     }
 
     @BeforeMethod
@@ -75,7 +106,7 @@ public class TracingMessageInterceptorTest extends TestBase {
         MockitoAnnotations.initMocks(this);
         this.interceptor = new TracingMessageInterceptor(messageTracer);
         when(messageTracer.getTracer()).thenReturn(tracer);
-        when(messageTracer.getClientConfig()).thenReturn(config);
+        when(messageTracer.getClientImpl()).thenReturn(clientImpl);
         when(tracer.spanBuilder(ArgumentMatchers.<String>any())).thenReturn(spanBuilder);
         when(spanBuilder.startSpan()).thenReturn(span);
         when(spanBuilder.setSpanKind(ArgumentMatchers.<SpanKind>any())).thenReturn(spanBuilder);

@@ -28,8 +28,9 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
-import org.apache.rocketmq.client.impl.ClientConfig;
+import org.apache.rocketmq.client.consumer.MessageModel;
 import org.apache.rocketmq.client.impl.ClientImpl;
+import org.apache.rocketmq.client.impl.consumer.PushConsumerImpl;
 import org.apache.rocketmq.client.message.MessageExt;
 import org.apache.rocketmq.client.message.MessageHookPoint;
 import org.apache.rocketmq.client.message.MessageImpl;
@@ -78,24 +79,24 @@ public class TracingMessageInterceptor implements MessageInterceptor {
     }
 
     private String getSpanName(String topic, RocketmqOperation operation) {
-        return messageTracer.getClientConfig().getNamespace() + '/' + topic + " " + operation.getName();
+        return messageTracer.getClientImpl().getNamespace() + '/' + topic + " " + operation.getName();
     }
 
     private void addUniversalAttributes(RocketmqOperation operation, Span span, MessageInterceptorContext context) {
-        final ClientConfig config = messageTracer.getClientConfig();
+        final ClientImpl clientImpl = messageTracer.getClientImpl();
         span.setAttribute(MessagingAttributes.MESSAGING_SYSTEM, MESSAGING_SYSTEM);
         span.setAttribute(MessagingAttributes.MESSAGING_DESTINATION, context.getTopic());
         span.setAttribute(MessagingAttributes.MESSAGING_DESTINATION_KIND,
                           MessagingAttributes.MessagingDestinationKindValues.TOPIC);
         span.setAttribute(MessagingAttributes.MESSAGING_PROTOCOL, MESSAGING_PROTOCOL_VALUE);
         span.setAttribute(MessagingAttributes.MESSAGING_PROTOCOL_VERSION, MixAll.getProtocolVersion());
-        span.setAttribute(MessagingAttributes.MESSAGING_URL, config.getNameServerStr());
+        span.setAttribute(MessagingAttributes.MESSAGING_URL, clientImpl.getNameServerStr());
 
-        span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_NAMESPACE, config.getNamespace());
-        span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_CLIENT_ID, config.getId());
-        span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_CLIENT_GROUP, config.getGroup());
+        span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_NAMESPACE, clientImpl.getNamespace());
+        span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_CLIENT_ID, clientImpl.getId());
+        span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_CLIENT_GROUP, clientImpl.getGroup());
         span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_OPERATION, operation.getName());
-        final CredentialsProvider credentialsProvider = config.getCredentialsProvider();
+        final CredentialsProvider credentialsProvider = clientImpl.getCredentialsProvider();
         // No credential provider was set.
         if (null == credentialsProvider) {
             return;
@@ -104,7 +105,28 @@ public class TracingMessageInterceptor implements MessageInterceptor {
             final String accessKey = credentialsProvider.getCredentials().getAccessKey();
             span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_ACCESS_KEY, accessKey);
         } catch (Throwable t) {
-            log.warn("Failed to parse accessKey from credentials provider for tracing, clientId={}", config.getId(), t);
+            log.warn("Failed to parse accessKey from credentials provider for tracing, clientId={}",
+                     clientImpl.getId(), t);
+        }
+    }
+
+    private void addMessageModelAttribute(Span span) {
+        final ClientImpl clientImpl = messageTracer.getClientImpl();
+        if (clientImpl instanceof PushConsumerImpl) {
+            PushConsumerImpl pushConsumer = (PushConsumerImpl) clientImpl;
+            final MessageModel messageModel = pushConsumer.getMessageModel();
+            switch (messageModel) {
+                case CLUSTERING:
+                    span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_CONSUMPTION_MODEL,
+                                      MessageModel.CLUSTERING.getName());
+                    break;
+                case BROADCASTING:
+                    span.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_CONSUMPTION_MODEL,
+                                      MessageModel.BROADCASTING.getName());
+                    break;
+                default:
+                    break;
+            }
         }
     }
 
@@ -195,6 +217,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
                                                   .setStartTimestamp(startNanoTime, TimeUnit.NANOSECONDS);
 
         final Span pullSpan = pullSpanBuilder.setSpanKind(SpanKind.CONSUMER).startSpan();
+        addMessageModelAttribute(pullSpan);
         pullSpan.setAttribute(MessagingAttributes.MESSAGING_OPERATION,
                               MessagingAttributes.MessagingOperationValues.RECEIVE);
         addUniversalAttributes(RocketmqOperation.PULL, pullSpan, context);
@@ -214,6 +237,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         }
         awaitSpanBuilder.addLink(pullSpan.getSpanContext());
         Span awaitSpan = awaitSpanBuilder.setSpanKind(SpanKind.CONSUMER).startSpan();
+        addMessageModelAttribute(awaitSpan);
         final MessageImpl messageImpl = MessageImplAccessor.getMessageImpl(messageExt);
         String awaitTraceContext = TracingUtility.injectSpanContextToTraceParent(awaitSpan.getSpanContext());
         messageImpl.getSystemAttribute().setTraceContext(awaitTraceContext);
@@ -227,6 +251,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         final SpanBuilder receiveSpanBuilder = tracer.spanBuilder(receiveSpanName)
                                                      .setStartTimestamp(startNanoTime, TimeUnit.NANOSECONDS);
         final Span receiveSpan = receiveSpanBuilder.setSpanKind(SpanKind.CONSUMER).startSpan();
+        addMessageModelAttribute(receiveSpan);
         receiveSpan.setAttribute(MessagingAttributes.MESSAGING_OPERATION,
                                  MessagingAttributes.MessagingOperationValues.RECEIVE);
         receiveSpan.setStatus(TracingUtility.convertToTraceStatus(context.getStatus()));
@@ -245,6 +270,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         }
         awaitSpanBuilder.addLink(receiveSpan.getSpanContext());
         Span awaitSpan = awaitSpanBuilder.setSpanKind(SpanKind.CONSUMER).startSpan();
+        addMessageModelAttribute(awaitSpan);
         final MessageImpl messageImpl = MessageImplAccessor.getMessageImpl(messageExt);
         String awaitTraceContext = TracingUtility.injectSpanContextToTraceParent(awaitSpan.getSpanContext());
         messageImpl.getSystemAttribute().setTraceContext(awaitTraceContext);
@@ -269,6 +295,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
             spanBuilder.setParent(Context.current().with(Span.wrap(awaitSpanContext)));
         }
         Span processSpan = spanBuilder.setSpanKind(SpanKind.CONSUMER).startSpan();
+        addMessageModelAttribute(processSpan);
         String processTraceSpan = TracingUtility.injectSpanContextToTraceParent(processSpan.getSpanContext());
         final MessageImpl messageImpl = MessageImplAccessor.getMessageImpl(messageExt);
         messageImpl.getSystemAttribute().setTraceContext(processTraceSpan);
@@ -306,6 +333,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
             ackSpanBuilder.setParent(Context.current().with(Span.wrap(processSpanContext)));
         }
         final Span ackSpan = ackSpanBuilder.setSpanKind(SpanKind.CONSUMER).startSpan();
+        addMessageModelAttribute(ackSpan);
         ackSpan.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_ATTEMPT, context.getAttempt());
         ackSpan.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_AVAILABLE_TIMESTAMP, messageExt.getStoreTimestamp());
         addUniversalAttributes(RocketmqOperation.ACK, ackSpan, context);
@@ -329,6 +357,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
             nackSpanBuilder.setParent(Context.current().with(Span.wrap(processSpanContext)));
         }
         final Span nackSpan = nackSpanBuilder.setSpanKind(SpanKind.CONSUMER).startSpan();
+        addMessageModelAttribute(nackSpan);
         nackSpan.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_AVAILABLE_TIMESTAMP,
                               messageExt.getStoreTimestamp());
         addUniversalAttributes(RocketmqOperation.NACK, nackSpan, context);
@@ -352,6 +381,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
             dlqSpanBuilder.setParent(Context.current().with(Span.wrap(processSpanContext)));
         }
         final Span dlqSpan = dlqSpanBuilder.setSpanKind(SpanKind.CONSUMER).startSpan();
+        addMessageModelAttribute(dlqSpan);
         dlqSpan.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_ATTEMPT, context.getAttempt());
         dlqSpan.setAttribute(RocketmqAttributes.MESSAGING_ROCKETMQ_AVAILABLE_TIMESTAMP, messageExt.getStoreTimestamp());
         addUniversalAttributes(RocketmqOperation.DLQ, dlqSpan, context);
