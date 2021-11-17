@@ -1,5 +1,7 @@
 # Thin Client for Apache RocketMQ
 
+[![构建状态]( http://aone-api.alibaba-inc.com/ak/testservice/api/badge/query?pipelineId=2898551&type=构建状态)](https://aone.alibaba-inc.com/pipeline/build/info?id=2898551)
+
 ## Getting Started
 
 Add dependency to your `pom.xml`, and replace the `${rocketmq.version}` by the latest version.
