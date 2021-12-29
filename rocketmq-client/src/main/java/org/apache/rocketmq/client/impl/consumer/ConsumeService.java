@@ -71,7 +71,7 @@ public abstract class ConsumeService extends Dispatcher {
 
     @Override
     protected void shutDown() throws InterruptedException {
-        log.info("Begin to shutdown th consume service.");
+        log.info("Begin to shutdown the consume service.");
         super.shutDown();
         log.info("Shutdown the consume service successfully.");
     }
