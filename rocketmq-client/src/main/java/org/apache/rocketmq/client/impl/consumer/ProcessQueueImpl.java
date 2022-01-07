@@ -74,15 +74,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Take over the remote interaction of the message.
+ * The specified implementation of {@link ProcessQueue}
  *
  * <ul>
- *   <li>Once message was fetched from remote, it would be cached in {@link #pendingMessages} firstly. if message was
+ *   <li>While message was fetched from remote, it would be cached in {@link #pendingMessages} firstly. if message was
  *       taken, it would be moved from {@link #pendingMessages} to {@link #inflightMessages} immediately.
- *   <li>Once message was consumed, it would be remove from {@link #inflightMessages}, which means message is remove
+ *   <li>While message was consumed, it would be removed from {@link #inflightMessages}, which means message is removed
  *       from cache completely.
- *   <li>if message is not erased/consumed in time, which may cause large memory footprint, {@link #isCacheFull()}
- *       here could help to identify this case, <i>once this happens, the whole procedure of fetch message would be
+ *   <li>If message is not erased/consumed in time, which may cause large memory footprint, {@link #isCacheFull()}
+ *       here could help to identify this case, <i>once this happens, the process of fetching message would be
  *       suspended until this situation is eased.</i>
  * </ul>
  */
@@ -536,6 +536,11 @@ public class ProcessQueueImpl implements ProcessQueue {
         receiveMessageImmediately();
     }
 
+    /**
+     * Receive message later by message queue.
+     *
+     * <p> Make sure that no exception will be thrown.
+     */
     public void receiveMessageLater() {
         final ScheduledExecutorService scheduler = consumerImpl.getScheduler();
         try {
@@ -753,7 +758,7 @@ public class ProcessQueueImpl implements ProcessQueue {
     /**
      * Pull message later by message queue according to the given offset.
      *
-     * <p> Make sure that there is no any exception thrown.
+     * <p> Make sure that no exception will be thrown.
      *
      * @param offset offset for message queue to pull from.
      */
