@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>RocketMQ-Client-CSharp</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Zhanhui Li</Authors>
+    <Company>Apache Software Foundation</Company>
+    <TargetFramework>net5.0</TargetFramework>
+    <RootNamespace>org.apache.rocketmq</RootNamespace>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.19.4" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.42.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.43.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+
+    <Protobuf Include="Protos\apache\rocketmq\v1\definition.proto" ProtoRoot="Protos" GrpcServices="Client" />
+    <Protobuf Include="Protos\google\rpc\status.proto" ProtoRoot="Protos" GrpcServices="Client" />
+    <Protobuf Include="Protos\google\rpc\error_details.proto" ProtoRoot="Protos" GrpcServices="Client" />
+    <Protobuf Include="Protos\apache\rocketmq\v1\service.proto" ProtoRoot="Protos" GrpcServices="Client">
+      <Link>Protos\apache\rocketmq\v1\definition.proto</Link>
+      <Link>Protos\google\rpc\status.proto</Link>
+      <Link>Protos\google\rpc\error_details.proto</Link>
+    </Protobuf>
+  </ItemGroup>
+
+</Project>
