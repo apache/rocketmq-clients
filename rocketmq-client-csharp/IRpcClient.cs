@@ -15,10 +15,15 @@
  * limitations under the License.
  */
 using System;
+using System.Threading.Tasks;
+using apache.rocketmq.v1;
+using grpc = global::Grpc.Core;
 
-namespace rocketmq_client_csharp
+namespace org.apache.rocketmq
 {
-    public class Class1
+    public interface IRpcClient
     {
+     Task<QueryRouteResponse> queryRoute(QueryRouteRequest request, grpc::CallOptions callOptions);
+
     }
 }
