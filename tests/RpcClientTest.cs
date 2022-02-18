@@ -21,6 +21,8 @@ using Grpc.Net.Client;
 using rmq = global::apache.rocketmq.v1;
 using grpc = global::Grpc.Core;
 using System;
+using pb = global::Google.Protobuf;
+
 
 namespace org.apache.rocketmq
 {
@@ -80,7 +82,6 @@ namespace org.apache.rocketmq
         [TestMethod]
         public void testHeartbeat()
         {
-
             var request = new rmq::HeartbeatRequest();
             request.ClientId = clientId;
             request.ProducerData = new rmq::ProducerData();
@@ -95,6 +96,55 @@ namespace org.apache.rocketmq
             var deadline = DateTime.UtcNow.Add(TimeSpan.FromSeconds(3));
             var callOptions = new grpc::CallOptions(metadata, deadline);
             var response = rpcClient.heartbeat(request, callOptions).GetAwaiter().GetResult();
+        }
+
+        [TestMethod]
+        public void testSendMessage()
+        {
+            var request = new rmq::SendMessageRequest();
+            request.Message = new rmq::Message();
+            byte[] body = new byte[1024];
+            for (int i = 0; i < body.Length; i++)
+            {
+                body[i] = (byte)'x';
+            }
+            request.Message.Body = pb::ByteString.CopyFrom(body);
+            request.Message.Topic = new rmq::Resource();
+            request.Message.Topic.ResourceNamespace = resourceNamespace;
+            request.Message.Topic.Name = topic;
+            request.Message.UserAttribute.Add("k", "v");
+            request.Message.UserAttribute.Add("key", "value");
+            request.Message.SystemAttribute = new rmq::SystemAttribute();
+            request.Message.SystemAttribute.Tag = "TagA";
+            request.Message.SystemAttribute.Keys.Add("key1");
+            request.Message.SystemAttribute.MessageId = "message-id-1";
+
+            var metadata = new grpc::Metadata();
+            Signature.sign(clientConfig, metadata);
+
+            var deadline = DateTime.UtcNow.AddSeconds(3);
+            var callOptions = new grpc::CallOptions(metadata, deadline);
+
+            var response = rpcClient.sendMessage(request, callOptions).GetAwaiter().GetResult();
+        }
+
+        // Remove the Ignore annotation if server has fixed
+        [Ignore]
+        [TestMethod]
+        public void testNotifyClientTermiantion()
+        {
+            var request = new rmq::NotifyClientTerminationRequest();
+            request.ClientId = clientId;
+            request.ProducerGroup = new rmq::Resource();
+            request.ProducerGroup.ResourceNamespace = resourceNamespace;
+            request.ProducerGroup.Name = group;
+
+            var metadata = new grpc::Metadata();
+            Signature.sign(clientConfig, metadata);
+
+            var deadline = DateTime.UtcNow.AddSeconds(3);
+            var callOptions = new grpc::CallOptions(metadata, deadline);
+            var response = rpcClient.notifyClientTermination(request, callOptions).GetAwaiter().GetResult();
         }
 
         private static string resourceNamespace = "MQ_INST_1080056302921134_BXuIbML7";
