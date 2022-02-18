@@ -20,9 +20,12 @@ using System.Collections.Concurrent;
 using rmq = global::apache.rocketmq.v1;
 using Grpc.Net.Client;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using grpc = global::Grpc.Core;
 using System.Collections.Generic;
+using Grpc.Core.Interceptors;
+using System.Net.Http;
 
 namespace org.apache.rocketmq {
     public class ClientManager : IClientManager {
@@ -33,8 +36,11 @@ namespace org.apache.rocketmq {
 
         public IRpcClient getRpcClient(string target) {
             if (!rpcClients.ContainsKey(target)) {
-                using var channel = GrpcChannel.ForAddress(target);
-                var client = new rmq.MessagingService.MessagingServiceClient(channel);
+                var channel = GrpcChannel.ForAddress(target, new GrpcChannelOptions {
+                    HttpHandler = createHttpHandler()
+                });
+                var invoker = channel.Intercept(new ClientLoggerInterceptor());
+                var client = new rmq::MessagingService.MessagingServiceClient(invoker);
                 var rpcClient = new RpcClient(client);
                 if(rpcClients.TryAdd(target, rpcClient)) {
                     return rpcClient;
@@ -43,11 +49,32 @@ namespace org.apache.rocketmq {
             return rpcClients[target];
         }
 
-        public async Task<TopicRouteData> resolveRoute(string target, grpc::Metadata metadata, rmq.QueryRouteRequest request, TimeSpan timeout) {
+        /**
+         * See https://docs.microsoft.com/en-us/aspnet/core/grpc/performance?view=aspnetcore-6.0 for performance consideration and
+         * why parameters are configured this way.
+         */
+        public static HttpMessageHandler createHttpHandler()
+        {
+            var sslOptions = new System.Net.Security.SslClientAuthenticationOptions();
+            // Disable server certificate validation during development phase.
+            // Comment out the following line if server certificate validation is required. 
+            sslOptions.RemoteCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => { return true; };
+            var handler = new SocketsHttpHandler
+            {
+                PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan,
+                KeepAlivePingDelay = TimeSpan.FromSeconds(60),
+                KeepAlivePingTimeout = TimeSpan.FromSeconds(30),
+                EnableMultipleHttp2Connections = true,
+                SslOptions = sslOptions,
+            };
+            return handler;
+        }
+
+        public async Task<TopicRouteData> resolveRoute(string target, grpc::Metadata metadata, rmq::QueryRouteRequest request, TimeSpan timeout)
+        {
             var rpcClient = getRpcClient(target);
-            var callOptions = new grpc::CallOptions();
-            callOptions.WithDeadline(DateTime.Now.Add(timeout))
-                .WithHeaders(metadata);
+            var deadline = DateTime.UtcNow.Add(timeout);
+            var callOptions = new grpc::CallOptions(metadata, deadline);
             var queryRouteResponse = await rpcClient.queryRoute(request, callOptions);
 
             if (queryRouteResponse.Common.Status.Code != ((int)Google.Rpc.Code.Ok)) {
@@ -63,22 +90,22 @@ namespace org.apache.rocketmq {
                 var id = partition.Id;
                 Permission permission = Permission.READ_WRITE;
                 switch (partition.Permission) {
-                    case rmq.Permission.None:
+                    case rmq::Permission.None:
                     {
                         permission = Permission.NONE;
                         break;
                     }
-                    case rmq.Permission.Read:
+                    case rmq::Permission.Read:
                     {
                         permission = Permission.READ;
                         break;
                     }
-                    case rmq.Permission.Write:
+                    case rmq::Permission.Write:
                     {
                         permission = Permission.WRITE;
                         break;
                     }
-                    case rmq.Permission.ReadWrite:
+                    case rmq::Permission.ReadWrite:
                     {
                         permission = Permission.READ_WRITE;
                         break;
@@ -87,15 +114,18 @@ namespace org.apache.rocketmq {
 
                 AddressScheme scheme = AddressScheme.IPv4;
                 switch(partition.Broker.Endpoints.Scheme) {
-                    case rmq.AddressScheme.Ipv4: {
+                    case rmq::AddressScheme.Ipv4:
+                        {
                         scheme = AddressScheme.IPv4;
                         break;
                     }
-                    case rmq.AddressScheme.Ipv6: {
+                    case rmq::AddressScheme.Ipv6:
+                        {
                         scheme = AddressScheme.IPv6;
                         break;
                     }
-                    case rmq.AddressScheme.DomainName: {
+                    case rmq::AddressScheme.DomainName:
+                        {
                         scheme = AddressScheme.DOMAIN_NAME;
                         break;
                     }
@@ -112,6 +142,38 @@ namespace org.apache.rocketmq {
 
             var topicRouteData = new TopicRouteData(partitions);
             return topicRouteData;
+        }
+
+        public async Task<Boolean> heartbeat(string target, grpc::Metadata metadata, rmq::HeartbeatRequest request, TimeSpan timeout)
+        {
+            var rpcClient = getRpcClient(target);
+            var deadline = DateTime.UtcNow.Add(timeout);
+            var callOptions = new grpc.CallOptions(metadata, deadline);
+            var response = await rpcClient.heartbeat(request, callOptions);
+            if (null == response)
+            {
+                return false;
+            }
+
+            return response.Common.Status.Code == (int)Google.Rpc.Code.Ok;
+        }
+
+        public async Task<rmq::SendMessageResponse> sendMessage(string target, grpc::Metadata metadata, rmq::SendMessageRequest request, TimeSpan timeout)
+        {
+            var rpcClient = getRpcClient(target);
+            var deadline = DateTime.UtcNow.Add(timeout);
+            var callOptions = new grpc::CallOptions(metadata, deadline);
+            var response = await rpcClient.sendMessage(request, callOptions);
+            return response;
+        }
+
+        public async Task<Boolean> notifyClientTermination(string target, grpc::Metadata metadata, rmq::NotifyClientTerminationRequest request, TimeSpan timeout)
+        {
+            var rpcClient = getRpcClient(target);
+            var deadline = DateTime.UtcNow.Add(timeout);
+            var callOptions = new grpc::CallOptions(metadata, deadline);
+            rmq::NotifyClientTerminationResponse response = await rpcClient.notifyClientTermination(request, callOptions);
+            return response.Common.Status.Code == ((int)Google.Rpc.Code.Ok);
         }
 
         private ConcurrentDictionary<string, RpcClient> rpcClients;

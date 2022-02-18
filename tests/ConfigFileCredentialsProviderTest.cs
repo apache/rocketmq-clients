@@ -15,22 +15,17 @@
  * limitations under the License.
  */
 
-using apache.rocketmq.v1;
-using System.Threading.Tasks;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
-using grpc = global::Grpc.Core;
 
 namespace org.apache.rocketmq {
-    public interface IClientManager {
-        IRpcClient getRpcClient(string target);
-
-        Task<TopicRouteData> resolveRoute(string target, grpc::Metadata metadata, QueryRouteRequest request, TimeSpan timeout);
-
-        Task<Boolean> heartbeat(string target, grpc::Metadata metadata, HeartbeatRequest request, TimeSpan timeout);
-
-        Task<Boolean> notifyClientTermination(string target, grpc::Metadata metadata, NotifyClientTerminationRequest request, TimeSpan timeout);
-
-        Task<SendMessageResponse> sendMessage(string target, grpc::Metadata metadata, SendMessageRequest request, TimeSpan timeout);
-
+    [TestClass]
+    public class ConfigFileCredentialsProviderTest {
+        [TestMethod]
+        public void testGetCredentials() {
+            var provider = new ConfigFileCredentialsProvider();
+            var credentials = provider.getCredentials();
+            Assert.IsNotNull(credentials);
+        }
     }
 }

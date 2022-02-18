@@ -23,7 +23,7 @@ dotnet build
 
 #### Run Unit Tests
 ```sh
-dotnet test
+dotnet test -l "console;verbosity=detailed"
 ```
 
 #### Run Examples

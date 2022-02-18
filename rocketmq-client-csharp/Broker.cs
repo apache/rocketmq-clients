@@ -41,6 +41,15 @@ namespace org.apache.rocketmq {
             get { return address; }
         }
 
+        /**
+         * Context aware primary target URL.
+         */
+        public string targetUrl()
+        {
+            var addr = address.Addresses[0];
+            return string.Format("https://{0}:{1}", addr.Host, addr.Port);
+        }
+
         public int CompareTo(Broker other) {
             if (0 != name.CompareTo(other.name)) {
                 return name.CompareTo(other.name);

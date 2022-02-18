@@ -23,7 +23,12 @@ namespace org.apache.rocketmq
 {
     public interface IRpcClient
     {
-     Task<QueryRouteResponse> queryRoute(QueryRouteRequest request, grpc::CallOptions callOptions);
+        Task<QueryRouteResponse> queryRoute(QueryRouteRequest request, grpc::CallOptions callOptions);
 
+        Task<HeartbeatResponse> heartbeat(HeartbeatRequest request, grpc::CallOptions callOptions);
+
+        Task<NotifyClientTerminationResponse> notifyClientTermination(NotifyClientTerminationRequest request, grpc::CallOptions callOptions);
+
+        Task<SendMessageResponse> sendMessage(SendMessageRequest request, grpc::CallOptions callOptions);
     }
 }

@@ -25,7 +25,8 @@ namespace org.apache.rocketmq {
             stub = client;
         }
 
-        public async Task<QueryRouteResponse> queryRoute(QueryRouteRequest request, grpc::CallOptions callOptions) {
+        public async Task<QueryRouteResponse> queryRoute(QueryRouteRequest request, grpc::CallOptions callOptions)
+        {
             var call = stub.QueryRouteAsync(request, callOptions);
             var response = await call.ResponseAsync;
             var status = call.GetStatus();
@@ -33,6 +34,26 @@ namespace org.apache.rocketmq {
                 //TODO: Something is wrong, raise an exception here.
             }
             return response;
+        }
+
+        public async Task<HeartbeatResponse> heartbeat(HeartbeatRequest request, grpc::CallOptions callOptions)
+        {
+            var call = stub.HeartbeatAsync(request, callOptions);
+            var response = await call.ResponseAsync;
+            return response;
+        }
+
+        public async Task<NotifyClientTerminationResponse> notifyClientTermination(NotifyClientTerminationRequest request, grpc::CallOptions callOptions)
+        {
+            var call = stub.NotifyClientTerminationAsync(request, callOptions);
+            var response = await call.ResponseAsync;
+            return response;
+        }
+
+        public async Task<SendMessageResponse> sendMessage(SendMessageRequest request, grpc::CallOptions callOptions)
+        {
+            var call = stub.SendMessageAsync(request, callOptions);
+            return await call.ResponseAsync;
         }
 
         private MessagingService.MessagingServiceClient stub;
