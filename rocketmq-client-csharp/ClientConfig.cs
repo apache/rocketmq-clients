@@ -23,7 +23,9 @@ namespace org.apache.rocketmq {
         public ClientConfig() {
             var hostName = System.Net.Dns.GetHostName();
             var pid = System.Diagnostics.Process.GetCurrentProcess().Id;
-            clientId_ = string.Format("{0}@{1}#{2}", hostName, pid, instanceName_);
+            this.clientId_ = string.Format("{0}@{1}#{2}", hostName, pid, instanceName_);
+            this.ioTimeout_ = TimeSpan.FromSeconds(3);
+            this.longPollingIoTimeout_ = TimeSpan.FromSeconds(15);
         }
 
         public string region() {
@@ -101,7 +103,7 @@ namespace org.apache.rocketmq {
         private string region_ = "cn-hangzhou";
         private string serviceName_ = "ONS";
 
-        private string resourceNamespace_;
+        protected string resourceNamespace_;
 
         private ICredentialsProvider credentialsProvider_;
 

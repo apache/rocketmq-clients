@@ -117,7 +117,7 @@ namespace org.apache.rocketmq
             request.Message.SystemAttribute = new rmq::SystemAttribute();
             request.Message.SystemAttribute.Tag = "TagA";
             request.Message.SystemAttribute.Keys.Add("key1");
-            request.Message.SystemAttribute.MessageId = "message-id-1";
+            request.Message.SystemAttribute.MessageId = SequenceGenerator.Instance.Next();
 
             var metadata = new grpc::Metadata();
             Signature.sign(clientConfig, metadata);

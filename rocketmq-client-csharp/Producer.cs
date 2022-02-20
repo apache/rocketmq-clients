@@ -27,7 +27,7 @@ namespace org.apache.rocketmq
 {
     public class Producer : Client, IProducer
     {
-        public Producer(INameServerResolver resolver) : base(resolver)
+        public Producer(INameServerResolver resolver, string resourceNamespace) : base(resolver, resourceNamespace)
         {
             this.loadBalancer = new ConcurrentDictionary<string, PublishLoadBalancer>();
         }
@@ -79,6 +79,7 @@ namespace org.apache.rocketmq
             }
 
             request.Message.SystemAttribute = new rmq::SystemAttribute();
+            request.Message.SystemAttribute.MessageId = message.MessageId;
             if (!string.IsNullOrEmpty(message.Tag))
             {
                 request.Message.SystemAttribute.Tag = message.Tag;

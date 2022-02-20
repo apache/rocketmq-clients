@@ -28,6 +28,7 @@ namespace org.apache.rocketmq
         }
 
         public Message(string topic, string tag, List<string> keys, byte[] body) {
+            this.messageId = SequenceGenerator.Instance.Next();
             this.maxAttemptTimes = 3;
             this.topic = topic;
             this.tag = tag;
@@ -35,6 +36,12 @@ namespace org.apache.rocketmq
             this.body = body;
             this.userProperties = new Dictionary<string, string>();
             this.systemProperties = new Dictionary<string, string>();
+        }
+
+        private string messageId;
+        public string MessageId
+        {
+            get { return messageId; }
         }
 
         private string topic;

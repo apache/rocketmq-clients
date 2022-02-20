@@ -29,10 +29,11 @@ namespace org.apache.rocketmq
     public abstract class Client : ClientConfig, IClient
     {
 
-        public Client(INameServerResolver resolver)
+        public Client(INameServerResolver resolver, string resourceNamespace)
         {
             this.nameServerResolver = resolver;
-            this.clientManager = ClientManagerFactory.getClientManager(resourceNamespace());
+            this.resourceNamespace_ = resourceNamespace;
+            this.clientManager = ClientManagerFactory.getClientManager(resourceNamespace);
             this.nameServerResolverCTS = new CancellationTokenSource();
 
             this.topicRouteTable = new ConcurrentDictionary<string, TopicRouteData>();
@@ -176,20 +177,30 @@ namespace org.apache.rocketmq
 
             // We got one or more name servers available.
             string nameServer = nameServers[currentNameServerIndex];
-            var metadata = new grpc.Metadata();
-            Signature.sign(this, metadata);
             var request = new rmq::QueryRouteRequest();
             request.Topic = new rmq::Resource();
-            request.Topic.ResourceNamespace = resourceNamespace();
+            request.Topic.ResourceNamespace = resourceNamespace_;
             request.Topic.Name = topic;
             request.Endpoints = new rmq::Endpoints();
             request.Endpoints.Scheme = rmq::AddressScheme.Ipv4;
             var address = new rmq::Address();
-            string[] segments = nameServer.Split(":");
-            address.Host = segments[0];
-            address.Port = Int32.Parse(segments[1]);
+            int pos = nameServer.LastIndexOf(':');
+            int protocolPrefix = 0;
+            if (nameServer.StartsWith("http://"))
+            {
+                protocolPrefix = 7;
+            }
+            else if (nameServer.StartsWith("https://"))
+            {
+                protocolPrefix = 8;
+            }
+
+            address.Host = nameServer.Substring(protocolPrefix, pos - protocolPrefix);
+            address.Port = Int32.Parse(nameServer.Substring(pos + 1));
             request.Endpoints.Addresses.Add(address);
-            var target = string.Format("https://{0}:{1}", segments[0], segments[1]);
+            var target = string.Format("https://{0}:{1}", address.Host, address.Port);
+            var metadata = new grpc.Metadata();
+            Signature.sign(this, metadata);
             var topicRouteData = await clientManager.resolveRoute(target, metadata, request, getIoTimeout());
             return topicRouteData;
         }
