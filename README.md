@@ -1,3 +1,5 @@
+[![CI](https://github.com/lizhanhui/rocketmq-client-csharp/actions/workflows/main.yml/badge.svg)](https://github.com/lizhanhui/rocketmq-client-csharp/actions/workflows/main.yml)
+
 Introduction
 --------------
 Project rocketmq-client-csharp is targeted to implement C# binding in native C# code. At the current moment, it is still a work-in-progress project. Do not use it in production till it grows mature enough.

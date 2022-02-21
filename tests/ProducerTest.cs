@@ -29,7 +29,7 @@ namespace org.apache.rocketmq
         public static void SetUp(TestContext context)
         {
             List<string> nameServerAddress = new List<string>();
-            nameServerAddress.Add(string.Format("https://{0}:{1}", host, port));
+            nameServerAddress.Add(string.Format("{0}:{1}", host, port));
             resolver = new StaticNameServerResolver(nameServerAddress);
 
             credentialsProvider = new ConfigFileCredentialsProvider();
@@ -54,6 +54,7 @@ namespace org.apache.rocketmq
             Array.Fill(body, (byte)'x');
             var msg = new Message(topic, body);
             var sendResult = producer.send(msg).GetAwaiter().GetResult();
+            Assert.IsNotNull(sendResult);
             producer.shutdown();
         }
 

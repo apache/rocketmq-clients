@@ -185,17 +185,7 @@ namespace org.apache.rocketmq
             request.Endpoints.Scheme = rmq::AddressScheme.Ipv4;
             var address = new rmq::Address();
             int pos = nameServer.LastIndexOf(':');
-            int protocolPrefix = 0;
-            if (nameServer.StartsWith("http://"))
-            {
-                protocolPrefix = 7;
-            }
-            else if (nameServer.StartsWith("https://"))
-            {
-                protocolPrefix = 8;
-            }
-
-            address.Host = nameServer.Substring(protocolPrefix, pos - protocolPrefix);
+            address.Host = nameServer.Substring(0, pos);
             address.Port = Int32.Parse(nameServer.Substring(pos + 1));
             request.Endpoints.Addresses.Add(address);
             var target = string.Format("https://{0}:{1}", address.Host, address.Port);
