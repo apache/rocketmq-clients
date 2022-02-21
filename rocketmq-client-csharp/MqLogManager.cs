@@ -6,6 +6,11 @@ using NLog.Config;
 
 namespace org.apache.rocketmq
 {
+    /**
+     * RocketMQ Log Manager.
+     *
+     * Configure component logging, please refer to https://github.com/NLog/NLog/wiki/Configure-component-logging
+     */
     public class MqLogManager
     {
         public static LogFactory Instance
@@ -19,7 +24,6 @@ namespace org.apache.rocketmq
         {
             // Use name of current assembly to construct NLog config filename 
             Assembly thisAssembly = Assembly.GetExecutingAssembly();
-            Console.WriteLine(thisAssembly.Location);
             string configFilePath = Path.ChangeExtension(thisAssembly.Location, ".nlog");
 
             LogFactory logFactory = new LogFactory();
