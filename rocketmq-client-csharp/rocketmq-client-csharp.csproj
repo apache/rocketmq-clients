@@ -17,6 +17,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="NLog" Version="4.7.13" />
 
     <Protobuf Include="Protos\apache\rocketmq\v1\definition.proto" ProtoRoot="Protos" GrpcServices="Client" />
     <Protobuf Include="Protos\google\rpc\code.proto" ProtoRoot="Protos" GrpcServices="Client" />
@@ -27,6 +28,12 @@
       <Link>Protos\google\rpc\status.proto</Link>
       <Link>Protos\google\rpc\error_details.proto</Link>
     </Protobuf>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="rocketmq-client-csharp.nlog">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

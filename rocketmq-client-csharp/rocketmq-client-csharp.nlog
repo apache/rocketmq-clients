@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<nlog xmlns="http://www.nlog-project.org/schemas/NLog.xsd"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      throwconfigexceptions="true">
+    <targets>
+        <target name="asyncFile" xsi:type="AsyncWrapper">
+            <target name="log_file" xsi:type="File"
+                    fileName="${specialfolder:folder=UserProfile}/logs/ons/ons-client.log"
+                    layout="${longdate} ${level:uppercase=true:padding=-5} [${processid}] [${threadid}] [${callsite}:${callsite-linenumber}] ${message} ${onexception:${exception:format=ToString,Data}}"
+                    archiveFileName="${specialfolder:folder=UserProfile}/logs/ons/ons-client.{######}.log"
+                    archiveAboveSize="67108864"
+                    archiveNumbering="DateAndSequence"
+                    maxArchiveFiles="10"
+                    concurrentWrites="true"
+                    keepFileOpen="false" />
+        </target>
+        <target name="colorConsole" xsi:type="ColoredConsole"
+                useDefaultRowHighlightingRules="true"
+                layout="${longdate} ${level:uppercase=true:padding=-5} [${processid}] [${threadid}] [${callsite}:${callsite-linenumber}] ${message} ${onexception:${exception:format=ToString,Data}}" >
+        </target>
+    </targets>
+    <rules>
+        <logger name="*" writeTo="asyncFile" />
+        <logger name="*" writeTo="colorConsole" />
+    </rules>
+</nlog>
