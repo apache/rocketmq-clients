@@ -254,6 +254,7 @@ public class TracingMessageInterceptor implements MessageInterceptor {
         addMessageModelAttribute(receiveSpan);
         receiveSpan.setAttribute(MessagingAttributes.MESSAGING_OPERATION,
                                  MessagingAttributes.MessagingOperationValues.RECEIVE);
+        addUniversalAttributes(RocketmqOperation.RECEIVE, receiveSpan, context);
         receiveSpan.setStatus(TracingUtility.convertToTraceStatus(context.getStatus()));
         receiveSpan.end(endNanoTime, TimeUnit.NANOSECONDS);
 
