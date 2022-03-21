@@ -68,6 +68,26 @@ public class ResourceAttributes {
     public static final AttributeKey<String> PROCESS_COMMAND_LINE = stringKey("process.command_line");
 
     /**
+     * The filtered process command line to prevent sensitive data, it is not a standard openTelemetry attribute key.
+     *
+     * <blockquote>
+     *
+     * <table>
+     * <caption>{@link #PROCESS_COMMAND_LINE} VS {@link #PROCESS_FILTERED_COMMAND_LINE}</caption>
+     * <tr>
+     *     <th>Process Command Line
+     *     <th>Process Filtered Command Line
+     * <tr>
+     *     <td>/Home/java_home:bin:java -jar example.jar -Dpassword=123456
+     *     <td>/Home/java_home:bin:java -jar example.jar
+     * </table>
+     *
+     * </blockquote>
+     */
+    @SuppressWarnings("JavaDoc")
+    public static final AttributeKey<String> PROCESS_FILTERED_COMMAND_LINE = stringKey("process.filtered_command_line");
+
+    /**
      * The full path to the process executable. On Linux based systems, can be set to the target of
      * `proc/[pid]/exe`. On Windows, can be set to the result of `GetProcessImageFileNameW`.
      */

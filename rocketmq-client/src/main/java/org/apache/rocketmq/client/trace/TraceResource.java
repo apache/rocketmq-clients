@@ -24,6 +24,7 @@ import io.opentelemetry.sdk.resources.Resource;
 import java.io.File;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.utility.MetadataUtils;
 import org.apache.rocketmq.utility.UtilAll;
 
@@ -110,9 +111,13 @@ public class TraceResource {
                 RuntimeMXBean runtime = ManagementFactory.getRuntimeMXBean();
                 StringBuilder commandLine = new StringBuilder(executablePath);
                 for (String arg : runtime.getInputArguments()) {
+                    // Filter '-D' on purpose, which may contain sensitive data.
+                    if (StringUtils.startsWith(arg, "-D")) {
+                        continue;
+                    }
                     commandLine.append(' ').append(arg);
                 }
-                attributesBuilder.put(ResourceAttributes.PROCESS_COMMAND_LINE, commandLine.toString());
+                attributesBuilder.put(ResourceAttributes.PROCESS_FILTERED_COMMAND_LINE, commandLine.toString());
                 attributesBuilder.build();
             }
             return attributesBuilder.build();
