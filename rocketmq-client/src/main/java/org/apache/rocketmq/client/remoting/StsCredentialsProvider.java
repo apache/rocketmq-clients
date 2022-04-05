@@ -37,6 +37,7 @@ import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@SuppressWarnings("UnstableApiUsage")
 public class StsCredentialsProvider implements CredentialsProvider {
     private static final Logger log = LoggerFactory.getLogger(StsCredentialsProvider.class);
 
@@ -44,7 +45,7 @@ public class StsCredentialsProvider implements CredentialsProvider {
     private static final String RAM_ROLE_HOST = "100.100.100.200";
     private static final String RAM_ROLE_URL_PREFIX = "/latest/meta-data/Ram/security-credentials/";
     private final HttpTinyClient httpTinyClient;
-    private Credentials credentials;
+    private volatile Credentials credentials;
     private final String ramRole;
     private final ExecutorService stsRefresher;
 
