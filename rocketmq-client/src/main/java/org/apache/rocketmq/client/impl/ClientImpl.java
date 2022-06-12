@@ -80,6 +80,7 @@ import org.apache.rocketmq.client.route.Permission;
 import org.apache.rocketmq.client.route.TopicRouteData;
 import org.apache.rocketmq.client.trace.MessageTracer;
 import org.apache.rocketmq.client.trace.TraceEndpointsProvider;
+import org.apache.rocketmq.utility.ExecutorServices;
 import org.apache.rocketmq.utility.ThreadFactoryImpl;
 import org.apache.rocketmq.utility.UtilAll;
 import org.slf4j.Logger;
@@ -277,6 +278,10 @@ public abstract class ClientImpl extends Client implements MessageInterceptor, T
         }
         messageTracer.shutdown();
         ClientManagerFactory.getInstance().unregisterClient(namespace, this);
+        commandExecutor.shutdown();
+        if (!ExecutorServices.awaitTerminated(commandExecutor)) {
+            log.error("[Bug] Failed to shutdown command executor, clientId={}", id);
+        }
         log.info("Shutdown the rocketmq client successfully, clientId={}", id);
     }
 
