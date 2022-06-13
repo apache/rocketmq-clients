@@ -505,21 +505,17 @@ public class PushConsumerImpl extends ConsumerImpl {
     }
 
     /**
-     * Get {@link ProcessQueue} by {@link MessageQueue} and {@link FilterExpression}. ensure the returned
-     * {@link ProcessQueue} has been added to the {@link #processQueueTable} and not dropped. <strong>Never
-     * </strong> return null.
+     * Create {@link ProcessQueue} by {@link MessageQueue} and {@link FilterExpression}. return
+     * {@link Optional#absent()} if corresponding {@link ProcessQueue} has been created already.
      *
      * @param mq               message queue.
      * @param filterExpression filter expression of topic.
-     * @return {@link ProcessQueue} by {@link MessageQueue}. <strong>Never</strong> return null.
+     * @return {@link ProcessQueue} by {@link MessageQueue}.
      */
-    private ProcessQueue getProcessQueue(MessageQueue mq, final FilterExpression filterExpression) {
-        final ProcessQueueImpl processQueue = new ProcessQueueImpl(this, mq, filterExpression);
+    private Optional<ProcessQueue> createProcessQueue(MessageQueue mq, final FilterExpression filterExpression) {
+        final ProcessQueue processQueue = new ProcessQueueImpl(this, mq, filterExpression);
         final ProcessQueue previous = processQueueTable.putIfAbsent(mq, processQueue);
-        if (null != previous) {
-            return previous;
-        }
-        return processQueue;
+        return null == previous ? Optional.of(processQueue) : Optional.<ProcessQueue>absent();
     }
 
     private void synchronizeProcessQueue(
@@ -558,8 +554,14 @@ public class PushConsumerImpl extends ConsumerImpl {
 
         for (MessageQueue mq : latestMqs) {
             if (!activeMqs.contains(mq)) {
-                final ProcessQueue pq = getProcessQueue(mq, filterExpression);
+                final Optional<ProcessQueue> optionalProcessQueue = createProcessQueue(mq, filterExpression);
+                if (!optionalProcessQueue.isPresent()) {
+                    log.info("Process queue already exists, namespace={}, mq={}, clientId={}", namespace, mq, id);
+                    return;
+                }
+                // New process queue is created and has been added into process queue table.
                 log.info("Start to fetch message from remote, namespace={}, mq={}, clientId={}", namespace, mq, id);
+                final ProcessQueue pq = optionalProcessQueue.get();
                 pq.fetchMessageImmediately();
             }
         }
