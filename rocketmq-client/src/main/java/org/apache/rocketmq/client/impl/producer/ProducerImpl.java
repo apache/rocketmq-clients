@@ -44,13 +44,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.protobuf.ByteString;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
 import io.grpc.Metadata;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -63,8 +63,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.exception.ClientException;
 import org.apache.rocketmq.client.exception.ErrorCode;
@@ -145,9 +143,8 @@ public class ProducerImpl extends ClientImpl {
 
     private final ConcurrentMap<String/* topic */, SendingTopicRouteData> sendingRouteDataCache;
 
-    @GuardedBy("isolatedEndpointsSetLock")
+    // Set here is thread-safe.
     private final Set<Endpoints> isolatedEndpointsSet;
-    private final ReadWriteLock isolatedEndpointsSetLock;
 
     public ProducerImpl(String group) throws ClientException {
         super(group);
@@ -160,9 +157,8 @@ public class ProducerImpl extends ClientImpl {
                 new ThreadFactoryImpl("SendCallbackWorker"));
 
         this.sendingRouteDataCache = new ConcurrentHashMap<String, SendingTopicRouteData>();
-
-        this.isolatedEndpointsSet = new HashSet<Endpoints>();
-        this.isolatedEndpointsSetLock = new ReentrantReadWriteLock();
+        // Create thread-safe set.
+        this.isolatedEndpointsSet = Collections.newSetFromMap(new ConcurrentHashMap<Endpoints, Boolean>());
     }
 
     private void preconditionCheck(Message message) throws ClientException {
@@ -207,12 +203,7 @@ public class ProducerImpl extends ClientImpl {
     }
 
     public void isolateEndpoints(Endpoints endpoints) {
-        isolatedEndpointsSetLock.writeLock().lock();
-        try {
-            isolatedEndpointsSet.add(endpoints);
-        } finally {
-            isolatedEndpointsSetLock.writeLock().unlock();
-        }
+        isolatedEndpointsSet.add(endpoints);
     }
 
     /**
@@ -223,54 +214,37 @@ public class ProducerImpl extends ClientImpl {
         final Set<Endpoints> routeEndpointsSet = getRouteEndpointsSet();
         final Set<Endpoints> expired = new HashSet<Endpoints>(Sets.difference(routeEndpointsSet, isolatedEndpointsSet));
         // remove all isolated endpoints which is expired.
-        isolatedEndpointsSetLock.writeLock().lock();
-        try {
-            isolatedEndpointsSet.removeAll(expired);
-        } finally {
-            isolatedEndpointsSetLock.writeLock().unlock();
-        }
-
+        isolatedEndpointsSet.removeAll(expired);
         HealthCheckRequest request = HealthCheckRequest.newBuilder().build();
-        isolatedEndpointsSetLock.readLock().lock();
-        try {
-            for (final Endpoints endpoints : isolatedEndpointsSet) {
-                Metadata metadata;
-                try {
-                    metadata = sign();
-                } catch (Throwable t) {
-                    continue;
-                }
-                final ListenableFuture<HealthCheckResponse> future =
-                        clientManager.healthCheck(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
-                Futures.addCallback(future, new FutureCallback<HealthCheckResponse>() {
-                    @Override
-                    public void onSuccess(HealthCheckResponse response) {
-                        final Status status = response.getCommon().getStatus();
-                        final Code code = Code.forNumber(status.getCode());
-                        // target endpoints is healthy, rejoin it.
-                        if (Code.OK.equals(code)) {
-                            isolatedEndpointsSetLock.writeLock().lock();
-                            try {
-                                isolatedEndpointsSet.remove(endpoints);
-                            } finally {
-                                isolatedEndpointsSetLock.writeLock().unlock();
-                            }
-                            log.info("Rejoin endpoints which is isolated before, clientId={}, endpoints={}", id,
-                                     endpoints);
-                            return;
-                        }
-                        log.warn("Failed to rejoin the endpoints which is isolated before, clientId={}, code={}, "
-                                 + "status message=[{}], endpoints={}", id, code, status.getMessage(), endpoints);
-                    }
-
-                    @Override
-                    public void onFailure(Throwable t) {
-                        log.error("Failed to do health check, clientId={}, endpoints={}", id, endpoints, t);
-                    }
-                });
+        for (final Endpoints endpoints : isolatedEndpointsSet) {
+            Metadata metadata;
+            try {
+                metadata = sign();
+            } catch (Throwable t) {
+                continue;
             }
-        } finally {
-            isolatedEndpointsSetLock.readLock().unlock();
+            final ListenableFuture<HealthCheckResponse> future =
+                clientManager.healthCheck(endpoints, metadata, request, ioTimeoutMillis, TimeUnit.MILLISECONDS);
+            Futures.addCallback(future, new FutureCallback<HealthCheckResponse>() {
+                @Override
+                public void onSuccess(HealthCheckResponse response) {
+                    final Status status = response.getCommon().getStatus();
+                    final Code code = Code.forNumber(status.getCode());
+                    // target endpoints is healthy, rejoin it.
+                    if (Code.OK.equals(code)) {
+                        isolatedEndpointsSet.remove(endpoints);
+                        log.info("Rejoin endpoints which is isolated before, clientId={}, endpoints={}", id, endpoints);
+                        return;
+                    }
+                    log.warn("Failed to rejoin the endpoints which is isolated before, clientId={}, code={}, "
+                             + "status message=[{}], endpoints={}", id, code, status.getMessage(), endpoints);
+                }
+
+                @Override
+                public void onFailure(Throwable t) {
+                    log.error("Failed to do health check, clientId={}, endpoints={}", id, endpoints, t);
+                }
+            });
         }
     }
 
@@ -796,14 +770,7 @@ public class ProducerImpl extends ClientImpl {
 
     private List<Partition> takePartitions(SendingTopicRouteData sendingRouteData, int maxAttempts)
             throws ClientException {
-        Set<Endpoints> isolated = new HashSet<Endpoints>();
-        isolatedEndpointsSetLock.readLock().lock();
-        try {
-            isolated.addAll(isolatedEndpointsSet);
-        } finally {
-            isolatedEndpointsSetLock.readLock().unlock();
-        }
-        return sendingRouteData.takePartitions(isolated, maxAttempts);
+        return sendingRouteData.takePartitions(isolatedEndpointsSet, maxAttempts);
     }
 
     private ListenableFuture<Partition> selectPartition(final Message message, final MessageQueueSelector selector,
