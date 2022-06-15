@@ -557,7 +557,7 @@ public class PushConsumerImpl extends ConsumerImpl {
                 final Optional<ProcessQueue> optionalProcessQueue = createProcessQueue(mq, filterExpression);
                 if (!optionalProcessQueue.isPresent()) {
                     log.info("Process queue already exists, namespace={}, mq={}, clientId={}", namespace, mq, id);
-                    return;
+                    continue;
                 }
                 // New process queue is created and has been added into process queue table.
                 log.info("Start to fetch message from remote, namespace={}, mq={}, clientId={}", namespace, mq, id);
