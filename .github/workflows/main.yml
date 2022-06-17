@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # This is a basic workflow to help you get started with Actions
 
 name: CI
@@ -34,3 +35,23 @@ jobs:
         run: bazel -h
       - name: Compile All Targets
         run: bazel build //...
+=======
+name: CI
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 
+        uses: actions/checkout@v2
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: | 
+            5.0.x
+            6.0.x
+      - name: Build artifacts
+        run: |
+          dotnet --version
+          dotnet build
+>>>>>>> csharp
