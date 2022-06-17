@@ -1,0 +1,3 @@
+[submodule "rocketmq-proto/src/main/resources/proto"]
+	path = rocketmq-proto/src/main/resources/proto
+	url = https://github.com/apache/rocketmq-apis.git
