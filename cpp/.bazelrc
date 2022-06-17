@@ -1,0 +1,138 @@
+# Bazel doesn't need more than 200MB of memory for local build based on memory profiling:
+# https://docs.bazel.build/versions/master/skylark/performance.html#memory-profiling
+# The default JVM max heapsize is 1/4 of physical memory up to 32GB which could be large
+# enough to consume all memory constrained by cgroup in large host.
+# Limiting JVM heapsize here to let it do GC more when approaching the limit to
+# leave room for compiler/linker.
+# The number 2G is chosen heuristically to both support large VM and small VM with RBE.
+# Startup options cannot be selected via config.
+startup --host_jvm_args=-Xmx2g
+
+run --color=yes
+
+build --color=yes
+
+build --host_force_python=PY3
+build --host_javabase=@bazel_tools//tools/jdk:remote_jdk11
+build --javabase=@bazel_tools//tools/jdk:remote_jdk11
+
+# https://docs.bazel.build/versions/main/command-line-reference.html#flag--enable_platform_specific_config
+# If true, Bazel picks up host-OS-specific config lines from bazelrc files. For example, if the host OS is Linux and
+# you run bazel build, Bazel picks up lines starting with build:linux. Supported OS identifiers are linux, macos, 
+# windows, freebsd, and openbsd. Enabling this flag is equivalent to using --config=linux on Linux, 
+# --config=windows on Windows, etc.
+build --enable_platform_specific_config
+
+build:windows --cxxopt=/std:c++14
+
+build:macos --cxxopt=-std=c++11
+build:macos --strip=never
+build:macos --copt -g
+
+# Enable position independent code (this is the default on macOS and Windows)
+# (Workaround for https://github.com/bazelbuild/rules_foreign_cc/issues/421)
+build:linux --copt=-fPIC
+build:linux --cxxopt=-std=c++11
+build:linux --strip=never
+
+# We already have absl in the build, define absl=1 to tell googletest to use absl for backtrace.
+build --define absl=1
+build --define SPDLOG_FMT_EXTERNAL=1
+
+# Pass PATH, CC, CXX and LLVM_CONFIG variables from the environment.
+build --action_env=CC
+build --action_env=CXX
+build --action_env=LD_LIBRARY_PATH
+build --action_env=LLVM_CONFIG
+build --action_env=PATH
+
+build --copt=-maes
+
+# Common flags for sanitizers
+build:sanitizer --define tcmalloc=disabled
+build:sanitizer --linkopt -ldl
+build:sanitizer --build_tag_filters=-no_san
+build:sanitizer --test_tag_filters=-no_san
+
+# Common flags for Clang
+build:clang --action_env=BAZEL_COMPILER=clang
+build:clang --linkopt=-fuse-ld=lld
+
+
+# Address sanitizer
+# To use it: bazel build --config=asan
+build:asan --config=sanitizer
+build:asan --compiler clang
+build:asan --strip=never
+build:asan --copt -fsanitize=address
+# ASAN needs -O1 to get reasonable performance.
+build:asan --copt -O1
+build:asan --copt -fno-optimize-sibling-calls
+build:asan --copt -g
+build:asan --copt -fno-omit-frame-pointer
+build:asan --linkopt -fsanitize=address
+build:asan --copt -DADDRESS_SANITIZER=1
+build:asan --copt -D__SANITIZE_ADDRESS__
+
+# Clang ASAN/UBSAN
+build:clang-asan --config=asan
+build:clang-asan --linkopt -fuse-ld=lld
+
+build:macos-asan --config=asan
+# Workaround, see https://github.com/bazelbuild/bazel/issues/6932
+build:macos-asan --copt -Wno-macro-redefined
+build:macos-asan --copt -D_FORTIFY_SOURCE=0
+# Workaround, see https://github.com/bazelbuild/bazel/issues/4341
+build:macos-asan --copt -DGRPC_BAZEL_BUILD
+# Dynamic link cause issues like: `dyld: malformed mach-o: load commands size (59272) > 32768`
+build:macos-asan --dynamic_mode=off
+
+# Thread sanitizer
+# bazel build --config=tsan
+build:tsan --config=sanitizer
+build:tsan --compiler clang
+build:tsan --strip=never
+build:tsan --copt -fsanitize=thread
+build:tsan --copt -DTHREAD_SANITIZER
+build:tsan --copt -DDYNAMIC_ANNOTATIONS_ENABLED=1
+build:tsan --copt -DDYNAMIC_ANNOTATIONS_EXTERNAL_IMPL=1
+build:tsan --copt -O1
+build:tsan --copt -fno-omit-frame-pointer
+build:tsan --linkopt -fsanitize=thread
+
+# --config msan: Memory sanitizer
+build:msan --compiler clang
+build:msan --strip=never
+build:msan --copt -fsanitize=memory
+build:msan --copt -DADDRESS_SANITIZER
+build:msan --copt -O1
+build:msan --copt -fno-omit-frame-pointer
+build:msan --linkopt -fsanitize=memory
+
+# --config ubsan: Undefined Behavior Sanitizer
+build:ubsan --compiler clang
+build:ubsan --strip=never
+build:ubsan --copt -fsanitize=undefined
+build:ubsan --copt -O1
+build:ubsan --copt -fno-omit-frame-pointer
+build:ubsan --linkopt -fsanitize=undefined
+build:ubsan --linkopt -lubsan
+
+# Use remote cache, --config=remote_cache See https://docs.bazel.build/versions/main/guide.html#--config
+build:remote_cache --remote_cache=grpc://11.122.50.85:9092
+build:remote_cache --experimental_remote_downloader=grpc://11.122.50.85:9092
+test:remote_cache --remote_cache=grpc://11.122.50.85:9090
+test:remote_cache --remote_upload_local_results=true
+
+# Coverage options
+coverage --config=coverage
+# 1.5x original timeout + 300s for trace merger in all categories
+build:coverage --test_timeout=390,750,1500,5700
+build:coverage --define=dynamic_link_tests=true
+build:coverage --combined_report=lcov
+build:coverage --strategy=TestRunner=sandboxed,local
+build:coverage --strategy=CoverageReport=sandboxed,local
+build:coverage --collect_code_coverage
+build:coverage --instrumentation_filter="//src/main/cpp[/:],//api[/:],-//src/main/cpp/base/mocks[/:],-//src/main/cpp/client/mocks[/:],-//src/main/cpp/rocketmq/mocks[/:]"
+
+test --test_output=errors
