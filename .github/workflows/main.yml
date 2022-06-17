@@ -13,6 +13,7 @@ jobs:
             5.0.x
             6.0.x
       - name: Build artifacts
+        working-directory: ./csharp
         run: |
           dotnet --version
           dotnet build
