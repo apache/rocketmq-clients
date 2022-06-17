@@ -15,6 +15,12 @@
 
 github:
   description: "Collection of Polyglot Clients for Apache RocketMQ"
+  labels:
+    - messaging
+    - rocketmq
+    - cpp
+    - csharp
+    - java
   features:
     # Enable wiki for documentation
     wiki: true
