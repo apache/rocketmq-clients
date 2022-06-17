@@ -1,4 +1,5 @@
 github:
+  description: "Collection of Polyglot Clients for Apache RocketMQ"
   features:
     # Enable wiki for documentation
     wiki: true
