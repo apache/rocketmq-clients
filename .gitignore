@@ -1,6 +1,26 @@
-bin
-obj
+# Intellij IDEA
+.idea/
+out/
+*.ipr
+*.iml
+*.iws
+
+# Eclipse
+.classpath
+.project
+.settings/
+.metadata/
+.factorypath
+
+# MacOS
+**/.DS_Store
+
+# Visual Studio Code
 .vscode/
-.idea
-*.user
-*DS_Store
+
+# Maven
+target/
+*.ser
+*.ec
+dependency-reduced-pom.xml
+.flattened-pom.xml
