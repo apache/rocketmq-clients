@@ -31,6 +31,7 @@ import org.apache.rocketmq.client.java.message.MessageCommon;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.tool.TestBase;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -42,6 +43,7 @@ import static org.mockito.Mockito.when;
 public class StandardConsumeServiceTest extends TestBase {
 
     @Test
+    @Ignore
     public void testDispatch0() {
         final ProcessQueue processQueue0 = mock(ProcessQueue.class);
         final ProcessQueue processQueue1 = mock(ProcessQueue.class);
