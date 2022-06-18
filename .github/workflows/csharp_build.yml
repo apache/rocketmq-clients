@@ -1,0 +1,21 @@
+name: C# Build
+on: [push, pull_request]
+jobs:
+  c_sharp_build:
+    name: C# Build Job
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 
+        uses: actions/checkout@v2
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: | 
+            5.0.x
+            6.0.x
+      - name: Build artifacts
+        working-directory: ./csharp
+        run: |
+          dotnet --version
+          dotnet build
+
