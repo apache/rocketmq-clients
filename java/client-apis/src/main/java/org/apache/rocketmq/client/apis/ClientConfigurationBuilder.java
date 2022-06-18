@@ -17,9 +17,9 @@
 
 package org.apache.rocketmq.client.apis;
 
-import java.time.Duration;
-
 import static com.google.common.base.Preconditions.checkNotNull;
+
+import java.time.Duration;
 
 /**
  * Builder to set {@link ClientConfiguration}.

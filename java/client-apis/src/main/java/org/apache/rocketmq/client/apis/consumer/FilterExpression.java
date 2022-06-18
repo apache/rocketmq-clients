@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-
 package org.apache.rocketmq.client.apis.consumer;
 
-import java.util.Objects;
-
 import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.common.base.Objects;
 
 /**
  * Filter expression is an efficient way to filter message for {@link SimpleConsumer} and {@link PushConsumer}.
@@ -68,6 +67,6 @@ public class FilterExpression {
 
     @Override
     public int hashCode() {
-        return Objects.hash(expression, filterExpressionType);
+        return Objects.hashCode(expression, filterExpressionType);
     }
 }

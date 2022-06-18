@@ -23,7 +23,8 @@ import org.apache.rocketmq.client.apis.message.MessageView;
  * MessageListener is used only for push consumer to process message consumption synchronously.
  *
  * <p> Refer to {@link PushConsumer}, push consumer will get message from server
- * and dispatch the message to backend thread pool which control by parameter threadCount to consumer message concurrently.
+ * and dispatch the message to backend thread pool which control by parameter threadCount to consumer message
+ * concurrently.
  */
 public interface MessageListener {
     /**

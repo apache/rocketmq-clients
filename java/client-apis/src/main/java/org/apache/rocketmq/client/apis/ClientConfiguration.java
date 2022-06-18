@@ -28,18 +28,19 @@ public class ClientConfiguration {
     private final SessionCredentialsProvider sessionCredentialsProvider;
     private final Duration requestTimeout;
 
-    public static ClientConfigurationBuilder newBuilder() {
-        return new ClientConfigurationBuilder();
-    }
-
     /**
      * The caller is supposed to have validated the arguments and handled throwing exception or
      * logging warnings already, so we avoid repeating args check here.
      */
-    ClientConfiguration(String accessPoint, SessionCredentialsProvider sessionCredentialsProvider, Duration requestTimeout) {
+    ClientConfiguration(String accessPoint, SessionCredentialsProvider sessionCredentialsProvider,
+        Duration requestTimeout) {
         this.accessPoint = accessPoint;
         this.sessionCredentialsProvider = sessionCredentialsProvider;
         this.requestTimeout = requestTimeout;
+    }
+
+    public static ClientConfigurationBuilder newBuilder() {
+        return new ClientConfigurationBuilder();
     }
 
     public String getAccessPoint() {

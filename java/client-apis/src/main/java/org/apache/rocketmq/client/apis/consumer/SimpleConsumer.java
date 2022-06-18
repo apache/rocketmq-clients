@@ -41,9 +41,10 @@ import org.apache.rocketmq.client.apis.message.MessageView;
  * should be set in this case.
  *
  * <p> Simple consumer divide message consumption to 3 parts.
- * Firstly, call receive api get messages from server; Then process message by yourself; At last, your must call Ack api to commit this message.
- * If there is error when process message ,your can reconsume the message later which control by the invisibleDuration parameter.
- * Also, you can change the invisibleDuration by call changeInvisibleDuration api.
+ * Firstly, call receive api get messages from server; Then process message by yourself; At last, your must call Ack api
+ * to commit this message.
+ * If there is error when process message ,your can reconsume the message later which control by the invisibleDuration
+ * parameter. Also, you can change the invisibleDuration by call changeInvisibleDuration api.
  */
 public interface SimpleConsumer extends Closeable {
     /**
@@ -92,7 +93,8 @@ public interface SimpleConsumer extends Closeable {
      * Otherwise, it will await the passed timeout. If the timeout expires, an empty map will be returned.
      *
      * @param maxMessageNum     max message num when server returns.
-     * @param invisibleDuration set the invisibleDuration of messages return from server. These messages will be invisible to other consumer unless timout.
+     * @param invisibleDuration set the invisibleDuration of messages return from server. These messages will be
+     *                          invisible to other consumer unless timout.
      * @return list of messageView
      */
     List<MessageView> receive(int maxMessageNum, Duration invisibleDuration) throws ClientException;
@@ -103,7 +105,8 @@ public interface SimpleConsumer extends Closeable {
      * Otherwise, it will await the passed timeout. If the timeout expires, an empty map will be returned.
      *
      * @param maxMessageNum     max message num when server returns.
-     * @param invisibleDuration set the invisibleDuration of messages return from server. These messages will be invisible to other consumer unless timout.
+     * @param invisibleDuration set the invisibleDuration of messages return from server. These messages will be
+     *                          invisible to other consumer unless timout.
      * @return list of messageView
      */
     CompletableFuture<List<MessageView>> receiveAsync(int maxMessageNum, Duration invisibleDuration);
@@ -133,8 +136,10 @@ public interface SimpleConsumer extends Closeable {
      * <p> The origin invisible duration for a message decide by ack request.
      *
      * <p>You must call change request before the origin invisible duration timeout.
-     * If called change request later than the origin invisible duration, this request does not take effect and throw exception.
-     * Duplicate change request will refresh the next visible time of this message to other consumers.
+     * If called change request later than the origin invisible duration, this request does not take effect and throw
+     * exception.
+     *
+     * <p>Duplicate change request will refresh the next visible time of this message to other consumers.
      *
      * @param messageView       special messageView with handle want to change.
      * @param invisibleDuration new timestamp the message could be visible and reconsume which start from current time.
@@ -147,8 +152,10 @@ public interface SimpleConsumer extends Closeable {
      * <p> The origin invisible duration for a message decide by ack request.
      *
      * <p> You must call change request before the origin invisible duration timeout.
-     * If called change request later than the origin invisible duration, this request does not take effect and throw exception.
-     * Duplicate change request will refresh the next visible time of this message to other consumers.
+     * If called change request later than the origin invisible duration, this request does not take effect and throw
+     * exception.
+     *
+     * <p>Duplicate change request will refresh the next visible time of this message to other consumers.
      *
      * @param messageView       special messageView with handle want to change.
      * @param invisibleDuration new timestamp the message could be visible and reconsume which start from current time.

@@ -17,9 +17,9 @@
 
 package org.apache.rocketmq.client.apis;
 
-import java.util.Optional;
-
 import static com.google.common.base.Preconditions.checkNotNull;
+
+import java.util.Optional;
 
 /**
  * Session credentials used in service authentications.
