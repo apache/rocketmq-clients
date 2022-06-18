@@ -132,8 +132,7 @@ class ProducerImpl extends ClientImpl implements Producer {
             messageView = MessageViewImpl.fromProtobuf(command.getOrphanedTransactionalMessage(), mq);
         } catch (Throwable t) {
             LOGGER.error("[Bug] Failed to decode message during orphaned transaction message recovery, messageId={}, "
-                    + "transactionId={}, endpoints={}, clientId={}", messageId, transactionId, endpoints, endpoints,
-                clientId, t);
+                    + "transactionId={}, endpoints={}, clientId={}", messageId, transactionId, endpoints, clientId, t);
             return;
         }
         ListenableFuture<TransactionResolution> future;
@@ -516,8 +515,8 @@ class ProducerImpl extends ClientImpl implements Producer {
                 if (MessageType.TRANSACTION.equals(messageType)) {
                     future.setException(t);
                     LOGGER.error("Failed to send transactional message finally, maxAttempts=1, attempt={}, " +
-                            "topic={}, messageId(s), endpoints={}, clientId={}", attempt, topic, messageIds, endpoints,
-                        clientId, t);
+                            "topic={}, messageId(s)={}, endpoints={}, clientId={}", attempt, topic, messageIds,
+                        endpoints, clientId, t);
                     return;
                 }
                 // Try to do more attempts.
