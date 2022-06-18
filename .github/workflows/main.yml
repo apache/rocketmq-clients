@@ -1,6 +1,22 @@
 name: CI
 on: [push, pull_request]
 jobs:
+  cpp_build:
+    name: CPP build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Bazel
+        run: |
+          sudo apt-get -qq install npm
+          sudo npm install -g @bazel/bazelisk
+      - name: Use Bazel
+        if: matrix.os != 'windows'
+        working-directory: ./cpp
+        run: bazel -h
+      - name: Compile All Targets
+        working-directory: ./cpp
+        run: bazel build //...
   c_sharp_build:
     name: C# build
     runs-on: ubuntu-latest
