@@ -17,6 +17,9 @@
 
 package org.apache.rocketmq.client.apis.producer;
 
+/**
+ * Resolution of {@link Transaction}.
+ */
 public enum TransactionResolution {
     /**
      * Notify server that current transaction should be committed.
@@ -30,5 +33,5 @@ public enum TransactionResolution {
      * Notify server that the state of this transaction is not sure. You should be cautions before return unknown
      * because the examination from server will be performed periodically.
      */
-    UNKNOWN;
+    UNKNOWN
 }

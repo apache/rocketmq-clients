@@ -27,24 +27,32 @@ import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.message.MessageView;
 
 /**
- * SimpleConsumer is a thread-safe rocketmq client which is used to consume message by group.
+ * Simple consumer is a thread-safe rocketmq client which is used to consume message by group.
  *
- * <p>Simple consumer is lightweight consumer , if you want fully control the message consumption operation by yourself,
+ * <p>Simple consumer is lightweight consumer, if you want fully control the message consumption operation by yourself,
  * simple consumer should be your first consideration.
  *
- * <p>Consumers belong to the same consumer group share messages from server,
- * so consumer in the same group must have the same subscription expressions, otherwise the behavior is
- * undefined. If a new consumer group's consumer is started first time, it consumes from the latest position. Once
- * consumer is started, server records its consumption progress and derives it in subsequent startup.
+ * <p>Similar to {@link PushConsumer}, consumers belong to the same consumer group share messages from server, which
+ * means they must have the same subscription expressions, otherwise the behavior is <strong>UNDEFINED</strong>.
  *
- * <p>You may intend to maintain different consumption progress for different consumer, different consumer group
- * should be set in this case.
+ * <p>In addition, the simple consumer can share a consumer group with the {@link PushConsumer}, at which time they
+ * share the common consumption progress.
  *
- * <p> Simple consumer divide message consumption to 3 parts.
- * Firstly, call receive api get messages from server; Then process message by yourself; At last, your must call Ack api
- * to commit this message.
- * If there is error when process message ,your can reconsume the message later which control by the invisibleDuration
- * parameter. Also, you can change the invisibleDuration by call changeInvisibleDuration api.
+ * <h3>Share consume progress with push consumer</h3>
+ * <pre>
+ * ┌──────────────────┐        ┌─────────────────┐
+ * │consume progress 0│◄─┐  ┌─►│simple consumer A│
+ * └──────────────────┘  │  │  └─────────────────┘
+ *                       ├──┤
+ *  ┌─────────────────┐  │  │  ┌───────────────┐
+ *  │topic X + group 0│◄─┘  └─►│push consumer B│
+ *  └─────────────────┘        └───────────────┘
+ * </pre>
+ *
+ * <p>Simple consumer divide message consumption to 3 phases.
+ * 1. Receive message from server.
+ * 2. Executes your operations after receiving message.
+ * 3. Acknowledge the message or change its invisible duration before next delivery according the operation result.
  */
 public interface SimpleConsumer extends Closeable {
     /**

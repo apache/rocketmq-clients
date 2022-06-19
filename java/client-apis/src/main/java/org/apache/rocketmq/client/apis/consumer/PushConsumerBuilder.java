@@ -21,6 +21,9 @@ import java.util.Map;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 
+/**
+ * Builder to config and start {@link PushConsumer}.
+ */
 public interface PushConsumerBuilder {
     /**
      * Set the client configuration for consumer.

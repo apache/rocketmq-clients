@@ -17,6 +17,9 @@
 
 package org.apache.rocketmq.client.apis;
 
+/**
+ * Static implementation of {@link SessionCredentialsProvider}, which means the credentials are immutable.
+ */
 public class StaticSessionCredentialsProvider implements SessionCredentialsProvider {
     private final SessionCredentials credentials;
 

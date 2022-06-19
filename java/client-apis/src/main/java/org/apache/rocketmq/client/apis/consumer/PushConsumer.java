@@ -23,18 +23,37 @@ import java.util.Map;
 import org.apache.rocketmq.client.apis.ClientException;
 
 /**
- * PushConsumer is a thread-safe rocketmq client which is used to consume message by group.
+ * Push consumer is a thread-safe and full-managed rocketmq client which is used to consume message by group.
  *
- * <p>Push consumer is fully-managed consumer, if you are confused to choose your consumer, push consumer should be
- * your first consideration.
+ * <p>Consumers belong to the same consumer group share messages from server, which means they must have the same
+ * subscription expressions, otherwise the behavior is <strong>undefined</strong>. If a new consumer group's consumer
+ * is started first time, it consumes from the latest position. Once consumer is started, server records its
+ * consumption progress and derives it in subsequent startup, or we can call it clustering mode.
  *
- * <p>Consumers belong to the same consumer group share messages from server,
- * so consumer in the same group must have the same subscription expressions, otherwise the behavior is
- * undefined. If a new consumer group's consumer is started first time, it consumes from the latest position. Once
- * consumer is started, server records its consumption progress and derives it in subsequent startup.
+ * <h3>Clustering mode</h3>
+ * <pre>
+ * ┌──────────────────┐        ┌──────────┐
+ * │consume progress 0│◄─┐  ┌─►│consumer A│
+ * └──────────────────┘  │  │  └──────────┘
+ *                       ├──┤
+ *  ┌─────────────────┐  │  │  ┌──────────┐
+ *  │topic X + group 0│◄─┘  └─►│consumer B│
+ *  └─────────────────┘        └──────────┘
+ * </pre>
  *
- * <p>You may intend to maintain different consumption progress for different consumer, different consumer group
- * should be set in this case.
+ * <p>As for broadcasting mode, you may intend to maintain different consumption progress for different consumer,
+ * different consumer group should be set in this case.
+ *
+ * <h3>Broadcasting mode</h3>
+ * <pre>
+ * ┌──────────────────┐     ┌──────────┐     ┌──────────────────┐
+ * │consume progress 0│◄─┬──┤consumer A│  ┌─►│consume progress 1│
+ * └──────────────────┘  │  └──────────┘  │  └──────────────────┘
+ *                       │                │
+ *  ┌─────────────────┐  │  ┌──────────┐  │  ┌─────────────────┐
+ *  │topic X + group 0│◄─┘  │consumer B├──┴─►│topic X + group 1│
+ *  └─────────────────┘     └──────────┘     └─────────────────┘
+ * </pre>
  *
  * <p>To accelerate the message consumption, push consumer applies
  * <a href="https://en.wikipedia.org/wiki/Reactive_Streams">reactive streams</a>

@@ -24,7 +24,7 @@ import java.util.Optional;
  * Common client configuration.
  */
 public class ClientConfiguration {
-    private final String accessPoint;
+    private final String endpoints;
     private final SessionCredentialsProvider sessionCredentialsProvider;
     private final Duration requestTimeout;
 
@@ -32,9 +32,9 @@ public class ClientConfiguration {
      * The caller is supposed to have validated the arguments and handled throwing exception or
      * logging warnings already, so we avoid repeating args check here.
      */
-    ClientConfiguration(String accessPoint, SessionCredentialsProvider sessionCredentialsProvider,
+    ClientConfiguration(String endpoints, SessionCredentialsProvider sessionCredentialsProvider,
         Duration requestTimeout) {
-        this.accessPoint = accessPoint;
+        this.endpoints = endpoints;
         this.sessionCredentialsProvider = sessionCredentialsProvider;
         this.requestTimeout = requestTimeout;
     }
@@ -43,8 +43,8 @@ public class ClientConfiguration {
         return new ClientConfigurationBuilder();
     }
 
-    public String getAccessPoint() {
-        return accessPoint;
+    public String getEndpoints() {
+        return endpoints;
     }
 
     public Optional<SessionCredentialsProvider> getCredentialsProvider() {

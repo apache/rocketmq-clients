@@ -37,10 +37,18 @@ public class FilterExpression {
         this.filterExpressionType = checkNotNull(filterExpressionType, "filterExpressionType should not be null");
     }
 
+    /**
+     * If the {@link FilterExpressionType} is not specified, the type is {@link FilterExpressionType#TAG}.
+     *
+     * @param expression tag filter expression.
+     */
     public FilterExpression(String expression) {
         this(expression, FilterExpressionType.TAG);
     }
 
+    /**
+     * Default constructor, which means that messages are not filtered.
+     */
     public FilterExpression() {
         this(TAG_EXPRESSION_SUB_ALL);
     }

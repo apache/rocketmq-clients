@@ -17,6 +17,9 @@
 
 package org.apache.rocketmq.client.apis.consumer;
 
+/**
+ * Designed for push consumer specifically.
+ */
 public enum ConsumeResult {
     /**
      * Consume message successfully.

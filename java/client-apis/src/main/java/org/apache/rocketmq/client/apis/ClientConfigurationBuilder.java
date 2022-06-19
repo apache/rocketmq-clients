@@ -41,6 +41,12 @@ public class ClientConfigurationBuilder {
         return this;
     }
 
+    /**
+     * Config the session credential provider.
+     *
+     * @param sessionCredentialsProvider session credential provider.
+     * @return the client configuration builder instance.
+     */
     public ClientConfigurationBuilder setCredentialProvider(SessionCredentialsProvider sessionCredentialsProvider) {
         this.sessionCredentialsProvider = checkNotNull(sessionCredentialsProvider, "credentialsProvider should not " +
             "be null");

@@ -35,6 +35,14 @@ import org.apache.rocketmq.client.java.misc.Utilities;
  * <p>The message id of versions above V1 consists of 17 bytes in total. The first two bytes represent the version
  * number. For V1, these two bytes are 0x0001.
  *
+ * <h3>V1 message id example</h3>
+ *
+ * <pre>
+ * ┌──┬────────────┬────┬────────┬────────┐
+ * │01│56F7E71C361B│21BC│024CCDBE│00000000│
+ * └──┴────────────┴────┴────────┴────────┘
+ * </pre>
+ *
  * <h3>V1 version message id generation rules</h3>
  *
  * <pre>

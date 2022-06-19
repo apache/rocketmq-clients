@@ -39,6 +39,18 @@ public interface ProducerBuilder {
      * <p>Even though the declaration is not essential, we <strong>highly recommend</strong> to declare the topics in
      * advance, which could help to discover potential mistakes.
      *
+     * <pre>{@code
+     * // Example 0: single topic.
+     * producerBuilder.setTopics("topicA");
+     * // Example 1: multiple topics.
+     * producerBuilder.setTopics("topicA", "topicB");
+     * // Example 2: multiple topics.
+     * ArrayList<String> topicList = new ArrayList<>();
+     * topicList.add("topicA");
+     * topicList.add("topicB");
+     * producerBuilder.setTopics(topicList);
+     * }</pre>
+     *
      * @param topics topics to send/prepare.
      * @return the producer builder instance.
      */

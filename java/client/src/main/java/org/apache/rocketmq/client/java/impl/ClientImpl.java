@@ -123,8 +123,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
 
     public ClientImpl(ClientConfiguration clientConfiguration, Set<String> topics) {
         this.clientConfiguration = checkNotNull(clientConfiguration, "clientConfiguration should not be null");
-        final String accessPoint = clientConfiguration.getAccessPoint();
-        this.accessEndpoints = new Endpoints(accessPoint);
+        this.accessEndpoints = new Endpoints(clientConfiguration.getEndpoints());
         this.topics = topics;
         // Generate client id firstly.
         this.clientId = Utilities.genClientId();
