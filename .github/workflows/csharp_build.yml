@@ -2,8 +2,8 @@ name: C# Build
 on: [push, pull_request]
 jobs:
   c_sharp_build:
-    name: C# Build Job
-    runs-on: ubuntu-latest
+    name: Ubuntu 18.04 Build
+    runs-on: ubuntu-18.04
     steps:
       - name: Checkout 
         uses: actions/checkout@v2

@@ -1,9 +1,9 @@
 name: CPP Build
 on: [push, pull_request]
 jobs:
-  cpp_build:
-    name: CPP Build Job
-    runs-on: ubuntu-latest
+  cpp_ubuntu_18_04_build:
+    name: Ubuntu 18.04 Build
+    runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
       - name: Setup Bazel
@@ -17,3 +17,19 @@ jobs:
       - name: Compile All Targets
         working-directory: ./cpp
         run: bazel build //...
+  cpp_mac_os_10_15_build:
+    name: MacOS 10.15 Build
+    runs-on: macos-10.15
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Bazel
+        run: |
+          brew install bazelisk
+      - name: Use Bazel
+        if: matrix.os != 'windows'
+        working-directory: ./cpp
+        run: bazel -h
+      - name: Compile All Targets
+        working-directory: ./cpp
+        run: bazel build //...
+  
