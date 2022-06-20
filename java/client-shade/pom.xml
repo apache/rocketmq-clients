@@ -14,6 +14,186 @@
     <properties>
         <maven.compiler.release>8</maven.compiler.release>
         <project.root>${basedir}/..</project.root>
+        <!-- Rename dynamic link library for shade -->
+        <configFilePrefix>rocketmq</configFilePrefix>
+        <shadePrefix>org.apache.rocketmq.shaded</shadePrefix>
+        <classesShadedDir>${project.build.directory}/classes-shaded</classesShadedDir>
+        <classesShadedNativeDir>${classesShadedDir}/META-INF/native</classesShadedNativeDir>
+        <shadingNettyNativePrefix>org_apache_rocketmq_shaded</shadingNettyNativePrefix>
+        <shadeJarName>${project.build.finalName}.${project.packaging}</shadeJarName>
     </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>rocketmq-client-java-noshade</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>${maven-shade-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <minimizeJar>false</minimizeJar>
+                            <createSourcesJar>true</createSourcesJar>
+                            <shadeSourcesContent>true</shadeSourcesContent>
+                            <transformers>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer"/>
+                            </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>com.google.protobuf:protobuf-java</artifact>
+                                    <excludes>
+                                        <exclude>google/**/*.proto</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>com.google.api.grpc:proto-google-common-protos</artifact>
+                                    <excludes>
+                                        <exclude>google/**/*.proto</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>io.opentelemetry:opentelemetry-proto</artifact>
+                                    <excludes>
+                                        <exclude>opentelemetry/proto/**/*.proto</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.apache.rocketmq:rocketmq-proto</artifact>
+                                    <excludes>
+                                        <exclude>proto/**/*.proto</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.slf4j</pattern>
+                                    <shadedPattern>io.github.aliyunmq.shaded.org.slf4j</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>ch.qos.logback</pattern>
+                                    <shadedPattern>${shadePrefix}.ch.qos.logback</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <!-- logback internal constant, see
+                                      ch.qos.logback.classic.util.ContextInitializer -->
+                                    <rawString>true</rawString>
+                                    <pattern>^logback.configurationFile$</pattern>
+                                    <shadedPattern>${configFilePrefix}.logback.configurationFile</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <!-- shades logback internal constant, see
+                                      ch.qos.logback.classic.util.ContextInitializer -->
+                                    <rawString>true</rawString>
+                                    <pattern>^logback.groovy$</pattern>
+                                    <shadedPattern>${configFilePrefix}.logback.groovy</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <!-- shades logback internal constant and rename user's logback file, see
+                                      ch.qos.logback.classic.util.ContextInitializer -->
+                                    <rawString>true</rawString>
+                                    <pattern>^logback(-test)?.xml$</pattern>
+                                    <shadedPattern>${configFilePrefix}.logback$1.xml</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <!-- logback internal constant, see ch.qos.logback.classic.ClassicConstants -->
+                                    <rawString>true</rawString>
+                                    <pattern>^logback.ContextSelector$</pattern>
+                                    <shadedPattern>${configFilePrefix}.logback.ContextSelector</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <!-- logback internal constant, see ch.qos.logback.classic.ClassicConstants -->
+                                    <rawString>true</rawString>
+                                    <pattern>^java:comp/env/logback/configuration-resource$</pattern>
+                                    <shadedPattern>java:comp/env/${configFilePrefix}.logback/configuration-resource
+                                    </shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <!-- logback internal constant, see ch.qos.logback.classic.ClassicConstants -->
+                                    <rawString>true</rawString>
+                                    <pattern>^java:comp/env/logback/context-name$</pattern>
+                                    <shadedPattern>java:comp/env/${configFilePrefix}.logback/context-name
+                                    </shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.grpc.netty.shaded.io.grpc</pattern>
+                                    <shadedPattern>${shadePrefix}.grpc</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.grpc</pattern>
+                                    <shadedPattern>${shadePrefix}.io.grpc</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.opentelemetry</pattern>
+                                    <shadedPattern>${shadePrefix}.io.opentelemetry</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.google</pattern>
+                                    <shadedPattern>${shadePrefix}.com.google</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.commons</pattern>
+                                    <shadedPattern>${shadePrefix}.commons</shadedPattern>
+                                </relocation>
+                            </relocations>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>${maven-antrun-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <unzip dest="${classesShadedDir}">
+                                    <fileset dir="${project.build.directory}">
+                                        <include name="${shadeJarName}"/>
+                                    </fileset>
+                                </unzip>
+                                <move file="${classesShadedNativeDir}/io_grpc_netty_shaded_netty_tcnative_windows_x86_64.dll"
+                                      tofile="${classesShadedNativeDir}/${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_windows_x86_64.dll"/>
+
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_tcnative_linux_aarch_64.so"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_linux_aarch_64.so"/>
+
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_tcnative_linux_x86_64.so"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_linux_x86_64.so"/>
+
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_tcnative_osx_x86_64.jnilib"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_osx_x86_64.jnilib"/>
+
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_transport_native_epoll_x86_64.so"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_transport_native_epoll_x86_64.so"/>
+
+                                <jar destfile="${project.build.directory}/${shadeJarName}"
+                                     basedir="${classesShadedDir}"/>
+                                <!-- <delete dir="${classesShadedDir}"/> -->
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

@@ -24,3 +24,6 @@ target/
 *.ec
 dependency-reduced-pom.xml
 .flattened-pom.xml
+
+# Java
+java/client/src/main/java/org/apache/rocketmq/client/java/example/

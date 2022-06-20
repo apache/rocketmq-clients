@@ -22,7 +22,7 @@ higher.
 
 ## Getting Started
 
-Add dependency to your `pom.xml`, and replace the `${rocketmq.version}` by the latest version.
+Add dependency to your `pom.xml`, and replace the `${rocketmq.version}` with the latest version.
 
 ```xml
 <dependency>
@@ -32,8 +32,9 @@ Add dependency to your `pom.xml`, and replace the `${rocketmq.version}` by the l
 </dependency>
 ```
 
-It is worth noting that `rocketmq-client-java` is a shaded jar, which means you could not substitute its dependencies.
-From the perspective of avoiding dependency conflicts, you may need a shaded client in most case, but we also provided
+> **Note**<br>
+`rocketmq-client-java` is a shaded jar, which means you could not substitute its dependencies.
+From the perspective of avoiding dependency conflicts, you may need a shaded client in most cases, but we also provided
 the no-shaded client.
 
 ```xml
@@ -43,5 +44,3 @@ the no-shaded client.
     <version>${rocketmq.version}</version>
 </dependency>
 ```
-
-
