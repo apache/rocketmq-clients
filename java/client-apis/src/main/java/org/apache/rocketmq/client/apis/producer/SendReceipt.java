@@ -20,7 +20,7 @@ package org.apache.rocketmq.client.apis.producer;
 import org.apache.rocketmq.client.apis.message.MessageId;
 
 /**
- * A receipt from server, which only makes sense when message is sent successfully.
+ * A receipt from the server, which only makes sense when the message is sent successfully.
  */
 public interface SendReceipt {
     MessageId getMessageId();

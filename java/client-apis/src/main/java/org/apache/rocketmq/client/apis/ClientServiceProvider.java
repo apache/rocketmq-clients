@@ -39,14 +39,14 @@ public interface ClientServiceProvider {
     }
 
     /**
-     * Get the producer builder by current provider.
+     * Get the producer builder by the current provider.
      *
      * @return the producer builder instance.
      */
     ProducerBuilder newProducerBuilder();
 
     /**
-     * Get the message builder by current provider.
+     * Get the message builder by the current provider.
      *
      * @return the message builder instance.
      */

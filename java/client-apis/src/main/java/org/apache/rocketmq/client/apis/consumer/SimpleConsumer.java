@@ -27,12 +27,12 @@ import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.message.MessageView;
 
 /**
- * Simple consumer is a thread-safe rocketmq client which is used to consume message by group.
+ * Simple consumer is a thread-safe rocketmq client which is used to consume messages by the consumer group.
  *
- * <p>Simple consumer is lightweight consumer, if you want fully control the message consumption operation by yourself,
- * simple consumer should be your first consideration.
+ * <p>Simple consumer is a lightweight consumer, if you want to fully control the message consumption operation by
+ * yourself, the simple consumer should be your first consideration.
  *
- * <p>Similar to {@link PushConsumer}, consumers belong to the same consumer group share messages from server, which
+ * <p>Similar to {@link PushConsumer}, consumers belong to the same consumer group share messages from the server, which
  * means they must have the same subscription expressions, otherwise the behavior is <strong>UNDEFINED</strong>.
  *
  * <p>In addition, the simple consumer can share a consumer group with the {@link PushConsumer}, at which time they
@@ -50,13 +50,14 @@ import org.apache.rocketmq.client.apis.message.MessageView;
  * </pre>
  *
  * <p>Simple consumer divide message consumption to 3 phases.
- * 1. Receive message from server.
- * 2. Executes your operations after receiving message.
- * 3. Acknowledge the message or change its invisible duration before next delivery according the operation result.
+ * 1. Receive messages from the server.
+ * 2. Executes your operations after receiving messages.
+ * 3. Acknowledge the message or change its invisible duration before the next delivery according to the operation
+ * result.
  */
 public interface SimpleConsumer extends Closeable {
     /**
-     * Get the load balancing group for simple consumer.
+     * Get the load balancing group for the simple consumer.
      *
      * @return consumer load balancing group.
      */
@@ -65,11 +66,11 @@ public interface SimpleConsumer extends Closeable {
     /**
      * Add subscription expression dynamically.
      *
-     * <p>If first subscriptionExpression that contains topicA and tag1 is exists already in consumer, then
-     * second subscriptionExpression which contains topicA and tag2, <strong>the result is that the second one
+     * <p>If the first subscription expression that contains topicA and tag1 has existed already in the consumer, then
+     * second subscription expression which contains topicA and tag2, <strong>the result is that the second one
      * replaces the first one instead of integrating them</strong>.
      *
-     * @param topic            new topic that need to add or update.
+     * @param topic            new topic that needs to add or update.
      * @param filterExpression new filter expression to add or update.
      * @return simple consumer instance.
      */
@@ -78,12 +79,13 @@ public interface SimpleConsumer extends Closeable {
     /**
      * Remove subscription expression dynamically by topic.
      *
-     * <p>It stops the backend task to fetch message from remote, and besides that, the local cached message whose topic
+     * <p>It stops the backend task to fetch messages from remote, and besides that, the locally cached message whose
+     * topic
      * was removed before would not be delivered to {@link MessageListener} anymore.
      *
-     * <p>Nothing occurs if the specified topic does not exist in subscription expressions of push consumer.
+     * <p>Nothing occurs if the specified topic does not exist in subscription expressions of the push consumer.
      *
-     * @param topic the topic to remove subscription.
+     * @param topic the topic to remove the subscription.
      * @return simple consumer instance.
      */
     SimpleConsumer unsubscribe(String topic) throws ClientException;
@@ -91,49 +93,49 @@ public interface SimpleConsumer extends Closeable {
     /**
      * List the existed subscription expressions in simple consumer.
      *
-     * @return map of topic to filter expression.
+     * @return map of topics to filter expression.
      */
     Map<String, FilterExpression> getSubscriptionExpressions();
 
     /**
-     * Fetch messages from server synchronously.
+     * Fetch messages from the server synchronously.
      * <p> This method returns immediately if there are messages available.
      * Otherwise, it will await the passed timeout. If the timeout expires, an empty map will be returned.
      *
-     * @param maxMessageNum     max message num when server returns.
-     * @param invisibleDuration set the invisibleDuration of messages return from server. These messages will be
-     *                          invisible to other consumer unless timout.
-     * @return list of messageView
+     * @param maxMessageNum     max message num of server returned.
+     * @param invisibleDuration set the invisibleDuration of messages to return from the server. These messages will be
+     *                          invisible to other consumers unless timeout.
+     * @return list of message view.
      */
     List<MessageView> receive(int maxMessageNum, Duration invisibleDuration) throws ClientException;
 
     /**
-     * Fetch messages from server asynchronously.
+     * Fetch messages from the server asynchronously.
      * <p> This method returns immediately if there are messages available.
      * Otherwise, it will await the passed timeout. If the timeout expires, an empty map will be returned.
      *
-     * @param maxMessageNum     max message num when server returns.
-     * @param invisibleDuration set the invisibleDuration of messages return from server. These messages will be
-     *                          invisible to other consumer unless timout.
-     * @return list of messageView
+     * @param maxMessageNum     max message num of server returned.
+     * @param invisibleDuration set the invisibleDuration of messages to return from the server. These messages will be
+     *                          invisible to other consumers unless timeout.
+     * @return list of message view.
      */
     CompletableFuture<List<MessageView>> receiveAsync(int maxMessageNum, Duration invisibleDuration);
 
     /**
      * Ack message to server synchronously, server commit this message.
      *
-     * <p> Duplicate ack request does not take effect and throw exception.
+     * <p>Duplicate ack request does not take effect and throw an exception.
      *
-     * @param messageView special messageView with handle want to ack.
+     * @param messageView special message view with handle want to ack.
      */
     void ack(MessageView messageView) throws ClientException;
 
     /**
-     * Ack message to server asynchronously, server commit this message.
+     * Ack message to the server asynchronously, server commit this message.
      *
-     * <p> Duplicate ack request does not take effect and throw exception.
+     * <p> Duplicate ack request does not take effect and throw an exception.
      *
-     * @param messageView special messageView with handle want to ack.
+     * @param messageView special message view with handle want to ack.
      * @return CompletableFuture of this request.
      */
     CompletableFuture<Void> ackAsync(MessageView messageView);
@@ -143,14 +145,10 @@ public interface SimpleConsumer extends Closeable {
      *
      * <p> The origin invisible duration for a message decide by ack request.
      *
-     * <p>You must call change request before the origin invisible duration timeout.
-     * If called change request later than the origin invisible duration, this request does not take effect and throw
-     * exception.
+     * <p>Duplicate change requests will refresh the next visible time of this message to consumers.
      *
-     * <p>Duplicate change request will refresh the next visible time of this message to other consumers.
-     *
-     * @param messageView       special messageView with handle want to change.
-     * @param invisibleDuration new timestamp the message could be visible and reconsume which start from current time.
+     * @param messageView       the message view to change invisible time.
+     * @param invisibleDuration new timestamp the message could be visible and re-consume which start from current time.
      */
     void changeInvisibleDuration(MessageView messageView, Duration invisibleDuration) throws ClientException;
 
@@ -159,14 +157,10 @@ public interface SimpleConsumer extends Closeable {
      *
      * <p> The origin invisible duration for a message decide by ack request.
      *
-     * <p> You must call change request before the origin invisible duration timeout.
-     * If called change request later than the origin invisible duration, this request does not take effect and throw
-     * exception.
+     * <p>Duplicate change requests will refresh the next visible time of this message to consumers.
      *
-     * <p>Duplicate change request will refresh the next visible time of this message to other consumers.
-     *
-     * @param messageView       special messageView with handle want to change.
-     * @param invisibleDuration new timestamp the message could be visible and reconsume which start from current time.
+     * @param messageView       the message view to change invisible time.
+     * @param invisibleDuration new timestamp the message could be visible and re-consume which start from current time.
      * @return CompletableFuture of this request.
      */
     CompletableFuture<Void> changeInvisibleDurationAsync(MessageView messageView, Duration invisibleDuration);

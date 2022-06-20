@@ -27,7 +27,7 @@ import org.apache.rocketmq.client.apis.ClientException;
  */
 public interface SimpleConsumerBuilder {
     /**
-     * Set the client configuration for simple consumer.
+     * Set the client configuration for the simple consumer.
      *
      * @param clientConfiguration client's configuration.
      * @return the simple consumer builder instance.
@@ -35,7 +35,7 @@ public interface SimpleConsumerBuilder {
     SimpleConsumerBuilder setClientConfiguration(ClientConfiguration clientConfiguration);
 
     /**
-     * Set the load balancing group for simple consumer.
+     * Set the load balancing group for the simple consumer.
      *
      * @param consumerGroup consumer load balancing group.
      * @return the consumer builder instance.
@@ -43,19 +43,19 @@ public interface SimpleConsumerBuilder {
     SimpleConsumerBuilder setConsumerGroup(String consumerGroup);
 
     /**
-     * Add subscriptionExpressions for simple consumer.
+     * Add subscription expressions for the simple consumer.
      *
-     * @param subscriptionExpressions subscriptions to add which use the map of topic to filterExpression.
+     * @param subscriptionExpressions subscriptions to add which use the map of topics to filter expressions.
      * @return the consumer builder instance.
      */
     SimpleConsumerBuilder setSubscriptionExpressions(Map<String, FilterExpression> subscriptionExpressions);
 
     /**
-     * Set the max await time when receive message from server.
+     * Set the max await time when receive messages from the server.
      * The simple consumer will hold this long-polling receive requests until  a message is returned or a timeout
      * occurs.
      *
-     * @param awaitDuration The maximum time to block when no message available.
+     * @param awaitDuration The maximum time to block when no message is available.
      * @return the consumer builder instance.
      */
     SimpleConsumerBuilder setAwaitDuration(Duration awaitDuration);
@@ -63,7 +63,7 @@ public interface SimpleConsumerBuilder {
     /**
      * Finalize the build of the {@link SimpleConsumer} instance and start.
      *
-     * <p>This method will block until simple consumer starts successfully.
+     * <p>This method will block until the simple consumer starts successfully.
      *
      * @return the simple consumer instance.
      */

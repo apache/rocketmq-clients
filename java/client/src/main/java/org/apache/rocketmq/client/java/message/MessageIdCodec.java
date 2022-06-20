@@ -26,13 +26,13 @@ import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.java.misc.Utilities;
 
 /**
- * The codec for the message id.
+ * The codec for the message-id.
  *
  * <p>Codec here provides the following two functions:
- * 1. Provide decoding function of message id of all versions above v0.
- * 2. Provide a generator of message id of v1 version.
+ * 1. Provide decoding function of message-id of all versions above v0.
+ * 2. Provide a generator of message-id of v1 version.
  *
- * <p>The message id of versions above V1 consists of 17 bytes in total. The first two bytes represent the version
+ * <p>The message-id of versions above V1 consists of 17 bytes in total. The first two bytes represent the version
  * number. For V1, these two bytes are 0x0001.
  *
  * <h3>V1 message id example</h3>

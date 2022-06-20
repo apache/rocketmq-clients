@@ -26,7 +26,7 @@ import org.apache.rocketmq.client.apis.ClientException;
  */
 public interface PushConsumerBuilder {
     /**
-     * Set the client configuration for consumer.
+     * Set the client configuration for the consumer.
      *
      * @param clientConfiguration client's configuration.
      * @return the consumer builder instance.
@@ -34,7 +34,7 @@ public interface PushConsumerBuilder {
     PushConsumerBuilder setClientConfiguration(ClientConfiguration clientConfiguration);
 
     /**
-     * Set the load balancing group for consumer.
+     * Set the load balancing group for the consumer.
      *
      * @param consumerGroup consumer load balancing group.
      * @return the consumer builder instance.

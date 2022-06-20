@@ -22,42 +22,42 @@ package org.apache.rocketmq.client.apis.message;
  */
 public interface MessageBuilder {
     /**
-     * Set the topic for message, which is essential for each message.
+     * Set the topic for the message, which is essential for each message.
      *
-     * @param topic topic for the message.
+     * @param topic the topic for the message.
      * @return the message builder instance.
      */
     MessageBuilder setTopic(String topic);
 
     /**
-     * Set the body for message, which is essential for each message.
+     * Set the body for the message, which is essential for each message.
      *
-     * <p>{@link Message} will deep-copy the body as its payload, thus any modification about the original body would
-     * not affect message itself.
+     * <p>{@link Message} will deep-copy the body as its payload, thus any modification to the original body would
+     * not affect the message itself.
      *
-     * @param body body for the message.
+     * @param body the body for the message.
      * @return the message builder instance.
      */
     MessageBuilder setBody(byte[] body);
 
     /**
-     * Set the tag for message, which is optional.
+     * Set the tag for the message, which is optional.
      *
-     * <p>Tag is a secondary classifier for each message besides topic.
+     * <p>Tag is a secondary classifier for each message besides the topic.
      *
-     * @param tag tag for the message.
+     * @param tag the tag for the message.
      * @return the message builder instance.
      */
     MessageBuilder setTag(String tag);
 
     /**
-     * Set the key collection for message, which is optional.
+     * Set the key collection for the message, which is optional.
      *
      * <p>Message key is another way to locate a message besides the {@link MessageId}, so it should be unique for
      * each message usually.
      *
-     * <p>Set a single key for each message is enough in most case, but the variadic argument here allows you to set
-     * multiple key at the same time. For example:
+     * <p>Set a single key for each message is enough in most cases, but the variadic argument here allows you to set
+     * multiple keys at the same time. For example:
      *
      * <pre>{@code
      * // Example 0: single key.
@@ -78,9 +78,9 @@ public interface MessageBuilder {
     MessageBuilder setKeys(String... keys);
 
     /**
-     * Set the group for message, which is optional.
+     * Set the group for the message, which is optional.
      *
-     * <p>Message group and delivery timestamp should not be set in the same message.
+     * <p>Message group and the delivery timestamp should not be set in the same message.
      *
      * @param messageGroup group for the message.
      * @return the message builder instance.
@@ -96,17 +96,17 @@ public interface MessageBuilder {
     MessageBuilder setTraceContext(String traceContext);
 
     /**
-     * Set the delivery timestamp for message, which is optional.
+     * Set the delivery timestamp for the message, which is optional.
      *
      * <p>Delivery timestamp and message group should not be set in the same message.
      *
-     * @param deliveryTimestamp delivery timestamp for message.
+     * @param deliveryTimestamp delivery timestamp for the message.
      * @return the message builder instance.
      */
     MessageBuilder setDeliveryTimestamp(long deliveryTimestamp);
 
     /**
-     * Add user property for message.
+     * Add user property for the message.
      *
      * @param key   single property key.
      * @param value single property value.

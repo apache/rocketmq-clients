@@ -23,12 +23,12 @@ import java.util.Map;
 import org.apache.rocketmq.client.apis.ClientException;
 
 /**
- * Push consumer is a thread-safe and full-managed rocketmq client which is used to consume message by group.
+ * Push consumer is a thread-safe and fully-managed rocketmq client which is used to consume messages by the group.
  *
- * <p>Consumers belong to the same consumer group share messages from server, which means they must have the same
+ * <p>Consumers belong to the same consumer group share messages from the server, which means they must have the same
  * subscription expressions, otherwise the behavior is <strong>undefined</strong>. If a new consumer group's consumer
- * is started first time, it consumes from the latest position. Once consumer is started, server records its
- * consumption progress and derives it in subsequent startup, or we can call it clustering mode.
+ * is started for the first time, it consumes from the latest position. Once the consumer is started, the server
+ * records its consumption progress and derives it in the subsequent startup, or we can call it clustering mode.
  *
  * <h3>Clustering mode</h3>
  * <pre>
@@ -41,8 +41,8 @@ import org.apache.rocketmq.client.apis.ClientException;
  *  └─────────────────┘        └──────────┘
  * </pre>
  *
- * <p>As for broadcasting mode, you may intend to maintain different consumption progress for different consumer,
- * different consumer group should be set in this case.
+ * <p>As for broadcasting mode, you may intend to maintain different consumption progress for different consumers,
+ * different consumer groups should be set in this case.
  *
  * <h3>Broadcasting mode</h3>
  * <pre>
@@ -64,7 +64,7 @@ import org.apache.rocketmq.client.apis.ClientException;
  */
 public interface PushConsumer extends Closeable {
     /**
-     * Get the load balancing group for consumer.
+     * Get the load balancing group for the consumer.
      *
      * @return consumer load balancing group.
      */
@@ -73,7 +73,7 @@ public interface PushConsumer extends Closeable {
     /**
      * List the existed subscription expressions in push consumer.
      *
-     * @return collections of subscription expression.
+     * @return collections of the subscription expression.
      */
     Map<String, FilterExpression> getSubscriptionExpressions();
 
@@ -88,12 +88,12 @@ public interface PushConsumer extends Closeable {
     /**
      * Remove subscription expression dynamically by topic.
      *
-     * <p>It stops the backend task to fetch message from remote, and besides that, the local cached message whose topic
-     * was removed before would not be delivered to {@link MessageListener} anymore.
+     * <p>It stops the backend task to fetch messages from the server, and besides that, the locally cached message
+     * whose topic was removed before would not be delivered to {@link MessageListener} anymore.
      *
-     * <p>Nothing occurs if the specified topic does not exist in subscription expressions of push consumer.
+     * <p>Nothing occurs if the specified topic does not exist in subscription expressions of the push consumer.
      *
-     * @param topic the topic to remove subscription.
+     * @param topic the topic to remove the subscription.
      * @return push consumer instance.
      */
     PushConsumer unsubscribe(String topic) throws ClientException;

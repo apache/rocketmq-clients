@@ -22,8 +22,8 @@ import org.apache.rocketmq.client.apis.ClientException;
 /**
  * An entity to describe an independent transaction.
  *
- * <p>Once request of commit of roll-back reached server, subsequent arrived commit or roll-back request in
- * {@link Transaction} would be ignored by server.
+ * <p>Once the request of commit of roll-back reached server, subsequently arrived commit or roll-back request in
+ * {@link Transaction} would be ignored by the server.
  *
  * <p>If transaction is not commit/roll-back in time, it is suspended until it is solved by {@link TransactionChecker}
  * or reach the end of life.
@@ -33,7 +33,7 @@ public interface Transaction {
      * Try to commit the transaction, which would expose the message before the transaction is closed if no exception
      * thrown.
      *
-     * <p>What you should pay more attention is that commit may be successful even exception thrown.
+     * <p>What you should pay more attention to is that the commitment may be successful even exception is thrown.
      */
     void commit() throws ClientException;
 
@@ -41,7 +41,7 @@ public interface Transaction {
      * Try to roll back the transaction, which would expose the message before the transaction is closed if no exception
      * thrown.
      *
-     * <p>What you should pay more attention is that roll-back may be successful even exception thrown.
+     * <p>What you should pay more attention to is that the roll-back may be successful even exception is thrown.
      */
     void rollback() throws ClientException;
 }

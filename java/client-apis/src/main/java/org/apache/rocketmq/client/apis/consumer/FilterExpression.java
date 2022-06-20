@@ -23,7 +23,7 @@ import com.google.common.base.Objects;
 
 /**
  * Filter expression is an efficient way to filter message for {@link SimpleConsumer} and {@link PushConsumer}.
- * Consumer who applied the filter expression only can receive the filtered messages.
+ * The consumer who applied the filter expression only can receive the filtered messages.
  */
 public class FilterExpression {
     private static final String TAG_EXPRESSION_SUB_ALL = "*";

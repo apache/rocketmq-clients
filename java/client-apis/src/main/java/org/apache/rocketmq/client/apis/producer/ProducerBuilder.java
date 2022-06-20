@@ -26,7 +26,7 @@ import org.apache.rocketmq.client.apis.message.Message;
  */
 public interface ProducerBuilder {
     /**
-     * Set the client configuration for producer.
+     * Set the client configuration for the producer.
      *
      * @param clientConfiguration client's configuration.
      * @return the producer builder instance.
@@ -67,7 +67,7 @@ public interface ProducerBuilder {
     ProducerBuilder setMaxAttempts(int maxAttempts);
 
     /**
-     * Set the transaction checker for producer.
+     * Set the transaction checker for the producer.
      *
      * @param checker transaction checker.
      * @return the produce builder instance.
@@ -80,7 +80,7 @@ public interface ProducerBuilder {
      * <p>The producer does a series of preparatory work during startup, which could help to identify more unexpected
      * error earlier.
      *
-     * <p>Especially, if this method is invoked more than once, different producer will be created and started.
+     * <p>Especially, if this method is invoked more than once, different producers will be created and started.
      *
      * @return the producer instance.
      */

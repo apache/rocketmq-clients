@@ -30,8 +30,8 @@ public enum TransactionResolution {
      */
     ROLLBACK,
     /**
-     * Notify server that the state of this transaction is not sure. You should be cautions before return unknown
-     * because the examination from server will be performed periodically.
+     * Notify the server that the state of this transaction is not sure. You should be cautious before return unknown
+     * because the examination from the server will be performed periodically.
      */
     UNKNOWN
 }

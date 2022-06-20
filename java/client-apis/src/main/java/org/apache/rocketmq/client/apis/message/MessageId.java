@@ -23,14 +23,14 @@ package org.apache.rocketmq.client.apis.message;
  */
 public interface MessageId {
     /**
-     * Get the version of message id.
+     * Get the version of the message-id.
      *
-     * @return the version of message id.
+     * @return the version of message-id.
      */
     String getVersion();
 
     /**
-     * The implementation <strong>must</strong> override this method, which indicates the message id using string form.
+     * The implementation <strong>must</strong> override this method, which indicates the message-id using string form.
      *
      * @return string-formed string id.
      */

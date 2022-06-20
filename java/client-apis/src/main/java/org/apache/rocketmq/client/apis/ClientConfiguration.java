@@ -29,7 +29,7 @@ public class ClientConfiguration {
     private final Duration requestTimeout;
 
     /**
-     * The caller is supposed to have validated the arguments and handled throwing exception or
+     * The caller is supposed to have validated the arguments and handled throwing exceptions or
      * logging warnings already, so we avoid repeating args check here.
      */
     ClientConfiguration(String endpoints, SessionCredentialsProvider sessionCredentialsProvider,

@@ -27,8 +27,8 @@ import org.apache.rocketmq.client.apis.message.Message;
 /**
  * Producer is a thread-safe rocketmq client which is used to publish messages.
  *
- * <p>On account of network timeout or other reasons, rocketmq producer only promised the at-least-once semantics.
- * For producer, at-least-once semantics means potentially attempts are made at sending it, messages may be
+ * <p>On account of network timeout or other reasons, the producer only promised the at-least-once semantics.
+ * For the producer, at-least-once semantics means potentially attempts are made at sending it, messages may be
  * duplicated but not lost. Especially, potentially attempts are not made using {@link #send(Message, Transaction)}.
  */
 public interface Producer extends Closeable {
@@ -37,17 +37,17 @@ public interface Producer extends Closeable {
      *
      * <p>This method does not return until it gets the definitive result.
      *
-     * @param message message to send.
-     * @return send receipt.
+     * @param message the message to send.
+     * @return the returned receipt.
      */
     SendReceipt send(Message message) throws ClientException;
 
     /**
      * Sends a transactional message synchronously.
      *
-     * @param message     message to send.
-     * @param transaction transaction to bind.
-     * @return send receipt.
+     * @param message     the message to send.
+     * @param transaction the transaction to bind.
+     * @return the returned receipt.
      */
     SendReceipt send(Message message, Transaction transaction) throws ClientException;
 
@@ -56,8 +56,8 @@ public interface Producer extends Closeable {
      *
      * <p>This method returns immediately, the result is included in the {@link CompletableFuture};
      *
-     * @param message message to send.
-     * @return a future that indicates send receipt.
+     * @param message the message to send.
+     * @return a future that indicates the send receipt.
      */
     CompletableFuture<SendReceipt> sendAsync(Message message);
 
@@ -69,7 +69,7 @@ public interface Producer extends Closeable {
      * <p>All messages to send should have the same topic.
      *
      * @param messages batch messages to send.
-     * @return collection indicates send receipt.
+     * @return collection indicates the send receipt.
      */
     List<SendReceipt> send(List<Message> messages) throws ClientException;
 
@@ -90,7 +90,7 @@ public interface Producer extends Closeable {
     Transaction beginTransaction() throws ClientException;
 
     /**
-     * Closes the producer and release all related resources.
+     * Closes the producer and releases all related resources.
      *
      * <p>This method does not return until all related resource is released.
      */
