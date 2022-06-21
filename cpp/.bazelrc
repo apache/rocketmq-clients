@@ -28,6 +28,8 @@ build:windows --cxxopt=/std:c++14
 build:macos --cxxopt=-std=c++11
 build:macos --strip=never
 build:macos --copt -g
+# Workaround, see https://github.com/grpc/grpc/issues/19645
+build:macos --copt -DGRPC_BAZEL_BUILD
 
 # Enable position independent code (this is the default on macOS and Windows)
 # (Workaround for https://github.com/bazelbuild/rules_foreign_cc/issues/421)

@@ -1,8 +1,8 @@
 name: Java Build
 on: [push, pull_request]
 jobs:
-  java_build:
-    name: Ubuntu 18.04 Build
+  java_ubuntu_18_04:
+    name: Ubuntu 18.04
     runs-on: ubuntu-18.04
     steps:
     - name: Checkout

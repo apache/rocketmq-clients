@@ -41,7 +41,7 @@ struct Extension {
   std::chrono::system_clock::time_point delivery_timepoint{std::chrono::system_clock::now()};
   std::uint16_t delivery_attempt{0};
   std::chrono::system_clock::time_point decode_time{std::chrono::system_clock::now()};
-  std::chrono::system_clock::duration invisible_period{0};
+  std::chrono::duration<long long, std::nano> invisible_period{0};
   std::string receipt_handle;
   std::string target_endpoint;
   std::int32_t queue_id{0};
