@@ -14,7 +14,7 @@ Both the two types of message identifier have their own shortcomings in the new 
 
 For the first type, the new message identifier is not expected to be bound to the persistent information. Considering this scenario: a failure to send message triggers automatic retry, resulting in duplicate message. Since the two messages are exactly the same for client, they should have the same message identifier.
 
-As for the second type, the imperfect algorithm design is the greatest flaw. Specifically, when the client runs for more than a month, the probability of message id repetition will be greatly increased.
+As for the second type, there are some major flaws in the algorithm design. Firstly, some language-specific methods are used to participate in the generation of message identifier. On the other side, when the client runs for more than a month, the probability of message id repetition will be greatly increased.
 
 ## Detailed Design
 
