@@ -146,7 +146,9 @@ public class MessageMeter {
     public synchronized void refresh(Metric metric) {
         try {
             if (!metric.isOn()) {
+                LOGGER.info("Metric is off, skip refresh");
                 shutdown();
+                return;
             }
             final Optional<Endpoints> optionalEndpoints = metric.tryGetMetricEndpoints();
             if (!optionalEndpoints.isPresent()) {
@@ -214,8 +216,8 @@ public class MessageMeter {
     }
 
     public void shutdown() {
-        LOGGER.info("Begin to shutdown the message meter, clientId={}", client.getClientId());
         if (null != provider) {
+            LOGGER.info("Begin to shutdown the message meter, clientId={}", client.getClientId());
             final CountDownLatch latch = new CountDownLatch(1);
             provider.shutdown().whenComplete(latch::countDown);
             try {
@@ -224,8 +226,8 @@ public class MessageMeter {
                 LOGGER.error("Exception raised while waiting for the shutdown of meter, clientId={}",
                     client.getClientId());
             }
+            LOGGER.info("Shutdown the message meter, clientId={}", client.getClientId());
         }
-        LOGGER.info("Shutdown the message meter, clientId={}", client.getClientId());
     }
 
     public Meter getMeter() {
