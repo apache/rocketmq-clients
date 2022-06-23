@@ -6,23 +6,11 @@ The java client implementation of [Apache RocketMQ](https://rocketmq.apache.org/
 
 ## Prerequisites
 
-Java 11 or higher is required to build this project. The built artifacts can be used on Java 8 or
-higher.
-
-<table>
-  <tr>
-    <td><b>Build required:</b></td>
-    <td><b>Java 11 or later</b></td>
-  </tr>
-  <tr>
-    <td><b>Runtime required:</b></td>
-    <td><b>Java 8 or later</b></td>
-  </tr>
-</table>
+This project guarantees the same runtime compatibility of with [grpc-java](https://github.com/grpc/grpc-java). Java 11 or higher is required to build this project. The built artifacts can be used on Java 8 or higher.
 
 ## Getting Started
 
-Firstly, add dependency to your `pom.xml`, and replace the `${rocketmq.version}` with the latest version.
+Firstly, add the dependency to your `pom.xml`, and replace the `${rocketmq.version}` with the latest version.
 
 ```xml
 <dependency>
@@ -44,7 +32,7 @@ the no-shaded client.
 </dependency>
 ```
 
-There is a provider based on Java SPI mechanism, the provider here can derive specific implementations.
+There is a provider based on the Java SPI mechanism, the provider here can derive specific implementations.
 
 ```java
 // Find the implementation of APIs according to SPI mechanism.
