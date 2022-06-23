@@ -2,7 +2,7 @@
 
 [![Java](https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml/badge.svg)](https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml)
 
-The java implementation of client for [Apache RocketMQ](https://rocketmq.apache.org/).
+The java client implementation of [Apache RocketMQ](https://rocketmq.apache.org/).
 
 ## Prerequisites
 
@@ -22,7 +22,7 @@ higher.
 
 ## Getting Started
 
-Add dependency to your `pom.xml`, and replace the `${rocketmq.version}` with the latest version.
+Firstly, add dependency to your `pom.xml`, and replace the `${rocketmq.version}` with the latest version.
 
 ```xml
 <dependency>
@@ -32,8 +32,7 @@ Add dependency to your `pom.xml`, and replace the `${rocketmq.version}` with the
 </dependency>
 ```
 
-> **Note**<br>
-`rocketmq-client-java` is a shaded jar, which means you could not substitute its dependencies.
+Note: `rocketmq-client-java` is a shaded jar, which means you could not substitute its dependencies.
 From the perspective of avoiding dependency conflicts, you may need a shaded client in most cases, but we also provided
 the no-shaded client.
 
@@ -44,3 +43,75 @@ the no-shaded client.
     <version>${rocketmq.version}</version>
 </dependency>
 ```
+
+There is a provider based on Java SPI mechanism, the provider here can derive specific implementations.
+
+```java
+// Find the implementation of APIs according to SPI mechanism.
+final ClientServiceProvider provider = ClientServiceProvider.loadService();
+StaticSessionCredentialsProvider staticSessionCredentialsProvider =
+    new StaticSessionCredentialsProvider(accessKey, secretKey);
+ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
+    .setEndpoints(endpoints)
+    .setCredentialProvider(staticSessionCredentialsProvider)
+    .build();
+```
+
+### Producer
+
+```java
+// Build your message.
+final Message message = provider.newMessageBuilder()
+    .setTopic(topic)
+    .setBody(body)
+    .setTag(tag)
+    .build();
+// Build your producer.
+Producer producer = provider.newProducerBuilder()
+    .setClientConfiguration(clientConfiguration)
+    .setTopics(topic)
+    .build();
+for (int i = 0; i < 1024; i++) {
+    final SendReceipt sendReceipt = producer.send(message);
+}
+// Close it when you don't need the producer any more.
+producer.close();
+```
+
+### PushConsumer
+
+```java
+// Build your push consumer.
+PushConsumer pushConsumer = provider.newPushConsumerBuilder()
+    .setClientConfiguration(clientConfiguration)
+    .setConsumerGroup(consumerGroup)
+    .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
+    .setMessageListener(messageView -> {
+    // Handle the received message and return the consume result.
+    return ConsumeResult.OK;
+    })
+    .build();
+// Close it when you don't need the consumer any more.
+pushConsumer.close();
+```
+
+### SimpleConsumer
+
+```java
+// Build your simple consumer.
+SimpleConsumer simpleConsumer = provider.newSimpleConsumerBuilder()
+    .setClientConfiguration(clientConfiguration)
+    .setConsumerGroup(consumerGroup)
+    .setAwaitDuration(awaitDuration)
+    .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
+    .build();
+// Try to receive message from server.
+final List<MessageView> messageViews = consumer.receive(1, invisibleDuration);
+for (MessageView messageView : messageViews) {
+    // Ack or change invisible time according to your needs.
+    simpleConsumer.ack(messageView);
+}
+// Close it when you don't need the consumer any more.
+simpleConsumer.close();
+```
+
