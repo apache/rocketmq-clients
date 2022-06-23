@@ -76,7 +76,7 @@ PushConsumer pushConsumer = provider.newPushConsumerBuilder()
     .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
     .setMessageListener(messageView -> {
     // Handle the received message and return the consume result.
-    return ConsumeResult.OK;
+    return ConsumeResult.SUCCESS;
     })
     .build();
 // Close it when you don't need the consumer any more.
