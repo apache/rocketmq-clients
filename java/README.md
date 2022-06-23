@@ -6,7 +6,10 @@ The java client implementation of [Apache RocketMQ](https://rocketmq.apache.org/
 
 ## Prerequisites
 
-This project guarantees the same runtime compatibility of with [grpc-java](https://github.com/grpc/grpc-java). Java 11 or higher is required to build this project. The built artifacts can be used on Java 8 or higher.
+This project guarantees the same runtime compatibility with [grpc-java](https://github.com/grpc/grpc-java).
+
+* Java 11 or higher is required to build this project.
+* The built artifacts can be used on Java 8 or higher.
 
 ## Getting Started
 
