@@ -5,8 +5,8 @@ Here is the new design for message identifier.
 ## Background
 In the past, there are two types of implementation of message identifier.
 
-1. Message identifier based on the broker address and the offset in message queue, find in [MessageDecoder#createMessageId](https://github.com/apache/rocketmq/blob/release-4.9.3/common/src/main/java/org/apache/rocketmq/common/message/MessageDecoder.java#L62-L71)
-2. Message identifier based on the client IP and unix timestamp, find in [MessageClientIDSetter#createUniqID](https://github.com/apache/rocketmq/blob/release-4.9.3/common/src/main/java/org/apache/rocketmq/common/message/MessageClientIDSetter.java#L114-131)
+1. Message identifier based on the broker address and the offset in message queue, find in [MessageDecoder#createMessageId](https://github.com/apache/rocketmq/blob/release-4.9.3/common/src/main/java/org/apache/rocketmq/common/message/MessageDecoder.java#L62-L71).
+2. Message identifier based on the client IP and unix timestamp, find in [MessageClientIDSetter#createUniqID](https://github.com/apache/rocketmq/blob/release-4.9.3/common/src/main/java/org/apache/rocketmq/common/message/MessageClientIDSetter.java#L114-L131).
 
 The first type of message identifier is purely based on server-side information, which makes each message stored on the broker absolutely unique. The second message identifier is purely based on client information.
 
