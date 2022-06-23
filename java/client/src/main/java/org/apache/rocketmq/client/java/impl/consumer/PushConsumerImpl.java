@@ -149,20 +149,26 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
 
     @Override
     protected void startUp() throws Exception {
-        LOGGER.info("Begin to start the rocketmq push consumer, clientId={}", clientId);
-        super.startUp();
-        messageMeter.setMessageCacheObserver(this);
-        final ScheduledExecutorService scheduler = clientManager.getScheduler();
-        this.consumeService = createConsumeService();
-        // Scan assignments periodically.
-        scanAssignmentsFuture = scheduler.scheduleWithFixedDelay(() -> {
-            try {
-                scanAssignments();
-            } catch (Throwable t) {
-                LOGGER.error("Exception raised while scanning the load assignments, clientId={}", clientId, t);
-            }
-        }, 1, 5, TimeUnit.SECONDS);
-        LOGGER.info("The rocketmq push consumer starts successfully, clientId={}", clientId);
+        try {
+            LOGGER.info("Begin to start the rocketmq push consumer, clientId={}", clientId);
+            super.startUp();
+            messageMeter.setMessageCacheObserver(this);
+            final ScheduledExecutorService scheduler = clientManager.getScheduler();
+            this.consumeService = createConsumeService();
+            // Scan assignments periodically.
+            scanAssignmentsFuture = scheduler.scheduleWithFixedDelay(() -> {
+                try {
+                    scanAssignments();
+                } catch (Throwable t) {
+                    LOGGER.error("Exception raised while scanning the load assignments, clientId={}", clientId, t);
+                }
+            }, 1, 5, TimeUnit.SECONDS);
+            LOGGER.info("The rocketmq push consumer starts successfully, clientId={}", clientId);
+        } catch (Throwable t) {
+            LOGGER.error("Exception raised while starting the rocketmq push consumer, clientId={}", clientId, t);
+            shutDown();
+            throw t;
+        }
     }
 
     @Override

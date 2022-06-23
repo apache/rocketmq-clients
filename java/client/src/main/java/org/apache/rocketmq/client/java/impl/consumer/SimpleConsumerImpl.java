@@ -85,9 +85,15 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
 
     @Override
     protected void startUp() throws Exception {
-        LOGGER.info("Begin to start the rocketmq simple consumer, clientId={}", clientId);
-        super.startUp();
-        LOGGER.info("The rocketmq simple consumer starts successfully, clientId={}", clientId);
+        try {
+            LOGGER.info("Begin to start the rocketmq simple consumer, clientId={}", clientId);
+            super.startUp();
+            LOGGER.info("The rocketmq simple consumer starts successfully, clientId={}", clientId);
+        } catch (Throwable t) {
+            LOGGER.error("Failed to start the rocketmq simple consumer, try to shutdown it, clientId={}", clientId, t);
+            shutDown();
+            throw t;
+        }
     }
 
     @Override

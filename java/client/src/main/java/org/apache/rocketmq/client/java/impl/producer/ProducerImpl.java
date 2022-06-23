@@ -105,9 +105,15 @@ class ProducerImpl extends ClientImpl implements Producer {
 
     @Override
     protected void startUp() throws Exception {
-        LOGGER.info("Begin to start the rocketmq producer, clientId={}", clientId);
-        super.startUp();
-        LOGGER.info("The rocketmq producer starts successfully, clientId={}", clientId);
+        try {
+            LOGGER.info("Begin to start the rocketmq producer, clientId={}", clientId);
+            super.startUp();
+            LOGGER.info("The rocketmq producer starts successfully, clientId={}", clientId);
+        } catch (Throwable t) {
+            LOGGER.error("Failed to start the rocketmq producer, try to shutdown it, clientId={}", clientId, t);
+            shutDown();
+            throw t;
+        }
     }
 
     @Override
