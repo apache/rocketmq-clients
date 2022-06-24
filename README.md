@@ -13,6 +13,15 @@ Polyglot solutions of clients for [Apache RocketMQ](https://rocketmq.apache.org/
 
 Provides cloud-native and robust solutions for mainstream programming languages.
 
+## Features and Status
+
+|                 | Java  |  CPP  |  C#   |
+| :-------------: | :---: | :---: | :---: |
+|    Producer     |   ✅   |   ✅   |   ✅   |
+|  Push Consumer  |   ✅   |   ✅   |   ❌   |
+| Simple Consumer |   ✅   |   ✅   |   ✅   |
+|  Pull Consumer  |   ❌   |   ❌   |   ❌   |
+
 ## Related
 
 * [rocketmq](https://github.com/apache/rocketmq): The implementation of server-side.
