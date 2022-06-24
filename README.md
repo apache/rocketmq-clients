@@ -19,7 +19,7 @@ Provides cloud-native and robust solutions for mainstream programming languages.
 | :-------------: | :---: | :---: | :---: |
 |    Producer     |   ✅   |   ✅   |   ✅   |
 |  Push Consumer  |   ✅   |   ✅   |   ❌   |
-| Simple Consumer |   ✅   |   ✅   |   ✅   |
+| Simple Consumer |   ✅   |   ✅   |   ❌   |
 |  Pull Consumer  |   ❌   |   ❌   |   ❌   |
 
 ## Related
