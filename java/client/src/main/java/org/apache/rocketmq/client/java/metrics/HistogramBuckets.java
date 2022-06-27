@@ -41,4 +41,7 @@ public class HistogramBuckets {
      */
     public static final Aggregation PROCESS_TIME_BUCKET = Aggregation.explicitBucketHistogram(Arrays.asList(1.0, 5.0,
         10.0, 100.0, 1000.0, 10 * 1000.0, 60 * 1000.0));
+
+    private HistogramBuckets() {
+    }
 }
