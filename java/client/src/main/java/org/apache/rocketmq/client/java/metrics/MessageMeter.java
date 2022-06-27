@@ -28,7 +28,6 @@ import io.opentelemetry.api.metrics.LongCounter;
 import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.exporter.otlp.metrics.OtlpGrpcMetricExporter;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
-import io.opentelemetry.sdk.metrics.Aggregation;
 import io.opentelemetry.sdk.metrics.InstrumentSelector;
 import io.opentelemetry.sdk.metrics.InstrumentType;
 import io.opentelemetry.sdk.metrics.SdkMeterProvider;
@@ -36,7 +35,6 @@ import io.opentelemetry.sdk.metrics.View;
 import io.opentelemetry.sdk.metrics.export.PeriodicMetricReader;
 import java.net.InetSocketAddress;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -139,10 +137,9 @@ public class MessageMeter {
             }
             final SslContext sslContext = GrpcSslContexts.forClient().trustManager(InsecureTrustManagerFactory.INSTANCE)
                 .build();
-            final NettyChannelBuilder channelBuilder =
-                NettyChannelBuilder.forTarget(newMetricEndpoints.getGrpcTarget())
-                    .sslContext(sslContext)
-                    .intercept(new AuthInterceptor(client.getClientConfiguration(), client.getClientId()));
+            final NettyChannelBuilder channelBuilder = NettyChannelBuilder.forTarget(newMetricEndpoints.getGrpcTarget())
+                .sslContext(sslContext)
+                .intercept(new AuthInterceptor(client.getClientConfiguration(), client.getClientId()));
             final List<InetSocketAddress> socketAddresses = newMetricEndpoints.toSocketAddresses();
             if (null != socketAddresses) {
                 IpNameResolverFactory metricResolverFactory = new IpNameResolverFactory(socketAddresses);
@@ -150,24 +147,36 @@ public class MessageMeter {
             }
             ManagedChannel channel = channelBuilder.build();
 
-            OtlpGrpcMetricExporter exporter = OtlpGrpcMetricExporter.builder()
-                .setChannel(channel)
+            OtlpGrpcMetricExporter exporter = OtlpGrpcMetricExporter.builder().setChannel(channel)
                 .setTimeout(METRIC_EXPORTER_RPC_TIMEOUT).build();
 
-            InstrumentSelector instrumentSelector = InstrumentSelector.builder()
-                .setType(InstrumentType.HISTOGRAM)
-                .setName("lingchuhistogram")
+            InstrumentSelector sendSuccessCostTimeInstrumentSelector = InstrumentSelector.builder()
+                .setType(InstrumentType.HISTOGRAM).setName(MetricName.SEND_SUCCESS_COST_TIME.getName()).build();
+            final View sendSuccessCostTimeView = View.builder()
+                .setAggregation(HistogramBuckets.SEND_SUCCESS_COST_TIME_BUCKET).build();
+
+            InstrumentSelector deliveryLatencyInstrumentSelector = InstrumentSelector.builder()
+                .setType(InstrumentType.HISTOGRAM).setName(MetricName.DELIVERY_LATENCY.getName()).build();
+            final View deliveryLatencyView = View.builder().setAggregation(HistogramBuckets.DELIVERY_LATENCY_BUCKET)
                 .build();
 
-            final View view = View.builder()
-                .setAggregation(Aggregation.explicitBucketHistogram(Arrays.asList(0.1d, 1d, 10d, 30d, 60d)))
-                .build();
+            InstrumentSelector awaitTimeInstrumentSelector = InstrumentSelector.builder()
+                .setType(InstrumentType.HISTOGRAM).setName(MetricName.AWAIT_TIME.getName()).build();
+            final View awaitTimeView = View.builder().setAggregation(HistogramBuckets.AWAIT_TIME_BUCKET).build();
 
-            PeriodicMetricReader reader =
-                PeriodicMetricReader.builder(exporter).setInterval(Duration.ofSeconds(1)).build();
+            InstrumentSelector processTimeInstrumentSelector = InstrumentSelector.builder()
+                .setType(InstrumentType.HISTOGRAM).setName(MetricName.PROCESS_TIME.getName()).build();
+            final View processTimeView = View.builder().setAggregation(HistogramBuckets.PROCESS_TIME_BUCKET).build();
+
+            PeriodicMetricReader reader = PeriodicMetricReader.builder(exporter)
+                .setInterval(Duration.ofSeconds(1)).build();
             provider = SdkMeterProvider.builder().registerMetricReader(reader)
-                .registerView(instrumentSelector, view)
+                .registerView(sendSuccessCostTimeInstrumentSelector, sendSuccessCostTimeView)
+                .registerView(deliveryLatencyInstrumentSelector, deliveryLatencyView)
+                .registerView(awaitTimeInstrumentSelector, awaitTimeView)
+                .registerView(processTimeInstrumentSelector, processTimeView)
                 .build();
+
             final OpenTelemetrySdk openTelemetry = OpenTelemetrySdk.builder().setMeterProvider(provider).build();
             meter = openTelemetry.getMeter(METRIC_INSTRUMENTATION_NAME);
             LOGGER.info("Message meter exporter is updated, clientId={}, {} => {}", client.getClientId(),

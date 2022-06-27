@@ -269,9 +269,9 @@ class ProducerImpl extends ClientImpl implements Producer {
         } catch (Throwable t) {
             throw new ClientException(t);
         }
-        final EndTransactionRequest.Builder builder =
-            EndTransactionRequest.newBuilder().setMessageId(messageId.toString()).setTransactionId(transactionId)
-                .setTopic(apache.rocketmq.v2.Resource.newBuilder().setName(messageCommon.getTopic()).build());
+        final EndTransactionRequest.Builder builder = EndTransactionRequest.newBuilder()
+            .setMessageId(messageId.toString()).setTransactionId(transactionId)
+            .setTopic(apache.rocketmq.v2.Resource.newBuilder().setName(messageCommon.getTopic()).build());
         switch (resolution) {
             case COMMIT:
                 builder.setResolution(apache.rocketmq.v2.TransactionResolution.COMMIT);
