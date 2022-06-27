@@ -98,8 +98,8 @@ abstract class ConsumerImpl extends ClientImpl {
                             deliveryTimestampFromRemote = response.getDeliveryTimestamp();
                             break;
                         default:
-                            LOGGER.warn("[Bug] Not recognized content for receive message response, mq={}," +
-                                " clientId={}, resp={}", mq, clientId, response);
+                            LOGGER.warn("[Bug] Not recognized content for receive message response, mq={}, " +
+                                "clientId={}, resp={}", mq, clientId, response);
                     }
                 }
                 for (Message message : messageList) {
@@ -161,8 +161,8 @@ abstract class ConsumerImpl extends ClientImpl {
                 MessageHookPointsStatus messageHookPointsStatus = Code.OK.equals(code) ?
                     MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
                 if (!Code.OK.equals(code)) {
-                    LOGGER.error("Failed to ack message, code={}, status message=[{}], topic={}, messageId={}," +
-                        " clientId={}", code, status.getMessage(), topic, messageId, clientId);
+                    LOGGER.error("Failed to ack message, code={}, status message=[{}], topic={}, messageId={}, " +
+                        "clientId={}", code, status.getMessage(), topic, messageId, clientId);
                 }
                 doAfter(MessageHookPoints.ACK, messageCommons, duration, messageHookPointsStatus);
             }
@@ -206,8 +206,8 @@ abstract class ConsumerImpl extends ClientImpl {
                 MessageHookPointsStatus messageHookPointsStatus = Code.OK.equals(code) ?
                     MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
                 if (!Code.OK.equals(code)) {
-                    LOGGER.error("Failed to change message invisible duration, messageId={}, endpoints={}, code={}," +
-                        " status message=[{}], clientId={}", messageId, endpoints, code, status.getMessage(), clientId);
+                    LOGGER.error("Failed to change message invisible duration, messageId={}, endpoints={}, code={}, " +
+                        "status message=[{}], clientId={}", messageId, endpoints, code, status.getMessage(), clientId);
                 }
                 doAfter(MessageHookPoints.CHANGE_INVISIBLE_DURATION, messageCommons, duration, messageHookPointsStatus);
             }
