@@ -48,7 +48,6 @@ import java.util.List;
 import java.util.Set;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
-import org.apache.rocketmq.client.apis.consumer.FilterExpressionType;
 import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
@@ -179,7 +178,7 @@ abstract class ConsumerImpl extends ClientImpl {
         return future;
     }
 
-    public ListenableFuture<ChangeInvisibleDurationResponse> changInvisibleDuration(MessageViewImpl messageView,
+    public ListenableFuture<ChangeInvisibleDurationResponse> changeInvisibleDuration(MessageViewImpl messageView,
         Duration invisibleDuration) {
         final Endpoints endpoints = messageView.getEndpoints();
         ListenableFuture<ChangeInvisibleDurationResponse> future;
@@ -239,49 +238,33 @@ abstract class ConsumerImpl extends ClientImpl {
         return NotifyClientTerminationRequest.newBuilder().setGroup(getProtobufGroup()).build();
     }
 
-    public ReceiveMessageRequest wrapReceiveMessageRequest(int batchSize, MessageQueueImpl mq,
-        FilterExpression filterExpression) {
-        final FilterExpressionType expressionType = filterExpression.getFilterExpressionType();
-
+    private apache.rocketmq.v2.FilterExpression wrapFilterExpression(FilterExpression filterExpression) {
         apache.rocketmq.v2.FilterExpression.Builder expressionBuilder =
             apache.rocketmq.v2.FilterExpression.newBuilder();
-
-        final String expression = filterExpression.getExpression();
-        expressionBuilder.setExpression(expression);
-        switch (expressionType) {
+        expressionBuilder.setExpression(filterExpression.getExpression());
+        switch (filterExpression.getFilterExpressionType()) {
             case SQL92:
                 expressionBuilder.setType(FilterType.SQL);
                 break;
             case TAG:
             default:
                 expressionBuilder.setType(FilterType.TAG);
-                break;
         }
+        return expressionBuilder.build();
+    }
+
+    public ReceiveMessageRequest wrapReceiveMessageRequest(int batchSize, MessageQueueImpl mq,
+        FilterExpression filterExpression) {
         return ReceiveMessageRequest.newBuilder().setGroup(getProtobufGroup())
-            .setMessageQueue(mq.toProtobuf()).setFilterExpression(expressionBuilder.build()).setBatchSize(batchSize)
-            .setAutoRenew(true).build();
+            .setMessageQueue(mq.toProtobuf()).setFilterExpression(wrapFilterExpression(filterExpression))
+            .setBatchSize(batchSize).setAutoRenew(true).build();
     }
 
     public ReceiveMessageRequest wrapReceiveMessageRequest(int batchSize, MessageQueueImpl mq,
         FilterExpression filterExpression, Duration invisibleDuration) {
-        final FilterExpressionType expressionType = filterExpression.getFilterExpressionType();
-
-        apache.rocketmq.v2.FilterExpression.Builder expressionBuilder =
-            apache.rocketmq.v2.FilterExpression.newBuilder();
-
-        final String expression = filterExpression.getExpression();
-        expressionBuilder.setExpression(expression);
-        switch (expressionType) {
-            case SQL92:
-                expressionBuilder.setType(FilterType.SQL);
-                break;
-            case TAG:
-            default:
-                expressionBuilder.setType(FilterType.TAG);
-                break;
-        }
+        final com.google.protobuf.Duration duration = Durations.fromNanos(invisibleDuration.toNanos());
         return ReceiveMessageRequest.newBuilder().setGroup(getProtobufGroup())
-            .setMessageQueue(mq.toProtobuf()).setFilterExpression(expressionBuilder.build()).setBatchSize(batchSize)
-            .setAutoRenew(false).setInvisibleDuration(Durations.fromNanos(invisibleDuration.toNanos())).build();
+            .setMessageQueue(mq.toProtobuf()).setFilterExpression(wrapFilterExpression(filterExpression))
+            .setBatchSize(batchSize).setAutoRenew(false).setInvisibleDuration(duration).build();
     }
 }

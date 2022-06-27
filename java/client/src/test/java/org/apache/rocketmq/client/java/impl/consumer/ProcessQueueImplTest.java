@@ -116,11 +116,11 @@ public class ProcessQueueImplTest extends TestBase {
         when(retryPolicy.getNextAttemptDelay(anyInt())).thenReturn(Duration.ofSeconds(1));
         when(pushConsumer.getRetryPolicy()).thenReturn(retryPolicy);
         when(pushConsumerSettings.isFifo()).thenReturn(false);
-        when(pushConsumer.changInvisibleDuration(any(MessageViewImpl.class), any(Duration.class)))
+        when(pushConsumer.changeInvisibleDuration(any(MessageViewImpl.class), any(Duration.class)))
             .thenReturn(okChangeInvisibleDurationFuture());
         processQueue.cacheMessages(messageViewList);
         verify(pushConsumer, times(1))
-            .changInvisibleDuration(any(MessageViewImpl.class), any(Duration.class));
+            .changeInvisibleDuration(any(MessageViewImpl.class), any(Duration.class));
     }
 
     @Test

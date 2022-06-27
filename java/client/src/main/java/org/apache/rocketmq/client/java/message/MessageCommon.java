@@ -26,8 +26,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.message.MessageId;
+import org.apache.rocketmq.client.apis.message.MessageView;
 
+/**
+ * Abstract common structure of {@link Message} and {@link MessageView}.
+ */
 public class MessageCommon {
     @Nullable
     private final MessageId messageId;
@@ -74,7 +79,8 @@ public class MessageCommon {
         Map<String, String> properties, @Nullable String tag, Collection<String> keys,
         @Nullable String messageGroup, @Nullable Long deliveryTimestamp, @Nullable String bornHost,
         @Nullable String parentTraceContext, @Nullable String traceContext, @Nullable Long bornTimestamp,
-        @Nullable Integer deliveryAttempt, @Nullable Stopwatch decodeStopwatch, Timestamp deliveryTimestampFromRemote) {
+        @Nullable Integer deliveryAttempt, @Nullable Stopwatch decodeStopwatch,
+        @Nullable Timestamp deliveryTimestampFromRemote) {
         this.messageId = messageId;
         this.topic = topic;
         this.body = body;

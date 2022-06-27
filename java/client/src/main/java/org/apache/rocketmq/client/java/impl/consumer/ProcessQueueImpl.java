@@ -412,7 +412,7 @@ class ProcessQueueImpl implements ProcessQueue {
 
     private void nackMessage(MessageViewImpl messageView) {
         final Duration duration = consumer.getRetryPolicy().getNextAttemptDelay(messageView.getDeliveryAttempt());
-        consumer.changInvisibleDuration(messageView, duration);
+        consumer.changeInvisibleDuration(messageView, duration);
     }
 
     @Override

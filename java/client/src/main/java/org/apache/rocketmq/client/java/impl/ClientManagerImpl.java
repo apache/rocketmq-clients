@@ -100,12 +100,12 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
     private final ConcurrentMap<String, Client> clientTable;
 
     /**
-     * In charge of all scheduled task.
+     * In charge of all scheduled tasks.
      */
     private final ScheduledExecutorService scheduler;
 
     /**
-     * Public executor for all async rpc, <strong>should never submit heavy task.</strong>
+     * Public executor for all async RPCs, <strong>should never submit a heavy task.</strong>
      */
     private final ExecutorService asyncWorker;
 
@@ -147,7 +147,7 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
      * It is well-founded that a {@link RpcClient} is deprecated if it is idle for a long time, so it is essential to
      * clear it.
      *
-     * @throws InterruptedException if thread has been interrupted
+     * @throws InterruptedException if the thread has been interrupted
      */
     private void clearIdleRpcClients() throws InterruptedException {
         rpcClientTableLock.writeLock().lock();
@@ -185,7 +185,7 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
         }
     }
 
-    private void announceSettings() {
+    private void syncSettings() {
         clientTable.values().forEach(client -> {
             try {
                 client.telemeterSettings();
@@ -196,13 +196,13 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
     }
 
     /**
-     * Return rpc client by remote {@link Endpoints}, would create client automatically if it does not exist.
+     * Return the RPC client by remote {@link Endpoints}, would create the client automatically if it does not exist.
      *
      * <p>In case of the occasion that {@link RpcClient} is garbage collected before shutdown when invoked
      * concurrently, lock here is essential.
      *
      * @param endpoints remote endpoints.
-     * @return rpc client.
+     * @return RPC client.
      */
     private RpcClient getRpcClient(Endpoints endpoints) throws ClientException {
         RpcClient rpcClient;
@@ -421,9 +421,9 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
         scheduler.scheduleWithFixedDelay(
             () -> {
                 try {
-                    announceSettings();
+                    syncSettings();
                 } catch (Throwable t) {
-                    LOGGER.error("Exception raised during setting announcement.", t);
+                    LOGGER.error("Exception raised during the setting announcement.", t);
                 }
             },
             ANNOUNCE_SETTINGS_DELAY.toNanos(),

@@ -44,9 +44,9 @@ public class ClientManagerRegistry {
     /**
      * Register {@link Client} to the appointed manager by manager id, start the manager if it is created newly.
      *
-     * <p>Different client would share the same {@link ClientManager} if they have the same manager id.
+     * <p>Different clients would share the same {@link ClientManager} if they have the same manager id.
      *
-     * @param client client to register.
+     * @param client the client to register.
      * @return the client manager which is started.
      */
     public ClientManager registerClient(Client client) {
@@ -66,7 +66,7 @@ public class ClientManagerRegistry {
     }
 
     /**
-     * Unregister {@link Client} to the appointed manager by message id, shutdown the manager if no client
+     * Unregister {@link Client} to the appointed manager by message-id, shutdown the manager if no client
      * registered in it.
      *
      * @param client client to unregister.

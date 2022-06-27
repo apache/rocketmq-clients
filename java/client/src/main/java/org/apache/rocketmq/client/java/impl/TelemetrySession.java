@@ -161,7 +161,7 @@ public class TelemetrySession implements StreamObserver<TelemetryCommand> {
                 case VERIFY_MESSAGE_COMMAND: {
                     final VerifyMessageCommand verifyMessageCommand = command.getVerifyMessageCommand();
                     LOGGER.info("Receive message verification command from remote, endpoints={}, clientId={}",
-                        client.getClientId());
+                        endpoints, client.getClientId());
                     client.onVerifyMessageCommand(endpoints, verifyMessageCommand);
                     break;
                 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.java;
+package org.apache.rocketmq.client.java.impl;
 
 import apache.rocketmq.v2.Language;
 import apache.rocketmq.v2.UA;

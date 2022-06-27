@@ -52,7 +52,17 @@ public interface ClientServiceProvider {
      */
     MessageBuilder newMessageBuilder();
 
+    /**
+     * Get the push consumer builder by the current provider.
+     *
+     * @return the push consumer builder instance.
+     */
     PushConsumerBuilder newPushConsumerBuilder();
 
+    /**
+     * Get the simple consumer builder by the current provider.
+     *
+     * @return the simple consumer builder instance.
+     */
     SimpleConsumerBuilder newSimpleConsumerBuilder();
 }

@@ -21,9 +21,26 @@ import java.time.Duration;
 import java.util.List;
 import org.apache.rocketmq.client.java.message.MessageCommon;
 
+/**
+ * Message interceptor based on {@link MessageHookPoints}.
+ */
 public interface MessageInterceptor {
+    /**
+     * Do something before {@link MessageHookPoints}.
+     *
+     * @param messageHookPoints message hook points.
+     * @param messageCommons    list of message commons.
+     */
     void doBefore(MessageHookPoints messageHookPoints, List<MessageCommon> messageCommons);
 
+    /**
+     * Do something after {@link MessageHookPoints}.
+     *
+     * @param messageHookPoints message hook points.
+     * @param messageCommons    list of message commons.
+     * @param duration          duration of the hook points.
+     * @param status            status of operation of the hook points.
+     */
     void doAfter(MessageHookPoints messageHookPoints, List<MessageCommon> messageCommons, Duration duration,
         MessageHookPointsStatus status);
 }

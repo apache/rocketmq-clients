@@ -28,12 +28,13 @@ import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 
 /**
- * Process queue is a cache to store fetched message from remote for {@link PushConsumer}, and it provides specialized
- * function to take message to consume for push consumer.
+ * Process queue is a cache to store fetched messages from remote for {@link PushConsumer}, and it provides specialized
+ * function to take the message to consume for push consumer.
  *
- * <p>{@link PushConsumer} queries assignments periodically and convert it into message queues, each message queue is
- * mapped into one process queue to fetch message from remote. If message queue is removed from the newest assignment,
- * the corresponding process queue is marked as expired soon, which makes it deprecated, means its lifecycle is over.
+ * <p>{@link PushConsumer} queries assignments periodically and converts them into message queues, each message queue is
+ * mapped into one process queue to fetch message from remote. If the message queue is removed from the newest
+ * assignment, the corresponding process queue is marked as expired soon, which makes it deprecated, which means its
+ * lifecycle is over.
  *
  * <h3>A standard procedure to take/erase message</h3>
  *
@@ -60,21 +61,21 @@ import org.apache.rocketmq.client.java.route.MessageQueueImpl;
  *           pending messages      in-flight messages
  * </pre>
  *
- * <p>Especially, there are some different processing procedure fo FIFO consumption.
+ * <p>Especially, there are some different processing procedures for FIFO consumption.
  *
  * <p>Let us emphasize two points:
- * 1. For push consumer, the order of FIFO messages means: for messages under the same message group, only when the
+ * 1. For the push consumer, the order of FIFO messages means: for messages under the same message group, only when the
  * previous message is successfully consumed and successfully acknowledged or successfully sent to the dead-letter queue
- * if the consumption fails, the latter message can be delivered into the {@link MessageListener}.
+ * if the consumption is failed, the latter message can be delivered into the {@link MessageListener}.
  * 2. The push consumer essentially uses the 'pull' to simulate the behavior of 'push', and the consumer pulls messages
  * in batches.
  *
- * <p>Based on the above assumptions, the server may put multiple messages of the same message group in order in a
+ * <p>Based on the above assumptions, the server may put multiple messages of the same message group orderly in a
  * batch of message acquisition, but until the above messages are successfully acknowledged or sent to the dead letter
  * queue, the subsequent messages of the same message group will be obtained by the client. The above is enforced by
  * the server, this is why the return value of the {@link #tryTakeFifoMessages()} is an iterator, an iterator represents
  * a batch, the client itself must ensure the order of message consumption within the batch, and the order between
- * batches is guaranteed by the server.
+ * batches are guaranteed by the server.
  */
 public interface ProcessQueue {
     /**
@@ -85,8 +86,8 @@ public interface ProcessQueue {
     MessageQueueImpl getMessageQueue();
 
     /**
-     * Drop current process queue, which means process queue's lifecycle is over,
-     * thus it would not fetch message from remote anymore if dropped.
+     * Drop the current process queue, which means the process queue's lifecycle is over,
+     * thus it would not fetch messages from the remote anymore if dropped.
      */
     void drop();
 
@@ -98,7 +99,7 @@ public interface ProcessQueue {
     boolean expired();
 
     /**
-     * Start to fetch message from remote immediately.
+     * Start to fetch messages from remote immediately.
      */
     void fetchMessageImmediately();
 
@@ -110,15 +111,15 @@ public interface ProcessQueue {
     Optional<MessageViewImpl> tryTakeMessage();
 
     /**
-     * Erase messages which haven been taken except FIFO messages.
+     * Erase messages which have been taken except FIFO messages.
      *
-     * @param messageView   message to erase.
+     * @param messageView   the message to erase.
      * @param consumeResult consume result.
      */
     void eraseMessage(MessageViewImpl messageView, ConsumeResult consumeResult);
 
     /**
-     * Try to take a FIFO message from cache.
+     * Try to take a FIFO message from the cache.
      *
      * @return message which has been taken, or {@link Collections#emptyIterator()} if no message.
      */
@@ -127,14 +128,29 @@ public interface ProcessQueue {
     /**
      * Erase FIFO message which has been taken.
      *
-     * @param messageView   message to erase.
+     * @param messageView   the message to erase.
      * @param consumeResult consume status.
      */
     ListenableFuture<Void> eraseFifoMessage(MessageViewImpl messageView, ConsumeResult consumeResult);
 
+    /**
+     * Get the count of pending messages.
+     *
+     * @return count of pending messages.
+     */
     long getPendingMessageCount();
 
+    /**
+     * Get the count of in-flight messages.
+     *
+     * @return count of in-flight messages.
+     */
     long getInflightMessageCount();
 
+    /**
+     * Get the bytes of cached message memory footprint.
+     *
+     * @return bytes of cached message memory footprint.
+     */
     long getCachedMessageBytes();
 }

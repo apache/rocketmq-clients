@@ -288,7 +288,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
             return future0;
         }
         MessageViewImpl impl = (MessageViewImpl) messageView;
-        final ListenableFuture<ChangeInvisibleDurationResponse> future = changInvisibleDuration(impl,
+        final ListenableFuture<ChangeInvisibleDurationResponse> future = changeInvisibleDuration(impl,
             invisibleDuration);
         return Futures.transformAsync(future, response -> {
             // Refresh receipt handle manually.

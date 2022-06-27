@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.java;
+package org.apache.rocketmq.client.java.impl;
 
 import org.apache.rocketmq.client.apis.ClientServiceProvider;
 import org.apache.rocketmq.client.apis.consumer.PushConsumerBuilder;
@@ -28,21 +28,33 @@ import org.apache.rocketmq.client.java.impl.producer.ProducerBuilderImpl;
 import org.apache.rocketmq.client.java.message.MessageBuilderImpl;
 
 public class ClientServiceProviderImpl implements ClientServiceProvider {
+    /**
+     * @see ClientServiceProvider#newProducerBuilder()
+     */
     @Override
     public ProducerBuilder newProducerBuilder() {
         return new ProducerBuilderImpl();
     }
 
+    /**
+     * @see ClientServiceProvider#newMessageBuilder()
+     */
     @Override
     public PushConsumerBuilder newPushConsumerBuilder() {
         return new PushConsumerBuilderImpl();
     }
 
+    /**
+     * @see ClientServiceProvider#newMessageBuilder()
+     */
     @Override
     public SimpleConsumerBuilder newSimpleConsumerBuilder() {
         return new SimpleConsumerBuilderImpl();
     }
 
+    /**
+     * @see ClientServiceProvider#newMessageBuilder()
+     */
     @Override
     public MessageBuilder newMessageBuilder() {
         return new MessageBuilderImpl();

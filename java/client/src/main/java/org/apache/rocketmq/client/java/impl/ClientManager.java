@@ -48,11 +48,11 @@ import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.route.Endpoints;
 
 /**
- * Client manager supplies a series of unified apis to execute remote procedure call for each {@link Client}.
+ * Client manager supplies a series of unified APIs to execute remote procedure calls for each {@link Client}.
  *
  * <p>To manage lifecycle for client manager, {@link Client} must be registered before using client manager,
- * once {@link Client} is shutdown, it must be unregistered from client manager. client manager hold the connections
- * and underlying threads, which are shared by all register client.
+ * once {@link Client} is shut down, it must be unregistered by the client manager. The client manager holds the
+ * connections and underlying threads, which are shared by all registered clients.
  */
 public interface ClientManager {
     /**
@@ -77,7 +77,7 @@ public interface ClientManager {
     boolean isEmpty();
 
     /**
-     * Provide for client to share the scheduler.
+     * Provide for the client to share the scheduler.
      *
      * @return shared scheduler.
      */
@@ -90,7 +90,7 @@ public interface ClientManager {
      * @param metadata  gRPC request header metadata.
      * @param request   query route request.
      * @param duration  request max duration.
-     * @return response future of topic route.
+     * @return response future of the topic route.
      */
     ListenableFuture<QueryRouteResponse> queryRoute(Endpoints endpoints, Metadata metadata, QueryRouteRequest request,
         Duration duration);
@@ -100,9 +100,9 @@ public interface ClientManager {
      *
      * @param endpoints requested endpoints.
      * @param metadata  gRPC request header metadata.
-     * @param request   heart beat request.
+     * @param request   heartbeat request.
      * @param duration  request max duration.
-     * @return response future of heart beat.
+     * @return response future of heartbeat.
      */
     ListenableFuture<HeartbeatResponse> heartbeat(Endpoints endpoints, Metadata metadata, HeartbeatRequest request,
         Duration duration);
@@ -114,7 +114,7 @@ public interface ClientManager {
      * @param metadata  gRPC request header metadata.
      * @param request   send message request.
      * @param duration  request max duration.
-     * @return response future of sending message.
+     * @return response future of the sending message.
      */
     ListenableFuture<SendMessageResponse> sendMessage(Endpoints endpoints, Metadata metadata,
         SendMessageRequest request, Duration duration);
@@ -132,7 +132,7 @@ public interface ClientManager {
         QueryAssignmentRequest request, Duration duration);
 
     /**
-     * Receiving message asynchronously from server, the method ensures no throwable.
+     * Receiving messages asynchronously from the server, the method ensures no throwable.
      *
      * @param endpoints requested endpoints.
      * @param metadata  gRPC request header metadata.
@@ -141,7 +141,7 @@ public interface ClientManager {
         ReceiveMessageRequest request, Duration duration);
 
     /**
-     * Ack message asynchronously after success of consumption, the method ensures no throwable.
+     * Ack message asynchronously after the success of consumption, the method ensures no throwable.
      *
      * @param endpoints requested endpoints.
      * @param metadata  gRPC request header metadata.
@@ -153,7 +153,7 @@ public interface ClientManager {
         Duration duration);
 
     /**
-     * Nack message asynchronously after failure of consumption, the method ensures no throwable.
+     * Nack message asynchronously after the failure of consumption, the method ensures no throwable.
      *
      * @param endpoints requested endpoints.
      * @param metadata  gRPC request header metadata.
@@ -165,13 +165,13 @@ public interface ClientManager {
         ChangeInvisibleDurationRequest request, Duration duration);
 
     /**
-     * Send message to dead letter queue asynchronously, the method ensures no throwable.
+     * Send a message to the dead letter queue asynchronously, the method ensures no throwable.
      *
      * @param endpoints requested endpoints.
      * @param metadata  gRPC request header metadata.
-     * @param request   request of sending message to DLQ.
+     * @param request   request of sending a message to DLQ.
      * @param duration  request max duration.
-     * @return response future of sending message to DLQ.
+     * @return response future of sending a message to DLQ.
      */
     ListenableFuture<ForwardMessageToDeadLetterQueueResponse> forwardMessageToDeadLetterQueue(
         Endpoints endpoints, Metadata metadata, ForwardMessageToDeadLetterQueueRequest request, Duration duration);
@@ -189,7 +189,7 @@ public interface ClientManager {
         EndTransactionRequest request, Duration duration);
 
     /**
-     * Asynchronously notify server that client is terminated, the method ensures no throwable.
+     * Asynchronously notify the server that client is terminated, the method ensures no throwable.
      *
      * @param endpoints request endpoints.
      * @param metadata  gRPC request header metadata.
