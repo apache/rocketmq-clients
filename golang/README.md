@@ -23,9 +23,6 @@ Otherwise, to install the `golang` package, run the following command:
 $ go get -u github.com/apache/rocketmq-clients/golang
 ```
 
-License
-------------------
-This project follows [Apache License Version 2.0](./LICENSE).
 
 How to contribute
 ------------------
