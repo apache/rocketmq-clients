@@ -119,7 +119,7 @@ ConsumeStats::ConsumeStats()
       .set_description("Message delivery latency")
       .set_measure("delivery_latency")
       .set_aggregation(opencensus::stats::Aggregation::Distribution(
-          opencensus::stats::BucketBoundaries::Explicit({5, 10, 20, 50, 500})))
+          opencensus::stats::BucketBoundaries::Explicit({1.0, 5.0, 10.0, 20.0, 50.0, 200.0, 500.0})))
       .add_column(Tag::topicTag())
       .add_column(Tag::clientIdTag())
       .RegisterForExport();
@@ -129,7 +129,7 @@ ConsumeStats::ConsumeStats()
       .set_description("Message await time")
       .set_measure("await_time")
       .set_aggregation(opencensus::stats::Aggregation::Distribution(
-          opencensus::stats::BucketBoundaries::Explicit({1, 1000, 60000, 900000})))
+          opencensus::stats::BucketBoundaries::Explicit({1.0, 5.0, 20.0, 100.0, 1000.0, 5000.0, 10000.0})))
       .add_column(Tag::topicTag())
       .add_column(Tag::clientIdTag())
       .RegisterForExport();
@@ -139,7 +139,7 @@ ConsumeStats::ConsumeStats()
       .set_description("Process time")
       .set_measure("process_time")
       .set_aggregation(opencensus::stats::Aggregation::Distribution(
-          opencensus::stats::BucketBoundaries::Explicit({100, 1000, 60000, 900000})))
+          opencensus::stats::BucketBoundaries::Explicit({1.0, 5.0, 10.0, 100.0, 10000.0, 60000.0})))
       .add_column(Tag::topicTag())
       .add_column(Tag::clientIdTag())
       .RegisterForExport();
