@@ -42,8 +42,10 @@ public class ProducerSettings extends ClientSettings {
      */
     private volatile int compressBodyThresholdBytes = 4 * 1024;
     private volatile int maxBodySizeBytes = 4 * 1024 * 1024;
+
+    private volatile boolean validateMessageType = true;
     /**
-     * The default GZIP compression level for message body.
+     * The default GZIP compression level for the message body.
      */
     @SuppressWarnings("FieldCanBeLocal")
     private final int messageGzipCompressionLevel = 5;
@@ -62,18 +64,22 @@ public class ProducerSettings extends ClientSettings {
         return maxBodySizeBytes;
     }
 
+    public boolean isValidateMessageType() {
+        return validateMessageType;
+    }
+
     public int getMessageGzipCompressionLevel() {
         return messageGzipCompressionLevel;
     }
 
     @Override
     public Settings toProtobuf() {
-        final Publishing publishing =
-            Publishing.newBuilder().addAllTopics(topics.stream().map(Resource::toProtobuf)
-                .collect(Collectors.toList())).build();
-        final Settings.Builder builder =
-            Settings.newBuilder().setAccessPoint(accessPoint.toProtobuf()).setClientType(clientType.toProtobuf())
+        final Publishing publishing = Publishing.newBuilder().addAllTopics(topics.stream().map(Resource::toProtobuf)
+            .collect(Collectors.toList())).build();
+        final Settings.Builder builder = Settings.newBuilder()
+            .setAccessPoint(accessPoint.toProtobuf()).setClientType(clientType.toProtobuf())
             .setRequestTimeout(Durations.fromNanos(requestTimeout.toNanos())).setPublishing(publishing);
+        this.validateMessageType = publishing.getValidateMessageType();
         return builder.setBackoffPolicy(retryPolicy.toProtobuf()).setUserAgent(UserAgent.INSTANCE.toProtoBuf()).build();
     }
 

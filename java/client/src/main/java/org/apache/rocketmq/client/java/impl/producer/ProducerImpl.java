@@ -138,7 +138,7 @@ class ProducerImpl extends ClientImpl implements Producer {
             messageView = MessageViewImpl.fromProtobuf(command.getOrphanedTransactionalMessage(), mq);
         } catch (Throwable t) {
             LOGGER.error("[Bug] Failed to decode message during orphaned transaction message recovery, messageId={}, "
-                    + "transactionId={}, endpoints={}, clientId={}", messageId, transactionId, endpoints, clientId, t);
+                + "transactionId={}, endpoints={}, clientId={}", messageId, transactionId, endpoints, clientId, t);
             return;
         }
         ListenableFuture<TransactionResolution> future;
@@ -396,8 +396,8 @@ class ProducerImpl extends ClientImpl implements Producer {
                 .map(Optional::get).collect(Collectors.toSet());
 
             if (1 < messageGroups.size()) {
-                final IllegalArgumentException e = new IllegalArgumentException("FIFO messages to send have different"
-                    + " message groups, messageGroups=" + messageGroups);
+                final IllegalArgumentException e = new IllegalArgumentException("FIFO messages to send have different "
+                    + "message groups, messageGroups=" + messageGroups);
                 future.setException(e);
                 LOGGER.error("FIFO messages to be sent have different message groups, no need to proceed, topic={}, "
                     + "messageGroups={}, clientId={}", topic, messageGroups, clientId, e);
@@ -442,12 +442,12 @@ class ProducerImpl extends ClientImpl implements Producer {
         }
         // Calculate the current message queue.
         final MessageQueueImpl messageQueue = candidates.get(IntMath.mod(attempt - 1, candidates.size()));
-        //        if (!messageQueue.matchMessageType(messageType)) {
-        //            final IllegalArgumentException e = new IllegalArgumentException("Current message type not match
-        //            with topic accept message types");
-        //            future.setException(e);
-        //            return;
-        //        }
+        if (producerSettings.isValidateMessageType() && !messageQueue.matchMessageType(messageType)) {
+            final IllegalArgumentException e = new IllegalArgumentException("Current message type not match with "
+                + "topic accept message types");
+            future.setException(e);
+            return;
+        }
         final Endpoints endpoints = messageQueue.getBroker().getEndpoints();
         final SendMessageRequest request = wrapSendMessageRequest(messages);
 
