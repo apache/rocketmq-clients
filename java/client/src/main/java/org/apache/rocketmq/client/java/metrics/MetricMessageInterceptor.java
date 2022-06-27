@@ -46,14 +46,12 @@ public class MetricMessageInterceptor implements MessageInterceptor {
 
     private void doAfterSendMessage(List<MessageCommon> messageCommons, Duration duration,
         MessageHookPointsStatus status) {
-        final LongCounter sendSuccessCounter = messageMeter.getSendSuccessTotalCounter();
         final LongCounter sendFailureCounter = messageMeter.getSendFailureTotalCounter();
         final DoubleHistogram costTimeHistogram = messageMeter.getSendSuccessCostTimeHistogram();
         for (MessageCommon messageCommon : messageCommons) {
             Attributes attributes = Attributes.builder().put(RocketmqAttributes.TOPIC, messageCommon.getTopic())
                 .put(RocketmqAttributes.CLIENT_ID, messageMeter.getClient().getClientId()).build();
             if (MessageHookPointsStatus.OK.equals(status)) {
-                sendSuccessCounter.add(1, attributes);
                 costTimeHistogram.record(duration.toMillis(), attributes);
             }
             if (MessageHookPointsStatus.ERROR.equals(status)) {
@@ -136,52 +134,6 @@ public class MetricMessageInterceptor implements MessageInterceptor {
         }
     }
 
-    private void doAfterAckMessage(List<MessageCommon> messageCommons, MessageHookPointsStatus status) {
-        final LongCounter ackSuccessCounter = messageMeter.getAckSuccessTotalCounter();
-        final LongCounter ackFailureCounter = messageMeter.getAckFailureTotalCounter();
-        final Optional<String> optionalConsumerGroup = messageMeter.tryGetConsumerGroup();
-        if (!optionalConsumerGroup.isPresent()) {
-            LOGGER.error("[Bug] consumerGroup is not recognized, clientId={}", messageMeter.getClient());
-            return;
-        }
-        final String consumerGroup = optionalConsumerGroup.get();
-        for (MessageCommon messageCommon : messageCommons) {
-            Attributes attributes = Attributes.builder().put(RocketmqAttributes.TOPIC, messageCommon.getTopic())
-                .put(RocketmqAttributes.CONSUMER_GROUP, consumerGroup)
-                .put(RocketmqAttributes.CLIENT_ID, messageMeter.getClient().getClientId()).build();
-            if (MessageHookPointsStatus.OK.equals(status)) {
-                ackSuccessCounter.add(1, attributes);
-            }
-            if (MessageHookPointsStatus.ERROR.equals(status)) {
-                ackFailureCounter.add(1, attributes);
-            }
-        }
-    }
-
-    private void doAfterChangInvisibleDuration(List<MessageCommon> messageCommons, MessageHookPointsStatus status) {
-        final LongCounter changeInvisibleDurationSuccessCounter =
-            messageMeter.getChangeInvisibleDurationSuccessCounter();
-        final LongCounter changeInvisibleDurationFailureCounter =
-            messageMeter.getChangeInvisibleDurationFailureCounter();
-        final Optional<String> optionalConsumerGroup = messageMeter.tryGetConsumerGroup();
-        if (!optionalConsumerGroup.isPresent()) {
-            LOGGER.error("[Bug] consumerGroup is not recognized, clientId={}", messageMeter.getClient());
-            return;
-        }
-        final String consumerGroup = optionalConsumerGroup.get();
-        for (MessageCommon message : messageCommons) {
-            Attributes attributes = Attributes.builder().put(RocketmqAttributes.TOPIC, message.getTopic())
-                .put(RocketmqAttributes.CONSUMER_GROUP, consumerGroup)
-                .put(RocketmqAttributes.CLIENT_ID, messageMeter.getClient().getClientId()).build();
-            if (MessageHookPointsStatus.OK.equals(status)) {
-                changeInvisibleDurationSuccessCounter.add(1, attributes);
-            }
-            if (MessageHookPointsStatus.ERROR.equals(status)) {
-                changeInvisibleDurationFailureCounter.add(1, attributes);
-            }
-        }
-    }
-
     @Override
     public void doBefore(MessageHookPoints messageHookPoints, List<MessageCommon> messageCommons) {
         final Meter meter = messageMeter.getMeter();
@@ -209,12 +161,6 @@ public class MetricMessageInterceptor implements MessageInterceptor {
                 break;
             case CONSUME:
                 doAfterProcessMessage(messageCommons, duration, status);
-                break;
-            case ACK:
-                doAfterAckMessage(messageCommons, status);
-                break;
-            case CHANGE_INVISIBLE_DURATION:
-                doAfterChangInvisibleDuration(messageCommons, status);
                 break;
             default:
                 break;

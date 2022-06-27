@@ -82,11 +82,6 @@ public class MessageMeter {
         this.messageCacheObserver = messageCacheObserver;
     }
 
-    LongCounter getSendSuccessTotalCounter() {
-        return counterMap.computeIfAbsent(MetricName.SEND_SUCCESS_TOTAL,
-            name -> meter.counterBuilder(name.getName()).build());
-    }
-
     LongCounter getSendFailureTotalCounter() {
         return counterMap.computeIfAbsent(MetricName.SEND_FAILURE_TOTAL,
             name -> meter.counterBuilder(name.getName()).build());
@@ -110,26 +105,6 @@ public class MessageMeter {
     DoubleHistogram getProcessCostTimeHistogram() {
         return histogramMap.computeIfAbsent(MetricName.PROCESS_TIME,
             name -> meter.histogramBuilder(name.getName()).build());
-    }
-
-    LongCounter getAckSuccessTotalCounter() {
-        return counterMap.computeIfAbsent(MetricName.ACK_SUCCESS_TOTAL,
-            name -> meter.counterBuilder(name.getName()).build());
-    }
-
-    LongCounter getAckFailureTotalCounter() {
-        return counterMap.computeIfAbsent(MetricName.ACK_FAILURE_TOTAL,
-            name -> meter.counterBuilder(name.getName()).build());
-    }
-
-    LongCounter getChangeInvisibleDurationSuccessCounter() {
-        return counterMap.computeIfAbsent(MetricName.CHANGE_INVISIBLE_DURATION_SUCCESS_TOTAL,
-            name -> meter.counterBuilder(name.getName()).build());
-    }
-
-    LongCounter getChangeInvisibleDurationFailureCounter() {
-        return counterMap.computeIfAbsent(MetricName.CHANGE_INVISIBLE_DURATION_FAILURE_TOTAL,
-            name -> meter.counterBuilder(name.getName()).build());
     }
 
     DoubleHistogram getMessageDeliveryLatencyHistogram() {
