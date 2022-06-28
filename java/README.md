@@ -97,7 +97,7 @@ SimpleConsumer simpleConsumer = provider.newSimpleConsumerBuilder()
     .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
     .build();
 // Try to receive message from server.
-final List<MessageView> messageViews = consumer.receive(1, invisibleDuration);
+final List<MessageView> messageViews = simpleConsumer.receive(1, invisibleDuration);
 for (MessageView messageView : messageViews) {
     // Ack or change invisible time according to your needs.
     simpleConsumer.ack(messageView);
@@ -105,4 +105,3 @@ for (MessageView messageView : messageViews) {
 // Close it when you don't need the consumer any more.
 simpleConsumer.close();
 ```
-
