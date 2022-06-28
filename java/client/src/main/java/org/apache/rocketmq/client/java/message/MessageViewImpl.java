@@ -100,7 +100,7 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
 
     public MessageCommon getMessageCommon() {
         return new MessageCommon(messageId, topic, body, tag, messageGroup, deliveryTimestamp, keys, properties,
-            bornHost, traceContext, bornTimestamp, deliveryAttempt, decodeStopwatch, null);
+            bornHost, traceContext, bornTimestamp, deliveryAttempt, decodeStopwatch, deliveryTimestampFromRemote);
     }
 
     /**
@@ -324,22 +324,15 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
         return MoreObjects.toStringHelper(this)
             .add("messageId", messageId)
             .add("topic", topic)
-            .add("tag", tag)
-            .add("messageGroup", messageGroup)
-            .add("deliveryTimestamp", deliveryTimestamp)
-            .add("keys", keys)
-            .add("properties", properties)
             .add("bornHost", bornHost)
             .add("bornTimestamp", bornTimestamp)
-            .add("deliveryAttempt", deliveryAttempt)
-            .add("messageQueue", messageQueue)
             .add("endpoints", endpoints)
-            .add("receiptHandle", receiptHandle)
-            .add("traceContext", traceContext)
-            .add("offset", offset)
-            .add("corrupted", corrupted)
-            .add("decodeStopwatch", decodeStopwatch)
-            .add("deliveryTimestampFromRemote", deliveryTimestampFromRemote)
+            .add("deliveryAttempt", deliveryAttempt)
+            .add("tag", tag)
+            .add("keys", keys)
+            .add("messageGroup", messageGroup)
+            .add("deliveryTimestamp", deliveryTimestamp)
+            .add("properties", properties)
             .toString();
     }
 }
