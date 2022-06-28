@@ -19,39 +19,40 @@ package org.apache.rocketmq.client.java.metrics;
 
 public enum MetricName {
     /**
-     * A counter that records the number of failed api calls of message publishing.
-     */
-    SEND_FAILURE_TOTAL("rocketmq_send_failure_total"),
-    /**
      * A histogram that records the cost time of successful api calls of message publishing.
+     *
+     * <p>Labels: {@link MetricLabels#TOPIC}, {@link MetricLabels#CLIENT_ID}, {@link MetricLabels#INVOCATION_STATUS}.
      */
-    SEND_SUCCESS_COST_TIME("rocketmq_send_success_cost_time"),
-    /**
-     * A counter that records the number of successful consumption of message.
-     */
-    PROCESS_SUCCESS_TOTAL("rocketmq_process_success_total"),
-    /**
-     * A counter that records the number of failed consumption of message.
-     */
-    PROCESS_FAILURE_TOTAL("rocketmq_process_failure_total"),
+    SEND_SUCCESS_COST_TIME("rocketmq_send_cost_time"),
     /**
      * A gauge that records the cached message count of push consumer.
+     *
+     * <p>Labels: {@link MetricLabels#TOPIC}, {@link MetricLabels#CLIENT_ID}, {@link MetricLabels#CONSUMER_GROUP}.
      */
     CONSUMER_CACHED_MESSAGES("rocketmq_consumer_cached_messages"),
     /**
      * A gauge that records the cached message bytes of push consumer.
+     *
+     * <p>Labels: {@link MetricLabels#TOPIC}, {@link MetricLabels#CLIENT_ID}, {@link MetricLabels#CONSUMER_GROUP}.
      */
     CONSUMER_CACHED_BYTES("rocketmq_consumer_cached_bytes"),
     /**
      * A histogram that records the latency of message delivery from remote.
+     *
+     * <p>Labels: {@link MetricLabels#TOPIC}, {@link MetricLabels#CLIENT_ID}, {@link MetricLabels#CONSUMER_GROUP}.
      */
     DELIVERY_LATENCY("rocketmq_delivery_latency"),
     /**
      * A histogram that records await time of message consumption.
+     *
+     * <p>Labels: {@link MetricLabels#TOPIC}, {@link MetricLabels#CLIENT_ID}, {@link MetricLabels#CONSUMER_GROUP}.
      */
     AWAIT_TIME("rocketmq_await_time"),
     /**
-     * A counter that records the process time of message consumption.
+     * A histogram that records the process time of message consumption.
+     *
+     * <p>Labels: {@link MetricLabels#TOPIC}, {@link MetricLabels#CLIENT_ID}, {@link MetricLabels#CONSUMER_GROUP},
+     * {@link MetricLabels#INVOCATION_STATUS}.
      */
     PROCESS_TIME("rocketmq_process_time");
 

@@ -24,7 +24,6 @@ import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext;
 import io.grpc.netty.shaded.io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.DoubleHistogram;
-import io.opentelemetry.api.metrics.LongCounter;
 import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.exporter.otlp.metrics.OtlpGrpcMetricExporter;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
@@ -65,12 +64,10 @@ public class MessageMeter {
 
     private volatile MessageCacheObserver messageCacheObserver;
 
-    private final ConcurrentMap<MetricName, LongCounter> counterMap;
     private final ConcurrentMap<MetricName, DoubleHistogram> histogramMap;
 
     public MessageMeter(ClientImpl client) {
         this.client = client;
-        this.counterMap = new ConcurrentHashMap<>();
         this.histogramMap = new ConcurrentHashMap<>();
         this.client.registerMessageInterceptor(new MetricMessageInterceptor(this));
         this.messageCacheObserver = null;
@@ -80,24 +77,9 @@ public class MessageMeter {
         this.messageCacheObserver = messageCacheObserver;
     }
 
-    LongCounter getSendFailureTotalCounter() {
-        return counterMap.computeIfAbsent(MetricName.SEND_FAILURE_TOTAL,
-            name -> meter.counterBuilder(name.getName()).build());
-    }
-
     DoubleHistogram getSendSuccessCostTimeHistogram() {
         return histogramMap.computeIfAbsent(MetricName.SEND_SUCCESS_COST_TIME,
             name -> meter.histogramBuilder(name.getName()).build());
-    }
-
-    LongCounter getProcessSuccessTotalCounter() {
-        return counterMap.computeIfAbsent(MetricName.PROCESS_SUCCESS_TOTAL,
-            name -> meter.counterBuilder(name.getName()).build());
-    }
-
-    LongCounter getProcessFailureTotalCounter() {
-        return counterMap.computeIfAbsent(MetricName.PROCESS_FAILURE_TOTAL,
-            name -> meter.counterBuilder(name.getName()).build());
     }
 
     DoubleHistogram getProcessCostTimeHistogram() {
@@ -223,7 +205,6 @@ public class MessageMeter {
     }
 
     private void reset() {
-        counterMap.clear();
         histogramMap.clear();
         meter.gaugeBuilder(MetricName.CONSUMER_CACHED_MESSAGES.getName()).buildWithCallback(measurement -> {
             final Optional<String> optionalConsumerGroup = tryGetConsumerGroup();
@@ -235,9 +216,9 @@ public class MessageMeter {
             final Map<String, Long> cachedMessageCountMap = messageCacheObserver.getCachedMessageCount();
             for (Map.Entry<String, Long> entry : cachedMessageCountMap.entrySet()) {
                 final String topic = entry.getKey();
-                Attributes attributes = Attributes.builder().put(RocketmqAttributes.TOPIC, topic)
-                    .put(RocketmqAttributes.CONSUMER_GROUP, consumerGroup)
-                    .put(RocketmqAttributes.CLIENT_ID, client.getClientId()).build();
+                Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, topic)
+                    .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
+                    .put(MetricLabels.CLIENT_ID, client.getClientId()).build();
                 measurement.record(entry.getValue(), attributes);
             }
         });
@@ -251,9 +232,9 @@ public class MessageMeter {
             final Map<String, Long> cachedMessageBytesMap = messageCacheObserver.getCachedMessageBytes();
             for (Map.Entry<String, Long> entry : cachedMessageBytesMap.entrySet()) {
                 final String topic = entry.getKey();
-                Attributes attributes = Attributes.builder().put(RocketmqAttributes.TOPIC, topic)
-                    .put(RocketmqAttributes.CONSUMER_GROUP, consumerGroup)
-                    .put(RocketmqAttributes.CLIENT_ID, client.getClientId()).build();
+                Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, topic)
+                    .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
+                    .put(MetricLabels.CLIENT_ID, client.getClientId()).build();
                 measurement.record(entry.getValue(), attributes);
             }
         });

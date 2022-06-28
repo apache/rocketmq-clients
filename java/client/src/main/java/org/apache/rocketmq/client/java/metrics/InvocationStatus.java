@@ -17,15 +17,17 @@
 
 package org.apache.rocketmq.client.java.metrics;
 
-import static io.opentelemetry.api.common.AttributeKey.stringKey;
+public enum InvocationStatus {
+    SUCCESS("success"),
+    FAILURE("failure");
 
-import io.opentelemetry.api.common.AttributeKey;
+    private final String name;
 
-public class RocketmqAttributes {
-    public static final AttributeKey<String> TOPIC = stringKey("topic");
-    public static final AttributeKey<String> CLIENT_ID = stringKey("client_id");
-    public static final AttributeKey<String> CONSUMER_GROUP = stringKey("consumer_group");
+    InvocationStatus(String name) {
+        this.name = name;
+    }
 
-    private RocketmqAttributes() {
+    public String getName() {
+        return name;
     }
 }

@@ -21,7 +21,6 @@ import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Timestamps;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.DoubleHistogram;
-import io.opentelemetry.api.metrics.LongCounter;
 import io.opentelemetry.api.metrics.Meter;
 import java.time.Duration;
 import java.util.List;
@@ -46,17 +45,15 @@ public class MetricMessageInterceptor implements MessageInterceptor {
 
     private void doAfterSendMessage(List<MessageCommon> messageCommons, Duration duration,
         MessageHookPointsStatus status) {
-        final LongCounter sendFailureCounter = messageMeter.getSendFailureTotalCounter();
         final DoubleHistogram costTimeHistogram = messageMeter.getSendSuccessCostTimeHistogram();
         for (MessageCommon messageCommon : messageCommons) {
-            Attributes attributes = Attributes.builder().put(RocketmqAttributes.TOPIC, messageCommon.getTopic())
-                .put(RocketmqAttributes.CLIENT_ID, messageMeter.getClient().getClientId()).build();
-            if (MessageHookPointsStatus.OK.equals(status)) {
-                costTimeHistogram.record(duration.toMillis(), attributes);
-            }
-            if (MessageHookPointsStatus.ERROR.equals(status)) {
-                sendFailureCounter.add(1, attributes);
-            }
+            InvocationStatus invocationStatus = MessageHookPointsStatus.OK.equals(status) ? InvocationStatus.SUCCESS :
+                InvocationStatus.FAILURE;
+            Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, messageCommon.getTopic())
+                .put(MetricLabels.CLIENT_ID, messageMeter.getClient().getClientId())
+                .put(MetricLabels.INVOCATION_STATUS, invocationStatus.getName())
+                .build();
+            costTimeHistogram.record(duration.toMillis(), attributes);
         }
     }
 
@@ -81,9 +78,9 @@ public class MetricMessageInterceptor implements MessageInterceptor {
         final Timestamp deliveryTimestampFromRemote = optionalDeliveryTimestampFromRemote.get();
         final long latency = System.currentTimeMillis() - Timestamps.toMillis(deliveryTimestampFromRemote);
         final DoubleHistogram messageDeliveryLatencyHistogram = messageMeter.getMessageDeliveryLatencyHistogram();
-        final Attributes attributes = Attributes.builder().put(RocketmqAttributes.TOPIC, messageCommon.getTopic())
-            .put(RocketmqAttributes.CONSUMER_GROUP, consumerGroup)
-            .put(RocketmqAttributes.CLIENT_ID, messageMeter.getClient().getClientId()).build();
+        final Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, messageCommon.getTopic())
+            .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
+            .put(MetricLabels.CLIENT_ID, messageMeter.getClient().getClientId()).build();
         messageDeliveryLatencyHistogram.record(latency, attributes);
     }
 
@@ -100,17 +97,15 @@ public class MetricMessageInterceptor implements MessageInterceptor {
             return;
         }
         final Duration durationAfterDecoding = optionalDurationAfterDecoding.get();
-        Attributes attributes = Attributes.builder().put(RocketmqAttributes.TOPIC, messageCommon.getTopic())
-            .put(RocketmqAttributes.CONSUMER_GROUP, consumerGroup)
-            .put(RocketmqAttributes.CLIENT_ID, messageMeter.getClient().getClientId()).build();
+        Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, messageCommon.getTopic())
+            .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
+            .put(MetricLabels.CLIENT_ID, messageMeter.getClient().getClientId()).build();
         final DoubleHistogram histogram = messageMeter.getMessageAwaitTimeHistogram();
         histogram.record(durationAfterDecoding.toMillis(), attributes);
     }
 
     private void doAfterProcessMessage(List<MessageCommon> messageCommons, Duration duration,
         MessageHookPointsStatus status) {
-        final LongCounter processSuccessCounter = messageMeter.getProcessSuccessTotalCounter();
-        final LongCounter processFailureCounter = messageMeter.getProcessFailureTotalCounter();
         final DoubleHistogram processCostTimeHistogram = messageMeter.getProcessCostTimeHistogram();
         final ClientImpl client = messageMeter.getClient();
         if (!(client instanceof PushConsumer)) {
@@ -120,17 +115,14 @@ public class MetricMessageInterceptor implements MessageInterceptor {
         }
         PushConsumer pushConsumer = (PushConsumer) client;
         for (MessageCommon messageCommon : messageCommons) {
-            Attributes attributes = Attributes.builder().put(RocketmqAttributes.TOPIC, messageCommon.getTopic())
-                .put(RocketmqAttributes.CONSUMER_GROUP, pushConsumer.getConsumerGroup())
-                .put(RocketmqAttributes.CLIENT_ID, messageMeter.getClient().getClientId()).build();
-            if (MessageHookPointsStatus.OK.equals(status)) {
-                processSuccessCounter.add(1, attributes);
-                processCostTimeHistogram.record(duration.toMillis(), attributes);
-            }
-            if (MessageHookPointsStatus.ERROR.equals(status)) {
-                processFailureCounter.add(1, attributes);
-                processCostTimeHistogram.record(duration.toMillis(), attributes);
-            }
+            InvocationStatus invocationStatus = MessageHookPointsStatus.OK.equals(status) ? InvocationStatus.SUCCESS :
+                InvocationStatus.FAILURE;
+            Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, messageCommon.getTopic())
+                .put(MetricLabels.CONSUMER_GROUP, pushConsumer.getConsumerGroup())
+                .put(MetricLabels.CLIENT_ID, messageMeter.getClient().getClientId())
+                .put(MetricLabels.INVOCATION_STATUS, invocationStatus.getName())
+                .build();
+            processCostTimeHistogram.record(duration.toMillis(), attributes);
         }
     }
 
