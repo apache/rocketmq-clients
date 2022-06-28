@@ -191,6 +191,12 @@
                                 <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_transport_native_epoll_x86_64.so"
                                       tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_transport_native_epoll_x86_64.so"/>
 
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_tcnative_osx_aarch_64.jnilib"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_osx_aarch_64.jnilib"/>
+
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_transport_native_epoll_aarch_64.so"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_transport_native_epoll_aarch_64.so"/>
+
                                 <jar destfile="${project.build.directory}/${shadeJarName}"
                                      basedir="${classesShadedDir}"/>
                                 <!-- <delete dir="${classesShadedDir}"/> -->
