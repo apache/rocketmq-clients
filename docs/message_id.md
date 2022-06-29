@@ -19,7 +19,9 @@ As for the second type, there are some major flaws in the algorithm design. Firs
 
 ## Detailed Design
 
-![The Message Identifier Illustration](../docs/artwork/message_id.png)
+<div align="center">
+<img src="./artwork/message_id.png" width="70%">
+</div>
 
 This illustration shows an example of message identifier. The version number of the newly designed version is 0x01, and number of all previous versions is 0x00. The message identifier's length is 17 bytes if its version is higher than 0x00, then we convert it to uppercase hexadecimal to get the message identifier in string format.
 
