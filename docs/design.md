@@ -13,9 +13,9 @@ In order to adapt different scenarios, we defined different types for messages t
 * **FIFO**(First In, First Out): follows standard [FIFO](https://en.wikipedia.org/wiki/FIFO) semantics, this type of message must set the `message group`. This type of message need to be used with FIFO consumer group, which gurantees that the message must be received first if the it is published first with the same message group.
 * **DELAY**: the message about to be sent is not immediately visible to the consumer, this type of message must set the `delivery timestamp`, which decides the visible time to consumers;
 * **TRANSACTIONAL**: wrap the publishing of one or more messages into a transaction, provide commit/rollback method to decide the visibility of messages;
-* **NORMAL**: default type, which means the message is normal type if it does not belong to the other types above.
+* **NORMAL**: default type. The message type is NORMAL if it does not belong to the other types above.
 
-The different types are mutually exclusive, when means that the message to publish could not be both FIFO type and DELAY type at the same time. Actually the type of the message is bound to the topic type in, and the type of the topic determines the type of the message. For example, FIFO topic do not allow the publishing of other types of messages.
+The different types are mutually exclusive, when means that the message to publish could not be both FIFO type and DELAY type at the same time. Actually the type of the topic determines the type of the message. For example, FIFO topic do not allow the publishing of other types of messages.
 
 <div align="center">
 <img src="./artwork/message_types_and_topic_types.png" width="60%">
