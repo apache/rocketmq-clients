@@ -16,6 +16,8 @@
  */
 #include "rocketmq/ErrorCategory.h"
 
+#include "rocketmq/ErrorCode.h"
+
 ROCKETMQ_NAMESPACE_BEGIN
 
 std::string ErrorCategory::message(int code) const {
@@ -65,7 +67,7 @@ std::string ErrorCategory::message(int code) const {
     case ErrorCode::PreconditionRequired:
       return "State of dependent procedure is not right";
 
-    case ErrorCode::TooManyRequest:
+    case ErrorCode::TooManyRequests:
       return "Quota exchausted. The user has sent too many requests in a given "
              "amount of time.";
 
@@ -107,6 +109,24 @@ std::string ErrorCategory::message(int code) const {
     case ErrorCode::InsufficientStorage:
       return "The server is unable to store the representation needed to "
              "complete the request.";
+
+    case ErrorCode::MultipleResults:
+      return "Multiple results are available";
+
+    case ErrorCode::IllegalAccessPoint:
+      return "Access point is either malformed or invalid";
+
+    case ErrorCode::IllegalTopic: {
+      return "Topic is illegal either due to length is too long or invalid character is included";
+    }
+
+    case ErrorCode::IllegalConsumerGroup: {
+      return "ConsumerGroup is illegal due to its length is too long or invalid character is included";
+    }
+
+    case ErrorCode::IllegalMessageTag: {
+      return "Format of message tag is illegal.";
+    }
   }
 
   return "";

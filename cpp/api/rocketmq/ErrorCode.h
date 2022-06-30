@@ -151,7 +151,7 @@ enum class ErrorCode : int {
    * amount of time.
    *
    */
-  TooManyRequest = 42900,
+  TooManyRequests = 42900,
 
   /**
    * @brief The server is unwilling to process the request because either an

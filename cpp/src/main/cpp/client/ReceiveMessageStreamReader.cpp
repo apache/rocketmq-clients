@@ -73,7 +73,7 @@ void ReceiveMessageStreamReader::OnReadDone(bool ok) {
           break;
         }
         case rmq::Code::TOO_MANY_REQUESTS: {
-          ec_ = ErrorCode::TooManyRequest;
+          ec_ = ErrorCode::TooManyRequests;
           break;
         }
         case rmq::Code::MESSAGE_NOT_FOUND: {

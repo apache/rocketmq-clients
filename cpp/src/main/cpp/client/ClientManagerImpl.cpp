@@ -242,7 +242,7 @@ void ClientManagerImpl::heartbeat(const std::string& target_host, const Metadata
 
       case rmq::Code::TOO_MANY_REQUESTS: {
         SPDLOG_WARN("TooManyRequest: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::TooManyRequest;
+        ec = ErrorCode::TooManyRequests;
         cb(ec, invocation_context->response);
         break;
       }
@@ -352,33 +352,122 @@ bool ClientManagerImpl::send(const std::string& target_host, const Metadata& met
         send_receipt.message_id = invocation_context->response.entries().begin()->message_id();
         break;
       }
+
+      case rmq::Code::ILLEGAL_TOPIC: {
+        SPDLOG_ERROR("IllegalTopic: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::IllegalTopic;
+        break;
+      }
+
+      case rmq::Code::ILLEGAL_MESSAGE_TAG: {
+        SPDLOG_ERROR("IllegalMessageTag: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::IllegalMessageTag;
+        break;
+      }
+
+      case rmq::Code::ILLEGAL_MESSAGE_KEY: {
+        SPDLOG_ERROR("IllegalMessageKey: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::IllegalMessageKey;
+        break;
+      }
+
+      case rmq::Code::ILLEGAL_MESSAGE_GROUP: {
+        SPDLOG_ERROR("IllegalMessageGroup: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::IllegalMessageGroup;
+        break;
+      }
+
+      case rmq::Code::ILLEGAL_MESSAGE_PROPERTY_KEY: {
+        SPDLOG_ERROR("IllegalMessageProperty: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::IllegalMessageProperty;
+        break;
+      }
+
+      case rmq::Code::MESSAGE_PROPERTIES_TOO_LARGE: {
+        SPDLOG_ERROR("MessagePropertiesTooLarge: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::MessagePropertiesTooLarge;
+        break;
+      }
+
+      case rmq::Code::MESSAGE_BODY_TOO_LARGE: {
+        SPDLOG_ERROR("MessageBodyTooLarge: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::MessageBodyTooLarge;
+        break;
+      }
+
       case rmq::Code::TOPIC_NOT_FOUND: {
-        SPDLOG_WARN("TopicNotFound: {}", status.message());
+        SPDLOG_WARN("TopicNotFound: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::TopicNotFound;
+        break;
+      }
+
+      case rmq::Code::NOT_FOUND: {
+        SPDLOG_WARN("NotFound: {}. Host={}", status.message(), invocation_context->remote_address);
         ec = ErrorCode::NotFound;
         break;
       }
+
       case rmq::Code::UNAUTHORIZED: {
-        SPDLOG_WARN("Unauthenticated: {}", status.message());
+        SPDLOG_WARN("Unauthenticated: {}. Host={}", status.message(), invocation_context->remote_address);
         ec = ErrorCode::Unauthorized;
         break;
       }
+        
       case rmq::Code::FORBIDDEN: {
-        SPDLOG_WARN("Forbidden: {}", status.message());
+        SPDLOG_WARN("Forbidden: {}. Host={}", status.message(), invocation_context->remote_address);
         ec = ErrorCode::Forbidden;
-        cb(ec, send_receipt);
         break;
       }
+
+      case rmq::Code::MESSAGE_CORRUPTED: {
+        SPDLOG_WARN("MessageCorrupted: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::MessageCorrupted;
+        break;
+      }
+
+      case rmq::Code::TOO_MANY_REQUESTS: {
+        SPDLOG_WARN("TooManyRequest: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::TooManyRequests;
+        break;
+      }
+
       case rmq::Code::INTERNAL_SERVER_ERROR: {
-        SPDLOG_WARN("InternalServerError: {}", status.message());
+        SPDLOG_WARN("InternalServerError: {}. Host={}", status.message(), invocation_context->remote_address);
         ec = ErrorCode::InternalServerError;
         break;
       }
+
+      case rmq::Code::HA_NOT_AVAILABLE: {
+        SPDLOG_WARN("InternalServerError: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::InternalServerError;
+        break;
+      }
+
+      case rmq::Code::PROXY_TIMEOUT: {
+        SPDLOG_WARN("GatewayTimeout: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::GatewayTimeout;
+        break;
+      }
+
+      case rmq::Code::MASTER_PERSISTENCE_TIMEOUT: {
+        SPDLOG_WARN("GatewayTimeout: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::GatewayTimeout;
+        break;
+      }
+
+      case rmq::Code::SLAVE_PERSISTENCE_TIMEOUT: {
+        SPDLOG_WARN("GatewayTimeout: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::GatewayTimeout;
+        break;
+      }
+
       default: {
-        SPDLOG_WARN("Unsupported status code. Check and upgrade SDK to the latest");
-        ec = ErrorCode::NotImplemented;
+        SPDLOG_WARN("NotSupported: Check and upgrade SDK to the latest. Host={}", invocation_context->remote_address);
+        ec = ErrorCode::NotSupported;
         break;
       }
     }
+    
     cb(ec, send_receipt);
   };
 
@@ -537,7 +626,7 @@ void ClientManagerImpl::resolveRoute(const std::string& target_host, const Metad
 
       case rmq::Code::TOO_MANY_REQUESTS: {
         SPDLOG_WARN("TooManyRequest: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::TooManyRequest;
+        ec = ErrorCode::TooManyRequests;
         cb(ec, nullptr);
         break;
       }
@@ -1058,7 +1147,7 @@ void ClientManagerImpl::forwardMessageToDeadLetterQueue(const std::string& targe
         ec = ErrorCode::ServiceUnavailable;
       }
       case rmq::Code::TOO_MANY_REQUESTS: {
-        ec = ErrorCode::TooManyRequest;
+        ec = ErrorCode::TooManyRequests;
       }
       default: {
         ec = ErrorCode::NotImplemented;

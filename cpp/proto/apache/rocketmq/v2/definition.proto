@@ -316,30 +316,29 @@ enum Code {
   ILLEGAL_MESSAGE_GROUP = 40006;
   // Format of message property key is illegal.
   ILLEGAL_MESSAGE_PROPERTY_KEY = 40007;
-  // Message properties total size exceeds the threshold.
-  MESSAGE_PROPERTIES_TOO_LARGE = 40008;
-  // Message body size exceeds the threshold.
-  MESSAGE_BODY_TOO_LARGE = 40009;
   // Transaction id is invalid.
-  INVALID_TRANSACTION_ID = 40010;
+  INVALID_TRANSACTION_ID = 40008;
   // Format of message id is illegal.
-  ILLEGAL_MESSAGE_ID = 40011;
+  ILLEGAL_MESSAGE_ID = 40009;
   // Format of filter expression is illegal.
-  ILLEGAL_FILTER_EXPRESSION = 40012;
+  ILLEGAL_FILTER_EXPRESSION = 40010;
   // Receipt handle of message is invalid.
-  INVALID_RECEIPT_HANDLE = 40013;
-  // Message property is not match the message type.
-  MESSAGE_PROPERTY_DOES_NOT_MATCH_MESSAGE_TYPE = 40014;
+  INVALID_RECEIPT_HANDLE = 40011;
+  // Message property conflicts with its type.
+  MESSAGE_PROPERTY_CONFLICT_WITH_TYPE = 40012;
   // Client type could not be recognized.
-  UNRECOGNIZED_CLIENT_TYPE = 40015;
+  UNRECOGNIZED_CLIENT_TYPE = 40013;
   // Message is corrupted.
-  MESSAGE_CORRUPTED = 40016;
+  MESSAGE_CORRUPTED = 40014;
   // Request is rejected due to missing of x-mq-client-id header.
-  CLIENT_ID_REQUIRED = 40017;
+  CLIENT_ID_REQUIRED = 40015;
 
   // Generic code indicates that the client request lacks valid authentication
   // credentials for the requested resource.
   UNAUTHORIZED = 40100;
+
+  // Generic code indicates that the account is suspended due to overdue of payment.
+  PAYMENT_REQUIRED = 40200;
 
   // Generic code for the case that user does not have the permission to operate.
   FORBIDDEN = 40300;
@@ -353,9 +352,28 @@ enum Code {
   // Consumer group resource does not exist.
   CONSUMER_GROUP_NOT_FOUND = 40403;
 
+  // Generic code representing client side timeout when connecting to, reading data from, or write data to server.
+  REQUEST_TIMEOUT = 40800;
+
+  // Generic code represents that the request entity is larger than limits defined by server.
+  PAYLOAD_TOO_LARGE = 41300;
+  // Message body size exceeds the threshold.
+  MESSAGE_BODY_TOO_LARGE = 41301;
+
+  // Generic code for use cases where pre-conditions are not met.
+  // For example, if a producer instance is used to publish messages without prior start() invocation,
+  // this error code will be raised.
+  PRECONDITION_FAILED = 42800;
+
   // Generic code indicates that too many requests are made in short period of duration.
   // Requests are throttled.
   TOO_MANY_REQUESTS = 42900;
+
+  // Generic code for the case that the server is unwilling to process the request because its header fields are too large.
+  // The request may be resubmitted after reducing the size of the request header fields.
+  REQUEST_HEADER_FIELDS_TOO_LARGE = 43100;
+  // Message properties total size exceeds the threshold.
+  MESSAGE_PROPERTIES_TOO_LARGE = 43101;
 
   // Generic code indicates that server/client encountered an unexpected
   // condition that prevented it from fulfilling the request.
@@ -377,17 +395,16 @@ enum Code {
   // functionality required to fulfill the request.
   NOT_IMPLEMENTED = 50100;
 
-  // Generic code for timeout.
-  TIMEOUT = 50400;
+  // Generic code represents that the server, which acts as a gateway or proxy,
+  // does not get an satisfied response in time from its upstream servers.
+  // See https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/504
+  PROXY_TIMEOUT = 50400;
   // Message persistence timeout.
   MASTER_PERSISTENCE_TIMEOUT = 50401;
   // Slave persistence timeout.
   SLAVE_PERSISTENCE_TIMEOUT = 50402;
-  // Code indicates that the server, while acting as a gateway or proxy,
-  // did not get a response in time from the upstream server that
-  // it needed in order to complete the request.
-  PROXY_TIMEOUT = 50403;
 
+  // Generic code for unsupported operation.
   UNSUPPORTED = 50500;
   // Operation is not allowed in current version.
   VERSION_UNSUPPORTED = 50501;
