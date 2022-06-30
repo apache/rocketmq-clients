@@ -53,7 +53,7 @@ std::string ErrorCategory::message(int code) const {
     case ErrorCode::TopicNotFound:
       return "Topic is not found. Verify the request topic has already been created through console or management API";
 
-    case ErrorCode::GroupNotFound:
+    case ErrorCode::ConsumerGroupNotFound:
       return "Group is not found. Verify the request group has already been created through console or management API";
 
     case ErrorCode::RequestTimeout:
@@ -100,17 +100,16 @@ std::string ErrorCategory::message(int code) const {
              "a timely response from the upstream "
              "server.";
 
-    case ErrorCode::ProtocolVersionNotSupported:
+    case ErrorCode::ProtocolUnsupported:
       return "The server does not support the protocol version used in the "
              "request.";
 
     case ErrorCode::InsufficientStorage:
       return "The server is unable to store the representation needed to "
              "complete the request.";
-
-    default:
-      return "Not-Implemented";
   }
+
+  return "";
 }
 
 ROCKETMQ_NAMESPACE_END

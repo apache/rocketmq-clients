@@ -34,6 +34,11 @@ enum class ErrorCode : int {
   IllegalState = 1,
 
   /**
+   * @brief To publish FIFO messages, only synchronous API is supported.
+   */
+  BadRequestAsyncPubFifoMessage = 10001,
+
+  /**
    * @brief Broker has processed the request but is not going to return any content.
    */
   NoContent = 204,
@@ -45,53 +50,92 @@ enum class ErrorCode : int {
   BadConfiguration = 300,
 
   /**
-   * @brief The server cannot process the request due to apprent client-side
+   * @brief Generic code, representing multiple return results.
+   *
+   */
+  MultipleResults = 30000,
+
+  /**
+   * @brief The server cannot process the request due to apparent client-side
    * error. For example, topic contains invalid character or is excessively
    * long.
    *
    */
-  BadRequest = 400,
+  BadRequest = 40000,
 
   /**
-   * @brief To publish FIFO messages, only synchronous API is supported.
+   * @brief The access point is illegal
+   *
    */
-  BadRequestAsyncPubFifoMessage = 40001,
+  IllegalAccessPoint = 40001,
+
+  IllegalTopic = 40002,
+  IllegalConsumerGroup = 40003,
+  IllegalMessageTag = 40004,
+  IllegalMessageKey = 40005,
+  IllegalMessageGroup = 40006,
+  IllegalMessageProperty = 40007,
+  InvalidTransactionId = 40008,
+  IllegalMessageId = 40009,
+  IllegalFilterExpression = 40010,
+  InvalidReceiptHandle = 40011,
+
+  /**
+   * @brief Message property conflicts with its type.
+   */
+  MessagePropertyConflictWithType = 40012,
+
+  // Client type is not recognized by server
+  UnsupportedClientType = 40013,
+
+  // Received message is corrupted, generally failing to pass integrity checksum validation.
+  MessageCorrupted = 40014,
+
+  // Request is rejected due to missing of x-mq-client-id HTTP header in the metadata frame.
+  ClientIdRequired = 40015,
 
   /**
    * @brief Authentication failed. Possibly caused by invalid credentials.
    *
    */
-  Unauthorized = 401,
+  Unauthorized = 40100,
 
   /**
    * @brief Credentials are understood by server but authenticated user does not
    * have privilege to perform the requested action.
    *
    */
-  Forbidden = 403,
+  Forbidden = 40300,
 
   /**
    * @brief Topic not found, which should be created through console or
    * administration API before hand.
    *
    */
-  NotFound = 404,
+  NotFound = 40400,
 
-  TopicNotFound = 404001,
+  MessageNotFound = 40401,
 
-  GroupNotFound = 404002,
+  TopicNotFound = 404002,
+
+  ConsumerGroupNotFound = 404003,
 
   /**
    * @brief Timeout when connecting, reading from or writing to brokers.
    *
    */
-  RequestTimeout = 408,
+  RequestTimeout = 40800,
 
   /**
    * @brief Message body is too large.
    *
    */
-  PayloadTooLarge = 413,
+  PayloadTooLarge = 41300,
+
+  /**
+   * @brief Message body size exceeds limited allowed by server.
+   */
+  MessageBodyTooLarge = 41301,
 
   /**
    * @brief When trying to perform an action whose dependent procedure state is
@@ -100,14 +144,14 @@ enum class ErrorCode : int {
    * 2. Commit/Rollback a transactional message that does not exist;
    * 3. Commit an offset which is greater than maximum of partition;
    */
-  PreconditionRequired = 428,
+  PreconditionRequired = 42800,
 
   /**
    * @brief Quota exchausted. The user has sent too many requests in a given
    * amount of time.
    *
    */
-  TooManyRequest = 429,
+  TooManyRequest = 42900,
 
   /**
    * @brief The server is unwilling to process the request because either an
@@ -115,62 +159,69 @@ enum class ErrorCode : int {
    * large
    *
    */
-  HeaderFieldsTooLarge = 431,
+  HeaderFieldsTooLarge = 43100,
+
+  // Message properties total size exceeds the threshold.
+  MessagePropertiesTooLarge = 43101,
 
   /**
    * @brief A server operator has received a legal demand to deny access to a
    * resource or to a set of resources that includes the requested resource.
    *
    */
-  UnavailableForLegalReasons = 451,
+  UnavailableForLegalReasons = 45100,
 
   /**
    * @brief Server side interval error
    *
    */
-  InternalServerError = 500,
+  InternalServerError = 50000,
 
   /**
    * @brief The server either does not recognize the request method, or it lacks
    * the ability to fulfil the request.
    *
    */
-  NotImplemented = 501,
+  NotImplemented = 50100,
 
   /**
    * @brief The server was acting as a gateway or proxy and received an invalid
    * response from the upstream server.
    *
    */
-  BadGateway = 502,
+  BadGateway = 50200,
 
   /**
    * @brief The server cannot handle the request (because it is overloaded or
    * down for maintenance). Generally, this is a temporary state.
    *
    */
-  ServiceUnavailable = 503,
+  ServiceUnavailable = 50300,
 
   /**
    * @brief The server was acting as a gateway or proxy and did not receive a
    * timely response from the upstream server.
    *
    */
-  GatewayTimeout = 504,
+  GatewayTimeout = 50400,
 
   /**
    * @brief The server does not support the protocol version used in the
    * request.
    *
    */
-  ProtocolVersionNotSupported = 505,
+  NotSupported = 50500,
+
+  ProtocolUnsupported = 50501,
+
+  VerifyFifoMessageUnsupported = 50502,
 
   /**
    * @brief The server is unable to store the representation needed to complete
    * the request.
    *
    */
-  InsufficientStorage = 507,
+  InsufficientStorage = 50700,
 };
 
 std::error_code make_error_code(ErrorCode code);

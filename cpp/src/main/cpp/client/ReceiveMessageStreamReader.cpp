@@ -69,7 +69,7 @@ void ReceiveMessageStreamReader::OnReadDone(bool ok) {
         }
 
         case rmq::Code::CONSUMER_GROUP_NOT_FOUND: {
-          ec_ = ErrorCode::GroupNotFound;
+          ec_ = ErrorCode::ConsumerGroupNotFound;
           break;
         }
         case rmq::Code::TOO_MANY_REQUESTS: {
