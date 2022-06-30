@@ -550,7 +550,7 @@ void PushConsumerImpl::onVerifyMessage(MessageConstSharedPtr message, std::funct
         cmd.mutable_status()->set_message("Unexpected exception raised");
       }
     } else {
-      cmd.mutable_status()->set_code(rmq::Code::VERIFY_MESSAGE_FORBIDDEN);
+      cmd.mutable_status()->set_code(rmq::Code::VERIFY_FIFO_MESSAGE_UNSUPPORTED);
       cmd.mutable_status()->set_message("Unsupported Operation For FIFO Message");
     }
   } else {

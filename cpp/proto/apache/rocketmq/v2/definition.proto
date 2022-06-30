@@ -292,106 +292,74 @@ message Assignment {
 }
 
 enum Code {
-  // Success.
-  OK = 0;
+  CODE_UNSPECIFIED = 0;
+
+  // Generic code for success.
+  OK = 20000;
+
+  // Generic code for multiple return results.
+  MULTIPLE_RESULTS = 30000;
+
+  // Generic code for bad request, indicating that required fields or headers are missing.
+  BAD_REQUEST = 40000;
   // Format of access point is illegal.
-  ILLEGAL_ACCESS_POINT = 1;
+  ILLEGAL_ACCESS_POINT = 40001;
   // Format of topic is illegal.
-  ILLEGAL_TOPIC = 2;
+  ILLEGAL_TOPIC = 40002;
   // Format of consumer group is illegal.
-  ILLEGAL_CONSUMER_GROUP = 3;
+  ILLEGAL_CONSUMER_GROUP = 40003;
   // Format of message tag is illegal.
-  ILLEGAL_MESSAGE_TAG = 4;
+  ILLEGAL_MESSAGE_TAG = 40004;
   // Format of message key is illegal.
-  ILLEGAL_MESSAGE_KEY = 5;
-  // Size of message keys exceeds the threshold.
-  MESSAGE_KEYS_TOO_LARGE = 6;
+  ILLEGAL_MESSAGE_KEY = 40005;
   // Format of message group is illegal.
-  ILLEGAL_MESSAGE_GROUP = 7;
+  ILLEGAL_MESSAGE_GROUP = 40006;
   // Format of message property key is illegal.
-  ILLEGAL_MESSAGE_PROPERTY_KEY = 8;
+  ILLEGAL_MESSAGE_PROPERTY_KEY = 40007;
   // Message properties total size exceeds the threshold.
-  MESSAGE_PROPERTIES_TOO_LARGE = 9;
+  MESSAGE_PROPERTIES_TOO_LARGE = 40008;
   // Message body size exceeds the threshold.
-  MESSAGE_BODY_TOO_LARGE = 10;
-
-  // User does not have the permission to operate.
-  // See https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
-  FORBIDDEN = 403;
-
-  // Code indicates that the client request has not been completed
-  // because it lacks valid authentication credentials for the
-  // requested resource.
-  // See https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401
-  UNAUTHORIZED = 401;
-
-  // Topic resource does not exist.
-  TOPIC_NOT_FOUND = 13;
-
-  // Consumer group resource does not exist.
-  CONSUMER_GROUP_NOT_FOUND = 14;
-
-  // Not allowed to verify message. Chances are that you are verifying
-  // a FIFO message, as is violating FIFO semantics.
-  VERIFY_MESSAGE_FORBIDDEN = 15;
-
-  // Failed to consume message.
-  FAILED_TO_CONSUME_MESSAGE = 16;
-
-  // Message is corrupted.
-  MESSAGE_CORRUPTED = 17;
-
-  // Too many requests are made in short period of duration.
-  // Requests are throttled.
-  TOO_MANY_REQUESTS = 18;
-
-  // Expired receipt-handle is used when trying to acknowledge or change
-  // invisible duration of a message
-  RECEIPT_HANDLE_EXPIRED = 19;
-
-  // Message property is not match the message type.
-  MESSAGE_PROPERTY_DOES_NOT_MATCH_MESSAGE_TYPE = 20;
-
-  // Format of message id is illegal.
-  ILLEGAL_MESSAGE_ID = 21;
-
+  MESSAGE_BODY_TOO_LARGE = 40009;
   // Transaction id is invalid.
-  INVALID_TRANSACTION_ID = 22;
-
+  INVALID_TRANSACTION_ID = 40010;
+  // Format of message id is illegal.
+  ILLEGAL_MESSAGE_ID = 40011;
   // Format of filter expression is illegal.
-  ILLEGAL_FILTER_EXPRESSION = 23;
-
+  ILLEGAL_FILTER_EXPRESSION = 40012;
   // Receipt handle of message is invalid.
-  INVALID_RECEIPT_HANDLE = 24;
-
-  // Message persistence timeout.
-  MASTER_PERSISTENCE_TIMEOUT = 25;
-
-  // Slave persistence timeout.
-  SLAVE_PERSISTENCE_TIMEOUT = 26;
-
-  // The HA-mechanism is not working now.
-  HA_NOT_AVAILABLE = 27;
-
-  // Operation is not allowed in current version.
-  VERSION_UNSUPPORTED = 28;
-
-  // Message not found from server.
-  MESSAGE_NOT_FOUND = 29;
-
-  // Message offset is illegal.
-  ILLEGAL_MESSAGE_OFFSET = 30;
-
-  // Illegal message is for the sake of backward compatibility. In most case,
-  // more definitive code is better, e.g. `ILLEGAL_MESSAGE_TAG`.
-  ILLEGAL_MESSAGE = 31;
-
+  INVALID_RECEIPT_HANDLE = 40013;
+  // Message property is not match the message type.
+  MESSAGE_PROPERTY_DOES_NOT_MATCH_MESSAGE_TYPE = 40014;
   // Client type could not be recognized.
-  UNRECOGNIZED_CLIENT_TYPE = 32;
+  UNRECOGNIZED_CLIENT_TYPE = 40015;
+  // Message is corrupted.
+  MESSAGE_CORRUPTED = 40016;
+  // Request is rejected due to missing of x-mq-client-id header.
+  CLIENT_ID_REQUIRED = 40017;
 
-  // Return different results for entries in composite request.
-  MULTIPLE_RESULTS = 33;
+  // Generic code indicates that the client request lacks valid authentication
+  // credentials for the requested resource.
+  UNAUTHORIZED = 40100;
 
+  // Generic code for the case that user does not have the permission to operate.
+  FORBIDDEN = 40300;
+
+  // Generic code for resource not found.
+  NOT_FOUND = 40400;
+  // Message not found from server.
+  MESSAGE_NOT_FOUND = 40401;
+  // Topic resource does not exist.
+  TOPIC_NOT_FOUND = 40402;
+  // Consumer group resource does not exist.
+  CONSUMER_GROUP_NOT_FOUND = 40403;
+
+  // Generic code indicates that too many requests are made in short period of duration.
+  // Requests are throttled.
+  TOO_MANY_REQUESTS = 42900;
+
+  // Generic code indicates that server/client encountered an unexpected
+  // condition that prevented it from fulfilling the request.
+  INTERNAL_ERROR = 50000;
   // Code indicates that the server encountered an unexpected condition
   // that prevented it from fulfilling the request.
   // This error response is a generic "catch-all" response.
@@ -401,17 +369,34 @@ enum Code {
   // to prevent the error from happening again in the future.
   //
   // See https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500
-  INTERNAL_SERVER_ERROR = 500;
+  INTERNAL_SERVER_ERROR = 50001;
+  // The HA-mechanism is not working now.
+  HA_NOT_AVAILABLE = 50002;
 
-  // Code means that the server or client does not support the functionality
-  // required to fulfill the request.
-  NOT_IMPLEMENTED = 501;
+  // Generic code means that the server or client does not support the
+  // functionality required to fulfill the request.
+  NOT_IMPLEMENTED = 50100;
 
+  // Generic code for timeout.
+  TIMEOUT = 50400;
+  // Message persistence timeout.
+  MASTER_PERSISTENCE_TIMEOUT = 50401;
+  // Slave persistence timeout.
+  SLAVE_PERSISTENCE_TIMEOUT = 50402;
   // Code indicates that the server, while acting as a gateway or proxy,
   // did not get a response in time from the upstream server that
   // it needed in order to complete the request.
-  // See https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/504
-  GATEWAY_TIMEOUT = 504;
+  PROXY_TIMEOUT = 50403;
+
+  UNSUPPORTED = 50500;
+  // Operation is not allowed in current version.
+  VERSION_UNSUPPORTED = 50501;
+  // Not allowed to verify message. Chances are that you are verifying
+  // a FIFO message, as is violating FIFO semantics.
+  VERIFY_FIFO_MESSAGE_UNSUPPORTED = 50502;
+
+  // Generic code for failed message consumption.
+  FAILED_TO_CONSUME_MESSAGE = 60000;
 }
 
 message Status {
