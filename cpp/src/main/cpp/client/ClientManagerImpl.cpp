@@ -16,6 +16,8 @@
  */
 #include "ClientManagerImpl.h"
 
+#include <apache/rocketmq/v2/definition.pb.h>
+
 #include <atomic>
 #include <cassert>
 #include <chrono>
@@ -229,26 +231,57 @@ void ClientManagerImpl::heartbeat(const std::string& target_host, const Metadata
     switch (status.code()) {
       case rmq::Code::OK: {
         cb(ec, invocation_context->response);
-      } break;
+        break;
+      }
+
+      case rmq::Code::ILLEGAL_CONSUMER_GROUP: {
+        SPDLOG_ERROR("IllegalConsumerGroup: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::IllegalConsumerGroup;
+        break;
+      }
+
+      case rmq::Code::TOO_MANY_REQUESTS: {
+        SPDLOG_WARN("TooManyRequest: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::TooManyRequest;
+        cb(ec, invocation_context->response);
+        break;
+      }
+
       case rmq::Code::UNAUTHORIZED: {
-        SPDLOG_WARN("Unauthorized: {}, host={}", status.message(), invocation_context->remote_address);
+        SPDLOG_WARN("Unauthorized: {}. Host={}", status.message(), invocation_context->remote_address);
         ec = ErrorCode::Unauthorized;
         cb(ec, invocation_context->response);
-      } break;
-      case rmq::Code::FORBIDDEN: {
-        SPDLOG_WARN("Forbidden: {}, host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::Forbidden;
+        break;
+      }
+
+      case rmq::Code::UNRECOGNIZED_CLIENT_TYPE: {
+        SPDLOG_ERROR("UnsupportedClientType: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::UnsupportedClientType;
         cb(ec, invocation_context->response);
-      } break;
+        break;
+      }
+
+      case rmq::Code::CLIENT_ID_REQUIRED: {
+        SPDLOG_ERROR("ClientIdRequired: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::ClientIdRequired;
+        cb(ec, invocation_context->response);
+        break;
+      }
+
       case rmq::Code::INTERNAL_SERVER_ERROR: {
         SPDLOG_WARN("InternalServerError: {}, host={}", status.message(), invocation_context->remote_address);
         ec = ErrorCode::InternalServerError;
         cb(ec, invocation_context->response);
-      } break;
+        break;
+      }
+
       default: {
-        SPDLOG_WARN("NotImplemented: Please upgrade SDK to latest release. Message={}, host={}", status.message(),
+        SPDLOG_WARN("NotSupported: Please upgrade SDK to latest release. Message={}, host={}", status.message(),
                     invocation_context->remote_address);
-      } break;
+        ec = ErrorCode::NotSupported;
+        cb(ec, invocation_context->response);
+        break;
+      }
     }
   };
 
