@@ -282,9 +282,8 @@ public class TestBase {
         final Status status = Status.newBuilder().setCode(Code.OK).build();
         SettableFuture<SendMessageResponse> future0 = SettableFuture.create();
         final String messageId = MessageIdCodec.getInstance().nextMessageId().toString();
-        SendResultEntry entry =
-            SendResultEntry.newBuilder().setMessageId(messageId).setTransactionId(FAKE_TRANSACTION_ID)
-                .setOffset(1).build();
+        SendResultEntry entry = SendResultEntry.newBuilder().setMessageId(messageId)
+            .setTransactionId(FAKE_TRANSACTION_ID).setStatus(status).setOffset(1).build();
         SendMessageResponse response = SendMessageResponse.newBuilder().setStatus(status).addEntries(entry).build();
         future0.set(response);
         return future0;
@@ -302,9 +301,9 @@ public class TestBase {
         final Status status = Status.newBuilder().setCode(Code.OK).build();
         SettableFuture<SendMessageResponse> future0 = SettableFuture.create();
         final String messageId = MessageIdCodec.getInstance().nextMessageId().toString();
-        SendResultEntry entry0 = SendResultEntry.newBuilder().setMessageId(messageId)
+        SendResultEntry entry0 = SendResultEntry.newBuilder().setMessageId(messageId).setStatus(status)
             .setOffset(1).build();
-        SendResultEntry entry1 = SendResultEntry.newBuilder().setMessageId(messageId)
+        SendResultEntry entry1 = SendResultEntry.newBuilder().setMessageId(messageId).setStatus(status)
             .setOffset(2).build();
         SendMessageResponse response = SendMessageResponse.newBuilder().setStatus(status).addEntries(entry0)
             .addEntries(entry1).build();
