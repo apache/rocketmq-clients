@@ -1117,29 +1117,64 @@ void ClientManagerImpl::changeInvisibleDuration(
 
     std::error_code ec;
     auto&& status = invocation_context->response.status();
+    auto&& peer_address = invocation_context->remote_address;
     switch (status.code()) {
       case rmq::Code::OK: {
-        SPDLOG_DEBUG("Nack to {} OK", invocation_context->remote_address);
+        SPDLOG_DEBUG("ChangeInvisibleDuration to {} OK", peer_address);
         break;
       };
+
+      case rmq::Code::ILLEGAL_TOPIC: {
+        SPDLOG_WARN("IllegalTopic: {}. Host={}", status.message(), peer_address);
+        ec = ErrorCode::IllegalTopic;
+        break;
+      }
+
+      case rmq::Code::ILLEGAL_CONSUMER_GROUP: {
+        SPDLOG_WARN("IllegalConsumerGroup: {}. Host={}", status.message(), peer_address);
+        ec = ErrorCode::IllegalConsumerGroup;
+        break;
+      }
+
       case rmq::Code::UNAUTHORIZED: {
         SPDLOG_WARN("Unauthorized: {}, host={}", status.message(), invocation_context->remote_address);
         ec = ErrorCode::Unauthorized;
         break;
       }
+
+      case rmq::Code::INVALID_RECEIPT_HANDLE: {
+        SPDLOG_WARN("InvalidReceiptHandle: {}, host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::InvalidReceiptHandle;
+        break;
+      }
+
+      case rmq::Code::CLIENT_ID_REQUIRED: {
+        SPDLOG_WARN("ClientIdRequired: {}, host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::InternalClientError;
+        break;
+      }
+
       case rmq::Code::FORBIDDEN: {
         SPDLOG_WARN("Forbidden: {}, host={}", status.message(), invocation_context->remote_address);
         ec = ErrorCode::Forbidden;
         break;
       }
+        
       case rmq::Code::INTERNAL_SERVER_ERROR: {
         SPDLOG_WARN("InternalServerError: {}, host={}", status.message(), invocation_context->remote_address);
         ec = ErrorCode::InternalServerError;
         break;
       }
+
+      case rmq::Code::TOO_MANY_REQUESTS: {
+        SPDLOG_WARN("TooManyRequests: {}, host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::TooManyRequests;
+        break;
+      }
+
       default: {
-        SPDLOG_WARN("NotImplemented: Please upgrade to latest SDK, host={}", invocation_context->remote_address);
-        ec = ErrorCode::NotImplemented;
+        SPDLOG_WARN("NotSupported: Please upgrade to latest SDK, host={}", invocation_context->remote_address);
+        ec = ErrorCode::NotSupported;
         break;
       }
     }
