@@ -467,7 +467,7 @@ bool ClientManagerImpl::send(const std::string& target_host, const Metadata& met
         break;
       }
     }
-    
+
     cb(ec, send_receipt);
   };
 
@@ -683,25 +683,75 @@ void ClientManagerImpl::queryAssignment(
     std::error_code ec;
     switch (status.code()) {
       case rmq::Code::OK: {
-        SPDLOG_DEBUG("Query assignment OK");
-      } break;
+        SPDLOG_DEBUG("Query assignment OK. Host={}", invocation_context->remote_address);
+        break;
+      }
+
+      case rmq::Code::ILLEGAL_ACCESS_POINT: {
+        SPDLOG_WARN("IllegalAccessPoint: {}, host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::IllegalAccessPoint;
+        break;
+      }
+
+      case rmq::Code::ILLEGAL_TOPIC: {
+        SPDLOG_WARN("IllegalAccessPoint: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::IllegalTopic;
+        break;
+      }
+
+      case rmq::Code::ILLEGAL_CONSUMER_GROUP: {
+        SPDLOG_WARN("IllegalConsumerGroup: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::IllegalConsumerGroup;
+        break;
+      }
+
+      case rmq::Code::CLIENT_ID_REQUIRED: {
+        SPDLOG_WARN("ClientIdRequired: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::ClientIdRequired;
+        break;
+      }
+
       case rmq::Code::UNAUTHORIZED: {
         SPDLOG_WARN("Unauthorized: {}, host={}", status.message(), invocation_context->remote_address);
         ec = ErrorCode::Unauthorized;
-      } break;
+        break;
+      }
+
       case rmq::Code::FORBIDDEN: {
         SPDLOG_WARN("Forbidden: {}, host={}", status.message(), invocation_context->remote_address);
         ec = ErrorCode::Forbidden;
-      } break;
+        break;
+      }
+
+      case rmq::Code::TOPIC_NOT_FOUND: {
+        SPDLOG_WARN("TopicNotFound: {}, host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::TopicNotFound;
+        break;
+      }
+
+      case rmq::Code::CONSUMER_GROUP_NOT_FOUND: {
+        SPDLOG_WARN("ConsumerGroupNotFound: {}, host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::ConsumerGroupNotFound;
+        break;
+      }
+
       case rmq::Code::INTERNAL_SERVER_ERROR: {
         SPDLOG_WARN("InternalServerError: {}, host={}", status.message(), invocation_context->remote_address);
         ec = ErrorCode::InternalServerError;
-      } break;
+        break;
+      }
+
+      case rmq::Code::PROXY_TIMEOUT: {
+        SPDLOG_WARN("GatewayTimeout: {}. Host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::GatewayTimeout;
+        break;
+      }
+
       default: {
-        SPDLOG_WARN("NotImplemented: please upgrade SDK to latest release. Host={}",
-                    invocation_context->remote_address);
-        ec = ErrorCode::NotImplemented;
-      } break;
+        SPDLOG_WARN("NotSupported: please upgrade SDK to latest release. Host={}", invocation_context->remote_address);
+        ec = ErrorCode::NotSupported;
+        break;
+      }
     }
     cb(ec, invocation_context->response);
   };
