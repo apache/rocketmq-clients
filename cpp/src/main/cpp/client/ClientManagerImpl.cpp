@@ -263,7 +263,7 @@ void ClientManagerImpl::heartbeat(const std::string& target_host, const Metadata
 
       case rmq::Code::CLIENT_ID_REQUIRED: {
         SPDLOG_ERROR("ClientIdRequired: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::ClientIdRequired;
+        ec = ErrorCode::InternalClientError;
         cb(ec, invocation_context->response);
         break;
       }
@@ -633,7 +633,7 @@ void ClientManagerImpl::resolveRoute(const std::string& target_host, const Metad
 
       case rmq::Code::CLIENT_ID_REQUIRED: {
         SPDLOG_ERROR("ClientIdRequired: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::ClientIdRequired;
+        ec = ErrorCode::InternalClientError;
         cb(ec, nullptr);
         break;
       }
@@ -707,7 +707,7 @@ void ClientManagerImpl::queryAssignment(
 
       case rmq::Code::CLIENT_ID_REQUIRED: {
         SPDLOG_WARN("ClientIdRequired: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::ClientIdRequired;
+        ec = ErrorCode::InternalClientError;
         break;
       }
 
@@ -1039,7 +1039,7 @@ void ClientManagerImpl::ack(const std::string& target, const Metadata& metadata,
 
       case rmq::Code::CLIENT_ID_REQUIRED: {
         SPDLOG_WARN("ClientIdRequired: {}, host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::ClientIdRequired;
+        ec = ErrorCode::InternalClientError;
         break;
       }
 
@@ -1251,7 +1251,7 @@ void ClientManagerImpl::endTransaction(
 
       case rmq::Code::CLIENT_ID_REQUIRED: {
         SPDLOG_WARN("ClientIdRequired: {}, host={}", status.message(), peer_address);
-        ec = ErrorCode::ClientIdRequired;
+        ec = ErrorCode::InternalClientError;
         break;
       }
 
@@ -1352,9 +1352,7 @@ void ClientManagerImpl::forwardMessageToDeadLetterQueue(const std::string& targe
 
       case rmq::Code::CLIENT_ID_REQUIRED: {
         SPDLOG_WARN("IllegalTopic: {}. Host={}", status.message(), peer_address);
-
-        // TODO: translate to client internal error?
-        ec = ErrorCode::InternalServerError;
+        ec = ErrorCode::InternalClientError;
         break;
       }
 

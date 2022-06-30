@@ -82,7 +82,7 @@ void ReceiveMessageStreamReader::OnReadDone(bool ok) {
         }
 
         case rmq::Code::CLIENT_ID_REQUIRED: {
-          ec_ = ErrorCode::ClientIdRequired;
+          ec_ = ErrorCode::InternalClientError;
           break;
         }
 
