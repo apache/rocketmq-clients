@@ -1392,26 +1392,36 @@ std::error_code ClientManagerImpl::notifyClientTermination(const std::string& ta
       SPDLOG_DEBUG("NotifyClientTermination OK. host={}", target_host);
       break;
     }
+
+    case rmq::Code::ILLEGAL_CONSUMER_GROUP: {
+      SPDLOG_ERROR("IllegalConsumerGroup: {}. Host={}", status.message(), target_host);
+      ec = ErrorCode::IllegalConsumerGroup;
+      break;
+    }
+
     case rmq::Code::INTERNAL_SERVER_ERROR: {
       SPDLOG_WARN("InternalServerError: Cause={}, host={}", status.message(), target_host);
       ec = ErrorCode::InternalServerError;
       break;
     }
+
     case rmq::Code::UNAUTHORIZED: {
       SPDLOG_WARN("Unauthorized due to lack of valid authentication credentials: Cause={}, host={}", status.message(),
                   target_host);
       ec = ErrorCode::Unauthorized;
       break;
     }
+
     case rmq::Code::FORBIDDEN: {
       SPDLOG_WARN("Forbidden due to insufficient permission to the resource: Cause={}, host={}", status.message(),
                   target_host);
       ec = ErrorCode::Forbidden;
       break;
     }
+
     default: {
-      SPDLOG_WARN("NotImplemented. Please upgrade to latest SDK release. host={}", target_host);
-      ec = ErrorCode::NotImplemented;
+      SPDLOG_WARN("NotSupported. Please upgrade to latest SDK release. host={}", target_host);
+      ec = ErrorCode::NotSupported;
       break;
     }
   }
