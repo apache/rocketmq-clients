@@ -1188,27 +1188,72 @@ void ClientManagerImpl::endTransaction(
     }
 
     auto&& status = invocation_context->response.status();
+    auto&& peer_address = invocation_context->remote_address;
     switch (status.code()) {
       case rmq::Code::OK: {
         SPDLOG_DEBUG("endTransaction completed OK. Response: {}, host={}", invocation_context->response.DebugString(),
-                     invocation_context->remote_address);
-      } break;
+                     peer_address);
+        break;
+      }
+
+      case rmq::Code::ILLEGAL_TOPIC: {
+        SPDLOG_WARN("IllegalTopic: {}, host={}", status.message(), peer_address);
+        ec = ErrorCode::IllegalTopic;
+        break;
+      }
+
+      case rmq::Code::ILLEGAL_CONSUMER_GROUP: {
+        SPDLOG_WARN("IllegalConsumerGroup: {}, host={}", status.message(), peer_address);
+        ec = ErrorCode::IllegalConsumerGroup;
+        break;
+      }
+
+      case rmq::Code::INVALID_TRANSACTION_ID: {
+        SPDLOG_WARN("InvalidTransactionId: {}, host={}", status.message(), peer_address);
+        ec = ErrorCode::InvalidTransactionId;
+        break;
+      }
+
+      case rmq::Code::CLIENT_ID_REQUIRED: {
+        SPDLOG_WARN("ClientIdRequired: {}, host={}", status.message(), peer_address);
+        ec = ErrorCode::ClientIdRequired;
+        break;
+      }
+
+      case rmq::Code::TOPIC_NOT_FOUND: {
+        SPDLOG_WARN("TopicNotFound: {}, host={}", status.message(), peer_address);
+        ec = ErrorCode::TopicNotFound;
+        break;
+      }
+
       case rmq::Code::UNAUTHORIZED: {
-        SPDLOG_WARN("Unauthorized: {}, host={}", status.message(), invocation_context->remote_address);
+        SPDLOG_WARN("Unauthorized: {}, host={}", status.message(), peer_address);
         ec = ErrorCode::Unauthorized;
-      } break;
+        break;
+      }
+
       case rmq::Code::FORBIDDEN: {
-        SPDLOG_WARN("Forbidden: {}, host={}", status.message(), invocation_context->remote_address);
+        SPDLOG_WARN("Forbidden: {}, host={}", status.message(), peer_address);
         ec = ErrorCode::Forbidden;
-      } break;
+        break;
+      }
+
       case rmq::Code::INTERNAL_SERVER_ERROR: {
-        SPDLOG_WARN("InternalServerError: {}, host={}", status.message(), invocation_context->remote_address);
+        SPDLOG_WARN("InternalServerError: {}, host={}", status.message(), peer_address);
         ec = ErrorCode::InternalServerError;
-      } break;
+        break;
+      }
+
+      case rmq::Code::PROXY_TIMEOUT: {
+        SPDLOG_WARN("GatewayTimeout: {}, host={}", status.message(), peer_address);
+        ec = ErrorCode::GatewayTimeout;
+        break;
+      }
+
       default: {
-        SPDLOG_WARN("NotImplemented: please upgrade SDK to latest release. {}, host={}", status.message(),
-                    invocation_context->remote_address);
-        ec = ErrorCode::NotImplemented;
+        SPDLOG_WARN("NotSupported: please upgrade SDK to latest release. {}, host={}", status.message(), peer_address);
+        ec = ErrorCode::NotSupported;
+        break;
       }
     }
     cb(ec, invocation_context->response);
@@ -1246,22 +1291,66 @@ void ClientManagerImpl::forwardMessageToDeadLetterQueue(const std::string& targe
 
     SPDLOG_DEBUG("Received forwardToDeadLetterQueue response from server[host={}]", invocation_context->remote_address);
     std::error_code ec;
-    switch (invocation_context->response.status().code()) {
+    auto&& status = invocation_context->response.status();
+    auto&& peer_address = invocation_context->remote_address;
+    switch (status.code()) {
       case rmq::Code::OK: {
         break;
       }
+      case rmq::Code::ILLEGAL_TOPIC: {
+        SPDLOG_WARN("IllegalTopic: {}. Host={}", status.message(), peer_address);
+        ec = ErrorCode::IllegalTopic;
+        break;
+      }
+
+      case rmq::Code::ILLEGAL_CONSUMER_GROUP: {
+        SPDLOG_WARN("IllegalConsumerGroup: {}. Host={}", status.message(), peer_address);
+        ec = ErrorCode::IllegalConsumerGroup;
+        break;
+      }
+
+      case rmq::Code::INVALID_RECEIPT_HANDLE: {
+        SPDLOG_WARN("IllegalReceiptHandle: {}. Host={}", status.message(), peer_address);
+        ec = ErrorCode::InvalidReceiptHandle;
+        break;
+      }
+
+      case rmq::Code::CLIENT_ID_REQUIRED: {
+        SPDLOG_WARN("IllegalTopic: {}. Host={}", status.message(), peer_address);
+
+        // TODO: translate to client internal error?
+        ec = ErrorCode::InternalServerError;
+        break;
+      }
+
+      case rmq::Code::TOPIC_NOT_FOUND: {
+        ec = ErrorCode::TopicNotFound;
+        break;
+      }
+
       case rmq::Code::INTERNAL_SERVER_ERROR: {
         ec = ErrorCode::ServiceUnavailable;
+        break;
       }
+        
       case rmq::Code::TOO_MANY_REQUESTS: {
         ec = ErrorCode::TooManyRequests;
+        break;
       }
+
+      case rmq::Code::PROXY_TIMEOUT: {
+        ec = ErrorCode::GatewayTimeout;
+        break;
+      }
+
       default: {
         ec = ErrorCode::NotImplemented;
+        break;
       }
     }
     cb(ec);
   };
+
   invocation_context->callback = callback;
   client->asyncForwardMessageToDeadLetterQueue(request, invocation_context);
 }

@@ -31,29 +31,35 @@ enum class ErrorCode : int {
    * @brief Client state not as expected. Call Producer#start() first.
    *
    */
-  IllegalState = 1,
+  IllegalState = 10000,
 
   /**
    * @brief To publish FIFO messages, only synchronous API is supported.
    */
-  BadRequestAsyncPubFifoMessage = 10001,
+  BadRequestAsyncPubFifoMessage = 10100,
+
+  /**
+   * @brief 102XX is used for client side error.
+   *
+   */
+  InternalClientError = 10200,
 
   /**
    * @brief Broker has processed the request but is not going to return any content.
    */
-  NoContent = 204,
+  NoContent = 20400,
 
   /**
    * @brief Bad configuration. For example, negative max-attempt-times.
    *
    */
-  BadConfiguration = 300,
+  BadConfiguration = 30000,
 
   /**
    * @brief Generic code, representing multiple return results.
    *
    */
-  MultipleResults = 30000,
+  MultipleResults = 30100,
 
   /**
    * @brief The server cannot process the request due to apparent client-side
