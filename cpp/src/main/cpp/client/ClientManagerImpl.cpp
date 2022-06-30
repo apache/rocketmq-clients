@@ -1010,23 +1010,80 @@ void ClientManagerImpl::ack(const std::string& target, const Metadata& metadata,
     switch (status.code()) {
       case rmq::Code::OK: {
         SPDLOG_DEBUG("Ack OK. host={}", invocation_context->remote_address);
-      } break;
+        break;
+      }
+
+      case rmq::Code::MULTIPLE_RESULTS: {
+        SPDLOG_DEBUG("Server returns multiple results. host={}", invocation_context->remote_address);
+        // Treat it as successful, allowing top tier processing according to response entries.
+        break;
+      }
+
+      case rmq::Code::ILLEGAL_TOPIC: {
+        SPDLOG_WARN("IllegalTopic: {}, host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::IllegalTopic;
+        break;
+      }
+
+      case rmq::Code::ILLEGAL_CONSUMER_GROUP: {
+        SPDLOG_WARN("IllegalConsumerGroup: {}, host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::IllegalConsumerGroup;
+        break;
+      }
+
+      case rmq::Code::INVALID_RECEIPT_HANDLE: {
+        SPDLOG_WARN("InvalidReceiptHandle: {}, host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::InvalidReceiptHandle;
+        break;
+      }
+
+      case rmq::Code::CLIENT_ID_REQUIRED: {
+        SPDLOG_WARN("ClientIdRequired: {}, host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::ClientIdRequired;
+        break;
+      }
+
+      case rmq::Code::TOPIC_NOT_FOUND: {
+        SPDLOG_WARN("TopicNotFound: {}, host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::TopicNotFound;
+        break;
+      }
+
       case rmq::Code::UNAUTHORIZED: {
         SPDLOG_WARN("Unauthorized: {}, host={}", status.message(), invocation_context->remote_address);
         ec = ErrorCode::Unauthorized;
-      } break;
+        break;
+      }
+
       case rmq::Code::FORBIDDEN: {
         SPDLOG_WARN("PermissionDenied: {}, host={}", status.message(), invocation_context->remote_address);
         ec = ErrorCode::Forbidden;
-      } break;
+        break;
+      }
+
+      case rmq::Code::TOO_MANY_REQUESTS: {
+        SPDLOG_WARN("TooManyRequests: {}, host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::TooManyRequests;
+        break;
+      }
+
       case rmq::Code::INTERNAL_SERVER_ERROR: {
         SPDLOG_WARN("InternalServerError: {}, host={}", status.message(), invocation_context->remote_address);
         ec = ErrorCode::InternalServerError;
-      } break;
+        break;
+      }
+
+      case rmq::Code::PROXY_TIMEOUT: {
+        SPDLOG_WARN("GatewayTimeout: {}, host={}", status.message(), invocation_context->remote_address);
+        ec = ErrorCode::GatewayTimeout;
+        break;
+      }
+
       default: {
-        SPDLOG_WARN("NotImplement: please upgrade SDK to latest release. host={}", invocation_context->remote_address);
-        ec = ErrorCode::NotImplemented;
-      } break;
+        SPDLOG_WARN("NotSupported: please upgrade SDK to latest release. host={}", invocation_context->remote_address);
+        ec = ErrorCode::NotSupported;
+        break;
+      }
     }
     cb(ec);
   };
