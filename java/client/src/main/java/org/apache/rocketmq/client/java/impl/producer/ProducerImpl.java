@@ -235,16 +235,6 @@ class ProducerImpl extends ClientImpl implements Producer {
     }
 
     /**
-     * @see Producer#send(List)
-     */
-    @Override
-    public List<SendReceipt> send(List<Message> messages) throws ClientException {
-        final ListenableFuture<List<SendReceiptImpl>> future = send0(messages, false);
-        final List<SendReceiptImpl> receipts = handleClientFuture(future);
-        return new ArrayList<>(receipts);
-    }
-
-    /**
      * @see Producer#beginTransaction()
      */
     @Override

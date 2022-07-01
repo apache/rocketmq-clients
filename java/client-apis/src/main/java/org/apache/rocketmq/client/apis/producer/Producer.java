@@ -19,7 +19,6 @@ package org.apache.rocketmq.client.apis.producer;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.message.Message;
@@ -60,18 +59,6 @@ public interface Producer extends Closeable {
      * @return a future that indicates the send receipt.
      */
     CompletableFuture<SendReceipt> sendAsync(Message message);
-
-    /**
-     * Sends batch messages synchronously.
-     *
-     * <p>This method does not return until it gets the definitive result.
-     *
-     * <p>All messages to send should have the same topic.
-     *
-     * @param messages batch messages to send.
-     * @return collection indicates the send receipt.
-     */
-    List<SendReceipt> send(List<Message> messages) throws ClientException;
 
     /**
      * Begins a transaction.

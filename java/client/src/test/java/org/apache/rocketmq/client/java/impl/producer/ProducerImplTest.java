@@ -178,61 +178,6 @@ public class ProducerImplTest extends TestBase {
         shutdown(producerWithoutTopicBinding);
     }
 
-    @Test
-    public void testSendBatchMessage() throws ClientException, ExecutionException, InterruptedException {
-        start(producer);
-        verify(clientManager, times(1)).queryRoute(any(Endpoints.class), any(Metadata.class),
-            any(QueryRouteRequest.class), any(Duration.class));
-        verify(clientManager, times(1)).telemetry(any(Endpoints.class), any(Metadata.class),
-            any(Duration.class), any(TelemetrySession.class));
-        int batchMessageNum = 2;
-        List<Message> messages = new ArrayList<>();
-        for (int i = 0; i < batchMessageNum; i++) {
-            final Message message = fakeMessage(FAKE_TOPIC_0);
-            messages.add(message);
-        }
-
-        final ListenableFuture<SendMessageResponse> future = okBatchSendMessageResponseFuture();
-        when(clientManager.sendMessage(any(Endpoints.class), any(Metadata.class), any(SendMessageRequest.class),
-            any(Duration.class))).thenReturn(future);
-        final SendMessageResponse response = future.get();
-        assertEquals(batchMessageNum, response.getEntriesCount());
-        final List<apache.rocketmq.v2.SendResultEntry> receipts = response.getEntriesList();
-        final List<SendReceipt> sendReceipts = producer.send(messages);
-        assertEquals(batchMessageNum, sendReceipts.size());
-
-        assertEquals(receipts.get(0).getMessageId(), sendReceipts.get(0).getMessageId().toString());
-        assertEquals(receipts.get(1).getMessageId(), sendReceipts.get(1).getMessageId().toString());
-        shutdown(producer);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void testSendBatchMessageWithDifferentTopic() throws ClientException, ExecutionException,
-        InterruptedException {
-        start(producer);
-        verify(clientManager, times(1)).queryRoute(any(Endpoints.class), any(Metadata.class),
-            any(QueryRouteRequest.class), any(Duration.class));
-        verify(clientManager, times(1)).telemetry(any(Endpoints.class), any(Metadata.class), any(Duration.class),
-            any(TelemetrySession.class));
-        int batchMessageNum = 2;
-        List<Message> messages = new ArrayList<>();
-
-        Message message0 = fakeMessage(FAKE_TOPIC_0);
-        Message message1 = fakeMessage(FAKE_TOPIC_1);
-
-        messages.add(message0);
-        messages.add(message1);
-
-        final ListenableFuture<SendMessageResponse> future = okBatchSendMessageResponseFuture();
-        final SendMessageResponse response = future.get();
-        assertEquals(batchMessageNum, response.getEntriesCount());
-        try {
-            producer.send(messages);
-        } finally {
-            shutdown(producer);
-        }
-    }
-
     @Test(expected = ClientException.class)
     public void testSendMessageWithFailure() throws ClientException {
         start(producer);

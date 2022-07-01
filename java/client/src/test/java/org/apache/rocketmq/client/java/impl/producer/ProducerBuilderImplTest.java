@@ -17,26 +17,13 @@
 
 package org.apache.rocketmq.client.java.impl.producer;
 
-import java.io.IOException;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.rocketmq.client.apis.ClientConfiguration;
-import org.apache.rocketmq.client.apis.ClientException;
-import org.apache.rocketmq.client.apis.ClientServiceProvider;
-import org.apache.rocketmq.client.apis.producer.Producer;
-import org.apache.rocketmq.client.apis.producer.ProducerBuilder;
-import org.apache.rocketmq.client.java.impl.ClientManager;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
 public class ProducerBuilderImplTest {
-    @Mock
-    private ClientManager clientManager;
-    @InjectMocks
-    private ProducerBuilder producerBuilder = ClientServiceProvider.loadService().newProducerBuilder();
 
     @Test(expected = NullPointerException.class)
     public void testSetClientConfigurationWithNull() {
@@ -74,13 +61,5 @@ public class ProducerBuilderImplTest {
     public void testBuildWithoutClientConfiguration() {
         final ProducerBuilderImpl builder = new ProducerBuilderImpl();
         builder.build();
-    }
-
-    @Test
-    public void testBuildWithoutTopic() throws ClientException, IOException {
-        ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder().setEndpoints("127.0.0.1:80").build();
-        Producer producer = ClientServiceProvider.loadService().newProducerBuilder()
-            .setClientConfiguration(clientConfiguration).build();
-        producer.close();
     }
 }
