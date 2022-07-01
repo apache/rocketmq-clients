@@ -32,7 +32,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -44,6 +43,14 @@ import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.SimpleConsumer;
 import org.apache.rocketmq.client.apis.message.MessageView;
+import org.apache.rocketmq.client.java.exception.BadRequestException;
+import org.apache.rocketmq.client.java.exception.ForbiddenException;
+import org.apache.rocketmq.client.java.exception.InternalErrorException;
+import org.apache.rocketmq.client.java.exception.NotFoundException;
+import org.apache.rocketmq.client.java.exception.ProxyTimeoutException;
+import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
+import org.apache.rocketmq.client.java.exception.UnauthorizedException;
+import org.apache.rocketmq.client.java.exception.UnsupportedException;
 import org.apache.rocketmq.client.java.impl.ClientSettings;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
@@ -66,7 +73,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     private final AtomicInteger topicIndex;
 
     private final Map<String /* topic */, FilterExpression> subscriptionExpressions;
-    private final ConcurrentMap<String /* topic */, SubscriptionTopicRouteDataResult> subTopicRouteDataResultCache;
+    private final ConcurrentMap<String /* topic */, SubscriptionLoadBalancer> subTopicRouteDataResultCache;
 
     public SimpleConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup, Duration awaitDuration,
         Map<String, FilterExpression> subscriptionExpressions) {
@@ -124,13 +131,9 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         }
         final ListenableFuture<TopicRouteDataResult> future = getRouteDataResult(topic);
         TopicRouteDataResult topicRouteDataResult = handleClientFuture(future);
-        final Status status = topicRouteDataResult.getStatus();
-        final Code code = status.getCode();
-        if (Code.OK.equals(code)) {
-            subscriptionExpressions.put(topic, filterExpression);
-            return this;
-        }
-        throw new ClientException(code.getNumber(), status.getMessage());
+        topicRouteDataResult.checkAndGetTopicRouteData();
+        subscriptionExpressions.put(topic, filterExpression);
+        return this;
     }
 
     /**
@@ -192,27 +195,15 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         }
         final String topic = topics.get(IntMath.mod(topicIndex.getAndIncrement(), topics.size()));
         final FilterExpression filterExpression = copy.get(topic);
-        final ListenableFuture<SubscriptionTopicRouteDataResult> routeFuture = getSubscriptionTopicRouteResult(topic);
+        final ListenableFuture<SubscriptionLoadBalancer> routeFuture = getSubscriptionTopicRouteResult(topic);
         final ListenableFuture<ReceiveMessageResult> future0 = Futures.transformAsync(routeFuture, result -> {
             final MessageQueueImpl mq = result.takeMessageQueue();
             final ReceiveMessageRequest request = wrapReceiveMessageRequest(maxMessageNum, mq, filterExpression,
                 invisibleDuration);
             return receiveMessage(request, mq, awaitDuration);
         }, MoreExecutors.directExecutor());
-        return Futures.transformAsync(future0, result -> {
-            final Optional<Status> optionalStatus = result.getStatus();
-            if (!optionalStatus.isPresent()) {
-                future.set(new ArrayList<>(result.getMessages()));
-                return future;
-            }
-            final Status status = optionalStatus.get();
-            final Code code = status.getCode();
-            if (Code.OK.equals(code)) {
-                future.set(new ArrayList<>(result.getMessages()));
-                return future;
-            }
-            throw new ClientException(code.getNumber(), status.getMessage());
-        }, clientCallbackExecutor);
+        return Futures.transformAsync(future0, result -> Futures.immediateFuture(result.checkAndGetMessages()),
+            clientCallbackExecutor);
     }
 
     /**
@@ -253,11 +244,32 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         return Futures.transformAsync(future, response -> {
             final Status status = response.getStatus();
             final Code code = status.getCode();
-            if (Code.OK.equals(code)) {
-                future0.set(null);
-                return future0;
+            switch (code) {
+                case OK:
+                    return Futures.immediateVoidFuture();
+                case BAD_REQUEST:
+                case ILLEGAL_TOPIC:
+                case ILLEGAL_CONSUMER_GROUP:
+                case INVALID_RECEIPT_HANDLE:
+                case CLIENT_ID_REQUIRED:
+                    throw new BadRequestException(code.getNumber(), status.getMessage());
+                case UNAUTHORIZED:
+                    throw new UnauthorizedException(code.getNumber(), status.getMessage());
+                case FORBIDDEN:
+                    throw new ForbiddenException(code.getNumber(), status.getMessage());
+                case NOT_FOUND:
+                case TOPIC_NOT_FOUND:
+                    throw new NotFoundException(code.getNumber(), status.getMessage());
+                case TOO_MANY_REQUESTS:
+                    throw new TooManyRequestsException(code.getNumber(), status.getMessage());
+                case INTERNAL_ERROR:
+                case INTERNAL_SERVER_ERROR:
+                    throw new InternalErrorException(code.getNumber(), status.getMessage());
+                case PROXY_TIMEOUT:
+                    throw new ProxyTimeoutException(code.getNumber(), status.getMessage());
+                default:
+                    throw new UnsupportedException(code.getNumber(), status.getMessage());
             }
-            throw new ClientException(code.getNumber(), status.getMessage());
         }, clientCallbackExecutor);
     }
 
@@ -295,11 +307,29 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
             impl.setReceiptHandle(response.getReceiptHandle());
             final Status status = response.getStatus();
             final Code code = status.getCode();
-            if (Code.OK.equals(code)) {
-                future0.set(null);
-                return future0;
+            switch (code) {
+                case OK:
+                    return Futures.immediateVoidFuture();
+                case BAD_REQUEST:
+                case ILLEGAL_TOPIC:
+                case ILLEGAL_CONSUMER_GROUP:
+                case INVALID_RECEIPT_HANDLE:
+                case CLIENT_ID_REQUIRED:
+                    throw new BadRequestException(code.getNumber(), status.getMessage());
+                case UNAUTHORIZED:
+                    throw new UnauthorizedException(code.getNumber(), status.getMessage());
+                case NOT_FOUND:
+                case TOPIC_NOT_FOUND:
+                case TOO_MANY_REQUESTS:
+                    throw new TooManyRequestsException(code.getNumber(), status.getMessage());
+                case INTERNAL_ERROR:
+                case INTERNAL_SERVER_ERROR:
+                    throw new InternalErrorException(code.getNumber(), status.getMessage());
+                case PROXY_TIMEOUT:
+                    throw new ProxyTimeoutException(code.getNumber(), status.getMessage());
+                default:
+                    throw new UnsupportedException(code.getNumber(), status.getMessage());
             }
-            throw new ClientException(code.getNumber(), status.getMessage());
         }, MoreExecutors.directExecutor());
     }
 
@@ -318,24 +348,24 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     }
 
     public void onTopicRouteDataResultUpdate0(String topic, TopicRouteDataResult topicRouteDataResult) {
-        final SubscriptionTopicRouteDataResult subscriptionTopicRouteDataResult =
-            new SubscriptionTopicRouteDataResult(topicRouteDataResult);
-        subTopicRouteDataResultCache.put(topic, subscriptionTopicRouteDataResult);
+        final SubscriptionLoadBalancer subscriptionLoadBalancer =
+            new SubscriptionLoadBalancer(topicRouteDataResult);
+        subTopicRouteDataResultCache.put(topic, subscriptionLoadBalancer);
     }
 
-    private ListenableFuture<SubscriptionTopicRouteDataResult> getSubscriptionTopicRouteResult(final String topic) {
-        SettableFuture<SubscriptionTopicRouteDataResult> future0 = SettableFuture.create();
-        final SubscriptionTopicRouteDataResult result = subTopicRouteDataResultCache.get(topic);
+    private ListenableFuture<SubscriptionLoadBalancer> getSubscriptionTopicRouteResult(final String topic) {
+        SettableFuture<SubscriptionLoadBalancer> future0 = SettableFuture.create();
+        final SubscriptionLoadBalancer result = subTopicRouteDataResultCache.get(topic);
         if (null != result) {
             future0.set(result);
             return future0;
         }
         final ListenableFuture<TopicRouteDataResult> future = getRouteDataResult(topic);
         return Futures.transform(future, topicRouteDataResult -> {
-            final SubscriptionTopicRouteDataResult subscriptionTopicRouteDataResult =
-                new SubscriptionTopicRouteDataResult(topicRouteDataResult);
-            subTopicRouteDataResultCache.put(topic, subscriptionTopicRouteDataResult);
-            return subscriptionTopicRouteDataResult;
+            final SubscriptionLoadBalancer subscriptionLoadBalancer =
+                new SubscriptionLoadBalancer(topicRouteDataResult);
+            subTopicRouteDataResultCache.put(topic, subscriptionLoadBalancer);
+            return subscriptionLoadBalancer;
         }, MoreExecutors.directExecutor());
     }
 }

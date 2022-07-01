@@ -80,9 +80,9 @@ public class ClientException extends Exception {
         return null == requestId ? Optional.empty() : Optional.of(requestId);
     }
 
-    public Optional<String> getResponseCode() {
+    public Optional<Integer> getResponseCode() {
         final String responseCode = context.get(RESPONSE_CODE_KEY);
-        return null == responseCode ? Optional.empty() : Optional.of(responseCode);
+        return null == responseCode ? Optional.empty() : Optional.of(Integer.parseInt(responseCode));
     }
 
     @Override

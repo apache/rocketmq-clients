@@ -51,7 +51,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -67,10 +66,9 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
-import org.apache.rocketmq.client.java.exception.ResourceNotFoundException;
+import org.apache.rocketmq.client.java.exception.NotFoundException;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.hook.MessageInterceptor;
@@ -187,17 +185,10 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         } catch (Throwable t) {
             LOGGER.error("Failed to get topic route data result from remote during client startup, clientId={}, "
                 + "topics={}", clientId, topics, t);
-            throw new ResourceNotFoundException(t);
+            throw new NotFoundException(t);
         }
-        // Find any topic whose topic route data is failed to fetch from remote.
-        final Stream<TopicRouteDataResult> stream = results.stream()
-            .filter(topicRouteDataResult -> Code.OK != topicRouteDataResult.getStatus().getCode());
-        final Optional<TopicRouteDataResult> any = stream.findAny();
-        // There is a topic whose topic route data is failed to fetch from remote.
-        if (any.isPresent()) {
-            final TopicRouteDataResult result = any.get();
-            final Status status = result.getStatus();
-            throw new ClientException(status.getCode().getNumber(), status.getMessage());
+        for (TopicRouteDataResult result : results) {
+            result.checkAndGetTopicRouteData();
         }
         LOGGER.info("Fetch topic route data from remote successfully during startup, clientId={}, topics={}",
             clientId, topics);
@@ -444,8 +435,8 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
                     LOGGER.info("Topic route result is updated, topic={}, clientId={}, {} => {}", topic, clientId,
                         old, topicRouteDataResult);
                 }
-                onTopicRouteDataResultUpdate0(topic, topicRouteDataResult);
                 future0.set(null);
+                onTopicRouteDataResultUpdate0(topic, topicRouteDataResult);
             }
 
             @Override

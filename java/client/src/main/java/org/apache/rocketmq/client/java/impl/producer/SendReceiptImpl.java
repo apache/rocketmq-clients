@@ -27,6 +27,16 @@ import java.util.List;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.apis.producer.SendReceipt;
+import org.apache.rocketmq.client.java.exception.BadRequestException;
+import org.apache.rocketmq.client.java.exception.ForbiddenException;
+import org.apache.rocketmq.client.java.exception.InternalErrorException;
+import org.apache.rocketmq.client.java.exception.NotFoundException;
+import org.apache.rocketmq.client.java.exception.PayloadTooLargeException;
+import org.apache.rocketmq.client.java.exception.ProxyTimeoutException;
+import org.apache.rocketmq.client.java.exception.RequestHeaderFieldsTooLargeException;
+import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
+import org.apache.rocketmq.client.java.exception.UnauthorizedException;
+import org.apache.rocketmq.client.java.exception.UnsupportedException;
 import org.apache.rocketmq.client.java.message.MessageIdCodec;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
@@ -61,6 +71,7 @@ public class SendReceiptImpl implements SendReceipt {
         return messageQueue.getBroker().getEndpoints();
     }
 
+    @SuppressWarnings("unused")
     public long getOffset() {
         return offset;
     }
@@ -68,29 +79,56 @@ public class SendReceiptImpl implements SendReceipt {
     public static List<SendReceiptImpl> processSendResponse(MessageQueueImpl mq,
         SendMessageResponse response) throws ClientException {
         final Status status = response.getStatus();
-        final Code code = status.getCode();
-        if (!Code.OK.equals(code)) {
-            throw new ClientException(code.getNumber(), status.getMessage());
-        }
-
         List<SendReceiptImpl> sendReceipts = new ArrayList<>();
-        List<Throwable> throwableList = new ArrayList<>();
-        final List<SendResultEntry> list = response.getEntriesList();
-        for (SendResultEntry entry : list) {
+        final List<SendResultEntry> entries = response.getEntriesList();
+        for (SendResultEntry entry : entries) {
             final Status entryStatus = entry.getStatus();
-            final Code statusCode = entryStatus.getCode();
-            if (!Code.OK.equals(statusCode)) {
-                ClientException e = new ClientException(statusCode.getNumber(), status.getMessage());
-                throwableList.add(e);
-                continue;
+            final Code code = entryStatus.getCode();
+            switch (code) {
+                case OK:
+                    final MessageId messageId = MessageIdCodec.getInstance().decode(entry.getMessageId());
+                    final String transactionId = entry.getTransactionId();
+                    final long offset = entry.getOffset();
+                    final SendReceiptImpl impl = new SendReceiptImpl(messageId, transactionId, mq, offset);
+                    sendReceipts.add(impl);
+                    break;
+                case ILLEGAL_TOPIC:
+                case ILLEGAL_MESSAGE_TAG:
+                case ILLEGAL_MESSAGE_KEY:
+                case ILLEGAL_MESSAGE_GROUP:
+                case ILLEGAL_MESSAGE_PROPERTY_KEY:
+                case ILLEGAL_MESSAGE_ID:
+                case MESSAGE_PROPERTY_CONFLICT_WITH_TYPE:
+                case MESSAGE_CORRUPTED:
+                case CLIENT_ID_REQUIRED:
+                    throw new BadRequestException(code.getNumber(), status.getMessage());
+                case UNAUTHORIZED:
+                    throw new UnauthorizedException(code.getNumber(), status.getMessage());
+                case FORBIDDEN:
+                    throw new ForbiddenException(code.getNumber(), status.getMessage());
+                case NOT_FOUND:
+                case TOPIC_NOT_FOUND:
+                    throw new NotFoundException(code.getNumber(), status.getMessage());
+                case PAYLOAD_TOO_LARGE:
+                case MESSAGE_BODY_TOO_LARGE:
+                    throw new PayloadTooLargeException(code.getNumber(), status.getMessage());
+                case TOO_MANY_REQUESTS:
+                    throw new TooManyRequestsException(code.getNumber(), status.getMessage());
+                case REQUEST_HEADER_FIELDS_TOO_LARGE:
+                case MESSAGE_PROPERTIES_TOO_LARGE:
+                    throw new RequestHeaderFieldsTooLargeException(code.getNumber(), status.getMessage());
+                case INTERNAL_ERROR:
+                case INTERNAL_SERVER_ERROR:
+                case HA_NOT_AVAILABLE:
+                    throw new InternalErrorException(code.getNumber(), status.getMessage());
+                case PROXY_TIMEOUT:
+                case MASTER_PERSISTENCE_TIMEOUT:
+                case SLAVE_PERSISTENCE_TIMEOUT:
+                    throw new ProxyTimeoutException(code.getNumber(), status.getMessage());
+                case UNSUPPORTED:
+                default:
+                    throw new UnsupportedException(code.getNumber(), status.getMessage());
             }
-            final SendReceiptImpl impl =
-                new SendReceiptImpl(MessageIdCodec.getInstance().decode(entry.getMessageId()),
-                    entry.getTransactionId(), mq, entry.getOffset());
-            sendReceipts.add(impl);
-        }
-        if (!throwableList.isEmpty()) {
-            throw new ClientException(throwableList.toArray(new Throwable[0]));
         }
         return sendReceipts;
     }
@@ -99,8 +137,6 @@ public class SendReceiptImpl implements SendReceipt {
     public String toString() {
         return MoreObjects.toStringHelper(this)
             .add("messageId", messageId)
-            .add("messageQueue", messageQueue)
-            .add("offset", offset)
             .toString();
     }
 }

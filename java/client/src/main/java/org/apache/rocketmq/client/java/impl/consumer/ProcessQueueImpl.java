@@ -238,7 +238,7 @@ class ProcessQueueImpl implements ProcessQueue {
                     final Duration duration = stopwatch.elapsed();
                     final List<MessageCommon> commons = result.getMessages().stream()
                         .map(MessageViewImpl::getMessageCommon).collect(Collectors.toList());
-                    if (result.getStatus().isPresent() && Code.OK.equals(result.getStatus().get().getCode())) {
+                    if (result.ok()) {
                         consumer.doAfter(MessageHookPoints.RECEIVE, commons, duration, MessageHookPointsStatus.OK);
                     } else {
                         consumer.doAfter(MessageHookPoints.RECEIVE, commons, duration, MessageHookPointsStatus.ERROR);
@@ -320,45 +320,17 @@ class ProcessQueueImpl implements ProcessQueue {
     }
 
     private void onReceiveMessageResult(ReceiveMessageResult result) {
-        Optional<Status> optionalStatus = result.getStatus();
         final List<MessageViewImpl> messages = result.getMessages();
-        final Endpoints endpoints = result.getEndpoints();
-        if (!optionalStatus.isPresent()) {
-            // Should never reach here.
-            LOGGER.error("[Bug] Status in receive message result is not set, mq={}, endpoints={}", mq, endpoints);
-            if (messages.isEmpty()) {
-                receiveMessage();
-            }
-            optionalStatus = Optional.of(Status.newBuilder().setCode(Code.OK).build());
-            LOGGER.error("[Bug] Status not set but message(s) found in the receive result, fix the status to OK," +
-                " mq={}, endpoints={}", mq, endpoints);
+        if (!result.ok()) {
+            receiveMessageLater();
+            return;
         }
-        final Status status = optionalStatus.get();
-        final Code code = status.getCode();
-        switch (code) {
-            case OK:
-                if (!messages.isEmpty()) {
-                    cacheMessages(messages);
-                    consumer.getReceivedMessagesQuantity().getAndAdd(messages.size());
-                    consumer.getConsumeService().signal();
-                }
-                LOGGER.debug("Receive message with OK, mq={}, endpoints={}, messages found count={}, clientId={}",
-                    mq, endpoints, messages.size(), consumer.getClientId());
-                receiveMessage();
-                break;
-            case MESSAGE_NOT_FOUND:
-                LOGGER.info("Message not found while receiving message, mq={}, endpoints={}, clientId={}, code={}," +
-                        " status message=[{}]",
-                    mq, endpoints, consumer.getClientId(), code.getNumber(), status.getMessage());
-                receiveMessage();
-                break;
-            // Fall through on purpose.
-            default:
-                LOGGER.error("Failed to receive message from remote, try it later, mq={}, endpoints={}, clientId={}," +
-                        " code={}, status message=[{}]",
-                    mq, endpoints, consumer.getClientId(), code.getNumber(), status.getMessage());
-                receiveMessageLater();
+        if (!messages.isEmpty()) {
+            cacheMessages(messages);
+            consumer.getReceivedMessagesQuantity().getAndAdd(messages.size());
+            consumer.getConsumeService().signal();
         }
+        receiveMessage();
     }
 
     @Override

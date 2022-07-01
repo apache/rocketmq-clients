@@ -17,32 +17,34 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
-import apache.rocketmq.v2.Code;
-import apache.rocketmq.v2.Status;
 import com.google.common.collect.ImmutableList;
 import com.google.common.math.IntMath;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.concurrent.Immutable;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.apis.ClientException;
-import org.apache.rocketmq.client.java.exception.ResourceNotFoundException;
+import org.apache.rocketmq.client.java.exception.NotFoundException;
 import org.apache.rocketmq.client.java.misc.Utilities;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.route.TopicRouteDataResult;
 
 @Immutable
-public class SubscriptionTopicRouteDataResult {
-    private final AtomicInteger messageQueueIndex;
-
-    private final Status status;
-
+public class SubscriptionLoadBalancer {
+    private final TopicRouteDataResult topicRouteDataResult;
+    /**
+     * Index for round-robin.
+     */
+    private final AtomicInteger index;
+    /**
+     * Message queues to receive message.
+     */
     private final ImmutableList<MessageQueueImpl> messageQueues;
 
-    public SubscriptionTopicRouteDataResult(TopicRouteDataResult topicRouteDataResult) {
-        this.messageQueueIndex = new AtomicInteger(RandomUtils.nextInt(0, Integer.MAX_VALUE));
-        this.status = topicRouteDataResult.getStatus();
+    public SubscriptionLoadBalancer(TopicRouteDataResult topicRouteDataResult) {
+        this.topicRouteDataResult = topicRouteDataResult;
+        this.index = new AtomicInteger(RandomUtils.nextInt(0, Integer.MAX_VALUE));
         final ImmutableList.Builder<MessageQueueImpl> builder = ImmutableList.builder();
-        if (Code.OK != status.getCode()) {
+        if (!topicRouteDataResult.ok()) {
             this.messageQueues = builder.build();
             return;
         }
@@ -57,16 +59,12 @@ public class SubscriptionTopicRouteDataResult {
     }
 
     public MessageQueueImpl takeMessageQueue() throws ClientException {
-        final Code code = status.getCode();
-        if (!Code.OK.equals(code)) {
-            throw new ClientException(code.getNumber(), status.getMessage());
-        }
+        topicRouteDataResult.checkAndGetTopicRouteData();
         if (messageQueues.isEmpty()) {
             // Should never reach here.
-            throw new ResourceNotFoundException("Failed to take message queue due to readable message queue doesn't "
-                + "exist");
+            throw new NotFoundException("Failed to take message queue due to readable message queue doesn't exist");
         }
-        final int next = messageQueueIndex.getAndIncrement();
+        final int next = index.getAndIncrement();
         return messageQueues.get(IntMath.mod(next, messageQueues.size()));
     }
 }

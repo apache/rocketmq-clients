@@ -292,7 +292,9 @@ public class TestBase {
     protected ListenableFuture<SendMessageResponse> failureSendMessageResponseFuture() {
         final Status status = Status.newBuilder().setCode(Code.FORBIDDEN).build();
         SettableFuture<SendMessageResponse> future0 = SettableFuture.create();
-        SendMessageResponse response = SendMessageResponse.newBuilder().setStatus(status).build();
+        SendResultEntry sendResultEntry = SendResultEntry.newBuilder().setStatus(status).setStatus(status).build();
+        SendMessageResponse response = SendMessageResponse.newBuilder().setStatus(status)
+            .addEntries(sendResultEntry).build();
         future0.set(response);
         return future0;
     }

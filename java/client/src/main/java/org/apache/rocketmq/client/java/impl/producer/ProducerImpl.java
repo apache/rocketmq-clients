@@ -57,6 +57,7 @@ import org.apache.rocketmq.client.apis.producer.SendReceipt;
 import org.apache.rocketmq.client.apis.producer.Transaction;
 import org.apache.rocketmq.client.apis.producer.TransactionChecker;
 import org.apache.rocketmq.client.apis.producer.TransactionResolution;
+import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.impl.ClientImpl;
@@ -86,7 +87,7 @@ class ProducerImpl extends ClientImpl implements Producer {
     protected final ProducerSettings producerSettings;
 
     private final TransactionChecker checker;
-    private final ConcurrentMap<String/* topic */, PublishingTopicRouteDataResult> publishingRouteDataResultCache;
+    private final ConcurrentMap<String/* topic */, PublishingLoadBalancer> publishingRouteDataResultCache;
 
     /**
      * The caller is supposed to have validated the arguments and handled throwing exception or
@@ -330,7 +331,7 @@ class ProducerImpl extends ClientImpl implements Producer {
     /**
      * Take message queue(s) from route for message publishing.
      */
-    private List<MessageQueueImpl> takeMessageQueues(PublishingTopicRouteDataResult result) throws ClientException {
+    private List<MessageQueueImpl> takeMessageQueues(PublishingLoadBalancer result) throws ClientException {
         return result.takeMessageQueues(isolated, this.getRetryPolicy().getMaxAttempts());
     }
 
@@ -410,7 +411,7 @@ class ProducerImpl extends ClientImpl implements Producer {
 
         this.topics.add(topic);
         // Get publishing topic route.
-        final ListenableFuture<PublishingTopicRouteDataResult> routeFuture = getPublishingTopicRouteResult(topic);
+        final ListenableFuture<PublishingLoadBalancer> routeFuture = getPublishingTopicRouteResult(topic);
         return Futures.transformAsync(routeFuture, result -> {
             // Prepare the candidate message queue(s) for retry-sending in advance.
             final List<MessageQueueImpl> candidates = null == messageGroup ? takeMessageQueues(result) :
@@ -527,6 +528,11 @@ class ProducerImpl extends ClientImpl implements Producer {
                 }
                 // Try to do more attempts.
                 int nextAttempt = 1 + attempt;
+                // Retry immediately if the request is not throttled.
+                if (!(t instanceof TooManyRequestsException)) {
+                    send0(future, topic, messageType, candidates, messages, nextAttempt);
+                    return;
+                }
                 final Duration delay = ProducerImpl.this.getRetryPolicy().getNextAttemptDelay(nextAttempt);
                 LOGGER.warn("Failed to send message, would attempt to resend after {}, maxAttempts={}," +
                         " attempt={}, topic={}, messageId(s)={}, endpoints={}, clientId={}", delay, maxAttempts,
@@ -541,24 +547,24 @@ class ProducerImpl extends ClientImpl implements Producer {
 
     @Override
     public void onTopicRouteDataResultUpdate0(String topic, TopicRouteDataResult topicRouteDataResult) {
-        final PublishingTopicRouteDataResult publishingTopicRouteDataResult =
-            new PublishingTopicRouteDataResult(topicRouteDataResult);
-        publishingRouteDataResultCache.put(topic, publishingTopicRouteDataResult);
+        final PublishingLoadBalancer publishingLoadBalancer =
+            new PublishingLoadBalancer(topicRouteDataResult);
+        publishingRouteDataResultCache.put(topic, publishingLoadBalancer);
     }
 
-    private ListenableFuture<PublishingTopicRouteDataResult> getPublishingTopicRouteResult(final String topic) {
-        SettableFuture<PublishingTopicRouteDataResult> future0 = SettableFuture.create();
-        final PublishingTopicRouteDataResult result = publishingRouteDataResultCache.get(topic);
+    private ListenableFuture<PublishingLoadBalancer> getPublishingTopicRouteResult(final String topic) {
+        SettableFuture<PublishingLoadBalancer> future0 = SettableFuture.create();
+        final PublishingLoadBalancer result = publishingRouteDataResultCache.get(topic);
         if (null != result) {
             future0.set(result);
             return future0;
         }
         return Futures.transformAsync(getRouteDataResult(topic), topicRouteDataResult -> {
-            SettableFuture<PublishingTopicRouteDataResult> future = SettableFuture.create();
-            final PublishingTopicRouteDataResult publishingTopicRouteDataResult =
-                new PublishingTopicRouteDataResult(topicRouteDataResult);
-            publishingRouteDataResultCache.put(topic, publishingTopicRouteDataResult);
-            future.set(publishingTopicRouteDataResult);
+            SettableFuture<PublishingLoadBalancer> future = SettableFuture.create();
+            final PublishingLoadBalancer publishingLoadBalancer =
+                new PublishingLoadBalancer(topicRouteDataResult);
+            publishingRouteDataResultCache.put(topic, publishingLoadBalancer);
+            future.set(publishingLoadBalancer);
             return future;
         }, MoreExecutors.directExecutor());
     }

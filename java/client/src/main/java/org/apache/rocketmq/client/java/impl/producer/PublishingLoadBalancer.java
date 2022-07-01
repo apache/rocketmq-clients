@@ -17,8 +17,6 @@
 
 package org.apache.rocketmq.client.java.impl.producer;
 
-import apache.rocketmq.v2.Code;
-import apache.rocketmq.v2.Status;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.Hashing;
@@ -33,7 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.concurrent.Immutable;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.client.apis.ClientException;
-import org.apache.rocketmq.client.java.exception.ResourceNotFoundException;
+import org.apache.rocketmq.client.java.exception.NotFoundException;
 import org.apache.rocketmq.client.java.misc.Utilities;
 import org.apache.rocketmq.client.java.route.Broker;
 import org.apache.rocketmq.client.java.route.Endpoints;
@@ -41,20 +39,22 @@ import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.route.TopicRouteDataResult;
 
 @Immutable
-public class PublishingTopicRouteDataResult {
+public class PublishingLoadBalancer {
+    private final TopicRouteDataResult topicRouteDataResult;
+    /**
+     * Index for round-robin.
+     */
     private final AtomicInteger index;
-
-    private final Status status;
     /**
      * Message queues to send message.
      */
     private final ImmutableList<MessageQueueImpl> messageQueues;
 
-    public PublishingTopicRouteDataResult(TopicRouteDataResult topicRouteDataResult) {
+    public PublishingLoadBalancer(TopicRouteDataResult topicRouteDataResult) {
+        this.topicRouteDataResult = topicRouteDataResult;
         this.index = new AtomicInteger(RandomUtils.nextInt(0, Integer.MAX_VALUE));
-        this.status = topicRouteDataResult.getStatus();
         final ImmutableList.Builder<MessageQueueImpl> builder = ImmutableList.builder();
-        if (Code.OK != status.getCode()) {
+        if (!topicRouteDataResult.ok()) {
             this.messageQueues = builder.build();
             return;
         }
@@ -69,16 +69,12 @@ public class PublishingTopicRouteDataResult {
     }
 
     private void preconditionCheckBeforeTakingMessageQueue() throws ClientException {
-        final Code code = status.getCode();
-        if (!Code.OK.equals(code)) {
-            throw new ClientException(code.getNumber(), status.getMessage());
-        }
+        topicRouteDataResult.checkAndGetTopicRouteData();
         if (messageQueues.isEmpty()) {
-            throw new ResourceNotFoundException("Failed to take message due to writable message queue doesn't exist");
+            throw new NotFoundException("Failed to take message due to writable message queue doesn't exist");
         }
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     public MessageQueueImpl takeMessageQueueByMessageGroup(String messageGroup) throws ClientException {
         preconditionCheckBeforeTakingMessageQueue();
         final long hashCode = Hashing.sipHash24().hashBytes(messageGroup.getBytes(StandardCharsets.UTF_8)).asLong();
@@ -130,7 +126,7 @@ public class PublishingTopicRouteDataResult {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        PublishingTopicRouteDataResult that = (PublishingTopicRouteDataResult) o;
+        PublishingLoadBalancer that = (PublishingLoadBalancer) o;
         return Objects.equal(messageQueues, that.messageQueues);
     }
 

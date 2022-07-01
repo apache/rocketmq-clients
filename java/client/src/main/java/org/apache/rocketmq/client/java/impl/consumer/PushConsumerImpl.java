@@ -225,16 +225,11 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
                 this.state(), clientId);
             throw new IllegalStateException("Push consumer is not running now");
         }
-
         final ListenableFuture<TopicRouteDataResult> future = getRouteDataResult(topic);
         TopicRouteDataResult topicRouteDataResult = handleClientFuture(future);
-        final Status status = topicRouteDataResult.getStatus();
-        final Code code = status.getCode();
-        if (Code.OK.equals(code)) {
-            subscriptionExpressions.put(topic, filterExpression);
-            return this;
-        }
-        throw new ClientException(code.getNumber(), status.getMessage());
+        topicRouteDataResult.checkAndGetTopicRouteData();
+        subscriptionExpressions.put(topic, filterExpression);
+        return this;
     }
 
     /**
@@ -255,15 +250,8 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
     private ListenableFuture<Endpoints> pickEndpointsToQueryAssignments(String topic) {
         final ListenableFuture<TopicRouteDataResult> future = getRouteDataResult(topic);
         return Futures.transformAsync(future, topicRouteDataResult -> {
-            final SettableFuture<Endpoints> future0 = SettableFuture.create();
-            final Status status = topicRouteDataResult.getStatus();
-            final Code code = status.getCode();
-            if (!Code.OK.equals(code)) {
-                throw new ClientException(code.getNumber(), status.getMessage());
-            }
-            Endpoints endpoints = topicRouteDataResult.getTopicRouteData().pickEndpointsToQueryAssignments();
-            future0.set(endpoints);
-            return future0;
+            Endpoints endpoints = topicRouteDataResult.checkAndGetTopicRouteData().pickEndpointsToQueryAssignments();
+            return Futures.immediateFuture(endpoints);
         }, MoreExecutors.directExecutor());
     }
 

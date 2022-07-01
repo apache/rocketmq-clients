@@ -19,12 +19,12 @@ package org.apache.rocketmq.client.java.exception;
 
 import org.apache.rocketmq.client.apis.ClientException;
 
-public class ResourceNotFoundException extends ClientException {
-    public ResourceNotFoundException(String message) {
-        super(message);
-    }
-
-    public ResourceNotFoundException(Throwable t) {
-        super(t);
+/**
+ * Generic exception represents that the server, which acts as a gateway or proxy, does not get a satisfied response
+ * in time from its upstream servers.
+ */
+public class ProxyTimeoutException extends ClientException {
+    public ProxyTimeoutException(int responseCode, String message) {
+        super(responseCode, message);
     }
 }

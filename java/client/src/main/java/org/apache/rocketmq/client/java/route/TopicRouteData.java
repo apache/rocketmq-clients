@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.lang3.RandomUtils;
-import org.apache.rocketmq.client.java.exception.ResourceNotFoundException;
+import org.apache.rocketmq.client.java.exception.NotFoundException;
 import org.apache.rocketmq.client.java.misc.Utilities;
 
 public class TopicRouteData {
@@ -62,7 +62,7 @@ public class TopicRouteData {
         return this.messageQueueImpls;
     }
 
-    public Endpoints pickEndpointsToQueryAssignments() throws ResourceNotFoundException {
+    public Endpoints pickEndpointsToQueryAssignments() throws NotFoundException {
         int nextIndex = index.getAndIncrement();
         for (int i = 0; i < messageQueueImpls.size(); i++) {
             final MessageQueueImpl messageQueueImpl = messageQueueImpls.get(IntMath.mod(nextIndex++,
@@ -76,7 +76,7 @@ public class TopicRouteData {
             }
             return broker.getEndpoints();
         }
-        throw new ResourceNotFoundException("Failed to pick endpoints to query assignment");
+        throw new NotFoundException("Failed to pick endpoints to query assignment");
     }
 
     @Override

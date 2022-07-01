@@ -19,10 +19,18 @@ package org.apache.rocketmq.client.java.route;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.Status;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import javax.annotation.concurrent.Immutable;
+import org.apache.rocketmq.client.apis.ClientException;
+import org.apache.rocketmq.client.java.exception.BadRequestException;
+import org.apache.rocketmq.client.java.exception.InternalErrorException;
+import org.apache.rocketmq.client.java.exception.NotFoundException;
+import org.apache.rocketmq.client.java.exception.ProxyTimeoutException;
+import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
+import org.apache.rocketmq.client.java.exception.UnsupportedException;
 
 /**
  * Result topic route data fetched from remote.
@@ -30,19 +38,53 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 public class TopicRouteDataResult {
     private final TopicRouteData topicRouteData;
-    private final Status status;
+    private final ClientException exception;
 
     public TopicRouteDataResult(TopicRouteData topicRouteData, Status status) {
         this.topicRouteData = checkNotNull(topicRouteData, "topicRouteData should not be null");
-        this.status = checkNotNull(status, "status should not be null");
+        final Code code = status.getCode();
+        switch (code) {
+            case OK:
+                this.exception = null;
+                break;
+            case BAD_REQUEST:
+            case ILLEGAL_ACCESS_POINT:
+            case ILLEGAL_TOPIC:
+            case CLIENT_ID_REQUIRED:
+                this.exception = new BadRequestException(code.getNumber(), status.getMessage());
+                break;
+            case NOT_FOUND:
+            case TOPIC_NOT_FOUND:
+                this.exception = new NotFoundException(code.getNumber(), status.getMessage());
+                break;
+            case TOO_MANY_REQUESTS:
+                this.exception = new TooManyRequestsException(code.getNumber(), status.getMessage());
+                break;
+            case INTERNAL_ERROR:
+            case INTERNAL_SERVER_ERROR:
+                this.exception = new InternalErrorException(code.getNumber(), status.getMessage());
+                break;
+            case PROXY_TIMEOUT:
+                this.exception = new ProxyTimeoutException(code.getNumber(), status.getMessage());
+                break;
+            default:
+                this.exception = new UnsupportedException(code.getNumber(), status.getMessage());
+        }
     }
 
     public TopicRouteData getTopicRouteData() {
         return topicRouteData;
     }
 
-    public Status getStatus() {
-        return status;
+    public TopicRouteData checkAndGetTopicRouteData() throws ClientException {
+        if (null != exception) {
+            throw exception;
+        }
+        return topicRouteData;
+    }
+
+    public boolean ok() {
+        return null == exception;
     }
 
     @Override
@@ -54,20 +96,21 @@ public class TopicRouteDataResult {
             return false;
         }
         TopicRouteDataResult result = (TopicRouteDataResult) o;
-        return Objects.equal(topicRouteData, result.topicRouteData) && Objects.equal(status, result.status);
+        return Objects.equal(topicRouteData, result.topicRouteData) && Objects.equal(exception, result.exception);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(topicRouteData, status);
+        return Objects.hashCode(topicRouteData, exception);
     }
 
     @Override
     public String toString() {
-        return MoreObjects.toStringHelper(this)
-            .add("topicRouteData", topicRouteData)
-            .add("code", status.getCode().getNumber())
-            .add("message", status.getMessage())
-            .toString();
+        final MoreObjects.ToStringHelper helper = MoreObjects.toStringHelper(this)
+            .add("topicRouteData", this.topicRouteData);
+        if (null == exception) {
+            return helper.toString();
+        }
+        return helper.add("exception", this.exception).toString();
     }
 }
