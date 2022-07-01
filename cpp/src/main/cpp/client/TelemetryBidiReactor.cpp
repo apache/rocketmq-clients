@@ -17,6 +17,7 @@
 #include "TelemetryBidiReactor.h"
 
 #include <atomic>
+#include <cstdint>
 #include <memory>
 #include <utility>
 
@@ -47,7 +48,8 @@ TelemetryBidiReactor::TelemetryBidiReactor(std::weak_ptr<Client> client,
 }
 
 TelemetryBidiReactor::~TelemetryBidiReactor() {
-  SPDLOG_INFO("Telemetry stream for {} destructed. StreamState={}", peer_address_, stream_state_);
+  SPDLOG_INFO("Telemetry stream for {} destructed. StreamState={}", peer_address_,
+              static_cast<std::uint8_t>(stream_state_));
 }
 
 bool TelemetryBidiReactor::await() {
