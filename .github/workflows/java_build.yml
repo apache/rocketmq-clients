@@ -1,16 +1,20 @@
 name: Java Build
 on: [push, pull_request]
 jobs:
-  java_ubuntu_18_04:
-    name: Ubuntu 18.04
-    runs-on: ubuntu-18.04
+  java_build:
+    name: "check (${{ matrix.os }} JDK-${{ matrix.jdk }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, windows-2019]
+        jdk: [11, 17]
     steps:
     - name: Checkout
       uses: actions/checkout@v2
-    - name: Set up JDK 11
+    - name: Set up JDK ${{ matrix.jdk }}
       uses: actions/setup-java@v2
       with:
-        java-version: '11'
+        java-version: ${{ matrix.jdk }}
         distribution: 'adopt'
         cache: maven
     - name: Build with Maven
