@@ -42,6 +42,10 @@ public class MessageIdImpl implements MessageId {
      */
     @Override
     public String toString() {
+        // Use suffix directly for V0
+        if (MessageIdCodec.MESSAGE_ID_VERSION_V0.equals(version)) {
+            return suffix;
+        }
         return version + suffix;
     }
 
