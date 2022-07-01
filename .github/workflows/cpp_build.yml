@@ -1,59 +1,13 @@
 name: CPP Build
 on: [push, pull_request]
 jobs:
-  cpp_ubuntu_18_04:
-    name: Ubuntu 18.04
-    runs-on: ubuntu-18.04
+  cpp:
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, ubuntu-20.04, ubuntu-22.04, macos-12,  macos-11, windows-2019]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
       - name: Compile All Targets
         working-directory: ./cpp
         run: bazel build //...
-  cpp_ubuntu_20_04:
-      name: Ubuntu 20.04
-      runs-on: ubuntu-20.04
-      steps:
-        - uses: actions/checkout@v2
-        - name: Compile All Targets
-          working-directory: ./cpp
-          run: bazel build //...
-  cpp_ubuntu_22_04:
-      name: Ubuntu 22.04
-      runs-on: ubuntu-22.04
-      steps:
-        - uses: actions/checkout@v2
-        - name: Compile All Targets
-          working-directory: ./cpp
-          run: bazel build //...
-  cpp_macos_12:
-      name: MacOS 12
-      runs-on: macos-12
-      steps:
-        - uses: actions/checkout@v2
-        - name: Compile All Targets
-          working-directory: ./cpp
-          run: bazel build //...
-  cpp_macos_11:
-      name: MacOS 11
-      runs-on: macos-11
-      steps:
-        - uses: actions/checkout@v2
-        - name: Compile All Targets
-          working-directory: ./cpp
-          run: bazel build //...          
-  cpp_windows_2022:
-      name: Windows 2022
-      runs-on: windows-2022
-      steps:
-        - uses: actions/checkout@v2
-        - name: Compile All Targets
-          working-directory: ./cpp
-          run: bazel build //...          
-  cpp_windows_2019:
-      name: Windows 2019
-      runs-on: windows-2019
-      steps:
-        - uses: actions/checkout@v2
-        - name: Compile All Targets
-          working-directory: ./cpp
-          run: bazel build //...          
