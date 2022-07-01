@@ -111,16 +111,16 @@ def rocketmq_deps():
             ],
         )
 
-    if "com_github_grpc_grpc" not in native.existing_rules():
-        http_archive(
-            name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.46.0",
-            sha256 = "67423a4cd706ce16a88d1549297023f0f9f0d695a96dd684adc21e67b021f9bc",
-            urls = [
-                "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/grpc/grpc-1.46.0.tar.gz",
-                "https://github.com/grpc/grpc/archive/refs/tags/v1.46.0.tar.gz",
-            ],
-        )
+    maybe(
+        http_archive,
+        name = "com_github_grpc_grpc",
+        strip_prefix = "grpc-1.46.3.1",
+        # sha256 = "67423a4cd706ce16a88d1549297023f0f9f0d695a96dd684adc21e67b021f9bc",
+        urls = [
+            "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/grpc/grpc-1.46.3.1.tar.gz",
+            "https://github.com/lizhanhui/grpc/archive/refs/tags/v1.46.3.1.tar.gz",
+        ],
+    )
 
     maybe(
         http_archive,
