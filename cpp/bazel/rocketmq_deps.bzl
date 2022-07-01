@@ -177,3 +177,14 @@ def rocketmq_deps():
         ],
         strip_prefix = "rules_swift-0.27.0",
     )
+
+    maybe(
+        http_archive,
+        name = "io_bazel_rules_go",
+        sha256 = "685052b498b6ddfe562ca7a97736741d87916fe536623afb7da2824c0211c369",
+        urls = [
+            "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/rules-go/rules_go-v0.33.0.zip",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.33.0/rules_go-v0.33.0.zip",
+            "https://github.com/bazelbuild/rules_go/releases/download/v0.33.0/rules_go-v0.33.0.zip",
+        ],
+    )
