@@ -115,7 +115,7 @@ def rocketmq_deps():
         http_archive,
         name = "com_github_grpc_grpc",
         strip_prefix = "grpc-1.46.3",
-        # sha256 = "67423a4cd706ce16a88d1549297023f0f9f0d695a96dd684adc21e67b021f9bc",
+        sha256 = "d6cbf22cb5007af71b61c6be316a79397469c58c82a942552a62e708bce60964",
         urls = [
             "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/grpc/grpc-1.46.3.tar.gz",
             "https://github.com/grpc/grpc/archive/refs/tags/v1.46.3.tar.gz",
