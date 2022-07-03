@@ -23,6 +23,7 @@ import apache.rocketmq.v2.Settings;
 import apache.rocketmq.v2.Subscription;
 import apache.rocketmq.v2.SubscriptionEntry;
 import com.google.common.base.MoreObjects;
+import com.google.common.util.concurrent.Futures;
 import com.google.protobuf.util.Durations;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -122,7 +123,7 @@ public class PushConsumerSettings extends ClientSettings {
             default:
                 throw new IllegalArgumentException("Unrecognized backoff policy strategy.");
         }
-        this.arrivedFuture.set(null);
+        this.arrivedFuture.setFuture(Futures.immediateVoidFuture());
     }
 
     @Override

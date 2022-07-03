@@ -435,7 +435,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
                     LOGGER.info("Topic route result is updated, topic={}, clientId={}, {} => {}", topic, clientId,
                         old, topicRouteDataResult);
                 }
-                future0.set(null);
+                future0.setFuture(Futures.immediateVoidFuture());
                 onTopicRouteDataResultUpdate0(topic, topicRouteDataResult);
             }
 

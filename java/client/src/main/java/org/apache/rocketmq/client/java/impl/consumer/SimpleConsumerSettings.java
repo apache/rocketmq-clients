@@ -22,6 +22,7 @@ import apache.rocketmq.v2.Settings;
 import apache.rocketmq.v2.Subscription;
 import apache.rocketmq.v2.SubscriptionEntry;
 import com.google.common.base.MoreObjects;
+import com.google.common.util.concurrent.Futures;
 import com.google.protobuf.util.Durations;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -92,7 +93,7 @@ public class SimpleConsumerSettings extends ClientSettings {
                 + "client type={}", clientId, pubSubCase, clientType);
             return;
         }
-        this.arrivedFuture.set(null);
+        this.arrivedFuture.setFuture(Futures.immediateVoidFuture());
     }
 
     @Override

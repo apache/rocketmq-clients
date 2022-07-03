@@ -20,6 +20,7 @@ package org.apache.rocketmq.client.java.impl.producer;
 import apache.rocketmq.v2.Publishing;
 import apache.rocketmq.v2.Settings;
 import com.google.common.base.MoreObjects;
+import com.google.common.util.concurrent.Futures;
 import com.google.protobuf.util.Durations;
 import java.time.Duration;
 import java.util.Set;
@@ -94,7 +95,7 @@ public class ProducerSettings extends ClientSettings {
         final Publishing publishing = settings.getPublishing();
         this.compressBodyThresholdBytes = publishing.getCompressBodyThreshold();
         this.maxBodySizeBytes = publishing.getMaxBodySize();
-        this.arrivedFuture.set(null);
+        this.arrivedFuture.setFuture(Futures.immediateVoidFuture());
     }
 
     @Override

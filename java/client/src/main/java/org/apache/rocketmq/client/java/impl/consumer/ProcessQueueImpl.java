@@ -376,10 +376,40 @@ class ProcessQueueImpl implements ProcessQueue {
         statsConsumptionResult(consumeResult);
         eraseMessage(messageView);
         if (ConsumeResult.SUCCESS.equals(consumeResult)) {
-            consumer.ackMessage(messageView);
+            ackMessage(messageView);
             return;
         }
         nackMessage(messageView);
+    }
+
+    private void ackMessage(MessageViewImpl messageView) {
+        final String clientId = consumer.getClientId();
+        final String consumerGroup = consumer.getConsumerGroup();
+        final MessageId messageId = messageView.getMessageId();
+        final Endpoints endpoints = messageView.getEndpoints();
+        final ListenableFuture<AckMessageResponse> future = consumer.ackMessage(messageView);
+        Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
+            @Override
+            public void onSuccess(AckMessageResponse response) {
+                final Status status = response.getStatus();
+                final Code code = status.getCode();
+                if (Code.OK.equals(code)) {
+                    LOGGER.debug("Ack message successfully, clientId={}, consumerGroup={}, messageId={}, mq={}, "
+                        + "endpoints={}", clientId, consumerGroup, messageId, mq, endpoints);
+                    return;
+                }
+                LOGGER.error("Failed to ack message, clientId={}, consumerGroup={}, messageId={}, mq={}, "
+                        + "endpoints={}, code={}, status message={}", clientId, consumerGroup, messageId, mq,
+                    endpoints, code, status.getMessage());
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                LOGGER.error("Exception raised while acknowledging message, clientId={}, consumerGroup={}, "
+                        + "messageId={}, mq={}, endpoints={}", clientId, consumerGroup, messageId, mq,
+                    endpoints, t);
+            }
+        }, MoreExecutors.directExecutor());
     }
 
     private void nackMessage(MessageViewImpl messageView) {
@@ -452,6 +482,9 @@ class ProcessQueueImpl implements ProcessQueue {
         final ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future =
             consumer.forwardMessageToDeadLetterQueue(messageView);
         final String clientId = consumer.getClientId();
+        final String consumerGroup = consumer.getConsumerGroup();
+        final MessageId messageId = messageView.getMessageId();
+        final Endpoints endpoints = messageView.getEndpoints();
         Futures.addCallback(future, new FutureCallback<ForwardMessageToDeadLetterQueueResponse>() {
             @Override
             public void onSuccess(ForwardMessageToDeadLetterQueueResponse response) {
@@ -460,26 +493,31 @@ class ProcessQueueImpl implements ProcessQueue {
                 // Log failure and retry later.
                 if (!Code.OK.equals(code)) {
                     LOGGER.error("Failed to forward message to dead letter queue, would attempt to re-forward later," +
-                            " clientId={}, messageId={}, attempt={}, mq={}, code={}, status message={}",
-                        clientId, messageView.getMessageId(), attempt, mq, code, status.getMessage());
+                            " clientId={}, consumerGroup={} messageId={}, attempt={}, mq={}, endpoints={}, code={}, "
+                            + "status message={}", clientId, consumerGroup, messageId, attempt, mq, endpoints, code,
+                        status.getMessage());
                     forwardToDeadLetterQueue(messageView, 1 + attempt, future0);
                     return;
                 }
                 // Log retries.
                 if (1 < attempt) {
-                    LOGGER.info("Re-forward message to dead letter queue successfully, clientId={}, attempt={}, " +
-                        "messageId={}, mq={}", clientId, attempt, messageView.getMessageId(), mq);
+                    LOGGER.info("Re-forward message to dead letter queue successfully, clientId={}, consumerGroup={}, "
+                            + "attempt={}, messageId={}, mq={}, endpoints={}", clientId, consumerGroup, attempt,
+                        messageId, mq, endpoints);
+                } else {
+                    LOGGER.debug("Forward message to dead letter queue successfully, clientId={}, consumerGroup={}, "
+                        + "messageId={}, mq={}, endpoints={}", clientId, consumerGroup, messageId, mq, endpoints);
                 }
                 // Set result if message is forwarded successfully.
-                future0.set(null);
+                future0.setFuture(Futures.immediateVoidFuture());
             }
 
             @Override
             public void onFailure(Throwable t) {
                 // Log failure and retry later.
                 LOGGER.error("Exception raised while forward message to DLQ, would attempt to re-forward later, " +
-                        "clientId={}, attempt={}, messageId={}, mq={}", clientId, attempt,
-                    messageView.getMessageId(), mq, t);
+                        "clientId={}, consumerGroup={}, attempt={}, messageId={}, mq={}", clientId, consumerGroup,
+                    attempt, messageId, mq, t);
                 forwardToDeadLetterQueueLater(messageView, 1 + attempt, future0);
             }
         }, MoreExecutors.directExecutor());
@@ -518,8 +556,10 @@ class ProcessQueueImpl implements ProcessQueue {
 
     private void ackFifoMessage(final MessageViewImpl messageView, final int attempt,
         final SettableFuture<Void> future0) {
-        final Endpoints endpoints = messageView.getEndpoints();
         final String clientId = consumer.getClientId();
+        final String consumerGroup = consumer.getConsumerGroup();
+        final MessageId messageId = messageView.getMessageId();
+        final Endpoints endpoints = messageView.getEndpoints();
         final ListenableFuture<AckMessageResponse> future = consumer.ackMessage(messageView);
         Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
             @Override
@@ -528,27 +568,32 @@ class ProcessQueueImpl implements ProcessQueue {
                 final Code code = status.getCode();
                 // Log failure and retry later.
                 if (!Code.OK.equals(code)) {
-                    LOGGER.error("Failed to ack fifo message, would attempt to re-ack later, clientId={}, attempt={}," +
-                            " messageId={}, mq={}, code={}, endpoints={}, status message=[{}]",
-                        clientId, attempt, messageView.getMessageId(), mq, code, endpoints, status.getMessage());
+                    LOGGER.error("Failed to ack fifo message, would attempt to re-ack later, clientId={}, "
+                            + "consumerGroup={}, attempt={}, messageId={}, mq={}, code={}, endpoints={}, status "
+                            + "message=[{}]", clientId, consumerGroup, attempt, messageId, mq, code,
+                        endpoints, status.getMessage());
                     ackFifoMessageLater(messageView, 1 + attempt, future0);
                     return;
                 }
                 // Log retries.
                 if (1 < attempt) {
-                    LOGGER.info("Re-ack fifo message successfully, clientId={}, attempt={}, messageId={}, mq={}," +
-                        " endpoints={}", clientId, attempt, messageView.getMessageId(), mq, endpoints);
+                    LOGGER.info("Re-ack fifo message successfully, clientId={}, consumerGroup={}, attempt={}, "
+                            + "messageId={}, mq={}, endpoints={}", clientId, consumerGroup, attempt,
+                        messageId, mq, endpoints);
+                } else {
+                    LOGGER.debug("Ack fifo message successfully, clientId={}, consumerGroup={}, messageId={}, mq={}, "
+                        + "endpoints={}", clientId, consumerGroup, messageId, mq, endpoints);
                 }
                 // Set result if FIFO message is acknowledged successfully.
-                future0.set(null);
+                future0.setFuture(Futures.immediateVoidFuture());
             }
 
             @Override
             public void onFailure(Throwable t) {
                 // Log failure and retry later.
-                LOGGER.error("Exception raised while ack fifo message, clientId={}, would attempt to re-ack later," +
-                        " attempt={}, messageId={}, mq={}, endpoints={}",
-                    clientId, attempt, messageView.getMessageId(), mq, endpoints, t);
+                LOGGER.error("Exception raised while acknowledging fifo message, clientId={}, consumerGroup={}, "
+                        + "would attempt to re-ack later, attempt={}, messageId={}, mq={}, endpoints={}", clientId,
+                    consumerGroup, attempt, messageId, mq, endpoints, t);
                 ackFifoMessageLater(messageView, 1 + attempt, future0);
             }
         }, MoreExecutors.directExecutor());

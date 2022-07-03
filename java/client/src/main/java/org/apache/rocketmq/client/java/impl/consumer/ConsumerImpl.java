@@ -146,12 +146,8 @@ abstract class ConsumerImpl extends ClientImpl {
             final Metadata metadata = sign();
             future = clientManager.ackMessage(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
         } catch (Throwable t) {
-            final SettableFuture<AckMessageResponse> future0 = SettableFuture.create();
-            future0.setException(t);
-            future = future0;
+            return Futures.immediateFailedFuture(t);
         }
-        final String topic = messageView.getTopic();
-        final MessageId messageId = messageView.getMessageId();
         Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
             @Override
             public void onSuccess(AckMessageResponse response) {
@@ -160,10 +156,6 @@ abstract class ConsumerImpl extends ClientImpl {
                 final Duration duration = stopwatch.elapsed();
                 MessageHookPointsStatus messageHookPointsStatus = Code.OK.equals(code) ?
                     MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
-                if (!Code.OK.equals(code)) {
-                    LOGGER.error("Failed to ack message, code={}, status message=[{}], topic={}, messageId={}, " +
-                        "clientId={}", code, status.getMessage(), topic, messageId, clientId);
-                }
                 doAfter(MessageHookPoints.ACK, messageCommons, duration, messageHookPointsStatus);
             }
 
@@ -171,8 +163,6 @@ abstract class ConsumerImpl extends ClientImpl {
             public void onFailure(Throwable t) {
                 final Duration duration = stopwatch.elapsed();
                 doAfter(MessageHookPoints.ACK, messageCommons, duration, MessageHookPointsStatus.ERROR);
-                LOGGER.error("Exception raised during message acknowledgement, topic={}, messageId={}, clientId={}",
-                    topic, messageId, clientId, t);
             }
         }, MoreExecutors.directExecutor());
         return future;

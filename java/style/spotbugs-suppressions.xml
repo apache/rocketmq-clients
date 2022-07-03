@@ -6,7 +6,46 @@
     </Match>
 
     <Match>
-        <Package name="~org\.apache\.rocketmq\.client.*"/>
+        <Package name="~org\.apache\.rocketmq\.client\.java.*"/>
         <Bug pattern="NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE"/>
+    </Match>
+
+    <Match>
+        <Class name="org.apache.rocketmq.client.java.impl.ClientImpl$2" />
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+    </Match>
+
+    <Match>
+        <Class name="org.apache.rocketmq.client.java.impl.consumer.ProcessQueueImpl$3" />
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+    </Match>
+
+    <Match>
+        <Class name="org.apache.rocketmq.client.java.impl.consumer.ProcessQueueImpl$4" />
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+    </Match>
+
+    <Match>
+        <Class name="org.apache.rocketmq.client.java.impl.consumer.PushConsumerSettings" />
+        <Method name="applySettingsCommand" />
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+    </Match>
+
+    <Match>
+        <Class name="org.apache.rocketmq.client.java.impl.consumer.PushConsumerSettings" />
+        <Method name="applySettingsCommand" />
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+    </Match>
+
+    <Match>
+        <Class name="org.apache.rocketmq.client.java.impl.consumer.SimpleConsumerSettings" />
+        <Method name="applySettingsCommand" />
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+    </Match>
+
+    <Match>
+        <Class name="org.apache.rocketmq.client.java.impl.producer.ProducerSettings" />
+        <Method name="applySettingsCommand" />
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
     </Match>
 </FindBugsFilter>

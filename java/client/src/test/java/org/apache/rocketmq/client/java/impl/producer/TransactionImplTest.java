@@ -17,26 +17,10 @@
 
 package org.apache.rocketmq.client.java.impl.producer;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doNothing;
-
-import java.io.IOException;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.concurrent.ExecutionException;
 import org.apache.rocketmq.client.apis.ClientException;
-import org.apache.rocketmq.client.apis.message.Message;
-import org.apache.rocketmq.client.apis.message.MessageId;
-import org.apache.rocketmq.client.apis.producer.TransactionResolution;
-import org.apache.rocketmq.client.java.message.MessageCommon;
-import org.apache.rocketmq.client.java.message.PublishingMessageImpl;
-import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
@@ -44,42 +28,6 @@ import org.mockito.junit.MockitoJUnitRunner;
 public class TransactionImplTest extends TestBase {
     @Mock
     ProducerImpl producer;
-
-    @Test
-    public void testTryAddMessage() throws IOException, NoSuchFieldException, IllegalAccessException {
-        final TransactionImpl transaction = new TransactionImpl(producer);
-        final Message message0 = fakeMessage(FAKE_TOPIC_0);
-
-        final Class<? extends ProducerImpl> clazz = producer.getClass();
-        final Field field = clazz.getDeclaredField("producerSettings");
-        field.setAccessible(true);
-        Field modifiersField = Field.class.getDeclaredField("modifiers");
-        modifiersField.setAccessible(true);
-        modifiersField.setInt(field, field.getModifiers() & ~Modifier.FINAL);
-        field.set(producer, fakeProducerSettings());
-
-        transaction.tryAddMessage(message0);
-        // Expect no exception thrown.
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void testTryAddMultipleMessages() throws IOException, NoSuchFieldException, IllegalAccessException {
-        final TransactionImpl transaction = new TransactionImpl(producer);
-        final Message message0 = fakeMessage(FAKE_TOPIC_0);
-        final Message message1 = fakeMessage(FAKE_TOPIC_0);
-
-        final Class<? extends ProducerImpl> clazz = producer.getClass();
-        final Field field = clazz.getDeclaredField("producerSettings");
-        field.setAccessible(true);
-        Field modifiersField = Field.class.getDeclaredField("modifiers");
-        modifiersField.setAccessible(true);
-        modifiersField.setInt(field, field.getModifiers() & ~Modifier.FINAL);
-        field.set(producer, fakeProducerSettings());
-
-        transaction.tryAddMessage(message0);
-        transaction.tryAddMessage(message1);
-        // Expect no exception thrown.
-    }
 
     @Test(expected = IllegalStateException.class)
     public void testCommitWithNoReceipts() throws ClientException {
@@ -91,55 +39,5 @@ public class TransactionImplTest extends TestBase {
     public void testRollbackWithNoReceipts() throws ClientException {
         final TransactionImpl transaction = new TransactionImpl(producer);
         transaction.rollback();
-    }
-
-    @Test
-    public void testCommit() throws IOException, ClientException, ExecutionException, InterruptedException,
-        NoSuchFieldException, IllegalAccessException {
-        final TransactionImpl transaction = new TransactionImpl(producer);
-        final Message message0 = fakeMessage(FAKE_TOPIC_0);
-
-        final Class<? extends ProducerImpl> clazz = producer.getClass();
-        final Field field = clazz.getDeclaredField("producerSettings");
-        field.setAccessible(true);
-        Field modifiersField = Field.class.getDeclaredField("modifiers");
-        modifiersField.setAccessible(true);
-        modifiersField.setInt(field, field.getModifiers() & ~Modifier.FINAL);
-        field.set(producer, fakeProducerSettings());
-
-        final PublishingMessageImpl publishingMessage = transaction.tryAddMessage(message0);
-        final SendReceiptImpl receipt = fakeSendReceiptImpl(fakeMessageQueueImpl0());
-        transaction.tryAddReceipt(publishingMessage, receipt);
-        ArgumentCaptor<TransactionResolution> resolutionArgumentCaptor =
-            ArgumentCaptor.forClass(TransactionResolution.class);
-        doNothing().when(producer).endTransaction(any(Endpoints.class), any(MessageCommon.class),
-            any(MessageId.class), anyString(), resolutionArgumentCaptor.capture());
-        transaction.commit();
-        assertEquals(TransactionResolution.COMMIT, resolutionArgumentCaptor.getValue());
-    }
-
-    @Test
-    public void testRollback() throws IOException, ClientException, ExecutionException, InterruptedException,
-        NoSuchFieldException, IllegalAccessException {
-        final TransactionImpl transaction = new TransactionImpl(producer);
-        final Message message0 = fakeMessage(FAKE_TOPIC_0);
-
-        final Class<? extends ProducerImpl> clazz = producer.getClass();
-        final Field field = clazz.getDeclaredField("producerSettings");
-        field.setAccessible(true);
-        Field modifiersField = Field.class.getDeclaredField("modifiers");
-        modifiersField.setAccessible(true);
-        modifiersField.setInt(field, field.getModifiers() & ~Modifier.FINAL);
-        field.set(producer, fakeProducerSettings());
-
-        final PublishingMessageImpl publishingMessage = transaction.tryAddMessage(message0);
-        final SendReceiptImpl receipt = fakeSendReceiptImpl(fakeMessageQueueImpl0());
-        transaction.tryAddReceipt(publishingMessage, receipt);
-        ArgumentCaptor<TransactionResolution> resolutionArgumentCaptor =
-            ArgumentCaptor.forClass(TransactionResolution.class);
-        doNothing().when(producer).endTransaction(any(Endpoints.class), any(MessageCommon.class),
-            any(MessageId.class), anyString(), resolutionArgumentCaptor.capture());
-        transaction.rollback();
-        assertEquals(TransactionResolution.ROLLBACK, resolutionArgumentCaptor.getValue());
     }
 }
