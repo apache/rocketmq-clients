@@ -1,15 +1,13 @@
 # The Java Implementation
 
-[![Java](https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml/badge.svg)](https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml)
-
 Here is the java implementation of the client for [Apache RocketMQ](https://rocketmq.apache.org/).
 
 ## Prerequisites
 
-This project guarantees the same runtime compatibility with [grpc-java](https://github.com/grpc/grpc-java).
-
-* Java 11 or higher is required to build this project.
-* The built artifacts can be used on Java 8 or higher.
+| Stage   | Requirements |
+| ------- | ------------ |
+| Build   | JDK 11+      |
+| Runtime | JRE 8+       |
 
 ## Getting Started
 
@@ -36,3 +34,11 @@ the no-shaded client.
 ```
 
 You can see more code examples [here](./example.md).
+
+## Logging System
+
+We use [logback](https://logback.qos.ch/) as our logging system and redirect the log of gRPC to [SLF4j](https://www.slf4j.org/) as well.
+
+To prevent the clash of configuration file while both of rocketmq client and standard logback is introduced in the same project, we shaded a new logback using `rocketmq.logback.xml/rocketmq.logback-test.xml/rocketmq.logback.groovy` instead of `logback.xml/logback-test.xml/logback.groovy` as its configuration file in the shaded jar.
+
+You can adjust the log level by the environment parameter or the java system property - `rocketmq.log.level`. See [here](https://logback.qos.ch/manual/architecture.html#effectiveLevel) for more details about logback log level.
