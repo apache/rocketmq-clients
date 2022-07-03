@@ -1,15 +1,13 @@
-# RocketMQ Clients for Java
+# The Java Implementation
 
-[![Java](https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml/badge.svg)](https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml)
-
-The java client implementation of [Apache RocketMQ](https://rocketmq.apache.org/).
+Here is the java implementation of the client for [Apache RocketMQ](https://rocketmq.apache.org/).
 
 ## Prerequisites
 
-This project guarantees the same runtime compatibility with [grpc-java](https://github.com/grpc/grpc-java).
-
-* Java 11 or higher is required to build this project.
-* The built artifacts can be used on Java 8 or higher.
+| Stage   | Requirements |
+| ------- | ------------ |
+| Build   | JDK 11+      |
+| Runtime | JRE 8+       |
 
 ## Getting Started
 
@@ -35,73 +33,12 @@ the no-shaded client.
 </dependency>
 ```
 
-There is a provider based on the Java SPI mechanism, the provider here can derive specific implementations.
+You can see more code examples [here](./example.md).
 
-```java
-// Find the implementation of APIs according to SPI mechanism.
-final ClientServiceProvider provider = ClientServiceProvider.loadService();
-StaticSessionCredentialsProvider staticSessionCredentialsProvider =
-    new StaticSessionCredentialsProvider(accessKey, secretKey);
-ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
-    .setEndpoints(endpoints)
-    .setCredentialProvider(staticSessionCredentialsProvider)
-    .build();
-```
+## Logging System
 
-### Producer
+We use [logback](https://logback.qos.ch/) as our logging system and redirect the log of gRPC to [SLF4j](https://www.slf4j.org/) as well.
 
-```java
-// Build your message.
-final Message message = provider.newMessageBuilder()
-    .setTopic(topic)
-    .setBody(body)
-    .setTag(tag)
-    .build();
-// Build your producer.
-Producer producer = provider.newProducerBuilder()
-    .setClientConfiguration(clientConfiguration)
-    .setTopics(topic)
-    .build();
-for (int i = 0; i < 1024; i++) {
-    final SendReceipt sendReceipt = producer.send(message);
-}
-// Close it when you don't need the producer any more.
-producer.close();
-```
+To prevent the clash of configuration file while both of rocketmq client and standard logback is introduced in the same project, we shaded a new logback using `rocketmq.logback.xml/rocketmq.logback-test.xml/rocketmq.logback.groovy` instead of `logback.xml/logback-test.xml/logback.groovy` as its configuration file in the shaded jar.
 
-### PushConsumer
-
-```java
-// Build your push consumer.
-PushConsumer pushConsumer = provider.newPushConsumerBuilder()
-    .setClientConfiguration(clientConfiguration)
-    .setConsumerGroup(consumerGroup)
-    .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
-    .setMessageListener(messageView -> {
-    // Handle the received message and return the consume result.
-    return ConsumeResult.SUCCESS;
-    })
-    .build();
-// Close it when you don't need the consumer any more.
-pushConsumer.close();
-```
-
-### SimpleConsumer
-
-```java
-// Build your simple consumer.
-SimpleConsumer simpleConsumer = provider.newSimpleConsumerBuilder()
-    .setClientConfiguration(clientConfiguration)
-    .setConsumerGroup(consumerGroup)
-    .setAwaitDuration(awaitDuration)
-    .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
-    .build();
-// Try to receive message from server.
-final List<MessageView> messageViews = simpleConsumer.receive(1, invisibleDuration);
-for (MessageView messageView : messageViews) {
-    // Ack or change invisible time according to your needs.
-    simpleConsumer.ack(messageView);
-}
-// Close it when you don't need the consumer any more.
-simpleConsumer.close();
-```
+You can adjust the log level by the environment parameter or the java system property - `rocketmq.log.level`. See [here](https://logback.qos.ch/manual/architecture.html#effectiveLevel) for more details about logback log level.
