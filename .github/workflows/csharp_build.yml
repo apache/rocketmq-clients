@@ -1,8 +1,8 @@
 name: C# Build
 on: [push, pull_request]
 jobs:
-  c_sharp_ubuntu_18_04:
-    name: Ubuntu 18.04
+  c_sharp:
+    name: "C# (ubuntu-18.04)"
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout 

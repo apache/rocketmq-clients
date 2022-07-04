@@ -89,8 +89,8 @@ public class SimpleConsumerSettings extends ClientSettings {
     public void applySettingsCommand(Settings settings) {
         final Settings.PubSubCase pubSubCase = settings.getPubSubCase();
         if (!Settings.PubSubCase.SUBSCRIPTION.equals(pubSubCase)) {
-            LOGGER.error("[Bug] Issued settings not match with the client type, client id ={}, pub-sub case={}, "
-                + "client type={}", clientId, pubSubCase, clientType);
+            LOGGER.error("[Bug] Issued settings not match with the client type, clientId={}, pubSubCase={}, "
+                + "clientType={}", clientId, pubSubCase, clientType);
             return;
         }
         this.arrivedFuture.setFuture(Futures.immediateVoidFuture());

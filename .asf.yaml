@@ -30,10 +30,10 @@ github:
     projects: true
   enabled_merge_buttons:
     # Enable squash button
-    squash:  true
+    squash: true
     # Disable merge button
-    merge:   false
+    merge: false
     # Enable rebase button
-    rebase:  true
+    rebase: true
   protected_branches:
     master: {}

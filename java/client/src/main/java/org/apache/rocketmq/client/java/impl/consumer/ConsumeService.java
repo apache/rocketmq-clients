@@ -69,7 +69,7 @@ public abstract class ConsumeService extends Dispatcher {
         final ListeningExecutorService executorService = MoreExecutors.listeningDecorator(consumptionExecutor);
         final ConsumeTask task = new ConsumeTask(clientId, messageListener, messageView, messageInterceptor);
         // Consume message with no delay.
-        if (Duration.ZERO.compareTo(delay) <= 0) {
+        if (Duration.ZERO.compareTo(delay) >= 0) {
             return executorService.submit(task);
         }
         final SettableFuture<ConsumeResult> future0 = SettableFuture.create();
