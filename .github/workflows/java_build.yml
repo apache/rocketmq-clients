@@ -2,7 +2,7 @@ name: Java Build
 on: [push, pull_request]
 jobs:
   java_build:
-    name: "Java (${{ matrix.os }} JDK-${{ matrix.jdk }})"
+    name: "Java (${{ matrix.os }}, JDK-${{ matrix.jdk }})"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
