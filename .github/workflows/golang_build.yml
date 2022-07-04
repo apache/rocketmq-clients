@@ -1,0 +1,20 @@
+name: Golang Build
+on: [push, pull_request]
+jobs:
+  cpp_build:
+    name: "Golang (${{ matrix.os }}, Go ${{ matrix.go }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-18.04]
+        go: [1.17]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Set up Golang ${{ matrix.go }}
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Build
+        working-directory: ./golang
+        run: go build
