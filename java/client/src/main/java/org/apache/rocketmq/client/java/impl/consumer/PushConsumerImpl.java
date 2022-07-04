@@ -155,6 +155,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
             messageMeter.setMessageCacheObserver(this);
             final ScheduledExecutorService scheduler = clientManager.getScheduler();
             this.consumeService = createConsumeService();
+            this.consumeService.startAsync().awaitRunning();
             // Scan assignments periodically.
             scanAssignmentsFuture = scheduler.scheduleWithFixedDelay(() -> {
                 try {
@@ -397,6 +398,8 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
                             cacheAssignments.put(topic, latest);
                             return;
                         }
+                        LOGGER.info("Assignments of topic={} remains the same, assignments={}, clientId={}", topic,
+                            existed, clientId);
                         // Process queue may be dropped, need to be synchronized anyway.
                         syncProcessQueue(topic, latest, filterExpression);
                     }

@@ -46,6 +46,20 @@ class FifoConsumeService extends ConsumeService {
         super(clientId, processQueueTable, messageListener, consumptionExecutor, messageInterceptor, scheduler);
     }
 
+    @Override
+    public void startUp() {
+        LOGGER.info("Begin to start the FIFO consume service, clientId={}", clientId);
+        super.startUp();
+        LOGGER.info("Begin to shutdown the FIFO consume service, clientId={}", clientId);
+    }
+
+    @Override
+    public void shutDown() throws InterruptedException {
+        LOGGER.info("Begin to shutdown the FIFO consume service, clientId={}", clientId);
+        super.shutDown();
+        LOGGER.info("Shutdown the FIFO consume service successfully, clientId={}", clientId);
+    }
+
     @SuppressWarnings("UnstableApiUsage")
     public void consumeIteratively(ProcessQueue pq, Iterator<MessageViewImpl> iterator) {
         if (!iterator.hasNext()) {

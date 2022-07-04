@@ -99,29 +99,30 @@ public class MessageMeter {
 
     @SuppressWarnings("deprecation")
     public synchronized void refresh(Metric metric) {
+        final String clientId = client.getClientId();
         try {
             if (!metric.isOn()) {
-                LOGGER.info("Metric is off, skip refresh");
+                LOGGER.info("Skip metric refresh because metric is off, clientId={}", clientId);
                 shutdown();
                 return;
             }
             final Optional<Endpoints> optionalEndpoints = metric.tryGetMetricEndpoints();
             if (!optionalEndpoints.isPresent()) {
                 LOGGER.error("[Bug] Metric switch is on but endpoints is not filled, clientId={}",
-                    client.getClientId());
+                    clientId);
                 return;
             }
             final Endpoints newMetricEndpoints = optionalEndpoints.get();
             if (newMetricEndpoints.equals(metricEndpoints)) {
                 LOGGER.debug("Message metric exporter endpoints remains the same, clientId={}, endpoints={}",
-                    client.getClientId(), newMetricEndpoints);
+                    clientId, newMetricEndpoints);
                 return;
             }
             final SslContext sslContext = GrpcSslContexts.forClient().trustManager(InsecureTrustManagerFactory.INSTANCE)
                 .build();
             final NettyChannelBuilder channelBuilder = NettyChannelBuilder.forTarget(newMetricEndpoints.getGrpcTarget())
                 .sslContext(sslContext)
-                .intercept(new AuthInterceptor(client.getClientConfiguration(), client.getClientId()));
+                .intercept(new AuthInterceptor(client.getClientConfiguration(), clientId));
             final List<InetSocketAddress> socketAddresses = newMetricEndpoints.toSocketAddresses();
             if (null != socketAddresses) {
                 IpNameResolverFactory metricResolverFactory = new IpNameResolverFactory(socketAddresses);
@@ -161,12 +162,12 @@ public class MessageMeter {
 
             final OpenTelemetrySdk openTelemetry = OpenTelemetrySdk.builder().setMeterProvider(provider).build();
             meter = openTelemetry.getMeter(METRIC_INSTRUMENTATION_NAME);
-            LOGGER.info("Message meter exporter is updated, clientId={}, {} => {}", client.getClientId(),
+            LOGGER.info("Message meter exporter is updated, clientId={}, {} => {}", clientId,
                 metricEndpoints, newMetricEndpoints);
             this.reset();
             metricEndpoints = newMetricEndpoints;
         } catch (Throwable t) {
-            LOGGER.error("Exception raised while refreshing message meter, clientId={}", client.getClientId(), t);
+            LOGGER.error("Exception raised while refreshing message meter, clientId={}", clientId, t);
         }
     }
 

@@ -54,7 +54,7 @@ public class MessageImpl implements Message {
      * logging warnings already, so we avoid repeating args check here.
      */
     MessageImpl(String topic, byte[] body, @Nullable String tag, Collection<String> keys,
-        @Nullable String parentTraceContext, @Nullable String messageGroup, @Nullable Long deliveryTimestamp,
+        @Nullable String messageGroup, @Nullable String parentTraceContext, @Nullable Long deliveryTimestamp,
         Map<String, String> properties) {
         this.topic = topic;
         this.body = body;

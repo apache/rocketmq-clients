@@ -46,6 +46,20 @@ public class StandardConsumeService extends ConsumeService {
         super(clientId, processQueueTable, messageListener, consumptionExecutor, messageInterceptor, scheduler);
     }
 
+    @Override
+    public void startUp() {
+        LOGGER.info("Begin to start the standard consume service, clientId={}", clientId);
+        super.startUp();
+        LOGGER.info("Begin to shutdown the standard consume service, clientId={}", clientId);
+    }
+
+    @Override
+    public void shutDown() throws InterruptedException {
+        LOGGER.info("Begin to shutdown the standard consume service, clientId={}", clientId);
+        super.shutDown();
+        LOGGER.info("Shutdown the standard consume service successfully, clientId={}", clientId);
+    }
+
     /**
      * dispatch message(s) once
      *

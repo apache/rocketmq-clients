@@ -149,6 +149,11 @@ public class PublishingMessageImpl extends MessageImpl {
         this.getTag().ifPresent(systemPropertiesBuilder::setTag);
         // Trace context
         this.getTraceContext().ifPresent(systemPropertiesBuilder::setTraceContext);
+        // Delivery timestamp
+        this.getDeliveryTimestamp()
+            .ifPresent(millis -> systemPropertiesBuilder.setDeliveryTimestamp(Timestamps.fromMillis(millis)));
+        // Message group
+        this.getMessageGroup().ifPresent(systemPropertiesBuilder::setMessageGroup);
         final SystemProperties systemProperties = systemPropertiesBuilder.build();
         Resource topicResource = Resource.newBuilder().setName(getTopic()).build();
         return apache.rocketmq.v2.Message.newBuilder()

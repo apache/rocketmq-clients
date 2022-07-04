@@ -61,13 +61,6 @@ public abstract class ConsumeService extends Dispatcher {
         this.scheduler = scheduler;
     }
 
-    @Override
-    public void shutDown() throws InterruptedException {
-        LOGGER.info("Begin to shutdown the consume service, clientId={}", clientId);
-        super.shutDown();
-        LOGGER.info("Shutdown the consume service successfully, clientId={}", clientId);
-    }
-
     public ListenableFuture<ConsumeResult> consume(MessageViewImpl messageView) {
         return consume(messageView, Duration.ZERO);
     }

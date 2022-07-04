@@ -429,7 +429,8 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
                 final TopicRouteDataResult old = topicRouteResultCache.put(topic, topicRouteDataResult);
                 if (topicRouteDataResult.equals(old)) {
                     // Log if topic route result remains the same.
-                    LOGGER.info("Topic route result remains the same, topic={}, clientId={}", topic, clientId);
+                    LOGGER.info("Topic route result remains the same, topic={}, route={}, clientId={}", topic, old,
+                        clientId);
                 } else {
                     // Log if topic route result is updated.
                     LOGGER.info("Topic route result is updated, topic={}, clientId={}, {} => {}", topic, clientId,
