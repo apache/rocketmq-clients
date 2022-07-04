@@ -126,7 +126,7 @@ class ProcessQueueImpl implements ProcessQueue {
         if (idleDuration.compareTo(maxIdleDuration) < 0) {
             return false;
         }
-        LOGGER.warn("Process queue is idle, idle duration={}, max idle duration={}, mq={}, clientId={}", idleDuration,
+        LOGGER.warn("Process queue is idle, idleDuration={}, maxIdleDuration={}, mq={}, clientId={}", idleDuration,
             maxIdleDuration, mq, consumer.getClientId());
         return true;
     }
@@ -155,8 +155,8 @@ class ProcessQueueImpl implements ProcessQueue {
             corrupted.forEach(messageView -> {
                 final MessageId messageId = messageView.getMessageId();
                 if (consumer.getPushConsumerSettings().isFifo()) {
-                    LOGGER.error("Message is corrupted, forward it to dead letter queue in fifo mode, mq={}," +
-                        " messageId={}, clientId={}", mq, messageId, consumer.getClientId());
+                    LOGGER.error("Message is corrupted, forward it to dead letter queue in fifo mode, mq={}, " +
+                        "messageId={}, clientId={}", mq, messageId, consumer.getClientId());
                     forwardToDeadLetterQueue(messageView);
                     return;
                 }
@@ -448,12 +448,13 @@ class ProcessQueueImpl implements ProcessQueue {
         int attempt = messageView.getDeliveryAttempt();
         final MessageId messageId = messageView.getMessageId();
         final ConsumeService service = consumer.getConsumeService();
+        final String clientId = consumer.getClientId();
         if (ConsumeResult.FAILURE.equals(consumeResult) && attempt < maxAttempts) {
             final Duration nextAttemptDelay = retryPolicy.getNextAttemptDelay(attempt);
             attempt = messageView.incrementAndGetDeliveryAttempt();
             LOGGER.debug("Prepare to redeliver the fifo message because of the consumption failure, maxAttempt={}," +
                     " attempt={}, mq={}, messageId={}, nextAttemptDelay={}, clientId={}",
-                maxAttempts, attempt, mq, messageId, nextAttemptDelay, consumer.getClientId());
+                maxAttempts, attempt, mq, messageId, nextAttemptDelay, clientId);
             final ListenableFuture<ConsumeResult> future = service.consume(messageView, nextAttemptDelay);
             return Futures.transformAsync(future, result -> eraseFifoMessage(messageView, result),
                 MoreExecutors.directExecutor());
@@ -461,9 +462,7 @@ class ProcessQueueImpl implements ProcessQueue {
         boolean ok = ConsumeResult.SUCCESS.equals(consumeResult);
         if (!ok) {
             LOGGER.info("Failed to consume fifo message finally, run out of attempt times, maxAttempts={}, "
-                    + "attempt={}," +
-                    " mq={}, messageId={}, clientId={}",
-                maxAttempts, attempt, mq, messageId, consumer.getClientId());
+                + "attempt={}, mq={}, messageId={}, clientId={}", maxAttempts, attempt, mq, messageId, clientId);
         }
         // Ack message or forward it to DLQ depends on consumption result.
         ListenableFuture<Void> future = ok ? ackFifoMessage(messageView) : forwardToDeadLetterQueue(messageView);
