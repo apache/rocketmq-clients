@@ -20,12 +20,14 @@
 ROCKETMQ_NAMESPACE_BEGIN
 
 TEST(RetryPolicyTest, testBackoff) {
-  RetryPolicy policy{.max_attempt = 3,
-                     .strategy = BackoffStrategy::Customized,
-                     .initial = absl::Milliseconds(0),
-                     .max = absl::Milliseconds(0),
-                     .multiplier = 0.0f,
-                     .next = {absl::Milliseconds(10), absl::Milliseconds(100), absl::Milliseconds(500)}};
+  RetryPolicy policy;
+  policy.max_attempt = 3;
+  policy.strategy = BackoffStrategy::Customized;
+  policy.initial = absl::Milliseconds(0);
+  policy.max = absl::Milliseconds(0);
+  policy.multiplier = 0.0f;
+  policy.next = {absl::Milliseconds(10), absl::Milliseconds(100), absl::Milliseconds(500)};
+
   ASSERT_EQ(policy.backoff(1), 10);
   ASSERT_EQ(policy.backoff(2), 100);
   ASSERT_EQ(policy.backoff(3), 500);

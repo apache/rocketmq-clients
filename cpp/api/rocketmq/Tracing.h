@@ -16,12 +16,18 @@
  */
 #pragma once
 
-#include "opencensus/trace/sampler.h"
+#include <memory>
 
 #include "RocketMQ.h"
+#include "opencensus/trace/sampler.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
-opencensus::trace::Sampler* traceSampler() __attribute__((weak));
+class TracingSamplerProvider {
+public:
+  virtual ~TracingSamplerProvider() = default;
+
+  virtual std::unique_ptr<opencensus::trace::Sampler> tracingSampler() = 0;
+};
 
 ROCKETMQ_NAMESPACE_END

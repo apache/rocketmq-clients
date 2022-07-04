@@ -290,16 +290,17 @@ void ProducerImpl::sendImpl(std::shared_ptr<SendContext> context) {
 
   {
     // Trace Send RPC
-    if (context->message_->traceContext().has_value()) {
+    if (context->message_->traceContext().has_value() && client_config_.sampler_) {
       auto span_context =
           opencensus::trace::propagation::FromTraceParentHeader(context->message_->traceContext().value());
       auto span = opencensus::trace::Span::BlankSpan();
       std::string span_name = resourceNamespace() + "/" + context->message_->topic() + " " +
                               MixAll::SPAN_ATTRIBUTE_VALUE_ROCKETMQ_SEND_OPERATION;
       if (span_context.IsValid()) {
-        span = opencensus::trace::Span::StartSpanWithRemoteParent(span_name, span_context, {traceSampler()});
+        span = opencensus::trace::Span::StartSpanWithRemoteParent(span_name, span_context,
+                                                                  {client_config_.sampler_.get()});
       } else {
-        span = opencensus::trace::Span::StartSpan(span_name, nullptr, {traceSampler()});
+        span = opencensus::trace::Span::StartSpan(span_name, nullptr, {client_config_.sampler_.get()});
       }
       span.AddAttribute(MixAll::SPAN_ATTRIBUTE_KEY_MESSAGING_OPERATION,
                         MixAll::SPAN_ATTRIBUTE_VALUE_ROCKETMQ_SEND_OPERATION);
@@ -380,7 +381,7 @@ bool ProducerImpl::endTransaction0(const Transaction& transaction, TransactionSt
   bool completed = false;
   bool success = false;
   auto span = opencensus::trace::Span::BlankSpan();
-  if (!transaction.traceContext().empty()) {
+  if (!transaction.traceContext().empty() && client_config_.sampler_) {
     // Trace transactional message
     opencensus::trace::SpanContext span_context =
         opencensus::trace::propagation::FromTraceParentHeader(transaction.traceContext());
@@ -389,9 +390,9 @@ bool ProducerImpl::endTransaction0(const Transaction& transaction, TransactionSt
                                            : MixAll::SPAN_ATTRIBUTE_VALUE_ROCKETMQ_ROLLBACK_OPERATION;
     std::string span_name = resourceNamespace() + "/" + transaction.topic() + " " + trace_operation_name;
     if (span_context.IsValid()) {
-      span = opencensus::trace::Span::StartSpanWithRemoteParent(span_name, span_context, {traceSampler()});
+      span = opencensus::trace::Span::StartSpanWithRemoteParent(span_name, span_context, {client_config_.sampler_.get()});
     } else {
-      span = opencensus::trace::Span::StartSpan(span_name, nullptr, {traceSampler()});
+      span = opencensus::trace::Span::StartSpan(span_name, nullptr, {client_config_.sampler_.get()});
     }
     span.AddAttribute(MixAll::SPAN_ATTRIBUTE_KEY_MESSAGING_OPERATION, trace_operation_name);
     span.AddAttribute(MixAll::SPAN_ATTRIBUTE_KEY_ROCKETMQ_OPERATION, trace_operation_name);

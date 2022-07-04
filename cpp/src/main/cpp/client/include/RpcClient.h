@@ -21,14 +21,11 @@
 #include <memory>
 #include <string>
 
-#include "ReceiveMessageResult.h"
+#include "Protocol.h"
+#include "ReceiveMessageContext.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/string_view.h"
 #include "grpcpp/grpcpp.h"
-
-#include "InvocationContext.h"
-#include "Protocol.h"
-#include "ReceiveMessageContext.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
