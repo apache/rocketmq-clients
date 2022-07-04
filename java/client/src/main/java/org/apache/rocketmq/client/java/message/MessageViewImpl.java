@@ -87,8 +87,8 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
         this.bornHost = checkNotNull(bornHost, "bornHost should not be null");
         this.bornTimestamp = bornTimestamp;
         this.deliveryAttempt = deliveryAttempt;
-        this.messageQueue = checkNotNull(messageQueue, "messageQueue should not be null");
-        this.endpoints = messageQueue.getBroker().getEndpoints();
+        this.messageQueue = messageQueue;
+        this.endpoints = null == messageQueue ? null : messageQueue.getBroker().getEndpoints();
         this.receiptHandle = checkNotNull(receiptHandle, "receiptHandle should not be null");
         this.traceContext = traceContext;
         this.offset = offset;
@@ -199,6 +199,7 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
         return ++deliveryAttempt;
     }
 
+    @SuppressWarnings("unused")
     public MessageQueueImpl getMessageQueue() {
         return messageQueue;
     }
@@ -215,6 +216,7 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
         this.receiptHandle = receiptHandle;
     }
 
+    @SuppressWarnings("unused")
     public long getOffset() {
         return offset;
     }
@@ -237,11 +239,16 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
         return new LinkedIterator<>(this);
     }
 
+    public static MessageViewImpl fromProtobuf(Message message) {
+        return MessageViewImpl.fromProtobuf(message, null);
+    }
+
     public static MessageViewImpl fromProtobuf(Message message, MessageQueueImpl mq) {
         return MessageViewImpl.fromProtobuf(message, mq, null);
     }
 
-    public static MessageViewImpl fromProtobuf(Message message, MessageQueueImpl mq, Timestamp timestamp) {
+    public static MessageViewImpl fromProtobuf(Message message, MessageQueueImpl mq,
+        Timestamp deliveryTimestampFromRemote) {
         final SystemProperties systemProperties = message.getSystemProperties();
         final String topic = message.getTopic().getName();
         final MessageId messageId = MessageIdCodec.getInstance().decode(systemProperties.getMessageId());
@@ -316,7 +323,8 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
         final String receiptHandle = systemProperties.getReceiptHandle();
         String traceContext = systemProperties.hasTraceContext() ? systemProperties.getTraceContext() : null;
         return new MessageViewImpl(messageId, topic, body, tag, messageGroup, deliveryTimestamp, keys, properties,
-            bornHost, bornTimestamp, deliveryAttempt, mq, receiptHandle, traceContext, offset, corrupted, timestamp);
+            bornHost, bornTimestamp, deliveryAttempt, mq, receiptHandle, traceContext, offset, corrupted,
+            deliveryTimestampFromRemote);
     }
 
     @Override

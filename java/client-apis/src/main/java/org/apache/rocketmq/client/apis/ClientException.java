@@ -17,14 +17,9 @@
 
 package org.apache.rocketmq.client.apis;
 
-import com.google.common.base.MoreObjects;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Base exception for all exceptions raised in client, each exception should derive from the current class.
@@ -39,35 +34,25 @@ public class ClientException extends Exception {
     protected static final String RESPONSE_CODE_KEY = "response-code";
 
     private final Map<String, String> context;
-    private final List<Throwable> throwableList;
 
     public ClientException(String message, Throwable cause) {
         super(message, cause);
         this.context = new HashMap<>();
-        this.throwableList = new ArrayList<>();
     }
 
     public ClientException(String message) {
         super(message);
         this.context = new HashMap<>();
-        this.throwableList = new ArrayList<>();
     }
 
     public ClientException(Throwable t) {
         super(t);
         this.context = new HashMap<>();
-        this.throwableList = new ArrayList<>();
     }
 
     public ClientException(int responseCode, String message) {
         this(message);
         putMetadata(RESPONSE_CODE_KEY, String.valueOf(responseCode));
-    }
-
-    public ClientException(Throwable... throwableList) {
-        this.context = new HashMap<>();
-        this.throwableList = new ArrayList<>();
-        this.throwableList.addAll(Arrays.stream(throwableList).collect(Collectors.toList()));
     }
 
     @SuppressWarnings("SameParameterValue")
@@ -87,13 +72,10 @@ public class ClientException extends Exception {
 
     @Override
     public String toString() {
-        final MoreObjects.ToStringHelper helper = MoreObjects.toStringHelper(super.toString());
+        String s = super.toString();
         if (!context.isEmpty()) {
-            helper.add("context", context);
+            s += " context=" + context;
         }
-        if (!throwableList.isEmpty()) {
-            helper.add("throwableList", throwableList);
-        }
-        return helper.toString();
+        return s;
     }
 }
