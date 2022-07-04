@@ -20,6 +20,11 @@ package org.apache.rocketmq.client.java.misc;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+/**
+ * Linked iterator is a simple iterator class that allows you to iterate over a linked list.
+ *
+ * @param <T> the type of the elements to be iterated over.
+ */
 public class LinkedIterator<T extends LinkedElement<T>> implements Iterator<T> {
     private T cursor;
 
@@ -27,11 +32,17 @@ public class LinkedIterator<T extends LinkedElement<T>> implements Iterator<T> {
         this.cursor = cursor;
     }
 
+    /**
+     * @see Iterator#hasNext()
+     */
     @Override
     public boolean hasNext() {
         return null != cursor;
     }
 
+    /**
+     * @see Iterator#next()
+     */
     @Override
     public T next() {
         if (null == cursor) {

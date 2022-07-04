@@ -467,8 +467,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
     @Override
     public void onVerifyMessageCommand(Endpoints endpoints, VerifyMessageCommand verifyMessageCommand) {
         final String nonce = verifyMessageCommand.getNonce();
-        final MessageQueueImpl mq = new MessageQueueImpl(verifyMessageCommand.getMessageQueue());
-        final MessageViewImpl messageView = MessageViewImpl.fromProtobuf(verifyMessageCommand.getMessage(), mq);
+        final MessageViewImpl messageView = MessageViewImpl.fromProtobuf(verifyMessageCommand.getMessage());
         final MessageId messageId = messageView.getMessageId();
         final ListenableFuture<ConsumeResult> future = consumeService.consume(messageView);
         Futures.addCallback(future, new FutureCallback<ConsumeResult>() {

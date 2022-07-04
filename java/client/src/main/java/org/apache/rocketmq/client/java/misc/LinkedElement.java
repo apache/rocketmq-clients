@@ -19,8 +19,19 @@ package org.apache.rocketmq.client.java.misc;
 
 import java.util.Iterator;
 
+/**
+ * Linked element is a simple class that allows you to link elements together.
+ *
+ * @param <T> the type of the elements to be linked.
+ */
 public interface LinkedElement<T> {
+    /**
+     * @return the next element in the linked list.
+     */
     T getNext();
 
+    /**
+     * @return the iterator over the linked list.
+     */
     Iterator<T> iterator();
 }
