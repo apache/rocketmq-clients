@@ -22,13 +22,13 @@
 #include <system_error>
 #include <utility>
 
+#include "AsyncReceiveMessageCallback.h"
 #include "ClientManagerImpl.h"
 #include "MetadataConstants.h"
 #include "Protocol.h"
 #include "PushConsumerImpl.h"
 #include "ReceiveMessageResult.h"
 #include "Signature.h"
-#include "include/AsyncReceiveMessageCallback.h"
 #include "rocketmq/MessageListener.h"
 
 using namespace std::chrono;
@@ -113,7 +113,7 @@ void ProcessQueueImpl::popMessage() {
 
   std::weak_ptr<AsyncReceiveMessageCallback> cb{receive_callback_};
   auto callback = [cb](const std::error_code& ec, const ReceiveMessageResult& result) {
-    auto recv_cb = cb.lock();
+    std::shared_ptr<AsyncReceiveMessageCallback> recv_cb = cb.lock();
     if (recv_cb) {
       recv_cb->onCompletion(ec, result);
     }

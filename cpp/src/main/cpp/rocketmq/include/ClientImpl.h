@@ -110,6 +110,12 @@ public:
   virtual void buildClientSettings(rmq::Settings& settings) {
   }
 
+  void registerTracingSampler(TracingSamplerProvider *provider) {
+    if (provider) {
+      client_config_.sampler_ = provider->tracingSampler();
+    }
+  }
+
 protected:
   ClientConfig client_config_;
 

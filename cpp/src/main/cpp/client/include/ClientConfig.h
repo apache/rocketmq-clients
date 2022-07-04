@@ -21,12 +21,12 @@
 #include <string>
 #include <vector>
 
-#include "absl/container/flat_hash_map.h"
-#include "absl/time/time.h"
-
 #include "Protocol.h"
 #include "RetryPolicy.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/time/time.h"
 #include "rocketmq/CredentialsProvider.h"
+#include "rocketmq/Tracing.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -61,6 +61,7 @@ struct ClientConfig {
   PublisherConfig publisher;
   SubscriberConfig subscriber;
   Metric metric;
+  std::unique_ptr<opencensus::trace::Sampler> sampler_;
 };
 
 ROCKETMQ_NAMESPACE_END

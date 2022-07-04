@@ -17,7 +17,10 @@
 
 #include "ReceiveMessageStreamReader.h"
 
+#include <apache/rocketmq/v2/definition.pb.h>
+
 #include "LoggerImpl.h"
+#include "rocketmq/ErrorCode.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -63,26 +66,71 @@ void ReceiveMessageStreamReader::OnReadDone(bool ok) {
         case rmq::Code::OK: {
           break;
         }
+        case rmq::Code::ILLEGAL_TOPIC: {
+          ec_ = ErrorCode::IllegalTopic;
+          break;
+        }
+
+        case rmq::Code::ILLEGAL_CONSUMER_GROUP: {
+          ec_ = ErrorCode::IllegalConsumerGroup;
+          break;
+        }
+
+        case rmq::Code::ILLEGAL_FILTER_EXPRESSION: {
+          ec_ = ErrorCode::IllegalFilterExpression;
+          break;
+        }
+
+        case rmq::Code::CLIENT_ID_REQUIRED: {
+          ec_ = ErrorCode::InternalClientError;
+          break;
+        }
+
         case rmq::Code::TOPIC_NOT_FOUND: {
           ec_ = ErrorCode::TopicNotFound;
           break;
         }
 
         case rmq::Code::CONSUMER_GROUP_NOT_FOUND: {
-          ec_ = ErrorCode::GroupNotFound;
+          ec_ = ErrorCode::ConsumerGroupNotFound;
           break;
         }
+
         case rmq::Code::TOO_MANY_REQUESTS: {
-          ec_ = ErrorCode::TooManyRequest;
+          ec_ = ErrorCode::TooManyRequests;
           break;
         }
+
         case rmq::Code::MESSAGE_NOT_FOUND: {
           ec_ = ErrorCode::NoContent;
           break;
         }
-        default:
+
+        case rmq::Code::UNAUTHORIZED: {
+          ec_ = ErrorCode::Unauthorized;
+          break;
+        }
+
+        case rmq::Code::FORBIDDEN: {
+          ec_ = ErrorCode::Forbidden;
+          break;
+        }
+
+        case rmq::Code::INTERNAL_SERVER_ERROR: {
+          ec_ = ErrorCode::InternalServerError;
+          break;
+        }
+
+        case rmq::Code::PROXY_TIMEOUT: {
+          ec_ = ErrorCode::GatewayTimeout;
+          break;
+        }
+
+        default: {
+          ec_ = ErrorCode::NotSupported;
           SPDLOG_WARN("Unsupported code={}", response_.status().code());
           break;
+        }
       }
       break;
     }

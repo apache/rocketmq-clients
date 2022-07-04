@@ -16,6 +16,7 @@
 syntax = "proto3";
 
 import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
 
 import "apache/rocketmq/v2/definition.proto";
 
@@ -101,6 +102,8 @@ message ReceiveMessageResponse {
   oneof content {
     Status status = 1;
     Message message = 2;
+    // The timestamp that brokers start to deliver status line or message.
+    google.protobuf.Timestamp delivery_timestamp = 3;
   }
 }
 
@@ -211,6 +214,10 @@ message Publishing {
   // reject the request. As a result, it is advisable that Producer performs
   // client-side check validation.
   int32 max_body_size = 3;
+
+  // When `validate_message_type` flag set `false`, no need to validate message's type
+  // with messageQueue's `accept_message_types` before publising.
+  bool validate_message_type = 4;
 }
 
 message Subscription {

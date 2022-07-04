@@ -1,9 +1,11 @@
 name: CPP Build
 on: [push, pull_request]
 jobs:
-  cpp_ubuntu_18_04:
-    name: Ubuntu 18.04
-    runs-on: ubuntu-18.04
+  cpp:
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, ubuntu-20.04, ubuntu-22.04, macos-12,  macos-11, windows-2019]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
       - name: Compile All Targets

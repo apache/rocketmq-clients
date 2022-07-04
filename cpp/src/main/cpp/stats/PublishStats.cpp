@@ -22,7 +22,7 @@ ROCKETMQ_NAMESPACE_BEGIN
 
 PublishStats::PublishStats()
     : success_(opencensus::stats::MeasureInt64::Register("publish_success", "Number of message published", "1")),
-      failure_(opencensus::stats::MeasureInt64::Register("pubish_failure", "Number of publish failures", "1")),
+      failure_(opencensus::stats::MeasureInt64::Register("publish_failure", "Number of publish failures", "1")),
       latency_(opencensus::stats::MeasureInt64::Register("publish_latency", "Publish latency in milliseconds", "ms")) {
   opencensus::stats::ViewDescriptor()
       .set_name("rocketmq_send_success_total")

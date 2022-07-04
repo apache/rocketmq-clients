@@ -26,7 +26,8 @@ def rocketmq_deps():
              sha256 = "b4870bf121ff7795ba20d20bcdd8627b8e088f2d1dab299a031c1034eddc93d5",
              strip_prefix = "googletest-release-1.11.0",
              urls = [
-                 "https://github.com/google/googletest/archive/refs/tags/release-1.11.0.tar.gz",
+                "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/googletest/googletest-release-1.11.0.tar.gz",
+                "https://github.com/google/googletest/archive/refs/tags/release-1.11.0.tar.gz",
              ],
          )
 
@@ -36,6 +37,7 @@ def rocketmq_deps():
             strip_prefix = "filesystem-1.5.0",
             sha256 = "eb6f3b0739908ad839cde68885d70e7324db191b9fad63d9915beaa40444d9cb",
             urls = [
+                "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/filesystem/filesystem-1.5.0.tar.gz",
                 "https://github.com/gulrak/filesystem/archive/v1.5.0.tar.gz",
             ],
             build_file = "@org_apache_rocketmq//third_party:filesystem.BUILD",
@@ -47,6 +49,7 @@ def rocketmq_deps():
             strip_prefix = "spdlog-1.9.2",
             sha256 = "6fff9215f5cb81760be4cc16d033526d1080427d236e86d70bb02994f85e3d38",
             urls = [
+                "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/spdlog/spdlog-1.9.2.tar.gz",
                 "https://github.com/gabime/spdlog/archive/refs/tags/v1.9.2.tar.gz",
             ],
             build_file = "@org_apache_rocketmq//third_party:spdlog.BUILD",
@@ -58,6 +61,7 @@ def rocketmq_deps():
             strip_prefix = "fmt-8.0.1",
             sha256 = "b06ca3130158c625848f3fb7418f235155a4d389b2abc3a6245fb01cb0eb1e01",
             urls = [
+                "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/fmt/fmt-8.0.1.tar.gz",
                 "https://github.com/fmtlib/fmt/archive/refs/tags/8.0.1.tar.gz",
             ],
             build_file = "@org_apache_rocketmq//third_party:fmtlib.BUILD",
@@ -107,16 +111,16 @@ def rocketmq_deps():
             ],
         )
 
-    if "com_github_grpc_grpc" not in native.existing_rules():
-        http_archive(
-            name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.46.0",
-            sha256 = "67423a4cd706ce16a88d1549297023f0f9f0d695a96dd684adc21e67b021f9bc",
-            urls = [
-                "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/grpc/grpc-1.46.0.tar.gz",
-                "https://github.com/grpc/grpc/archive/refs/tags/v1.46.0.tar.gz",
-            ],
-        )
+    maybe(
+        http_archive,
+        name = "com_github_grpc_grpc",
+        strip_prefix = "grpc-1.46.3",
+        sha256 = "d6cbf22cb5007af71b61c6be316a79397469c58c82a942552a62e708bce60964",
+        urls = [
+            "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/grpc/grpc-1.46.3.tar.gz",
+            "https://github.com/grpc/grpc/archive/refs/tags/v1.46.3.tar.gz",
+        ],
+    )
 
     maybe(
         http_archive,
@@ -125,6 +129,7 @@ def rocketmq_deps():
         build_file = "@org_apache_rocketmq//third_party:asio.BUILD",
         strip_prefix = "asio-1.18.2",
         urls = [
+            "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/asio/asio-1.18.2.tar.gz",
             "https://github.com/lizhanhui/asio/archive/refs/tags/v1.18.2.tar.gz",
         ],
     )
@@ -135,7 +140,10 @@ def rocketmq_deps():
         sha256 = "0ff62e28eb0f6e563178d44b77c94dddb8702141d83dd34b83cb046399c2b1d5",
         build_file = "@org_apache_rocketmq//third_party:cpp_httplib.BUILD",
         strip_prefix = "cpp-httplib-0.9.4",
-        urls = ["https://github.com/yhirose/cpp-httplib/archive/refs/tags/v0.9.4.tar.gz"],
+        urls = [
+            "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/cpp-httplib/cpp-httplib-0.9.4.tar.gz",
+            "https://github.com/yhirose/cpp-httplib/archive/refs/tags/v0.9.4.tar.gz",
+        ],
     )
 
     maybe(
@@ -143,6 +151,7 @@ def rocketmq_deps():
         name = "com_google_googleapis",
         sha256 = "e89f15d54b0ddab0cd41d18cb2299e5447db704e2b05ff141cb1769170671466",
         urls = [
+            "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/googleapis/googleapis-af7fb72df59a814221b123a4d1acb3f6c3e6cc95.zip",
             "https://github.com/googleapis/googleapis/archive/af7fb72df59a814221b123a4d1acb3f6c3e6cc95.zip"
         ],
         strip_prefix = "googleapis-af7fb72df59a814221b123a4d1acb3f6c3e6cc95",
@@ -167,4 +176,26 @@ def rocketmq_deps():
             "https://github.com/bazelbuild/rules_swift/archive/refs/tags/0.27.0.tar.gz",
         ],
         strip_prefix = "rules_swift-0.27.0",
+    )
+
+    maybe(
+        http_archive,
+        name = "io_bazel_rules_go",
+        sha256 = "685052b498b6ddfe562ca7a97736741d87916fe536623afb7da2824c0211c369",
+        urls = [
+            "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/rules-go/rules_go-v0.33.0.zip",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.33.0/rules_go-v0.33.0.zip",
+            "https://github.com/bazelbuild/rules_go/releases/download/v0.33.0/rules_go-v0.33.0.zip",
+        ],
+    )
+
+    maybe(
+        http_archive,
+        name = "rules_proto",
+        sha256 = "e017528fd1c91c5a33f15493e3a398181a9e821a804eb7ff5acdd1d2d6c2b18d",
+        strip_prefix = "rules_proto-4.0.0-3.20.0",
+        urls = [
+            "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/rules_proto/rules_proto-4.0.0-3.20.0.tar.gz",
+            "https://github.com/bazelbuild/rules_proto/archive/refs/tags/4.0.0-3.20.0.tar.gz",
+        ],
     )

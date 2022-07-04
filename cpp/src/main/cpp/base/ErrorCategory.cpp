@@ -16,6 +16,8 @@
  */
 #include "rocketmq/ErrorCategory.h"
 
+#include "rocketmq/ErrorCode.h"
+
 ROCKETMQ_NAMESPACE_BEGIN
 
 std::string ErrorCategory::message(int code) const {
@@ -53,7 +55,7 @@ std::string ErrorCategory::message(int code) const {
     case ErrorCode::TopicNotFound:
       return "Topic is not found. Verify the request topic has already been created through console or management API";
 
-    case ErrorCode::GroupNotFound:
+    case ErrorCode::ConsumerGroupNotFound:
       return "Group is not found. Verify the request group has already been created through console or management API";
 
     case ErrorCode::RequestTimeout:
@@ -65,7 +67,7 @@ std::string ErrorCategory::message(int code) const {
     case ErrorCode::PreconditionRequired:
       return "State of dependent procedure is not right";
 
-    case ErrorCode::TooManyRequest:
+    case ErrorCode::TooManyRequests:
       return "Quota exchausted. The user has sent too many requests in a given "
              "amount of time.";
 
@@ -100,7 +102,7 @@ std::string ErrorCategory::message(int code) const {
              "a timely response from the upstream "
              "server.";
 
-    case ErrorCode::ProtocolVersionNotSupported:
+    case ErrorCode::ProtocolUnsupported:
       return "The server does not support the protocol version used in the "
              "request.";
 
@@ -108,9 +110,26 @@ std::string ErrorCategory::message(int code) const {
       return "The server is unable to store the representation needed to "
              "complete the request.";
 
-    default:
-      return "Not-Implemented";
+    case ErrorCode::MultipleResults:
+      return "Multiple results are available";
+
+    case ErrorCode::IllegalAccessPoint:
+      return "Access point is either malformed or invalid";
+
+    case ErrorCode::IllegalTopic: {
+      return "Topic is illegal either due to length is too long or invalid character is included";
+    }
+
+    case ErrorCode::IllegalConsumerGroup: {
+      return "ConsumerGroup is illegal due to its length is too long or invalid character is included";
+    }
+
+    case ErrorCode::IllegalMessageTag: {
+      return "Format of message tag is illegal.";
+    }
   }
+
+  return "";
 }
 
 ROCKETMQ_NAMESPACE_END
