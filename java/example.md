@@ -31,7 +31,7 @@ Producer producer = provider.newProducerBuilder()
 for (int i = 0; i < 1024; i++) {
     final SendReceipt sendReceipt = producer.send(message);
 }
-// Close it when you don't need the producer any more.
+// Close it when you don't need the producer anymore.
 producer.close();
 ```
 
@@ -48,7 +48,7 @@ PushConsumer pushConsumer = provider.newPushConsumerBuilder()
     return ConsumeResult.SUCCESS;
     })
     .build();
-// Close it when you don't need the consumer any more.
+// Close it when you don't need the consumer anymore.
 pushConsumer.close();
 ```
 
@@ -68,6 +68,6 @@ for (MessageView messageView : messageViews) {
     // Ack or change invisible time according to your needs.
     simpleConsumer.ack(messageView);
 }
-// Close it when you don't need the consumer any more.
+// Close it when you don't need the consumer anymore.
 simpleConsumer.close();
 ```
