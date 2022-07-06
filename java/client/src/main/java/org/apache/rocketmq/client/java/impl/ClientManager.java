@@ -46,6 +46,7 @@ import java.util.Iterator;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.route.Endpoints;
+import org.apache.rocketmq.client.java.rpc.InvocationContext;
 
 /**
  * Client manager supplies a series of unified APIs to execute remote procedure calls for each {@link Client}.
@@ -90,9 +91,10 @@ public interface ClientManager {
      * @param metadata  gRPC request header metadata.
      * @param request   query route request.
      * @param duration  request max duration.
-     * @return response future of the topic route.
+     * @return invocation of response future.
      */
-    ListenableFuture<QueryRouteResponse> queryRoute(Endpoints endpoints, Metadata metadata, QueryRouteRequest request,
+    ListenableFuture<InvocationContext<QueryRouteResponse>> queryRoute(Endpoints endpoints, Metadata metadata,
+        QueryRouteRequest request,
         Duration duration);
 
     /**
@@ -102,9 +104,10 @@ public interface ClientManager {
      * @param metadata  gRPC request header metadata.
      * @param request   heartbeat request.
      * @param duration  request max duration.
-     * @return response future of heartbeat.
+     * @return invocation of response future.
      */
-    ListenableFuture<HeartbeatResponse> heartbeat(Endpoints endpoints, Metadata metadata, HeartbeatRequest request,
+    ListenableFuture<InvocationContext<HeartbeatResponse>> heartbeat(Endpoints endpoints, Metadata metadata,
+        HeartbeatRequest request,
         Duration duration);
 
     /**
@@ -114,9 +117,9 @@ public interface ClientManager {
      * @param metadata  gRPC request header metadata.
      * @param request   send message request.
      * @param duration  request max duration.
-     * @return response future of the sending message.
+     * @return invocation of response future.
      */
-    ListenableFuture<SendMessageResponse> sendMessage(Endpoints endpoints, Metadata metadata,
+    ListenableFuture<InvocationContext<SendMessageResponse>> sendMessage(Endpoints endpoints, Metadata metadata,
         SendMessageRequest request, Duration duration);
 
     /**
@@ -126,9 +129,9 @@ public interface ClientManager {
      * @param metadata  gRPC request header metadata.
      * @param request   query assignment request.
      * @param duration  request max duration.
-     * @return response future of query assignment.
+     * @return invocation of response future.
      */
-    ListenableFuture<QueryAssignmentResponse> queryAssignment(Endpoints endpoints, Metadata metadata,
+    ListenableFuture<InvocationContext<QueryAssignmentResponse>> queryAssignment(Endpoints endpoints, Metadata metadata,
         QueryAssignmentRequest request, Duration duration);
 
     /**
@@ -136,9 +139,10 @@ public interface ClientManager {
      *
      * @param endpoints requested endpoints.
      * @param metadata  gRPC request header metadata.
+     * @return invocation of response future.
      */
-    ListenableFuture<Iterator<ReceiveMessageResponse>> receiveMessage(Endpoints endpoints, Metadata metadata,
-        ReceiveMessageRequest request, Duration duration);
+    ListenableFuture<InvocationContext<Iterator<ReceiveMessageResponse>>> receiveMessage(Endpoints endpoints,
+        Metadata metadata, ReceiveMessageRequest request, Duration duration);
 
     /**
      * Ack message asynchronously after the success of consumption, the method ensures no throwable.
@@ -147,10 +151,10 @@ public interface ClientManager {
      * @param metadata  gRPC request header metadata.
      * @param request   ack message request.
      * @param duration  request max duration.
-     * @return response future of ack message.
+     * @return invocation of response future.
      */
-    ListenableFuture<AckMessageResponse> ackMessage(Endpoints endpoints, Metadata metadata, AckMessageRequest request,
-        Duration duration);
+    ListenableFuture<InvocationContext<AckMessageResponse>> ackMessage(Endpoints endpoints, Metadata metadata,
+        AckMessageRequest request, Duration duration);
 
     /**
      * Nack message asynchronously after the failure of consumption, the method ensures no throwable.
@@ -159,10 +163,10 @@ public interface ClientManager {
      * @param metadata  gRPC request header metadata.
      * @param request   nack message request.
      * @param duration  request max duration.
-     * @return response future of nack message.
+     * @return invocation of response future.
      */
-    ListenableFuture<ChangeInvisibleDurationResponse> changeInvisibleDuration(Endpoints endpoints, Metadata metadata,
-        ChangeInvisibleDurationRequest request, Duration duration);
+    ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> changeInvisibleDuration(Endpoints endpoints,
+        Metadata metadata, ChangeInvisibleDurationRequest request, Duration duration);
 
     /**
      * Send a message to the dead letter queue asynchronously, the method ensures no throwable.
@@ -171,9 +175,9 @@ public interface ClientManager {
      * @param metadata  gRPC request header metadata.
      * @param request   request of sending a message to DLQ.
      * @param duration  request max duration.
-     * @return response future of sending a message to DLQ.
+     * @return invocation of response future.
      */
-    ListenableFuture<ForwardMessageToDeadLetterQueueResponse> forwardMessageToDeadLetterQueue(
+    ListenableFuture<InvocationContext<ForwardMessageToDeadLetterQueueResponse>> forwardMessageToDeadLetterQueue(
         Endpoints endpoints, Metadata metadata, ForwardMessageToDeadLetterQueueRequest request, Duration duration);
 
     /**
@@ -183,9 +187,9 @@ public interface ClientManager {
      * @param metadata  gRPC request header metadata.
      * @param request   end transaction request.
      * @param duration  request max duration.
-     * @return response future of submitting transaction resolution.
+     * @return invocation of response future.
      */
-    ListenableFuture<EndTransactionResponse> endTransaction(Endpoints endpoints, Metadata metadata,
+    ListenableFuture<InvocationContext<EndTransactionResponse>> endTransaction(Endpoints endpoints, Metadata metadata,
         EndTransactionRequest request, Duration duration);
 
     /**
@@ -198,8 +202,8 @@ public interface ClientManager {
      * @return response future of notification of client termination.
      */
     @SuppressWarnings("UnusedReturnValue")
-    ListenableFuture<NotifyClientTerminationResponse> notifyClientTermination(Endpoints endpoints, Metadata metadata,
-        NotifyClientTerminationRequest request, Duration duration);
+    ListenableFuture<InvocationContext<NotifyClientTerminationResponse>> notifyClientTermination(Endpoints endpoints,
+        Metadata metadata, NotifyClientTerminationRequest request, Duration duration);
 
     StreamObserver<TelemetryCommand> telemetry(Endpoints endpoints, Metadata metadata,
         Duration duration, StreamObserver<TelemetryCommand> responseObserver) throws ClientException;

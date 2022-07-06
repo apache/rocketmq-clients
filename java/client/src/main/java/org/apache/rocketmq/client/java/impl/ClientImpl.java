@@ -42,7 +42,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.grpc.Metadata;
-import java.io.UnsupportedEncodingException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
@@ -81,6 +80,7 @@ import org.apache.rocketmq.client.java.misc.Utilities;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.TopicRouteData;
 import org.apache.rocketmq.client.java.route.TopicRouteDataResult;
+import org.apache.rocketmq.client.java.rpc.InvocationContext;
 import org.apache.rocketmq.client.java.rpc.Signature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -555,7 +555,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     /**
      * Real-time signature generation
      */
-    protected Metadata sign() throws UnsupportedEncodingException, NoSuchAlgorithmException, InvalidKeyException {
+    protected Metadata sign() throws NoSuchAlgorithmException, InvalidKeyException {
         return Signature.sign(clientConfiguration, clientId);
     }
 
@@ -568,11 +568,12 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     private void doHeartbeat(HeartbeatRequest request, final Endpoints endpoints) {
         try {
             Metadata metadata = sign();
-            final ListenableFuture<HeartbeatResponse> future = clientManager
+            final ListenableFuture<InvocationContext<HeartbeatResponse>> future = clientManager
                 .heartbeat(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
-            Futures.addCallback(future, new FutureCallback<HeartbeatResponse>() {
+            Futures.addCallback(future, new FutureCallback<InvocationContext<HeartbeatResponse>>() {
                 @Override
-                public void onSuccess(HeartbeatResponse response) {
+                public void onSuccess(InvocationContext<HeartbeatResponse> context) {
+                    final HeartbeatResponse response = context.getResp();
                     final Status status = response.getStatus();
                     final Code code = status.getCode();
                     if (Code.OK != code) {
@@ -612,15 +613,15 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     }
 
     private ListenableFuture<TopicRouteDataResult> fetchTopicRoute(final String topic) {
-        final SettableFuture<TopicRouteDataResult> future = SettableFuture.create();
         try {
             Resource topicResource = Resource.newBuilder().setName(topic).build();
             final QueryRouteRequest request = QueryRouteRequest.newBuilder().setTopic(topicResource)
                 .setEndpoints(accessEndpoints.toProtobuf()).build();
             final Metadata metadata = sign();
-            final ListenableFuture<QueryRouteResponse> responseFuture =
+            final ListenableFuture<InvocationContext<QueryRouteResponse>> contextFuture =
                 clientManager.queryRoute(accessEndpoints, metadata, request, clientConfiguration.getRequestTimeout());
-            return Futures.transform(responseFuture, response -> {
+            return Futures.transform(contextFuture, context -> {
+                final QueryRouteResponse response = context.getResp();
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
                 if (Code.OK != code) {
@@ -631,8 +632,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
                 return new TopicRouteDataResult(new TopicRouteData(response.getMessageQueuesList()), status);
             }, MoreExecutors.directExecutor());
         } catch (Throwable t) {
-            future.setException(t);
-            return future;
+            return Futures.immediateFailedFuture(t);
         }
     }
 

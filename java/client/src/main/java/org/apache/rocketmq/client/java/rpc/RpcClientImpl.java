@@ -39,6 +39,7 @@ import apache.rocketmq.v2.ReceiveMessageResponse;
 import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
 import apache.rocketmq.v2.TelemetryCommand;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.grpc.ClientInterceptor;
@@ -62,10 +63,12 @@ import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLException;
 import org.apache.rocketmq.client.java.route.Endpoints;
 
+@SuppressWarnings("UnstableApiUsage")
 public class RpcClientImpl implements RpcClient {
     private static final Duration KEEP_ALIVE_DURATION = Duration.ofSeconds(30);
     private static final int GRPC_MAX_MESSAGE_SIZE = Integer.MAX_VALUE;
 
+    private final Endpoints endpoints;
     private final ManagedChannel channel;
     private final MessagingServiceGrpc.MessagingServiceFutureStub futureStub;
     private final MessagingServiceGrpc.MessagingServiceBlockingStub blockingStub;
@@ -75,6 +78,7 @@ public class RpcClientImpl implements RpcClient {
 
     @SuppressWarnings("deprecation")
     public RpcClientImpl(Endpoints endpoints) throws SSLException {
+        this.endpoints = endpoints;
         final SslContextBuilder builder = GrpcSslContexts.forClient();
         builder.trustManager(InsecureTrustManagerFactory.INSTANCE);
         SslContext sslContext = builder.build();
@@ -102,6 +106,14 @@ public class RpcClientImpl implements RpcClient {
         this.activityNanoTime = System.nanoTime();
     }
 
+    private <T> ListenableFuture<InvocationContext<T>> wrapInvocationContext(ListenableFuture<T> future,
+        Metadata header) {
+        return Futures.transformAsync(future, response -> {
+            final RpcContext rpcContext = new RpcContext(endpoints, header);
+            return Futures.immediateFuture(new InvocationContext<>(response, rpcContext));
+        }, MoreExecutors.directExecutor());
+    }
+
     @Override
     public Duration idleDuration() {
         return Duration.ofNanos(System.nanoTime() - activityNanoTime);
@@ -113,85 +125,105 @@ public class RpcClientImpl implements RpcClient {
     }
 
     @Override
-    public ListenableFuture<QueryRouteResponse> queryRoute(Metadata metadata, QueryRouteRequest request,
-        Executor executor, Duration duration) {
+    public ListenableFuture<InvocationContext<QueryRouteResponse>> queryRoute(Metadata metadata,
+        QueryRouteRequest request, Executor executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
-        return futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
+        final ListenableFuture<QueryRouteResponse> future = futureStub
+            .withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
             .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).queryRoute(request);
+        return wrapInvocationContext(future, metadata);
     }
 
     @Override
-    public ListenableFuture<HeartbeatResponse> heartbeat(Metadata metadata, HeartbeatRequest request, Executor executor,
-        Duration duration) {
-        this.activityNanoTime = System.nanoTime();
-        return futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
-            .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).heartbeat(request);
-    }
-
-    @Override
-    public ListenableFuture<SendMessageResponse> sendMessage(Metadata metadata, SendMessageRequest request,
+    public ListenableFuture<InvocationContext<HeartbeatResponse>> heartbeat(Metadata metadata, HeartbeatRequest request,
         Executor executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
-        return futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
-            .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).sendMessage(request);
+        final ListenableFuture<HeartbeatResponse> future =
+            futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
+                .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).heartbeat(request);
+        return wrapInvocationContext(future, metadata);
     }
 
     @Override
-    public ListenableFuture<QueryAssignmentResponse> queryAssignment(Metadata metadata, QueryAssignmentRequest request,
-        Executor executor, Duration duration) {
+    public ListenableFuture<InvocationContext<SendMessageResponse>> sendMessage(Metadata metadata,
+        SendMessageRequest request, Executor executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
-        return futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
-            .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).queryAssignment(request);
+        final ListenableFuture<SendMessageResponse> future =
+            futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
+                .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).sendMessage(request);
+        return wrapInvocationContext(future, metadata);
     }
 
     @Override
-    public ListenableFuture<Iterator<ReceiveMessageResponse>> receiveMessage(Metadata metadata,
+    public ListenableFuture<InvocationContext<QueryAssignmentResponse>> queryAssignment(Metadata metadata,
+        QueryAssignmentRequest request, Executor executor, Duration duration) {
+        this.activityNanoTime = System.nanoTime();
+        final ListenableFuture<QueryAssignmentResponse> future =
+            futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
+                .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).queryAssignment(request);
+        return wrapInvocationContext(future, metadata);
+    }
+
+    @Override
+    public ListenableFuture<InvocationContext<Iterator<ReceiveMessageResponse>>> receiveMessage(Metadata metadata,
         ReceiveMessageRequest request, ExecutorService executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
         final Callable<Iterator<ReceiveMessageResponse>> callable = () -> blockingStub
             .withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
             .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).receiveMessage(request);
-        return MoreExecutors.listeningDecorator(executor).submit(callable);
+        final ListenableFuture<Iterator<ReceiveMessageResponse>> future =
+            MoreExecutors.listeningDecorator(executor).submit(callable);
+        return wrapInvocationContext(future, metadata);
     }
 
     @Override
-    public ListenableFuture<AckMessageResponse> ackMessage(Metadata metadata, AckMessageRequest request,
-        Executor executor, Duration duration) {
+    public ListenableFuture<InvocationContext<AckMessageResponse>> ackMessage(Metadata metadata,
+        AckMessageRequest request, Executor executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
-        return futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
-            .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).ackMessage(request);
+        final ListenableFuture<AckMessageResponse> future =
+            futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
+                .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).ackMessage(request);
+        return wrapInvocationContext(future, metadata);
     }
 
     @Override
-    public ListenableFuture<ChangeInvisibleDurationResponse> changeInvisibleDuration(Metadata metadata,
-        ChangeInvisibleDurationRequest request, Executor executor, Duration duration) {
+    public ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> changeInvisibleDuration(
+        Metadata metadata, ChangeInvisibleDurationRequest request, Executor executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
-        return futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
-            .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).changeInvisibleDuration(request);
+        final ListenableFuture<ChangeInvisibleDurationResponse> future =
+            futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
+                .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).changeInvisibleDuration(request);
+        return wrapInvocationContext(future, metadata);
     }
 
     @Override
-    public ListenableFuture<ForwardMessageToDeadLetterQueueResponse> forwardMessageToDeadLetterQueue(
+    public ListenableFuture<InvocationContext<ForwardMessageToDeadLetterQueueResponse>> forwardMessageToDeadLetterQueue(
         Metadata metadata, ForwardMessageToDeadLetterQueueRequest request, Executor executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
-        return futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
+        final ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future = futureStub
+            .withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
             .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).forwardMessageToDeadLetterQueue(request);
+        return wrapInvocationContext(future, metadata);
     }
 
     @Override
-    public ListenableFuture<EndTransactionResponse> endTransaction(Metadata metadata, EndTransactionRequest request,
-        Executor executor, Duration duration) {
+    public ListenableFuture<InvocationContext<EndTransactionResponse>> endTransaction(Metadata metadata,
+        EndTransactionRequest request, Executor executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
-        return futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
-            .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).endTransaction(request);
+        final ListenableFuture<EndTransactionResponse> future =
+            futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
+                .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).endTransaction(request);
+        return wrapInvocationContext(future, metadata);
     }
 
     @Override
-    public ListenableFuture<NotifyClientTerminationResponse> notifyClientTermination(
+    public ListenableFuture<InvocationContext<NotifyClientTerminationResponse>> notifyClientTermination(
         Metadata metadata, NotifyClientTerminationRequest request, Executor executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
-        return futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
-            .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).notifyClientTermination(request);
+        final ListenableFuture<NotifyClientTerminationResponse> future =
+            futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
+                .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).notifyClientTermination(request);
+        return wrapInvocationContext(future, metadata);
     }
 
     @Override

@@ -51,6 +51,7 @@ import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
+import org.apache.rocketmq.client.java.rpc.InvocationContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -387,11 +388,12 @@ class ProcessQueueImpl implements ProcessQueue {
         final String consumerGroup = consumer.getConsumerGroup();
         final MessageId messageId = messageView.getMessageId();
         final Endpoints endpoints = messageView.getEndpoints();
-        final ListenableFuture<AckMessageResponse> future = consumer.ackMessage(messageView);
-        Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
+        final ListenableFuture<InvocationContext<AckMessageResponse>> future = consumer.ackMessage(messageView);
+        Futures.addCallback(future, new FutureCallback<InvocationContext<AckMessageResponse>>() {
             @Override
-            public void onSuccess(AckMessageResponse response) {
-                final Status status = response.getStatus();
+            public void onSuccess(InvocationContext<AckMessageResponse> context) {
+                final AckMessageResponse resp = context.getResp();
+                final Status status = resp.getStatus();
                 final Code code = status.getCode();
                 if (Code.OK.equals(code)) {
                     LOGGER.debug("Ack message successfully, clientId={}, consumerGroup={}, messageId={}, mq={}, "
@@ -478,16 +480,17 @@ class ProcessQueueImpl implements ProcessQueue {
 
     private void forwardToDeadLetterQueue(final MessageViewImpl messageView, final int attempt,
         final SettableFuture<Void> future0) {
-        final ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future =
+        final ListenableFuture<InvocationContext<ForwardMessageToDeadLetterQueueResponse>> future =
             consumer.forwardMessageToDeadLetterQueue(messageView);
         final String clientId = consumer.getClientId();
         final String consumerGroup = consumer.getConsumerGroup();
         final MessageId messageId = messageView.getMessageId();
         final Endpoints endpoints = messageView.getEndpoints();
-        Futures.addCallback(future, new FutureCallback<ForwardMessageToDeadLetterQueueResponse>() {
+        Futures.addCallback(future, new FutureCallback<InvocationContext<ForwardMessageToDeadLetterQueueResponse>>() {
             @Override
-            public void onSuccess(ForwardMessageToDeadLetterQueueResponse response) {
-                final Status status = response.getStatus();
+            public void onSuccess(InvocationContext<ForwardMessageToDeadLetterQueueResponse> context) {
+                final ForwardMessageToDeadLetterQueueResponse resp = context.getResp();
+                final Status status = resp.getStatus();
                 final Code code = status.getCode();
                 // Log failure and retry later.
                 if (!Code.OK.equals(code)) {
@@ -559,17 +562,19 @@ class ProcessQueueImpl implements ProcessQueue {
         final String consumerGroup = consumer.getConsumerGroup();
         final MessageId messageId = messageView.getMessageId();
         final Endpoints endpoints = messageView.getEndpoints();
-        final ListenableFuture<AckMessageResponse> future = consumer.ackMessage(messageView);
-        Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
+        final ListenableFuture<InvocationContext<AckMessageResponse>> future = consumer.ackMessage(messageView);
+        Futures.addCallback(future, new FutureCallback<InvocationContext<AckMessageResponse>>() {
             @Override
-            public void onSuccess(AckMessageResponse response) {
-                final Status status = response.getStatus();
+            public void onSuccess(InvocationContext<AckMessageResponse> context) {
+                final AckMessageResponse resp = context.getResp();
+                final String requestId = context.getRpcContext().getRequestId();
+                final Status status = resp.getStatus();
                 final Code code = status.getCode();
                 // Log failure and retry later.
                 if (!Code.OK.equals(code)) {
                     LOGGER.error("Failed to ack fifo message, would attempt to re-ack later, clientId={}, "
-                            + "consumerGroup={}, attempt={}, messageId={}, mq={}, code={}, endpoints={}, status "
-                            + "message=[{}]", clientId, consumerGroup, attempt, messageId, mq, code,
+                            + "consumerGroup={}, attempt={}, messageId={}, mq={}, code={}, requestId={}, endpoints={}, "
+                            + "status message=[{}]", clientId, consumerGroup, attempt, messageId, mq, code, requestId,
                         endpoints, status.getMessage());
                     ackFifoMessageLater(messageView, 1 + attempt, future0);
                     return;

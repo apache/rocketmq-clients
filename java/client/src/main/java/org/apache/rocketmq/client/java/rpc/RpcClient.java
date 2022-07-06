@@ -72,9 +72,10 @@ public interface RpcClient {
      * @param request  query route request.
      * @param executor gRPC asynchronous executor.
      * @param duration request max duration.
-     * @return response future of topic route.
+     * @return invocation of response future.
      */
-    ListenableFuture<QueryRouteResponse> queryRoute(Metadata metadata, QueryRouteRequest request, Executor executor,
+    ListenableFuture<InvocationContext<QueryRouteResponse>> queryRoute(Metadata metadata, QueryRouteRequest request,
+        Executor executor,
         Duration duration);
 
     /**
@@ -84,9 +85,10 @@ public interface RpcClient {
      * @param request  heart beat request.
      * @param executor gRPC asynchronous executor.
      * @param duration request max duration.
-     * @return response future of heart beat.
+     * @return invocation of response future.
      */
-    ListenableFuture<HeartbeatResponse> heartbeat(Metadata metadata, HeartbeatRequest request, Executor executor,
+    ListenableFuture<InvocationContext<HeartbeatResponse>> heartbeat(Metadata metadata, HeartbeatRequest request,
+        Executor executor,
         Duration duration);
 
     /**
@@ -96,10 +98,10 @@ public interface RpcClient {
      * @param request  send message request.
      * @param executor gRPC asynchronous executor.
      * @param duration request max duration.
-     * @return response future of sending message.
+     * @return invocation of response future.
      */
-    ListenableFuture<SendMessageResponse> sendMessage(Metadata metadata, SendMessageRequest request, Executor executor,
-        Duration duration);
+    ListenableFuture<InvocationContext<SendMessageResponse>> sendMessage(Metadata metadata,
+        SendMessageRequest request, Executor executor, Duration duration);
 
     /**
      * Query assignment asynchronously.
@@ -108,10 +110,10 @@ public interface RpcClient {
      * @param request  query assignment request.
      * @param executor gRPC asynchronous executor.
      * @param duration request max duration.
-     * @return response future of query assignment.
+     * @return invocation of response future.
      */
-    ListenableFuture<QueryAssignmentResponse> queryAssignment(Metadata metadata, QueryAssignmentRequest request,
-        Executor executor, Duration duration);
+    ListenableFuture<InvocationContext<QueryAssignmentResponse>> queryAssignment(Metadata metadata,
+        QueryAssignmentRequest request, Executor executor, Duration duration);
 
     /**
      * Receiving message asynchronously from server.
@@ -119,9 +121,10 @@ public interface RpcClient {
      * @param metadata gRPC request header metadata.
      * @param request  receiving message request.
      * @param executor gRPC asynchronous executor.
+     * @return invocation of response future.
      */
-    ListenableFuture<Iterator<ReceiveMessageResponse>> receiveMessage(Metadata metadata, ReceiveMessageRequest request,
-        ExecutorService executor, Duration duration);
+    ListenableFuture<InvocationContext<Iterator<ReceiveMessageResponse>>> receiveMessage(Metadata metadata,
+        ReceiveMessageRequest request, ExecutorService executor, Duration duration);
 
     /**
      * Ack message asynchronously after success of consumption.
@@ -130,10 +133,10 @@ public interface RpcClient {
      * @param request  ack message request.
      * @param executor gRPC asynchronous executor.
      * @param duration request max duration.
-     * @return response future of ack message.
+     * @return invocation of response future.
      */
-    ListenableFuture<AckMessageResponse> ackMessage(Metadata metadata, AckMessageRequest request, Executor executor,
-        Duration duration);
+    ListenableFuture<InvocationContext<AckMessageResponse>> ackMessage(Metadata metadata, AckMessageRequest request,
+        Executor executor, Duration duration);
 
     /**
      * Change message invisible duration.
@@ -142,9 +145,9 @@ public interface RpcClient {
      * @param request  change invisible duration request.
      * @param executor gRPC asynchronous executor.
      * @param duration request max duration.
-     * @return response future of change message invisible duration.
+     * @return invocation of response future.
      */
-    ListenableFuture<ChangeInvisibleDurationResponse> changeInvisibleDuration(Metadata metadata,
+    ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> changeInvisibleDuration(Metadata metadata,
         ChangeInvisibleDurationRequest request, Executor executor, Duration duration);
 
     /**
@@ -154,9 +157,9 @@ public interface RpcClient {
      * @param request  request of sending message to DLQ.
      * @param executor gRPC asynchronous executor.
      * @param duration request max duration.
-     * @return response future of sending message to DLQ.
+     * @return invocation of response future.
      */
-    ListenableFuture<ForwardMessageToDeadLetterQueueResponse> forwardMessageToDeadLetterQueue(
+    ListenableFuture<InvocationContext<ForwardMessageToDeadLetterQueueResponse>> forwardMessageToDeadLetterQueue(
         Metadata metadata, ForwardMessageToDeadLetterQueueRequest request, Executor executor, Duration duration);
 
     /**
@@ -166,10 +169,10 @@ public interface RpcClient {
      * @param request  end transaction request.
      * @param executor gRPC asynchronous executor.
      * @param duration request max duration.
-     * @return response future of submitting transaction resolution.
+     * @return invocation of response future.
      */
-    ListenableFuture<EndTransactionResponse> endTransaction(Metadata metadata, EndTransactionRequest request,
-        Executor executor, Duration duration);
+    ListenableFuture<InvocationContext<EndTransactionResponse>> endTransaction(Metadata metadata,
+        EndTransactionRequest request, Executor executor, Duration duration);
 
     /**
      * Asynchronously notify server that client is terminated.
@@ -178,9 +181,9 @@ public interface RpcClient {
      * @param request  notify client termination request.
      * @param executor gRPC asynchronous executor.
      * @param duration request max duration.
-     * @return response future of notification of client termination.
+     * @return invocation of response future.
      */
-    ListenableFuture<NotifyClientTerminationResponse> notifyClientTermination(Metadata metadata,
+    ListenableFuture<InvocationContext<NotifyClientTerminationResponse>> notifyClientTermination(Metadata metadata,
         NotifyClientTerminationRequest request, Executor executor, Duration duration);
 
     StreamObserver<TelemetryCommand> telemetry(Metadata metadata, Executor executor, Duration duration,

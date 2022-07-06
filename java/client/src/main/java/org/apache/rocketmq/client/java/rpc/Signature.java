@@ -18,7 +18,6 @@
 package org.apache.rocketmq.client.java.rpc;
 
 import io.grpc.Metadata;
-import java.io.UnsupportedEncodingException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
@@ -53,7 +52,7 @@ public class Signature {
     private Signature() {
     }
 
-    public static Metadata sign(ClientConfiguration config, String clientId) throws UnsupportedEncodingException,
+    public static Metadata sign(ClientConfiguration config, String clientId) throws
         NoSuchAlgorithmException, InvalidKeyException {
         Metadata metadata = new Metadata();
 
