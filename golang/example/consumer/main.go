@@ -27,12 +27,12 @@ import (
 )
 
 const (
-	Topic         = "LIPPI_DOC_TEST"
-	ConsumerGroup = "GID_LIPPI_DOC_TEST"
-	NameSpace     = "MQ_INST_1487434140287185_BYAzh6Mc"
-	Endpoint      = "116.62.231.199:80"
-	AccessKey     = "xxxx"
-	SecretKey     = "xxxx"
+	Topic         = "v2_grpc"
+	ConsumerGroup = "v2_grpc"
+	NameSpace     = ""
+	Endpoint      = "121.196.167.124:8081"
+	AccessKey     = ""
+	SecretKey     = ""
 )
 
 func main() {

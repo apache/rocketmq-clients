@@ -28,12 +28,10 @@ import (
 	"github.com/apache/rocketmq-clients/golang/metadata"
 	innerOS "github.com/apache/rocketmq-clients/golang/pkg/os"
 	"github.com/apache/rocketmq-clients/golang/pkg/ticker"
-	v1 "github.com/apache/rocketmq-clients/golang/protocol/v1"
-
+	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
 	"github.com/google/uuid"
 	"github.com/lithammer/shortuuid/v4"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -44,36 +42,36 @@ var (
 )
 
 type Broker interface {
-	SetPartition(partitions []*v1.Partition)
-	Send(ctx context.Context, msg *Message) (*SendReceipt, error)
-	QueryAssignment(ctx context.Context, topic string) ([]*v1.Assignment, error)
-	ReceiveMessage(ctx context.Context, partition *v1.Partition, topic string) ([]*MessageExt, error)
+	SetMessageQueue(queues []*v2.MessageQueue)
+	Send(ctx context.Context, msg *Message) ([]*SendReceipt, error)
+	QueryAssignment(ctx context.Context, topic string) ([]*v2.Assignment, error)
+	ReceiveMessage(ctx context.Context, partition *v2.MessageQueue, topic string) (v2.MessagingService_ReceiveMessageClient, error)
 	AckMessage(ctx context.Context, msg *MessageExt) error
 	GracefulStop() error
 }
 
-type BrokerFunc func(config *Config, route []*v1.Partition, opts ...BrokerOption) (Broker, error)
+type BrokerFunc func(config *Config, route []*v2.MessageQueue, opts ...BrokerOption) (Broker, error)
 
 var _ = Broker(&broker{})
 
 type broker struct {
-	opts       brokerOptions
-	cc         resolver.ClientConn
-	partitions atomic.Value
-	mux        sync.Mutex
-	conn       ClientConn
-	msc        v1.MessagingServiceClient
-	done       chan struct{}
+	opts  brokerOptions
+	cc    resolver.ClientConn
+	queue atomic.Value
+	mux   sync.Mutex
+	conn  ClientConn
+	msc   v2.MessagingServiceClient
+	done  chan struct{}
 }
 
-func NewBroker(config *Config, route []*v1.Partition, opts ...BrokerOption) (Broker, error) {
+func NewBroker(config *Config, route []*v2.MessageQueue, opts ...BrokerOption) (Broker, error) {
 	b := &broker{
 		opts: defaultBrokerOptions,
 	}
 	for _, opt := range opts {
 		opt.apply(&b.opts)
 	}
-	b.SetPartition(route)
+	b.SetMessageQueue(route)
 	config.Endpoint = b.URL()
 	connOpts := append(b.opts.connOptions, WithDialOptions(
 		grpc.WithResolvers(b),
@@ -84,26 +82,26 @@ func NewBroker(config *Config, route []*v1.Partition, opts ...BrokerOption) (Bro
 	}
 	b.done = make(chan struct{})
 	b.conn = conn
-	b.msc = v1.NewMessagingServiceClient(conn.Conn())
+	b.msc = v2.NewMessagingServiceClient(conn.Conn())
 	return b, nil
 }
 
-func (b *broker) SetPartition(partitions []*v1.Partition) {
-	endpoints := make(map[string]*v1.Broker)
-	for i := 0; i < len(partitions); i++ {
+func (b *broker) SetMessageQueue(queues []*v2.MessageQueue) {
+	endpoints := make(map[string]*v2.Broker)
+	for i := 0; i < len(queues); i++ {
 		if !b.opts.producer {
-			if partitions[i].Permission == v1.Permission_NONE {
+			if queues[i].Permission == v2.Permission_NONE {
 				continue
 			}
-			if partitions[i].Broker.Id != 0 {
+			if queues[i].Broker.Id != 0 {
 				continue
 			}
 		}
-		for _, ep := range partitions[i].GetBroker().GetEndpoints().GetAddresses() {
-			endpoints[fmt.Sprintf("%s:%d", ep.Host, ep.Port)] = partitions[i].GetBroker()
+		for _, ep := range queues[i].GetBroker().GetEndpoints().GetAddresses() {
+			endpoints[fmt.Sprintf("%s:%d", ep.Host, ep.Port)] = queues[i].GetBroker()
 		}
 	}
-	b.partitions.Store(endpoints)
+	b.queue.Store(endpoints)
 }
 
 func (b *broker) Build(target resolver.Target,
@@ -116,7 +114,7 @@ func (b *broker) Build(target resolver.Target,
 func (b *broker) Close() {}
 
 func (b *broker) doResolve(opts resolver.ResolveNowOptions) {
-	brokers, ok := b.partitions.Load().(map[string]*v1.Broker)
+	brokers, ok := b.queue.Load().(map[string]*v2.Broker)
 	if !ok || len(brokers) == 0 {
 		return
 	}
@@ -151,17 +149,24 @@ func (b *broker) GracefulStop() error {
 	return b.conn.Close()
 }
 
-func (b *broker) Send(ctx context.Context, msg *Message) (*SendReceipt, error) {
+func (b *broker) Send(ctx context.Context, msg *Message) ([]*SendReceipt, error) {
 	resp, err := b.msc.SendMessage(ctx, b.getSendMessageRequest(msg))
 	if err != nil {
 		return nil, err
 	}
-	return &SendReceipt{
-		MessageID: resp.GetMessageId(),
-	}, nil
+	if resp.GetStatus().GetCode() != v2.Code_OK {
+		return nil, errors.New(resp.String())
+	}
+	var res []*SendReceipt
+	for i := 0; i < len(resp.GetEntries()); i++ {
+		res = append(res, &SendReceipt{
+			MessageID: resp.GetEntries()[i].GetMessageId(),
+		})
+	}
+	return res, nil
 }
 
-func (b *broker) HeartBeat(req *v1.HeartbeatRequest) {
+func (b *broker) HeartBeat(req *v2.HeartbeatRequest) {
 	f := func() {
 		ctx, _ := context.WithTimeout(context.TODO(), b.opts.timeout)
 		_, _ = b.msc.Heartbeat(ctx, req)
@@ -170,7 +175,7 @@ func (b *broker) HeartBeat(req *v1.HeartbeatRequest) {
 	ticker.OnceAndTick(f, b.opts.heartbeatDuration, b.done)
 }
 
-func (b *broker) QueryAssignment(ctx context.Context, topic string) ([]*v1.Assignment, error) {
+func (b *broker) QueryAssignment(ctx context.Context, topic string) ([]*v2.Assignment, error) {
 	b.HeartBeat(b.getHeartBeatRequest(topic))
 	req, err := b.getQueryAssignmentRequest(topic)
 	if err != nil {
@@ -180,7 +185,7 @@ func (b *broker) QueryAssignment(ctx context.Context, topic string) ([]*v1.Assig
 	if err != nil {
 		return nil, err
 	}
-	if assignment.GetCommon().GetStatus().GetCode() != int32(codes.OK) {
+	if assignment.GetStatus().GetCode() != v2.Code_OK {
 		return nil, fmt.Errorf("QueryAssignment err = %s", assignment.String())
 	}
 
@@ -190,29 +195,12 @@ func (b *broker) QueryAssignment(ctx context.Context, topic string) ([]*v1.Assig
 	return assignment.Assignments, nil
 }
 
-func (b *broker) ReceiveMessage(ctx context.Context, partition *v1.Partition, topic string) ([]*MessageExt, error) {
-	response, err := b.msc.ReceiveMessage(ctx, b.getReceiveMessageRequest(partition, topic))
+func (b *broker) ReceiveMessage(ctx context.Context, queue *v2.MessageQueue, topic string) (v2.MessagingService_ReceiveMessageClient, error) {
+	stream, err := b.msc.ReceiveMessage(ctx, b.getReceiveMessageRequest(queue, topic))
 	if err != nil {
 		return nil, err
 	}
-	if response.GetCommon().GetStatus().GetCode() != int32(codes.OK) {
-		return nil, fmt.Errorf("ReceiveMessage err = %s", response.String())
-	}
-	var ret []*MessageExt
-	for _, msg := range response.Messages {
-		ret = append(ret, &MessageExt{
-			MessageID:     msg.GetSystemAttribute().GetMessageId(),
-			ReceiptHandle: msg.GetSystemAttribute().GetReceiptHandle(),
-			Message: Message{
-				Topic:      msg.GetTopic().GetName(),
-				Body:       msg.GetBody(),
-				Tag:        msg.GetSystemAttribute().GetTag(),
-				Keys:       msg.GetSystemAttribute().GetKeys(),
-				Properties: msg.GetUserAttribute(),
-			},
-		})
-	}
-	return ret, nil
+	return stream, nil
 }
 
 func (b *broker) AckMessage(ctx context.Context, msg *MessageExt) error {
@@ -220,52 +208,53 @@ func (b *broker) AckMessage(ctx context.Context, msg *MessageExt) error {
 	if err != nil {
 		return err
 	}
-	if response.GetCommon().GetStatus().GetCode() != int32(codes.OK) {
+	if response.GetStatus().GetCode() != v2.Code_OK {
 		return fmt.Errorf("AckMessage err = %s", response.String())
 	}
 	return nil
 }
 
-func (b *broker) getSendMessageRequest(msg *Message) *v1.SendMessageRequest {
-	return &v1.SendMessageRequest{
-		Message: &v1.Message{
-			Topic: &v1.Resource{
-				ResourceNamespace: b.conn.Config().NameSpace,
-				Name:              msg.Topic,
+func (b *broker) getSendMessageRequest(msg *Message) *v2.SendMessageRequest {
+	return &v2.SendMessageRequest{
+		Messages: []*v2.Message{
+			{
+				Topic: &v2.Resource{
+					ResourceNamespace: b.conn.Config().NameSpace,
+					Name:              msg.Topic,
+				},
+				SystemProperties: &v2.SystemProperties{
+					Tag:           &msg.Tag,
+					MessageGroup:  &b.conn.Config().Group,
+					MessageType:   v2.MessageType_NORMAL,
+					BodyEncoding:  v2.Encoding_IDENTITY,
+					BornHost:      innerOS.Hostname(),
+					MessageId:     uuid.New().String(),
+					BornTimestamp: timestamppb.Now(),
+				},
+				Body: msg.Body,
 			},
-			SystemAttribute: &v1.SystemAttribute{
-				Tag:           msg.Tag,
-				MessageGroup:  b.conn.Config().Group,
-				MessageType:   v1.MessageType_NORMAL,
-				BodyEncoding:  v1.Encoding_IDENTITY,
-				BornHost:      innerOS.Hostname(),
-				MessageId:     uuid.New().String(),
-				BornTimestamp: timestamppb.Now(),
-			},
-			Body: msg.Body,
 		},
 	}
 }
 
-func (b *broker) getQueryAssignmentRequest(topic string) (ret *v1.QueryAssignmentRequest, err error) {
-	brokers, ok := b.partitions.Load().(map[string]*v1.Broker)
+func (b *broker) getQueryAssignmentRequest(topic string) (ret *v2.QueryAssignmentRequest, err error) {
+	brokers, ok := b.queue.Load().(map[string]*v2.Broker)
 	if !ok || len(brokers) == 0 {
 		err = ErrNoAvailableBrokers
 		return
 	}
 
 	for _, broker := range brokers {
-		ret = &v1.QueryAssignmentRequest{
-			Topic: &v1.Resource{
+		ret = &v2.QueryAssignmentRequest{
+			Topic: &v2.Resource{
 				ResourceNamespace: b.conn.Config().NameSpace,
 				Name:              topic,
 			},
-			Group: &v1.Resource{
+			Group: &v2.Resource{
 				ResourceNamespace: b.conn.Config().NameSpace,
 				Name:              b.conn.Config().Group,
 			},
-			ClientId: b.ID(),
-			Endpoints: &v1.Endpoints{
+			Endpoints: &v2.Endpoints{
 				Scheme:    broker.GetEndpoints().GetScheme(),
 				Addresses: broker.GetEndpoints().GetAddresses(),
 			},
@@ -275,82 +264,64 @@ func (b *broker) getQueryAssignmentRequest(topic string) (ret *v1.QueryAssignmen
 	return
 }
 
-func (b *broker) getHeartBeatRequest(topic string) *v1.HeartbeatRequest {
-	return &v1.HeartbeatRequest{
-		ClientId: b.ID(),
-		FifoFlag: false,
-		ClientData: &v1.HeartbeatRequest_ConsumerData{
-			ConsumerData: &v1.ConsumerData{
-				Group: &v1.Resource{
-					ResourceNamespace: b.conn.Config().NameSpace,
-					Name:              b.conn.Config().Group,
-				},
-				Subscriptions: []*v1.SubscriptionEntry{
-					{
-						Topic: &v1.Resource{
-							ResourceNamespace: b.conn.Config().NameSpace,
-							Name:              topic,
-						},
-						Expression: &v1.FilterExpression{
-							Type:       v1.FilterType_TAG,
-							Expression: "*",
-						},
-					},
-				},
-				ConsumeType:   v1.ConsumeMessageType_PASSIVE,
-				ConsumeModel:  v1.ConsumeModel_CLUSTERING,
-				ConsumePolicy: v1.ConsumePolicy_RESUME,
-				DeadLetterPolicy: &v1.DeadLetterPolicy{
-					MaxDeliveryAttempts: 17,
-				},
-			},
-		},
-	}
-}
-
-func (b *broker) getReceiveMessageRequest(partition *v1.Partition, topic string) *v1.ReceiveMessageRequest {
-	return &v1.ReceiveMessageRequest{
-		Group: &v1.Resource{
+func (b *broker) getHeartBeatRequest(topic string) *v2.HeartbeatRequest {
+	return &v2.HeartbeatRequest{
+		Group: &v2.Resource{
 			ResourceNamespace: b.conn.Config().NameSpace,
 			Name:              b.conn.Config().Group,
 		},
-		ClientId: b.ID(),
-		Partition: &v1.Partition{
-			Topic: &v1.Resource{
+		ClientType: v2.ClientType_SIMPLE_CONSUMER,
+	}
+}
+
+func (b *broker) getReceiveMessageRequest(queue *v2.MessageQueue, topic string) *v2.ReceiveMessageRequest {
+	return &v2.ReceiveMessageRequest{
+		Group: &v2.Resource{
+			ResourceNamespace: b.conn.Config().NameSpace,
+			Name:              b.conn.Config().Group,
+		},
+		MessageQueue: &v2.MessageQueue{
+			Topic: &v2.Resource{
 				ResourceNamespace: b.conn.Config().NameSpace,
 				Name:              topic,
 			},
-			Id: partition.Id,
-			Broker: &v1.Broker{
-				Name: partition.Broker.Name,
+			Id: queue.GetId(),
+			Broker: &v2.Broker{
+				Name: queue.GetBroker().GetName(),
+				Id:   queue.GetBroker().GetId(),
+				Endpoints: &v2.Endpoints{
+					Scheme:    queue.GetBroker().GetEndpoints().GetScheme(),
+					Addresses: queue.GetBroker().GetEndpoints().GetAddresses(),
+				},
+			},
+			AcceptMessageTypes: []v2.MessageType{
+				v2.MessageType_NORMAL,
 			},
 		},
-		FilterExpression: &v1.FilterExpression{
-			Type:       v1.FilterType_TAG,
+		FilterExpression: &v2.FilterExpression{
+			Type:       v2.FilterType_TAG,
 			Expression: "*",
 		},
-		ConsumePolicy:     v1.ConsumePolicy_RESUME,
 		BatchSize:         32,
 		InvisibleDuration: durationpb.New(time.Millisecond * 15 * 60 * 1000),
-		AwaitTime:         durationpb.New(time.Millisecond * 0),
-		FifoFlag:          false,
+		AutoRenew:         false,
 	}
 }
 
-func (b *broker) getAckMessageRequest(msg *MessageExt) *v1.AckMessageRequest {
-	return &v1.AckMessageRequest{
-		Group: &v1.Resource{
+func (b *broker) getAckMessageRequest(msg *MessageExt) *v2.AckMessageRequest {
+	return &v2.AckMessageRequest{
+		Group: &v2.Resource{
 			ResourceNamespace: b.conn.Config().NameSpace,
 			Name:              b.conn.Config().Group,
 		},
-		Topic: &v1.Resource{
+		Topic: &v2.Resource{
 			ResourceNamespace: b.conn.Config().NameSpace,
 			Name:              msg.Topic,
 		},
-		ClientId:  b.ID(),
-		MessageId: msg.MessageID,
-		Handle: &v1.AckMessageRequest_ReceiptHandle{
-			ReceiptHandle: msg.ReceiptHandle,
+		Entries: []*v2.AckMessageEntry{
+			{
+				ReceiptHandle: msg.ReceiptHandle,
+			},
 		},
 	}
 }

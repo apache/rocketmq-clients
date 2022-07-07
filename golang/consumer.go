@@ -19,12 +19,13 @@ package golang
 
 import (
 	"context"
+	"io"
 	"reflect"
 	"sync"
 	"time"
 
 	"github.com/apache/rocketmq-clients/golang/pkg/ticker"
-	v1 "github.com/apache/rocketmq-clients/golang/protocol/v1"
+	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
 )
 
 type Consumer interface {
@@ -74,7 +75,7 @@ func (c *consumer) Start() error {
 				if err != nil {
 					return
 				}
-				assign, ok := v.([]*v1.Assignment)
+				assign, ok := v.([]*v2.Assignment)
 				if !ok || len(assign) == 0 {
 					return
 				}
@@ -84,13 +85,36 @@ func (c *consumer) Start() error {
 					i := i
 					go func() {
 						defer wg.Done()
-						messages, err := b.ReceiveMessage(ctx, assign[i].Partition, topic)
+						stream, err := b.ReceiveMessage(ctx, assign[i].MessageQueue, topic)
 						if err != nil {
 							return
 						}
-						for _, msg := range messages {
-							if err = handler(ctx, msg); err == nil {
-								_ = b.AckMessage(ctx, msg)
+						for {
+							resp, err := stream.Recv()
+							if err == io.EOF {
+								break
+							}
+							if err != nil {
+								time.Sleep(time.Second * 5)
+								continue
+							}
+							msg, ok := resp.GetContent().(*v2.ReceiveMessageResponse_Message)
+							if !ok {
+								continue
+							}
+							messageExt := &MessageExt{
+								MessageID:     msg.Message.GetSystemProperties().GetMessageId(),
+								ReceiptHandle: msg.Message.GetSystemProperties().GetReceiptHandle(),
+								Message: Message{
+									Topic:      msg.Message.GetTopic().GetName(),
+									Body:       msg.Message.GetBody(),
+									Keys:       msg.Message.GetSystemProperties().GetKeys(),
+									Tag:        msg.Message.GetSystemProperties().GetTag(),
+									Properties: msg.Message.GetUserProperties(),
+								},
+							}
+							if err = handler(ctx, messageExt); err == nil {
+								_ = b.AckMessage(ctx, messageExt)
 							}
 						}
 					}()
@@ -133,7 +157,7 @@ func (c *consumer) queryAssignment(ctx context.Context, topic string) error {
 		if !ok {
 			return
 		}
-		oldAssign, ok := cache.([]*v1.Assignment)
+		oldAssign, ok := cache.([]*v2.Assignment)
 		if !ok {
 			return
 		}

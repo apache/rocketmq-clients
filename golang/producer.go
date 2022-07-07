@@ -22,7 +22,7 @@ import (
 )
 
 type Producer interface {
-	Send(context.Context, *Message) (*SendReceipt, error)
+	Send(context.Context, *Message) ([]*SendReceipt, error)
 	GracefulStop() error
 }
 
@@ -48,7 +48,7 @@ func NewProducer(config *Config, opts ...ProducerOption) (Producer, error) {
 	}, nil
 }
 
-func (p *producer) Send(ctx context.Context, msg *Message) (*SendReceipt, error) {
+func (p *producer) Send(ctx context.Context, msg *Message) ([]*SendReceipt, error) {
 	b, err := p.ns.GetBroker(ctx, msg.Topic)
 	if err != nil {
 		return nil, err

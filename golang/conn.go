@@ -179,6 +179,8 @@ func (c *clientConn) sign(ctx context.Context) context.Context {
 		innerMD.VersionValue,
 		innerMD.NameSpace,
 		c.config.NameSpace,
+		innerMD.ClintID,
+		c.opts.ID,
 		innerMD.DateTime,
 		now,
 		innerMD.Authorization,

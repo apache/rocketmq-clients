@@ -28,8 +28,7 @@ import (
 	"sync"
 
 	"github.com/apache/rocketmq-clients/golang/pkg/ticker"
-	v1 "github.com/apache/rocketmq-clients/golang/protocol/v1"
-	"google.golang.org/grpc/codes"
+	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
 )
 
 type NameServer interface {
@@ -44,7 +43,7 @@ var _ = NameServer(&defaultNameServer{})
 type defaultNameServer struct {
 	opts    nameServerOptions
 	conn    ClientConn
-	msc     v1.MessagingServiceClient
+	msc     v2.MessagingServiceClient
 	router  sync.Map
 	brokers sync.Map
 	done    chan struct{}
@@ -63,7 +62,7 @@ func NewNameServer(config *Config, opts ...NameServerOption) (NameServer, error)
 	}
 
 	ns.conn = conn
-	ns.msc = v1.NewMessagingServiceClient(conn.Conn())
+	ns.msc = v2.NewMessagingServiceClient(conn.Conn())
 	ns.done = make(chan struct{})
 	ns.sync()
 	return ns, nil
@@ -89,24 +88,24 @@ func (ns *defaultNameServer) GetBroker(ctx context.Context, topic string) (Broke
 	return b, nil
 }
 
-func (ns *defaultNameServer) queryRoute(ctx context.Context, topic string) ([]*v1.Partition, error) {
+func (ns *defaultNameServer) queryRoute(ctx context.Context, topic string) ([]*v2.MessageQueue, error) {
 	response, err := ns.msc.QueryRoute(ctx, ns.getQueryRouteRequest(topic))
 	if err != nil {
 		return nil, err
 	}
-	if response.GetCommon().GetStatus().GetCode() != int32(codes.OK) {
+	if response.GetStatus().GetCode() != v2.Code_OK {
 		return nil, fmt.Errorf("QueryRoute err = %s", response.String())
 	}
 
-	if len(response.Partitions) == 0 {
+	if len(response.GetMessageQueues()) == 0 {
 		return nil, errors.New("rocketmq: no available brokers")
 	}
-	return response.Partitions, nil
+	return response.GetMessageQueues(), nil
 }
 
-func (ns *defaultNameServer) getQueryRouteRequest(topic string) *v1.QueryRouteRequest {
-	return &v1.QueryRouteRequest{
-		Topic: &v1.Resource{
+func (ns *defaultNameServer) getQueryRouteRequest(topic string) *v2.QueryRouteRequest {
+	return &v2.QueryRouteRequest{
+		Topic: &v2.Resource{
 			ResourceNamespace: ns.conn.Config().NameSpace,
 			Name:              topic,
 		},
@@ -114,10 +113,10 @@ func (ns *defaultNameServer) getQueryRouteRequest(topic string) *v1.QueryRouteRe
 	}
 }
 
-func (ns *defaultNameServer) parseTarget(target string) *v1.Endpoints {
-	ret := &v1.Endpoints{
-		Scheme: v1.AddressScheme_DOMAIN_NAME,
-		Addresses: []*v1.Address{
+func (ns *defaultNameServer) parseTarget(target string) *v2.Endpoints {
+	ret := &v2.Endpoints{
+		Scheme: v2.AddressScheme_DOMAIN_NAME,
+		Addresses: []*v2.Address{
 			{
 				Host: "",
 				Port: 80,
@@ -130,7 +129,7 @@ func (ns *defaultNameServer) parseTarget(target string) *v1.Endpoints {
 	u, err := url.Parse(target)
 	if err != nil {
 		path = target
-		ret.Scheme = v1.AddressScheme_IPv4
+		ret.Scheme = v2.AddressScheme_IPv4
 	} else {
 		path = u.Path
 	}
@@ -155,7 +154,7 @@ func (ns *defaultNameServer) sync() {
 				if ok {
 					bo, ok := b.(Broker)
 					if ok {
-						bo.SetPartition(item)
+						bo.SetMessageQueue(item)
 					}
 				}
 			}
