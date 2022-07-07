@@ -36,12 +36,14 @@ import org.apache.rocketmq.client.java.route.Endpoints;
 
 public class ReceiveMessageResult {
     private final Endpoints endpoints;
+    private final String requestId;
     private final ClientException exception;
 
     private final List<MessageViewImpl> messages;
 
-    public ReceiveMessageResult(Endpoints endpoints, Status status, List<MessageViewImpl> messages) {
+    public ReceiveMessageResult(Endpoints endpoints, String requestId, Status status, List<MessageViewImpl> messages) {
         this.endpoints = endpoints;
+        this.requestId = requestId;
         final Code code = status.getCode();
         switch (code) {
             case OK:
@@ -107,5 +109,9 @@ public class ReceiveMessageResult {
 
     public List<MessageViewImpl> getMessages() {
         return messages;
+    }
+
+    public String getRequestId() {
+        return requestId;
     }
 }

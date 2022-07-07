@@ -124,7 +124,8 @@ public class PushConsumerImplTest extends TestBase {
             any(QueryRouteRequest.class), any(Duration.class));
         verify(clientManager, atLeast(1)).queryAssignment(any(Endpoints.class),
             any(Metadata.class), any(QueryAssignmentRequest.class), any(Duration.class));
-        Assert.assertEquals(okQueryAssignmentResponseFuture().get().getAssignmentsCount(), pushConsumer.getQueueSize());
+        Assert.assertEquals(okQueryAssignmentResponseFuture().get().getResp().getAssignmentsCount(),
+            pushConsumer.getQueueSize());
         when(clientManager.queryAssignment(any(Endpoints.class), any(Metadata.class), any(QueryAssignmentRequest.class),
             any(Duration.class))).thenReturn(okEmptyQueryAssignmentResponseFuture());
         pushConsumer.scanAssignments();
@@ -148,7 +149,8 @@ public class PushConsumerImplTest extends TestBase {
 
     @Test
     public void testSubscribeWithSubscriptionOverwriting() throws ClientException {
-        pushConsumer = new PushConsumerImpl(clientConfiguration, FAKE_GROUP_0, subscriptionExpressions, messageListener,
+        pushConsumer = new PushConsumerImpl(clientConfiguration, FAKE_GROUP_0, subscriptionExpressions,
+            messageListener,
             maxCacheMessageCount, maxCacheMessageSizeInBytes, consumptionThreadCount);
         start(pushConsumer);
         final FilterExpression filterExpression = new FilterExpression(FAKE_TAG_0);

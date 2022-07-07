@@ -44,8 +44,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
+import org.apache.rocketmq.client.java.misc.RequestIdGenerator;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
+import org.apache.rocketmq.client.java.rpc.InvocationContext;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Before;
 import org.junit.Test;
@@ -117,7 +119,7 @@ public class ProcessQueueImplTest extends TestBase {
         when(pushConsumer.getRetryPolicy()).thenReturn(retryPolicy);
         when(pushConsumerSettings.isFifo()).thenReturn(false);
         when(pushConsumer.changeInvisibleDuration(any(MessageViewImpl.class), any(Duration.class)))
-            .thenReturn(okChangeInvisibleDurationFuture());
+            .thenReturn(okChangeInvisibleDurationCtxFuture());
         processQueue.cacheMessages(messageViewList);
         verify(pushConsumer, times(1))
             .changeInvisibleDuration(any(MessageViewImpl.class), any(Duration.class));
@@ -148,7 +150,8 @@ public class ProcessQueueImplTest extends TestBase {
         List<MessageViewImpl> messageViewList = new ArrayList<>();
         final MessageViewImpl messageView = fakeMessageViewImpl();
         messageViewList.add(messageView);
-        ReceiveMessageResult receiveMessageResult = new ReceiveMessageResult(fakeEndpoints(), status, messageViewList);
+        ReceiveMessageResult receiveMessageResult = new ReceiveMessageResult(fakeEndpoints(),
+            RequestIdGenerator.getInstance().next(), status, messageViewList);
         SettableFuture<ReceiveMessageResult> future0 = SettableFuture.create();
         future0.set(receiveMessageResult);
         when(pushConsumer.receiveMessage(any(ReceiveMessageRequest.class), any(MessageQueueImpl.class),
@@ -178,7 +181,7 @@ public class ProcessQueueImplTest extends TestBase {
         assertEquals(cachedMessageCount, processQueue.cachedMessagesCount());
         assertEquals(1, processQueue.inflightMessagesCount());
 
-        final ListenableFuture<AckMessageResponse> future = okAckMessageResponseFuture();
+        final ListenableFuture<InvocationContext<AckMessageResponse>> future = okAckMessageResponseFuture();
         when(pushConsumer.ackMessage(any(MessageViewImpl.class))).thenReturn(future);
         processQueue.eraseMessage(optionalMessageView.get(), ConsumeResult.SUCCESS);
         future.addListener(() -> verify(pushConsumer, times(1))
@@ -221,7 +224,7 @@ public class ProcessQueueImplTest extends TestBase {
         final MessageViewImpl messageView = fakeMessageViewImpl(2, false);
         messageViewList.add(messageView);
         processQueue.cacheMessages(messageViewList);
-        ListenableFuture<AckMessageResponse> future0 = okAckMessageResponseFuture();
+        ListenableFuture<InvocationContext<AckMessageResponse>> future0 = okAckMessageResponseFuture();
         when(pushConsumer.ackMessage(any(MessageViewImpl.class))).thenReturn(future0);
         when(pushConsumer.getRetryPolicy()).thenReturn(retryPolicy);
         when(retryPolicy.getMaxAttempts()).thenReturn(1);
@@ -237,7 +240,7 @@ public class ProcessQueueImplTest extends TestBase {
         final MessageViewImpl messageView = fakeMessageViewImpl(2, false);
         messageViewList.add(messageView);
         processQueue.cacheMessages(messageViewList);
-        ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future0 =
+        ListenableFuture<InvocationContext<ForwardMessageToDeadLetterQueueResponse>> future0 =
             okForwardMessageToDeadLetterQueueResponseFuture();
         when(pushConsumer.forwardMessageToDeadLetterQueue(any(MessageViewImpl.class))).thenReturn(future0);
         when(pushConsumer.getRetryPolicy()).thenReturn(retryPolicy);
@@ -254,7 +257,7 @@ public class ProcessQueueImplTest extends TestBase {
         final MessageViewImpl messageView = fakeMessageViewImpl(2, false);
         messageViewList.add(messageView);
         processQueue.cacheMessages(messageViewList);
-        ListenableFuture<AckMessageResponse> future0 = okAckMessageResponseFuture();
+        ListenableFuture<InvocationContext<AckMessageResponse>> future0 = okAckMessageResponseFuture();
         when(pushConsumer.ackMessage(any(MessageViewImpl.class))).thenReturn(future0);
         when(pushConsumer.getRetryPolicy()).thenReturn(retryPolicy);
         when(retryPolicy.getMaxAttempts()).thenReturn(2);

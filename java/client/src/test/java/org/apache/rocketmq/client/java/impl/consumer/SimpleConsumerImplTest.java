@@ -63,6 +63,7 @@ import org.apache.rocketmq.client.java.impl.TelemetrySession;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.route.Endpoints;
+import org.apache.rocketmq.client.java.rpc.InvocationContext;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -87,7 +88,7 @@ public class SimpleConsumerImplTest extends TestBase {
     private SimpleConsumerImpl simpleConsumer;
 
     private void start(SimpleConsumerImpl simpleConsumer) throws ClientException {
-        SettableFuture<QueryRouteResponse> future0 = SettableFuture.create();
+        SettableFuture<InvocationContext<QueryRouteResponse>> future0 = SettableFuture.create();
         Status status = Status.newBuilder().setCode(Code.OK).build();
         List<MessageQueue> messageQueueList = new ArrayList<>();
         MessageQueue mq = MessageQueue.newBuilder().setTopic(Resource.newBuilder().setName(FAKE_TOPIC_0))
@@ -97,7 +98,9 @@ public class SimpleConsumerImplTest extends TestBase {
         messageQueueList.add(mq);
         QueryRouteResponse response = QueryRouteResponse.newBuilder().setStatus(status)
             .addAllMessageQueues(messageQueueList).build();
-        future0.set(response);
+        final InvocationContext<QueryRouteResponse> invocationContext = new InvocationContext<>(response,
+            fakeRpcContext());
+        future0.set(invocationContext);
         when(clientManager.queryRoute(any(Endpoints.class), any(Metadata.class), any(QueryRouteRequest.class),
             any(Duration.class)))
             .thenReturn(future0);
@@ -180,7 +183,7 @@ public class SimpleConsumerImplTest extends TestBase {
         simpleConsumer = new SimpleConsumerImpl(clientConfiguration, FAKE_GROUP_0, awaitDuration, subExpressions);
         start(simpleConsumer);
         int receivedMessageCount = 16;
-        final ListenableFuture<Iterator<ReceiveMessageResponse>> future =
+        final ListenableFuture<InvocationContext<Iterator<ReceiveMessageResponse>>> future =
             okReceiveMessageResponsesFuture(FAKE_TOPIC_0, receivedMessageCount);
         when(clientManager.receiveMessage(any(Endpoints.class), any(Metadata.class), any(ReceiveMessageRequest.class),
             any(Duration.class))).thenReturn(future);
@@ -197,7 +200,7 @@ public class SimpleConsumerImplTest extends TestBase {
         start(simpleConsumer);
         try {
             final MessageViewImpl messageView = fakeMessageViewImpl();
-            final ListenableFuture<AckMessageResponse> future = okAckMessageResponseFuture();
+            final ListenableFuture<InvocationContext<AckMessageResponse>> future = okAckMessageResponseFuture();
             when(clientManager.ackMessage(any(Endpoints.class), any(Metadata.class), any(AckMessageRequest.class),
                 any(Duration.class))).thenReturn(future);
             simpleConsumer.ack(messageView);
@@ -212,7 +215,7 @@ public class SimpleConsumerImplTest extends TestBase {
         start(simpleConsumer);
         try {
             final MessageViewImpl messageView = fakeMessageViewImpl();
-            final ListenableFuture<ChangeInvisibleDurationResponse> future =
+            final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> future =
                 okChangeInvisibleDurationResponseFuture(FAKE_RECEIPT_HANDLE_1);
             when(clientManager.changeInvisibleDuration(any(Endpoints.class), any(Metadata.class),
                 any(ChangeInvisibleDurationRequest.class), any(Duration.class))).thenReturn(future);

@@ -56,6 +56,7 @@ import org.apache.rocketmq.client.java.message.MessageCommon;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
+import org.apache.rocketmq.client.java.rpc.InvocationContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,16 +72,18 @@ abstract class ConsumerImpl extends ClientImpl {
     }
 
     @SuppressWarnings("SameParameterValue")
-    protected ListenableFuture<ReceiveMessageResult> receiveMessage(ReceiveMessageRequest request, MessageQueueImpl mq,
-        Duration timeout) {
+    protected ListenableFuture<ReceiveMessageResult> receiveMessage(ReceiveMessageRequest request,
+        MessageQueueImpl mq, Duration timeout) {
         List<MessageViewImpl> messages = new ArrayList<>();
         final SettableFuture<ReceiveMessageResult> future0 = SettableFuture.create();
         try {
             Metadata metadata = sign();
             final Endpoints endpoints = mq.getBroker().getEndpoints();
-            final ListenableFuture<Iterator<ReceiveMessageResponse>> future = clientManager.receiveMessage(endpoints,
-                metadata, request, timeout);
-            return Futures.transform(future, it -> {
+            final ListenableFuture<InvocationContext<Iterator<ReceiveMessageResponse>>> future =
+                clientManager.receiveMessage(endpoints,
+                    metadata, request, timeout);
+            return Futures.transform(future, context -> {
+                final Iterator<ReceiveMessageResponse> it = context.getResp();
                 // Null here means status not set yet.
                 Status status = null;
                 Timestamp deliveryTimestampFromRemote = null;
@@ -106,7 +109,7 @@ abstract class ConsumerImpl extends ClientImpl {
                     final MessageViewImpl view = MessageViewImpl.fromProtobuf(message, mq, deliveryTimestampFromRemote);
                     messages.add(view);
                 }
-                return new ReceiveMessageResult(endpoints, status, messages);
+                return new ReceiveMessageResult(endpoints, context.getRpcContext().getRequestId(), status, messages);
             }, MoreExecutors.directExecutor());
         } catch (Throwable t) {
             future0.setException(t);
@@ -134,9 +137,9 @@ abstract class ConsumerImpl extends ClientImpl {
 
     }
 
-    public ListenableFuture<AckMessageResponse> ackMessage(MessageViewImpl messageView) {
+    public ListenableFuture<InvocationContext<AckMessageResponse>> ackMessage(MessageViewImpl messageView) {
         final Endpoints endpoints = messageView.getEndpoints();
-        ListenableFuture<AckMessageResponse> future;
+        ListenableFuture<InvocationContext<AckMessageResponse>> future;
 
         final Stopwatch stopwatch = Stopwatch.createStarted();
         final List<MessageCommon> messageCommons = Collections.singletonList(messageView.getMessageCommon());
@@ -146,11 +149,14 @@ abstract class ConsumerImpl extends ClientImpl {
             final Metadata metadata = sign();
             future = clientManager.ackMessage(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
         } catch (Throwable t) {
-            return Futures.immediateFailedFuture(t);
+            final SettableFuture<InvocationContext<AckMessageResponse>> future0 = SettableFuture.create();
+            future0.setException(t);
+            future = future0;
         }
-        Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
+        Futures.addCallback(future, new FutureCallback<InvocationContext<AckMessageResponse>>() {
             @Override
-            public void onSuccess(AckMessageResponse response) {
+            public void onSuccess(InvocationContext<AckMessageResponse> context) {
+                final AckMessageResponse response = context.getResp();
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
                 final Duration duration = stopwatch.elapsed();
@@ -168,10 +174,10 @@ abstract class ConsumerImpl extends ClientImpl {
         return future;
     }
 
-    public ListenableFuture<ChangeInvisibleDurationResponse> changeInvisibleDuration(MessageViewImpl messageView,
-        Duration invisibleDuration) {
+    public ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> changeInvisibleDuration(
+        MessageViewImpl messageView, Duration invisibleDuration) {
         final Endpoints endpoints = messageView.getEndpoints();
-        ListenableFuture<ChangeInvisibleDurationResponse> future;
+        ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> future;
 
         final Stopwatch stopwatch = Stopwatch.createStarted();
         final List<MessageCommon> messageCommons = Collections.singletonList(messageView.getMessageCommon());
@@ -182,14 +188,15 @@ abstract class ConsumerImpl extends ClientImpl {
             future = clientManager.changeInvisibleDuration(endpoints, metadata, request,
                 clientConfiguration.getRequestTimeout());
         } catch (Throwable t) {
-            final SettableFuture<ChangeInvisibleDurationResponse> future0 = SettableFuture.create();
+            final SettableFuture<InvocationContext<ChangeInvisibleDurationResponse>> future0 = SettableFuture.create();
             future0.setException(t);
             future = future0;
         }
         final MessageId messageId = messageView.getMessageId();
-        Futures.addCallback(future, new FutureCallback<ChangeInvisibleDurationResponse>() {
+        Futures.addCallback(future, new FutureCallback<InvocationContext<ChangeInvisibleDurationResponse>>() {
             @Override
-            public void onSuccess(ChangeInvisibleDurationResponse response) {
+            public void onSuccess(InvocationContext<ChangeInvisibleDurationResponse> context) {
+                final ChangeInvisibleDurationResponse response = context.getResp();
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
                 final Duration duration = stopwatch.elapsed();

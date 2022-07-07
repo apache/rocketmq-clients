@@ -56,6 +56,7 @@ import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.route.TopicRouteDataResult;
+import org.apache.rocketmq.client.java.rpc.InvocationContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -240,9 +241,10 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
             return future0;
         }
         MessageViewImpl impl = (MessageViewImpl) messageView;
-        final ListenableFuture<AckMessageResponse> future = ackMessage(impl);
-        return Futures.transformAsync(future, response -> {
-            final Status status = response.getStatus();
+        final ListenableFuture<InvocationContext<AckMessageResponse>> future = ackMessage(impl);
+        return Futures.transformAsync(future, context -> {
+            final AckMessageResponse resp = context.getResp();
+            final Status status = resp.getStatus();
             final Code code = status.getCode();
             switch (code) {
                 case OK:
@@ -300,12 +302,13 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
             return future0;
         }
         MessageViewImpl impl = (MessageViewImpl) messageView;
-        final ListenableFuture<ChangeInvisibleDurationResponse> future = changeInvisibleDuration(impl,
-            invisibleDuration);
-        return Futures.transformAsync(future, response -> {
+        final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> future =
+            changeInvisibleDuration(impl, invisibleDuration);
+        return Futures.transformAsync(future, context -> {
+            final ChangeInvisibleDurationResponse resp = context.getResp();
             // Refresh receipt handle manually.
-            impl.setReceiptHandle(response.getReceiptHandle());
-            final Status status = response.getStatus();
+            impl.setReceiptHandle(resp.getReceiptHandle());
+            final Status status = resp.getStatus();
             final Code code = status.getCode();
             switch (code) {
                 case OK:

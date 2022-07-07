@@ -17,27 +17,30 @@
 
 package org.apache.rocketmq.client.java.rpc;
 
-import java.nio.charset.StandardCharsets;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import org.apache.rocketmq.client.java.misc.Utilities;
+import com.google.common.base.MoreObjects;
 
-public class TLSHelper {
-    private static final String HMAC_SHA1_ALGORITHM = "HmacSHA1";
+public class InvocationContext<T> {
+    private final T t;
+    private final RpcContext rpcContext;
 
-    private TLSHelper() {
+    public InvocationContext(T t, RpcContext rpcContext) {
+        this.t = t;
+        this.rpcContext = rpcContext;
     }
 
-    public static String sign(String accessSecret, String dateTime) throws NoSuchAlgorithmException,
-        InvalidKeyException {
-        SecretKeySpec signingKey = new SecretKeySpec(accessSecret.getBytes(StandardCharsets.UTF_8),
-            HMAC_SHA1_ALGORITHM);
-        Mac mac;
-        mac = Mac.getInstance(HMAC_SHA1_ALGORITHM);
-        mac.init(signingKey);
+    public T getResp() {
+        return t;
+    }
 
-        return Utilities.encodeHexString(mac.doFinal(dateTime.getBytes(StandardCharsets.UTF_8)), false);
+    public RpcContext getRpcContext() {
+        return rpcContext;
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+            .add("resp", t)
+            .add("rpcContext", rpcContext)
+            .toString();
     }
 }
