@@ -17,6 +17,8 @@
 
 package org.apache.rocketmq.client.java.impl.producer;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.EndTransactionRequest;
 import apache.rocketmq.v2.EndTransactionResponse;
@@ -240,6 +242,7 @@ class ProducerImpl extends ClientImpl implements Producer {
      */
     @Override
     public Transaction beginTransaction() {
+        checkNotNull(checker, "Transaction checker should not be null");
         if (!this.isRunning()) {
             LOGGER.error("Unable to begin a transaction because producer is not running, state={}, clientId={}",
                 this.state(), clientId);

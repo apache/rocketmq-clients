@@ -14,12 +14,17 @@ ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
     .setCredentialProvider(staticSessionCredentialsProvider)
     .build();
 ```
+
 ## Producer
+
+There are examples for 4 types of message.
+
+### Publish NORMAL Message
 
 ```java
 // Build your message.
 final Message message = provider.newMessageBuilder()
-    .setTopic(topic)
+    .setTopic(normalTopic)
     .setBody(body)
     .setTag(tag)
     .build();
@@ -28,9 +33,72 @@ Producer producer = provider.newProducerBuilder()
     .setClientConfiguration(clientConfiguration)
     .setTopics(topic)
     .build();
-for (int i = 0; i < 1024; i++) {
-    final SendReceipt sendReceipt = producer.send(message);
-}
+final SendReceipt sendReceipt = producer.send(message);
+// Close it when you don't need the producer anymore.
+producer.close();
+```
+
+### Publish FIFO Message
+
+```java
+// Build your message.
+final Message message = provider.newMessageBuilder()
+    .setTopic(fifoTopic)
+    .setBody(body)
+    // Set the message group for FIFO message.
+    .setMessageGroup(messageGroup)
+    .setTag(tag)
+    .build();
+// Build your producer.
+Producer producer = provider.newProducerBuilder()
+    .setClientConfiguration(clientConfiguration)
+    .setTopics(topic)
+    .build();
+final SendReceipt sendReceipt = producer.send(message);
+// Close it when you don't need the producer anymore.
+producer.close();
+```
+
+### Publish DELAY Message
+
+```java
+// Build your message.
+final Message message = provider.newMessageBuilder()
+    .setTopic(delayTopic)
+    .setBody(body)
+    // Set the delivery timestamp to 3 seconds later (Time unit: milliseconds).
+    .setDeliveryTimestamp(System.currentTimeMillis() + 3 * 1000)
+    .setTag(tag)
+    .build();
+// Build your producer.
+Producer producer = provider.newProducerBuilder()
+    .setClientConfiguration(clientConfiguration)
+    .setTopics(topic)
+    .build();
+final SendReceipt sendReceipt = producer.send(message);
+// Close it when you don't need the producer anymore.
+producer.close();
+```
+
+### Publish TRANSACTIONAL Message
+
+```java
+// Build your message.
+final Message message = provider.newMessageBuilder()
+    .setTopic(transactionalTopic)
+    .setBody(body)
+    .setTag(tag)
+    .build();
+// Build your producer.
+Producer producer = provider.newProducerBuilder()
+    .setClientConfiguration(clientConfiguration)
+    .setTopics(transactionalTopic)
+    // Set transactional checker.
+    .setTransactionChecker(messageView -> TransactionResolution.COMMIT)
+    .build();
+Transaction transaction = producer.beginTransaction();
+SendReceipt receipt = producer.send(message, transaction);
+transaction.commit();
 // Close it when you don't need the producer anymore.
 producer.close();
 ```
