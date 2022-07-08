@@ -45,15 +45,14 @@ public class MetricMessageInterceptor implements MessageInterceptor {
 
     private void doAfterSendMessage(List<MessageCommon> messageCommons, Duration duration,
         MessageHookPointsStatus status) {
-        final DoubleHistogram costTimeHistogram = messageMeter.getSendSuccessCostTimeHistogram();
+        final DoubleHistogram histogram = messageMeter.getHistogramByName(MetricName.SEND_SUCCESS_COST_TIME);
         for (MessageCommon messageCommon : messageCommons) {
             InvocationStatus invocationStatus = MessageHookPointsStatus.OK.equals(status) ? InvocationStatus.SUCCESS :
                 InvocationStatus.FAILURE;
             Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, messageCommon.getTopic())
                 .put(MetricLabels.CLIENT_ID, messageMeter.getClient().getClientId())
-                .put(MetricLabels.INVOCATION_STATUS, invocationStatus.getName())
-                .build();
-            costTimeHistogram.record(duration.toMillis(), attributes);
+                .put(MetricLabels.INVOCATION_STATUS, invocationStatus.getName()).build();
+            histogram.record(duration.toMillis(), attributes);
         }
     }
 
@@ -77,11 +76,11 @@ public class MetricMessageInterceptor implements MessageInterceptor {
         }
         final Timestamp deliveryTimestampFromRemote = optionalDeliveryTimestampFromRemote.get();
         final long latency = System.currentTimeMillis() - Timestamps.toMillis(deliveryTimestampFromRemote);
-        final DoubleHistogram messageDeliveryLatencyHistogram = messageMeter.getMessageDeliveryLatencyHistogram();
+        final DoubleHistogram histogram = messageMeter.getHistogramByName(MetricName.DELIVERY_LATENCY);
         final Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, messageCommon.getTopic())
             .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
             .put(MetricLabels.CLIENT_ID, messageMeter.getClient().getClientId()).build();
-        messageDeliveryLatencyHistogram.record(latency, attributes);
+        histogram.record(latency, attributes);
     }
 
     private void doBeforeConsumeMessage(List<MessageCommon> messageCommons) {
@@ -100,13 +99,13 @@ public class MetricMessageInterceptor implements MessageInterceptor {
         Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, messageCommon.getTopic())
             .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
             .put(MetricLabels.CLIENT_ID, messageMeter.getClient().getClientId()).build();
-        final DoubleHistogram histogram = messageMeter.getMessageAwaitTimeHistogram();
+        final DoubleHistogram histogram = messageMeter.getHistogramByName(MetricName.AWAIT_TIME);
         histogram.record(durationAfterDecoding.toMillis(), attributes);
     }
 
     private void doAfterProcessMessage(List<MessageCommon> messageCommons, Duration duration,
         MessageHookPointsStatus status) {
-        final DoubleHistogram processCostTimeHistogram = messageMeter.getProcessCostTimeHistogram();
+        final DoubleHistogram histogram = messageMeter.getHistogramByName(MetricName.PROCESS_TIME);
         final ClientImpl client = messageMeter.getClient();
         if (!(client instanceof PushConsumer)) {
             // Should never reach here.
@@ -122,7 +121,7 @@ public class MetricMessageInterceptor implements MessageInterceptor {
                 .put(MetricLabels.CLIENT_ID, messageMeter.getClient().getClientId())
                 .put(MetricLabels.INVOCATION_STATUS, invocationStatus.getName())
                 .build();
-            processCostTimeHistogram.record(duration.toMillis(), attributes);
+            histogram.record(duration.toMillis(), attributes);
         }
     }
 
