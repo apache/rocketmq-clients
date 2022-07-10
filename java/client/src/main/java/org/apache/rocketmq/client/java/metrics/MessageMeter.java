@@ -31,6 +31,7 @@ import io.opentelemetry.sdk.metrics.InstrumentSelector;
 import io.opentelemetry.sdk.metrics.InstrumentType;
 import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.metrics.View;
+import io.opentelemetry.sdk.metrics.export.AggregationTemporalitySelector;
 import io.opentelemetry.sdk.metrics.export.PeriodicMetricReader;
 import java.net.InetSocketAddress;
 import java.time.Duration;
@@ -42,7 +43,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import javax.net.ssl.SSLException;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
-import org.apache.rocketmq.client.apis.consumer.SimpleConsumer;
 import org.apache.rocketmq.client.java.impl.ClientImpl;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.rpc.AuthInterceptor;
@@ -111,17 +111,6 @@ public class MessageMeter {
         }
     }
 
-    Optional<String> tryGetConsumerGroup() {
-        final ClientImpl client = this.getClient();
-        if (client instanceof PushConsumer) {
-            return Optional.of(((PushConsumer) client).getConsumerGroup());
-        }
-        if (client instanceof SimpleConsumer) {
-            return Optional.of(((SimpleConsumer) client).getConsumerGroup());
-        }
-        return Optional.empty();
-    }
-
     public synchronized void shutdown() {
         if (null == provider) {
             return;
@@ -167,7 +156,9 @@ public class MessageMeter {
         ManagedChannel channel = channelBuilder.build();
 
         OtlpGrpcMetricExporter exporter = OtlpGrpcMetricExporter.builder().setChannel(channel)
-            .setTimeout(METRIC_EXPORTER_RPC_TIMEOUT).build();
+            .setTimeout(METRIC_EXPORTER_RPC_TIMEOUT)
+            .setAggregationTemporalitySelector(AggregationTemporalitySelector.deltaPreferred())
+            .build();
 
         InstrumentSelector sendSuccessCostTimeInstrumentSelector = InstrumentSelector.builder()
             .setType(InstrumentType.HISTOGRAM).setName(MetricName.SEND_SUCCESS_COST_TIME.getName()).build();
@@ -202,13 +193,13 @@ public class MessageMeter {
         shutdown();
         // Force clean existed histogram.
         histogramMap.clear();
+        final ClientImpl client = this.getClient();
+        if (!(client instanceof PushConsumer)) {
+            // No need for producer and simple consumer.
+            return;
+        }
+        final String consumerGroup = ((PushConsumer) client).getConsumerGroup();
         meter.gaugeBuilder(MetricName.CONSUMER_CACHED_MESSAGES.getName()).buildWithCallback(measurement -> {
-            final Optional<String> optionalConsumerGroup = tryGetConsumerGroup();
-            if (!optionalConsumerGroup.isPresent()) {
-                // Skip because client is not push consumer.
-                return;
-            }
-            final String consumerGroup = optionalConsumerGroup.get();
             final Map<String, Long> cachedMessageCountMap = messageCacheObserver.getCachedMessageCount();
             for (Map.Entry<String, Long> entry : cachedMessageCountMap.entrySet()) {
                 final String topic = entry.getKey();
@@ -220,12 +211,6 @@ public class MessageMeter {
             }
         });
         meter.gaugeBuilder(MetricName.CONSUMER_CACHED_BYTES.getName()).buildWithCallback(measurement -> {
-            final Optional<String> optionalConsumerGroup = tryGetConsumerGroup();
-            if (!optionalConsumerGroup.isPresent()) {
-                // Skip because client is not push consumer.
-                return;
-            }
-            final String consumerGroup = optionalConsumerGroup.get();
             final Map<String, Long> cachedMessageBytesMap = messageCacheObserver.getCachedMessageBytes();
             for (Map.Entry<String, Long> entry : cachedMessageBytesMap.entrySet()) {
                 final String topic = entry.getKey();
