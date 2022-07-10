@@ -14,7 +14,7 @@
 # limitations under the License.
 
 github:
-  description: "Collection of Polyglot Clients for Apache RocketMQ"
+  description: "RocketMQ Clients - Collection of Polyglot Clients for Apache RocketMQ"
   labels:
     - messaging
     - rocketmq
