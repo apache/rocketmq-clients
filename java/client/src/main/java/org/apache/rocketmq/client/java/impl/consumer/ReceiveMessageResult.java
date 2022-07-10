@@ -47,6 +47,7 @@ public class ReceiveMessageResult {
         final Code code = status.getCode();
         switch (code) {
             case OK:
+            case MESSAGE_NOT_FOUND:
                 this.exception = null;
                 break;
             case BAD_REQUEST:
@@ -62,7 +63,6 @@ public class ReceiveMessageResult {
             case FORBIDDEN:
                 this.exception = new ForbiddenException(code.getNumber(), status.getMessage());
                 break;
-            case MESSAGE_NOT_FOUND:
             case NOT_FOUND:
             case TOPIC_NOT_FOUND:
             case CONSUMER_GROUP_NOT_FOUND:
@@ -92,7 +92,8 @@ public class ReceiveMessageResult {
      * @return true if the result is ok, false otherwise.
      */
     public boolean ok() {
-        return null == exception || (exception.getResponseCode().isPresent() && Code.OK.getNumber() ==
+        return null == exception || (exception.getResponseCode().isPresent() && (Code.OK.getNumber() ==
+            exception.getResponseCode().get()) || Code.MESSAGE_NOT_FOUND.getNumber() ==
             exception.getResponseCode().get());
     }
 

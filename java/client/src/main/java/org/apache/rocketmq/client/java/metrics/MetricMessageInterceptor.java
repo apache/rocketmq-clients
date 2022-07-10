@@ -26,6 +26,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
+import org.apache.rocketmq.client.apis.consumer.SimpleConsumer;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.hook.MessageInterceptor;
@@ -56,19 +57,22 @@ public class MetricMessageInterceptor implements MessageInterceptor {
         }
     }
 
-    private void doAfterReceive(List<MessageCommon> messageCommons, MessageHookPointsStatus status) {
+    private void doAfterReceive(List<MessageCommon> messageCommons) {
         if (messageCommons.isEmpty()) {
             return;
         }
-        final Optional<String> optionalConsumerGroup = messageMeter.tryGetConsumerGroup();
-        if (!optionalConsumerGroup.isPresent()) {
-            LOGGER.error("[Bug] consumerGroup is not recognized, clientId={}", messageMeter.getClient());
+        final ClientImpl client = messageMeter.getClient();
+        String consumerGroup = null;
+        if (client instanceof PushConsumer) {
+            consumerGroup = ((PushConsumer) client).getConsumerGroup();
+        }
+        if (client instanceof SimpleConsumer) {
+            consumerGroup = ((SimpleConsumer) client).getConsumerGroup();
+        }
+        if (null == consumerGroup) {
+            LOGGER.error("[Bug] consumerGroup is not recognized, clientId={}", client.getClientId());
             return;
         }
-        if (!MessageHookPointsStatus.ERROR.equals(status)) {
-            return;
-        }
-        final String consumerGroup = optionalConsumerGroup.get();
         final MessageCommon messageCommon = messageCommons.iterator().next();
         final Optional<Timestamp> optionalDeliveryTimestampFromRemote = messageCommon.getDeliveryTimestampFromRemote();
         if (!optionalDeliveryTimestampFromRemote.isPresent()) {
@@ -79,17 +83,20 @@ public class MetricMessageInterceptor implements MessageInterceptor {
         final DoubleHistogram histogram = messageMeter.getHistogramByName(MetricName.DELIVERY_LATENCY);
         final Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, messageCommon.getTopic())
             .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
-            .put(MetricLabels.CLIENT_ID, messageMeter.getClient().getClientId()).build();
+            .put(MetricLabels.CLIENT_ID, client.getClientId()).build();
         histogram.record(latency, attributes);
     }
 
     private void doBeforeConsumeMessage(List<MessageCommon> messageCommons) {
-        final Optional<String> optionalConsumerGroup = messageMeter.tryGetConsumerGroup();
-        if (!optionalConsumerGroup.isPresent()) {
-            LOGGER.error("[Bug] consumerGroup is not recognized, clientId={}", messageMeter.getClient());
+        final ClientImpl client = messageMeter.getClient();
+        String consumerGroup = null;
+        if (client instanceof PushConsumer) {
+            consumerGroup = ((PushConsumer) client).getConsumerGroup();
+        }
+        if (null == consumerGroup) {
+            LOGGER.error("[Bug] consumerGroup is not recognized, clientId={}", client.getClientId());
             return;
         }
-        final String consumerGroup = optionalConsumerGroup.get();
         final MessageCommon messageCommon = messageCommons.iterator().next();
         final Optional<Duration> optionalDurationAfterDecoding = messageCommon.getDurationAfterDecoding();
         if (!optionalDurationAfterDecoding.isPresent()) {
@@ -98,7 +105,7 @@ public class MetricMessageInterceptor implements MessageInterceptor {
         final Duration durationAfterDecoding = optionalDurationAfterDecoding.get();
         Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, messageCommon.getTopic())
             .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
-            .put(MetricLabels.CLIENT_ID, messageMeter.getClient().getClientId()).build();
+            .put(MetricLabels.CLIENT_ID, client.getClientId()).build();
         final DoubleHistogram histogram = messageMeter.getHistogramByName(MetricName.AWAIT_TIME);
         histogram.record(durationAfterDecoding.toMillis(), attributes);
     }
@@ -148,7 +155,7 @@ public class MetricMessageInterceptor implements MessageInterceptor {
                 doAfterSendMessage(messageCommons, duration, status);
                 break;
             case RECEIVE:
-                doAfterReceive(messageCommons, status);
+                doAfterReceive(messageCommons);
                 break;
             case CONSUME:
                 doAfterProcessMessage(messageCommons, duration, status);
