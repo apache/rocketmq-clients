@@ -41,24 +41,13 @@ public class ProducerSettings extends ClientSettings {
     /**
      * If message body size exceeds the threshold, it would be compressed for convenience of transport.
      */
-    private volatile int compressBodyThresholdBytes = 4 * 1024;
     private volatile int maxBodySizeBytes = 4 * 1024 * 1024;
-
     private volatile boolean validateMessageType = true;
-    /**
-     * The default GZIP compression level for the message body.
-     */
-    @SuppressWarnings("FieldCanBeLocal")
-    private final int messageGzipCompressionLevel = 5;
 
     public ProducerSettings(String clientId, Endpoints accessPoint,
         ExponentialBackoffRetryPolicy exponentialBackoffRetryPolicy, Duration requestTimeout, Set<Resource> topics) {
         super(clientId, ClientType.PRODUCER, accessPoint, exponentialBackoffRetryPolicy, requestTimeout);
         this.topics = topics;
-    }
-
-    public int getCompressBodyThresholdBytes() {
-        return compressBodyThresholdBytes;
     }
 
     public int getMaxBodySizeBytes() {
@@ -67,10 +56,6 @@ public class ProducerSettings extends ClientSettings {
 
     public boolean isValidateMessageType() {
         return validateMessageType;
-    }
-
-    public int getMessageGzipCompressionLevel() {
-        return messageGzipCompressionLevel;
     }
 
     @Override
@@ -93,7 +78,6 @@ public class ProducerSettings extends ClientSettings {
             return;
         }
         final Publishing publishing = settings.getPublishing();
-        this.compressBodyThresholdBytes = publishing.getCompressBodyThreshold();
         this.maxBodySizeBytes = publishing.getMaxBodySize();
         this.arrivedFuture.setFuture(Futures.immediateVoidFuture());
     }
@@ -107,7 +91,6 @@ public class ProducerSettings extends ClientSettings {
             .add("retryPolicy", retryPolicy)
             .add("requestTimeout", requestTimeout)
             .add("topics", topics)
-            .add("compressBodyThresholdBytes", compressBodyThresholdBytes)
             .add("maxBodySizeBytes", maxBodySizeBytes)
             .toString();
     }
