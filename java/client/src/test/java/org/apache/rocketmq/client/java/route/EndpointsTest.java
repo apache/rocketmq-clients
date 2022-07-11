@@ -122,4 +122,50 @@ public class EndpointsTest {
         Assert.assertEquals("rocketmq.apache.org", address.getHost());
         Assert.assertEquals(8081, address.getPort());
     }
+
+    @Test
+    @SuppressWarnings("HttpUrlsUsage")
+    public void testEndpointsWithDomainAndHttpPrefix() {
+        final Endpoints endpoints = new Endpoints("http://rocketmq.apache.org");
+        Assert.assertEquals(AddressScheme.DOMAIN_NAME, endpoints.getScheme());
+        final Iterator<Address> iterator = endpoints.getAddresses().iterator();
+
+        final Address address = iterator.next();
+        Assert.assertEquals("rocketmq.apache.org", address.getHost());
+        Assert.assertEquals(80, address.getPort());
+    }
+
+    @Test
+    public void testEndpointsWithDomainAndHttpsPrefix() {
+        final Endpoints endpoints = new Endpoints("https://rocketmq.apache.org");
+        Assert.assertEquals(AddressScheme.DOMAIN_NAME, endpoints.getScheme());
+        final Iterator<Address> iterator = endpoints.getAddresses().iterator();
+
+        final Address address = iterator.next();
+        Assert.assertEquals("rocketmq.apache.org", address.getHost());
+        Assert.assertEquals(80, address.getPort());
+    }
+
+    @Test
+    @SuppressWarnings("HttpUrlsUsage")
+    public void testEndpointsWithDomainPortAndHttpPrefix() {
+        final Endpoints endpoints = new Endpoints("http://rocketmq.apache.org:8081");
+        Assert.assertEquals(AddressScheme.DOMAIN_NAME, endpoints.getScheme());
+        final Iterator<Address> iterator = endpoints.getAddresses().iterator();
+
+        final Address address = iterator.next();
+        Assert.assertEquals("rocketmq.apache.org", address.getHost());
+        Assert.assertEquals(8081, address.getPort());
+    }
+
+    @Test
+    public void testEndpointsWithDomainPortAndHttpsPrefix() {
+        final Endpoints endpoints = new Endpoints("https://rocketmq.apache.org:8081");
+        Assert.assertEquals(AddressScheme.DOMAIN_NAME, endpoints.getScheme());
+        final Iterator<Address> iterator = endpoints.getAddresses().iterator();
+
+        final Address address = iterator.next();
+        Assert.assertEquals("rocketmq.apache.org", address.getHost());
+        Assert.assertEquals(8081, address.getPort());
+    }
 }
