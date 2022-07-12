@@ -21,7 +21,6 @@ import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Timestamps;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.DoubleHistogram;
-import io.opentelemetry.api.metrics.Meter;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
@@ -38,20 +37,25 @@ import org.slf4j.LoggerFactory;
 public class MetricMessageInterceptor implements MessageInterceptor {
     private static final Logger LOGGER = LoggerFactory.getLogger(MetricMessageInterceptor.class);
 
-    private final MessageMeter messageMeter;
+    private final MessageMeterProvider messageMeterProvider;
 
-    public MetricMessageInterceptor(MessageMeter messageMeter) {
-        this.messageMeter = messageMeter;
+    public MetricMessageInterceptor(MessageMeterProvider messageMeterProvider) {
+        this.messageMeterProvider = messageMeterProvider;
     }
 
     private void doAfterSendMessage(List<MessageCommon> messageCommons, Duration duration,
         MessageHookPointsStatus status) {
-        final DoubleHistogram histogram = messageMeter.getHistogramByName(MetricName.SEND_SUCCESS_COST_TIME);
+        final Optional<DoubleHistogram> optionalHistogram =
+            messageMeterProvider.getHistogramByName(MetricName.SEND_SUCCESS_COST_TIME);
+        if (!optionalHistogram.isPresent()) {
+            return;
+        }
+        final DoubleHistogram histogram = optionalHistogram.get();
         for (MessageCommon messageCommon : messageCommons) {
             InvocationStatus invocationStatus = MessageHookPointsStatus.OK.equals(status) ? InvocationStatus.SUCCESS :
                 InvocationStatus.FAILURE;
             Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, messageCommon.getTopic())
-                .put(MetricLabels.CLIENT_ID, messageMeter.getClient().getClientId())
+                .put(MetricLabels.CLIENT_ID, messageMeterProvider.getClient().getClientId())
                 .put(MetricLabels.INVOCATION_STATUS, invocationStatus.getName()).build();
             histogram.record(duration.toMillis(), attributes);
         }
@@ -61,7 +65,7 @@ public class MetricMessageInterceptor implements MessageInterceptor {
         if (messageCommons.isEmpty()) {
             return;
         }
-        final ClientImpl client = messageMeter.getClient();
+        final ClientImpl client = messageMeterProvider.getClient();
         String consumerGroup = null;
         if (client instanceof PushConsumer) {
             consumerGroup = ((PushConsumer) client).getConsumerGroup();
@@ -80,7 +84,12 @@ public class MetricMessageInterceptor implements MessageInterceptor {
         }
         final Timestamp deliveryTimestampFromRemote = optionalDeliveryTimestampFromRemote.get();
         final long latency = System.currentTimeMillis() - Timestamps.toMillis(deliveryTimestampFromRemote);
-        final DoubleHistogram histogram = messageMeter.getHistogramByName(MetricName.DELIVERY_LATENCY);
+        final Optional<DoubleHistogram> optionalHistogram =
+            messageMeterProvider.getHistogramByName(MetricName.DELIVERY_LATENCY);
+        if (!optionalHistogram.isPresent()) {
+            return;
+        }
+        final DoubleHistogram histogram = optionalHistogram.get();
         final Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, messageCommon.getTopic())
             .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
             .put(MetricLabels.CLIENT_ID, client.getClientId()).build();
@@ -88,7 +97,7 @@ public class MetricMessageInterceptor implements MessageInterceptor {
     }
 
     private void doBeforeConsumeMessage(List<MessageCommon> messageCommons) {
-        final ClientImpl client = messageMeter.getClient();
+        final ClientImpl client = messageMeterProvider.getClient();
         String consumerGroup = null;
         if (client instanceof PushConsumer) {
             consumerGroup = ((PushConsumer) client).getConsumerGroup();
@@ -106,14 +115,18 @@ public class MetricMessageInterceptor implements MessageInterceptor {
         Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, messageCommon.getTopic())
             .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
             .put(MetricLabels.CLIENT_ID, client.getClientId()).build();
-        final DoubleHistogram histogram = messageMeter.getHistogramByName(MetricName.AWAIT_TIME);
+        final Optional<DoubleHistogram> optionalHistogram =
+            messageMeterProvider.getHistogramByName(MetricName.AWAIT_TIME);
+        if (!optionalHistogram.isPresent()) {
+            return;
+        }
+        final DoubleHistogram histogram = optionalHistogram.get();
         histogram.record(durationAfterDecoding.toMillis(), attributes);
     }
 
     private void doAfterProcessMessage(List<MessageCommon> messageCommons, Duration duration,
         MessageHookPointsStatus status) {
-        final DoubleHistogram histogram = messageMeter.getHistogramByName(MetricName.PROCESS_TIME);
-        final ClientImpl client = messageMeter.getClient();
+        final ClientImpl client = messageMeterProvider.getClient();
         if (!(client instanceof PushConsumer)) {
             // Should never reach here.
             LOGGER.error("[Bug] current client is not push consumer, clientId={}", client.getClientId());
@@ -125,17 +138,22 @@ public class MetricMessageInterceptor implements MessageInterceptor {
                 InvocationStatus.FAILURE;
             Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, messageCommon.getTopic())
                 .put(MetricLabels.CONSUMER_GROUP, pushConsumer.getConsumerGroup())
-                .put(MetricLabels.CLIENT_ID, messageMeter.getClient().getClientId())
+                .put(MetricLabels.CLIENT_ID, messageMeterProvider.getClient().getClientId())
                 .put(MetricLabels.INVOCATION_STATUS, invocationStatus.getName())
                 .build();
+            final Optional<DoubleHistogram> optionalHistogram =
+                messageMeterProvider.getHistogramByName(MetricName.PROCESS_TIME);
+            if (!optionalHistogram.isPresent()) {
+                return;
+            }
+            final DoubleHistogram histogram = optionalHistogram.get();
             histogram.record(duration.toMillis(), attributes);
         }
     }
 
     @Override
     public void doBefore(MessageHookPoints messageHookPoints, List<MessageCommon> messageCommons) {
-        final Meter meter = messageMeter.getMeter();
-        if (null == meter) {
+        if (!messageMeterProvider.isEnabled()) {
             return;
         }
         if (MessageHookPoints.CONSUME.equals(messageHookPoints)) {
@@ -146,8 +164,7 @@ public class MetricMessageInterceptor implements MessageInterceptor {
     @Override
     public void doAfter(MessageHookPoints messageHookPoints, List<MessageCommon> messageCommons, Duration duration,
         MessageHookPointsStatus status) {
-        final Meter meter = messageMeter.getMeter();
-        if (null == meter) {
+        if (!messageMeterProvider.isEnabled()) {
             return;
         }
         switch (messageHookPoints) {

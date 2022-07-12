@@ -153,7 +153,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
         try {
             LOGGER.info("Begin to start the rocketmq push consumer, clientId={}", clientId);
             super.startUp();
-            messageMeter.setMessageCacheObserver(this);
+            messageMeterProvider.setMessageCacheObserver(this);
             final ScheduledExecutorService scheduler = clientManager.getScheduler();
             this.consumeService = createConsumeService();
             this.consumeService.startAsync().awaitRunning();
