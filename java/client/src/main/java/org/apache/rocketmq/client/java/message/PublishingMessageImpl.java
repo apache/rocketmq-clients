@@ -22,25 +22,18 @@ import apache.rocketmq.v2.SystemProperties;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.util.Timestamps;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.Optional;
 import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.java.impl.producer.ProducerSettings;
 import org.apache.rocketmq.client.java.message.protocol.Encoding;
 import org.apache.rocketmq.client.java.misc.Utilities;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * This class is a publishing view for message, which could be considered as an extension of {@link MessageImpl}.
  * Specifically speaking, Some work has been brought forward, e.g. message body compression, message id generation, etc.
  */
 public class PublishingMessageImpl extends MessageImpl {
-    private static final Logger LOGGER = LoggerFactory.getLogger(PublishingMessageImpl.class);
-
-    private final Encoding encoding;
-    private final ByteBuffer compressedBody;
     private final MessageId messageId;
     private final MessageType messageType;
     private volatile String traceContext;
@@ -53,28 +46,6 @@ public class PublishingMessageImpl extends MessageImpl {
         final int maxBodySizeBytes = producerSettings.getMaxBodySizeBytes();
         if (length > maxBodySizeBytes) {
             throw new IOException("Message body size exceeds the threshold, max size=" + maxBodySizeBytes + " bytes");
-        }
-        // Message body length exceeds the compression threshold, try to compress it.
-        if (length > producerSettings.getCompressBodyThresholdBytes()) {
-            byte[] body;
-            // Try downcasting to avoid redundant copy because ByteBuffer could not be compressed directly.
-            if (message instanceof MessageImpl) {
-                MessageImpl messageImpl = (MessageImpl) message;
-                body = messageImpl.body;
-            } else {
-                // Failed to downcast, which is out of expectation.
-                LOGGER.error("[Bug] message is not an instance of MessageImpl, have to copy it to compress");
-                body = new byte[length];
-                message.getBody().get(body);
-            }
-            final byte[] compressed = Utilities.compressBytesGzip(body,
-                producerSettings.getMessageGzipCompressionLevel());
-            this.compressedBody = ByteBuffer.wrap(compressed).asReadOnlyBuffer();
-            this.encoding = Encoding.GZIP;
-        } else {
-            // No need to compress message body.
-            this.compressedBody = null;
-            this.encoding = Encoding.IDENTITY;
         }
         // Generate message id.
         this.messageId = MessageIdCodec.getInstance().nextMessageId();
@@ -112,10 +83,6 @@ public class PublishingMessageImpl extends MessageImpl {
         return messageType;
     }
 
-    public ByteBuffer getTransportBody() {
-        return null == compressedBody ? getBody() : compressedBody;
-    }
-
     public void setTraceContext(String traceContext) {
         this.traceContext = traceContext;
     }
@@ -142,7 +109,7 @@ public class PublishingMessageImpl extends MessageImpl {
                 // Born host
                 .setBornHost(Utilities.hostName())
                 // Body encoding
-                .setBodyEncoding(Encoding.toProtobuf(encoding))
+                .setBodyEncoding(Encoding.toProtobuf(Encoding.IDENTITY))
                 // Message type
                 .setMessageType(MessageType.toProtobuf(messageType));
         // Message tag
@@ -160,7 +127,7 @@ public class PublishingMessageImpl extends MessageImpl {
             // Topic
             .setTopic(topicResource)
             // Message body
-            .setBody(ByteString.copyFrom(getTransportBody()))
+            .setBody(ByteString.copyFrom(getBody()))
             // System properties
             .setSystemProperties(systemProperties)
             // User properties

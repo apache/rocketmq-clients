@@ -29,6 +29,10 @@ import java.util.regex.Pattern;
 public class Endpoints {
     public static final int DEFAULT_PORT = 80;
 
+    @SuppressWarnings("HttpUrlsUsage")
+    public static final String HTTP_PREFIX = "http://";
+    public static final String HTTPS_PREFIX = "https://";
+
     private static final Pattern IPV4_HOST_PATTERN = Pattern.compile("^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0"
         + "-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])*$");
     private static final String ENDPOINT_SEPARATOR = ";";
@@ -78,7 +82,6 @@ public class Endpoints {
         this.facade = facadeBuilder.substring(0, facadeBuilder.length() - 1);
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     public Endpoints(String endpoints) {
         final String[] addressesStr = endpoints.split(ENDPOINT_SEPARATOR);
         this.addresses = new ArrayList<>();
@@ -95,6 +98,12 @@ public class Endpoints {
             }
             this.facade = scheme.getPrefix() + endpoints.replace(ENDPOINT_SEPARATOR, ADDRESS_SEPARATOR);
             return;
+        }
+        if (endpoints.startsWith(HTTP_PREFIX)) {
+            endpoints = endpoints.substring(HTTP_PREFIX.length());
+        }
+        if (endpoints.startsWith(HTTPS_PREFIX)) {
+            endpoints = endpoints.substring(HTTPS_PREFIX.length());
         }
         final int index = endpoints.lastIndexOf(COLON);
         int port = index > 0 ? Integer.parseInt(endpoints.substring(1 + index)) : DEFAULT_PORT;

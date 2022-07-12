@@ -179,7 +179,7 @@ public class TelemetrySession implements StreamObserver<TelemetryCommand> {
             }
         } catch (Throwable t) {
             LOGGER.error("[Bug] unexpected exception raised while receiving command from remote, command={}, "
-                + "clientId={}", command, client.getClientId());
+                + "clientId={}", command, client.getClientId(), t);
         }
     }
 
