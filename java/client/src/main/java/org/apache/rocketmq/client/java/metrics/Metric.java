@@ -17,20 +17,19 @@
 
 package org.apache.rocketmq.client.java.metrics;
 
-import java.util.Optional;
 import org.apache.rocketmq.client.java.route.Endpoints;
 
 public class Metric {
-    private final Endpoints metricEndpoints;
+    private final Endpoints endpoints;
     private final boolean on;
 
     public Metric(apache.rocketmq.v2.Metric metric) {
-        this.metricEndpoints = metric.hasEndpoints() ? new Endpoints(metric.getEndpoints()) : null;
-        this.on = metric.getOn();
+        this.endpoints = metric.hasEndpoints() ? new Endpoints(metric.getEndpoints()) : null;
+        this.on = metric.getOn() && metric.hasEndpoints();
     }
 
-    public Optional<Endpoints> tryGetMetricEndpoints() {
-        return null == metricEndpoints ? Optional.empty() : Optional.of(metricEndpoints);
+    public Endpoints getEndpoints() {
+        return endpoints;
     }
 
     public boolean isOn() {
