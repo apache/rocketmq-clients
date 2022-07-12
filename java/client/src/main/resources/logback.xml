@@ -33,6 +33,6 @@
         <appender-ref ref="DefaultAppender" additivity="false"/>
     </root>
     <!-- ref: https://github.com/grpc/grpc-java/issues/3033 -->
-    <!-- <logger name="io.grpc" level="error"/> -->
-    <!-- <logger name="org.apache.rocketmq.shaded.io.grpc" level="error"/> -->
+     <logger name="io.grpc" level="error"/>
+     <logger name="org.apache.rocketmq.shaded.io.grpc" level="error"/>
 </configuration>

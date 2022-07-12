@@ -129,9 +129,8 @@ class ProducerImpl extends ClientImpl implements Producer {
 
     @Override
     public void onRecoverOrphanedTransactionCommand(Endpoints endpoints, RecoverOrphanedTransactionCommand command) {
-        final MessageQueueImpl mq = new MessageQueueImpl(command.getMessageQueue());
         final String transactionId = command.getTransactionId();
-        final String messageId = command.getOrphanedTransactionalMessage().getSystemProperties().getMessageId();
+        final String messageId = command.getMessage().getSystemProperties().getMessageId();
         if (null == checker) {
             LOGGER.error("No transaction checker registered, ignore it, messageId={}, transactionId={}, endpoints={},"
                 + " clientId={}", messageId, transactionId, endpoints, clientId);
@@ -139,7 +138,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         }
         MessageViewImpl messageView;
         try {
-            messageView = MessageViewImpl.fromProtobuf(command.getOrphanedTransactionalMessage(), mq);
+            messageView = MessageViewImpl.fromProtobuf(command.getMessage());
         } catch (Throwable t) {
             LOGGER.error("[Bug] Failed to decode message during orphaned transaction message recovery, messageId={}, "
                 + "transactionId={}, endpoints={}, clientId={}", messageId, transactionId, endpoints, clientId, t);
