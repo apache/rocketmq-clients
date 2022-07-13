@@ -46,7 +46,7 @@ public class MessageMeterInterceptor implements MessageInterceptor {
     private void doAfterSendMessage(List<MessageCommon> messageCommons, Duration duration,
         MessageHookPointsStatus status) {
         final Optional<DoubleHistogram> optionalHistogram =
-            clientMeterProvider.getHistogramByName(MetricName.SEND_SUCCESS_COST_TIME);
+            clientMeterProvider.getHistogramByEnum(HistogramEnum.SEND_SUCCESS_COST_TIME);
         if (!optionalHistogram.isPresent()) {
             return;
         }
@@ -85,7 +85,7 @@ public class MessageMeterInterceptor implements MessageInterceptor {
         final Timestamp deliveryTimestampFromRemote = optionalDeliveryTimestampFromRemote.get();
         final long latency = System.currentTimeMillis() - Timestamps.toMillis(deliveryTimestampFromRemote);
         final Optional<DoubleHistogram> optionalHistogram =
-            clientMeterProvider.getHistogramByName(MetricName.DELIVERY_LATENCY);
+            clientMeterProvider.getHistogramByEnum(HistogramEnum.DELIVERY_LATENCY);
         if (!optionalHistogram.isPresent()) {
             return;
         }
@@ -116,7 +116,7 @@ public class MessageMeterInterceptor implements MessageInterceptor {
             .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
             .put(MetricLabels.CLIENT_ID, client.clientId()).build();
         final Optional<DoubleHistogram> optionalHistogram =
-            clientMeterProvider.getHistogramByName(MetricName.AWAIT_TIME);
+            clientMeterProvider.getHistogramByEnum(HistogramEnum.AWAIT_TIME);
         if (!optionalHistogram.isPresent()) {
             return;
         }
@@ -142,7 +142,7 @@ public class MessageMeterInterceptor implements MessageInterceptor {
                 .put(MetricLabels.INVOCATION_STATUS, invocationStatus.getName())
                 .build();
             final Optional<DoubleHistogram> optionalHistogram =
-                clientMeterProvider.getHistogramByName(MetricName.PROCESS_TIME);
+                clientMeterProvider.getHistogramByEnum(HistogramEnum.PROCESS_TIME);
             if (!optionalHistogram.isPresent()) {
                 return;
             }

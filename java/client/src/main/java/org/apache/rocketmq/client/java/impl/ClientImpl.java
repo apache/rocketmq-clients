@@ -95,6 +95,8 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientImpl.class);
     private static final Duration TOPIC_ROUTE_AWAIT_DURATION_DURING_STARTUP = Duration.ofSeconds(3);
 
+    private static final Duration TELEMETRY_TIMEOUT = Duration.ofDays(102 * 365);
+
     protected volatile ClientManager clientManager;
     protected final ClientConfiguration clientConfiguration;
     protected final Endpoints accessEndpoints;
@@ -104,7 +106,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     protected final ExecutorService clientCallbackExecutor;
     protected final ClientMeterProvider clientMeterProvider;
     /**
-     * Telemetry command executor, which is aims to execute commands from remote.
+     * Telemetry command executor, which aims to execute commands from the remote.
      */
     protected final ThreadPoolExecutor telemetryCommandExecutor;
     protected final String clientId;
@@ -290,7 +292,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         StreamObserver<TelemetryCommand> observer) throws ClientException {
         try {
             final Metadata metadata = this.sign();
-            return clientManager.telemetry(endpoints, metadata, Duration.ofNanos(Long.MAX_VALUE), observer);
+            return clientManager.telemetry(endpoints, metadata, TELEMETRY_TIMEOUT, observer);
         } catch (ClientException e) {
             throw e;
         } catch (Throwable t) {

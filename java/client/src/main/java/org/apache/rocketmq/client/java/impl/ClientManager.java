@@ -205,6 +205,16 @@ public interface ClientManager {
     ListenableFuture<InvocationContext<NotifyClientTerminationResponse>> notifyClientTermination(Endpoints endpoints,
         Metadata metadata, NotifyClientTerminationRequest request, Duration duration);
 
+    /**
+     * Establish telemetry session stream to server.
+     *
+     * @param endpoints        request endpoints.
+     * @param metadata         gRPC request header metadata.
+     * @param duration         stream max duration.
+     * @param responseObserver response observer.
+     * @return request observer.
+     * @throws ClientException if failed to establish telemetry session stream.
+     */
     StreamObserver<TelemetryCommand> telemetry(Endpoints endpoints, Metadata metadata,
         Duration duration, StreamObserver<TelemetryCommand> responseObserver) throws ClientException;
 }

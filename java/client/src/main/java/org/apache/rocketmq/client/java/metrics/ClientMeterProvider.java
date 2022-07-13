@@ -69,8 +69,8 @@ public class ClientMeterProvider {
         this.messageCacheObserver = messageCacheObserver;
     }
 
-    Optional<DoubleHistogram> getHistogramByName(MetricName metricName) {
-        return clientMeter.getHistogramByName(metricName);
+    Optional<DoubleHistogram> getHistogramByEnum(HistogramEnum histogramEnum) {
+        return clientMeter.getHistogramByEnum(histogramEnum);
     }
 
     public synchronized void reset(Metric metric) {
@@ -103,22 +103,22 @@ public class ClientMeterProvider {
                 .build();
 
             InstrumentSelector sendSuccessCostTimeInstrumentSelector = InstrumentSelector.builder()
-                .setType(InstrumentType.HISTOGRAM).setName(MetricName.SEND_SUCCESS_COST_TIME.getName()).build();
+                .setType(InstrumentType.HISTOGRAM).setName(HistogramEnum.SEND_SUCCESS_COST_TIME.getName()).build();
             final View sendSuccessCostTimeView = View.builder()
-                .setAggregation(HistogramBuckets.SEND_SUCCESS_COST_TIME_BUCKET).build();
+                .setAggregation(HistogramEnum.SEND_SUCCESS_COST_TIME.getBucket()).build();
 
             InstrumentSelector deliveryLatencyInstrumentSelector = InstrumentSelector.builder()
-                .setType(InstrumentType.HISTOGRAM).setName(MetricName.DELIVERY_LATENCY.getName()).build();
-            final View deliveryLatencyView = View.builder().setAggregation(HistogramBuckets.DELIVERY_LATENCY_BUCKET)
+                .setType(InstrumentType.HISTOGRAM).setName(HistogramEnum.DELIVERY_LATENCY.getName()).build();
+            final View deliveryLatencyView = View.builder().setAggregation(HistogramEnum.DELIVERY_LATENCY.getBucket())
                 .build();
 
             InstrumentSelector awaitTimeInstrumentSelector = InstrumentSelector.builder()
-                .setType(InstrumentType.HISTOGRAM).setName(MetricName.AWAIT_TIME.getName()).build();
-            final View awaitTimeView = View.builder().setAggregation(HistogramBuckets.AWAIT_TIME_BUCKET).build();
+                .setType(InstrumentType.HISTOGRAM).setName(HistogramEnum.AWAIT_TIME.getName()).build();
+            final View awaitTimeView = View.builder().setAggregation(HistogramEnum.AWAIT_TIME.getBucket()).build();
 
             InstrumentSelector processTimeInstrumentSelector = InstrumentSelector.builder()
-                .setType(InstrumentType.HISTOGRAM).setName(MetricName.PROCESS_TIME.getName()).build();
-            final View processTimeView = View.builder().setAggregation(HistogramBuckets.PROCESS_TIME_BUCKET).build();
+                .setType(InstrumentType.HISTOGRAM).setName(HistogramEnum.PROCESS_TIME.getName()).build();
+            final View processTimeView = View.builder().setAggregation(HistogramEnum.PROCESS_TIME.getBucket()).build();
 
             PeriodicMetricReader reader = PeriodicMetricReader.builder(exporter)
                 .setInterval(METRIC_READER_INTERVAL).build();
@@ -146,7 +146,7 @@ public class ClientMeterProvider {
                 return;
             }
             final String consumerGroup = ((PushConsumer) client).getConsumerGroup();
-            meter.gaugeBuilder(MetricName.CONSUMER_CACHED_MESSAGES.getName()).buildWithCallback(measurement -> {
+            meter.gaugeBuilder(GaugeEnum.CONSUMER_CACHED_MESSAGES.getName()).buildWithCallback(measurement -> {
                 final Map<String, Long> cachedMessageCountMap = messageCacheObserver.getCachedMessageCount();
                 for (Map.Entry<String, Long> entry : cachedMessageCountMap.entrySet()) {
                     final String topic = entry.getKey();
@@ -157,7 +157,7 @@ public class ClientMeterProvider {
                     measurement.record(entry.getValue(), attributes);
                 }
             });
-            meter.gaugeBuilder(MetricName.CONSUMER_CACHED_BYTES.getName()).buildWithCallback(measurement -> {
+            meter.gaugeBuilder(GaugeEnum.CONSUMER_CACHED_BYTES.getName()).buildWithCallback(measurement -> {
                 final Map<String, Long> cachedMessageBytesMap = messageCacheObserver.getCachedMessageBytes();
                 for (Map.Entry<String, Long> entry : cachedMessageBytesMap.entrySet()) {
                     final String topic = entry.getKey();

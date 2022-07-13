@@ -39,7 +39,7 @@ public class ClientMeter {
     private final Meter meter;
     private final Endpoints endpoints;
     private final SdkMeterProvider provider;
-    private final ConcurrentMap<MetricName, DoubleHistogram> histogramMap;
+    private final ConcurrentMap<String /* histogram name */, DoubleHistogram> histogramMap;
 
     public ClientMeter(Meter meter, Endpoints endpoints, SdkMeterProvider provider) {
         this.enabled = true;
@@ -65,9 +65,9 @@ public class ClientMeter {
         return endpoints;
     }
 
-    Optional<DoubleHistogram> getHistogramByName(MetricName metricName) {
-        final DoubleHistogram histogram = histogramMap.computeIfAbsent(metricName, name -> enabled ?
-            meter.histogramBuilder(name.getName()).build() : null);
+    Optional<DoubleHistogram> getHistogramByEnum(HistogramEnum histogramEnum) {
+        final DoubleHistogram histogram = histogramMap.computeIfAbsent(histogramEnum.getName(), name -> enabled ?
+            meter.histogramBuilder(histogramEnum.getName()).build() : null);
         return null == histogram ? Optional.empty() : Optional.of(histogram);
     }
 
