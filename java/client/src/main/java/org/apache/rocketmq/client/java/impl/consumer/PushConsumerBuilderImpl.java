@@ -19,10 +19,10 @@ package org.apache.rocketmq.client.java.impl.consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.rocketmq.client.java.impl.consumer.ConsumerImpl.CONSUMER_GROUP_PATTERN;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Pattern;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
@@ -34,14 +34,12 @@ import org.apache.rocketmq.client.apis.consumer.PushConsumerBuilder;
  * Implementation of {@link PushConsumerBuilder}
  */
 public class PushConsumerBuilderImpl implements PushConsumerBuilder {
-    private static final Pattern CONSUMER_GROUP_PATTERN = Pattern.compile("^[%|a-zA-Z0-9._-]{1,255}$");
-
     private ClientConfiguration clientConfiguration = null;
     private String consumerGroup = null;
     private Map<String, FilterExpression> subscriptionExpressions = new ConcurrentHashMap<>();
     private MessageListener messageListener = null;
-    private int maxCacheMessageCount = 5000;
-    private int maxCacheMessageSizeInBytes = 500 * 1024 * 1024;
+    private int maxCacheMessageCount = 1024;
+    private int maxCacheMessageSizeInBytes = 64 * 1024 * 1024;
     private int consumptionThreadCount = 20;
 
     /**

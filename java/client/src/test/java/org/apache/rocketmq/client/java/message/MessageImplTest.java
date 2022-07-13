@@ -41,12 +41,6 @@ public class MessageImplTest extends TestBase {
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void testTopicSetterWithLengthEquals128() {
-        String topicWithLengthEquals128 = new String(new char[128]).replace("\0", "a");
-        provider.newMessageBuilder().setTopic(topicWithLengthEquals128);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
     public void testTagSetterWithVerticalBar() {
         provider.newMessageBuilder().setTag("|");
     }

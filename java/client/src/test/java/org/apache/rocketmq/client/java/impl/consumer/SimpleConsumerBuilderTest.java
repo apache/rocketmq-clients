@@ -17,7 +17,6 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.tool.TestBase;
@@ -35,13 +34,6 @@ public class SimpleConsumerBuilderTest extends TestBase {
     public void testSetConsumerGroupWithNull() {
         final SimpleConsumerBuilderImpl builder = new SimpleConsumerBuilderImpl();
         builder.setConsumerGroup(null);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void testSetConsumerGroupWithTooLong() {
-        final SimpleConsumerBuilderImpl builder = new SimpleConsumerBuilderImpl();
-        String tooLongConsumerGroup = StringUtils.repeat("a", 256);
-        builder.setConsumerGroup(tooLongConsumerGroup);
     }
 
     @Test(expected = IllegalArgumentException.class)
