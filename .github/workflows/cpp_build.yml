@@ -1,5 +1,8 @@
 name: CPP Build
-on: [push, pull_request]
+on:
+  pull_request:
+    types: [opened, reopened]
+  push:
 jobs:
   cpp_build:
     name: "CPP (${{ matrix.os }})"

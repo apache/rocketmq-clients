@@ -1,5 +1,8 @@
 name: Golang Build
-on: [push, pull_request]
+on:
+  pull_request:
+    types: [opened, reopened]
+  push:
 jobs:
   cpp_build:
     name: "Golang (${{ matrix.os }}, Go ${{ matrix.go }})"
