@@ -136,8 +136,6 @@ TEST(StatsTest, testBasics) {
   std::atomic_bool stopped{false};
   auto generator = [&]() {
     while (!stopped) {
-      opencensus::stats::Record({{metrics.success(), 1}}, {{Tag::topicTag(), t1}, {Tag::clientIdTag(), "client-0"}});
-      opencensus::stats::Record({{metrics.success(), 100}}, {{Tag::topicTag(), t2}, {Tag::clientIdTag(), "client-0"}});
       for (std::size_t i = 0; i < 10; i++) {
         opencensus::stats::Record({{metrics.latency(), i * 10}},
                                   {{Tag::topicTag(), t1}, {Tag::clientIdTag(), "client-0"}});

@@ -106,8 +106,7 @@ public:
 
   void buildClientSettings(rmq::Settings& settings) override;
 
-  void topicsOfInterest(std::vector<std::string> topics)
-      LOCKS_EXCLUDED(topics_mtx_);
+  void topicsOfInterest(std::vector<std::string> topics) override LOCKS_EXCLUDED(topics_mtx_);
 
   const PublishStats& stats() const { return stats_; }
 
@@ -152,7 +151,7 @@ private:
 
   void ensureRunning(std::error_code& ec) const noexcept;
 
-  bool validate(const Message& message);
+  void validate(const Message& message, std::error_code& ec);
 
   void send0(MessageConstPtr message, SendCallback callback, std::vector<rmq::MessageQueue> list);
 

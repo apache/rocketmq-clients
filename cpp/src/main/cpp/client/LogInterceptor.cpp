@@ -15,13 +15,15 @@
  * limitations under the License.
  */
 #include "LogInterceptor.h"
+
+#include <cstddef>
+
 #include "InterceptorContinuation.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/str_join.h"
 #include "google/protobuf/message.h"
 #include "rocketmq/Logger.h"
 #include "spdlog/spdlog.h"
-#include <cstddef>
 
 ROCKETMQ_NAMESPACE_BEGIN
 

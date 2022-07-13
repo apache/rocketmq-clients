@@ -50,6 +50,12 @@ public:
 
   virtual std::shared_ptr<RpcClient> getRpcClient(const std::string& target_host, bool need_heartbeat) = 0;
 
+  /**
+   * @brief Create a Channel object
+   *
+   * @param target_host gRPC naming targets, following https://github.com/grpc/grpc/blob/master/doc/naming.md
+   * @return std::shared_ptr<grpc::Channel>
+   */
   virtual std::shared_ptr<grpc::Channel> createChannel(const std::string& target_host) = 0;
 
   virtual void resolveRoute(const std::string& target_host, const Metadata& metadata, const QueryRouteRequest& request,

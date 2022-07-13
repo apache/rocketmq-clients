@@ -59,6 +59,7 @@ public:
 private:
   std::weak_ptr<Client> client_;
   std::weak_ptr<OpencensusExporter> exporter_;
+  grpc::ClientContext context_;
 
   ExportMetricsServiceRequest request_;
 

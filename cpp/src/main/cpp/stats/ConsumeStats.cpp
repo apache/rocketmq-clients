@@ -22,18 +22,7 @@
 ROCKETMQ_NAMESPACE_BEGIN
 
 ConsumeStats::ConsumeStats()
-    : process_success_(
-          opencensus::stats::MeasureInt64::Register("process_success", "Number of messages processed", "1")),
-      process_failure_(opencensus::stats::MeasureInt64::Register(
-          "process_failure", "Number of failures when processing messages", "1")),
-      ack_success_(opencensus::stats::MeasureInt64::Register("ack_success", "Number of messages acknowledged", "1")),
-      ack_failure_(opencensus::stats::MeasureInt64::Register(
-          "ack_failure", "Number of failures when acknowledging messages", "1")),
-      change_invisible_time_success_(opencensus::stats::MeasureInt64::Register(
-          "change_invisible_time_success", "Number of change-invisible-time performed", "1")),
-      change_invisible_time_failure_(opencensus::stats::MeasureInt64::Register(
-          "change_invisible_time_failure", "Number of failures when changing message invisible time", "1")),
-      cached_message_quantity_(opencensus::stats::MeasureInt64::Register(
+    : cached_message_quantity_(opencensus::stats::MeasureInt64::Register(
           "cached_message_quantity", "Number of locally cached messages", "1")),
       cached_message_bytes_(opencensus::stats::MeasureInt64::Register(
           "cached_message_bytes", "Number of locally cached messages in bytes", "1")),
@@ -42,60 +31,6 @@ ConsumeStats::ConsumeStats()
       await_time_(opencensus::stats::MeasureInt64::Register(
           "await_time", "Client side queuing time of messages before getting processed", "1")),
       process_time_(opencensus::stats::MeasureInt64::Register("process_time", "Process message time", "1")) {
-  opencensus::stats::ViewDescriptor()
-      .set_name("rocketmq_process_success_total")
-      .set_description("Number of messages processed")
-      .set_measure("process_success")
-      .set_aggregation(opencensus::stats::Aggregation::Sum())
-      .add_column(Tag::topicTag())
-      .add_column(Tag::clientIdTag())
-      .RegisterForExport();
-
-  opencensus::stats::ViewDescriptor()
-      .set_name("rocketmq_process_failure_total")
-      .set_description("Number of failures on processing messages")
-      .set_measure("process_failure")
-      .set_aggregation(opencensus::stats::Aggregation::Sum())
-      .add_column(Tag::topicTag())
-      .add_column(Tag::clientIdTag())
-      .RegisterForExport();
-
-  opencensus::stats::ViewDescriptor()
-      .set_name("rocketmq_ack_success_total")
-      .set_description("Number of messages acknowledged")
-      .set_measure("ack_success")
-      .set_aggregation(opencensus::stats::Aggregation::Sum())
-      .add_column(Tag::topicTag())
-      .add_column(Tag::clientIdTag())
-      .RegisterForExport();
-
-  opencensus::stats::ViewDescriptor()
-      .set_name("rocketmq_ack_failure_total")
-      .set_description("Number of failures on acknowledging messages")
-      .set_measure("ack_failure")
-      .set_aggregation(opencensus::stats::Aggregation::Sum())
-      .add_column(Tag::topicTag())
-      .add_column(Tag::clientIdTag())
-      .RegisterForExport();
-
-  opencensus::stats::ViewDescriptor()
-      .set_name("rocketmq_change_invisible_time_success_total")
-      .set_description("Number of change-invisible-time operations")
-      .set_measure("change_invisible_time_success")
-      .set_aggregation(opencensus::stats::Aggregation::Sum())
-      .add_column(Tag::topicTag())
-      .add_column(Tag::clientIdTag())
-      .RegisterForExport();
-
-  opencensus::stats::ViewDescriptor()
-      .set_name("rocketmq_change_invisible_time_failure_total")
-      .set_description("Number of failed change-invisible-time operations")
-      .set_measure("change_invisible_time_failure")
-      .set_aggregation(opencensus::stats::Aggregation::Sum())
-      .add_column(Tag::topicTag())
-      .add_column(Tag::clientIdTag())
-      .RegisterForExport();
-
   opencensus::stats::ViewDescriptor()
       .set_name("rocketmq_consumer_cached_messages")
       .set_description("Number of messages locally cached")

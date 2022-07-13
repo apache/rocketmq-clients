@@ -49,12 +49,7 @@ void SendContext::onSuccess(const SendReceipt& send_receipt) noexcept {
                               {
                                   {Tag::topicTag(), message_->topic()},
                                   {Tag::clientIdTag(), publisher->config().client_id},
-                              });
-
-    opencensus::stats::Record({{publisher->stats().success(), 1}},
-                              {
-                                  {Tag::topicTag(), message_->topic()},
-                                  {Tag::clientIdTag(), publisher->config().client_id},
+                                  {Tag::invocationStatus(), "success"},
                               });
   }
 
@@ -82,12 +77,7 @@ void SendContext::onFailure(const std::error_code& ec) noexcept {
                               {
                                   {Tag::topicTag(), message_->topic()},
                                   {Tag::clientIdTag(), publisher->config().client_id},
-                              });
-
-    opencensus::stats::Record({{publisher->stats().failure(), 1}},
-                              {
-                                  {Tag::topicTag(), message_->topic()},
-                                  {Tag::clientIdTag(), publisher->config().client_id},
+                                  {Tag::invocationStatus(), "failure"},
                               });
   }
 

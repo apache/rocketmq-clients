@@ -14,23 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "PublishStats.h"
+#pragma once
 
-#include "Tag.h"
+#include "OpencensusExporter.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
-PublishStats::PublishStats()
-    : latency_(opencensus::stats::MeasureInt64::Register("publish_latency", "Publish latency in milliseconds", "ms")) {
-  opencensus::stats::ViewDescriptor()
-      .set_name("rocketmq_send_cost_time")
-      .set_description("Publish latency")
-      .set_measure("publish_latency")
-      .set_aggregation(opencensus::stats::Aggregation::Distribution(
-          opencensus::stats::BucketBoundaries::Explicit({1, 5, 10, 20, 50, 200, 500})))
-      .add_column(Tag::topicTag())
-      .add_column(Tag::clientIdTag())
-      .RegisterForExport();
-}
+class OpencensusHandler : public opencensus::stats::StatsExporter::Handler {
+public:
+  OpencensusHandler(std::string endpoints, std::weak_ptr<Client> client);
+
+  void ExportViewData(const MetricData& data) override;
+
+  std::shared_ptr<OpencensusExporter> exporter_;
+};
 
 ROCKETMQ_NAMESPACE_END

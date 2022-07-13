@@ -322,16 +322,20 @@ enum Code {
   ILLEGAL_MESSAGE_ID = 40009;
   // Format of filter expression is illegal.
   ILLEGAL_FILTER_EXPRESSION = 40010;
+  // The invisible time of request is invalid.
+  ILLEGAL_INVISIBLE_TIME = 40011;
+  // The delivery timestamp of message is invalid.
+  ILLEGAL_DELIVERY_TIME = 40012;
   // Receipt handle of message is invalid.
-  INVALID_RECEIPT_HANDLE = 40011;
+  INVALID_RECEIPT_HANDLE = 40013;
   // Message property conflicts with its type.
-  MESSAGE_PROPERTY_CONFLICT_WITH_TYPE = 40012;
+  MESSAGE_PROPERTY_CONFLICT_WITH_TYPE = 40014;
   // Client type could not be recognized.
-  UNRECOGNIZED_CLIENT_TYPE = 40013;
+  UNRECOGNIZED_CLIENT_TYPE = 40015;
   // Message is corrupted.
-  MESSAGE_CORRUPTED = 40014;
+  MESSAGE_CORRUPTED = 40016;
   // Request is rejected due to missing of x-mq-client-id header.
-  CLIENT_ID_REQUIRED = 40015;
+  CLIENT_ID_REQUIRED = 40017;
 
   // Generic code indicates that the client request lacks valid authentication
   // credentials for the requested resource.

@@ -32,7 +32,6 @@ ROCKETMQ_NAMESPACE_BEGIN
 
 struct PublisherConfig {
   std::vector<rmq::Resource> topics;
-  std::uint32_t compress_body_threshold{4096};
   std::uint32_t max_body_size{4194304};
 };
 
@@ -54,7 +53,7 @@ struct ClientConfig {
   rmq::ClientType client_type{rmq::ClientType::CLIENT_TYPE_UNSPECIFIED};
   RetryPolicy backoff_policy;
   // TODO: use std::chrono::milliseconds
-  absl::Duration request_timeout;
+  absl::Duration request_timeout{absl::Seconds(3)};
   std::string region{"cn-hangzhou"};
   std::string resource_namespace;
   std::shared_ptr<CredentialsProvider> credentials_provider;

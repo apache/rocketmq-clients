@@ -21,6 +21,7 @@
 #include "LoggerImpl.h"
 #include "PushConsumerImpl.h"
 #include "Tag.h"
+#include "rocketmq/ConsumeResult.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -128,18 +129,43 @@ void ConsumeTask::process() {
       auto it = messages_.begin();
       SPDLOG_DEBUG("Start to process message[message-id={}]", (*it)->id());
       svc->preHandle(**it);
+
+      // Collect metrics of await_time
       auto await_time = std::chrono::system_clock::now() - (*it)->extension().decode_time;
       opencensus::stats::Record(
           {{consumer->stats().awaitTime(), MixAll::millisecondsOf(await_time)}},
           {{Tag::topicTag(), (*it)->topic()}, {Tag::clientIdTag(), consumer->config().client_id}});
 
       std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+
+      // Invoke user-defined-callback
       auto result = listener(**it);
+
+      // Collect metrics of process_time
       auto duration = std::chrono::steady_clock::now() - start;
-      opencensus::stats::Record(
-          {{consumer->stats().processTime(), MixAll::millisecondsOf(duration)}},
-          {{Tag::topicTag(), (*it)->topic()}, {Tag::clientIdTag(), consumer->config().client_id}});
+      switch (result) {
+        case ConsumeResult::SUCCESS: {
+          opencensus::stats::Record({{consumer->stats().processTime(), MixAll::millisecondsOf(duration)}},
+                                    {
+                                        {Tag::topicTag(), (*it)->topic()},
+                                        {Tag::clientIdTag(), consumer->config().client_id},
+                                        {Tag::invocationStatus(), "success"},
+                                    });
+          break;
+        }
+        case ConsumeResult::FAILURE: {
+          opencensus::stats::Record({{consumer->stats().processTime(), MixAll::millisecondsOf(duration)}},
+                                    {
+                                        {Tag::topicTag(), (*it)->topic()},
+                                        {Tag::clientIdTag(), consumer->config().client_id},
+                                        {Tag::invocationStatus(), "failure"},
+                                    });
+          break;
+        }
+      }
+
       svc->postHandle(**it, result);
+
       switch (result) {
         case ConsumeResult::SUCCESS: {
           auto callback = std::bind(&ConsumeTask::onAck, self, std::placeholders::_1);

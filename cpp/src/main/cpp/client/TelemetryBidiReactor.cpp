@@ -244,7 +244,6 @@ void TelemetryBidiReactor::applyBackoffPolicy(const rmq::Settings& settings, std
 
 void TelemetryBidiReactor::applyPublishingConfig(const rmq::Settings& settings, std::shared_ptr<Client> client) {
   client->config().publisher.max_body_size = settings.publishing().max_body_size();
-  client->config().publisher.compress_body_threshold = settings.publishing().compress_body_threshold();
 }
 
 void TelemetryBidiReactor::applySubscriptionConfig(const rmq::Settings& settings, std::shared_ptr<Client> client) {

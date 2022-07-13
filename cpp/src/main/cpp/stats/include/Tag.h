@@ -27,9 +27,7 @@ public:
 
   static opencensus::tags::TagKey& clientIdTag();
 
-  static opencensus::tags::TagKey& userIdTag();
-
-  static opencensus::tags::TagKey& deploymentTag();
+  static opencensus::tags::TagKey& invocationStatus();
 };
 
 ROCKETMQ_NAMESPACE_END

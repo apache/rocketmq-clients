@@ -19,12 +19,15 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
+#include <system_error>
 
+#include "LoggerImpl.h"
 #include "absl/random/random.h"
 #include "absl/strings/str_split.h"
 #include "fmt/format.h"
 #include "openssl/md5.h"
 #include "openssl/sha.h"
+#include "rocketmq/ErrorCode.h"
 #include "zlib.h"
 
 #ifdef _WIN32
@@ -49,7 +52,7 @@ const uint32_t MixAll::DEFAULT_CONSUME_THREAD_POOL_SIZE = 20;
 const uint32_t MixAll::DEFAULT_CONSUME_MESSAGE_BATCH_SIZE = 1;
 const int32_t MixAll::DEFAULT_MAX_DELIVERY_ATTEMPTS = 16;
 
-const RE2 MixAll::TOPIC_REGEX("[a-zA-Z0-9\\-_]{3,64}");
+const RE2 MixAll::TOPIC_REGEX("[a-zA-Z0-9\\-_%]{1,64}");
 const RE2 MixAll::IP_REGEX("\\d+\\.\\d+\\.\\d+\\.\\d+");
 
 const std::chrono::duration<long long> MixAll::DEFAULT_INVISIBLE_TIME_ = std::chrono::seconds(30);
@@ -138,26 +141,20 @@ const char* MixAll::SPAN_ANNOTATION_AWAIT_CONSUMPTION = "__await_consumption";
 const char* MixAll::SPAN_ANNOTATION_MESSAGE_KEYS = "__message_keys";
 const char* MixAll::SPAN_ANNOTATION_ATTR_START_TIME = "__start_time";
 
-bool MixAll::validate(const Message& message) {
+void MixAll::validate(const Message& message, std::error_code& ec) {
   if (message.topic().empty()) {
-    return false;
+    SPDLOG_WARN("Topic of the message to publish is empty");
+    ec = ErrorCode::IllegalTopic;
+    return;
   }
+
   const std::string& topic = message.topic();
-  // Topic should not start with "CID" or "GID" which are reserved prefix
-  if (absl::StartsWith(topic, "CID") || absl::StartsWith(topic, "GID")) {
-    return false;
-  }
 
   // Legal topic characters are a-z, A-Z, 0-9, hyphen('-') and underline('_')
   if (!RE2::FullMatch(topic, TOPIC_REGEX)) {
-    return false;
+    SPDLOG_WARN("Topic of the message to publish does not match [a-zA-Z0-9\\-_%]{1,64}");
+    ec = ErrorCode::IllegalTopic;
   }
-
-  uint32_t body_length = message.body().length();
-  if (!body_length || body_length > MAX_MESSAGE_BODY_SIZE) {
-    return false;
-  }
-  return true;
 }
 
 uint32_t MixAll::random(uint32_t left, uint32_t right) {

@@ -44,7 +44,7 @@ PushConsumerImpl::~PushConsumerImpl() {
   shutdown();
 }
 
-void PushConsumerImpl::topicsOfInterest(std::vector<std::string>& topics) {
+void PushConsumerImpl::topicsOfInterest(std::vector<std::string> topics) {
   absl::MutexLock lk(&topic_filter_expression_table_mtx_);
   for (const auto& entry : topic_filter_expression_table_) {
     topics.push_back(entry.first);
@@ -214,7 +214,7 @@ void PushConsumerImpl::queryAssignment(
     absl::flat_hash_map<std::string, std::string> metadata;
     Signature::sign(client_config_, metadata);
     auto assignment_callback = [this, cb, topic, broker_host](const std::error_code& ec,
-                                                              const QueryAssignmentResponse& response) {
+                                                        const QueryAssignmentResponse& response) {
       if (ec) {
         SPDLOG_WARN("Failed to acquire queue assignment of topic={} from brokerAddress={}", topic, broker_host);
         cb(ec, nullptr);

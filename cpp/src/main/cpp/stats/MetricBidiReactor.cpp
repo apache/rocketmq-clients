@@ -16,6 +16,8 @@
  */
 #include "MetricBidiReactor.h"
 
+#include <chrono>
+
 #include "LoggerImpl.h"
 #include "OpencensusExporter.h"
 #include "Signature.h"
@@ -24,23 +26,22 @@ ROCKETMQ_NAMESPACE_BEGIN
 
 MetricBidiReactor::MetricBidiReactor(std::weak_ptr<Client> client, std::weak_ptr<OpencensusExporter> exporter)
     : client_(client), exporter_(exporter) {
-  grpc::ClientContext context;
   auto ptr = client_.lock();
 
   Metadata metadata;
   Signature::sign(ptr->config(), metadata);
 
   for (const auto& entry : metadata) {
-    context.AddMetadata(entry.first, entry.second);
+    context_.AddMetadata(entry.first, entry.second);
   }
-  context.set_deadline(std::chrono::system_clock::now() + absl::ToChronoMilliseconds(ptr->config().request_timeout));
+  context_.set_deadline(std::chrono::system_clock::now() + std::chrono::hours(24));
 
   auto exporter_ptr = exporter_.lock();
   if (!exporter_ptr) {
+    SPDLOG_WARN("Exporter has already been destructed");
     return;
   }
-
-  exporter_ptr->stub()->async()->Export(&context, this);
+  exporter_ptr->stub()->async()->Export(&context_, this);
   StartCall();
 }
 
@@ -49,7 +50,7 @@ void MetricBidiReactor::OnReadDone(bool ok) {
     SPDLOG_WARN("Failed to read response");
     return;
   }
-
+  SPDLOG_DEBUG("OnReadDone OK");
   StartRead(&response_);
 }
 
@@ -58,7 +59,8 @@ void MetricBidiReactor::OnWriteDone(bool ok) {
     SPDLOG_WARN("Failed to report metrics");
     return;
   }
-
+  SPDLOG_DEBUG("OnWriteDone OK");
+  fireRead();
   bool expected = true;
   if (inflight_.compare_exchange_strong(expected, false, std::memory_order_relaxed)) {
     fireWrite();
@@ -75,10 +77,15 @@ void MetricBidiReactor::OnDone(const grpc::Status& s) {
     SPDLOG_DEBUG("Bi-directional stream ended. status.code={}, status.message={}", s.error_code(), s.error_message());
   } else {
     SPDLOG_WARN("Bi-directional stream ended. status.code={}, status.message={}", s.error_code(), s.error_message());
+    auto exporter = exporter_.lock();
+    if (exporter) {
+      exporter->resetStream();
+    }
   }
 }
 
 void MetricBidiReactor::write(ExportMetricsServiceRequest request) {
+  SPDLOG_DEBUG("Append ExportMetricsServiceRequest to buffer");
   {
     absl::MutexLock lk(&requests_mtx_);
     requests_.emplace_back(std::move(request));
@@ -99,10 +106,10 @@ void MetricBidiReactor::fireWrite() {
   bool expected = false;
   if (inflight_.compare_exchange_strong(expected, true, std::memory_order_relaxed)) {
     absl::MutexLock lk(&requests_mtx_);
-    request_.CopyFrom(requests_[0]);
+    request_ = std::move(*requests_.begin());
     requests_.erase(requests_.begin());
+    SPDLOG_DEBUG("MetricBidiReactor#StartWrite");
     StartWrite(&request_);
-    fireRead();
   }
 }
 
