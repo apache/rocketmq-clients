@@ -50,7 +50,7 @@ public class MessageMeterProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(MessageMeterProvider.class);
 
     private static final Duration METRIC_EXPORTER_RPC_TIMEOUT = Duration.ofSeconds(3);
-    private static final Duration METRIC_READER_INTERVAL = Duration.ofSeconds(1);
+    private static final Duration METRIC_READER_INTERVAL = Duration.ofMinutes(1);
     private static final String METRIC_INSTRUMENTATION_NAME = "org.apache.rocketmq.message";
 
     private final ClientImpl client;

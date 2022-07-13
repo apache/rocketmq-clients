@@ -316,6 +316,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
                 case BAD_REQUEST:
                 case ILLEGAL_TOPIC:
                 case ILLEGAL_CONSUMER_GROUP:
+                case ILLEGAL_INVISIBLE_TIME:
                 case INVALID_RECEIPT_HANDLE:
                 case CLIENT_ID_REQUIRED:
                     throw new BadRequestException(code.getNumber(), status.getMessage());
