@@ -72,7 +72,7 @@ import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.hook.MessageInterceptor;
 import org.apache.rocketmq.client.java.message.MessageCommon;
-import org.apache.rocketmq.client.java.metrics.MessageMeterProvider;
+import org.apache.rocketmq.client.java.metrics.ClientMeterProvider;
 import org.apache.rocketmq.client.java.metrics.Metric;
 import org.apache.rocketmq.client.java.misc.ExecutorServices;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
@@ -97,7 +97,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     // Thread-safe set.
     protected final Set<Endpoints> isolated;
     protected final ExecutorService clientCallbackExecutor;
-    protected final MessageMeterProvider messageMeterProvider;
+    protected final ClientMeterProvider clientMeterProvider;
     /**
      * Telemetry command executor, which is aims to execute commands from remote.
      */
@@ -147,8 +147,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             new LinkedBlockingQueue<>(),
             new ThreadFactoryImpl("ClientCallbackWorker"));
 
-        this.messageMeterProvider = new MessageMeterProvider(this);
-
+        this.clientMeterProvider = new ClientMeterProvider(this);
         this.telemetryCommandExecutor = new ThreadPoolExecutor(
             1,
             1,
@@ -317,7 +316,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      */
     public final void onSettingsCommand(Endpoints endpoints, Settings settings) {
         final Metric metric = new Metric(settings.getMetric());
-        messageMeterProvider.reset(metric);
+        clientMeterProvider.reset(metric);
         LOGGER.info("Receive settings from remote, endpoints={}", endpoints);
         this.getClientSettings().applySettingsCommand(settings);
     }
