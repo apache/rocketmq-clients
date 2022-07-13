@@ -46,7 +46,7 @@ import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.java.impl.ClientManagerImpl;
 import org.apache.rocketmq.client.java.impl.ClientManagerRegistry;
-import org.apache.rocketmq.client.java.impl.TelemetrySession;
+import org.apache.rocketmq.client.java.impl.ClientSessionImpl;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.tool.TestBase;
@@ -87,7 +87,7 @@ public class PushConsumerImplTest extends TestBase {
             any(Duration.class)))
             .thenReturn(okQueryRouteResponseFuture());
         when(clientManager.telemetry(any(Endpoints.class), any(Metadata.class), any(Duration.class),
-            any(TelemetrySession.class)))
+            any(ClientSessionImpl.class)))
             .thenReturn(telemetryRequestObserver);
         final ScheduledThreadPoolExecutor scheduler = new ScheduledThreadPoolExecutor(1, new ThreadFactoryImpl(
             "TestScheduler"));

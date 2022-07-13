@@ -33,6 +33,7 @@ import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.metrics.View;
 import io.opentelemetry.sdk.metrics.export.AggregationTemporalitySelector;
 import io.opentelemetry.sdk.metrics.export.PeriodicMetricReader;
+import io.opentelemetry.sdk.resources.Resource;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.List;
@@ -73,7 +74,7 @@ public class ClientMeterProvider {
     }
 
     public synchronized void reset(Metric metric) {
-        final String clientId = client.getClientId();
+        final String clientId = client.clientId();
         try {
             if (clientMeter.satisfy(metric)) {
                 LOGGER.debug("Metric settings is satisfied by the current message meter, clientId={}", clientId);
@@ -122,7 +123,9 @@ public class ClientMeterProvider {
             PeriodicMetricReader reader = PeriodicMetricReader.builder(exporter)
                 .setInterval(METRIC_READER_INTERVAL).build();
 
-            final SdkMeterProvider provider = SdkMeterProvider.builder().registerMetricReader(reader)
+            final SdkMeterProvider provider = SdkMeterProvider.builder()
+                .setResource(Resource.empty())
+                .registerMetricReader(reader)
                 .registerView(sendSuccessCostTimeInstrumentSelector, sendSuccessCostTimeView)
                 .registerView(deliveryLatencyInstrumentSelector, deliveryLatencyView)
                 .registerView(awaitTimeInstrumentSelector, awaitTimeView)

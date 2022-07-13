@@ -55,7 +55,7 @@ public class MessageMeterInterceptor implements MessageInterceptor {
             InvocationStatus invocationStatus = MessageHookPointsStatus.OK.equals(status) ? InvocationStatus.SUCCESS :
                 InvocationStatus.FAILURE;
             Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, messageCommon.getTopic())
-                .put(MetricLabels.CLIENT_ID, clientMeterProvider.getClient().getClientId())
+                .put(MetricLabels.CLIENT_ID, clientMeterProvider.getClient().clientId())
                 .put(MetricLabels.INVOCATION_STATUS, invocationStatus.getName()).build();
             histogram.record(duration.toMillis(), attributes);
         }
@@ -74,7 +74,7 @@ public class MessageMeterInterceptor implements MessageInterceptor {
             consumerGroup = ((SimpleConsumer) client).getConsumerGroup();
         }
         if (null == consumerGroup) {
-            LOGGER.error("[Bug] consumerGroup is not recognized, clientId={}", client.getClientId());
+            LOGGER.error("[Bug] consumerGroup is not recognized, clientId={}", client.clientId());
             return;
         }
         final MessageCommon messageCommon = messageCommons.iterator().next();
@@ -92,7 +92,7 @@ public class MessageMeterInterceptor implements MessageInterceptor {
         final DoubleHistogram histogram = optionalHistogram.get();
         final Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, messageCommon.getTopic())
             .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
-            .put(MetricLabels.CLIENT_ID, client.getClientId()).build();
+            .put(MetricLabels.CLIENT_ID, client.clientId()).build();
         histogram.record(latency, attributes);
     }
 
@@ -103,7 +103,7 @@ public class MessageMeterInterceptor implements MessageInterceptor {
             consumerGroup = ((PushConsumer) client).getConsumerGroup();
         }
         if (null == consumerGroup) {
-            LOGGER.error("[Bug] consumerGroup is not recognized, clientId={}", client.getClientId());
+            LOGGER.error("[Bug] consumerGroup is not recognized, clientId={}", client.clientId());
             return;
         }
         final MessageCommon messageCommon = messageCommons.iterator().next();
@@ -114,7 +114,7 @@ public class MessageMeterInterceptor implements MessageInterceptor {
         final Duration durationAfterDecoding = optionalDurationAfterDecoding.get();
         Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, messageCommon.getTopic())
             .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
-            .put(MetricLabels.CLIENT_ID, client.getClientId()).build();
+            .put(MetricLabels.CLIENT_ID, client.clientId()).build();
         final Optional<DoubleHistogram> optionalHistogram =
             clientMeterProvider.getHistogramByName(MetricName.AWAIT_TIME);
         if (!optionalHistogram.isPresent()) {
@@ -129,7 +129,7 @@ public class MessageMeterInterceptor implements MessageInterceptor {
         final ClientImpl client = clientMeterProvider.getClient();
         if (!(client instanceof PushConsumer)) {
             // Should never reach here.
-            LOGGER.error("[Bug] current client is not push consumer, clientId={}", client.getClientId());
+            LOGGER.error("[Bug] current client is not push consumer, clientId={}", client.clientId());
             return;
         }
         PushConsumer pushConsumer = (PushConsumer) client;
@@ -138,7 +138,7 @@ public class MessageMeterInterceptor implements MessageInterceptor {
                 InvocationStatus.FAILURE;
             Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, messageCommon.getTopic())
                 .put(MetricLabels.CONSUMER_GROUP, pushConsumer.getConsumerGroup())
-                .put(MetricLabels.CLIENT_ID, clientMeterProvider.getClient().getClientId())
+                .put(MetricLabels.CLIENT_ID, clientMeterProvider.getClient().clientId())
                 .put(MetricLabels.INVOCATION_STATUS, invocationStatus.getName())
                 .build();
             final Optional<DoubleHistogram> optionalHistogram =

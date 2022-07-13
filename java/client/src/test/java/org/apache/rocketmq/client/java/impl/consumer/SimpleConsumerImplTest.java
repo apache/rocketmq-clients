@@ -59,7 +59,7 @@ import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.message.MessageView;
 import org.apache.rocketmq.client.java.impl.ClientManagerImpl;
 import org.apache.rocketmq.client.java.impl.ClientManagerRegistry;
-import org.apache.rocketmq.client.java.impl.TelemetrySession;
+import org.apache.rocketmq.client.java.impl.ClientSessionImpl;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.route.Endpoints;
@@ -105,7 +105,7 @@ public class SimpleConsumerImplTest extends TestBase {
             any(Duration.class)))
             .thenReturn(future0);
         when(clientManager.telemetry(any(Endpoints.class), any(Metadata.class), any(Duration.class),
-            any(TelemetrySession.class)))
+            any(ClientSessionImpl.class)))
             .thenReturn(telemetryRequestObserver);
         final ScheduledThreadPoolExecutor scheduler = new ScheduledThreadPoolExecutor(1,
             new ThreadFactoryImpl("TestScheduler"));

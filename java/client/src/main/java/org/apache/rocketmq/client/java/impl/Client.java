@@ -25,7 +25,7 @@ public interface Client {
      *
      * @return unique client identifier.
      */
-    String getClientId();
+    String clientId();
 
     /**
      * Send heart beat to remote {@link Endpoints}.
@@ -33,9 +33,9 @@ public interface Client {
     void doHeartbeat();
 
     /**
-     * Voluntary announce settings to remote.
+     * Sync settings to remote.
      */
-    void telemeterSettings();
+    void syncSettings();
 
     /**
      * Do some stats for client.
