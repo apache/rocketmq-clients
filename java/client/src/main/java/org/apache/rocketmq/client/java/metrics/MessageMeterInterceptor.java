@@ -34,19 +34,19 @@ import org.apache.rocketmq.client.java.message.MessageCommon;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MetricMessageInterceptor implements MessageInterceptor {
-    private static final Logger LOGGER = LoggerFactory.getLogger(MetricMessageInterceptor.class);
+public class MessageMeterInterceptor implements MessageInterceptor {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MessageMeterInterceptor.class);
 
-    private final MessageMeterProvider messageMeterProvider;
+    private final ClientMeterProvider clientMeterProvider;
 
-    public MetricMessageInterceptor(MessageMeterProvider messageMeterProvider) {
-        this.messageMeterProvider = messageMeterProvider;
+    public MessageMeterInterceptor(ClientMeterProvider clientMeterProvider) {
+        this.clientMeterProvider = clientMeterProvider;
     }
 
     private void doAfterSendMessage(List<MessageCommon> messageCommons, Duration duration,
         MessageHookPointsStatus status) {
         final Optional<DoubleHistogram> optionalHistogram =
-            messageMeterProvider.getHistogramByName(MetricName.SEND_SUCCESS_COST_TIME);
+            clientMeterProvider.getHistogramByName(MetricName.SEND_SUCCESS_COST_TIME);
         if (!optionalHistogram.isPresent()) {
             return;
         }
@@ -55,7 +55,7 @@ public class MetricMessageInterceptor implements MessageInterceptor {
             InvocationStatus invocationStatus = MessageHookPointsStatus.OK.equals(status) ? InvocationStatus.SUCCESS :
                 InvocationStatus.FAILURE;
             Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, messageCommon.getTopic())
-                .put(MetricLabels.CLIENT_ID, messageMeterProvider.getClient().getClientId())
+                .put(MetricLabels.CLIENT_ID, clientMeterProvider.getClient().getClientId())
                 .put(MetricLabels.INVOCATION_STATUS, invocationStatus.getName()).build();
             histogram.record(duration.toMillis(), attributes);
         }
@@ -65,7 +65,7 @@ public class MetricMessageInterceptor implements MessageInterceptor {
         if (messageCommons.isEmpty()) {
             return;
         }
-        final ClientImpl client = messageMeterProvider.getClient();
+        final ClientImpl client = clientMeterProvider.getClient();
         String consumerGroup = null;
         if (client instanceof PushConsumer) {
             consumerGroup = ((PushConsumer) client).getConsumerGroup();
@@ -85,7 +85,7 @@ public class MetricMessageInterceptor implements MessageInterceptor {
         final Timestamp deliveryTimestampFromRemote = optionalDeliveryTimestampFromRemote.get();
         final long latency = System.currentTimeMillis() - Timestamps.toMillis(deliveryTimestampFromRemote);
         final Optional<DoubleHistogram> optionalHistogram =
-            messageMeterProvider.getHistogramByName(MetricName.DELIVERY_LATENCY);
+            clientMeterProvider.getHistogramByName(MetricName.DELIVERY_LATENCY);
         if (!optionalHistogram.isPresent()) {
             return;
         }
@@ -97,7 +97,7 @@ public class MetricMessageInterceptor implements MessageInterceptor {
     }
 
     private void doBeforeConsumeMessage(List<MessageCommon> messageCommons) {
-        final ClientImpl client = messageMeterProvider.getClient();
+        final ClientImpl client = clientMeterProvider.getClient();
         String consumerGroup = null;
         if (client instanceof PushConsumer) {
             consumerGroup = ((PushConsumer) client).getConsumerGroup();
@@ -116,7 +116,7 @@ public class MetricMessageInterceptor implements MessageInterceptor {
             .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
             .put(MetricLabels.CLIENT_ID, client.getClientId()).build();
         final Optional<DoubleHistogram> optionalHistogram =
-            messageMeterProvider.getHistogramByName(MetricName.AWAIT_TIME);
+            clientMeterProvider.getHistogramByName(MetricName.AWAIT_TIME);
         if (!optionalHistogram.isPresent()) {
             return;
         }
@@ -126,7 +126,7 @@ public class MetricMessageInterceptor implements MessageInterceptor {
 
     private void doAfterProcessMessage(List<MessageCommon> messageCommons, Duration duration,
         MessageHookPointsStatus status) {
-        final ClientImpl client = messageMeterProvider.getClient();
+        final ClientImpl client = clientMeterProvider.getClient();
         if (!(client instanceof PushConsumer)) {
             // Should never reach here.
             LOGGER.error("[Bug] current client is not push consumer, clientId={}", client.getClientId());
@@ -138,11 +138,11 @@ public class MetricMessageInterceptor implements MessageInterceptor {
                 InvocationStatus.FAILURE;
             Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, messageCommon.getTopic())
                 .put(MetricLabels.CONSUMER_GROUP, pushConsumer.getConsumerGroup())
-                .put(MetricLabels.CLIENT_ID, messageMeterProvider.getClient().getClientId())
+                .put(MetricLabels.CLIENT_ID, clientMeterProvider.getClient().getClientId())
                 .put(MetricLabels.INVOCATION_STATUS, invocationStatus.getName())
                 .build();
             final Optional<DoubleHistogram> optionalHistogram =
-                messageMeterProvider.getHistogramByName(MetricName.PROCESS_TIME);
+                clientMeterProvider.getHistogramByName(MetricName.PROCESS_TIME);
             if (!optionalHistogram.isPresent()) {
                 return;
             }
@@ -153,7 +153,7 @@ public class MetricMessageInterceptor implements MessageInterceptor {
 
     @Override
     public void doBefore(MessageHookPoints messageHookPoints, List<MessageCommon> messageCommons) {
-        if (!messageMeterProvider.isEnabled()) {
+        if (!clientMeterProvider.isEnabled()) {
             return;
         }
         if (MessageHookPoints.CONSUME.equals(messageHookPoints)) {
@@ -164,7 +164,7 @@ public class MetricMessageInterceptor implements MessageInterceptor {
     @Override
     public void doAfter(MessageHookPoints messageHookPoints, List<MessageCommon> messageCommons, Duration duration,
         MessageHookPointsStatus status) {
-        if (!messageMeterProvider.isEnabled()) {
+        if (!clientMeterProvider.isEnabled()) {
             return;
         }
         switch (messageHookPoints) {

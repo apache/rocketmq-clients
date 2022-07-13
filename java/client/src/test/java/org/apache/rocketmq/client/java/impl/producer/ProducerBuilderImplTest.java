@@ -17,7 +17,6 @@
 
 package org.apache.rocketmq.client.java.impl.producer;
 
-import org.apache.commons.lang3.StringUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -36,13 +35,6 @@ public class ProducerBuilderImplTest {
     public void testSetTopicWithNull() {
         final ProducerBuilderImpl builder = new ProducerBuilderImpl();
         builder.setTopics(null);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void testSetTopicWithTooLong() {
-        final ProducerBuilderImpl builder = new ProducerBuilderImpl();
-        String tooLongTopic = StringUtils.repeat("a", 128);
-        builder.setTopics(tooLongTopic);
     }
 
     @Test(expected = IllegalArgumentException.class)

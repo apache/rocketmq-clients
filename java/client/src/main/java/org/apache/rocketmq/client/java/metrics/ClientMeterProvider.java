@@ -46,23 +46,21 @@ import org.apache.rocketmq.client.java.rpc.IpNameResolverFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MessageMeterProvider {
-    private static final Logger LOGGER = LoggerFactory.getLogger(MessageMeterProvider.class);
+public class ClientMeterProvider {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ClientMeterProvider.class);
 
     private static final Duration METRIC_EXPORTER_RPC_TIMEOUT = Duration.ofSeconds(3);
-    private static final Duration METRIC_READER_INTERVAL = Duration.ofSeconds(1);
+    private static final Duration METRIC_READER_INTERVAL = Duration.ofMinutes(1);
     private static final String METRIC_INSTRUMENTATION_NAME = "org.apache.rocketmq.message";
 
     private final ClientImpl client;
-
-    private volatile MessageMeter messageMeter;
-
+    private volatile ClientMeter clientMeter;
     private volatile MessageCacheObserver messageCacheObserver;
 
-    public MessageMeterProvider(ClientImpl client) {
+    public ClientMeterProvider(ClientImpl client) {
         this.client = client;
-        this.client.registerMessageInterceptor(new MetricMessageInterceptor(this));
-        this.messageMeter = MessageMeter.DISABLED;
+        this.client.registerMessageInterceptor(new MessageMeterInterceptor(this));
+        this.clientMeter = ClientMeter.DISABLED;
         this.messageCacheObserver = null;
     }
 
@@ -71,20 +69,20 @@ public class MessageMeterProvider {
     }
 
     Optional<DoubleHistogram> getHistogramByName(MetricName metricName) {
-        return messageMeter.getHistogramByName(metricName);
+        return clientMeter.getHistogramByName(metricName);
     }
 
     public synchronized void reset(Metric metric) {
         final String clientId = client.getClientId();
         try {
-            if (messageMeter.satisfy(metric)) {
+            if (clientMeter.satisfy(metric)) {
                 LOGGER.debug("Metric settings is satisfied by the current message meter, clientId={}", clientId);
                 return;
             }
             if (!metric.isOn()) {
                 LOGGER.debug("Metric is off, clientId={}", clientId);
-                messageMeter.shutdown();
-                messageMeter = MessageMeter.DISABLED;
+                clientMeter.shutdown();
+                clientMeter = ClientMeter.DISABLED;
                 return;
             }
             final Endpoints endpoints = metric.getEndpoints();
@@ -135,9 +133,9 @@ public class MessageMeterProvider {
             Meter meter = openTelemetry.getMeter(METRIC_INSTRUMENTATION_NAME);
 
             // Reset message meter.
-            MessageMeter existedMessageMeter = messageMeter;
-            messageMeter = new MessageMeter(meter, endpoints, provider);
-            existedMessageMeter.shutdown();
+            ClientMeter existedClientMeter = clientMeter;
+            clientMeter = new ClientMeter(meter, endpoints, provider);
+            existedClientMeter.shutdown();
             LOGGER.info("Metrics is on, endpoints={}, clientId={}", endpoints, clientId);
 
             if (!(client instanceof PushConsumer)) {
@@ -173,7 +171,7 @@ public class MessageMeterProvider {
     }
 
     public boolean isEnabled() {
-        return messageMeter.isEnabled();
+        return clientMeter.isEnabled();
     }
 
     public ClientImpl getClient() {

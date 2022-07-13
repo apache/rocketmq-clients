@@ -46,6 +46,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.message.MessageId;
@@ -62,6 +63,7 @@ import org.slf4j.LoggerFactory;
 
 @SuppressWarnings({"UnstableApiUsage", "NullableProblems"})
 abstract class ConsumerImpl extends ClientImpl {
+    static final Pattern CONSUMER_GROUP_PATTERN = Pattern.compile("^[%a-zA-Z0-9_-]+$");
     private static final Logger LOGGER = LoggerFactory.getLogger(ConsumerImpl.class);
 
     private final String consumerGroup;
@@ -75,7 +77,6 @@ abstract class ConsumerImpl extends ClientImpl {
     protected ListenableFuture<ReceiveMessageResult> receiveMessage(ReceiveMessageRequest request,
         MessageQueueImpl mq, Duration timeout) {
         List<MessageViewImpl> messages = new ArrayList<>();
-        final SettableFuture<ReceiveMessageResult> future0 = SettableFuture.create();
         try {
             Metadata metadata = sign();
             final Endpoints endpoints = mq.getBroker().getEndpoints();
@@ -84,8 +85,9 @@ abstract class ConsumerImpl extends ClientImpl {
                     metadata, request, timeout);
             return Futures.transform(future, context -> {
                 final Iterator<ReceiveMessageResponse> it = context.getResp();
-                // Null here means status not set yet.
-                Status status = null;
+                Status status = Status.newBuilder().setCode(Code.INTERNAL_SERVER_ERROR)
+                    .setMessage("status was not set by server")
+                    .build();
                 Timestamp deliveryTimestampFromRemote = null;
                 List<Message> messageList = new ArrayList<>();
                 while (it.hasNext()) {
@@ -112,8 +114,7 @@ abstract class ConsumerImpl extends ClientImpl {
                 return new ReceiveMessageResult(endpoints, context.getRpcContext().getRequestId(), status, messages);
             }, MoreExecutors.directExecutor());
         } catch (Throwable t) {
-            future0.setException(t);
-            return future0;
+            return Futures.immediateFailedFuture(t);
         }
     }
 

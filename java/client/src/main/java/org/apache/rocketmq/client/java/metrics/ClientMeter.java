@@ -31,9 +31,9 @@ import org.apache.rocketmq.client.java.route.Endpoints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MessageMeter {
-    static MessageMeter DISABLED = new MessageMeter();
-    private static final Logger LOGGER = LoggerFactory.getLogger(MessageMeter.class);
+public class ClientMeter {
+    static ClientMeter DISABLED = new ClientMeter();
+    private static final Logger LOGGER = LoggerFactory.getLogger(ClientMeter.class);
 
     private final boolean enabled;
     private final Meter meter;
@@ -41,7 +41,7 @@ public class MessageMeter {
     private final SdkMeterProvider provider;
     private final ConcurrentMap<MetricName, DoubleHistogram> histogramMap;
 
-    public MessageMeter(Meter meter, Endpoints endpoints, SdkMeterProvider provider) {
+    public ClientMeter(Meter meter, Endpoints endpoints, SdkMeterProvider provider) {
         this.enabled = true;
         this.meter = checkNotNull(meter, "meter should not be null");
         this.endpoints = checkNotNull(endpoints, "endpoints should not be null");
@@ -49,7 +49,7 @@ public class MessageMeter {
         this.histogramMap = new ConcurrentHashMap<>();
     }
 
-    private MessageMeter() {
+    private ClientMeter() {
         this.enabled = false;
         this.meter = null;
         this.endpoints = null;

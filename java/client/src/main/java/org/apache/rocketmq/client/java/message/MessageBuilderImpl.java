@@ -32,7 +32,7 @@ import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.message.MessageBuilder;
 
 public class MessageBuilderImpl implements MessageBuilder {
-    public static final Pattern TOPIC_PATTERN = Pattern.compile("^[%|a-zA-Z0-9._-]{1,127}$");
+    public static final Pattern TOPIC_PATTERN = Pattern.compile("^[%a-zA-Z0-9_-]+$");
     private static final int MESSAGE_BODY_LENGTH_THRESHOLD = 1024 * 1024 * 4;
 
     private String topic = null;

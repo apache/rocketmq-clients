@@ -98,6 +98,7 @@ public class SendReceiptImpl implements SendReceipt {
                 case ILLEGAL_MESSAGE_GROUP:
                 case ILLEGAL_MESSAGE_PROPERTY_KEY:
                 case ILLEGAL_MESSAGE_ID:
+                case ILLEGAL_DELIVERY_TIME:
                 case MESSAGE_PROPERTY_CONFLICT_WITH_TYPE:
                 case MESSAGE_CORRUPTED:
                 case CLIENT_ID_REQUIRED:

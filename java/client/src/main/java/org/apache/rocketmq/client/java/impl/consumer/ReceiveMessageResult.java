@@ -54,6 +54,7 @@ public class ReceiveMessageResult {
             case ILLEGAL_TOPIC:
             case ILLEGAL_CONSUMER_GROUP:
             case ILLEGAL_FILTER_EXPRESSION:
+            case ILLEGAL_INVISIBLE_TIME:
             case CLIENT_ID_REQUIRED:
                 this.exception = new BadRequestException(code.getNumber(), status.getMessage());
                 break;

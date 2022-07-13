@@ -1,5 +1,8 @@
 name: Java Build
-on: [push, pull_request]
+on:
+  pull_request:
+    types: [opened, reopened]
+  push:
 jobs:
   java_build:
     name: "Java (${{ matrix.os }}, JDK-${{ matrix.jdk }})"
@@ -9,15 +12,14 @@ jobs:
         os: [ubuntu-18.04, windows-2019]
         jdk: [11, 17]
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Set up JDK ${{ matrix.jdk }}
-      uses: actions/setup-java@v2
-      with:
-        java-version: ${{ matrix.jdk }}
-        distribution: 'adopt'
-        cache: maven
-    - name: Build with Maven
-      working-directory: ./java
-      run: mvn -B package --file pom.xml
-
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.jdk }}
+        uses: actions/setup-java@v2
+        with:
+          java-version: ${{ matrix.jdk }}
+          distribution: "adopt"
+          cache: maven
+      - name: Build with Maven
+        working-directory: ./java
+        run: mvn -B package --file pom.xml
