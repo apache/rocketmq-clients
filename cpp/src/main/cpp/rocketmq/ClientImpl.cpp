@@ -16,6 +16,8 @@
  */
 #include "ClientImpl.h"
 
+#include <apache/rocketmq/v2/definition.pb.h>
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -37,10 +39,12 @@
 #include "NamingScheme.h"
 #include "SessionImpl.h"
 #include "Signature.h"
+#include "StdoutHandler.h"
 #include "UtilAll.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
+#include "opencensus/stats/stats.h"
 #include "rocketmq/Message.h"
 #include "rocketmq/MessageListener.h"
 
@@ -165,6 +169,49 @@ void ClientImpl::start() {
 
   route_update_handle_ = client_manager_->getScheduler()->schedule(route_update_functor, UPDATE_ROUTE_TASK_NAME,
                                                                    std::chrono::seconds(10), std::chrono::seconds(30));
+
+  auto endpoints = client_config_.metric.endpoints;
+  std::string target;
+  switch (endpoints.scheme()) {
+    case rmq::AddressScheme::IPv4: {
+      target.append("ipv4:");
+      break;
+    }
+    case rmq::AddressScheme::IPv6: {
+      target.append("ipv6:");
+      break;
+    }
+    case rmq::AddressScheme::DOMAIN_NAME: {
+      target.append("dns:");
+      break;
+    }
+    default: {
+      SPDLOG_ERROR("Unknown metric address scheme");
+    }
+  }
+
+  bool first = true;
+  for (const auto& address : endpoints.addresses()) {
+    if (!first) {
+      target.push_back(',');
+    } else {
+      first = false;
+    }
+    target.append(address.host());
+    target.push_back(':');
+    target.append(std::to_string(address.port()));
+  }
+
+  std::weak_ptr<Client> client_weak_ptr(self());
+
+#ifdef DEBUG_METRIC_EXPORTING
+  opencensus::stats::StatsExporter::SetInterval(absl::Seconds(1));
+  opencensus::stats::StatsExporter::RegisterPushHandler(absl::make_unique<StdoutHandler>());
+#else
+  opencensus::stats::StatsExporter::SetInterval(absl::Minutes(1));
+#endif
+  SPDLOG_INFO("Export client metrics to {}", target);
+  opencensus::stats::StatsExporter::RegisterPushHandler(absl::make_unique<OpencensusHandler>(target, client_weak_ptr));
 }
 
 void ClientImpl::shutdown() {

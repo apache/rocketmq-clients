@@ -182,8 +182,7 @@ message ThreadStackTrace {
 
 message VerifyMessageCommand {
   string nonce = 1;
-  MessageQueue message_queue = 2;
-  Message message = 3;
+  Message message = 2;
 }
 
 message VerifyMessageResult {
@@ -191,9 +190,8 @@ message VerifyMessageResult {
 }
 
 message RecoverOrphanedTransactionCommand {
-  MessageQueue message_queue = 1;
-  Message orphaned_transactional_message = 2;
-  string transaction_id = 3;
+  Message message = 1;
+  string transaction_id = 2;
 }
 
 message Publishing {
@@ -203,21 +201,14 @@ message Publishing {
   // List of topics to which messages will publish to.
   repeated Resource topics = 1;
 
-  // Publishing settings below here are from server, it is essential for
-  // server to push.
-  //
-  // Body of message will be deflated if its size in bytes exceeds the
-  // threshold.
-  int32 compress_body_threshold = 2;
-
   // If the message body size exceeds `max_body_size`, broker servers would
   // reject the request. As a result, it is advisable that Producer performs
   // client-side check validation.
-  int32 max_body_size = 3;
+  int32 max_body_size = 2;
 
   // When `validate_message_type` flag set `false`, no need to validate message's type
   // with messageQueue's `accept_message_types` before publising.
-  bool validate_message_type = 4;
+  bool validate_message_type = 3;
 }
 
 message Subscription {

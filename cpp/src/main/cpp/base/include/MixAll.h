@@ -19,6 +19,7 @@
 #include <chrono>
 #include <cstdint>
 #include <string>
+#include <system_error>
 
 #include "absl/strings/string_view.h"
 #include "re2/re2.h"
@@ -144,7 +145,7 @@ public:
    * @param message
    * @return
    */
-  static bool validate(const Message& message);
+  static void validate(const Message& message, std::error_code& ec);
 
   static uint32_t random(uint32_t left, uint32_t right);
 

@@ -101,8 +101,15 @@ void ProducerImpl::ensureRunning(std::error_code& ec) const noexcept {
   }
 }
 
-bool ProducerImpl::validate(const Message& message) {
-  return MixAll::validate(message);
+void ProducerImpl::validate(const Message& message, std::error_code& ec) {
+  MixAll::validate(message, ec);
+
+  if (!ec) {
+    if (message.body().length() > client_config_.publisher.max_body_size) {
+      SPDLOG_WARN("Body of the message to send is too large");
+      ec = ErrorCode::PayloadTooLarge;
+    }
+  }
 }
 
 void ProducerImpl::wrapSendMessageRequest(const Message& message, SendMessageRequest& request,
@@ -338,9 +345,8 @@ void ProducerImpl::sendImpl(std::shared_ptr<SendContext> context) {
 void ProducerImpl::send0(MessageConstPtr message, SendCallback callback, std::vector<rmq::MessageQueue> list) {
   SendReceipt send_receipt;
   std::error_code ec;
-
-  if (!validate(*message)) {
-    ec = ErrorCode::BadRequest;
+  validate(*message, ec);
+  if (ec) {
     callback(ec, send_receipt);
     return;
   }

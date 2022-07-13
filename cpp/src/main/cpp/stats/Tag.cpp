@@ -28,14 +28,9 @@ opencensus::tags::TagKey& Tag::clientIdTag() {
   return client_id_tag;
 }
 
-opencensus::tags::TagKey& Tag::userIdTag() {
-  static opencensus::tags::TagKey uid_tag = opencensus::tags::TagKey::Register("uid");
-  return uid_tag;
-}
-
-opencensus::tags::TagKey& Tag::deploymentTag() {
-  static opencensus::tags::TagKey deployment_tag = opencensus::tags::TagKey::Register("deployment");
-  return deployment_tag;
+opencensus::tags::TagKey& Tag::invocationStatus() {
+  static opencensus::tags::TagKey invocation_status = opencensus::tags::TagKey::Register("invocation_status");
+  return invocation_status;
 }
 
 ROCKETMQ_NAMESPACE_END

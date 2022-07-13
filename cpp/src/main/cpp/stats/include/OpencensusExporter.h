@@ -17,9 +17,9 @@
 #pragma once
 
 #include "Client.h"
-#include "Exporter.h"
 #include "grpcpp/grpcpp.h"
 #include "opencensus/proto/agent/metrics/v1/metrics_service.grpc.pb.h"
+#include "opencensus/stats/stats.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -30,11 +30,12 @@ using StubPtr = std::unique_ptr<Stub>;
 using MetricData = std::vector<std::pair<opencensus::stats::ViewDescriptor, opencensus::stats::ViewData>>;
 using ExportMetricsServiceRequest = opencensus::proto::agent::metrics::v1::ExportMetricsServiceRequest;
 
-class OpencensusExporter : public Exporter, public std::enable_shared_from_this<OpencensusExporter> {
+class OpencensusExporter : public opencensus::stats::StatsExporter::Handler,
+                           public std::enable_shared_from_this<OpencensusExporter> {
 public:
   OpencensusExporter(std::string endpoints, std::weak_ptr<Client> client);
 
-  void exportMetrics(const MetricData& data) override;
+  void ExportViewData(const MetricData& data) override;
 
   static void wrap(const MetricData& data, ExportMetricsServiceRequest& request);
 

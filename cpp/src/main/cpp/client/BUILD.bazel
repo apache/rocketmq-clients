@@ -37,5 +37,6 @@ cc_library(
         "//external:gtest",
     ],
     defines = [
+        "DEBUG_METRIC_EXPORTING",
     ],
 )

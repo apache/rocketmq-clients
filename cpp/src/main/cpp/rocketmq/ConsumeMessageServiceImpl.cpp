@@ -85,18 +85,8 @@ void ConsumeMessageServiceImpl::ack(const Message& message, std::function<void(c
 
   std::weak_ptr<PushConsumerImpl> client(consumer_);
   const auto& topic = message.topic();
-  // Collect metrics
-  opencensus::stats::Record({{consumer->stats().processSuccess(), 1}},
-                            {{Tag::topicTag(), topic}, {Tag::clientIdTag(), consumer->config().client_id}});
   auto callback = [cb, client, topic](const std::error_code& ec) {
     auto consumer = client.lock();
-    if (ec) {
-      opencensus::stats::Record({{consumer->stats().ackFailure(), 1}},
-                                {{Tag::topicTag(), topic}, {Tag::clientIdTag(), consumer->config().client_id}});
-    } else {
-      opencensus::stats::Record({{consumer->stats().ackSuccess(), 1}},
-                                {{Tag::topicTag(), topic}, {Tag::clientIdTag(), consumer->config().client_id}});
-    }
     cb(ec);
   };
 
@@ -108,9 +98,6 @@ void ConsumeMessageServiceImpl::nack(const Message& message, std::function<void(
   if (!consumer) {
     return;
   }
-  // Collect metrics
-  opencensus::stats::Record({{consumer->stats().processFailure(), 1}},
-                            {{Tag::topicTag(), message.topic()}, {Tag::clientIdTag(), consumer->config().client_id}});
   consumer->nack(message, cb);
 }
 

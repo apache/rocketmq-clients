@@ -14,17 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
+#include "OpencensusHandler.h"
 
-#include "opencensus/stats/stats.h"
-#include "rocketmq/RocketMQ.h"
+#include "MetricBidiReactor.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
-class Exporter {
-public:
-  virtual void exportMetrics(
-      const std::vector<std::pair<opencensus::stats::ViewDescriptor, opencensus::stats::ViewData>>& data) = 0;
-};
+OpencensusHandler::OpencensusHandler(std::string endpoints, std::weak_ptr<Client> client)
+    : exporter_(std::make_shared<OpencensusExporter>(std::move(endpoints), std::move(client))) {
+}
+
+void OpencensusHandler::ExportViewData(const MetricData& data) {
+  exporter_->ExportViewData(data);
+}
 
 ROCKETMQ_NAMESPACE_END

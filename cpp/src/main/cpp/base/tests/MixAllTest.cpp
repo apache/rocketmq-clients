@@ -14,7 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <system_error>
+
 #include "MixAll.h"
+#include "absl/strings/str_split.h"
 #include "gtest/gtest.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
@@ -22,6 +25,14 @@ ROCKETMQ_NAMESPACE_BEGIN
 TEST(MixAllTest, testOsName) {
   const char* os_name = MixAll::osName();
   std::cout << os_name << std::endl;
+}
+
+TEST(MixAllTest, testValidate) {
+  auto message = Message::newBuilder().withTopic("").build();
+  std::error_code ec;
+  MixAll::validate(*message, ec);
+  ASSERT_EQ(true, (bool)ec);
+  ASSERT_TRUE(absl::StrContains(ec.message(), "illegal"));
 }
 
 ROCKETMQ_NAMESPACE_END

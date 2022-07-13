@@ -331,7 +331,7 @@ bool ClientManagerImpl::send(const std::string& target_host, const Metadata& met
     }
 
     if (State::STARTED != client_manager_ptr->state()) {
-      // TODO: Would this leak some memroy?
+      // TODO: Would this leak some memory?
       return;
     }
 
@@ -501,10 +501,7 @@ RpcClientSharedPtr ClientManagerImpl::getRpcClient(const std::string& target_hos
       } else if (!search->second->ok()) {
         SPDLOG_INFO("Prior RPC client to {} is not OK. Re-create one", target_host);
       }
-      std::vector<std::unique_ptr<grpc::experimental::ClientInterceptorFactoryInterface>> interceptor_factories;
-      interceptor_factories.emplace_back(absl::make_unique<LogInterceptorFactory>());
-      auto channel = grpc::experimental::CreateCustomChannelWithInterceptors(
-          target_host, channel_credential_, channel_arguments_, std::move(interceptor_factories));
+      auto channel = createChannel(target_host);
       std::weak_ptr<ClientManager> client_manager(shared_from_this());
       client = std::make_shared<RpcClientImpl>(client_manager, channel, target_host, need_heartbeat);
       rpc_clients_.insert_or_assign(target_host, client);

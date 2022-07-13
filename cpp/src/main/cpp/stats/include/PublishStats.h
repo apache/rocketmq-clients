@@ -27,22 +27,12 @@ ROCKETMQ_NAMESPACE_BEGIN
 class PublishStats {
 public:
   PublishStats();
-
-  const opencensus::stats::MeasureInt64& success() const {
-    return success_;
-  }
-
-  const opencensus::stats::MeasureInt64& failure() const {
-    return failure_;
-  }
-
+  
   const opencensus::stats::MeasureInt64& latency() const {
     return latency_;
   }
 
 private:
-  opencensus::stats::MeasureInt64 success_;
-  opencensus::stats::MeasureInt64 failure_;
   opencensus::stats::MeasureInt64 latency_;
 };
 

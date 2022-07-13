@@ -68,7 +68,7 @@ std::string ErrorCategory::message(int code) const {
       return "State of dependent procedure is not right";
 
     case ErrorCode::TooManyRequests:
-      return "Quota exchausted. The user has sent too many requests in a given "
+      return "Quota exhausted. The user has sent too many requests in a given "
              "amount of time.";
 
     case ErrorCode::UnavailableForLegalReasons:
@@ -126,6 +126,57 @@ std::string ErrorCategory::message(int code) const {
 
     case ErrorCode::IllegalMessageTag: {
       return "Format of message tag is illegal.";
+    }
+    case ErrorCode::InternalClientError: {
+      return "Internal client error";
+    }
+    case ErrorCode::IllegalMessageKey: {
+      return "Message key is not legal";
+    }
+    case ErrorCode::IllegalMessageProperty: {
+      return "One or multiple message properties is not legal";
+    }
+    case ErrorCode::IllegalMessageGroup: {
+      return "Message group is invalid";
+    }
+    case ErrorCode::InvalidTransactionId: {
+      return "Transaction ID is invalid";
+    }
+    case ErrorCode::IllegalMessageId: {
+      return "Message ID is invalid";
+    }
+    case ErrorCode::IllegalFilterExpression: {
+      return "Filter expression is malformed";
+    }
+    case ErrorCode::InvalidReceiptHandle: {
+      return "Receipt handle is invalid";
+    }
+    case ErrorCode::MessagePropertyConflictWithType: {
+      return "Message property conflicts with message type";
+    }
+    case ErrorCode::UnsupportedClientType: {
+      return "Server does not support the client type claimed";
+    }
+    case ErrorCode::MessageCorrupted: {
+      return "Message is corrupted";
+    }
+    case ErrorCode::ClientIdRequired: {
+      return "x-mq-client-id header meta-data is required";
+    }
+    case ErrorCode::MessageNotFound: {
+      return "No new messages are available at the moment";
+    }
+    case ErrorCode::MessageBodyTooLarge: {
+      return "Size of message body exceeds limits";
+    }
+    case ErrorCode::MessagePropertiesTooLarge: {
+      return "Size of message properties exceeds limits";
+    }
+    case ErrorCode::NotSupported: {
+      return "Action is not supported";
+    }
+    case ErrorCode::VerifyFifoMessageUnsupported: {
+      return "Verify FIFO message is not supported";
     }
   }
 
