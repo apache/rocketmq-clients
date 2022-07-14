@@ -22,6 +22,7 @@
 #include "PushConsumerImpl.h"
 #include "Tag.h"
 #include "ThreadPoolImpl.h"
+#include "rocketmq/ErrorCode.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -85,8 +86,21 @@ void ConsumeMessageServiceImpl::ack(const Message& message, std::function<void(c
 
   std::weak_ptr<PushConsumerImpl> client(consumer_);
   const auto& topic = message.topic();
-  auto callback = [cb, client, topic](const std::error_code& ec) {
+
+  const auto& message_id = message.id();
+  const auto& receipt_handle = message.extension().receipt_handle;
+
+  auto callback = [cb, client, topic, message_id, receipt_handle](const std::error_code& ec) {
     auto consumer = client.lock();
+
+    // If the receipt_handle was already expired, it is safe to treat it as success.
+    if (ec == ErrorCode::InvalidReceiptHandle) {
+      SPDLOG_WARN("Broker complained bad receipt handle on ack message[MsgId={}, ReceiptHandle={}]", message_id,
+                  receipt_handle);
+      cb(ErrorCode::Success);
+      return;
+    }
+
     cb(ec);
   };
 
