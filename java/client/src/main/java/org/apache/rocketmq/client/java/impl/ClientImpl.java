@@ -42,11 +42,13 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.grpc.Metadata;
+import io.grpc.stub.StreamObserver;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -67,10 +69,12 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
+import org.apache.rocketmq.client.java.exception.InternalErrorException;
 import org.apache.rocketmq.client.java.exception.NotFoundException;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.hook.MessageInterceptor;
+import org.apache.rocketmq.client.java.impl.producer.ClientSessionProcessor;
 import org.apache.rocketmq.client.java.message.MessageCommon;
 import org.apache.rocketmq.client.java.metrics.ClientMeterProvider;
 import org.apache.rocketmq.client.java.metrics.Metric;
@@ -86,9 +90,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @SuppressWarnings({"UnstableApiUsage", "NullableProblems"})
-public abstract class ClientImpl extends AbstractIdleService implements Client, MessageInterceptor {
+public abstract class ClientImpl extends AbstractIdleService implements Client, ClientSessionProcessor,
+    MessageInterceptor {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientImpl.class);
     private static final Duration TOPIC_ROUTE_AWAIT_DURATION_DURING_STARTUP = Duration.ofSeconds(3);
+
+    private static final Duration TELEMETRY_TIMEOUT = Duration.ofDays(102 * 365);
 
     protected volatile ClientManager clientManager;
     protected final ClientConfiguration clientConfiguration;
@@ -99,7 +106,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     protected final ExecutorService clientCallbackExecutor;
     protected final ClientMeterProvider clientMeterProvider;
     /**
-     * Telemetry command executor, which is aims to execute commands from remote.
+     * Telemetry command executor, which aims to execute commands from the remote.
      */
     protected final ThreadPoolExecutor telemetryCommandExecutor;
     protected final String clientId;
@@ -111,9 +118,9 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     private final Map<String /* topic */, Set<SettableFuture<TopicRouteDataResult>>> inflightRouteFutureTable;
     private final Lock inflightRouteFutureLock;
 
-    @GuardedBy("telemetrySessionsLock")
-    private final ConcurrentMap<Endpoints, TelemetrySession> telemetrySessionTable;
-    private final ReadWriteLock telemetrySessionsLock;
+    @GuardedBy("endpointsSessionsLock")
+    private final Map<Endpoints, ClientSessionImpl> endpointsSessionTable;
+    private final ReadWriteLock endpointsSessionsLock;
 
     @GuardedBy("messageInterceptorsLock")
     private final List<MessageInterceptor> messageInterceptors;
@@ -131,8 +138,8 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         this.inflightRouteFutureTable = new ConcurrentHashMap<>();
         this.inflightRouteFutureLock = new ReentrantLock();
 
-        this.telemetrySessionTable = new ConcurrentHashMap<>();
-        this.telemetrySessionsLock = new ReentrantReadWriteLock();
+        this.endpointsSessionTable = new HashMap<>();
+        this.endpointsSessionsLock = new ReentrantReadWriteLock();
 
         this.isolated = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
@@ -274,13 +281,39 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         }
     }
 
+    @Override
+    public TelemetryCommand getSettingsCommand() {
+        final Settings settings = this.getClientSettings().toProtobuf();
+        return TelemetryCommand.newBuilder().setSettings(settings).build();
+    }
+
+    @Override
+    public StreamObserver<TelemetryCommand> telemetry(Endpoints endpoints,
+        StreamObserver<TelemetryCommand> observer) throws ClientException {
+        try {
+            final Metadata metadata = this.sign();
+            return clientManager.telemetry(endpoints, metadata, TELEMETRY_TIMEOUT, observer);
+        } catch (ClientException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new InternalErrorException(t);
+        }
+    }
+
+    @Override
+    public ListenableFuture<Void> register() {
+        return Futures.transformAsync(this.getClientSettings().arrivedFuture,
+            (clientSettings) -> Futures.immediateVoidFuture(), clientCallbackExecutor);
+    }
+
     /**
      * This method is invoked while request of printing thread stack trace is received from remote.
      *
      * @param endpoints remote endpoints.
      * @param command   request of printing thread stack trace from remote.
      */
-    void onPrintThreadStackCommand(Endpoints endpoints, PrintThreadStackTraceCommand command) {
+    @Override
+    public void onPrintThreadStackTraceCommand(Endpoints endpoints, PrintThreadStackTraceCommand command) {
         final String nonce = command.getNonce();
         Runnable task = () -> {
             try {
@@ -314,6 +347,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      * @param endpoints remote endpoints.
      * @param settings  settings received from remote.
      */
+    @Override
     public final void onSettingsCommand(Endpoints endpoints, Settings settings) {
         final Metric metric = new Metric(settings.getMetric());
         clientMeterProvider.reset(metric);
@@ -322,10 +356,10 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     }
 
     /**
-     * @see Client#telemeterSettings()
+     * @see Client#syncSettings()
      */
     @Override
-    public void telemeterSettings() {
+    public void syncSettings() {
         final Settings settings = getClientSettings().toProtobuf();
         final TelemetryCommand command = TelemetryCommand.newBuilder().setSettings(settings).build();
         final Set<Endpoints> totalRouteEndpoints = getTotalRouteEndpoints();
@@ -345,12 +379,12 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      * @param command   command to telemeter.
      */
     public void telemeter(Endpoints endpoints, TelemetryCommand command) {
-        final ListenableFuture<TelemetrySession> future = registerTelemetrySession(endpoints);
-        Futures.addCallback(future, new FutureCallback<TelemetrySession>() {
+        final ListenableFuture<ClientSessionImpl> future = registerTelemetrySession(endpoints);
+        Futures.addCallback(future, new FutureCallback<ClientSessionImpl>() {
             @Override
-            public void onSuccess(TelemetrySession session) {
+            public void onSuccess(ClientSessionImpl session) {
                 try {
-                    session.telemeter(command);
+                    session.publish(command);
                 } catch (Throwable t) {
                     LOGGER.error("Failed to telemeter command, endpoints={}, command={}", endpoints, command);
                 }
@@ -364,43 +398,44 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     }
 
     private void releaseTelemetrySessions() {
-        telemetrySessionsLock.readLock().lock();
+        endpointsSessionsLock.readLock().lock();
         try {
-            telemetrySessionTable.values().forEach(TelemetrySession::release);
+            endpointsSessionTable.values().forEach(ClientSessionImpl::release);
         } finally {
-            telemetrySessionsLock.readLock().unlock();
+            endpointsSessionsLock.readLock().unlock();
         }
     }
 
     /**
      * Try to register telemetry session, return it directly if session is existed already.
      */
-    public ListenableFuture<TelemetrySession> registerTelemetrySession(Endpoints endpoints) {
-        final SettableFuture<TelemetrySession> future0 = SettableFuture.create();
-        telemetrySessionsLock.readLock().lock();
+    public ListenableFuture<ClientSessionImpl> registerTelemetrySession(Endpoints endpoints) {
+        final SettableFuture<ClientSessionImpl> future0 = SettableFuture.create();
+        endpointsSessionsLock.readLock().lock();
         try {
-            TelemetrySession telemetrySession = telemetrySessionTable.get(endpoints);
+            ClientSessionImpl clientSessionImpl = endpointsSessionTable.get(endpoints);
             // Return is directly if session is existed already.
-            if (null != telemetrySession) {
-                future0.set(telemetrySession);
+            if (null != clientSessionImpl) {
+                future0.set(clientSessionImpl);
                 return future0;
             }
         } finally {
-            telemetrySessionsLock.readLock().unlock();
+            endpointsSessionsLock.readLock().unlock();
         }
         // Future's exception has been logged during the registration.
-        final ListenableFuture<TelemetrySession> future = TelemetrySession.register(this, clientManager, endpoints);
+        final ListenableFuture<ClientSessionImpl> future = new ClientSessionImpl(this, endpoints).register();
         return Futures.transform(future, session -> {
-            telemetrySessionsLock.writeLock().lock();
+            endpointsSessionsLock.writeLock().lock();
             try {
-                TelemetrySession existed = telemetrySessionTable.get(endpoints);
+                ClientSessionImpl existed = endpointsSessionTable.get(endpoints);
                 if (null != existed) {
+                    session.release();
                     return existed;
                 }
-                telemetrySessionTable.put(endpoints, session);
+                endpointsSessionTable.put(endpoints, session);
                 return session;
             } finally {
-                telemetrySessionsLock.writeLock().unlock();
+                endpointsSessionsLock.writeLock().unlock();
             }
         }, MoreExecutors.directExecutor());
     }
@@ -412,7 +447,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      */
     public ListenableFuture<Void> onTopicRouteDataResultFetched(String topic,
         TopicRouteDataResult topicRouteDataResult) {
-        final ListenableFuture<List<TelemetrySession>> future =
+        final ListenableFuture<List<ClientSessionImpl>> future =
             Futures.allAsList(topicRouteDataResult.getTopicRouteData()
                 .getMessageQueues().stream()
                 .map(mq -> mq.getBroker().getEndpoints())
@@ -420,9 +455,9 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
                 .stream().map(this::registerTelemetrySession)
                 .collect(Collectors.toList()));
         SettableFuture<Void> future0 = SettableFuture.create();
-        Futures.addCallback(future, new FutureCallback<List<TelemetrySession>>() {
+        Futures.addCallback(future, new FutureCallback<List<ClientSessionImpl>>() {
             @Override
-            public void onSuccess(List<TelemetrySession> sessions) {
+            public void onSuccess(List<ClientSessionImpl> sessions) {
                 LOGGER.info("Register session successfully, current route will be cached, topic={}, "
                     + "topicRouteDataResult={}", topic, topicRouteDataResult);
                 final TopicRouteDataResult old = topicRouteResultCache.put(topic, topicRouteDataResult);
@@ -459,6 +494,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      * @param endpoints remote endpoints.
      * @param command   request of message consume verification from remote.
      */
+    @Override
     public void onVerifyMessageCommand(Endpoints endpoints, VerifyMessageCommand command) {
         LOGGER.warn("Ignore verify message command from remote, which is not expected, clientId={}, command={}",
             clientId, command);
@@ -482,6 +518,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      * @param endpoints remote endpoints.
      * @param command   request of orphaned transaction recovery from remote.
      */
+    @Override
     public void onRecoverOrphanedTransactionCommand(Endpoints endpoints, RecoverOrphanedTransactionCommand command) {
         LOGGER.warn("Ignore orphaned transaction recovery command from remote, which is not expected, client id={}, "
             + "command={}", clientId, command);
@@ -532,10 +569,10 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     }
 
     /**
-     * @see Client#getClientId()
+     * @see Client#clientId()
      */
     @Override
-    public String getClientId() {
+    public String clientId() {
         return clientId;
     }
 

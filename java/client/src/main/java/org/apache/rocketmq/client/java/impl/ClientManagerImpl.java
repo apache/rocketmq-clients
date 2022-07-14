@@ -131,12 +131,12 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
 
     @Override
     public void registerClient(Client client) {
-        clientTable.put(client.getClientId(), client);
+        clientTable.put(client.clientId(), client);
     }
 
     @Override
     public void unregisterClient(Client client) {
-        clientTable.remove(client.getClientId());
+        clientTable.remove(client.clientId());
     }
 
     @Override
@@ -189,9 +189,9 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
     private void syncSettings() {
         clientTable.values().forEach(client -> {
             try {
-                client.telemeterSettings();
+                client.syncSettings();
             } catch (Throwable t) {
-                LOGGER.error("Failed to announce settings, clientId={}", client.getClientId(), t);
+                LOGGER.error("Failed to announce settings, clientId={}", client.clientId(), t);
             }
         });
     }

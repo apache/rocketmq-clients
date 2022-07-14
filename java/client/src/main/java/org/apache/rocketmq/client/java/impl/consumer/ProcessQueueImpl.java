@@ -128,7 +128,7 @@ class ProcessQueueImpl implements ProcessQueue {
             return false;
         }
         LOGGER.warn("Process queue is idle, idleDuration={}, maxIdleDuration={}, mq={}, clientId={}", idleDuration,
-            maxIdleDuration, mq, consumer.getClientId());
+            maxIdleDuration, mq, consumer.clientId());
         return true;
     }
 
@@ -157,12 +157,12 @@ class ProcessQueueImpl implements ProcessQueue {
                 final MessageId messageId = messageView.getMessageId();
                 if (consumer.getPushConsumerSettings().isFifo()) {
                     LOGGER.error("Message is corrupted, forward it to dead letter queue in fifo mode, mq={}, " +
-                        "messageId={}, clientId={}", mq, messageId, consumer.getClientId());
+                        "messageId={}, clientId={}", mq, messageId, consumer.clientId());
                     forwardToDeadLetterQueue(messageView);
                     return;
                 }
                 LOGGER.error("Message is corrupted, nack it in standard mode, mq={}, messageId={}, clientId={}", mq,
-                    messageId, consumer.getClientId());
+                    messageId, consumer.clientId());
                 nackMessage(messageView);
             });
         }
@@ -194,7 +194,7 @@ class ProcessQueueImpl implements ProcessQueue {
             }
             // Should never reach here.
             LOGGER.error("[Bug] Failed to schedule receive message request, mq={}, clientId={}", mq,
-                consumer.getClientId(), t);
+                consumer.clientId(), t);
             receiveMessageLater();
         }
     }
@@ -202,12 +202,12 @@ class ProcessQueueImpl implements ProcessQueue {
     public void receiveMessage() {
         if (dropped) {
             LOGGER.info("Process queue has been dropped, no longer receive message, mq={}, clientId={}", mq,
-                consumer.getClientId());
+                consumer.clientId());
             return;
         }
         if (this.isCacheFull()) {
             LOGGER.warn("Process queue cache is full, would receive message later, mq={}, clientId={}", mq,
-                consumer.getClientId());
+                consumer.clientId());
             receiveMessageLater();
             return;
         }
@@ -217,7 +217,7 @@ class ProcessQueueImpl implements ProcessQueue {
     private void receiveMessageImmediately() {
         if (!consumer.isRunning()) {
             LOGGER.info("Stop to receive message because consumer is not running, mq={}, clientId={}", mq,
-                consumer.getClientId());
+                consumer.clientId());
             return;
         }
         try {
@@ -251,7 +251,7 @@ class ProcessQueueImpl implements ProcessQueue {
                         // Should never reach here.
                         LOGGER.error("[Bug] Exception raised while handling receive result, would receive later," +
                                 " mq={}, endpoints={}, clientId={}",
-                            mq, endpoints, consumer.getClientId(), t);
+                            mq, endpoints, consumer.clientId(), t);
                         receiveMessageLater();
                     }
                 }
@@ -264,14 +264,14 @@ class ProcessQueueImpl implements ProcessQueue {
                         MessageHookPointsStatus.ERROR);
 
                     LOGGER.error("Exception raised while message reception, would receive later, mq={}, endpoints={}," +
-                        " clientId={}", mq, endpoints, consumer.getClientId(), t);
+                        " clientId={}", mq, endpoints, consumer.clientId(), t);
                     receiveMessageLater();
                 }
             }, MoreExecutors.directExecutor());
             consumer.getReceptionTimes().getAndIncrement();
         } catch (Throwable t) {
             LOGGER.error("Exception raised while message reception, would receive later, mq={}, clientId={}", mq,
-                consumer.getClientId(), t);
+                consumer.clientId(), t);
             receiveMessageLater();
         }
     }
@@ -282,7 +282,7 @@ class ProcessQueueImpl implements ProcessQueue {
         if (cacheMessageCountThresholdPerQueue <= actualMessagesQuantity) {
             LOGGER.warn("Process queue total cached messages quantity exceeds the threshold, threshold={}, actual={}," +
                     " mq={}, clientId={}",
-                cacheMessageCountThresholdPerQueue, actualMessagesQuantity, mq, consumer.getClientId());
+                cacheMessageCountThresholdPerQueue, actualMessagesQuantity, mq, consumer.clientId());
             return true;
         }
         final int cacheMessageBytesThresholdPerQueue = consumer.cacheMessageBytesThresholdPerQueue();
@@ -290,7 +290,7 @@ class ProcessQueueImpl implements ProcessQueue {
         if (cacheMessageBytesThresholdPerQueue <= actualCachedMessagesBytes) {
             LOGGER.warn("Process queue total cached messages memory exceeds the threshold, threshold={} bytes," +
                     " actual={} bytes, mq={}, clientId={}",
-                cacheMessageBytesThresholdPerQueue, actualCachedMessagesBytes, mq, consumer.getClientId());
+                cacheMessageBytesThresholdPerQueue, actualCachedMessagesBytes, mq, consumer.clientId());
             return true;
         }
         return false;
@@ -384,7 +384,7 @@ class ProcessQueueImpl implements ProcessQueue {
     }
 
     private void ackMessage(MessageViewImpl messageView) {
-        final String clientId = consumer.getClientId();
+        final String clientId = consumer.clientId();
         final String consumerGroup = consumer.getConsumerGroup();
         final MessageId messageId = messageView.getMessageId();
         final Endpoints endpoints = messageView.getEndpoints();
@@ -450,7 +450,7 @@ class ProcessQueueImpl implements ProcessQueue {
         int attempt = messageView.getDeliveryAttempt();
         final MessageId messageId = messageView.getMessageId();
         final ConsumeService service = consumer.getConsumeService();
-        final String clientId = consumer.getClientId();
+        final String clientId = consumer.clientId();
         if (ConsumeResult.FAILURE.equals(consumeResult) && attempt < maxAttempts) {
             final Duration nextAttemptDelay = retryPolicy.getNextAttemptDelay(attempt);
             attempt = messageView.incrementAndGetDeliveryAttempt();
@@ -482,7 +482,7 @@ class ProcessQueueImpl implements ProcessQueue {
         final SettableFuture<Void> future0) {
         final ListenableFuture<InvocationContext<ForwardMessageToDeadLetterQueueResponse>> future =
             consumer.forwardMessageToDeadLetterQueue(messageView);
-        final String clientId = consumer.getClientId();
+        final String clientId = consumer.clientId();
         final String consumerGroup = consumer.getConsumerGroup();
         final MessageId messageId = messageView.getMessageId();
         final Endpoints endpoints = messageView.getEndpoints();
@@ -528,7 +528,7 @@ class ProcessQueueImpl implements ProcessQueue {
     private void forwardToDeadLetterQueueLater(final MessageViewImpl messageView, final int attempt,
         final SettableFuture<Void> future0) {
         final MessageId messageId = messageView.getMessageId();
-        final String clientId = consumer.getClientId();
+        final String clientId = consumer.clientId();
         // Process queue is dropped, no need to proceed.
         if (dropped) {
             LOGGER.info("Process queue was dropped, give up to forward message to dead letter queue, mq={}," +
@@ -558,7 +558,7 @@ class ProcessQueueImpl implements ProcessQueue {
 
     private void ackFifoMessage(final MessageViewImpl messageView, final int attempt,
         final SettableFuture<Void> future0) {
-        final String clientId = consumer.getClientId();
+        final String clientId = consumer.clientId();
         final String consumerGroup = consumer.getConsumerGroup();
         final MessageId messageId = messageView.getMessageId();
         final Endpoints endpoints = messageView.getEndpoints();
@@ -606,7 +606,7 @@ class ProcessQueueImpl implements ProcessQueue {
     private void ackFifoMessageLater(final MessageViewImpl messageView, final int attempt,
         final SettableFuture<Void> future0) {
         final MessageId messageId = messageView.getMessageId();
-        final String clientId = consumer.getClientId();
+        final String clientId = consumer.clientId();
         // Process queue is dropped, no need to proceed.
         if (dropped) {
             LOGGER.info("Process queue was dropped, give up to ack message, mq={}, messageId={}, clientId={}",

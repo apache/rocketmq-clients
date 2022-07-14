@@ -27,4 +27,8 @@ public class InternalErrorException extends ClientException {
     public InternalErrorException(int responseCode, String message) {
         super(responseCode, message);
     }
+
+    public InternalErrorException(Throwable cause) {
+        super(cause);
+    }
 }

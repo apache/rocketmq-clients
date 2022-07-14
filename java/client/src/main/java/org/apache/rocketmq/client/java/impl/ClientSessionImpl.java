@@ -26,14 +26,11 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.SettableFuture;
-import io.grpc.Metadata;
 import io.grpc.stub.StreamObserver;
-import java.io.UnsupportedEncodingException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.time.Duration;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.rocketmq.client.apis.ClientException;
+import org.apache.rocketmq.client.java.impl.producer.ClientSessionProcessor;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,51 +39,39 @@ import org.slf4j.LoggerFactory;
  * Telemetry session is constructed before first communication between client and remote route endpoints.
  */
 @SuppressWarnings({"UnstableApiUsage", "NullableProblems"})
-public class TelemetrySession implements StreamObserver<TelemetryCommand> {
-    private static final Logger LOGGER = LoggerFactory.getLogger(TelemetrySession.class);
+public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ClientSessionImpl.class);
 
-    private final ClientImpl client;
-    private final ClientManager clientManager;
+    private final ClientSessionProcessor processor;
     private final Endpoints endpoints;
-    private volatile StreamObserver<TelemetryCommand> requestObserver;
+    private final ReadWriteLock observerLock;
+    private StreamObserver<TelemetryCommand> requestObserver = null;
 
-    private TelemetrySession(ClientImpl client, ClientManager clientManager, Endpoints endpoints) {
-        this.client = client;
-        this.clientManager = clientManager;
+    protected ClientSessionImpl(ClientSessionProcessor processor, Endpoints endpoints) {
+        this.processor = processor;
         this.endpoints = endpoints;
+        this.observerLock = new ReentrantReadWriteLock();
     }
 
-    public static ListenableFuture<TelemetrySession> register(ClientImpl client, ClientManager clientManager,
-        Endpoints endpoints) {
-        return new TelemetrySession(client, clientManager, endpoints).register();
-    }
-
-    private ListenableFuture<TelemetrySession> register() {
-        ListenableFuture<TelemetrySession> future;
+    protected ListenableFuture<ClientSessionImpl> register() {
+        ListenableFuture<ClientSessionImpl> future;
         try {
-            this.init();
-            final ClientSettings clientSettings = client.getClientSettings();
-            final Settings settings = clientSettings.toProtobuf();
-            final TelemetryCommand settingsCommand = TelemetryCommand.newBuilder().setSettings(settings).build();
-            this.telemeter(settingsCommand);
-            future = Futures.transform(clientSettings.getArrivedFuture(), input -> this,
-                MoreExecutors.directExecutor());
+            final TelemetryCommand command = processor.getSettingsCommand();
+            this.publish(command);
+            future = Futures.transform(processor.register(), input -> this, MoreExecutors.directExecutor());
         } catch (Throwable t) {
-            SettableFuture<TelemetrySession> future0 = SettableFuture.create();
-            future0.setException(t);
-            future = future0;
+            future = Futures.immediateFailedFuture(t);
         }
-        Futures.addCallback(future, new FutureCallback<TelemetrySession>() {
+        final String clientId = processor.clientId();
+        Futures.addCallback(future, new FutureCallback<ClientSessionImpl>() {
             @Override
-            public void onSuccess(TelemetrySession session) {
-                LOGGER.info("Register telemetry session successfully, endpoints={}, clientId={}", endpoints,
-                    client.getClientId());
+            public void onSuccess(ClientSessionImpl session) {
+                LOGGER.info("Register client session successfully, endpoints={}, clientId={}", endpoints, clientId);
             }
 
             @Override
             public void onFailure(Throwable t) {
-                LOGGER.error("Failed to register telemetry session, endpoints={}, clientId={}", endpoints,
-                    client.getClientId(), t);
+                LOGGER.error("Failed to register client session, endpoints={}, clientId={}", endpoints, clientId, t);
                 release();
             }
         }, MoreExecutors.directExecutor());
@@ -96,31 +81,19 @@ public class TelemetrySession implements StreamObserver<TelemetryCommand> {
     /**
      * Release telemetry session.
      */
-    public synchronized void release() {
+    public void release() {
+        this.observerLock.writeLock().lock();
         try {
             if (null != requestObserver) {
-                requestObserver.onCompleted();
+                try {
+                    requestObserver.onCompleted();
+                } catch (Throwable ignore) {
+                    // Ignore exception on purpose.
+                }
+                requestObserver = null;
             }
-        } catch (Throwable ignore) {
-            // Ignore exception on purpose.
-        }
-    }
-
-    /**
-     * Initialize telemetry session.
-     */
-    private synchronized void init() throws UnsupportedEncodingException, NoSuchAlgorithmException,
-        InvalidKeyException, ClientException {
-        this.release();
-        final Metadata metadata = client.sign();
-        this.requestObserver = clientManager.telemetry(endpoints, metadata, Duration.ofNanos(Long.MAX_VALUE), this);
-    }
-
-    private void reinit() {
-        try {
-            init();
-        } catch (Throwable ignore) {
-            // Ignore exception on purpose.
+        } finally {
+            this.observerLock.writeLock().unlock();
         }
     }
 
@@ -129,13 +102,24 @@ public class TelemetrySession implements StreamObserver<TelemetryCommand> {
      *
      * @param command appointed command to telemeter
      */
-    public void telemeter(TelemetryCommand command) {
+    public void publish(TelemetryCommand command) throws ClientException {
+        this.observerLock.readLock().lock();
         try {
+            if (null != requestObserver) {
+                requestObserver.onNext(command);
+                return;
+            }
+        } finally {
+            this.observerLock.readLock().unlock();
+        }
+        this.observerLock.writeLock().lock();
+        try {
+            if (null == requestObserver) {
+                this.requestObserver = processor.telemetry(endpoints, this);
+            }
             requestObserver.onNext(command);
-        } catch (RuntimeException e) {
-            // Cancel RPC.
-            requestObserver.onError(e);
-            throw e;
+        } finally {
+            this.observerLock.writeLock().unlock();
         }
     }
 
@@ -146,52 +130,52 @@ public class TelemetrySession implements StreamObserver<TelemetryCommand> {
                 case SETTINGS: {
                     final Settings settings = command.getSettings();
                     LOGGER.info("Receive settings from remote, endpoints={}, clientId={}", endpoints,
-                        client.getClientId());
-                    client.onSettingsCommand(endpoints, settings);
+                        processor.clientId());
+                    processor.onSettingsCommand(endpoints, settings);
                     break;
                 }
                 case RECOVER_ORPHANED_TRANSACTION_COMMAND: {
                     final RecoverOrphanedTransactionCommand recoverOrphanedTransactionCommand =
                         command.getRecoverOrphanedTransactionCommand();
                     LOGGER.info("Receive orphaned transaction recovery command from remote, endpoints={}, "
-                        + "clientId={}", endpoints, client.getClientId());
-                    client.onRecoverOrphanedTransactionCommand(endpoints, recoverOrphanedTransactionCommand);
+                        + "clientId={}", endpoints, processor.clientId());
+                    processor.onRecoverOrphanedTransactionCommand(endpoints, recoverOrphanedTransactionCommand);
                     break;
                 }
                 case VERIFY_MESSAGE_COMMAND: {
                     final VerifyMessageCommand verifyMessageCommand = command.getVerifyMessageCommand();
                     LOGGER.info("Receive message verification command from remote, endpoints={}, clientId={}",
-                        endpoints, client.getClientId());
-                    client.onVerifyMessageCommand(endpoints, verifyMessageCommand);
+                        endpoints, processor.clientId());
+                    processor.onVerifyMessageCommand(endpoints, verifyMessageCommand);
                     break;
                 }
                 case PRINT_THREAD_STACK_TRACE_COMMAND: {
                     final PrintThreadStackTraceCommand printThreadStackTraceCommand =
                         command.getPrintThreadStackTraceCommand();
                     LOGGER.info("Receive thread stack print command from remote, endpoints={}, clientId={}",
-                        endpoints, client.getClientId());
-                    client.onPrintThreadStackCommand(endpoints, printThreadStackTraceCommand);
+                        endpoints, processor.clientId());
+                    processor.onPrintThreadStackTraceCommand(endpoints, printThreadStackTraceCommand);
                     break;
                 }
                 default:
                     LOGGER.warn("Receive unrecognized command from remote, endpoints={}, command={}, clientId={}",
-                        endpoints, command, client.getClientId());
+                        endpoints, command, processor.clientId());
             }
         } catch (Throwable t) {
             LOGGER.error("[Bug] unexpected exception raised while receiving command from remote, command={}, "
-                + "clientId={}", command, client.getClientId(), t);
+                + "clientId={}", command, processor.clientId(), t);
         }
     }
 
     @Override
     public void onError(Throwable throwable) {
         LOGGER.error("Exception raised from stream response observer, clientId={}, endpoints={}",
-            client.getClientId(), endpoints, throwable);
-        reinit();
+            processor.clientId(), endpoints, throwable);
+        this.release();
     }
 
     @Override
     public void onCompleted() {
-        reinit();
+        this.release();
     }
 }

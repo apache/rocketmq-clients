@@ -15,30 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.java.impl;
+package org.apache.rocketmq.client.java.metrics;
 
-import org.apache.rocketmq.client.java.route.Endpoints;
-
-public interface Client {
+public enum GaugeEnum {
     /**
-     * Get the unique client identifier for each client.
+     * A gauge that records the cached message count of push consumer.
      *
-     * @return unique client identifier.
+     * <p>Labels: {@link MetricLabels#TOPIC}, {@link MetricLabels#CLIENT_ID}, {@link MetricLabels#CONSUMER_GROUP}.
      */
-    String clientId();
-
+    CONSUMER_CACHED_MESSAGES("rocketmq_consumer_cached_messages"),
     /**
-     * Send heart beat to remote {@link Endpoints}.
+     * A gauge that records the cached message bytes of push consumer.
+     *
+     * <p>Labels: {@link MetricLabels#TOPIC}, {@link MetricLabels#CLIENT_ID}, {@link MetricLabels#CONSUMER_GROUP}.
      */
-    void doHeartbeat();
+    CONSUMER_CACHED_BYTES("rocketmq_consumer_cached_bytes");
 
-    /**
-     * Sync settings to remote.
-     */
-    void syncSettings();
+    private final String name;
 
-    /**
-     * Do some stats for client.
-     */
-    void doStats();
+    GaugeEnum(String name) {
+        this.name = name;
+    }
+
+    public String getName() {
+        return name;
+    }
 }

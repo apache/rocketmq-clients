@@ -57,7 +57,7 @@ public class ClientManagerRegistry {
                 clientManager.startAsync().awaitRunning();
                 singletonClientManager = clientManager;
             }
-            clientIds.add(client.getClientId());
+            clientIds.add(client.clientId());
             singletonClientManager.registerClient(client);
             return singletonClientManager;
         } finally {
@@ -77,7 +77,7 @@ public class ClientManagerRegistry {
         ClientManagerImpl clientManager = null;
         clientIdsLock.lock();
         try {
-            clientIds.remove(client.getClientId());
+            clientIds.remove(client.clientId());
             singletonClientManager.unregisterClient(client);
             if (clientIds.isEmpty()) {
                 clientManager = singletonClientManager;
