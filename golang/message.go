@@ -17,12 +17,17 @@
 
 package golang
 
+import "time"
+
 type Message struct {
 	Topic      string
 	Body       []byte
 	Tag        string
 	Keys       []string
 	Properties map[string]string
+
+	deliveryTimestamp time.Time
+	messageGroup      string
 }
 
 type MessageExt struct {
@@ -33,4 +38,20 @@ type MessageExt struct {
 
 type SendReceipt struct {
 	MessageID string
+}
+
+func (msg *Message) SetDelayTimeLevel(deliveryTimestamp time.Time) {
+	msg.deliveryTimestamp = deliveryTimestamp
+}
+
+func (msg *Message) GetDeliveryTimestamp() time.Time {
+	return msg.deliveryTimestamp
+}
+
+func (msg *Message) SetMessageGroup(messageGroup string) {
+	msg.messageGroup = messageGroup
+}
+
+func (msg *Message) GetMessageGroup() string {
+	return msg.messageGroup
 }

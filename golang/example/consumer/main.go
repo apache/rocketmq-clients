@@ -17,44 +17,44 @@
 
 package main
 
-import (
-	"context"
-	"fmt"
-	"log"
+// import (
+// 	"context"
+// 	"fmt"
+// 	"log"
 
-	"github.com/apache/rocketmq-clients/golang"
-	"github.com/apache/rocketmq-clients/golang/credentials"
-)
+// 	"github.com/apache/rocketmq-clients/golang"
+// 	"github.com/apache/rocketmq-clients/golang/credentials"
+// )
 
-const (
-	Topic         = "LIPPI_DOC_TEST"
-	ConsumerGroup = "GID_LIPPI_DOC_TEST"
-	NameSpace     = "MQ_INST_1487434140287185_BYAzh6Mc"
-	Endpoint      = "116.62.231.199:80"
-	AccessKey     = "xxxx"
-	SecretKey     = "xxxx"
-)
+// const (
+// 	Topic         = "v2_grpc"
+// 	ConsumerGroup = "v2_grpc"
+// 	NameSpace     = ""
+// 	Endpoint      = "121.196.167.124:8081"
+// 	AccessKey     = ""
+// 	SecretKey     = ""
+// )
 
-func main() {
-	consumer, err := golang.NewConsumer(&golang.Config{
-		Endpoint:  Endpoint,
-		NameSpace: NameSpace,
-		Group:     ConsumerGroup,
-		Region:    "cn-zhangjiakou",
-		Credentials: &credentials.SessionCredentials{
-			AccessKey:    AccessKey,
-			AccessSecret: SecretKey,
-		},
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer consumer.GracefulStop()
-	if err := consumer.Consume(context.TODO(), Topic, func(ctx context.Context, entry *golang.MessageExt) error {
-		fmt.Printf("%#v\n", entry)
-		return nil
-	}); err != nil {
-		log.Fatal(err)
-	}
-	consumer.Start()
-}
+// func main() {
+// 	consumer, err := golang.NewConsumer(&golang.Config{
+// 		Endpoint:  Endpoint,
+// 		NameSpace: NameSpace,
+// 		Group:     ConsumerGroup,
+// 		Region:    "cn-zhangjiakou",
+// 		Credentials: &credentials.SessionCredentials{
+// 			AccessKey:    AccessKey,
+// 			AccessSecret: SecretKey,
+// 		},
+// 	})
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	defer consumer.GracefulStop()
+// 	if err := consumer.Consume(context.TODO(), Topic, func(ctx context.Context, entry *golang.MessageExt) error {
+// 		fmt.Printf("%#v\n", entry)
+// 		return nil
+// 	}); err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	consumer.Start()
+// }

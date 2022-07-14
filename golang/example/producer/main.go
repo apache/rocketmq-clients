@@ -29,20 +29,19 @@ import (
 )
 
 const (
-	Topic         = "LIPPI_DOC_TEST"
-	ConsumerGroup = "GID_LIPPI_DOC_TEST"
-	NameSpace     = "MQ_INST_1487434140287185_BYAzh6Mc"
-	Endpoint      = "116.62.231.199:80"
-	AccessKey     = "xxx"
-	SecretKey     = "xxxx"
+	Topic         = "v2_grpc"
+	ConsumerGroup = "v2_grpc"
+	NameSpace     = ""
+	Endpoint      = "121.196.167.124:8081"
+	AccessKey     = ""
+	SecretKey     = ""
 )
 
 func main() {
 	producer, err := golang.NewProducer(&golang.Config{
-		Endpoint:  Endpoint,
-		NameSpace: NameSpace,
-		Group:     ConsumerGroup,
-		Region:    "cn-zhangjiakou",
+		Endpoint: Endpoint,
+		Group:    ConsumerGroup,
+		Region:   "cn-zhangjiakou",
 		Credentials: &credentials.SessionCredentials{
 			AccessKey:    AccessKey,
 			AccessSecret: SecretKey,
@@ -53,16 +52,30 @@ func main() {
 	}
 	defer producer.GracefulStop()
 	for i := 0; i < 10; i++ {
-		resp, err := producer.Send(context.TODO(), &golang.Message{
+		msg := &golang.Message{
 			Topic: Topic,
 			Body:  []byte(strconv.Itoa(i)),
 			Tag:   "*",
-		})
+		}
+		// msg.SetDelayTimeLevel(time.Now().Add(time.Second * 10))
+		resp, err := producer.Send(context.TODO(), msg)
 		if err != nil {
 			log.Println(err)
-			return
+			// return
 		}
-		fmt.Printf("%#v\n", resp)
+		for i := 0; i < len(resp); i++ {
+			fmt.Printf("%#v\n", resp[i])
+		}
+
+		// producer.SendAsync(context.Background(), msg, func(ctx context.Context, resp []*golang.SendReceipt, err error) {
+		// 	if err != nil {
+		// 		log.Println(err)
+		// 		return
+		// 	}
+		// 	for i := 0; i < len(resp); i++ {
+		// 		fmt.Printf("%#v\n", resp[i])
+		// 	}
+		// })
 		time.Sleep(time.Second * 4)
 	}
 	select {}

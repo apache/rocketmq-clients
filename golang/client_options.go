@@ -21,38 +21,36 @@ import (
 	"time"
 )
 
-type nameServerOptions struct {
-	tickerDuration time.Duration
-	timeout        time.Duration
-	clientConnFunc ClientConnFunc
-	connOptions    []ConnOption
-	brokerFunc     BrokerFunc
-	brokerOptions  []BrokerOption
+type clientOptions struct {
+	tickerDuration   time.Duration
+	timeout          time.Duration
+	clientConnFunc   ClientConnFunc
+	connOptions      []ConnOption
+	rpcClientOptions []RpcClientOption
 }
 
-var defaultNSOptions = nameServerOptions{
+var defaultNSOptions = clientOptions{
 	tickerDuration: time.Second * 30,
 	timeout:        time.Millisecond * 3000,
 	clientConnFunc: NewClientConn,
-	brokerFunc:     NewBroker,
 }
 
-// A NameServerOption sets options such as timeout, etc.
-type NameServerOption interface {
-	apply(*nameServerOptions)
+// A ClientOption sets options such as timeout, etc.
+type ClientOption interface {
+	apply(*clientOptions)
 }
 
 // funcNSOption wraps a function that modifies options into an implementation of
-// the NameServerOption interface.
+// the ClientOption interface.
 type funcNSOption struct {
-	f func(options *nameServerOptions)
+	f func(options *clientOptions)
 }
 
-func (fpo *funcNSOption) apply(po *nameServerOptions) {
+func (fpo *funcNSOption) apply(po *clientOptions) {
 	fpo.f(po)
 }
 
-func newFuncNSOption(f func(options *nameServerOptions)) *funcNSOption {
+func newFuncNSOption(f func(options *clientOptions)) *funcNSOption {
 	return &funcNSOption{
 		f: f,
 	}
@@ -60,46 +58,38 @@ func newFuncNSOption(f func(options *nameServerOptions)) *funcNSOption {
 
 // WithQueryRouteTimeout returns a Option that sets timeout duration for nameserver.
 // Default is 3s.
-func WithQueryRouteTimeout(d time.Duration) NameServerOption {
-	return newFuncNSOption(func(o *nameServerOptions) {
+func WithQueryRouteTimeout(d time.Duration) ClientOption {
+	return newFuncNSOption(func(o *clientOptions) {
 		o.timeout = d
 	})
 }
 
 // WithTickerDuration returns a Option that sets ticker duration for nameserver.
 // Default is 30s.
-func WithTickerDuration(d time.Duration) NameServerOption {
-	return newFuncNSOption(func(o *nameServerOptions) {
+func WithTickerDuration(d time.Duration) ClientOption {
+	return newFuncNSOption(func(o *clientOptions) {
 		o.tickerDuration = d
 	})
 }
 
 // WithClientConnFunc returns a Option that sets ClientConnFunc for nameserver.
 // Default is NewClientConn.
-func WithClientConnFunc(f ClientConnFunc) NameServerOption {
-	return newFuncNSOption(func(o *nameServerOptions) {
+func WithClientConnFunc(f ClientConnFunc) ClientOption {
+	return newFuncNSOption(func(o *clientOptions) {
 		o.clientConnFunc = f
 	})
 }
 
-// WithBrokerFunc returns a Option that sets BrokerFunc for nameserver.
-// Default is NewClient.
-func WithBrokerFunc(f BrokerFunc) NameServerOption {
-	return newFuncNSOption(func(o *nameServerOptions) {
-		o.brokerFunc = f
-	})
-}
-
 // WithConnOptions returns a Option that sets ConnOption for grpc ClientConn.
-func WithConnOptions(opts ...ConnOption) NameServerOption {
-	return newFuncNSOption(func(o *nameServerOptions) {
+func WithConnOptions(opts ...ConnOption) ClientOption {
+	return newFuncNSOption(func(o *clientOptions) {
 		o.connOptions = append(o.connOptions, opts...)
 	})
 }
 
-// WithBrokerOptions returns a Option that sets BrokerOption for grpc ClientConn.
-func WithBrokerOptions(opts ...BrokerOption) NameServerOption {
-	return newFuncNSOption(func(o *nameServerOptions) {
-		o.brokerOptions = append(o.brokerOptions, opts...)
+// WithRpcClientOptions returns a Option that sets RpcClientOption for grpc ClientConn.
+func WithRpcClientOptions(opts ...RpcClientOption) ClientOption {
+	return newFuncNSOption(func(o *clientOptions) {
+		o.rpcClientOptions = append(o.rpcClientOptions, opts...)
 	})
 }
