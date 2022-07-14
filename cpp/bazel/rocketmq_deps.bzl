@@ -136,18 +136,6 @@ def rocketmq_deps():
 
     maybe(
         http_archive,
-        name = "com_github_yhirose_cpp_httplib",
-        sha256 = "0ff62e28eb0f6e563178d44b77c94dddb8702141d83dd34b83cb046399c2b1d5",
-        build_file = "@org_apache_rocketmq//third_party:cpp_httplib.BUILD",
-        strip_prefix = "cpp-httplib-0.9.4",
-        urls = [
-            "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/cpp-httplib/cpp-httplib-0.9.4.tar.gz",
-            "https://github.com/yhirose/cpp-httplib/archive/refs/tags/v0.9.4.tar.gz",
-        ],
-    )
-
-    maybe(
-        http_archive,
         name = "com_google_googleapis",
         sha256 = "e89f15d54b0ddab0cd41d18cb2299e5447db704e2b05ff141cb1769170671466",
         urls = [

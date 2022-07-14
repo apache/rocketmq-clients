@@ -28,7 +28,6 @@
 #include "RpcClient.h"
 #include "Scheduler.h"
 #include "TelemetryBidiReactor.h"
-#include "TopAddressing.h"
 #include "TopicRouteData.h"
 #include "rocketmq/SendCallback.h"
 #include "rocketmq/State.h"

@@ -21,7 +21,6 @@
 #include <system_error>
 #include <utility>
 
-#include "DynamicNameServerResolver.h"
 #include "LoggerImpl.h"
 #include "MixAll.h"
 #include "ProducerImpl.h"

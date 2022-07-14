@@ -17,7 +17,6 @@
 #include <chrono>
 #include <memory>
 
-#include "DynamicNameServerResolver.h"
 #include "PushConsumerImpl.h"
 #include "StaticNameServerResolver.h"
 #include "rocketmq/PushConsumer.h"

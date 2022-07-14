@@ -32,7 +32,6 @@
 #include <utility>
 
 #include "ClientManagerFactory.h"
-#include "HttpClientImpl.h"
 #include "InvocationContext.h"
 #include "LoggerImpl.h"
 #include "MessageExt.h"

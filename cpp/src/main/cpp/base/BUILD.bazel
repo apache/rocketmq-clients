@@ -40,7 +40,6 @@ cc_library(
         "@boringssl//:crypto",
         "@boringssl//:ssl",
         "//external:madler_zlib",
-        "@com_github_yhirose_cpp_httplib//:cpp_httplib",
         "@asio//:asio",
     ],
 )
