@@ -22,7 +22,7 @@ cc_binary(
         "ExampleProducer.cpp",
     ],
     deps = [
-        "//src/main/cpp/rocketmq:rocketmq_library",
+        "//source/rocketmq:rocketmq_library",
     ],
 )
 
@@ -32,7 +32,7 @@ cc_binary(
         "ExampleFifoProducer.cpp",
     ],
     deps = [
-        "//src/main/cpp/rocketmq:rocketmq_library",
+        "//source/rocketmq:rocketmq_library",
     ],
 )
 
@@ -42,7 +42,7 @@ cc_binary(
         "ExampleAsyncProducer.cpp",
     ],
     deps = [
-        "//src/main/cpp/rocketmq:rocketmq_library",
+        "//source/rocketmq:rocketmq_library",
     ],
 )
 
@@ -52,7 +52,7 @@ cc_binary(
         "ExampleSimpleConsumer.cpp",
     ],
     deps = [
-        "//src/main/cpp/rocketmq:rocketmq_library",
+        "//source/rocketmq:rocketmq_library",
     ],
 )
 
@@ -62,7 +62,7 @@ cc_binary(
 #         "SqlProducer.cpp",
 #     ],
 #     deps = [
-#         "//src/main/cpp/rocketmq:rocketmq_library",
+#         "//source/rocketmq:rocketmq_library",
 #     ],
 # )
 
@@ -72,7 +72,7 @@ cc_binary(
         "ExamplePushConsumer.cpp",
     ],
     deps = [
-        "//src/main/cpp/rocketmq:rocketmq_library",
+        "//source/rocketmq:rocketmq_library",
     ],
 )
 
@@ -82,7 +82,7 @@ cc_binary(
 #         "ExampleFifoPushConsumer.cpp",
 #     ],
 #     deps = [
-#         "//src/main/cpp/rocketmq:rocketmq_library",
+#         "//source/rocketmq:rocketmq_library",
 #     ],
 # )
 
@@ -92,7 +92,7 @@ cc_binary(
 #         "PushConsumerWithCustomExecutor.cpp",
 #     ],
 #     deps = [
-#         "//src/main/cpp/rocketmq:rocketmq_library",
+#         "//source/rocketmq:rocketmq_library",
 #     ],
 # )
 
@@ -102,7 +102,7 @@ cc_binary(
 #         "PushConsumerWithThrottle.cpp",
 #     ],
 #     deps = [
-#         "//src/main/cpp/rocketmq:rocketmq_library",
+#         "//source/rocketmq:rocketmq_library",
 #     ],
 # )
 
@@ -112,7 +112,7 @@ cc_binary(
 #         "SqlConsumer.cpp",
 #     ],
 #     deps = [
-#         "//src/main/cpp/rocketmq:rocketmq_library",
+#         "//source/rocketmq:rocketmq_library",
 #     ],
 # )
 
@@ -122,7 +122,7 @@ cc_binary(
 #         "BenchmarkPushConsumer.cpp",
 #     ],
 #     deps = [
-#         "//src/main/cpp/rocketmq:rocketmq_library",
+#         "//source/rocketmq:rocketmq_library",
 #     ],
 # )
 
@@ -132,6 +132,6 @@ cc_binary(
 #         "ExampleTransactionProducer.cpp",
 #     ],
 #     deps = [
-#         "//src/main/cpp/rocketmq:rocketmq_library",
+#         "//source/rocketmq:rocketmq_library",
 #     ],
 # )

@@ -1,0 +1,54 @@
+load("@rules_cc//cc:defs.bzl", "cc_test")
+
+base_deps = [
+    "//source/base:base_library",
+    "@com_google_googletest//:gtest_main",
+]
+
+cc_test(
+    name = "message_builder_test",
+    srcs = [
+        "MessageBuilderTest.cpp",
+    ],
+    deps = base_deps,
+)
+
+cc_test(
+    name = "assignment_test",
+    srcs = [
+        "AssignmentTest.cpp",
+    ],
+    deps = base_deps,
+)
+
+cc_test(
+    name = "message_queue_test",
+    srcs = [
+        "MessageQueueTest.cpp",
+    ],
+    deps = base_deps,
+)
+
+cc_test(
+    name = "configuration_test",
+    srcs = [
+        "ConfigurationTest.cpp",
+    ],
+    deps = base_deps,
+)
+
+cc_test(
+    name = "mix_all_test",
+    srcs = [
+        "MixAllTest.cpp",
+    ],
+    deps = base_deps,
+)
+
+cc_test(
+    name = "retry_policy_test",
+    srcs = [
+        "RetryPolicyTest.cpp",
+    ],
+    deps = base_deps,
+)
