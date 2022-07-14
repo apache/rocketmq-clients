@@ -24,7 +24,7 @@ import org.apache.rocketmq.client.apis.ClientException;
  * in time from its upstream servers.
  */
 public class ProxyTimeoutException extends ClientException {
-    public ProxyTimeoutException(int responseCode, String message) {
-        super(responseCode, message);
+    public ProxyTimeoutException(int responseCode, String requestId, String message) {
+        super(responseCode, requestId, message);
     }
 }

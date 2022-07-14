@@ -80,7 +80,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         Map<String, FilterExpression> subscriptionExpressions) {
         super(clientConfiguration, consumerGroup, subscriptionExpressions.keySet());
         Resource groupResource = new Resource(consumerGroup);
-        this.simpleConsumerSettings = new SimpleConsumerSettings(clientId, accessEndpoints, groupResource,
+        this.simpleConsumerSettings = new SimpleConsumerSettings(clientId, endpoints, groupResource,
             clientConfiguration.getRequestTimeout(), awaitDuration, subscriptionExpressions);
         this.consumerGroup = consumerGroup;
         this.awaitDuration = awaitDuration;
@@ -242,8 +242,9 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         }
         MessageViewImpl impl = (MessageViewImpl) messageView;
         final ListenableFuture<InvocationContext<AckMessageResponse>> future = ackMessage(impl);
-        return Futures.transformAsync(future, context -> {
-            final AckMessageResponse resp = context.getResp();
+        return Futures.transformAsync(future, ctx -> {
+            final String requestId = ctx.getRpcContext().getRequestId();
+            final AckMessageResponse resp = ctx.getResp();
             final Status status = resp.getStatus();
             final Code code = status.getCode();
             switch (code) {
@@ -254,23 +255,23 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
                 case ILLEGAL_CONSUMER_GROUP:
                 case INVALID_RECEIPT_HANDLE:
                 case CLIENT_ID_REQUIRED:
-                    throw new BadRequestException(code.getNumber(), status.getMessage());
+                    throw new BadRequestException(code.getNumber(), requestId, status.getMessage());
                 case UNAUTHORIZED:
-                    throw new UnauthorizedException(code.getNumber(), status.getMessage());
+                    throw new UnauthorizedException(code.getNumber(), requestId, status.getMessage());
                 case FORBIDDEN:
-                    throw new ForbiddenException(code.getNumber(), status.getMessage());
+                    throw new ForbiddenException(code.getNumber(), requestId, status.getMessage());
                 case NOT_FOUND:
                 case TOPIC_NOT_FOUND:
-                    throw new NotFoundException(code.getNumber(), status.getMessage());
+                    throw new NotFoundException(code.getNumber(), requestId, status.getMessage());
                 case TOO_MANY_REQUESTS:
-                    throw new TooManyRequestsException(code.getNumber(), status.getMessage());
+                    throw new TooManyRequestsException(code.getNumber(), requestId, status.getMessage());
                 case INTERNAL_ERROR:
                 case INTERNAL_SERVER_ERROR:
-                    throw new InternalErrorException(code.getNumber(), status.getMessage());
+                    throw new InternalErrorException(code.getNumber(), requestId, status.getMessage());
                 case PROXY_TIMEOUT:
-                    throw new ProxyTimeoutException(code.getNumber(), status.getMessage());
+                    throw new ProxyTimeoutException(code.getNumber(), requestId, status.getMessage());
                 default:
-                    throw new UnsupportedException(code.getNumber(), status.getMessage());
+                    throw new UnsupportedException(code.getNumber(), requestId, status.getMessage());
             }
         }, clientCallbackExecutor);
     }
@@ -304,12 +305,15 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         MessageViewImpl impl = (MessageViewImpl) messageView;
         final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> future =
             changeInvisibleDuration(impl, invisibleDuration);
-        return Futures.transformAsync(future, context -> {
-            final ChangeInvisibleDurationResponse resp = context.getResp();
+        return Futures.transformAsync(future, ctx -> {
+            final ChangeInvisibleDurationResponse resp = ctx.getResp();
+            final String requestId = ctx.getRpcContext().getRequestId();
             // Refresh receipt handle manually.
             impl.setReceiptHandle(resp.getReceiptHandle());
             final Status status = resp.getStatus();
             final Code code = status.getCode();
+            final int codeNumber = code.getNumber();
+            final String statusMessage = status.getMessage();
             switch (code) {
                 case OK:
                     return Futures.immediateVoidFuture();
@@ -319,20 +323,20 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
                 case ILLEGAL_INVISIBLE_TIME:
                 case INVALID_RECEIPT_HANDLE:
                 case CLIENT_ID_REQUIRED:
-                    throw new BadRequestException(code.getNumber(), status.getMessage());
+                    throw new BadRequestException(codeNumber, requestId, statusMessage);
                 case UNAUTHORIZED:
-                    throw new UnauthorizedException(code.getNumber(), status.getMessage());
+                    throw new UnauthorizedException(codeNumber, requestId, statusMessage);
                 case NOT_FOUND:
                 case TOPIC_NOT_FOUND:
                 case TOO_MANY_REQUESTS:
-                    throw new TooManyRequestsException(code.getNumber(), status.getMessage());
+                    throw new TooManyRequestsException(codeNumber, requestId, statusMessage);
                 case INTERNAL_ERROR:
                 case INTERNAL_SERVER_ERROR:
-                    throw new InternalErrorException(code.getNumber(), status.getMessage());
+                    throw new InternalErrorException(codeNumber, requestId, statusMessage);
                 case PROXY_TIMEOUT:
-                    throw new ProxyTimeoutException(code.getNumber(), status.getMessage());
+                    throw new ProxyTimeoutException(codeNumber, requestId, statusMessage);
                 default:
-                    throw new UnsupportedException(code.getNumber(), status.getMessage());
+                    throw new UnsupportedException(codeNumber, requestId, statusMessage);
             }
         }, MoreExecutors.directExecutor());
     }

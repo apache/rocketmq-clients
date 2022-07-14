@@ -36,14 +36,12 @@ import org.apache.rocketmq.client.java.route.Endpoints;
 
 public class ReceiveMessageResult {
     private final Endpoints endpoints;
-    private final String requestId;
     private final ClientException exception;
 
     private final List<MessageViewImpl> messages;
 
     public ReceiveMessageResult(Endpoints endpoints, String requestId, Status status, List<MessageViewImpl> messages) {
         this.endpoints = endpoints;
-        this.requestId = requestId;
         final Code code = status.getCode();
         switch (code) {
             case OK:
@@ -56,31 +54,31 @@ public class ReceiveMessageResult {
             case ILLEGAL_FILTER_EXPRESSION:
             case ILLEGAL_INVISIBLE_TIME:
             case CLIENT_ID_REQUIRED:
-                this.exception = new BadRequestException(code.getNumber(), status.getMessage());
+                this.exception = new BadRequestException(code.getNumber(), requestId, status.getMessage());
                 break;
             case UNAUTHORIZED:
-                this.exception = new UnauthorizedException(code.getNumber(), status.getMessage());
+                this.exception = new UnauthorizedException(code.getNumber(), requestId, status.getMessage());
                 break;
             case FORBIDDEN:
-                this.exception = new ForbiddenException(code.getNumber(), status.getMessage());
+                this.exception = new ForbiddenException(code.getNumber(), requestId, status.getMessage());
                 break;
             case NOT_FOUND:
             case TOPIC_NOT_FOUND:
             case CONSUMER_GROUP_NOT_FOUND:
-                this.exception = new NotFoundException(code.getNumber(), status.getMessage());
+                this.exception = new NotFoundException(code.getNumber(), requestId, status.getMessage());
                 break;
             case TOO_MANY_REQUESTS:
-                this.exception = new TooManyRequestsException(code.getNumber(), status.getMessage());
+                this.exception = new TooManyRequestsException(code.getNumber(), requestId, status.getMessage());
                 break;
             case INTERNAL_ERROR:
             case INTERNAL_SERVER_ERROR:
-                this.exception = new InternalErrorException(code.getNumber(), status.getMessage());
+                this.exception = new InternalErrorException(code.getNumber(), requestId, status.getMessage());
                 break;
             case PROXY_TIMEOUT:
-                this.exception = new ProxyTimeoutException(code.getNumber(), status.getMessage());
+                this.exception = new ProxyTimeoutException(code.getNumber(), requestId, status.getMessage());
                 break;
             default:
-                this.exception = new UnsupportedException(code.getNumber(), status.getMessage());
+                this.exception = new UnsupportedException(code.getNumber(), requestId, status.getMessage());
         }
         this.messages = messages;
     }
@@ -111,9 +109,5 @@ public class ReceiveMessageResult {
 
     public List<MessageViewImpl> getMessages() {
         return messages;
-    }
-
-    public String getRequestId() {
-        return requestId;
     }
 }

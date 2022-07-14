@@ -24,7 +24,7 @@ import org.apache.rocketmq.client.apis.ClientException;
  * resource.
  */
 public class UnauthorizedException extends ClientException {
-    public UnauthorizedException(int responseCode, String message) {
-        super(responseCode, message);
+    public UnauthorizedException(int responseCode, String requestId, String message) {
+        super(responseCode, requestId, message);
     }
 }

@@ -23,7 +23,7 @@ import org.apache.rocketmq.client.apis.ClientException;
  * Generic exception for the case that user does not have permission to access/operation the resource.
  */
 public class ForbiddenException extends ClientException {
-    public ForbiddenException(int responseCode, String message) {
-        super(responseCode, message);
+    public ForbiddenException(int responseCode, String requestId, String message) {
+        super(responseCode, requestId, message);
     }
 }

@@ -82,7 +82,6 @@ import org.apache.rocketmq.client.java.misc.ExecutorServices;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.misc.Utilities;
 import org.apache.rocketmq.client.java.route.Endpoints;
-import org.apache.rocketmq.client.java.route.TopicRouteData;
 import org.apache.rocketmq.client.java.route.TopicRouteDataResult;
 import org.apache.rocketmq.client.java.rpc.InvocationContext;
 import org.apache.rocketmq.client.java.rpc.Signature;
@@ -99,7 +98,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
 
     protected volatile ClientManager clientManager;
     protected final ClientConfiguration clientConfiguration;
-    protected final Endpoints accessEndpoints;
+    protected final Endpoints endpoints;
     protected final Set<String> topics;
     // Thread-safe set.
     protected final Set<Endpoints> isolated;
@@ -128,7 +127,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
 
     public ClientImpl(ClientConfiguration clientConfiguration, Set<String> topics) {
         this.clientConfiguration = checkNotNull(clientConfiguration, "clientConfiguration should not be null");
-        this.accessEndpoints = new Endpoints(clientConfiguration.getEndpoints());
+        this.endpoints = new Endpoints(clientConfiguration.getEndpoints());
         this.topics = topics;
         // Generate client id firstly.
         this.clientId = Utilities.genClientId();
@@ -652,20 +651,20 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         try {
             Resource topicResource = Resource.newBuilder().setName(topic).build();
             final QueryRouteRequest request = QueryRouteRequest.newBuilder().setTopic(topicResource)
-                .setEndpoints(accessEndpoints.toProtobuf()).build();
+                .setEndpoints(endpoints.toProtobuf()).build();
             final Metadata metadata = sign();
             final ListenableFuture<InvocationContext<QueryRouteResponse>> contextFuture =
-                clientManager.queryRoute(accessEndpoints, metadata, request, clientConfiguration.getRequestTimeout());
-            return Futures.transform(contextFuture, context -> {
-                final QueryRouteResponse response = context.getResp();
+                clientManager.queryRoute(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
+            return Futures.transform(contextFuture, ctx -> {
+                final QueryRouteResponse response = ctx.getResp();
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
                 if (Code.OK != code) {
                     LOGGER.error("Exception raised while fetch topic route from remote, topic={}, " +
                             "clientId={}, endpoints={}, code={}, status message=[{}]", topic, clientId,
-                        accessEndpoints, code, status.getMessage());
+                        endpoints, code, status.getMessage());
                 }
-                return new TopicRouteDataResult(new TopicRouteData(response.getMessageQueuesList()), status);
+                return new TopicRouteDataResult(ctx);
             }, MoreExecutors.directExecutor());
         } catch (Throwable t) {
             return Futures.immediateFailedFuture(t);

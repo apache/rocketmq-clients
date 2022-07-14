@@ -25,7 +25,7 @@ import org.apache.rocketmq.client.apis.ClientException;
  * <p>Requests are throttled.
  */
 public class TooManyRequestsException extends ClientException {
-    public TooManyRequestsException(int responseCode, String message) {
-        super(responseCode, message);
+    public TooManyRequestsException(int responseCode, String requestId, String message) {
+        super(responseCode, requestId, message);
     }
 }

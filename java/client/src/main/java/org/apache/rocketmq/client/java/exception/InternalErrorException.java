@@ -24,11 +24,11 @@ import org.apache.rocketmq.client.apis.ClientException;
  * fulfilling the request.
  */
 public class InternalErrorException extends ClientException {
-    public InternalErrorException(int responseCode, String message) {
-        super(responseCode, message);
-    }
-
     public InternalErrorException(Throwable cause) {
         super(cause);
+    }
+
+    public InternalErrorException(int responseCode, String requestId, String message) {
+        super(responseCode, requestId, message);
     }
 }

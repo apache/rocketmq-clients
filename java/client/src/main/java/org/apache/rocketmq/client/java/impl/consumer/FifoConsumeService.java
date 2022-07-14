@@ -17,7 +17,6 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -36,7 +35,6 @@ import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@SuppressWarnings("NullableProblems")
 class FifoConsumeService extends ConsumeService {
     private static final Logger LOGGER = LoggerFactory.getLogger(FifoConsumeService.class);
 
@@ -69,18 +67,7 @@ class FifoConsumeService extends ConsumeService {
         final ListenableFuture<ConsumeResult> future0 = consume(next);
         final ListenableFuture<Void> future = Futures.transformAsync(future0, result -> pq.eraseFifoMessage(next,
             result), MoreExecutors.directExecutor());
-        Futures.addCallback(future, new FutureCallback<Void>() {
-            @Override
-            public void onSuccess(Void ignore) {
-                consumeIteratively(pq, iterator);
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-                // Should never reach here.
-                LOGGER.error("[Bug] Exception raised in fifo message erasing task, clientId={}", clientId, t);
-            }
-        }, MoreExecutors.directExecutor());
+        future.addListener(() -> consumeIteratively(pq, iterator), MoreExecutors.directExecutor());
     }
 
     @Override

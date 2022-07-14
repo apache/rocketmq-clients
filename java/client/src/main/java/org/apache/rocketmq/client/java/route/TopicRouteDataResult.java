@@ -17,12 +17,13 @@
 
 package org.apache.rocketmq.client.java.route;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import apache.rocketmq.v2.Code;
+import apache.rocketmq.v2.MessageQueue;
+import apache.rocketmq.v2.QueryRouteResponse;
 import apache.rocketmq.v2.Status;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+import java.util.List;
 import javax.annotation.concurrent.Immutable;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.exception.BadRequestException;
@@ -31,6 +32,7 @@ import org.apache.rocketmq.client.java.exception.NotFoundException;
 import org.apache.rocketmq.client.java.exception.ProxyTimeoutException;
 import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
 import org.apache.rocketmq.client.java.exception.UnsupportedException;
+import org.apache.rocketmq.client.java.rpc.InvocationContext;
 
 /**
  * Result topic route data fetched from remote.
@@ -40,9 +42,16 @@ public class TopicRouteDataResult {
     private final TopicRouteData topicRouteData;
     private final ClientException exception;
 
-    public TopicRouteDataResult(TopicRouteData topicRouteData, Status status) {
-        this.topicRouteData = checkNotNull(topicRouteData, "topicRouteData should not be null");
+    public TopicRouteDataResult(InvocationContext<QueryRouteResponse> ctx) {
+        final QueryRouteResponse resp = ctx.getResp();
+        final String requestId = ctx.getRpcContext().getRequestId();
+        final List<MessageQueue> messageQueuesList = resp.getMessageQueuesList();
+        final TopicRouteData topicRouteData = new TopicRouteData(messageQueuesList);
+        final Status status = resp.getStatus();
+        this.topicRouteData = topicRouteData;
         final Code code = status.getCode();
+        final int codeNumber = code.getNumber();
+        final String statusMessage = status.getMessage();
         switch (code) {
             case OK:
                 this.exception = null;
@@ -51,24 +60,24 @@ public class TopicRouteDataResult {
             case ILLEGAL_ACCESS_POINT:
             case ILLEGAL_TOPIC:
             case CLIENT_ID_REQUIRED:
-                this.exception = new BadRequestException(code.getNumber(), status.getMessage());
+                this.exception = new BadRequestException(codeNumber, requestId, statusMessage);
                 break;
             case NOT_FOUND:
             case TOPIC_NOT_FOUND:
-                this.exception = new NotFoundException(code.getNumber(), status.getMessage());
+                this.exception = new NotFoundException(codeNumber, requestId, statusMessage);
                 break;
             case TOO_MANY_REQUESTS:
-                this.exception = new TooManyRequestsException(code.getNumber(), status.getMessage());
+                this.exception = new TooManyRequestsException(codeNumber, requestId, statusMessage);
                 break;
             case INTERNAL_ERROR:
             case INTERNAL_SERVER_ERROR:
-                this.exception = new InternalErrorException(code.getNumber(), status.getMessage());
+                this.exception = new InternalErrorException(codeNumber, requestId, statusMessage);
                 break;
             case PROXY_TIMEOUT:
-                this.exception = new ProxyTimeoutException(code.getNumber(), status.getMessage());
+                this.exception = new ProxyTimeoutException(codeNumber, requestId, statusMessage);
                 break;
             default:
-                this.exception = new UnsupportedException(code.getNumber(), status.getMessage());
+                this.exception = new UnsupportedException(codeNumber, requestId, statusMessage);
         }
     }
 

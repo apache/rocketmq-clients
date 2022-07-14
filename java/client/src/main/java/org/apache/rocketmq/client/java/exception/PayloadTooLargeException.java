@@ -23,7 +23,7 @@ import org.apache.rocketmq.client.apis.ClientException;
  * Generic exception represents that the request entity is larger than the limits defined by the server.
  */
 public class PayloadTooLargeException extends ClientException {
-    public PayloadTooLargeException(int responseCode, String message) {
-        super(responseCode, message);
+    public PayloadTooLargeException(int responseCode, String requestId, String message) {
+        super(responseCode, requestId, message);
     }
 }
