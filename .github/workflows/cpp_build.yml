@@ -17,3 +17,6 @@ jobs:
       - name: Compile All Targets
         working-directory: ./cpp
         run: bazel build //...
+      - name: Execute Unit Tests
+        working-directory: ./cpp
+        run: bazel test //...
