@@ -22,7 +22,6 @@
 #include <system_error>
 
 #include "ConsumeMessageService.h"
-#include "RateLimiter.h"
 #include "ThreadPool.h"
 #include "absl/container/flat_hash_map.h"
 #include "rocketmq/State.h"
