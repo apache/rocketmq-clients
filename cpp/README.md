@@ -55,7 +55,7 @@ if "com_google_googletest" not in native.existing_rules():
 2. Run Unit Tests
    From the repository root,
    ```
-   bazel test //src/test/cpp/ut/...
+   bazel test //...
    ```
 
 ### IDE
