@@ -21,13 +21,8 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"math"
-	"math/rand"
 	"time"
-
-	"github.com/apache/rocketmq-clients/golang/metadata"
-	"github.com/lithammer/shortuuid/v4"
 
 	"github.com/apache/rocketmq-clients/golang/pkg/zaplog"
 	"go.uber.org/zap"
@@ -35,8 +30,6 @@ import (
 )
 
 type connOptions struct {
-	// Conn ID
-	ID string
 	// MaxCallSendMsgSize is the client-side request send limit in bytes.
 	// If 0, it defaults to 2.0 MiB (2 * 1024 * 1024).
 	// Make sure that "MaxCallSendMsgSize" < server-side default send/recv limit.
@@ -79,7 +72,6 @@ type connOptions struct {
 }
 
 var defaultConnOptions = connOptions{
-	ID:                 fmt.Sprintf("%s@%d@%s", metadata.Rocketmq, rand.Int(), shortuuid.New()),
 	DialTimeout:        time.Second * 5,
 	MaxCallSendMsgSize: 2 * 1024 * 1024,
 	MaxCallRecvMsgSize: math.MaxInt32,

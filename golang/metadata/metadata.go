@@ -18,11 +18,11 @@
 package metadata
 
 const (
-	LanguageKey   = "x-mq-language"
-	ProtocolKey   = "x-mq-protocol"
-	RequestID     = "x-mq-request-id"
-	VersionKey    = "x-mq-client-version"
-	NameSpace     = "x-mq-namespace"
+	LanguageKey = "x-mq-language"
+	ProtocolKey = "x-mq-protocol"
+	RequestID   = "x-mq-request-id"
+	VersionKey  = "x-mq-client-version"
+	// NameSpace     = "x-mq-namespace"
 	DateTime      = "x-mq-date-time"
 	ClintID       = "x-mq-client-id"
 	Authorization = "authorization"

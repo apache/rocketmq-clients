@@ -18,11 +18,11 @@
 package golang
 
 type producerOptions struct {
-	nameServerFunc NewNameServerFunc
+	clientFunc NewClientFunc
 }
 
 var defaultProducerOptions = producerOptions{
-	nameServerFunc: NewNameServer,
+	clientFunc: NewClient,
 }
 
 // A ProducerOption sets options such as tls.Config, etc.
@@ -46,10 +46,10 @@ func newFuncProducerOption(f func(options *producerOptions)) *funcProducerOption
 	}
 }
 
-// WithNameServerFunc returns a ProducerOption that sets NameServerFunc for producer.
+// WithClientFunc returns a ProducerOption that sets ClientFunc for producer.
 // Default is nameserver.New.
-func WithNameServerFunc(f NewNameServerFunc) ProducerOption {
+func WithClientFunc(f NewClientFunc) ProducerOption {
 	return newFuncProducerOption(func(o *producerOptions) {
-		o.nameServerFunc = f
+		o.clientFunc = f
 	})
 }

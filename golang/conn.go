@@ -19,33 +19,25 @@ package golang
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha1"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"time"
 
-	innerMD "github.com/apache/rocketmq-clients/golang/metadata"
 	"github.com/apache/rocketmq-clients/golang/pkg/grpc/middleware/zaplog"
 	validator "github.com/go-playground/validator/v10"
-	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
-	"google.golang.org/grpc/metadata"
 )
 
 var (
 	ErrNoAvailableEndpoints = errors.New("rocketmq: no available endpoints")
 )
 
-type ClientConnFunc func(*Config, ...ConnOption) (ClientConn, error)
+type ClientConnFunc func(string, ...ConnOption) (ClientConn, error)
 
 type ClientConn interface {
 	Conn() *grpc.ClientConn
 	Close() error
-	Config() *Config
 }
 
 var _ = ClientConn(&clientConn{})
@@ -57,21 +49,16 @@ type clientConn struct {
 	cancel   context.CancelFunc
 	callOpts []grpc.CallOption
 	conn     *grpc.ClientConn
-	config   *Config
 	validate *validator.Validate
 }
 
-func NewClientConn(config *Config, opts ...ConnOption) (ClientConn, error) {
+func NewClientConn(endpoint string, opts ...ConnOption) (ClientConn, error) {
 	client := &clientConn{
 		opts:     defaultConnOptions,
-		config:   config,
 		validate: validator.New(),
 	}
-	if client.config == nil {
+	if len(endpoint) == 0 {
 		return nil, ErrNoAvailableEndpoints
-	}
-	if err := client.validate.Struct(client.config); err != nil {
-		return nil, err
 	}
 	for _, opt := range opts {
 		opt.apply(&client.opts)
@@ -100,7 +87,7 @@ func NewClientConn(config *Config, opts ...ConnOption) (ClientConn, error) {
 		}
 	}
 
-	conn, err := client.dial(config.Endpoint)
+	conn, err := client.dial(endpoint)
 	if err != nil {
 		client.cancel()
 		return nil, err
@@ -119,10 +106,6 @@ func (c *clientConn) Close() error {
 	return c.conn.Close()
 }
 
-func (c *clientConn) Config() *Config {
-	return c.config
-}
-
 func (c *clientConn) dialSetupOpts(dopts ...grpc.DialOption) (opts []grpc.DialOption, err error) {
 	if c.opts.DialKeepAliveTime > 0 {
 		opts = append(opts, grpc.WithKeepaliveParams(keepalive.ClientParameters{
@@ -137,7 +120,6 @@ func (c *clientConn) dialSetupOpts(dopts ...grpc.DialOption) (opts []grpc.DialOp
 	}
 	opts = append(opts, grpc.WithBlock(), grpc.WithChainUnaryInterceptor(
 		zaplog.UnaryClientInterceptor(c.opts.Logger),
-		c.UnaryClientInterceptor(),
 	))
 	return
 }
@@ -157,47 +139,4 @@ func (c *clientConn) dial(target string, dopts ...grpc.DialOption) (*grpc.Client
 		return nil, err
 	}
 	return conn, nil
-}
-
-func (c *clientConn) UnaryClientInterceptor() grpc.UnaryClientInterceptor {
-	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		newCtx := c.sign(ctx)
-		return invoker(newCtx, method, req, reply, cc, opts...)
-	}
-}
-
-func (c *clientConn) sign(ctx context.Context) context.Context {
-	now := time.Now().Format("20060102T150405Z")
-	return metadata.AppendToOutgoingContext(ctx,
-		innerMD.LanguageKey,
-		innerMD.LanguageValue,
-		innerMD.ProtocolKey,
-		innerMD.ProtocolValue,
-		innerMD.RequestID,
-		uuid.New().String(),
-		innerMD.VersionKey,
-		innerMD.VersionValue,
-		innerMD.NameSpace,
-		c.config.NameSpace,
-		innerMD.ClintID,
-		c.opts.ID,
-		innerMD.DateTime,
-		now,
-		innerMD.Authorization,
-		fmt.Sprintf("%s %s=%s/%s/%s, %s=%s, %s=%s",
-			innerMD.EncryptHeader,
-			innerMD.Credential,
-			c.config.Credentials.AccessKey,
-			c.config.Region,
-			innerMD.Rocketmq,
-			innerMD.SignedHeaders,
-			innerMD.DateTime,
-			innerMD.Signature,
-			func() string {
-				h := hmac.New(sha1.New, []byte(c.config.Credentials.AccessSecret))
-				h.Write([]byte(now))
-				return hex.EncodeToString(h.Sum(nil))
-			}(),
-		),
-	)
 }
