@@ -124,7 +124,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
         super(clientConfiguration, consumerGroup, subscriptionExpressions.keySet());
         this.clientConfiguration = clientConfiguration;
         Resource groupResource = new Resource(consumerGroup);
-        this.pushConsumerSettings = new PushConsumerSettings(clientId, accessEndpoints, groupResource,
+        this.pushConsumerSettings = new PushConsumerSettings(clientId, endpoints, groupResource,
             clientConfiguration.getRequestTimeout(), subscriptionExpressions);
         this.consumerGroup = consumerGroup;
         this.subscriptionExpressions = subscriptionExpressions;
@@ -260,7 +260,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
     private QueryAssignmentRequest wrapQueryAssignmentRequest(String topic) {
         apache.rocketmq.v2.Resource topicResource = apache.rocketmq.v2.Resource.newBuilder().setName(topic).build();
         return QueryAssignmentRequest.newBuilder().setTopic(topicResource)
-            .setEndpoints(accessEndpoints.toProtobuf()).setGroup(getProtobufGroup()).build();
+            .setEndpoints(endpoints.toProtobuf()).setGroup(getProtobufGroup()).build();
     }
 
     private ListenableFuture<Assignments> queryAssignment(final String topic) {

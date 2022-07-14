@@ -24,7 +24,7 @@ import org.apache.rocketmq.client.apis.ClientException;
  * too large. The request may be resubmitted after reducing the size of the request header fields.
  */
 public class RequestHeaderFieldsTooLargeException extends ClientException {
-    public RequestHeaderFieldsTooLargeException(int responseCode, String message) {
-        super(responseCode, message);
+    public RequestHeaderFieldsTooLargeException(int responseCode, String requestId, String message) {
+        super(responseCode, requestId, message);
     }
 }

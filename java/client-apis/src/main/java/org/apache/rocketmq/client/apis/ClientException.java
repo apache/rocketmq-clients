@@ -55,6 +55,12 @@ public class ClientException extends Exception {
         putMetadata(RESPONSE_CODE_KEY, String.valueOf(responseCode));
     }
 
+    public ClientException(int responseCode, String requestId, String message) {
+        this(responseCode, message);
+        putMetadata(RESPONSE_CODE_KEY, String.valueOf(responseCode));
+        putMetadata(REQUEST_ID_KEY, requestId);
+    }
+
     @SuppressWarnings("SameParameterValue")
     protected void putMetadata(String key, String value) {
         context.put(key, value);

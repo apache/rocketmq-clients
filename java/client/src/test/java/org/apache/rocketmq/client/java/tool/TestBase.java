@@ -361,8 +361,7 @@ public class TestBase {
         MessageQueueImpl mq) throws ExecutionException, InterruptedException, ClientException {
         final ListenableFuture<InvocationContext<SendMessageResponse>> future =
             okSendMessageResponseFutureWithSingleEntry();
-        final SendMessageResponse response = future.get().getResp();
-        final List<SendReceiptImpl> receipts = SendReceiptImpl.processSendResponse(mq, response);
+        final List<SendReceiptImpl> receipts = SendReceiptImpl.processRespContext(mq, future.get());
         return receipts.iterator().next();
     }
 }

@@ -23,7 +23,7 @@ import org.apache.rocketmq.client.apis.ClientException;
  * Generic exception for bad request, indicating that the required fields of headers are missing.
  */
 public class BadRequestException extends ClientException {
-    public BadRequestException(int responseCode, String message) {
-        super(responseCode, message);
+    public BadRequestException(int responseCode, String requestId, String message) {
+        super(responseCode, requestId, message);
     }
 }

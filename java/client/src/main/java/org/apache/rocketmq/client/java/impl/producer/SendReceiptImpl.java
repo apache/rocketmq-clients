@@ -40,6 +40,7 @@ import org.apache.rocketmq.client.java.exception.UnsupportedException;
 import org.apache.rocketmq.client.java.message.MessageIdCodec;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
+import org.apache.rocketmq.client.java.rpc.InvocationContext;
 
 public class SendReceiptImpl implements SendReceipt {
     private final MessageId messageId;
@@ -76,14 +77,18 @@ public class SendReceiptImpl implements SendReceipt {
         return offset;
     }
 
-    public static List<SendReceiptImpl> processSendResponse(MessageQueueImpl mq,
-        SendMessageResponse response) throws ClientException {
-        final Status status = response.getStatus();
+    public static List<SendReceiptImpl> processRespContext(MessageQueueImpl mq,
+        InvocationContext<SendMessageResponse> ctx) throws ClientException {
+        final String requestId = ctx.getRpcContext().getRequestId();
+        final SendMessageResponse resp = ctx.getResp();
+        final Status status = resp.getStatus();
         List<SendReceiptImpl> sendReceipts = new ArrayList<>();
-        final List<SendResultEntry> entries = response.getEntriesList();
+        final List<SendResultEntry> entries = resp.getEntriesList();
         for (SendResultEntry entry : entries) {
             final Status entryStatus = entry.getStatus();
             final Code code = entryStatus.getCode();
+            final int codeNumber = code.getNumber();
+            final String statusMessage = status.getMessage();
             switch (code) {
                 case OK:
                     final MessageId messageId = MessageIdCodec.getInstance().decode(entry.getMessageId());
@@ -102,33 +107,33 @@ public class SendReceiptImpl implements SendReceipt {
                 case MESSAGE_PROPERTY_CONFLICT_WITH_TYPE:
                 case MESSAGE_CORRUPTED:
                 case CLIENT_ID_REQUIRED:
-                    throw new BadRequestException(code.getNumber(), status.getMessage());
+                    throw new BadRequestException(codeNumber, requestId, statusMessage);
                 case UNAUTHORIZED:
-                    throw new UnauthorizedException(code.getNumber(), status.getMessage());
+                    throw new UnauthorizedException(codeNumber, requestId, statusMessage);
                 case FORBIDDEN:
-                    throw new ForbiddenException(code.getNumber(), status.getMessage());
+                    throw new ForbiddenException(codeNumber, requestId, statusMessage);
                 case NOT_FOUND:
                 case TOPIC_NOT_FOUND:
-                    throw new NotFoundException(code.getNumber(), status.getMessage());
+                    throw new NotFoundException(codeNumber, requestId, statusMessage);
                 case PAYLOAD_TOO_LARGE:
                 case MESSAGE_BODY_TOO_LARGE:
-                    throw new PayloadTooLargeException(code.getNumber(), status.getMessage());
+                    throw new PayloadTooLargeException(codeNumber, requestId, statusMessage);
                 case TOO_MANY_REQUESTS:
-                    throw new TooManyRequestsException(code.getNumber(), status.getMessage());
+                    throw new TooManyRequestsException(codeNumber, requestId, statusMessage);
                 case REQUEST_HEADER_FIELDS_TOO_LARGE:
                 case MESSAGE_PROPERTIES_TOO_LARGE:
-                    throw new RequestHeaderFieldsTooLargeException(code.getNumber(), status.getMessage());
+                    throw new RequestHeaderFieldsTooLargeException(codeNumber, requestId, statusMessage);
                 case INTERNAL_ERROR:
                 case INTERNAL_SERVER_ERROR:
                 case HA_NOT_AVAILABLE:
-                    throw new InternalErrorException(code.getNumber(), status.getMessage());
+                    throw new InternalErrorException(codeNumber, requestId, statusMessage);
                 case PROXY_TIMEOUT:
                 case MASTER_PERSISTENCE_TIMEOUT:
                 case SLAVE_PERSISTENCE_TIMEOUT:
-                    throw new ProxyTimeoutException(code.getNumber(), status.getMessage());
+                    throw new ProxyTimeoutException(codeNumber, requestId, statusMessage);
                 case UNSUPPORTED:
                 default:
-                    throw new UnsupportedException(code.getNumber(), status.getMessage());
+                    throw new UnsupportedException(codeNumber, requestId, statusMessage);
             }
         }
         return sendReceipts;

@@ -100,7 +100,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         TransactionChecker checker) {
         super(clientConfiguration, topics);
         ExponentialBackoffRetryPolicy retryPolicy = ExponentialBackoffRetryPolicy.immediatelyRetryPolicy(maxAttempts);
-        this.producerSettings = new ProducerSettings(clientId, accessEndpoints, retryPolicy,
+        this.producerSettings = new ProducerSettings(clientId, endpoints, retryPolicy,
             clientConfiguration.getRequestTimeout(), topics.stream().map(Resource::new).collect(Collectors.toSet()));
         this.checker = checker;
 
@@ -451,9 +451,9 @@ class ProducerImpl extends ClientImpl implements Producer {
             clientManager.sendMessage(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
 
         final ListenableFuture<List<SendReceiptImpl>> attemptFuture = Futures.transformAsync(responseFuture,
-            response -> {
+            ctx -> {
                 final SettableFuture<List<SendReceiptImpl>> future0 = SettableFuture.create();
-                future0.set(SendReceiptImpl.processSendResponse(messageQueue, response.getResp()));
+                future0.set(SendReceiptImpl.processRespContext(messageQueue, ctx));
                 return future0;
             }, MoreExecutors.directExecutor());
 

@@ -23,7 +23,7 @@ import org.apache.rocketmq.client.apis.ClientException;
  * Generic exception for unsupported exception.
  */
 public class UnsupportedException extends ClientException {
-    public UnsupportedException(int responseCode, String message) {
-        super(responseCode, message);
+    public UnsupportedException(int responseCode, String requestId, String message) {
+        super(responseCode, requestId, message);
     }
 }

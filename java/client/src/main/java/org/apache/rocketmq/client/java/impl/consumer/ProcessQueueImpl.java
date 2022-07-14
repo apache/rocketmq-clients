@@ -44,6 +44,7 @@ import java.util.stream.Collectors;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.message.MessageId;
+import org.apache.rocketmq.client.java.exception.BadRequestException;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.message.MessageCommon;
@@ -472,6 +473,7 @@ class ProcessQueueImpl implements ProcessQueue {
         return future;
     }
 
+
     private ListenableFuture<Void> forwardToDeadLetterQueue(final MessageViewImpl messageView) {
         final SettableFuture<Void> future = SettableFuture.create();
         forwardToDeadLetterQueue(messageView, 1, future);
@@ -490,25 +492,27 @@ class ProcessQueueImpl implements ProcessQueue {
             @Override
             public void onSuccess(InvocationContext<ForwardMessageToDeadLetterQueueResponse> context) {
                 final ForwardMessageToDeadLetterQueueResponse resp = context.getResp();
+                final String requestId = context.getRpcContext().getRequestId();
                 final Status status = resp.getStatus();
                 final Code code = status.getCode();
                 // Log failure and retry later.
                 if (!Code.OK.equals(code)) {
                     LOGGER.error("Failed to forward message to dead letter queue, would attempt to re-forward later," +
-                            " clientId={}, consumerGroup={} messageId={}, attempt={}, mq={}, endpoints={}, code={}, "
-                            + "status message={}", clientId, consumerGroup, messageId, attempt, mq, endpoints, code,
-                        status.getMessage());
+                            " clientId={}, consumerGroup={} messageId={}, attempt={}, mq={}, endpoints={}, "
+                            + "requestId={}, code={}, status message={}", clientId, consumerGroup, messageId, attempt,
+                        mq, endpoints, requestId, code, status.getMessage());
                     forwardToDeadLetterQueue(messageView, 1 + attempt, future0);
                     return;
                 }
                 // Log retries.
                 if (1 < attempt) {
                     LOGGER.info("Re-forward message to dead letter queue successfully, clientId={}, consumerGroup={}, "
-                            + "attempt={}, messageId={}, mq={}, endpoints={}", clientId, consumerGroup, attempt,
-                        messageId, mq, endpoints);
+                            + "attempt={}, messageId={}, mq={}, endpoints={}, requestId={}", clientId, consumerGroup,
+                        attempt, messageId, mq, endpoints, requestId);
                 } else {
                     LOGGER.debug("Forward message to dead letter queue successfully, clientId={}, consumerGroup={}, "
-                        + "messageId={}, mq={}, endpoints={}", clientId, consumerGroup, messageId, mq, endpoints);
+                            + "messageId={}, mq={}, endpoints={}, requestId={}", clientId, consumerGroup, messageId, mq,
+                        endpoints, requestId);
                 }
                 // Set result if message is forwarded successfully.
                 future0.setFuture(Futures.immediateVoidFuture());
@@ -570,6 +574,14 @@ class ProcessQueueImpl implements ProcessQueue {
                 final String requestId = context.getRpcContext().getRequestId();
                 final Status status = resp.getStatus();
                 final Code code = status.getCode();
+                if (Code.INVALID_RECEIPT_HANDLE.equals(code)) {
+                    LOGGER.error("Failed to ack fifo message due to the invalid receipt handle, forgive to retry, "
+                            + "clientId={}, consumerGroup={} messageId={}, attempt={}, mq={}, endpoints={}, "
+                            + "requestId={}, status message=[{}]", clientId, consumerGroup, messageId, attempt, mq,
+                        endpoints, context.getRpcContext().getRequestId(), status.getMessage());
+                    future0.setException(new BadRequestException(code.getNumber(), requestId, status.getMessage()));
+                    return;
+                }
                 // Log failure and retry later.
                 if (!Code.OK.equals(code)) {
                     LOGGER.error("Failed to ack fifo message, would attempt to re-ack later, clientId={}, "
@@ -582,11 +594,11 @@ class ProcessQueueImpl implements ProcessQueue {
                 // Log retries.
                 if (1 < attempt) {
                     LOGGER.info("Re-ack fifo message successfully, clientId={}, consumerGroup={}, attempt={}, "
-                            + "messageId={}, mq={}, endpoints={}", clientId, consumerGroup, attempt,
-                        messageId, mq, endpoints);
+                            + "messageId={}, mq={}, endpoints={}, requestId={}", clientId, consumerGroup, attempt,
+                        messageId, mq, endpoints, requestId);
                 } else {
                     LOGGER.debug("Ack fifo message successfully, clientId={}, consumerGroup={}, messageId={}, mq={}, "
-                        + "endpoints={}", clientId, consumerGroup, messageId, mq, endpoints);
+                        + "endpoints={}, requestId={}", clientId, consumerGroup, messageId, mq, endpoints, requestId);
                 }
                 // Set result if FIFO message is acknowledged successfully.
                 future0.setFuture(Futures.immediateVoidFuture());

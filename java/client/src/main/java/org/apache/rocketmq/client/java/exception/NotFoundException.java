@@ -23,15 +23,15 @@ import org.apache.rocketmq.client.apis.ClientException;
  * Generic exception for resource not found.
  */
 public class NotFoundException extends ClientException {
-    public NotFoundException(int responseCode, String message) {
-        super(responseCode, message);
-    }
-
     public NotFoundException(String message) {
         super(message);
     }
 
     public NotFoundException(Throwable t) {
         super(t);
+    }
+
+    public NotFoundException(int responseCode, String requestId, String message) {
+        super(responseCode, requestId, message);
     }
 }
