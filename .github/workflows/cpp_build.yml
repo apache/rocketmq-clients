@@ -1,8 +1,10 @@
 name: CPP Build
 on:
   pull_request:
-    types: [opened, reopened]
+    types: [opened, reopened, synchronize]
   push:
+    branches:
+      - master
 jobs:
   cpp_build:
     name: "CPP (${{ matrix.os }})"
