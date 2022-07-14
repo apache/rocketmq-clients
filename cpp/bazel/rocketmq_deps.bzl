@@ -147,17 +147,6 @@ def rocketmq_deps():
 
     maybe(
         http_archive,
-        name = "hedron_compile_commands",
-        sha256 = "4f69ccafa253825d93191977dcbcecee74e576aadbd21f1cfb25a19111ecdf21",
-        urls = [
-            "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/bazel-compile-commands-extractor/bazel-compile-commands-extractor-1.0.tar.gz",
-            "https://github.com/lizhanhui/bazel-compile-commands-extractor/archive/refs/tags/v1.0.tar.gz",
-        ],
-        strip_prefix = "bazel-compile-commands-extractor-1.0",
-    )
-
-    maybe(
-        http_archive,
         name = "rules_swift",
         urls = [
             "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/rules_swift/rules_swift-0.27.0.tar.gz",
