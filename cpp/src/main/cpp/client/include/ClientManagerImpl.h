@@ -40,7 +40,6 @@
 #include "SendMessageContext.h"
 #include "TelemetryBidiReactor.h"
 #include "ThreadPoolImpl.h"
-#include "TopAddressing.h"
 #include "TopicRouteChangeCallback.h"
 #include "TopicRouteData.h"
 #include "absl/base/thread_annotations.h"
@@ -81,7 +80,9 @@ public:
    * @param timeout RPC timeout.
    * @param cb Callback to execute once the request/response completes.
    */
-  void resolveRoute(const std::string& target_host, const Metadata& metadata, const QueryRouteRequest& request,
+  void resolveRoute(const std::string& target_host,
+                    const Metadata& metadata,
+                    const QueryRouteRequest& request,
                     std::chrono::milliseconds timeout,
                     const std::function<void(const std::error_code&, const TopicRouteDataPtr&)>& cb) override
       LOCKS_EXCLUDED(rpc_clients_mtx_);
@@ -92,7 +93,9 @@ public:
    */
   std::vector<std::string> cleanOfflineRpcClients() LOCKS_EXCLUDED(clients_mtx_, rpc_clients_mtx_);
 
-  bool send(const std::string& target_host, const Metadata& metadata, SendMessageRequest& request,
+  bool send(const std::string& target_host,
+            const Metadata& metadata,
+            SendMessageRequest& request,
             SendCallback cb) override LOCKS_EXCLUDED(rpc_clients_mtx_);
 
   /**
@@ -109,7 +112,8 @@ public:
   RpcClientSharedPtr getRpcClient(const std::string& target_host, bool need_heartbeat = true) override
       LOCKS_EXCLUDED(rpc_clients_mtx_);
 
-  static SendReceipt processSendResponse(const rmq::MessageQueue& message_queue, const SendMessageResponse& response,
+  static SendReceipt processSendResponse(const rmq::MessageQueue& message_queue,
+                                         const SendMessageResponse& response,
                                          std::error_code& ec);
 
   // only for test
@@ -120,13 +124,17 @@ public:
 
   void addClientObserver(std::weak_ptr<Client> client) override;
 
-  void queryAssignment(const std::string& target, const Metadata& metadata, const QueryAssignmentRequest& request,
+  void queryAssignment(const std::string& target,
+                       const Metadata& metadata,
+                       const QueryAssignmentRequest& request,
                        std::chrono::milliseconds timeout,
                        const std::function<void(const std::error_code&, const QueryAssignmentResponse&)>& cb) override;
 
-  void receiveMessage(const std::string& target, const Metadata& metadata, const ReceiveMessageRequest& request,
-                      std::chrono::milliseconds timeout, ReceiveMessageCallback cb) override
-      LOCKS_EXCLUDED(rpc_clients_mtx_);
+  void receiveMessage(const std::string& target,
+                      const Metadata& metadata,
+                      const ReceiveMessageRequest& request,
+                      std::chrono::milliseconds timeout,
+                      ReceiveMessageCallback cb) override LOCKS_EXCLUDED(rpc_clients_mtx_);
 
   /**
    * Translate protobuf message struct to domain model.
@@ -143,11 +151,16 @@ public:
    * @param target_host Target broker host address.
    * @param request Ack message request.
    */
-  void ack(const std::string& target_host, const Metadata& metadata, const AckMessageRequest& request,
-           std::chrono::milliseconds timeout, const std::function<void(const std::error_code&)>& cb) override;
+  void ack(const std::string& target_host,
+           const Metadata& metadata,
+           const AckMessageRequest& request,
+           std::chrono::milliseconds timeout,
+           const std::function<void(const std::error_code&)>& cb) override;
 
-  void changeInvisibleDuration(const std::string& target_host, const Metadata& metadata,
-                               const ChangeInvisibleDurationRequest&, std::chrono::milliseconds timeout,
+  void changeInvisibleDuration(const std::string& target_host,
+                               const Metadata& metadata,
+                               const ChangeInvisibleDurationRequest&,
+                               std::chrono::milliseconds timeout,
                                const std::function<void(const std::error_code&)>&) override;
 
   void forwardMessageToDeadLetterQueue(const std::string& target_host,
@@ -170,11 +183,14 @@ public:
    * @param timeout
    * @param cb
    */
-  void endTransaction(const std::string& target_host, const Metadata& metadata, const EndTransactionRequest& request,
+  void endTransaction(const std::string& target_host,
+                      const Metadata& metadata,
+                      const EndTransactionRequest& request,
                       std::chrono::milliseconds timeout,
                       const std::function<void(const std::error_code&, const EndTransactionResponse&)>& cb) override;
 
-  std::error_code notifyClientTermination(const std::string& target_host, const Metadata& metadata,
+  std::error_code notifyClientTermination(const std::string& target_host,
+                                          const Metadata& metadata,
                                           const NotifyClientTerminationRequest& request,
                                           std::chrono::milliseconds timeout) override;
 
@@ -182,7 +198,9 @@ public:
     trace_ = trace;
   }
 
-  void heartbeat(const std::string& target_host, const Metadata& metadata, const HeartbeatRequest& request,
+  void heartbeat(const std::string& target_host,
+                 const Metadata& metadata,
+                 const HeartbeatRequest& request,
                  std::chrono::milliseconds timeout,
                  const std::function<void(const std::error_code&, const HeartbeatResponse&)>& cb) override;
 
@@ -208,7 +226,7 @@ private:
   absl::Mutex clients_mtx_;
 
   absl::flat_hash_map<std::string, std::shared_ptr<RpcClient>> rpc_clients_ GUARDED_BY(rpc_clients_mtx_);
-  absl::Mutex rpc_clients_mtx_; // protects rpc_clients_
+  absl::Mutex rpc_clients_mtx_;  // protects rpc_clients_
 
   std::uint32_t heartbeat_task_id_{0};
   std::uint32_t stats_task_id_{0};
