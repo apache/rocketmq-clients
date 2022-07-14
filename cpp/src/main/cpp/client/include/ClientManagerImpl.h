@@ -29,7 +29,6 @@
 #include "Client.h"
 #include "ClientManager.h"
 #include "HeartbeatDataCallback.h"
-#include "Histogram.h"
 #include "InsecureCertificateVerifier.h"
 #include "InvocationContext.h"
 #include "ReceiveMessageCallback.h"
@@ -66,8 +65,6 @@ public:
   void start() override;
 
   void shutdown() override LOCKS_EXCLUDED(rpc_clients_mtx_);
-
-  static void assignLabels(Histogram& histogram);
 
   std::shared_ptr<grpc::Channel> createChannel(const std::string& target_host) override;
 
@@ -211,8 +208,6 @@ public:
 private:
   void doHeartbeat();
 
-  void logStats();
-
   SchedulerSharedPtr scheduler_;
 
   static const char* HEARTBEAT_TASK_NAME;
@@ -229,11 +224,8 @@ private:
   absl::Mutex rpc_clients_mtx_;  // protects rpc_clients_
 
   std::uint32_t heartbeat_task_id_{0};
-  std::uint32_t stats_task_id_{0};
 
   std::unique_ptr<ThreadPoolImpl> callback_thread_pool_;
-
-  Histogram latency_histogram_;
 
   absl::flat_hash_set<std::string> exporter_endpoint_set_ GUARDED_BY(exporter_endpoint_set_mtx_);
   absl::Mutex exporter_endpoint_set_mtx_;

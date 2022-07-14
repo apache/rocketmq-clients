@@ -50,11 +50,7 @@ ROCKETMQ_NAMESPACE_BEGIN
 ClientManagerImpl::ClientManagerImpl(std::string resource_namespace)
     : scheduler_(std::make_shared<SchedulerImpl>()), resource_namespace_(std::move(resource_namespace)),
       state_(State::CREATED),
-      callback_thread_pool_(absl::make_unique<ThreadPoolImpl>(std::thread::hardware_concurrency())),
-      latency_histogram_("Message-Latency", 11) {
-  spdlog::set_level(spdlog::level::trace);
-  assignLabels(latency_histogram_);
-
+      callback_thread_pool_(absl::make_unique<ThreadPoolImpl>(std::thread::hardware_concurrency())) {
   certificate_verifier_ = grpc::experimental::ExternalCertificateVerifier::Create<InsecureCertificateVerifier>();
   tls_channel_credential_options_.set_verify_server_certs(false);
   tls_channel_credential_options_.set_check_call_host(false);
@@ -118,14 +114,6 @@ void ClientManagerImpl::start() {
       scheduler_->schedule(heartbeat_functor, HEARTBEAT_TASK_NAME, std::chrono::seconds(1), std::chrono::seconds(10));
   SPDLOG_DEBUG("Heartbeat task-id={}", heartbeat_task_id_);
 
-  auto stats_functor_ = [client_instance_weak_ptr]() {
-    auto client_instance = client_instance_weak_ptr.lock();
-    if (client_instance) {
-      client_instance->logStats();
-    }
-  };
-  stats_task_id_ =
-      scheduler_->schedule(stats_functor_, STATS_TASK_NAME, std::chrono::seconds(0), std::chrono::seconds(10));
   state_.store(State::STARTED, std::memory_order_relaxed);
 }
 
@@ -143,10 +131,6 @@ void ClientManagerImpl::shutdown() {
     scheduler_->cancel(heartbeat_task_id_);
   }
 
-  if (stats_task_id_) {
-    scheduler_->cancel(stats_task_id_);
-  }
-
   scheduler_->shutdown();
 
   {
@@ -157,20 +141,6 @@ void ClientManagerImpl::shutdown() {
 
   state_.store(State::STOPPED, std::memory_order_relaxed);
   SPDLOG_DEBUG("ClientManager stopped");
-}
-
-void ClientManagerImpl::assignLabels(Histogram& histogram) {
-  histogram.labels().emplace_back("[000ms~020ms): ");
-  histogram.labels().emplace_back("[020ms~040ms): ");
-  histogram.labels().emplace_back("[040ms~060ms): ");
-  histogram.labels().emplace_back("[060ms~080ms): ");
-  histogram.labels().emplace_back("[080ms~100ms): ");
-  histogram.labels().emplace_back("[100ms~120ms): ");
-  histogram.labels().emplace_back("[120ms~140ms): ");
-  histogram.labels().emplace_back("[140ms~160ms): ");
-  histogram.labels().emplace_back("[160ms~180ms): ");
-  histogram.labels().emplace_back("[180ms~200ms): ");
-  histogram.labels().emplace_back("[200ms~inf): ");
 }
 
 std::vector<std::string> ClientManagerImpl::cleanOfflineRpcClients() {
@@ -964,13 +934,6 @@ MessageConstSharedPtr ClientManagerImpl::wrapMessage(const rmq::Message& item) {
   // Decoded Time-Point
   extension.decode_time = std::chrono::system_clock::now();
 
-  // Extension
-  {
-    auto elapsed = MixAll::millisecondsOf(std::chrono::system_clock::now() - extension.store_time);
-    if (elapsed >= 0) {
-      latency_histogram_.countIn(elapsed / 20);
-    }
-  }
   return MessageConstSharedPtr(raw);
 }
 
@@ -1456,12 +1419,6 @@ std::error_code ClientManagerImpl::notifyClientTermination(const std::string& ta
     }
   }
   return ec;
-}
-
-void ClientManagerImpl::logStats() {
-  std::string stats;
-  latency_histogram_.reportAndReset(stats);
-  SPDLOG_INFO("{}", stats);
 }
 
 void ClientManagerImpl::submit(std::function<void()> task) {
