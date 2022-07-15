@@ -47,8 +47,8 @@ std::string randomString(std::string::size_type len) {
 }
 
 int main(int argc, char* argv[]) {
-  const char* topic = "cpp_sdk_standard";
-  const char* name_server = "11.166.42.94:8081";
+  const char* topic = "lingchu_normal_topic";
+  const char* name_server = "121.196.167.124:8081";
 
   auto producer =
       Producer::newBuilder().withConfiguration(Configuration::newBuilder().withEndpoints(name_server).build()).build();

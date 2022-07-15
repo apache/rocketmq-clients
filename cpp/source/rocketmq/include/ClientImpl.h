@@ -44,6 +44,15 @@ class ClientImpl : virtual public Client {
 public:
   explicit ClientImpl(absl::string_view group_name);
 
+  /**
+   * @brief Allow assigning client manager for test purpose only.
+   *
+   * @param client_manager
+   */
+  void clientManager(std::shared_ptr<ClientManager> client_manager) {
+    client_manager_ = std::move(client_manager);
+  }
+
   virtual void start();
 
   virtual void shutdown();
