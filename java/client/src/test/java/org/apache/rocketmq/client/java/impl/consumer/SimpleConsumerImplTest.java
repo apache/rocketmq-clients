@@ -17,68 +17,41 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.when;
 
-import apache.rocketmq.v2.AckMessageRequest;
 import apache.rocketmq.v2.AckMessageResponse;
-import apache.rocketmq.v2.Broker;
-import apache.rocketmq.v2.ChangeInvisibleDurationRequest;
 import apache.rocketmq.v2.ChangeInvisibleDurationResponse;
 import apache.rocketmq.v2.Code;
-import apache.rocketmq.v2.MessageQueue;
-import apache.rocketmq.v2.Permission;
-import apache.rocketmq.v2.QueryRouteRequest;
-import apache.rocketmq.v2.QueryRouteResponse;
-import apache.rocketmq.v2.ReceiveMessageRequest;
-import apache.rocketmq.v2.ReceiveMessageResponse;
-import apache.rocketmq.v2.Resource;
-import apache.rocketmq.v2.Settings;
-import apache.rocketmq.v2.Status;
-import apache.rocketmq.v2.Subscription;
-import apache.rocketmq.v2.TelemetryCommand;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.Service;
-import com.google.common.util.concurrent.SettableFuture;
-import io.grpc.Metadata;
-import io.grpc.stub.StreamObserver;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
-import org.apache.rocketmq.client.apis.message.MessageView;
-import org.apache.rocketmq.client.java.impl.ClientManagerImpl;
-import org.apache.rocketmq.client.java.impl.ClientManagerRegistry;
-import org.apache.rocketmq.client.java.impl.ClientSessionImpl;
+import org.apache.rocketmq.client.java.exception.BadRequestException;
+import org.apache.rocketmq.client.java.exception.ForbiddenException;
+import org.apache.rocketmq.client.java.exception.InternalErrorException;
+import org.apache.rocketmq.client.java.exception.NotFoundException;
+import org.apache.rocketmq.client.java.exception.ProxyTimeoutException;
+import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
+import org.apache.rocketmq.client.java.exception.UnauthorizedException;
+import org.apache.rocketmq.client.java.exception.UnsupportedException;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
-import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
-import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.rpc.InvocationContext;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
-import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
 public class SimpleConsumerImplTest extends TestBase {
-    @Mock
-    private ClientManagerImpl clientManager;
-    @Mock
-    private StreamObserver<TelemetryCommand> telemetryRequestObserver;
     @InjectMocks
-    private ClientManagerRegistry clientManagerRegistry = ClientManagerRegistry.getInstance();
     private final ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
         .setEndpoints(FAKE_ACCESS_POINT).build();
 
@@ -86,45 +59,6 @@ public class SimpleConsumerImplTest extends TestBase {
     private final Map<String, FilterExpression> subExpressions = createSubscriptionExpressions(FAKE_TOPIC_0);
 
     private SimpleConsumerImpl simpleConsumer;
-
-    private void start(SimpleConsumerImpl simpleConsumer) throws ClientException {
-        SettableFuture<InvocationContext<QueryRouteResponse>> future0 = SettableFuture.create();
-        Status status = Status.newBuilder().setCode(Code.OK).build();
-        List<MessageQueue> messageQueueList = new ArrayList<>();
-        MessageQueue mq = MessageQueue.newBuilder().setTopic(Resource.newBuilder().setName(FAKE_TOPIC_0))
-            .setPermission(Permission.READ_WRITE)
-            .setBroker(Broker.newBuilder().setName(FAKE_BROKER_NAME_0).setEndpoints(fakePbEndpoints0())).setId(0)
-            .build();
-        messageQueueList.add(mq);
-        QueryRouteResponse response = QueryRouteResponse.newBuilder().setStatus(status)
-            .addAllMessageQueues(messageQueueList).build();
-        final InvocationContext<QueryRouteResponse> invocationContext = new InvocationContext<>(response,
-            fakeRpcContext());
-        future0.set(invocationContext);
-        when(clientManager.queryRoute(any(Endpoints.class), any(Metadata.class), any(QueryRouteRequest.class),
-            any(Duration.class)))
-            .thenReturn(future0);
-        when(clientManager.telemetry(any(Endpoints.class), any(Metadata.class), any(Duration.class),
-            any(ClientSessionImpl.class)))
-            .thenReturn(telemetryRequestObserver);
-        final ScheduledThreadPoolExecutor scheduler = new ScheduledThreadPoolExecutor(1,
-            new ThreadFactoryImpl("TestScheduler"));
-        when(clientManager.getScheduler()).thenReturn(scheduler);
-        doNothing().when(telemetryRequestObserver).onNext(any(TelemetryCommand.class));
-
-        Subscription subscription = Subscription.newBuilder().build();
-        Settings settings = Settings.newBuilder().setSubscription(subscription).build();
-        final Service service = simpleConsumer.startAsync();
-        simpleConsumer.getSimpleConsumerSettings().applySettingsCommand(settings);
-        service.awaitRunning();
-    }
-
-    private void shutdown(SimpleConsumerImpl simpleConsumer) {
-        final Service clientManagerService = mock(Service.class);
-        when(clientManager.stopAsync()).thenReturn(clientManagerService);
-        doNothing().when(clientManagerService).awaitTerminated();
-        simpleConsumer.stopAsync().awaitTerminated();
-    }
 
     @Test(expected = IllegalStateException.class)
     public void testReceiveWithoutStart() throws ClientException {
@@ -151,78 +85,360 @@ public class SimpleConsumerImplTest extends TestBase {
     }
 
     @Test
-    public void testStartAndShutdown() throws ClientException {
-        simpleConsumer = new SimpleConsumerImpl(clientConfiguration, FAKE_GROUP_0, awaitDuration, subExpressions);
-        start(simpleConsumer);
-        shutdown(simpleConsumer);
-    }
-
-    @Test
-    public void testSubscribeWithSubscriptionOverwriting() throws ClientException {
-        simpleConsumer = new SimpleConsumerImpl(clientConfiguration, FAKE_GROUP_0, awaitDuration, subExpressions);
-        start(simpleConsumer);
-        final FilterExpression filterExpression = new FilterExpression(FAKE_TAG_0);
-        simpleConsumer.subscribe(FAKE_TOPIC_0, filterExpression);
-        shutdown(simpleConsumer);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void testReceiveWithAllTopicsAreUnsubscribed() throws ClientException {
-        simpleConsumer = new SimpleConsumerImpl(clientConfiguration, FAKE_GROUP_0, awaitDuration, subExpressions);
-        start(simpleConsumer);
-        simpleConsumer.unsubscribe(FAKE_TOPIC_0);
-        try {
-            simpleConsumer.receive(1, Duration.ofSeconds(1));
-        } finally {
-            shutdown(simpleConsumer);
+    public void testAckAsync() throws ExecutionException, InterruptedException {
+        simpleConsumer = Mockito.spy(new SimpleConsumerImpl(clientConfiguration, FAKE_GROUP_0, awaitDuration,
+            subExpressions));
+        when(simpleConsumer.isRunning()).thenReturn(true);
+        final MessageViewImpl messageView = fakeMessageViewImpl(false);
+        {
+            when(simpleConsumer.ackMessage(messageView)).thenReturn(okAckMessageResponseFuture());
+            final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
+            future.get();
+        }
+        {
+            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.BAD_REQUEST));
+            final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof BadRequestException);
+            }
+        }
+        {
+            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.ILLEGAL_TOPIC));
+            final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof BadRequestException);
+            }
+        }
+        {
+            final ListenableFuture<InvocationContext<AckMessageResponse>> respFuture =
+                ackMessageResponseFuture(Code.ILLEGAL_CONSUMER_GROUP);
+            when(simpleConsumer.ackMessage(messageView)).thenReturn(respFuture);
+            final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof BadRequestException);
+            }
+        }
+        {
+            final ListenableFuture<InvocationContext<AckMessageResponse>> respFuture =
+                ackMessageResponseFuture(Code.INVALID_RECEIPT_HANDLE);
+            when(simpleConsumer.ackMessage(messageView)).thenReturn(respFuture);
+            final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof BadRequestException);
+            }
+        }
+        {
+            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.CLIENT_ID_REQUIRED));
+            final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof BadRequestException);
+            }
+        }
+        {
+            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.UNAUTHORIZED));
+            final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof UnauthorizedException);
+            }
+        }
+        {
+            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.FORBIDDEN));
+            final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof ForbiddenException);
+            }
+        }
+        {
+            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.NOT_FOUND));
+            final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof NotFoundException);
+            }
+        }
+        {
+            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.TOPIC_NOT_FOUND));
+            final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof NotFoundException);
+            }
+        }
+        {
+            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.TOO_MANY_REQUESTS));
+            final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof TooManyRequestsException);
+            }
+        }
+        {
+            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.INTERNAL_ERROR));
+            final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof InternalErrorException);
+            }
+        }
+        {
+            final ListenableFuture<InvocationContext<AckMessageResponse>> respFuture =
+                ackMessageResponseFuture(Code.INTERNAL_SERVER_ERROR);
+            when(simpleConsumer.ackMessage(messageView)).thenReturn(respFuture);
+            final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof InternalErrorException);
+            }
+        }
+        {
+            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.PROXY_TIMEOUT));
+            final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof ProxyTimeoutException);
+            }
+        }
+        {
+            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.UNSUPPORTED));
+            final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof UnsupportedException);
+            }
         }
     }
 
     @Test
-    public void testReceiveMessageSuccess() throws ClientException {
-        simpleConsumer = new SimpleConsumerImpl(clientConfiguration, FAKE_GROUP_0, awaitDuration, subExpressions);
-        start(simpleConsumer);
-        int receivedMessageCount = 16;
-        final ListenableFuture<InvocationContext<Iterator<ReceiveMessageResponse>>> future =
-            okReceiveMessageResponsesFuture(FAKE_TOPIC_0, receivedMessageCount);
-        when(clientManager.receiveMessage(any(Endpoints.class), any(Metadata.class), any(ReceiveMessageRequest.class),
-            any(Duration.class))).thenReturn(future);
-        final List<MessageView> messageViews = simpleConsumer.receive(1, Duration.ofSeconds(1));
-        verify(clientManager, times(1)).receiveMessage(any(Endpoints.class),
-            any(Metadata.class), any(ReceiveMessageRequest.class), any(Duration.class));
-        assertEquals(receivedMessageCount, messageViews.size());
-        shutdown(simpleConsumer);
-    }
-
-    @Test
-    public void testAckMessageSuccess() throws ClientException {
-        simpleConsumer = new SimpleConsumerImpl(clientConfiguration, FAKE_GROUP_0, awaitDuration, subExpressions);
-        start(simpleConsumer);
-        try {
-            final MessageViewImpl messageView = fakeMessageViewImpl();
-            final ListenableFuture<InvocationContext<AckMessageResponse>> future = okAckMessageResponseFuture();
-            when(clientManager.ackMessage(any(Endpoints.class), any(Metadata.class), any(AckMessageRequest.class),
-                any(Duration.class))).thenReturn(future);
-            simpleConsumer.ack(messageView);
-        } finally {
-            shutdown(simpleConsumer);
+    public void testChangeInvisibleDurationAsync() throws ExecutionException, InterruptedException {
+        simpleConsumer = Mockito.spy(new SimpleConsumerImpl(clientConfiguration, FAKE_GROUP_0, awaitDuration,
+            subExpressions));
+        when(simpleConsumer.isRunning()).thenReturn(true);
+        final MessageViewImpl messageView = fakeMessageViewImpl(false);
+        final Duration duration = Duration.ofSeconds(3);
+        {
+            final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> respFuture =
+                okChangeInvisibleDurationCtxFuture();
+            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
+                duration);
+            future.get();
         }
-    }
-
-    @Test
-    public void testChangeInvisibleDurationSuccess() throws ClientException {
-        simpleConsumer = new SimpleConsumerImpl(clientConfiguration, FAKE_GROUP_0, awaitDuration, subExpressions);
-        start(simpleConsumer);
-        try {
-            final MessageViewImpl messageView = fakeMessageViewImpl();
-            final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> future =
-                okChangeInvisibleDurationResponseFuture(FAKE_RECEIPT_HANDLE_1);
-            when(clientManager.changeInvisibleDuration(any(Endpoints.class), any(Metadata.class),
-                any(ChangeInvisibleDurationRequest.class), any(Duration.class))).thenReturn(future);
-            simpleConsumer.changeInvisibleDuration0(messageView, Duration.ofSeconds(3));
-            assertEquals(FAKE_RECEIPT_HANDLE_1, messageView.getReceiptHandle());
-        } finally {
-            shutdown(simpleConsumer);
+        {
+            final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> respFuture =
+                changInvisibleDurationCtxFuture(Code.BAD_REQUEST);
+            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
+                duration);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof BadRequestException);
+            }
+        }
+        {
+            final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> respFuture =
+                changInvisibleDurationCtxFuture(Code.ILLEGAL_TOPIC);
+            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
+                duration);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof BadRequestException);
+            }
+        }
+        {
+            final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> respFuture =
+                changInvisibleDurationCtxFuture(Code.ILLEGAL_CONSUMER_GROUP);
+            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
+                duration);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof BadRequestException);
+            }
+        }
+        {
+            final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> respFuture =
+                changInvisibleDurationCtxFuture(Code.ILLEGAL_INVISIBLE_TIME);
+            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
+                duration);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof BadRequestException);
+            }
+        }
+        {
+            final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> respFuture =
+                changInvisibleDurationCtxFuture(Code.INVALID_RECEIPT_HANDLE);
+            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
+                duration);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof BadRequestException);
+            }
+        }
+        {
+            final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> respFuture =
+                changInvisibleDurationCtxFuture(Code.CLIENT_ID_REQUIRED);
+            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
+                duration);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof BadRequestException);
+            }
+        }
+        {
+            final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> respFuture =
+                changInvisibleDurationCtxFuture(Code.UNAUTHORIZED);
+            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
+                duration);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof UnauthorizedException);
+            }
+        }
+        {
+            final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> respFuture =
+                changInvisibleDurationCtxFuture(Code.NOT_FOUND);
+            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
+                duration);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof NotFoundException);
+            }
+        }
+        {
+            final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> respFuture =
+                changInvisibleDurationCtxFuture(Code.TOPIC_NOT_FOUND);
+            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
+                duration);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof NotFoundException);
+            }
+        }
+        {
+            final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> respFuture =
+                changInvisibleDurationCtxFuture(Code.TOO_MANY_REQUESTS);
+            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
+                duration);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof TooManyRequestsException);
+            }
+        }
+        {
+            final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> respFuture =
+                changInvisibleDurationCtxFuture(Code.INTERNAL_ERROR);
+            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
+                duration);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof InternalErrorException);
+            }
+        }
+        {
+            final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> respFuture =
+                changInvisibleDurationCtxFuture(Code.INTERNAL_SERVER_ERROR);
+            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
+                duration);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof InternalErrorException);
+            }
+        }
+        {
+            final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> respFuture =
+                changInvisibleDurationCtxFuture(Code.PROXY_TIMEOUT);
+            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
+                duration);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof ProxyTimeoutException);
+            }
+        }
+        {
+            final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> respFuture =
+                changInvisibleDurationCtxFuture(Code.UNSUPPORTED);
+            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
+                duration);
+            try {
+                future.get();
+                fail();
+            } catch (ExecutionException e) {
+                assertTrue(e.getCause() instanceof UnsupportedException);
+            }
         }
     }
 }

@@ -57,7 +57,6 @@ import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.producer.SendReceipt;
 import org.apache.rocketmq.client.java.impl.ClientManagerImpl;
-import org.apache.rocketmq.client.java.impl.ClientManagerRegistry;
 import org.apache.rocketmq.client.java.impl.ClientSessionImpl;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.route.Endpoints;
@@ -75,9 +74,6 @@ public class ProducerImplTest extends TestBase {
     private ClientManagerImpl clientManager;
     @Mock
     private StreamObserver<TelemetryCommand> telemetryRequestObserver;
-    @SuppressWarnings("unused")
-    @InjectMocks
-    private ClientManagerRegistry clientManagerRegistry = ClientManagerRegistry.getInstance();
 
     private final ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
         .setEndpoints(FAKE_ACCESS_POINT).build();

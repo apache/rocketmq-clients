@@ -145,6 +145,8 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         this.messageInterceptors = new ArrayList<>();
         this.messageInterceptorsLock = new ReentrantReadWriteLock();
 
+        this.clientManager = new ClientManagerImpl(this);
+
         this.clientCallbackExecutor = new ThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors(),
             Runtime.getRuntime().availableProcessors(),
@@ -174,8 +176,6 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     @Override
     protected void startUp() throws Exception {
         LOGGER.info("Begin to start the rocketmq client, clientId={}", clientId);
-        // Register client after client id generation.
-        this.clientManager = ClientManagerRegistry.getInstance().registerClient(this);
         // Fetch topic route from remote.
         LOGGER.info("Begin to fetch topic(s) route data from remote during client startup, clientId={}, topics={}",
             clientId, topics);
@@ -228,7 +228,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         LOGGER.info("Begin to release telemetry sessions, clientId={}", clientId);
         releaseTelemetrySessions();
         LOGGER.info("Release telemetry sessions successfully, clientId={}", clientId);
-        ClientManagerRegistry.getInstance().unregisterClient(this);
+        clientManager.stopAsync().awaitTerminated();
         clientCallbackExecutor.shutdown();
         if (!ExecutorServices.awaitTerminated(clientCallbackExecutor)) {
             LOGGER.error("[Bug] Timeout to shutdown the client callback executor, clientId={}", clientId);

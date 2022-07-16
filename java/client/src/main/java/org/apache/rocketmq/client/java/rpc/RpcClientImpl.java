@@ -91,7 +91,6 @@ public class RpcClientImpl implements RpcClient {
                 .intercept(LoggingInterceptor.getInstance())
                 .sslContext(sslContext);
         // Disable grpc's auto-retry here.
-        channelBuilder.disableRetry();
 
         final List<InetSocketAddress> socketAddresses = endpoints.toSocketAddresses();
         if (null != socketAddresses) {

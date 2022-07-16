@@ -32,7 +32,6 @@ import apache.rocketmq.v2.MessageQueue;
 import apache.rocketmq.v2.MessageType;
 import apache.rocketmq.v2.Permission;
 import apache.rocketmq.v2.QueryAssignmentResponse;
-import apache.rocketmq.v2.QueryRouteResponse;
 import apache.rocketmq.v2.ReceiveMessageResponse;
 import apache.rocketmq.v2.Resource;
 import apache.rocketmq.v2.SendMessageResponse;
@@ -68,6 +67,7 @@ import org.apache.rocketmq.client.java.impl.producer.SendReceiptImpl;
 import org.apache.rocketmq.client.java.message.MessageBuilderImpl;
 import org.apache.rocketmq.client.java.message.MessageIdCodec;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
+import org.apache.rocketmq.client.java.misc.RequestIdGenerator;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.misc.Utilities;
 import org.apache.rocketmq.client.java.retry.CustomizedBackoffRetryPolicy;
@@ -76,6 +76,7 @@ import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.rpc.InvocationContext;
 import org.apache.rocketmq.client.java.rpc.RpcContext;
+import org.apache.rocketmq.client.java.rpc.Signature;
 
 public class TestBase {
     protected static final String FAKE_CLIENT_ID = "mbp@29848@cno0nhxy";
@@ -142,7 +143,10 @@ public class TestBase {
     }
 
     protected RpcContext fakeRpcContext() {
-        return new RpcContext(fakeEndpoints(), new Metadata());
+        final Metadata metadata = new Metadata();
+        metadata.put(Metadata.Key.of(Signature.REQUEST_ID_KEY, Metadata.ASCII_STRING_MARSHALLER),
+            RequestIdGenerator.getInstance().next());
+        return new RpcContext(fakeEndpoints(), metadata);
     }
 
     protected Message fakeMessage(String topic) {
@@ -215,16 +219,17 @@ public class TestBase {
             .setPermission(Permission.READ_WRITE).build();
     }
 
-    protected ListenableFuture<InvocationContext<QueryRouteResponse>> okQueryRouteResponseFuture() {
+    protected ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>>
+    okChangeInvisibleDurationCtxFuture() {
         Status status = Status.newBuilder().setCode(Code.OK).build();
-        final QueryRouteResponse resp =
-            QueryRouteResponse.newBuilder().setStatus(status).addMessageQueues(fakePbMessageQueue0()).build();
+        final ChangeInvisibleDurationResponse resp =
+            ChangeInvisibleDurationResponse.newBuilder().setStatus(status).build();
         return Futures.immediateFuture(new InvocationContext<>(resp, fakeRpcContext()));
     }
 
     protected ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>>
-        okChangeInvisibleDurationCtxFuture() {
-        Status status = Status.newBuilder().setCode(Code.OK).build();
+    changInvisibleDurationCtxFuture(Code code) {
+        Status status = Status.newBuilder().setCode(code).build();
         final ChangeInvisibleDurationResponse resp =
             ChangeInvisibleDurationResponse.newBuilder().setStatus(status).build();
         return Futures.immediateFuture(new InvocationContext<>(resp, fakeRpcContext()));
@@ -253,18 +258,15 @@ public class TestBase {
         return map;
     }
 
-    protected ListenableFuture<InvocationContext<AckMessageResponse>> okAckMessageResponseFuture() {
-        final Status status = Status.newBuilder().setCode(Code.OK).build();
+    protected ListenableFuture<InvocationContext<AckMessageResponse>> ackMessageResponseFuture(Code code) {
+        final Status status = Status.newBuilder().setCode(code).build();
         final AckMessageResponse resp = AckMessageResponse.newBuilder().setStatus(status).build();
         return Futures.immediateFuture(new InvocationContext<>(resp, fakeRpcContext()));
     }
 
-    protected ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>>
-        okChangeInvisibleDurationResponseFuture(String receiptHandle) {
+    protected ListenableFuture<InvocationContext<AckMessageResponse>> okAckMessageResponseFuture() {
         final Status status = Status.newBuilder().setCode(Code.OK).build();
-        SettableFuture<ChangeInvisibleDurationResponse> future = SettableFuture.create();
-        ChangeInvisibleDurationResponse resp = ChangeInvisibleDurationResponse.newBuilder().setStatus(status)
-            .setReceiptHandle(receiptHandle).build();
+        final AckMessageResponse resp = AckMessageResponse.newBuilder().setStatus(status).build();
         return Futures.immediateFuture(new InvocationContext<>(resp, fakeRpcContext()));
     }
 

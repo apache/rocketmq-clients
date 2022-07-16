@@ -27,12 +27,12 @@ import apache.rocketmq.v2.Status;
 import apache.rocketmq.v2.TelemetryCommand;
 import apache.rocketmq.v2.VerifyMessageCommand;
 import apache.rocketmq.v2.VerifyMessageResult;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.SettableFuture;
 import io.grpc.Metadata;
 import java.time.Duration;
 import java.util.Collections;
@@ -58,6 +58,13 @@ import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
 import org.apache.rocketmq.client.apis.message.MessageId;
+import org.apache.rocketmq.client.java.exception.BadRequestException;
+import org.apache.rocketmq.client.java.exception.ForbiddenException;
+import org.apache.rocketmq.client.java.exception.InternalErrorException;
+import org.apache.rocketmq.client.java.exception.NotFoundException;
+import org.apache.rocketmq.client.java.exception.ProxyTimeoutException;
+import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
+import org.apache.rocketmq.client.java.exception.UnsupportedException;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.impl.ClientSettings;
@@ -263,30 +270,49 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
             .setEndpoints(endpoints.toProtobuf()).setGroup(getProtobufGroup()).build();
     }
 
-    private ListenableFuture<Assignments> queryAssignment(final String topic) {
+    ListenableFuture<Assignments> queryAssignment(final String topic) {
         final ListenableFuture<Endpoints> future = pickEndpointsToQueryAssignments(topic);
         final ListenableFuture<InvocationContext<QueryAssignmentResponse>> responseFuture =
             Futures.transformAsync(future, endpoints -> {
                 final Metadata metadata = sign();
                 final QueryAssignmentRequest request = wrapQueryAssignmentRequest(topic);
-                return clientManager.queryAssignment(endpoints, metadata, request,
-                    clientConfiguration.getRequestTimeout());
+                final Duration requestTimeout = clientConfiguration.getRequestTimeout();
+                return clientManager.queryAssignment(endpoints, metadata, request, requestTimeout);
             }, MoreExecutors.directExecutor());
         return Futures.transformAsync(responseFuture, context -> {
             final QueryAssignmentResponse resp = context.getResp();
             final Status status = resp.getStatus();
             final Code code = status.getCode();
-            if (!Code.OK.equals(code)) {
-                final String message = String.format("Failed to query assignment, code=%d, status message=[{%s}]",
-                    code.getNumber(), status.getMessage());
-                throw new RuntimeException(message);
+            final int codeNumber = code.getNumber();
+            final String requestId = context.getRpcContext().getRequestId();
+            final String statusMessage = status.getMessage();
+            switch (code) {
+                case OK:
+                    break;
+                case BAD_REQUEST:
+                case ILLEGAL_ACCESS_POINT:
+                case ILLEGAL_TOPIC:
+                case CLIENT_ID_REQUIRED:
+                    throw new BadRequestException(codeNumber, requestId, statusMessage);
+                case FORBIDDEN:
+                    throw new ForbiddenException(codeNumber, requestId, statusMessage);
+                case NOT_FOUND:
+                case TOPIC_NOT_FOUND:
+                    throw new NotFoundException(codeNumber, requestId, statusMessage);
+                case TOO_MANY_REQUESTS:
+                    throw new TooManyRequestsException(codeNumber, requestId, statusMessage);
+                case INTERNAL_ERROR:
+                case INTERNAL_SERVER_ERROR:
+                    throw new InternalErrorException(codeNumber, requestId, statusMessage);
+                case PROXY_TIMEOUT:
+                    throw new ProxyTimeoutException(codeNumber, requestId, statusMessage);
+                default:
+                    throw new UnsupportedException(codeNumber, requestId, statusMessage);
             }
-            SettableFuture<Assignments> future0 = SettableFuture.create();
             final List<Assignment> assignmentList = resp.getAssignmentsList().stream().map(assignment ->
                 new Assignment(new MessageQueueImpl(assignment.getMessageQueue()))).collect(Collectors.toList());
             final Assignments assignments = new Assignments(assignmentList);
-            future0.set(assignments);
-            return future0;
+            return Futures.immediateFuture(assignments);
         }, MoreExecutors.directExecutor());
     }
 
@@ -314,7 +340,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
      * @param filterExpression filter expression of topic.
      * @return optional process queue.
      */
-    private Optional<ProcessQueue> createProcessQueue(MessageQueueImpl mq, final FilterExpression filterExpression) {
+    protected Optional<ProcessQueue> createProcessQueue(MessageQueueImpl mq, final FilterExpression filterExpression) {
         final ProcessQueueImpl processQueue = new ProcessQueueImpl(this, mq, filterExpression);
         final ProcessQueue previous = processQueueTable.putIfAbsent(mq, processQueue);
         if (null != previous) {
@@ -328,7 +354,9 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
         return HeartbeatRequest.newBuilder().setGroup(getProtobufGroup()).build();
     }
 
-    private void syncProcessQueue(String topic, Assignments assignments, FilterExpression filterExpression) {
+
+    @VisibleForTesting
+    void syncProcessQueue(String topic, Assignments assignments, FilterExpression filterExpression) {
         Set<MessageQueueImpl> latest = new HashSet<>();
 
         final List<Assignment> assignmentList = assignments.getAssignmentList();
@@ -372,7 +400,8 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
         }
     }
 
-    public void scanAssignments() {
+    @VisibleForTesting
+    void scanAssignments() {
         try {
             LOGGER.debug("Start to scan assignments periodically, clientId={}", clientId);
             for (Map.Entry<String, FilterExpression> entry : subscriptionExpressions.entrySet()) {

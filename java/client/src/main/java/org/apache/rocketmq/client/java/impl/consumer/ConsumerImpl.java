@@ -138,7 +138,7 @@ abstract class ConsumerImpl extends ClientImpl {
 
     }
 
-    public ListenableFuture<InvocationContext<AckMessageResponse>> ackMessage(MessageViewImpl messageView) {
+    protected ListenableFuture<InvocationContext<AckMessageResponse>> ackMessage(MessageViewImpl messageView) {
         final Endpoints endpoints = messageView.getEndpoints();
         ListenableFuture<InvocationContext<AckMessageResponse>> future;
 

@@ -38,7 +38,6 @@ import apache.rocketmq.v2.ReceiveMessageResponse;
 import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
 import apache.rocketmq.v2.TelemetryCommand;
-import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -49,8 +48,6 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
@@ -62,7 +59,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.net.ssl.SSLException;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.misc.ExecutorServices;
-import org.apache.rocketmq.client.java.misc.MetadataUtils;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.rpc.InvocationContext;
@@ -74,7 +70,7 @@ import org.slf4j.LoggerFactory;
 /**
  * @see ClientManager
  */
-public class ClientManagerImpl extends AbstractIdleService implements ClientManager {
+public class ClientManagerImpl extends ClientManager {
     public static final Duration RPC_CLIENT_MAX_IDLE_DURATION = Duration.ofMinutes(30);
 
     public static final Duration RPC_CLIENT_IDLE_CHECK_INITIAL_DELAY = Duration.ofSeconds(5);
@@ -91,14 +87,10 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientManagerImpl.class);
 
+    private final Client client;
     @GuardedBy("rpcClientTableLock")
     private final Map<Endpoints, RpcClient> rpcClientTable;
     private final ReadWriteLock rpcClientTableLock;
-
-    /**
-     * Contains all client, key is {@link ClientImpl#clientId}.
-     */
-    private final ConcurrentMap<String, Client> clientTable;
 
     /**
      * In charge of all scheduled tasks.
@@ -110,12 +102,10 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
      */
     private final ExecutorService asyncWorker;
 
-    public ClientManagerImpl() {
+    public ClientManagerImpl(Client client) {
+        this.client = client;
         this.rpcClientTable = new HashMap<>();
         this.rpcClientTableLock = new ReentrantReadWriteLock();
-
-        this.clientTable = new ConcurrentHashMap<>();
-
         this.scheduler = new ScheduledThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors(),
             new ThreadFactoryImpl("ClientScheduler"));
@@ -127,21 +117,6 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
             TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(),
             new ThreadFactoryImpl("ClientAsyncWorker"));
-    }
-
-    @Override
-    public void registerClient(Client client) {
-        clientTable.put(client.clientId(), client);
-    }
-
-    @Override
-    public void unregisterClient(Client client) {
-        clientTable.remove(client.clientId());
-    }
-
-    @Override
-    public boolean isEmpty() {
-        return clientTable.isEmpty();
     }
 
     /**
@@ -170,30 +145,6 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
         } finally {
             rpcClientTableLock.writeLock().unlock();
         }
-    }
-
-    private void doHeartbeat() {
-        for (Client client : clientTable.values()) {
-            client.doHeartbeat();
-        }
-    }
-
-    private void doStats() {
-        LOGGER.info("Start to log stats for a new round, clientVersion={}, clientWrapperVersion={}",
-            MetadataUtils.getVersion(), MetadataUtils.getWrapperVersion());
-        for (Client client : clientTable.values()) {
-            client.doStats();
-        }
-    }
-
-    private void syncSettings() {
-        clientTable.values().forEach(client -> {
-            try {
-                client.syncSettings();
-            } catch (Throwable t) {
-                LOGGER.error("Failed to announce settings, clientId={}", client.clientId(), t);
-            }
-        });
     }
 
     /**
@@ -376,7 +327,7 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
         scheduler.scheduleWithFixedDelay(
             () -> {
                 try {
-                    doHeartbeat();
+                    client.doHeartbeat();
                 } catch (Throwable t) {
                     LOGGER.error("Exception raised while heartbeat.", t);
                 }
@@ -389,7 +340,7 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
         scheduler.scheduleWithFixedDelay(
             () -> {
                 try {
-                    doStats();
+                    client.doStats();
                 } catch (Throwable t) {
                     LOGGER.error("Exception raised while log stats.", t);
                 }
@@ -402,7 +353,7 @@ public class ClientManagerImpl extends AbstractIdleService implements ClientMana
         scheduler.scheduleWithFixedDelay(
             () -> {
                 try {
-                    syncSettings();
+                    client.syncSettings();
                 } catch (Throwable t) {
                     LOGGER.error("Exception raised during the setting announcement.", t);
                 }

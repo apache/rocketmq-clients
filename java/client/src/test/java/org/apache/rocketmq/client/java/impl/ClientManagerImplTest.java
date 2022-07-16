@@ -33,7 +33,7 @@ import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
 
 public class ClientManagerImplTest extends TestBase {
-    private final ClientManagerImpl clientManager = new ClientManagerImpl();
+    private final ClientManagerImpl clientManager = new ClientManagerImpl(null);
 
     @Test
     public void testQueryRoute() {
