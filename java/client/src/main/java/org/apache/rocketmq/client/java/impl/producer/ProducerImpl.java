@@ -68,7 +68,6 @@ import org.apache.rocketmq.client.java.message.MessageCommon;
 import org.apache.rocketmq.client.java.message.MessageType;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.message.PublishingMessageImpl;
-import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.retry.ExponentialBackoffRetryPolicy;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
@@ -101,9 +100,8 @@ class ProducerImpl extends ClientImpl implements Producer {
         super(clientConfiguration, topics);
         ExponentialBackoffRetryPolicy retryPolicy = ExponentialBackoffRetryPolicy.immediatelyRetryPolicy(maxAttempts);
         this.producerSettings = new ProducerSettings(clientId, endpoints, retryPolicy,
-            clientConfiguration.getRequestTimeout(), topics.stream().map(Resource::new).collect(Collectors.toSet()));
+            clientConfiguration.getRequestTimeout(), topics);
         this.checker = checker;
-
         this.publishingRouteDataResultCache = new ConcurrentHashMap<>();
     }
 
