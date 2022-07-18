@@ -23,7 +23,6 @@
 #include <system_error>
 
 #include "AsyncReceiveMessageCallback.h"
-#include "ClientManagerFactory.h"
 #include "ConsumeMessageServiceImpl.h"
 #include "MixAll.h"
 #include "ProcessQueueImpl.h"

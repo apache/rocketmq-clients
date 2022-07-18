@@ -16,8 +16,6 @@
  */
 #include "ClientImpl.h"
 
-#include <apache/rocketmq/v2/definition.pb.h>
-
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -31,7 +29,7 @@
 #include <system_error>
 #include <utility>
 
-#include "ClientManagerFactory.h"
+#include "ClientManagerImpl.h"
 #include "InvocationContext.h"
 #include "LoggerImpl.h"
 #include "MessageExt.h"
@@ -111,7 +109,9 @@ void ClientImpl::start() {
 
   client_config_.client_id = clientId();
 
-  client_manager_ = ClientManagerFactory::getInstance().getClientManager(client_config_);
+  if (!client_manager_) {
+    client_manager_ = std::make_shared<ClientManagerImpl>(client_config_.resource_namespace);
+  }
   client_manager_->start();
 
   const auto& endpoint = name_server_resolver_->resolve();
