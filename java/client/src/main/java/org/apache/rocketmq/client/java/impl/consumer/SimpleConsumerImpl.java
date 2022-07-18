@@ -142,6 +142,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
      */
     @Override
     public SimpleConsumer unsubscribe(String topic) {
+        // Check consumer status.
         if (!this.isRunning()) {
             LOGGER.error("Unable to remove subscription because simple consumer is not running, state={}, "
                 + "clientId={}", this.state(), clientId);
@@ -178,21 +179,22 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     }
 
     public ListenableFuture<List<MessageView>> receive0(int maxMessageNum, Duration invisibleDuration) {
-        SettableFuture<List<MessageView>> future = SettableFuture.create();
         if (!this.isRunning()) {
             LOGGER.error("Unable to receive message because simple consumer is not running, state={}, clientId={}",
                 this.state(), clientId);
-            future.setException(new IllegalStateException("Simple consumer is not running now"));
-            return future;
+            final IllegalStateException e = new IllegalStateException("Simple consumer is not running now");
+            return Futures.immediateFailedFuture(e);
+        }
+        if (maxMessageNum <= 0) {
+            final IllegalArgumentException e = new IllegalArgumentException("maxMessageNum must be greater than 0");
+            return Futures.immediateFailedFuture(e);
         }
         final HashMap<String, FilterExpression> copy = new HashMap<>(subscriptionExpressions);
         final ArrayList<String> topics = new ArrayList<>(copy.keySet());
         // All topic is subscribed.
         if (topics.isEmpty()) {
-            final IllegalArgumentException exception = new IllegalArgumentException("There is no topic to receive "
-                + "message");
-            future.setException(exception);
-            return future;
+            final IllegalArgumentException e = new IllegalArgumentException("There is no topic to receive message");
+            return Futures.immediateFailedFuture(e);
         }
         final String topic = topics.get(IntMath.mod(topicIndex.getAndIncrement(), topics.size()));
         final FilterExpression filterExpression = copy.get(topic);
@@ -354,10 +356,6 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
 
     @Override
     public ClientSettings getClientSettings() {
-        return simpleConsumerSettings;
-    }
-
-    protected SimpleConsumerSettings getSimpleConsumerSettings() {
         return simpleConsumerSettings;
     }
 

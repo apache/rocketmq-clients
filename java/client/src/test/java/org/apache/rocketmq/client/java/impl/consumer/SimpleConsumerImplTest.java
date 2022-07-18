@@ -26,12 +26,14 @@ import apache.rocketmq.v2.ChangeInvisibleDurationResponse;
 import apache.rocketmq.v2.Code;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
+import org.apache.rocketmq.client.apis.message.MessageView;
 import org.apache.rocketmq.client.java.exception.BadRequestException;
 import org.apache.rocketmq.client.java.exception.ForbiddenException;
 import org.apache.rocketmq.client.java.exception.InternalErrorException;
@@ -82,6 +84,21 @@ public class SimpleConsumerImplTest extends TestBase {
     public void testUnsubscribeWithoutStart() {
         simpleConsumer = new SimpleConsumerImpl(clientConfiguration, FAKE_GROUP_0, awaitDuration, subExpressions);
         simpleConsumer.unsubscribe(FAKE_TOPIC_0);
+    }
+
+    @Test
+    public void testReceiveAsyncWithZeroMaxMessageNum() throws InterruptedException {
+        simpleConsumer = Mockito.spy(new SimpleConsumerImpl(clientConfiguration, FAKE_GROUP_0, awaitDuration,
+            subExpressions));
+        when(simpleConsumer.isRunning()).thenReturn(true);
+        final CompletableFuture<List<MessageView>> future = simpleConsumer.receiveAsync(0,
+            Duration.ofSeconds(3));
+        try {
+            future.get();
+            fail();
+        } catch (ExecutionException e) {
+            assertTrue(e.getCause() instanceof IllegalArgumentException);
+        }
     }
 
     @Test
