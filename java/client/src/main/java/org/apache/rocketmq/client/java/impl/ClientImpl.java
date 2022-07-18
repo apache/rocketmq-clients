@@ -83,7 +83,7 @@ import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.misc.Utilities;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.TopicRouteDataResult;
-import org.apache.rocketmq.client.java.rpc.InvocationContext;
+import org.apache.rocketmq.client.java.rpc.RpcInvocation;
 import org.apache.rocketmq.client.java.rpc.Signature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -145,6 +145,8 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         this.messageInterceptors = new ArrayList<>();
         this.messageInterceptorsLock = new ReentrantReadWriteLock();
 
+        this.clientManager = new ClientManagerImpl(this);
+
         this.clientCallbackExecutor = new ThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors(),
             Runtime.getRuntime().availableProcessors(),
@@ -174,8 +176,6 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     @Override
     protected void startUp() throws Exception {
         LOGGER.info("Begin to start the rocketmq client, clientId={}", clientId);
-        // Register client after client id generation.
-        this.clientManager = ClientManagerRegistry.getInstance().registerClient(this);
         // Fetch topic route from remote.
         LOGGER.info("Begin to fetch topic(s) route data from remote during client startup, clientId={}, topics={}",
             clientId, topics);
@@ -228,7 +228,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         LOGGER.info("Begin to release telemetry sessions, clientId={}", clientId);
         releaseTelemetrySessions();
         LOGGER.info("Release telemetry sessions successfully, clientId={}", clientId);
-        ClientManagerRegistry.getInstance().unregisterClient(this);
+        clientManager.stopAsync().awaitTerminated();
         clientCallbackExecutor.shutdown();
         if (!ExecutorServices.awaitTerminated(clientCallbackExecutor)) {
             LOGGER.error("[Bug] Timeout to shutdown the client callback executor, clientId={}", clientId);
@@ -595,7 +595,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     }
 
     /**
-     * Send heartbeat data to appointed endpoint
+     * Send heartbeat data to the appointed endpoint
      *
      * @param request   heartbeat data request
      * @param endpoints endpoint to send heartbeat data
@@ -603,12 +603,12 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     private void doHeartbeat(HeartbeatRequest request, final Endpoints endpoints) {
         try {
             Metadata metadata = sign();
-            final ListenableFuture<InvocationContext<HeartbeatResponse>> future = clientManager
+            final ListenableFuture<RpcInvocation<HeartbeatResponse>> future = clientManager
                 .heartbeat(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
-            Futures.addCallback(future, new FutureCallback<InvocationContext<HeartbeatResponse>>() {
+            Futures.addCallback(future, new FutureCallback<RpcInvocation<HeartbeatResponse>>() {
                 @Override
-                public void onSuccess(InvocationContext<HeartbeatResponse> context) {
-                    final HeartbeatResponse response = context.getResp();
+                public void onSuccess(RpcInvocation<HeartbeatResponse> inv) {
+                    final HeartbeatResponse response = inv.getResponse();
                     final Status status = response.getStatus();
                     final Code code = status.getCode();
                     if (Code.OK != code) {
@@ -653,18 +653,19 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             final QueryRouteRequest request = QueryRouteRequest.newBuilder().setTopic(topicResource)
                 .setEndpoints(endpoints.toProtobuf()).build();
             final Metadata metadata = sign();
-            final ListenableFuture<InvocationContext<QueryRouteResponse>> contextFuture =
+            final ListenableFuture<RpcInvocation<QueryRouteResponse>> future =
                 clientManager.queryRoute(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
-            return Futures.transform(contextFuture, ctx -> {
-                final QueryRouteResponse response = ctx.getResp();
+            return Futures.transform(future, invocation -> {
+                final QueryRouteResponse response = invocation.getResponse();
+                final String requestId = invocation.getContext().getRequestId();
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
                 if (Code.OK != code) {
                     LOGGER.error("Exception raised while fetch topic route from remote, topic={}, " +
-                            "clientId={}, endpoints={}, code={}, status message=[{}]", topic, clientId,
-                        endpoints, code, status.getMessage());
+                            "clientId={}, requestId={}, endpoints={}, code={}, status message=[{}]", topic, clientId,
+                        requestId, endpoints, code, status.getMessage());
                 }
-                return new TopicRouteDataResult(ctx);
+                return new TopicRouteDataResult(invocation);
             }, MoreExecutors.directExecutor());
         } catch (Throwable t) {
             return Futures.immediateFailedFuture(t);

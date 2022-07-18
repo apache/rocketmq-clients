@@ -38,6 +38,7 @@ import apache.rocketmq.v2.ReceiveMessageResponse;
 import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
 import apache.rocketmq.v2.TelemetryCommand;
+import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.grpc.Metadata;
 import io.grpc.stub.StreamObserver;
@@ -46,7 +47,7 @@ import java.util.Iterator;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.route.Endpoints;
-import org.apache.rocketmq.client.java.rpc.InvocationContext;
+import org.apache.rocketmq.client.java.rpc.RpcInvocation;
 
 /**
  * Client manager supplies a series of unified APIs to execute remote procedure calls for each {@link Client}.
@@ -55,34 +56,13 @@ import org.apache.rocketmq.client.java.rpc.InvocationContext;
  * once {@link Client} is shut down, it must be unregistered by the client manager. The client manager holds the
  * connections and underlying threads, which are shared by all registered clients.
  */
-public interface ClientManager {
-    /**
-     * Register client.
-     *
-     * @param client client.
-     */
-    void registerClient(Client client);
-
-    /**
-     * Unregister client.
-     *
-     * @param client client.
-     */
-    void unregisterClient(Client client);
-
-    /**
-     * Returns {@code true} if manager contains no {@link Client}.
-     *
-     * @return {@code true} if this map contains no {@link Client}.
-     */
-    boolean isEmpty();
-
+public abstract class ClientManager extends AbstractIdleService {
     /**
      * Provide for the client to share the scheduler.
      *
      * @return shared scheduler.
      */
-    ScheduledExecutorService getScheduler();
+    public abstract ScheduledExecutorService getScheduler();
 
     /**
      * Query topic route asynchronously, the method ensures no throwable.
@@ -93,9 +73,8 @@ public interface ClientManager {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    ListenableFuture<InvocationContext<QueryRouteResponse>> queryRoute(Endpoints endpoints, Metadata metadata,
-        QueryRouteRequest request,
-        Duration duration);
+    public abstract ListenableFuture<RpcInvocation<QueryRouteResponse>> queryRoute(Endpoints endpoints,
+        Metadata metadata, QueryRouteRequest request, Duration duration);
 
     /**
      * Heart beat asynchronously, the method ensures no throwable.
@@ -106,9 +85,8 @@ public interface ClientManager {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    ListenableFuture<InvocationContext<HeartbeatResponse>> heartbeat(Endpoints endpoints, Metadata metadata,
-        HeartbeatRequest request,
-        Duration duration);
+    public abstract ListenableFuture<RpcInvocation<HeartbeatResponse>> heartbeat(Endpoints endpoints,
+        Metadata metadata, HeartbeatRequest request, Duration duration);
 
     /**
      * Send message asynchronously, the method ensures no throwable.
@@ -119,8 +97,8 @@ public interface ClientManager {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    ListenableFuture<InvocationContext<SendMessageResponse>> sendMessage(Endpoints endpoints, Metadata metadata,
-        SendMessageRequest request, Duration duration);
+    public abstract ListenableFuture<RpcInvocation<SendMessageResponse>> sendMessage(Endpoints endpoints,
+        Metadata metadata, SendMessageRequest request, Duration duration);
 
     /**
      * Query assignment asynchronously, the method ensures no throwable.
@@ -131,8 +109,8 @@ public interface ClientManager {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    ListenableFuture<InvocationContext<QueryAssignmentResponse>> queryAssignment(Endpoints endpoints, Metadata metadata,
-        QueryAssignmentRequest request, Duration duration);
+    public abstract ListenableFuture<RpcInvocation<QueryAssignmentResponse>> queryAssignment(Endpoints endpoints,
+        Metadata metadata, QueryAssignmentRequest request, Duration duration);
 
     /**
      * Receiving messages asynchronously from the server, the method ensures no throwable.
@@ -141,8 +119,8 @@ public interface ClientManager {
      * @param metadata  gRPC request header metadata.
      * @return invocation of response future.
      */
-    ListenableFuture<InvocationContext<Iterator<ReceiveMessageResponse>>> receiveMessage(Endpoints endpoints,
-        Metadata metadata, ReceiveMessageRequest request, Duration duration);
+    public abstract ListenableFuture<RpcInvocation<Iterator<ReceiveMessageResponse>>> receiveMessage(
+        Endpoints endpoints, Metadata metadata, ReceiveMessageRequest request, Duration duration);
 
     /**
      * Ack message asynchronously after the success of consumption, the method ensures no throwable.
@@ -153,8 +131,8 @@ public interface ClientManager {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    ListenableFuture<InvocationContext<AckMessageResponse>> ackMessage(Endpoints endpoints, Metadata metadata,
-        AckMessageRequest request, Duration duration);
+    public abstract ListenableFuture<RpcInvocation<AckMessageResponse>> ackMessage(Endpoints endpoints,
+        Metadata metadata, AckMessageRequest request, Duration duration);
 
     /**
      * Nack message asynchronously after the failure of consumption, the method ensures no throwable.
@@ -165,8 +143,8 @@ public interface ClientManager {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> changeInvisibleDuration(Endpoints endpoints,
-        Metadata metadata, ChangeInvisibleDurationRequest request, Duration duration);
+    public abstract ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> changeInvisibleDuration(
+        Endpoints endpoints, Metadata metadata, ChangeInvisibleDurationRequest request, Duration duration);
 
     /**
      * Send a message to the dead letter queue asynchronously, the method ensures no throwable.
@@ -177,8 +155,9 @@ public interface ClientManager {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    ListenableFuture<InvocationContext<ForwardMessageToDeadLetterQueueResponse>> forwardMessageToDeadLetterQueue(
-        Endpoints endpoints, Metadata metadata, ForwardMessageToDeadLetterQueueRequest request, Duration duration);
+    public abstract ListenableFuture<RpcInvocation<ForwardMessageToDeadLetterQueueResponse>>
+    forwardMessageToDeadLetterQueue(Endpoints endpoints, Metadata metadata,
+        ForwardMessageToDeadLetterQueueRequest request, Duration duration);
 
     /**
      * Submit transaction resolution asynchronously, the method ensures no throwable.
@@ -189,8 +168,8 @@ public interface ClientManager {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    ListenableFuture<InvocationContext<EndTransactionResponse>> endTransaction(Endpoints endpoints, Metadata metadata,
-        EndTransactionRequest request, Duration duration);
+    public abstract ListenableFuture<RpcInvocation<EndTransactionResponse>> endTransaction(Endpoints endpoints,
+        Metadata metadata, EndTransactionRequest request, Duration duration);
 
     /**
      * Asynchronously notify the server that client is terminated, the method ensures no throwable.
@@ -202,8 +181,8 @@ public interface ClientManager {
      * @return response future of notification of client termination.
      */
     @SuppressWarnings("UnusedReturnValue")
-    ListenableFuture<InvocationContext<NotifyClientTerminationResponse>> notifyClientTermination(Endpoints endpoints,
-        Metadata metadata, NotifyClientTerminationRequest request, Duration duration);
+    public abstract ListenableFuture<RpcInvocation<NotifyClientTerminationResponse>> notifyClientTermination(
+        Endpoints endpoints, Metadata metadata, NotifyClientTerminationRequest request, Duration duration);
 
     /**
      * Establish telemetry session stream to server.
@@ -215,6 +194,6 @@ public interface ClientManager {
      * @return request observer.
      * @throws ClientException if failed to establish telemetry session stream.
      */
-    StreamObserver<TelemetryCommand> telemetry(Endpoints endpoints, Metadata metadata,
+    public abstract StreamObserver<TelemetryCommand> telemetry(Endpoints endpoints, Metadata metadata,
         Duration duration, StreamObserver<TelemetryCommand> responseObserver) throws ClientException;
 }

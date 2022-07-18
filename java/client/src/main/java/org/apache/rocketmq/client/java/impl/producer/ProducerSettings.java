@@ -18,6 +18,7 @@
 package org.apache.rocketmq.client.java.impl.producer;
 
 import apache.rocketmq.v2.Publishing;
+import apache.rocketmq.v2.Resource;
 import apache.rocketmq.v2.Settings;
 import com.google.common.base.MoreObjects;
 import com.google.common.util.concurrent.Futures;
@@ -28,7 +29,6 @@ import java.util.stream.Collectors;
 import org.apache.rocketmq.client.java.impl.ClientSettings;
 import org.apache.rocketmq.client.java.impl.ClientType;
 import org.apache.rocketmq.client.java.impl.UserAgent;
-import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.retry.ExponentialBackoffRetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.slf4j.Logger;
@@ -37,16 +37,16 @@ import org.slf4j.LoggerFactory;
 public class ProducerSettings extends ClientSettings {
     private static final Logger LOGGER = LoggerFactory.getLogger(ProducerSettings.class);
 
-    private final Set<Resource> topics;
+    private final Set<String> topics;
     /**
      * If message body size exceeds the threshold, it would be compressed for convenience of transport.
      */
     private volatile int maxBodySizeBytes = 4 * 1024 * 1024;
     private volatile boolean validateMessageType = true;
 
-    public ProducerSettings(String clientId, Endpoints accessPoint,
-        ExponentialBackoffRetryPolicy exponentialBackoffRetryPolicy, Duration requestTimeout, Set<Resource> topics) {
-        super(clientId, ClientType.PRODUCER, accessPoint, exponentialBackoffRetryPolicy, requestTimeout);
+    public ProducerSettings(String clientId, Endpoints accessPoint, ExponentialBackoffRetryPolicy retryPolicy,
+        Duration requestTimeout, Set<String> topics) {
+        super(clientId, ClientType.PRODUCER, accessPoint, retryPolicy, requestTimeout);
         this.topics = topics;
     }
 
@@ -60,8 +60,9 @@ public class ProducerSettings extends ClientSettings {
 
     @Override
     public Settings toProtobuf() {
-        final Publishing publishing = Publishing.newBuilder().addAllTopics(topics.stream().map(Resource::toProtobuf)
-            .collect(Collectors.toList())).build();
+        final Publishing publishing = Publishing.newBuilder()
+            .addAllTopics(topics.stream().map(name -> Resource.newBuilder().setName(name).build())
+                .collect(Collectors.toList())).build();
         final Settings.Builder builder = Settings.newBuilder()
             .setAccessPoint(accessPoint.toProtobuf()).setClientType(clientType.toProtobuf())
             .setRequestTimeout(Durations.fromNanos(requestTimeout.toNanos())).setPublishing(publishing);

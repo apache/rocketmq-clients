@@ -56,7 +56,7 @@ import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.route.TopicRouteDataResult;
-import org.apache.rocketmq.client.java.rpc.InvocationContext;
+import org.apache.rocketmq.client.java.rpc.RpcInvocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -142,6 +142,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
      */
     @Override
     public SimpleConsumer unsubscribe(String topic) {
+        // Check consumer status.
         if (!this.isRunning()) {
             LOGGER.error("Unable to remove subscription because simple consumer is not running, state={}, "
                 + "clientId={}", this.state(), clientId);
@@ -178,21 +179,22 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     }
 
     public ListenableFuture<List<MessageView>> receive0(int maxMessageNum, Duration invisibleDuration) {
-        SettableFuture<List<MessageView>> future = SettableFuture.create();
         if (!this.isRunning()) {
             LOGGER.error("Unable to receive message because simple consumer is not running, state={}, clientId={}",
                 this.state(), clientId);
-            future.setException(new IllegalStateException("Simple consumer is not running now"));
-            return future;
+            final IllegalStateException e = new IllegalStateException("Simple consumer is not running now");
+            return Futures.immediateFailedFuture(e);
+        }
+        if (maxMessageNum <= 0) {
+            final IllegalArgumentException e = new IllegalArgumentException("maxMessageNum must be greater than 0");
+            return Futures.immediateFailedFuture(e);
         }
         final HashMap<String, FilterExpression> copy = new HashMap<>(subscriptionExpressions);
         final ArrayList<String> topics = new ArrayList<>(copy.keySet());
         // All topic is subscribed.
         if (topics.isEmpty()) {
-            final IllegalArgumentException exception = new IllegalArgumentException("There is no topic to receive "
-                + "message");
-            future.setException(exception);
-            return future;
+            final IllegalArgumentException e = new IllegalArgumentException("There is no topic to receive message");
+            return Futures.immediateFailedFuture(e);
         }
         final String topic = topics.get(IntMath.mod(topicIndex.getAndIncrement(), topics.size()));
         final FilterExpression filterExpression = copy.get(topic);
@@ -226,27 +228,27 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     }
 
     private ListenableFuture<Void> ack0(MessageView messageView) {
-        SettableFuture<Void> future0 = SettableFuture.create();
         // Check consumer status.
         if (!this.isRunning()) {
             LOGGER.error("Unable to ack message because simple consumer is not running, state={}, clientId={}",
                 this.state(), clientId);
-            future0.setException(new IllegalStateException("Simple consumer is not running now"));
-            return future0;
+            final IllegalStateException e = new IllegalStateException("Simple consumer is not running now");
+            return Futures.immediateFailedFuture(e);
         }
         if (!(messageView instanceof MessageViewImpl)) {
             final IllegalArgumentException exception = new IllegalArgumentException("Failed downcasting for "
                 + "messageView");
-            future0.setException(exception);
-            return future0;
+            return Futures.immediateFailedFuture(exception);
         }
         MessageViewImpl impl = (MessageViewImpl) messageView;
-        final ListenableFuture<InvocationContext<AckMessageResponse>> future = ackMessage(impl);
-        return Futures.transformAsync(future, ctx -> {
-            final String requestId = ctx.getRpcContext().getRequestId();
-            final AckMessageResponse resp = ctx.getResp();
-            final Status status = resp.getStatus();
+        final ListenableFuture<RpcInvocation<AckMessageResponse>> future = ackMessage(impl);
+        return Futures.transformAsync(future, invocation -> {
+            final String requestId = invocation.getContext().getRequestId();
+            final AckMessageResponse response = invocation.getResponse();
+            final Status status = response.getStatus();
             final Code code = status.getCode();
+            final int codeNumber = code.getNumber();
+            final String statusMessage = status.getMessage();
             switch (code) {
                 case OK:
                     return Futures.immediateVoidFuture();
@@ -255,23 +257,23 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
                 case ILLEGAL_CONSUMER_GROUP:
                 case INVALID_RECEIPT_HANDLE:
                 case CLIENT_ID_REQUIRED:
-                    throw new BadRequestException(code.getNumber(), requestId, status.getMessage());
+                    throw new BadRequestException(codeNumber, requestId, statusMessage);
                 case UNAUTHORIZED:
-                    throw new UnauthorizedException(code.getNumber(), requestId, status.getMessage());
+                    throw new UnauthorizedException(codeNumber, requestId, statusMessage);
                 case FORBIDDEN:
-                    throw new ForbiddenException(code.getNumber(), requestId, status.getMessage());
+                    throw new ForbiddenException(codeNumber, requestId, statusMessage);
                 case NOT_FOUND:
                 case TOPIC_NOT_FOUND:
-                    throw new NotFoundException(code.getNumber(), requestId, status.getMessage());
+                    throw new NotFoundException(codeNumber, requestId, statusMessage);
                 case TOO_MANY_REQUESTS:
-                    throw new TooManyRequestsException(code.getNumber(), requestId, status.getMessage());
+                    throw new TooManyRequestsException(codeNumber, requestId, statusMessage);
                 case INTERNAL_ERROR:
                 case INTERNAL_SERVER_ERROR:
-                    throw new InternalErrorException(code.getNumber(), requestId, status.getMessage());
+                    throw new InternalErrorException(codeNumber, requestId, statusMessage);
                 case PROXY_TIMEOUT:
-                    throw new ProxyTimeoutException(code.getNumber(), requestId, status.getMessage());
+                    throw new ProxyTimeoutException(codeNumber, requestId, statusMessage);
                 default:
-                    throw new UnsupportedException(code.getNumber(), requestId, status.getMessage());
+                    throw new UnsupportedException(codeNumber, requestId, statusMessage);
             }
         }, clientCallbackExecutor);
     }
@@ -295,22 +297,27 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     }
 
     public ListenableFuture<Void> changeInvisibleDuration0(MessageView messageView, Duration invisibleDuration) {
-        SettableFuture<Void> future0 = SettableFuture.create();
+        // Check consumer status.
+        if (!this.isRunning()) {
+            LOGGER.error("Unable to change invisible duration because simple consumer is not running, state={}, "
+                + "clientId={}", this.state(), clientId);
+            final IllegalStateException e = new IllegalStateException("Simple consumer is not running now");
+            return Futures.immediateFailedFuture(e);
+        }
         if (!(messageView instanceof MessageViewImpl)) {
             final IllegalArgumentException exception = new IllegalArgumentException("Failed downcasting for "
                 + "messageView");
-            future0.setException(exception);
-            return future0;
+            return Futures.immediateFailedFuture(exception);
         }
         MessageViewImpl impl = (MessageViewImpl) messageView;
-        final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> future =
+        final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> future =
             changeInvisibleDuration(impl, invisibleDuration);
-        return Futures.transformAsync(future, ctx -> {
-            final ChangeInvisibleDurationResponse resp = ctx.getResp();
-            final String requestId = ctx.getRpcContext().getRequestId();
+        return Futures.transformAsync(future, invocation -> {
+            final ChangeInvisibleDurationResponse response = invocation.getResponse();
+            final String requestId = invocation.getContext().getRequestId();
             // Refresh receipt handle manually.
-            impl.setReceiptHandle(resp.getReceiptHandle());
-            final Status status = resp.getStatus();
+            impl.setReceiptHandle(response.getReceiptHandle());
+            final Status status = response.getStatus();
             final Code code = status.getCode();
             final int codeNumber = code.getNumber();
             final String statusMessage = status.getMessage();
@@ -328,6 +335,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
                     throw new UnauthorizedException(codeNumber, requestId, statusMessage);
                 case NOT_FOUND:
                 case TOPIC_NOT_FOUND:
+                    throw new NotFoundException(codeNumber, requestId, statusMessage);
                 case TOO_MANY_REQUESTS:
                     throw new TooManyRequestsException(codeNumber, requestId, statusMessage);
                 case INTERNAL_ERROR:
@@ -348,10 +356,6 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
 
     @Override
     public ClientSettings getClientSettings() {
-        return simpleConsumerSettings;
-    }
-
-    protected SimpleConsumerSettings getSimpleConsumerSettings() {
         return simpleConsumerSettings;
     }
 

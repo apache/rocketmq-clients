@@ -32,7 +32,7 @@ import org.apache.rocketmq.client.java.exception.NotFoundException;
 import org.apache.rocketmq.client.java.exception.ProxyTimeoutException;
 import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
 import org.apache.rocketmq.client.java.exception.UnsupportedException;
-import org.apache.rocketmq.client.java.rpc.InvocationContext;
+import org.apache.rocketmq.client.java.rpc.RpcInvocation;
 
 /**
  * Result topic route data fetched from remote.
@@ -42,12 +42,12 @@ public class TopicRouteDataResult {
     private final TopicRouteData topicRouteData;
     private final ClientException exception;
 
-    public TopicRouteDataResult(InvocationContext<QueryRouteResponse> ctx) {
-        final QueryRouteResponse resp = ctx.getResp();
-        final String requestId = ctx.getRpcContext().getRequestId();
-        final List<MessageQueue> messageQueuesList = resp.getMessageQueuesList();
+    public TopicRouteDataResult(RpcInvocation<QueryRouteResponse> invocation) {
+        final QueryRouteResponse response = invocation.getResponse();
+        final String requestId = invocation.getContext().getRequestId();
+        final List<MessageQueue> messageQueuesList = response.getMessageQueuesList();
         final TopicRouteData topicRouteData = new TopicRouteData(messageQueuesList);
-        final Status status = resp.getStatus();
+        final Status status = response.getStatus();
         this.topicRouteData = topicRouteData;
         final Code code = status.getCode();
         final int codeNumber = code.getNumber();

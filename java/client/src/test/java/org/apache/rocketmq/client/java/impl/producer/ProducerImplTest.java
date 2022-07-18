@@ -57,11 +57,10 @@ import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.producer.SendReceipt;
 import org.apache.rocketmq.client.java.impl.ClientManagerImpl;
-import org.apache.rocketmq.client.java.impl.ClientManagerRegistry;
 import org.apache.rocketmq.client.java.impl.ClientSessionImpl;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.route.Endpoints;
-import org.apache.rocketmq.client.java.rpc.InvocationContext;
+import org.apache.rocketmq.client.java.rpc.RpcInvocation;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -75,9 +74,6 @@ public class ProducerImplTest extends TestBase {
     private ClientManagerImpl clientManager;
     @Mock
     private StreamObserver<TelemetryCommand> telemetryRequestObserver;
-    @SuppressWarnings("unused")
-    @InjectMocks
-    private ClientManagerRegistry clientManagerRegistry = ClientManagerRegistry.getInstance();
 
     private final ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
         .setEndpoints(FAKE_ACCESS_POINT).build();
@@ -95,7 +91,7 @@ public class ProducerImplTest extends TestBase {
         null);
 
     private void start(ProducerImpl producer) throws ClientException {
-        SettableFuture<InvocationContext<QueryRouteResponse>> future0 = SettableFuture.create();
+        SettableFuture<RpcInvocation<QueryRouteResponse>> future0 = SettableFuture.create();
         Status status = Status.newBuilder().setCode(Code.OK).build();
         List<MessageQueue> messageQueueList = new ArrayList<>();
         MessageQueue mq = MessageQueue.newBuilder().setTopic(Resource.newBuilder().setName(FAKE_TOPIC_0))
@@ -103,11 +99,11 @@ public class ProducerImplTest extends TestBase {
             .setBroker(Broker.newBuilder().setName(FAKE_BROKER_NAME_0).setEndpoints(fakePbEndpoints0()))
             .setId(0).build();
         messageQueueList.add(mq);
-        QueryRouteResponse resp = QueryRouteResponse.newBuilder().setStatus(status)
+        QueryRouteResponse response = QueryRouteResponse.newBuilder().setStatus(status)
             .addAllMessageQueues(messageQueueList).build();
-        final InvocationContext<QueryRouteResponse> invocationContext =
-            new InvocationContext<>(resp, fakeRpcContext());
-        future0.set(invocationContext);
+        final RpcInvocation<QueryRouteResponse> rpcInvocation =
+            new RpcInvocation<>(response, fakeRpcContext());
+        future0.set(rpcInvocation);
         when(clientManager.queryRoute(any(Endpoints.class), any(Metadata.class), any(QueryRouteRequest.class),
             any(Duration.class)))
             .thenReturn(future0);
@@ -147,11 +143,11 @@ public class ProducerImplTest extends TestBase {
         verify(clientManager, times(1)).telemetry(any(Endpoints.class), any(Metadata.class),
             any(Duration.class), any(ClientSessionImpl.class));
         final Message message = fakeMessage(FAKE_TOPIC_0);
-        final ListenableFuture<InvocationContext<SendMessageResponse>> future =
+        final ListenableFuture<RpcInvocation<SendMessageResponse>> future =
             okSendMessageResponseFutureWithSingleEntry();
         when(clientManager.sendMessage(any(Endpoints.class), any(Metadata.class), any(SendMessageRequest.class),
             any(Duration.class))).thenReturn(future);
-        final SendMessageResponse response = future.get().getResp();
+        final SendMessageResponse response = future.get().getResponse();
         assertEquals(1, response.getEntriesCount());
         final apache.rocketmq.v2.SendResultEntry receipt = response.getEntriesList().iterator().next();
         final SendReceipt sendReceipt = producer.send(message);
@@ -167,11 +163,11 @@ public class ProducerImplTest extends TestBase {
         verify(clientManager, never()).telemetry(any(Endpoints.class), any(Metadata.class), any(Duration.class),
             any(ClientSessionImpl.class));
         final Message message = fakeMessage(FAKE_TOPIC_0);
-        final ListenableFuture<InvocationContext<SendMessageResponse>> future =
+        final ListenableFuture<RpcInvocation<SendMessageResponse>> future =
             okSendMessageResponseFutureWithSingleEntry();
         when(clientManager.sendMessage(any(Endpoints.class), any(Metadata.class), any(SendMessageRequest.class),
             any(Duration.class))).thenReturn(future);
-        final SendMessageResponse response = future.get().getResp();
+        final SendMessageResponse response = future.get().getResponse();
         assertEquals(1, response.getEntriesCount());
         final SendReceipt sendReceipt = producerWithoutTopicBinding.send(message);
         verify(clientManager, times(1)).queryRoute(any(Endpoints.class), any(Metadata.class),
@@ -190,7 +186,7 @@ public class ProducerImplTest extends TestBase {
             any(QueryRouteRequest.class), any(Duration.class));
         verify(clientManager, times(1)).telemetry(any(Endpoints.class), any(Metadata.class), any(Duration.class),
             any(ClientSessionImpl.class));
-        final ListenableFuture<InvocationContext<SendMessageResponse>> future = failureSendMessageResponseFuture();
+        final ListenableFuture<RpcInvocation<SendMessageResponse>> future = failureSendMessageResponseFuture();
         when(clientManager.sendMessage(any(Endpoints.class), any(Metadata.class), any(SendMessageRequest.class),
             any(Duration.class))).thenReturn(future);
         Message message0 = fakeMessage(FAKE_TOPIC_0);

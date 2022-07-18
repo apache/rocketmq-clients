@@ -52,7 +52,7 @@ import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
-import org.apache.rocketmq.client.java.rpc.InvocationContext;
+import org.apache.rocketmq.client.java.rpc.RpcInvocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -282,16 +282,16 @@ class ProcessQueueImpl implements ProcessQueue {
         final long actualMessagesQuantity = this.cachedMessagesCount();
         if (cacheMessageCountThresholdPerQueue <= actualMessagesQuantity) {
             LOGGER.warn("Process queue total cached messages quantity exceeds the threshold, threshold={}, actual={}," +
-                    " mq={}, clientId={}",
-                cacheMessageCountThresholdPerQueue, actualMessagesQuantity, mq, consumer.clientId());
+                    " mq={}, clientId={}", cacheMessageCountThresholdPerQueue, actualMessagesQuantity, mq,
+                consumer.clientId());
             return true;
         }
         final int cacheMessageBytesThresholdPerQueue = consumer.cacheMessageBytesThresholdPerQueue();
         final long actualCachedMessagesBytes = this.cachedMessageBytes();
         if (cacheMessageBytesThresholdPerQueue <= actualCachedMessagesBytes) {
             LOGGER.warn("Process queue total cached messages memory exceeds the threshold, threshold={} bytes," +
-                    " actual={} bytes, mq={}, clientId={}",
-                cacheMessageBytesThresholdPerQueue, actualCachedMessagesBytes, mq, consumer.clientId());
+                    " actual={} bytes, mq={}, clientId={}", cacheMessageBytesThresholdPerQueue,
+                actualCachedMessagesBytes, mq, consumer.clientId());
             return true;
         }
         return false;
@@ -389,21 +389,22 @@ class ProcessQueueImpl implements ProcessQueue {
         final String consumerGroup = consumer.getConsumerGroup();
         final MessageId messageId = messageView.getMessageId();
         final Endpoints endpoints = messageView.getEndpoints();
-        final ListenableFuture<InvocationContext<AckMessageResponse>> future = consumer.ackMessage(messageView);
-        Futures.addCallback(future, new FutureCallback<InvocationContext<AckMessageResponse>>() {
+        final ListenableFuture<RpcInvocation<AckMessageResponse>> future = consumer.ackMessage(messageView);
+        Futures.addCallback(future, new FutureCallback<RpcInvocation<AckMessageResponse>>() {
             @Override
-            public void onSuccess(InvocationContext<AckMessageResponse> context) {
-                final AckMessageResponse resp = context.getResp();
-                final Status status = resp.getStatus();
+            public void onSuccess(RpcInvocation<AckMessageResponse> invocation) {
+                final String requestId = invocation.getContext().getRequestId();
+                final AckMessageResponse response = invocation.getResponse();
+                final Status status = response.getStatus();
                 final Code code = status.getCode();
                 if (Code.OK.equals(code)) {
                     LOGGER.debug("Ack message successfully, clientId={}, consumerGroup={}, messageId={}, mq={}, "
-                        + "endpoints={}", clientId, consumerGroup, messageId, mq, endpoints);
+                        + "endpoints={}, requestId={}", clientId, consumerGroup, messageId, mq, endpoints, requestId);
                     return;
                 }
                 LOGGER.error("Failed to ack message, clientId={}, consumerGroup={}, messageId={}, mq={}, "
-                        + "endpoints={}, code={}, status message={}", clientId, consumerGroup, messageId, mq,
-                    endpoints, code, status.getMessage());
+                        + "endpoints={}, requestId={}, code={}, status message={}", clientId, consumerGroup, messageId,
+                    mq, endpoints, requestId, code, status.getMessage());
             }
 
             @Override
@@ -482,18 +483,18 @@ class ProcessQueueImpl implements ProcessQueue {
 
     private void forwardToDeadLetterQueue(final MessageViewImpl messageView, final int attempt,
         final SettableFuture<Void> future0) {
-        final ListenableFuture<InvocationContext<ForwardMessageToDeadLetterQueueResponse>> future =
+        final ListenableFuture<RpcInvocation<ForwardMessageToDeadLetterQueueResponse>> future =
             consumer.forwardMessageToDeadLetterQueue(messageView);
         final String clientId = consumer.clientId();
         final String consumerGroup = consumer.getConsumerGroup();
         final MessageId messageId = messageView.getMessageId();
         final Endpoints endpoints = messageView.getEndpoints();
-        Futures.addCallback(future, new FutureCallback<InvocationContext<ForwardMessageToDeadLetterQueueResponse>>() {
+        Futures.addCallback(future, new FutureCallback<RpcInvocation<ForwardMessageToDeadLetterQueueResponse>>() {
             @Override
-            public void onSuccess(InvocationContext<ForwardMessageToDeadLetterQueueResponse> context) {
-                final ForwardMessageToDeadLetterQueueResponse resp = context.getResp();
-                final String requestId = context.getRpcContext().getRequestId();
-                final Status status = resp.getStatus();
+            public void onSuccess(RpcInvocation<ForwardMessageToDeadLetterQueueResponse> invocation) {
+                final ForwardMessageToDeadLetterQueueResponse response = invocation.getResponse();
+                final String requestId = invocation.getContext().getRequestId();
+                final Status status = response.getStatus();
                 final Code code = status.getCode();
                 // Log failure and retry later.
                 if (!Code.OK.equals(code)) {
@@ -566,19 +567,19 @@ class ProcessQueueImpl implements ProcessQueue {
         final String consumerGroup = consumer.getConsumerGroup();
         final MessageId messageId = messageView.getMessageId();
         final Endpoints endpoints = messageView.getEndpoints();
-        final ListenableFuture<InvocationContext<AckMessageResponse>> future = consumer.ackMessage(messageView);
-        Futures.addCallback(future, new FutureCallback<InvocationContext<AckMessageResponse>>() {
+        final ListenableFuture<RpcInvocation<AckMessageResponse>> future = consumer.ackMessage(messageView);
+        Futures.addCallback(future, new FutureCallback<RpcInvocation<AckMessageResponse>>() {
             @Override
-            public void onSuccess(InvocationContext<AckMessageResponse> context) {
-                final AckMessageResponse resp = context.getResp();
-                final String requestId = context.getRpcContext().getRequestId();
-                final Status status = resp.getStatus();
+            public void onSuccess(RpcInvocation<AckMessageResponse> invocation) {
+                final AckMessageResponse response = invocation.getResponse();
+                final String requestId = invocation.getContext().getRequestId();
+                final Status status = response.getStatus();
                 final Code code = status.getCode();
                 if (Code.INVALID_RECEIPT_HANDLE.equals(code)) {
                     LOGGER.error("Failed to ack fifo message due to the invalid receipt handle, forgive to retry, "
                             + "clientId={}, consumerGroup={} messageId={}, attempt={}, mq={}, endpoints={}, "
                             + "requestId={}, status message=[{}]", clientId, consumerGroup, messageId, attempt, mq,
-                        endpoints, context.getRpcContext().getRequestId(), status.getMessage());
+                        endpoints, requestId, status.getMessage());
                     future0.setException(new BadRequestException(code.getNumber(), requestId, status.getMessage()));
                     return;
                 }

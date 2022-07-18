@@ -40,7 +40,7 @@ import org.apache.rocketmq.client.java.exception.UnsupportedException;
 import org.apache.rocketmq.client.java.message.MessageIdCodec;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
-import org.apache.rocketmq.client.java.rpc.InvocationContext;
+import org.apache.rocketmq.client.java.rpc.RpcInvocation;
 
 public class SendReceiptImpl implements SendReceipt {
     private final MessageId messageId;
@@ -78,12 +78,12 @@ public class SendReceiptImpl implements SendReceipt {
     }
 
     public static List<SendReceiptImpl> processRespContext(MessageQueueImpl mq,
-        InvocationContext<SendMessageResponse> ctx) throws ClientException {
-        final String requestId = ctx.getRpcContext().getRequestId();
-        final SendMessageResponse resp = ctx.getResp();
-        final Status status = resp.getStatus();
+        RpcInvocation<SendMessageResponse> invocation) throws ClientException {
+        final String requestId = invocation.getContext().getRequestId();
+        final SendMessageResponse response = invocation.getResponse();
+        final Status status = response.getStatus();
         List<SendReceiptImpl> sendReceipts = new ArrayList<>();
-        final List<SendResultEntry> entries = resp.getEntriesList();
+        final List<SendResultEntry> entries = response.getEntriesList();
         for (SendResultEntry entry : entries) {
             final Status entryStatus = entry.getStatus();
             final Code code = entryStatus.getCode();
