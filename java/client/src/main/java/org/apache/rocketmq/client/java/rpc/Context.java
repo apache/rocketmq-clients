@@ -17,30 +17,23 @@
 
 package org.apache.rocketmq.client.java.rpc;
 
-import com.google.common.base.MoreObjects;
+import io.grpc.Metadata;
+import org.apache.rocketmq.client.java.route.Endpoints;
 
-public class InvocationContext<T> {
-    private final T t;
-    private final RpcContext rpcContext;
+public class Context {
+    private final Endpoints endpoints;
+    private final Metadata header;
 
-    public InvocationContext(T t, RpcContext rpcContext) {
-        this.t = t;
-        this.rpcContext = rpcContext;
+    public Context(Endpoints endpoints, Metadata header) {
+        this.endpoints = endpoints;
+        this.header = header;
     }
 
-    public T getResp() {
-        return t;
+    public String getRequestId() {
+        return header.get(Metadata.Key.of(Signature.REQUEST_ID_KEY, Metadata.ASCII_STRING_MARSHALLER));
     }
 
-    public RpcContext getRpcContext() {
-        return rpcContext;
-    }
-
-    @Override
-    public String toString() {
-        return MoreObjects.toStringHelper(this)
-            .add("resp", t)
-            .add("rpcContext", rpcContext)
-            .toString();
+    public Endpoints getEndpoints() {
+        return endpoints;
     }
 }

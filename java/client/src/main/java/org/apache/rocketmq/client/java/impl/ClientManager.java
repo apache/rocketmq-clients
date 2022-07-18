@@ -47,7 +47,7 @@ import java.util.Iterator;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.route.Endpoints;
-import org.apache.rocketmq.client.java.rpc.InvocationContext;
+import org.apache.rocketmq.client.java.rpc.RpcInvocation;
 
 /**
  * Client manager supplies a series of unified APIs to execute remote procedure calls for each {@link Client}.
@@ -73,7 +73,7 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract ListenableFuture<InvocationContext<QueryRouteResponse>> queryRoute(Endpoints endpoints,
+    public abstract ListenableFuture<RpcInvocation<QueryRouteResponse>> queryRoute(Endpoints endpoints,
         Metadata metadata, QueryRouteRequest request, Duration duration);
 
     /**
@@ -85,7 +85,7 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract ListenableFuture<InvocationContext<HeartbeatResponse>> heartbeat(Endpoints endpoints,
+    public abstract ListenableFuture<RpcInvocation<HeartbeatResponse>> heartbeat(Endpoints endpoints,
         Metadata metadata, HeartbeatRequest request, Duration duration);
 
     /**
@@ -97,7 +97,7 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract ListenableFuture<InvocationContext<SendMessageResponse>> sendMessage(Endpoints endpoints,
+    public abstract ListenableFuture<RpcInvocation<SendMessageResponse>> sendMessage(Endpoints endpoints,
         Metadata metadata, SendMessageRequest request, Duration duration);
 
     /**
@@ -109,7 +109,7 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract ListenableFuture<InvocationContext<QueryAssignmentResponse>> queryAssignment(Endpoints endpoints,
+    public abstract ListenableFuture<RpcInvocation<QueryAssignmentResponse>> queryAssignment(Endpoints endpoints,
         Metadata metadata, QueryAssignmentRequest request, Duration duration);
 
     /**
@@ -119,7 +119,7 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param metadata  gRPC request header metadata.
      * @return invocation of response future.
      */
-    public abstract ListenableFuture<InvocationContext<Iterator<ReceiveMessageResponse>>> receiveMessage(
+    public abstract ListenableFuture<RpcInvocation<Iterator<ReceiveMessageResponse>>> receiveMessage(
         Endpoints endpoints, Metadata metadata, ReceiveMessageRequest request, Duration duration);
 
     /**
@@ -131,7 +131,7 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract ListenableFuture<InvocationContext<AckMessageResponse>> ackMessage(Endpoints endpoints,
+    public abstract ListenableFuture<RpcInvocation<AckMessageResponse>> ackMessage(Endpoints endpoints,
         Metadata metadata, AckMessageRequest request, Duration duration);
 
     /**
@@ -143,7 +143,7 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> changeInvisibleDuration(
+    public abstract ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> changeInvisibleDuration(
         Endpoints endpoints, Metadata metadata, ChangeInvisibleDurationRequest request, Duration duration);
 
     /**
@@ -155,7 +155,7 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract ListenableFuture<InvocationContext<ForwardMessageToDeadLetterQueueResponse>>
+    public abstract ListenableFuture<RpcInvocation<ForwardMessageToDeadLetterQueueResponse>>
     forwardMessageToDeadLetterQueue(Endpoints endpoints, Metadata metadata,
         ForwardMessageToDeadLetterQueueRequest request, Duration duration);
 
@@ -168,7 +168,7 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract ListenableFuture<InvocationContext<EndTransactionResponse>> endTransaction(Endpoints endpoints,
+    public abstract ListenableFuture<RpcInvocation<EndTransactionResponse>> endTransaction(Endpoints endpoints,
         Metadata metadata, EndTransactionRequest request, Duration duration);
 
     /**
@@ -181,7 +181,7 @@ public abstract class ClientManager extends AbstractIdleService {
      * @return response future of notification of client termination.
      */
     @SuppressWarnings("UnusedReturnValue")
-    public abstract ListenableFuture<InvocationContext<NotifyClientTerminationResponse>> notifyClientTermination(
+    public abstract ListenableFuture<RpcInvocation<NotifyClientTerminationResponse>> notifyClientTermination(
         Endpoints endpoints, Metadata metadata, NotifyClientTerminationRequest request, Duration duration);
 
     /**

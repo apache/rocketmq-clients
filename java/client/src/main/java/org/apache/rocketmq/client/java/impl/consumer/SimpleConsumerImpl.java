@@ -56,7 +56,7 @@ import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.route.TopicRouteDataResult;
-import org.apache.rocketmq.client.java.rpc.InvocationContext;
+import org.apache.rocketmq.client.java.rpc.RpcInvocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -241,11 +241,11 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
             return Futures.immediateFailedFuture(exception);
         }
         MessageViewImpl impl = (MessageViewImpl) messageView;
-        final ListenableFuture<InvocationContext<AckMessageResponse>> future = ackMessage(impl);
-        return Futures.transformAsync(future, ctx -> {
-            final String requestId = ctx.getRpcContext().getRequestId();
-            final AckMessageResponse resp = ctx.getResp();
-            final Status status = resp.getStatus();
+        final ListenableFuture<RpcInvocation<AckMessageResponse>> future = ackMessage(impl);
+        return Futures.transformAsync(future, invocation -> {
+            final String requestId = invocation.getContext().getRequestId();
+            final AckMessageResponse response = invocation.getResponse();
+            final Status status = response.getStatus();
             final Code code = status.getCode();
             final int codeNumber = code.getNumber();
             final String statusMessage = status.getMessage();
@@ -310,14 +310,14 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
             return Futures.immediateFailedFuture(exception);
         }
         MessageViewImpl impl = (MessageViewImpl) messageView;
-        final ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> future =
+        final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> future =
             changeInvisibleDuration(impl, invisibleDuration);
-        return Futures.transformAsync(future, ctx -> {
-            final ChangeInvisibleDurationResponse resp = ctx.getResp();
-            final String requestId = ctx.getRpcContext().getRequestId();
+        return Futures.transformAsync(future, invocation -> {
+            final ChangeInvisibleDurationResponse response = invocation.getResponse();
+            final String requestId = invocation.getContext().getRequestId();
             // Refresh receipt handle manually.
-            impl.setReceiptHandle(resp.getReceiptHandle());
-            final Status status = resp.getStatus();
+            impl.setReceiptHandle(response.getReceiptHandle());
+            final Status status = response.getStatus();
             final Code code = status.getCode();
             final int codeNumber = code.getNumber();
             final String statusMessage = status.getMessage();

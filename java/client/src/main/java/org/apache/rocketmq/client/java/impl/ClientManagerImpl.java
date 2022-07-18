@@ -61,9 +61,9 @@ import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.misc.ExecutorServices;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.route.Endpoints;
-import org.apache.rocketmq.client.java.rpc.InvocationContext;
 import org.apache.rocketmq.client.java.rpc.RpcClient;
 import org.apache.rocketmq.client.java.rpc.RpcClientImpl;
+import org.apache.rocketmq.client.java.rpc.RpcInvocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -187,7 +187,7 @@ public class ClientManagerImpl extends ClientManager {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<QueryRouteResponse>> queryRoute(Endpoints endpoints, Metadata metadata,
+    public ListenableFuture<RpcInvocation<QueryRouteResponse>> queryRoute(Endpoints endpoints, Metadata metadata,
         QueryRouteRequest request, Duration duration) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
@@ -198,7 +198,7 @@ public class ClientManagerImpl extends ClientManager {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<HeartbeatResponse>> heartbeat(Endpoints endpoints, Metadata metadata,
+    public ListenableFuture<RpcInvocation<HeartbeatResponse>> heartbeat(Endpoints endpoints, Metadata metadata,
         HeartbeatRequest request, Duration duration) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
@@ -209,7 +209,7 @@ public class ClientManagerImpl extends ClientManager {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<SendMessageResponse>> sendMessage(Endpoints endpoints, Metadata metadata,
+    public ListenableFuture<RpcInvocation<SendMessageResponse>> sendMessage(Endpoints endpoints, Metadata metadata,
         SendMessageRequest request, Duration duration) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
@@ -220,7 +220,7 @@ public class ClientManagerImpl extends ClientManager {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<QueryAssignmentResponse>> queryAssignment(Endpoints endpoints,
+    public ListenableFuture<RpcInvocation<QueryAssignmentResponse>> queryAssignment(Endpoints endpoints,
         Metadata metadata, QueryAssignmentRequest request, Duration duration) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
@@ -231,7 +231,7 @@ public class ClientManagerImpl extends ClientManager {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<Iterator<ReceiveMessageResponse>>> receiveMessage(Endpoints endpoints,
+    public ListenableFuture<RpcInvocation<Iterator<ReceiveMessageResponse>>> receiveMessage(Endpoints endpoints,
         Metadata metadata, ReceiveMessageRequest request, Duration duration) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
@@ -242,7 +242,7 @@ public class ClientManagerImpl extends ClientManager {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<AckMessageResponse>> ackMessage(Endpoints endpoints, Metadata metadata,
+    public ListenableFuture<RpcInvocation<AckMessageResponse>> ackMessage(Endpoints endpoints, Metadata metadata,
         AckMessageRequest request, Duration duration) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
@@ -253,7 +253,7 @@ public class ClientManagerImpl extends ClientManager {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> changeInvisibleDuration(
+    public ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> changeInvisibleDuration(
         Endpoints endpoints, Metadata metadata, ChangeInvisibleDurationRequest request, Duration duration) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
@@ -264,7 +264,7 @@ public class ClientManagerImpl extends ClientManager {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<ForwardMessageToDeadLetterQueueResponse>> forwardMessageToDeadLetterQueue(
+    public ListenableFuture<RpcInvocation<ForwardMessageToDeadLetterQueueResponse>> forwardMessageToDeadLetterQueue(
         Endpoints endpoints, Metadata metadata, ForwardMessageToDeadLetterQueueRequest request, Duration duration) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
@@ -275,7 +275,7 @@ public class ClientManagerImpl extends ClientManager {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<EndTransactionResponse>> endTransaction(Endpoints endpoints,
+    public ListenableFuture<RpcInvocation<EndTransactionResponse>> endTransaction(Endpoints endpoints,
         Metadata metadata, EndTransactionRequest request, Duration duration) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
@@ -286,7 +286,7 @@ public class ClientManagerImpl extends ClientManager {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<NotifyClientTerminationResponse>> notifyClientTermination(
+    public ListenableFuture<RpcInvocation<NotifyClientTerminationResponse>> notifyClientTermination(
         Endpoints endpoints, Metadata metadata, NotifyClientTerminationRequest request, Duration duration) {
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);

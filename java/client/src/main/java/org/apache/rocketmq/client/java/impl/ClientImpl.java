@@ -83,7 +83,7 @@ import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.misc.Utilities;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.TopicRouteDataResult;
-import org.apache.rocketmq.client.java.rpc.InvocationContext;
+import org.apache.rocketmq.client.java.rpc.RpcInvocation;
 import org.apache.rocketmq.client.java.rpc.Signature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -595,7 +595,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     }
 
     /**
-     * Send heartbeat data to appointed endpoint
+     * Send heartbeat data to the appointed endpoint
      *
      * @param request   heartbeat data request
      * @param endpoints endpoint to send heartbeat data
@@ -603,12 +603,12 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     private void doHeartbeat(HeartbeatRequest request, final Endpoints endpoints) {
         try {
             Metadata metadata = sign();
-            final ListenableFuture<InvocationContext<HeartbeatResponse>> future = clientManager
+            final ListenableFuture<RpcInvocation<HeartbeatResponse>> future = clientManager
                 .heartbeat(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
-            Futures.addCallback(future, new FutureCallback<InvocationContext<HeartbeatResponse>>() {
+            Futures.addCallback(future, new FutureCallback<RpcInvocation<HeartbeatResponse>>() {
                 @Override
-                public void onSuccess(InvocationContext<HeartbeatResponse> context) {
-                    final HeartbeatResponse response = context.getResp();
+                public void onSuccess(RpcInvocation<HeartbeatResponse> inv) {
+                    final HeartbeatResponse response = inv.getResponse();
                     final Status status = response.getStatus();
                     final Code code = status.getCode();
                     if (Code.OK != code) {
@@ -653,18 +653,19 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             final QueryRouteRequest request = QueryRouteRequest.newBuilder().setTopic(topicResource)
                 .setEndpoints(endpoints.toProtobuf()).build();
             final Metadata metadata = sign();
-            final ListenableFuture<InvocationContext<QueryRouteResponse>> contextFuture =
+            final ListenableFuture<RpcInvocation<QueryRouteResponse>> future =
                 clientManager.queryRoute(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
-            return Futures.transform(contextFuture, ctx -> {
-                final QueryRouteResponse response = ctx.getResp();
+            return Futures.transform(future, invocation -> {
+                final QueryRouteResponse response = invocation.getResponse();
+                final String requestId = invocation.getContext().getRequestId();
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
                 if (Code.OK != code) {
                     LOGGER.error("Exception raised while fetch topic route from remote, topic={}, " +
-                            "clientId={}, endpoints={}, code={}, status message=[{}]", topic, clientId,
-                        endpoints, code, status.getMessage());
+                            "clientId={}, requestId={}, endpoints={}, code={}, status message=[{}]", topic, clientId,
+                        requestId, endpoints, code, status.getMessage());
                 }
-                return new TopicRouteDataResult(ctx);
+                return new TopicRouteDataResult(invocation);
             }, MoreExecutors.directExecutor());
         } catch (Throwable t) {
             return Futures.immediateFailedFuture(t);

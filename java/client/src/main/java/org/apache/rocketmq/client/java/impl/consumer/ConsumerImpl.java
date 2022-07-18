@@ -57,7 +57,7 @@ import org.apache.rocketmq.client.java.message.MessageCommon;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
-import org.apache.rocketmq.client.java.rpc.InvocationContext;
+import org.apache.rocketmq.client.java.rpc.RpcInvocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -80,11 +80,11 @@ abstract class ConsumerImpl extends ClientImpl {
         try {
             Metadata metadata = sign();
             final Endpoints endpoints = mq.getBroker().getEndpoints();
-            final ListenableFuture<InvocationContext<Iterator<ReceiveMessageResponse>>> future =
+            final ListenableFuture<RpcInvocation<Iterator<ReceiveMessageResponse>>> future =
                 clientManager.receiveMessage(endpoints,
                     metadata, request, timeout);
             return Futures.transform(future, context -> {
-                final Iterator<ReceiveMessageResponse> it = context.getResp();
+                final Iterator<ReceiveMessageResponse> it = context.getResponse();
                 Status status = Status.newBuilder().setCode(Code.INTERNAL_SERVER_ERROR)
                     .setMessage("status was not set by server")
                     .build();
@@ -111,7 +111,7 @@ abstract class ConsumerImpl extends ClientImpl {
                     final MessageViewImpl view = MessageViewImpl.fromProtobuf(message, mq, deliveryTimestampFromRemote);
                     messages.add(view);
                 }
-                return new ReceiveMessageResult(endpoints, context.getRpcContext().getRequestId(), status, messages);
+                return new ReceiveMessageResult(endpoints, context.getContext().getRequestId(), status, messages);
             }, MoreExecutors.directExecutor());
         } catch (Throwable t) {
             return Futures.immediateFailedFuture(t);
@@ -138,9 +138,9 @@ abstract class ConsumerImpl extends ClientImpl {
 
     }
 
-    protected ListenableFuture<InvocationContext<AckMessageResponse>> ackMessage(MessageViewImpl messageView) {
+    protected ListenableFuture<RpcInvocation<AckMessageResponse>> ackMessage(MessageViewImpl messageView) {
         final Endpoints endpoints = messageView.getEndpoints();
-        ListenableFuture<InvocationContext<AckMessageResponse>> future;
+        ListenableFuture<RpcInvocation<AckMessageResponse>> future;
 
         final Stopwatch stopwatch = Stopwatch.createStarted();
         final List<MessageCommon> messageCommons = Collections.singletonList(messageView.getMessageCommon());
@@ -150,14 +150,14 @@ abstract class ConsumerImpl extends ClientImpl {
             final Metadata metadata = sign();
             future = clientManager.ackMessage(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
         } catch (Throwable t) {
-            final SettableFuture<InvocationContext<AckMessageResponse>> future0 = SettableFuture.create();
+            final SettableFuture<RpcInvocation<AckMessageResponse>> future0 = SettableFuture.create();
             future0.setException(t);
             future = future0;
         }
-        Futures.addCallback(future, new FutureCallback<InvocationContext<AckMessageResponse>>() {
+        Futures.addCallback(future, new FutureCallback<RpcInvocation<AckMessageResponse>>() {
             @Override
-            public void onSuccess(InvocationContext<AckMessageResponse> context) {
-                final AckMessageResponse response = context.getResp();
+            public void onSuccess(RpcInvocation<AckMessageResponse> invocation) {
+                final AckMessageResponse response = invocation.getResponse();
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
                 final Duration duration = stopwatch.elapsed();
@@ -175,10 +175,10 @@ abstract class ConsumerImpl extends ClientImpl {
         return future;
     }
 
-    public ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> changeInvisibleDuration(
+    public ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> changeInvisibleDuration(
         MessageViewImpl messageView, Duration invisibleDuration) {
         final Endpoints endpoints = messageView.getEndpoints();
-        ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> future;
+        ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> future;
 
         final Stopwatch stopwatch = Stopwatch.createStarted();
         final List<MessageCommon> messageCommons = Collections.singletonList(messageView.getMessageCommon());
@@ -189,15 +189,15 @@ abstract class ConsumerImpl extends ClientImpl {
             future = clientManager.changeInvisibleDuration(endpoints, metadata, request,
                 clientConfiguration.getRequestTimeout());
         } catch (Throwable t) {
-            final SettableFuture<InvocationContext<ChangeInvisibleDurationResponse>> future0 = SettableFuture.create();
+            final SettableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> future0 = SettableFuture.create();
             future0.setException(t);
             future = future0;
         }
         final MessageId messageId = messageView.getMessageId();
-        Futures.addCallback(future, new FutureCallback<InvocationContext<ChangeInvisibleDurationResponse>>() {
+        Futures.addCallback(future, new FutureCallback<RpcInvocation<ChangeInvisibleDurationResponse>>() {
             @Override
-            public void onSuccess(InvocationContext<ChangeInvisibleDurationResponse> context) {
-                final ChangeInvisibleDurationResponse response = context.getResp();
+            public void onSuccess(RpcInvocation<ChangeInvisibleDurationResponse> invocation) {
+                final ChangeInvisibleDurationResponse response = invocation.getResponse();
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
                 final Duration duration = stopwatch.elapsed();

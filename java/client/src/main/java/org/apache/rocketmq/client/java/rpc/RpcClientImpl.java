@@ -105,11 +105,11 @@ public class RpcClientImpl implements RpcClient {
         this.activityNanoTime = System.nanoTime();
     }
 
-    private <T> ListenableFuture<InvocationContext<T>> wrapInvocationContext(ListenableFuture<T> future,
+    private <T> ListenableFuture<RpcInvocation<T>> wrapInvocationContext(ListenableFuture<T> future,
         Metadata header) {
         return Futures.transformAsync(future, response -> {
-            final RpcContext rpcContext = new RpcContext(endpoints, header);
-            return Futures.immediateFuture(new InvocationContext<>(response, rpcContext));
+            final Context context = new Context(endpoints, header);
+            return Futures.immediateFuture(new RpcInvocation<>(response, context));
         }, MoreExecutors.directExecutor());
     }
 
@@ -124,7 +124,7 @@ public class RpcClientImpl implements RpcClient {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<QueryRouteResponse>> queryRoute(Metadata metadata,
+    public ListenableFuture<RpcInvocation<QueryRouteResponse>> queryRoute(Metadata metadata,
         QueryRouteRequest request, Executor executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
         final ListenableFuture<QueryRouteResponse> future = futureStub
@@ -134,7 +134,7 @@ public class RpcClientImpl implements RpcClient {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<HeartbeatResponse>> heartbeat(Metadata metadata, HeartbeatRequest request,
+    public ListenableFuture<RpcInvocation<HeartbeatResponse>> heartbeat(Metadata metadata, HeartbeatRequest request,
         Executor executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
         final ListenableFuture<HeartbeatResponse> future =
@@ -144,7 +144,7 @@ public class RpcClientImpl implements RpcClient {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<SendMessageResponse>> sendMessage(Metadata metadata,
+    public ListenableFuture<RpcInvocation<SendMessageResponse>> sendMessage(Metadata metadata,
         SendMessageRequest request, Executor executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
         final ListenableFuture<SendMessageResponse> future =
@@ -154,7 +154,7 @@ public class RpcClientImpl implements RpcClient {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<QueryAssignmentResponse>> queryAssignment(Metadata metadata,
+    public ListenableFuture<RpcInvocation<QueryAssignmentResponse>> queryAssignment(Metadata metadata,
         QueryAssignmentRequest request, Executor executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
         final ListenableFuture<QueryAssignmentResponse> future =
@@ -164,7 +164,7 @@ public class RpcClientImpl implements RpcClient {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<Iterator<ReceiveMessageResponse>>> receiveMessage(Metadata metadata,
+    public ListenableFuture<RpcInvocation<Iterator<ReceiveMessageResponse>>> receiveMessage(Metadata metadata,
         ReceiveMessageRequest request, ExecutorService executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
         final Callable<Iterator<ReceiveMessageResponse>> callable = () -> blockingStub
@@ -176,7 +176,7 @@ public class RpcClientImpl implements RpcClient {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<AckMessageResponse>> ackMessage(Metadata metadata,
+    public ListenableFuture<RpcInvocation<AckMessageResponse>> ackMessage(Metadata metadata,
         AckMessageRequest request, Executor executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
         final ListenableFuture<AckMessageResponse> future =
@@ -186,7 +186,7 @@ public class RpcClientImpl implements RpcClient {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<ChangeInvisibleDurationResponse>> changeInvisibleDuration(
+    public ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> changeInvisibleDuration(
         Metadata metadata, ChangeInvisibleDurationRequest request, Executor executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
         final ListenableFuture<ChangeInvisibleDurationResponse> future =
@@ -196,7 +196,7 @@ public class RpcClientImpl implements RpcClient {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<ForwardMessageToDeadLetterQueueResponse>> forwardMessageToDeadLetterQueue(
+    public ListenableFuture<RpcInvocation<ForwardMessageToDeadLetterQueueResponse>> forwardMessageToDeadLetterQueue(
         Metadata metadata, ForwardMessageToDeadLetterQueueRequest request, Executor executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
         final ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future = futureStub
@@ -206,7 +206,7 @@ public class RpcClientImpl implements RpcClient {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<EndTransactionResponse>> endTransaction(Metadata metadata,
+    public ListenableFuture<RpcInvocation<EndTransactionResponse>> endTransaction(Metadata metadata,
         EndTransactionRequest request, Executor executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
         final ListenableFuture<EndTransactionResponse> future =
@@ -216,7 +216,7 @@ public class RpcClientImpl implements RpcClient {
     }
 
     @Override
-    public ListenableFuture<InvocationContext<NotifyClientTerminationResponse>> notifyClientTermination(
+    public ListenableFuture<RpcInvocation<NotifyClientTerminationResponse>> notifyClientTermination(
         Metadata metadata, NotifyClientTerminationRequest request, Executor executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
         final ListenableFuture<NotifyClientTerminationResponse> future =
