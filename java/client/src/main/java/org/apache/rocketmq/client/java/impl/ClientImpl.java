@@ -96,7 +96,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
 
     private static final Duration TELEMETRY_TIMEOUT = Duration.ofDays(102 * 365);
 
-    protected volatile ClientManager clientManager;
+    protected final ClientManager clientManager;
     protected final ClientConfiguration clientConfiguration;
     protected final Endpoints endpoints;
     protected final Set<String> topics;
@@ -176,6 +176,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     @Override
     protected void startUp() throws Exception {
         LOGGER.info("Begin to start the rocketmq client, clientId={}", clientId);
+        this.clientManager.startAsync().awaitRunning();
         // Fetch topic route from remote.
         LOGGER.info("Begin to fetch topic(s) route data from remote during client startup, clientId={}, topics={}",
             clientId, topics);
@@ -226,7 +227,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             LOGGER.info("Shutdown the telemetry command executor successfully, clientId={}", clientId);
         }
         LOGGER.info("Begin to release telemetry sessions, clientId={}", clientId);
-        releaseTelemetrySessions();
+        releaseClientSessions();
         LOGGER.info("Release telemetry sessions successfully, clientId={}", clientId);
         clientManager.stopAsync().awaitTerminated();
         clientCallbackExecutor.shutdown();
@@ -396,7 +397,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         }, MoreExecutors.directExecutor());
     }
 
-    private void releaseTelemetrySessions() {
+    private void releaseClientSessions() {
         endpointsSessionsLock.readLock().lock();
         try {
             endpointsSessionTable.values().forEach(ClientSessionImpl::release);
