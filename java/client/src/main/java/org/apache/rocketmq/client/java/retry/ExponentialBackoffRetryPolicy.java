@@ -24,15 +24,13 @@ import apache.rocketmq.v2.ExponentialBackoff;
 import com.google.common.base.MoreObjects;
 import com.google.protobuf.util.Durations;
 import java.time.Duration;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * The {@link ExponentialBackoffRetryPolicy} defines a policy to do more attempts when failure is encountered, mainly
- * refer to
- * <a href="https://github.com/grpc/proposal/blob/master/A6-client-retries.md">gRPC Retry Design</a>.
+ * refer to <a href="https://github.com/grpc/proposal/blob/master/A6-client-retries.md">gRPC Retry Design</a>.
  */
 public class ExponentialBackoffRetryPolicy implements RetryPolicy {
-    private final Random random;
     private final int maxAttempts;
     private final Duration initialBackoff;
     private final Duration maxBackoff;
@@ -44,7 +42,6 @@ public class ExponentialBackoffRetryPolicy implements RetryPolicy {
      */
     public ExponentialBackoffRetryPolicy(int maxAttempts, Duration initialBackoff, Duration maxBackoff,
         double backoffMultiplier) {
-        this.random = new Random();
         this.maxAttempts = maxAttempts;
         this.initialBackoff = initialBackoff;
         this.maxBackoff = maxBackoff;
@@ -63,25 +60,12 @@ public class ExponentialBackoffRetryPolicy implements RetryPolicy {
     @Override
     public Duration getNextAttemptDelay(int attempt) {
         checkArgument(attempt > 0, "attempt must be positive");
-        int randomNumberBound = (int) Math.min(initialBackoff.toNanos() * Math.pow(backoffMultiplier,
-                1.0 * (attempt - 1)),
-            maxBackoff.toNanos());
+        double randomNumberBound = Math.min(initialBackoff.toNanos() * Math.pow(backoffMultiplier,
+            1.0 * (attempt - 1)), maxBackoff.toNanos());
         if (randomNumberBound <= 0) {
             return Duration.ZERO;
         }
-        return Duration.ofNanos(random.nextInt(randomNumberBound));
-    }
-
-    public Duration getInitialBackoff() {
-        return initialBackoff;
-    }
-
-    public Duration getMaxBackoff() {
-        return maxBackoff;
-    }
-
-    public double getBackoffMultiplier() {
-        return backoffMultiplier;
+        return Duration.ofNanos((long) ThreadLocalRandom.current().nextDouble(randomNumberBound));
     }
 
     @Override
@@ -100,8 +84,8 @@ public class ExponentialBackoffRetryPolicy implements RetryPolicy {
         }
         final ExponentialBackoff exponentialBackoff = retryPolicy.getExponentialBackoff();
         return new ExponentialBackoffRetryPolicy(retryPolicy.getMaxAttempts(),
-            Duration.ofNanos(exponentialBackoff.getInitial().getNanos()),
-            Duration.ofNanos(exponentialBackoff.getMax().getNanos()),
+            Duration.ofNanos(Durations.toNanos(exponentialBackoff.getInitial())),
+            Duration.ofNanos(Durations.toNanos(exponentialBackoff.getMax())),
             exponentialBackoff.getMultiplier());
     }
 

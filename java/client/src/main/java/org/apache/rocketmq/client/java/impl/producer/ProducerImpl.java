@@ -306,7 +306,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         final Status status = response.getStatus();
         final Code code = status.getCode();
         if (!Code.OK.equals(code)) {
-            throw new ClientException(code.getNumber(), status.getMessage());
+            throw new ClientException(code.getNumber(), invocation.getContext().getRequestId(), status.getMessage());
         }
     }
 
@@ -449,11 +449,9 @@ class ProducerImpl extends ClientImpl implements Producer {
             clientManager.sendMessage(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
 
         final ListenableFuture<List<SendReceiptImpl>> attemptFuture = Futures.transformAsync(responseFuture,
-            ctx -> {
-                final SettableFuture<List<SendReceiptImpl>> future0 = SettableFuture.create();
-                future0.set(SendReceiptImpl.processRespContext(messageQueue, ctx));
-                return future0;
-            }, MoreExecutors.directExecutor());
+            invocation -> Futures.immediateFuture(SendReceiptImpl.processSendMessageResponseInvocation(messageQueue,
+                invocation)),
+            MoreExecutors.directExecutor());
 
         final int maxAttempts = this.getRetryPolicy().getMaxAttempts();
 
@@ -523,17 +521,18 @@ class ProducerImpl extends ClientImpl implements Producer {
                 int nextAttempt = 1 + attempt;
                 // Retry immediately if the request is not throttled.
                 if (!(t instanceof TooManyRequestsException)) {
+                    LOGGER.warn("Failed to send message, would attempt to resend right now, maxAttempts={}, "
+                            + "attempt={}, topic={}, messageId(s)={}, endpoints={}, clientId={}", maxAttempts, attempt,
+                        topic, messageIds, endpoints, clientId, t);
                     send0(future, topic, messageType, candidates, messages, nextAttempt);
                     return;
                 }
                 final Duration delay = ProducerImpl.this.getRetryPolicy().getNextAttemptDelay(nextAttempt);
-                LOGGER.warn("Failed to send message, would attempt to resend after {}, maxAttempts={}," +
-                        " attempt={}, topic={}, messageId(s)={}, endpoints={}, clientId={}", delay, maxAttempts,
-                    attempt,
-                    topic, messageIds, endpoints, clientId, t);
+                LOGGER.warn("Failed to send message due to too many requests, would attempt to resend after {}, "
+                        + "maxAttempts={}, attempt={}, topic={}, messageId(s)={}, endpoints={}, clientId={}", delay,
+                    maxAttempts, attempt, topic, messageIds, endpoints, clientId, t);
                 clientManager.getScheduler().schedule(() -> send0(future, topic, messageType, candidates, messages,
-                        nextAttempt),
-                    delay.toNanos(), TimeUnit.NANOSECONDS);
+                    nextAttempt), delay.toNanos(), TimeUnit.NANOSECONDS);
             }
         }, clientCallbackExecutor);
     }

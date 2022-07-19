@@ -82,8 +82,8 @@ public class ClientManagerImpl extends ClientManager {
     public static final Duration LOG_STATS_INITIAL_DELAY = Duration.ofSeconds(60);
     public static final Duration LOG_STATS_PERIOD = Duration.ofSeconds(60);
 
-    public static final Duration ANNOUNCE_SETTINGS_DELAY = Duration.ofSeconds(1);
-    public static final Duration ANNOUNCE_SETTINGS_PERIOD = Duration.ofSeconds(15);
+    public static final Duration SYNC_SETTINGS_DELAY = Duration.ofSeconds(1);
+    public static final Duration SYNC_SETTINGS_PERIOD = Duration.ofMinutes(5);
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientManagerImpl.class);
 
@@ -355,11 +355,11 @@ public class ClientManagerImpl extends ClientManager {
                 try {
                     client.syncSettings();
                 } catch (Throwable t) {
-                    LOGGER.error("Exception raised during the setting announcement.", t);
+                    LOGGER.error("Exception raised during the setting synchronizing.", t);
                 }
             },
-            ANNOUNCE_SETTINGS_DELAY.toNanos(),
-            ANNOUNCE_SETTINGS_PERIOD.toNanos(),
+            SYNC_SETTINGS_DELAY.toNanos(),
+            SYNC_SETTINGS_PERIOD.toNanos(),
             TimeUnit.NANOSECONDS
         );
         LOGGER.info("The client manager starts successfully");

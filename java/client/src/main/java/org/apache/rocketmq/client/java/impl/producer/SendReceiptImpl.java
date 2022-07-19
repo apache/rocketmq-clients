@@ -22,8 +22,10 @@ import apache.rocketmq.v2.SendMessageResponse;
 import apache.rocketmq.v2.SendResultEntry;
 import apache.rocketmq.v2.Status;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Predicate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.apis.producer.SendReceipt;
@@ -77,66 +79,71 @@ public class SendReceiptImpl implements SendReceipt {
         return offset;
     }
 
-    public static List<SendReceiptImpl> processRespContext(MessageQueueImpl mq,
+    public static List<SendReceiptImpl> processSendMessageResponseInvocation(MessageQueueImpl mq,
         RpcInvocation<SendMessageResponse> invocation) throws ClientException {
         final String requestId = invocation.getContext().getRequestId();
         final SendMessageResponse response = invocation.getResponse();
-        final Status status = response.getStatus();
+        Status status = response.getStatus();
         List<SendReceiptImpl> sendReceipts = new ArrayList<>();
         final List<SendResultEntry> entries = response.getEntriesList();
-        for (SendResultEntry entry : entries) {
-            final Status entryStatus = entry.getStatus();
-            final Code code = entryStatus.getCode();
-            final int codeNumber = code.getNumber();
-            final String statusMessage = status.getMessage();
-            switch (code) {
-                case OK:
-                    final MessageId messageId = MessageIdCodec.getInstance().decode(entry.getMessageId());
-                    final String transactionId = entry.getTransactionId();
-                    final long offset = entry.getOffset();
-                    final SendReceiptImpl impl = new SendReceiptImpl(messageId, transactionId, mq, offset);
-                    sendReceipts.add(impl);
-                    break;
-                case ILLEGAL_TOPIC:
-                case ILLEGAL_MESSAGE_TAG:
-                case ILLEGAL_MESSAGE_KEY:
-                case ILLEGAL_MESSAGE_GROUP:
-                case ILLEGAL_MESSAGE_PROPERTY_KEY:
-                case ILLEGAL_MESSAGE_ID:
-                case ILLEGAL_DELIVERY_TIME:
-                case MESSAGE_PROPERTY_CONFLICT_WITH_TYPE:
-                case MESSAGE_CORRUPTED:
-                case CLIENT_ID_REQUIRED:
-                    throw new BadRequestException(codeNumber, requestId, statusMessage);
-                case UNAUTHORIZED:
-                    throw new UnauthorizedException(codeNumber, requestId, statusMessage);
-                case FORBIDDEN:
-                    throw new ForbiddenException(codeNumber, requestId, statusMessage);
-                case NOT_FOUND:
-                case TOPIC_NOT_FOUND:
-                    throw new NotFoundException(codeNumber, requestId, statusMessage);
-                case PAYLOAD_TOO_LARGE:
-                case MESSAGE_BODY_TOO_LARGE:
-                    throw new PayloadTooLargeException(codeNumber, requestId, statusMessage);
-                case TOO_MANY_REQUESTS:
-                    throw new TooManyRequestsException(codeNumber, requestId, statusMessage);
-                case REQUEST_HEADER_FIELDS_TOO_LARGE:
-                case MESSAGE_PROPERTIES_TOO_LARGE:
-                    throw new RequestHeaderFieldsTooLargeException(codeNumber, requestId, statusMessage);
-                case INTERNAL_ERROR:
-                case INTERNAL_SERVER_ERROR:
-                case HA_NOT_AVAILABLE:
-                    throw new InternalErrorException(codeNumber, requestId, statusMessage);
-                case PROXY_TIMEOUT:
-                case MASTER_PERSISTENCE_TIMEOUT:
-                case SLAVE_PERSISTENCE_TIMEOUT:
-                    throw new ProxyTimeoutException(codeNumber, requestId, statusMessage);
-                case UNSUPPORTED:
-                default:
-                    throw new UnsupportedException(codeNumber, requestId, statusMessage);
-            }
+        // Filter abnormal status.
+        final Optional<Status> abnormalStatus = entries.stream()
+            .map(SendResultEntry::getStatus).filter((Predicate<Status>) s -> !s.getCode().equals(Code.OK)).findFirst();
+        if (abnormalStatus.isPresent()) {
+            status = abnormalStatus.get();
         }
-        return sendReceipts;
+        final Code code = status.getCode();
+        if (code.equals(Code.OK)) {
+            for (SendResultEntry entry : entries) {
+                final MessageId messageId = MessageIdCodec.getInstance().decode(entry.getMessageId());
+                final String transactionId = entry.getTransactionId();
+                final long offset = entry.getOffset();
+                final SendReceiptImpl impl = new SendReceiptImpl(messageId, transactionId, mq, offset);
+                sendReceipts.add(impl);
+            }
+            return sendReceipts;
+        }
+        final int codeNumber = code.getNumber();
+        final String statusMessage = status.getMessage();
+        switch (code) {
+            case ILLEGAL_TOPIC:
+            case ILLEGAL_MESSAGE_TAG:
+            case ILLEGAL_MESSAGE_KEY:
+            case ILLEGAL_MESSAGE_GROUP:
+            case ILLEGAL_MESSAGE_PROPERTY_KEY:
+            case ILLEGAL_MESSAGE_ID:
+            case ILLEGAL_DELIVERY_TIME:
+            case MESSAGE_PROPERTY_CONFLICT_WITH_TYPE:
+            case MESSAGE_CORRUPTED:
+            case CLIENT_ID_REQUIRED:
+                throw new BadRequestException(codeNumber, requestId, statusMessage);
+            case UNAUTHORIZED:
+                throw new UnauthorizedException(codeNumber, requestId, statusMessage);
+            case FORBIDDEN:
+                throw new ForbiddenException(codeNumber, requestId, statusMessage);
+            case NOT_FOUND:
+            case TOPIC_NOT_FOUND:
+                throw new NotFoundException(codeNumber, requestId, statusMessage);
+            case PAYLOAD_TOO_LARGE:
+            case MESSAGE_BODY_TOO_LARGE:
+                throw new PayloadTooLargeException(codeNumber, requestId, statusMessage);
+            case TOO_MANY_REQUESTS:
+                throw new TooManyRequestsException(codeNumber, requestId, statusMessage);
+            case REQUEST_HEADER_FIELDS_TOO_LARGE:
+            case MESSAGE_PROPERTIES_TOO_LARGE:
+                throw new RequestHeaderFieldsTooLargeException(codeNumber, requestId, statusMessage);
+            case INTERNAL_ERROR:
+            case INTERNAL_SERVER_ERROR:
+            case HA_NOT_AVAILABLE:
+                throw new InternalErrorException(codeNumber, requestId, statusMessage);
+            case PROXY_TIMEOUT:
+            case MASTER_PERSISTENCE_TIMEOUT:
+            case SLAVE_PERSISTENCE_TIMEOUT:
+                throw new ProxyTimeoutException(codeNumber, requestId, statusMessage);
+            case UNSUPPORTED:
+            default:
+                throw new UnsupportedException(codeNumber, requestId, statusMessage);
+        }
     }
 
     @Override

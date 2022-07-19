@@ -50,38 +50,12 @@ public class ClientException extends Exception {
         this.context = new HashMap<>();
     }
 
-    public ClientException(int responseCode, String message) {
-        this(message);
-        putMetadata(RESPONSE_CODE_KEY, String.valueOf(responseCode));
-    }
-
     public ClientException(int responseCode, String requestId, String message) {
-        this(responseCode, message);
-        putMetadata(RESPONSE_CODE_KEY, String.valueOf(responseCode));
-        putMetadata(REQUEST_ID_KEY, requestId);
-    }
-
-    @SuppressWarnings("SameParameterValue")
-    protected void putMetadata(String key, String value) {
-        context.put(key, value);
-    }
-
-    public Optional<String> getRequestId() {
-        final String requestId = context.get(REQUEST_ID_KEY);
-        return null == requestId ? Optional.empty() : Optional.of(requestId);
+        this("[" + REQUEST_ID_KEY + "=" + requestId + ", " + RESPONSE_CODE_KEY + "=" + responseCode + "] " + message);
     }
 
     public Optional<Integer> getResponseCode() {
         final String responseCode = context.get(RESPONSE_CODE_KEY);
         return null == responseCode ? Optional.empty() : Optional.of(Integer.parseInt(responseCode));
-    }
-
-    @Override
-    public String toString() {
-        String s = super.toString();
-        if (!context.isEmpty()) {
-            s += " context=" + context;
-        }
-        return s;
     }
 }

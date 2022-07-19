@@ -363,7 +363,7 @@ public class TestBase {
         MessageQueueImpl mq) throws ExecutionException, InterruptedException, ClientException {
         final ListenableFuture<RpcInvocation<SendMessageResponse>> future =
             okSendMessageResponseFutureWithSingleEntry();
-        final List<SendReceiptImpl> receipts = SendReceiptImpl.processRespContext(mq, future.get());
+        final List<SendReceiptImpl> receipts = SendReceiptImpl.processSendMessageResponseInvocation(mq, future.get());
         return receipts.iterator().next();
     }
 }
