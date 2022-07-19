@@ -152,7 +152,6 @@ void TelemetryBidiReactor::OnReadDone(bool ok) {
         writes_.push_back(response);
       }
       fireWrite();
-      StartRead(&read_);
       break;
     }
 
@@ -176,7 +175,6 @@ void TelemetryBidiReactor::OnReadDone(bool ok) {
       raw->mutableExtension().target_endpoint = peer_address_;
       raw->mutableExtension().nonce = read_.verify_message_command().nonce();
       client->verify(message, cb);
-      StartRead(&read_);
       break;
     }
 
@@ -185,6 +183,8 @@ void TelemetryBidiReactor::OnReadDone(bool ok) {
       break;
     }
   }
+
+  fireRead();
 }
 
 void TelemetryBidiReactor::applySettings(const rmq::Settings& settings) {

@@ -169,6 +169,16 @@ void ClientImpl::start() {
   route_update_handle_ = client_manager_->getScheduler()->schedule(route_update_functor, UPDATE_ROUTE_TASK_NAME,
                                                                    std::chrono::seconds(10), std::chrono::seconds(30));
 
+  auto telemetry_functor = [ptr]() {
+    std::shared_ptr<ClientImpl> base = ptr.lock();
+    if (base) {
+      SPDLOG_INFO("Sync client settings to servers");
+      base->syncClientSettings();
+    }
+  };
+  telemetry_handle_ = client_manager_->getScheduler()->schedule(telemetry_functor, TELEMETRY_TASK_NAME,
+                                                                std::chrono::minutes(5), std::chrono::minutes(5));
+
   auto endpoints = client_config_.metric.endpoints;
   std::string target;
   switch (endpoints.scheme()) {
@@ -220,6 +230,11 @@ void ClientImpl::shutdown() {
     if (route_update_handle_) {
       client_manager_->getScheduler()->cancel(route_update_handle_);
     }
+
+    if (telemetry_handle_) {
+      client_manager_->getScheduler()->cancel(telemetry_handle_);
+    }
+
     client_manager_.reset();
   } else {
     SPDLOG_ERROR("Try to shutdown ClientImpl, but its state is not as expected. Expecting: {}, Actual: {}",
@@ -228,6 +243,7 @@ void ClientImpl::shutdown() {
 }
 
 const char* ClientImpl::UPDATE_ROUTE_TASK_NAME = "route_updater";
+const char* ClientImpl::TELEMETRY_TASK_NAME = "client_settings_sync";
 
 void ClientImpl::endpointsInUse(absl::flat_hash_set<std::string>& endpoints) {
   absl::MutexLock lk(&topic_route_table_mtx_);
@@ -321,6 +337,13 @@ void ClientImpl::fetchRouteFor(const std::string& topic,
   Signature::sign(client_config_, metadata);
   client_manager_->resolveRoute(name_server, metadata, request,
                                 absl::ToChronoMilliseconds(client_config_.request_timeout), callback);
+}
+
+void ClientImpl::syncClientSettings() {
+  absl::MutexLock lk(&session_map_mtx_);
+  for (const auto& entry : session_map_) {
+    entry.second->syncSettings();
+  }
 }
 
 void ClientImpl::updateRouteInfo() {

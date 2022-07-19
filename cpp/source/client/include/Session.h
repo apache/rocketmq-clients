@@ -25,6 +25,8 @@ public:
   virtual ~Session() = default;
 
   virtual bool await() = 0;
+
+  virtual void syncSettings() = 0;
 };
 
 ROCKETMQ_NAMESPACE_END

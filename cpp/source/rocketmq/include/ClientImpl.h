@@ -142,6 +142,11 @@ protected:
   static const char* UPDATE_ROUTE_TASK_NAME;
   std::uint32_t route_update_handle_{0};
 
+  static const char* TELEMETRY_TASK_NAME;
+  std::uint32_t telemetry_handle_{0};
+
+  void syncClientSettings() LOCKS_EXCLUDED(session_map_mtx_);
+
   // Set Name Server Resolver
   std::shared_ptr<NameServerResolver> name_server_resolver_;
 
