@@ -30,17 +30,29 @@ import apache.rocketmq.v2.SendMessageRequest;
 import io.grpc.Metadata;
 import java.time.Duration;
 import org.apache.rocketmq.client.java.tool.TestBase;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 public class ClientManagerImplTest extends TestBase {
-    private final ClientManagerImpl clientManager = new ClientManagerImpl(null);
+    private static final ClientManagerImpl CLIENT_MANAGER = new ClientManagerImpl(null);
+
+    @BeforeClass
+    public static void setUp() {
+        CLIENT_MANAGER.startAsync().awaitRunning();
+    }
+
+    @AfterClass
+    public static void tearDown() {
+        CLIENT_MANAGER.stopAsync().awaitTerminated();
+    }
 
     @Test
     public void testQueryRoute() {
         Metadata metadata = new Metadata();
         QueryRouteRequest request = QueryRouteRequest.newBuilder().build();
-        clientManager.queryRoute(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        clientManager.queryRoute(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.queryRoute(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.queryRoute(null, metadata, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 
@@ -48,8 +60,8 @@ public class ClientManagerImplTest extends TestBase {
     public void testHeartbeat() {
         Metadata metadata = new Metadata();
         HeartbeatRequest request = HeartbeatRequest.newBuilder().build();
-        clientManager.heartbeat(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        clientManager.heartbeat(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.heartbeat(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.heartbeat(null, metadata, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 
@@ -57,8 +69,8 @@ public class ClientManagerImplTest extends TestBase {
     public void testSendMessage() {
         Metadata metadata = new Metadata();
         SendMessageRequest request = SendMessageRequest.newBuilder().build();
-        clientManager.sendMessage(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        clientManager.sendMessage(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.sendMessage(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.sendMessage(null, metadata, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 
@@ -66,8 +78,8 @@ public class ClientManagerImplTest extends TestBase {
     public void testQueryAssignment() {
         Metadata metadata = new Metadata();
         QueryAssignmentRequest request = QueryAssignmentRequest.newBuilder().build();
-        clientManager.queryAssignment(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        clientManager.queryAssignment(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.queryAssignment(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.queryAssignment(null, metadata, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 
@@ -75,8 +87,8 @@ public class ClientManagerImplTest extends TestBase {
     public void testReceiveMessage() {
         Metadata metadata = new Metadata();
         ReceiveMessageRequest request = ReceiveMessageRequest.newBuilder().build();
-        clientManager.receiveMessage(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        clientManager.receiveMessage(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.receiveMessage(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.receiveMessage(null, metadata, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 
@@ -84,8 +96,8 @@ public class ClientManagerImplTest extends TestBase {
     public void testAckMessage() {
         Metadata metadata = new Metadata();
         AckMessageRequest request = AckMessageRequest.newBuilder().build();
-        clientManager.ackMessage(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        clientManager.ackMessage(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.ackMessage(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.ackMessage(null, metadata, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 
@@ -93,8 +105,8 @@ public class ClientManagerImplTest extends TestBase {
     public void testChangeInvisibleDuration() {
         Metadata metadata = new Metadata();
         ChangeInvisibleDurationRequest request = ChangeInvisibleDurationRequest.newBuilder().build();
-        clientManager.changeInvisibleDuration(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        clientManager.changeInvisibleDuration(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.changeInvisibleDuration(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.changeInvisibleDuration(null, metadata, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 
@@ -102,8 +114,8 @@ public class ClientManagerImplTest extends TestBase {
     public void testForwardMessageToDeadLetterQueue() {
         Metadata metadata = new Metadata();
         ForwardMessageToDeadLetterQueueRequest request = ForwardMessageToDeadLetterQueueRequest.newBuilder().build();
-        clientManager.forwardMessageToDeadLetterQueue(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        clientManager.forwardMessageToDeadLetterQueue(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.forwardMessageToDeadLetterQueue(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.forwardMessageToDeadLetterQueue(null, metadata, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 
@@ -111,8 +123,8 @@ public class ClientManagerImplTest extends TestBase {
     public void testEndTransaction() {
         Metadata metadata = new Metadata();
         EndTransactionRequest request = EndTransactionRequest.newBuilder().build();
-        clientManager.endTransaction(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        clientManager.endTransaction(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.endTransaction(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.endTransaction(null, metadata, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 
@@ -120,8 +132,8 @@ public class ClientManagerImplTest extends TestBase {
     public void testNotifyClientTermination() {
         Metadata metadata = new Metadata();
         NotifyClientTerminationRequest request = NotifyClientTerminationRequest.newBuilder().build();
-        clientManager.notifyClientTermination(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        clientManager.notifyClientTermination(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.notifyClientTermination(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.notifyClientTermination(null, metadata, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 }
