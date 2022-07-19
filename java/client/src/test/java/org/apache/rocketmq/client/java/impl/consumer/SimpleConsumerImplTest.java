@@ -19,6 +19,7 @@ package org.apache.rocketmq.client.java.impl.consumer;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
 import apache.rocketmq.v2.AckMessageResponse;
@@ -108,12 +109,12 @@ public class SimpleConsumerImplTest extends TestBase {
         when(simpleConsumer.isRunning()).thenReturn(true);
         final MessageViewImpl messageView = fakeMessageViewImpl(false);
         {
-            when(simpleConsumer.ackMessage(messageView)).thenReturn(okAckMessageResponseFuture());
+            doReturn(okAckMessageResponseFuture()).when(simpleConsumer).ackMessage(messageView);
             final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
             future.get();
         }
         {
-            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.BAD_REQUEST));
+            doReturn(ackMessageResponseFuture(Code.BAD_REQUEST)).when(simpleConsumer).ackMessage(messageView);
             final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
             try {
                 future.get();
@@ -123,7 +124,7 @@ public class SimpleConsumerImplTest extends TestBase {
             }
         }
         {
-            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.ILLEGAL_TOPIC));
+            doReturn(ackMessageResponseFuture(Code.ILLEGAL_TOPIC)).when(simpleConsumer).ackMessage(messageView);
             final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
             try {
                 future.get();
@@ -135,7 +136,7 @@ public class SimpleConsumerImplTest extends TestBase {
         {
             final ListenableFuture<RpcInvocation<AckMessageResponse>> respFuture =
                 ackMessageResponseFuture(Code.ILLEGAL_CONSUMER_GROUP);
-            when(simpleConsumer.ackMessage(messageView)).thenReturn(respFuture);
+            doReturn(respFuture).when(simpleConsumer).ackMessage(messageView);
             final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
             try {
                 future.get();
@@ -147,7 +148,7 @@ public class SimpleConsumerImplTest extends TestBase {
         {
             final ListenableFuture<RpcInvocation<AckMessageResponse>> respFuture =
                 ackMessageResponseFuture(Code.INVALID_RECEIPT_HANDLE);
-            when(simpleConsumer.ackMessage(messageView)).thenReturn(respFuture);
+            doReturn(respFuture).when(simpleConsumer).ackMessage(messageView);
             final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
             try {
                 future.get();
@@ -157,7 +158,7 @@ public class SimpleConsumerImplTest extends TestBase {
             }
         }
         {
-            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.CLIENT_ID_REQUIRED));
+            doReturn(ackMessageResponseFuture(Code.CLIENT_ID_REQUIRED)).when(simpleConsumer).ackMessage(messageView);
             final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
             try {
                 future.get();
@@ -167,7 +168,7 @@ public class SimpleConsumerImplTest extends TestBase {
             }
         }
         {
-            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.UNAUTHORIZED));
+            doReturn(ackMessageResponseFuture(Code.UNAUTHORIZED)).when(simpleConsumer).ackMessage(messageView);
             final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
             try {
                 future.get();
@@ -177,7 +178,7 @@ public class SimpleConsumerImplTest extends TestBase {
             }
         }
         {
-            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.FORBIDDEN));
+            doReturn(ackMessageResponseFuture(Code.FORBIDDEN)).when(simpleConsumer).ackMessage(messageView);
             final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
             try {
                 future.get();
@@ -187,7 +188,7 @@ public class SimpleConsumerImplTest extends TestBase {
             }
         }
         {
-            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.NOT_FOUND));
+            doReturn(ackMessageResponseFuture(Code.NOT_FOUND)).when(simpleConsumer).ackMessage(messageView);
             final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
             try {
                 future.get();
@@ -197,7 +198,7 @@ public class SimpleConsumerImplTest extends TestBase {
             }
         }
         {
-            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.TOPIC_NOT_FOUND));
+            doReturn(ackMessageResponseFuture(Code.TOPIC_NOT_FOUND)).when(simpleConsumer).ackMessage(messageView);
             final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
             try {
                 future.get();
@@ -207,7 +208,7 @@ public class SimpleConsumerImplTest extends TestBase {
             }
         }
         {
-            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.TOO_MANY_REQUESTS));
+            doReturn(ackMessageResponseFuture(Code.TOO_MANY_REQUESTS)).when(simpleConsumer).ackMessage(messageView);
             final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
             try {
                 future.get();
@@ -217,7 +218,7 @@ public class SimpleConsumerImplTest extends TestBase {
             }
         }
         {
-            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.INTERNAL_ERROR));
+            doReturn(ackMessageResponseFuture(Code.INTERNAL_ERROR)).when(simpleConsumer).ackMessage(messageView);
             final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
             try {
                 future.get();
@@ -229,7 +230,7 @@ public class SimpleConsumerImplTest extends TestBase {
         {
             final ListenableFuture<RpcInvocation<AckMessageResponse>> respFuture =
                 ackMessageResponseFuture(Code.INTERNAL_SERVER_ERROR);
-            when(simpleConsumer.ackMessage(messageView)).thenReturn(respFuture);
+            doReturn(respFuture).when(simpleConsumer).ackMessage(messageView);
             final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
             try {
                 future.get();
@@ -239,7 +240,7 @@ public class SimpleConsumerImplTest extends TestBase {
             }
         }
         {
-            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.PROXY_TIMEOUT));
+            doReturn(ackMessageResponseFuture(Code.PROXY_TIMEOUT)).when(simpleConsumer).ackMessage(messageView);
             final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
             try {
                 future.get();
@@ -249,7 +250,7 @@ public class SimpleConsumerImplTest extends TestBase {
             }
         }
         {
-            when(simpleConsumer.ackMessage(messageView)).thenReturn(ackMessageResponseFuture(Code.UNSUPPORTED));
+            doReturn(ackMessageResponseFuture(Code.UNSUPPORTED)).when(simpleConsumer).ackMessage(messageView);
             final CompletableFuture<Void> future = simpleConsumer.ackAsync(messageView);
             try {
                 future.get();
@@ -270,7 +271,7 @@ public class SimpleConsumerImplTest extends TestBase {
         {
             final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> respFuture =
                 okChangeInvisibleDurationCtxFuture();
-            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            doReturn(respFuture).when(simpleConsumer).changeInvisibleDuration(messageView, duration);
             final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
                 duration);
             future.get();
@@ -278,7 +279,7 @@ public class SimpleConsumerImplTest extends TestBase {
         {
             final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> respFuture =
                 changInvisibleDurationCtxFuture(Code.BAD_REQUEST);
-            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            doReturn(respFuture).when(simpleConsumer).changeInvisibleDuration(messageView, duration);
             final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
                 duration);
             try {
@@ -291,7 +292,7 @@ public class SimpleConsumerImplTest extends TestBase {
         {
             final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> respFuture =
                 changInvisibleDurationCtxFuture(Code.ILLEGAL_TOPIC);
-            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            doReturn(respFuture).when(simpleConsumer).changeInvisibleDuration(messageView, duration);
             final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
                 duration);
             try {
@@ -304,7 +305,7 @@ public class SimpleConsumerImplTest extends TestBase {
         {
             final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> respFuture =
                 changInvisibleDurationCtxFuture(Code.ILLEGAL_CONSUMER_GROUP);
-            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            doReturn(respFuture).when(simpleConsumer).changeInvisibleDuration(messageView, duration);
             final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
                 duration);
             try {
@@ -317,7 +318,7 @@ public class SimpleConsumerImplTest extends TestBase {
         {
             final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> respFuture =
                 changInvisibleDurationCtxFuture(Code.ILLEGAL_INVISIBLE_TIME);
-            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            doReturn(respFuture).when(simpleConsumer).changeInvisibleDuration(messageView, duration);
             final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
                 duration);
             try {
@@ -330,7 +331,7 @@ public class SimpleConsumerImplTest extends TestBase {
         {
             final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> respFuture =
                 changInvisibleDurationCtxFuture(Code.INVALID_RECEIPT_HANDLE);
-            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            doReturn(respFuture).when(simpleConsumer).changeInvisibleDuration(messageView, duration);
             final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
                 duration);
             try {
@@ -343,7 +344,7 @@ public class SimpleConsumerImplTest extends TestBase {
         {
             final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> respFuture =
                 changInvisibleDurationCtxFuture(Code.CLIENT_ID_REQUIRED);
-            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            doReturn(respFuture).when(simpleConsumer).changeInvisibleDuration(messageView, duration);
             final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
                 duration);
             try {
@@ -356,7 +357,7 @@ public class SimpleConsumerImplTest extends TestBase {
         {
             final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> respFuture =
                 changInvisibleDurationCtxFuture(Code.UNAUTHORIZED);
-            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            doReturn(respFuture).when(simpleConsumer).changeInvisibleDuration(messageView, duration);
             final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
                 duration);
             try {
@@ -369,7 +370,7 @@ public class SimpleConsumerImplTest extends TestBase {
         {
             final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> respFuture =
                 changInvisibleDurationCtxFuture(Code.NOT_FOUND);
-            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            doReturn(respFuture).when(simpleConsumer).changeInvisibleDuration(messageView, duration);
             final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
                 duration);
             try {
@@ -382,7 +383,7 @@ public class SimpleConsumerImplTest extends TestBase {
         {
             final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> respFuture =
                 changInvisibleDurationCtxFuture(Code.TOPIC_NOT_FOUND);
-            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            doReturn(respFuture).when(simpleConsumer).changeInvisibleDuration(messageView, duration);
             final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
                 duration);
             try {
@@ -395,7 +396,7 @@ public class SimpleConsumerImplTest extends TestBase {
         {
             final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> respFuture =
                 changInvisibleDurationCtxFuture(Code.TOO_MANY_REQUESTS);
-            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            doReturn(respFuture).when(simpleConsumer).changeInvisibleDuration(messageView, duration);
             final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
                 duration);
             try {
@@ -408,7 +409,7 @@ public class SimpleConsumerImplTest extends TestBase {
         {
             final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> respFuture =
                 changInvisibleDurationCtxFuture(Code.INTERNAL_ERROR);
-            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            doReturn(respFuture).when(simpleConsumer).changeInvisibleDuration(messageView, duration);
             final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
                 duration);
             try {
@@ -421,7 +422,7 @@ public class SimpleConsumerImplTest extends TestBase {
         {
             final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> respFuture =
                 changInvisibleDurationCtxFuture(Code.INTERNAL_SERVER_ERROR);
-            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            doReturn(respFuture).when(simpleConsumer).changeInvisibleDuration(messageView, duration);
             final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
                 duration);
             try {
@@ -434,7 +435,7 @@ public class SimpleConsumerImplTest extends TestBase {
         {
             final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> respFuture =
                 changInvisibleDurationCtxFuture(Code.PROXY_TIMEOUT);
-            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            doReturn(respFuture).when(simpleConsumer).changeInvisibleDuration(messageView, duration);
             final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
                 duration);
             try {
@@ -447,7 +448,7 @@ public class SimpleConsumerImplTest extends TestBase {
         {
             final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> respFuture =
                 changInvisibleDurationCtxFuture(Code.UNSUPPORTED);
-            when(simpleConsumer.changeInvisibleDuration(messageView, duration)).thenReturn(respFuture);
+            doReturn(respFuture).when(simpleConsumer).changeInvisibleDuration(messageView, duration);
             final CompletableFuture<Void> future = simpleConsumer.changeInvisibleDurationAsync(messageView,
                 duration);
             try {
