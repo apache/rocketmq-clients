@@ -33,7 +33,6 @@ import org.apache.rocketmq.client.apis.message.MessageBuilder;
 
 public class MessageBuilderImpl implements MessageBuilder {
     public static final Pattern TOPIC_PATTERN = Pattern.compile("^[%a-zA-Z0-9_-]+$");
-    private static final int MESSAGE_BODY_LENGTH_THRESHOLD = 1024 * 1024 * 4;
 
     private String topic = null;
     private byte[] body = null;
@@ -65,8 +64,6 @@ public class MessageBuilderImpl implements MessageBuilder {
     @Override
     public MessageBuilder setBody(byte[] body) {
         checkNotNull(body, "body should not be null");
-        checkArgument(body.length <= MESSAGE_BODY_LENGTH_THRESHOLD, "message body length exceeds the threshold " +
-            "[threshold=%s bytes]", MESSAGE_BODY_LENGTH_THRESHOLD);
         this.body = body.clone();
         return this;
     }
