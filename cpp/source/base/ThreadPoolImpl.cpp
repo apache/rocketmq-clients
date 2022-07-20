@@ -59,7 +59,7 @@ void ThreadPoolImpl::start() {
         }
 #endif
         if (State::STARTED != state_.load(std::memory_order_relaxed)) {
-          SPDLOG_INFO("A thread-pool worker quit");
+          SPDLOG_DEBUG("One thread-pool worker quit");
           break;
         }
       }

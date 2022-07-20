@@ -18,6 +18,7 @@
 #include <atomic>
 #include <iostream>
 #include <random>
+#include <string>
 #include <system_error>
 
 #include "gflags/gflags.h"
@@ -47,7 +48,7 @@ std::string randomString(std::string::size_type len) {
   return result;
 }
 
-DEFINE_string(topic, "lingchu_normal_topic", "Topic to which messages are published");
+DEFINE_string(topic, "standard_topic_sample", "Topic to which messages are published");
 DEFINE_string(access_point, "121.196.167.124:8081", "Service access URL, provided by your service provider");
 DEFINE_int32(message_body_size, 4096, "Message body size");
 DEFINE_uint32(total, 256, "Number of sample messages to publish");
@@ -79,22 +80,29 @@ int main(int argc, char* argv[]) {
 
   try {
     for (std::size_t i = 0; i < FLAGS_total; ++i) {
-      auto message =
-          Message::newBuilder().withTopic(FLAGS_topic).withTag("TagA").withKeys({"Key-0"}).withBody(body).build();
+      auto message = Message::newBuilder()
+                         .withTopic(FLAGS_topic)
+                         .withTag("TagA")
+                         .withKeys({"Key-" + std::to_string(i)})
+                         .withBody(body)
+                         .build();
       std::error_code ec;
       SendReceipt send_receipt = producer.send(std::move(message), ec);
-      std::cout << "Message-ID: " << send_receipt.message_id << std::endl;
-      count++;
-    }
-      } catch (...) {
-        std::cerr << "Ah...No!!!" << std::endl;
+      if (ec) {
+        std::cerr << "Failed to publish message to " << FLAGS_topic << ". Cause: " << ec.message() << std::endl;
+      } else {
+        std::cout << "Publish message to " << FLAGS_topic << " OK. Message-ID: " << send_receipt.message_id
+                  << std::endl;
+        count++;
       }
+    }
+  } catch (...) {
+    std::cerr << "Ah...No!!!" << std::endl;
+  }
   stopped.store(true, std::memory_order_relaxed);
   if (stats_thread.joinable()) {
     stats_thread.join();
   }
-
-  // std::this_thread::sleep_for(std::chrono::seconds(1));
 
   return EXIT_SUCCESS;
 }

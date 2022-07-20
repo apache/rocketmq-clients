@@ -16,6 +16,8 @@
  */
 #include "ProducerImpl.h"
 
+#include <apache/rocketmq/v2/definition.pb.h>
+
 #include <atomic>
 #include <cassert>
 #include <chrono>
@@ -161,6 +163,8 @@ void ProducerImpl::wrapSendMessageRequest(const Message& message, SendMessageReq
     system_properties->set_message_type(rmq::MessageType::DELAY);
   } else if (message.group().has_value()) {
     system_properties->set_message_type(rmq::MessageType::FIFO);
+  } else if (message.extension().transactional) {
+    system_properties->set_message_type(rmq::MessageType::TRANSACTION);
   } else {
     system_properties->set_message_type(rmq::MessageType::NORMAL);
   }
@@ -215,7 +219,7 @@ SendReceipt ProducerImpl::send(MessageConstPtr message, std::error_code& ec) noe
   bool          completed = false;
   SendReceipt   send_receipt;
 
-  // Define callback procedureq
+  // Define callback
   auto callback = [&, mtx, cv](const std::error_code& code, const SendReceipt& receipt) {
     ec = code;
     send_receipt = receipt;
@@ -359,17 +363,15 @@ void ProducerImpl::send0(MessageConstPtr message, SendCallback callback, std::ve
 
   auto context = std::make_shared<SendContext>(shared_from_this(), std::move(message), callback, std::move(list));
   sendImpl(context);
-  // const_cast<Message&>(message).traceContext(
-  //     opencensus::trace::propagation::ToTraceParentHeader(context->span().context()));
 }
 
-bool ProducerImpl::endTransaction0(const Transaction& transaction, TransactionState resolution) {
+bool ProducerImpl::endTransaction0(const MiniTransaction& transaction, TransactionState resolution) {
   EndTransactionRequest request;
-  const std::string& topic = transaction.topic();
+  const std::string& topic = transaction.topic;
   request.mutable_topic()->set_name(topic);
   request.mutable_topic()->set_resource_namespace(resourceNamespace());
-  request.set_message_id(transaction.messageId());
-  request.set_transaction_id(transaction.messageId());
+  request.set_message_id(transaction.message_id);
+  request.set_transaction_id(transaction.transaction_id);
 
   std::string action;
   switch (resolution) {
@@ -387,14 +389,14 @@ bool ProducerImpl::endTransaction0(const Transaction& transaction, TransactionSt
   bool completed = false;
   bool success = false;
   auto span = opencensus::trace::Span::BlankSpan();
-  if (!transaction.traceContext().empty() && client_config_.sampler_) {
+  if (!transaction.trace_context.empty() && client_config_.sampler_) {
     // Trace transactional message
     opencensus::trace::SpanContext span_context =
-        opencensus::trace::propagation::FromTraceParentHeader(transaction.traceContext());
+        opencensus::trace::propagation::FromTraceParentHeader(transaction.trace_context);
     std::string trace_operation_name = TransactionState::COMMIT == resolution
                                            ? MixAll::SPAN_ATTRIBUTE_VALUE_ROCKETMQ_COMMIT_OPERATION
                                            : MixAll::SPAN_ATTRIBUTE_VALUE_ROCKETMQ_ROLLBACK_OPERATION;
-    std::string span_name = resourceNamespace() + "/" + transaction.topic() + " " + trace_operation_name;
+    std::string span_name = resourceNamespace() + "/" + transaction.topic + " " + trace_operation_name;
     if (span_context.IsValid()) {
       span = opencensus::trace::Span::StartSpanWithRemoteParent(span_name, span_context, {client_config_.sampler_.get()});
     } else {
@@ -407,7 +409,7 @@ bool ProducerImpl::endTransaction0(const Transaction& transaction, TransactionSt
 
   auto mtx = std::make_shared<absl::Mutex>();
   auto cv = std::make_shared<absl::CondVar>();
-  const auto& endpoint = transaction.endpoint();
+  const auto& endpoint = transaction.target;
   std::weak_ptr<ProducerImpl> publisher(shared_from_this());
 
   auto cb = [&, span, endpoint, mtx, cv, topic](const std::error_code& ec, const EndTransactionResponse& response) {
@@ -434,8 +436,8 @@ bool ProducerImpl::endTransaction0(const Transaction& transaction, TransactionSt
     }
   };
 
-  client_manager_->endTransaction(transaction.endpoint(), metadata, request,
-                                  absl::ToChronoMilliseconds(requestTimeout()), cb);
+  client_manager_->endTransaction(transaction.target, metadata, request, absl::ToChronoMilliseconds(requestTimeout()),
+                                  cb);
   {
     absl::MutexLock lk(mtx.get());
     cv->Wait(mtx.get());
@@ -458,28 +460,33 @@ void ProducerImpl::isolateEndpoint(const std::string& target) {
   isolated_endpoints_.insert(target);
 }
 
-std::unique_ptr<TransactionImpl> ProducerImpl::prepare(MessageConstPtr message, std::error_code& ec) {
-  std::weak_ptr<ProducerImpl> producer(shared_from_this());
-  auto transaction = absl::make_unique<TransactionImpl>(message->topic(), message->id(),
-                                                        message->traceContext().value_or(""), producer);
-  SendReceipt send_receipt = send(std::move(message), ec);
-  if (ec) {
-    return nullptr;
+void ProducerImpl::send(MessageConstPtr message, std::error_code& ec, Transaction& transaction) {
+  MiniTransaction mini = {};
+  mini.topic = message->topic();
+  mini.trace_context = message->traceContext().value_or("");
+
+  if (message->group().has_value()) {
+    ec = ErrorCode::MessagePropertyConflictWithType;
+    SPDLOG_WARN("FIFO message may not be transactional");
+    return;
   }
 
-  transaction->transactionId(send_receipt.transaction_id);
+  if (message->deliveryTimestamp().has_value()) {
+    ec = ErrorCode::MessagePropertyConflictWithType;
+    SPDLOG_WARN("Timed message may not be transactional");
+    return;
+  }
 
-  // TODO: endpoint id
-  // transaction->endpoint(xxx);
-  return transaction;
-}
+  Message* msg = const_cast<Message*>(message.get());
+  msg->mutableExtension().transactional = true;
 
-bool ProducerImpl::commit(const Transaction& transaction) {
-  return endTransaction0(transaction, TransactionState::COMMIT);
-}
+  SendReceipt send_receipt = send(std::move(message), ec);
 
-bool ProducerImpl::rollback(const Transaction& transaction) {
-  return endTransaction0(transaction, TransactionState::ROLLBACK);
+  mini.message_id = send_receipt.message_id;
+  mini.transaction_id = send_receipt.transaction_id;
+  mini.target = send_receipt.target;
+  auto& impl = dynamic_cast<TransactionImpl&>(transaction);
+  impl.appendMiniTransaction(mini);
 }
 
 void ProducerImpl::getPublishInfoAsync(const std::string& topic, const PublishInfoCallback& cb) {
@@ -553,12 +560,14 @@ void ProducerImpl::onOrphanedTransactionalMessage(MessageConstSharedPtr message)
   if (transaction_checker_) {
     std::weak_ptr<ProducerImpl> producer(shared_from_this());
 
-    auto transaction = absl::make_unique<TransactionImpl>(message->topic(), message->id(),
-                                                          message->traceContext().value_or(""), producer);
-    transaction->endpoint(message->extension().target_endpoint);
-    transaction->transactionId(message->extension().transaction_id);
+    MiniTransaction transaction = {};
+    transaction.topic = message->topic();
+    transaction.message_id = message->id();
+    transaction.transaction_id = message->extension().transaction_id;
+    transaction.trace_context = message->traceContext().value_or("");
+    transaction.target = message->extension().target_endpoint;
     TransactionState state = transaction_checker_(*message);
-    endTransaction0(*transaction, state);
+    endTransaction0(transaction, state);
   } else {
     SPDLOG_WARN("LocalTransactionStateChecker is unexpectedly nullptr");
   }

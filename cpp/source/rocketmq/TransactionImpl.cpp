@@ -26,7 +26,14 @@ bool TransactionImpl::commit() {
     return false;
   }
 
-  return producer->commit(*this);
+  bool result = true;
+  {
+    absl::MutexLock lk(&pending_transactions_mtx_);
+    for (const auto& mini : pending_transactions_) {
+      result &= producer->endTransaction0(mini, TransactionState::COMMIT);
+    }
+  }
+  return result;
 }
 
 bool TransactionImpl::rollback() {
@@ -34,15 +41,15 @@ bool TransactionImpl::rollback() {
   if (!producer) {
     return false;
   }
-  return producer->rollback(*this);
-}
 
-const std::string& TransactionImpl::messageId() const {
-  return message_id_;
-}
-
-const std::string& TransactionImpl::transactionId() const {
-  return transaction_id_;
+  bool result = true;
+  {
+    absl::MutexLock lk(&pending_transactions_mtx_);
+    for (const auto& mini : pending_transactions_) {
+      result &= producer->endTransaction0(mini, TransactionState::ROLLBACK);
+    }
+  }
+  return result;
 }
 
 ROCKETMQ_NAMESPACE_END

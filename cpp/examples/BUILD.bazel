@@ -28,9 +28,9 @@ cc_binary(
 )
 
 cc_binary(
-    name = "example_fifo_producer",
+    name = "example_producer_with_fifo_message",
     srcs = [
-        "ExampleFifoProducer.cpp",
+        "ExampleProducerWithFifoMessage.cpp",
     ],
     deps = [
         "//source/rocketmq:rocketmq_library",
@@ -39,20 +39,9 @@ cc_binary(
 )
 
 cc_binary(
-    name = "example_async_producer",
+    name = "example_producer_with_async",
     srcs = [
-        "ExampleAsyncProducer.cpp",
-    ],
-    deps = [
-        "//source/rocketmq:rocketmq_library",
-        "@com_github_gflags_gflags//:gflags",
-    ],
-)
-
-cc_binary(
-    name = "sql_producer",
-    srcs = [
-        "SqlProducer.cpp",
+        "ExampleProducerWithAsync.cpp",
     ],
     deps = [
         "//source/rocketmq:rocketmq_library",
@@ -64,6 +53,17 @@ cc_binary(
     name = "example_producer_with_timed_message",
     srcs = [
         "ExampleProducerWithTimedMessage.cpp",
+    ],
+    deps = [
+        "//source/rocketmq:rocketmq_library",
+        "@com_github_gflags_gflags//:gflags",
+    ],
+)
+
+cc_binary(
+    name = "example_producer_with_transactional_message",
+    srcs = [
+        "ExampleProducerWithTransactionalMessage.cpp",
     ],
     deps = [
         "//source/rocketmq:rocketmq_library",
@@ -90,33 +90,3 @@ cc_binary(
         "//source/rocketmq:rocketmq_library",
     ],
 )
-
-# cc_binary(
-#     name = "example_fifo_push_consumer",
-#     srcs = [
-#         "ExampleFifoPushConsumer.cpp",
-#     ],
-#     deps = [
-#         "//source/rocketmq:rocketmq_library",
-#     ],
-# )
-
-# cc_binary(
-#     name = "sql_consumer",
-#     srcs = [
-#         "SqlConsumer.cpp",
-#     ],
-#     deps = [
-#         "//source/rocketmq:rocketmq_library",
-#     ],
-# )
-
-# cc_binary(
-#     name = "example_transaction_producer",
-#     srcs = [
-#         "ExampleTransactionProducer.cpp",
-#     ],
-#     deps = [
-#         "//source/rocketmq:rocketmq_library",
-#     ],
-# )

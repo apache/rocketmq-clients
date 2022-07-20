@@ -16,10 +16,9 @@
  */
 #include <algorithm>
 #include <atomic>
-#include <condition_variable>
 #include <iostream>
-#include <mutex>
 #include <random>
+#include <string>
 #include <system_error>
 
 #include "gflags/gflags.h"
@@ -49,13 +48,20 @@ std::string randomString(std::string::size_type len) {
   return result;
 }
 
-DEFINE_string(topic, "lingchu_normal_topic", "Topic to which messages are published");
+DEFINE_string(topic, "fifo_topic_sample", "Topic to which messages are published");
 DEFINE_string(access_point, "121.196.167.124:8081", "Service access URL, provided by your service provider");
 DEFINE_int32(message_body_size, 4096, "Message body size");
 DEFINE_uint32(total, 256, "Number of sample messages to publish");
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+  // Adjust log level for file/console sinks
+  auto& logger = getLogger();
+  logger.setConsoleLevel(Level::Debug);
+  logger.setLevel(Level::Debug);
+  logger.init();
+
   auto producer = Producer::newBuilder()
                       .withConfiguration(Configuration::newBuilder().withEndpoints(FLAGS_access_point).build())
                       .build();
@@ -79,40 +85,28 @@ int main(int argc, char* argv[]) {
   std::string body = randomString(FLAGS_message_body_size);
   std::cout << "Message body size: " << body.length() << std::endl;
 
-  std::size_t completed = 0;
-  std::mutex mtx;
-  std::condition_variable cv;
-
   try {
-    auto send_callback = [&](const std::error_code& ec, const SendReceipt& receipt) {
-      std::unique_lock<std::mutex> lk(mtx);
-      completed++;
-      count++;
-      std::cout << "Message[id=" << receipt.message_id << "] sent" << std::endl;
-      if (completed >= FLAGS_total) {
-        cv.notify_all();
-      }
-    };
-
     for (std::size_t i = 0; i < FLAGS_total; ++i) {
-      auto message =
-          Message::newBuilder().withTopic(FLAGS_topic).withTag("TagA").withKeys({"Key-0"}).withBody(body).build();
-      producer.send(std::move(message), send_callback);
-    }
-
-    {
-      std::unique_lock<std::mutex> lk(mtx);
-      cv.wait(lk, [&]() { return completed >= FLAGS_total; });
+      auto message = Message::newBuilder()
+                         .withTopic(FLAGS_topic)
+                         .withTag("TagA")
+                         .withKeys({"Key-0"})
+                         .withBody(body)
+                         .withGroup("message-group" + std::to_string(i % 10))
+                         .build();
+      std::error_code ec;
+      SendReceipt send_receipt = producer.send(std::move(message), ec);
+      std::cout << "Message-ID: " << send_receipt.message_id << std::endl;
+      count++;
     }
   } catch (...) {
     std::cerr << "Ah...No!!!" << std::endl;
   }
+
   stopped.store(true, std::memory_order_relaxed);
   if (stats_thread.joinable()) {
     stats_thread.join();
   }
-
-  std::this_thread::sleep_for(std::chrono::seconds(1));
 
   return EXIT_SUCCESS;
 }

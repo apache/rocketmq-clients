@@ -28,6 +28,8 @@ struct SendReceipt {
   std::string message_id;
 
   std::string transaction_id;
+
+  std::string target;
 };
 
 ROCKETMQ_NAMESPACE_END

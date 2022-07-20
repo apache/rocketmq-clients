@@ -48,6 +48,7 @@ struct Extension {
   std::int64_t offset{0};
   std::string nonce;
   std::string transaction_id;
+  bool transactional{false};
 };
 
 class Message {

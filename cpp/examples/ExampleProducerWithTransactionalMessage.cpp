@@ -22,8 +22,8 @@
 #include <system_error>
 
 #include "gflags/gflags.h"
+#include "rocketmq/Message.h"
 #include "rocketmq/Producer.h"
-#include "rocketmq/RocketMQ.h"
 
 using namespace ROCKETMQ_NAMESPACE;
 
@@ -48,69 +48,69 @@ std::string randomString(std::string::size_type len) {
   return result;
 }
 
-DEFINE_string(topic, "lingchu_normal_topic", "Topic to which messages are published");
+DEFINE_string(topic, "tx_topic_sample", "Topic to which messages are published");
 DEFINE_string(access_point, "121.196.167.124:8081", "Service access URL, provided by your service provider");
 DEFINE_int32(message_body_size, 4096, "Message body size");
 DEFINE_uint32(total, 256, "Number of sample messages to publish");
 
-// Publish messages with various tags, keys that may be filtered with SQL-expression.
 int main(int argc, char* argv[]) {
-  // Set log level for file/console sinks
-  Logger& logger = getLogger();
-  logger.setLevel(Level::Info);
-  logger.setConsoleLevel(Level::Info);
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+  auto& logger = getLogger();
+  logger.setConsoleLevel(Level::Debug);
+  logger.setLevel(Level::Debug);
   logger.init();
+
+  auto checker = [](const Message& message) -> TransactionState {
+    std::cout << "Recovery orphan transactional message[topic=" << message.topic() << ", MsgId=" << message.id()
+              << ", txn-id=" << message.extension().transaction_id << std::endl;
+    return TransactionState::COMMIT;
+  };
 
   auto producer = Producer::newBuilder()
                       .withConfiguration(Configuration::newBuilder().withEndpoints(FLAGS_access_point).build())
+                      .withTransactionChecker(checker)
                       .build();
+
+  std::atomic_bool stopped;
+  std::atomic_long count(0);
+
+  auto stats_lambda = [&] {
+    while (!stopped.load(std::memory_order_relaxed)) {
+      long cnt = count.load(std::memory_order_relaxed);
+      while (count.compare_exchange_weak(cnt, 0)) {
+        break;
+      }
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+      std::cout << "QPS: " << cnt << std::endl;
+    }
+  };
+
+  std::thread stats_thread(stats_lambda);
 
   std::string body = randomString(FLAGS_message_body_size);
 
   try {
-    for (std::size_t i = 0; i < FLAGS_total; ++i) {
-      std::error_code ec;
-      MessageConstPtr message;
-      switch (i % 3) {
-        case 0: {
-          message = Message::newBuilder()
-                        .withTopic(FLAGS_topic)
-                        .withTag("TagA")
-                        .withKeys({"Key-" + std::to_string(i)})
-                        .withBody(body)
-                        .build();
-          break;
-        }
-        case 1: {
-          message = Message::newBuilder()
-                        .withTopic(FLAGS_topic)
-                        .withTag("TagB")
-                        .withKeys({"Key-" + std::to_string(i)})
-                        .withBody(body)
-                        .build();
-          break;
-        }
-        case 2: {
-          message = Message::newBuilder()
-                        .withTopic(FLAGS_topic)
-                        .withTag("TagC")
-                        .withKeys({"Key-" + std::to_string(i)})
-                        .withBody(body)
-                        .build();
-          break;
-        }
+    auto message = Message::newBuilder().withTopic(FLAGS_topic).withTag("TagA").withBody(body).build();
+    auto transaction = producer.beginTransaction();
+    std::error_code ec;
+
+    producer.send(std::move(message), ec, *transaction);
+
+    if (!ec) {
+      if (!transaction->commit()) {
+        std::cerr << "Failed to commit message" << std::endl;
       }
-      auto send_receipt = producer.send(std::move(message), ec);
-      if (ec) {
-        std::cerr << "Failed to send message. Cause: " << ec.message() << std::endl;
-      } else {
-        std::cout << "Publish message[MsgId=" << send_receipt.message_id << "] to " << FLAGS_topic << " OK."
-                  << std::endl;
-      }
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    } else {
+      std::cerr << "Failed to send transactional message to topic: " << FLAGS_topic << std::endl;
     }
   } catch (...) {
     std::cerr << "Ah...No!!!" << std::endl;
   }
+  stopped.store(true, std::memory_order_relaxed);
+  if (stats_thread.joinable()) {
+    stats_thread.join();
+  }
+
   return EXIT_SUCCESS;
 }
