@@ -134,7 +134,7 @@ void ConsumeTask::process() {
       auto await_time = std::chrono::system_clock::now() - (*it)->extension().decode_time;
       opencensus::stats::Record(
           {{consumer->stats().awaitTime(), MixAll::millisecondsOf(await_time)}},
-          {{Tag::topicTag(), (*it)->topic()}, {Tag::clientIdTag(), consumer->config().client_id}});
+          {{Tag::topicTag(), (*it)->topic()}, {Tag::clientIdTag(), consumer->config().client_id}, {Tag::consumerGroupTag(), consumer->groupName()}});
 
       std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 
@@ -149,7 +149,8 @@ void ConsumeTask::process() {
                                     {
                                         {Tag::topicTag(), (*it)->topic()},
                                         {Tag::clientIdTag(), consumer->config().client_id},
-                                        {Tag::invocationStatus(), "success"},
+                                        {Tag::invocationStatusTag(), "success"},
+                                        {Tag::consumerGroupTag(), consumer->groupName()}
                                     });
           break;
         }
@@ -158,7 +159,8 @@ void ConsumeTask::process() {
                                     {
                                         {Tag::topicTag(), (*it)->topic()},
                                         {Tag::clientIdTag(), consumer->config().client_id},
-                                        {Tag::invocationStatus(), "failure"},
+                                        {Tag::invocationStatusTag(), "failure"},
+                                        {Tag::consumerGroupTag(), consumer->groupName()}
                                     });
           break;
         }

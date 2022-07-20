@@ -49,7 +49,7 @@ void SendContext::onSuccess(const SendReceipt& send_receipt) noexcept {
                               {
                                   {Tag::topicTag(), message_->topic()},
                                   {Tag::clientIdTag(), publisher->config().client_id},
-                                  {Tag::invocationStatus(), "success"},
+                                  {Tag::invocationStatusTag(), "success"},
                               });
   }
 
@@ -77,7 +77,7 @@ void SendContext::onFailure(const std::error_code& ec) noexcept {
                               {
                                   {Tag::topicTag(), message_->topic()},
                                   {Tag::clientIdTag(), publisher->config().client_id},
-                                  {Tag::invocationStatus(), "failure"},
+                                  {Tag::invocationStatusTag(), "failure"},
                               });
   }
 
