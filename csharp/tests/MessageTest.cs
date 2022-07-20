@@ -19,12 +19,15 @@ using System;
 using System.Text;
 using System.Collections.Generic;
 
-namespace org.apache.rocketmq {
+namespace Org.Apache.Rocketmq
+{
     [TestClass]
-    public class MessageTest {
+    public class MessageTest
+    {
 
         [TestMethod]
-        public void testCtor() {
+        public void testCtor()
+        {
             var msg1 = new Message();
             Assert.IsNotNull(msg1.MessageId);
             Assert.IsTrue(msg1.MessageId.StartsWith("01"));
@@ -36,7 +39,8 @@ namespace org.apache.rocketmq {
         }
 
         [TestMethod]
-        public void testCtor2() {
+        public void testCtor2()
+        {
             string topic = "T1";
             string bodyString = "body";
             byte[] body = Encoding.ASCII.GetBytes(bodyString);
@@ -49,7 +53,8 @@ namespace org.apache.rocketmq {
         }
 
         [TestMethod]
-        public void testCtor3() {
+        public void testCtor3()
+        {
             string topic = "T1";
             string bodyString = "body";
             byte[] body = Encoding.ASCII.GetBytes(bodyString);
@@ -63,7 +68,8 @@ namespace org.apache.rocketmq {
         }
 
         [TestMethod]
-        public void testCtor4() {
+        public void testCtor4()
+        {
             string topic = "T1";
             string bodyString = "body";
             byte[] body = Encoding.ASCII.GetBytes(bodyString);
@@ -81,7 +87,8 @@ namespace org.apache.rocketmq {
         }
 
         [TestMethod]
-        public void testCtor5() {
+        public void testCtor5()
+        {
             string topic = "T1";
             string bodyString = "body";
             byte[] body = Encoding.ASCII.GetBytes(bodyString);

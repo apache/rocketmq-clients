@@ -14,10 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+using rmq = Apache.Rocketmq.V2;
+using System.Collections.Generic;
+
 namespace Org.Apache.Rocketmq
 {
-    public interface ICredentialsProvider
+    // Settings for publishing
+    public class Publishing
     {
-        Credentials getCredentials();
+        public List<rmq::Resource> Topics { get; set; }
+        public int CompressBodyThreshold { get; set; }
+
+        public int MaxBodySize { get; set; }
     }
 }

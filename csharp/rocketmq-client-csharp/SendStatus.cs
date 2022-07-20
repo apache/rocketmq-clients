@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 
-namespace org.apache.rocketmq {
-    public enum SendStatus {
+namespace Org.Apache.Rocketmq
+{
+    public enum SendStatus
+    {
         SEND_OK,
         FLUSH_DISK_TIMEOUT,
         FLUSH_SLAVE_TIMEOUT,

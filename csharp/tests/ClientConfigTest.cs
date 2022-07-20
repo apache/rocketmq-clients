@@ -17,11 +17,14 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 
-namespace org.apache.rocketmq {
+namespace Org.Apache.Rocketmq
+{
     [TestClass]
-    public class ClientConfigTest {
+    public class ClientConfigTest
+    {
         [TestMethod]
-        public void testClientId() {
+        public void testClientId()
+        {
             var clientConfig = new ClientConfig();
             string clientId = clientConfig.clientId();
             Assert.IsTrue(clientId.Contains("@"));

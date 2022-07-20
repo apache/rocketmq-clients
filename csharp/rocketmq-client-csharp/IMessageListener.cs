@@ -14,10 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
 namespace Org.Apache.Rocketmq
 {
-    public interface ICredentialsProvider
+
+    public interface IMessageListener
     {
-        Credentials getCredentials();
+        Task Consume(List<Message> messages, List<Message> failed);
+
     }
+
 }

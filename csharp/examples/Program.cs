@@ -5,20 +5,24 @@ using System.Threading;
 namespace examples
 {
 
-    class Foo {
+    class Foo
+    {
         public int bar = 1;
     }
     class Program
     {
 
-        static void RT(Action action, int seconds, CancellationToken token) {
-            if (null == action) {
+        static void RT(Action action, int seconds, CancellationToken token)
+        {
+            if (null == action)
+            {
                 return;
             }
 
             Task.Run(async () =>
             {
-                while(!token.IsCancellationRequested) {
+                while (!token.IsCancellationRequested)
+                {
                     action();
                     await Task.Delay(TimeSpan.FromSeconds(seconds), token);
                 }
@@ -31,7 +35,7 @@ namespace examples
 
             string accessKey = "key";
             string accessSecret = "secret";
-            var credentials = new org.apache.rocketmq.StaticCredentialsProvider(accessKey, accessSecret).getCredentials();
+            var credentials = new Org.Apache.Rocketmq.StaticCredentialsProvider(accessKey, accessSecret).getCredentials();
             bool expired = credentials.expired();
 
             int workerThreads;
@@ -44,7 +48,8 @@ namespace examples
             ThreadPool.QueueUserWorkItem((Object stateInfo) =>
             {
                 Console.WriteLine("From ThreadPool");
-                if (stateInfo is Foo) {
+                if (stateInfo is Foo)
+                {
                     Console.WriteLine("Foo: bar=" + (stateInfo as Foo).bar);
                 }
             }, new Foo());

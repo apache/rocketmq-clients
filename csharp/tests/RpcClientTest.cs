@@ -15,149 +15,132 @@
  * limitations under the License.
  */
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Grpc.Core.Interceptors;
-using System.Net.Http;
-using Grpc.Net.Client;
-using rmq = global::apache.rocketmq.v1;
-using grpc = global::Grpc.Core;
 using System;
-using pb = global::Google.Protobuf;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using grpc = Grpc.Core;
+using rmq = Apache.Rocketmq.V2;
 
 
-namespace org.apache.rocketmq
+namespace Org.Apache.Rocketmq
 {
+
     [TestClass]
     public class RpcClientTest
     {
 
-
-        [ClassInitialize]
-        public static void SetUp(TestContext context)
+        [TestMethod]
+        public async Task testTelemetry()
         {
-            string target = string.Format("https://{0}:{1}", host, port);
-            var channel = GrpcChannel.ForAddress(target, new GrpcChannelOptions
+            Console.WriteLine("Test Telemetry streaming");
+            string target = "https://11.166.42.94:8081";
+            var rpc_client = new RpcClient(target);
+            var client_config = new ClientConfig();
+            var metadata = new grpc::Metadata();
+            Signature.sign(client_config, metadata);
+
+            var cmd = new rmq::TelemetryCommand();
+            cmd.Settings = new rmq::Settings();
+            cmd.Settings.ClientType = rmq::ClientType.Producer;
+            cmd.Settings.AccessPoint = new rmq::Endpoints();
+            cmd.Settings.AccessPoint.Scheme = rmq::AddressScheme.Ipv4;
+            var address = new rmq::Address();
+            address.Port = 8081;
+            address.Host = "11.166.42.94";
+            cmd.Settings.AccessPoint.Addresses.Add(address);
+            cmd.Settings.RequestTimeout = new Google.Protobuf.WellKnownTypes.Duration();
+            cmd.Settings.RequestTimeout.Seconds = 3;
+            cmd.Settings.RequestTimeout.Nanos = 0;
+            cmd.Settings.Publishing = new rmq::Publishing();
+            var topic = new rmq::Resource();
+            topic.Name = "cpp_sdk_standard";
+            cmd.Settings.Publishing.Topics.Add(topic);
+            cmd.Settings.UserAgent = new rmq::UA();
+            cmd.Settings.UserAgent.Language = rmq::Language.DotNet;
+            cmd.Settings.UserAgent.Version = "1.0";
+            cmd.Settings.UserAgent.Hostname = System.Net.Dns.GetHostName();
+            cmd.Settings.UserAgent.Platform = System.Environment.OSVersion.ToString();
+
+            var duplexStreaming = rpc_client.Telemetry(metadata);
+            var reader = duplexStreaming.ResponseStream;
+            var writer = duplexStreaming.RequestStream;
+
+            var cts = new CancellationTokenSource();
+            await writer.WriteAsync(cmd);
+            Console.WriteLine("Command written");
+            if (await reader.MoveNext(cts.Token))
             {
-                HttpHandler = ClientManager.createHttpHandler()
-            });
-            var invoker = channel.Intercept(new ClientLoggerInterceptor());
-            var client = new rmq::MessagingService.MessagingServiceClient(invoker);
-            rpcClient = new RpcClient(client);
+                var response = reader.Current;
+                switch (response.CommandCase)
+                {
+                    case rmq::TelemetryCommand.CommandOneofCase.Settings:
+                        {
+                            var responded_settings = response.Settings;
+                            Console.WriteLine($"{responded_settings.ToString()}");
+                            break;
+                        }
+                    case rmq::TelemetryCommand.CommandOneofCase.None:
+                        {
+                            Console.WriteLine($"Unknown response command type: {response.Status.ToString()}");
+                            break;
+                        }
+                }
+                Console.WriteLine("Server responded ");
+            }
+            else
+            {
+                Console.WriteLine("Server is not responding");
+                var status = duplexStreaming.GetStatus();
+                Console.WriteLine($"status={status.ToString()}");
 
-            clientConfig = new ClientConfig();
-            var credentialsProvider = new ConfigFileCredentialsProvider();
-            clientConfig.CredentialsProvider = credentialsProvider;
-            clientConfig.ResourceNamespace = resourceNamespace;
-            clientConfig.Region = "cn-hangzhou-pre";
-        }
-
-        [ClassCleanup]
-        public static void TearDown()
-        {
-
+                var trailers = duplexStreaming.GetTrailers();
+                Console.WriteLine($"trailers={trailers.ToString()}");
+            }
         }
 
         [TestMethod]
         public void testQueryRoute()
         {
+            string target = "https://11.166.42.94:8081";
+            var rpc_client = new RpcClient(target);
+            var client_config = new ClientConfig();
+            var metadata = new grpc::Metadata();
+            Signature.sign(client_config, metadata);
             var request = new rmq::QueryRouteRequest();
             request.Topic = new rmq::Resource();
-            request.Topic.ResourceNamespace = resourceNamespace;
-            request.Topic.Name = topic;
+            request.Topic.Name = "cpp_sdk_standard";
             request.Endpoints = new rmq::Endpoints();
             request.Endpoints.Scheme = rmq::AddressScheme.Ipv4;
             var address = new rmq::Address();
-            address.Host = host;
-            address.Port = port;
+            address.Port = 8081;
+            address.Host = "11.166.42.94";
             request.Endpoints.Addresses.Add(address);
-
-            var metadata = new grpc::Metadata();
-            Signature.sign(clientConfig, metadata);
-
-            var deadline = DateTime.UtcNow.Add(TimeSpan.FromSeconds(3));
-            var callOptions = new grpc::CallOptions(metadata, deadline);
-            var response = rpcClient.queryRoute(request, callOptions).GetAwaiter().GetResult();
-        }
-
-
-        [TestMethod]
-        public void testHeartbeat()
-        {
-            var request = new rmq::HeartbeatRequest();
-            request.ClientId = clientId;
-            request.ProducerData = new rmq::ProducerData();
-            request.ProducerData.Group = new rmq::Resource();
-            request.ProducerData.Group.ResourceNamespace = resourceNamespace;
-            request.ProducerData.Group.Name = topic;
-            request.FifoFlag = false;
-
-            var metadata = new grpc::Metadata();
-            Signature.sign(clientConfig, metadata);
-
-            var deadline = DateTime.UtcNow.Add(TimeSpan.FromSeconds(3));
-            var callOptions = new grpc::CallOptions(metadata, deadline);
-            var response = rpcClient.heartbeat(request, callOptions).GetAwaiter().GetResult();
+            var response = rpc_client.QueryRoute(metadata, request, client_config.RequestTimeout);
+            var result = response.GetAwaiter().GetResult();
         }
 
         [TestMethod]
-        public void testSendMessage()
+        public async Task TestSend()
         {
+            string target = "https://11.166.42.94:8081";
+            var rpc_client = new RpcClient(target);
+            var client_config = new ClientConfig();
+            var metadata = new grpc::Metadata();
+            Signature.sign(client_config, metadata);
+
             var request = new rmq::SendMessageRequest();
-            request.Message = new rmq::Message();
-            byte[] body = new byte[1024];
-            for (int i = 0; i < body.Length; i++)
-            {
-                body[i] = (byte)'x';
-            }
-            request.Message.Body = pb::ByteString.CopyFrom(body);
-            request.Message.Topic = new rmq::Resource();
-            request.Message.Topic.ResourceNamespace = resourceNamespace;
-            request.Message.Topic.Name = topic;
-            request.Message.UserAttribute.Add("k", "v");
-            request.Message.UserAttribute.Add("key", "value");
-            request.Message.SystemAttribute = new rmq::SystemAttribute();
-            request.Message.SystemAttribute.Tag = "TagA";
-            request.Message.SystemAttribute.Keys.Add("key1");
-            request.Message.SystemAttribute.MessageId = SequenceGenerator.Instance.Next();
-
-            var metadata = new grpc::Metadata();
-            Signature.sign(clientConfig, metadata);
-
-            var deadline = DateTime.UtcNow.AddSeconds(3);
-            var callOptions = new grpc::CallOptions(metadata, deadline);
-
-            var response = rpcClient.sendMessage(request, callOptions).GetAwaiter().GetResult();
+            var message = new rmq::Message();
+            message.Topic = new rmq::Resource();
+            message.Topic.Name = "cpp_sdk_standard";
+            message.Body = Google.Protobuf.ByteString.CopyFromUtf8("Test Body");
+            message.SystemProperties = new rmq::SystemProperties();
+            message.SystemProperties.Tag = "TagA";
+            message.SystemProperties.MessageId = "abc";
+            request.Messages.Add(message);
+            var response = await rpc_client.SendMessage(metadata, request, TimeSpan.FromSeconds(3));
+            Assert.AreEqual(rmq::Code.Ok, response.Status.Code);
         }
-
-        // Remove the Ignore annotation if server has fixed
-        [Ignore]
-        [TestMethod]
-        public void testNotifyClientTermiantion()
-        {
-            var request = new rmq::NotifyClientTerminationRequest();
-            request.ClientId = clientId;
-            request.ProducerGroup = new rmq::Resource();
-            request.ProducerGroup.ResourceNamespace = resourceNamespace;
-            request.ProducerGroup.Name = group;
-
-            var metadata = new grpc::Metadata();
-            Signature.sign(clientConfig, metadata);
-
-            var deadline = DateTime.UtcNow.AddSeconds(3);
-            var callOptions = new grpc::CallOptions(metadata, deadline);
-            var response = rpcClient.notifyClientTermination(request, callOptions).GetAwaiter().GetResult();
-        }
-
-        private static string resourceNamespace = "MQ_INST_1080056302921134_BXuIbML7";
-
-        private static string topic = "cpp_sdk_standard";
-
-        private static string clientId = "C001";
-        private static string group = "GID_cpp_sdk_standard";
-
-        private static string host = "116.62.231.199";
-        private static int port = 80;
-
-        private static IRpcClient rpcClient;
-        private static ClientConfig clientConfig;
     }
 }

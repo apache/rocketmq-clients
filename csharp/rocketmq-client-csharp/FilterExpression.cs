@@ -14,10 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 namespace Org.Apache.Rocketmq
 {
-    public interface ICredentialsProvider
+    public class FilterExpression
     {
-        Credentials getCredentials();
+        public FilterExpression(string expression, ExpressionType type)
+        {
+            Expression = expression;
+            Type = type;
+        }
+
+        public ExpressionType Type { get; }
+        public string Expression { get; }
     }
 }

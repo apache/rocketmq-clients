@@ -1,7 +1,7 @@
 using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NLog;
-using org.apache.rocketmq;
+using Org.Apache.Rocketmq;
 
 namespace tests
 {

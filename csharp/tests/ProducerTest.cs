@@ -15,60 +15,173 @@
  * limitations under the License.
  */
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System.Collections.Generic;
 using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Org.Apache.Rocketmq;
 
-namespace org.apache.rocketmq
+
+namespace tests
 {
-
     [TestClass]
     public class ProducerTest
     {
 
+        private static AccessPoint _accessPoint;
+
         [ClassInitialize]
         public static void SetUp(TestContext context)
         {
-            List<string> nameServerAddress = new List<string>();
-            nameServerAddress.Add(string.Format("{0}:{1}", host, port));
-            resolver = new StaticNameServerResolver(nameServerAddress);
-
-            credentialsProvider = new ConfigFileCredentialsProvider();
+            _accessPoint = new AccessPoint
+            {
+                Host = HOST,
+                Port = PORT
+            };
         }
 
         [ClassCleanup]
         public static void TearDown()
         {
-
         }
 
-
         [TestMethod]
-        public void testSendMessage()
+        public async Task TestLifecycle()
         {
-            var producer = new Producer(resolver, resourceNamespace);
-            producer.ResourceNamespace = resourceNamespace;
+            var producer = new Producer(_accessPoint, resourceNamespace);
             producer.CredentialsProvider = new ConfigFileCredentialsProvider();
             producer.Region = "cn-hangzhou-pre";
-            producer.start();
+            await producer.Start();
+            await producer.Shutdown();
+        }
+
+        [TestMethod]
+        public async Task TestSendStandardMessage()
+        {
+            var producer = new Producer(_accessPoint, resourceNamespace);
+            producer.CredentialsProvider = new ConfigFileCredentialsProvider();
+            producer.Region = "cn-hangzhou-pre";
+            await producer.Start();
             byte[] body = new byte[1024];
             Array.Fill(body, (byte)'x');
             var msg = new Message(topic, body);
-            var sendResult = producer.send(msg).GetAwaiter().GetResult();
+            
+            // Tag the massage. A message has at most one tag.
+            msg.Tag = "Tag-0";
+            
+            // Associate the message with one or multiple keys
+            var keys = new List<string>();
+            keys.Add("k1");
+            keys.Add("k2");
+            msg.Keys = keys;
+            
+            var sendResult = await producer.Send(msg);
             Assert.IsNotNull(sendResult);
-            producer.shutdown();
+            await producer.Shutdown();
+        }
+        
+        [TestMethod]
+        public async Task TestSendMultipleMessages()
+        {
+            var producer = new Producer(_accessPoint, resourceNamespace);
+            producer.CredentialsProvider = new ConfigFileCredentialsProvider();
+            producer.Region = "cn-hangzhou-pre";
+            await producer.Start();
+            byte[] body = new byte[1024];
+            Array.Fill(body, (byte)'x');
+            for (var i = 0; i < 128; i++)
+            {
+                var msg = new Message(topic, body);
+            
+                // Tag the massage. A message has at most one tag.
+                msg.Tag = "Tag-0";
+            
+                // Associate the message with one or multiple keys
+                var keys = new List<string>();
+                keys.Add("k1");
+                keys.Add("k2");
+                msg.Keys = keys;
+                var sendResult = await producer.Send(msg);
+                Assert.IsNotNull(sendResult);                
+            }
+            await producer.Shutdown();
+        }
+        
+        [TestMethod]
+        public async Task TestSendFifoMessage()
+        {
+            var producer = new Producer(_accessPoint, resourceNamespace);
+            producer.CredentialsProvider = new ConfigFileCredentialsProvider();
+            producer.Region = "cn-hangzhou-pre";
+            await producer.Start();
+            byte[] body = new byte[1024];
+            Array.Fill(body, (byte)'x');
+            var msg = new Message(topic, body);
+            
+            // Messages of the same group will get delivered one after another. 
+            msg.MessageGroup = "message-group-0";
+            
+            // Verify messages are FIFO iff their message group is not null or empty.
+            Assert.IsTrue(msg.Fifo());
+
+            var sendResult = await producer.Send(msg);
+            Assert.IsNotNull(sendResult);
+            await producer.Shutdown();
+        }
+        
+        [TestMethod]
+        public async Task TestSendScheduledMessage()
+        {
+            var producer = new Producer(_accessPoint, resourceNamespace);
+            producer.CredentialsProvider = new ConfigFileCredentialsProvider();
+            producer.Region = "cn-hangzhou-pre";
+            await producer.Start();
+            byte[] body = new byte[1024];
+            Array.Fill(body, (byte)'x');
+            var msg = new Message(topic, body);
+            
+            msg.DeliveryTimestamp = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+            Assert.IsTrue(msg.Scheduled());
+            
+            var sendResult = await producer.Send(msg);
+            Assert.IsNotNull(sendResult);
+            await producer.Shutdown();
+        }
+        
+        
+        /**
+         * Trying send a message that is both FIFO and Scheduled should fail.
+         */
+        [TestMethod]
+        public async Task TestSendMessage_Failure()
+        {
+            var producer = new Producer(_accessPoint, resourceNamespace);
+            producer.CredentialsProvider = new ConfigFileCredentialsProvider();
+            producer.Region = "cn-hangzhou-pre";
+            await producer.Start();
+            byte[] body = new byte[1024];
+            Array.Fill(body, (byte)'x');
+            var msg = new Message(topic, body);
+            msg.MessageGroup = "Group-0";
+            msg.DeliveryTimestamp = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+            Assert.IsTrue(msg.Scheduled());
+
+            try
+            {
+                await producer.Send(msg);
+                Assert.Fail("Should have raised an exception");
+            }
+            catch (MessageException e)
+            {
+            }
+            await producer.Shutdown();
         }
 
-        private static string resourceNamespace = "MQ_INST_1080056302921134_BXuIbML7";
+        private static string resourceNamespace = "";
 
         private static string topic = "cpp_sdk_standard";
 
-        private static string clientId = "C001";
-        private static string group = "GID_cpp_sdk_standard";
-
-        private static INameServerResolver resolver;
-        private static ICredentialsProvider credentialsProvider;
-        private static string host = "116.62.231.199";
-        private static int port = 80;
+        private static string HOST = "127.0.0.1";
+        private static int PORT = 8081;
     }
 
 }

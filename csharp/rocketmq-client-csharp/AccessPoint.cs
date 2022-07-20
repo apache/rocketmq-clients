@@ -16,8 +16,27 @@
  */
 namespace Org.Apache.Rocketmq
 {
-    public interface ICredentialsProvider
+    public class AccessPoint
     {
-        Credentials getCredentials();
+        private string _host;
+
+        public string Host
+        {
+            get { return _host; }
+            set { _host = value; }
+        }
+
+        private int _port;
+
+        public int Port
+        {
+            get { return _port; }
+            set { _port = value; }
+        }
+
+        public string TargetUrl()
+        {
+            return $"https://{_host}:{_port}";
+        }
     }
 }

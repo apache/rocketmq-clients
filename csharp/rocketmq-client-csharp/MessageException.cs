@@ -14,10 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+using System;
+
 namespace Org.Apache.Rocketmq
 {
-    public interface ICredentialsProvider
+    [Serializable]
+    public class MessageException : Exception
     {
-        Credentials getCredentials();
+        public MessageException(string message) : base(message)
+        {
+        }
     }
 }

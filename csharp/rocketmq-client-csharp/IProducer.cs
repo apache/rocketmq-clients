@@ -14,16 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-using System;
+
 using System.Threading.Tasks;
 
-namespace org.apache.rocketmq {
-    public interface IProducer {
-        void start();
+namespace Org.Apache.Rocketmq
+{
+    public interface IProducer
+    {
+        Task Start();
 
-        void shutdown();
+        Task Shutdown();
 
-        Task<SendResult> send(Message message);
-        
+        Task<SendReceipt> Send(Message message);
     }
 }

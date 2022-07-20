@@ -15,168 +15,310 @@
  * limitations under the License.
  */
 
-using System.Collections.Concurrent;
-
-using rmq = global::apache.rocketmq.v1;
-using Grpc.Net.Client;
+using rmq = Apache.Rocketmq.V2;
 using System;
+using System.IO;
+using System.IO.Compression;
 using System.Threading;
 using System.Threading.Tasks;
-using grpc = global::Grpc.Core;
+using grpc = Grpc.Core;
 using System.Collections.Generic;
-using Grpc.Core.Interceptors;
-using System.Net.Http;
+using System.Security.Cryptography;
+using NLog;
 
-namespace org.apache.rocketmq {
-    public class ClientManager : IClientManager {
+namespace Org.Apache.Rocketmq
+{
+    public class ClientManager : IClientManager
+    {
+        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
-        public ClientManager() {
-            rpcClients = new ConcurrentDictionary<string, RpcClient>();
+        public ClientManager()
+        {
+            _rpcClients = new Dictionary<string, RpcClient>();
+            _clientLock = new ReaderWriterLockSlim();
         }
 
-        public IRpcClient getRpcClient(string target) {
-            if (!rpcClients.ContainsKey(target)) {
-                var channel = GrpcChannel.ForAddress(target, new GrpcChannelOptions {
-                    HttpHandler = createHttpHandler()
-                });
-                var invoker = channel.Intercept(new ClientLoggerInterceptor());
-                var client = new rmq::MessagingService.MessagingServiceClient(invoker);
-                var rpcClient = new RpcClient(client);
-                if(rpcClients.TryAdd(target, rpcClient)) {
-                    return rpcClient;
+        public IRpcClient GetRpcClient(string target)
+        {
+            _clientLock.EnterReadLock();
+            try
+            {
+                // client exists, return in advance.
+                if (_rpcClients.ContainsKey(target))
+                {
+                    return _rpcClients[target];
                 }
             }
-            return rpcClients[target];
-        }
-
-        /**
-         * See https://docs.microsoft.com/en-us/aspnet/core/grpc/performance?view=aspnetcore-6.0 for performance consideration and
-         * why parameters are configured this way.
-         */
-        public static HttpMessageHandler createHttpHandler()
-        {
-            var sslOptions = new System.Net.Security.SslClientAuthenticationOptions();
-            // Disable server certificate validation during development phase.
-            // Comment out the following line if server certificate validation is required. 
-            sslOptions.RemoteCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => { return true; };
-            var handler = new SocketsHttpHandler
+            finally
             {
-                PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan,
-                KeepAlivePingDelay = TimeSpan.FromSeconds(60),
-                KeepAlivePingTimeout = TimeSpan.FromSeconds(30),
-                EnableMultipleHttp2Connections = true,
-                SslOptions = sslOptions,
-            };
-            return handler;
+                _clientLock.ExitReadLock();
+            }
+
+            _clientLock.EnterWriteLock();
+            try
+            {
+                // client exists, return in advance.
+                if (_rpcClients.ContainsKey(target))
+                {
+                    return _rpcClients[target];
+                }
+
+                // client does not exist, generate a new one
+                var client = new RpcClient(target);
+                _rpcClients.Add(target, client);
+                return client;
+            }
+            finally
+            {
+                _clientLock.ExitWriteLock();
+            }
         }
 
-        public async Task<TopicRouteData> resolveRoute(string target, grpc::Metadata metadata, rmq::QueryRouteRequest request, TimeSpan timeout)
+        public grpc::AsyncDuplexStreamingCall<rmq::TelemetryCommand, rmq::TelemetryCommand> Telemetry(string target, grpc::Metadata metadata)
         {
-            var rpcClient = getRpcClient(target);
-            var deadline = DateTime.UtcNow.Add(timeout);
-            var callOptions = new grpc::CallOptions(metadata, deadline);
-            var queryRouteResponse = await rpcClient.queryRoute(request, callOptions);
+            var rpcClient = GetRpcClient(target);
+            return rpcClient.Telemetry(metadata);
+        }
 
-            if (queryRouteResponse.Common.Status.Code != ((int)Google.Rpc.Code.Ok)) {
+        public async Task<TopicRouteData> ResolveRoute(string target, grpc::Metadata metadata,
+            rmq::QueryRouteRequest request, TimeSpan timeout)
+        {
+            var rpcClient = GetRpcClient(target);
+            Logger.Debug($"QueryRouteRequest: {request}");
+            var queryRouteResponse = await rpcClient.QueryRoute(metadata, request, timeout);
+
+            if (queryRouteResponse.Status.Code != rmq::Code.Ok)
+            {
+                Logger.Warn($"Failed to query route entries for topic={request.Topic.Name} from {target}: {queryRouteResponse.Status}");
                 // Raise an application layer exception
-
             }
+            Logger.Debug($"QueryRouteResponse: {queryRouteResponse}");
 
-            var partitions = new List<Partition>();
-            // Translate protobuf object to domain specific one
-            foreach (var partition in queryRouteResponse.Partitions)
+            var messageQueues = new List<rmq::MessageQueue>();
+            foreach (var messageQueue in queryRouteResponse.MessageQueues)
             {
-                var topic = new Topic(partition.Topic.ResourceNamespace, partition.Topic.Name);
-                var id = partition.Id;
-                Permission permission = Permission.READ_WRITE;
-                switch (partition.Permission) {
-                    case rmq::Permission.None:
-                    {
-                        permission = Permission.NONE;
-                        break;
-                    }
-                    case rmq::Permission.Read:
-                    {
-                        permission = Permission.READ;
-                        break;
-                    }
-                    case rmq::Permission.Write:
-                    {
-                        permission = Permission.WRITE;
-                        break;
-                    }
-                    case rmq::Permission.ReadWrite:
-                    {
-                        permission = Permission.READ_WRITE;
-                        break;
-                    }
-                }
-
-                AddressScheme scheme = AddressScheme.IPv4;
-                switch(partition.Broker.Endpoints.Scheme) {
-                    case rmq::AddressScheme.Ipv4:
-                        {
-                        scheme = AddressScheme.IPv4;
-                        break;
-                    }
-                    case rmq::AddressScheme.Ipv6:
-                        {
-                        scheme = AddressScheme.IPv6;
-                        break;
-                    }
-                    case rmq::AddressScheme.DomainName:
-                        {
-                        scheme = AddressScheme.DOMAIN_NAME;
-                        break;
-                    }
-                }
-
-                List<Address> addresses = new List<Address>();
-                foreach(var item in partition.Broker.Endpoints.Addresses) {
-                    addresses.Add(new Address(item.Host, item.Port));
-                }
-                ServiceAddress serviceAddress = new ServiceAddress(scheme, addresses);
-                Broker broker = new Broker(partition.Broker.Name, id, serviceAddress);
-                partitions.Add(new Partition(topic, broker, id, permission));
+                messageQueues.Add(messageQueue);
             }
-
-            var topicRouteData = new TopicRouteData(partitions);
+            var topicRouteData = new TopicRouteData(messageQueues);
             return topicRouteData;
         }
 
-        public async Task<Boolean> heartbeat(string target, grpc::Metadata metadata, rmq::HeartbeatRequest request, TimeSpan timeout)
+        public async Task<Boolean> Heartbeat(string target, grpc::Metadata metadata, rmq::HeartbeatRequest request,
+            TimeSpan timeout)
         {
-            var rpcClient = getRpcClient(target);
-            var deadline = DateTime.UtcNow.Add(timeout);
-            var callOptions = new grpc.CallOptions(metadata, deadline);
-            var response = await rpcClient.heartbeat(request, callOptions);
-            if (null == response)
-            {
-                return false;
-            }
-
-            return response.Common.Status.Code == (int)Google.Rpc.Code.Ok;
+            var rpcClient = GetRpcClient(target);
+            Logger.Debug($"Heartbeat to {target}, Request: {request}");
+            var response = await rpcClient.Heartbeat(metadata, request, timeout);
+            Logger.Debug($"Heartbeat to {target} response status: {response.Status}");
+            return response.Status.Code == rmq::Code.Ok;
         }
 
-        public async Task<rmq::SendMessageResponse> sendMessage(string target, grpc::Metadata metadata, rmq::SendMessageRequest request, TimeSpan timeout)
+        public async Task<rmq::SendMessageResponse> SendMessage(string target, grpc::Metadata metadata,
+            rmq::SendMessageRequest request, TimeSpan timeout)
         {
-            var rpcClient = getRpcClient(target);
-            var deadline = DateTime.UtcNow.Add(timeout);
-            var callOptions = new grpc::CallOptions(metadata, deadline);
-            var response = await rpcClient.sendMessage(request, callOptions);
+            var rpcClient = GetRpcClient(target);
+            var response = await rpcClient.SendMessage(metadata, request, timeout);
             return response;
         }
 
-        public async Task<Boolean> notifyClientTermination(string target, grpc::Metadata metadata, rmq::NotifyClientTerminationRequest request, TimeSpan timeout)
+        public async Task<Boolean> NotifyClientTermination(string target, grpc::Metadata metadata,
+            rmq::NotifyClientTerminationRequest request, TimeSpan timeout)
         {
-            var rpcClient = getRpcClient(target);
-            var deadline = DateTime.UtcNow.Add(timeout);
-            var callOptions = new grpc::CallOptions(metadata, deadline);
-            rmq::NotifyClientTerminationResponse response = await rpcClient.notifyClientTermination(request, callOptions);
-            return response.Common.Status.Code == ((int)Google.Rpc.Code.Ok);
+            var rpcClient = GetRpcClient(target);
+            rmq::NotifyClientTerminationResponse response =
+                await rpcClient.NotifyClientTermination(metadata, request, timeout);
+            return response.Status.Code == rmq::Code.Ok;
         }
 
-        private ConcurrentDictionary<string, RpcClient> rpcClients;
+        public async Task<List<rmq::Assignment>> QueryLoadAssignment(string target, grpc::Metadata metadata, rmq::QueryAssignmentRequest request, TimeSpan timeout)
+        {
+            var rpcClient = GetRpcClient(target);
+            rmq::QueryAssignmentResponse response = await rpcClient.QueryAssignment(metadata, request, timeout);
+            if (response.Status.Code != rmq::Code.Ok)
+            {
+                // TODO: Build exception hierarchy
+                throw new Exception($"Failed to query load assignment from server. Cause: {response.Status.Message}");
+            }
 
+            List<rmq::Assignment> assignments = new List<rmq.Assignment>();
+            foreach (var item in response.Assignments)
+            {
+                assignments.Add(item);
+            }
+            return assignments;
+        }
+
+        public async Task<List<Message>> ReceiveMessage(string target, grpc::Metadata metadata, 
+            rmq::ReceiveMessageRequest request, TimeSpan timeout)
+        {
+            var rpcClient = GetRpcClient(target);
+            List<rmq::ReceiveMessageResponse> response = await rpcClient.ReceiveMessage(metadata, request, timeout);
+
+            if (null == response || 0 == response.Count)
+            {
+                // TODO: throw an exception to propagate this error?
+                return new List<Message>();
+            }
+
+            List<Message> messages = new List<Message>();
+            
+            foreach (var entry in response)
+            {
+                switch (entry.ContentCase)
+                {
+                    case rmq.ReceiveMessageResponse.ContentOneofCase.None:
+                    {
+                        Logger.Warn("Unexpected ReceiveMessageResponse content type");
+                        break;
+                    }
+                    
+                    case rmq.ReceiveMessageResponse.ContentOneofCase.Status:
+                    {
+                        switch (entry.Status.Code)
+                        {
+                            case rmq.Code.Ok:
+                            {
+                                break;
+                            }
+
+                            case rmq.Code.Forbidden:
+                            {
+                                Logger.Warn("Receive message denied");
+                                break;
+                            }
+                            case rmq.Code.TooManyRequests:
+                            {
+                                Logger.Warn("TooManyRequest: servers throttled");
+                                break;
+                            }
+                            default:
+                            {
+                                Logger.Warn("Unknown error status");
+                                break;
+                            }
+                        }
+                        break;
+                    }
+
+                    case rmq.ReceiveMessageResponse.ContentOneofCase.Message:
+                    {
+                        var message = Convert(target, entry.Message);
+                        messages.Add(message);
+                        break;
+                    }
+
+                    case rmq.ReceiveMessageResponse.ContentOneofCase.DeliveryTimestamp:
+                    {
+                        var begin = entry.DeliveryTimestamp;
+                        var costs = DateTime.UtcNow - begin.ToDateTime();
+                        // TODO: Collect metrics
+                        break;
+                    }
+                }
+            }
+            return messages;
+        }
+
+        private Message Convert(string sourceHost, rmq::Message message)
+        {
+            var msg = new Message();
+            msg.Topic = message.Topic.Name;
+            msg.MessageId = message.SystemProperties.MessageId;
+            msg.Tag = message.SystemProperties.Tag;
+
+            // Validate message body checksum
+            byte[] raw = message.Body.ToByteArray();
+            if (rmq::DigestType.Crc32 == message.SystemProperties.BodyDigest.Type)
+            {
+                uint checksum = Force.Crc32.Crc32Algorithm.Compute(raw, 0, raw.Length);
+                if (!message.SystemProperties.BodyDigest.Checksum.Equals(checksum.ToString("X")))
+                {
+                    msg._checksumVerifiedOk = false;
+                }
+            }
+            else if (rmq::DigestType.Md5 == message.SystemProperties.BodyDigest.Type)
+            {
+                var checksum = MD5.HashData(raw);
+                if (!message.SystemProperties.BodyDigest.Checksum.Equals(System.Convert.ToHexString(checksum)))
+                {
+                    msg._checksumVerifiedOk = false;
+                }
+            }
+            else if (rmq::DigestType.Sha1 == message.SystemProperties.BodyDigest.Type)
+            {
+                var checksum = SHA1.HashData(raw);
+                if (!message.SystemProperties.BodyDigest.Checksum.Equals(System.Convert.ToHexString(checksum)))
+                {
+                    msg._checksumVerifiedOk = false;
+                }
+            }
+
+            foreach (var entry in message.UserProperties)
+            {
+                msg.UserProperties.Add(entry.Key, entry.Value);
+            }
+
+            msg._receiptHandle = message.SystemProperties.ReceiptHandle;
+            msg._sourceHost = sourceHost;
+
+            foreach (var key in message.SystemProperties.Keys)
+            {
+                msg.Keys.Add(key);
+            }
+
+            msg.DeliveryAttempt = message.SystemProperties.DeliveryAttempt;
+
+            if (message.SystemProperties.BodyEncoding == rmq::Encoding.Gzip)
+            {
+                // Decompress/Inflate message body
+                var inputStream = new MemoryStream(message.Body.ToByteArray());
+                var gzipStream = new GZipStream(inputStream, CompressionMode.Decompress);
+                var outputStream = new MemoryStream();
+                gzipStream.CopyTo(outputStream);
+                msg.Body = outputStream.ToArray();
+            }
+            else
+            {
+                msg.Body = message.Body.ToByteArray();
+            }
+
+            return msg;
+        }
+
+        public async Task<Boolean> Ack(string target, grpc::Metadata metadata, rmq::AckMessageRequest request, TimeSpan timeout)
+        {
+            var rpcClient = GetRpcClient(target);
+            var response = await rpcClient.AckMessage(metadata, request, timeout);
+            return response.Status.Code == rmq::Code.Ok;
+        }
+
+        public async Task<Boolean> ChangeInvisibleDuration(string target, grpc::Metadata metadata, rmq::ChangeInvisibleDurationRequest request, TimeSpan timeout)
+        {
+            var rpcClient = GetRpcClient(target);
+            var response = await rpcClient.ChangeInvisibleDuration(metadata, request, timeout);
+            return response.Status.Code == rmq::Code.Ok;
+        }
+
+        public async Task Shutdown()
+        {
+            _clientLock.EnterReadLock();
+            try
+            {
+                List<Task> tasks = new List<Task>();
+                foreach (var item in _rpcClients)
+                {
+                    tasks.Add(item.Value.Shutdown());
+                }
+
+                await Task.WhenAll(tasks);
+            }
+            finally
+            {
+                _clientLock.ExitReadLock();
+            }
+        }
+
+        private readonly Dictionary<string, RpcClient> _rpcClients;
+        private readonly ReaderWriterLockSlim _clientLock;
     }
 }

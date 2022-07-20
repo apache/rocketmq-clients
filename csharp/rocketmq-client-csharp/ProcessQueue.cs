@@ -14,10 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+using System;
 namespace Org.Apache.Rocketmq
 {
-    public interface ICredentialsProvider
+    public class ProcessQueue
     {
-        Credentials getCredentials();
+
+        public ProcessQueue()
+        {
+            _lastReceivedTime = DateTime.UtcNow;
+        }
+        public bool Dropped { get; set; }
+
+        private DateTime _lastReceivedTime;
+
+        public DateTime LastReceiveTime
+        {
+            get { return _lastReceivedTime; }
+            set { _lastReceivedTime = value; }
+        }
+
+        internal bool Expired()
+        {
+            return DateTime.UtcNow.Subtract(_lastReceivedTime).TotalMilliseconds > 30 * 1000;
+        }
+
     }
 }

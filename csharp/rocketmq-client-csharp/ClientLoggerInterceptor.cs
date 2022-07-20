@@ -18,11 +18,15 @@ using System;
 using System.Threading.Tasks;
 using Grpc.Core;
 using Grpc.Core.Interceptors;
+using NLog;
 
-namespace org.apache.rocketmq
+namespace Org.Apache.Rocketmq
 {
     public class ClientLoggerInterceptor : Interceptor
     {
+
+        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+
         public override TResponse BlockingUnaryCall<TRequest, TResponse>(
             TRequest request,
             ClientInterceptorContext<TRequest, TResponse> context,
@@ -52,19 +56,12 @@ namespace org.apache.rocketmq
             try
             {
                 var response = await t;
-                Console.WriteLine($"Response received: {response}");
+                Logger.Debug($"Response received: {response}");
                 return response;
             }
             catch (Exception ex)
             {
-                // Log error to the console.
-                // Note: Configuring .NET Core logging is the recommended way to log errors
-                // https://docs.microsoft.com/aspnet/core/grpc/diagnostics#grpc-client-logging
-                var initialColor = Console.ForegroundColor;
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"Call error: {ex.Message}");
-                Console.ForegroundColor = initialColor;
-
+                Logger.Error($"Call error: {ex.Message}");
                 throw;
             }
         }
@@ -104,10 +101,7 @@ namespace org.apache.rocketmq
             where TRequest : class
             where TResponse : class
         {
-            var initialColor = Console.ForegroundColor;
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"Starting call. Type: {method.Type}. Request: {typeof(TRequest)}. Response: {typeof(TResponse)}");
-            Console.ForegroundColor = initialColor;
+            Logger.Debug($"Starting call. Type: {method.Type}. Request: {typeof(TRequest)}. Response: {typeof(TResponse)}");
         }
 
         private void AddCallerMetadata<TRequest, TResponse>(ref ClientInterceptorContext<TRequest, TResponse> context)

@@ -16,7 +16,7 @@
  */
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using org.apache.rocketmq;
+using Org.Apache.Rocketmq;
 
 namespace tests
 {

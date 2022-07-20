@@ -16,8 +16,11 @@
  */
 namespace Org.Apache.Rocketmq
 {
-    public interface ICredentialsProvider
+
+    public enum ExpressionType
     {
-        Credentials getCredentials();
+        TAG,
+        SQL92,
     }
+
 }

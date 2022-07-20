@@ -17,50 +17,68 @@
 
 using System;
 
-namespace org.apache.rocketmq {
-    public class Topic : IComparable<Topic>, IEquatable<Topic> {
-        public Topic(string resource_namespace, string name) {
-            resourceNamespace = resource_namespace;
-            this.name = name;
+namespace Org.Apache.Rocketmq
+{
+    public class Topic : IComparable<Topic>, IEquatable<Topic>
+    {
+        public Topic(string resourceNamespace, string name)
+        {
+            ResourceNamespace = resourceNamespace;
+            Name = name;
         }
 
-        private string resourceNamespace;
-        public string ResourceNamespace {
-            get { return resourceNamespace; }
-        }
+        public string ResourceNamespace { get; }
+        public string Name { get; }
 
-        private string name;
-        public string Name {
-            get { return name; }
-        }
-
-        public int CompareTo(Topic other) {
-            if (0 != resourceNamespace.CompareTo(other.resourceNamespace)) {
-                return resourceNamespace.CompareTo(other.resourceNamespace);
-            }
-
-            if (0 != name.CompareTo(other.name)) {
-                return name.CompareTo(other.name);
-            }
-
-            return 0;
-        }
-
-        public bool Equals(Topic other) {
-            return resourceNamespace.Equals(other.resourceNamespace) && name.Equals(other.name);
-        }
-
-        public override bool Equals(Object other) {
-            if (!(other is Topic)) {
+        public bool Equals(Topic other)
+        {
+            if (ReferenceEquals(null, other))
+            {
                 return false;
             }
-            return Equals(other as Topic);
+
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            return ResourceNamespace == other.ResourceNamespace && Name == other.Name;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(null, obj) || obj.GetType() != GetType())
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, obj))
+            {
+                return true;
+            }
+
+            return Equals((Topic)obj);
         }
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(resourceNamespace, name);
+            return HashCode.Combine(ResourceNamespace, Name);
         }
 
+        public int CompareTo(Topic other)
+        {
+            if (ReferenceEquals(null, other))
+            {
+                return -1;
+            }
+
+            var compareTo = String.CompareOrdinal(ResourceNamespace, other.ResourceNamespace);
+            if (0 == compareTo)
+            {
+                compareTo = String.CompareOrdinal(Name, other.Name);
+            }
+
+            return compareTo;
+        }
     }
 }

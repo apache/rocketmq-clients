@@ -17,13 +17,16 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Collections.Generic;
 
-namespace org.apache.rocketmq {
-     
-     [TestClass]
-     public class TopicTest {
+namespace Org.Apache.Rocketmq
+{
 
-         [TestMethod]
-         public void testCompareTo() {
+    [TestClass]
+    public class TopicTest
+    {
+
+        [TestMethod]
+        public void testCompareTo()
+        {
             List<Topic> topics = new List<Topic>();
             topics.Add(new Topic("ns1", "t1"));
             topics.Add(new Topic("ns0", "t1"));
@@ -36,13 +39,13 @@ namespace org.apache.rocketmq {
 
             Assert.AreEqual(topics[1].ResourceNamespace, "ns0");
             Assert.AreEqual(topics[1].Name, "t1");
-            
+
 
             Assert.AreEqual(topics[2].ResourceNamespace, "ns1");
             Assert.AreEqual(topics[2].Name, "t1");
-            
+
         }
 
 
-     }
- }
+    }
+}

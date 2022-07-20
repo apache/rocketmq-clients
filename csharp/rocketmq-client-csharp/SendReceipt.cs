@@ -14,10 +14,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 namespace Org.Apache.Rocketmq
 {
-    public interface ICredentialsProvider
+    public sealed class SendReceipt
     {
-        Credentials getCredentials();
+        public SendReceipt(string messageId)
+        {
+            status_ = SendStatus.SEND_OK;
+            messageId_ = messageId;
+        }
+
+        public SendReceipt(string messageId, SendStatus status)
+        {
+            status_ = status;
+            messageId_ = messageId;
+        }
+
+        private string messageId_;
+
+        public string MessageId
+        {
+            get { return messageId_; }
+        }
+
+
+        private SendStatus status_;
+
+        public SendStatus Status
+        {
+            get { return status_; }
+        }
     }
 }
