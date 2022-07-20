@@ -48,7 +48,9 @@ std::string randomString(std::string::size_type len) {
 }
 
 DEFINE_string(topic, "lingchu_normal_topic", "Topic to which messages are published");
-DEFINE_string(access_point, "121.196.167.124:8081", "Access URL, provided by your service provider");
+DEFINE_string(access_point, "121.196.167.124:8081", "Service access URL, provided by your service provider");
+DEFINE_int32(message_body_size, 4096, "Message body size");
+DEFINE_uint32(total, 256, "Number of sample messages to publish");
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -73,11 +75,11 @@ int main(int argc, char* argv[]) {
 
   std::thread stats_thread(stats_lambda);
 
-  std::string body = randomString(1024 * 4);
+  std::string body = randomString(FLAGS_message_body_size);
   std::cout << "Message body size: " << body.length() << std::endl;
 
   try {
-    for (int i = 0; i < 256; ++i) {
+    for (int i = 0; i < FLAGS_total; ++i) {
       auto message =
           Message::newBuilder().withTopic(FLAGS_topic).withTag("TagA").withKeys({"Key-0"}).withBody(body).build();
       std::error_code ec;
