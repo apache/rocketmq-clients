@@ -28,9 +28,14 @@ opencensus::tags::TagKey& Tag::clientIdTag() {
   return client_id_tag;
 }
 
-opencensus::tags::TagKey& Tag::invocationStatus() {
+opencensus::tags::TagKey& Tag::invocationStatusTag() {
   static opencensus::tags::TagKey invocation_status = opencensus::tags::TagKey::Register("invocation_status");
   return invocation_status;
+}
+
+opencensus::tags::TagKey& Tag::consumerGroupTag() {
+  static opencensus::tags::TagKey consumer_group_tag = opencensus::tags::TagKey::Register("consumer_group");
+  return consumer_group_tag;
 }
 
 ROCKETMQ_NAMESPACE_END
