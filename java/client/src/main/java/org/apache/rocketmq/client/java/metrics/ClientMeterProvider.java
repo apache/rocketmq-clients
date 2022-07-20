@@ -31,7 +31,6 @@ import io.opentelemetry.sdk.metrics.InstrumentSelector;
 import io.opentelemetry.sdk.metrics.InstrumentType;
 import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.metrics.View;
-import io.opentelemetry.sdk.metrics.export.AggregationTemporalitySelector;
 import io.opentelemetry.sdk.metrics.export.PeriodicMetricReader;
 import io.opentelemetry.sdk.resources.Resource;
 import java.net.InetSocketAddress;
@@ -99,7 +98,6 @@ public class ClientMeterProvider {
             ManagedChannel channel = channelBuilder.build();
             OtlpGrpcMetricExporter exporter = OtlpGrpcMetricExporter.builder().setChannel(channel)
                 .setTimeout(METRIC_EXPORTER_RPC_TIMEOUT)
-                .setAggregationTemporalitySelector(AggregationTemporalitySelector.deltaPreferred())
                 .build();
 
             InstrumentSelector sendSuccessCostTimeInstrumentSelector = InstrumentSelector.builder()
