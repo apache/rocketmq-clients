@@ -14,22 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-namespace org.apache.rocketmq {
-    public class Address {
-        public Address(string host, int port) {
-            this.host = host;
-            this.port = port;
-        }
 
-        private string host;
-        public string Host {
-            get { return host; }
-        }
+using rmq = Apache.Rocketmq.V2;
+using System.Collections.Generic;
 
-        private int port;
-        public int Port {
-            get { return port; }
-        }
+namespace Org.Apache.Rocketmq
+{
+    // Settings for publishing
+    public class Publishing
+    {
+        public List<rmq::Resource> Topics { get; set; }
+        public int CompressBodyThreshold { get; set; }
 
+        public int MaxBodySize { get; set; }
     }
 }

@@ -15,13 +15,29 @@
  * limitations under the License.
  */
 using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-
-namespace org.apache.rocketmq
+namespace Org.Apache.Rocketmq
 {
-    public interface INameServerResolver
+    public class ProcessQueue
     {
-        Task<List<string>> resolveAsync();
+
+        public ProcessQueue()
+        {
+            _lastReceivedTime = DateTime.UtcNow;
+        }
+        public bool Dropped { get; set; }
+
+        private DateTime _lastReceivedTime;
+
+        public DateTime LastReceiveTime
+        {
+            get { return _lastReceivedTime; }
+            set { _lastReceivedTime = value; }
+        }
+
+        internal bool Expired()
+        {
+            return DateTime.UtcNow.Subtract(_lastReceivedTime).TotalMilliseconds > 30 * 1000;
+        }
+
     }
 }

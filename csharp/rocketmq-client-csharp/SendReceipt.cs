@@ -15,25 +15,35 @@
  * limitations under the License.
  */
 
-using System.Collections.Generic;
-
-namespace org.apache.rocketmq {
-    public sealed class ServiceAddress {
-
-        public ServiceAddress(AddressScheme scheme, List<Address> addresses) {
-            this.scheme = scheme;
-            this.addresses = addresses;
+namespace Org.Apache.Rocketmq
+{
+    public sealed class SendReceipt
+    {
+        public SendReceipt(string messageId)
+        {
+            status_ = SendStatus.SEND_OK;
+            messageId_ = messageId;
         }
 
-        private AddressScheme scheme;
-        public AddressScheme Scheme {
-            get { return scheme; }
+        public SendReceipt(string messageId, SendStatus status)
+        {
+            status_ = status;
+            messageId_ = messageId;
         }
 
-        private List<Address> addresses;
-        public List<Address> Addresses{
-            get { return addresses; }
+        private string messageId_;
+
+        public string MessageId
+        {
+            get { return messageId_; }
         }
 
+
+        private SendStatus status_;
+
+        public SendStatus Status
+        {
+            get { return status_; }
+        }
     }
 }

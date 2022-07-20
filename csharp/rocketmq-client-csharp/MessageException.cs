@@ -14,22 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System.Collections.Generic;
 
-namespace org.apache.rocketmq
+using System;
+
+namespace Org.Apache.Rocketmq
 {
-    [TestClass]
-    public class StaticNameServerResolverTest
+    [Serializable]
+    public class MessageException : Exception
     {
-        [TestMethod]
-        public void testResolve()
+        public MessageException(string message) : base(message)
         {
-            List<string> list = new List<string>();
-            list.Add("https://localhost:80");
-            var resolver = new StaticNameServerResolver(list);
-            var result = resolver.resolveAsync().GetAwaiter().GetResult();
-            Assert.AreSame(list, result);
         }
     }
 }

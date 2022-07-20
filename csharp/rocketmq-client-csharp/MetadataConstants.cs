@@ -17,8 +17,10 @@
 
 using System;
 
-namespace org.apache.rocketmq {
-    public class MetadataConstants {
+namespace Org.Apache.Rocketmq
+{
+    public class MetadataConstants
+    {
         public const string TENANT_ID_KEY = "x-mq-tenant-id";
         public const string NAMESPACE_KEY = "x-mq-namespace";
         public const string AUTHORIZATION = "authorization";
@@ -33,5 +35,7 @@ namespace org.apache.rocketmq {
         public const string CLIENT_VERSION_KEY = "x-mq-client-version";
         public const string PROTOCOL_VERSION_KEY = "x-mq-protocol-version";
         public const string REQUEST_ID_KEY = "x-mq-request-id";
+
+        public const string CLIENT_ID_KEY = "x-mq-client-id";
     }
 }

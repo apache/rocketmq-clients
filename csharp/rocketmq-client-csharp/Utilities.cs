@@ -19,8 +19,10 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Text;
+using System;
+using rmq = Apache.Rocketmq.V2;
 
-namespace org.apache.rocketmq
+namespace Org.Apache.Rocketmq
 {
     public static class Utilities
     {
@@ -48,6 +50,30 @@ namespace org.apache.rocketmq
             }
 
             return result.ToString();
+        }
+
+        public static string TargetUrl(rmq::MessageQueue messageQueue)
+        {
+            // TODO: Assert associated broker has as least one service endpoint.
+            var serviceEndpoint = messageQueue.Broker.Endpoints.Addresses[0];
+            return $"https://{serviceEndpoint.Host}:{serviceEndpoint.Port}";
+        }
+
+        public static int CompareMessageQueue(rmq::MessageQueue lhs, rmq::MessageQueue rhs)
+        {
+            int topic_comparison = String.Compare(lhs.Topic.ResourceNamespace + lhs.Topic.Name, rhs.Topic.ResourceNamespace + rhs.Topic.Name);
+            if (topic_comparison != 0)
+            {
+                return topic_comparison;
+            }
+
+            int broker_name_comparison = String.Compare(lhs.Broker.Name, rhs.Broker.Name);
+            if (0 != broker_name_comparison)
+            {
+                return broker_name_comparison;
+            }
+
+            return lhs.Id < rhs.Id ? -1 : (lhs.Id == rhs.Id ? 0 : 1);
         }
     }
 }

@@ -15,9 +15,17 @@
  * limitations under the License.
  */
 
-public enum Permission {
-    NONE,
-    READ,
-    WRITE,
-    READ_WRITE,
+namespace Org.Apache.Rocketmq
+{
+    public class FilterExpression
+    {
+        public FilterExpression(string expression, ExpressionType type)
+        {
+            Expression = expression;
+            Type = type;
+        }
+
+        public ExpressionType Type { get; }
+        public string Expression { get; }
+    }
 }

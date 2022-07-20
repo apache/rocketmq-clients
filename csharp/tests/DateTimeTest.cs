@@ -14,18 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 
-namespace org.apache.rocketmq {
-    
+namespace Org.Apache.Rocketmq
+{
+
     [TestClass]
-    public class DateTimeTest {
-        
+    public class DateTimeTest
+    {
+
         [TestMethod]
-        public void testFormat() {
+        public void testFormat()
+        {
             DateTime instant = new DateTime(2022, 02, 15, 08, 31, 56);
-            string time =  instant.ToString(MetadataConstants.DATE_TIME_FORMAT);
+            string time = instant.ToString(MetadataConstants.DATE_TIME_FORMAT);
             string expected = "20220215T083156Z";
             Assert.AreEqual(time, expected);
         }

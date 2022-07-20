@@ -16,17 +16,24 @@
  */
 
 using System.Threading.Tasks;
+using System.Threading;
+using System;
+using rmq = Apache.Rocketmq.V2;
 
-namespace org.apache.rocketmq
+namespace Org.Apache.Rocketmq
 {
     public interface IClient : IClientConfig
     {
 
-        void heartbeat();
+        Task Heartbeat();
 
-        void healthCheck();
+        Task<bool> NotifyClientTermination();
 
-        Task<bool> notifyClientTermination();
+        void BuildClientSetting(rmq::Settings settings);
 
+
+        void OnSettingsReceived(rmq::Settings settings);
+
+        CancellationTokenSource TelemetryCts();
     }
 }

@@ -6,25 +6,29 @@
     <Authors>Zhanhui Li</Authors>
     <Company>Apache Software Foundation</Company>
     <TargetFramework>net5.0</TargetFramework>
-    <RootNamespace>org.apache.rocketmq</RootNamespace>
+    <RootNamespace>Org.Apache.Rocketmq</RootNamespace>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Crc32.NET" Version="1.2.0" />
     <PackageReference Include="Google.Protobuf" Version="3.19.4" />
-    <PackageReference Include="Grpc.Net.Client" Version="2.42.0" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.43.0" />
     <PackageReference Include="Grpc.Tools" Version="2.43.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="NLog" Version="4.7.13" />
+    <PackageReference Include="OpenTelemetry" Version="1.3.0" />
+    <PackageReference Include="OpenTelemetry.Api" Version="1.3.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.3.0" />
 
-    <Protobuf Include="Protos\apache\rocketmq\v1\definition.proto" ProtoRoot="Protos" GrpcServices="Client" />
+    <Protobuf Include="Protos\apache\rocketmq\v2\definition.proto" ProtoRoot="Protos" GrpcServices="Client" />
     <Protobuf Include="Protos\google\rpc\code.proto" ProtoRoot="Protos" GrpcServices="Client" />
     <Protobuf Include="Protos\google\rpc\error_details.proto" ProtoRoot="Protos" GrpcServices="Client" />
     <Protobuf Include="Protos\google\rpc\status.proto" ProtoRoot="Protos" GrpcServices="Client" />
-    <Protobuf Include="Protos\apache\rocketmq\v1\service.proto" ProtoRoot="Protos" GrpcServices="Client">
-      <Link>Protos\apache\rocketmq\v1\definition.proto</Link>
+    <Protobuf Include="Protos\apache\rocketmq\v2\service.proto" ProtoRoot="Protos" GrpcServices="Client">
+      <Link>Protos\apache\rocketmq\v2\definition.proto</Link>
       <Link>Protos\google\rpc\status.proto</Link>
       <Link>Protos\google\rpc\error_details.proto</Link>
     </Protobuf>

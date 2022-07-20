@@ -4,7 +4,7 @@ using System.Reflection;
 using NLog;
 using NLog.Config;
 
-namespace org.apache.rocketmq
+namespace Org.Apache.Rocketmq
 {
     /**
      * RocketMQ Log Manager.

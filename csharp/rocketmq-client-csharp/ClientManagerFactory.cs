@@ -18,7 +18,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 
-namespace org.apache.rocketmq
+namespace Org.Apache.Rocketmq
 {
     public sealed class ClientManagerFactory
     {

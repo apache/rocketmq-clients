@@ -14,94 +14,149 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 using System;
 using System.Threading.Tasks;
-using rmq = apache.rocketmq.v1;
-using pb = global::Google.Protobuf;
-using grpc = global::Grpc.Core;
+using rmq = Apache.Rocketmq.V2;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
+using Google.Protobuf;
+using Google.Protobuf.WellKnownTypes;
+using Grpc.Core;
+using NLog;
+using OpenTelemetry;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Metrics;
 
-
-namespace org.apache.rocketmq
+namespace Org.Apache.Rocketmq
 {
     public class Producer : Client, IProducer
     {
-        public Producer(INameServerResolver resolver, string resourceNamespace) : base(resolver, resourceNamespace)
+        public Producer(AccessPoint accessPoint, string resourceNamespace) : base(accessPoint, resourceNamespace)
         {
-            this.loadBalancer = new ConcurrentDictionary<string, PublishLoadBalancer>();
+            _loadBalancer = new ConcurrentDictionary<string, PublishLoadBalancer>();
+            _sendFailureTotal = MetricMeter.CreateCounter<long>("rocketmq_send_failure_total");
+            _sendLatency = MetricMeter.CreateHistogram<double>(SendLatencyName, 
+                description: "Measure the duration of publishing messages to brokers",
+                unit: "milliseconds");
         }
 
-        public override void start()
+        public override async Task Start()
         {
-            base.start();
-            // More initalization
+            await base.Start();
+            // More initialization
+            // TODO: Add authentication header
+
+            _meterProvider = Sdk.CreateMeterProviderBuilder()
+                .AddMeter("Apache.RocketMQ.Client")
+                .AddOtlpExporter(delegate(OtlpExporterOptions options, MetricReaderOptions readerOptions)
+                {
+                    options.Protocol = OtlpExportProtocol.Grpc;
+                    options.Endpoint = new Uri(_accessPoint.TargetUrl());
+                    options.TimeoutMilliseconds = (int) _clientSettings.RequestTimeout.ToTimeSpan().TotalMilliseconds;
+
+                    readerOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds = 60 * 1000;
+                })
+                .AddView((instrument) =>
+                {
+                    if (instrument.Meter.Name == MeterName && instrument.Name == SendLatencyName)
+                    {
+                        return new ExplicitBucketHistogramConfiguration()
+                        {
+                            Boundaries = new double[] {1, 5, 10, 20, 50, 200, 500},
+                        };
+                    }
+                    return null;
+                })
+                .Build();
         }
 
-        public override void shutdown()
+        public override async Task Shutdown()
         {
             // Release local resources
-            base.shutdown();
+            await base.Shutdown();
         }
 
-        public override void prepareHeartbeatData(rmq::HeartbeatRequest request)
+        protected override void PrepareHeartbeatData(rmq::HeartbeatRequest request)
         {
+            request.ClientType = rmq::ClientType.Producer;
 
+            // Concept of ProducerGroup has been removed.
         }
 
-        public async Task<SendResult> send(Message message)
+        public async Task<SendReceipt> Send(Message message)
         {
-            if (!loadBalancer.ContainsKey(message.Topic))
+            if (!_loadBalancer.ContainsKey(message.Topic))
             {
-                var topicRouteData = await getRouteFor(message.Topic, false);
-                if (null == topicRouteData || null == topicRouteData.Partitions || 0 == topicRouteData.Partitions.Count)
+                var topicRouteData = await GetRouteFor(message.Topic, false);
+                if (null == topicRouteData || null == topicRouteData.MessageQueues || 0 == topicRouteData.MessageQueues.Count)
                 {
+                    Logger.Error($"Failed to resolve route info for {message.Topic}");
                     throw new TopicRouteException(string.Format("No topic route for {0}", message.Topic));
                 }
 
                 var loadBalancerItem = new PublishLoadBalancer(topicRouteData);
-                loadBalancer.TryAdd(message.Topic, loadBalancerItem);
+                _loadBalancer.TryAdd(message.Topic, loadBalancerItem);
             }
 
-            var publishLB = loadBalancer[message.Topic];
+            var publishLb = _loadBalancer[message.Topic];
 
             var request = new rmq::SendMessageRequest();
-            request.Message = new rmq::Message();
-            request.Message.Body = pb::ByteString.CopyFrom(message.Body);
-            request.Message.Topic = new rmq::Resource();
-            request.Message.Topic.ResourceNamespace = resourceNamespace();
-            request.Message.Topic.Name = message.Topic;
+            var entry = new rmq::Message();
+            entry.Body = ByteString.CopyFrom(message.Body);
+            entry.Topic = new rmq::Resource();
+            entry.Topic.ResourceNamespace = resourceNamespace();
+            entry.Topic.Name = message.Topic;
+            request.Messages.Add(entry);
 
             // User properties
             foreach (var item in message.UserProperties)
             {
-                request.Message.UserAttribute.Add(item.Key, item.Value);
+                entry.UserProperties.Add(item.Key, item.Value);
             }
 
-            request.Message.SystemAttribute = new rmq::SystemAttribute();
-            request.Message.SystemAttribute.MessageId = message.MessageId;
+            entry.SystemProperties = new rmq::SystemProperties();
+            entry.SystemProperties.MessageId = message.MessageId;
+            entry.SystemProperties.MessageType = rmq::MessageType.Normal;
+            if (DateTime.MinValue != message.DeliveryTimestamp)
+            {
+                entry.SystemProperties.MessageType = rmq::MessageType.Delay;
+                entry.SystemProperties.DeliveryTimestamp = Timestamp.FromDateTime(message.DeliveryTimestamp);
+
+                if (message.Fifo())
+                {
+                    Logger.Warn("A message may not be FIFO and delayed at the same time");
+                    throw new MessageException("A message may not be both FIFO and Timed");
+                }
+            } else if (!String.IsNullOrEmpty(message.MessageGroup))
+            {
+                entry.SystemProperties.MessageType = rmq::MessageType.Fifo;
+                entry.SystemProperties.MessageGroup = message.MessageGroup;
+            }
+            
             if (!string.IsNullOrEmpty(message.Tag))
             {
-                request.Message.SystemAttribute.Tag = message.Tag;
+                entry.SystemProperties.Tag = message.Tag;
             }
 
             if (0 != message.Keys.Count)
             {
                 foreach (var key in message.Keys)
                 {
-                    request.Message.SystemAttribute.Keys.Add(key);
+                    entry.SystemProperties.Keys.Add(key);
                 }
             }
 
-            // string target = "https://";
             List<string> targets = new List<string>();
-            List<Partition> candidates = publishLB.select(message.MaxAttemptTimes);
-            foreach (var partition in candidates)
+            List<rmq::MessageQueue> candidates = publishLb.Select(message.MaxAttemptTimes);
+            foreach (var messageQueue in candidates)
             {
-                targets.Add(partition.Broker.targetUrl());
+                targets.Add(Utilities.TargetUrl(messageQueue));
             }
 
-            var metadata = new grpc::Metadata();
+            var metadata = new Metadata();
             Signature.sign(this, metadata);
 
             Exception ex = null;
@@ -110,27 +165,46 @@ namespace org.apache.rocketmq
             {
                 try
                 {
-                    rmq::SendMessageResponse response = await clientManager.sendMessage(target, metadata, request, getIoTimeout());
-                    if (null != response && (int)global::Google.Rpc.Code.Ok == response.Common.Status.Code)
+                    var stopWatch = new Stopwatch();
+                    stopWatch.Start();
+                    rmq::SendMessageResponse response = await Manager.SendMessage(target, metadata, request, RequestTimeout);
+                    if (null != response && rmq::Code.Ok == response.Status.Code)
                     {
-                        var messageId = response.MessageId;
-                        return new SendResult(messageId);
+                        var messageId = response.Entries[0].MessageId;
+                        
+                        // Account latency histogram
+                        stopWatch.Stop();
+                        var latency = stopWatch.ElapsedMilliseconds;
+                        _sendLatency.Record(latency, new("topic", message.Topic), new("client_id", clientId()));
+                        
+                        return new SendReceipt(messageId);
                     }
                 }
                 catch (Exception e)
                 {
+                    // Account failure count
+                    _sendFailureTotal.Add(1, new("topic", message.Topic), new("client_id", clientId()));                    
+                    Logger.Info(e, $"Failed to send message to {target}");
                     ex = e;
                 }
             }
 
             if (null != ex)
             {
+                Logger.Error(ex, $"Failed to send message after {message.MaxAttemptTimes} attempts");
                 throw ex;
             }
 
+            Logger.Error($"Failed to send message after {message.MaxAttemptTimes} attempts with unspecified reasons");
             throw new Exception("Send message failed");
         }
 
-        private ConcurrentDictionary<string, PublishLoadBalancer> loadBalancer;
+        private readonly ConcurrentDictionary<string, PublishLoadBalancer> _loadBalancer;
+
+        private readonly Counter<long> _sendFailureTotal;
+        private readonly Histogram<double> _sendLatency;
+
+        private static readonly string SendLatencyName = "rocketmq_send_success_cost_time";
+        private MeterProvider _meterProvider;
     }
 }

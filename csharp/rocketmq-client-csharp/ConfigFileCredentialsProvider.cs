@@ -19,36 +19,46 @@ using System;
 using System.Text.Json;
 using System.Collections.Generic;
 
-namespace org.apache.rocketmq {
+namespace Org.Apache.Rocketmq
+{
 
     /**
      * File-based credentials provider that reads JSON configurations from ${HOME}/.rocketmq/config
      * A sample config content is as follows:
      * {"AccessKey": "key", "AccessSecret": "secret"}
      */
-    public class ConfigFileCredentialsProvider : ICredentialsProvider {
+    public class ConfigFileCredentialsProvider : ICredentialsProvider
+    {
 
-        public ConfigFileCredentialsProvider() {
+        public ConfigFileCredentialsProvider()
+        {
             var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             string configFileRelativePath = "/.rocketmq/config";
-            if (!File.Exists(home + configFileRelativePath)) {
+            if (!File.Exists(home + configFileRelativePath))
+            {
                 return;
             }
 
-            try {
-                using (var reader = new StreamReader(home + configFileRelativePath)) {
+            try
+            {
+                using (var reader = new StreamReader(home + configFileRelativePath))
+                {
                     string json = reader.ReadToEnd();
                     var kv = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
                     accessKey = kv["AccessKey"];
                     accessSecret = kv["AccessSecret"];
                     valid = true;
-                } 
-            } catch (IOException e) {
+                }
+            }
+            catch (IOException)
+            {
             }
         }
 
-        public Credentials getCredentials() {
-            if (!valid) {
+        public Credentials getCredentials()
+        {
+            if (!valid)
+            {
                 return null;
             }
 

@@ -14,25 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- using Microsoft.VisualStudio.TestTools.UnitTesting;
+namespace Org.Apache.Rocketmq
+{
+    public class AccessPoint
+    {
+        private string _host;
 
-namespace org.apache.rocketmq {
-    [TestClass]
-    public class BrokerTest {
-
-        [TestMethod]
-        public void testCompareTo() {
-            var b1 = new Broker("b1", 0, null);
-            var b2 = new Broker("b1", 1, null);
-            Assert.AreEqual(b1.CompareTo(b2), -1);
+        public string Host
+        {
+            get { return _host; }
+            set { _host = value; }
         }
 
-        [TestMethod]
-        public void testEquals() {
-            var b1 = new Broker("b1", 0, null);
-            var b2 = new Broker("b1", 0, null);
-            Assert.AreEqual(b1, b2, "Equals method should be employed to test equality");
+        private int _port;
+
+        public int Port
+        {
+            get { return _port; }
+            set { _port = value; }
         }
 
+        public string TargetUrl()
+        {
+            return $"https://{_host}:{_port}";
+        }
     }
 }

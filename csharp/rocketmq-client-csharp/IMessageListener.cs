@@ -14,25 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-using System;
+
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace org.apache.rocketmq
+namespace Org.Apache.Rocketmq
 {
-    public class StaticNameServerResolver : INameServerResolver
+
+    public interface IMessageListener
     {
+        Task Consume(List<Message> messages, List<Message> failed);
 
-        public StaticNameServerResolver(List<string> nameServerList)
-        {
-            this.nameServerList = nameServerList;
-        }
-
-        public async Task<List<string>> resolveAsync()
-        {
-            return nameServerList;
-        }
-
-        private List<string> nameServerList;
     }
+
 }

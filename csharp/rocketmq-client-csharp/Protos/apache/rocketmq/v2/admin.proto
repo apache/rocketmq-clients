@@ -15,11 +15,12 @@
 
 syntax = "proto3";
 
-package apache.rocketmq.v1;
+package apache.rocketmq.v2;
 
 option cc_enable_arenas = true;
+option csharp_namespace = "Apache.Rocketmq.V2";
 option java_multiple_files = true;
-option java_package = "apache.rocketmq.v1";
+option java_package = "apache.rocketmq.v2";
 option java_generate_equals_and_hash = true;
 option java_string_check_utf8 = true;
 option java_outer_classname = "MQAdmin";
@@ -35,11 +36,8 @@ message ChangeLogLevelRequest {
   Level level = 1;
 }
 
-message ChangeLogLevelResponse {
-  string remark = 1;
-}
+message ChangeLogLevelResponse { string remark = 1; }
 
 service Admin {
-  rpc ChangeLogLevel(ChangeLogLevelRequest) returns (ChangeLogLevelResponse) {
-  }
+  rpc ChangeLogLevel(ChangeLogLevelRequest) returns (ChangeLogLevelResponse) {}
 }

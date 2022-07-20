@@ -19,10 +19,12 @@ using grpc = global::Grpc.Core;
 using Moq;
 using System;
 
-namespace org.apache.rocketmq {
+namespace Org.Apache.Rocketmq
+{
 
     [TestClass]
-    public class SignatureTest {
+    public class SignatureTest
+    {
 
         [TestMethod]
         public void testSign()
@@ -33,7 +35,7 @@ namespace org.apache.rocketmq {
             mock.Setup(x => x.resourceNamespace()).Returns("mq:arn:test:");
             mock.Setup(x => x.serviceName()).Returns("mq");
             mock.Setup(x => x.region()).Returns("cn-hangzhou");
-            
+
             string accessKey = "key";
             string accessSecret = "secret";
             var credentialsProvider = new StaticCredentialsProvider(accessKey, accessSecret);

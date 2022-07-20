@@ -14,15 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-namespace org.apache.rocketmq {
-    public class StaticCredentialsProvider : ICredentialsProvider {
+namespace Org.Apache.Rocketmq
+{
+    public class StaticCredentialsProvider : ICredentialsProvider
+    {
 
-        public StaticCredentialsProvider(string accessKey, string accessSecret) {
+        public StaticCredentialsProvider(string accessKey, string accessSecret)
+        {
             this.accessKey = accessKey;
             this.accessSecret = accessSecret;
         }
 
-        public Credentials getCredentials() {
+        public Credentials getCredentials()
+        {
             return new Credentials(accessKey, accessSecret);
         }
 

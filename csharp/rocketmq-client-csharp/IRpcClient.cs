@@ -14,21 +14,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-using System;
-using System.Threading.Tasks;
-using apache.rocketmq.v1;
-using grpc = global::Grpc.Core;
 
-namespace org.apache.rocketmq
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Apache.Rocketmq.V2;
+using Grpc.Core;
+
+namespace Org.Apache.Rocketmq
 {
     public interface IRpcClient
     {
-        Task<QueryRouteResponse> queryRoute(QueryRouteRequest request, grpc::CallOptions callOptions);
+        AsyncDuplexStreamingCall<TelemetryCommand, TelemetryCommand> Telemetry(Metadata metadata);
 
-        Task<HeartbeatResponse> heartbeat(HeartbeatRequest request, grpc::CallOptions callOptions);
+        Task<QueryRouteResponse> QueryRoute(Metadata metadata, QueryRouteRequest request, TimeSpan timeout);
 
-        Task<NotifyClientTerminationResponse> notifyClientTermination(NotifyClientTerminationRequest request, grpc::CallOptions callOptions);
+        Task<HeartbeatResponse> Heartbeat(Metadata metadata, HeartbeatRequest request, TimeSpan timeout);
 
-        Task<SendMessageResponse> sendMessage(SendMessageRequest request, grpc::CallOptions callOptions);
+        Task<SendMessageResponse> SendMessage(Metadata metadata, SendMessageRequest request, TimeSpan timeout);
+
+        Task<QueryAssignmentResponse> QueryAssignment(Metadata metadata, QueryAssignmentRequest request,
+            TimeSpan timeout);
+
+        Task<List<ReceiveMessageResponse>> ReceiveMessage(Metadata metadata, ReceiveMessageRequest request, TimeSpan timeout);
+
+        Task<AckMessageResponse> AckMessage(Metadata metadata, AckMessageRequest request, TimeSpan timeout);
+
+        Task<ChangeInvisibleDurationResponse> ChangeInvisibleDuration(Metadata metadata, ChangeInvisibleDurationRequest request, TimeSpan timeout);
+
+        Task<ForwardMessageToDeadLetterQueueResponse> ForwardMessageToDeadLetterQueue(Metadata metadata,
+            ForwardMessageToDeadLetterQueueRequest request, TimeSpan timeout);
+
+        Task<EndTransactionResponse> EndTransaction(Metadata metadata, EndTransactionRequest request, TimeSpan timeout);
+
+
+        Task<NotifyClientTerminationResponse> NotifyClientTermination(Metadata metadata,
+            NotifyClientTerminationRequest request, TimeSpan timeout);
+
+        Task Shutdown();
     }
 }

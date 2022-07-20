@@ -17,27 +17,34 @@
 
 using System;
 
-namespace org.apache.rocketmq {
-    public class Credentials {
+namespace Org.Apache.Rocketmq
+{
+    public class Credentials
+    {
 
-        public Credentials(string accessKey, string accessSecret) {
+        public Credentials(string accessKey, string accessSecret)
+        {
             this.accessKey = accessKey;
             this.accessSecret = accessSecret;
         }
 
-        public Credentials(string accessKey, string accessSecret, string sessionToken, DateTime expirationInstant) {
+        public Credentials(string accessKey, string accessSecret, string sessionToken, DateTime expirationInstant)
+        {
             this.accessKey = accessKey;
             this.accessSecret = accessSecret;
             this.sessionToken = sessionToken;
             this.expirationInstant = expirationInstant;
         }
 
-        public bool empty() {
+        public bool empty()
+        {
             return String.IsNullOrEmpty(accessKey) || String.IsNullOrEmpty(accessSecret);
         }
 
-        public bool expired() {
-            if (DateTime.MinValue == expirationInstant) {
+        public bool expired()
+        {
+            if (DateTime.MinValue == expirationInstant)
+            {
                 return false;
             }
 
@@ -45,17 +52,20 @@ namespace org.apache.rocketmq {
         }
 
         private string accessKey;
-        public string AccessKey {
+        public string AccessKey
+        {
             get { return accessKey; }
         }
-        
+
         private string accessSecret;
-        public string AccessSecret {
+        public string AccessSecret
+        {
             get { return accessSecret; }
         }
 
         private string sessionToken;
-        public string SessionToken {
+        public string SessionToken
+        {
             get { return sessionToken; }
         }
 

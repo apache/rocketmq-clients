@@ -17,12 +17,15 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 
-namespace org.apache.rocketmq {
+namespace Org.Apache.Rocketmq
+{
     [TestClass]
-    public class StaticCredentialsProviderTest {
+    public class StaticCredentialsProviderTest
+    {
 
         [TestMethod]
-        public void testGetCredentials() {
+        public void testGetCredentials()
+        {
             var accessKey = "key";
             var accessSecret = "secret";
             var provider = new StaticCredentialsProvider(accessKey, accessSecret);

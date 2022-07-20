@@ -16,8 +16,10 @@
  */
 using System;
 
-namespace org.apache.rocketmq {
-    public interface IClientConfig {
+namespace Org.Apache.Rocketmq
+{
+    public interface IClientConfig
+    {
         string region();
 
         string serviceName();
@@ -27,8 +29,6 @@ namespace org.apache.rocketmq {
         ICredentialsProvider credentialsProvider();
 
         string tenantId();
-
-        TimeSpan getIoTimeout();
 
         TimeSpan getLongPollingTimeout();
 

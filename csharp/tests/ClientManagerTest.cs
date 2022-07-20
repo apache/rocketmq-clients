@@ -15,19 +15,20 @@
  * limitations under the License.
  */
 using System;
+using Grpc.Core;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using rmq = apache.rocketmq.v1;
-using grpc = global::Grpc.Core;
-using System.Threading;
-using System.Threading.Tasks;
+using rmq = Apache.Rocketmq.V2;
 
-namespace org.apache.rocketmq {
+namespace Org.Apache.Rocketmq
+{
 
     [TestClass]
-    public class ClientManagerTest {
-        
+    public class ClientManagerTest
+    {
+
         [TestMethod]
-        public void testResolveRoute() {
+        public void TestResolveRoute()
+        {
             string topic = "cpp_sdk_standard";
             string resourceNamespace = "MQ_INST_1080056302921134_BXuIbML7";
             var request = new rmq::QueryRouteRequest();
@@ -41,7 +42,7 @@ namespace org.apache.rocketmq {
             address.Port = 80;
             request.Endpoints.Addresses.Add(address);
 
-            var metadata = new grpc::Metadata();
+            var metadata = new Metadata();
             var clientConfig = new ClientConfig();
             var credentialsProvider = new ConfigFileCredentialsProvider();
             clientConfig.CredentialsProvider = credentialsProvider;
@@ -50,7 +51,7 @@ namespace org.apache.rocketmq {
             Signature.sign(clientConfig, metadata);
             var clientManager = new ClientManager();
             string target = "https://116.62.231.199:80";
-            var topicRouteData = clientManager.resolveRoute(target, metadata, request, TimeSpan.FromSeconds(3)).GetAwaiter().GetResult();
+            var topicRouteData = clientManager.ResolveRoute(target, metadata, request, TimeSpan.FromSeconds(3)).GetAwaiter().GetResult();
             Console.WriteLine(topicRouteData);
         }
     }

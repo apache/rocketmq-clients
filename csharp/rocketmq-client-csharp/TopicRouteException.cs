@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 using System;
-namespace org.apache.rocketmq
+namespace Org.Apache.Rocketmq
 {
     public class TopicRouteException : Exception
     {

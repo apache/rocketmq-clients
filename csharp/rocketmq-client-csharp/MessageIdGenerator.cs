@@ -20,7 +20,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 
-namespace org.apache.rocketmq
+namespace Org.Apache.Rocketmq
 {
     /**
      * MessageId generate rules refer: https://yuque.antfin-inc.com/aone709911/ca1edg/af2t6o

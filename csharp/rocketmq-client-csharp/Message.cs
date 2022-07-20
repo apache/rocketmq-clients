@@ -14,79 +14,111 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+using System;
 using System.Collections.Generic;
-namespace org.apache.rocketmq
+
+namespace Org.Apache.Rocketmq
 {
 
-    public class Message {
-        public Message() : this(null, null) {
+    public class Message
+    {
+        public Message() : this(null, null)
+        {
         }
 
-        public Message(string topic, byte[] body) : this(topic, null, new List<string>(), body) {}
+        public Message(string topic, byte[] body) : this(topic, null, new List<string>(), body) { }
 
-        public Message(string topic, string tag, byte[] body) : this(topic, tag, new List<string>(), body) {
+        public Message(string topic, string tag, byte[] body) : this(topic, tag, new List<string>(), body)
+        {
         }
 
-        public Message(string topic, string tag, List<string> keys, byte[] body) {
-            this.messageId = SequenceGenerator.Instance.Next();
-            this.maxAttemptTimes = 3;
-            this.topic = topic;
-            this.tag = tag;
-            this.keys = keys;
-            this.body = body;
-            this.userProperties = new Dictionary<string, string>();
-            this.systemProperties = new Dictionary<string, string>();
+        public Message(string topic, string tag, List<string> keys, byte[] body)
+        {
+            MessageId = SequenceGenerator.Instance.Next();
+            MaxAttemptTimes = 3;
+            Topic = topic;
+            Tag = tag;
+            Keys = keys;
+            Body = body;
+            UserProperties = new Dictionary<string, string>();
+            DeliveryTimestamp = DateTime.MinValue;
         }
 
-        private string messageId;
         public string MessageId
         {
-            get { return messageId; }
+            get;
+            internal set;
+        }
+        
+        public string Topic
+        {
+            get;
+            set;
         }
 
-        private string topic;
-
-        public string Topic {
-            get { return topic; }
-            set { this.topic = value; }
+        public byte[] Body
+        {
+            get;
+            set;
         }
 
-        private byte[] body;
-        public byte[] Body {
-            get { return body; }
-            set { this.body = value; }
+        public string Tag
+        {
+            get;
+            set;
         }
 
-        private string tag;
-        public string Tag {
-            get { return tag; }
-            set { this.tag = value; }
+        public List<string> Keys
+        {
+            get;
+            set;
         }
 
-        private List<string> keys;
-        public List<string> Keys{
-            get { return keys; }
-            set { this.keys = value; }
+        public Dictionary<string, string> UserProperties
+        {
+            get;
+            set;
         }
 
-        private Dictionary<string, string> userProperties;
-        public Dictionary<string, string> UserProperties {
-            get { return userProperties; }
-            set { this.userProperties = value; }
-        }
-
-        private Dictionary<string, string> systemProperties;
-        internal Dictionary<string, string> SystemProperties {
-            get { return systemProperties; }
-            set { this.systemProperties = value; }
-        }
-
-        private int maxAttemptTimes;
         public int MaxAttemptTimes
         {
-            get { return maxAttemptTimes; }
-            set { maxAttemptTimes = value; }
+            get;
+            set;
         }
+
+
+        public DateTime DeliveryTimestamp
+        {
+            get;
+            set;
+        }
+        
+        public int DeliveryAttempt
+        {
+            get;
+            internal set;
+        }
+        
+        public string MessageGroup
+        {
+            get;
+            set;
+        }
+        
+        public bool Fifo()
+        {
+            return !String.IsNullOrEmpty(MessageGroup);
+        }
+
+        public bool Scheduled()
+        {
+            return DeliveryTimestamp > DateTime.UtcNow;
+        }
+
+        internal bool _checksumVerifiedOk = true;
+        internal string _receiptHandle;
+        internal string _sourceHost;
     }
 
 }

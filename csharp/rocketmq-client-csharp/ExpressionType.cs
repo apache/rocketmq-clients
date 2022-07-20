@@ -14,10 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-namespace org.apache.rocketmq {
-    public enum AddressScheme {
-        IPv4,
-        IPv6,
-        DOMAIN_NAME,
+namespace Org.Apache.Rocketmq
+{
+
+    public enum ExpressionType
+    {
+        TAG,
+        SQL92,
     }
+
 }
