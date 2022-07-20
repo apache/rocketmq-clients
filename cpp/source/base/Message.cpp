@@ -67,6 +67,11 @@ MessageBuilder& MessageBuilder::withProperties(std::unordered_map<std::string, s
   return *this;
 }
 
+MessageBuilder& MessageBuilder::availableAfter(std::chrono::system_clock::time_point delivery_timepoint) {
+  message_->delivery_timestamp_ = delivery_timepoint;
+  return *this;
+}
+
 MessageConstPtr MessageBuilder::build() {
   return std::move(message_);
 }

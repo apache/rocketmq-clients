@@ -281,7 +281,7 @@ void ClientManagerImpl::doHeartbeat() {
 bool ClientManagerImpl::send(const std::string& target_host, const Metadata& metadata, SendMessageRequest& request,
                              SendCallback cb) {
   assert(cb);
-  SPDLOG_DEBUG("Prepare to send message to {} asynchronously", target_host);
+  SPDLOG_DEBUG("Prepare to send message to {} asynchronously. Request: {}", target_host, request.DebugString());
   RpcClientSharedPtr client = getRpcClient(target_host);
   // Invocation context will be deleted in its onComplete() method.
   auto invocation_context = new InvocationContext<SendMessageResponse>();

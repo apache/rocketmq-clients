@@ -14,14 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "rocketmq/DefaultMQPushConsumer.h"
-
 #include <chrono>
 #include <iostream>
 #include <mutex>
 #include <thread>
 
-using namespace rocketmq;
+#include "rocketmq/DefaultMQPushConsumer.h"
+#include "rocketmq/RocketMQ.h"
+
+using namespace ROCKETMQ_NAMESPACE;
 
 class SampleMQMessageListener : public StandardMessageListener {
 public:

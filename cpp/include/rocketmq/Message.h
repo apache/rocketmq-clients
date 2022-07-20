@@ -163,6 +163,14 @@ public:
 
   MessageBuilder& withProperties(std::unordered_map<std::string, std::string> properties);
 
+  /**
+   * @brief Specify timepoint after which the message would be available to subscribers.
+   *
+   * @param delivery_timepoint
+   * @return MessageBuilder&
+   */
+  MessageBuilder& availableAfter(std::chrono::system_clock::time_point delivery_timepoint);
+
   MessageConstPtr build();
 
 private:

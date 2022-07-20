@@ -16,8 +16,11 @@
  */
 #include <algorithm>
 #include <atomic>
+#include <chrono>
+#include <cstddef>
 #include <iostream>
 #include <random>
+#include <string>
 #include <system_error>
 
 #include "gflags/gflags.h"
@@ -54,6 +57,12 @@ DEFINE_uint32(total, 256, "Number of sample messages to publish");
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+  auto& logger = getLogger();
+  logger.setConsoleLevel(Level::Debug);
+  logger.setLevel(Level::Debug);
+  logger.init();
+
   auto producer = Producer::newBuilder()
                       .withConfiguration(Configuration::newBuilder().withEndpoints(FLAGS_access_point).build())
                       .build();
@@ -75,16 +84,17 @@ int main(int argc, char* argv[]) {
   std::thread stats_thread(stats_lambda);
 
   std::string body = randomString(FLAGS_message_body_size);
-  std::cout << "Message body size: " << body.length() << std::endl;
 
   try {
     for (std::size_t i = 0; i < FLAGS_total; ++i) {
       auto message = Message::newBuilder()
                          .withTopic(FLAGS_topic)
                          .withTag("TagA")
-                         .withKeys({"Key-0"})
+                         .withKeys({"Key-" + std::to_string(i)})
                          .withBody(body)
-                         .withGroup("message-group-0")
+                         .availableAfter(
+                             std::chrono::system_clock::now() +
+                             std::chrono::seconds(10))  // This message would be available to consumers after 10 seconds
                          .build();
       std::error_code ec;
       SendReceipt send_receipt = producer.send(std::move(message), ec);
@@ -94,11 +104,12 @@ int main(int argc, char* argv[]) {
   } catch (...) {
     std::cerr << "Ah...No!!!" << std::endl;
   }
-
   stopped.store(true, std::memory_order_relaxed);
   if (stats_thread.joinable()) {
     stats_thread.join();
   }
+
+  // std::this_thread::sleep_for(std::chrono::seconds(1));
 
   return EXIT_SUCCESS;
 }

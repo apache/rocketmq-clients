@@ -76,10 +76,9 @@ int main(int argc, char* argv[]) {
   std::thread stats_thread(stats_lambda);
 
   std::string body = randomString(FLAGS_message_body_size);
-  std::cout << "Message body size: " << body.length() << std::endl;
 
   try {
-    for (int i = 0; i < FLAGS_total; ++i) {
+    for (std::size_t i = 0; i < FLAGS_total; ++i) {
       auto message =
           Message::newBuilder().withTopic(FLAGS_topic).withTag("TagA").withKeys({"Key-0"}).withBody(body).build();
       std::error_code ec;

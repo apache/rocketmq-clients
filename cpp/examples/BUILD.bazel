@@ -50,6 +50,28 @@ cc_binary(
 )
 
 cc_binary(
+    name = "sql_producer",
+    srcs = [
+        "SqlProducer.cpp",
+    ],
+    deps = [
+        "//source/rocketmq:rocketmq_library",
+        "@com_github_gflags_gflags//:gflags",
+    ],
+)
+
+cc_binary(
+    name = "example_producer_with_timed_message",
+    srcs = [
+        "ExampleProducerWithTimedMessage.cpp",
+    ],
+    deps = [
+        "//source/rocketmq:rocketmq_library",
+        "@com_github_gflags_gflags//:gflags",
+    ],
+)
+
+cc_binary(
     name = "example_simple_consumer",
     srcs = [
         "ExampleSimpleConsumer.cpp",
@@ -58,16 +80,6 @@ cc_binary(
         "//source/rocketmq:rocketmq_library",
     ],
 )
-
-# cc_binary(
-#     name = "sql_producer",
-#     srcs = [
-#         "SqlProducer.cpp",
-#     ],
-#     deps = [
-#         "//source/rocketmq:rocketmq_library",
-#     ],
-# )
 
 cc_binary(
     name = "example_push_consumer",
