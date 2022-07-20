@@ -20,6 +20,7 @@
 #include <random>
 #include <system_error>
 
+#include "gflags/gflags.h"
 #include "rocketmq/Message.h"
 #include "rocketmq/Producer.h"
 
@@ -46,12 +47,15 @@ std::string randomString(std::string::size_type len) {
   return result;
 }
 
-int main(int argc, char* argv[]) {
-  const char* topic = "lingchu_normal_topic";
-  const char* name_server = "121.196.167.124:8081";
+DEFINE_string(topic, "lingchu_normal_topic", "Topic to which messages are published");
+DEFINE_string(access_point, "121.196.167.124:8081", "Access URL, provided by your service provider");
 
-  auto producer =
-      Producer::newBuilder().withConfiguration(Configuration::newBuilder().withEndpoints(name_server).build()).build();
+int main(int argc, char* argv[]) {
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+  auto producer = Producer::newBuilder()
+                      .withConfiguration(Configuration::newBuilder().withEndpoints(FLAGS_access_point).build())
+                      .build();
 
   std::atomic_bool stopped;
   std::atomic_long count(0);
@@ -74,15 +78,16 @@ int main(int argc, char* argv[]) {
 
   try {
     for (int i = 0; i < 256; ++i) {
-      auto message = Message::newBuilder().withTopic(topic).withTag("TagA").withKeys({"Key-0"}).withBody(body).build();
+      auto message =
+          Message::newBuilder().withTopic(FLAGS_topic).withTag("TagA").withKeys({"Key-0"}).withBody(body).build();
       std::error_code ec;
       SendReceipt send_receipt = producer.send(std::move(message), ec);
       std::cout << "Message-ID: " << send_receipt.message_id << std::endl;
       count++;
     }
-  } catch (...) {
-    std::cerr << "Ah...No!!!" << std::endl;
-  }
+      } catch (...) {
+        std::cerr << "Ah...No!!!" << std::endl;
+      }
   stopped.store(true, std::memory_order_relaxed);
   if (stats_thread.joinable()) {
     stats_thread.join();

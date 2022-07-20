@@ -23,6 +23,7 @@ cc_binary(
     ],
     deps = [
         "//source/rocketmq:rocketmq_library",
+        "@com_github_gflags_gflags//:gflags",
     ],
 )
 
@@ -87,39 +88,9 @@ cc_binary(
 # )
 
 # cc_binary(
-#     name = "push_consumer_with_custom_executor",
-#     srcs = [
-#         "PushConsumerWithCustomExecutor.cpp",
-#     ],
-#     deps = [
-#         "//source/rocketmq:rocketmq_library",
-#     ],
-# )
-
-# cc_binary(
-#     name = "push_consumer_with_throttle",
-#     srcs = [
-#         "PushConsumerWithThrottle.cpp",
-#     ],
-#     deps = [
-#         "//source/rocketmq:rocketmq_library",
-#     ],
-# )
-
-# cc_binary(
 #     name = "sql_consumer",
 #     srcs = [
 #         "SqlConsumer.cpp",
-#     ],
-#     deps = [
-#         "//source/rocketmq:rocketmq_library",
-#     ],
-# )
-
-# cc_binary(
-#     name = "benchmark_push_consumer",
-#     srcs = [
-#         "BenchmarkPushConsumer.cpp",
 #     ],
 #     deps = [
 #         "//source/rocketmq:rocketmq_library",
