@@ -31,7 +31,7 @@ bool SessionImpl::await() {
 
 void SessionImpl::syncSettings() {
   auto ptr = client_.lock();
-
+  SPDLOG_INFO("Sync client settings to {}", rpc_client_->remoteAddress());
   TelemetryCommand command;
   command.mutable_settings()->CopyFrom(ptr->clientSettings());
   telemetry_->write(command);

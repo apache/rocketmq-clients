@@ -39,7 +39,7 @@ private:
   // TODO: use unique_ptr
   std::shared_ptr<TelemetryBidiReactor> telemetry_;
 
-  void syncSettings();
+  void syncSettings() override;
 };
 
 ROCKETMQ_NAMESPACE_END
