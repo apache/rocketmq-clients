@@ -62,7 +62,9 @@ if "com_google_googletest" not in native.existing_rules():
 
 ### Run Examples
 
-   From the workspace,
+   All follow-up command should run from the workspace directory.
+
+#### Publish messages to broker servers
 
    Publish standard messages to your topic synchronously
    ```
@@ -97,8 +99,8 @@ if "com_google_googletest" not in native.existing_rules():
    where `1024` are in bytes
 
 
-   ------------
-   
+#### Subscribe messages from broker servers
+
    Consume messages through Message Listener
 
    ```
