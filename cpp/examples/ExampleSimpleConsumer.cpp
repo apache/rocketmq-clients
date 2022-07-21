@@ -18,20 +18,30 @@
 #include <iostream>
 #include <thread>
 
+#include "gflags/gflags.h"
+#include "rocketmq/Logger.h"
 #include "rocketmq/SimpleConsumer.h"
 
 using namespace ROCKETMQ_NAMESPACE;
 
+DEFINE_string(topic, "standard_topic_sample", "Topic to which messages are published");
+DEFINE_string(access_point, "121.196.167.124:8081", "Service access URL, provided by your service provider");
+DEFINE_string(group, "CID_standard_topic_sample", "GroupId, created through your instance management console");
+
 int main(int argc, char* argv[]) {
-  const char* group = "ExampleSimpleGroup";
-  const char* topic = "cpp_sdk_standard";
-  const char* name_server = "11.166.42.94:8081";
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+  auto& logger = getLogger();
+  logger.setConsoleLevel(Level::Debug);
+  logger.setLevel(Level::Debug);
+  logger.init();
+
   std::string tag = "*";
 
   auto simple_consumer = SimpleConsumer::newBuilder()
-                             .withGroup(group)
-                             .withConfiguration(Configuration::newBuilder().withEndpoints(name_server).build())
-                             .subscribe(topic, tag)
+                             .withGroup(FLAGS_group)
+                             .withConfiguration(Configuration::newBuilder().withEndpoints(FLAGS_access_point).build())
+                             .subscribe(FLAGS_topic, tag)
                              .build();
   std::vector<MessageConstSharedPtr> messages;
   std::error_code ec;

@@ -19,29 +19,40 @@
 #include <mutex>
 #include <thread>
 
+#include "gflags/gflags.h"
 #include "rocketmq/Logger.h"
 #include "rocketmq/PushConsumer.h"
-#include "spdlog/spdlog.h"
 
 using namespace ROCKETMQ_NAMESPACE;
 
+DEFINE_string(topic, "standard_topic_sample", "Topic to which messages are published");
+DEFINE_string(access_point, "121.196.167.124:8081", "Service access URL, provided by your service provider");
+DEFINE_string(group, "CID_standard_topic_sample", "GroupId, created through your instance management console");
+
 int main(int argc, char* argv[]) {
-  const char* topic = "cpp_sdk_standard";
-  const char* name_server = "11.166.42.94:8081";
-  const char* group = "GID_cpp_sdk_standard";
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+  auto& logger = getLogger();
+  logger.setConsoleLevel(Level::Debug);
+  logger.setLevel(Level::Debug);
+  logger.init();
+
   std::string tag = "*";
 
-  auto listener = [](const Message& message) { return ConsumeResult::SUCCESS; };
+  auto listener = [](const Message& message) {
+    std::cout << "Received a message[topic=" << message.topic() << ", MsgId=" << message.id() << "]" << std::endl;
+    return ConsumeResult::SUCCESS;
+  };
 
   auto push_consumer = PushConsumer::newBuilder()
-                           .withGroup(group)
+                           .withGroup(FLAGS_group)
                            .withConfiguration(Configuration::newBuilder()
-                                                  .withEndpoints(name_server)
+                                                  .withEndpoints(FLAGS_access_point)
                                                   .withRequestTimeout(std::chrono::seconds(3))
                                                   .build())
                            .withConsumeThreads(4)
                            .withListener(listener)
-                           .subscribe(topic, tag)
+                           .subscribe(FLAGS_topic, tag)
                            .build();
 
   std::this_thread::sleep_for(std::chrono::minutes(30));

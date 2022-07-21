@@ -58,7 +58,10 @@ if "com_google_googletest" not in native.existing_rules():
    bazel test //...
    ```
 
-3. Run Examples
+
+
+### Run Examples
+
    From the workspace,
 
    Publish standard messages to your topic synchronously
@@ -87,11 +90,29 @@ if "com_google_googletest" not in native.existing_rules():
 
    -----------
 
-   Publish Transactional messages
+   Publish transactional messages
    ```
    bazel run //examples:example_producer_with_transactional_message -- --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --message_body_size=1024 --total=16
    ```
    where `1024` are in bytes
+
+
+   ------------
+   
+   Consume messages through Message Listener
+
+   ```
+   bazel run //examples:example_push_consumer -- --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --group=YOUR_GROUP_ID
+   ```
+
+   ------------
+
+   Consume messages through raw, atomic API
+
+   ```
+   bazel run //examples:example_simple_consumer -- --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --group=YOUR_GROUP_ID
+   ```
+
 
    
 

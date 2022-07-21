@@ -78,6 +78,7 @@ cc_binary(
     ],
     deps = [
         "//source/rocketmq:rocketmq_library",
+        "@com_github_gflags_gflags//:gflags",        
     ],
 )
 
@@ -88,5 +89,6 @@ cc_binary(
     ],
     deps = [
         "//source/rocketmq:rocketmq_library",
+        "@com_github_gflags_gflags//:gflags",
     ],
 )

@@ -22,6 +22,7 @@
 #include <system_error>
 
 #include "gflags/gflags.h"
+#include "rocketmq/Logger.h"
 #include "rocketmq/Message.h"
 #include "rocketmq/Producer.h"
 
@@ -55,6 +56,11 @@ DEFINE_uint32(total, 256, "Number of sample messages to publish");
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+  auto& logger = getLogger();
+  logger.setConsoleLevel(Level::Debug);
+  logger.setLevel(Level::Debug);
+  logger.init();
 
   auto producer = Producer::newBuilder()
                       .withConfiguration(Configuration::newBuilder().withEndpoints(FLAGS_access_point).build())
