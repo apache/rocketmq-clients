@@ -62,7 +62,7 @@ if "com_google_googletest" not in native.existing_rules():
 
 ### Run Examples
 
-   All follow-up command should run from the workspace directory.
+   All follow-up commands should run from the workspace directory.
 
 #### Publish messages to broker servers
 
