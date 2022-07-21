@@ -51,8 +51,7 @@ void AsyncReceiveMessageCallback::onCompletion(const std::error_code& ec, const 
 
   SPDLOG_DEBUG("Receive messages from broker[host={}] returns with status=FOUND, msgListSize={}, queue={}",
                result.source_host, result.messages.size(), process_queue->simpleName());
-  process_queue->cacheMessages(result.messages);
-
+  process_queue->accountCache(result.messages);
   consumer->getConsumeMessageService()->dispatch(process_queue, result.messages);
   checkThrottleThenReceive();
 }

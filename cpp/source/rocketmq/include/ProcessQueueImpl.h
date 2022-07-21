@@ -56,7 +56,7 @@ public:
 
   bool expired() const override;
 
-  bool shouldThrottle() const override LOCKS_EXCLUDED(messages_mtx_);
+  bool shouldThrottle() const override;
 
   const FilterExpression& getFilterExpression() const override;
 
@@ -74,46 +74,22 @@ public:
     return message_queue_.topic().name();
   }
 
-  bool hasPendingMessages() const override LOCKS_EXCLUDED(messages_mtx_);
+   std::uint64_t cachedMessageQuantity() const override;
+
+   std::uint64_t cachedMessageMemory() const override;
 
   /**
    * Put message fetched from broker into cache.
    *
    * @param messages
    */
-  void cacheMessages(const std::vector<MessageConstSharedPtr>& messages) override LOCKS_EXCLUDED(messages_mtx_);
-
-  /**
-   * @return Number of messages that is not yet dispatched to thread pool, likely, due to topic-rate-limiting.
-   */
-  uint32_t cachedMessagesSize() const LOCKS_EXCLUDED(messages_mtx_) {
-    absl::MutexLock lk(&messages_mtx_);
-    return cached_messages_.size();
-  }
-
-  /**
-   * Dispatch messages from cache to thread pool in form of consumeTask.
-   * @param batch_size
-   * @param messages
-   * @return true if there are more messages to consume in cache
-   */
-  bool take(uint32_t batch_size, std::vector<MessageConstSharedPtr>& messages) override LOCKS_EXCLUDED(messages_mtx_);
+  void accountCache(const std::vector<MessageConstSharedPtr>& messages) override;
 
   void syncIdleState() override {
     idle_since_ = std::chrono::steady_clock::now();
   }
 
-  void release(uint64_t body_size) override LOCKS_EXCLUDED(messages_mtx_);
-
-  bool unbindFifoConsumeTask() override {
-    bool expected = true;
-    return has_fifo_task_bound_.compare_exchange_strong(expected, false, std::memory_order_relaxed);
-  }
-
-  bool bindFifoConsumeTask() override {
-    bool expected = false;
-    return has_fifo_task_bound_.compare_exchange_strong(expected, true, std::memory_order_relaxed);
-  }
+  void release(uint64_t body_size) override;
 
   const rmq::MessageQueue& messageQueue() const override {
     return message_queue_;
@@ -141,13 +117,6 @@ private:
   std::shared_ptr<AsyncReceiveMessageCallback> receive_callback_;
 
   /**
-   * Messages that are pending to be submitted to thread pool.
-   */
-  mutable std::vector<MessageConstSharedPtr> cached_messages_ GUARDED_BY(messages_mtx_);
-
-  mutable absl::Mutex messages_mtx_;
-
-  /**
    * @brief Quantity of the cached messages.
    *
    */
@@ -158,11 +127,6 @@ private:
    *
    */
   std::atomic<uint64_t> cached_message_memory_;
-
-  /**
-   * If this process queue is used in FIFO scenario, this field marks if there is an task in thread pool.
-   */
-  std::atomic_bool has_fifo_task_bound_{false};
 
   void popMessage();
   void wrapPopMessageRequest(absl::flat_hash_map<std::string, std::string>& metadata,
