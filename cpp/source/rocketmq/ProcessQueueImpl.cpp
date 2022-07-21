@@ -62,6 +62,14 @@ bool ProcessQueueImpl::expired() const {
   return false;
 }
 
+std::uint64_t ProcessQueueImpl::cachedMessageQuantity() const {
+  return cached_message_quantity_.load(std::memory_order_relaxed);
+}
+
+std::uint64_t ProcessQueueImpl::cachedMessageMemory() const {
+  return cached_message_memory_.load(std::memory_order_relaxed);
+}
+
 bool ProcessQueueImpl::shouldThrottle() const {
   auto consumer = consumer_.lock();
   if (!consumer) {
@@ -124,57 +132,20 @@ void ProcessQueueImpl::popMessage() {
       absl::ToChronoMilliseconds(consumer_client->config().subscriber.polling_timeout), callback);
 }
 
-bool ProcessQueueImpl::hasPendingMessages() const {
-  absl::MutexLock lk(&messages_mtx_);
-  return !cached_messages_.empty();
-}
-
-void ProcessQueueImpl::cacheMessages(const std::vector<MessageConstSharedPtr>& messages) {
+void ProcessQueueImpl::accountCache(const std::vector<MessageConstSharedPtr>& messages) {
   auto consumer = consumer_.lock();
   if (!consumer) {
     return;
   }
 
-  {
-    absl::MutexLock messages_lock_guard(&messages_mtx_);
-    for (const auto& message : messages) {
-      const std::string& msg_id = message->id();
-      if (!filter_expression_.accept(*message)) {
-        const std::string& topic = message->topic();
-        auto callback = [topic, msg_id](const std::error_code& ec) {
-          if (ec) {
-            SPDLOG_WARN(
-                "Failed to ack message[Topic={}, MsgId={}] directly as it fails to pass filter expression. Cause: {}",
-                topic, msg_id, ec.message());
-          } else {
-            SPDLOG_DEBUG("Ack message[Topic={}, MsgId={}] directly as it fails to pass filter expression", topic,
-                         msg_id);
-          }
-        };
-        consumer->ack(*message, callback);
-        continue;
-      }
-      cached_messages_.emplace_back(message);
-      cached_message_quantity_.fetch_add(1, std::memory_order_relaxed);
-      cached_message_memory_.fetch_add(message->body().size(), std::memory_order_relaxed);
-    }
-  }
-}
-
-bool ProcessQueueImpl::take(uint32_t batch_size, std::vector<MessageConstSharedPtr>& messages) {
-  absl::MutexLock lock(&messages_mtx_);
-  if (cached_messages_.empty()) {
-    return false;
+  for (const auto& message : messages) {
+    cached_message_quantity_.fetch_add(1, std::memory_order_relaxed);
+    cached_message_memory_.fetch_add(message->body().size(), std::memory_order_relaxed);
   }
 
-  for (auto it = cached_messages_.begin(); it != cached_messages_.end();) {
-    if (0 == batch_size--) {
-      break;
-    }
-    messages.push_back(*it);
-    it = cached_messages_.erase(it);
-  }
-  return !cached_messages_.empty();
+  SPDLOG_DEBUG("Cache of process-queue={} has {} messages, body of them taking up {} bytes", simple_name_,
+               cached_message_quantity_.load(std::memory_order_relaxed),
+               cached_message_memory_.load(std::memory_order_relaxed));
 }
 
 void ProcessQueueImpl::release(uint64_t body_size) {

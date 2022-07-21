@@ -212,10 +212,14 @@ private:
   int32_t max_delivery_attempts_{MixAll::DEFAULT_MAX_DELIVERY_ATTEMPTS};
 
   ConsumeStats stats_;
+  std::uintptr_t collect_stats_handle_{0};
+  static const char* COLLECT_STATS_TASK_NAME;
 
   void fetchRoutes() LOCKS_EXCLUDED(topic_filter_expression_table_mtx_);
 
   std::chrono::milliseconds invisibleDuration(std::size_t attempt);
+
+  void collectCacheStats() LOCKS_EXCLUDED(process_queue_table_mtx_);
 
   friend class ConsumeMessageService;
   friend class ConsumeFifoMessageService;

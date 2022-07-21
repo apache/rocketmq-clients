@@ -16,6 +16,7 @@
  */
 #pragma once
 
+#include <cstdint>
 #include <memory>
 
 #include "AsyncReceiveMessageCallback.h"
@@ -39,11 +40,7 @@ public:
 
   virtual void receiveMessage() = 0;
 
-  virtual bool hasPendingMessages() const = 0;
-
   virtual std::string topic() const = 0;
-
-  virtual bool take(uint32_t batch_size, std::vector<MessageConstSharedPtr>& messages) = 0;
 
   virtual std::weak_ptr<PushConsumerImpl> getConsumer() = 0;
 
@@ -51,7 +48,11 @@ public:
 
   virtual void release(uint64_t body_size) = 0;
 
-  virtual void cacheMessages(const std::vector<MessageConstSharedPtr>& messages) = 0;
+  virtual void accountCache(const std::vector<MessageConstSharedPtr>& messages) = 0;
+
+  virtual std::uint64_t cachedMessageQuantity() const = 0;
+
+  virtual std::uint64_t cachedMessageMemory() const = 0;
 
   virtual bool shouldThrottle() const = 0;
 
@@ -60,10 +61,6 @@ public:
   virtual void syncIdleState() = 0;
 
   virtual const FilterExpression& getFilterExpression() const = 0;
-
-  virtual bool bindFifoConsumeTask() = 0;
-
-  virtual bool unbindFifoConsumeTask() = 0;
 
   virtual const rmq::MessageQueue& messageQueue() const = 0;
 };

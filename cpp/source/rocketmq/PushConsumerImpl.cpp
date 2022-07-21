@@ -19,7 +19,9 @@
 #include <atomic>
 #include <cassert>
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
+#include <string>
 #include <system_error>
 
 #include "AsyncReceiveMessageCallback.h"
@@ -29,7 +31,9 @@
 #include "Protocol.h"
 #include "RpcClient.h"
 #include "Signature.h"
+#include "Tag.h"
 #include "google/protobuf/util/time_util.h"
+#include "opencensus/stats/stats.h"
 #include "rocketmq/MQClientException.h"
 #include "rocketmq/MessageListener.h"
 
@@ -89,9 +93,20 @@ void PushConsumerImpl::start() {
   scan_assignment_handle_ = client_manager_->getScheduler()->schedule(
       scan_assignment_functor, SCAN_ASSIGNMENT_TASK_NAME, std::chrono::milliseconds(100), std::chrono::seconds(5));
   SPDLOG_INFO("PushConsumer started, groupName={}", client_config_.subscriber.group.name());
+
+  auto collect_stats_functor = [consumer_weak_ptr] {
+    auto consumer = consumer_weak_ptr.lock();
+    if (consumer) {
+      consumer->collectCacheStats();
+    }
+  };
+
+  collect_stats_handle_ = client_manager_->getScheduler()->schedule(collect_stats_functor, COLLECT_STATS_TASK_NAME,
+                                                                    std::chrono::seconds(3), std::chrono::seconds(3));
 }
 
 const char* PushConsumerImpl::SCAN_ASSIGNMENT_TASK_NAME = "scan-assignment-task";
+const char* PushConsumerImpl::COLLECT_STATS_TASK_NAME = "collect-stats-task";
 
 void PushConsumerImpl::shutdown() {
   State expecting = State::STARTED;
@@ -99,6 +114,11 @@ void PushConsumerImpl::shutdown() {
     if (scan_assignment_handle_) {
       client_manager_->getScheduler()->cancel(scan_assignment_handle_);
       SPDLOG_DEBUG("Scan assignment periodic task cancelled");
+    }
+
+    if (collect_stats_handle_) {
+      client_manager_->getScheduler()->cancel(collect_stats_handle_);
+      SPDLOG_DEBUG("Collect cache stats periodic task cancelled");
     }
 
     {
@@ -555,6 +575,45 @@ void PushConsumerImpl::onVerifyMessage(MessageConstSharedPtr message, std::funct
   } else {
     cmd.mutable_status()->set_code(rmq::Code::MESSAGE_CORRUPTED);
     cmd.mutable_status()->set_message("Checksum Mismatch");
+  }
+}
+
+void PushConsumerImpl::collectCacheStats() {
+  absl::flat_hash_map<std::string, std::uint64_t> topic_count;
+  absl::flat_hash_map<std::string, std::uint64_t> topic_memory;
+
+  {
+    absl::MutexLock lk(&process_queue_table_mtx_);
+    for (const auto& entry : process_queue_table_) {
+      auto&& topic = entry.second->topic();
+      std::uint64_t cnt = entry.second->cachedMessageQuantity();
+      std::uint64_t memory = entry.second->cachedMessageMemory();
+      auto it = topic_count.find(topic);
+      if (it == topic_count.end()) {
+        topic_count.insert_or_assign(topic, cnt);
+      } else {
+        it->second += cnt;
+      }
+
+      it = topic_memory.find(topic);
+      if (it == topic_memory.end()) {
+        topic_memory.insert_or_assign(topic, memory);
+      } else {
+        it->second += memory;
+      }
+    }
+  }
+
+  for (const auto& entry : topic_count) {
+    opencensus::stats::Record({{stats_.cachedMessageQuantity(), entry.second}},
+                              {{Tag::topicTag(), entry.first}, {Tag::clientIdTag(), client_config_.client_id}});
+    SPDLOG_DEBUG("Cache on Quantity {} --> {}", entry.first, entry.second);
+  }
+
+  for (const auto& entry : topic_memory) {
+    opencensus::stats::Record({{stats_.cachedMessageBytes(), entry.second}},
+                              {{Tag::topicTag(), entry.first}, {Tag::clientIdTag(), client_config_.client_id}});
+    SPDLOG_DEBUG("Cache on Memory {} --> {}", entry.first, entry.second);
   }
 }
 
