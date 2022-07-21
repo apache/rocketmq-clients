@@ -70,7 +70,7 @@ if "com_google_googletest" not in native.existing_rules():
    ```
    bazel run //examples:example_producer -- --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --message_body_size=1024 --total=16
    ```
-   where `1024` are in bytes
+   where `1024` is size of the message body to publish in bytes
 
    ------------
 
@@ -79,7 +79,7 @@ if "com_google_googletest" not in native.existing_rules():
    ```
    bazel run //examples:example_producer_with_async -- --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --message_body_size=1024 --total=16
    ```
-   where `1024` are in bytes
+   where `1024` is size of the message body to publish in bytes
 
    ------------
 
@@ -88,7 +88,7 @@ if "com_google_googletest" not in native.existing_rules():
    ```
    bazel run //examples:example_producer_with_fifo_message -- --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --message_body_size=1024 --total=16
    ```
-   where `1024` are in bytes
+   where `1024` is size of the message body to publish in bytes
 
    -----------
 
@@ -96,7 +96,7 @@ if "com_google_googletest" not in native.existing_rules():
    ```
    bazel run //examples:example_producer_with_transactional_message -- --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --message_body_size=1024 --total=16
    ```
-   where `1024` are in bytes
+   where `1024` is size of the message body to publish in bytes
 
 
 #### Subscribe messages from broker servers
