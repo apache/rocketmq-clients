@@ -59,11 +59,12 @@ public:
 
   void setTransactionChecker(TransactionChecker checker);
 
-  std::unique_ptr<TransactionImpl> prepare(MessageConstPtr message, std::error_code& ec);
+  std::unique_ptr<TransactionImpl> beginTransaction() {
+    auto producer = std::weak_ptr<ProducerImpl>(shared_from_this());
+    return absl::make_unique<TransactionImpl>(producer);
+  }
 
-  bool commit(const Transaction& transaction);
-
-  bool rollback(const Transaction& transaction);
+  void send(MessageConstPtr message, std::error_code& ec, Transaction& transaction);
 
   /**
    * Check if the RPC client for the target host is isolated or not
@@ -108,7 +109,11 @@ public:
 
   void topicsOfInterest(std::vector<std::string> topics) override LOCKS_EXCLUDED(topics_mtx_);
 
-  const PublishStats& stats() const { return stats_; }
+  const PublishStats& stats() const {
+    return stats_;
+  }
+
+  bool endTransaction0(const MiniTransaction& transaction, TransactionState resolution);
 
 protected:
   std::shared_ptr<ClientImpl> self() override {
@@ -154,8 +159,6 @@ private:
   void validate(const Message& message, std::error_code& ec);
 
   void send0(MessageConstPtr message, SendCallback callback, std::vector<rmq::MessageQueue> list);
-
-  bool endTransaction0(const Transaction& transaction, TransactionState resolution);
 
   void isolatedEndpoints(absl::flat_hash_set<std::string>& endpoints) LOCKS_EXCLUDED(isolated_endpoints_mtx_);
 

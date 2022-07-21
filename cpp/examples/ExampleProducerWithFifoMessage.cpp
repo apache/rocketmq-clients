@@ -48,13 +48,19 @@ std::string randomString(std::string::size_type len) {
   return result;
 }
 
-DEFINE_string(topic, "standard_topic_sample", "Topic to which messages are published");
+DEFINE_string(topic, "fifo_topic_sample", "Topic to which messages are published");
 DEFINE_string(access_point, "121.196.167.124:8081", "Service access URL, provided by your service provider");
 DEFINE_int32(message_body_size, 4096, "Message body size");
 DEFINE_uint32(total, 256, "Number of sample messages to publish");
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+  // Adjust log level for file/console sinks
+  auto& logger = getLogger();
+  logger.setConsoleLevel(Level::Debug);
+  logger.setLevel(Level::Debug);
+  logger.init();
 
   auto producer = Producer::newBuilder()
                       .withConfiguration(Configuration::newBuilder().withEndpoints(FLAGS_access_point).build())
@@ -77,28 +83,26 @@ int main(int argc, char* argv[]) {
   std::thread stats_thread(stats_lambda);
 
   std::string body = randomString(FLAGS_message_body_size);
+  std::cout << "Message body size: " << body.length() << std::endl;
 
   try {
     for (std::size_t i = 0; i < FLAGS_total; ++i) {
       auto message = Message::newBuilder()
                          .withTopic(FLAGS_topic)
                          .withTag("TagA")
-                         .withKeys({"Key-" + std::to_string(i)})
+                         .withKeys({"Key-0"})
                          .withBody(body)
+                         .withGroup("message-group" + std::to_string(i % 10))
                          .build();
       std::error_code ec;
       SendReceipt send_receipt = producer.send(std::move(message), ec);
-      if (ec) {
-        std::cerr << "Failed to publish message to " << FLAGS_topic << ". Cause: " << ec.message() << std::endl;
-      } else {
-        std::cout << "Publish message to " << FLAGS_topic << " OK. Message-ID: " << send_receipt.message_id
-                  << std::endl;
-        count++;
-      }
+      std::cout << "Message-ID: " << send_receipt.message_id << std::endl;
+      count++;
     }
   } catch (...) {
     std::cerr << "Ah...No!!!" << std::endl;
   }
+
   stopped.store(true, std::memory_order_relaxed);
   if (stats_thread.joinable()) {
     stats_thread.join();

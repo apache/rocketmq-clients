@@ -28,6 +28,7 @@
 #include "Message.h"
 #include "SendCallback.h"
 #include "SendReceipt.h"
+#include "Transaction.h"
 #include "TransactionChecker.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
@@ -64,6 +65,10 @@ public:
    * @param callback Callback to execute on completion.
    */
   void send(MessageConstPtr message, const SendCallback& callback) noexcept;
+
+  std::unique_ptr<Transaction> beginTransaction();
+
+  void send(MessageConstPtr message, std::error_code& ec, Transaction& transaction);
 
 private:
   explicit Producer(std::shared_ptr<ProducerImpl> impl) : impl_(std::move(impl)) {

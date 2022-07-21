@@ -77,7 +77,7 @@ void SchedulerImpl::start() {
 #endif
 
           if (State::STARTED != state_.load(std::memory_order_relaxed)) {
-            SPDLOG_INFO("One scheduler worker thread quit");
+            SPDLOG_DEBUG("One scheduler worker thread quit");
             break;
           }
         }

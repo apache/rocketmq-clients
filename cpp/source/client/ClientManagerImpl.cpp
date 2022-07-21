@@ -281,7 +281,7 @@ void ClientManagerImpl::doHeartbeat() {
 bool ClientManagerImpl::send(const std::string& target_host, const Metadata& metadata, SendMessageRequest& request,
                              SendCallback cb) {
   assert(cb);
-  SPDLOG_DEBUG("Prepare to send message to {} asynchronously", target_host);
+  SPDLOG_DEBUG("Prepare to send message to {} asynchronously. Request: {}", target_host, request.DebugString());
   RpcClientSharedPtr client = getRpcClient(target_host);
   // Invocation context will be deleted in its onComplete() method.
   auto invocation_context = new InvocationContext<SendMessageResponse>();
@@ -293,8 +293,8 @@ bool ClientManagerImpl::send(const std::string& target_host, const Metadata& met
 
   const std::string& topic = request.messages().begin()->topic().name();
   std::weak_ptr<ClientManager> client_manager(shared_from_this());
-  auto completion_callback = [topic, cb,
-                              client_manager](const InvocationContext<SendMessageResponse>* invocation_context) {
+  auto completion_callback = [topic, cb, client_manager,
+                              target_host](const InvocationContext<SendMessageResponse>* invocation_context) {
     ClientManagerPtr client_manager_ptr = client_manager.lock();
     if (!client_manager_ptr) {
       return;
@@ -305,7 +305,8 @@ bool ClientManagerImpl::send(const std::string& target_host, const Metadata& met
       return;
     }
 
-    SendReceipt send_receipt;
+    SendReceipt send_receipt = {};
+    send_receipt.target = target_host;
     std::error_code ec;
     if (!invocation_context->status.ok()) {
       SPDLOG_WARN("Failed to send message to {} due to gRPC error. gRPC code: {}, gRPC error message: {}",
@@ -319,7 +320,13 @@ bool ClientManagerImpl::send(const std::string& target_host, const Metadata& met
     auto&& status = invocation_context->response.status();
     switch (invocation_context->response.status().code()) {
       case rmq::Code::OK: {
-        send_receipt.message_id = invocation_context->response.entries().begin()->message_id();
+        if (!invocation_context->response.entries().empty()) {
+          auto first = invocation_context->response.entries().begin();
+          send_receipt.message_id = first->message_id();
+          send_receipt.transaction_id = first->transaction_id();
+        } else {
+          SPDLOG_ERROR("Unexpected send-message-response: {}", invocation_context->response.DebugString());
+        }
         break;
       }
 

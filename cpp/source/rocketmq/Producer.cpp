@@ -63,6 +63,14 @@ void Producer::send(MessageConstPtr message, const SendCallback& callback) noexc
   impl_->send(std::move(message), callback);
 }
 
+std::unique_ptr<Transaction> Producer::beginTransaction() {
+  return impl_->beginTransaction();
+}
+
+void Producer::send(MessageConstPtr message, std::error_code& ec, Transaction& transaction) {
+  impl_->send(std::move(message), ec, transaction);
+}
+
 ProducerBuilder Producer::newBuilder() {
   return {};
 }
@@ -83,6 +91,7 @@ ProducerBuilder& ProducerBuilder::withTopics(const std::vector<std::string>& top
 }
 
 ProducerBuilder& ProducerBuilder::withTransactionChecker(const TransactionChecker& checker) {
+  impl_->transaction_checker_ = checker;
   return *this;
 }
 

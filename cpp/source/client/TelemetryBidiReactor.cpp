@@ -97,7 +97,10 @@ void TelemetryBidiReactor::OnWriteDone(bool ok) {
 void TelemetryBidiReactor::OnReadDone(bool ok) {
   SPDLOG_DEBUG("OnReadDone: ok={}", ok);
   if (!ok) {
-    SPDLOG_WARN("Failed to read telemetry command from {}", peer_address_);
+    if (client_.lock()) {
+      SPDLOG_WARN("Failed to read telemetry command from {}", peer_address_);
+    }
+
     {
       absl::MutexLock lk(&stream_state_mtx_);
       stream_state_ = StreamState::ReadDone;

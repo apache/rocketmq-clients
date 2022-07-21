@@ -23,26 +23,51 @@ cc_binary(
     ],
     deps = [
         "//source/rocketmq:rocketmq_library",
+        "@com_github_gflags_gflags//:gflags",
     ],
 )
 
 cc_binary(
-    name = "example_fifo_producer",
+    name = "example_producer_with_fifo_message",
     srcs = [
-        "ExampleFifoProducer.cpp",
+        "ExampleProducerWithFifoMessage.cpp",
     ],
     deps = [
         "//source/rocketmq:rocketmq_library",
+        "@com_github_gflags_gflags//:gflags",
     ],
 )
 
 cc_binary(
-    name = "example_async_producer",
+    name = "example_producer_with_async",
     srcs = [
-        "ExampleAsyncProducer.cpp",
+        "ExampleProducerWithAsync.cpp",
     ],
     deps = [
         "//source/rocketmq:rocketmq_library",
+        "@com_github_gflags_gflags//:gflags",
+    ],
+)
+
+cc_binary(
+    name = "example_producer_with_timed_message",
+    srcs = [
+        "ExampleProducerWithTimedMessage.cpp",
+    ],
+    deps = [
+        "//source/rocketmq:rocketmq_library",
+        "@com_github_gflags_gflags//:gflags",
+    ],
+)
+
+cc_binary(
+    name = "example_producer_with_transactional_message",
+    srcs = [
+        "ExampleProducerWithTransactionalMessage.cpp",
+    ],
+    deps = [
+        "//source/rocketmq:rocketmq_library",
+        "@com_github_gflags_gflags//:gflags",
     ],
 )
 
@@ -56,16 +81,6 @@ cc_binary(
     ],
 )
 
-# cc_binary(
-#     name = "sql_producer",
-#     srcs = [
-#         "SqlProducer.cpp",
-#     ],
-#     deps = [
-#         "//source/rocketmq:rocketmq_library",
-#     ],
-# )
-
 cc_binary(
     name = "example_push_consumer",
     srcs = [
@@ -75,63 +90,3 @@ cc_binary(
         "//source/rocketmq:rocketmq_library",
     ],
 )
-
-# cc_binary(
-#     name = "example_fifo_push_consumer",
-#     srcs = [
-#         "ExampleFifoPushConsumer.cpp",
-#     ],
-#     deps = [
-#         "//source/rocketmq:rocketmq_library",
-#     ],
-# )
-
-# cc_binary(
-#     name = "push_consumer_with_custom_executor",
-#     srcs = [
-#         "PushConsumerWithCustomExecutor.cpp",
-#     ],
-#     deps = [
-#         "//source/rocketmq:rocketmq_library",
-#     ],
-# )
-
-# cc_binary(
-#     name = "push_consumer_with_throttle",
-#     srcs = [
-#         "PushConsumerWithThrottle.cpp",
-#     ],
-#     deps = [
-#         "//source/rocketmq:rocketmq_library",
-#     ],
-# )
-
-# cc_binary(
-#     name = "sql_consumer",
-#     srcs = [
-#         "SqlConsumer.cpp",
-#     ],
-#     deps = [
-#         "//source/rocketmq:rocketmq_library",
-#     ],
-# )
-
-# cc_binary(
-#     name = "benchmark_push_consumer",
-#     srcs = [
-#         "BenchmarkPushConsumer.cpp",
-#     ],
-#     deps = [
-#         "//source/rocketmq:rocketmq_library",
-#     ],
-# )
-
-# cc_binary(
-#     name = "example_transaction_producer",
-#     srcs = [
-#         "ExampleTransactionProducer.cpp",
-#     ],
-#     deps = [
-#         "//source/rocketmq:rocketmq_library",
-#     ],
-# )

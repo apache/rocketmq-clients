@@ -48,15 +48,52 @@ if "com_google_googletest" not in native.existing_rules():
 
 
 1. Build
-   From the repository root, 
+   From the workspace, 
    ```
    bazel build //...
    ```
 2. Run Unit Tests
-   From the repository root,
+   From the workspace,
    ```
    bazel test //...
    ```
+
+3. Run Examples
+   From the workspace,
+
+   Publish standard messages to your topic synchronously
+   ```
+   bazel run //examples:example_producer -- --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --message_body_size=1024 --total=16
+   ```
+   where `1024` are in bytes
+
+   ------------
+
+   
+   Publish standard messages to your topic asynchronously
+   ```
+   bazel run //examples:example_producer_with_async -- --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --message_body_size=1024 --total=16
+   ```
+   where `1024` are in bytes
+
+   ------------
+
+
+   Publish FIFO messages to your topic
+   ```
+   bazel run //examples:example_producer_with_fifo_message -- --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --message_body_size=1024 --total=16
+   ```
+   where `1024` are in bytes
+
+   -----------
+
+   Publish Transactional messages
+   ```
+   bazel run //examples:example_producer_with_transactional_message -- --topic=YOUR_TOPIC --access_point=SERVICE_ACCESS_POINT --message_body_size=1024 --total=16
+   ```
+   where `1024` are in bytes
+
+   
 
 ### IDE
 [Visual Studio Code](https://code.visualstudio.com/) + [Clangd](https://clangd.llvm.org/) is the recommended development toolset. 
