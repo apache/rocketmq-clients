@@ -438,6 +438,12 @@ bool ClientManagerImpl::send(const std::string& target_host, const Metadata& met
         break;
       }
 
+      case rmq::Code::MESSAGE_PROPERTY_CONFLICT_WITH_TYPE: {
+        SPDLOG_WARN("Message-property-conflict-with-type: Host={}, Response={}", invocation_context->remote_address, invocation_context->response.DebugString());
+        ec = ErrorCode::MessagePropertyConflictWithType;
+        break;
+      }
+
       default: {
         SPDLOG_WARN("NotSupported: Check and upgrade SDK to the latest. Host={}", invocation_context->remote_address);
         ec = ErrorCode::NotSupported;
