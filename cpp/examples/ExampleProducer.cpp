@@ -17,11 +17,13 @@
 #include <algorithm>
 #include <atomic>
 #include <iostream>
+#include <memory>
 #include <random>
 #include <string>
 #include <system_error>
 
 #include "gflags/gflags.h"
+#include "rocketmq/CredentialsProvider.h"
 #include "rocketmq/Logger.h"
 #include "rocketmq/Message.h"
 #include "rocketmq/Producer.h"
@@ -53,6 +55,8 @@ DEFINE_string(topic, "standard_topic_sample", "Topic to which messages are publi
 DEFINE_string(access_point, "121.196.167.124:8081", "Service access URL, provided by your service provider");
 DEFINE_int32(message_body_size, 4096, "Message body size");
 DEFINE_uint32(total, 256, "Number of sample messages to publish");
+DEFINE_string(access_key, "", "Your access key ID");
+DEFINE_string(access_secret, "", "Your access secret");
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -62,8 +66,16 @@ int main(int argc, char* argv[]) {
   logger.setLevel(Level::Debug);
   logger.init();
 
+  CredentialsProviderPtr credentials_provider;
+  if (!FLAGS_access_key.empty() && !FLAGS_access_secret.empty()) {
+    credentials_provider = std::make_shared<StaticCredentialsProvider>(FLAGS_access_key, FLAGS_access_secret);
+  }
+
   auto producer = Producer::newBuilder()
-                      .withConfiguration(Configuration::newBuilder().withEndpoints(FLAGS_access_point).build())
+                      .withConfiguration(Configuration::newBuilder()
+                                             .withEndpoints(FLAGS_access_point)
+                                             .withCredentialsProvider(credentials_provider)
+                                             .build())
                       .build();
 
   std::atomic_bool stopped;
