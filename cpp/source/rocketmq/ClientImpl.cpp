@@ -179,19 +179,35 @@ void ClientImpl::start() {
   telemetry_handle_ = client_manager_->getScheduler()->schedule(telemetry_functor, TELEMETRY_TASK_NAME,
                                                                 std::chrono::minutes(5), std::chrono::minutes(5));
 
+  auto&& metric_service_endpoint = metricServiceEndpoint();
+  if (!metric_service_endpoint.empty()) {
+    std::weak_ptr<Client> client_weak_ptr(self());
+#ifdef DEBUG_METRIC_EXPORTING
+    opencensus::stats::StatsExporter::SetInterval(absl::Seconds(1));
+    opencensus::stats::StatsExporter::RegisterPushHandler(absl::make_unique<StdoutHandler>());
+#else
+    opencensus::stats::StatsExporter::SetInterval(absl::Minutes(1));
+#endif
+    SPDLOG_INFO("Export client metrics to {}", metric_service_endpoint);
+    opencensus::stats::StatsExporter::RegisterPushHandler(
+        absl::make_unique<OpencensusHandler>(metric_service_endpoint, client_weak_ptr));
+  }
+}
+
+std::string ClientImpl::metricServiceEndpoint() const {
   auto endpoints = client_config_.metric.endpoints;
-  std::string target;
+  std::string service_endpoint;
   switch (endpoints.scheme()) {
     case rmq::AddressScheme::IPv4: {
-      target.append("ipv4:");
+      service_endpoint.append("ipv4:");
       break;
     }
     case rmq::AddressScheme::IPv6: {
-      target.append("ipv6:");
+      service_endpoint.append("ipv6:");
       break;
     }
     case rmq::AddressScheme::DOMAIN_NAME: {
-      target.append("dns:");
+      service_endpoint.append("dns:");
       break;
     }
     default: {
@@ -202,25 +218,15 @@ void ClientImpl::start() {
   bool first = true;
   for (const auto& address : endpoints.addresses()) {
     if (!first) {
-      target.push_back(',');
+      service_endpoint.push_back(',');
     } else {
       first = false;
     }
-    target.append(address.host());
-    target.push_back(':');
-    target.append(std::to_string(address.port()));
+    service_endpoint.append(address.host());
+    service_endpoint.push_back(':');
+    service_endpoint.append(std::to_string(address.port()));
   }
-
-  std::weak_ptr<Client> client_weak_ptr(self());
-
-#ifdef DEBUG_METRIC_EXPORTING
-  opencensus::stats::StatsExporter::SetInterval(absl::Seconds(1));
-  opencensus::stats::StatsExporter::RegisterPushHandler(absl::make_unique<StdoutHandler>());
-#else
-  opencensus::stats::StatsExporter::SetInterval(absl::Minutes(1));
-#endif
-  SPDLOG_INFO("Export client metrics to {}", target);
-  opencensus::stats::StatsExporter::RegisterPushHandler(absl::make_unique<OpencensusHandler>(target, client_weak_ptr));
+  return service_endpoint;
 }
 
 void ClientImpl::shutdown() {

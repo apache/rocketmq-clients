@@ -28,6 +28,8 @@ using namespace ROCKETMQ_NAMESPACE;
 DEFINE_string(topic, "standard_topic_sample", "Topic to which messages are published");
 DEFINE_string(access_point, "121.196.167.124:8081", "Service access URL, provided by your service provider");
 DEFINE_string(group, "CID_standard_topic_sample", "GroupId, created through your instance management console");
+DEFINE_string(access_key, "", "Your access key ID");
+DEFINE_string(access_secret, "", "Your access secret");
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -44,11 +46,17 @@ int main(int argc, char* argv[]) {
     return ConsumeResult::SUCCESS;
   };
 
+  CredentialsProviderPtr credentials_provider;
+  if (!FLAGS_access_key.empty() && !FLAGS_access_secret.empty()) {
+    credentials_provider = std::make_shared<StaticCredentialsProvider>(FLAGS_access_key, FLAGS_access_secret);
+  }
+
   auto push_consumer = PushConsumer::newBuilder()
                            .withGroup(FLAGS_group)
                            .withConfiguration(Configuration::newBuilder()
                                                   .withEndpoints(FLAGS_access_point)
                                                   .withRequestTimeout(std::chrono::seconds(3))
+                                                  .withCredentialsProvider(credentials_provider)
                                                   .build())
                            .withConsumeThreads(4)
                            .withListener(listener)

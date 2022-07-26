@@ -229,6 +229,8 @@ private:
   void doVerify(std::string target, std::string command_id, MessageConstPtr message);
 
   static std::string clientId();
+
+  std::string metricServiceEndpoint() const;
 };
 
 ROCKETMQ_NAMESPACE_END
