@@ -16,8 +16,6 @@
  */
 #include "ClientManagerImpl.h"
 
-#include <apache/rocketmq/v2/definition.pb.h>
-
 #include <atomic>
 #include <cassert>
 #include <chrono>
@@ -26,10 +24,12 @@
 #include <utility>
 #include <vector>
 
+#include "apache/rocketmq/v2/definition.pb.h"
 #include "InvocationContext.h"
 #include "LogInterceptor.h"
 #include "LogInterceptorFactory.h"
-#include "LoggerImpl.h"
+#include "rocketmq/Logger.h"
+#include "spdlog/spdlog.h"
 #include "MessageExt.h"
 #include "MetadataConstants.h"
 #include "MixAll.h"

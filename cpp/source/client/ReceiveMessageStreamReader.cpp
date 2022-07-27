@@ -17,9 +17,10 @@
 
 #include "ReceiveMessageStreamReader.h"
 
-#include <apache/rocketmq/v2/definition.pb.h>
+#include "apache/rocketmq/v2/definition.pb.h"
 
-#include "LoggerImpl.h"
+#include "rocketmq/Logger.h"
+#include "spdlog/spdlog.h"
 #include "rocketmq/ErrorCode.h"
 
 ROCKETMQ_NAMESPACE_BEGIN

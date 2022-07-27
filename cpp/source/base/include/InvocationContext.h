@@ -27,7 +27,8 @@
 #include "grpcpp/impl/codegen/async_stream.h"
 #include "grpcpp/impl/codegen/async_unary_call.h"
 
-#include "LoggerImpl.h"
+#include "rocketmq/Logger.h"
+#include "spdlog/spdlog.h"
 #include "MetadataConstants.h"
 #include "UniqueIdGenerator.h"
 

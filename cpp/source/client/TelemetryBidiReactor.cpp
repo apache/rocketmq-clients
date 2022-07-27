@@ -22,7 +22,8 @@
 #include <utility>
 
 #include "ClientManager.h"
-#include "LoggerImpl.h"
+#include "rocketmq/Logger.h"
+#include "spdlog/spdlog.h"
 #include "MessageExt.h"
 #include "Metadata.h"
 #include "RpcClient.h"

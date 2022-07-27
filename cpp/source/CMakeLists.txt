@@ -8,6 +8,7 @@ add_subdirectory(scheduler)
 add_library(rocketmq
             $<TARGET_OBJECTS:admin>
             $<TARGET_OBJECTS:base>
+            $<TARGET_OBJECTS:client>
             $<TARGET_OBJECTS:concurrent>
             $<TARGET_OBJECTS:log>
             $<TARGET_OBJECTS:scheduler>)

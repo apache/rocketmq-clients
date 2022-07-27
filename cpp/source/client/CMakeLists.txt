@@ -6,9 +6,13 @@ target_include_directories(client
 target_link_libraries(client
         PRIVATE
             api
+            asio
             base
             proto
             fmt
             gRPC::grpc
             OpenSSL::SSL
+            opencensus::stats
+            opencensus::trace
+            scheduler
             spdlog)
