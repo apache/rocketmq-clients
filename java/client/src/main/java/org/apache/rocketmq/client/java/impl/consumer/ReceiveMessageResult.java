@@ -91,9 +91,7 @@ public class ReceiveMessageResult {
      * @return true if the result is ok, false otherwise.
      */
     public boolean ok() {
-        return null == exception || (exception.getResponseCode().isPresent() && (Code.OK.getNumber() ==
-            exception.getResponseCode().get()) || Code.MESSAGE_NOT_FOUND.getNumber() ==
-            exception.getResponseCode().get());
+        return null == exception;
     }
 
     public List<MessageView> checkAndGetMessages() throws ClientException {

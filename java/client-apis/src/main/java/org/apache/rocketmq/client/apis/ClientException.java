@@ -17,10 +17,6 @@
 
 package org.apache.rocketmq.client.apis;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-
 /**
  * Base exception for all exceptions raised in client, each exception should derive from the current class.
  * It should throw exception which is derived from {@link ClientException} rather than {@link ClientException} itself.
@@ -33,29 +29,19 @@ public class ClientException extends Exception {
     protected static final String REQUEST_ID_KEY = "request-id";
     protected static final String RESPONSE_CODE_KEY = "response-code";
 
-    private final Map<String, String> context;
-
     public ClientException(String message, Throwable cause) {
         super(message, cause);
-        this.context = new HashMap<>();
     }
 
     public ClientException(String message) {
         super(message);
-        this.context = new HashMap<>();
     }
 
     public ClientException(Throwable t) {
         super(t);
-        this.context = new HashMap<>();
     }
 
     public ClientException(int responseCode, String requestId, String message) {
         this("[" + REQUEST_ID_KEY + "=" + requestId + ", " + RESPONSE_CODE_KEY + "=" + responseCode + "] " + message);
-    }
-
-    public Optional<Integer> getResponseCode() {
-        final String responseCode = context.get(RESPONSE_CODE_KEY);
-        return null == responseCode ? Optional.empty() : Optional.of(Integer.parseInt(responseCode));
     }
 }

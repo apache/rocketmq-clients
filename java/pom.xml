@@ -54,20 +54,6 @@
         <maven-antrun-plugin.version>1.8</maven-antrun-plugin.version>
     </properties>
 
-    <repositories>
-        <repository>
-            <id>nexus</id>
-            <url>https://repository.apache.org/content/groups/public/</url>
-            <releases>
-                <enabled>true</enabled>
-                <updatePolicy>always</updatePolicy>
-            </releases>
-            <snapshots>
-                <enabled>true</enabled>
-                <updatePolicy>always</updatePolicy>
-            </snapshots>
-        </repository>
-    </repositories>
 
     <dependencyManagement>
         <dependencies>
