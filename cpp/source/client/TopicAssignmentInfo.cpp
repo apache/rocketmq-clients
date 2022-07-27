@@ -16,7 +16,8 @@
  */
 
 #include "TopicAssignmentInfo.h"
-#include "LoggerImpl.h"
+#include "rocketmq/Logger.h"
+#include "spdlog/spdlog.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 

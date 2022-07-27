@@ -16,11 +16,11 @@
  */
 #pragma once
 
-#include <apache/rocketmq/v2/definition.pb.h>
 #include <atomic>
 #include <vector>
 
 #include "Protocol.h"
+#include "apache/rocketmq/v2/definition.pb.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 

@@ -21,7 +21,8 @@
 #include <cstdlib>
 #include <system_error>
 
-#include "LoggerImpl.h"
+#include "rocketmq/Logger.h"
+#include "spdlog/spdlog.h"
 #include "absl/random/random.h"
 #include "absl/strings/str_split.h"
 #include "fmt/format.h"

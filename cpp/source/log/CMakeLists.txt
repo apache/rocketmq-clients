@@ -1,0 +1,11 @@
+add_library(log
+        OBJECT
+            LoggerImpl.cpp)
+target_include_directories(log
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(log
+        PRIVATE
+            api
+            filesystem
+            spdlog)
