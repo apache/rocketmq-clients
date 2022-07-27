@@ -14,5 +14,4 @@ target_link_libraries(rocketmq_stats
             opencensus_proto
             proto
             spdlog
-            scheduler
-        )
+            scheduler)

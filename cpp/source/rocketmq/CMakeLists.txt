@@ -8,11 +8,15 @@ target_link_libraries(impl
         PRIVATE
             api
             absl::strings
+            asio
             base
             fmt
             proto
             client
             opencensus_api
+            opencensus_proto
+            rocketmq_stats
+            rocketmq_trace
             scheduler
             spdlog
         )
