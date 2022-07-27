@@ -41,6 +41,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
@@ -141,7 +142,7 @@ public class ProcessQueueImplTest extends TestBase {
     }
 
     @Test
-    public void testReceiveMessageImmediately() throws InterruptedException {
+    public void testReceiveMessageImmediately() throws InterruptedException, ClientException {
         final int cachedMessagesCountThresholdPerQueue = 8;
         when(pushConsumer.cacheMessageCountThresholdPerQueue()).thenReturn(cachedMessagesCountThresholdPerQueue);
         final int cachedMessageBytesThresholdPerQueue = 1024;

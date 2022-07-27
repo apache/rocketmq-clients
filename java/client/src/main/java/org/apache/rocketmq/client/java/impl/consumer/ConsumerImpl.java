@@ -83,7 +83,7 @@ abstract class ConsumerImpl extends ClientImpl {
             final ListenableFuture<RpcInvocation<Iterator<ReceiveMessageResponse>>> future =
                 clientManager.receiveMessage(endpoints,
                     metadata, request, timeout);
-            return Futures.transform(future, context -> {
+            return Futures.transformAsync(future, context -> {
                 final Iterator<ReceiveMessageResponse> it = context.getResponse();
                 Status status = Status.newBuilder().setCode(Code.INTERNAL_SERVER_ERROR)
                     .setMessage("status was not set by server")
@@ -111,7 +111,9 @@ abstract class ConsumerImpl extends ClientImpl {
                     final MessageViewImpl view = MessageViewImpl.fromProtobuf(message, mq, deliveryTimestampFromRemote);
                     messages.add(view);
                 }
-                return new ReceiveMessageResult(endpoints, context.getContext().getRequestId(), status, messages);
+                final ReceiveMessageResult receiveMessageResult = new ReceiveMessageResult(endpoints,
+                    context.getContext().getRequestId(), status, messages);
+                return Futures.immediateFuture(receiveMessageResult);
             }, MoreExecutors.directExecutor());
         } catch (Throwable t) {
             return Futures.immediateFailedFuture(t);

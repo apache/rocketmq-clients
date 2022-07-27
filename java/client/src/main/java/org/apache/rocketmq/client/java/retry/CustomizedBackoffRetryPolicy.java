@@ -68,6 +68,21 @@ public class CustomizedBackoffRetryPolicy implements RetryPolicy {
     }
 
     @Override
+    public RetryPolicy updateBackoff(apache.rocketmq.v2.RetryPolicy retryPolicy) {
+        if (!CUSTOMIZED_BACKOFF.equals(retryPolicy.getStrategyCase())) {
+            throw new IllegalArgumentException("strategy must be customized backoff");
+        }
+        return updateBackoff(retryPolicy.getCustomizedBackoff());
+    }
+
+    private RetryPolicy updateBackoff(CustomizedBackoff backoff) {
+        final List<Duration> durations = backoff.getNextList().stream()
+            .map(duration -> Duration.ofNanos(Durations.toNanos(duration)))
+            .collect(Collectors.toList());
+        return new CustomizedBackoffRetryPolicy(durations, maxAttempts);
+    }
+
+    @Override
     public apache.rocketmq.v2.RetryPolicy toProtobuf() {
         CustomizedBackoff customizedBackoff = CustomizedBackoff.newBuilder()
             .addAllNext(durations.stream()

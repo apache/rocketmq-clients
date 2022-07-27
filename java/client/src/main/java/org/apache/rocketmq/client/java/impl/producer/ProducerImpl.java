@@ -436,9 +436,11 @@ class ProducerImpl extends ClientImpl implements Producer {
         }
         // Calculate the current message queue.
         final MessageQueueImpl messageQueue = candidates.get(IntMath.mod(attempt - 1, candidates.size()));
-        if (producerSettings.isValidateMessageType() && !messageQueue.matchMessageType(messageType)) {
+        final List<MessageType> acceptMessageTypes = messageQueue.getAcceptMessageTypes();
+        if (producerSettings.isValidateMessageType() && !acceptMessageTypes.contains(messageType)) {
             final IllegalArgumentException e = new IllegalArgumentException("Current message type not match with "
-                + "topic accept message types");
+                + "topic accept message types, topic=" + topic + ", actualMessageType=" + messageType + ", "
+                + "acceptMessageTypes={}" + acceptMessageTypes);
             future.setException(e);
             return;
         }

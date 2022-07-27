@@ -90,6 +90,21 @@ public class ExponentialBackoffRetryPolicy implements RetryPolicy {
     }
 
     @Override
+    public RetryPolicy updateBackoff(apache.rocketmq.v2.RetryPolicy retryPolicy) {
+        if (!EXPONENTIAL_BACKOFF.equals(retryPolicy.getStrategyCase())) {
+            throw new IllegalArgumentException("strategy must be exponential backoff");
+        }
+        return updateBackoff(retryPolicy.getExponentialBackoff());
+    }
+
+    private RetryPolicy updateBackoff(ExponentialBackoff backoff) {
+        return new ExponentialBackoffRetryPolicy(maxAttempts,
+            Duration.ofNanos(Durations.toNanos(backoff.getInitial())),
+            Duration.ofNanos(Durations.toNanos(backoff.getMax())),
+            backoff.getMultiplier());
+    }
+
+    @Override
     public apache.rocketmq.v2.RetryPolicy toProtobuf() {
         ExponentialBackoff exponentialBackoff = ExponentialBackoff.newBuilder()
             .setMultiplier((float) backoffMultiplier)

@@ -36,17 +36,17 @@ import org.apache.rocketmq.client.java.route.Endpoints;
 
 public class ReceiveMessageResult {
     private final Endpoints endpoints;
-    private final ClientException exception;
-
     private final List<MessageViewImpl> messages;
 
-    public ReceiveMessageResult(Endpoints endpoints, String requestId, Status status, List<MessageViewImpl> messages) {
+    public ReceiveMessageResult(Endpoints endpoints, String requestId, Status status, List<MessageViewImpl> messages)
+        throws ClientException {
         this.endpoints = endpoints;
         final Code code = status.getCode();
+        final int codeNumber = code.getNumber();
+        final String statusMessage = status.getMessage();
         switch (code) {
             case OK:
             case MESSAGE_NOT_FOUND:
-                this.exception = null;
                 break;
             case BAD_REQUEST:
             case ILLEGAL_TOPIC:
@@ -54,50 +54,29 @@ public class ReceiveMessageResult {
             case ILLEGAL_FILTER_EXPRESSION:
             case ILLEGAL_INVISIBLE_TIME:
             case CLIENT_ID_REQUIRED:
-                this.exception = new BadRequestException(code.getNumber(), requestId, status.getMessage());
-                break;
+                throw new BadRequestException(codeNumber, requestId, statusMessage);
             case UNAUTHORIZED:
-                this.exception = new UnauthorizedException(code.getNumber(), requestId, status.getMessage());
-                break;
+                throw new UnauthorizedException(codeNumber, requestId, statusMessage);
             case FORBIDDEN:
-                this.exception = new ForbiddenException(code.getNumber(), requestId, status.getMessage());
-                break;
+                throw new ForbiddenException(codeNumber, requestId, statusMessage);
             case NOT_FOUND:
             case TOPIC_NOT_FOUND:
             case CONSUMER_GROUP_NOT_FOUND:
-                this.exception = new NotFoundException(code.getNumber(), requestId, status.getMessage());
-                break;
+                throw new NotFoundException(codeNumber, requestId, statusMessage);
             case TOO_MANY_REQUESTS:
-                this.exception = new TooManyRequestsException(code.getNumber(), requestId, status.getMessage());
-                break;
+                throw new TooManyRequestsException(codeNumber, requestId, statusMessage);
             case INTERNAL_ERROR:
             case INTERNAL_SERVER_ERROR:
-                this.exception = new InternalErrorException(code.getNumber(), requestId, status.getMessage());
-                break;
+                throw new InternalErrorException(codeNumber, requestId, statusMessage);
             case PROXY_TIMEOUT:
-                this.exception = new ProxyTimeoutException(code.getNumber(), requestId, status.getMessage());
-                break;
+                throw new ProxyTimeoutException(codeNumber, requestId, statusMessage);
             default:
-                this.exception = new UnsupportedException(code.getNumber(), requestId, status.getMessage());
+                throw new UnsupportedException(codeNumber, requestId, statusMessage);
         }
         this.messages = messages;
     }
 
-    /**
-     * Indicates that the result is ok or not.
-     *
-     * <p>The result is ok if the status code is {@link Code#OK} or {@link Code#MESSAGE_NOT_FOUND}.
-     *
-     * @return true if the result is ok, false otherwise.
-     */
-    public boolean ok() {
-        return null == exception;
-    }
-
-    public List<MessageView> checkAndGetMessages() throws ClientException {
-        if (null != exception) {
-            throw exception;
-        }
+    public List<MessageView> getMessageViews() {
         return new ArrayList<>(messages);
     }
 
@@ -105,7 +84,7 @@ public class ReceiveMessageResult {
         return endpoints;
     }
 
-    public List<MessageViewImpl> getMessages() {
+    public List<MessageViewImpl> getMessageViewImpls() {
         return messages;
     }
 }

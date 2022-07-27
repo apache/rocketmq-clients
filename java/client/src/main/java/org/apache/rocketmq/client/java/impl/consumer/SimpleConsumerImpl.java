@@ -205,7 +205,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
                 invisibleDuration);
             return receiveMessage(request, mq, awaitDuration);
         }, MoreExecutors.directExecutor());
-        return Futures.transformAsync(future0, result -> Futures.immediateFuture(result.checkAndGetMessages()),
+        return Futures.transformAsync(future0, result -> Futures.immediateFuture(result.getMessageViews()),
             clientCallbackExecutor);
     }
 
