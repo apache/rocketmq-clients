@@ -30,6 +30,7 @@ import org.apache.rocketmq.client.java.impl.ClientSettings;
 import org.apache.rocketmq.client.java.impl.ClientType;
 import org.apache.rocketmq.client.java.impl.UserAgent;
 import org.apache.rocketmq.client.java.retry.ExponentialBackoffRetryPolicy;
+import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,11 +63,10 @@ public class ProducerSettings extends ClientSettings {
     public Settings toProtobuf() {
         final Publishing publishing = Publishing.newBuilder()
             .addAllTopics(topics.stream().map(name -> Resource.newBuilder().setName(name).build())
-                .collect(Collectors.toList())).build();
+                .collect(Collectors.toList())).setValidateMessageType(validateMessageType).build();
         final Settings.Builder builder = Settings.newBuilder()
             .setAccessPoint(accessPoint.toProtobuf()).setClientType(clientType.toProtobuf())
             .setRequestTimeout(Durations.fromNanos(requestTimeout.toNanos())).setPublishing(publishing);
-        this.validateMessageType = publishing.getValidateMessageType();
         return builder.setBackoffPolicy(retryPolicy.toProtobuf()).setUserAgent(UserAgent.INSTANCE.toProtoBuf()).build();
     }
 
@@ -78,7 +78,11 @@ public class ProducerSettings extends ClientSettings {
                 + "clientType={}", clientId, pubSubCase, clientType);
             return;
         }
+        final apache.rocketmq.v2.RetryPolicy backoffPolicy = settings.getBackoffPolicy();
         final Publishing publishing = settings.getPublishing();
+        RetryPolicy exist = retryPolicy;
+        this.retryPolicy = exist.updateBackoff(backoffPolicy);
+        this.validateMessageType = settings.getPublishing().getValidateMessageType();
         this.maxBodySizeBytes = publishing.getMaxBodySize();
         this.arrivedFuture.setFuture(Futures.immediateVoidFuture());
     }

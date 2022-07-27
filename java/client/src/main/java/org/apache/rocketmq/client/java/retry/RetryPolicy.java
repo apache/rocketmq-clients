@@ -38,5 +38,13 @@ public interface RetryPolicy {
      */
     Duration getNextAttemptDelay(int attempt);
 
+    /**
+     * Update the retry backoff strategy and generate a new one.
+     *
+     * @param retryPolicy retry policy which contains the backoff strategy.
+     * @return the new retry policy.
+     */
+    RetryPolicy updateBackoff(apache.rocketmq.v2.RetryPolicy retryPolicy);
+
     apache.rocketmq.v2.RetryPolicy toProtobuf();
 }

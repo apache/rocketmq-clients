@@ -238,13 +238,9 @@ class ProcessQueueImpl implements ProcessQueue {
                 public void onSuccess(ReceiveMessageResult result) {
                     // Intercept after message reception.
                     final Duration duration = stopwatch.elapsed();
-                    final List<MessageCommon> commons = result.getMessages().stream()
+                    final List<MessageCommon> commons = result.getMessageViewImpls().stream()
                         .map(MessageViewImpl::getMessageCommon).collect(Collectors.toList());
-                    if (result.ok()) {
-                        consumer.doAfter(MessageHookPoints.RECEIVE, commons, duration, MessageHookPointsStatus.OK);
-                    } else {
-                        consumer.doAfter(MessageHookPoints.RECEIVE, commons, duration, MessageHookPointsStatus.ERROR);
-                    }
+                    consumer.doAfter(MessageHookPoints.RECEIVE, commons, duration, MessageHookPointsStatus.OK);
 
                     try {
                         onReceiveMessageResult(result);
@@ -322,11 +318,7 @@ class ProcessQueueImpl implements ProcessQueue {
     }
 
     private void onReceiveMessageResult(ReceiveMessageResult result) {
-        final List<MessageViewImpl> messages = result.getMessages();
-        if (!result.ok()) {
-            receiveMessageLater();
-            return;
-        }
+        final List<MessageViewImpl> messages = result.getMessageViewImpls();
         if (!messages.isEmpty()) {
             cacheMessages(messages);
             consumer.getReceivedMessagesQuantity().getAndAdd(messages.size());

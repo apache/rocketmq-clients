@@ -61,8 +61,8 @@ public class MessageQueueImpl {
         return this.queueId;
     }
 
-    public boolean matchMessageType(MessageType messageType) {
-        return acceptMessageTypes.contains(messageType);
+    public List<MessageType> getAcceptMessageTypes() {
+        return acceptMessageTypes;
     }
 
     public apache.rocketmq.v2.MessageQueue toProtobuf() {

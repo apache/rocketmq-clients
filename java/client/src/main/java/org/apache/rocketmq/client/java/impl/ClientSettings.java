@@ -28,7 +28,7 @@ public abstract class ClientSettings {
     protected final String clientId;
     protected final ClientType clientType;
     protected final Endpoints accessPoint;
-    protected RetryPolicy retryPolicy;
+    protected volatile RetryPolicy retryPolicy;
     protected final Duration requestTimeout;
     protected final SettableFuture<Void> arrivedFuture;
 
