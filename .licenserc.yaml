@@ -46,5 +46,6 @@ header:
     - 'cpp/WORKSPACE'
     - 'cpp/.gitignore'
     - 'cpp/third_party'
+    - 'cpp/cmake'
 
   comment: on-failure
