@@ -5,3 +5,4 @@ add_subdirectory(spdlog/1.10.0)
 
 include(OpenCensusHelpers)
 add_subdirectory(opencensus/0.4.0)
+add_subdirectory(opencensus/proto)

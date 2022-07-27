@@ -4,6 +4,8 @@ add_subdirectory(client)
 add_subdirectory(concurrent)
 add_subdirectory(log)
 add_subdirectory(scheduler)
+add_subdirectory(stats)
+#add_subdirectory(rocketmq)
 
 add_library(rocketmq
             $<TARGET_OBJECTS:admin>

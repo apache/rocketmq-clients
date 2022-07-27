@@ -18,7 +18,8 @@
 
 #include <chrono>
 
-#include "LoggerImpl.h"
+#include "rocketmq/Logger.h"
+#include "spdlog/spdlog.h"
 #include "OpencensusExporter.h"
 #include "Signature.h"
 
