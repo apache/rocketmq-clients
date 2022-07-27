@@ -8,7 +8,7 @@ add_subdirectory(stats)
 add_subdirectory(trace)
 add_subdirectory(rocketmq)
 
-add_library(rocketmq
+add_library(rocketmq STATIC
             $<TARGET_OBJECTS:admin>
             $<TARGET_OBJECTS:base>
             $<TARGET_OBJECTS:client>
@@ -18,3 +18,14 @@ add_library(rocketmq
             $<TARGET_OBJECTS:rocketmq_trace>
             $<TARGET_OBJECTS:impl>
             $<TARGET_OBJECTS:scheduler>)
+
+target_link_libraries(rocketmq
+        PUBLIC
+            absl::base
+            gRPC::grpc++
+            fmt
+            proto
+            opencensus::trace
+            opencensus::stats
+            opencensus_proto
+            spdlog)
