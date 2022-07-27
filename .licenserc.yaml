@@ -29,6 +29,7 @@ header:
     - 'NOTICE'
     - '**/*.BUILD'
     - '**/*.bzl'
+    - '**/*.bazel'
     - '.github/**'
     - '.gitignore'
     - 'golang/go.mod'
