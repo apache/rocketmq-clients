@@ -14,4 +14,7 @@ add_library(rocketmq
             $<TARGET_OBJECTS:client>
             $<TARGET_OBJECTS:concurrent>
             $<TARGET_OBJECTS:log>
+            $<TARGET_OBJECTS:rocketmq_stats>
+            $<TARGET_OBJECTS:rocketmq_trace>
+            $<TARGET_OBJECTS:impl>
             $<TARGET_OBJECTS:scheduler>)
