@@ -228,6 +228,14 @@ private:
 
   void doVerify(std::string target, std::string command_id, MessageConstPtr message);
 
+  /**
+   * ClientID is required to remain unique in the following scenarios:
+   *
+   * 1. Create multiple clients;
+   * 2. Restart the client program in container deployments;
+   *
+   * @return Unique Client-ID
+   */
   static std::string clientId();
 
   std::string metricServiceEndpoint() const;
