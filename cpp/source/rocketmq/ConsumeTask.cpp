@@ -18,11 +18,12 @@
 #include "ConsumeTask.h"
 
 #include "ConsumeStats.h"
-#include "rocketmq/Logger.h"
-#include "spdlog/spdlog.h"
 #include "PushConsumerImpl.h"
 #include "Tag.h"
 #include "rocketmq/ConsumeResult.h"
+#include "rocketmq/ErrorCode.h"
+#include "rocketmq/Logger.h"
+#include "spdlog/spdlog.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -70,42 +71,56 @@ void ConsumeTask::schedule() {
 }
 
 void ConsumeTask::onAck(std::shared_ptr<ConsumeTask> task, const std::error_code& ec) {
-  if (task->fifo_ && ec) {
-    auto service = task->service_.lock();
-    task->next_step_ = NextStep::Ack;
-    task->schedule();
-  } else {
-    // If it is not FIFO or ack operation succeeded
+  // Treat both success and invalid-receipt-handle as completion
+  if (!ec || ec == ErrorCode::InvalidReceiptHandle) {
     task->pop();
     task->next_step_ = NextStep::Consume;
+    task->submit();
+    return;
   }
-  task->submit();
+
+  // Try to ack again later
+  SPDLOG_WARN("Failed to ack message[message-id={}]. Cause: {}. Action: retry after 1s.", task->messages_[0]->id(),
+              ec.message());
+  task->next_step_ = NextStep::Ack;
+  task->schedule();
 }
 
 void ConsumeTask::onNack(std::shared_ptr<ConsumeTask> task, const std::error_code& ec) {
   assert(!task->fifo_);
   assert(!task->messages_.empty());
-  if (ec) {
-    SPDLOG_WARN("Failed to nack message[message-id={}]. Cause: {}", task->messages_[0]->id(), ec.message());
+
+  // Treat both success and invalid-receipt-handle as completion
+  if (!ec || ErrorCode::InvalidReceiptHandle == ec) {
+    task->pop();
+    task->next_step_ = NextStep::Consume;
+    task->submit();
+    return;
   }
-  task->pop();
-  task->next_step_ = NextStep::Consume;
-  task->submit();
+
+  SPDLOG_WARN("Failed to nack message[message-id={}]. Cause: {}. Action: retry after 1s.", task->messages_[0]->id(),
+              ec.message());
+  task->next_step_ = NextStep::Nack;
+  task->schedule();
 }
 
 void ConsumeTask::onForward(std::shared_ptr<ConsumeTask> task, const std::error_code& ec) {
   assert(task->fifo_);
   assert(!task->messages_.empty());
-  if (ec) {
-    SPDLOG_DEBUG("Failed to forward Message[message-id={}] to DLQ", task->messages_[0]->id());
-    task->next_step_ = NextStep::Forward;
-    task->schedule();
-  } else {
-    SPDLOG_DEBUG("Message[message-id={}] forwarded to DLQ", task->messages_[0]->id());
+
+  // Treat both success and invalid-receipt-handle as completion
+  if (!ec || ErrorCode::InvalidReceiptHandle == ec) {
+    SPDLOG_DEBUG("Message[message-id={}] is forwarded to DLQ", task->messages_[0]->id());
     task->pop();
     task->next_step_ = NextStep::Consume;
     task->submit();
+    return;
   }
+
+  SPDLOG_DEBUG("Failed to forward Message[message-id={}] to DLQ. Cause: {}.  Action: retry after 1s.",
+               task->messages_[0]->id(), ec.message());
+  task->next_step_ = NextStep::Forward;
+  task->schedule();
 }
 
 void ConsumeTask::process() {
@@ -199,6 +214,13 @@ void ConsumeTask::process() {
       svc->ack(*messages_[0], callback);
       break;
     }
+
+    case NextStep::Nack: {
+      auto callback = std::bind(&ConsumeTask::onNack, self, std::placeholders::_1);
+      svc->nack(*messages_[0], callback);
+      break;
+    }
+
     case NextStep::Forward: {
       assert(!messages_.empty());
       auto callback = std::bind(&ConsumeTask::onForward, self, std::placeholders::_1);
