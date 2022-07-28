@@ -44,6 +44,8 @@ if "com_google_googletest" not in native.existing_rules():
 ```
 
 ### How To Build
+
+#### Build with Bazel
 [Google Bazel](https://bazel.build/) is the primary build tool we supported, Please follow [bazel installation guide](https://docs.bazel.build/versions/main/install.html).
 
 
@@ -58,7 +60,34 @@ if "com_google_googletest" not in native.existing_rules():
    bazel test //...
    ```
 
+#### Build with CMake
+1. Make sure you have installed a modern CMake 3.13+ and C++ compilation toolchain that at least supports C++11;
 
+2. Following [gRPC installation instructions](https://grpc.io/docs/languages/cpp/quickstart/) to install grpc.
+
+   Note: Remember to `export MY_INSTALL_DIR=$HOME/grpc` as our primary CMakeLists.txt hints 
+   ```cmake
+   list(APPEND CMAKE_PREFIX_PATH $ENV{HOME}/grpc)
+   ```
+   If your grpc is installed somewhere else yet non-standard, please adjust accordingly.
+
+3. Example programs uses [gflags](https://github.com/gflags/gflags) to parse command arguments. Please install it to $HOME/gflags
+   as CMakeLists.txt has the following find package statements
+   ```cmake
+    # Assume gflags is install in $HOME/gflags
+    list(APPEND CMAKE_PREFIX_PATH $ENV{HOME}/gflags)
+    find_package(gflags REQUIRED)
+   ```
+   
+4. OpenSSL development package is also required. 
+
+5. Run the following commands to build from ${YOUR_GIT_REPOSITORY}/cpp directory
+   ```shell
+   mkdir build && cd build
+   cmake -DOPENSSL_ROOT_DIR=/usr/local/Cellar/openssl@1.1/1.1.1q ..
+   make -j $(nproc)
+   ```
+6. Static archive and dynamic linked libraries are found in the build directory.
 
 ### Run Examples
 
