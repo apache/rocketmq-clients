@@ -1,6 +1,6 @@
 function(add_example name file)
     add_executable(${name} ${file})
-    target_link_libraries(${name} PRIVATE api gflags rocketmq)
+    target_link_libraries(${name} PRIVATE api gflags ZLIB::ZLIB rocketmq)
 endfunction()
 
 add_example(example_producer ExampleProducer.cpp)
