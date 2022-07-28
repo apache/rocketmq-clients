@@ -1,12 +1,10 @@
 name: License checker
-
 on:
   pull_request:
+    types: [opened, reopened, synchronize]
+  push:
     branches:
-      - develop
       - master
-      - main
-
 jobs:
   check-license:
     runs-on: ubuntu-latest
