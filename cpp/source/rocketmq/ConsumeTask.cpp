@@ -18,7 +18,8 @@
 #include "ConsumeTask.h"
 
 #include "ConsumeStats.h"
-#include "LoggerImpl.h"
+#include "rocketmq/Logger.h"
+#include "spdlog/spdlog.h"
 #include "PushConsumerImpl.h"
 #include "Tag.h"
 #include "rocketmq/ConsumeResult.h"

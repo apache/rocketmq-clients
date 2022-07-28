@@ -21,7 +21,8 @@
 #include <system_error>
 #include <utility>
 
-#include "LoggerImpl.h"
+#include "rocketmq/Logger.h"
+#include "spdlog/spdlog.h"
 #include "MixAll.h"
 #include "ProducerImpl.h"
 #include "StaticNameServerResolver.h"

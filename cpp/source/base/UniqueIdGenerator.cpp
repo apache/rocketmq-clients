@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 #include "UniqueIdGenerator.h"
-#include "LoggerImpl.h"
+
+#include <cstring>
+
+#include "spdlog/spdlog.h"
 #include "MixAll.h"
 #include "UtilAll.h"
 #include "absl/base/internal/endian.h"
-#include <cstring>
+
 
 #ifdef _WIN32
 #include <process.h>

@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 #include "CountdownLatch.h"
-#include "LoggerImpl.h"
+
+#include "rocketmq/Logger.h"
+#include "spdlog/spdlog.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 

@@ -1,0 +1,13 @@
+add_library(admin
+        OBJECT
+            AdminFacade.cpp
+            AdminServerImpl.cpp
+            AdminServiceImpl.cpp)
+target_include_directories(admin
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(admin
+        PRIVATE
+            api
+            proto
+            spdlog)

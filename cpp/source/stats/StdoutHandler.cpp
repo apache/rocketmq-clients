@@ -26,14 +26,14 @@ void StdoutHandler::ExportViewData(
   for (const auto& datum : data) {
     const auto& view_data = datum.second;
     const auto& descriptor = datum.first;
-    auto start_times = view_data.start_times();
+    auto record_time = view_data.end_time();
     auto columns = descriptor.columns();
 
     switch (view_data.type()) {
       case opencensus::stats::ViewData::Type::kInt64: {
         auto data_map = view_data.int_data();
         for (const auto& entry : data_map) {
-          absl::Time time = start_times[entry.first];
+          absl::Time time = record_time;
           std::string line;
           line.append(absl::FormatTime(time)).append(" ");
           line.append(descriptor.name());

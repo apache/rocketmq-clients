@@ -20,7 +20,8 @@
 
 #include "ClientManagerImpl.h"
 #include "ConsumeMessageType.h"
-#include "LoggerImpl.h"
+#include "rocketmq/Logger.h"
+#include "spdlog/spdlog.h"
 #include "ProcessQueue.h"
 #include "PushConsumerImpl.h"
 

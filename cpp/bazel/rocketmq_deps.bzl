@@ -1,4 +1,5 @@
 """Load dependencies needed to compile and test the RocketMQ library as a 3rd-party consumer."""
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
@@ -8,15 +9,15 @@ def rocketmq_deps():
         name = "opentelementry_api",
         actual = "@com_github_opentelemetry//api:api",
     )
-    
+
     maybe(
         http_archive,
         name = "com_google_googletest",
         sha256 = "b4870bf121ff7795ba20d20bcdd8627b8e088f2d1dab299a031c1034eddc93d5",
         strip_prefix = "googletest-release-1.11.0",
         urls = [
-        "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/googletest/googletest-release-1.11.0.tar.gz",
-        "https://github.com/google/googletest/archive/refs/tags/release-1.11.0.tar.gz",
+            "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/googletest/googletest-release-1.11.0.tar.gz",
+            "https://github.com/google/googletest/archive/refs/tags/release-1.11.0.tar.gz",
         ],
     )
 
@@ -74,7 +75,7 @@ def rocketmq_deps():
         strip_prefix = "rules_proto_grpc-4.1.1",
         urls = [
             "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/rules_proto_grpc/rules_proto_grpc-4.1.1.tar.gz",
-            "https://github.com/rules-proto-grpc/rules_proto_grpc/archive/refs/tags/4.1.1.tar.gz"
+            "https://github.com/rules-proto-grpc/rules_proto_grpc/archive/refs/tags/4.1.1.tar.gz",
         ],
     )
 
@@ -108,7 +109,7 @@ def rocketmq_deps():
         urls = [
             "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/gflags/gflags-2.2.2.tar.gz",
             "https://github.com/gflags/gflags/archive/refs/tags/v2.2.2.tar.gz",
-        ]
+        ],
     )
 
     maybe(
@@ -140,7 +141,7 @@ def rocketmq_deps():
         sha256 = "e89f15d54b0ddab0cd41d18cb2299e5447db704e2b05ff141cb1769170671466",
         urls = [
             "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/googleapis/googleapis-af7fb72df59a814221b123a4d1acb3f6c3e6cc95.zip",
-            "https://github.com/googleapis/googleapis/archive/af7fb72df59a814221b123a4d1acb3f6c3e6cc95.zip"
+            "https://github.com/googleapis/googleapis/archive/af7fb72df59a814221b123a4d1acb3f6c3e6cc95.zip",
         ],
         strip_prefix = "googleapis-af7fb72df59a814221b123a4d1acb3f6c3e6cc95",
     )

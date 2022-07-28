@@ -30,7 +30,6 @@
 #include "TopicAssignmentInfo.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "gtest/gtest_prod.h"
 #include "rocketmq/FilterExpression.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
@@ -133,8 +132,6 @@ private:
                              rmq::ReceiveMessageRequest& request);
 
   void wrapFilterExpression(rmq::FilterExpression* filter_expression);
-
-  FRIEND_TEST(ProcessQueueTest, testExpired);
 };
 
 ROCKETMQ_NAMESPACE_END

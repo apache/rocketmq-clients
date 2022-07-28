@@ -31,7 +31,8 @@
 
 #include "ClientManagerImpl.h"
 #include "InvocationContext.h"
-#include "LoggerImpl.h"
+#include "rocketmq/Logger.h"
+#include "spdlog/spdlog.h"
 #include "MessageExt.h"
 #include "NamingScheme.h"
 #include "SessionImpl.h"
