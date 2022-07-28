@@ -31,7 +31,7 @@ public:
 
   void onCompletion(const std::error_code& ec, const ReceiveMessageResult& result);
 
-  void receiveMessageLater();
+  void receiveMessageLater(std::chrono::milliseconds delay);
 
   void receiveMessageImmediately();
 
