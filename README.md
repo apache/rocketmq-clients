@@ -21,7 +21,6 @@ Provide cloud-native and robust solutions for Java, C++, C#, Golang, Rust and al
 |    Producer     |   ✅   |   ✅   |   ✅   |
 |  Push Consumer  |   ✅   |   ✅   |   ❌   |
 | Simple Consumer |   ✅   |   ✅   |   ❌   |
-|  Pull Consumer  |   ❌   |   ❌   |   ❌   |
 
 ## Related
 
