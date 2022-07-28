@@ -30,7 +30,7 @@ ReceiveMessageStreamReader::ReceiveMessageStreamReader(std::weak_ptr<ClientManag
                                                        std::string peer_address,
                                                        rmq::ReceiveMessageRequest request,
                                                        std::unique_ptr<ReceiveMessageContext> context)
-    : client_manager_(client_manager),
+    : client_manager_(std::move(client_manager)),
       stub_(stub),
       peer_address_(std::move(peer_address)),
       request_(std::move(request)),

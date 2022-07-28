@@ -24,6 +24,7 @@
 #include "spdlog/spdlog.h"
 #include "ProcessQueue.h"
 #include "PushConsumerImpl.h"
+#include "rocketmq/ErrorCode.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -44,9 +45,15 @@ void AsyncReceiveMessageCallback::onCompletion(const std::error_code& ec, const 
     return;
   }
 
+  if (ec == ErrorCode::TooManyRequests) {
+    SPDLOG_WARN("Action of receiving message is throttled. Retry after 20ms. Queue={}", process_queue->simpleName());
+    receiveMessageLater(std::chrono::milliseconds(20));
+    return;
+  }
+
   if (ec) {
-    SPDLOG_WARN("Receive message from {} failed. Cause: {}. Attempt later.", process_queue->simpleName(), ec.message());
-    receiveMessageLater();
+    SPDLOG_WARN("Receive message from {} failed. Cause: {}. Retry after 1 second.", process_queue->simpleName(), ec.message());
+    receiveMessageLater(std::chrono::seconds (1));
     return;
   }
 
@@ -70,14 +77,14 @@ void AsyncReceiveMessageCallback::checkThrottleThenReceive() {
     SPDLOG_INFO("Number of messages in {} exceeds throttle threshold. Receive messages later.",
                 process_queue->simpleName());
     process_queue->syncIdleState();
-    receiveMessageLater();
+    receiveMessageLater(std::chrono::seconds(1));
   } else {
     // Receive message immediately
     receiveMessageImmediately();
   }
 }
 
-void AsyncReceiveMessageCallback::receiveMessageLater() {
+void AsyncReceiveMessageCallback::receiveMessageLater(std::chrono::milliseconds delay) {
   auto process_queue = process_queue_.lock();
   if (!process_queue) {
     return;
@@ -93,8 +100,7 @@ void AsyncReceiveMessageCallback::receiveMessageLater() {
     }
   };
 
-  client_instance->getScheduler()->schedule(task, RECEIVE_LATER_TASK_NAME, std::chrono::seconds(1),
-                                            std::chrono::seconds(0));
+  client_instance->getScheduler()->schedule(task, RECEIVE_LATER_TASK_NAME, delay, std::chrono::seconds(0));
 }
 
 void AsyncReceiveMessageCallback::receiveMessageImmediately() {
