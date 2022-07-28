@@ -129,6 +129,7 @@ SimpleConsumer SimpleConsumerBuilder::build() {
   simple_consumer.impl_->withRequestTimeout(configuration_.requestTimeout());
   simple_consumer.impl_->withNameServerResolver(std::make_shared<StaticNameServerResolver>(configuration_.endpoints()));
   simple_consumer.impl_->withCredentialsProvider(configuration_.credentialsProvider());
+  simple_consumer.impl_->withReceiveMessageTimeout(await_duration_);
 
   for (const auto& entry : subscriptions_) {
     simple_consumer.impl_->subscribe(entry.first, entry.second);

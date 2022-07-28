@@ -324,9 +324,8 @@ void SimpleConsumerImpl::receive(std::size_t limit,
     callback(ec, result.messages);
   };
 
-  auto timeout = absl::ToChronoMilliseconds(config().subscriber.polling_timeout);
-  SPDLOG_DEBUG("ReceiveMessage.polling_timeout: {}ms", timeout.count());
-  manager()->receiveMessage(target, metadata, request, timeout, cb);
+  SPDLOG_DEBUG("ReceiveMessage.polling_timeout: {}ms", MixAll::millisecondsOf(long_polling_duration_));
+  manager()->receiveMessage(target, metadata, request, long_polling_duration_, cb);
 }
 
 void SimpleConsumerImpl::wrapAckRequest(const Message& message, AckMessageRequest& request) {

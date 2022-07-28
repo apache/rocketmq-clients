@@ -17,11 +17,12 @@
 
 #include "ReceiveMessageStreamReader.h"
 
-#include "apache/rocketmq/v2/definition.pb.h"
+#include <chrono>
 
+#include "apache/rocketmq/v2/definition.pb.h"
+#include "rocketmq/ErrorCode.h"
 #include "rocketmq/Logger.h"
 #include "spdlog/spdlog.h"
-#include "rocketmq/ErrorCode.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -38,7 +39,7 @@ ReceiveMessageStreamReader::ReceiveMessageStreamReader(std::weak_ptr<ClientManag
   for (const auto& entry : context_->metadata) {
     client_context_.AddMetadata(entry.first, entry.second);
   }
-  client_context_.set_deadline(std::chrono::system_clock::now() + context_->timeout);
+  client_context_.set_deadline(std::chrono::system_clock::now() + context_->timeout + std::chrono::milliseconds(500));
 
   stub_->async()->ReceiveMessage(&client_context_, &request_, this);
   result_.source_host = peer_address_;
