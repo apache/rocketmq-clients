@@ -41,6 +41,8 @@ enum class NextStep : std::uint8_t
    */
   Ack,
 
+  Nack,
+
   /**
    * @brief Forward the head, aka, messages_[0], to dead-letter-queue.
    */

@@ -609,6 +609,7 @@ std::string ClientImpl::clientId() {
   std::string processID = std::to_string(getpid());
   ss << processID << "#";
   ss << sequence.fetch_add(1, std::memory_order_relaxed);
+  ss << "_" << MixAll::millisecondsOf(std::chrono::system_clock::now().time_since_epoch());
   return ss.str();
 }
 
