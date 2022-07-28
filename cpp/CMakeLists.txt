@@ -29,5 +29,6 @@ if (BUILD_EXAMPLES)
     # Assume gflags is install in $HOME/gflags
     list(APPEND CMAKE_PREFIX_PATH $ENV{HOME}/gflags)
     find_package(gflags REQUIRED)
+    find_package(ZLIB REQUIRED)
     add_subdirectory(examples)
 endif ()
