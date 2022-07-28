@@ -97,6 +97,11 @@ public:
     return *this;
   }
 
+  SimpleConsumerBuilder& withAwaitDuration(std::chrono::milliseconds await_duration) {
+    await_duration_ = await_duration;
+    return *this;
+  }
+
   SimpleConsumer build();
 
 private:
@@ -106,6 +111,8 @@ private:
   Configuration configuration_;
 
   std::unordered_map<std::string, FilterExpression> subscriptions_;
+
+  std::chrono::milliseconds await_duration_;
 };
 
 ROCKETMQ_NAMESPACE_END

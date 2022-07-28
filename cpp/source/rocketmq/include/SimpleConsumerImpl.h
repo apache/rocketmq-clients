@@ -16,6 +16,8 @@
  */
 #pragma once
 
+#include <chrono>
+
 #include "ClientImpl.h"
 #include "rocketmq/FilterExpression.h"
 #include "rocketmq/SimpleConsumer.h"
@@ -55,6 +57,10 @@ public:
                                std::chrono::milliseconds duration,
                                ChangeInvisibleDurationCallback callback);
 
+  void withReceiveMessageTimeout(std::chrono::milliseconds receive_timeout) {
+    long_polling_duration_ = receive_timeout;
+  }
+
 protected:
   void topicsOfInterest(std::vector<std::string> topics) override;
 
@@ -71,6 +77,8 @@ private:
   std::size_t refresh_assignment_task_{0};
 
   static thread_local std::size_t assignment_index_;
+
+  std::chrono::milliseconds long_polling_duration_{MixAll::DefaultReceiveMessageTimeout};
 
   void refreshAssignments0() LOCKS_EXCLUDED(topic_assignments_mtx_, subscriptions_mtx_);
 
