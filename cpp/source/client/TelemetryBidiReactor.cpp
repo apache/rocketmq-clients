@@ -137,7 +137,7 @@ void TelemetryBidiReactor::OnReadDone(bool ok) {
         fireClose();
         return;
       }
-
+      SPDLOG_DEBUG("Receive orphan transaction command: {}", read_.DebugString());
       auto message = client->manager()->wrapMessage(read_.release_verify_message_command()->message());
       auto raw = const_cast<Message*>(message.get());
       raw->mutableExtension().target_endpoint = peer_address_;

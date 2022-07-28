@@ -79,6 +79,7 @@ int main(int argc, char* argv[]) {
                                              .withEndpoints(FLAGS_access_point)
                                              .withCredentialsProvider(credentials_provider)
                                              .build())
+                      .withTopics({FLAGS_topic})
                       .withTransactionChecker(checker)
                       .build();
 
@@ -121,6 +122,9 @@ int main(int argc, char* argv[]) {
   if (stats_thread.joinable()) {
     stats_thread.join();
   }
+
+  std::cout << "Wait 5 minutes for potential unresolved transactional message callback" << std::endl;
+  std::this_thread::sleep_for(std::chrono::minutes(5));
 
   return EXIT_SUCCESS;
 }
