@@ -22,9 +22,9 @@ Provide cloud-native and robust solutions for Java, C++, C#, Golang, Rust and al
 |          Producer with FIFO messages           |   ✅   |   ✅   |   ✅   |  WIP   |  WIP  |   WIP   |  WIP   |
 |          Producer with timed messages          |   ✅   |   ✅   |   ✅   |  WIP   |  WIP  |   WIP   |  WIP   |
 |      Producer with transactional messages      |   ✅   |   ✅   |   ✅   |  WIP   |  WIP  |   WIP   |  WIP   |
+|                Simple Consumer                 |   ✅   |   ✅   |   ✅   |  WIP   |  WIP  |   WIP   |  WIP   |
 | Push Consumer with concurrent message listener |   ✅   |   ✅   |   ❌   |  WIP   |  WIP  |   WIP   |  WIP   |
 |    Push Consumer with FIFO message listener    |   ✅   |   ✅   |   ❌   |  WIP   |  WIP  |   WIP   |  WIP   |
-|                Simple Consumer                 |   ✅   |   ✅   |   ✅   |  WIP   |  WIP  |   WIP   |  WIP   |
 
 ## Related
 
