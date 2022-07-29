@@ -1,0 +1,25 @@
+name: Rust
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  push:
+    branches:
+      - master
+      - rust_dev
+
+jobs:
+  build_and_test:
+    name: Rust project
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Build
+        working-directory: ./rust
+        run: cargo build
+
+      - name: Unit Test
+        working-directory: ./rust
+        run: cargo test
