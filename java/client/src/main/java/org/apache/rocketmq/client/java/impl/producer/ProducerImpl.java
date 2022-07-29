@@ -440,7 +440,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         if (producerSettings.isValidateMessageType() && !acceptMessageTypes.contains(messageType)) {
             final IllegalArgumentException e = new IllegalArgumentException("Current message type not match with "
                 + "topic accept message types, topic=" + topic + ", actualMessageType=" + messageType + ", "
-                + "acceptMessageTypes={}" + acceptMessageTypes);
+                + "acceptMessageTypes=" + acceptMessageTypes);
             future.setException(e);
             return;
         }
