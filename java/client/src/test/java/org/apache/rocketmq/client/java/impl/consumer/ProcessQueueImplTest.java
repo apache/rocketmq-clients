@@ -162,7 +162,7 @@ public class ProcessQueueImplTest extends TestBase {
         when(pushConsumer.wrapReceiveMessageRequest(anyInt(), any(MessageQueueImpl.class),
             any(FilterExpression.class))).thenReturn(request);
         processQueue.fetchMessageImmediately();
-        Thread.sleep(ProcessQueueImpl.RECEIVE_LATER_DELAY.toMillis() / 2);
+        Thread.sleep(3000);
         verify(pushConsumer, times(cachedMessagesCountThresholdPerQueue))
             .receiveMessage(any(ReceiveMessageRequest.class), any(MessageQueueImpl.class), any(Duration.class));
     }
