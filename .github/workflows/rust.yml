@@ -2,10 +2,14 @@ name: Rust
 on:
   pull_request:
     types: [opened, reopened, synchronize]
+    paths:
+      - rust    
   push:
     branches:
       - master
       - rust_dev
+    paths:
+      - rust      
 
 jobs:
   build_and_test:
