@@ -81,8 +81,7 @@ abstract class ConsumerImpl extends ClientImpl {
             Metadata metadata = sign();
             final Endpoints endpoints = mq.getBroker().getEndpoints();
             final ListenableFuture<RpcInvocation<Iterator<ReceiveMessageResponse>>> future =
-                clientManager.receiveMessage(endpoints,
-                    metadata, request, timeout);
+                clientManager.receiveMessage(endpoints, metadata, request, timeout);
             return Futures.transformAsync(future, context -> {
                 final Iterator<ReceiveMessageResponse> it = context.getResponse();
                 Status status = Status.newBuilder().setCode(Code.INTERNAL_SERVER_ERROR)
