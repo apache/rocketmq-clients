@@ -256,9 +256,8 @@ class ProcessQueueImpl implements ProcessQueue {
                         onReceiveMessageResult(result);
                     } catch (Throwable t) {
                         // Should never reach here.
-                        LOGGER.error("[Bug] Exception raised while handling receive result, would receive later," +
-                                " mq={}, endpoints={}, clientId={}",
-                            mq, endpoints, consumer.clientId(), t);
+                        LOGGER.error("[Bug] Exception raised while handling receive result, mq={}, endpoints={}, "
+                            + "clientId={}", mq, endpoints, consumer.clientId(), t);
                         onReceiveMessageException(t);
                     }
                 }
