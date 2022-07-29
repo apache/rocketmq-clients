@@ -55,7 +55,7 @@ import org.apache.rocketmq.client.java.impl.ClientSettings;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
-import org.apache.rocketmq.client.java.route.TopicRouteDataResult;
+import org.apache.rocketmq.client.java.route.TopicRouteData;
 import org.apache.rocketmq.client.java.rpc.RpcInvocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -130,9 +130,8 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
                 this.state(), clientId);
             throw new IllegalStateException("Simple consumer is not running now");
         }
-        final ListenableFuture<TopicRouteDataResult> future = getRouteDataResult(topic);
-        TopicRouteDataResult topicRouteDataResult = handleClientFuture(future);
-        topicRouteDataResult.checkAndGetTopicRouteData();
+        final ListenableFuture<TopicRouteData> future = getRouteData(topic);
+        handleClientFuture(future);
         subscriptionExpressions.put(topic, filterExpression);
         return this;
     }
@@ -359,9 +358,9 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         return simpleConsumerSettings;
     }
 
-    public void onTopicRouteDataResultUpdate0(String topic, TopicRouteDataResult topicRouteDataResult) {
+    public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
         final SubscriptionLoadBalancer subscriptionLoadBalancer =
-            new SubscriptionLoadBalancer(topicRouteDataResult);
+            new SubscriptionLoadBalancer(topicRouteData);
         subTopicRouteDataResultCache.put(topic, subscriptionLoadBalancer);
     }
 
@@ -372,7 +371,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
             future0.set(result);
             return future0;
         }
-        final ListenableFuture<TopicRouteDataResult> future = getRouteDataResult(topic);
+        final ListenableFuture<TopicRouteData> future = getRouteData(topic);
         return Futures.transform(future, topicRouteDataResult -> {
             final SubscriptionLoadBalancer subscriptionLoadBalancer =
                 new SubscriptionLoadBalancer(topicRouteDataResult);

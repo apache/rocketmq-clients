@@ -17,20 +17,20 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.math.IntMath;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import javax.annotation.concurrent.Immutable;
 import org.apache.commons.lang3.RandomUtils;
-import org.apache.rocketmq.client.apis.ClientException;
-import org.apache.rocketmq.client.java.exception.NotFoundException;
 import org.apache.rocketmq.client.java.misc.Utilities;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
-import org.apache.rocketmq.client.java.route.TopicRouteDataResult;
+import org.apache.rocketmq.client.java.route.TopicRouteData;
 
 @Immutable
 public class SubscriptionLoadBalancer {
-    private final TopicRouteDataResult topicRouteDataResult;
     /**
      * Index for round-robin.
      */
@@ -40,30 +40,19 @@ public class SubscriptionLoadBalancer {
      */
     private final ImmutableList<MessageQueueImpl> messageQueues;
 
-    public SubscriptionLoadBalancer(TopicRouteDataResult topicRouteDataResult) {
-        this.topicRouteDataResult = topicRouteDataResult;
+    public SubscriptionLoadBalancer(TopicRouteData topicRouteData) {
         this.index = new AtomicInteger(RandomUtils.nextInt(0, Integer.MAX_VALUE));
-        final ImmutableList.Builder<MessageQueueImpl> builder = ImmutableList.builder();
-        if (!topicRouteDataResult.ok()) {
-            this.messageQueues = builder.build();
-            return;
+        final List<MessageQueueImpl> mqs = topicRouteData.getMessageQueues().stream()
+            .filter((Predicate<MessageQueueImpl>) mq -> mq.getPermission().isReadable() &&
+                Utilities.MASTER_BROKER_ID == mq.getBroker().getId())
+            .collect(Collectors.toList());
+        if (mqs.isEmpty()) {
+            throw new IllegalArgumentException("No readable message queue found, topiRouteData=" + topicRouteData);
         }
-        for (MessageQueueImpl messageQueue : topicRouteDataResult.getTopicRouteData().getMessageQueues()) {
-            if (!messageQueue.getPermission().isReadable() ||
-                Utilities.MASTER_BROKER_ID != messageQueue.getBroker().getId()) {
-                continue;
-            }
-            builder.add(messageQueue);
-        }
-        this.messageQueues = builder.build();
+        this.messageQueues = ImmutableList.<MessageQueueImpl>builder().addAll(mqs).build();
     }
 
-    public MessageQueueImpl takeMessageQueue() throws ClientException {
-        topicRouteDataResult.checkAndGetTopicRouteData();
-        if (messageQueues.isEmpty()) {
-            // Should never reach here.
-            throw new NotFoundException("Failed to take message queue due to readable message queue doesn't exist");
-        }
+    public MessageQueueImpl takeMessageQueue() {
         final int next = index.getAndIncrement();
         return messageQueues.get(IntMath.mod(next, messageQueues.size()));
     }

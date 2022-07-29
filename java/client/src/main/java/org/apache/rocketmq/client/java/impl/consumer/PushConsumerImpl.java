@@ -77,7 +77,7 @@ import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
-import org.apache.rocketmq.client.java.route.TopicRouteDataResult;
+import org.apache.rocketmq.client.java.route.TopicRouteData;
 import org.apache.rocketmq.client.java.rpc.RpcInvocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -234,9 +234,8 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
                 this.state(), clientId);
             throw new IllegalStateException("Push consumer is not running now");
         }
-        final ListenableFuture<TopicRouteDataResult> future = getRouteDataResult(topic);
-        TopicRouteDataResult topicRouteDataResult = handleClientFuture(future);
-        topicRouteDataResult.checkAndGetTopicRouteData();
+        final ListenableFuture<TopicRouteData> future = getRouteData(topic);
+        handleClientFuture(future);
         subscriptionExpressions.put(topic, filterExpression);
         return this;
     }
@@ -257,9 +256,9 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
     }
 
     private ListenableFuture<Endpoints> pickEndpointsToQueryAssignments(String topic) {
-        final ListenableFuture<TopicRouteDataResult> future = getRouteDataResult(topic);
-        return Futures.transformAsync(future, topicRouteDataResult -> {
-            Endpoints endpoints = topicRouteDataResult.checkAndGetTopicRouteData().pickEndpointsToQueryAssignments();
+        final ListenableFuture<TopicRouteData> future = getRouteData(topic);
+        return Futures.transformAsync(future, topicRouteData -> {
+            Endpoints endpoints = topicRouteData.pickEndpointsToQueryAssignments();
             return Futures.immediateFuture(endpoints);
         }, MoreExecutors.directExecutor());
     }
@@ -513,7 +512,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
                     .setStatus(status)
                     .build();
                 try {
-                    telemeter(endpoints, command);
+                    telemetry(endpoints, command);
                 } catch (Throwable t) {
                     LOGGER.error("Failed to send message verification result command, endpoints={}, command={}, "
                         + "messageId={}, clientId={}", endpoints, command, messageId, clientId, t);
