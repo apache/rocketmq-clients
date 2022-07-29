@@ -324,7 +324,7 @@ class ProducerImpl extends ClientImpl implements Producer {
     /**
      * Take message queue(s) from route for message publishing.
      */
-    private List<MessageQueueImpl> takeMessageQueues(PublishingLoadBalancer result) throws ClientException {
+    private List<MessageQueueImpl> takeMessageQueues(PublishingLoadBalancer result) {
         return result.takeMessageQueues(isolated, this.getRetryPolicy().getMaxAttempts());
     }
 
