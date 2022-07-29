@@ -3,12 +3,12 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
     paths:
-      - csharp
+      - 'csharp/**'
   push:
     branches:
       - master
     paths:
-      - csharp  
+      - 'csharp/**'  
 jobs:
   c_sharp:
     name: "C# (ubuntu-18.04)"

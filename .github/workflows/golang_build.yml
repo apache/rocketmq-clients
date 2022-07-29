@@ -3,12 +3,12 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
     paths:
-      - golang
+      - 'golang/**'
   push:
     branches:
       - master
     paths:
-      - golang
+      - 'golang/**'
 jobs:
   cpp_build:
     name: "Golang (${{ matrix.os }}, Go ${{ matrix.go }})"

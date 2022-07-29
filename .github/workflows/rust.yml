@@ -3,13 +3,13 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
     paths:
-      - rust    
+      - 'rust/**'
   push:
     branches:
       - master
       - rust_dev
     paths:
-      - rust      
+      - 'rust/**'
 
 jobs:
   build_and_test:

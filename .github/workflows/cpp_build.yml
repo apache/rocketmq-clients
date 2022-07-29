@@ -3,12 +3,12 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
     paths:
-      - cpp
+      - 'cpp/**'
   push:
     branches:
       - master
     paths:
-      - cpp
+      - 'cpp/**'
 jobs:
   cpp_build:
     name: "CPP (${{ matrix.os }})"
