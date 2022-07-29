@@ -48,5 +48,5 @@
         <appender-ref ref="DefaultAppender" additivity="false"/>
     </root>
     <!-- ref: https://github.com/grpc/grpc-java/issues/3033 -->
-     <logger name="io.grpc" level="${rocketmq.grpc.log.level:-error}"/>
+    <!-- <logger name="io.grpc" level="warn"/> -->
 </configuration>

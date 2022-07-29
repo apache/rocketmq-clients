@@ -97,7 +97,11 @@ import org.slf4j.LoggerFactory;
 public abstract class ClientImpl extends AbstractIdleService implements Client, ClientSessionHandler,
     MessageInterceptor {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientImpl.class);
-    private static final Duration TELEMETRY_TIMEOUT = Duration.ofDays(102 * 365);
+    /**
+     * The telemetry timeout should not be too long, otherwise
+     * <a href="https://github.com/grpc/grpc-java/issues/7351">this issue</a> may be triggered in JDK8 + macOS.
+     */
+    private static final Duration TELEMETRY_TIMEOUT = Duration.ofDays(60 * 365);
 
     protected final ClientManager clientManager;
     protected final ClientConfiguration clientConfiguration;
