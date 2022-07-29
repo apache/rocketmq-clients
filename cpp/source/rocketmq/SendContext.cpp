@@ -102,7 +102,18 @@ void SendContext::onFailure(const std::error_code& ec) noexcept {
 
   auto message_queue = candidates_[attempt_times_ % candidates_.size()];
   request_time_ = std::chrono::steady_clock::now();
-  producer->sendImpl(shared_from_this());
+
+  auto ctx = shared_from_this();
+  // If publish message requests are throttled, retry after backoff
+  if (ErrorCode::TooManyRequests == ec) {
+    auto&& backoff = publisher->backoff(attempt_times_);
+    SPDLOG_DEBUG("Publish message[topic={}, message-id={}] is throttled. Retry after {}ms", message_->topic(),
+                 message_->id(), MixAll::millisecondsOf(backoff));
+    auto retry_cb = [=]() { producer->sendImpl(ctx); };
+    producer->schedule("retry-after-send-throttle", retry_cb, backoff);
+    return;
+  }
+  producer->sendImpl(ctx);
 }
 
 ROCKETMQ_NAMESPACE_END

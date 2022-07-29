@@ -186,7 +186,7 @@ void ClientImpl::start() {
   if (!metric_service_endpoint.empty()) {
     std::weak_ptr<Client> client_weak_ptr(self());
 #ifdef DEBUG_METRIC_EXPORTING
-    opencensus::stats::StatsExporter::SetInterval(absl::Seconds(1));
+    opencensus::stats::StatsExporter::SetInterval(absl::Seconds(30));
     opencensus::stats::StatsExporter::RegisterPushHandler(absl::make_unique<StdoutHandler>());
 #else
     opencensus::stats::StatsExporter::SetInterval(absl::Minutes(1));

@@ -217,8 +217,6 @@ private:
 
   void fetchRoutes() LOCKS_EXCLUDED(topic_filter_expression_table_mtx_);
 
-  std::chrono::milliseconds invisibleDuration(std::size_t attempt);
-
   void collectCacheStats() LOCKS_EXCLUDED(process_queue_table_mtx_);
 
   friend class ConsumeMessageService;
