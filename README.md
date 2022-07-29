@@ -16,15 +16,18 @@ Provide cloud-native and robust solutions for Java, C++, C#, Golang, Rust and al
 
 ## Features and Status
 
-|                    Feature                     | Java  | C/C++ |  C#   | Golang | Rust  | node.js | Python |
-| :--------------------------------------------: | :---: | :---: | :---: | :----: | :---: | :-----: | :----: |
-|        Producer with standard messages         |   ✅   |   ✅   |   ✅   |  WIP   |  WIP  |   WIP   |  WIP   |
-|          Producer with FIFO messages           |   ✅   |   ✅   |   ✅   |  WIP   |  WIP  |   WIP   |  WIP   |
-|          Producer with timed messages          |   ✅   |   ✅   |   ✅   |  WIP   |  WIP  |   WIP   |  WIP   |
-|      Producer with transactional messages      |   ✅   |   ✅   |   ✅   |  WIP   |  WIP  |   WIP   |  WIP   |
-|                Simple Consumer                 |   ✅   |   ✅   |   ✅   |  WIP   |  WIP  |   WIP   |  WIP   |
-| Push Consumer with concurrent message listener |   ✅   |   ✅   |   ❌   |  WIP   |  WIP  |   WIP   |  WIP   |
-|    Push Consumer with FIFO message listener    |   ✅   |   ✅   |   ❌   |  WIP   |  WIP  |   WIP   |  WIP   |
+* Ready - ✅
+* Work in progress - 🚧
+
+| Feature                                        | Java  | C/C++ |  C#   | Golang | Rust  | Node.js | Python |
+| ---------------------------------------------- | :---: | :---: | :---: | :----: | :---: | :-----: | :----: |
+| Producer with standard messages                |   ✅   |   ✅   |   ✅   |   🚧    |   🚧   |    🚧    |   🚧    |
+| Producer with FIFO messages                    |   ✅   |   ✅   |   ✅   |   🚧    |   🚧   |    🚧    |   🚧    |
+| Producer with timed/delay messages             |   ✅   |   ✅   |   ✅   |   🚧    |   🚧   |    🚧    |   🚧    |
+| Producer with transactional messages           |   ✅   |   ✅   |   ✅   |   🚧    |   🚧   |    🚧    |   🚧    |
+| Push consumer with concurrent message listener |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |    🚧    |   🚧    |
+| Push consumer with FIFO message listener       |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |    🚧    |   🚧    |
+| Simple consumer                                |   ✅   |   ✅   |   ✅   |   🚧    |   🚧   |    🚧    |   🚧    |
 
 ## Related
 
