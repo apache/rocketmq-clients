@@ -36,3 +36,11 @@ cc_test(
     ],
     deps = base_deps,
 )
+
+cc_test(
+    name = "client_impl_test",
+    srcs = [
+        "ClientImplTest.cpp",
+    ],
+    deps = base_deps,
+)
