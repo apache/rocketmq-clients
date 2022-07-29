@@ -16,11 +16,15 @@ Provide cloud-native and robust solutions for Java, C++, C#, Golang, Rust and al
 
 ## Features and Status
 
-|                 | Java  |  CPP  |  C#   |
-| :-------------: | :---: | :---: | :---: |
-|    Producer     |   ✅   |   ✅   |   ✅   |
-|  Push Consumer  |   ✅   |   ✅   |   ❌   |
-| Simple Consumer |   ✅   |   ✅   |   ✅   |
+|                    Feature                     | Java  | C/C++ |  C#   | Golang | Rust  | node.js | Python |
+| :--------------------------------------------: | :---: | :---: | :---: | :----: | :---: | :-----: | :----: |
+|        Producer with standard messages         |   ✅   |   ✅   |   ✅   |  WIP   |  WIP  |   WIP   |  WIP   |
+|          Producer with FIFO messages           |   ✅   |   ✅   |   ✅   |  WIP   |  WIP  |   WIP   |  WIP   |
+|          Producer with timed messages          |   ✅   |   ✅   |   ✅   |  WIP   |  WIP  |   WIP   |  WIP   |
+|      Producer with transactional messages      |   ✅   |   ✅   |   ✅   |  WIP   |  WIP  |   WIP   |  WIP   |
+| Push Consumer with concurrent message listener |   ✅   |   ✅   |   ❌   |  WIP   |  WIP  |   WIP   |  WIP   |
+|    Push Consumer with FIFO message listener    |   ✅   |   ✅   |   ❌   |  WIP   |  WIP  |   WIP   |  WIP   |
+|                Simple Consumer                 |   ✅   |   ✅   |   ✅   |  WIP   |  WIP  |   WIP   |  WIP   |
 
 ## Related
 
