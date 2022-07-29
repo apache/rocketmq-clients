@@ -127,9 +127,10 @@ void ProcessQueueImpl::popMessage() {
     }
   };
 
-  client_manager_->receiveMessage(
-      urlOf(message_queue_), metadata, request,
-      absl::ToChronoMilliseconds(consumer_client->config().subscriber.polling_timeout), callback);
+  client_manager_->receiveMessage(urlOf(message_queue_), metadata, request,
+                                  absl::ToChronoMilliseconds(consumer_client->config().subscriber.polling_timeout +
+                                                             consumer_client->config().request_timeout),
+                                  callback);
 }
 
 void ProcessQueueImpl::accountCache(const std::vector<MessageConstSharedPtr>& messages) {

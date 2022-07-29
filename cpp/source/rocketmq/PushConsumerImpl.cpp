@@ -374,14 +374,10 @@ void PushConsumerImpl::ack(const Message& msg, const std::function<void(const st
                        callback);
 }
 
-std::chrono::milliseconds PushConsumerImpl::invisibleDuration(std::size_t attempt) {
-  return std::chrono::milliseconds(client_config_.backoff_policy.backoff(attempt));
-}
-
 void PushConsumerImpl::nack(const Message& message, const std::function<void(const std::error_code&)>& callback) {
   const auto& target_host = message.extension().target_endpoint;
   SPDLOG_DEBUG("Prepare to nack message[topic={}, message-id={}]", message.topic(), message.id());
-  auto duration = invisibleDuration(message.extension().delivery_attempt + 1);
+  auto duration = backoff(message.extension().delivery_attempt + 1);
   Metadata metadata;
   Signature::sign(client_config_, metadata);
   rmq::ChangeInvisibleDurationRequest request;

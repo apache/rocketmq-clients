@@ -126,6 +126,10 @@ public:
     }
   }
 
+  std::chrono::milliseconds backoff(std::size_t attempt) {
+    return std::chrono::milliseconds(client_config_.backoff_policy.backoff(attempt));
+  }
+
 protected:
   ClientConfig client_config_;
 
