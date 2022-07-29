@@ -22,15 +22,11 @@ import apache.rocketmq.v2.RecoverOrphanedTransactionCommand;
 import apache.rocketmq.v2.Settings;
 import apache.rocketmq.v2.TelemetryCommand;
 import apache.rocketmq.v2.VerifyMessageCommand;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import io.grpc.stub.StreamObserver;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.apache.rocketmq.client.apis.ClientException;
-import org.apache.rocketmq.client.java.impl.producer.ClientSessionProcessor;
+import java.util.concurrent.TimeUnit;
+import org.apache.rocketmq.client.java.impl.producer.ClientSessionHandler;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,144 +34,125 @@ import org.slf4j.LoggerFactory;
 /**
  * Telemetry session is constructed before first communication between client and remote route endpoints.
  */
-@SuppressWarnings({"UnstableApiUsage", "NullableProblems"})
 public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientSessionImpl.class);
 
-    private final ClientSessionProcessor processor;
+    private final ClientSessionHandler handler;
     private final Endpoints endpoints;
-    private final ReadWriteLock observerLock;
-    private StreamObserver<TelemetryCommand> requestObserver = null;
+    private volatile StreamObserver<TelemetryCommand> requestObserver;
 
-    protected ClientSessionImpl(ClientSessionProcessor processor, Endpoints endpoints) {
-        this.processor = processor;
+    protected ClientSessionImpl(ClientSessionHandler handler, Endpoints endpoints) {
+        this.handler = handler;
         this.endpoints = endpoints;
-        this.observerLock = new ReentrantReadWriteLock();
+        renewRequestObserver();
     }
 
-    protected ListenableFuture<ClientSessionImpl> register() {
-        ListenableFuture<ClientSessionImpl> future;
+    private void renewRequestObserver() {
         try {
-            final TelemetryCommand command = processor.getSettingsCommand();
-            this.publish(command);
-            future = Futures.transform(processor.register(), input -> this, MoreExecutors.directExecutor());
+            if (handler.isEndpointsDeprecated(endpoints)) {
+                LOGGER.info("Endpoints is deprecated, no longer to renew requestObserver, endpoints={}", endpoints);
+                return;
+            }
+            this.requestObserver = handler.telemetry(endpoints, this);
         } catch (Throwable t) {
-            future = Futures.immediateFailedFuture(t);
+            handler.getScheduler().schedule(this::renewRequestObserver, 3, TimeUnit.SECONDS);
         }
-        final String clientId = processor.clientId();
-        Futures.addCallback(future, new FutureCallback<ClientSessionImpl>() {
-            @Override
-            public void onSuccess(ClientSessionImpl session) {
-                LOGGER.info("Register client session successfully, endpoints={}, clientId={}", endpoints, clientId);
-            }
+    }
 
-            @Override
-            public void onFailure(Throwable t) {
-                LOGGER.error("Failed to register client session, endpoints={}, clientId={}", endpoints, clientId, t);
-                release();
-            }
-        }, MoreExecutors.directExecutor());
-        return future;
+    protected ListenableFuture<Void> syncSettingsSafely() {
+        try {
+            final TelemetryCommand settings = handler.settingsCommand();
+            fireWrite(settings);
+            return handler.awaitSettingSynchronized();
+        } catch (Throwable t) {
+            return Futures.immediateFailedFuture(t);
+        }
     }
 
     /**
      * Release telemetry session.
      */
     public void release() {
-        this.observerLock.writeLock().lock();
+        if (null == requestObserver) {
+            return;
+        }
         try {
-            if (null != requestObserver) {
-                try {
-                    requestObserver.onCompleted();
-                } catch (Throwable ignore) {
-                    // Ignore exception on purpose.
-                }
-                requestObserver = null;
-            }
-        } finally {
-            this.observerLock.writeLock().unlock();
+            requestObserver.onCompleted();
+        } catch (Throwable ignore) {
+            // Ignore exception on purpose.
         }
     }
 
-    /**
-     * Telemeter command to remote.
-     *
-     * @param command appointed command to telemeter
-     */
-    public void publish(TelemetryCommand command) throws ClientException {
-        this.observerLock.readLock().lock();
-        try {
-            if (null != requestObserver) {
-                requestObserver.onNext(command);
-                return;
-            }
-        } finally {
-            this.observerLock.readLock().unlock();
+    public void fireWrite(TelemetryCommand command) {
+        if (null == requestObserver) {
+            LOGGER.error("Request observer does not exist, ignore current command, endpoints={}, command={}",
+                endpoints, command);
+            return;
         }
-        this.observerLock.writeLock().lock();
-        try {
-            if (null == requestObserver) {
-                this.requestObserver = processor.telemetry(endpoints, this);
-            }
-            requestObserver.onNext(command);
-        } finally {
-            this.observerLock.writeLock().unlock();
-        }
+        requestObserver.onNext(command);
     }
 
     @Override
     public void onNext(TelemetryCommand command) {
+        final String clientId = handler.clientId();
         try {
             switch (command.getCommandCase()) {
                 case SETTINGS: {
                     final Settings settings = command.getSettings();
-                    LOGGER.info("Receive settings from remote, endpoints={}, clientId={}", endpoints,
-                        processor.clientId());
-                    processor.onSettingsCommand(endpoints, settings);
+                    LOGGER.info("Receive settings from remote, endpoints={}, clientId={}", endpoints, clientId);
+                    handler.onSettingsCommand(endpoints, settings);
                     break;
                 }
                 case RECOVER_ORPHANED_TRANSACTION_COMMAND: {
                     final RecoverOrphanedTransactionCommand recoverOrphanedTransactionCommand =
                         command.getRecoverOrphanedTransactionCommand();
                     LOGGER.info("Receive orphaned transaction recovery command from remote, endpoints={}, "
-                        + "clientId={}", endpoints, processor.clientId());
-                    processor.onRecoverOrphanedTransactionCommand(endpoints, recoverOrphanedTransactionCommand);
+                        + "clientId={}", endpoints, clientId);
+                    handler.onRecoverOrphanedTransactionCommand(endpoints, recoverOrphanedTransactionCommand);
                     break;
                 }
                 case VERIFY_MESSAGE_COMMAND: {
                     final VerifyMessageCommand verifyMessageCommand = command.getVerifyMessageCommand();
                     LOGGER.info("Receive message verification command from remote, endpoints={}, clientId={}",
-                        endpoints, processor.clientId());
-                    processor.onVerifyMessageCommand(endpoints, verifyMessageCommand);
+                        endpoints, clientId);
+                    handler.onVerifyMessageCommand(endpoints, verifyMessageCommand);
                     break;
                 }
                 case PRINT_THREAD_STACK_TRACE_COMMAND: {
                     final PrintThreadStackTraceCommand printThreadStackTraceCommand =
                         command.getPrintThreadStackTraceCommand();
                     LOGGER.info("Receive thread stack print command from remote, endpoints={}, clientId={}",
-                        endpoints, processor.clientId());
-                    processor.onPrintThreadStackTraceCommand(endpoints, printThreadStackTraceCommand);
+                        endpoints, clientId);
+                    handler.onPrintThreadStackTraceCommand(endpoints, printThreadStackTraceCommand);
                     break;
                 }
                 default:
                     LOGGER.warn("Receive unrecognized command from remote, endpoints={}, command={}, clientId={}",
-                        endpoints, command, processor.clientId());
+                        endpoints, command, clientId);
             }
         } catch (Throwable t) {
             LOGGER.error("[Bug] unexpected exception raised while receiving command from remote, command={}, "
-                + "clientId={}", command, processor.clientId(), t);
+                + "clientId={}", command, clientId, t);
         }
     }
 
     @Override
     public void onError(Throwable throwable) {
         LOGGER.error("Exception raised from stream response observer, clientId={}, endpoints={}",
-            processor.clientId(), endpoints, throwable);
-        this.release();
+            handler.clientId(), endpoints, throwable);
+        release();
+        if (!handler.isRunning()) {
+            return;
+        }
+        handler.getScheduler().schedule(this::renewRequestObserver, 3, TimeUnit.SECONDS);
     }
 
     @Override
     public void onCompleted() {
-        this.release();
+        release();
+        if (!handler.isRunning()) {
+            return;
+        }
+        handler.getScheduler().schedule(this::renewRequestObserver, 3, TimeUnit.SECONDS);
     }
 }

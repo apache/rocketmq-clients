@@ -497,18 +497,18 @@ class ProcessQueueImpl implements ProcessQueue {
                     forwardToDeadLetterQueue(messageView, 1 + attempt, future0);
                     return;
                 }
+                // Set result if message is forwarded successfully.
+                future0.setFuture(Futures.immediateVoidFuture());
                 // Log retries.
                 if (1 < attempt) {
                     LOGGER.info("Re-forward message to dead letter queue successfully, clientId={}, consumerGroup={}, "
                             + "attempt={}, messageId={}, mq={}, endpoints={}, requestId={}", clientId, consumerGroup,
                         attempt, messageId, mq, endpoints, requestId);
-                } else {
-                    LOGGER.debug("Forward message to dead letter queue successfully, clientId={}, consumerGroup={}, "
-                            + "messageId={}, mq={}, endpoints={}, requestId={}", clientId, consumerGroup, messageId, mq,
-                        endpoints, requestId);
+                    return;
                 }
-                // Set result if message is forwarded successfully.
-                future0.setFuture(Futures.immediateVoidFuture());
+                LOGGER.info("Forward message to dead letter queue successfully, clientId={}, consumerGroup={}, "
+                        + "messageId={}, mq={}, endpoints={}, requestId={}", clientId, consumerGroup, messageId, mq,
+                    endpoints, requestId);
             }
 
             @Override

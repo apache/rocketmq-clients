@@ -72,7 +72,7 @@ import org.apache.rocketmq.client.java.retry.ExponentialBackoffRetryPolicy;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
-import org.apache.rocketmq.client.java.route.TopicRouteDataResult;
+import org.apache.rocketmq.client.java.route.TopicRouteData;
 import org.apache.rocketmq.client.java.rpc.RpcInvocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,7 +89,7 @@ class ProducerImpl extends ClientImpl implements Producer {
     protected final ProducerSettings producerSettings;
 
     private final TransactionChecker checker;
-    private final ConcurrentMap<String/* topic */, PublishingLoadBalancer> publishingRouteDataResultCache;
+    private final ConcurrentMap<String/* topic */, PublishingLoadBalancer> publishingRouteDataCache;
 
     /**
      * The caller is supposed to have validated the arguments and handled throwing exception or
@@ -102,7 +102,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         this.producerSettings = new ProducerSettings(clientId, endpoints, retryPolicy,
             clientConfiguration.getRequestTimeout(), topics);
         this.checker = checker;
-        this.publishingRouteDataResultCache = new ConcurrentHashMap<>();
+        this.publishingRouteDataCache = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -540,26 +540,21 @@ class ProducerImpl extends ClientImpl implements Producer {
     }
 
     @Override
-    public void onTopicRouteDataResultUpdate0(String topic, TopicRouteDataResult topicRouteDataResult) {
+    public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
         final PublishingLoadBalancer publishingLoadBalancer =
-            new PublishingLoadBalancer(topicRouteDataResult);
-        publishingRouteDataResultCache.put(topic, publishingLoadBalancer);
+            new PublishingLoadBalancer(topicRouteData);
+        publishingRouteDataCache.put(topic, publishingLoadBalancer);
     }
 
     private ListenableFuture<PublishingLoadBalancer> getPublishingTopicRouteResult(final String topic) {
-        SettableFuture<PublishingLoadBalancer> future0 = SettableFuture.create();
-        final PublishingLoadBalancer result = publishingRouteDataResultCache.get(topic);
+        final PublishingLoadBalancer result = publishingRouteDataCache.get(topic);
         if (null != result) {
-            future0.set(result);
-            return future0;
+            return Futures.immediateFuture(result);
         }
-        return Futures.transformAsync(getRouteDataResult(topic), topicRouteDataResult -> {
-            SettableFuture<PublishingLoadBalancer> future = SettableFuture.create();
-            final PublishingLoadBalancer publishingLoadBalancer =
-                new PublishingLoadBalancer(topicRouteDataResult);
-            publishingRouteDataResultCache.put(topic, publishingLoadBalancer);
-            future.set(publishingLoadBalancer);
-            return future;
+        return Futures.transformAsync(getRouteData(topic), topicRouteDataResult -> {
+            final PublishingLoadBalancer loadBalancer = new PublishingLoadBalancer(topicRouteDataResult);
+            publishingRouteDataCache.put(topic, loadBalancer);
+            return Futures.immediateFuture(loadBalancer);
         }, MoreExecutors.directExecutor());
     }
 }

@@ -22,6 +22,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.HeartbeatRequest;
 import apache.rocketmq.v2.HeartbeatResponse;
+import apache.rocketmq.v2.MessageQueue;
 import apache.rocketmq.v2.NotifyClientTerminationRequest;
 import apache.rocketmq.v2.PrintThreadStackTraceCommand;
 import apache.rocketmq.v2.QueryRouteRequest;
@@ -69,12 +70,16 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
+import org.apache.rocketmq.client.java.exception.BadRequestException;
 import org.apache.rocketmq.client.java.exception.InternalErrorException;
 import org.apache.rocketmq.client.java.exception.NotFoundException;
+import org.apache.rocketmq.client.java.exception.ProxyTimeoutException;
+import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
+import org.apache.rocketmq.client.java.exception.UnsupportedException;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.hook.MessageInterceptor;
-import org.apache.rocketmq.client.java.impl.producer.ClientSessionProcessor;
+import org.apache.rocketmq.client.java.impl.producer.ClientSessionHandler;
 import org.apache.rocketmq.client.java.message.MessageCommon;
 import org.apache.rocketmq.client.java.metrics.ClientMeterProvider;
 import org.apache.rocketmq.client.java.metrics.Metric;
@@ -82,18 +87,16 @@ import org.apache.rocketmq.client.java.misc.ExecutorServices;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.misc.Utilities;
 import org.apache.rocketmq.client.java.route.Endpoints;
-import org.apache.rocketmq.client.java.route.TopicRouteDataResult;
+import org.apache.rocketmq.client.java.route.TopicRouteData;
 import org.apache.rocketmq.client.java.rpc.RpcInvocation;
 import org.apache.rocketmq.client.java.rpc.Signature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @SuppressWarnings({"UnstableApiUsage", "NullableProblems"})
-public abstract class ClientImpl extends AbstractIdleService implements Client, ClientSessionProcessor,
+public abstract class ClientImpl extends AbstractIdleService implements Client, ClientSessionHandler,
     MessageInterceptor {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientImpl.class);
-    private static final Duration TOPIC_ROUTE_AWAIT_DURATION_DURING_STARTUP = Duration.ofSeconds(3);
-
     private static final Duration TELEMETRY_TIMEOUT = Duration.ofDays(102 * 365);
 
     protected final ClientManager clientManager;
@@ -111,15 +114,15 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     protected final String clientId;
 
     private volatile ScheduledFuture<?> updateRouteCacheFuture;
-    private final ConcurrentMap<String, TopicRouteDataResult> topicRouteResultCache;
+    private final ConcurrentMap<String, TopicRouteData> topicRouteCache;
 
     @GuardedBy("inflightRouteFutureLock")
-    private final Map<String /* topic */, Set<SettableFuture<TopicRouteDataResult>>> inflightRouteFutureTable;
+    private final Map<String /* topic */, Set<SettableFuture<TopicRouteData>>> inflightRouteFutureTable;
     private final Lock inflightRouteFutureLock;
 
-    @GuardedBy("endpointsSessionsLock")
-    private final Map<Endpoints, ClientSessionImpl> endpointsSessionTable;
-    private final ReadWriteLock endpointsSessionsLock;
+    @GuardedBy("sessionsLock")
+    private final Map<Endpoints, ClientSessionImpl> sessionsTable;
+    private final ReadWriteLock sessionsLock;
 
     @GuardedBy("messageInterceptorsLock")
     private final List<MessageInterceptor> messageInterceptors;
@@ -132,13 +135,13 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         // Generate client id firstly.
         this.clientId = Utilities.genClientId();
 
-        this.topicRouteResultCache = new ConcurrentHashMap<>();
+        this.topicRouteCache = new ConcurrentHashMap<>();
 
         this.inflightRouteFutureTable = new ConcurrentHashMap<>();
         this.inflightRouteFutureLock = new ReentrantLock();
 
-        this.endpointsSessionTable = new HashMap<>();
-        this.endpointsSessionsLock = new ReentrantReadWriteLock();
+        this.sessionsTable = new HashMap<>();
+        this.sessionsLock = new ReentrantReadWriteLock();
 
         this.isolated = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
@@ -180,21 +183,10 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         // Fetch topic route from remote.
         LOGGER.info("Begin to fetch topic(s) route data from remote during client startup, clientId={}, topics={}",
             clientId, topics);
-        // Aggregate all topic route data futures into a composited future.
-        final List<ListenableFuture<TopicRouteDataResult>> futures = topics.stream()
-            .map(this::getRouteDataResult)
-            .collect(Collectors.toList());
-        List<TopicRouteDataResult> results;
-        try {
-            results = Futures.allAsList(futures).get(TOPIC_ROUTE_AWAIT_DURATION_DURING_STARTUP.toNanos(),
-                TimeUnit.NANOSECONDS);
-        } catch (Throwable t) {
-            LOGGER.error("Failed to get topic route data result from remote during client startup, clientId={}, "
-                + "topics={}", clientId, topics, t);
-            throw new NotFoundException(t);
-        }
-        for (TopicRouteDataResult result : results) {
-            result.checkAndGetTopicRouteData();
+        final List<ListenableFuture<TopicRouteData>> futures =
+            topics.stream().map(this::fetchTopicRoute).collect(Collectors.toList());
+        for (ListenableFuture<TopicRouteData> future : futures) {
+            future.get();
         }
         LOGGER.info("Fetch topic route data from remote successfully during startup, clientId={}, topics={}",
             clientId, topics);
@@ -282,7 +274,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     }
 
     @Override
-    public TelemetryCommand getSettingsCommand() {
+    public TelemetryCommand settingsCommand() {
         final Settings settings = this.getClientSettings().toProtobuf();
         return TelemetryCommand.newBuilder().setSettings(settings).build();
     }
@@ -301,7 +293,13 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     }
 
     @Override
-    public ListenableFuture<Void> register() {
+    public boolean isEndpointsDeprecated(Endpoints endpoints) {
+        final Set<Endpoints> totalRouteEndpoints = getTotalRouteEndpoints();
+        return totalRouteEndpoints.contains(endpoints);
+    }
+
+    @Override
+    public ListenableFuture<Void> awaitSettingSynchronized() {
         return Futures.transformAsync(this.getClientSettings().arrivedFuture,
             (clientSettings) -> Futures.immediateVoidFuture(), clientCallbackExecutor);
     }
@@ -325,7 +323,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
                     .setThreadStackTrace(threadStackTrace)
                     .setStatus(status)
                     .build();
-                telemeter(endpoints, telemetryCommand);
+                telemetry(endpoints, telemetryCommand);
             } catch (Throwable t) {
                 LOGGER.error("Failed to send thread stack trace to remote, endpoints={}, nonce={}, clientId={}",
                     endpoints, nonce, clientId, t);
@@ -351,7 +349,6 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     public final void onSettingsCommand(Endpoints endpoints, Settings settings) {
         final Metric metric = new Metric(settings.getMetric());
         clientMeterProvider.reset(metric);
-        LOGGER.info("Receive settings from remote, endpoints={}", endpoints);
         this.getClientSettings().applySettingsCommand(settings);
     }
 
@@ -365,127 +362,81 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         final Set<Endpoints> totalRouteEndpoints = getTotalRouteEndpoints();
         for (Endpoints endpoints : totalRouteEndpoints) {
             try {
-                telemeter(endpoints, command);
+                telemetry(endpoints, command);
             } catch (Throwable t) {
                 LOGGER.error("Failed to telemeter settings, clientId={}, endpoints={}", clientId, endpoints, t);
             }
         }
     }
 
-    /**
-     * Telemeter command to remote endpoints.
-     *
-     * @param endpoints remote endpoints to telemeter.
-     * @param command   command to telemeter.
-     */
-    public void telemeter(Endpoints endpoints, TelemetryCommand command) {
-        final ListenableFuture<ClientSessionImpl> future = registerTelemetrySession(endpoints);
-        Futures.addCallback(future, new FutureCallback<ClientSessionImpl>() {
-            @Override
-            public void onSuccess(ClientSessionImpl session) {
-                try {
-                    session.publish(command);
-                } catch (Throwable t) {
-                    LOGGER.error("Failed to telemeter command, endpoints={}, command={}", endpoints, command);
-                }
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-                LOGGER.error("Failed to telemeter command to remote, endpoints={}, command={}", endpoints, command, t);
-            }
-        }, MoreExecutors.directExecutor());
+    public void telemetry(Endpoints endpoints, TelemetryCommand command) {
+        final ClientSessionImpl clientSession = getClientSession(endpoints);
+        try {
+            clientSession.fireWrite(command);
+        } catch (Throwable t) {
+            LOGGER.error("Failed to fire write telemetry command, clientId={}, endpoints={}", clientId, endpoints, t);
+        }
     }
 
     private void releaseClientSessions() {
-        endpointsSessionsLock.readLock().lock();
+        sessionsLock.readLock().lock();
         try {
-            endpointsSessionTable.values().forEach(ClientSessionImpl::release);
+            sessionsTable.values().forEach(ClientSessionImpl::release);
         } finally {
-            endpointsSessionsLock.readLock().unlock();
+            sessionsLock.readLock().unlock();
         }
     }
 
-    /**
-     * Try to register telemetry session, return it directly if session is existed already.
-     */
-    public ListenableFuture<ClientSessionImpl> registerTelemetrySession(Endpoints endpoints) {
-        final SettableFuture<ClientSessionImpl> future0 = SettableFuture.create();
-        endpointsSessionsLock.readLock().lock();
+    public ClientSessionImpl getClientSession(Endpoints endpoints) {
+        sessionsLock.readLock().lock();
         try {
-            ClientSessionImpl clientSessionImpl = endpointsSessionTable.get(endpoints);
-            // Return is directly if session is existed already.
-            if (null != clientSessionImpl) {
-                future0.set(clientSessionImpl);
-                return future0;
-            }
-        } finally {
-            endpointsSessionsLock.readLock().unlock();
-        }
-        // Future's exception has been logged during the registration.
-        final ListenableFuture<ClientSessionImpl> future = new ClientSessionImpl(this, endpoints).register();
-        return Futures.transform(future, session -> {
-            endpointsSessionsLock.writeLock().lock();
-            try {
-                ClientSessionImpl existed = endpointsSessionTable.get(endpoints);
-                if (null != existed) {
-                    session.release();
-                    return existed;
-                }
-                endpointsSessionTable.put(endpoints, session);
+            final ClientSessionImpl session = sessionsTable.get(endpoints);
+            if (null != session) {
                 return session;
-            } finally {
-                endpointsSessionsLock.writeLock().unlock();
             }
-        }, MoreExecutors.directExecutor());
+        } finally {
+            sessionsLock.readLock().unlock();
+        }
+        sessionsLock.writeLock().lock();
+        try {
+            ClientSessionImpl session = sessionsTable.get(endpoints);
+            if (null != session) {
+                return session;
+            }
+            session = new ClientSessionImpl(this, endpoints);
+            sessionsTable.put(endpoints, session);
+            return session;
+        } finally {
+            sessionsLock.writeLock().unlock();
+        }
+    }
+
+    public ListenableFuture<Void> syncSettingsSafely(Endpoints endpoints) {
+        final ClientSessionImpl clientSession = getClientSession(endpoints);
+        return clientSession.syncSettingsSafely();
     }
 
     /**
-     * Triggered when {@link TopicRouteDataResult} is fetched from remote.
+     * Triggered when {@link TopicRouteData} is fetched from remote.
      *
      * <p>Never thrown any exception.
      */
-    public ListenableFuture<Void> onTopicRouteDataResultFetched(String topic,
-        TopicRouteDataResult topicRouteDataResult) {
-        final ListenableFuture<List<ClientSessionImpl>> future =
-            Futures.allAsList(topicRouteDataResult.getTopicRouteData()
-                .getMessageQueues().stream()
-                .map(mq -> mq.getBroker().getEndpoints())
-                .collect(Collectors.toSet())
-                .stream().map(this::registerTelemetrySession)
-                .collect(Collectors.toList()));
-        SettableFuture<Void> future0 = SettableFuture.create();
-        Futures.addCallback(future, new FutureCallback<List<ClientSessionImpl>>() {
-            @Override
-            public void onSuccess(List<ClientSessionImpl> sessions) {
-                LOGGER.info("Register session successfully, current route will be cached, topic={}, "
-                    + "topicRouteDataResult={}", topic, topicRouteDataResult);
-                final TopicRouteDataResult old = topicRouteResultCache.put(topic, topicRouteDataResult);
-                if (topicRouteDataResult.equals(old)) {
-                    // Log if topic route result remains the same.
-                    LOGGER.info("Topic route result remains the same, topic={}, route={}, clientId={}", topic, old,
-                        clientId);
-                } else {
-                    // Log if topic route result is updated.
-                    LOGGER.info("Topic route result is updated, topic={}, clientId={}, {} => {}", topic, clientId,
-                        old, topicRouteDataResult);
-                }
-                future0.setFuture(Futures.immediateVoidFuture());
-                onTopicRouteDataResultUpdate0(topic, topicRouteDataResult);
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-                // Note: Topic route would not be updated if failed to register session.
-                LOGGER.error("Failed to register session, current route will NOT be cached, topic={}, "
-                    + "topicRouteDataResult={}", topic, topicRouteDataResult);
-                future0.setException(t);
-            }
-        }, MoreExecutors.directExecutor());
-        return future0;
+    public ListenableFuture<TopicRouteData> onTopicRouteDataFetched(String topic, TopicRouteData topicRouteData) {
+        final List<ListenableFuture<Void>> futures = topicRouteData
+            .getMessageQueues().stream()
+            .map(mq -> mq.getBroker().getEndpoints())
+            .collect(Collectors.toSet())
+            .stream().map(this::syncSettingsSafely)
+            .collect(Collectors.toList());
+        // TODO: Record exception.
+        return Futures.whenAllSucceed(futures).callAsync(() -> {
+            topicRouteCache.put(topic, topicRouteData);
+            onTopicRouteDataUpdate0(topic, topicRouteData);
+            return Futures.immediateFuture(topicRouteData);
+        }, clientCallbackExecutor);
     }
 
-    public void onTopicRouteDataResultUpdate0(String topic, TopicRouteDataResult topicRouteDataResult) {
+    public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
     }
 
     /**
@@ -506,7 +457,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             .setStatus(status)
             .build();
         try {
-            telemeter(endpoints, telemetryCommand);
+            telemetry(endpoints, telemetryCommand);
         } catch (Throwable t) {
             LOGGER.warn("Failed to send message verification result, clientId={}", clientId, t);
         }
@@ -520,20 +471,17 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      */
     @Override
     public void onRecoverOrphanedTransactionCommand(Endpoints endpoints, RecoverOrphanedTransactionCommand command) {
-        LOGGER.warn("Ignore orphaned transaction recovery command from remote, which is not expected, client id={}, "
+        LOGGER.warn("Ignore orphaned transaction recovery command from remote, which is not expected, clientId={}, "
             + "command={}", clientId, command);
     }
 
     private void updateRouteCache() {
         LOGGER.info("Start to update route cache for a new round, clientId={}", clientId);
-        topicRouteResultCache.keySet().forEach(topic -> {
-            // Set timeout for future on purpose.
-            final ListenableFuture<TopicRouteDataResult> future = Futures.withTimeout(fetchTopicRoute(topic),
-                TOPIC_ROUTE_AWAIT_DURATION_DURING_STARTUP, getScheduler());
-            Futures.addCallback(future, new FutureCallback<TopicRouteDataResult>() {
+        topicRouteCache.keySet().forEach(topic -> {
+            final ListenableFuture<TopicRouteData> future = fetchTopicRoute(topic);
+            Futures.addCallback(future, new FutureCallback<TopicRouteData>() {
                 @Override
-                public void onSuccess(TopicRouteDataResult topicRouteDataResult) {
-                    onTopicRouteDataResultFetched(topic, topicRouteDataResult);
+                public void onSuccess(TopicRouteData topicRouteData) {
                 }
 
                 @Override
@@ -648,7 +596,25 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     public void doStats() {
     }
 
-    private ListenableFuture<TopicRouteDataResult> fetchTopicRoute(final String topic) {
+    private ListenableFuture<TopicRouteData> fetchTopicRoute(final String topic) {
+        final ListenableFuture<TopicRouteData> future = Futures.transformAsync(fetchTopicRoute0(topic),
+            topicRouteData -> onTopicRouteDataFetched(topic, topicRouteData), MoreExecutors.directExecutor());
+        Futures.addCallback(future, new FutureCallback<TopicRouteData>() {
+            @Override
+            public void onSuccess(TopicRouteData topicRouteData) {
+                LOGGER.info("Fetch topic route successfully, clientId={}, topic={}, topicRouteData={}", clientId,
+                    topic, topicRouteData);
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                LOGGER.error("Failed to fetch topic route, clientId={}, topic={}", clientId, topic, t);
+            }
+        }, MoreExecutors.directExecutor());
+        return future;
+    }
+
+    private ListenableFuture<TopicRouteData> fetchTopicRoute0(final String topic) {
         try {
             Resource topicResource = Resource.newBuilder().setName(topic).build();
             final QueryRouteRequest request = QueryRouteRequest.newBuilder().setTopic(topicResource)
@@ -656,17 +622,37 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             final Metadata metadata = sign();
             final ListenableFuture<RpcInvocation<QueryRouteResponse>> future =
                 clientManager.queryRoute(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
-            return Futures.transform(future, invocation -> {
+            return Futures.transformAsync(future, invocation -> {
                 final QueryRouteResponse response = invocation.getResponse();
                 final String requestId = invocation.getContext().getRequestId();
                 final Status status = response.getStatus();
+                final String statusMessage = status.getMessage();
                 final Code code = status.getCode();
-                if (Code.OK != code) {
-                    LOGGER.error("Exception raised while fetch topic route from remote, topic={}, " +
-                            "clientId={}, requestId={}, endpoints={}, code={}, status message=[{}]", topic, clientId,
-                        requestId, endpoints, code, status.getMessage());
+                final int codeNumber = code.getNumber();
+                switch (code) {
+                    case OK:
+                        break;
+                    case BAD_REQUEST:
+                    case ILLEGAL_ACCESS_POINT:
+                    case ILLEGAL_TOPIC:
+                    case CLIENT_ID_REQUIRED:
+                        throw new BadRequestException(codeNumber, requestId, statusMessage);
+                    case NOT_FOUND:
+                    case TOPIC_NOT_FOUND:
+                        throw new NotFoundException(codeNumber, requestId, statusMessage);
+                    case TOO_MANY_REQUESTS:
+                        throw new TooManyRequestsException(codeNumber, requestId, statusMessage);
+                    case INTERNAL_ERROR:
+                    case INTERNAL_SERVER_ERROR:
+                        throw new InternalErrorException(codeNumber, requestId, statusMessage);
+                    case PROXY_TIMEOUT:
+                        throw new ProxyTimeoutException(codeNumber, requestId, statusMessage);
+                    default:
+                        throw new UnsupportedException(codeNumber, requestId, statusMessage);
                 }
-                return new TopicRouteDataResult(invocation);
+                final List<MessageQueue> messageQueuesList = response.getMessageQueuesList();
+                final TopicRouteData topicRouteData = new TopicRouteData(messageQueuesList);
+                return Futures.immediateFuture(topicRouteData);
             }, MoreExecutors.directExecutor());
         } catch (Throwable t) {
             return Futures.immediateFailedFuture(t);
@@ -675,29 +661,29 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
 
     protected Set<Endpoints> getTotalRouteEndpoints() {
         Set<Endpoints> totalRouteEndpoints = new HashSet<>();
-        for (TopicRouteDataResult result : topicRouteResultCache.values()) {
-            totalRouteEndpoints.addAll(result.getTopicRouteData().getTotalEndpoints());
+        for (TopicRouteData topicRouteData : topicRouteCache.values()) {
+            totalRouteEndpoints.addAll(topicRouteData.getTotalEndpoints());
         }
         return totalRouteEndpoints;
     }
 
-    protected ListenableFuture<TopicRouteDataResult> getRouteDataResult(final String topic) {
-        SettableFuture<TopicRouteDataResult> future0 = SettableFuture.create();
-        TopicRouteDataResult topicRouteDataResult = topicRouteResultCache.get(topic);
+    protected ListenableFuture<TopicRouteData> getRouteData(final String topic) {
+        SettableFuture<TopicRouteData> future0 = SettableFuture.create();
+        TopicRouteData topicRouteData = topicRouteCache.get(topic);
         // If route result was cached before, get it directly.
-        if (null != topicRouteDataResult) {
-            future0.set(topicRouteDataResult);
+        if (null != topicRouteData) {
+            future0.set(topicRouteData);
             return future0;
         }
         inflightRouteFutureLock.lock();
         try {
             // If route was fetched by last in-flight request, get it directly.
-            topicRouteDataResult = topicRouteResultCache.get(topic);
-            if (null != topicRouteDataResult) {
-                future0.set(topicRouteDataResult);
+            topicRouteData = topicRouteCache.get(topic);
+            if (null != topicRouteData) {
+                future0.set(topicRouteData);
                 return future0;
             }
-            Set<SettableFuture<TopicRouteDataResult>> inflightFutures = inflightRouteFutureTable.get(topic);
+            Set<SettableFuture<TopicRouteData>> inflightFutures = inflightRouteFutureTable.get(topic);
             // Request is in-flight, return future directly.
             if (null != inflightFutures) {
                 inflightFutures.add(future0);
@@ -709,52 +695,48 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         } finally {
             inflightRouteFutureLock.unlock();
         }
-        final ListenableFuture<TopicRouteDataResult> future = fetchTopicRoute(topic);
-        Futures.addCallback(future, new FutureCallback<TopicRouteDataResult>() {
+        final ListenableFuture<TopicRouteData> future = fetchTopicRoute(topic);
+        Futures.addCallback(future, new FutureCallback<TopicRouteData>() {
             @Override
-            public void onSuccess(TopicRouteDataResult result) {
-                final ListenableFuture<Void> updateFuture = onTopicRouteDataResultFetched(topic, result);
-                // TODO: all succeed?
-                Futures.whenAllSucceed(updateFuture).run(() -> {
-                    inflightRouteFutureLock.lock();
-                    try {
-                        final Set<SettableFuture<TopicRouteDataResult>> newFutureSet =
-                            inflightRouteFutureTable.remove(topic);
-                        if (null == newFutureSet) {
-                            // Should never reach here.
-                            LOGGER.error("[Bug] in-flight route futures was empty, topic={}, clientId={}", topic,
-                                clientId);
-                            return;
-                        }
-                        LOGGER.debug("Fetch topic route successfully, topic={}, in-flight route future "
-                            + "size={}, clientId={}", topic, newFutureSet.size(), clientId);
-                        for (SettableFuture<TopicRouteDataResult> newFuture : newFutureSet) {
-                            newFuture.set(result);
-                        }
-                    } catch (Throwable t) {
+            public void onSuccess(TopicRouteData topicRouteData) {
+                inflightRouteFutureLock.lock();
+                try {
+                    final Set<SettableFuture<TopicRouteData>> newFutureSet =
+                        inflightRouteFutureTable.remove(topic);
+                    if (null == newFutureSet) {
                         // Should never reach here.
-                        LOGGER.error("[Bug] Exception raised while update route data, topic={}, clientId={}", topic,
-                            clientId, t);
-                    } finally {
-                        inflightRouteFutureLock.unlock();
+                        LOGGER.error("[Bug] in-flight route futures was empty, topic={}, clientId={}", topic,
+                            clientId);
+                        return;
                     }
-                }, MoreExecutors.directExecutor());
+                    LOGGER.debug("Fetch topic route successfully, topic={}, in-flight route future "
+                        + "size={}, clientId={}", topic, newFutureSet.size(), clientId);
+                    for (SettableFuture<TopicRouteData> newFuture : newFutureSet) {
+                        newFuture.set(topicRouteData);
+                    }
+                } catch (Throwable t) {
+                    // Should never reach here.
+                    LOGGER.error("[Bug] Exception raised while update route data, topic={}, clientId={}", topic,
+                        clientId, t);
+                } finally {
+                    inflightRouteFutureLock.unlock();
+                }
             }
 
             @Override
             public void onFailure(Throwable t) {
                 inflightRouteFutureLock.lock();
                 try {
-                    final Set<SettableFuture<TopicRouteDataResult>> newFutureSet =
+                    final Set<SettableFuture<TopicRouteData>> newFutureSet =
                         inflightRouteFutureTable.remove(topic);
                     if (null == newFutureSet) {
                         // Should never reach here.
                         LOGGER.error("[Bug] in-flight route futures was empty, topic={}, clientId={}", topic, clientId);
                         return;
                     }
-                    LOGGER.error("Failed to fetch topic route, topic={}, in-flight route future " +
+                    LOGGER.debug("Failed to fetch topic route, topic={}, in-flight route future " +
                         "size={}, clientId={}", topic, newFutureSet.size(), clientId, t);
-                    for (SettableFuture<TopicRouteDataResult> future : newFutureSet) {
+                    for (SettableFuture<TopicRouteData> future : newFutureSet) {
                         future.setException(t);
                     }
                 } finally {

@@ -24,15 +24,23 @@ import apache.rocketmq.v2.TelemetryCommand;
 import apache.rocketmq.v2.VerifyMessageCommand;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.grpc.stub.StreamObserver;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.route.Endpoints;
 
-public interface ClientSessionProcessor {
-    ListenableFuture<Void> register();
+public interface ClientSessionHandler {
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+    boolean isRunning();
+
+    ScheduledExecutorService getScheduler();
+
+    boolean isEndpointsDeprecated(Endpoints endpoints);
+
+    ListenableFuture<Void> awaitSettingSynchronized();
 
     String clientId();
 
-    TelemetryCommand getSettingsCommand();
+    TelemetryCommand settingsCommand();
 
     StreamObserver<TelemetryCommand> telemetry(Endpoints endpoints, StreamObserver<TelemetryCommand> observer)
         throws ClientException;

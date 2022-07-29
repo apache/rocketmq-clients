@@ -18,6 +18,7 @@
 package org.apache.rocketmq.client.java.impl.producer;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.Hashing;
 import com.google.common.math.IntMath;
@@ -28,19 +29,17 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import javax.annotation.concurrent.Immutable;
 import org.apache.commons.lang3.RandomUtils;
-import org.apache.rocketmq.client.apis.ClientException;
-import org.apache.rocketmq.client.java.exception.NotFoundException;
 import org.apache.rocketmq.client.java.misc.Utilities;
 import org.apache.rocketmq.client.java.route.Broker;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
-import org.apache.rocketmq.client.java.route.TopicRouteDataResult;
+import org.apache.rocketmq.client.java.route.TopicRouteData;
 
 @Immutable
 public class PublishingLoadBalancer {
-    private final TopicRouteDataResult topicRouteDataResult;
     /**
      * Index for round-robin.
      */
@@ -50,40 +49,25 @@ public class PublishingLoadBalancer {
      */
     private final ImmutableList<MessageQueueImpl> messageQueues;
 
-    public PublishingLoadBalancer(TopicRouteDataResult topicRouteDataResult) {
-        this.topicRouteDataResult = topicRouteDataResult;
+    public PublishingLoadBalancer(TopicRouteData topicRouteData) {
         this.index = new AtomicInteger(RandomUtils.nextInt(0, Integer.MAX_VALUE));
-        final ImmutableList.Builder<MessageQueueImpl> builder = ImmutableList.builder();
-        if (!topicRouteDataResult.ok()) {
-            this.messageQueues = builder.build();
-            return;
+        final List<MessageQueueImpl> mqs = topicRouteData.getMessageQueues().stream()
+            .filter((Predicate<MessageQueueImpl>) mq -> mq.getPermission().isWritable() &&
+                Utilities.MASTER_BROKER_ID == mq.getBroker().getId())
+            .collect(Collectors.toList());
+        if (mqs.isEmpty()) {
+            throw new IllegalArgumentException("No writable message queue found, topiRouteData=" + topicRouteData);
         }
-        for (MessageQueueImpl messageQueue : topicRouteDataResult.getTopicRouteData().getMessageQueues()) {
-            if (!messageQueue.getPermission().isWritable() ||
-                Utilities.MASTER_BROKER_ID != messageQueue.getBroker().getId()) {
-                continue;
-            }
-            builder.add(messageQueue);
-        }
-        this.messageQueues = builder.build();
+        this.messageQueues = ImmutableList.<MessageQueueImpl>builder().addAll(mqs).build();
     }
 
-    private void preconditionCheckBeforeTakingMessageQueue() throws ClientException {
-        topicRouteDataResult.checkAndGetTopicRouteData();
-        if (messageQueues.isEmpty()) {
-            throw new NotFoundException("Failed to take message due to writable message queue doesn't exist");
-        }
-    }
-
-    public MessageQueueImpl takeMessageQueueByMessageGroup(String messageGroup) throws ClientException {
-        preconditionCheckBeforeTakingMessageQueue();
+    public MessageQueueImpl takeMessageQueueByMessageGroup(String messageGroup) {
         final long hashCode = Hashing.sipHash24().hashBytes(messageGroup.getBytes(StandardCharsets.UTF_8)).asLong();
         final int index = LongMath.mod(hashCode, messageQueues.size());
         return messageQueues.get(index);
     }
 
-    public List<MessageQueueImpl> takeMessageQueues(Set<Endpoints> excluded, int count) throws ClientException {
-        preconditionCheckBeforeTakingMessageQueue();
+    public List<MessageQueueImpl> takeMessageQueues(Set<Endpoints> excluded, int count) {
         int next = index.getAndIncrement();
         List<MessageQueueImpl> candidates = new ArrayList<>();
         Set<String> candidateBrokerNames = new HashSet<>();
