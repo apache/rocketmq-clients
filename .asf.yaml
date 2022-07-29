@@ -14,7 +14,7 @@
 # limitations under the License.
 
 github:
-  description: "RocketMQ Clients - Client Bindings for Apache RocketMQ"
+  description: "RocketMQ Clients - Collection of Client Bindings for Apache RocketMQ"
   labels:
     - messaging
     - rocketmq
