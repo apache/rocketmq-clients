@@ -39,6 +39,6 @@ You can see more code examples [here](./example.md).
 
 We use [logback](https://logback.qos.ch/) as our logging system and redirect the log of gRPC to [SLF4j](https://www.slf4j.org/) as well.
 
-To prevent the clash of configuration file while both of rocketmq client and standard logback is introduced in the same project, we shaded a new logback using `rocketmq.logback.xml/rocketmq.logback-test.xml/rocketmq.logback.groovy` instead of `logback.xml/logback-test.xml/logback.groovy` as its configuration file in the shaded jar.
+To prevent the conflict of configuration file while both of rocketmq client and standard logback is introduced in the same project, we shaded a new logback using `rocketmq.logback.xml/rocketmq.logback-test.xml/rocketmq.logback.groovy` instead of `logback.xml/logback-test.xml/logback.groovy` as its configuration file in the shaded jar.
 
 You can adjust the log level by the environment parameter or the java system property - `rocketmq.log.level`. See [here](https://logback.qos.ch/manual/architecture.html#effectiveLevel) for more details about logback log level.
