@@ -16,8 +16,6 @@
  */
 #include "ClientImpl.h"
 
-#include <unistd.h>
-
 #include <algorithm>
 #include <atomic>
 #include <chrono>
