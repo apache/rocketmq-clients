@@ -14,33 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-load("@rules_cc//cc:defs.bzl", "cc_test")
-
-base_deps = [
-    "//source/rocketmq:rocketmq_library",
-    "@com_google_googletest//:gtest_main",
-]
-
 cc_test(
-    name = "time_test",
-    srcs = [
-        "TimeTest.cpp",
+    name = "countdown_latch_test",
+    deps = [
+        "//source/concurrent:countdown_latch_library",
+        "@com_google_googletest//:gtest_main",
     ],
-    deps = base_deps,
-)
-
-cc_test(
-    name = "send_context_test",
     srcs = [
-        "SendContextTest.cpp",
+        "CountdownLatchTest.cpp"
     ],
-    deps = base_deps,
-)
-
-cc_test(
-    name = "client_impl_test",
-    srcs = [
-        "ClientImplTest.cpp",
-    ],
-    deps = base_deps,
 )

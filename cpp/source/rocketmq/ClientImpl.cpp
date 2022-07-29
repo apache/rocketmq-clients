@@ -31,9 +31,8 @@
 
 #include "ClientManagerImpl.h"
 #include "InvocationContext.h"
-#include "rocketmq/Logger.h"
-#include "spdlog/spdlog.h"
 #include "MessageExt.h"
+#include "MixAll.h"
 #include "NamingScheme.h"
 #include "SessionImpl.h"
 #include "Signature.h"
@@ -42,9 +41,12 @@
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
+#include "fmt/format.h"
 #include "opencensus/stats/stats.h"
+#include "rocketmq/Logger.h"
 #include "rocketmq/Message.h"
 #include "rocketmq/MessageListener.h"
+#include "spdlog/spdlog.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -601,16 +603,10 @@ void ClientImpl::notifyClientTermination(const NotifyClientTerminationRequest& r
   }
 }
 
-std::string ClientImpl::clientId() {
+std::string clientId() {
   static std::atomic_uint32_t sequence;
-  std::stringstream ss;
-  ss << UtilAll::hostname();
-  ss << "@";
-  std::string processID = std::to_string(getpid());
-  ss << processID << "#";
-  ss << sequence.fetch_add(1, std::memory_order_relaxed);
-  ss << "_" << MixAll::millisecondsOf(std::chrono::system_clock::now().time_since_epoch());
-  return ss.str();
+  return fmt::format("{}@{}#{}_{}", UtilAll::hostname(), getpid(), sequence.fetch_add(1, std::memory_order_relaxed),
+                     MixAll::millisecondsOf(std::chrono::system_clock::now().time_since_epoch()));
 }
 
 ROCKETMQ_NAMESPACE_END
