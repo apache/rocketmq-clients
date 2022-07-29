@@ -37,12 +37,15 @@ public class ProducerNormalMessageExample {
     }
 
     public static void main(String[] args) throws ClientException, IOException {
+        final ClientServiceProvider provider = ClientServiceProvider.loadService();
+
+        // Credential provider is optional for client configuration.
         String accessKey = "yourAccessKey";
         String secretKey = "yourSecretKey";
-        String endpoints = "foobar.com:8081";
-        final ClientServiceProvider provider = ClientServiceProvider.loadService();
         SessionCredentialsProvider sessionCredentialsProvider =
             new StaticSessionCredentialsProvider(accessKey, secretKey);
+
+        String endpoints = "foobar.com:8080";
         ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
             .setEndpoints(endpoints)
             .setCredentialProvider(sessionCredentialsProvider)

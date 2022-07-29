@@ -39,11 +39,14 @@ public class PushConsumerExample {
 
     public static void main(String[] args) throws ClientException, IOException, InterruptedException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
+
+        // Credential provider is optional for client configuration.
         String accessKey = "yourAccessKey";
         String secretKey = "yourSecretKey";
         SessionCredentialsProvider sessionCredentialsProvider =
             new StaticSessionCredentialsProvider(accessKey, secretKey);
-        String endpoints = "foobar.com:8081";
+
+        String endpoints = "foobar.com:8080";
         ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
             .setEndpoints(endpoints)
             .setCredentialProvider(sessionCredentialsProvider)
