@@ -3,12 +3,12 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
     paths:
-      - java    
+      - 'java/**'
   push:
     branches:
       - master
     paths:
-      - java      
+      - 'java/**'
 jobs:
   java_build:
     name: "Java (${{ matrix.os }}, JDK-${{ matrix.jdk }})"
