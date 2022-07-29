@@ -1,0 +1,10 @@
+cc_test(
+    name = "countdown_latch_test",
+    deps = [
+        "//source/concurrent:countdown_latch_library",
+        "@com_google_googletest//:gtest_main",
+    ],
+    srcs = [
+        "CountdownLatchTest.cpp"
+    ],
+)
