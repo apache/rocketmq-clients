@@ -59,6 +59,7 @@ import org.apache.rocketmq.client.apis.producer.SendReceipt;
 import org.apache.rocketmq.client.apis.producer.Transaction;
 import org.apache.rocketmq.client.apis.producer.TransactionChecker;
 import org.apache.rocketmq.client.apis.producer.TransactionResolution;
+import org.apache.rocketmq.client.java.exception.InternalErrorException;
 import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
@@ -469,10 +470,13 @@ class ProducerImpl extends ClientImpl implements Producer {
                 // Intercept after message publishing.
                 final Duration duration = stopwatch.elapsed();
                 doAfter(MessageHookPoints.SEND, messageCommons, duration, MessageHookPointsStatus.OK);
-
+                // Should never reach here.
                 if (sendReceipts.size() != messages.size()) {
-                    LOGGER.error("[Bug] Due to an unknown reason from remote, received send receipts' quantity[{}]" +
-                        " is not equal to messages' quantity[{}]", sendReceipts.size(), messages.size());
+                    final InternalErrorException e = new InternalErrorException("[Bug] due to an"
+                        + " unknown reason from remote, received send receipt's quantity " + sendReceipts.size()
+                        + " is not equal to sent message's quantity " + messages.size());
+                    future.setException(e);
+                    return;
                 }
                 // No need more attempts.
                 future.set(sendReceipts);

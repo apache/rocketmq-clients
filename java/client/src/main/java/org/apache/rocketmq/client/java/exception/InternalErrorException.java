@@ -28,6 +28,10 @@ public class InternalErrorException extends ClientException {
         super(cause);
     }
 
+    public InternalErrorException(String message) {
+        super(message);
+    }
+
     public InternalErrorException(int responseCode, String requestId, String message) {
         super(responseCode, requestId, message);
     }
