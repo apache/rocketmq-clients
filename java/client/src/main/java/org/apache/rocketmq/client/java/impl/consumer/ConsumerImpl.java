@@ -65,7 +65,6 @@ import org.slf4j.LoggerFactory;
 abstract class ConsumerImpl extends ClientImpl {
     static final Pattern CONSUMER_GROUP_PATTERN = Pattern.compile("^[%a-zA-Z0-9_-]+$");
     private static final Logger LOGGER = LoggerFactory.getLogger(ConsumerImpl.class);
-    private static final Duration LONG_POLLING_TOLERANCE = Duration.ofMillis(500);
     private final String consumerGroup;
 
     ConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup, Set<String> topics) {
@@ -80,7 +79,8 @@ abstract class ConsumerImpl extends ClientImpl {
         try {
             Metadata metadata = sign();
             final Endpoints endpoints = mq.getBroker().getEndpoints();
-            final Duration timeout = Duration.ofNanos(awaitDuration.toNanos() + LONG_POLLING_TOLERANCE.toNanos());
+            final Duration tolerance = clientConfiguration.getRequestTimeout();
+            final Duration timeout = Duration.ofNanos(awaitDuration.toNanos() + tolerance.toNanos());
             final ListenableFuture<RpcInvocation<Iterator<ReceiveMessageResponse>>> future =
                 clientManager.receiveMessage(endpoints, metadata, request, timeout);
             return Futures.transformAsync(future, context -> {
