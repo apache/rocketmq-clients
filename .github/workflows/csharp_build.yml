@@ -2,9 +2,13 @@ name: C# Build
 on:
   pull_request:
     types: [opened, reopened, synchronize]
+    paths:
+      - csharp
   push:
     branches:
       - master
+    paths:
+      - csharp  
 jobs:
   c_sharp:
     name: "C# (ubuntu-18.04)"
