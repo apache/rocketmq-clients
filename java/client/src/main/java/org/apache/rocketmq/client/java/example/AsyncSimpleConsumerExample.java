@@ -43,7 +43,7 @@ public class AsyncSimpleConsumerExample {
     private AsyncSimpleConsumerExample() {
     }
 
-    public static void main(String[] args) throws ClientException, IOException {
+    public static void main(String[] args) throws ClientException, IOException, InterruptedException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
 
         // Credential provider is optional for client configuration.
@@ -92,6 +92,8 @@ public class AsyncSimpleConsumerExample {
             LOGGER.error("Failed to receive message from remote", t);
             return null;
         });
+        // Block to avoid exist of background threads.
+        Thread.sleep(Long.MAX_VALUE);
         // Close the simple consumer when you don't need it anymore.
         consumer.close();
     }

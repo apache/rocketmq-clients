@@ -37,7 +37,7 @@ public class AsyncProducerExample {
     private AsyncProducerExample() {
     }
 
-    public static void main(String[] args) throws ClientException, IOException {
+    public static void main(String[] args) throws ClientException, IOException, InterruptedException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
 
         // Credential provider is optional for client configuration.
@@ -79,6 +79,8 @@ public class AsyncProducerExample {
                 LOGGER.error("Failed to send message", throwable);
             }
         });
+        // Block to avoid exist of background threads.
+        Thread.sleep(Long.MAX_VALUE);
         // Close the producer when you don't need it anymore.
         producer.close();
     }
