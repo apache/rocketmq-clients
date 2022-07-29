@@ -27,3 +27,10 @@ dependency-reduced-pom.xml
 
 # C# 
 obj/
+# Java
+java/client/src/main/java/org/apache/rocketmq/client/java/example/
+
+# Rust
+rust/target
+rust/Cargo.lock
+rust/src/pb/*.rs
