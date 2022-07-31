@@ -24,11 +24,9 @@ import apache.rocketmq.v2.ExponentialBackoff;
 import com.google.common.base.MoreObjects;
 import com.google.protobuf.util.Durations;
 import java.time.Duration;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * The {@link ExponentialBackoffRetryPolicy} defines a policy to do more attempts when failure is encountered, mainly
- * refer to <a href="https://github.com/grpc/proposal/blob/master/A6-client-retries.md">gRPC Retry Design</a>.
+ * The {@link ExponentialBackoffRetryPolicy} defines a policy to do more attempts when failure is encountered.
  */
 public class ExponentialBackoffRetryPolicy implements RetryPolicy {
     private final int maxAttempts;
@@ -60,12 +58,12 @@ public class ExponentialBackoffRetryPolicy implements RetryPolicy {
     @Override
     public Duration getNextAttemptDelay(int attempt) {
         checkArgument(attempt > 0, "attempt must be positive");
-        double randomNumberBound = Math.min(initialBackoff.toNanos() * Math.pow(backoffMultiplier,
+        double delayNanos = Math.min(initialBackoff.toNanos() * Math.pow(backoffMultiplier,
             1.0 * (attempt - 1)), maxBackoff.toNanos());
-        if (randomNumberBound <= 0) {
+        if (delayNanos <= 0) {
             return Duration.ZERO;
         }
-        return Duration.ofNanos((long) ThreadLocalRandom.current().nextDouble(randomNumberBound));
+        return Duration.ofNanos((long) delayNanos);
     }
 
     @Override
