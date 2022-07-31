@@ -134,7 +134,8 @@ class ProcessQueueImpl implements ProcessQueue {
     @Override
     public boolean expired() {
         final PushConsumerSettings settings = consumer.getPushConsumerSettings();
-        Duration maxIdleDuration = Duration.ofNanos(2 * settings.getLongPollingTimeout().toNanos());
+        Duration maxIdleDuration = Duration.ofNanos(2 * (settings.getLongPollingTimeout().toNanos()
+            + consumer.getClientConfiguration().getRequestTimeout().toNanos()));
         final Duration idleDuration = Duration.ofNanos(System.nanoTime() - activityNanoTime);
         if (idleDuration.compareTo(maxIdleDuration) < 0) {
             return false;
@@ -511,7 +512,7 @@ class ProcessQueueImpl implements ProcessQueue {
             final Duration nextAttemptDelay = retryPolicy.getNextAttemptDelay(attempt);
             attempt = messageView.incrementAndGetDeliveryAttempt();
             LOGGER.debug("Prepare to redeliver the fifo message because of the consumption failure, maxAttempt={}," +
-                " attempt={}, mq={}, messageId={}, nextAttemptDelay={}, clientId={}", maxAttempts, attempt, mq,
+                    " attempt={}, mq={}, messageId={}, nextAttemptDelay={}, clientId={}", maxAttempts, attempt, mq,
                 messageId, nextAttemptDelay, clientId);
             final ListenableFuture<ConsumeResult> future = service.consume(messageView, nextAttemptDelay);
             return Futures.transformAsync(future, result -> eraseFifoMessage(messageView, result),
