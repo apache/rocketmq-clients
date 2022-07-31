@@ -83,7 +83,15 @@ public class MessageMeterInterceptor implements MessageInterceptor {
             return;
         }
         final Timestamp deliveryTimestampFromRemote = optionalDeliveryTimestampFromRemote.get();
-        final long latency = System.currentTimeMillis() - Timestamps.toMillis(deliveryTimestampFromRemote);
+        final long currentTimeMillis = System.currentTimeMillis();
+        final long deliveryTimestampFromRemoteMillis = Timestamps.toMillis(deliveryTimestampFromRemote);
+        final long latency = currentTimeMillis - deliveryTimestampFromRemoteMillis;
+        if (0 > latency) {
+            LOGGER.debug("[Bug] latency is negative, latency={}ms, currentTimeMillis={}, "
+                + "deliveryTimestampFromRemoteMillis={}", latency, currentTimeMillis,
+                deliveryTimestampFromRemoteMillis);
+            return;
+        }
         final Optional<DoubleHistogram> optionalHistogram =
             clientMeterProvider.getHistogramByEnum(HistogramEnum.DELIVERY_LATENCY);
         if (!optionalHistogram.isPresent()) {
