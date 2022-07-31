@@ -29,27 +29,71 @@ import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.route.Endpoints;
 
 public interface ClientSessionHandler {
+    /**
+     * Returns {@code true} if this handler is running.
+     */
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     boolean isRunning();
 
+    /**
+     * Returns the shared scheduler.
+     *
+     * @return shared scheduler.
+     */
     ScheduledExecutorService getScheduler();
 
+    /**
+     * Returns {@code true} if the endpoints is deprecated.
+     */
     boolean isEndpointsDeprecated(Endpoints endpoints);
 
+    /**
+     * Await the settings to be synchronized with the server.
+     */
     ListenableFuture<Void> awaitSettingSynchronized();
 
+    /**
+     * Indicates the client identifier.
+     *
+     * @return client identifier.
+     */
     String clientId();
 
+    /**
+     * Get the settings of client.
+     *
+     * @return settings command.
+     */
     TelemetryCommand settingsCommand();
 
+    /**
+     * Establish telemetry session stream to server.
+     *
+     * @param endpoints request endpoints.
+     * @param observer  response observer.
+     * @return request observer.
+     * @throws ClientException if failed to establish telemetry session stream.
+     */
     StreamObserver<TelemetryCommand> telemetry(Endpoints endpoints, StreamObserver<TelemetryCommand> observer)
         throws ClientException;
 
+    /**
+     * Event processor for {@link VerifyMessageCommand}.
+     */
     void onSettingsCommand(Endpoints endpoints, Settings settings);
 
+    /**
+     * Event processor for {@link RecoverOrphanedTransactionCommand}.
+     */
     void onRecoverOrphanedTransactionCommand(Endpoints endpoints, RecoverOrphanedTransactionCommand command);
 
+    /**
+     * Event processor for {@link PrintThreadStackTraceCommand}.
+     */
     void onVerifyMessageCommand(Endpoints endpoints, VerifyMessageCommand command);
 
+    /**
+     * Event processor for {@link TelemetryCommand}.
+     */
     void onPrintThreadStackTraceCommand(Endpoints endpoints, PrintThreadStackTraceCommand command);
 }
