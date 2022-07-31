@@ -643,7 +643,7 @@ class ProcessQueueImpl implements ProcessQueue {
                             + "consumerGroup={}, attempt={}, messageId={}, mq={}, code={}, requestId={}, endpoints={}, "
                             + "status message=[{}]", clientId, consumerGroup, attempt, messageId, mq, code, requestId,
                         endpoints, status.getMessage());
-                    ackFifoMessageLater(messageView, 1 + attempt, future0);
+                    ackMessageLater(messageView, 1 + attempt, future0);
                     return;
                 }
                 // Set result if FIFO message is acknowledged successfully.
@@ -662,15 +662,15 @@ class ProcessQueueImpl implements ProcessQueue {
             @Override
             public void onFailure(Throwable t) {
                 // Log failure and retry later.
-                LOGGER.error("Exception raised while acknowledging fifo message, clientId={}, consumerGroup={}, "
+                LOGGER.error("Exception raised while acknowledging message, clientId={}, consumerGroup={}, "
                         + "would attempt to re-ack later, attempt={}, messageId={}, mq={}, endpoints={}", clientId,
                     consumerGroup, attempt, messageId, mq, endpoints, t);
-                ackFifoMessageLater(messageView, 1 + attempt, future0);
+                ackMessageLater(messageView, 1 + attempt, future0);
             }
         }, MoreExecutors.directExecutor());
     }
 
-    private void ackFifoMessageLater(final MessageViewImpl messageView, final int attempt,
+    private void ackMessageLater(final MessageViewImpl messageView, final int attempt,
         final SettableFuture<Void> future0) {
         final MessageId messageId = messageView.getMessageId();
         final String clientId = consumer.clientId();
@@ -691,7 +691,7 @@ class ProcessQueueImpl implements ProcessQueue {
             // Should never reach here.
             LOGGER.error("[Bug] Failed to schedule message ack request, mq={}, messageId={}, clientId={}",
                 mq, messageId, clientId);
-            ackFifoMessageLater(messageView, 1 + attempt, future0);
+            ackMessageLater(messageView, 1 + attempt, future0);
         }
     }
 
