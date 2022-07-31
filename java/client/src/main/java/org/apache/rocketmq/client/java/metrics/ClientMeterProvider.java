@@ -60,7 +60,7 @@ public class ClientMeterProvider {
     public ClientMeterProvider(ClientImpl client) {
         this.client = client;
         this.client.registerMessageInterceptor(new MessageMeterInterceptor(this));
-        this.clientMeter = ClientMeter.DISABLED;
+        this.clientMeter = ClientMeter.disabledInstance(client.clientId());
         this.messageCacheObserver = null;
     }
 
@@ -76,13 +76,13 @@ public class ClientMeterProvider {
         final String clientId = client.clientId();
         try {
             if (clientMeter.satisfy(metric)) {
-                LOGGER.debug("Metric settings is satisfied by the current message meter, clientId={}", clientId);
+                LOGGER.info("Metric settings is satisfied by the current message meter, clientId={}", clientId);
                 return;
             }
             if (!metric.isOn()) {
-                LOGGER.debug("Metric is off, clientId={}", clientId);
+                LOGGER.info("Metric is off, clientId={}", clientId);
                 clientMeter.shutdown();
-                clientMeter = ClientMeter.DISABLED;
+                clientMeter = ClientMeter.disabledInstance(client.clientId());
                 return;
             }
             final Endpoints endpoints = metric.getEndpoints();
@@ -135,7 +135,7 @@ public class ClientMeterProvider {
 
             // Reset message meter.
             ClientMeter existedClientMeter = clientMeter;
-            clientMeter = new ClientMeter(meter, endpoints, provider);
+            clientMeter = new ClientMeter(meter, endpoints, provider, clientId);
             existedClientMeter.shutdown();
             LOGGER.info("Metrics is on, endpoints={}, clientId={}", endpoints, clientId);
 

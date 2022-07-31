@@ -434,7 +434,6 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
                         syncProcessQueue(topic, latest, filterExpression);
                     }
 
-                    @SuppressWarnings("NullableProblems")
                     @Override
                     public void onFailure(Throwable t) {
                         LOGGER.error("Exception raised while scanning the assignments, topic={}, clientId={}", topic,
