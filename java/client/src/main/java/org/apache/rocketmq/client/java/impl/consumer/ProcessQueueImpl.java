@@ -424,6 +424,7 @@ class ProcessQueueImpl implements ProcessQueue {
                             + "consumerGroup={}, messageId={}, attempt={}, mq={}, endpoints={}, requestId={}, "
                             + "status message=[{}]", clientId, consumerGroup, messageId, attempt, mq, endpoints,
                         requestId, status.getMessage());
+                    changeInvisibleDurationLater(messageView, duration, 1 + attempt);
                     return;
                 }
                 // Log retries.
@@ -431,7 +432,6 @@ class ProcessQueueImpl implements ProcessQueue {
                     LOGGER.info("Finally, change invisible duration successfully, clientId={}, consumerGroup={} "
                             + "messageId={}, attempt={}, mq={}, endpoints={}, requestId={}", clientId, consumerGroup,
                         messageId, attempt, mq, endpoints, requestId);
-                    changeInvisibleDurationLater(messageView, duration, 1 + attempt);
                     return;
                 }
                 LOGGER.debug("Change invisible duration successfully, clientId={}, consumerGroup={}, messageId={}, "
@@ -443,7 +443,7 @@ class ProcessQueueImpl implements ProcessQueue {
             public void onFailure(Throwable t) {
                 // Log failure and retry later.
                 LOGGER.error("Exception raised while changing invisible duration, would retry later, clientId={}, "
-                        + "consumerGroup={}, messageId={}, mq={}, endpoints={}, requestId={}", clientId, consumerGroup,
+                        + "consumerGroup={}, messageId={}, mq={}, endpoints={}", clientId, consumerGroup,
                     messageId, mq, endpoints, t);
                 changeInvisibleDurationLater(messageView, duration, 1 + attempt);
             }
@@ -511,8 +511,8 @@ class ProcessQueueImpl implements ProcessQueue {
             final Duration nextAttemptDelay = retryPolicy.getNextAttemptDelay(attempt);
             attempt = messageView.incrementAndGetDeliveryAttempt();
             LOGGER.debug("Prepare to redeliver the fifo message because of the consumption failure, maxAttempt={}," +
-                    " attempt={}, mq={}, messageId={}, nextAttemptDelay={}, clientId={}",
-                maxAttempts, attempt, mq, messageId, nextAttemptDelay, clientId);
+                " attempt={}, mq={}, messageId={}, nextAttemptDelay={}, clientId={}", maxAttempts, attempt, mq,
+                messageId, nextAttemptDelay, clientId);
             final ListenableFuture<ConsumeResult> future = service.consume(messageView, nextAttemptDelay);
             return Futures.transformAsync(future, result -> eraseFifoMessage(messageView, result),
                 MoreExecutors.directExecutor());
