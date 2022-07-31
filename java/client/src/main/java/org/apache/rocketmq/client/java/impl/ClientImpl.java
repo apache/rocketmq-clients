@@ -35,6 +35,7 @@ import apache.rocketmq.v2.TelemetryCommand;
 import apache.rocketmq.v2.ThreadStackTrace;
 import apache.rocketmq.v2.VerifyMessageCommand;
 import apache.rocketmq.v2.VerifyMessageResult;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -299,7 +300,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     @Override
     public boolean isEndpointsDeprecated(Endpoints endpoints) {
         final Set<Endpoints> totalRouteEndpoints = getTotalRouteEndpoints();
-        return totalRouteEndpoints.contains(endpoints);
+        return !totalRouteEndpoints.contains(endpoints);
     }
 
     @Override
@@ -374,8 +375,8 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     }
 
     public void telemetry(Endpoints endpoints, TelemetryCommand command) {
-        final ClientSessionImpl clientSession = getClientSession(endpoints);
         try {
+            final ClientSessionImpl clientSession = getClientSession(endpoints);
             clientSession.fireWrite(command);
         } catch (Throwable t) {
             LOGGER.error("Failed to fire write telemetry command, clientId={}, endpoints={}", clientId, endpoints, t);
@@ -391,7 +392,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         }
     }
 
-    public ClientSessionImpl getClientSession(Endpoints endpoints) {
+    public ClientSessionImpl getClientSession(Endpoints endpoints) throws ClientException {
         sessionsLock.readLock().lock();
         try {
             final ClientSessionImpl session = sessionsTable.get(endpoints);
@@ -415,9 +416,13 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         }
     }
 
-    public ListenableFuture<Void> syncSettingsSafely(Endpoints endpoints) {
-        final ClientSessionImpl clientSession = getClientSession(endpoints);
-        return clientSession.syncSettingsSafely();
+    private ListenableFuture<Void> syncSettingsSafely(Endpoints endpoints) {
+        try {
+            final ClientSessionImpl clientSession = getClientSession(endpoints);
+            return clientSession.syncSettingsSafely();
+        } catch (Throwable t) {
+            return Futures.immediateFailedFuture(t);
+        }
     }
 
     /**
@@ -426,13 +431,15 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      * <p>Never thrown any exception.
      */
     public ListenableFuture<TopicRouteData> onTopicRouteDataFetched(String topic, TopicRouteData topicRouteData) {
-        final List<ListenableFuture<Void>> futures = topicRouteData
+        final Set<Endpoints> routeEndpoints = topicRouteData
             .getMessageQueues().stream()
             .map(mq -> mq.getBroker().getEndpoints())
-            .collect(Collectors.toSet())
-            .stream().map(this::syncSettingsSafely)
-            .collect(Collectors.toList());
-        // TODO: Record exception.
+            .collect(Collectors.toSet());
+        final Set<Endpoints> existRouteEndpoints = getTotalRouteEndpoints();
+        final Set<Endpoints> newEndpoints = new HashSet<>(Sets.difference(routeEndpoints,
+            existRouteEndpoints));
+        final List<ListenableFuture<Void>> futures =
+            newEndpoints.stream().map(this::syncSettingsSafely).collect(Collectors.toList());
         return Futures.whenAllSucceed(futures).callAsync(() -> {
             topicRouteCache.put(topic, topicRouteData);
             onTopicRouteDataUpdate0(topic, topicRouteData);
