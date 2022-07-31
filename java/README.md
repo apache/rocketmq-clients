@@ -33,7 +33,7 @@ the no-shaded client.
 </dependency>
 ```
 
-You can see more code examples [here](./example.md).
+You can see more code examples [here](./client/src/main/java/org/apache/rocketmq/client/java/example).
 
 ## Logging System
 
