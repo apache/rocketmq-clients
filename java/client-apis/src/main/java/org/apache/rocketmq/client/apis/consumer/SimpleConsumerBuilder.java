@@ -20,6 +20,7 @@ package org.apache.rocketmq.client.apis.consumer;
 import java.time.Duration;
 import java.util.Map;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
+import org.apache.rocketmq.client.apis.ClientConfigurationBuilder;
 import org.apache.rocketmq.client.apis.ClientException;
 
 /**
@@ -52,8 +53,12 @@ public interface SimpleConsumerBuilder {
 
     /**
      * Set the max await time when receive messages from the server.
-     * The simple consumer will hold this long-polling receive requests until  a message is returned or a timeout
+     *
+     * <p>The simple consumer will hold this long-polling receive requests until a message is returned or a timeout
      * occurs.
+     *
+     * <p> Especially, the RPC request timeout for long-polling of {@link SimpleConsumer} is increased by
+     * {@linkplain ClientConfigurationBuilder#setRequestTimeout(Duration) request timeout} based on await duration here.
      *
      * @param awaitDuration The maximum time to block when no message is available.
      * @return the consumer builder instance.
@@ -64,6 +69,8 @@ public interface SimpleConsumerBuilder {
      * Finalize the build of the {@link SimpleConsumer} instance and start.
      *
      * <p>This method will block until the simple consumer starts successfully.
+     *
+     * <p>Especially, if this method is invoked more than once, different simple consumers will be created and started.
      *
      * @return the simple consumer instance.
      */

@@ -165,6 +165,12 @@ public interface SimpleConsumer extends Closeable {
      */
     CompletableFuture<Void> changeInvisibleDurationAsync(MessageView messageView, Duration invisibleDuration);
 
+    /**
+     * Close the simple consumer and release all related resources.
+     *
+     * <p>Once simple consumer is closed, <strong>it could not be started once again.</strong> we maintained an FSM
+     * (finite-state machine) to record the different states for each simple consumer.
+     */
     @Override
     void close() throws IOException;
 }

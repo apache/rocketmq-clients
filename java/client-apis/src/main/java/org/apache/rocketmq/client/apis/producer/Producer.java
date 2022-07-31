@@ -79,7 +79,8 @@ public interface Producer extends Closeable {
     /**
      * Closes the producer and releases all related resources.
      *
-     * <p>This method does not return until all related resource is released.
+     * <p>Once producer is closed, <strong>it could not be started once again.</strong> we maintained an FSM
+     * (finite-state machine) to record the different states for each producer.
      */
     @Override
     void close() throws IOException;

@@ -77,8 +77,7 @@ public interface ProducerBuilder {
     /**
      * Finalize the build of {@link Producer} instance and start.
      *
-     * <p>The producer does a series of preparatory work during startup, which could help to identify more unexpected
-     * error earlier.
+     * <p>This method will block until the push consumer starts successfully.
      *
      * <p>Especially, if this method is invoked more than once, different producers will be created and started.
      *

@@ -82,7 +82,11 @@ public interface PushConsumerBuilder {
     PushConsumerBuilder setConsumptionThreadCount(int count);
 
     /**
-     * Finalize the build of {@link PushConsumer}.
+     * Finalize the build of {@link PushConsumer} and start.
+     *
+     * <p>This method will block until the push consumer starts successfully.
+     *
+     * <p>Especially, if this method is invoked more than once, different push consumers will be created and started.
      *
      * @return the push consumer instance.
      */

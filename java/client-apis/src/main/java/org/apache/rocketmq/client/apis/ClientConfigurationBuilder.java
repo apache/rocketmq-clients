@@ -20,6 +20,8 @@ package org.apache.rocketmq.client.apis;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.time.Duration;
+import org.apache.rocketmq.client.apis.consumer.SimpleConsumer;
+import org.apache.rocketmq.client.apis.consumer.SimpleConsumerBuilder;
 
 /**
  * Builder to set {@link ClientConfiguration}.
@@ -56,7 +58,9 @@ public class ClientConfigurationBuilder {
     /**
      * Configure request timeout for ordinary RPC.
      *
-     * <p>request timeout is 1s by default. Especially, request timeout here does not work when RPC is long-polling.
+     * <p>request timeout is 3s by default. Especially, the RPC request timeout for long-polling of
+     * {@link SimpleConsumer} is increased by request timeout here based on the
+     * {@linkplain SimpleConsumerBuilder#setAwaitDuration(Duration) await duration}.
      *
      * @param requestTimeout RPC request timeout.
      * @return the client configuration builder instance.

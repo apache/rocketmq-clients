@@ -70,7 +70,7 @@ public class SimpleConsumerExample {
         // Max message num for each long polling.
         int maxMessageNum = 16;
         // Set message invisible duration after it is received.
-        Duration invisibleDuration = Duration.ofSeconds(30);
+        Duration invisibleDuration = Duration.ofSeconds(5);
         final List<MessageView> messages = consumer.receive(maxMessageNum, invisibleDuration);
         for (MessageView message : messages) {
             try {

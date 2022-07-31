@@ -348,6 +348,9 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         }, MoreExecutors.directExecutor());
     }
 
+    /**
+     * @see SimpleConsumer#close()
+     */
     @Override
     public void close() {
         this.stopAsync().awaitTerminated();

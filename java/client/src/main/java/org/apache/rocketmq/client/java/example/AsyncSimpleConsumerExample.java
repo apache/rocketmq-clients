@@ -74,7 +74,7 @@ public class AsyncSimpleConsumerExample {
         // Max message num for each long polling.
         int maxMessageNum = 16;
         // Set message invisible duration after it is received.
-        Duration invisibleDuration = Duration.ofSeconds(30);
+        Duration invisibleDuration = Duration.ofSeconds(5);
         final CompletableFuture<List<MessageView>> future0 = consumer.receiveAsync(maxMessageNum, invisibleDuration);
         future0.thenAccept(message -> {
             final Map<MessageId, CompletableFuture<Void>> map =

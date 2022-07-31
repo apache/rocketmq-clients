@@ -32,29 +32,35 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ClientMeter {
-    static ClientMeter DISABLED = new ClientMeter();
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientMeter.class);
 
     private final boolean enabled;
     private final Meter meter;
     private final Endpoints endpoints;
     private final SdkMeterProvider provider;
+    private final String clientId;
     private final ConcurrentMap<String /* histogram name */, DoubleHistogram> histogramMap;
 
-    public ClientMeter(Meter meter, Endpoints endpoints, SdkMeterProvider provider) {
+    public ClientMeter(Meter meter, Endpoints endpoints, SdkMeterProvider provider, String clientId) {
         this.enabled = true;
         this.meter = checkNotNull(meter, "meter should not be null");
         this.endpoints = checkNotNull(endpoints, "endpoints should not be null");
         this.provider = checkNotNull(provider, "provider should not be null");
+        this.clientId = checkNotNull(clientId, "clientId should not be null");
         this.histogramMap = new ConcurrentHashMap<>();
     }
 
-    private ClientMeter() {
+    private ClientMeter(String clientId) {
         this.enabled = false;
         this.meter = null;
         this.endpoints = null;
         this.provider = null;
+        this.clientId = checkNotNull(clientId, "clientId should not be null");
         this.histogramMap = new ConcurrentHashMap<>();
+    }
+
+    static ClientMeter disabledInstance(String clientId) {
+        return new ClientMeter(clientId);
     }
 
     public boolean isEnabled() {
@@ -79,8 +85,9 @@ public class ClientMeter {
         provider.shutdown().whenComplete(latch::countDown);
         try {
             latch.await();
+            LOGGER.info("Shutdown client meter successfully, clientId={}, endpoints={}", clientId, endpoints);
         } catch (Throwable t) {
-            LOGGER.error("Failed to shutdown message meter, endpoints={}", endpoints, t);
+            LOGGER.error("Failed to shutdown message meter, clientId={}, endpoints={}", clientId, endpoints, t);
         }
     }
 
@@ -96,7 +103,7 @@ public class ClientMeter {
         return MoreObjects.toStringHelper(this)
             .add("enabled", enabled)
             .add("meter", meter)
-            .add("metricEndpoints", endpoints)
+            .add("endpoints", endpoints)
             .add("provider", provider)
             .add("histogramMap", histogramMap)
             .toString();

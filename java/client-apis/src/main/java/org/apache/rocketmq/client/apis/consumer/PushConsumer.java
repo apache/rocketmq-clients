@@ -102,7 +102,7 @@ public interface PushConsumer extends Closeable {
      * Close the push consumer and release all related resources.
      *
      * <p>Once push consumer is closed, <strong>it could not be started once again.</strong> we maintained an FSM
-     * (finite-state machine) to record the different states for each producer.
+     * (finite-state machine) to record the different states for each push consumer.
      */
     @Override
     void close() throws IOException;
