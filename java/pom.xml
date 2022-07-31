@@ -370,4 +370,11 @@
             </plugin>
         </plugins>
     </build>
+
+    <scm>
+        <url>git@github.com:apache/rocketmq-clients.git</url>
+        <connection>scm:git:git@github.com:apache/rocketmq-clients.git</connection>
+        <developerConnection>scm:git:git@github.com:apache/rocketmq-clients.git</developerConnection>
+        <tag>HEAD</tag>
+    </scm>
 </project>
