@@ -41,6 +41,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
@@ -101,6 +102,8 @@ public class ProcessQueueImplTest extends TestBase {
     @Test
     public void testExpired() {
         when(pushConsumerSettings.getLongPollingTimeout()).thenReturn(Duration.ofSeconds(3));
+        when(pushConsumer.getClientConfiguration()).thenReturn(ClientConfiguration.newBuilder()
+            .setEndpoints(FAKE_ACCESS_POINT).build());
         assertFalse(processQueue.expired());
     }
 
