@@ -587,15 +587,9 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
         final long consumptionErrorQuantity = this.consumptionErrorQuantity.getAndSet(0);
 
         LOGGER.info("clientId={}, consumerGroup={}, receptionTimes={}, receivedMessagesQuantity={}, "
-                + "consumptionOkQuantity={}, consumptionErrorQuantity={}",
-            clientId, consumerGroup, receptionTimes, receivedMessagesQuantity, consumptionOkQuantity,
-            consumptionErrorQuantity);
-        for (ProcessQueue pq : processQueueTable.values()) {
-            LOGGER.info("Process queue stats: clientId={}, mq={}, pendingMessageCount={}, inflightMessageCount={}, "
-                    + "cachedMessageBytes={}",
-                clientId, pq.getMessageQueue(), pq.getPendingMessageCount(), pq.getInflightMessageCount(),
-                pq.getCachedMessageBytes());
-        }
+                + "consumptionOkQuantity={}, consumptionErrorQuantity={}", clientId, consumerGroup, receptionTimes,
+            receivedMessagesQuantity, consumptionOkQuantity, consumptionErrorQuantity);
+        processQueueTable.values().forEach(ProcessQueue::doStats);
     }
 
     public RetryPolicy getRetryPolicy() {

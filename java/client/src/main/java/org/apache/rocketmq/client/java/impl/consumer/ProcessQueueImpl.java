@@ -102,6 +102,9 @@ class ProcessQueueImpl implements ProcessQueue {
 
     private final AtomicLong cachedMessagesBytes;
 
+    private final AtomicLong receptionTimes;
+    private final AtomicLong receivedMessagesQuantity;
+
     private volatile long activityNanoTime = System.nanoTime();
 
     public ProcessQueueImpl(PushConsumerImpl consumer, MessageQueueImpl mq, FilterExpression filterExpression) {
@@ -114,6 +117,8 @@ class ProcessQueueImpl implements ProcessQueue {
         this.inflightMessages = new ArrayList<>();
         this.inflightMessagesLock = new ReentrantReadWriteLock();
         this.cachedMessagesBytes = new AtomicLong();
+        this.receptionTimes = new AtomicLong(0);
+        this.receivedMessagesQuantity = new AtomicLong(0);
     }
 
     @Override
@@ -273,6 +278,7 @@ class ProcessQueueImpl implements ProcessQueue {
                     onReceiveMessageException(t);
                 }
             }, MoreExecutors.directExecutor());
+            receptionTimes.getAndIncrement();
             consumer.getReceptionTimes().getAndIncrement();
         } catch (Throwable t) {
             LOGGER.error("Exception raised during message reception, mq={}, clientId={}", mq, consumer.clientId(), t);
@@ -328,6 +334,7 @@ class ProcessQueueImpl implements ProcessQueue {
         final List<MessageViewImpl> messages = result.getMessageViewImpls();
         if (!messages.isEmpty()) {
             cacheMessages(messages);
+            receivedMessagesQuantity.getAndAdd(messages.size());
             consumer.getReceivedMessagesQuantity().getAndAdd(messages.size());
             consumer.getConsumeService().signal();
         }
@@ -709,5 +716,14 @@ class ProcessQueueImpl implements ProcessQueue {
     @Override
     public long getCachedMessageBytes() {
         return cachedMessagesBytes.get();
+    }
+
+    public void doStats() {
+        final long receptionTimes = this.receptionTimes.getAndSet(0);
+        final long receivedMessagesQuantity = this.receivedMessagesQuantity.getAndSet(0);
+        LOGGER.info("Process queue stats: clientId={}, mq={}, receptionTimes={}, receivedMessageQuantity={}, "
+                + "pendingMessageCount={}, inflightMessageCount={}, cachedMessageBytes={}", consumer.clientId(), mq,
+            receptionTimes, receivedMessagesQuantity, this.getPendingMessageCount(), this.getInflightMessageCount(),
+            this.getCachedMessageBytes());
     }
 }

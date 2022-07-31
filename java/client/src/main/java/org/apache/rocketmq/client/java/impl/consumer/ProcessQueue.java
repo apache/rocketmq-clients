@@ -153,4 +153,9 @@ public interface ProcessQueue {
      * @return bytes of cached message memory footprint.
      */
     long getCachedMessageBytes();
+
+    /**
+     * Do some stats work.
+     */
+    void doStats();
 }
