@@ -118,12 +118,6 @@ build:ubsan --copt -fno-omit-frame-pointer
 build:ubsan --linkopt -fsanitize=undefined
 build:ubsan --linkopt -lubsan
 
-# Use remote cache, --config=remote_cache See https://docs.bazel.build/versions/main/guide.html#--config
-build:remote_cache --remote_cache=grpc://11.122.50.85:9092
-build:remote_cache --experimental_remote_downloader=grpc://11.122.50.85:9092
-test:remote_cache --remote_cache=grpc://11.122.50.85:9090
-test:remote_cache --remote_upload_local_results=true
-
 # Coverage options
 coverage --config=coverage
 # 1.5x original timeout + 300s for trace merger in all categories
@@ -133,6 +127,19 @@ build:coverage --combined_report=lcov
 build:coverage --strategy=TestRunner=sandboxed,local
 build:coverage --strategy=CoverageReport=sandboxed,local
 build:coverage --collect_code_coverage
-build:coverage --instrumentation_filter="//src/main/cpp[/:],//api[/:],-//src/main/cpp/base/mocks[/:],-//src/main/cpp/client/mocks[/:],-//src/main/cpp/rocketmq/mocks[/:]"
+build:coverage --instrumentation_filter="//source[/:],//include[/:],-//source/base/mocks[/:],-//source/client/mocks[/:],-//source/rocketmq/mocks[/:]"
 
 test --test_output=errors
+
+# RBE
+build:remote --bes_results_url=https://app.buildbuddy.io/invocation/
+build:remote --bes_backend=grpcs://remote.buildbuddy.io
+build:remote --remote_cache=grpcs://remote.buildbuddy.io
+build:remote --remote_timeout=3600
+build:remote --remote_executor=grpcs://remote.buildbuddy.io
+build:remote --host_platform=@buildbuddy_toolchain//:platform
+build:remote --platforms=@buildbuddy_toolchain//:platform
+build:remote --extra_execution_platforms=@buildbuddy_toolchain//:platform
+build:remote --crosstool_top=@buildbuddy_toolchain//:toolchain
+build:remote --extra_toolchains=@buildbuddy_toolchain//:cc_toolchain
+build:remote --jobs=250
