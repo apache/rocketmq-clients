@@ -14,11 +14,13 @@
   limitations under the License.
   -->
   
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <artifactId>rocketmq-client-java-parent</artifactId>
         <groupId>org.apache.rocketmq</groupId>
-        <version>5.0.1-SNAPSHOT</version>
+        <version>5.0.0-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -60,8 +62,10 @@
                             <createSourcesJar>true</createSourcesJar>
                             <shadeSourcesContent>true</shadeSourcesContent>
                             <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer" />
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer"/>
                             </transformers>
                             <filters>
                                 <filter>
@@ -184,25 +188,33 @@
                             <target>
                                 <unzip dest="${classesShadedDir}">
                                     <fileset dir="${project.build.directory}">
-                                        <include name="${shadeJarName}" />
+                                        <include name="${shadeJarName}"/>
                                     </fileset>
                                 </unzip>
-                                <move file="${classesShadedNativeDir}/io_grpc_netty_shaded_netty_tcnative_windows_x86_64.dll" tofile="${classesShadedNativeDir}/${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_windows_x86_64.dll" />
+                                <move file="${classesShadedNativeDir}/io_grpc_netty_shaded_netty_tcnative_windows_x86_64.dll"
+                                      tofile="${classesShadedNativeDir}/${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_windows_x86_64.dll"/>
 
-                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_tcnative_linux_aarch_64.so" tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_linux_aarch_64.so" />
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_tcnative_linux_aarch_64.so"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_linux_aarch_64.so"/>
 
-                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_tcnative_linux_x86_64.so" tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_linux_x86_64.so" />
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_tcnative_linux_x86_64.so"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_linux_x86_64.so"/>
 
-                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_tcnative_osx_x86_64.jnilib" tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_osx_x86_64.jnilib" />
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_tcnative_osx_x86_64.jnilib"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_osx_x86_64.jnilib"/>
 
-                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_transport_native_epoll_x86_64.so" tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_transport_native_epoll_x86_64.so" />
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_transport_native_epoll_x86_64.so"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_transport_native_epoll_x86_64.so"/>
 
-                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_tcnative_osx_aarch_64.jnilib" tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_osx_aarch_64.jnilib" />
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_tcnative_osx_aarch_64.jnilib"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_tcnative_osx_aarch_64.jnilib"/>
 
-                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_transport_native_epoll_aarch_64.so" tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_transport_native_epoll_aarch_64.so" />
+                                <move file="${classesShadedNativeDir}/libio_grpc_netty_shaded_netty_transport_native_epoll_aarch_64.so"
+                                      tofile="${classesShadedNativeDir}/lib${shadingNettyNativePrefix}_io_grpc_netty_shaded_netty_transport_native_epoll_aarch_64.so"/>
 
-                                <jar destfile="${project.build.directory}/${shadeJarName}" basedir="${classesShadedDir}" />
-                                <!-- <delete dir="${classesShadedDir}" /> -->
+                                <jar destfile="${project.build.directory}/${shadeJarName}"
+                                     basedir="${classesShadedDir}"/>
+                                <!-- <delete dir="${classesShadedDir}"/> -->
                             </target>
                         </configuration>
                     </execution>
