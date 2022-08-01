@@ -19,19 +19,27 @@ jobs:
         os: [ubuntu-18.04, ubuntu-20.04, ubuntu-22.04, macos-12,  macos-11, windows-2019]
     steps:
       - uses: actions/checkout@v2
-      - name: Compile All Targets
+      - name: Compile On Linux
         working-directory: ./cpp
         if: runner.os == 'Linux'
         run: bazel build --config=remote --remote_header=x-buildbuddy-api-key=${{ secrets.BUILD_BUDDY_API_KEY }} //...
+      - name: Compile On Windows
+        working-directory: ./cpp
         if: runner.os == 'Windows'
         run: bazel build //...
+      - name: Compile On macOS
+        working-directory: ./cpp
         if: runner.os == 'macOS'
         run: bazel build //...
-      - name: Execute Unit Tests
+      - name: Run Unit Tests On Linux
         working-directory: ./cpp
         if: runner.os == 'Linux'
         run: bazel test --config=remote --remote_header=x-buildbuddy-api-key=${{ secrets.BUILD_BUDDY_API_KEY }} //...
+      - name: Run Unit Tests On Windows
+        working-directory: ./cpp  
         if: runner.os == 'Windows'
         run: bazel test //...
+      - name: Run Unit Tests On macOS
+        working-directory: ./cpp
         if: runner.os == 'macOS'
         run: bazel test //...
