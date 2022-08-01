@@ -34,8 +34,8 @@ int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   auto& logger = getLogger();
-  logger.setConsoleLevel(Level::Debug);
-  logger.setLevel(Level::Debug);
+  logger.setConsoleLevel(Level::Info);
+  logger.setLevel(Level::Info);
   logger.init();
 
   std::string tag = "*";

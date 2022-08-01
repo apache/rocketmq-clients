@@ -104,8 +104,8 @@ int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   auto& logger = getLogger();
-  logger.setConsoleLevel(Level::Debug);
-  logger.setLevel(Level::Debug);
+  logger.setConsoleLevel(Level::Info);
+  logger.setLevel(Level::Info);
   logger.init();
 
   CredentialsProviderPtr credentials_provider;
@@ -137,7 +137,6 @@ int main(int argc, char* argv[]) {
   std::thread stats_thread(stats_lambda);
 
   std::string body = randomString(FLAGS_message_body_size);
-  std::cout << "Message body size: " << body.length() << std::endl;
 
   std::size_t completed = 0;
   std::mutex mtx;
@@ -150,7 +149,6 @@ int main(int argc, char* argv[]) {
     semaphore->release();
     completed++;
     count++;
-    std::cout << "Message[id=" << receipt.message_id << "] sent" << std::endl;
     if (completed >= FLAGS_total) {
       cv.notify_all();
     }
@@ -170,14 +168,13 @@ int main(int argc, char* argv[]) {
   {
     std::unique_lock<std::mutex> lk(mtx);
     cv.wait(lk, [&]() { return completed >= FLAGS_total; });
+    std::cout << "Completed: " << completed << ", total: " << FLAGS_total << std::endl;
   }
 
   stopped.store(true, std::memory_order_relaxed);
   if (stats_thread.joinable()) {
     stats_thread.join();
   }
-
-  std::this_thread::sleep_for(std::chrono::seconds(1));
 
   return EXIT_SUCCESS;
 }
