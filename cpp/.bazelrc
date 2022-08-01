@@ -136,6 +136,8 @@ build:remote --bes_results_url=https://app.buildbuddy.io/invocation/
 build:remote --bes_backend=grpcs://remote.buildbuddy.io
 build:remote --remote_cache=grpcs://remote.buildbuddy.io
 build:remote --remote_timeout=3600
+build:remote --grpc_keepalive_time=360s
+build:remote --grpc_keepalive_timeout=360s
 build:remote --remote_executor=grpcs://remote.buildbuddy.io
 build:remote --host_platform=@buildbuddy_toolchain//:platform
 build:remote --platforms=@buildbuddy_toolchain//:platform
@@ -143,3 +145,8 @@ build:remote --extra_execution_platforms=@buildbuddy_toolchain//:platform
 build:remote --crosstool_top=@buildbuddy_toolchain//:toolchain
 build:remote --extra_toolchains=@buildbuddy_toolchain//:cc_toolchain
 build:remote --jobs=250
+build:remote --remote_download_minimal
+build:remote --experimental_remote_cache_compression
+build:remote --experimental_remote_cache_async
+build:remote --spawn_strategy=remote
+# try-import %workspace%/user.bazelrc
