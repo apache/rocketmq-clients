@@ -545,8 +545,7 @@ class ProducerImpl extends ClientImpl implements Producer {
 
     @Override
     public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
-        final PublishingLoadBalancer publishingLoadBalancer =
-            new PublishingLoadBalancer(topicRouteData);
+        final PublishingLoadBalancer publishingLoadBalancer = new PublishingLoadBalancer(topicRouteData);
         publishingRouteDataCache.put(topic, publishingLoadBalancer);
     }
 
