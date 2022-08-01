@@ -604,7 +604,7 @@ void ClientImpl::notifyClientTermination(const NotifyClientTerminationRequest& r
 }
 
 std::string clientId() {
-  static std::atomic_uint32_t sequence;
+  static std::atomic<std::uint32_t> sequence;
   return fmt::format("{}@{}#{}_{}", UtilAll::hostname(), getpid(), sequence.fetch_add(1, std::memory_order_relaxed),
                      MixAll::millisecondsOf(std::chrono::system_clock::now().time_since_epoch()));
 }
