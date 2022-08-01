@@ -50,7 +50,7 @@ std::string randomString(std::string::size_type len) {
   return result;
 }
 
-DEFINE_string(topic, "lingchu_normal_topic", "Topic to which messages are published");
+DEFINE_string(topic, "standard_topic_sample", "Topic to which messages are published");
 DEFINE_string(access_point, "121.196.167.124:8081", "Service access URL, provided by your service provider");
 DEFINE_int32(message_body_size, 4096, "Message body size");
 DEFINE_uint32(total, 256, "Number of sample messages to publish");
@@ -61,8 +61,8 @@ int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   auto& logger = getLogger();
-  logger.setConsoleLevel(Level::Debug);
-  logger.setLevel(Level::Debug);
+  logger.setConsoleLevel(Level::Info);
+  logger.setLevel(Level::Info);
   logger.init();
 
   CredentialsProviderPtr credentials_provider;

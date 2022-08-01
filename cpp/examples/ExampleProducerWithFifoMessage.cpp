@@ -60,8 +60,8 @@ int main(int argc, char* argv[]) {
 
   // Adjust log level for file/console sinks
   auto& logger = getLogger();
-  logger.setConsoleLevel(Level::Debug);
-  logger.setLevel(Level::Debug);
+  logger.setConsoleLevel(Level::Info);
+  logger.setLevel(Level::Info);
   logger.init();
 
   CredentialsProviderPtr credentials_provider;
