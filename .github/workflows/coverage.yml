@@ -1,0 +1,25 @@
+name: Codecov
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  push:
+    branches:
+      - master
+jobs:
+  calculate-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Set up JDK 16
+        uses: actions/setup-java@v2
+        with:
+          java-version: '16'
+          distribution: 'adopt'
+      - name: Generate coverage report
+        run: mvn test --file ./java/pom.xml
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v2.0.2
+        with:
+          file: ./java/client/target/site/jacoco/jacoco.xml
+          fail_ci_if_error: true
+          verbose: true
