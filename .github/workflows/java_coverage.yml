@@ -1,20 +1,25 @@
-name: Codecov
+name: Java Coverage
 on:
   pull_request:
     types: [opened, reopened, synchronize]
+    paths:
+      - "java/**"
   push:
     branches:
       - master
+    paths:
+      - "java/**"
+# mainly refer to: https://github.com/merkrafter/Merkompiler/blob/development/.github/workflows/quality_assurance.yml
 jobs:
   calculate-coverage:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
-      - name: Set up JDK 16
+      - name: Set up JDK 11
         uses: actions/setup-java@v2
         with:
-          java-version: '16'
-          distribution: 'adopt'
+          java-version: "11"
+          distribution: "adopt"
       - name: Generate coverage report
         run: mvn test --file ./java/pom.xml
       - name: Upload to Codecov
