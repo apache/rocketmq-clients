@@ -1,4 +1,4 @@
-name: Misspell Check
+name: License checker1
 on:
   pull_request:
     types: [opened, reopened, synchronize]
@@ -6,13 +6,12 @@ on:
     branches:
       - master
 jobs:
-  misspell-check:
+  check-license:
     runs-on: ubuntu-latest
     steps:
-      - name: Install misspell
       - uses: actions/checkout@v3
-        run: |
-          curl -L -o ./install-misspell.sh https://git.io/misspell
-          sh ./install-misspell.sh
-      - name: Run misspell
-        run: find . ! -path "./cpp/third_party/*" -type f -print0 | xargs -0 bin/misspell -error
+      - name: Check License Header
+        uses: apache/skywalking-eyes@v0.2.0
+        with:
+          log: info
+          config: .licenserc.yaml

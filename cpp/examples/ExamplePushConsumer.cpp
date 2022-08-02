@@ -28,7 +28,7 @@ using namespace ROCKETMQ_NAMESPACE;
 DEFINE_string(topic, "standard_topic_sample", "Topic to which messages are published");
 DEFINE_string(access_point, "121.196.167.124:8081", "Service access URL, provided by your service provider");
 DEFINE_string(group, "CID_standard_topic_sample", "GroupId, created through your instance management console");
-DEFINE_string(access_key, "", "Your access key ID");
+DEFINE_string(access_key, "", "Your access key IDs");
 DEFINE_string(access_secret, "", "Your access secret");
 
 int main(int argc, char* argv[]) {
