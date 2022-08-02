@@ -10,7 +10,7 @@ We assume that you are familiar with the basic concepts and terminologies about 
 
 In order to adapt different scenarios, we defined different types for messages to publish.
 
-* **FIFO**(First In, First Out): follows standard [FIFO](https://en.wikipedia.org/wiki/FIFO) semantics, this type of message must set the `message group`. This type of message need to be used with FIFO consumer group, which gurantees that the message must be received first if the it is published first with the same message group.
+* **FIFO**(First In, First Out): follows standard [FIFO](https://en.wikipedia.org/wiki/FIFO) semantics, this type of message must set the `message group`. This type of message need to be used with FIFO consumer group, which guarantees that the message must be received first if the it is published first with the same message group.
 * **DELAY**: the message about to be sent is not immediately visible to the consumer, this type of message must set the `delivery timestamp`, which decides the visible time to consumers;
 * **TRANSACTIONAL**: wrap the publishing of one or more messages into a transaction, provide commit/rollback method to decide the visibility of messages;
 * **NORMAL**: default type. The message type is NORMAL if it does not belong to the other types above.
@@ -25,7 +25,7 @@ The different types are mutually exclusive, when means that the message to publi
 
 As we all know, consumer group is the basic unit of load balancing for consumers. Messages are evenly distributed to all consumers in the same consumer group. Now, we assigned more attributes to consumer group rather than the consumer itself.
 
-* Consume timeout: maximum time window bewteen receiving messages and returning an response of acknowledgement. Message will be visible again if time runs out.
+* Consume timeout: maximum time window between receiving messages and returning an response of acknowledgement. Message will be visible again if time runs out.
 * FIFO consumption switch: enable/disable FIFO consumption for FIFO messages.
 * Message consumption retry policy: decide the max delivery times and backoff algorithm for the message which is failed to be consumed in push consumer.
 

@@ -9,8 +9,8 @@ jobs:
   misspell-check:
     runs-on: ubuntu-latest
     steps:
-      - name: Install misspell
       - uses: actions/checkout@v3
+      - name: Install misspell
         run: |
           curl -L -o ./install-misspell.sh https://git.io/misspell
           sh ./install-misspell.sh

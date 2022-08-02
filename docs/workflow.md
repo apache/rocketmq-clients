@@ -22,7 +22,7 @@ In details, the **server-client telemetry** provides a channel to upload the loc
 The client performs same tasks periodically.
 
 * Update topic route data and cache it. The subsequent request could get route from cache directly.
-* Send heartbeart to keep alive.
+* Send heartbeat to keep alive.
 * Send **server-client telemetry** request. Client settings may be overwritten by telemetry response.
 
 <div align="center">

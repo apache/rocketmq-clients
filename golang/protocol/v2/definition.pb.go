@@ -1012,7 +1012,7 @@ type CustomizedBackoff struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// To support classic backoff strategy which is arbitary defined by end users.
+	// To support classic backoff strategy which is arbitrary defined by end users.
 	// Typical values are: `1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h`
 	Next []*durationpb.Duration `protobuf:"bytes,1,rep,name=next,proto3" json:"next,omitempty"`
 }
