@@ -1,4 +1,4 @@
-name: License checker
+name: License Checker
 on:
   pull_request:
     types: [opened, reopened, synchronize]

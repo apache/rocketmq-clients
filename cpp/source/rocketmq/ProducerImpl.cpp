@@ -548,7 +548,7 @@ TopicPublishInfoPtr ProducerImpl::getPublishInfo(const std::string& topic) {
     cv->Wait(mtx.get());
   }
 
-  // TODO: propogate error_code to caller
+  // TODO: propagate error_code to caller
   return topic_publish_info;
 }
 
