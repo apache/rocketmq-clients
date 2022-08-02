@@ -5,6 +5,7 @@
 [![C#](https://github.com/apache/rocketmq-clients/actions/workflows/csharp_build.yml/badge.svg)](https://github.com/apache/rocketmq-clients/actions/workflows/csharp_build.yml)
 [![Java](https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml/badge.svg)](https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml)
 [![Golang](https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml/badge.svg)](https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml)
+[![codecov](https://codecov.io/gh/apache/rocketmq-clients/branch/master/graph/badge.svg)](https://codecov.io/gh/apache/rocketmq-clients)
 
 ## Overview
 
