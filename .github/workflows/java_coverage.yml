@@ -1,5 +1,9 @@
 name: Java Coverage
 on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - 'java/**'
   push:
     branches:
       - master
