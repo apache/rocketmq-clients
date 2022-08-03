@@ -21,7 +21,7 @@ jobs:
       - name: Generate coverage report
         run: mvn test --file ./java/pom.xml
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v2.0.2
+        uses: codecov/codecov-action@v3
         with:
           file: ./java/client/target/site/jacoco/jacoco.xml
           flags: java
