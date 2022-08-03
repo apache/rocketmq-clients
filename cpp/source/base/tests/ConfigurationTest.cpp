@@ -21,6 +21,7 @@
 #include "gtest/gtest.h"
 #include "rocketmq/Configuration.h"
 
+
 ROCKETMQ_NAMESPACE_BEGIN
 
 class ConfigurationTest : public testing::Test {

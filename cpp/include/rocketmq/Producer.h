@@ -32,7 +32,6 @@
 #include "TransactionChecker.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
-
 /**
  * This class employs pointer-to-implementation paradigm to achieve the goal of stable ABI.
  * Refer https://en.cppreference.com/w/cpp/language/pimpl for an explanation.
