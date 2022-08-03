@@ -1,4 +1,4 @@
-name: Java Coverage
+name: CPP Coverage
 on:
   push:
     branches:
@@ -8,18 +8,14 @@ jobs:
   calculate-coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - name: Set up JDK 11
-        uses: actions/setup-java@v2
-        with:
-          java-version: "11"
-          distribution: "adopt"
+      - uses: actions/checkout@v2
       - name: Generate coverage report
-        run: mvn test --file ./java/pom.xml
+        working-directory: ./cpp
+        run: bazel coverage  //...
       - name: Upload to Codecov
         uses: codecov/codecov-action@v2.0.2
         with:
-          file: ./java/client/target/site/jacoco/jacoco.xml
-          flags: java
+          file: ./cpp/bazel-out/_coverage/_coverage_report.dat
+          flags: cpp
           fail_ci_if_error: true
           verbose: true
