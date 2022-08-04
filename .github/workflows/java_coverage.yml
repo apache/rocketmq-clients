@@ -20,10 +20,14 @@ jobs:
           distribution: "adopt"
       - name: Generate coverage report
         run: mvn test --file ./java/pom.xml
+      - name: Test summary
+        uses: test-summary/action@v1
+        with:
+          paths: "**/TEST-*.xml"
+        if: always()
       - name: Upload to Codecov
         uses: codecov/codecov-action@v3
         with:
-          file: ./java/client/target/site/jacoco/jacoco.xml
           flags: java
           fail_ci_if_error: true
           verbose: true
