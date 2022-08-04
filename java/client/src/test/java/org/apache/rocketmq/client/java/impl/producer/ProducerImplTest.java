@@ -113,7 +113,6 @@ public class ProducerImplTest extends TestBase {
             "TestScheduler"));
         when(clientManager.getScheduler()).thenReturn(scheduler);
         doNothing().when(telemetryRequestObserver).onNext(any(TelemetryCommand.class));
-
         int messageMaxBodySize = 1024 * 1024 * 4;
         Publishing publishing = Publishing.newBuilder().setMaxBodySize(messageMaxBodySize).build();
         Settings settings = Settings.newBuilder().setPublishing(publishing).build();
@@ -179,24 +178,5 @@ public class ProducerImplTest extends TestBase {
         final apache.rocketmq.v2.SendResultEntry receipt = response.getEntriesList().iterator().next();
         assertEquals(receipt.getMessageId(), sendReceipt.getMessageId().toString());
         shutdown(producerWithoutTopicBinding);
-    }
-
-    @Test(expected = ClientException.class)
-    @Ignore
-    public void testSendMessageWithFailure() throws ClientException {
-        start(producer);
-        verify(clientManager, times(1)).queryRoute(any(Endpoints.class), any(Metadata.class),
-            any(QueryRouteRequest.class), any(Duration.class));
-        verify(clientManager, times(1)).telemetry(any(Endpoints.class), any(Metadata.class), any(Duration.class),
-            any(ClientSessionImpl.class));
-        final ListenableFuture<RpcInvocation<SendMessageResponse>> future = failureSendMessageResponseFuture();
-        when(clientManager.sendMessage(any(Endpoints.class), any(Metadata.class), any(SendMessageRequest.class),
-            any(Duration.class))).thenReturn(future);
-        Message message0 = fakeMessage(FAKE_TOPIC_0);
-        try {
-            producer.send(message0);
-        } finally {
-            shutdown(producer);
-        }
     }
 }
