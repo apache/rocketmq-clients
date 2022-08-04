@@ -129,12 +129,6 @@ public class ProducerImplTest extends TestBase {
         producer.stopAsync().awaitTerminated();
     }
 
-    @Test(expected = IllegalStateException.class)
-    public void testSendWithoutStart() throws ClientException {
-        final Message message = fakeMessage(FAKE_TOPIC_0);
-        producer.send(message);
-    }
-
     @Test
     @Ignore
     public void testSendWithTopicBinding() throws ClientException, ExecutionException, InterruptedException {
@@ -179,24 +173,5 @@ public class ProducerImplTest extends TestBase {
         final apache.rocketmq.v2.SendResultEntry receipt = response.getEntriesList().iterator().next();
         assertEquals(receipt.getMessageId(), sendReceipt.getMessageId().toString());
         shutdown(producerWithoutTopicBinding);
-    }
-
-    @Test(expected = ClientException.class)
-    @Ignore
-    public void testSendMessageWithFailure() throws ClientException {
-        start(producer);
-        verify(clientManager, times(1)).queryRoute(any(Endpoints.class), any(Metadata.class),
-            any(QueryRouteRequest.class), any(Duration.class));
-        verify(clientManager, times(1)).telemetry(any(Endpoints.class), any(Metadata.class), any(Duration.class),
-            any(ClientSessionImpl.class));
-        final ListenableFuture<RpcInvocation<SendMessageResponse>> future = failureSendMessageResponseFuture();
-        when(clientManager.sendMessage(any(Endpoints.class), any(Metadata.class), any(SendMessageRequest.class),
-            any(Duration.class))).thenReturn(future);
-        Message message0 = fakeMessage(FAKE_TOPIC_0);
-        try {
-            producer.send(message0);
-        } finally {
-            shutdown(producer);
-        }
     }
 }
