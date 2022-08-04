@@ -17,8 +17,8 @@ flags:
   cpp:
     carryforward: true
     paths:
-      - "cpp/**/*"
+      - "cpp/**"
   java:
     carryforward: true
     paths:
-      - "java/**/*"
+      - "java/**"
