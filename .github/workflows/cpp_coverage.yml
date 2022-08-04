@@ -13,7 +13,7 @@ jobs:
         working-directory: ./cpp
         run: bazel coverage  //...
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v2.0.2
+        uses: codecov/codecov-action@v3
         with:
           file: ./cpp/bazel-out/_coverage/_coverage_report.dat
           flags: cpp
