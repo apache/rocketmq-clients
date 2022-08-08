@@ -19,8 +19,8 @@ package org.apache.rocketmq.client.java.exception;
 
 import org.apache.rocketmq.client.apis.ClientException;
 
-public class PaymentException extends ClientException {
-    public PaymentException(int responseCode, String requestId, String message) {
+public class PaymentRequiredException extends ClientException {
+    public PaymentRequiredException(int responseCode, String requestId, String message) {
         super(responseCode, requestId, message);
     }
 }

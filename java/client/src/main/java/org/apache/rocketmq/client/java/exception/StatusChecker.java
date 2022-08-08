@@ -63,7 +63,7 @@ public class StatusChecker {
             case UNAUTHORIZED:
                 throw new UnauthorizedException(codeNumber, requestId, statusMessage);
             case PAYMENT_REQUIRED:
-                throw new PaymentException(codeNumber, requestId, statusMessage);
+                throw new PaymentRequiredException(codeNumber, requestId, statusMessage);
             case FORBIDDEN:
                 throw new ForbiddenException(codeNumber, requestId, statusMessage);
             case MESSAGE_NOT_FOUND:
