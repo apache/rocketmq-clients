@@ -71,12 +71,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
-import org.apache.rocketmq.client.java.exception.BadRequestException;
 import org.apache.rocketmq.client.java.exception.InternalErrorException;
-import org.apache.rocketmq.client.java.exception.NotFoundException;
-import org.apache.rocketmq.client.java.exception.ProxyTimeoutException;
-import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
-import org.apache.rocketmq.client.java.exception.UnsupportedException;
+import org.apache.rocketmq.client.java.exception.StatusChecker;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.hook.MessageInterceptor;
@@ -178,6 +174,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         }));
     }
 
+
     /**
      * Start the rocketmq client and do some preparatory work.
      */
@@ -188,9 +185,8 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         // Fetch topic route from remote.
         LOGGER.info("Begin to fetch topic(s) route data from remote during client startup, clientId={}, topics={}",
             clientId, topics);
-        final List<ListenableFuture<TopicRouteData>> futures =
-            topics.stream().map(this::fetchTopicRoute).collect(Collectors.toList());
-        for (ListenableFuture<TopicRouteData> future : futures) {
+        for (String topic : topics) {
+            final ListenableFuture<TopicRouteData> future = fetchTopicRoute(topic);
             future.get();
         }
         LOGGER.info("Fetch topic route data from remote successfully during startup, clientId={}, topics={}",
@@ -625,7 +621,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         return future;
     }
 
-    private ListenableFuture<TopicRouteData> fetchTopicRoute0(final String topic) {
+    ListenableFuture<TopicRouteData> fetchTopicRoute0(final String topic) {
         try {
             Resource topicResource = Resource.newBuilder().setName(topic).build();
             final QueryRouteRequest request = QueryRouteRequest.newBuilder().setTopic(topicResource)
@@ -635,32 +631,8 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
                 clientManager.queryRoute(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
             return Futures.transformAsync(future, invocation -> {
                 final QueryRouteResponse response = invocation.getResponse();
-                final String requestId = invocation.getContext().getRequestId();
                 final Status status = response.getStatus();
-                final String statusMessage = status.getMessage();
-                final Code code = status.getCode();
-                final int codeNumber = code.getNumber();
-                switch (code) {
-                    case OK:
-                        break;
-                    case BAD_REQUEST:
-                    case ILLEGAL_ACCESS_POINT:
-                    case ILLEGAL_TOPIC:
-                    case CLIENT_ID_REQUIRED:
-                        throw new BadRequestException(codeNumber, requestId, statusMessage);
-                    case NOT_FOUND:
-                    case TOPIC_NOT_FOUND:
-                        throw new NotFoundException(codeNumber, requestId, statusMessage);
-                    case TOO_MANY_REQUESTS:
-                        throw new TooManyRequestsException(codeNumber, requestId, statusMessage);
-                    case INTERNAL_ERROR:
-                    case INTERNAL_SERVER_ERROR:
-                        throw new InternalErrorException(codeNumber, requestId, statusMessage);
-                    case PROXY_TIMEOUT:
-                        throw new ProxyTimeoutException(codeNumber, requestId, statusMessage);
-                    default:
-                        throw new UnsupportedException(codeNumber, requestId, statusMessage);
-                }
+                StatusChecker.check(status, invocation);
                 final List<MessageQueue> messageQueuesList = response.getMessageQueuesList();
                 final TopicRouteData topicRouteData = new TopicRouteData(messageQueuesList);
                 return Futures.immediateFuture(topicRouteData);

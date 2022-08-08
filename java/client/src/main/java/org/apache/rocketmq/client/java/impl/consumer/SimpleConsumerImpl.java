@@ -19,7 +19,6 @@ package org.apache.rocketmq.client.java.impl.consumer;
 
 import apache.rocketmq.v2.AckMessageResponse;
 import apache.rocketmq.v2.ChangeInvisibleDurationResponse;
-import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.Status;
 import com.google.common.math.IntMath;
@@ -43,14 +42,7 @@ import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.SimpleConsumer;
 import org.apache.rocketmq.client.apis.message.MessageView;
-import org.apache.rocketmq.client.java.exception.BadRequestException;
-import org.apache.rocketmq.client.java.exception.ForbiddenException;
-import org.apache.rocketmq.client.java.exception.InternalErrorException;
-import org.apache.rocketmq.client.java.exception.NotFoundException;
-import org.apache.rocketmq.client.java.exception.ProxyTimeoutException;
-import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
-import org.apache.rocketmq.client.java.exception.UnauthorizedException;
-import org.apache.rocketmq.client.java.exception.UnsupportedException;
+import org.apache.rocketmq.client.java.exception.StatusChecker;
 import org.apache.rocketmq.client.java.impl.ClientSettings;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
@@ -242,38 +234,10 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         MessageViewImpl impl = (MessageViewImpl) messageView;
         final ListenableFuture<RpcInvocation<AckMessageResponse>> future = ackMessage(impl);
         return Futures.transformAsync(future, invocation -> {
-            final String requestId = invocation.getContext().getRequestId();
             final AckMessageResponse response = invocation.getResponse();
             final Status status = response.getStatus();
-            final Code code = status.getCode();
-            final int codeNumber = code.getNumber();
-            final String statusMessage = status.getMessage();
-            switch (code) {
-                case OK:
-                    return Futures.immediateVoidFuture();
-                case BAD_REQUEST:
-                case ILLEGAL_TOPIC:
-                case ILLEGAL_CONSUMER_GROUP:
-                case INVALID_RECEIPT_HANDLE:
-                case CLIENT_ID_REQUIRED:
-                    throw new BadRequestException(codeNumber, requestId, statusMessage);
-                case UNAUTHORIZED:
-                    throw new UnauthorizedException(codeNumber, requestId, statusMessage);
-                case FORBIDDEN:
-                    throw new ForbiddenException(codeNumber, requestId, statusMessage);
-                case NOT_FOUND:
-                case TOPIC_NOT_FOUND:
-                    throw new NotFoundException(codeNumber, requestId, statusMessage);
-                case TOO_MANY_REQUESTS:
-                    throw new TooManyRequestsException(codeNumber, requestId, statusMessage);
-                case INTERNAL_ERROR:
-                case INTERNAL_SERVER_ERROR:
-                    throw new InternalErrorException(codeNumber, requestId, statusMessage);
-                case PROXY_TIMEOUT:
-                    throw new ProxyTimeoutException(codeNumber, requestId, statusMessage);
-                default:
-                    throw new UnsupportedException(codeNumber, requestId, statusMessage);
-            }
+            StatusChecker.check(status, invocation);
+            return Futures.immediateVoidFuture();
         }, clientCallbackExecutor);
     }
 
@@ -313,38 +277,11 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
             changeInvisibleDuration(impl, invisibleDuration);
         return Futures.transformAsync(future, invocation -> {
             final ChangeInvisibleDurationResponse response = invocation.getResponse();
-            final String requestId = invocation.getContext().getRequestId();
             // Refresh receipt handle manually.
             impl.setReceiptHandle(response.getReceiptHandle());
             final Status status = response.getStatus();
-            final Code code = status.getCode();
-            final int codeNumber = code.getNumber();
-            final String statusMessage = status.getMessage();
-            switch (code) {
-                case OK:
-                    return Futures.immediateVoidFuture();
-                case BAD_REQUEST:
-                case ILLEGAL_TOPIC:
-                case ILLEGAL_CONSUMER_GROUP:
-                case ILLEGAL_INVISIBLE_TIME:
-                case INVALID_RECEIPT_HANDLE:
-                case CLIENT_ID_REQUIRED:
-                    throw new BadRequestException(codeNumber, requestId, statusMessage);
-                case UNAUTHORIZED:
-                    throw new UnauthorizedException(codeNumber, requestId, statusMessage);
-                case NOT_FOUND:
-                case TOPIC_NOT_FOUND:
-                    throw new NotFoundException(codeNumber, requestId, statusMessage);
-                case TOO_MANY_REQUESTS:
-                    throw new TooManyRequestsException(codeNumber, requestId, statusMessage);
-                case INTERNAL_ERROR:
-                case INTERNAL_SERVER_ERROR:
-                    throw new InternalErrorException(codeNumber, requestId, statusMessage);
-                case PROXY_TIMEOUT:
-                    throw new ProxyTimeoutException(codeNumber, requestId, statusMessage);
-                default:
-                    throw new UnsupportedException(codeNumber, requestId, statusMessage);
-            }
+            StatusChecker.check(status, invocation);
+            return Futures.immediateVoidFuture();
         }, MoreExecutors.directExecutor());
     }
 

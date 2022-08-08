@@ -34,6 +34,7 @@ import apache.rocketmq.v2.Status;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import io.grpc.Metadata;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -49,7 +50,9 @@ import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.misc.RequestIdGenerator;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
+import org.apache.rocketmq.client.java.rpc.Context;
 import org.apache.rocketmq.client.java.rpc.RpcInvocation;
+import org.apache.rocketmq.client.java.rpc.Signature;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Before;
 import org.junit.Test;
@@ -154,8 +157,12 @@ public class ProcessQueueImplTest extends TestBase {
         List<MessageViewImpl> messageViewList = new ArrayList<>();
         final MessageViewImpl messageView = fakeMessageViewImpl();
         messageViewList.add(messageView);
-        ReceiveMessageResult receiveMessageResult = new ReceiveMessageResult(fakeEndpoints(),
-            RequestIdGenerator.getInstance().next(), status, messageViewList);
+        final Metadata metadata = new Metadata();
+        metadata.put(Metadata.Key.of(Signature.REQUEST_ID_KEY, Metadata.ASCII_STRING_MARSHALLER),
+            RequestIdGenerator.getInstance().next());
+        Context context = new Context(fakeEndpoints(), metadata);
+
+        ReceiveMessageResult receiveMessageResult = new ReceiveMessageResult(fakeEndpoints(), messageViewList);
         SettableFuture<ReceiveMessageResult> future0 = SettableFuture.create();
         future0.set(receiveMessageResult);
         when(pushConsumer.receiveMessage(any(ReceiveMessageRequest.class), any(MessageQueueImpl.class),
