@@ -44,7 +44,10 @@ public interface RetryPolicy {
      * @param retryPolicy retry policy which contains the backoff strategy.
      * @return the new retry policy.
      */
-    RetryPolicy updateBackoff(apache.rocketmq.v2.RetryPolicy retryPolicy);
+    RetryPolicy inheritBackoff(apache.rocketmq.v2.RetryPolicy retryPolicy);
 
+    /**
+     * Convert to {@link apache.rocketmq.v2.RetryPolicy}.
+     */
     apache.rocketmq.v2.RetryPolicy toProtobuf();
 }

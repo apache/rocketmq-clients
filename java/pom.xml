@@ -290,6 +290,9 @@
                     </execution>
                 </executions>
                 <configuration>
+                    <excludes>
+                        <exclude>**/example/**/*.class</exclude>
+                    </excludes>
                     <rules>
                         <rule>
                             <element>CLASS</element>

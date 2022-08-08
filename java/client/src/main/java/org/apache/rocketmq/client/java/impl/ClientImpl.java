@@ -621,7 +621,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         return future;
     }
 
-    ListenableFuture<TopicRouteData> fetchTopicRoute0(final String topic) {
+    protected ListenableFuture<TopicRouteData> fetchTopicRoute0(final String topic) {
         try {
             Resource topicResource = Resource.newBuilder().setName(topic).build();
             final QueryRouteRequest request = QueryRouteRequest.newBuilder().setTopic(topicResource)

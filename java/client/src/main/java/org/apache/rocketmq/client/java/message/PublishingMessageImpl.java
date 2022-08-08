@@ -28,6 +28,7 @@ import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.java.impl.producer.ProducerSettings;
 import org.apache.rocketmq.client.java.message.protocol.Encoding;
 import org.apache.rocketmq.client.java.misc.Utilities;
+import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 
 /**
  * This class is a publishing view for message, which could be considered as an extension of {@link MessageImpl}.
@@ -97,7 +98,7 @@ public class PublishingMessageImpl extends MessageImpl {
      * <p>This method should be invoked before each message sending, because the born time is reset before each
      * invocation, which means that it should not be invoked ahead of time.
      */
-    public apache.rocketmq.v2.Message toProtobuf() {
+    public apache.rocketmq.v2.Message toProtobuf(MessageQueueImpl mq) {
         final apache.rocketmq.v2.SystemProperties.Builder systemPropertiesBuilder =
             apache.rocketmq.v2.SystemProperties.newBuilder()
                 // Message keys
@@ -110,6 +111,8 @@ public class PublishingMessageImpl extends MessageImpl {
                 .setBornHost(Utilities.hostName())
                 // Body encoding
                 .setBodyEncoding(Encoding.toProtobuf(Encoding.IDENTITY))
+                // Queue id
+                .setQueueId(mq.getQueueId())
                 // Message type
                 .setMessageType(MessageType.toProtobuf(messageType));
         // Message tag

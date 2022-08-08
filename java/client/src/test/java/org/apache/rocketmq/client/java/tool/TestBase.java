@@ -178,6 +178,10 @@ public class TestBase {
             keys, properties, FAKE_HOST_0, 1, 1, mq, FAKE_RECEIPT_HANDLE_0, null, 1, corrupted, null);
     }
 
+    protected MessageQueueImpl fakeMessageQueueImpl(String topic) {
+        return new MessageQueueImpl(fakePbMessageQueue0(Resource.newBuilder().setName(topic).build()));
+    }
+
     protected MessageQueueImpl fakeMessageQueueImpl0() {
         return new MessageQueueImpl(fakePbMessageQueue0());
     }
@@ -363,7 +367,7 @@ public class TestBase {
         MessageQueueImpl mq) throws ExecutionException, InterruptedException, ClientException {
         final ListenableFuture<RpcInvocation<SendMessageResponse>> future =
             okSendMessageResponseFutureWithSingleEntry();
-        final List<SendReceiptImpl> receipts = SendReceiptImpl.processSendMessageResponseInvocation(mq, future.get());
+        final List<SendReceiptImpl> receipts = SendReceiptImpl.processResponseInvocation(mq, future.get());
         return receipts.iterator().next();
     }
 }

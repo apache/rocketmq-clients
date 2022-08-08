@@ -81,7 +81,7 @@ public class ProducerSettings extends ClientSettings {
         final apache.rocketmq.v2.RetryPolicy backoffPolicy = settings.getBackoffPolicy();
         final Publishing publishing = settings.getPublishing();
         RetryPolicy exist = retryPolicy;
-        this.retryPolicy = exist.updateBackoff(backoffPolicy);
+        this.retryPolicy = exist.inheritBackoff(backoffPolicy);
         this.validateMessageType = settings.getPublishing().getValidateMessageType();
         this.maxBodySizeBytes = publishing.getMaxBodySize();
         this.arrivedFuture.setFuture(Futures.immediateVoidFuture());
