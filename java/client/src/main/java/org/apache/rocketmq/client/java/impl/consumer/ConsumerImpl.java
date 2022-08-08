@@ -50,6 +50,7 @@ import java.util.regex.Pattern;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.message.MessageId;
+import org.apache.rocketmq.client.java.exception.StatusChecker;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.impl.ClientImpl;
@@ -83,8 +84,8 @@ abstract class ConsumerImpl extends ClientImpl {
             final Duration timeout = Duration.ofNanos(awaitDuration.toNanos() + tolerance.toNanos());
             final ListenableFuture<RpcInvocation<Iterator<ReceiveMessageResponse>>> future =
                 clientManager.receiveMessage(endpoints, metadata, request, timeout);
-            return Futures.transformAsync(future, context -> {
-                final Iterator<ReceiveMessageResponse> it = context.getResponse();
+            return Futures.transformAsync(future, invocation -> {
+                final Iterator<ReceiveMessageResponse> it = invocation.getResponse();
                 Status status = Status.newBuilder().setCode(Code.INTERNAL_SERVER_ERROR)
                     .setMessage("status was not set by server")
                     .build();
@@ -111,8 +112,8 @@ abstract class ConsumerImpl extends ClientImpl {
                     final MessageViewImpl view = MessageViewImpl.fromProtobuf(message, mq, deliveryTimestampFromRemote);
                     messages.add(view);
                 }
-                final ReceiveMessageResult receiveMessageResult = new ReceiveMessageResult(endpoints,
-                    context.getContext().getRequestId(), status, messages);
+                StatusChecker.check(status, invocation);
+                final ReceiveMessageResult receiveMessageResult = new ReceiveMessageResult(endpoints, messages);
                 return Futures.immediateFuture(receiveMessageResult);
             }, MoreExecutors.directExecutor());
         } catch (Throwable t) {

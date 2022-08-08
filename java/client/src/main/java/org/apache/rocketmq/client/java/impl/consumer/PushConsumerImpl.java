@@ -58,13 +58,7 @@ import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
 import org.apache.rocketmq.client.apis.message.MessageId;
-import org.apache.rocketmq.client.java.exception.BadRequestException;
-import org.apache.rocketmq.client.java.exception.ForbiddenException;
-import org.apache.rocketmq.client.java.exception.InternalErrorException;
-import org.apache.rocketmq.client.java.exception.NotFoundException;
-import org.apache.rocketmq.client.java.exception.ProxyTimeoutException;
-import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
-import org.apache.rocketmq.client.java.exception.UnsupportedException;
+import org.apache.rocketmq.client.java.exception.StatusChecker;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.impl.ClientSettings;
@@ -278,36 +272,10 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
                 final Duration requestTimeout = clientConfiguration.getRequestTimeout();
                 return clientManager.queryAssignment(endpoints, metadata, request, requestTimeout);
             }, MoreExecutors.directExecutor());
-        return Futures.transformAsync(responseFuture, context -> {
-            final QueryAssignmentResponse response = context.getResponse();
+        return Futures.transformAsync(responseFuture, invocation -> {
+            final QueryAssignmentResponse response = invocation.getResponse();
             final Status status = response.getStatus();
-            final Code code = status.getCode();
-            final int codeNumber = code.getNumber();
-            final String requestId = context.getContext().getRequestId();
-            final String statusMessage = status.getMessage();
-            switch (code) {
-                case OK:
-                    break;
-                case BAD_REQUEST:
-                case ILLEGAL_ACCESS_POINT:
-                case ILLEGAL_TOPIC:
-                case CLIENT_ID_REQUIRED:
-                    throw new BadRequestException(codeNumber, requestId, statusMessage);
-                case FORBIDDEN:
-                    throw new ForbiddenException(codeNumber, requestId, statusMessage);
-                case NOT_FOUND:
-                case TOPIC_NOT_FOUND:
-                    throw new NotFoundException(codeNumber, requestId, statusMessage);
-                case TOO_MANY_REQUESTS:
-                    throw new TooManyRequestsException(codeNumber, requestId, statusMessage);
-                case INTERNAL_ERROR:
-                case INTERNAL_SERVER_ERROR:
-                    throw new InternalErrorException(codeNumber, requestId, statusMessage);
-                case PROXY_TIMEOUT:
-                    throw new ProxyTimeoutException(codeNumber, requestId, statusMessage);
-                default:
-                    throw new UnsupportedException(codeNumber, requestId, statusMessage);
-            }
+            StatusChecker.check(status, invocation);
             final List<Assignment> assignmentList = response.getAssignmentsList().stream().map(assignment ->
                 new Assignment(new MessageQueueImpl(assignment.getMessageQueue()))).collect(Collectors.toList());
             final Assignments assignments = new Assignments(assignmentList);

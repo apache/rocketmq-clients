@@ -29,16 +29,7 @@ import java.util.Optional;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.apis.producer.SendReceipt;
-import org.apache.rocketmq.client.java.exception.BadRequestException;
-import org.apache.rocketmq.client.java.exception.ForbiddenException;
-import org.apache.rocketmq.client.java.exception.InternalErrorException;
-import org.apache.rocketmq.client.java.exception.NotFoundException;
-import org.apache.rocketmq.client.java.exception.PayloadTooLargeException;
-import org.apache.rocketmq.client.java.exception.ProxyTimeoutException;
-import org.apache.rocketmq.client.java.exception.RequestHeaderFieldsTooLargeException;
-import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
-import org.apache.rocketmq.client.java.exception.UnauthorizedException;
-import org.apache.rocketmq.client.java.exception.UnsupportedException;
+import org.apache.rocketmq.client.java.exception.StatusChecker;
 import org.apache.rocketmq.client.java.message.MessageIdCodec;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
@@ -81,7 +72,6 @@ public class SendReceiptImpl implements SendReceipt {
 
     public static List<SendReceiptImpl> processSendMessageResponseInvocation(MessageQueueImpl mq,
         RpcInvocation<SendMessageResponse> invocation) throws ClientException {
-        final String requestId = invocation.getContext().getRequestId();
         final SendMessageResponse response = invocation.getResponse();
         Status status = response.getStatus();
         List<SendReceiptImpl> sendReceipts = new ArrayList<>();
@@ -92,58 +82,15 @@ public class SendReceiptImpl implements SendReceipt {
         if (abnormalStatus.isPresent()) {
             status = abnormalStatus.get();
         }
-        final Code code = status.getCode();
-        if (code.equals(Code.OK)) {
-            for (SendResultEntry entry : entries) {
-                final MessageId messageId = MessageIdCodec.getInstance().decode(entry.getMessageId());
-                final String transactionId = entry.getTransactionId();
-                final long offset = entry.getOffset();
-                final SendReceiptImpl impl = new SendReceiptImpl(messageId, transactionId, mq, offset);
-                sendReceipts.add(impl);
-            }
-            return sendReceipts;
+        StatusChecker.check(status, invocation);
+        for (SendResultEntry entry : entries) {
+            final MessageId messageId = MessageIdCodec.getInstance().decode(entry.getMessageId());
+            final String transactionId = entry.getTransactionId();
+            final long offset = entry.getOffset();
+            final SendReceiptImpl impl = new SendReceiptImpl(messageId, transactionId, mq, offset);
+            sendReceipts.add(impl);
         }
-        final int codeNumber = code.getNumber();
-        final String statusMessage = status.getMessage();
-        switch (code) {
-            case ILLEGAL_TOPIC:
-            case ILLEGAL_MESSAGE_TAG:
-            case ILLEGAL_MESSAGE_KEY:
-            case ILLEGAL_MESSAGE_GROUP:
-            case ILLEGAL_MESSAGE_PROPERTY_KEY:
-            case ILLEGAL_MESSAGE_ID:
-            case ILLEGAL_DELIVERY_TIME:
-            case MESSAGE_PROPERTY_CONFLICT_WITH_TYPE:
-            case MESSAGE_CORRUPTED:
-            case CLIENT_ID_REQUIRED:
-                throw new BadRequestException(codeNumber, requestId, statusMessage);
-            case UNAUTHORIZED:
-                throw new UnauthorizedException(codeNumber, requestId, statusMessage);
-            case FORBIDDEN:
-                throw new ForbiddenException(codeNumber, requestId, statusMessage);
-            case NOT_FOUND:
-            case TOPIC_NOT_FOUND:
-                throw new NotFoundException(codeNumber, requestId, statusMessage);
-            case PAYLOAD_TOO_LARGE:
-            case MESSAGE_BODY_TOO_LARGE:
-                throw new PayloadTooLargeException(codeNumber, requestId, statusMessage);
-            case TOO_MANY_REQUESTS:
-                throw new TooManyRequestsException(codeNumber, requestId, statusMessage);
-            case REQUEST_HEADER_FIELDS_TOO_LARGE:
-            case MESSAGE_PROPERTIES_TOO_LARGE:
-                throw new RequestHeaderFieldsTooLargeException(codeNumber, requestId, statusMessage);
-            case INTERNAL_ERROR:
-            case INTERNAL_SERVER_ERROR:
-            case HA_NOT_AVAILABLE:
-                throw new InternalErrorException(codeNumber, requestId, statusMessage);
-            case PROXY_TIMEOUT:
-            case MASTER_PERSISTENCE_TIMEOUT:
-            case SLAVE_PERSISTENCE_TIMEOUT:
-                throw new ProxyTimeoutException(codeNumber, requestId, statusMessage);
-            case UNSUPPORTED:
-            default:
-                throw new UnsupportedException(codeNumber, requestId, statusMessage);
-        }
+        return sendReceipts;
     }
 
     @Override
