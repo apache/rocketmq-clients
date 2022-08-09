@@ -24,8 +24,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
@@ -39,7 +39,7 @@ import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
 
-public class StandardConsumeServiceTest extends TestBase {
+public class FifoConsumeServiceTest extends TestBase {
 
     @Test
     public void testDispatch() throws InterruptedException {
@@ -53,11 +53,18 @@ public class StandardConsumeServiceTest extends TestBase {
         processQueueTable.put(messageQueue0, processQueue0);
         processQueueTable.put(messageQueue1, processQueue1);
 
-        final MessageViewImpl messageView0 = fakeMessageViewImpl(messageQueue0);
-        final MessageViewImpl messageView1 = fakeMessageViewImpl(messageQueue1);
+        final MessageViewImpl messageView00 = fakeMessageViewImpl(messageQueue0);
+        final MessageViewImpl messageView01 = fakeMessageViewImpl(messageQueue0);
+        List<MessageViewImpl> messageViewList0 = new ArrayList<>();
+        messageViewList0.add(messageView00);
+        messageViewList0.add(messageView01);
 
-        when(processQueue0.tryTakeMessage()).thenReturn(Optional.of(messageView0));
-        when(processQueue1.tryTakeMessage()).thenReturn(Optional.of(messageView1));
+        final MessageViewImpl messageView10 = fakeMessageViewImpl(messageQueue1);
+        List<MessageViewImpl> messageViewList1 = new ArrayList<>();
+        messageViewList1.add(messageView10);
+
+        when(processQueue0.tryTakeFifoMessages()).thenReturn(messageViewList0.iterator());
+        when(processQueue1.tryTakeFifoMessages()).thenReturn(messageViewList1.iterator());
 
         MessageListener listener = messageView -> ConsumeResult.SUCCESS;
         MessageInterceptor interceptor = new MessageInterceptor() {
@@ -70,13 +77,14 @@ public class StandardConsumeServiceTest extends TestBase {
                 Duration duration, MessageHookPointsStatus status) {
             }
         };
-        final StandardConsumeService service = new StandardConsumeService(FAKE_CLIENT_ID, processQueueTable, listener,
+        final FifoConsumeService service = new FifoConsumeService(FAKE_CLIENT_ID, processQueueTable, listener,
             SINGLE_THREAD_POOL_EXECUTOR, interceptor, SCHEDULER);
-        service.dispatch0();
+        service.dispatch();
         Thread.sleep(1000);
-        verify(processQueue0, times(1)).tryTakeMessage();
-        verify(processQueue1, times(1)).tryTakeMessage();
-        verify(processQueue0, times(1)).eraseMessage(any(MessageViewImpl.class), any(ConsumeResult.class));
-        verify(processQueue1, times(1)).eraseMessage(any(MessageViewImpl.class), any(ConsumeResult.class));
+        verify(processQueue0, times(1)).tryTakeFifoMessages();
+        verify(processQueue1, times(1)).tryTakeFifoMessages();
+        verify(processQueue0, times(2)).eraseFifoMessage(any(MessageViewImpl.class), any(ConsumeResult.class));
+        verify(processQueue1, times(1)).eraseFifoMessage(any(MessageViewImpl.class), any(ConsumeResult.class));
+
     }
 }

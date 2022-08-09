@@ -40,8 +40,8 @@ public class SimpleConsumerBuilderTest extends TestBase {
     public void testBuildWithoutExpressions() throws ClientException {
         final SimpleConsumerBuilderImpl builder = new SimpleConsumerBuilderImpl();
         ClientConfiguration clientConfiguration =
-            ClientConfiguration.newBuilder().setEndpoints(FAKE_ACCESS_POINT).build();
-        builder.setClientConfiguration(clientConfiguration).setConsumerGroup(FAKE_GROUP_0)
+            ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS).build();
+        builder.setClientConfiguration(clientConfiguration).setConsumerGroup(FAKE_CONSUMER_GROUP_0)
             .build();
     }
 }

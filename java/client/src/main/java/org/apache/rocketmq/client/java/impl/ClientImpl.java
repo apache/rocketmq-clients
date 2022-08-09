@@ -29,7 +29,6 @@ import apache.rocketmq.v2.QueryRouteRequest;
 import apache.rocketmq.v2.QueryRouteResponse;
 import apache.rocketmq.v2.RecoverOrphanedTransactionCommand;
 import apache.rocketmq.v2.Resource;
-import apache.rocketmq.v2.Settings;
 import apache.rocketmq.v2.Status;
 import apache.rocketmq.v2.TelemetryCommand;
 import apache.rocketmq.v2.ThreadStackTrace;
@@ -100,7 +99,6 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      */
     private static final Duration TELEMETRY_TIMEOUT = Duration.ofDays(60 * 365);
 
-    protected final ClientManager clientManager;
     protected final ClientConfiguration clientConfiguration;
     protected final Endpoints endpoints;
     protected final Set<String> topics;
@@ -114,6 +112,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     protected final ThreadPoolExecutor telemetryCommandExecutor;
     protected final String clientId;
 
+    private final ClientManager clientManager;
     private volatile ScheduledFuture<?> updateRouteCacheFuture;
     private final ConcurrentMap<String, TopicRouteData> topicRouteCache;
 
@@ -276,7 +275,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
 
     @Override
     public TelemetryCommand settingsCommand() {
-        final Settings settings = this.getClientSettings().toProtobuf();
+        final apache.rocketmq.v2.Settings settings = this.getSettings().toProtobuf();
         return TelemetryCommand.newBuilder().setSettings(settings).build();
     }
 
@@ -297,12 +296,6 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     public boolean isEndpointsDeprecated(Endpoints endpoints) {
         final Set<Endpoints> totalRouteEndpoints = getTotalRouteEndpoints();
         return !totalRouteEndpoints.contains(endpoints);
-    }
-
-    @Override
-    public ListenableFuture<Void> awaitSettingSynchronized() {
-        return Futures.transformAsync(this.getClientSettings().arrivedFuture,
-            (clientSettings) -> Futures.immediateVoidFuture(), clientCallbackExecutor);
     }
 
     /**
@@ -338,7 +331,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         }
     }
 
-    public abstract ClientSettings getClientSettings();
+    public abstract Settings getSettings();
 
     /**
      * Apply setting from remote.
@@ -347,10 +340,10 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      * @param settings  settings received from remote.
      */
     @Override
-    public final void onSettingsCommand(Endpoints endpoints, Settings settings) {
+    public final void onSettingsCommand(Endpoints endpoints, apache.rocketmq.v2.Settings settings) {
         final Metric metric = new Metric(settings.getMetric());
         clientMeterProvider.reset(metric);
-        this.getClientSettings().applySettingsCommand(settings);
+        this.getSettings().sync(settings);
     }
 
     /**
@@ -358,7 +351,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      */
     @Override
     public void syncSettings() {
-        final Settings settings = getClientSettings().toProtobuf();
+        final apache.rocketmq.v2.Settings settings = getSettings().toProtobuf();
         final TelemetryCommand command = TelemetryCommand.newBuilder().setSettings(settings).build();
         final Set<Endpoints> totalRouteEndpoints = getTotalRouteEndpoints();
         for (Endpoints endpoints : totalRouteEndpoints) {
@@ -373,7 +366,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     public void telemetry(Endpoints endpoints, TelemetryCommand command) {
         try {
             final ClientSessionImpl clientSession = getClientSession(endpoints);
-            clientSession.fireWrite(command);
+            clientSession.write(command);
         } catch (Throwable t) {
             LOGGER.error("Failed to fire write telemetry command, clientId={}, endpoints={}", clientId, endpoints, t);
         }
@@ -412,15 +405,6 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         }
     }
 
-    private ListenableFuture<Void> syncSettingsSafely(Endpoints endpoints) {
-        try {
-            final ClientSessionImpl clientSession = getClientSession(endpoints);
-            return clientSession.syncSettingsSafely();
-        } catch (Throwable t) {
-            return Futures.immediateFailedFuture(t);
-        }
-    }
-
     /**
      * Triggered when {@link TopicRouteData} is fetched from remote.
      *
@@ -432,15 +416,18 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             .map(mq -> mq.getBroker().getEndpoints())
             .collect(Collectors.toSet());
         final Set<Endpoints> existRouteEndpoints = getTotalRouteEndpoints();
-        final Set<Endpoints> newEndpoints = new HashSet<>(Sets.difference(routeEndpoints,
-            existRouteEndpoints));
-        final List<ListenableFuture<Void>> futures =
-            newEndpoints.stream().map(this::syncSettingsSafely).collect(Collectors.toList());
-        return Futures.whenAllSucceed(futures).callAsync(() -> {
+        final Set<Endpoints> newEndpoints = new HashSet<>(Sets.difference(routeEndpoints, existRouteEndpoints));
+        try {
+            for (Endpoints endpoints : newEndpoints) {
+                final ClientSessionImpl clientSession = getClientSession(endpoints);
+                clientSession.syncSettings();
+            }
             topicRouteCache.put(topic, topicRouteData);
             onTopicRouteDataUpdate0(topic, topicRouteData);
             return Futures.immediateFuture(topicRouteData);
-        }, clientCallbackExecutor);
+        } catch (Throwable t) {
+            return Futures.immediateFailedFuture(t);
+        }
     }
 
     public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
@@ -521,6 +508,10 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         } catch (Throwable t) {
             LOGGER.error("Exception raised while notifying client's termination, clientId={}", clientId, t);
         }
+    }
+
+    public ClientManager getClientManager() {
+        return clientManager;
     }
 
     /**

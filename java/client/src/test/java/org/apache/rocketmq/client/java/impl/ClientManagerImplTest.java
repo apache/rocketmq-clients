@@ -33,12 +33,15 @@ import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 public class ClientManagerImplTest extends TestBase {
-    private static final ClientManagerImpl CLIENT_MANAGER = new ClientManagerImpl(null);
+    private static final Client CLIENT = Mockito.mock(Client.class);
+    private static final ClientManagerImpl CLIENT_MANAGER = new ClientManagerImpl(CLIENT);
 
     @BeforeClass
     public static void setUp() {
+        Mockito.when(CLIENT.clientId()).thenReturn("clientId");
         CLIENT_MANAGER.startAsync().awaitRunning();
     }
 

@@ -17,6 +17,9 @@
 
 package org.apache.rocketmq.client.java.impl.producer;
 
+import org.apache.rocketmq.client.apis.ClientConfiguration;
+import org.apache.rocketmq.client.apis.ClientException;
+import org.apache.rocketmq.client.apis.producer.TransactionResolution;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -38,9 +41,27 @@ public class ProducerBuilderImplTest {
     }
 
     @Test(expected = IllegalArgumentException.class)
+    public void testSetIllegalTopic() {
+        final ProducerBuilderImpl builder = new ProducerBuilderImpl();
+        builder.setTopics("\t");
+    }
+
+    @Test
+    public void testSetTopic() {
+        final ProducerBuilderImpl builder = new ProducerBuilderImpl();
+        builder.setTopics("abc");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
     public void testSetNegativeMaxAttempts() {
         final ProducerBuilderImpl builder = new ProducerBuilderImpl();
         builder.setMaxAttempts(-1);
+    }
+
+    @Test
+    public void testSetMaxAttempts() {
+        final ProducerBuilderImpl builder = new ProducerBuilderImpl();
+        builder.setMaxAttempts(3);
     }
 
     @Test(expected = NullPointerException.class)
@@ -49,9 +70,23 @@ public class ProducerBuilderImplTest {
         builder.setTransactionChecker(null);
     }
 
+    @Test
+    public void testSetTransactionChecker() {
+        final ProducerBuilderImpl builder = new ProducerBuilderImpl();
+        builder.setTransactionChecker(messageView -> TransactionResolution.COMMIT);
+    }
+
     @Test(expected = NullPointerException.class)
     public void testBuildWithoutClientConfiguration() {
         final ProducerBuilderImpl builder = new ProducerBuilderImpl();
         builder.build();
+    }
+
+    @Test
+    public void testBuild() throws ClientException {
+        ClientConfiguration clientConfiguration =
+            ClientConfiguration.newBuilder().setEndpoints("foobar.com:8081").build();
+        final ProducerBuilderImpl builder = new ProducerBuilderImpl();
+        builder.setClientConfiguration(clientConfiguration).build();
     }
 }

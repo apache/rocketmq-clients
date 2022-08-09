@@ -22,8 +22,8 @@ import com.google.common.base.Objects;
 import org.apache.commons.lang3.StringUtils;
 
 public class Resource {
-    private String namespace;
-    private String name;
+    private final String namespace;
+    private final String name;
 
     public Resource(String namespace, String name) {
         this.namespace = namespace;
@@ -50,14 +50,6 @@ public class Resource {
 
     public String getName() {
         return this.name;
-    }
-
-    public void setNamespace(String namespace) {
-        this.namespace = namespace;
-    }
-
-    public void setName(String name) {
-        this.name = name;
     }
 
     @Override

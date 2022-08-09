@@ -40,25 +40,25 @@
     </Match>
 
     <Match>
-        <Class name="org.apache.rocketmq.client.java.impl.consumer.PushConsumerSettings" />
+        <Class name="org.apache.rocketmq.client.java.impl.consumer.PushSubscriptionSettings" />
         <Method name="applySettingsCommand" />
         <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
     </Match>
 
     <Match>
-        <Class name="org.apache.rocketmq.client.java.impl.consumer.PushConsumerSettings" />
+        <Class name="org.apache.rocketmq.client.java.impl.consumer.PushSubscriptionSettings" />
         <Method name="applySettingsCommand" />
         <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
     </Match>
 
     <Match>
-        <Class name="org.apache.rocketmq.client.java.impl.consumer.SimpleConsumerSettings" />
+        <Class name="org.apache.rocketmq.client.java.impl.consumer.SimpleSubscriptionSettings" />
         <Method name="applySettingsCommand" />
         <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
     </Match>
 
     <Match>
-        <Class name="org.apache.rocketmq.client.java.impl.producer.ProducerSettings" />
+        <Class name="org.apache.rocketmq.client.java.impl.producer.PublishingSettings" />
         <Method name="applySettingsCommand" />
         <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
     </Match>

@@ -36,7 +36,6 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
 import io.grpc.Metadata;
@@ -83,7 +82,7 @@ abstract class ConsumerImpl extends ClientImpl {
             final Duration tolerance = clientConfiguration.getRequestTimeout();
             final Duration timeout = Duration.ofNanos(awaitDuration.toNanos() + tolerance.toNanos());
             final ListenableFuture<RpcInvocation<Iterator<ReceiveMessageResponse>>> future =
-                clientManager.receiveMessage(endpoints, metadata, request, timeout);
+                this.getClientManager().receiveMessage(endpoints, metadata, request, timeout);
             return Futures.transformAsync(future, invocation -> {
                 final Iterator<ReceiveMessageResponse> it = invocation.getResponse();
                 Status status = Status.newBuilder().setCode(Code.INTERNAL_SERVER_ERROR)
@@ -151,11 +150,10 @@ abstract class ConsumerImpl extends ClientImpl {
         try {
             final AckMessageRequest request = wrapAckMessageRequest(messageView);
             final Metadata metadata = sign();
-            future = clientManager.ackMessage(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
+            final Duration requestTimeout = clientConfiguration.getRequestTimeout();
+            future = this.getClientManager().ackMessage(endpoints, metadata, request, requestTimeout);
         } catch (Throwable t) {
-            final SettableFuture<RpcInvocation<AckMessageResponse>> future0 = SettableFuture.create();
-            future0.setException(t);
-            future = future0;
+            future = Futures.immediateFailedFuture(t);
         }
         Futures.addCallback(future, new FutureCallback<RpcInvocation<AckMessageResponse>>() {
             @Override
@@ -178,7 +176,7 @@ abstract class ConsumerImpl extends ClientImpl {
         return future;
     }
 
-    public ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> changeInvisibleDuration(
+    ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> changeInvisibleDuration(
         MessageViewImpl messageView, Duration invisibleDuration) {
         final Endpoints endpoints = messageView.getEndpoints();
         ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> future;
@@ -187,14 +185,12 @@ abstract class ConsumerImpl extends ClientImpl {
         final List<MessageCommon> messageCommons = Collections.singletonList(messageView.getMessageCommon());
         doBefore(MessageHookPoints.CHANGE_INVISIBLE_DURATION, messageCommons);
         try {
-            final ChangeInvisibleDurationRequest request = wrapChangeInvisibleDuration(messageView, invisibleDuration);
             final Metadata metadata = sign();
-            future = clientManager.changeInvisibleDuration(endpoints, metadata, request,
-                clientConfiguration.getRequestTimeout());
+            final ChangeInvisibleDurationRequest request = wrapChangeInvisibleDuration(messageView, invisibleDuration);
+            final Duration requestTimeout = clientConfiguration.getRequestTimeout();
+            future = this.getClientManager().changeInvisibleDuration(endpoints, metadata, request, requestTimeout);
         } catch (Throwable t) {
-            final SettableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> future0 = SettableFuture.create();
-            future0.setException(t);
-            future = future0;
+            future = Futures.immediateFailedFuture(t);
         }
         final MessageId messageId = messageView.getMessageId();
         Futures.addCallback(future, new FutureCallback<RpcInvocation<ChangeInvisibleDurationResponse>>() {
@@ -254,14 +250,14 @@ abstract class ConsumerImpl extends ClientImpl {
         return expressionBuilder.build();
     }
 
-    public ReceiveMessageRequest wrapReceiveMessageRequest(int batchSize, MessageQueueImpl mq,
+    ReceiveMessageRequest wrapReceiveMessageRequest(int batchSize, MessageQueueImpl mq,
         FilterExpression filterExpression) {
         return ReceiveMessageRequest.newBuilder().setGroup(getProtobufGroup())
             .setMessageQueue(mq.toProtobuf()).setFilterExpression(wrapFilterExpression(filterExpression))
             .setBatchSize(batchSize).setAutoRenew(true).build();
     }
 
-    public ReceiveMessageRequest wrapReceiveMessageRequest(int batchSize, MessageQueueImpl mq,
+    ReceiveMessageRequest wrapReceiveMessageRequest(int batchSize, MessageQueueImpl mq,
         FilterExpression filterExpression, Duration invisibleDuration) {
         final com.google.protobuf.Duration duration = Durations.fromNanos(invisibleDuration.toNanos());
         return ReceiveMessageRequest.newBuilder().setGroup(getProtobufGroup())

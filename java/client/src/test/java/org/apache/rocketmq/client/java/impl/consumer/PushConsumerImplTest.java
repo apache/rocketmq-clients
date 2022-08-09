@@ -52,10 +52,10 @@ public class PushConsumerImplTest extends TestBase {
     private final int consumptionThreadCount = 4;
 
     private final ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
-        .setEndpoints(FAKE_ACCESS_POINT).build();
+        .setEndpoints(FAKE_ENDPOINTS).build();
 
     @Spy
-    private final PushConsumerImpl pushConsumer = new PushConsumerImpl(clientConfiguration, FAKE_GROUP_0,
+    private final PushConsumerImpl pushConsumer = new PushConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0,
         subscriptionExpressions, messageListener, maxCacheMessageCount, maxCacheMessageSizeInBytes,
         consumptionThreadCount);
 

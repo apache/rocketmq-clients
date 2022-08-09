@@ -51,7 +51,7 @@ import org.mockito.junit.MockitoJUnitRunner;
 @RunWith(MockitoJUnitRunner.class)
 public class ProducerImplTest extends TestBase {
     private final ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
-        .setEndpoints(FAKE_ACCESS_POINT).build();
+        .setEndpoints(FAKE_ENDPOINTS).build();
 
     @SuppressWarnings("SameParameterValue")
     private ProducerImpl createProducerWithTopic(String topic) {
@@ -106,7 +106,7 @@ public class ProducerImplTest extends TestBase {
         Mockito.doReturn(Futures.immediateFailedFuture(exception))
             .when(producer).send0(any(Metadata.class), any(Endpoints.class), anyList(), any(MessageQueueImpl.class));
         producer.send(message);
-        final int maxAttempts = producer.producerSettings.getRetryPolicy().getMaxAttempts();
+        final int maxAttempts = producer.publishingSettings.getRetryPolicy().getMaxAttempts();
         verify(producer, times(maxAttempts)).send0(any(Metadata.class), any(Endpoints.class), anyList(),
             any(MessageQueueImpl.class));
         producer.close();

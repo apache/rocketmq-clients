@@ -59,6 +59,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.net.ssl.SSLException;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.misc.ExecutorServices;
+import org.apache.rocketmq.client.java.misc.MetadataUtils;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.rpc.RpcClient;
@@ -79,7 +80,7 @@ public class ClientManagerImpl extends ClientManager {
     public static final Duration HEART_BEAT_INITIAL_DELAY = Duration.ofSeconds(1);
     public static final Duration HEART_BEAT_PERIOD = Duration.ofSeconds(10);
 
-    public static final Duration LOG_STATS_INITIAL_DELAY = Duration.ofSeconds(60);
+    public static final Duration LOG_STATS_INITIAL_DELAY = Duration.ofSeconds(1);
     public static final Duration LOG_STATS_PERIOD = Duration.ofSeconds(60);
 
     public static final Duration SYNC_SETTINGS_DELAY = Duration.ofSeconds(1);
@@ -88,6 +89,7 @@ public class ClientManagerImpl extends ClientManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientManagerImpl.class);
 
     private final Client client;
+
     @GuardedBy("rpcClientTableLock")
     private final Map<Endpoints, RpcClient> rpcClientTable;
     private final ReadWriteLock rpcClientTableLock;
@@ -132,14 +134,15 @@ public class ClientManagerImpl extends ClientManager {
             while (it.hasNext()) {
                 final Map.Entry<Endpoints, RpcClient> entry = it.next();
                 final Endpoints endpoints = entry.getKey();
-                final RpcClient client = entry.getValue();
+                final RpcClient rpcClient = entry.getValue();
 
-                final Duration idleDuration = client.idleDuration();
+                final Duration idleDuration = rpcClient.idleDuration();
                 if (idleDuration.compareTo(RPC_CLIENT_MAX_IDLE_DURATION) > 0) {
                     it.remove();
-                    client.shutdown();
+                    rpcClient.shutdown();
                     LOGGER.info("Rpc client has been idle for a long time, endpoints={}, idleDuration={}, " +
-                        "rpcClientMaxIdleDuration={}", endpoints, idleDuration, RPC_CLIENT_MAX_IDLE_DURATION);
+                            "rpcClientMaxIdleDuration={}, clientId={}", endpoints, idleDuration,
+                        RPC_CLIENT_MAX_IDLE_DURATION, client.clientId());
                 }
             }
         } finally {
@@ -176,7 +179,7 @@ public class ClientManagerImpl extends ClientManager {
             try {
                 rpcClient = new RpcClientImpl(endpoints);
             } catch (SSLException e) {
-                LOGGER.error("Failed to get rpc client, endpoints={}", endpoints);
+                LOGGER.error("Failed to get RPC client, endpoints={}, clientId={}", endpoints, client.clientId(), e);
                 throw new ClientException("Failed to generate RPC client", e);
             }
             rpcClientTable.put(endpoints, rpcClient);
@@ -310,13 +313,14 @@ public class ClientManagerImpl extends ClientManager {
 
     @Override
     protected void startUp() {
-        LOGGER.info("Begin to start the client manager");
+        final String clientId = client.clientId();
+        LOGGER.info("Begin to start the client manager, clientId={}", clientId);
         scheduler.scheduleWithFixedDelay(
             () -> {
                 try {
                     clearIdleRpcClients();
                 } catch (Throwable t) {
-                    LOGGER.error("Exception raised while clear idle rpc clients.", t);
+                    LOGGER.error("Exception raised during the clearing of idle rpc clients, clientId={}", clientId, t);
                 }
             },
             RPC_CLIENT_IDLE_CHECK_INITIAL_DELAY.toNanos(),
@@ -329,7 +333,7 @@ public class ClientManagerImpl extends ClientManager {
                 try {
                     client.doHeartbeat();
                 } catch (Throwable t) {
-                    LOGGER.error("Exception raised while heartbeat.", t);
+                    LOGGER.error("Exception raised during heartbeat, clientId={}", clientId, t);
                 }
             },
             HEART_BEAT_INITIAL_DELAY.toNanos(),
@@ -340,9 +344,11 @@ public class ClientManagerImpl extends ClientManager {
         scheduler.scheduleWithFixedDelay(
             () -> {
                 try {
+                    LOGGER.info("Start to log statistics, clientVersion={}, clientWrapperVersion={}, clientId={}",
+                        MetadataUtils.getVersion(), MetadataUtils.getWrapperVersion(), clientId);
                     client.doStats();
                 } catch (Throwable t) {
-                    LOGGER.error("Exception raised while log stats.", t);
+                    LOGGER.error("Exception raised during statistics logging, clientId={}", clientId, t);
                 }
             },
             LOG_STATS_INITIAL_DELAY.toNanos(),
@@ -355,25 +361,26 @@ public class ClientManagerImpl extends ClientManager {
                 try {
                     client.syncSettings();
                 } catch (Throwable t) {
-                    LOGGER.error("Exception raised during the setting synchronizing.", t);
+                    LOGGER.error("Exception raised during the setting synchronization, clientId={}", clientId, t);
                 }
             },
             SYNC_SETTINGS_DELAY.toNanos(),
             SYNC_SETTINGS_PERIOD.toNanos(),
             TimeUnit.NANOSECONDS
         );
-        LOGGER.info("The client manager starts successfully");
+        LOGGER.info("The client manager starts successfully, clientId={}", clientId);
     }
 
     @Override
     protected void shutDown() throws IOException {
-        LOGGER.info("Begin to shutdown the client manager");
+        final String clientId = client.clientId();
+        LOGGER.info("Begin to shutdown the client manager, clientId={}", clientId);
         scheduler.shutdown();
         try {
             if (!ExecutorServices.awaitTerminated(scheduler)) {
-                LOGGER.error("[Bug] Timeout to shutdown the client scheduler");
+                LOGGER.error("[Bug] Timeout to shutdown the client scheduler, clientId={}", clientId);
             } else {
-                LOGGER.info("Shutdown the client scheduler successfully");
+                LOGGER.info("Shutdown the client scheduler successfully, clientId={}", clientId);
             }
             rpcClientTableLock.writeLock().lock();
             try {
@@ -387,17 +394,17 @@ public class ClientManagerImpl extends ClientManager {
             } finally {
                 rpcClientTableLock.writeLock().unlock();
             }
-            LOGGER.info("Shutdown all rpc client(s) successfully");
+            LOGGER.info("Shutdown all rpc client(s) successfully, clientId={}", clientId);
             asyncWorker.shutdown();
             if (!ExecutorServices.awaitTerminated(asyncWorker)) {
-                LOGGER.error("[Bug] Timeout to shutdown the client async worker");
+                LOGGER.error("[Bug] Timeout to shutdown the client async worker, clientId={}", clientId);
             } else {
-                LOGGER.info("Shutdown the client async worker successfully");
+                LOGGER.info("Shutdown the client async worker successfully, clientId={}", clientId);
             }
         } catch (InterruptedException e) {
-            LOGGER.error("[Bug] Unexpected exception raised while shutdown client manager", e);
+            LOGGER.error("[Bug] Unexpected exception raised while shutdown client manager, clientId={}", clientId, e);
             throw new IOException(e);
         }
-        LOGGER.info("Shutdown the client manager successfully");
+        LOGGER.info("Shutdown the client manager successfully, clientId={}", clientId);
     }
 }

@@ -56,9 +56,9 @@ public class Utilities {
 
     private static final String HOST_NAME_NOT_FOUND = "HOST_NAME_NOT_FOUND";
 
-    private static String protocolVersion = null;
-    private static String hostName = null;
-    private static byte[] macAddress = null;
+    private static final ThreadLocal<String> PROTOCOL_VERSION_THREAD_LOCAL = new ThreadLocal<>();
+    private static final ThreadLocal<String> HOST_NAME_THREAD_LOCAL = new ThreadLocal<>();
+    private static final ThreadLocal<byte[]> MAC_ADDRESS_THREAD_LOCAL = new ThreadLocal<>();
 
     /**
      * Used to build output as Hex
@@ -78,6 +78,7 @@ public class Utilities {
     }
 
     public static byte[] macAddress() {
+        byte[] macAddress = MAC_ADDRESS_THREAD_LOCAL.get();
         if (null != macAddress) {
             return macAddress.clone();
         }
@@ -90,6 +91,7 @@ public class Utilities {
                     continue;
                 }
                 macAddress = mac;
+                MAC_ADDRESS_THREAD_LOCAL.set(macAddress);
                 return macAddress.clone();
             }
         } catch (Throwable ignore) {
@@ -98,14 +100,17 @@ public class Utilities {
         byte[] randomBytes = new byte[6];
         RANDOM.nextBytes(randomBytes);
         macAddress = randomBytes;
+        MAC_ADDRESS_THREAD_LOCAL.set(macAddress);
         return macAddress.clone();
     }
 
     public static String getProtocolVersion() {
+        String protocolVersion = PROTOCOL_VERSION_THREAD_LOCAL.get();
         if (null != protocolVersion) {
             return protocolVersion;
         }
         protocolVersion = ReceiveMessageRequest.class.getName().split("\\.")[2];
+        PROTOCOL_VERSION_THREAD_LOCAL.set(protocolVersion);
         return protocolVersion;
     }
 
@@ -125,14 +130,17 @@ public class Utilities {
     }
 
     public static String hostName() {
+        String hostName = HOST_NAME_THREAD_LOCAL.get();
         if (null != hostName) {
             return hostName;
         }
         try {
             hostName = InetAddress.getLocalHost().getHostName();
+            HOST_NAME_THREAD_LOCAL.set(hostName);
             return hostName;
         } catch (Throwable ignore) {
             hostName = HOST_NAME_NOT_FOUND;
+            HOST_NAME_THREAD_LOCAL.set(hostName);
             return hostName;
         }
     }

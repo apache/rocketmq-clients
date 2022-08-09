@@ -43,7 +43,7 @@ import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.SimpleConsumer;
 import org.apache.rocketmq.client.apis.message.MessageView;
 import org.apache.rocketmq.client.java.exception.StatusChecker;
-import org.apache.rocketmq.client.java.impl.ClientSettings;
+import org.apache.rocketmq.client.java.impl.Settings;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
@@ -59,7 +59,7 @@ import org.slf4j.LoggerFactory;
 class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     private static final Logger LOGGER = LoggerFactory.getLogger(SimpleConsumerImpl.class);
 
-    private final SimpleConsumerSettings simpleConsumerSettings;
+    private final SimpleSubscriptionSettings simpleSubscriptionSettings;
     private final String consumerGroup;
     private final Duration awaitDuration;
 
@@ -72,8 +72,8 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         Map<String, FilterExpression> subscriptionExpressions) {
         super(clientConfiguration, consumerGroup, subscriptionExpressions.keySet());
         Resource groupResource = new Resource(consumerGroup);
-        this.simpleConsumerSettings = new SimpleConsumerSettings(clientId, endpoints, groupResource,
-            clientConfiguration.getRequestTimeout(), awaitDuration, subscriptionExpressions);
+        this.simpleSubscriptionSettings = new SimpleSubscriptionSettings(clientId, endpoints,
+            groupResource, clientConfiguration.getRequestTimeout(), awaitDuration, subscriptionExpressions);
         this.consumerGroup = consumerGroup;
         this.awaitDuration = awaitDuration;
 
@@ -294,8 +294,8 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     }
 
     @Override
-    public ClientSettings getClientSettings() {
-        return simpleConsumerSettings;
+    public Settings getSettings() {
+        return simpleSubscriptionSettings;
     }
 
     public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
