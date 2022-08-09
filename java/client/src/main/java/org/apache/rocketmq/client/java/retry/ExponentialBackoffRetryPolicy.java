@@ -55,6 +55,18 @@ public class ExponentialBackoffRetryPolicy implements RetryPolicy {
         return maxAttempts;
     }
 
+    Duration getInitialBackoff() {
+        return initialBackoff;
+    }
+
+    Duration getMaxBackoff() {
+        return maxBackoff;
+    }
+
+    double getBackoffMultiplier() {
+        return backoffMultiplier;
+    }
+
     @Override
     public Duration getNextAttemptDelay(int attempt) {
         checkArgument(attempt > 0, "attempt must be positive");
@@ -88,14 +100,14 @@ public class ExponentialBackoffRetryPolicy implements RetryPolicy {
     }
 
     @Override
-    public RetryPolicy updateBackoff(apache.rocketmq.v2.RetryPolicy retryPolicy) {
+    public RetryPolicy inheritBackoff(apache.rocketmq.v2.RetryPolicy retryPolicy) {
         if (!EXPONENTIAL_BACKOFF.equals(retryPolicy.getStrategyCase())) {
             throw new IllegalArgumentException("strategy must be exponential backoff");
         }
-        return updateBackoff(retryPolicy.getExponentialBackoff());
+        return inheritBackoff(retryPolicy.getExponentialBackoff());
     }
 
-    private RetryPolicy updateBackoff(ExponentialBackoff backoff) {
+    private RetryPolicy inheritBackoff(ExponentialBackoff backoff) {
         return new ExponentialBackoffRetryPolicy(maxAttempts,
             Duration.ofNanos(Durations.toNanos(backoff.getInitial())),
             Duration.ofNanos(Durations.toNanos(backoff.getMax())),

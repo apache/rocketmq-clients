@@ -88,9 +88,8 @@ class ProducerImpl extends ClientImpl implements Producer {
     private static final Logger LOGGER = LoggerFactory.getLogger(ProducerImpl.class);
 
     protected final ProducerSettings producerSettings;
-
+    final ConcurrentMap<String/* topic */, PublishingLoadBalancer> publishingRouteDataCache;
     private final TransactionChecker checker;
-    private final ConcurrentMap<String/* topic */, PublishingLoadBalancer> publishingRouteDataCache;
 
     /**
      * The caller is supposed to have validated the arguments and handled throwing exception or
@@ -197,7 +196,7 @@ class ProducerImpl extends ClientImpl implements Producer {
      */
     @Override
     public SendReceipt send(Message message) throws ClientException {
-        final ListenableFuture<SendReceipt> future = Futures.transform(send0(Collections.singletonList(message), false),
+        final ListenableFuture<SendReceipt> future = Futures.transform(send(Collections.singletonList(message), false),
             sendReceipts -> sendReceipts.iterator().next(), MoreExecutors.directExecutor());
         return handleClientFuture(future);
     }
@@ -217,7 +216,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         } catch (Throwable t) {
             throw new ClientException(t);
         }
-        final ListenableFuture<List<SendReceiptImpl>> future = send0(Collections.singletonList(publishingMessage),
+        final ListenableFuture<List<SendReceiptImpl>> future = send(Collections.singletonList(publishingMessage),
             true);
         final List<SendReceiptImpl> receipts = handleClientFuture(future);
         final SendReceiptImpl sendReceipt = receipts.iterator().next();
@@ -230,7 +229,7 @@ class ProducerImpl extends ClientImpl implements Producer {
      */
     @Override
     public CompletableFuture<SendReceipt> sendAsync(Message message) {
-        final ListenableFuture<SendReceipt> future = Futures.transform(send0(Collections.singletonList(message), false),
+        final ListenableFuture<SendReceipt> future = Futures.transform(send(Collections.singletonList(message), false),
             sendReceipts -> sendReceipts.iterator().next(), MoreExecutors.directExecutor());
         return FutureConverter.toCompletableFuture(future);
     }
@@ -329,7 +328,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         return result.takeMessageQueues(isolated, this.getRetryPolicy().getMaxAttempts());
     }
 
-    private ListenableFuture<List<SendReceiptImpl>> send0(List<Message> messages, boolean txEnabled) {
+    private ListenableFuture<List<SendReceiptImpl>> send(List<Message> messages, boolean txEnabled) {
         SettableFuture<List<SendReceiptImpl>> future = SettableFuture.create();
 
         // Check producer state before message publishing.
@@ -419,52 +418,52 @@ class ProducerImpl extends ClientImpl implements Producer {
     /**
      * The caller is supposed to make sure different messages have the same message type and same topic.
      */
-    private SendMessageRequest wrapSendMessageRequest(List<PublishingMessageImpl> messages) {
-        return SendMessageRequest.newBuilder()
-            .addAllMessages(messages.stream().map(PublishingMessageImpl::toProtobuf).collect(Collectors.toList()))
-            .build();
+    private SendMessageRequest wrapSendMessageRequest(List<PublishingMessageImpl> pubMessages, MessageQueueImpl mq) {
+        final List<apache.rocketmq.v2.Message> messages = pubMessages.stream()
+            .map(publishingMessage -> publishingMessage.toProtobuf(mq)).collect(Collectors.toList());
+        return SendMessageRequest.newBuilder().addAllMessages(messages).build();
     }
 
-    private void send0(SettableFuture<List<SendReceiptImpl>> future, String topic, MessageType messageType,
+    ListenableFuture<List<SendReceiptImpl>> send0(Metadata metadata, Endpoints endpoints,
+        List<PublishingMessageImpl> pubMessages, MessageQueueImpl mq) {
+        final SendMessageRequest request = wrapSendMessageRequest(pubMessages, mq);
+        final ListenableFuture<RpcInvocation<SendMessageResponse>> future0 =
+            clientManager.sendMessage(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
+        return Futures.transformAsync(future0,
+            invocation -> Futures.immediateFuture(SendReceiptImpl.processResponseInvocation(mq, invocation)),
+            MoreExecutors.directExecutor());
+    }
+
+    private void send0(SettableFuture<List<SendReceiptImpl>> future0, String topic, MessageType messageType,
         final List<MessageQueueImpl> candidates, final List<PublishingMessageImpl> messages, final int attempt) {
         Metadata metadata;
         try {
             metadata = sign();
         } catch (Throwable t) {
             // Failed to sign, no need to proceed.
-            future.setException(t);
+            future0.setException(t);
             return;
         }
         // Calculate the current message queue.
-        final MessageQueueImpl messageQueue = candidates.get(IntMath.mod(attempt - 1, candidates.size()));
-        final List<MessageType> acceptMessageTypes = messageQueue.getAcceptMessageTypes();
+        final MessageQueueImpl mq = candidates.get(IntMath.mod(attempt - 1, candidates.size()));
+        final List<MessageType> acceptMessageTypes = mq.getAcceptMessageTypes();
         if (producerSettings.isValidateMessageType() && !acceptMessageTypes.contains(messageType)) {
             final IllegalArgumentException e = new IllegalArgumentException("Current message type not match with "
                 + "topic accept message types, topic=" + topic + ", actualMessageType=" + messageType + ", "
                 + "acceptMessageTypes=" + acceptMessageTypes);
-            future.setException(e);
+            future0.setException(e);
             return;
         }
-        final Endpoints endpoints = messageQueue.getBroker().getEndpoints();
-        final SendMessageRequest request = wrapSendMessageRequest(messages);
-
-        final ListenableFuture<RpcInvocation<SendMessageResponse>> responseFuture =
-            clientManager.sendMessage(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
-
-        final ListenableFuture<List<SendReceiptImpl>> attemptFuture = Futures.transformAsync(responseFuture,
-            invocation -> Futures.immediateFuture(SendReceiptImpl.processSendMessageResponseInvocation(messageQueue,
-                invocation)),
-            MoreExecutors.directExecutor());
-
+        final Endpoints endpoints = mq.getBroker().getEndpoints();
+        final ListenableFuture<List<SendReceiptImpl>> future = send0(metadata, endpoints, messages, mq);
         final int maxAttempts = this.getRetryPolicy().getMaxAttempts();
-
         // Intercept before message publishing.
         final Stopwatch stopwatch = Stopwatch.createStarted();
         final List<MessageCommon> messageCommons =
             messages.stream().map(PublishingMessageImpl::getMessageCommon).collect(Collectors.toList());
         doBefore(MessageHookPoints.SEND, messageCommons);
 
-        Futures.addCallback(attemptFuture, new FutureCallback<List<SendReceiptImpl>>() {
+        Futures.addCallback(future, new FutureCallback<List<SendReceiptImpl>>() {
             @Override
             public void onSuccess(List<SendReceiptImpl> sendReceipts) {
                 // Intercept after message publishing.
@@ -475,11 +474,11 @@ class ProducerImpl extends ClientImpl implements Producer {
                     final InternalErrorException e = new InternalErrorException("[Bug] due to an"
                         + " unknown reason from remote, received send receipt's quantity " + sendReceipts.size()
                         + " is not equal to sent message's quantity " + messages.size());
-                    future.setException(e);
+                    future0.setException(e);
                     return;
                 }
                 // No need more attempts.
-                future.set(sendReceipts);
+                future0.set(sendReceipts);
                 // Resend message(s) successfully.
                 if (1 < attempt) {
                     // Collect messageId(s) for logging.
@@ -509,7 +508,7 @@ class ProducerImpl extends ClientImpl implements Producer {
                 isolate(endpoints);
                 if (attempt >= maxAttempts) {
                     // No need more attempts.
-                    future.setException(t);
+                    future0.setException(t);
                     LOGGER.error("Failed to send message(s) finally, run out of attempt times, maxAttempts={}, " +
                             "attempt={}, topic={}, messageId(s)={}, endpoints={}, clientId={}",
                         maxAttempts, attempt, topic, messageIds, endpoints, clientId, t);
@@ -517,7 +516,7 @@ class ProducerImpl extends ClientImpl implements Producer {
                 }
                 // No need more attempts for transactional message.
                 if (MessageType.TRANSACTION.equals(messageType)) {
-                    future.setException(t);
+                    future0.setException(t);
                     LOGGER.error("Failed to send transactional message finally, maxAttempts=1, attempt={}, " +
                             "topic={}, messageId(s)={}, endpoints={}, clientId={}", attempt, topic, messageIds,
                         endpoints, clientId, t);
@@ -530,14 +529,14 @@ class ProducerImpl extends ClientImpl implements Producer {
                     LOGGER.warn("Failed to send message, would attempt to resend right now, maxAttempts={}, "
                             + "attempt={}, topic={}, messageId(s)={}, endpoints={}, clientId={}", maxAttempts, attempt,
                         topic, messageIds, endpoints, clientId, t);
-                    send0(future, topic, messageType, candidates, messages, nextAttempt);
+                    send0(future0, topic, messageType, candidates, messages, nextAttempt);
                     return;
                 }
                 final Duration delay = ProducerImpl.this.getRetryPolicy().getNextAttemptDelay(nextAttempt);
                 LOGGER.warn("Failed to send message due to too many requests, would attempt to resend after {}, "
                         + "maxAttempts={}, attempt={}, topic={}, messageId(s)={}, endpoints={}, clientId={}", delay,
                     maxAttempts, attempt, topic, messageIds, endpoints, clientId, t);
-                clientManager.getScheduler().schedule(() -> send0(future, topic, messageType, candidates, messages,
+                clientManager.getScheduler().schedule(() -> send0(future0, topic, messageType, candidates, messages,
                     nextAttempt), delay.toNanos(), TimeUnit.NANOSECONDS);
             }
         }, clientCallbackExecutor);

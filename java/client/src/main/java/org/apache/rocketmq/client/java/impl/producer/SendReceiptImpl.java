@@ -70,7 +70,7 @@ public class SendReceiptImpl implements SendReceipt {
         return offset;
     }
 
-    public static List<SendReceiptImpl> processSendMessageResponseInvocation(MessageQueueImpl mq,
+    public static List<SendReceiptImpl> processResponseInvocation(MessageQueueImpl mq,
         RpcInvocation<SendMessageResponse> invocation) throws ClientException {
         final SendMessageResponse response = invocation.getResponse();
         Status status = response.getStatus();

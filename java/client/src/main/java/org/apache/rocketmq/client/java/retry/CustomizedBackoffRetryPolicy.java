@@ -42,6 +42,10 @@ public class CustomizedBackoffRetryPolicy implements RetryPolicy {
         return maxAttempts;
     }
 
+    List<Duration> getDurations() {
+        return durations;
+    }
+
     @Override
     public Duration getNextAttemptDelay(int attempt) {
         checkArgument(attempt > 0, "attempt must be positive");
@@ -68,14 +72,14 @@ public class CustomizedBackoffRetryPolicy implements RetryPolicy {
     }
 
     @Override
-    public RetryPolicy updateBackoff(apache.rocketmq.v2.RetryPolicy retryPolicy) {
+    public RetryPolicy inheritBackoff(apache.rocketmq.v2.RetryPolicy retryPolicy) {
         if (!CUSTOMIZED_BACKOFF.equals(retryPolicy.getStrategyCase())) {
             throw new IllegalArgumentException("strategy must be customized backoff");
         }
-        return updateBackoff(retryPolicy.getCustomizedBackoff());
+        return inheritBackoff(retryPolicy.getCustomizedBackoff());
     }
 
-    private RetryPolicy updateBackoff(CustomizedBackoff backoff) {
+    private RetryPolicy inheritBackoff(CustomizedBackoff backoff) {
         final List<Duration> durations = backoff.getNextList().stream()
             .map(duration -> Duration.ofNanos(Durations.toNanos(duration)))
             .collect(Collectors.toList());
