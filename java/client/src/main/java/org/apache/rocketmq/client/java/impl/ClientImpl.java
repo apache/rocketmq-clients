@@ -100,7 +100,6 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      */
     private static final Duration TELEMETRY_TIMEOUT = Duration.ofDays(60 * 365);
 
-    protected final ClientManager clientManager;
     protected final ClientConfiguration clientConfiguration;
     protected final Endpoints endpoints;
     protected final Set<String> topics;
@@ -114,6 +113,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     protected final ThreadPoolExecutor telemetryCommandExecutor;
     protected final String clientId;
 
+    private final ClientManager clientManager;
     private volatile ScheduledFuture<?> updateRouteCacheFuture;
     private final ConcurrentMap<String, TopicRouteData> topicRouteCache;
 
@@ -521,6 +521,10 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         } catch (Throwable t) {
             LOGGER.error("Exception raised while notifying client's termination, clientId={}", clientId, t);
         }
+    }
+
+    public ClientManager getClientManager() {
+        return clientManager;
     }
 
     /**

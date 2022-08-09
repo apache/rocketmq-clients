@@ -155,7 +155,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
             LOGGER.info("Begin to start the rocketmq push consumer, clientId={}", clientId);
             super.startUp();
             clientMeterProvider.setMessageCacheObserver(this);
-            final ScheduledExecutorService scheduler = clientManager.getScheduler();
+            final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
             this.consumeService = createConsumeService();
             this.consumeService.startAsync().awaitRunning();
             // Scan assignments periodically.
@@ -188,7 +188,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
     }
 
     private ConsumeService createConsumeService() {
-        final ScheduledExecutorService scheduler = clientManager.getScheduler();
+        final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
         if (pushConsumerSettings.isFifo()) {
             return new FifoConsumeService(clientId, processQueueTable, messageListener,
                 consumptionExecutor, this, scheduler);
@@ -270,7 +270,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
                 final Metadata metadata = sign();
                 final QueryAssignmentRequest request = wrapQueryAssignmentRequest(topic);
                 final Duration requestTimeout = clientConfiguration.getRequestTimeout();
-                return clientManager.queryAssignment(endpoints, metadata, request, requestTimeout);
+                return this.getClientManager().queryAssignment(endpoints, metadata, request, requestTimeout);
             }, MoreExecutors.directExecutor());
         return Futures.transformAsync(responseFuture, invocation -> {
             final QueryAssignmentResponse response = invocation.getResponse();
@@ -519,7 +519,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
             final ForwardMessageToDeadLetterQueueRequest request =
                 wrapForwardMessageToDeadLetterQueueRequest(messageView);
             final Metadata metadata = sign();
-            future = clientManager.forwardMessageToDeadLetterQueue(endpoints, metadata, request,
+            future = this.getClientManager().forwardMessageToDeadLetterQueue(endpoints, metadata, request,
                 clientConfiguration.getRequestTimeout());
         } catch (Throwable t) {
             future = Futures.immediateFailedFuture(t);
