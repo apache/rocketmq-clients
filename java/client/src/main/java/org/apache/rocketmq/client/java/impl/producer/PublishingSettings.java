@@ -19,15 +19,13 @@ package org.apache.rocketmq.client.java.impl.producer;
 
 import apache.rocketmq.v2.Publishing;
 import apache.rocketmq.v2.Resource;
-import apache.rocketmq.v2.Settings;
 import com.google.common.base.MoreObjects;
-import com.google.common.util.concurrent.Futures;
 import com.google.protobuf.util.Durations;
 import java.time.Duration;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.rocketmq.client.java.impl.ClientSettings;
 import org.apache.rocketmq.client.java.impl.ClientType;
+import org.apache.rocketmq.client.java.impl.Settings;
 import org.apache.rocketmq.client.java.impl.UserAgent;
 import org.apache.rocketmq.client.java.retry.ExponentialBackoffRetryPolicy;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
@@ -35,8 +33,8 @@ import org.apache.rocketmq.client.java.route.Endpoints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ProducerSettings extends ClientSettings {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ProducerSettings.class);
+public class PublishingSettings extends Settings {
+    private static final Logger LOGGER = LoggerFactory.getLogger(PublishingSettings.class);
 
     private final Set<String> topics;
     /**
@@ -45,7 +43,7 @@ public class ProducerSettings extends ClientSettings {
     private volatile int maxBodySizeBytes = 4 * 1024 * 1024;
     private volatile boolean validateMessageType = true;
 
-    public ProducerSettings(String clientId, Endpoints accessPoint, ExponentialBackoffRetryPolicy retryPolicy,
+    public PublishingSettings(String clientId, Endpoints accessPoint, ExponentialBackoffRetryPolicy retryPolicy,
         Duration requestTimeout, Set<String> topics) {
         super(clientId, ClientType.PRODUCER, accessPoint, retryPolicy, requestTimeout);
         this.topics = topics;
@@ -60,20 +58,20 @@ public class ProducerSettings extends ClientSettings {
     }
 
     @Override
-    public Settings toProtobuf() {
+    public apache.rocketmq.v2.Settings toProtobuf() {
         final Publishing publishing = Publishing.newBuilder()
             .addAllTopics(topics.stream().map(name -> Resource.newBuilder().setName(name).build())
                 .collect(Collectors.toList())).setValidateMessageType(validateMessageType).build();
-        final Settings.Builder builder = Settings.newBuilder()
+        final apache.rocketmq.v2.Settings.Builder builder = apache.rocketmq.v2.Settings.newBuilder()
             .setAccessPoint(accessPoint.toProtobuf()).setClientType(clientType.toProtobuf())
             .setRequestTimeout(Durations.fromNanos(requestTimeout.toNanos())).setPublishing(publishing);
         return builder.setBackoffPolicy(retryPolicy.toProtobuf()).setUserAgent(UserAgent.INSTANCE.toProtoBuf()).build();
     }
 
     @Override
-    public void applySettingsCommand(Settings settings) {
-        final Settings.PubSubCase pubSubCase = settings.getPubSubCase();
-        if (!Settings.PubSubCase.PUBLISHING.equals(pubSubCase)) {
+    public void sync(apache.rocketmq.v2.Settings settings) {
+        final apache.rocketmq.v2.Settings.PubSubCase pubSubCase = settings.getPubSubCase();
+        if (!apache.rocketmq.v2.Settings.PubSubCase.PUBLISHING.equals(pubSubCase)) {
             LOGGER.error("[Bug] Issued settings not match with the client type, clientId={}, pubSubCase={}, "
                 + "clientType={}", clientId, pubSubCase, clientType);
             return;
@@ -84,7 +82,6 @@ public class ProducerSettings extends ClientSettings {
         this.retryPolicy = exist.inheritBackoff(backoffPolicy);
         this.validateMessageType = settings.getPublishing().getValidateMessageType();
         this.maxBodySizeBytes = publishing.getMaxBodySize();
-        this.arrivedFuture.setFuture(Futures.immediateVoidFuture());
     }
 
     @Override

@@ -61,7 +61,7 @@ import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.java.exception.StatusChecker;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
-import org.apache.rocketmq.client.java.impl.ClientSettings;
+import org.apache.rocketmq.client.java.impl.Settings;
 import org.apache.rocketmq.client.java.message.MessageCommon;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
@@ -92,7 +92,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
     final AtomicLong consumptionErrorQuantity;
 
     private final ClientConfiguration clientConfiguration;
-    private final PushConsumerSettings pushConsumerSettings;
+    private final PushSubscriptionSettings pushSubscriptionSettings;
     private final String consumerGroup;
     private final Map<String /* topic */, FilterExpression> subscriptionExpressions;
     private final ConcurrentMap<String /* topic */, Assignments> cacheAssignments;
@@ -125,7 +125,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
         super(clientConfiguration, consumerGroup, subscriptionExpressions.keySet());
         this.clientConfiguration = clientConfiguration;
         Resource groupResource = new Resource(consumerGroup);
-        this.pushConsumerSettings = new PushConsumerSettings(clientId, endpoints, groupResource,
+        this.pushSubscriptionSettings = new PushSubscriptionSettings(clientId, endpoints, groupResource,
             clientConfiguration.getRequestTimeout(), subscriptionExpressions);
         this.consumerGroup = consumerGroup;
         this.subscriptionExpressions = subscriptionExpressions;
@@ -155,7 +155,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
             LOGGER.info("Begin to start the rocketmq push consumer, clientId={}", clientId);
             super.startUp();
             clientMeterProvider.setMessageCacheObserver(this);
-            final ScheduledExecutorService scheduler = clientManager.getScheduler();
+            final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
             this.consumeService = createConsumeService();
             this.consumeService.startAsync().awaitRunning();
             // Scan assignments periodically.
@@ -188,8 +188,8 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
     }
 
     private ConsumeService createConsumeService() {
-        final ScheduledExecutorService scheduler = clientManager.getScheduler();
-        if (pushConsumerSettings.isFifo()) {
+        final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
+        if (pushSubscriptionSettings.isFifo()) {
             return new FifoConsumeService(clientId, processQueueTable, messageListener,
                 consumptionExecutor, this, scheduler);
         }
@@ -205,8 +205,8 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
         return consumerGroup;
     }
 
-    public PushConsumerSettings getPushConsumerSettings() {
-        return pushConsumerSettings;
+    public PushSubscriptionSettings getPushConsumerSettings() {
+        return pushSubscriptionSettings;
     }
 
     /**
@@ -270,7 +270,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
                 final Metadata metadata = sign();
                 final QueryAssignmentRequest request = wrapQueryAssignmentRequest(topic);
                 final Duration requestTimeout = clientConfiguration.getRequestTimeout();
-                return clientManager.queryAssignment(endpoints, metadata, request, requestTimeout);
+                return this.getClientManager().queryAssignment(endpoints, metadata, request, requestTimeout);
             }, MoreExecutors.directExecutor());
         return Futures.transformAsync(responseFuture, invocation -> {
             final QueryAssignmentResponse response = invocation.getResponse();
@@ -415,8 +415,8 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
     }
 
     @Override
-    public ClientSettings getClientSettings() {
-        return pushConsumerSettings;
+    public Settings getSettings() {
+        return pushSubscriptionSettings;
     }
 
     /**
@@ -519,7 +519,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
             final ForwardMessageToDeadLetterQueueRequest request =
                 wrapForwardMessageToDeadLetterQueueRequest(messageView);
             final Metadata metadata = sign();
-            future = clientManager.forwardMessageToDeadLetterQueue(endpoints, metadata, request,
+            future = this.getClientManager().forwardMessageToDeadLetterQueue(endpoints, metadata, request,
                 clientConfiguration.getRequestTimeout());
         } catch (Throwable t) {
             future = Futures.immediateFailedFuture(t);
@@ -560,7 +560,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
     }
 
     public RetryPolicy getRetryPolicy() {
-        return pushConsumerSettings.getRetryPolicy();
+        return pushSubscriptionSettings.getRetryPolicy();
     }
 
     public ThreadPoolExecutor getConsumptionExecutor() {

@@ -56,7 +56,7 @@ import org.mockito.junit.MockitoJUnitRunner;
 public class SimpleConsumerImplTest extends TestBase {
     @InjectMocks
     private final ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
-        .setEndpoints(FAKE_ACCESS_POINT).build();
+        .setEndpoints(FAKE_ENDPOINTS).build();
 
     private final Duration awaitDuration = Duration.ofSeconds(3);
     private final Map<String, FilterExpression> subExpressions = createSubscriptionExpressions(FAKE_TOPIC_0);
@@ -65,31 +65,35 @@ public class SimpleConsumerImplTest extends TestBase {
 
     @Test(expected = IllegalStateException.class)
     public void testReceiveWithoutStart() throws ClientException {
-        simpleConsumer = new SimpleConsumerImpl(clientConfiguration, FAKE_GROUP_0, awaitDuration, subExpressions);
+        simpleConsumer = new SimpleConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0, awaitDuration,
+            subExpressions);
         simpleConsumer.receive(1, Duration.ofSeconds(1));
     }
 
     @Test(expected = IllegalStateException.class)
     public void testAckWithoutStart() throws ClientException {
-        simpleConsumer = new SimpleConsumerImpl(clientConfiguration, FAKE_GROUP_0, awaitDuration, subExpressions);
+        simpleConsumer = new SimpleConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0, awaitDuration,
+            subExpressions);
         simpleConsumer.ack(fakeMessageViewImpl());
     }
 
     @Test(expected = IllegalStateException.class)
     public void testSubscribeWithoutStart() throws ClientException {
-        simpleConsumer = new SimpleConsumerImpl(clientConfiguration, FAKE_GROUP_0, awaitDuration, subExpressions);
+        simpleConsumer = new SimpleConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0, awaitDuration,
+            subExpressions);
         simpleConsumer.subscribe(FAKE_TOPIC_1, FilterExpression.SUB_ALL);
     }
 
     @Test(expected = IllegalStateException.class)
     public void testUnsubscribeWithoutStart() {
-        simpleConsumer = new SimpleConsumerImpl(clientConfiguration, FAKE_GROUP_0, awaitDuration, subExpressions);
+        simpleConsumer = new SimpleConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0, awaitDuration,
+            subExpressions);
         simpleConsumer.unsubscribe(FAKE_TOPIC_0);
     }
 
     @Test
     public void testReceiveAsyncWithZeroMaxMessageNum() throws InterruptedException {
-        simpleConsumer = Mockito.spy(new SimpleConsumerImpl(clientConfiguration, FAKE_GROUP_0, awaitDuration,
+        simpleConsumer = Mockito.spy(new SimpleConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0, awaitDuration,
             subExpressions));
         when(simpleConsumer.isRunning()).thenReturn(true);
         final CompletableFuture<List<MessageView>> future = simpleConsumer.receiveAsync(0,
@@ -104,7 +108,7 @@ public class SimpleConsumerImplTest extends TestBase {
 
     @Test
     public void testAckAsync() throws ExecutionException, InterruptedException {
-        simpleConsumer = Mockito.spy(new SimpleConsumerImpl(clientConfiguration, FAKE_GROUP_0, awaitDuration,
+        simpleConsumer = Mockito.spy(new SimpleConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0, awaitDuration,
             subExpressions));
         when(simpleConsumer.isRunning()).thenReturn(true);
         final MessageViewImpl messageView = fakeMessageViewImpl(false);
@@ -263,7 +267,7 @@ public class SimpleConsumerImplTest extends TestBase {
 
     @Test
     public void testChangeInvisibleDurationAsync() throws ExecutionException, InterruptedException {
-        simpleConsumer = Mockito.spy(new SimpleConsumerImpl(clientConfiguration, FAKE_GROUP_0, awaitDuration,
+        simpleConsumer = Mockito.spy(new SimpleConsumerImpl(clientConfiguration, FAKE_CONSUMER_GROUP_0, awaitDuration,
             subExpressions));
         when(simpleConsumer.isRunning()).thenReturn(true);
         final MessageViewImpl messageView = fakeMessageViewImpl(false);

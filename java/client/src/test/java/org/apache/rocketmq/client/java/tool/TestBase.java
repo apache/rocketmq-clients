@@ -62,7 +62,7 @@ import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.message.MessageId;
-import org.apache.rocketmq.client.java.impl.producer.ProducerSettings;
+import org.apache.rocketmq.client.java.impl.producer.PublishingSettings;
 import org.apache.rocketmq.client.java.impl.producer.SendReceiptImpl;
 import org.apache.rocketmq.client.java.message.MessageBuilderImpl;
 import org.apache.rocketmq.client.java.message.MessageIdCodec;
@@ -94,7 +94,7 @@ public class TestBase {
     protected static final String FAKE_RECEIPT_HANDLE_0 = "foo-bar-handle-0";
     protected static final String FAKE_RECEIPT_HANDLE_1 = "foo-bar-handle-1";
 
-    protected static final String FAKE_ACCESS_POINT = "127.0.0.1:9876";
+    protected static final String FAKE_ENDPOINTS = "127.0.0.1:9876";
 
     protected static final String FAKE_HOST_0 = "127.0.0.1";
     protected static final int FAKE_PORT_0 = 8080;
@@ -102,7 +102,7 @@ public class TestBase {
     protected static final String FAKE_HOST_1 = "127.0.0.2";
     protected static final int FAKE_PORT_1 = 8081;
 
-    protected static final String FAKE_GROUP_0 = "foo-bar-group-0";
+    protected static final String FAKE_CONSUMER_GROUP_0 = "foo-bar-group-0";
     protected static final String FAKE_TRANSACTION_ID = "foo-bar-transaction-id";
 
     protected static final long FAKE_OFFSET = 1;
@@ -358,8 +358,8 @@ public class TestBase {
         return new ExponentialBackoffRetryPolicy(3, Duration.ofMillis(100), Duration.ofSeconds(3), 2);
     }
 
-    protected ProducerSettings fakeProducerSettings() {
-        return new ProducerSettings(FAKE_CLIENT_ID, fakeEndpoints(), fakeExponentialBackoffRetryPolicy(),
+    protected PublishingSettings fakeProducerSettings() {
+        return new PublishingSettings(FAKE_CLIENT_ID, fakeEndpoints(), fakeExponentialBackoffRetryPolicy(),
             Duration.ofSeconds(1), new HashSet<>());
     }
 

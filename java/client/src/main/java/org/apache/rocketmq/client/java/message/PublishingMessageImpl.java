@@ -25,7 +25,7 @@ import java.io.IOException;
 import java.util.Optional;
 import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.message.MessageId;
-import org.apache.rocketmq.client.java.impl.producer.ProducerSettings;
+import org.apache.rocketmq.client.java.impl.producer.PublishingSettings;
 import org.apache.rocketmq.client.java.message.protocol.Encoding;
 import org.apache.rocketmq.client.java.misc.Utilities;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
@@ -39,12 +39,12 @@ public class PublishingMessageImpl extends MessageImpl {
     private final MessageType messageType;
     private volatile String traceContext;
 
-    public PublishingMessageImpl(Message message, ProducerSettings producerSettings, boolean txEnabled)
+    public PublishingMessageImpl(Message message, PublishingSettings publishingSettings, boolean txEnabled)
         throws IOException {
         super(message);
         this.traceContext = null;
         final int length = message.getBody().remaining();
-        final int maxBodySizeBytes = producerSettings.getMaxBodySizeBytes();
+        final int maxBodySizeBytes = publishingSettings.getMaxBodySizeBytes();
         if (length > maxBodySizeBytes) {
             throw new IOException("Message body size exceeds the threshold, max size=" + maxBodySizeBytes + " bytes");
         }

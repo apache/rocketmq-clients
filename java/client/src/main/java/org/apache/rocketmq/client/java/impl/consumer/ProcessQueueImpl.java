@@ -133,7 +133,7 @@ class ProcessQueueImpl implements ProcessQueue {
 
     @Override
     public boolean expired() {
-        final PushConsumerSettings settings = consumer.getPushConsumerSettings();
+        final PushSubscriptionSettings settings = consumer.getPushConsumerSettings();
         Duration maxIdleDuration = Duration.ofNanos(2 * (settings.getLongPollingTimeout().toNanos()
             + consumer.getClientConfiguration().getRequestTimeout().toNanos()));
         final Duration idleDuration = Duration.ofNanos(System.nanoTime() - activityNanoTime);

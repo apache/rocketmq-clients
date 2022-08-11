@@ -22,11 +22,12 @@ import apache.rocketmq.v2.RecoverOrphanedTransactionCommand;
 import apache.rocketmq.v2.Settings;
 import apache.rocketmq.v2.TelemetryCommand;
 import apache.rocketmq.v2.VerifyMessageCommand;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.grpc.stub.StreamObserver;
 import java.time.Duration;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.impl.producer.ClientSessionHandler;
 import org.apache.rocketmq.client.java.route.Endpoints;
@@ -39,14 +40,17 @@ import org.slf4j.LoggerFactory;
 public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientSessionImpl.class);
     private static final Duration REQUEST_OBSERVER_RENEW_BACKOFF_DELAY = Duration.ofSeconds(1);
+    private static final long SETTINGS_INITIALIZATION_TIMEOUT_MILLIS = 3000;
 
     private final ClientSessionHandler sessionHandler;
     private final Endpoints endpoints;
+    private final SettableFuture<Settings> settingsSettableFuture;
     private volatile StreamObserver<TelemetryCommand> requestObserver;
 
     protected ClientSessionImpl(ClientSessionHandler sessionHandler, Endpoints endpoints) throws ClientException {
         this.sessionHandler = sessionHandler;
         this.endpoints = endpoints;
+        this.settingsSettableFuture = SettableFuture.create();
         this.requestObserver = sessionHandler.telemetry(endpoints, this);
     }
 
@@ -64,21 +68,17 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
                 REQUEST_OBSERVER_RENEW_BACKOFF_DELAY.toNanos(), TimeUnit.NANOSECONDS);
             return;
         }
-        syncSettings();
+        syncSettings0();
     }
 
-    protected ListenableFuture<Void> syncSettingsSafely() {
-        try {
-            this.syncSettings();
-            return sessionHandler.awaitSettingSynchronized();
-        } catch (Throwable t) {
-            return Futures.immediateFailedFuture(t);
-        }
+    protected void syncSettings() throws TimeoutException, ExecutionException, InterruptedException {
+        this.syncSettings0();
+        settingsSettableFuture.get(SETTINGS_INITIALIZATION_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
     }
 
-    private void syncSettings() {
+    private void syncSettings0() {
         final TelemetryCommand settings = sessionHandler.settingsCommand();
-        fireWrite(settings);
+        write(settings);
     }
 
     /**
@@ -95,7 +95,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
         }
     }
 
-    void fireWrite(TelemetryCommand command) {
+    void write(TelemetryCommand command) {
         if (null == requestObserver) {
             LOGGER.error("Request observer does not exist, ignore current command, endpoints={}, command={}",
                 endpoints, command);
@@ -113,6 +113,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
                     final Settings settings = command.getSettings();
                     LOGGER.info("Receive settings from remote, endpoints={}, clientId={}", endpoints, clientId);
                     sessionHandler.onSettingsCommand(endpoints, settings);
+                    settingsSettableFuture.set(settings);
                     break;
                 }
                 case RECOVER_ORPHANED_TRANSACTION_COMMAND: {

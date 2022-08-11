@@ -17,45 +17,37 @@
 
 package org.apache.rocketmq.client.java.impl;
 
-import apache.rocketmq.v2.Settings;
 import com.google.common.base.MoreObjects;
-import com.google.common.util.concurrent.SettableFuture;
 import java.time.Duration;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
 
-public abstract class ClientSettings {
+public abstract class Settings {
     protected final String clientId;
     protected final ClientType clientType;
     protected final Endpoints accessPoint;
     protected volatile RetryPolicy retryPolicy;
     protected final Duration requestTimeout;
-    protected final SettableFuture<Void> arrivedFuture;
 
-    public ClientSettings(String clientId, ClientType clientType, Endpoints accessPoint,
-        RetryPolicy retryPolicy, Duration requestTimeout) {
+    public Settings(String clientId, ClientType clientType, Endpoints accessPoint, RetryPolicy retryPolicy,
+        Duration requestTimeout) {
         this.clientId = clientId;
         this.clientType = clientType;
         this.accessPoint = accessPoint;
         this.retryPolicy = retryPolicy;
         this.requestTimeout = requestTimeout;
-        this.arrivedFuture = SettableFuture.create();
     }
 
-    public ClientSettings(String clientId, ClientType clientType, Endpoints accessPoint, Duration requestTimeout) {
+    public Settings(String clientId, ClientType clientType, Endpoints accessPoint, Duration requestTimeout) {
         this(clientId, clientType, accessPoint, null, requestTimeout);
     }
 
-    public abstract Settings toProtobuf();
+    public abstract apache.rocketmq.v2.Settings toProtobuf();
 
-    public abstract void applySettingsCommand(Settings settings);
+    public abstract void sync(apache.rocketmq.v2.Settings settings);
 
     public RetryPolicy getRetryPolicy() {
         return retryPolicy;
-    }
-
-    public SettableFuture<Void> getArrivedFuture() {
-        return arrivedFuture;
     }
 
     @Override

@@ -65,8 +65,8 @@ public class PushConsumerBuilderImplTest extends TestBase {
     public void testBuildWithoutExpressions() throws ClientException {
         final PushConsumerBuilderImpl builder = new PushConsumerBuilderImpl();
         ClientConfiguration clientConfiguration =
-            ClientConfiguration.newBuilder().setEndpoints(FAKE_ACCESS_POINT).build();
-        builder.setClientConfiguration(clientConfiguration).setConsumerGroup(FAKE_GROUP_0)
+            ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS).build();
+        builder.setClientConfiguration(clientConfiguration).setConsumerGroup(FAKE_CONSUMER_GROUP_0)
             .setMessageListener(messageView -> ConsumeResult.SUCCESS)
             .build();
     }

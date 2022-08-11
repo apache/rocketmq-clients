@@ -22,7 +22,6 @@ import apache.rocketmq.v2.RecoverOrphanedTransactionCommand;
 import apache.rocketmq.v2.Settings;
 import apache.rocketmq.v2.TelemetryCommand;
 import apache.rocketmq.v2.VerifyMessageCommand;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.grpc.stub.StreamObserver;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.rocketmq.client.apis.ClientException;
@@ -46,11 +45,6 @@ public interface ClientSessionHandler {
      * Returns {@code true} if the endpoints is deprecated.
      */
     boolean isEndpointsDeprecated(Endpoints endpoints);
-
-    /**
-     * Await the settings to be synchronized with the server.
-     */
-    ListenableFuture<Void> awaitSettingSynchronized();
 
     /**
      * Indicates the client identifier.

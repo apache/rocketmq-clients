@@ -31,11 +31,8 @@ import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.producer.Transaction;
 import org.apache.rocketmq.client.apis.producer.TransactionResolution;
 import org.apache.rocketmq.client.java.message.PublishingMessageImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 class TransactionImpl implements Transaction {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ProducerImpl.class);
     private static final int MAX_MESSAGE_NUM = 1;
 
     private final ProducerImpl producerImpl;
@@ -54,7 +51,7 @@ class TransactionImpl implements Transaction {
     public PublishingMessageImpl tryAddMessage(Message message) throws IOException {
         messagesLock.readLock().lock();
         try {
-            if (messages.size() > MAX_MESSAGE_NUM) {
+            if (messages.size() >= MAX_MESSAGE_NUM) {
                 throw new IllegalArgumentException("Message in transaction has exceeded the threshold: " +
                     MAX_MESSAGE_NUM);
             }
@@ -68,7 +65,7 @@ class TransactionImpl implements Transaction {
                     MAX_MESSAGE_NUM);
             }
             final PublishingMessageImpl publishingMessage = new PublishingMessageImpl(message,
-                producerImpl.producerSettings, true);
+                producerImpl.publishingSettings, true);
             messages.add(publishingMessage);
             return publishingMessage;
         } finally {
@@ -80,8 +77,7 @@ class TransactionImpl implements Transaction {
         messagesLock.readLock().lock();
         try {
             if (!messages.contains(publishingMessage)) {
-                LOGGER.warn("message(s) is not contained in current transaction");
-                return;
+                throw new IllegalArgumentException("Message not in transaction");
             }
             messageSendReceiptMap.put(publishingMessage, sendReceipt);
         } finally {

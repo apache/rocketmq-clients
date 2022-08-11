@@ -67,7 +67,7 @@ public class ProcessQueueImplTest extends TestBase {
     @Mock
     private ConsumeService consumeService;
     @Mock
-    private PushConsumerSettings pushConsumerSettings;
+    private PushSubscriptionSettings pushSubscriptionSettings;
     @Mock
     private RetryPolicy retryPolicy;
 
@@ -94,7 +94,7 @@ public class ProcessQueueImplTest extends TestBase {
         field1.setAccessible(true);
         field1.set(pushConsumer, consumptionErrorQuantity);
 
-        when(pushConsumer.getPushConsumerSettings()).thenReturn(pushConsumerSettings);
+        when(pushConsumer.getPushConsumerSettings()).thenReturn(pushSubscriptionSettings);
         when(pushConsumer.getScheduler()).thenReturn(SCHEDULER);
 
         this.receivedMessagesQuantity = new AtomicLong(0);
@@ -104,9 +104,9 @@ public class ProcessQueueImplTest extends TestBase {
 
     @Test
     public void testExpired() {
-        when(pushConsumerSettings.getLongPollingTimeout()).thenReturn(Duration.ofSeconds(3));
+        when(pushSubscriptionSettings.getLongPollingTimeout()).thenReturn(Duration.ofSeconds(3));
         when(pushConsumer.getClientConfiguration()).thenReturn(ClientConfiguration.newBuilder()
-            .setEndpoints(FAKE_ACCESS_POINT).build());
+            .setEndpoints(FAKE_ENDPOINTS).build());
         assertFalse(processQueue.expired());
     }
 
@@ -124,7 +124,7 @@ public class ProcessQueueImplTest extends TestBase {
         messageViewList.add(corruptedMessageView0);
         when(retryPolicy.getNextAttemptDelay(anyInt())).thenReturn(Duration.ofSeconds(1));
         when(pushConsumer.getRetryPolicy()).thenReturn(retryPolicy);
-        when(pushConsumerSettings.isFifo()).thenReturn(false);
+        when(pushSubscriptionSettings.isFifo()).thenReturn(false);
         when(pushConsumer.changeInvisibleDuration(any(MessageViewImpl.class), any(Duration.class)))
             .thenReturn(okChangeInvisibleDurationCtxFuture());
         processQueue.cacheMessages(messageViewList);
@@ -137,7 +137,7 @@ public class ProcessQueueImplTest extends TestBase {
         final MessageViewImpl corruptedMessageView0 = fakeMessageViewImpl(true);
         List<MessageViewImpl> messageViewList = new ArrayList<>();
         messageViewList.add(corruptedMessageView0);
-        when(pushConsumerSettings.isFifo()).thenReturn(true);
+        when(pushSubscriptionSettings.isFifo()).thenReturn(true);
         when(pushConsumer.forwardMessageToDeadLetterQueue(any(MessageViewImpl.class)))
             .thenReturn(okForwardMessageToDeadLetterQueueResponseFuture());
         processQueue.cacheMessages(messageViewList);
@@ -167,7 +167,7 @@ public class ProcessQueueImplTest extends TestBase {
         future0.set(receiveMessageResult);
         when(pushConsumer.receiveMessage(any(ReceiveMessageRequest.class), any(MessageQueueImpl.class),
             any(Duration.class))).thenReturn(future0);
-        when(pushConsumerSettings.getReceiveBatchSize()).thenReturn(32);
+        when(pushSubscriptionSettings.getReceiveBatchSize()).thenReturn(32);
         ReceiveMessageRequest request = ReceiveMessageRequest.newBuilder().build();
         when(pushConsumer.wrapReceiveMessageRequest(anyInt(), any(MessageQueueImpl.class),
             any(FilterExpression.class))).thenReturn(request);
