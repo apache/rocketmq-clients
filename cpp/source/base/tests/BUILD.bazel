@@ -52,3 +52,37 @@ cc_test(
     ],
     deps = base_deps,
 )
+
+cc_test(
+    name = "unique_id_generator_test",
+    srcs = [
+        "UniqueIdGeneratorTest.cpp",
+    ],
+    deps = [
+        "//source/base:base_library",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "thread_pool_test",
+    srcs = [
+        "ThreadPoolTest.cpp",
+    ],
+    deps = [
+        "//include:rocketmq_interface",
+        "//source/base:base_library",
+        "@com_google_googletest//:gtest_main",        
+    ],
+)
+
+cc_test(
+    name = "invocation_context_test",
+    srcs = [
+        "InvocationContextTest.cpp",
+    ],
+    deps = [
+        "//source/client:client_library",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
