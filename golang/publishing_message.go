@@ -27,14 +27,14 @@ import (
 )
 
 type PublishingMessage struct {
-	msg         *Message
-	encoding    v2.Encoding
-	messageId   string
-	messageType v2.MessageType
+	msg          *Message
+	encoding     v2.Encoding
+	messageId    string
+	messageType  v2.MessageType
+	traceContext *string
 }
 
-// TODO need ProducerSettings
-func NewPublishingMessage(msg *Message, txEnabled bool) (*PublishingMessage, error) {
+func NewPublishingMessage(msg *Message, settings *producerSettings, txEnabled bool) (*PublishingMessage, error) {
 	if msg == nil {
 		return nil, fmt.Errorf("message is nil")
 	}
@@ -42,9 +42,9 @@ func NewPublishingMessage(msg *Message, txEnabled bool) (*PublishingMessage, err
 		msg: msg,
 	}
 
-	maxBodySizeBytes := 4 * 1024 * 1024
+	maxBodySizeBytes := settings.maxBodySizeBytes
 
-	length := len(msg.Body)
+	length := len(msg.GetBody())
 	if length > maxBodySizeBytes {
 		return nil, fmt.Errorf("message body size exceeds the threshold, max size=%d bytes", maxBodySizeBytes)
 	}
@@ -53,30 +53,30 @@ func NewPublishingMessage(msg *Message, txEnabled bool) (*PublishingMessage, err
 	pMsg.encoding = v2.Encoding_IDENTITY
 
 	// Generate message id.
-	// TODO there is 'MessageIdCodec.getInstance().nextMessageId()' in client-java
+	// TODO there is 'MessageIdCodec.getInstance().nextMessageId()' in java sdk
 	pMsg.messageId = uuid.New().String()
 	// Normal message.
-	if len(msg.GetMessageGroup()) == 0 && msg.GetDeliveryTimestamp().IsZero() && !txEnabled {
+	if msg.GetMessageGroup() == nil && msg.GetDeliveryTimestamp() == nil && !txEnabled {
 		pMsg.messageType = v2.MessageType_NORMAL
 		return pMsg, nil
 	}
 	// Fifo message.
-	if len(msg.GetMessageGroup()) != 0 && !txEnabled {
+	if msg.GetMessageGroup() != nil && !txEnabled {
 		pMsg.messageType = v2.MessageType_FIFO
 		return pMsg, nil
 	}
 	// Delay message.
-	if !msg.GetDeliveryTimestamp().IsZero() && !txEnabled {
+	if msg.GetDeliveryTimestamp() != nil && !txEnabled {
 		pMsg.messageType = v2.MessageType_DELAY
 		return pMsg, nil
 	}
 	// Transaction message.
-	if len(msg.GetMessageGroup()) == 0 && msg.GetDeliveryTimestamp().IsZero() && txEnabled {
+	if msg.GetMessageGroup() == nil && msg.GetDeliveryTimestamp() == nil && txEnabled {
 		pMsg.messageType = v2.MessageType_TRANSACTION
 		return pMsg, nil
 	}
 	// Transaction semantics is conflicted with fifo/delay.
-	return nil, fmt.Errorf("Transactional message should not set messageGroup or deliveryTimestamp")
+	return nil, fmt.Errorf("transactional message should not set messageGroup or deliveryTimestamp")
 }
 
 func (pMsg *PublishingMessage) toProtobuf() (*v2.Message, error) {
@@ -86,27 +86,30 @@ func (pMsg *PublishingMessage) toProtobuf() (*v2.Message, error) {
 	msg := &v2.Message{
 		Topic: &v2.Resource{
 			// ResourceNamespace: b.conn.Config().NameSpace,
-			Name: pMsg.msg.Topic,
+			Name: pMsg.msg.GetTopic(),
 		},
 		SystemProperties: &v2.SystemProperties{
-			Keys:          pMsg.msg.Keys,
+			Keys:          pMsg.msg.GetKeys(),
 			MessageId:     uuid.New().String(),
 			BornTimestamp: timestamppb.Now(),
 			BornHost:      innerOS.Hostname(),
 			BodyEncoding:  v2.Encoding_IDENTITY,
-			MessageType:   v2.MessageType_NORMAL,
+			MessageType:   pMsg.messageType,
 		},
-		UserProperties: pMsg.msg.Properties,
-		Body:           pMsg.msg.Body,
+		UserProperties: pMsg.msg.GetProperties(),
+		Body:           pMsg.msg.GetBody(),
 	}
-	if len(pMsg.msg.Tag) > 0 {
-		msg.SystemProperties.Tag = &pMsg.msg.Tag
+	if pMsg.msg.GetTag() != nil {
+		msg.SystemProperties.Tag = pMsg.msg.GetTag()
 	}
-	if !pMsg.msg.GetDeliveryTimestamp().IsZero() {
-		msg.SystemProperties.DeliveryTimestamp = timestamppb.New(pMsg.msg.GetDeliveryTimestamp())
+	if pMsg.traceContext != nil {
+		msg.SystemProperties.TraceContext = pMsg.traceContext
 	}
-	if len(pMsg.msg.messageGroup) > 0 {
-		msg.SystemProperties.MessageGroup = &pMsg.msg.messageGroup
+	if pMsg.msg.GetDeliveryTimestamp() != nil {
+		msg.SystemProperties.DeliveryTimestamp = timestamppb.New(*pMsg.msg.GetDeliveryTimestamp())
+	}
+	if pMsg.msg.messageGroup != nil {
+		msg.SystemProperties.MessageGroup = pMsg.msg.messageGroup
 	}
 	return msg, nil
 }

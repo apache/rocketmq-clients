@@ -29,54 +29,64 @@ import (
 )
 
 const (
-	Topic         = "v2_grpc"
+	// Topic         = "xxxxxx"
+	// ConsumerGroup = "xxxxxx"
+	// Endpoint      = "xxxxxx"
+	// Region        = "xxxxxx"
+	// AccessKey     = "xxxxxx"
+	// SecretKey     = "xxxxxx"
+
+	Topic         = "v2_grpc_delay"
 	ConsumerGroup = "v2_grpc"
-	NameSpace     = ""
-	Endpoint      = "121.196.167.124:8081"
-	AccessKey     = ""
-	SecretKey     = ""
+	Endpoint      = "rmq-cn-tl32tb4s50g.cn-hangzhou.rmq.aliyuncs.com:8080"
+	Region        = "cn-zhangjiakou"
+	AccessKey     = "hM71WHX8Sx0OfGXR"
+	SecretKey     = "2vyd43Kii50h6lzH"
 )
 
 func main() {
+	// new producer instance
 	producer, err := golang.NewProducer(&golang.Config{
 		Endpoint: Endpoint,
 		Group:    ConsumerGroup,
-		Region:   "cn-zhangjiakou",
+		Region:   Region,
 		Credentials: &credentials.SessionCredentials{
 			AccessKey:    AccessKey,
 			AccessSecret: SecretKey,
 		},
-	})
+	},
+		golang.WithTopics(Topic),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
+	// start producer
+	err = producer.Start()
+	if err != nil {
+		log.Fatal(err)
+	}
+	// gracefule stop producer
 	defer producer.GracefulStop()
 	for i := 0; i < 10; i++ {
+		// new a message
 		msg := &golang.Message{
 			Topic: Topic,
-			Body:  []byte(strconv.Itoa(i)),
-			Tag:   "*",
+			Body:  []byte("this is a message : " + strconv.Itoa(i)),
 		}
-		// msg.SetDelayTimeLevel(time.Now().Add(time.Second * 10))
+		// set keys and tag
+		msg.SetKeys("a", "b")
+		msg.SetTag("ab")
+		// set delay timestamp
+		msg.SetDelayTimestamp(time.Now().Add(time.Second * 10))
+		// send message in sync
 		resp, err := producer.Send(context.TODO(), msg)
 		if err != nil {
-			log.Println(err)
-			// return
+			log.Fatal(err)
 		}
 		for i := 0; i < len(resp); i++ {
 			fmt.Printf("%#v\n", resp[i])
 		}
-
-		// producer.SendAsync(context.Background(), msg, func(ctx context.Context, resp []*golang.SendReceipt, err error) {
-		// 	if err != nil {
-		// 		log.Println(err)
-		// 		return
-		// 	}
-		// 	for i := 0; i < len(resp); i++ {
-		// 		fmt.Printf("%#v\n", resp[i])
-		// 	}
-		// })
-		time.Sleep(time.Second * 4)
+		// wait a moment
+		time.Sleep(time.Second * 1)
 	}
-	select {}
 }

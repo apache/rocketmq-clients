@@ -18,15 +18,18 @@
 package golang
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 
 	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
 	"github.com/apache/rocketmq-clients/golang/utils"
+	"github.com/dchest/siphash"
+	// "github.com/dchest/siphash"
 )
 
 type PublishingLoadBalancer interface {
-	TakeMessageQueueByMessageGroup(messageGroup string) ([]*v2.MessageQueue, error)
+	TakeMessageQueueByMessageGroup(messageGroup *string) ([]*v2.MessageQueue, error)
 	TakeMessageQueues(excluded sync.Map, count int) ([]*v2.MessageQueue, error)
 }
 
@@ -44,11 +47,25 @@ func NewPublishingLoadBalancer(messageQueues []*v2.MessageQueue) (PublishingLoad
 	}
 	return plb, nil
 }
-func (plb *publishingLoadBalancer) TakeMessageQueueByMessageGroup(messageGroup string) ([]*v2.MessageQueue, error) {
-	return nil, nil
+
+func (plb *publishingLoadBalancer) TakeMessageQueueByMessageGroup(messageGroup *string) ([]*v2.MessageQueue, error) {
+	if len(plb.messageQueues) == 0 {
+		return nil, fmt.Errorf("messageQueues is empty")
+	}
+	if messageGroup == nil {
+		return nil, fmt.Errorf("messageGroup is nil")
+	}
+	h := int64(siphash.Hash(506097522914230528, 1084818905618843912, []byte(*messageGroup)))
+	i := utils.Mod64(h, len(plb.messageQueues))
+	return []*v2.MessageQueue{
+		plb.messageQueues[i],
+	}, nil
 }
 
 func (plb *publishingLoadBalancer) TakeMessageQueues(excluded sync.Map, count int) ([]*v2.MessageQueue, error) {
+	if len(plb.messageQueues) == 0 {
+		return nil, fmt.Errorf("messageQueues is empty")
+	}
 	next := atomic.AddInt32(&plb.index, 1)
 	var candidates []*v2.MessageQueue
 	candidateBrokerNames := make(map[string]bool, 32)
@@ -65,7 +82,7 @@ func (plb *publishingLoadBalancer) TakeMessageQueues(excluded sync.Map, count in
 
 		pass := false
 		for _, address := range broker.GetEndpoints().GetAddresses() {
-			if _, ok := excluded.Load(address.String()); ok {
+			if _, ok := excluded.Load(utils.ParseAddress(address)); ok {
 				pass = true
 				break
 			}
@@ -100,4 +117,33 @@ func (plb *publishingLoadBalancer) TakeMessageQueues(excluded sync.Map, count in
 		}
 	}
 	return candidates, nil
+}
+
+type SubscriptionLoadBalancer interface {
+	TakeMessageQueue() (*v2.MessageQueue, error)
+}
+
+type subscriptionLoadBalancer struct {
+	messageQueues []*v2.MessageQueue
+
+	index int32
+}
+
+var _ = SubscriptionLoadBalancer(&subscriptionLoadBalancer{})
+
+func NewSubscriptionLoadBalancer(messageQueues []*v2.MessageQueue) (SubscriptionLoadBalancer, error) {
+	slb := &subscriptionLoadBalancer{
+		messageQueues: messageQueues,
+	}
+	return slb, nil
+}
+
+func (slb *subscriptionLoadBalancer) TakeMessageQueue() (*v2.MessageQueue, error) {
+	if len(slb.messageQueues) == 0 {
+		return nil, fmt.Errorf("messageQueues is empty")
+	}
+	next := atomic.AddInt32(&slb.index, 1)
+	idx := utils.Mod(next+1, len(slb.messageQueues))
+	selectMessageQueue := slb.messageQueues[idx]
+	return selectMessageQueue, nil
 }

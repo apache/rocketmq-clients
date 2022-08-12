@@ -17,39 +17,28 @@
 
 package golang
 
-type consumerOptions struct {
-	tag string
+import (
+	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
+	"github.com/apache/rocketmq-clients/golang/utils"
+)
+
+type userAgent struct {
+	version  string
+	platform string
+	hostName string
 }
 
-var defaultConsumerOptions = consumerOptions{
-	tag: "*",
+var globalUserAgent = &userAgent{
+	version:  "5.0.0",
+	platform: utils.GetOsDescription(),
+	hostName: utils.HostName(),
 }
 
-// A ConsumerOption sets options such as tag, etc.
-type ConsumerOption interface {
-	apply(*consumerOptions)
-}
-
-// funcOption wraps a function that modifies options into an implementation of
-// the Option interface.
-type funcConsumerOption struct {
-	f func(*consumerOptions)
-}
-
-func (fo *funcConsumerOption) apply(do *consumerOptions) {
-	fo.f(do)
-}
-
-func newFuncConsumerOptionn(f func(*consumerOptions)) *funcConsumerOption {
-	return &funcConsumerOption{
-		f: f,
+func (ua *userAgent) toProtoBuf() *v2.UA {
+	return &v2.UA{
+		Language: v2.Language_GOLANG,
+		Version:  ua.version,
+		Platform: ua.platform,
+		Hostname: ua.hostName,
 	}
-}
-
-// WithTag returns a consumerOption that sets tag for consumer.
-// Note: Default it uses *.
-func WithTag(tag string) ConsumerOption {
-	return newFuncConsumerOptionn(func(o *consumerOptions) {
-		o.tag = tag
-	})
 }

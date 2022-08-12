@@ -19,10 +19,11 @@ package golang
 
 import (
 	"time"
+
+	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
 )
 
 type clientOptions struct {
-	tickerDuration   time.Duration
 	timeout          time.Duration
 	clientConnFunc   ClientConnFunc
 	connOptions      []ConnOption
@@ -30,7 +31,6 @@ type clientOptions struct {
 }
 
 var defaultNSOptions = clientOptions{
-	tickerDuration: time.Second * 30,
 	timeout:        time.Millisecond * 3000,
 	clientConnFunc: NewClientConn,
 }
@@ -64,14 +64,6 @@ func WithQueryRouteTimeout(d time.Duration) ClientOption {
 	})
 }
 
-// WithTickerDuration returns a Option that sets ticker duration for nameserver.
-// Default is 30s.
-func WithTickerDuration(d time.Duration) ClientOption {
-	return newFuncNSOption(func(o *clientOptions) {
-		o.tickerDuration = d
-	})
-}
-
 // WithClientConnFunc returns a Option that sets ClientConnFunc for nameserver.
 // Default is NewClientConn.
 func WithClientConnFunc(f ClientConnFunc) ClientOption {
@@ -92,4 +84,14 @@ func WithRpcClientOptions(opts ...RpcClientOption) ClientOption {
 	return newFuncNSOption(func(o *clientOptions) {
 		o.rpcClientOptions = append(o.rpcClientOptions, opts...)
 	})
+}
+
+type ClientSettings interface {
+	GetClientID() string
+	GetClientType() v2.ClientType
+	GetAccessPoint() *v2.Endpoints
+	GetRetryPolicy() *v2.RetryPolicy
+	GetRequestTimeout() time.Duration
+	toProtobuf() *v2.Settings
+	applySettingsCommand(*v2.Settings) error
 }
