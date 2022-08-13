@@ -146,4 +146,5 @@ TEST_F(SchedulerTest, testException) {
     }
   }
 }
+
 ROCKETMQ_NAMESPACE_END
