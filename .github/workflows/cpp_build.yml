@@ -38,7 +38,7 @@ jobs:
       - name: Run Unit Tests On Windows
         working-directory: ./cpp  
         if: runner.os == 'Windows'
-        run: bazel test //...
+        run: bazel test --test_output=streamed //...
       - name: Run Unit Tests On macOS
         working-directory: ./cpp
         if: runner.os == 'macOS'
