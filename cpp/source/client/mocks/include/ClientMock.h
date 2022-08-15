@@ -18,11 +18,16 @@
 
 #include "Client.h"
 #include "RpcClient.h"
+#include "gmock/gmock.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
 class ClientMock : virtual public Client {
 public:
+  MOCK_METHOD(rmq::Settings, clientSettings, (), (override));
+
+  MOCK_METHOD(ClientConfig&, config, (), (override));
+
   MOCK_METHOD(void, endpointsInUse, (absl::flat_hash_set<std::string>&), (override));
 
   MOCK_METHOD(void, heartbeat, (), (override));
@@ -31,16 +36,22 @@ public:
 
   MOCK_METHOD(void, onRemoteEndpointRemoval, (const std::vector<std::string>&), (override));
 
-  MOCK_METHOD(void, schedule, (const std::string&, const std::function<void()>&, std::chrono::milliseconds),
+  MOCK_METHOD(void,
+              schedule,
+              (const std::string&, const std::function<void()>&, std::chrono::milliseconds),
               (override));
 
-  MOCK_METHOD(void, createSession, (const std::string&), (override));
+  MOCK_METHOD(void, createSession, (const std::string&, bool), (override));
 
   MOCK_METHOD(void, notifyClientTermination, (), (override));
 
-  MOCK_METHOD(void, verify, (VerifyMessageCommand, (std::function<void(TelemetryCommand)>)), (override));
+  MOCK_METHOD(void, verify, (MessageConstSharedPtr, (std::function<void(TelemetryCommand)>)), (override));
 
-  MOCK_METHOD(void, recoverOrphanedTransaction, (const RecoverOrphanedTransactionCommand&), (override));
+  MOCK_METHOD(void, recoverOrphanedTransaction, (MessageConstSharedPtr), (override));
+
+  MOCK_METHOD(void, withCredentialsProvider, (std::shared_ptr<CredentialsProvider>), (override));
+
+  MOCK_METHOD(std::shared_ptr<ClientManager>, manager, (), (const, override));
 };
 
 ROCKETMQ_NAMESPACE_END

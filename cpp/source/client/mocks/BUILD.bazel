@@ -24,6 +24,6 @@ cc_library(
     strip_include_prefix = "//source/client/mocks/include",
     deps = [
         "//source/client:client_library",
-        "//external:gtest",
+        "@com_google_googletest//:gtest",
     ],
 )
