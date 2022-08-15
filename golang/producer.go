@@ -45,7 +45,7 @@ type defaultProducer struct {
 	pSetting *producerSettings
 	cli      *defaultClient
 
-	chekcer                        *TransactionChecker
+	checker                        *TransactionChecker
 	isolated                       sync.Map
 	publishingRouteDataResultCache sync.Map
 }
@@ -121,7 +121,7 @@ func NewProducer(config *Config, opts ...ProducerOption) (Producer, error) {
 	p := &defaultProducer{
 		po:      *po,
 		cli:     cli.(*defaultClient),
-		chekcer: po.checker,
+		checker: po.checker,
 	}
 	p.cli.initTopics = po.topics
 	endpoints, err := utils.ParseTarget(config.Endpoint)
@@ -411,7 +411,7 @@ func (p *defaultProducer) endTransaction(ctx context.Context, endpoints *v2.Endp
 func (p *defaultProducer) onRecoverOrphanedTransactionCommand(endpoints *v2.Endpoints, command *v2.RecoverOrphanedTransactionCommand) error {
 	transactionId := command.GetTransactionId()
 	messageId := command.GetMessage().GetSystemProperties().MessageId
-	if p.chekcer == nil {
+	if p.checker == nil {
 		return fmt.Errorf("no transaction checker registered, ignore it, messageId=%s, transactionId=%s, endpoints=%v", messageId, transactionId, endpoints)
 	}
 	messageView := fromProtobuf_MessageView0(command.Message)

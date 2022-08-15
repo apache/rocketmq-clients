@@ -400,7 +400,7 @@ func (cli *defaultClient) startUp() error {
 				}
 			} else {
 				if i > 0 {
-					cli.log.Infof("retry to get topic route data success, attemps=%d\n", i)
+					cli.log.Infof("retry to get topic route data success, attempts=%d\n", i)
 				}
 				break
 			}

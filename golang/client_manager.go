@@ -261,7 +261,7 @@ func (cm *clientManagerImpl) handleGrpcError(rpcClient RpcClient, err error) {
 	if err != nil {
 		if e, ok := status.FromError(err); ok {
 			if e.Code() == codes.Unavailable {
-				sugarBaseLogger.Errorf("happend unavailable error=%v, close rpcClient=%s", err, rpcClient.GetTarget())
+				sugarBaseLogger.Errorf("happened unavailable error=%v, close rpcClient=%s", err, rpcClient.GetTarget())
 				cm.rpcClientTableLock.Lock()
 				defer cm.rpcClientTableLock.Unlock()
 				cm.deleteRpcClient(rpcClient)
