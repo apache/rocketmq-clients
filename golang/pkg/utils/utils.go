@@ -232,3 +232,11 @@ func ToTraceParentHeader(sc *trace.SpanContext) string {
 	}
 	return fmt.Sprintf("00-%s-%s-%02s", sc.TraceID.String(), sc.SpanID.String(), strconv.FormatUint(uint64(sc.TraceOptions), 16))
 }
+
+func GetenvWithDef(key, def string) string {
+	val := os.Getenv(key)
+	if val == "" {
+		val = def
+	}
+	return val
+}

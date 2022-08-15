@@ -19,18 +19,31 @@ package golang
 
 import (
 	"os"
+	"strconv"
 	"strings"
 
+	"github.com/apache/rocketmq-clients/golang/pkg/utils"
 	"github.com/natefinch/lumberjack"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+)
+
+const (
+	CLIENT_LOG_ROOT            = "rocketmq.client.logRoot"
+	CLIENT_LOG_MAXINDEX        = "rocketmq.client.logFileMaxIndex"
+	CLIENT_LOG_FILESIZE        = "rocketmq.client.logFileMaxSize"
+	CLIENT_LOG_LEVEL           = "rocketmq.client.logLevel"
+	CLIENT_LOG_ADDITIVE        = "rocketmq.client.log.additive"
+	CLIENT_LOG_FILENAME        = "rocketmq.client.logFileName"
+	CLIENT_LOG_ASYNC_QUEUESIZE = "rocketmq.client.logAsyncQueueSize"
 )
 
 var sugarBaseLogger *zap.SugaredLogger
 
 func InitLogger() {
 	writeSyncer := getLogWriter()
-	if os.Getenv("mq.consoleAppender.enabled") == "true" {
+	isStdOut := utils.GetenvWithDef("mq.consoleAppender.enabled", "false")
+	if isStdOut == "true" {
 		writeSyncer = os.Stdout
 	}
 	encoder := getEncoder()
@@ -61,11 +74,25 @@ func getEncoder() zapcore.Encoder {
 }
 
 func getLogWriter() zapcore.WriteSyncer {
+	clientLogRoot := utils.GetenvWithDef(CLIENT_LOG_ROOT, os.Getenv("user.home")+"/logs/rocketmqlogs")
+	clientLogMaxIndex := utils.GetenvWithDef(CLIENT_LOG_MAXINDEX, "10")
+	clientLogFileName := utils.GetenvWithDef(CLIENT_LOG_FILENAME, "rocketmq_client_go.log")
+	clientLogMaxFileSize := utils.GetenvWithDef(CLIENT_LOG_FILESIZE, "1073741824")
+
+	logFileName := clientLogRoot + "/" + clientLogFileName
+	maxFileIndex, err := strconv.Atoi(clientLogMaxIndex)
+	if err != nil {
+		maxFileIndex = 10
+	}
+	maxFileSize, err := strconv.Atoi(clientLogMaxFileSize)
+	if err != nil {
+		maxFileSize = 1073741824
+
+	}
 	lumberJackLogger := &lumberjack.Logger{
-		Filename:   "/rocketmq/logs/rocketmq-client-go.log",
-		MaxSize:    1,
-		MaxBackups: 5,
-		MaxAge:     30,
+		Filename:   logFileName,
+		MaxSize:    maxFileSize,
+		MaxBackups: maxFileIndex,
 		Compress:   false,
 	}
 	return zapcore.AddSync(lumberJackLogger)
