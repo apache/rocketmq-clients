@@ -18,6 +18,7 @@
 package golang
 
 import (
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -82,12 +83,13 @@ func getLogWriter() zapcore.WriteSyncer {
 	logFileName := clientLogRoot + "/" + clientLogFileName
 	maxFileIndex, err := strconv.Atoi(clientLogMaxIndex)
 	if err != nil {
+		log.Printf("%s='%s' is invalid and has been replaced with the default value %s", CLIENT_LOG_MAXINDEX, clientLogMaxIndex, "10")
 		maxFileIndex = 10
 	}
 	maxFileSize, err := strconv.Atoi(clientLogMaxFileSize)
 	if err != nil {
+		log.Printf("%s='%s' is invalid and has been replaced with the default value %s", CLIENT_LOG_FILESIZE, clientLogMaxFileSize, "1073741824")
 		maxFileSize = 1073741824
-
 	}
 	lumberJackLogger := &lumberjack.Logger{
 		Filename:   logFileName,
