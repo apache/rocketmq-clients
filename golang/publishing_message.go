@@ -44,7 +44,7 @@ func NewPublishingMessage(msg *Message, settings *producerSettings, txEnabled bo
 
 	maxBodySizeBytes := settings.maxBodySizeBytes
 
-	length := len(msg.GetBody())
+	length := len(msg.Body)
 	if length > maxBodySizeBytes {
 		return nil, fmt.Errorf("message body size exceeds the threshold, max size=%d bytes", maxBodySizeBytes)
 	}
@@ -86,7 +86,7 @@ func (pMsg *PublishingMessage) toProtobuf() (*v2.Message, error) {
 	msg := &v2.Message{
 		Topic: &v2.Resource{
 			// ResourceNamespace: b.conn.Config().NameSpace,
-			Name: pMsg.msg.GetTopic(),
+			Name: pMsg.msg.Topic,
 		},
 		SystemProperties: &v2.SystemProperties{
 			Keys:          pMsg.msg.GetKeys(),
@@ -97,10 +97,10 @@ func (pMsg *PublishingMessage) toProtobuf() (*v2.Message, error) {
 			MessageType:   pMsg.messageType,
 		},
 		UserProperties: pMsg.msg.GetProperties(),
-		Body:           pMsg.msg.GetBody(),
+		Body:           pMsg.msg.Body,
 	}
-	if pMsg.msg.GetTag() != nil {
-		msg.SystemProperties.Tag = pMsg.msg.GetTag()
+	if pMsg.msg.Tag != nil {
+		msg.SystemProperties.Tag = pMsg.msg.Tag
 	}
 	if pMsg.traceContext != nil {
 		msg.SystemProperties.TraceContext = pMsg.traceContext

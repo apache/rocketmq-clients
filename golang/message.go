@@ -25,8 +25,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/apache/rocketmq-clients/golang/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
-	"github.com/apache/rocketmq-clients/golang/utils"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -87,10 +87,6 @@ type SendReceipt struct {
 	Endpoints     *v2.Endpoints
 }
 
-func (msg *Message) GetTopic() string {
-	return msg.Topic
-}
-
 func (msg *Message) SetTag(tag string) {
 	msg.Tag = &tag
 }
@@ -105,10 +101,6 @@ func (msg *Message) GetKeys() []string {
 
 func (msg *Message) SetKeys(keys ...string) {
 	msg.keys = keys
-}
-
-func (msg *Message) GetBody() []byte {
-	return msg.Body
 }
 
 func (msg *Message) GetProperties() map[string]string {

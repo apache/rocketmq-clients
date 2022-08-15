@@ -18,8 +18,8 @@
 package golang
 
 import (
+	"github.com/apache/rocketmq-clients/golang/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
-	"github.com/apache/rocketmq-clients/golang/utils"
 )
 
 type userAgent struct {

@@ -25,8 +25,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/apache/rocketmq-clients/golang/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
-	"github.com/apache/rocketmq-clients/golang/utils"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -262,9 +262,9 @@ func (p *defaultProducer) send1(ctx context.Context, topic string, messageType v
 
 func (p *defaultProducer) send0(ctx context.Context, msgs []*UnifiedMessage, txEnabled bool) ([]*SendReceipt, error) {
 	// check topic Name
-	topicName := msgs[0].GetMessage().GetTopic()
+	topicName := msgs[0].GetMessage().Topic
 	for _, msg := range msgs {
-		if msg.GetMessage().GetTopic() != topicName {
+		if msg.GetMessage().Topic != topicName {
 			return nil, fmt.Errorf("messages to send have different topics")
 		}
 	}

@@ -25,8 +25,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/apache/rocketmq-clients/golang/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
-	"github.com/apache/rocketmq-clients/golang/utils"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

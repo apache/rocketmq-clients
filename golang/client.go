@@ -30,12 +30,11 @@ import (
 
 	innerMD "github.com/apache/rocketmq-clients/golang/metadata"
 	"github.com/apache/rocketmq-clients/golang/pkg/ticker"
+	"github.com/apache/rocketmq-clients/golang/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
-
-	"github.com/apache/rocketmq-clients/golang/utils"
 )
 
 type Client interface {
@@ -50,7 +49,7 @@ type isClient interface {
 	onRecoverOrphanedTransactionCommand(endpoints *v2.Endpoints, command *v2.RecoverOrphanedTransactionCommand) error
 	onVerifyMessageCommand(endpoints *v2.Endpoints, command *v2.VerifyMessageCommand) error
 }
-type clientSessionImpl struct {
+type defaultClientSession struct {
 	endpoints    *v2.Endpoints
 	observer     v2.MessagingService_TelemetryClient
 	observerLock sync.RWMutex
@@ -58,12 +57,12 @@ type clientSessionImpl struct {
 	timeout      time.Duration
 }
 
-func NewClientSessionImpl(target string, cli *defaultClient) (*clientSessionImpl, error) {
+func NewDefaultClientSession(target string, cli *defaultClient) (*defaultClientSession, error) {
 	endpoints, err := utils.ParseTarget(target)
 	if err != nil {
 		return nil, err
 	}
-	cs := &clientSessionImpl{
+	cs := &defaultClientSession{
 		endpoints: endpoints,
 		cli:       cli,
 		timeout:   365 * 24 * time.Hour,
@@ -71,8 +70,8 @@ func NewClientSessionImpl(target string, cli *defaultClient) (*clientSessionImpl
 	cs.startUp()
 	return cs, nil
 }
-func (cs *clientSessionImpl) startUp() {
-	cs.cli.log.Infof("clientSessionImpl is startUp! endpoints=%v", cs.endpoints)
+func (cs *defaultClientSession) startUp() {
+	cs.cli.log.Infof("defaultClientSession is startUp! endpoints=%v", cs.endpoints)
 	go func() {
 		for {
 			cs.observerLock.RLock()
@@ -97,7 +96,7 @@ func (cs *clientSessionImpl) startUp() {
 		}
 	}()
 }
-func (cs *clientSessionImpl) handleTelemetryCommand(response *v2.TelemetryCommand) error {
+func (cs *defaultClientSession) handleTelemetryCommand(response *v2.TelemetryCommand) error {
 	command := response.GetCommand()
 	if command == nil {
 		return fmt.Errorf("handleTelemetryCommand err = Command is nil")
@@ -120,15 +119,15 @@ func (cs *clientSessionImpl) handleTelemetryCommand(response *v2.TelemetryComman
 	}
 	return nil
 }
-func (cs *clientSessionImpl) release() {
+func (cs *defaultClientSession) release() {
 	cs.observerLock.Lock()
 	defer cs.observerLock.Unlock()
 	if err := cs.observer.CloseSend(); err != nil {
-		cs.cli.log.Errorf("release clientSessionImpl err=%v", err)
+		cs.cli.log.Errorf("release defaultClientSession err=%v", err)
 	}
 	cs.observer = nil
 }
-func (cs *clientSessionImpl) publish(ctx context.Context, common *v2.TelemetryCommand) error {
+func (cs *defaultClientSession) publish(ctx context.Context, common *v2.TelemetryCommand) error {
 	var err error
 	cs.observerLock.RLock()
 	if cs.observer != nil {
@@ -169,7 +168,7 @@ type defaultClient struct {
 	clientMeterProvider           ClientMeterProvider
 	messageInterceptors           []MessageInterceptor
 	messageInterceptorsLock       sync.RWMutex
-	endpointsTelemetryClientTable map[string]*clientSessionImpl
+	endpointsTelemetryClientTable map[string]*defaultClientSession
 	endpointsTelemetryClientsLock sync.RWMutex
 
 	clientImpl isClient
@@ -186,7 +185,7 @@ func NewClient(config *Config, opts ...ClientOption) (Client, error) {
 		clientID:                      utils.GenClientID(),
 		accessPoint:                   endpoints,
 		messageInterceptors:           make([]MessageInterceptor, 0),
-		endpointsTelemetryClientTable: make(map[string]*clientSessionImpl),
+		endpointsTelemetryClientTable: make(map[string]*defaultClientSession),
 	}
 	cli.log = sugarBaseLogger.With("client_id", cli.clientID)
 	for _, opt := range opts {
@@ -201,7 +200,7 @@ func (cli *defaultClient) GetClientID() string {
 	return cli.clientID
 }
 
-func (cli *defaultClient) getClientSessionImpl(target string) (*clientSessionImpl, error) {
+func (cli *defaultClient) getDefaultClientSession(target string) (*defaultClientSession, error) {
 	cli.endpointsTelemetryClientsLock.RLock()
 	tc, ok := cli.endpointsTelemetryClientTable[target]
 	cli.endpointsTelemetryClientsLock.RUnlock()
@@ -213,7 +212,7 @@ func (cli *defaultClient) getClientSessionImpl(target string) (*clientSessionImp
 	if tc, ok := cli.endpointsTelemetryClientTable[target]; ok {
 		return tc, nil
 	}
-	tc, err := NewClientSessionImpl(target, cli)
+	tc, err := NewDefaultClientSession(target, cli)
 	if err != nil {
 		return nil, err
 	}
@@ -369,9 +368,9 @@ func (cli *defaultClient) syncSettings() {
 }
 
 func (cli *defaultClient) telemeter(target string, command *v2.TelemetryCommand) {
-	cs, err := cli.getClientSessionImpl(target)
+	cs, err := cli.getDefaultClientSession(target)
 	if err != nil {
-		cli.log.Error("getClientSessionImpl failed, err=%v", target, err)
+		cli.log.Error("getDefaultClientSession failed, err=%v", target, err)
 		return
 	}
 	ctx := cli.Sign(context.Background())

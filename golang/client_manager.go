@@ -23,8 +23,8 @@ import (
 	"time"
 
 	"github.com/apache/rocketmq-clients/golang/pkg/ticker"
+	"github.com/apache/rocketmq-clients/golang/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
-	"github.com/apache/rocketmq-clients/golang/utils"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -74,7 +74,7 @@ var defaultClientManagerOptions = clientManagerOptions{
 	SYNC_SETTINGS_PERIOD: time.Minute * 5,
 }
 
-type clientManagerImpl struct {
+type defaultClientManager struct {
 	rpcClientTable     map[string]RpcClient
 	rpcClientTableLock sync.RWMutex
 	clientTable        sync.Map
@@ -104,8 +104,8 @@ func (cmr *clientManagerRegistry) RegisterClient(client Client) ClientManager {
 	defer cmr.clientIdsLock.Unlock()
 
 	if cmr.singletonClientManager == nil {
-		cmr.singletonClientManager = NewClientManagerImpl()
-		cmr.singletonClientManager.(*clientManagerImpl).startUp()
+		cmr.singletonClientManager = NewDefaultClientManager()
+		cmr.singletonClientManager.(*defaultClientManager).startUp()
 	}
 	cmr.clientIds[client.GetClientID()] = true
 	cmr.singletonClientManager.RegisterClient(client)
@@ -126,29 +126,29 @@ func (cmr *clientManagerRegistry) UnRegisterClient(client Client) bool {
 	}
 	cmr.clientIdsLock.Unlock()
 	if tmpClientManager != nil {
-		tmpClientManager.(*clientManagerImpl).shutdown()
+		tmpClientManager.(*defaultClientManager).shutdown()
 	}
 	return tmpClientManager != nil
 }
 
-var _ = ClientManager(&clientManagerImpl{})
+var _ = ClientManager(&defaultClientManager{})
 
-func NewClientManagerImpl() *clientManagerImpl {
-	return &clientManagerImpl{
+func NewDefaultClientManager() *defaultClientManager {
+	return &defaultClientManager{
 		rpcClientTable: make(map[string]RpcClient),
 		done:           make(chan struct{}),
 		opts:           defaultClientManagerOptions,
 	}
 }
-func (cm *clientManagerImpl) RegisterClient(client Client) {
+func (cm *defaultClientManager) RegisterClient(client Client) {
 	cm.clientTable.Store(client.GetClientID(), client)
 }
 
-func (cm *clientManagerImpl) UnRegisterClient(client Client) {
+func (cm *defaultClientManager) UnRegisterClient(client Client) {
 	cm.clientTable.Delete(client.GetClientID())
 }
 
-func (cm *clientManagerImpl) startUp() {
+func (cm *defaultClientManager) startUp() {
 	sugarBaseLogger.Info("begin to start the client manager")
 
 	go func() {
@@ -177,12 +177,12 @@ func (cm *clientManagerImpl) startUp() {
 
 	sugarBaseLogger.Info("the client manager starts successfully")
 }
-func (cm *clientManagerImpl) deleteRpcClient(rpcClient RpcClient) {
+func (cm *defaultClientManager) deleteRpcClient(rpcClient RpcClient) {
 	delete(cm.rpcClientTable, rpcClient.GetTarget())
 	rpcClient.GracefulStop()
 }
 
-func (cm *clientManagerImpl) clearIdleRpcClients() {
+func (cm *defaultClientManager) clearIdleRpcClients() {
 	sugarBaseLogger.Info("clientManager start clearIdleRpcClients")
 	cm.rpcClientTableLock.Lock()
 	defer cm.rpcClientTableLock.Unlock()
@@ -194,7 +194,7 @@ func (cm *clientManagerImpl) clearIdleRpcClients() {
 		}
 	}
 }
-func (cm *clientManagerImpl) doHeartbeat() {
+func (cm *defaultClientManager) doHeartbeat() {
 	sugarBaseLogger.Info("clientManager start doHeartbeat")
 	cm.clientTable.Range(func(_, v interface{}) bool {
 		client := v.(*defaultClient)
@@ -202,10 +202,10 @@ func (cm *clientManagerImpl) doHeartbeat() {
 		return true
 	})
 }
-func (cm *clientManagerImpl) doStats() {
+func (cm *defaultClientManager) doStats() {
 	// TODO
 }
-func (cm *clientManagerImpl) syncSettings() {
+func (cm *defaultClientManager) syncSettings() {
 	sugarBaseLogger.Info("clientManager start syncSettings")
 	cm.clientTable.Range(func(_, v interface{}) bool {
 		client := v.(*defaultClient)
@@ -213,14 +213,14 @@ func (cm *clientManagerImpl) syncSettings() {
 		return true
 	})
 }
-func (cm *clientManagerImpl) shutdown() {
+func (cm *defaultClientManager) shutdown() {
 	sugarBaseLogger.Info("begin to shutdown the client manager")
 	cm.done <- struct{}{}
 	close(cm.done)
 	cm.cleanRpcClient()
 	sugarBaseLogger.Info("shutdown the client manager successfully")
 }
-func (cm *clientManagerImpl) cleanRpcClient() {
+func (cm *defaultClientManager) cleanRpcClient() {
 	sugarBaseLogger.Info("clientManager start cleanRpcClient")
 	cm.rpcClientTableLock.Lock()
 	defer cm.rpcClientTableLock.Unlock()
@@ -228,7 +228,7 @@ func (cm *clientManagerImpl) cleanRpcClient() {
 		cm.deleteRpcClient(rpcClient)
 	}
 }
-func (cm *clientManagerImpl) getRpcClient(endpoints *v2.Endpoints) (RpcClient, error) {
+func (cm *defaultClientManager) getRpcClient(endpoints *v2.Endpoints) (RpcClient, error) {
 	target := utils.ParseAddress(utils.SelectAnAddress(endpoints))
 
 	cm.rpcClientTableLock.RLock()
@@ -257,7 +257,7 @@ func (cm *clientManagerImpl) getRpcClient(endpoints *v2.Endpoints) (RpcClient, e
 	cm.rpcClientTable[target] = rpcClient
 	return rpcClient, nil
 }
-func (cm *clientManagerImpl) handleGrpcError(rpcClient RpcClient, err error) {
+func (cm *defaultClientManager) handleGrpcError(rpcClient RpcClient, err error) {
 	if err != nil {
 		if e, ok := status.FromError(err); ok {
 			if e.Code() == codes.Unavailable {
@@ -269,7 +269,7 @@ func (cm *clientManagerImpl) handleGrpcError(rpcClient RpcClient, err error) {
 		}
 	}
 }
-func (cm *clientManagerImpl) QueryRoute(ctx context.Context, endpoints *v2.Endpoints, request *v2.QueryRouteRequest, duration time.Duration) (*v2.QueryRouteResponse, error) {
+func (cm *defaultClientManager) QueryRoute(ctx context.Context, endpoints *v2.Endpoints, request *v2.QueryRouteRequest, duration time.Duration) (*v2.QueryRouteResponse, error) {
 	ctx, _ = context.WithTimeout(ctx, duration)
 	rpcClient, err := cm.getRpcClient(endpoints)
 	if err != nil {
@@ -280,7 +280,7 @@ func (cm *clientManagerImpl) QueryRoute(ctx context.Context, endpoints *v2.Endpo
 	return ret, err
 }
 
-func (cm *clientManagerImpl) SendMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.SendMessageRequest, duration time.Duration) (*v2.SendMessageResponse, error) {
+func (cm *defaultClientManager) SendMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.SendMessageRequest, duration time.Duration) (*v2.SendMessageResponse, error) {
 	ctx, _ = context.WithTimeout(ctx, duration)
 	rpcClient, err := cm.getRpcClient(endpoints)
 	if err != nil {
@@ -291,7 +291,7 @@ func (cm *clientManagerImpl) SendMessage(ctx context.Context, endpoints *v2.Endp
 	return ret, err
 }
 
-func (cm *clientManagerImpl) Telemetry(ctx context.Context, endpoints *v2.Endpoints, duration time.Duration) (v2.MessagingService_TelemetryClient, error) {
+func (cm *defaultClientManager) Telemetry(ctx context.Context, endpoints *v2.Endpoints, duration time.Duration) (v2.MessagingService_TelemetryClient, error) {
 	ctx, _ = context.WithTimeout(ctx, duration)
 	rpcClient, err := cm.getRpcClient(endpoints)
 	if err != nil {
@@ -302,7 +302,7 @@ func (cm *clientManagerImpl) Telemetry(ctx context.Context, endpoints *v2.Endpoi
 	return ret, err
 }
 
-func (cm *clientManagerImpl) EndTransaction(ctx context.Context, endpoints *v2.Endpoints, request *v2.EndTransactionRequest, duration time.Duration) (*v2.EndTransactionResponse, error) {
+func (cm *defaultClientManager) EndTransaction(ctx context.Context, endpoints *v2.Endpoints, request *v2.EndTransactionRequest, duration time.Duration) (*v2.EndTransactionResponse, error) {
 	ctx, _ = context.WithTimeout(ctx, duration)
 	rpcClient, err := cm.getRpcClient(endpoints)
 	if err != nil {
@@ -313,7 +313,7 @@ func (cm *clientManagerImpl) EndTransaction(ctx context.Context, endpoints *v2.E
 	return ret, err
 }
 
-func (cm *clientManagerImpl) HeartBeat(ctx context.Context, endpoints *v2.Endpoints, request *v2.HeartbeatRequest, duration time.Duration) (*v2.HeartbeatResponse, error) {
+func (cm *defaultClientManager) HeartBeat(ctx context.Context, endpoints *v2.Endpoints, request *v2.HeartbeatRequest, duration time.Duration) (*v2.HeartbeatResponse, error) {
 	ctx, _ = context.WithTimeout(ctx, duration)
 	rpcClient, err := cm.getRpcClient(endpoints)
 	if err != nil {
@@ -324,7 +324,7 @@ func (cm *clientManagerImpl) HeartBeat(ctx context.Context, endpoints *v2.Endpoi
 	return ret, err
 }
 
-func (cm *clientManagerImpl) NotifyClientTermination(ctx context.Context, endpoints *v2.Endpoints, request *v2.NotifyClientTerminationRequest, duration time.Duration) (*v2.NotifyClientTerminationResponse, error) {
+func (cm *defaultClientManager) NotifyClientTermination(ctx context.Context, endpoints *v2.Endpoints, request *v2.NotifyClientTerminationRequest, duration time.Duration) (*v2.NotifyClientTerminationResponse, error) {
 	ctx, _ = context.WithTimeout(ctx, duration)
 	rpcClient, err := cm.getRpcClient(endpoints)
 	if err != nil {
@@ -335,7 +335,7 @@ func (cm *clientManagerImpl) NotifyClientTermination(ctx context.Context, endpoi
 	return ret, err
 }
 
-func (cm *clientManagerImpl) ReceiveMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error) {
+func (cm *defaultClientManager) ReceiveMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error) {
 	rpcClient, err := cm.getRpcClient(endpoints)
 	if err != nil {
 		return nil, err
@@ -345,7 +345,7 @@ func (cm *clientManagerImpl) ReceiveMessage(ctx context.Context, endpoints *v2.E
 	return ret, err
 }
 
-func (cm *clientManagerImpl) AckMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.AckMessageRequest, duration time.Duration) (*v2.AckMessageResponse, error) {
+func (cm *defaultClientManager) AckMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.AckMessageRequest, duration time.Duration) (*v2.AckMessageResponse, error) {
 	ctx, _ = context.WithTimeout(ctx, duration)
 	rpcClient, err := cm.getRpcClient(endpoints)
 	if err != nil {
