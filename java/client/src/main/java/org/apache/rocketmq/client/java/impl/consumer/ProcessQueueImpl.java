@@ -17,9 +17,12 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
+import apache.rocketmq.v2.AckMessageRequest;
 import apache.rocketmq.v2.AckMessageResponse;
+import apache.rocketmq.v2.ChangeInvisibleDurationRequest;
 import apache.rocketmq.v2.ChangeInvisibleDurationResponse;
 import apache.rocketmq.v2.Code;
+import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueResponse;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.Status;
@@ -54,7 +57,7 @@ import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
-import org.apache.rocketmq.client.java.rpc.RpcInvocation;
+import org.apache.rocketmq.client.java.rpc.RpcFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -403,13 +406,12 @@ class ProcessQueueImpl implements ProcessQueue {
         final String consumerGroup = consumer.getConsumerGroup();
         final MessageId messageId = messageView.getMessageId();
         final Endpoints endpoints = messageView.getEndpoints();
-        final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> future =
+        final RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse> future =
             consumer.changeInvisibleDuration(messageView, duration);
-        Futures.addCallback(future, new FutureCallback<RpcInvocation<ChangeInvisibleDurationResponse>>() {
+        Futures.addCallback(future, new FutureCallback<ChangeInvisibleDurationResponse>() {
             @Override
-            public void onSuccess(RpcInvocation<ChangeInvisibleDurationResponse> invocation) {
-                final ChangeInvisibleDurationResponse response = invocation.getResponse();
-                final String requestId = invocation.getContext().getRequestId();
+            public void onSuccess(ChangeInvisibleDurationResponse response) {
+                final String requestId = future.getContext().getRequestId();
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
                 if (Code.INVALID_RECEIPT_HANDLE.equals(code)) {
@@ -538,17 +540,16 @@ class ProcessQueueImpl implements ProcessQueue {
 
     private void forwardToDeadLetterQueue(final MessageViewImpl messageView, final int attempt,
         final SettableFuture<Void> future0) {
-        final ListenableFuture<RpcInvocation<ForwardMessageToDeadLetterQueueResponse>> future =
+        final RpcFuture<ForwardMessageToDeadLetterQueueRequest, ForwardMessageToDeadLetterQueueResponse> future =
             consumer.forwardMessageToDeadLetterQueue(messageView);
         final String clientId = consumer.clientId();
         final String consumerGroup = consumer.getConsumerGroup();
         final MessageId messageId = messageView.getMessageId();
         final Endpoints endpoints = messageView.getEndpoints();
-        Futures.addCallback(future, new FutureCallback<RpcInvocation<ForwardMessageToDeadLetterQueueResponse>>() {
+        Futures.addCallback(future, new FutureCallback<ForwardMessageToDeadLetterQueueResponse>() {
             @Override
-            public void onSuccess(RpcInvocation<ForwardMessageToDeadLetterQueueResponse> invocation) {
-                final ForwardMessageToDeadLetterQueueResponse response = invocation.getResponse();
-                final String requestId = invocation.getContext().getRequestId();
+            public void onSuccess(ForwardMessageToDeadLetterQueueResponse response) {
+                final String requestId = future.getContext().getRequestId();
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
                 // Log failure and retry later.
@@ -621,12 +622,12 @@ class ProcessQueueImpl implements ProcessQueue {
         final String consumerGroup = consumer.getConsumerGroup();
         final MessageId messageId = messageView.getMessageId();
         final Endpoints endpoints = messageView.getEndpoints();
-        final ListenableFuture<RpcInvocation<AckMessageResponse>> future = consumer.ackMessage(messageView);
-        Futures.addCallback(future, new FutureCallback<RpcInvocation<AckMessageResponse>>() {
+        final RpcFuture<AckMessageRequest, AckMessageResponse> future =
+            consumer.ackMessage(messageView);
+        Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
             @Override
-            public void onSuccess(RpcInvocation<AckMessageResponse> invocation) {
-                final AckMessageResponse response = invocation.getResponse();
-                final String requestId = invocation.getContext().getRequestId();
+            public void onSuccess(AckMessageResponse response) {
+                final String requestId = future.getContext().getRequestId();
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
                 if (Code.INVALID_RECEIPT_HANDLE.equals(code)) {

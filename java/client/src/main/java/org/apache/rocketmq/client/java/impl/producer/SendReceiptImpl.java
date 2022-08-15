@@ -18,6 +18,7 @@
 package org.apache.rocketmq.client.java.impl.producer;
 
 import apache.rocketmq.v2.Code;
+import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
 import apache.rocketmq.v2.SendResultEntry;
 import apache.rocketmq.v2.Status;
@@ -33,7 +34,7 @@ import org.apache.rocketmq.client.java.exception.StatusChecker;
 import org.apache.rocketmq.client.java.message.MessageIdCodec;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
-import org.apache.rocketmq.client.java.rpc.RpcInvocation;
+import org.apache.rocketmq.client.java.rpc.RpcFuture;
 
 public class SendReceiptImpl implements SendReceipt {
     private final MessageId messageId;
@@ -70,9 +71,8 @@ public class SendReceiptImpl implements SendReceipt {
         return offset;
     }
 
-    public static List<SendReceiptImpl> processResponseInvocation(MessageQueueImpl mq,
-        RpcInvocation<SendMessageResponse> invocation) throws ClientException {
-        final SendMessageResponse response = invocation.getResponse();
+    public static List<SendReceiptImpl> processResponseInvocation(MessageQueueImpl mq, SendMessageResponse response,
+        RpcFuture<SendMessageRequest, SendMessageResponse> future) throws ClientException {
         Status status = response.getStatus();
         List<SendReceiptImpl> sendReceipts = new ArrayList<>();
         final List<SendResultEntry> entries = response.getEntriesList();
@@ -82,7 +82,7 @@ public class SendReceiptImpl implements SendReceipt {
         if (abnormalStatus.isPresent()) {
             status = abnormalStatus.get();
         }
-        StatusChecker.check(status, invocation);
+        StatusChecker.check(status, future);
         for (SendResultEntry entry : entries) {
             final MessageId messageId = MessageIdCodec.getInstance().decode(entry.getMessageId());
             final String transactionId = entry.getTransactionId();

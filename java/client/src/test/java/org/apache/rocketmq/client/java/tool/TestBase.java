@@ -17,23 +17,29 @@
 
 package org.apache.rocketmq.client.java.tool;
 
+import apache.rocketmq.v2.AckMessageRequest;
 import apache.rocketmq.v2.AckMessageResponse;
 import apache.rocketmq.v2.Address;
 import apache.rocketmq.v2.AddressScheme;
 import apache.rocketmq.v2.Assignment;
 import apache.rocketmq.v2.Broker;
+import apache.rocketmq.v2.ChangeInvisibleDurationRequest;
 import apache.rocketmq.v2.ChangeInvisibleDurationResponse;
 import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.Digest;
 import apache.rocketmq.v2.DigestType;
 import apache.rocketmq.v2.EndTransactionResponse;
+import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueResponse;
 import apache.rocketmq.v2.MessageQueue;
 import apache.rocketmq.v2.MessageType;
 import apache.rocketmq.v2.Permission;
+import apache.rocketmq.v2.QueryAssignmentRequest;
 import apache.rocketmq.v2.QueryAssignmentResponse;
+import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageResponse;
 import apache.rocketmq.v2.Resource;
+import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
 import apache.rocketmq.v2.SendResultEntry;
 import apache.rocketmq.v2.Status;
@@ -75,8 +81,9 @@ import org.apache.rocketmq.client.java.retry.ExponentialBackoffRetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.rpc.Context;
-import org.apache.rocketmq.client.java.rpc.RpcInvocation;
+import org.apache.rocketmq.client.java.rpc.RpcFuture;
 import org.apache.rocketmq.client.java.rpc.Signature;
+import org.mockito.Mockito;
 
 public class TestBase {
     protected static final String FAKE_CLIENT_ID = "mbp@29848@cno0nhxy";
@@ -223,36 +230,36 @@ public class TestBase {
             .setPermission(Permission.READ_WRITE).build();
     }
 
-    protected ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>>
+    protected RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse>
     okChangeInvisibleDurationCtxFuture() {
         Status status = Status.newBuilder().setCode(Code.OK).build();
         final ChangeInvisibleDurationResponse response =
             ChangeInvisibleDurationResponse.newBuilder().setStatus(status).build();
-        return Futures.immediateFuture(new RpcInvocation<>(response, fakeRpcContext()));
+        return new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(response));
     }
 
-    protected ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>>
+    protected RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse>
     changInvisibleDurationCtxFuture(Code code) {
         Status status = Status.newBuilder().setCode(code).build();
         final ChangeInvisibleDurationResponse response =
             ChangeInvisibleDurationResponse.newBuilder().setStatus(status).build();
-        return Futures.immediateFuture(new RpcInvocation<>(response, fakeRpcContext()));
+        return new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(response));
     }
 
-    protected ListenableFuture<RpcInvocation<QueryAssignmentResponse>> okQueryAssignmentResponseFuture() {
+    protected RpcFuture<QueryAssignmentRequest, QueryAssignmentResponse> okQueryAssignmentResponseFuture() {
         final SettableFuture<QueryAssignmentResponse> future = SettableFuture.create();
         final Status status = Status.newBuilder().setCode(Code.OK).build();
         Assignment assignment = Assignment.newBuilder().setMessageQueue(fakePbMessageQueue0()).build();
         QueryAssignmentResponse response = QueryAssignmentResponse.newBuilder().setStatus(status)
             .addAssignments(assignment).build();
-        return Futures.immediateFuture(new RpcInvocation<>(response, fakeRpcContext()));
+        return new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(response));
     }
 
-    protected ListenableFuture<RpcInvocation<QueryAssignmentResponse>> okEmptyQueryAssignmentResponseFuture() {
+    protected RpcFuture<QueryAssignmentRequest, QueryAssignmentResponse> okEmptyQueryAssignmentResponseFuture() {
         final SettableFuture<QueryAssignmentResponse> future = SettableFuture.create();
         final Status status = Status.newBuilder().setCode(Code.OK).build();
         final QueryAssignmentResponse response = QueryAssignmentResponse.newBuilder().setStatus(status).build();
-        return Futures.immediateFuture(new RpcInvocation<>(response, fakeRpcContext()));
+        return new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(response));
     }
 
     protected Map<String, FilterExpression> createSubscriptionExpressions(String topic) {
@@ -262,41 +269,43 @@ public class TestBase {
         return map;
     }
 
-    protected ListenableFuture<RpcInvocation<AckMessageResponse>> ackMessageResponseFuture(Code code) {
+    protected RpcFuture<AckMessageRequest, AckMessageResponse> ackMessageResponseFuture(Code code) {
         final Status status = Status.newBuilder().setCode(code).build();
         final AckMessageResponse response = AckMessageResponse.newBuilder().setStatus(status).build();
-        return Futures.immediateFuture(new RpcInvocation<>(response, fakeRpcContext()));
+        return new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(response));
     }
 
-    protected ListenableFuture<RpcInvocation<AckMessageResponse>> okAckMessageResponseFuture() {
+    protected RpcFuture<AckMessageRequest, AckMessageResponse> okAckMessageResponseFuture() {
         final Status status = Status.newBuilder().setCode(Code.OK).build();
+        final AckMessageRequest request = Mockito.mock(AckMessageRequest.class);
         final AckMessageResponse response = AckMessageResponse.newBuilder().setStatus(status).build();
-        return Futures.immediateFuture(new RpcInvocation<>(response, fakeRpcContext()));
+        return new RpcFuture<>(fakeRpcContext(), request,
+            Futures.immediateFuture(response));
     }
 
-    protected ListenableFuture<RpcInvocation<ForwardMessageToDeadLetterQueueResponse>>
-    okForwardMessageToDeadLetterQueueResponseFuture() {
+    protected RpcFuture<ForwardMessageToDeadLetterQueueRequest,
+        ForwardMessageToDeadLetterQueueResponse> okForwardMessageToDeadLetterQueueResponseFuture() {
         final Status status = Status.newBuilder().setCode(Code.OK).build();
         final ForwardMessageToDeadLetterQueueResponse response =
             ForwardMessageToDeadLetterQueueResponse.newBuilder().setStatus(status).build();
-        return Futures.immediateFuture(new RpcInvocation<>(response, fakeRpcContext()));
+        return new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(response));
     }
 
-    protected ListenableFuture<RpcInvocation<SendMessageResponse>> okSendMessageResponseFutureWithSingleEntry() {
+    protected RpcFuture<SendMessageRequest, SendMessageResponse> okSendMessageResponseFutureWithSingleEntry() {
         final Status status = Status.newBuilder().setCode(Code.OK).build();
         final String messageId = MessageIdCodec.getInstance().nextMessageId().toString();
         SendResultEntry entry = SendResultEntry.newBuilder().setMessageId(messageId)
             .setTransactionId(FAKE_TRANSACTION_ID).setStatus(status).setOffset(1).build();
         SendMessageResponse response = SendMessageResponse.newBuilder().setStatus(status).addEntries(entry).build();
-        return Futures.immediateFuture(new RpcInvocation<>(response, fakeRpcContext()));
+        return new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(response));
     }
 
-    protected ListenableFuture<RpcInvocation<SendMessageResponse>> failureSendMessageResponseFuture() {
+    protected RpcFuture<SendMessageRequest, SendMessageResponse> failureSendMessageResponseFuture() {
         final Status status = Status.newBuilder().setCode(Code.FORBIDDEN).build();
         SendResultEntry sendResultEntry = SendResultEntry.newBuilder().setStatus(status).setStatus(status).build();
         SendMessageResponse response = SendMessageResponse.newBuilder().setStatus(status)
             .addEntries(sendResultEntry).build();
-        return Futures.immediateFuture(new RpcInvocation<>(response, fakeRpcContext()));
+        return new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(response));
     }
 
     protected ListenableFuture<SendMessageResponse> okBatchSendMessageResponseFuture() {
@@ -326,7 +335,7 @@ public class TestBase {
             .setSystemProperties(systemProperties).build();
     }
 
-    protected ListenableFuture<RpcInvocation<Iterator<ReceiveMessageResponse>>> okReceiveMessageResponsesFuture(
+    protected RpcFuture<ReceiveMessageRequest, Iterator<ReceiveMessageResponse>> okReceiveMessageResponsesFuture(
         String topic, int messageCount) {
         final Status status = Status.newBuilder().setCode(Code.OK).build();
         final apache.rocketmq.v2.Message message = fakePbMessage(topic);
@@ -337,7 +346,7 @@ public class TestBase {
             ReceiveMessageResponse messageResponse = ReceiveMessageResponse.newBuilder().setMessage(message).build();
             responses.add(messageResponse);
         }
-        return Futures.immediateFuture(new RpcInvocation<>(responses.iterator(), fakeRpcContext()));
+        return new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(responses.iterator()));
     }
 
     protected ListenableFuture<EndTransactionResponse> okEndTransactionResponseFuture() {
@@ -365,9 +374,9 @@ public class TestBase {
 
     protected SendReceiptImpl fakeSendReceiptImpl(
         MessageQueueImpl mq) throws ExecutionException, InterruptedException, ClientException {
-        final ListenableFuture<RpcInvocation<SendMessageResponse>> future =
+        final RpcFuture<SendMessageRequest, SendMessageResponse> future =
             okSendMessageResponseFutureWithSingleEntry();
-        final List<SendReceiptImpl> receipts = SendReceiptImpl.processResponseInvocation(mq, future.get());
+        final List<SendReceiptImpl> receipts = SendReceiptImpl.processResponseInvocation(mq, future.get(), future);
         return receipts.iterator().next();
     }
 }

@@ -84,7 +84,7 @@ import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.misc.Utilities;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.TopicRouteData;
-import org.apache.rocketmq.client.java.rpc.RpcInvocation;
+import org.apache.rocketmq.client.java.rpc.RpcFuture;
 import org.apache.rocketmq.client.java.rpc.Signature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -550,12 +550,11 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     private void doHeartbeat(HeartbeatRequest request, final Endpoints endpoints) {
         try {
             Metadata metadata = sign();
-            final ListenableFuture<RpcInvocation<HeartbeatResponse>> future = clientManager
-                .heartbeat(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
-            Futures.addCallback(future, new FutureCallback<RpcInvocation<HeartbeatResponse>>() {
+            final RpcFuture<HeartbeatRequest, HeartbeatResponse> future = clientManager.heartbeat(endpoints, metadata,
+                request, clientConfiguration.getRequestTimeout());
+            Futures.addCallback(future, new FutureCallback<HeartbeatResponse>() {
                 @Override
-                public void onSuccess(RpcInvocation<HeartbeatResponse> inv) {
-                    final HeartbeatResponse response = inv.getResponse();
+                public void onSuccess(HeartbeatResponse response) {
                     final Status status = response.getStatus();
                     final Code code = status.getCode();
                     if (Code.OK != code) {
@@ -618,12 +617,11 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             final QueryRouteRequest request = QueryRouteRequest.newBuilder().setTopic(topicResource)
                 .setEndpoints(endpoints.toProtobuf()).build();
             final Metadata metadata = sign();
-            final ListenableFuture<RpcInvocation<QueryRouteResponse>> future =
+            final RpcFuture<QueryRouteRequest, QueryRouteResponse> future =
                 clientManager.queryRoute(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
-            return Futures.transformAsync(future, invocation -> {
-                final QueryRouteResponse response = invocation.getResponse();
+            return Futures.transformAsync(future, response -> {
                 final Status status = response.getStatus();
-                StatusChecker.check(status, invocation);
+                StatusChecker.check(status, future);
                 final List<MessageQueue> messageQueuesList = response.getMessageQueuesList();
                 final TopicRouteData topicRouteData = new TopicRouteData(messageQueuesList);
                 return Futures.immediateFuture(topicRouteData);

@@ -39,7 +39,6 @@ import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
 import apache.rocketmq.v2.TelemetryCommand;
 import com.google.common.util.concurrent.AbstractIdleService;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.grpc.Metadata;
 import io.grpc.stub.StreamObserver;
 import java.time.Duration;
@@ -47,7 +46,7 @@ import java.util.Iterator;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.route.Endpoints;
-import org.apache.rocketmq.client.java.rpc.RpcInvocation;
+import org.apache.rocketmq.client.java.rpc.RpcFuture;
 
 /**
  * Client manager supplies a series of unified APIs to execute remote procedure calls for each {@link Client}.
@@ -73,8 +72,8 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract ListenableFuture<RpcInvocation<QueryRouteResponse>> queryRoute(Endpoints endpoints,
-        Metadata metadata, QueryRouteRequest request, Duration duration);
+    public abstract RpcFuture<QueryRouteRequest, QueryRouteResponse>
+    queryRoute(Endpoints endpoints, Metadata metadata, QueryRouteRequest request, Duration duration);
 
     /**
      * Heart beat asynchronously, the method ensures no throwable.
@@ -85,8 +84,8 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract ListenableFuture<RpcInvocation<HeartbeatResponse>> heartbeat(Endpoints endpoints,
-        Metadata metadata, HeartbeatRequest request, Duration duration);
+    public abstract RpcFuture<HeartbeatRequest, HeartbeatResponse>
+    heartbeat(Endpoints endpoints, Metadata metadata, HeartbeatRequest request, Duration duration);
 
     /**
      * Send message asynchronously, the method ensures no throwable.
@@ -97,8 +96,8 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract ListenableFuture<RpcInvocation<SendMessageResponse>> sendMessage(Endpoints endpoints,
-        Metadata metadata, SendMessageRequest request, Duration duration);
+    public abstract RpcFuture<SendMessageRequest, SendMessageResponse>
+    sendMessage(Endpoints endpoints, Metadata metadata, SendMessageRequest request, Duration duration);
 
     /**
      * Query assignment asynchronously, the method ensures no throwable.
@@ -109,8 +108,8 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract ListenableFuture<RpcInvocation<QueryAssignmentResponse>> queryAssignment(Endpoints endpoints,
-        Metadata metadata, QueryAssignmentRequest request, Duration duration);
+    public abstract RpcFuture<QueryAssignmentRequest, QueryAssignmentResponse>
+    queryAssignment(Endpoints endpoints, Metadata metadata, QueryAssignmentRequest request, Duration duration);
 
     /**
      * Receiving messages asynchronously from the server, the method ensures no throwable.
@@ -119,8 +118,8 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param metadata  gRPC request header metadata.
      * @return invocation of response future.
      */
-    public abstract ListenableFuture<RpcInvocation<Iterator<ReceiveMessageResponse>>> receiveMessage(
-        Endpoints endpoints, Metadata metadata, ReceiveMessageRequest request, Duration duration);
+    public abstract RpcFuture<ReceiveMessageRequest, Iterator<ReceiveMessageResponse>>
+    receiveMessage(Endpoints endpoints, Metadata metadata, ReceiveMessageRequest request, Duration duration);
 
     /**
      * Ack message asynchronously after the success of consumption, the method ensures no throwable.
@@ -131,8 +130,8 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract ListenableFuture<RpcInvocation<AckMessageResponse>> ackMessage(Endpoints endpoints,
-        Metadata metadata, AckMessageRequest request, Duration duration);
+    public abstract RpcFuture<AckMessageRequest, AckMessageResponse>
+    ackMessage(Endpoints endpoints, Metadata metadata, AckMessageRequest request, Duration duration);
 
     /**
      * Nack message asynchronously after the failure of consumption, the method ensures no throwable.
@@ -143,8 +142,9 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> changeInvisibleDuration(
-        Endpoints endpoints, Metadata metadata, ChangeInvisibleDurationRequest request, Duration duration);
+    public abstract RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse>
+    changeInvisibleDuration(Endpoints endpoints, Metadata metadata, ChangeInvisibleDurationRequest request,
+        Duration duration);
 
     /**
      * Send a message to the dead letter queue asynchronously, the method ensures no throwable.
@@ -155,9 +155,9 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract ListenableFuture<RpcInvocation<ForwardMessageToDeadLetterQueueResponse>>
-    forwardMessageToDeadLetterQueue(Endpoints endpoints, Metadata metadata,
-        ForwardMessageToDeadLetterQueueRequest request, Duration duration);
+    public abstract RpcFuture<ForwardMessageToDeadLetterQueueRequest,
+        ForwardMessageToDeadLetterQueueResponse> forwardMessageToDeadLetterQueue(Endpoints endpoints,
+        Metadata metadata, ForwardMessageToDeadLetterQueueRequest request, Duration duration);
 
     /**
      * Submit transaction resolution asynchronously, the method ensures no throwable.
@@ -168,8 +168,8 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract ListenableFuture<RpcInvocation<EndTransactionResponse>> endTransaction(Endpoints endpoints,
-        Metadata metadata, EndTransactionRequest request, Duration duration);
+    public abstract RpcFuture<EndTransactionRequest, EndTransactionResponse>
+    endTransaction(Endpoints endpoints, Metadata metadata, EndTransactionRequest request, Duration duration);
 
     /**
      * Asynchronously notify the server that client is terminated, the method ensures no throwable.
@@ -181,8 +181,9 @@ public abstract class ClientManager extends AbstractIdleService {
      * @return response future of notification of client termination.
      */
     @SuppressWarnings("UnusedReturnValue")
-    public abstract ListenableFuture<RpcInvocation<NotifyClientTerminationResponse>> notifyClientTermination(
-        Endpoints endpoints, Metadata metadata, NotifyClientTerminationRequest request, Duration duration);
+    public abstract RpcFuture<NotifyClientTerminationRequest, NotifyClientTerminationResponse>
+    notifyClientTermination(Endpoints endpoints, Metadata metadata, NotifyClientTerminationRequest request,
+        Duration duration);
 
     /**
      * Establish telemetry session stream to server.

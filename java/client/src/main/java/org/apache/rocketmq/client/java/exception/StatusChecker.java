@@ -18,11 +18,11 @@
 package org.apache.rocketmq.client.java.exception;
 
 import apache.rocketmq.v2.Code;
-import apache.rocketmq.v2.ReceiveMessageResponse;
+import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.Status;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.misc.MetadataUtils;
-import org.apache.rocketmq.client.java.rpc.RpcInvocation;
+import org.apache.rocketmq.client.java.rpc.RpcFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,8 +32,8 @@ public class StatusChecker {
     private StatusChecker() {
     }
 
-    public static void check(Status status, RpcInvocation<?> invocation) throws ClientException {
-        final String requestId = invocation.getContext().getRequestId();
+    public static void check(Status status, RpcFuture<?, ?> future) throws ClientException {
+        final String requestId = future.getContext().getRequestId();
         final Code code = status.getCode();
         final int codeNumber = code.getNumber();
         final String statusMessage = status.getMessage();
@@ -67,7 +67,7 @@ public class StatusChecker {
             case FORBIDDEN:
                 throw new ForbiddenException(codeNumber, requestId, statusMessage);
             case MESSAGE_NOT_FOUND:
-                if (invocation.getResponse() instanceof ReceiveMessageResponse) {
+                if (future.getRequest() instanceof ReceiveMessageRequest) {
                     return;
                 }
                 // fall through on purpose.

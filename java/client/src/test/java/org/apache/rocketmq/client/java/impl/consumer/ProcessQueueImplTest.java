@@ -26,8 +26,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import apache.rocketmq.v2.AckMessageRequest;
 import apache.rocketmq.v2.AckMessageResponse;
 import apache.rocketmq.v2.Code;
+import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueResponse;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.Status;
@@ -51,7 +53,7 @@ import org.apache.rocketmq.client.java.misc.RequestIdGenerator;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.rpc.Context;
-import org.apache.rocketmq.client.java.rpc.RpcInvocation;
+import org.apache.rocketmq.client.java.rpc.RpcFuture;
 import org.apache.rocketmq.client.java.rpc.Signature;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Before;
@@ -192,7 +194,8 @@ public class ProcessQueueImplTest extends TestBase {
         assertEquals(cachedMessageCount, processQueue.cachedMessagesCount());
         assertEquals(1, processQueue.inflightMessagesCount());
 
-        final ListenableFuture<RpcInvocation<AckMessageResponse>> future = okAckMessageResponseFuture();
+        final RpcFuture<AckMessageRequest, AckMessageResponse> future =
+            okAckMessageResponseFuture();
         when(pushConsumer.ackMessage(any(MessageViewImpl.class))).thenReturn(future);
         processQueue.eraseMessage(optionalMessageView.get(), ConsumeResult.SUCCESS);
         future.addListener(() -> verify(pushConsumer, times(1))
@@ -235,7 +238,7 @@ public class ProcessQueueImplTest extends TestBase {
         final MessageViewImpl messageView = fakeMessageViewImpl(2, false);
         messageViewList.add(messageView);
         processQueue.cacheMessages(messageViewList);
-        ListenableFuture<RpcInvocation<AckMessageResponse>> future0 = okAckMessageResponseFuture();
+        RpcFuture<AckMessageRequest, AckMessageResponse> future0 = okAckMessageResponseFuture();
         when(pushConsumer.ackMessage(any(MessageViewImpl.class))).thenReturn(future0);
         when(pushConsumer.getRetryPolicy()).thenReturn(retryPolicy);
         when(retryPolicy.getMaxAttempts()).thenReturn(1);
@@ -251,7 +254,7 @@ public class ProcessQueueImplTest extends TestBase {
         final MessageViewImpl messageView = fakeMessageViewImpl(2, false);
         messageViewList.add(messageView);
         processQueue.cacheMessages(messageViewList);
-        ListenableFuture<RpcInvocation<ForwardMessageToDeadLetterQueueResponse>> future0 =
+        RpcFuture<ForwardMessageToDeadLetterQueueRequest, ForwardMessageToDeadLetterQueueResponse> future0 =
             okForwardMessageToDeadLetterQueueResponseFuture();
         when(pushConsumer.forwardMessageToDeadLetterQueue(any(MessageViewImpl.class))).thenReturn(future0);
         when(pushConsumer.getRetryPolicy()).thenReturn(retryPolicy);
@@ -268,7 +271,7 @@ public class ProcessQueueImplTest extends TestBase {
         final MessageViewImpl messageView = fakeMessageViewImpl(2, false);
         messageViewList.add(messageView);
         processQueue.cacheMessages(messageViewList);
-        ListenableFuture<RpcInvocation<AckMessageResponse>> future0 = okAckMessageResponseFuture();
+        RpcFuture<AckMessageRequest, AckMessageResponse> future0 = okAckMessageResponseFuture();
         when(pushConsumer.ackMessage(any(MessageViewImpl.class))).thenReturn(future0);
         when(pushConsumer.getRetryPolicy()).thenReturn(retryPolicy);
         when(retryPolicy.getMaxAttempts()).thenReturn(2);
