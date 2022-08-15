@@ -17,7 +17,9 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
+import apache.rocketmq.v2.AckMessageRequest;
 import apache.rocketmq.v2.AckMessageResponse;
+import apache.rocketmq.v2.ChangeInvisibleDurationRequest;
 import apache.rocketmq.v2.ChangeInvisibleDurationResponse;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.Status;
@@ -48,7 +50,7 @@ import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.route.TopicRouteData;
-import org.apache.rocketmq.client.java.rpc.RpcInvocation;
+import org.apache.rocketmq.client.java.rpc.RpcFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -232,11 +234,10 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
             return Futures.immediateFailedFuture(exception);
         }
         MessageViewImpl impl = (MessageViewImpl) messageView;
-        final ListenableFuture<RpcInvocation<AckMessageResponse>> future = ackMessage(impl);
-        return Futures.transformAsync(future, invocation -> {
-            final AckMessageResponse response = invocation.getResponse();
+        final RpcFuture<AckMessageRequest, AckMessageResponse> future = ackMessage(impl);
+        return Futures.transformAsync(future, response -> {
             final Status status = response.getStatus();
-            StatusChecker.check(status, invocation);
+            StatusChecker.check(status, future);
             return Futures.immediateVoidFuture();
         }, clientCallbackExecutor);
     }
@@ -273,14 +274,13 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
             return Futures.immediateFailedFuture(exception);
         }
         MessageViewImpl impl = (MessageViewImpl) messageView;
-        final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> future =
+        final RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse> future =
             changeInvisibleDuration(impl, invisibleDuration);
-        return Futures.transformAsync(future, invocation -> {
-            final ChangeInvisibleDurationResponse response = invocation.getResponse();
+        return Futures.transformAsync(future, response -> {
             // Refresh receipt handle manually.
             impl.setReceiptHandle(response.getReceiptHandle());
             final Status status = response.getStatus();
-            StatusChecker.check(status, invocation);
+            StatusChecker.check(status, future);
             return Futures.immediateVoidFuture();
         }, MoreExecutors.directExecutor());
     }

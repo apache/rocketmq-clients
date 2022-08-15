@@ -39,7 +39,7 @@ import org.apache.rocketmq.client.java.impl.ClientManager;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
-import org.apache.rocketmq.client.java.rpc.RpcInvocation;
+import org.apache.rocketmq.client.java.rpc.RpcFuture;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Assert;
 import org.junit.Test;
@@ -65,8 +65,9 @@ public class ConsumerImplTest extends TestBase {
         final ClientManager clientManager = Mockito.mock(ClientManager.class);
         Mockito.doReturn(clientManager).when(pushConsumer).getClientManager();
         int receivedMessageCount = 1;
-        final ListenableFuture<RpcInvocation<Iterator<ReceiveMessageResponse>>> future =
+        final RpcFuture<ReceiveMessageRequest, Iterator<ReceiveMessageResponse>> future =
             okReceiveMessageResponsesFuture(FAKE_TOPIC_0, receivedMessageCount);
+        future.get();
         Mockito.doReturn(future).when(clientManager).receiveMessage(any(Endpoints.class), any(Metadata.class),
             any(ReceiveMessageRequest.class), any(Duration.class));
         final MessageQueueImpl mq = fakeMessageQueueImpl(FAKE_TOPIC_0);
@@ -88,14 +89,14 @@ public class ConsumerImplTest extends TestBase {
             consumptionThreadCount));
         final ClientManager clientManager = Mockito.mock(ClientManager.class);
         Mockito.doReturn(clientManager).when(pushConsumer).getClientManager();
-        final ListenableFuture<RpcInvocation<AckMessageResponse>> future =
+        final RpcFuture<AckMessageRequest, AckMessageResponse> future =
             okAckMessageResponseFuture();
         Mockito.doReturn(future).when(clientManager).ackMessage(any(Endpoints.class), any(Metadata.class),
             any(AckMessageRequest.class), any(Duration.class));
         final MessageViewImpl messageView = fakeMessageViewImpl();
-        final ListenableFuture<RpcInvocation<AckMessageResponse>> future0 =
+        final RpcFuture<AckMessageRequest, AckMessageResponse> future0 =
             pushConsumer.ackMessage(messageView);
-        final RpcInvocation<AckMessageResponse> rpcInvocation = future0.get();
+        final AckMessageResponse rpcInvocation = future0.get();
         Assert.assertEquals(rpcInvocation, future.get());
     }
 
@@ -109,15 +110,15 @@ public class ConsumerImplTest extends TestBase {
             consumptionThreadCount));
         final ClientManager clientManager = Mockito.mock(ClientManager.class);
         Mockito.doReturn(clientManager).when(pushConsumer).getClientManager();
-        final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> future =
+        final RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse> future =
             okChangeInvisibleDurationCtxFuture();
         Mockito.doReturn(future).when(clientManager).changeInvisibleDuration(any(Endpoints.class), any(Metadata.class),
             any(ChangeInvisibleDurationRequest.class), any(Duration.class));
         final MessageViewImpl messageView = fakeMessageViewImpl();
-        final ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> future0 =
+        final RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse> future0 =
             pushConsumer.changeInvisibleDuration(messageView, Duration.ofSeconds(15));
-        final RpcInvocation<ChangeInvisibleDurationResponse> rpcInvocation = future0.get();
-        Assert.assertEquals(rpcInvocation, future.get());
+        final ChangeInvisibleDurationResponse response = future0.get();
+        Assert.assertEquals(response, future.get());
     }
 
 }

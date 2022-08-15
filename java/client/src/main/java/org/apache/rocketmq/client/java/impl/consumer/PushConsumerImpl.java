@@ -72,7 +72,7 @@ import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.route.TopicRouteData;
-import org.apache.rocketmq.client.java.rpc.RpcInvocation;
+import org.apache.rocketmq.client.java.rpc.RpcFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -264,22 +264,21 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
     }
 
     ListenableFuture<Assignments> queryAssignment(final String topic) {
-        final ListenableFuture<Endpoints> future = pickEndpointsToQueryAssignments(topic);
-        final ListenableFuture<RpcInvocation<QueryAssignmentResponse>> responseFuture =
-            Futures.transformAsync(future, endpoints -> {
-                final Metadata metadata = sign();
-                final QueryAssignmentRequest request = wrapQueryAssignmentRequest(topic);
-                final Duration requestTimeout = clientConfiguration.getRequestTimeout();
-                return this.getClientManager().queryAssignment(endpoints, metadata, request, requestTimeout);
+        final ListenableFuture<Endpoints> future0 = pickEndpointsToQueryAssignments(topic);
+        return Futures.transformAsync(future0, endpoints -> {
+            final Metadata metadata = sign();
+            final QueryAssignmentRequest request = wrapQueryAssignmentRequest(topic);
+            final Duration requestTimeout = clientConfiguration.getRequestTimeout();
+            final RpcFuture<QueryAssignmentRequest, QueryAssignmentResponse> future1 =
+                this.getClientManager().queryAssignment(endpoints, metadata, request, requestTimeout);
+            return Futures.transformAsync(future1, response -> {
+                final Status status = response.getStatus();
+                StatusChecker.check(status, future1);
+                final List<Assignment> assignmentList = response.getAssignmentsList().stream().map(assignment ->
+                    new Assignment(new MessageQueueImpl(assignment.getMessageQueue()))).collect(Collectors.toList());
+                final Assignments assignments = new Assignments(assignmentList);
+                return Futures.immediateFuture(assignments);
             }, MoreExecutors.directExecutor());
-        return Futures.transformAsync(responseFuture, invocation -> {
-            final QueryAssignmentResponse response = invocation.getResponse();
-            final Status status = response.getStatus();
-            StatusChecker.check(status, invocation);
-            final List<Assignment> assignmentList = response.getAssignmentsList().stream().map(assignment ->
-                new Assignment(new MessageQueueImpl(assignment.getMessageQueue()))).collect(Collectors.toList());
-            final Assignments assignments = new Assignments(assignmentList);
-            return Futures.immediateFuture(assignments);
         }, MoreExecutors.directExecutor());
     }
 
@@ -506,15 +505,15 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
             .setMaxDeliveryAttempts(getRetryPolicy().getMaxAttempts()).build();
     }
 
-    public ListenableFuture<RpcInvocation<ForwardMessageToDeadLetterQueueResponse>> forwardMessageToDeadLetterQueue(
-        final MessageViewImpl messageView) {
+    public RpcFuture<ForwardMessageToDeadLetterQueueRequest, ForwardMessageToDeadLetterQueueResponse>
+    forwardMessageToDeadLetterQueue(final MessageViewImpl messageView) {
         // Intercept before forwarding message to DLQ.
         final Stopwatch stopwatch = Stopwatch.createStarted();
         final List<MessageCommon> messageCommons = Collections.singletonList(messageView.getMessageCommon());
         doBefore(MessageHookPoints.FORWARD_TO_DLQ, messageCommons);
 
         final Endpoints endpoints = messageView.getEndpoints();
-        ListenableFuture<RpcInvocation<ForwardMessageToDeadLetterQueueResponse>> future;
+        RpcFuture<ForwardMessageToDeadLetterQueueRequest, ForwardMessageToDeadLetterQueueResponse> future;
         try {
             final ForwardMessageToDeadLetterQueueRequest request =
                 wrapForwardMessageToDeadLetterQueueRequest(messageView);
@@ -522,12 +521,11 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
             future = this.getClientManager().forwardMessageToDeadLetterQueue(endpoints, metadata, request,
                 clientConfiguration.getRequestTimeout());
         } catch (Throwable t) {
-            future = Futures.immediateFailedFuture(t);
+            future = new RpcFuture<>(t);
         }
-        Futures.addCallback(future, new FutureCallback<RpcInvocation<ForwardMessageToDeadLetterQueueResponse>>() {
+        Futures.addCallback(future, new FutureCallback<ForwardMessageToDeadLetterQueueResponse>() {
             @Override
-            public void onSuccess(RpcInvocation<ForwardMessageToDeadLetterQueueResponse> invocation) {
-                final ForwardMessageToDeadLetterQueueResponse response = invocation.getResponse();
+            public void onSuccess(ForwardMessageToDeadLetterQueueResponse response) {
                 final Duration duration = stopwatch.elapsed();
                 MessageHookPointsStatus messageHookPointsStatus = Code.OK.equals(response.getStatus().getCode()) ?
                     MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;

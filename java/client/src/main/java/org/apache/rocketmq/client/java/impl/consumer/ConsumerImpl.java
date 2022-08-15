@@ -53,11 +53,12 @@ import org.apache.rocketmq.client.java.exception.StatusChecker;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.impl.ClientImpl;
+import org.apache.rocketmq.client.java.impl.ClientManager;
 import org.apache.rocketmq.client.java.message.MessageCommon;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
-import org.apache.rocketmq.client.java.rpc.RpcInvocation;
+import org.apache.rocketmq.client.java.rpc.RpcFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,17 +82,17 @@ abstract class ConsumerImpl extends ClientImpl {
             final Endpoints endpoints = mq.getBroker().getEndpoints();
             final Duration tolerance = clientConfiguration.getRequestTimeout();
             final Duration timeout = Duration.ofNanos(awaitDuration.toNanos() + tolerance.toNanos());
-            final ListenableFuture<RpcInvocation<Iterator<ReceiveMessageResponse>>> future =
-                this.getClientManager().receiveMessage(endpoints, metadata, request, timeout);
-            return Futures.transformAsync(future, invocation -> {
-                final Iterator<ReceiveMessageResponse> it = invocation.getResponse();
+            final ClientManager clientManager = this.getClientManager();
+            final RpcFuture<ReceiveMessageRequest, Iterator<ReceiveMessageResponse>> future =
+                clientManager.receiveMessage(endpoints, metadata, request, timeout);
+            return Futures.transformAsync(future, iterator -> {
                 Status status = Status.newBuilder().setCode(Code.INTERNAL_SERVER_ERROR)
                     .setMessage("status was not set by server")
                     .build();
                 Timestamp deliveryTimestampFromRemote = null;
                 List<Message> messageList = new ArrayList<>();
-                while (it.hasNext()) {
-                    final ReceiveMessageResponse response = it.next();
+                while (iterator.hasNext()) {
+                    final ReceiveMessageResponse response = iterator.next();
                     switch (response.getContentCase()) {
                         case STATUS:
                             status = response.getStatus();
@@ -111,7 +112,7 @@ abstract class ConsumerImpl extends ClientImpl {
                     final MessageViewImpl view = MessageViewImpl.fromProtobuf(message, mq, deliveryTimestampFromRemote);
                     messages.add(view);
                 }
-                StatusChecker.check(status, invocation);
+                StatusChecker.check(status, future);
                 final ReceiveMessageResult receiveMessageResult = new ReceiveMessageResult(endpoints, messages);
                 return Futures.immediateFuture(receiveMessageResult);
             }, MoreExecutors.directExecutor());
@@ -140,9 +141,9 @@ abstract class ConsumerImpl extends ClientImpl {
 
     }
 
-    protected ListenableFuture<RpcInvocation<AckMessageResponse>> ackMessage(MessageViewImpl messageView) {
+    protected RpcFuture<AckMessageRequest, AckMessageResponse> ackMessage(MessageViewImpl messageView) {
         final Endpoints endpoints = messageView.getEndpoints();
-        ListenableFuture<RpcInvocation<AckMessageResponse>> future;
+        RpcFuture<AckMessageRequest, AckMessageResponse> future;
 
         final Stopwatch stopwatch = Stopwatch.createStarted();
         final List<MessageCommon> messageCommons = Collections.singletonList(messageView.getMessageCommon());
@@ -153,12 +154,11 @@ abstract class ConsumerImpl extends ClientImpl {
             final Duration requestTimeout = clientConfiguration.getRequestTimeout();
             future = this.getClientManager().ackMessage(endpoints, metadata, request, requestTimeout);
         } catch (Throwable t) {
-            future = Futures.immediateFailedFuture(t);
+            future = new RpcFuture<>(t);
         }
-        Futures.addCallback(future, new FutureCallback<RpcInvocation<AckMessageResponse>>() {
+        Futures.addCallback(future, new FutureCallback<AckMessageResponse>() {
             @Override
-            public void onSuccess(RpcInvocation<AckMessageResponse> invocation) {
-                final AckMessageResponse response = invocation.getResponse();
+            public void onSuccess(AckMessageResponse response) {
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
                 final Duration duration = stopwatch.elapsed();
@@ -176,10 +176,10 @@ abstract class ConsumerImpl extends ClientImpl {
         return future;
     }
 
-    ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> changeInvisibleDuration(
+    RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse> changeInvisibleDuration(
         MessageViewImpl messageView, Duration invisibleDuration) {
         final Endpoints endpoints = messageView.getEndpoints();
-        ListenableFuture<RpcInvocation<ChangeInvisibleDurationResponse>> future;
+        RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse> future;
 
         final Stopwatch stopwatch = Stopwatch.createStarted();
         final List<MessageCommon> messageCommons = Collections.singletonList(messageView.getMessageCommon());
@@ -190,13 +190,12 @@ abstract class ConsumerImpl extends ClientImpl {
             final Duration requestTimeout = clientConfiguration.getRequestTimeout();
             future = this.getClientManager().changeInvisibleDuration(endpoints, metadata, request, requestTimeout);
         } catch (Throwable t) {
-            future = Futures.immediateFailedFuture(t);
+            future = new RpcFuture<>(t);
         }
         final MessageId messageId = messageView.getMessageId();
-        Futures.addCallback(future, new FutureCallback<RpcInvocation<ChangeInvisibleDurationResponse>>() {
+        Futures.addCallback(future, new FutureCallback<ChangeInvisibleDurationResponse>() {
             @Override
-            public void onSuccess(RpcInvocation<ChangeInvisibleDurationResponse> invocation) {
-                final ChangeInvisibleDurationResponse response = invocation.getResponse();
+            public void onSuccess(ChangeInvisibleDurationResponse response) {
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
                 final Duration duration = stopwatch.elapsed();

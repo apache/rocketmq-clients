@@ -74,7 +74,7 @@ import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.route.TopicRouteData;
-import org.apache.rocketmq.client.java.rpc.RpcInvocation;
+import org.apache.rocketmq.client.java.rpc.RpcFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -280,13 +280,12 @@ class ProducerImpl extends ClientImpl implements Producer {
             MessageHookPoints.COMMIT_TRANSACTION : MessageHookPoints.ROLLBACK_TRANSACTION;
         doBefore(messageHookPoints, messageCommons);
 
-        final ListenableFuture<RpcInvocation<EndTransactionResponse>> future =
+        final RpcFuture<EndTransactionRequest, EndTransactionResponse> future =
             this.getClientManager().endTransaction(endpoints, metadata, request, requestTimeout);
-        Futures.addCallback(future, new FutureCallback<RpcInvocation<EndTransactionResponse>>() {
+        Futures.addCallback(future, new FutureCallback<EndTransactionResponse>() {
             @Override
-            public void onSuccess(RpcInvocation<EndTransactionResponse> invocation) {
+            public void onSuccess(EndTransactionResponse response) {
                 final Duration duration = stopwatch.elapsed();
-                final EndTransactionResponse response = invocation.getResponse();
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
                 MessageHookPointsStatus messageHookPointsStatus = Code.OK.equals(code) ? MessageHookPointsStatus.OK :
@@ -300,12 +299,11 @@ class ProducerImpl extends ClientImpl implements Producer {
                 doAfter(messageHookPoints, messageCommons, duration, MessageHookPointsStatus.ERROR);
             }
         }, MoreExecutors.directExecutor());
-        final RpcInvocation<EndTransactionResponse> invocation = handleClientFuture(future);
-        final EndTransactionResponse response = invocation.getResponse();
+        final EndTransactionResponse response = handleClientFuture(future);
         final Status status = response.getStatus();
         final Code code = status.getCode();
         if (!Code.OK.equals(code)) {
-            throw new ClientException(code.getNumber(), invocation.getContext().getRequestId(), status.getMessage());
+            throw new ClientException(code.getNumber(), future.getContext().getRequestId(), status.getMessage());
         }
     }
 
@@ -426,10 +424,10 @@ class ProducerImpl extends ClientImpl implements Producer {
     ListenableFuture<List<SendReceiptImpl>> send0(Metadata metadata, Endpoints endpoints,
         List<PublishingMessageImpl> pubMessages, MessageQueueImpl mq) {
         final SendMessageRequest request = wrapSendMessageRequest(pubMessages, mq);
-        final ListenableFuture<RpcInvocation<SendMessageResponse>> future0 =
+        final RpcFuture<SendMessageRequest, SendMessageResponse> future0 =
             this.getClientManager().sendMessage(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
         return Futures.transformAsync(future0,
-            invocation -> Futures.immediateFuture(SendReceiptImpl.processResponseInvocation(mq, invocation)),
+            response -> Futures.immediateFuture(SendReceiptImpl.processResponseInvocation(mq, response, future0)),
             MoreExecutors.directExecutor());
     }
 
