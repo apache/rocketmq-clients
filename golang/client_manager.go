@@ -40,6 +40,7 @@ type ClientManager interface {
 	NotifyClientTermination(ctx context.Context, endpoints *v2.Endpoints, request *v2.NotifyClientTerminationRequest, duration time.Duration) (*v2.NotifyClientTerminationResponse, error)
 	ReceiveMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error)
 	AckMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.AckMessageRequest, duration time.Duration) (*v2.AckMessageResponse, error)
+	ChangeInvisibleDuration(ctx context.Context, endpoints *v2.Endpoints, request *v2.ChangeInvisibleDurationRequest, duration time.Duration) (*v2.ChangeInvisibleDurationResponse, error)
 }
 
 type clientManagerOptions struct {
@@ -342,7 +343,7 @@ func (cm *defaultClientManager) ReceiveMessage(ctx context.Context, endpoints *v
 	if err != nil {
 		return nil, err
 	}
-	ret, err := rpcClient.ReceiveMessage(ctx, endpoints, request)
+	ret, err := rpcClient.ReceiveMessage(ctx, request)
 	cm.handleGrpcError(rpcClient, err)
 	return ret, err
 }
@@ -353,7 +354,18 @@ func (cm *defaultClientManager) AckMessage(ctx context.Context, endpoints *v2.En
 	if err != nil {
 		return nil, err
 	}
-	ret, err := rpcClient.AckMessage(ctx, endpoints, request)
+	ret, err := rpcClient.AckMessage(ctx, request)
+	cm.handleGrpcError(rpcClient, err)
+	return ret, err
+}
+
+func (cm *defaultClientManager) ChangeInvisibleDuration(ctx context.Context, endpoints *v2.Endpoints, request *v2.ChangeInvisibleDurationRequest, duration time.Duration) (*v2.ChangeInvisibleDurationResponse, error) {
+	ctx, _ = context.WithTimeout(ctx, duration)
+	rpcClient, err := cm.getRpcClient(endpoints)
+	if err != nil {
+		return nil, err
+	}
+	ret, err := rpcClient.ChangeInvisibleDuration(ctx, request)
 	cm.handleGrpcError(rpcClient, err)
 	return ret, err
 }

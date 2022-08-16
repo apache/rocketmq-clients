@@ -41,8 +41,9 @@ type RpcClient interface {
 	Telemetry(ctx context.Context) (v2.MessagingService_TelemetryClient, error)
 	EndTransaction(ctx context.Context, request *v2.EndTransactionRequest) (*v2.EndTransactionResponse, error)
 	NotifyClientTermination(ctx context.Context, request *v2.NotifyClientTerminationRequest) (*v2.NotifyClientTerminationResponse, error)
-	ReceiveMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error)
-	AckMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.AckMessageRequest) (*v2.AckMessageResponse, error)
+	ReceiveMessage(ctx context.Context, request *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error)
+	AckMessage(ctx context.Context, request *v2.AckMessageRequest) (*v2.AckMessageResponse, error)
+	ChangeInvisibleDuration(ctx context.Context, request *v2.ChangeInvisibleDurationRequest) (*v2.ChangeInvisibleDurationResponse, error)
 	idleDuration() time.Duration
 	GetTarget() string
 }
@@ -122,12 +123,17 @@ func (rc *rpcClient) NotifyClientTermination(ctx context.Context, request *v2.No
 	return rc.msc.NotifyClientTermination(ctx, request)
 }
 
-func (rc *rpcClient) ReceiveMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error) {
+func (rc *rpcClient) ReceiveMessage(ctx context.Context, request *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error) {
 	rc.activityNanoTime = time.Now()
 	return rc.msc.ReceiveMessage(ctx, request)
 }
 
-func (rc *rpcClient) AckMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.AckMessageRequest) (*v2.AckMessageResponse, error) {
+func (rc *rpcClient) AckMessage(ctx context.Context, request *v2.AckMessageRequest) (*v2.AckMessageResponse, error) {
 	rc.activityNanoTime = time.Now()
 	return rc.msc.AckMessage(ctx, request)
+}
+
+func (rc *rpcClient) ChangeInvisibleDuration(ctx context.Context, request *v2.ChangeInvisibleDurationRequest) (*v2.ChangeInvisibleDurationResponse, error) {
+	rc.activityNanoTime = time.Now()
+	return rc.msc.ChangeInvisibleDuration(ctx, request)
 }

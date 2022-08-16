@@ -19,6 +19,7 @@ package golang
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -37,8 +38,12 @@ type SimpleConsumer interface {
 	Start() error
 	GracefulStop() error
 
+	Subscribe(topic string, filterExpression *FilterExpression) error
+	Unsubscribe(topic string) error
 	Ack(ctx context.Context, messageView *MessageView) error
 	Receive(ctx context.Context, maxMessageNum int32, invisibleDuration time.Duration) ([]*MessageView, error)
+	ChangeInvisibleDuration(messageView *MessageView, invisibleDuration time.Duration) error
+	ChangeInvisibleDurationAsync(messageView *MessageView, invisibleDuration time.Duration)
 }
 
 var _ = SimpleConsumer(&defaultSimpleConsumer{})
@@ -51,8 +56,85 @@ type defaultSimpleConsumer struct {
 	scOpts                       simpleConsumerOptions
 	scSettings                   *simpleConsumerSettings
 	awaitDuration                time.Duration
+	subscriptionExpressionsLock  sync.RWMutex
 	subscriptionExpressions      map[string]*FilterExpression
 	subTopicRouteDataResultCache sync.Map
+}
+
+func (sc *defaultSimpleConsumer) changeInvisibleDuration0(messageView *MessageView, invisibleDuration time.Duration) (*v2.ChangeInvisibleDurationResponse, error) {
+	endpoints := messageView.endpoints
+	if endpoints == nil {
+		return nil, fmt.Errorf("changeInvisibleDuration failed, err = the endpoints in message is nil")
+	}
+	messageCommons := []*MessageCommon{messageView.GetMessageCommon()}
+	sc.cli.doBefore(MessageHookPoints_CHANGE_INVISIBLE_DURATION, messageCommons)
+
+	ctx := sc.cli.Sign(context.Background())
+	request := &v2.ChangeInvisibleDurationRequest{
+		Topic: &v2.Resource{
+			Name: messageView.GetTopic(),
+		},
+		Group: &v2.Resource{
+			Name: sc.consumerGroup,
+		},
+		ReceiptHandle:     messageView.GetReceiptHandle(),
+		InvisibleDuration: durationpb.New(invisibleDuration),
+		MessageId:         messageView.GetMessageId(),
+	}
+	watchTime := time.Now()
+	resp, err := sc.cli.clientManager.ChangeInvisibleDuration(ctx, endpoints, request, sc.scSettings.requestTimeout)
+	duration := time.Since(watchTime)
+	messageHookPointsStatus := MessageHookPointsStatus_OK
+	if err != nil {
+		sc.cli.log.Errorf("exception raised during message acknowledgement, messageId=%s, endpoints=%v", messageView.GetMessageId(), endpoints)
+	} else if resp.GetStatus().GetCode() != v2.Code_OK {
+		sc.cli.log.Errorf("failed to change message invisible duration, messageId=%s, endpoints=%v, code=%v, status message=[%s]", messageView.GetMessageId(), endpoints, resp.GetStatus().GetCode(), resp.GetStatus().GetMessage())
+		err = errors.New(resp.String())
+	}
+	if err != nil {
+		messageHookPointsStatus = MessageHookPointsStatus_ERROR
+	}
+	sc.cli.doAfter(MessageHookPoints_CHANGE_INVISIBLE_DURATION, messageCommons, duration, messageHookPointsStatus)
+	return resp, err
+}
+
+func (sc *defaultSimpleConsumer) changeInvisibleDuration(messageView *MessageView, invisibleDuration time.Duration) error {
+	if messageView == nil {
+		return fmt.Errorf("changeInvisibleDuration failed, err = the message is nil")
+	}
+	resp, err := sc.changeInvisibleDuration0(messageView, invisibleDuration)
+	if resp != nil {
+		messageView.ReceiptHandle = resp.ReceiptHandle
+	}
+	return err
+}
+
+func (sc *defaultSimpleConsumer) ChangeInvisibleDuration(messageView *MessageView, invisibleDuration time.Duration) error {
+	return sc.changeInvisibleDuration(messageView, invisibleDuration)
+}
+
+func (sc *defaultSimpleConsumer) ChangeInvisibleDurationAsync(messageView *MessageView, invisibleDuration time.Duration) {
+	go func() {
+		sc.changeInvisibleDuration(messageView, invisibleDuration)
+	}()
+}
+
+func (sc *defaultSimpleConsumer) Subscribe(topic string, filterExpression *FilterExpression) error {
+	sc.cli.getMessageQueues(context.Background(), topic)
+	sc.subscriptionExpressionsLock.Lock()
+	defer sc.subscriptionExpressionsLock.Unlock()
+
+	sc.subscriptionExpressions[topic] = filterExpression
+	return nil
+}
+
+func (sc *defaultSimpleConsumer) Unsubscribe(topic string) error {
+	sc.cli.getMessageQueues(context.Background(), topic)
+	sc.subscriptionExpressionsLock.Lock()
+	defer sc.subscriptionExpressionsLock.Unlock()
+
+	delete(sc.subscriptionExpressions, topic)
+	return nil
 }
 
 func (sc *defaultSimpleConsumer) wrapReceiveMessageRequest(batchSize int, messageQueue *v2.MessageQueue, filterExpression *FilterExpression, invisibleDuration time.Duration) *v2.ReceiveMessageRequest {
@@ -162,7 +244,9 @@ func (sc *defaultSimpleConsumer) Receive(ctx context.Context, maxMessageNum int3
 	if maxMessageNum <= 0 {
 		return nil, fmt.Errorf("maxMessageNum must be greater than 0")
 	}
+	sc.subscriptionExpressionsLock.RLock()
 	topics := make([]string, 0, len(sc.subscriptionExpressions))
+	sc.subscriptionExpressionsLock.RUnlock()
 	for k, _ := range sc.subscriptionExpressions {
 		topics = append(topics, k)
 	}
@@ -174,7 +258,9 @@ func (sc *defaultSimpleConsumer) Receive(ctx context.Context, maxMessageNum int3
 	idx := utils.Mod(next+1, len(topics))
 	topic := topics[idx]
 
+	sc.subscriptionExpressionsLock.RLock()
 	filterExpression, ok := sc.subscriptionExpressions[topic]
+	sc.subscriptionExpressionsLock.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("no found filterExpression about topic: %s", topic)
 	}
