@@ -171,10 +171,10 @@ func (sc *defaultSimpleConsumer) GetConsumerGroup() string {
 	return sc.consumerGroup
 }
 
-func (sc *defaultSimpleConsumer) receiveMessage(ctx context.Context, request *v2.ReceiveMessageRequest, messageQueue *v2.MessageQueue, invisibleDuration time.Duration) ([]*MessageView, error) {
+func (sc *defaultSimpleConsumer) receiveMessage(ctx context.Context, request *v2.ReceiveMessageRequest, messageQueue *v2.MessageQueue, timeout time.Duration) ([]*MessageView, error) {
 	var err error
 	ctx = sc.cli.Sign(ctx)
-	ctx, cancel := context.WithTimeout(ctx, sc.awaitDuration)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	endpoints := messageQueue.GetBroker().GetEndpoints()
 	receiveMessageClient, err := sc.cli.clientManager.ReceiveMessage(ctx, endpoints, request)
@@ -273,7 +273,8 @@ func (sc *defaultSimpleConsumer) Receive(ctx context.Context, maxMessageNum int3
 		return nil, err
 	}
 	request := sc.wrapReceiveMessageRequest(int(maxMessageNum), selectMessageQueue, filterExpression, invisibleDuration)
-	return sc.receiveMessage(ctx, request, selectMessageQueue, invisibleDuration)
+	timeout := invisibleDuration + sc.cli.opts.timeout
+	return sc.receiveMessage(ctx, request, selectMessageQueue, timeout)
 }
 
 func (sc *defaultSimpleConsumer) isClient() {
