@@ -67,6 +67,10 @@ var _ = Producer(&defaultProducer{})
 func (p *defaultProducer) isClient() {
 }
 
+func (p *defaultProducer) isOn() bool {
+	return p.cli.on.Load()
+}
+
 func (p *defaultProducer) wrapHeartbeatRequest() *v2.HeartbeatRequest {
 	return &v2.HeartbeatRequest{
 		ClientType: v2.ClientType_PRODUCER,
@@ -326,6 +330,9 @@ func (p *defaultProducer) send0(ctx context.Context, msgs []*UnifiedMessage, txE
 }
 
 func (p *defaultProducer) Send(ctx context.Context, msg *Message) ([]*SendReceipt, error) {
+	if !p.isOn() {
+		return nil, fmt.Errorf("producer is not running")
+	}
 	msgs := []*UnifiedMessage{{
 		msg: msg,
 	}}
@@ -333,6 +340,9 @@ func (p *defaultProducer) Send(ctx context.Context, msg *Message) ([]*SendReceip
 }
 
 func (p *defaultProducer) SendAsync(ctx context.Context, msg *Message, f func(context.Context, []*SendReceipt, error)) {
+	if !p.isOn() {
+		f(ctx, nil, fmt.Errorf("producer is not running"))
+	}
 	go func() {
 		msgs := []*UnifiedMessage{{
 			msg: msg,
@@ -343,6 +353,9 @@ func (p *defaultProducer) SendAsync(ctx context.Context, msg *Message, f func(co
 }
 
 func (p *defaultProducer) SendWithTransaction(ctx context.Context, msg *Message, transaction Transaction) ([]*SendReceipt, error) {
+	if !p.isOn() {
+		return nil, fmt.Errorf("producer is not running")
+	}
 	t := transaction.(*transactionImpl)
 	pubMessage, err := t.tryAddMessage(msg)
 	if err != nil {

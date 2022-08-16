@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/apache/rocketmq-clients/golang"
@@ -54,6 +55,9 @@ var (
 )
 
 func main() {
+	// log to console
+	os.Setenv("mq.consoleAppender.enabled", "true")
+	golang.ResetLogger()
 	// new simpleConsumer instance
 	simpleConsumer, err := golang.NewSimpleConsumer(&golang.Config{
 		Endpoint: Endpoint,

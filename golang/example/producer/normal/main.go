@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"time"
 
@@ -45,6 +46,8 @@ const (
 )
 
 func main() {
+	os.Setenv("mq.consoleAppender.enabled", "true")
+	golang.ResetLogger()
 	// new producer instance
 	producer, err := golang.NewProducer(&golang.Config{
 		Endpoint: Endpoint,
@@ -67,6 +70,7 @@ func main() {
 	}
 	// gracefule stop producer
 	defer producer.GracefulStop()
+
 	for i := 0; i < 10; i++ {
 		// new a message
 		msg := &golang.Message{

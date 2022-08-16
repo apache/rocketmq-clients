@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"time"
 
@@ -45,6 +46,9 @@ const (
 )
 
 func main() {
+	// log to console
+	os.Setenv("mq.consoleAppender.enabled", "true")
+	golang.ResetLogger()
 	// new producer instance
 	producer, err := golang.NewProducer(&golang.Config{
 		Endpoint: Endpoint,

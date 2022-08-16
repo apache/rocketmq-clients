@@ -61,6 +61,10 @@ type defaultSimpleConsumer struct {
 	subTopicRouteDataResultCache sync.Map
 }
 
+func (sc *defaultSimpleConsumer) isOn() bool {
+	return sc.cli.on.Load()
+}
+
 func (sc *defaultSimpleConsumer) changeInvisibleDuration0(messageView *MessageView, invisibleDuration time.Duration) (*v2.ChangeInvisibleDurationResponse, error) {
 	endpoints := messageView.endpoints
 	if endpoints == nil {
@@ -110,10 +114,17 @@ func (sc *defaultSimpleConsumer) changeInvisibleDuration(messageView *MessageVie
 }
 
 func (sc *defaultSimpleConsumer) ChangeInvisibleDuration(messageView *MessageView, invisibleDuration time.Duration) error {
+	if !sc.isOn() {
+		return fmt.Errorf("simple consumer is not running")
+	}
 	return sc.changeInvisibleDuration(messageView, invisibleDuration)
 }
 
 func (sc *defaultSimpleConsumer) ChangeInvisibleDurationAsync(messageView *MessageView, invisibleDuration time.Duration) {
+	if !sc.isOn() {
+		sugarBaseLogger.Errorf("simple consumer is not running")
+		return
+	}
 	go func() {
 		sc.changeInvisibleDuration(messageView, invisibleDuration)
 	}()
@@ -241,6 +252,9 @@ func (sc *defaultSimpleConsumer) receiveMessage(ctx context.Context, request *v2
 }
 
 func (sc *defaultSimpleConsumer) Receive(ctx context.Context, maxMessageNum int32, invisibleDuration time.Duration) ([]*MessageView, error) {
+	if !sc.isOn() {
+		return nil, fmt.Errorf("simple consumer is not running")
+	}
 	if maxMessageNum <= 0 {
 		return nil, fmt.Errorf("maxMessageNum must be greater than 0")
 	}
@@ -375,6 +389,9 @@ func (sc *defaultSimpleConsumer) getSubscriptionTopicRouteResult(ctx context.Con
 
 // Ack implements SimpleConsumer
 func (sc *defaultSimpleConsumer) Ack(ctx context.Context, messageView *MessageView) error {
+	if !sc.isOn() {
+		return fmt.Errorf("simple consumer is not running")
+	}
 	endpoints := messageView.endpoints
 	watchTime := time.Now()
 	messageCommons := []*MessageCommon{messageView.GetMessageCommon()}

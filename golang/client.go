@@ -33,6 +33,7 @@ import (
 	"github.com/apache/rocketmq-clients/golang/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
 	"github.com/google/uuid"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
 )
@@ -170,6 +171,7 @@ type defaultClient struct {
 	messageInterceptorsLock       sync.RWMutex
 	endpointsTelemetryClientTable map[string]*defaultClientSession
 	endpointsTelemetryClientsLock sync.RWMutex
+	on                            atomic.Bool
 
 	clientImpl isClient
 }
@@ -186,6 +188,7 @@ var NewClient = func(config *Config, opts ...ClientOption) (Client, error) {
 		accessPoint:                   endpoints,
 		messageInterceptors:           make([]MessageInterceptor, 0),
 		endpointsTelemetryClientTable: make(map[string]*defaultClientSession),
+		on:                            *atomic.NewBool(true),
 	}
 	cli.log = sugarBaseLogger.With("client_id", cli.clientID)
 	for _, opt := range opts {
@@ -450,6 +453,9 @@ func (cli *defaultClient) notifyClientTermination() {
 	}
 }
 func (cli *defaultClient) GracefulStop() error {
+	if !cli.on.CAS(true, false) {
+		return fmt.Errorf("client has been closed")
+	}
 	cli.notifyClientTermination()
 	defaultClientManagerRegistry.UnRegisterClient(cli)
 	cli.done <- struct{}{}
