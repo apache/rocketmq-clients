@@ -41,7 +41,7 @@ type publishingLoadBalancer struct {
 
 var _ = PublishingLoadBalancer(&publishingLoadBalancer{})
 
-func NewPublishingLoadBalancer(messageQueues []*v2.MessageQueue) (PublishingLoadBalancer, error) {
+var NewPublishingLoadBalancer = func(messageQueues []*v2.MessageQueue) (PublishingLoadBalancer, error) {
 	plb := &publishingLoadBalancer{
 		messageQueues: messageQueues,
 	}
@@ -131,7 +131,7 @@ type subscriptionLoadBalancer struct {
 
 var _ = SubscriptionLoadBalancer(&subscriptionLoadBalancer{})
 
-func NewSubscriptionLoadBalancer(messageQueues []*v2.MessageQueue) (SubscriptionLoadBalancer, error) {
+var NewSubscriptionLoadBalancer = func(messageQueues []*v2.MessageQueue) (SubscriptionLoadBalancer, error) {
 	slb := &subscriptionLoadBalancer{
 		messageQueues: messageQueues,
 	}

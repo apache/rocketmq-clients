@@ -40,14 +40,14 @@ type FilterExpression struct {
 
 var SUB_ALL = NewFilterExpression("*")
 
-func NewFilterExpression(expression string) *FilterExpression {
+var NewFilterExpression = func(expression string) *FilterExpression {
 	return &FilterExpression{
 		expression:     expression,
 		expressionType: TAG,
 	}
 }
 
-func NewFilterExpressionWithType(expression string, expressionType FilterExpressionType) *FilterExpression {
+var NewFilterExpressionWithType = func(expression string, expressionType FilterExpressionType) *FilterExpression {
 	return &FilterExpression{
 		expression:     expression,
 		expressionType: expressionType,

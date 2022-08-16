@@ -59,7 +59,7 @@ type rpcClient struct {
 	activityNanoTime time.Time
 }
 
-func NewRpcClient(target string, opts ...RpcClientOption) (RpcClient, error) {
+var NewRpcClient = func(target string, opts ...RpcClientOption) (RpcClient, error) {
 	rc := &rpcClient{
 		target: target,
 		opts:   defaultRpcClientOptions,

@@ -53,7 +53,7 @@ type transactionImpl struct {
 	messageSendReceiptMap sync.Map
 }
 
-func NewTransactionImpl(producerImpl Producer) *transactionImpl {
+var NewTransactionImpl = func(producerImpl Producer) *transactionImpl {
 	return &transactionImpl{
 		producerImpl: producerImpl,
 		messages:     make(map[string]*PublishingMessage),

@@ -41,6 +41,10 @@ const (
 
 var sugarBaseLogger *zap.SugaredLogger
 
+func ResetLogger() {
+	InitLogger()
+}
+
 func InitLogger() {
 	writeSyncer := getLogWriter()
 	isStdOut := utils.GetenvWithDef("mq.consoleAppender.enabled", "false")

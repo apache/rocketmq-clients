@@ -34,7 +34,7 @@ type PublishingMessage struct {
 	traceContext *string
 }
 
-func NewPublishingMessage(msg *Message, settings *producerSettings, txEnabled bool) (*PublishingMessage, error) {
+var NewPublishingMessage = func(msg *Message, settings *producerSettings, txEnabled bool) (*PublishingMessage, error) {
 	if msg == nil {
 		return nil, fmt.Errorf("message is nil")
 	}

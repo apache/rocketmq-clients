@@ -109,7 +109,8 @@ func (p *defaultProducer) wrapSendMessageRequest(pMsgs []*PublishingMessage) (*v
 	}
 	return smr, nil
 }
-func NewProducer(config *Config, opts ...ProducerOption) (Producer, error) {
+
+var NewProducer = func(config *Config, opts ...ProducerOption) (Producer, error) {
 	po := &defaultProducerOptions
 	for _, opt := range opts {
 		opt.apply(po)
@@ -156,6 +157,7 @@ func NewProducer(config *Config, opts ...ProducerOption) (Producer, error) {
 	p.cli.clientImpl = p
 	return p, nil
 }
+
 func (p *defaultProducer) getRetryMaxAttempts() int {
 	return int(p.pSetting.GetRetryPolicy().GetMaxAttempts())
 }

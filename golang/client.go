@@ -174,7 +174,7 @@ type defaultClient struct {
 	clientImpl isClient
 }
 
-func NewClient(config *Config, opts ...ClientOption) (Client, error) {
+var NewClient = func(config *Config, opts ...ClientOption) (Client, error) {
 	endpoints, err := utils.ParseTarget(config.Endpoint)
 	if err != nil {
 		return nil, err
@@ -311,6 +311,9 @@ func (cli *defaultClient) getTotalTargets() []string {
 }
 
 func (cli *defaultClient) getSettingsCommand() *v2.TelemetryCommand {
+	if cli.settings == nil {
+		return nil
+	}
 	settings := cli.settings.toProtobuf()
 	return &v2.TelemetryCommand{
 		Command: &v2.TelemetryCommand_Settings{

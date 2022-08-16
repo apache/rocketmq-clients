@@ -133,13 +133,14 @@ func (cmr *clientManagerRegistry) UnRegisterClient(client Client) bool {
 
 var _ = ClientManager(&defaultClientManager{})
 
-func NewDefaultClientManager() *defaultClientManager {
+var NewDefaultClientManager = func() *defaultClientManager {
 	return &defaultClientManager{
 		rpcClientTable: make(map[string]RpcClient),
 		done:           make(chan struct{}),
 		opts:           defaultClientManagerOptions,
 	}
 }
+
 func (cm *defaultClientManager) RegisterClient(client Client) {
 	cm.clientTable.Store(client.GetClientID(), client)
 }
@@ -319,6 +320,7 @@ func (cm *defaultClientManager) HeartBeat(ctx context.Context, endpoints *v2.End
 	if err != nil {
 		return nil, err
 	}
+
 	ret, err := rpcClient.HeartBeat(ctx, request)
 	cm.handleGrpcError(rpcClient, err)
 	return ret, err

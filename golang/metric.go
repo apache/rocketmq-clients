@@ -95,7 +95,7 @@ func (dcm *defaultClientMeter) start() {
 	view.RegisterExporter(dcm.ocaExporter)
 }
 
-func NewDefaultClientMeter(exporter view.Exporter, on bool, endpoints *v2.Endpoints, clientID string) *defaultClientMeter {
+var NewDefaultClientMeter = func(exporter view.Exporter, on bool, endpoints *v2.Endpoints, clientID string) *defaultClientMeter {
 	return &defaultClientMeter{
 		enabled:     on,
 		endpoints:   endpoints,
@@ -127,7 +127,7 @@ type defaultClientMeterProvider struct {
 
 var _ = MessageMeterInterceptor(&defaultMessageMeterInterceptor{})
 
-func NewDefaultMessageMeterInterceptor(clientMeterProvider ClientMeterProvider) *defaultMessageMeterInterceptor {
+var NewDefaultMessageMeterInterceptor = func(clientMeterProvider ClientMeterProvider) *defaultMessageMeterInterceptor {
 	return &defaultMessageMeterInterceptor{
 		clientMeterProvider: clientMeterProvider,
 	}
@@ -202,7 +202,7 @@ func (dcmp *defaultClientMeterProvider) Reset(metric *v2.Metric) {
 	sugarBaseLogger.Infof("metrics is on, endpoints=%v, clientId=%s", endpoints, dcmp.client.GetClientID())
 }
 
-func NewDefaultClientMeterProvider(client *defaultClient) ClientMeterProvider {
+var NewDefaultClientMeterProvider = func(client *defaultClient) ClientMeterProvider {
 	cmp := &defaultClientMeterProvider{
 		client:      client,
 		clientMeter: NewDefaultClientMeter(nil, false, nil, "nil"),
