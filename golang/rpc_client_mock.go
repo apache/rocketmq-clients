@@ -50,18 +50,33 @@ func (m *MockRpcClient) EXPECT() *MockRpcClientMockRecorder {
 }
 
 // AckMessage mocks base method.
-func (m *MockRpcClient) AckMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.AckMessageRequest) (*v2.AckMessageResponse, error) {
+func (m *MockRpcClient) AckMessage(ctx context.Context, request *v2.AckMessageRequest) (*v2.AckMessageResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AckMessage", ctx, endpoints, request)
+	ret := m.ctrl.Call(m, "AckMessage", ctx, request)
 	ret0, _ := ret[0].(*v2.AckMessageResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AckMessage indicates an expected call of AckMessage.
-func (mr *MockRpcClientMockRecorder) AckMessage(ctx, endpoints, request interface{}) *gomock.Call {
+func (mr *MockRpcClientMockRecorder) AckMessage(ctx, request interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AckMessage", reflect.TypeOf((*MockRpcClient)(nil).AckMessage), ctx, endpoints, request)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AckMessage", reflect.TypeOf((*MockRpcClient)(nil).AckMessage), ctx, request)
+}
+
+// ChangeInvisibleDuration mocks base method.
+func (m *MockRpcClient) ChangeInvisibleDuration(ctx context.Context, request *v2.ChangeInvisibleDurationRequest) (*v2.ChangeInvisibleDurationResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ChangeInvisibleDuration", ctx, request)
+	ret0, _ := ret[0].(*v2.ChangeInvisibleDurationResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ChangeInvisibleDuration indicates an expected call of ChangeInvisibleDuration.
+func (mr *MockRpcClientMockRecorder) ChangeInvisibleDuration(ctx, request interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeInvisibleDuration", reflect.TypeOf((*MockRpcClient)(nil).ChangeInvisibleDuration), ctx, request)
 }
 
 // EndTransaction mocks base method.
@@ -153,18 +168,18 @@ func (mr *MockRpcClientMockRecorder) QueryRoute(ctx, request interface{}) *gomoc
 }
 
 // ReceiveMessage mocks base method.
-func (m *MockRpcClient) ReceiveMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error) {
+func (m *MockRpcClient) ReceiveMessage(ctx context.Context, request *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReceiveMessage", ctx, endpoints, request)
+	ret := m.ctrl.Call(m, "ReceiveMessage", ctx, request)
 	ret0, _ := ret[0].(v2.MessagingService_ReceiveMessageClient)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ReceiveMessage indicates an expected call of ReceiveMessage.
-func (mr *MockRpcClientMockRecorder) ReceiveMessage(ctx, endpoints, request interface{}) *gomock.Call {
+func (mr *MockRpcClientMockRecorder) ReceiveMessage(ctx, request interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiveMessage", reflect.TypeOf((*MockRpcClient)(nil).ReceiveMessage), ctx, endpoints, request)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiveMessage", reflect.TypeOf((*MockRpcClient)(nil).ReceiveMessage), ctx, request)
 }
 
 // SendMessage mocks base method.

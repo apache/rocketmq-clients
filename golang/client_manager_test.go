@@ -204,7 +204,7 @@ func TestCMReceiveMessage(t *testing.T) {
 	cm := defaultClientManagerRegistry.RegisterClient(MOCK_CLIENT)
 	defer defaultClientManagerRegistry.UnRegisterClient(MOCK_CLIENT)
 
-	MOCK_RPC_CLIENT.EXPECT().ReceiveMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
+	MOCK_RPC_CLIENT.EXPECT().ReceiveMessage(gomock.Any(), gomock.Any()).Return(nil, nil)
 	_, err := cm.ReceiveMessage(context.TODO(), fakeEndpoints(), &v2.ReceiveMessageRequest{})
 	if err != nil {
 		t.Error(err)
@@ -215,7 +215,7 @@ func TestCMAckMessage(t *testing.T) {
 	cm := defaultClientManagerRegistry.RegisterClient(MOCK_CLIENT)
 	defer defaultClientManagerRegistry.UnRegisterClient(MOCK_CLIENT)
 
-	MOCK_RPC_CLIENT.EXPECT().AckMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(&v2.AckMessageResponse{
+	MOCK_RPC_CLIENT.EXPECT().AckMessage(gomock.Any(), gomock.Any()).Return(&v2.AckMessageResponse{
 		Status: &v2.Status{
 			Code: v2.Code_OK,
 		},

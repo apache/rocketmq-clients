@@ -64,6 +64,21 @@ func (mr *MockClientManagerMockRecorder) AckMessage(ctx, endpoints, request, dur
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AckMessage", reflect.TypeOf((*MockClientManager)(nil).AckMessage), ctx, endpoints, request, duration)
 }
 
+// ChangeInvisibleDuration mocks base method.
+func (m *MockClientManager) ChangeInvisibleDuration(ctx context.Context, endpoints *v2.Endpoints, request *v2.ChangeInvisibleDurationRequest, duration time.Duration) (*v2.ChangeInvisibleDurationResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ChangeInvisibleDuration", ctx, endpoints, request, duration)
+	ret0, _ := ret[0].(*v2.ChangeInvisibleDurationResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ChangeInvisibleDuration indicates an expected call of ChangeInvisibleDuration.
+func (mr *MockClientManagerMockRecorder) ChangeInvisibleDuration(ctx, endpoints, request, duration interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeInvisibleDuration", reflect.TypeOf((*MockClientManager)(nil).ChangeInvisibleDuration), ctx, endpoints, request, duration)
+}
+
 // EndTransaction mocks base method.
 func (m *MockClientManager) EndTransaction(ctx context.Context, endpoints *v2.Endpoints, request *v2.EndTransactionRequest, duration time.Duration) (*v2.EndTransactionResponse, error) {
 	m.ctrl.T.Helper()
