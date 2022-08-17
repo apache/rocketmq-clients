@@ -211,8 +211,9 @@ abstract class ConsumerImpl extends ClientImpl {
             @Override
             public void onFailure(Throwable t) {
                 final Duration duration = stopwatch.elapsed();
-                doAfter(MessageHookPoints.ACK, messageCommons, duration, MessageHookPointsStatus.ERROR);
-                LOGGER.error("Exception raised during message acknowledgement, messageId={}, endpoints={}, clientId={}",
+                doAfter(MessageHookPoints.CHANGE_INVISIBLE_DURATION, messageCommons, duration,
+                        MessageHookPointsStatus.ERROR);
+                LOGGER.error("Failed to change message invisible duration, messageId={}, endpoints={}, clientId={}",
                     messageId, endpoints, clientId, t);
 
             }
