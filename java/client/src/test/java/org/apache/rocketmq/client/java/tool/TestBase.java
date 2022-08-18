@@ -54,7 +54,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -335,7 +334,7 @@ public class TestBase {
             .setSystemProperties(systemProperties).build();
     }
 
-    protected RpcFuture<ReceiveMessageRequest, Iterator<ReceiveMessageResponse>> okReceiveMessageResponsesFuture(
+    protected RpcFuture<ReceiveMessageRequest, List<ReceiveMessageResponse>> okReceiveMessageResponsesFuture(
         String topic, int messageCount) {
         final Status status = Status.newBuilder().setCode(Code.OK).build();
         final apache.rocketmq.v2.Message message = fakePbMessage(topic);
@@ -346,7 +345,7 @@ public class TestBase {
             ReceiveMessageResponse messageResponse = ReceiveMessageResponse.newBuilder().setMessage(message).build();
             responses.add(messageResponse);
         }
-        return new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(responses.iterator()));
+        return new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(responses));
     }
 
     protected ListenableFuture<EndTransactionResponse> okEndTransactionResponseFuture() {

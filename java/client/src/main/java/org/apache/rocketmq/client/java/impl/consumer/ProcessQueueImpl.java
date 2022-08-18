@@ -109,6 +109,7 @@ class ProcessQueueImpl implements ProcessQueue {
     private final AtomicLong receivedMessagesQuantity;
 
     private volatile long activityNanoTime = System.nanoTime();
+    private volatile long cacheFullNanoTime = Long.MIN_VALUE;
 
     public ProcessQueueImpl(PushConsumerImpl consumer, MessageQueueImpl mq, FilterExpression filterExpression) {
         this.consumer = consumer;
@@ -137,14 +138,18 @@ class ProcessQueueImpl implements ProcessQueue {
     @Override
     public boolean expired() {
         final PushSubscriptionSettings settings = consumer.getPushConsumerSettings();
-        Duration maxIdleDuration = Duration.ofNanos(2 * (settings.getLongPollingTimeout().toNanos()
+        Duration maxIdleDuration = Duration.ofNanos(3 * (settings.getLongPollingTimeout().toNanos()
             + consumer.getClientConfiguration().getRequestTimeout().toNanos()));
         final Duration idleDuration = Duration.ofNanos(System.nanoTime() - activityNanoTime);
         if (idleDuration.compareTo(maxIdleDuration) < 0) {
             return false;
         }
-        LOGGER.warn("Process queue is idle, idleDuration={}, maxIdleDuration={}, mq={}, clientId={}", idleDuration,
-            maxIdleDuration, mq, consumer.clientId());
+        final Duration afterCacheFullDuration = Duration.ofNanos(System.nanoTime() - cacheFullNanoTime);
+        if (afterCacheFullDuration.compareTo(maxIdleDuration) < 0) {
+            return false;
+        }
+        LOGGER.warn("Process queue is idle, idleDuration={}, maxIdleDuration={}, afterCacheFullDuration={}, mq={}, "
+            + "clientId={}", idleDuration, maxIdleDuration, afterCacheFullDuration, mq, consumer.clientId());
         return true;
     }
 
@@ -297,6 +302,7 @@ class ProcessQueueImpl implements ProcessQueue {
             LOGGER.warn("Process queue total cached messages quantity exceeds the threshold, threshold={}, actual={}," +
                     " mq={}, clientId={}", cacheMessageCountThresholdPerQueue, actualMessagesQuantity, mq,
                 consumer.clientId());
+            cacheFullNanoTime = System.nanoTime();
             return true;
         }
         final int cacheMessageBytesThresholdPerQueue = consumer.cacheMessageBytesThresholdPerQueue();
@@ -305,6 +311,7 @@ class ProcessQueueImpl implements ProcessQueue {
             LOGGER.warn("Process queue total cached messages memory exceeds the threshold, threshold={} bytes," +
                     " actual={} bytes, mq={}, clientId={}", cacheMessageBytesThresholdPerQueue,
                 actualCachedMessagesBytes, mq, consumer.clientId());
+            cacheFullNanoTime = System.nanoTime();
             return true;
         }
         return false;
