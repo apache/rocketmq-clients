@@ -28,7 +28,7 @@ import apache.rocketmq.v2.ReceiveMessageResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.grpc.Metadata;
 import java.time.Duration;
-import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
@@ -65,7 +65,7 @@ public class ConsumerImplTest extends TestBase {
         final ClientManager clientManager = Mockito.mock(ClientManager.class);
         Mockito.doReturn(clientManager).when(pushConsumer).getClientManager();
         int receivedMessageCount = 1;
-        final RpcFuture<ReceiveMessageRequest, Iterator<ReceiveMessageResponse>> future =
+        final RpcFuture<ReceiveMessageRequest, List<ReceiveMessageResponse>> future =
             okReceiveMessageResponsesFuture(FAKE_TOPIC_0, receivedMessageCount);
         future.get();
         Mockito.doReturn(future).when(clientManager).receiveMessage(any(Endpoints.class), any(Metadata.class),

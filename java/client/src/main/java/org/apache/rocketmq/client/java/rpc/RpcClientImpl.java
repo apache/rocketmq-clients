@@ -40,7 +40,7 @@ import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
 import apache.rocketmq.v2.TelemetryCommand;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
@@ -54,9 +54,8 @@ import io.grpc.stub.MetadataUtils;
 import io.grpc.stub.StreamObserver;
 import java.net.InetSocketAddress;
 import java.time.Duration;
-import java.util.Iterator;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -70,7 +69,6 @@ public class RpcClientImpl implements RpcClient {
 
     private final ManagedChannel channel;
     private final MessagingServiceGrpc.MessagingServiceFutureStub futureStub;
-    private final MessagingServiceGrpc.MessagingServiceBlockingStub blockingStub;
     private final MessagingServiceGrpc.MessagingServiceStub stub;
 
     private long activityNanoTime;
@@ -97,7 +95,6 @@ public class RpcClientImpl implements RpcClient {
         }
         this.channel = channelBuilder.build();
         this.futureStub = MessagingServiceGrpc.newFutureStub(channel);
-        this.blockingStub = MessagingServiceGrpc.newBlockingStub(channel);
         this.stub = MessagingServiceGrpc.newStub(channel);
         this.activityNanoTime = System.nanoTime();
     }
@@ -145,13 +142,30 @@ public class RpcClientImpl implements RpcClient {
     }
 
     @Override
-    public ListenableFuture<Iterator<ReceiveMessageResponse>> receiveMessage(Metadata metadata,
+    public ListenableFuture<List<ReceiveMessageResponse>> receiveMessage(Metadata metadata,
         ReceiveMessageRequest request, ExecutorService executor, Duration duration) {
         this.activityNanoTime = System.nanoTime();
-        final Callable<Iterator<ReceiveMessageResponse>> callable = () -> blockingStub
-            .withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
-            .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).receiveMessage(request);
-        return MoreExecutors.listeningDecorator(executor).submit(callable);
+        SettableFuture<List<ReceiveMessageResponse>> future = SettableFuture.create();
+        List<ReceiveMessageResponse> responses = new ArrayList<>();
+        stub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
+            .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS)
+            .receiveMessage(request, new StreamObserver<ReceiveMessageResponse>() {
+                @Override
+                public void onNext(ReceiveMessageResponse response) {
+                    responses.add(response);
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    future.setException(t);
+                }
+
+                @Override
+                public void onCompleted() {
+                    future.set(responses);
+                }
+            });
+        return future;
     }
 
     @Override

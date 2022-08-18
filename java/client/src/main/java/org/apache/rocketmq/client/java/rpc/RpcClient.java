@@ -42,7 +42,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.grpc.Metadata;
 import io.grpc.stub.StreamObserver;
 import java.time.Duration;
-import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 
@@ -123,7 +123,7 @@ public interface RpcClient {
      * @param executor gRPC asynchronous executor.
      * @return invocation of response future.
      */
-    ListenableFuture<Iterator<ReceiveMessageResponse>> receiveMessage(Metadata metadata,
+    ListenableFuture<List<ReceiveMessageResponse>> receiveMessage(Metadata metadata,
         ReceiveMessageRequest request, ExecutorService executor, Duration duration);
 
     /**

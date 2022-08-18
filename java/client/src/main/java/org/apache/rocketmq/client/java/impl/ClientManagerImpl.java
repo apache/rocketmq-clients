@@ -47,6 +47,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -246,12 +247,12 @@ public class ClientManagerImpl extends ClientManager {
     }
 
     @Override
-    public RpcFuture<ReceiveMessageRequest, Iterator<ReceiveMessageResponse>> receiveMessage(Endpoints endpoints,
+    public RpcFuture<ReceiveMessageRequest, List<ReceiveMessageResponse>> receiveMessage(Endpoints endpoints,
         Metadata metadata, ReceiveMessageRequest request, Duration duration) {
         final Context context = new Context(endpoints, metadata);
         try {
             final RpcClient rpcClient = getRpcClient(endpoints);
-            final ListenableFuture<Iterator<ReceiveMessageResponse>> future =
+            final ListenableFuture<List<ReceiveMessageResponse>> future =
                 rpcClient.receiveMessage(metadata, request, asyncWorker, duration);
             return new RpcFuture<>(context, request, future);
         } catch (Throwable t) {

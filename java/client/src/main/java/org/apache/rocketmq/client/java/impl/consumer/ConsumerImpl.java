@@ -42,7 +42,6 @@ import io.grpc.Metadata;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -83,16 +82,15 @@ abstract class ConsumerImpl extends ClientImpl {
             final Duration tolerance = clientConfiguration.getRequestTimeout();
             final Duration timeout = Duration.ofNanos(awaitDuration.toNanos() + tolerance.toNanos());
             final ClientManager clientManager = this.getClientManager();
-            final RpcFuture<ReceiveMessageRequest, Iterator<ReceiveMessageResponse>> future =
+            final RpcFuture<ReceiveMessageRequest, List<ReceiveMessageResponse>> future =
                 clientManager.receiveMessage(endpoints, metadata, request, timeout);
-            return Futures.transformAsync(future, iterator -> {
+            return Futures.transformAsync(future, responses -> {
                 Status status = Status.newBuilder().setCode(Code.INTERNAL_SERVER_ERROR)
                     .setMessage("status was not set by server")
                     .build();
                 Timestamp deliveryTimestampFromRemote = null;
                 List<Message> messageList = new ArrayList<>();
-                while (iterator.hasNext()) {
-                    final ReceiveMessageResponse response = iterator.next();
+                for (ReceiveMessageResponse response : responses) {
                     switch (response.getContentCase()) {
                         case STATUS:
                             status = response.getStatus();

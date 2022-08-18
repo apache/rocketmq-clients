@@ -42,7 +42,7 @@ import com.google.common.util.concurrent.AbstractIdleService;
 import io.grpc.Metadata;
 import io.grpc.stub.StreamObserver;
 import java.time.Duration;
-import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.route.Endpoints;
@@ -118,7 +118,7 @@ public abstract class ClientManager extends AbstractIdleService {
      * @param metadata  gRPC request header metadata.
      * @return invocation of response future.
      */
-    public abstract RpcFuture<ReceiveMessageRequest, Iterator<ReceiveMessageResponse>>
+    public abstract RpcFuture<ReceiveMessageRequest, List<ReceiveMessageResponse>>
     receiveMessage(Endpoints endpoints, Metadata metadata, ReceiveMessageRequest request, Duration duration);
 
     /**
