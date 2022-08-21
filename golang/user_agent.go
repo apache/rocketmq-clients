@@ -15,23 +15,30 @@
  * limitations under the License.
  */
 
-package utils
+package golang
 
-func Abs(n int32) int32 {
-	y := n >> 31
-	return (n ^ y) - y
+import (
+	"github.com/apache/rocketmq-clients/golang/pkg/utils"
+	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
+)
+
+type userAgent struct {
+	version  string
+	platform string
+	hostName string
 }
 
-func Mod(n int32, m int) int {
-	return int(Abs(n)) % m
+var globalUserAgent = &userAgent{
+	version:  "5.0.0",
+	platform: utils.GetOsDescription(),
+	hostName: utils.HostName(),
 }
 
-// func CompareEndpoints(e1 *v2.Endpoints, e2 *v2.Endpoints) bool {
-// 	if e1 == e2 {
-// 		return true
-// 	}
-// 	if e1 == nil || e2 == nil {
-// 		return false
-// 	}
-
-// }
+func (ua *userAgent) toProtoBuf() *v2.UA {
+	return &v2.UA{
+		Language: v2.Language_GOLANG,
+		Version:  ua.version,
+		Platform: ua.platform,
+		Hostname: ua.hostName,
+	}
+}

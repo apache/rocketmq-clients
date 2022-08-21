@@ -79,7 +79,8 @@ var defaultConnOptions = connOptions{
 		RootCAs:            x509.NewCertPool(),
 		InsecureSkipVerify: true,
 	},
-	Logger: zaplog.New(),
+	DialKeepAliveTime: time.Second * 30,
+	Logger:            zaplog.New(),
 }
 
 // A ConnOption sets options such as tls.Config, etc.

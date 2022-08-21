@@ -17,39 +17,26 @@
 
 package golang
 
-type consumerOptions struct {
-	tag string
-}
+import (
+	"fmt"
+	"testing"
 
-var defaultConsumerOptions = consumerOptions{
-	tag: "*",
-}
+	"github.com/apache/rocketmq-clients/golang/credentials"
+)
 
-// A ConsumerOption sets options such as tag, etc.
-type ConsumerOption interface {
-	apply(*consumerOptions)
-}
-
-// funcOption wraps a function that modifies options into an implementation of
-// the Option interface.
-type funcConsumerOption struct {
-	f func(*consumerOptions)
-}
-
-func (fo *funcConsumerOption) apply(do *consumerOptions) {
-	fo.f(do)
-}
-
-func newFuncConsumerOptionn(f func(*consumerOptions)) *funcConsumerOption {
-	return &funcConsumerOption{
-		f: f,
-	}
-}
-
-// WithTag returns a consumerOption that sets tag for consumer.
-// Note: Default it uses *.
-func WithTag(tag string) ConsumerOption {
-	return newFuncConsumerOptionn(func(o *consumerOptions) {
-		o.tag = tag
+func TestCLINewClient(t *testing.T) {
+	endpoints := fmt.Sprintf("%s:%d", fakeHost, fakePort)
+	cli, err := NewClient(&Config{
+		Endpoint:    endpoints,
+		Group:       "",
+		Credentials: &credentials.SessionCredentials{},
 	})
+	if err != nil {
+		t.Error(err)
+	}
+	sugarBaseLogger.Info(cli)
+	err = cli.(*defaultClient).startUp()
+	if err != nil {
+		t.Error(err)
+	}
 }
