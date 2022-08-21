@@ -40,8 +40,8 @@ const (
 	ConsumerGroup = "v2_grpc"
 	Endpoint      = "rmq-cn-tl32tb4s50g.cn-hangzhou.rmq.aliyuncs.com:8080"
 	Region        = "cn-zhangjiakou"
-	AccessKey     = "hM71WHX8Sx0OfGXR"
-	SecretKey     = "2vyd43Kii50h6lzH"
+	AccessKey     = "accessKey"
+	SecretKey     = "secretKey"
 )
 
 var (
