@@ -24,6 +24,6 @@ import (
 )
 
 type Consumer interface {
-	GetConsumerGroup() string
+	GetGroupName() string
 	wrapReceiveMessageRequest(batchSize int, messageQueue *v2.MessageQueue, filterExpression *FilterExpression, invisibleDuration time.Duration) *v2.ReceiveMessageRequest
 }
