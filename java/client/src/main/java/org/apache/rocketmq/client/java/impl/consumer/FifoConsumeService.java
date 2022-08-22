@@ -29,7 +29,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
-import org.apache.rocketmq.client.java.hook.MessageInterceptor;
+import org.apache.rocketmq.client.java.hook.MessageHandler;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.slf4j.Logger;
@@ -39,9 +39,9 @@ class FifoConsumeService extends ConsumeService {
     private static final Logger LOGGER = LoggerFactory.getLogger(FifoConsumeService.class);
 
     public FifoConsumeService(String clientId, ConcurrentMap<MessageQueueImpl, ProcessQueue> processQueueTable,
-        MessageListener messageListener, ThreadPoolExecutor consumptionExecutor, MessageInterceptor messageInterceptor,
+        MessageListener messageListener, ThreadPoolExecutor consumptionExecutor, MessageHandler messageHandler,
         ScheduledExecutorService scheduler) {
-        super(clientId, processQueueTable, messageListener, consumptionExecutor, messageInterceptor, scheduler);
+        super(clientId, processQueueTable, messageListener, consumptionExecutor, messageHandler, scheduler);
     }
 
     @Override

@@ -30,6 +30,7 @@ import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.producer.Transaction;
 import org.apache.rocketmq.client.apis.producer.TransactionResolution;
+import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
 import org.apache.rocketmq.client.java.message.PublishingMessageImpl;
 
 class TransactionImpl implements Transaction {
@@ -93,7 +94,7 @@ class TransactionImpl implements Transaction {
         for (Map.Entry<PublishingMessageImpl, SendReceiptImpl> entry : messageSendReceiptMap.entrySet()) {
             final PublishingMessageImpl publishingMessage = entry.getKey();
             final SendReceiptImpl sendReceipt = entry.getValue();
-            producerImpl.endTransaction(sendReceipt.getEndpoints(), publishingMessage.getMessageCommon(),
+            producerImpl.endTransaction(sendReceipt.getEndpoints(), new GeneralMessageImpl(publishingMessage),
                 sendReceipt.getMessageId(), sendReceipt.getTransactionId(), TransactionResolution.COMMIT);
         }
     }
@@ -106,7 +107,7 @@ class TransactionImpl implements Transaction {
         for (Map.Entry<PublishingMessageImpl, SendReceiptImpl> entry : messageSendReceiptMap.entrySet()) {
             final PublishingMessageImpl publishingMessage = entry.getKey();
             final SendReceiptImpl sendReceipt = entry.getValue();
-            producerImpl.endTransaction(sendReceipt.getEndpoints(), publishingMessage.getMessageCommon(),
+            producerImpl.endTransaction(sendReceipt.getEndpoints(), new GeneralMessageImpl(publishingMessage),
                 sendReceipt.getMessageId(), sendReceipt.getTransactionId(), TransactionResolution.ROLLBACK);
         }
     }

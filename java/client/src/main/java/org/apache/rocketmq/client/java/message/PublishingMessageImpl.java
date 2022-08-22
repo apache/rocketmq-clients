@@ -89,7 +89,7 @@ public class PublishingMessageImpl extends MessageImpl {
     }
 
     public Optional<String> getTraceContext() {
-        return null == traceContext ? Optional.empty() : Optional.of(traceContext);
+        return Optional.ofNullable(traceContext);
     }
 
     /**

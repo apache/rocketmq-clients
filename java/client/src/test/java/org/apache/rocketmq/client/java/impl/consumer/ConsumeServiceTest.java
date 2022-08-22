@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
-import org.apache.rocketmq.client.java.hook.MessageInterceptor;
+import org.apache.rocketmq.client.java.hook.MessageHandler;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
@@ -43,7 +43,7 @@ import org.mockito.Mockito;
 public class ConsumeServiceTest extends TestBase {
     private final String clientId = "clientId";
     private final ConcurrentMap<MessageQueueImpl, ProcessQueue> table = new ConcurrentHashMap<>();
-    private final MessageInterceptor interceptor = Mockito.mock(MessageInterceptor.class);
+    private final MessageHandler interceptor = Mockito.mock(MessageHandler.class);
     private final ThreadPoolExecutor consumptionExecutor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
         new LinkedBlockingQueue<>(), new ThreadFactoryImpl("TestMessageConsumption"));
     private final ScheduledExecutorService scheduler = new ScheduledThreadPoolExecutor(1, new ThreadFactoryImpl(

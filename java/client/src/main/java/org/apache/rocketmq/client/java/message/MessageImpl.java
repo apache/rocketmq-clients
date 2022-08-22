@@ -86,11 +86,6 @@ public class MessageImpl implements Message {
         this.properties = message.getProperties();
     }
 
-    public MessageCommon getMessageCommon() {
-        return new MessageCommon(topic, body, tag, messageGroup, deliveryTimestamp, parentTraceContext, keys,
-            properties);
-    }
-
     /**
      * @see Message#getTopic()
      */
@@ -120,7 +115,7 @@ public class MessageImpl implements Message {
      */
     @Override
     public Optional<String> getTag() {
-        return null == tag ? Optional.empty() : Optional.of(tag);
+        return Optional.ofNullable(tag);
     }
 
     /**
@@ -136,7 +131,7 @@ public class MessageImpl implements Message {
      */
     @Override
     public Optional<Long> getDeliveryTimestamp() {
-        return null == deliveryTimestamp ? Optional.empty() : Optional.of(deliveryTimestamp);
+        return Optional.ofNullable(deliveryTimestamp);
     }
 
     /**
@@ -144,7 +139,7 @@ public class MessageImpl implements Message {
      */
     @Override
     public Optional<String> getMessageGroup() {
-        return null == messageGroup ? Optional.empty() : Optional.of(messageGroup);
+        return Optional.ofNullable(messageGroup);
     }
 
     /**
@@ -152,7 +147,7 @@ public class MessageImpl implements Message {
      */
     @Override
     public Optional<String> getParentTraceContext() {
-        return null == parentTraceContext ? Optional.empty() : Optional.of(parentTraceContext);
+        return Optional.ofNullable(parentTraceContext);
     }
 
     @Override

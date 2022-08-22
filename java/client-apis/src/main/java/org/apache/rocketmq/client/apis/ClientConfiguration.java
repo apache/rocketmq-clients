@@ -48,7 +48,7 @@ public class ClientConfiguration {
     }
 
     public Optional<SessionCredentialsProvider> getCredentialsProvider() {
-        return null == sessionCredentialsProvider ? Optional.empty() : Optional.of(sessionCredentialsProvider);
+        return Optional.ofNullable(sessionCredentialsProvider);
     }
 
     public Duration getRequestTimeout() {

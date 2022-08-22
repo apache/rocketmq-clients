@@ -20,6 +20,7 @@ package org.apache.rocketmq.client.java.metrics;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.MoreObjects;
+import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.DoubleHistogram;
 import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.sdk.metrics.SdkMeterProvider;
@@ -75,6 +76,15 @@ public class ClientMeter {
         final DoubleHistogram histogram = histogramMap.computeIfAbsent(histogramEnum.getName(), name -> enabled ?
             meter.histogramBuilder(histogramEnum.getName()).build() : null);
         return null == histogram ? Optional.empty() : Optional.of(histogram);
+    }
+
+    public void record(HistogramEnum histogramEnum, Attributes attributes, double value) {
+        final DoubleHistogram histogram = histogramMap.computeIfAbsent(histogramEnum.getName(), name -> enabled ?
+            meter.histogramBuilder(histogramEnum.getName()).build() : null);
+        if (null == histogram) {
+            return;
+        }
+        histogram.record(value, attributes);
     }
 
     public void shutdown() {

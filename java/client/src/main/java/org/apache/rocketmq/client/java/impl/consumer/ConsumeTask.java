@@ -17,17 +17,17 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
-import com.google.common.base.Stopwatch;
-import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Callable;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
+import org.apache.rocketmq.client.java.hook.MessageHandler;
+import org.apache.rocketmq.client.java.hook.MessageHandlerContextImpl;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
-import org.apache.rocketmq.client.java.hook.MessageInterceptor;
-import org.apache.rocketmq.client.java.message.MessageCommon;
+import org.apache.rocketmq.client.java.message.GeneralMessage;
+import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,14 +38,14 @@ public class ConsumeTask implements Callable<ConsumeResult> {
     private final String clientId;
     private final MessageListener messageListener;
     private final MessageViewImpl messageView;
-    private final MessageInterceptor messageInterceptor;
+    private final MessageHandler messageHandler;
 
     public ConsumeTask(String clientId, MessageListener messageListener, MessageViewImpl messageView,
-        MessageInterceptor messageInterceptor) {
+        MessageHandler messageHandler) {
         this.clientId = clientId;
         this.messageListener = messageListener;
         this.messageView = messageView;
-        this.messageInterceptor = messageInterceptor;
+        this.messageHandler = messageHandler;
     }
 
     /**
@@ -56,20 +56,20 @@ public class ConsumeTask implements Callable<ConsumeResult> {
     @Override
     public ConsumeResult call() {
         ConsumeResult consumeResult;
-        final List<MessageCommon> messageCommons = Collections.singletonList(messageView.getMessageCommon());
-        messageInterceptor.doBefore(MessageHookPoints.CONSUME, messageCommons);
-        final Stopwatch stopwatch = Stopwatch.createStarted();
+        final List<GeneralMessage> generalMessages = Collections.singletonList(new GeneralMessageImpl(messageView));
+        MessageHandlerContextImpl context = new MessageHandlerContextImpl(MessageHookPoints.CONSUME);
+        messageHandler.doBefore(context, generalMessages);
         try {
             consumeResult = messageListener.consume(messageView);
         } catch (Throwable t) {
-            LOGGER.error("Message listener raised an exception while consuming messages, client id={}", clientId, t);
+            LOGGER.error("Message listener raised an exception while consuming messages, clientId={}", clientId, t);
             // If exception was thrown during the period of message consumption, mark it as failure.
             consumeResult = ConsumeResult.FAILURE;
         }
-        final Duration duration = stopwatch.elapsed();
         MessageHookPointsStatus status = ConsumeResult.SUCCESS.equals(consumeResult) ? MessageHookPointsStatus.OK :
             MessageHookPointsStatus.ERROR;
-        messageInterceptor.doAfter(MessageHookPoints.CONSUME, messageCommons, duration, status);
+        context = new MessageHandlerContextImpl(context, status);
+        messageHandler.doAfter(context, generalMessages);
         // Make sure that the return value is the subset of messageViews.
         return consumeResult;
     }

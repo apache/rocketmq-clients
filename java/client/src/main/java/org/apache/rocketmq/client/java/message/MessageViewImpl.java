@@ -25,13 +25,12 @@ import apache.rocketmq.v2.Encoding;
 import apache.rocketmq.v2.Message;
 import apache.rocketmq.v2.SystemProperties;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Stopwatch;
 import com.google.protobuf.ProtocolStringList;
-import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Timestamps;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -50,9 +49,9 @@ import org.slf4j.LoggerFactory;
 public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageView {
     private static final Logger LOGGER = LoggerFactory.getLogger(MessageViewImpl.class);
 
+    final byte[] body;
     private final MessageId messageId;
     private final String topic;
-    private final byte[] body;
     private final String tag;
     private final String messageGroup;
     private final Long deliveryTimestamp;
@@ -67,15 +66,15 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
     private final String traceContext;
     private final long offset;
     private final boolean corrupted;
-    private final Stopwatch decodeStopwatch;
-    private final Timestamp deliveryTimestampFromRemote;
+    private final long decodeTimestamp;
+    private final Long transportDeliveryTimestamp;
     private MessageViewImpl next;
 
     public MessageViewImpl(MessageId messageId, String topic, byte[] body, String tag, String messageGroup,
         Long deliveryTimestamp, Collection<String> keys, Map<String, String> properties,
         String bornHost, long bornTimestamp, int deliveryAttempt, MessageQueueImpl messageQueue,
         String receiptHandle, String traceContext, long offset, boolean corrupted,
-        Timestamp deliveryTimestampFromRemote) {
+        Long transportDeliveryTimestamp) {
         this.messageId = checkNotNull(messageId, "messageId should not be null");
         this.topic = checkNotNull(topic, "topic should not be null");
         this.body = checkNotNull(body, "body should not be null");
@@ -93,14 +92,9 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
         this.traceContext = traceContext;
         this.offset = offset;
         this.corrupted = corrupted;
-        this.decodeStopwatch = Stopwatch.createStarted();
-        this.deliveryTimestampFromRemote = deliveryTimestampFromRemote;
+        this.decodeTimestamp = System.currentTimeMillis();
+        this.transportDeliveryTimestamp = transportDeliveryTimestamp;
         this.next = null;
-    }
-
-    public MessageCommon getMessageCommon() {
-        return new MessageCommon(messageId, topic, body, tag, messageGroup, deliveryTimestamp, keys, properties,
-            bornHost, traceContext, bornTimestamp, deliveryAttempt, decodeStopwatch, deliveryTimestampFromRemote);
     }
 
     /**
@@ -140,7 +134,7 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
      */
     @Override
     public Optional<String> getTag() {
-        return null == tag ? Optional.empty() : Optional.of(tag);
+        return Optional.ofNullable(tag);
     }
 
     /**
@@ -148,7 +142,7 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
      */
     @Override
     public Collection<String> getKeys() {
-        return keys;
+        return new ArrayList<>(keys);
     }
 
     /**
@@ -156,7 +150,7 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
      */
     @Override
     public Optional<String> getMessageGroup() {
-        return null == messageGroup ? Optional.empty() : Optional.of(messageGroup);
+        return Optional.ofNullable(messageGroup);
     }
 
     /**
@@ -164,7 +158,7 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
      */
     @Override
     public Optional<Long> getDeliveryTimestamp() {
-        return null == deliveryTimestamp ? Optional.empty() : Optional.of(deliveryTimestamp);
+        return Optional.ofNullable(deliveryTimestamp);
     }
 
     /**
@@ -192,7 +186,7 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
     }
 
     public Optional<String> getTraceContext() {
-        return null == traceContext ? Optional.empty() : Optional.of(traceContext);
+        return Optional.ofNullable(traceContext);
     }
 
     public int incrementAndGetDeliveryAttempt() {
@@ -225,6 +219,14 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
         return corrupted;
     }
 
+    public long getDecodeTimestamp() {
+        return decodeTimestamp;
+    }
+
+    public Optional<Long> getTransportDeliveryTimestamp() {
+        return Optional.ofNullable(transportDeliveryTimestamp);
+    }
+
     public void setNext(MessageViewImpl messageView) {
         this.next = messageView;
     }
@@ -248,7 +250,7 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
     }
 
     public static MessageViewImpl fromProtobuf(Message message, MessageQueueImpl mq,
-        Timestamp deliveryTimestampFromRemote) {
+        Long transportDeliveryTimestamp) {
         final SystemProperties systemProperties = message.getSystemProperties();
         final String topic = message.getTopic().getName();
         final MessageId messageId = MessageIdCodec.getInstance().decode(systemProperties.getMessageId());
@@ -324,7 +326,7 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
         String traceContext = systemProperties.hasTraceContext() ? systemProperties.getTraceContext() : null;
         return new MessageViewImpl(messageId, topic, body, tag, messageGroup, deliveryTimestamp, keys, properties,
             bornHost, bornTimestamp, deliveryAttempt, mq, receiptHandle, traceContext, offset, corrupted,
-            deliveryTimestampFromRemote);
+            transportDeliveryTimestamp);
     }
 
     @Override

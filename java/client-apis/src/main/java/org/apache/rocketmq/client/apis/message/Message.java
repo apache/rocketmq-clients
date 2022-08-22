@@ -73,9 +73,10 @@ public interface Message {
     Optional<String> getMessageGroup();
 
     /**
-     * Get the trace context, 
+     * Get the parent trace context, see
+     * <a href="https://opentelemetry.io/docs/concepts/signals/traces/#trace-context">OpenTelemetry Trace context</a>.
      *
-     * @return trace context, which is optional, {@link Optional#empty()} means trace context is not specified.
+     * @return parent trace context, which is optional, {@link Optional#empty()} means trace context is not specified.
      */
     Optional<String> getParentTraceContext();
 
