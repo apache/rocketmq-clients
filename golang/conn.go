@@ -52,7 +52,7 @@ type clientConn struct {
 	validate *validator.Validate
 }
 
-func NewClientConn(endpoint string, opts ...ConnOption) (ClientConn, error) {
+var NewClientConn = func(endpoint string, opts ...ConnOption) (ClientConn, error) {
 	client := &clientConn{
 		opts:     defaultConnOptions,
 		validate: validator.New(),

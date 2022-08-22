@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"time"
 
@@ -29,54 +30,70 @@ import (
 )
 
 const (
-	Topic         = "v2_grpc"
-	ConsumerGroup = "v2_grpc"
-	NameSpace     = ""
-	Endpoint      = "121.196.167.124:8081"
-	AccessKey     = ""
-	SecretKey     = ""
+	Topic         = "xxxxxx"
+	ConsumerGroup = "xxxxxx"
+	Endpoint      = "xxxxxx"
+	Region        = "xxxxxx"
+	AccessKey     = "xxxxxx"
+	SecretKey     = "xxxxxx"
 )
 
 func main() {
+	// log to console
+	os.Setenv("mq.consoleAppender.enabled", "true")
+	golang.ResetLogger()
+	// new producer instance
 	producer, err := golang.NewProducer(&golang.Config{
 		Endpoint: Endpoint,
 		Group:    ConsumerGroup,
-		Region:   "cn-zhangjiakou",
+		Region:   Region,
 		Credentials: &credentials.SessionCredentials{
 			AccessKey:    AccessKey,
 			AccessSecret: SecretKey,
 		},
-	})
+	},
+		golang.WithTransactionChecker(&golang.TransactionChecker{
+			Check: func(msg *golang.MessageView) golang.TransactionResolution {
+				log.Printf("check transaction message: %v", msg)
+				return golang.COMMIT
+			},
+		}),
+		golang.WithTopics(Topic),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
+	// start producer
+	err = producer.Start()
+	if err != nil {
+		log.Fatal(err)
+	}
+	// gracefule stop producer
 	defer producer.GracefulStop()
 	for i := 0; i < 10; i++ {
+		// new a message
 		msg := &golang.Message{
 			Topic: Topic,
-			Body:  []byte(strconv.Itoa(i)),
-			Tag:   "*",
+			Body:  []byte("this is a message : " + strconv.Itoa(i)),
 		}
-		// msg.SetDelayTimeLevel(time.Now().Add(time.Second * 10))
-		resp, err := producer.Send(context.TODO(), msg)
+		// set keys and tag
+		msg.SetKeys("a", "b")
+		msg.SetTag("ab")
+		// send message in sync
+		transaction := producer.BeginTransaction()
+		resp, err := producer.SendWithTransaction(context.TODO(), msg, transaction)
 		if err != nil {
-			log.Println(err)
-			// return
+			log.Fatal(err)
 		}
 		for i := 0; i < len(resp); i++ {
 			fmt.Printf("%#v\n", resp[i])
 		}
-
-		// producer.SendAsync(context.Background(), msg, func(ctx context.Context, resp []*golang.SendReceipt, err error) {
-		// 	if err != nil {
-		// 		log.Println(err)
-		// 		return
-		// 	}
-		// 	for i := 0; i < len(resp); i++ {
-		// 		fmt.Printf("%#v\n", resp[i])
-		// 	}
-		// })
-		time.Sleep(time.Second * 4)
+		// commit transaction message
+		err = transaction.Commit()
+		if err != nil {
+			log.Fatal(err)
+		}
+		// wait a moment
+		time.Sleep(time.Second * 1)
 	}
-	select {}
 }
