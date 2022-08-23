@@ -40,17 +40,17 @@ public class ProducerNormalMessageExample {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
 
         // Credential provider is optional for client configuration.
-        String accessKey = "wyME6gI8ZMW4b2s4";
-        String secretKey = "E0NEQm7isSKn0R48";
+        String accessKey = "yourAccessKey";
+        String secretKey = "yourSecretKey";
         SessionCredentialsProvider sessionCredentialsProvider =
             new StaticSessionCredentialsProvider(accessKey, secretKey);
 
-        String endpoints = "rmq-cn-c4d2toqfu25.cn-zhangjiakou.rmq.aliyuncs.com:8080";
+        String endpoints = "foobar.com:8080";
         ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
             .setEndpoints(endpoints)
             .setCredentialProvider(sessionCredentialsProvider)
             .build();
-        String topic = "normalTopic";
+        String topic = "yourNormalTopic";
         final Producer producer = provider.newProducerBuilder()
             .setClientConfiguration(clientConfiguration)
             // Set the topic name(s), which is optional. It makes producer could prefetch the topic route before 
