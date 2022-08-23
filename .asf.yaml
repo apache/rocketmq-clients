@@ -41,3 +41,4 @@ github:
       required_status_checks:
         contexts:
           - misspell-check
+          - check-license
