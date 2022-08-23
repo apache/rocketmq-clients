@@ -37,4 +37,6 @@ github:
     # Enable rebase button
     rebase: true
   protected_branches:
-    master: {}
+    master:
+      contexts:
+        - misspell-check
