@@ -90,7 +90,7 @@ func (pMsg *PublishingMessage) toProtobuf() (*v2.Message, error) {
 		},
 		SystemProperties: &v2.SystemProperties{
 			Keys:          pMsg.msg.GetKeys(),
-			MessageId:     uuid.New().String(),
+			MessageId:     pMsg.messageId,
 			BornTimestamp: timestamppb.Now(),
 			BornHost:      innerOS.Hostname(),
 			BodyEncoding:  v2.Encoding_IDENTITY,
