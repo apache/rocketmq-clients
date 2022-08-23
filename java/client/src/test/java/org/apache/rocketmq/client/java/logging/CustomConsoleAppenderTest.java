@@ -15,26 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.java.metrics;
 
-import java.util.Map;
-import org.apache.rocketmq.client.apis.consumer.PushConsumer;
+package org.apache.rocketmq.client.java.logging;
 
-/**
- * The observer which could records the count and memory footprint of cached message in {@link PushConsumer}.
- */
-public interface MessageCacheObserver {
-    /**
-     * Get the cached message count for each topic.
-     *
-     * @return the cached message count map.
-     */
-    Map<String /* topic */, Long> getCachedMessageCount();
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
-    /**
-     * Get the cached message memory footprint for each topic.
-     *
-     * @return the cached message footprint map.
-     */
-    Map<String /* topic */, Long> getCachedMessageBytes();
+import org.junit.Test;
+
+public class CustomConsoleAppenderTest {
+
+    @Test
+    public void testIsEnabled() {
+        CustomConsoleAppender<Object> appender = new CustomConsoleAppender<>();
+        assertFalse(appender.isEnabled());
+
+        System.setProperty(CustomConsoleAppender.ENABLE_CONSOLE_APPENDER_KEY, "true");
+        appender = new CustomConsoleAppender<>();
+        assertTrue(appender.isEnabled());
+    }
 }

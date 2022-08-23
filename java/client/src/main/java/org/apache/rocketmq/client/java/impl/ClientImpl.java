@@ -76,7 +76,7 @@ import org.apache.rocketmq.client.java.hook.MessageHandler;
 import org.apache.rocketmq.client.java.hook.MessageHandlerContext;
 import org.apache.rocketmq.client.java.impl.producer.ClientSessionHandler;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
-import org.apache.rocketmq.client.java.metrics.ClientMeterProvider;
+import org.apache.rocketmq.client.java.metrics.ClientMeterManager;
 import org.apache.rocketmq.client.java.metrics.MessageMeterHandler;
 import org.apache.rocketmq.client.java.metrics.Metric;
 import org.apache.rocketmq.client.java.misc.ExecutorServices;
@@ -105,7 +105,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     // Thread-safe set.
     protected final Set<Endpoints> isolated;
     protected final ExecutorService clientCallbackExecutor;
-    protected final ClientMeterProvider clientMeterProvider;
+    protected final ClientMeterManager clientMeterManager;
     /**
      * Telemetry command executor, which aims to execute commands from the remote.
      */
@@ -153,10 +153,10 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             new LinkedBlockingQueue<>(),
             new ThreadFactoryImpl("ClientCallbackWorker"));
 
-        this.clientMeterProvider = new ClientMeterProvider(this);
+        this.clientMeterManager = new ClientMeterManager(clientId, clientConfiguration);
 
         this.compositedMessageHandler =
-            new CompositedMessageHandler(Collections.singletonList(new MessageMeterHandler(this, clientMeterProvider)));
+            new CompositedMessageHandler(Collections.singletonList(new MessageMeterHandler(this, clientMeterManager)));
 
         this.telemetryCommandExecutor = new ThreadPoolExecutor(
             1,
@@ -317,7 +317,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     @Override
     public final void onSettingsCommand(Endpoints endpoints, apache.rocketmq.v2.Settings settings) {
         final Metric metric = new Metric(settings.getMetric());
-        clientMeterProvider.reset(metric);
+        clientMeterManager.reset(metric);
         this.getSettings().sync(settings);
     }
 

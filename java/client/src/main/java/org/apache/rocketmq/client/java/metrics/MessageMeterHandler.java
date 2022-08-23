@@ -30,34 +30,32 @@ import org.apache.rocketmq.client.java.hook.MessageHandler;
 import org.apache.rocketmq.client.java.hook.MessageHandlerContext;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
-import org.apache.rocketmq.client.java.impl.ClientImpl;
+import org.apache.rocketmq.client.java.impl.Client;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class MessageMeterHandler implements MessageHandler {
+    static final AttributeKey<Stopwatch> SEND_STOPWATCH_KEY = AttributeKey.create("send_stopwatch");
+    static final AttributeKey<Stopwatch> CONSUME_STOPWATCH_KEY = AttributeKey.create("consume_stopwatch");
+
     private static final Logger LOGGER = LoggerFactory.getLogger(MessageMeterHandler.class);
 
-    private static final AttributeKey<Stopwatch> MESSAGE_SEND_STOPWATCH_KEY = AttributeKey.create(
-        "message_send_stopwatch");
-    private static final AttributeKey<Stopwatch> MESSAGE_CONSUME_STOPWATCH_KEY = AttributeKey.create(
-        "message_consume_stopwatch");
+    private final Client client;
+    private final ClientMeterManager meterManager;
 
-    private final ClientImpl client;
-    private final ClientMeterProvider meterProvider;
-
-    public MessageMeterHandler(ClientImpl client, ClientMeterProvider meterProvider) {
+    public MessageMeterHandler(Client client, ClientMeterManager meterManager) {
         this.client = client;
-        this.meterProvider = meterProvider;
+        this.meterManager = meterManager;
     }
 
     private void doBeforeSendMessage(MessageHandlerContext context) {
         // Record the time before sending message.
-        context.putAttribute(MESSAGE_SEND_STOPWATCH_KEY, Attribute.create(Stopwatch.createStarted()));
+        context.putAttribute(SEND_STOPWATCH_KEY, Attribute.create(Stopwatch.createStarted()));
     }
 
     private void doAfterSendMessage(MessageHandlerContext context, List<GeneralMessage> messages) {
-        final Attribute<Stopwatch> stopwatchAttr = context.getAttribute(MESSAGE_SEND_STOPWATCH_KEY);
+        final Attribute<Stopwatch> stopwatchAttr = context.getAttribute(SEND_STOPWATCH_KEY);
         if (null == stopwatchAttr) {
             // Should never reach here.
             return;
@@ -69,7 +67,7 @@ public class MessageMeterHandler implements MessageHandler {
             Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, message.getTopic())
                 .put(MetricLabels.CLIENT_ID, client.clientId())
                 .put(MetricLabels.INVOCATION_STATUS, status.getName()).build();
-            meterProvider.record(HistogramEnum.SEND_SUCCESS_COST_TIME, attributes, duration.toMillis());
+            meterManager.record(HistogramEnum.SEND_COST_TIME, attributes, duration.toMillis());
         }
     }
 
@@ -103,10 +101,14 @@ public class MessageMeterHandler implements MessageHandler {
         }
         final Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, message.getTopic())
             .put(MetricLabels.CONSUMER_GROUP, consumerGroup).put(MetricLabels.CLIENT_ID, client.clientId()).build();
-        meterProvider.record(HistogramEnum.DELIVERY_LATENCY, attributes, latency);
+        meterManager.record(HistogramEnum.DELIVERY_LATENCY, attributes, latency);
     }
 
     private void doBeforeConsumeMessage(MessageHandlerContext context, List<GeneralMessage> messages) {
+        if (messages.isEmpty()) {
+            // Should never reach here.
+            return;
+        }
         String consumerGroup = null;
         if (client instanceof PushConsumer) {
             consumerGroup = ((PushConsumer) client).getConsumerGroup();
@@ -125,9 +127,9 @@ public class MessageMeterHandler implements MessageHandler {
             .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
             .put(MetricLabels.CLIENT_ID, client.clientId()).build();
         final long latency = System.currentTimeMillis() - decodeTimestamp;
-        meterProvider.record(HistogramEnum.AWAIT_TIME, attributes, latency);
+        meterManager.record(HistogramEnum.AWAIT_TIME, attributes, latency);
         // Record the time before consuming message.
-        context.putAttribute(MESSAGE_CONSUME_STOPWATCH_KEY, Attribute.create(Stopwatch.createStarted()));
+        context.putAttribute(CONSUME_STOPWATCH_KEY, Attribute.create(Stopwatch.createStarted()));
     }
 
     private void doAfterConsumeMessage(MessageHandlerContext context, List<GeneralMessage> messages) {
@@ -136,7 +138,7 @@ public class MessageMeterHandler implements MessageHandler {
             LOGGER.error("[Bug] current client is not push consumer, clientId={}", client.clientId());
             return;
         }
-        final Attribute<Stopwatch> stopwatchAttr = context.getAttribute(MESSAGE_CONSUME_STOPWATCH_KEY);
+        final Attribute<Stopwatch> stopwatchAttr = context.getAttribute(CONSUME_STOPWATCH_KEY);
         if (null == stopwatchAttr) {
             // Should never reach here.
             return;
@@ -152,13 +154,13 @@ public class MessageMeterHandler implements MessageHandler {
                 .put(MetricLabels.INVOCATION_STATUS, invocationStatus.getName())
                 .build();
             final Duration duration = stopwatchAttr.get().elapsed();
-            meterProvider.record(HistogramEnum.PROCESS_TIME, attributes, duration.toMillis());
+            meterManager.record(HistogramEnum.PROCESS_TIME, attributes, duration.toMillis());
         }
     }
 
     @Override
     public void doBefore(MessageHandlerContext context, List<GeneralMessage> messages) {
-        if (!meterProvider.isEnabled()) {
+        if (!meterManager.isEnabled()) {
             return;
         }
         final MessageHookPoints hookPoints = context.getMessageHookPoints();
@@ -178,7 +180,7 @@ public class MessageMeterHandler implements MessageHandler {
 
     @Override
     public void doAfter(MessageHandlerContext context, List<GeneralMessage> messages) {
-        if (!meterProvider.isEnabled()) {
+        if (!meterManager.isEnabled()) {
             return;
         }
         final MessageHookPoints hookPoints = context.getMessageHookPoints();
