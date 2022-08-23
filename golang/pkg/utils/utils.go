@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -239,4 +240,10 @@ func GetenvWithDef(key, def string) string {
 		val = def
 	}
 	return val
+}
+
+func DumpStacks() string {
+	buf := make([]byte, 16384)
+	buf = buf[:runtime.Stack(buf, true)]
+	return string(buf)
 }

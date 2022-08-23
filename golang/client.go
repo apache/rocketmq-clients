@@ -543,7 +543,7 @@ func (cli *defaultClient) onPrintThreadStackTraceCommand(endpoints *v2.Endpoints
 	nonce := command.GetNonce()
 	go func(nonce string) {
 		// TODO get stack
-		stackTrace := ""
+		stackTrace := utils.DumpStacks()
 		status := &v2.Status{
 			Code: v2.Code_OK,
 		}
