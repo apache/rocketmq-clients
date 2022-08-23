@@ -67,7 +67,7 @@ import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
-import org.apache.rocketmq.client.java.metrics.MessageCacheObserver;
+import org.apache.rocketmq.client.java.metrics.GaugeObserver;
 import org.apache.rocketmq.client.java.misc.ExecutorServices;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
@@ -142,8 +142,6 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         this.consumptionErrorQuantity = new AtomicLong(0);
 
         this.processQueueTable = new ConcurrentHashMap<>();
-        MessageCacheObserver messageCacheObserver = new MessageCacheObserverImpl(processQueueTable);
-        this.clientMeterProvider.setMessageCacheObserver(messageCacheObserver);
 
         this.consumptionExecutor = new ThreadPoolExecutor(
             consumptionThreadCount,
@@ -158,6 +156,8 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     protected void startUp() throws Exception {
         try {
             LOGGER.info("Begin to start the rocketmq push consumer, clientId={}", clientId);
+            GaugeObserver gaugeObserver = new ProcessQueueGaugeObserver(processQueueTable, clientId, consumerGroup);
+            this.clientMeterManager.setGaugeObserver(gaugeObserver);
             super.startUp();
             final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
             this.consumeService = createConsumeService();
@@ -185,8 +185,8 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
             scanAssignmentsFuture.cancel(false);
         }
         super.shutDown();
-        consumeService.stopAsync().awaitTerminated();
-        consumptionExecutor.shutdown();
+        this.consumeService.stopAsync().awaitTerminated();
+        this.consumptionExecutor.shutdown();
         ExecutorServices.awaitTerminated(consumptionExecutor);
         LOGGER.info("Shutdown the rocketmq push consumer successfully, clientId={}", clientId);
     }

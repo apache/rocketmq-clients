@@ -24,7 +24,6 @@ import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.DoubleHistogram;
 import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.sdk.metrics.SdkMeterProvider;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
@@ -66,16 +65,6 @@ public class ClientMeter {
 
     public boolean isEnabled() {
         return enabled;
-    }
-
-    public Endpoints getEndpoints() {
-        return endpoints;
-    }
-
-    Optional<DoubleHistogram> getHistogramByEnum(HistogramEnum histogramEnum) {
-        final DoubleHistogram histogram = histogramMap.computeIfAbsent(histogramEnum.getName(), name -> enabled ?
-            meter.histogramBuilder(histogramEnum.getName()).build() : null);
-        return null == histogram ? Optional.empty() : Optional.of(histogram);
     }
 
     public void record(HistogramEnum histogramEnum, Attributes attributes, double value) {

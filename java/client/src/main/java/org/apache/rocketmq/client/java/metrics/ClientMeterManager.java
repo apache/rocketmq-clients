@@ -17,6 +17,8 @@
 
 package org.apache.rocketmq.client.java.metrics;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import io.grpc.ManagedChannel;
 import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
@@ -36,33 +38,33 @@ import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import org.apache.rocketmq.client.apis.consumer.PushConsumer;
-import org.apache.rocketmq.client.java.impl.ClientImpl;
+import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.rpc.AuthInterceptor;
 import org.apache.rocketmq.client.java.rpc.IpNameResolverFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ClientMeterProvider {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ClientMeterProvider.class);
+public class ClientMeterManager {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ClientMeterManager.class);
 
     private static final Duration METRIC_EXPORTER_RPC_TIMEOUT = Duration.ofSeconds(3);
     private static final Duration METRIC_READER_INTERVAL = Duration.ofMinutes(1);
     private static final String METRIC_INSTRUMENTATION_NAME = "org.apache.rocketmq.message";
 
-    private final ClientImpl client;
+    private final String clientId;
+    private final ClientConfiguration clientConfiguration;
     private volatile ClientMeter clientMeter;
-    private volatile MessageCacheObserver messageCacheObserver;
+    private volatile GaugeObserver gaugeObserver = GaugeObserver.EMPTY;
 
-    public ClientMeterProvider(ClientImpl client) {
-        this.client = client;
-        this.clientMeter = ClientMeter.disabledInstance(client.clientId());
-        this.messageCacheObserver = null;
+    public ClientMeterManager(String clientId, ClientConfiguration clientConfiguration) {
+        this.clientId = clientId;
+        this.clientConfiguration = clientConfiguration;
+        this.clientMeter = ClientMeter.disabledInstance(clientId);
     }
 
-    public void setMessageCacheObserver(MessageCacheObserver messageCacheObserver) {
-        this.messageCacheObserver = messageCacheObserver;
+    public void setGaugeObserver(GaugeObserver gaugeObserver) {
+        this.gaugeObserver = checkNotNull(gaugeObserver, "gaugeObserver should not be null");
     }
 
     public void record(HistogramEnum histogramEnum, Attributes attributes, double value) {
@@ -71,7 +73,6 @@ public class ClientMeterProvider {
 
     @SuppressWarnings("deprecation")
     public synchronized void reset(Metric metric) {
-        final String clientId = client.clientId();
         try {
             if (clientMeter.satisfy(metric)) {
                 LOGGER.info("Metric settings is satisfied by the current message meter, clientId={}", clientId);
@@ -80,14 +81,14 @@ public class ClientMeterProvider {
             if (!metric.isOn()) {
                 LOGGER.info("Metric is off, clientId={}", clientId);
                 clientMeter.shutdown();
-                clientMeter = ClientMeter.disabledInstance(client.clientId());
+                clientMeter = ClientMeter.disabledInstance(clientId);
                 return;
             }
             final Endpoints endpoints = metric.getEndpoints();
             final SslContext sslContext = GrpcSslContexts.forClient().trustManager(InsecureTrustManagerFactory.INSTANCE)
                 .build();
             final NettyChannelBuilder channelBuilder = NettyChannelBuilder.forTarget(endpoints.getGrpcTarget())
-                .sslContext(sslContext).intercept(new AuthInterceptor(client.getClientConfiguration(), clientId));
+                .sslContext(sslContext).intercept(new AuthInterceptor(clientConfiguration, clientId));
             final List<InetSocketAddress> socketAddresses = endpoints.toSocketAddresses();
             if (null != socketAddresses) {
                 IpNameResolverFactory metricResolverFactory = new IpNameResolverFactory(socketAddresses);
@@ -99,9 +100,9 @@ public class ClientMeterProvider {
                 .build();
 
             InstrumentSelector sendSuccessCostTimeInstrumentSelector = InstrumentSelector.builder()
-                .setType(InstrumentType.HISTOGRAM).setName(HistogramEnum.SEND_SUCCESS_COST_TIME.getName()).build();
+                .setType(InstrumentType.HISTOGRAM).setName(HistogramEnum.SEND_COST_TIME.getName()).build();
             final View sendSuccessCostTimeView = View.builder()
-                .setAggregation(HistogramEnum.SEND_SUCCESS_COST_TIME.getBucket()).build();
+                .setAggregation(HistogramEnum.SEND_COST_TIME.getBucket()).build();
 
             InstrumentSelector deliveryLatencyInstrumentSelector = InstrumentSelector.builder()
                 .setType(InstrumentType.HISTOGRAM).setName(HistogramEnum.DELIVERY_LATENCY.getName()).build();
@@ -137,33 +138,20 @@ public class ClientMeterProvider {
             existedClientMeter.shutdown();
             LOGGER.info("Metrics is on, endpoints={}, clientId={}", endpoints, clientId);
 
-            if (!(client instanceof PushConsumer)) {
-                // No need for producer and simple consumer.
-                return;
+            final List<GaugeEnum> gauges = gaugeObserver.getGauges();
+            for (GaugeEnum gauge : gauges) {
+                meter.gaugeBuilder(gauge.getName()).buildWithCallback(measurement -> {
+                    final Map<Attributes, Double> map = gaugeObserver.getValues(gauge);
+                    if (map.isEmpty()) {
+                        return;
+                    }
+                    for (Map.Entry<Attributes, Double> entry : map.entrySet()) {
+                        final Attributes attributes = entry.getKey();
+                        final Double value = entry.getValue();
+                        measurement.record(value, attributes);
+                    }
+                });
             }
-            final String consumerGroup = ((PushConsumer) client).getConsumerGroup();
-            meter.gaugeBuilder(GaugeEnum.CONSUMER_CACHED_MESSAGES.getName()).buildWithCallback(measurement -> {
-                final Map<String, Long> cachedMessageCountMap = messageCacheObserver.getCachedMessageCount();
-                for (Map.Entry<String, Long> entry : cachedMessageCountMap.entrySet()) {
-                    final String topic = entry.getKey();
-                    Attributes attributes = Attributes.builder()
-                        .put(MetricLabels.TOPIC, topic)
-                        .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
-                        .put(MetricLabels.CLIENT_ID, clientId).build();
-                    measurement.record(entry.getValue(), attributes);
-                }
-            });
-            meter.gaugeBuilder(GaugeEnum.CONSUMER_CACHED_BYTES.getName()).buildWithCallback(measurement -> {
-                final Map<String, Long> cachedMessageBytesMap = messageCacheObserver.getCachedMessageBytes();
-                for (Map.Entry<String, Long> entry : cachedMessageBytesMap.entrySet()) {
-                    final String topic = entry.getKey();
-                    Attributes attributes = Attributes.builder()
-                        .put(MetricLabels.TOPIC, topic)
-                        .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
-                        .put(MetricLabels.CLIENT_ID, clientId).build();
-                    measurement.record(entry.getValue(), attributes);
-                }
-            });
         } catch (Throwable t) {
             LOGGER.error("Exception raised when resetting message meter, clientId={}", clientId, t);
         }

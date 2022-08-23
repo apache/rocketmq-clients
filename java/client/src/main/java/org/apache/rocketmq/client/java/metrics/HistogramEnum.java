@@ -28,7 +28,7 @@ public enum HistogramEnum {
      *
      * <p>The time unit of bucket is milliseconds.
      */
-    SEND_SUCCESS_COST_TIME("rocketmq_send_cost_time", Aggregation.explicitBucketHistogram(Arrays.asList(1.0, 5.0,
+    SEND_COST_TIME("rocketmq_send_cost_time", Aggregation.explicitBucketHistogram(Arrays.asList(1.0, 5.0,
         10.0, 20.0, 50.0, 200.0, 500.0))),
 
     /**

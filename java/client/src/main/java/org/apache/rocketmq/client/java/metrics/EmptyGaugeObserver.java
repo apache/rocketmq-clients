@@ -15,27 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.java.logging;
+package org.apache.rocketmq.client.java.metrics;
 
-import ch.qos.logback.core.ConsoleAppender;
+import io.opentelemetry.api.common.Attributes;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-public class CustomConsoleAppender<E> extends ConsoleAppender<E> {
-    public static final String ENABLE_CONSOLE_APPENDER_KEY = "mq.consoleAppender.enabled";
-    private final boolean enabled;
-
-    public CustomConsoleAppender() {
-        this.enabled = Boolean.parseBoolean(System.getenv(ENABLE_CONSOLE_APPENDER_KEY)) ||
-            Boolean.parseBoolean(System.getProperty(ENABLE_CONSOLE_APPENDER_KEY));
+public class EmptyGaugeObserver implements GaugeObserver {
+    @Override
+    public List<GaugeEnum> getGauges() {
+        return new ArrayList<>();
     }
 
-    protected void append(E eventObject) {
-        if (this.enabled) {
-            super.append(eventObject);
-        }
-
-    }
-
-    public boolean isEnabled() {
-        return this.enabled;
+    @Override
+    public Map<Attributes, Double> getValues(GaugeEnum gauge) {
+        return new HashMap<>();
     }
 }
+
