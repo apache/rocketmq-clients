@@ -28,7 +28,6 @@ import apache.rocketmq.v2.RecoverOrphanedTransactionCommand;
 import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
 import apache.rocketmq.v2.Status;
-import com.google.common.base.Stopwatch;
 import com.google.common.math.IntMath;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -48,6 +47,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import net.javacrumbs.futureconverter.java8guava.FutureConverter;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
@@ -61,11 +61,13 @@ import org.apache.rocketmq.client.apis.producer.TransactionChecker;
 import org.apache.rocketmq.client.apis.producer.TransactionResolution;
 import org.apache.rocketmq.client.java.exception.InternalErrorException;
 import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
+import org.apache.rocketmq.client.java.hook.MessageHandlerContextImpl;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.impl.ClientImpl;
 import org.apache.rocketmq.client.java.impl.Settings;
-import org.apache.rocketmq.client.java.message.MessageCommon;
+import org.apache.rocketmq.client.java.message.GeneralMessage;
+import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
 import org.apache.rocketmq.client.java.message.MessageType;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.message.PublishingMessageImpl;
@@ -159,7 +161,8 @@ class ProducerImpl extends ClientImpl implements Producer {
                     if (null == resolution || TransactionResolution.UNKNOWN.equals(resolution)) {
                         return;
                     }
-                    endTransaction(endpoints, messageView.getMessageCommon(), messageView.getMessageId(),
+                    final GeneralMessage generalMessage = new GeneralMessageImpl(messageView);
+                    endTransaction(endpoints, generalMessage, messageView.getMessageId(),
                         transactionId, resolution);
                 } catch (Throwable t) {
                     LOGGER.error("Exception raised while ending the transaction, messageId={}, transactionId={}, "
@@ -252,7 +255,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         this.stopAsync().awaitTerminated();
     }
 
-    public void endTransaction(Endpoints endpoints, MessageCommon messageCommon, MessageId messageId,
+    public void endTransaction(Endpoints endpoints, GeneralMessage generalMessage, MessageId messageId,
         String transactionId, final TransactionResolution resolution) throws ClientException {
         Metadata metadata;
         try {
@@ -262,7 +265,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         }
         final EndTransactionRequest.Builder builder = EndTransactionRequest.newBuilder()
             .setMessageId(messageId.toString()).setTransactionId(transactionId)
-            .setTopic(apache.rocketmq.v2.Resource.newBuilder().setName(messageCommon.getTopic()).build());
+            .setTopic(apache.rocketmq.v2.Resource.newBuilder().setName(generalMessage.getTopic()).build());
         switch (resolution) {
             case COMMIT:
                 builder.setResolution(apache.rocketmq.v2.TransactionResolution.COMMIT);
@@ -273,30 +276,31 @@ class ProducerImpl extends ClientImpl implements Producer {
         }
         final Duration requestTimeout = clientConfiguration.getRequestTimeout();
         final EndTransactionRequest request = builder.build();
-
-        final Stopwatch stopwatch = Stopwatch.createStarted();
-        final List<MessageCommon> messageCommons = Collections.singletonList(messageCommon);
+        final List<GeneralMessage> generalMessages = Collections.singletonList(generalMessage);
         MessageHookPoints messageHookPoints = TransactionResolution.COMMIT.equals(resolution) ?
             MessageHookPoints.COMMIT_TRANSACTION : MessageHookPoints.ROLLBACK_TRANSACTION;
-        doBefore(messageHookPoints, messageCommons);
+        final MessageHandlerContextImpl context = new MessageHandlerContextImpl(messageHookPoints);
+        doBefore(context, generalMessages);
 
         final RpcFuture<EndTransactionRequest, EndTransactionResponse> future =
             this.getClientManager().endTransaction(endpoints, metadata, request, requestTimeout);
         Futures.addCallback(future, new FutureCallback<EndTransactionResponse>() {
             @Override
             public void onSuccess(EndTransactionResponse response) {
-                final Duration duration = stopwatch.elapsed();
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
                 MessageHookPointsStatus messageHookPointsStatus = Code.OK.equals(code) ? MessageHookPointsStatus.OK :
                     MessageHookPointsStatus.ERROR;
-                doAfter(messageHookPoints, messageCommons, duration, messageHookPointsStatus);
+                final MessageHandlerContextImpl context0 = new MessageHandlerContextImpl(context,
+                    messageHookPointsStatus);
+                doAfter(context0, generalMessages);
             }
 
             @Override
             public void onFailure(Throwable t) {
-                final Duration duration = stopwatch.elapsed();
-                doAfter(messageHookPoints, messageCommons, duration, MessageHookPointsStatus.ERROR);
+                final MessageHandlerContextImpl context0 = new MessageHandlerContextImpl(context,
+                    MessageHookPointsStatus.ERROR);
+                doAfter(context0, generalMessages);
             }
         }, MoreExecutors.directExecutor());
         final EndTransactionResponse response = handleClientFuture(future);
@@ -454,26 +458,35 @@ class ProducerImpl extends ClientImpl implements Producer {
         final Endpoints endpoints = mq.getBroker().getEndpoints();
         final ListenableFuture<List<SendReceiptImpl>> future = send0(metadata, endpoints, messages, mq);
         final int maxAttempts = this.getRetryPolicy().getMaxAttempts();
+
         // Intercept before message publishing.
-        final Stopwatch stopwatch = Stopwatch.createStarted();
-        final List<MessageCommon> messageCommons =
-            messages.stream().map(PublishingMessageImpl::getMessageCommon).collect(Collectors.toList());
-        doBefore(MessageHookPoints.SEND, messageCommons);
+        final List<GeneralMessage> generalMessages = messages.stream().map((Function<PublishingMessageImpl,
+            GeneralMessage>) GeneralMessageImpl::new).collect(Collectors.toList());
+        final MessageHandlerContextImpl context = new MessageHandlerContextImpl(MessageHookPoints.SEND);
+        doBefore(context, generalMessages);
 
         Futures.addCallback(future, new FutureCallback<List<SendReceiptImpl>>() {
             @Override
             public void onSuccess(List<SendReceiptImpl> sendReceipts) {
-                // Intercept after message publishing.
-                final Duration duration = stopwatch.elapsed();
-                doAfter(MessageHookPoints.SEND, messageCommons, duration, MessageHookPointsStatus.OK);
                 // Should never reach here.
                 if (sendReceipts.size() != messages.size()) {
                     final InternalErrorException e = new InternalErrorException("[Bug] due to an"
                         + " unknown reason from remote, received send receipt's quantity " + sendReceipts.size()
                         + " is not equal to sent message's quantity " + messages.size());
                     future0.setException(e);
+
+                    // Intercept after message publishing.
+                    final MessageHandlerContextImpl context0 = new MessageHandlerContextImpl(context,
+                        MessageHookPointsStatus.ERROR);
+                    doAfter(context0, generalMessages);
+
                     return;
                 }
+                // Intercept after message publishing.
+                final MessageHandlerContextImpl context0 = new MessageHandlerContextImpl(context,
+                    MessageHookPointsStatus.OK);
+                doAfter(context0, generalMessages);
+
                 // No need more attempts.
                 future0.set(sendReceipts);
                 // Resend message(s) successfully.
@@ -493,8 +506,9 @@ class ProducerImpl extends ClientImpl implements Producer {
             @Override
             public void onFailure(Throwable t) {
                 // Intercept after message publishing.
-                final Duration duration = stopwatch.elapsed();
-                doAfter(MessageHookPoints.SEND, messageCommons, duration, MessageHookPointsStatus.ERROR);
+                final MessageHandlerContextImpl context0 = new MessageHandlerContextImpl(context,
+                    MessageHookPointsStatus.ERROR);
+                doAfter(context0, generalMessages);
 
                 // Collect messageId(s) for logging.
                 List<MessageId> messageIds = new ArrayList<>();

@@ -15,24 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.apis.message;
+package org.apache.rocketmq.client.java.message;
 
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import org.apache.rocketmq.client.apis.message.Message;
+import org.apache.rocketmq.client.apis.message.MessageId;
+import org.apache.rocketmq.client.apis.message.MessageView;
 
 /**
- * {@link MessageView} provides a read-only view for the message, that's why setters do not exist here. In addition,
- * it only makes sense when {@link Message} is sent successfully.
+ * General message for RocketMQ, which combines {@link Message} and {@link MessageView}.
  */
-public interface MessageView {
+public interface GeneralMessage {
     /**
      * Get the unique id of the message.
      *
      * @return unique id.
      */
-    MessageId getMessageId();
+    Optional<MessageId> getMessageId();
 
     /**
      * Get the topic of the message, which is the first classifier for the message.
@@ -80,19 +82,12 @@ public interface MessageView {
     Optional<String> getMessageGroup();
 
     /**
-     * Get the expected delivery timestamp, which makes sense only when the topic type is delay.
+     * Get the parent trace context, see
+     * <a href="https://opentelemetry.io/docs/concepts/signals/traces/#trace-context">OpenTelemetry Trace context</a>.
      *
-     * @return message expected delivery timestamp, which is optional, {@link Optional#empty()} means delivery
-     * timestamp is not specified.
+     * @return parent trace context, which is optional, {@link Optional#empty()} means trace context is not specified.
      */
-    Optional<Long> getDeliveryTimestamp();
-
-    /**
-     * Get the born host of the message.
-     *
-     * @return born host of the message.
-     */
-    String getBornHost();
+    Optional<String> getParentTraceContext();
 
     /**
      * Message trace context, see
@@ -103,19 +98,51 @@ public interface MessageView {
     Optional<String> getTraceContext();
 
     /**
+     * Get the expected delivery timestamp, which makes sense only when topic type is delay.
+     *
+     * @return message expected delivery timestamp, which is optional, {@link Optional#empty()} means delivery
+     * timestamp is not specified.
+     */
+    Optional<Long> getDeliveryTimestamp();
+
+    /**
+     * Get the born host of the message.
+     *
+     * @return born host of the message, which is optional, {@link Optional#empty()} means born host is not specified.
+     */
+    Optional<String> getBornHost();
+
+    /**
      * Get the born timestamp of the message.
      *
      * <p>Born time means the timestamp that the message is prepared to send rather than the timestamp the
      * {@link Message} was built.
      *
-     * @return born timestamp of the message.
+     * @return born timestamp of the message, which is optional, {@link Optional#empty()} means born timestamp is not
+     * specified.
      */
-    long getBornTimestamp();
+    Optional<Long> getBornTimestamp();
 
     /**
      * Get the delivery attempt for the message.
      *
      * @return delivery attempt.
      */
-    int getDeliveryAttempt();
+    Optional<Integer> getDeliveryAttempt();
+
+    /**
+     * Get decode timestamp, which makes sense only if the message is delivered from remote.
+     *
+     * @return message decode timestamp, which is optional, {@link Optional#empty()} means decode timestamp is not
+     * specified.
+     */
+    Optional<Long> getDecodeTimestamp();
+
+    /**
+     * Get transport delivery timestamp, which makes sense only if the message is delivered from remote.
+     *
+     * @return message transport delivery timestamp, which is optional, {@link Optional#empty()} means transport
+     * delivery timestamp is not specified.
+     */
+    Optional<Long> getTransportDeliveryTimestamp();
 }

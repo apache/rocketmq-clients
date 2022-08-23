@@ -23,17 +23,15 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
-import org.apache.rocketmq.client.java.hook.MessageHookPoints;
-import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
-import org.apache.rocketmq.client.java.hook.MessageInterceptor;
-import org.apache.rocketmq.client.java.message.MessageCommon;
+import org.apache.rocketmq.client.java.hook.MessageHandler;
+import org.apache.rocketmq.client.java.hook.MessageHandlerContext;
+import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.tool.TestBase;
@@ -60,14 +58,15 @@ public class StandardConsumeServiceTest extends TestBase {
         when(processQueue1.tryTakeMessage()).thenReturn(Optional.of(messageView1));
 
         MessageListener listener = messageView -> ConsumeResult.SUCCESS;
-        MessageInterceptor interceptor = new MessageInterceptor() {
+        MessageHandler interceptor = new MessageHandler() {
             @Override
-            public void doBefore(MessageHookPoints messageHookPoints, List<MessageCommon> messageCommons) {
+            public void doBefore(MessageHandlerContext context, List<GeneralMessage> messages) {
+
             }
 
             @Override
-            public void doAfter(MessageHookPoints messageHookPoints, List<MessageCommon> messageCommons,
-                Duration duration, MessageHookPointsStatus status) {
+            public void doAfter(MessageHandlerContext context, List<GeneralMessage> messages) {
+
             }
         };
         final StandardConsumeService service = new StandardConsumeService(FAKE_CLIENT_ID, processQueueTable, listener,

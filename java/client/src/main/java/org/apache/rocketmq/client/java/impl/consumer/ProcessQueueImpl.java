@@ -26,7 +26,6 @@ import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueResponse;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.Status;
-import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -44,15 +43,19 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.message.MessageId;
+import org.apache.rocketmq.client.apis.message.MessageView;
 import org.apache.rocketmq.client.java.exception.BadRequestException;
 import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
+import org.apache.rocketmq.client.java.hook.MessageHandlerContextImpl;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
-import org.apache.rocketmq.client.java.message.MessageCommon;
+import org.apache.rocketmq.client.java.message.GeneralMessage;
+import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
@@ -253,19 +256,24 @@ class ProcessQueueImpl implements ProcessQueue {
             final int batchSize = this.getReceptionBatchSize();
             final ReceiveMessageRequest request = consumer.wrapReceiveMessageRequest(batchSize, mq, filterExpression);
             activityNanoTime = System.nanoTime();
+
             // Intercept before message reception.
-            consumer.doBefore(MessageHookPoints.RECEIVE, Collections.emptyList());
-            final Stopwatch stopwatch = Stopwatch.createStarted();
+            final MessageHandlerContextImpl context = new MessageHandlerContextImpl(MessageHookPoints.RECEIVE);
+            consumer.doBefore(context, Collections.emptyList());
+
             final ListenableFuture<ReceiveMessageResult> future = consumer.receiveMessage(request, mq,
                 consumer.getPushConsumerSettings().getLongPollingTimeout());
             Futures.addCallback(future, new FutureCallback<ReceiveMessageResult>() {
                 @Override
                 public void onSuccess(ReceiveMessageResult result) {
                     // Intercept after message reception.
-                    final Duration duration = stopwatch.elapsed();
-                    final List<MessageCommon> commons = result.getMessageViewImpls().stream()
-                        .map(MessageViewImpl::getMessageCommon).collect(Collectors.toList());
-                    consumer.doAfter(MessageHookPoints.RECEIVE, commons, duration, MessageHookPointsStatus.OK);
+                    final List<GeneralMessage> generalMessages = result.getMessageViewImpls().stream()
+                        .map((Function<MessageView, GeneralMessage>) GeneralMessageImpl::new)
+                        .collect(Collectors.toList());
+                    final MessageHandlerContextImpl context0 =
+                        new MessageHandlerContextImpl(context, MessageHookPointsStatus.OK);
+                    consumer.doAfter(context0, generalMessages);
+
                     try {
                         onReceiveMessageResult(result);
                     } catch (Throwable t) {
@@ -279,9 +287,10 @@ class ProcessQueueImpl implements ProcessQueue {
                 @Override
                 public void onFailure(Throwable t) {
                     // Intercept after message reception.
-                    final Duration duration = stopwatch.elapsed();
-                    consumer.doAfter(MessageHookPoints.RECEIVE, Collections.emptyList(), duration,
-                        MessageHookPointsStatus.ERROR);
+                    final MessageHandlerContextImpl context0 =
+                        new MessageHandlerContextImpl(context, MessageHookPointsStatus.ERROR);
+                    consumer.doAfter(context0, Collections.emptyList());
+
                     LOGGER.error("Exception raised during message reception, mq={}, endpoints={}, clientId={}", mq,
                         endpoints, consumer.clientId(), t);
                     onReceiveMessageException(t);

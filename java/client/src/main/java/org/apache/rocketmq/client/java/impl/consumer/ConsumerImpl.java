@@ -31,13 +31,13 @@ import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageResponse;
 import apache.rocketmq.v2.Resource;
 import apache.rocketmq.v2.Status;
-import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
+import com.google.protobuf.util.Timestamps;
 import io.grpc.Metadata;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -49,11 +49,13 @@ import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.java.exception.StatusChecker;
+import org.apache.rocketmq.client.java.hook.MessageHandlerContextImpl;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.impl.ClientImpl;
 import org.apache.rocketmq.client.java.impl.ClientManager;
-import org.apache.rocketmq.client.java.message.MessageCommon;
+import org.apache.rocketmq.client.java.message.GeneralMessage;
+import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
@@ -88,7 +90,7 @@ abstract class ConsumerImpl extends ClientImpl {
                 Status status = Status.newBuilder().setCode(Code.INTERNAL_SERVER_ERROR)
                     .setMessage("status was not set by server")
                     .build();
-                Timestamp deliveryTimestampFromRemote = null;
+                Long transportDeliveryTimestamp = null;
                 List<Message> messageList = new ArrayList<>();
                 for (ReceiveMessageResponse response : responses) {
                     switch (response.getContentCase()) {
@@ -99,15 +101,16 @@ abstract class ConsumerImpl extends ClientImpl {
                             messageList.add(response.getMessage());
                             break;
                         case DELIVERY_TIMESTAMP:
-                            deliveryTimestampFromRemote = response.getDeliveryTimestamp();
+                            final Timestamp deliveryTimestamp = response.getDeliveryTimestamp();
+                            transportDeliveryTimestamp = Timestamps.toMillis(deliveryTimestamp);
                             break;
                         default:
                             LOGGER.warn("[Bug] Not recognized content for receive message response, mq={}, " +
-                                "clientId={}, resp={}", mq, clientId, response);
+                                "clientId={}, response={}", mq, clientId, response);
                     }
                 }
                 for (Message message : messageList) {
-                    final MessageViewImpl view = MessageViewImpl.fromProtobuf(message, mq, deliveryTimestampFromRemote);
+                    final MessageViewImpl view = MessageViewImpl.fromProtobuf(message, mq, transportDeliveryTimestamp);
                     messages.add(view);
                 }
                 StatusChecker.check(status, future);
@@ -142,10 +145,9 @@ abstract class ConsumerImpl extends ClientImpl {
     protected RpcFuture<AckMessageRequest, AckMessageResponse> ackMessage(MessageViewImpl messageView) {
         final Endpoints endpoints = messageView.getEndpoints();
         RpcFuture<AckMessageRequest, AckMessageResponse> future;
-
-        final Stopwatch stopwatch = Stopwatch.createStarted();
-        final List<MessageCommon> messageCommons = Collections.singletonList(messageView.getMessageCommon());
-        doBefore(MessageHookPoints.ACK, messageCommons);
+        final List<GeneralMessage> generalMessages = Collections.singletonList(new GeneralMessageImpl(messageView));
+        final MessageHandlerContextImpl context = new MessageHandlerContextImpl(MessageHookPoints.ACK);
+        doBefore(context, generalMessages);
         try {
             final AckMessageRequest request = wrapAckMessageRequest(messageView);
             final Metadata metadata = sign();
@@ -159,16 +161,17 @@ abstract class ConsumerImpl extends ClientImpl {
             public void onSuccess(AckMessageResponse response) {
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
-                final Duration duration = stopwatch.elapsed();
                 MessageHookPointsStatus messageHookPointsStatus = Code.OK.equals(code) ?
                     MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
-                doAfter(MessageHookPoints.ACK, messageCommons, duration, messageHookPointsStatus);
+                MessageHandlerContextImpl context0 = new MessageHandlerContextImpl(context, messageHookPointsStatus);
+                doAfter(context0, generalMessages);
             }
 
             @Override
             public void onFailure(Throwable t) {
-                final Duration duration = stopwatch.elapsed();
-                doAfter(MessageHookPoints.ACK, messageCommons, duration, MessageHookPointsStatus.ERROR);
+                MessageHandlerContextImpl context0 = new MessageHandlerContextImpl(context,
+                    MessageHookPointsStatus.ERROR);
+                doAfter(context0, generalMessages);
             }
         }, MoreExecutors.directExecutor());
         return future;
@@ -178,10 +181,10 @@ abstract class ConsumerImpl extends ClientImpl {
         MessageViewImpl messageView, Duration invisibleDuration) {
         final Endpoints endpoints = messageView.getEndpoints();
         RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse> future;
-
-        final Stopwatch stopwatch = Stopwatch.createStarted();
-        final List<MessageCommon> messageCommons = Collections.singletonList(messageView.getMessageCommon());
-        doBefore(MessageHookPoints.CHANGE_INVISIBLE_DURATION, messageCommons);
+        final List<GeneralMessage> generalMessages = Collections.singletonList(new GeneralMessageImpl(messageView));
+        final MessageHandlerContextImpl context =
+            new MessageHandlerContextImpl(MessageHookPoints.CHANGE_INVISIBLE_DURATION);
+        doBefore(context, generalMessages);
         try {
             final Metadata metadata = sign();
             final ChangeInvisibleDurationRequest request = wrapChangeInvisibleDuration(messageView, invisibleDuration);
@@ -196,22 +199,23 @@ abstract class ConsumerImpl extends ClientImpl {
             public void onSuccess(ChangeInvisibleDurationResponse response) {
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
-                final Duration duration = stopwatch.elapsed();
                 MessageHookPointsStatus messageHookPointsStatus = Code.OK.equals(code) ?
                     MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
                 if (!Code.OK.equals(code)) {
                     LOGGER.error("Failed to change message invisible duration, messageId={}, endpoints={}, code={}, " +
                         "status message=[{}], clientId={}", messageId, endpoints, code, status.getMessage(), clientId);
                 }
-                doAfter(MessageHookPoints.CHANGE_INVISIBLE_DURATION, messageCommons, duration, messageHookPointsStatus);
+                MessageHandlerContextImpl context0 = new MessageHandlerContextImpl(context, messageHookPointsStatus);
+                doAfter(context0, generalMessages);
             }
 
             @Override
             public void onFailure(Throwable t) {
-                final Duration duration = stopwatch.elapsed();
-                doAfter(MessageHookPoints.CHANGE_INVISIBLE_DURATION, messageCommons, duration,
-                        MessageHookPointsStatus.ERROR);
-                LOGGER.error("Failed to change message invisible duration, messageId={}, endpoints={}, clientId={}",
+                MessageHandlerContextImpl context0 = new MessageHandlerContextImpl(context,
+                    MessageHookPointsStatus.ERROR);
+                doAfter(context0, generalMessages);
+                LOGGER.error("Exception raised while changing message invisible duration, messageId={}, endpoints={}, "
+                        + "clientId={}",
                     messageId, endpoints, clientId, t);
 
             }

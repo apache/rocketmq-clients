@@ -47,7 +47,6 @@ import io.grpc.stub.StreamObserver;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -72,12 +71,13 @@ import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.exception.InternalErrorException;
 import org.apache.rocketmq.client.java.exception.StatusChecker;
-import org.apache.rocketmq.client.java.hook.MessageHookPoints;
-import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
-import org.apache.rocketmq.client.java.hook.MessageInterceptor;
+import org.apache.rocketmq.client.java.hook.CompositedMessageHandler;
+import org.apache.rocketmq.client.java.hook.MessageHandler;
+import org.apache.rocketmq.client.java.hook.MessageHandlerContext;
 import org.apache.rocketmq.client.java.impl.producer.ClientSessionHandler;
-import org.apache.rocketmq.client.java.message.MessageCommon;
+import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.metrics.ClientMeterProvider;
+import org.apache.rocketmq.client.java.metrics.MessageMeterHandler;
 import org.apache.rocketmq.client.java.metrics.Metric;
 import org.apache.rocketmq.client.java.misc.ExecutorServices;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
@@ -91,7 +91,7 @@ import org.slf4j.LoggerFactory;
 
 @SuppressWarnings({"UnstableApiUsage", "NullableProblems"})
 public abstract class ClientImpl extends AbstractIdleService implements Client, ClientSessionHandler,
-    MessageInterceptor {
+    MessageHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientImpl.class);
     /**
      * The telemetry timeout should not be too long, otherwise
@@ -124,9 +124,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     private final Map<Endpoints, ClientSessionImpl> sessionsTable;
     private final ReadWriteLock sessionsLock;
 
-    @GuardedBy("messageInterceptorsLock")
-    private final List<MessageInterceptor> messageInterceptors;
-    private final ReadWriteLock messageInterceptorsLock;
+    private final CompositedMessageHandler compositedMessageHandler;
 
     public ClientImpl(ClientConfiguration clientConfiguration, Set<String> topics) {
         this.clientConfiguration = checkNotNull(clientConfiguration, "clientConfiguration should not be null");
@@ -145,9 +143,6 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
 
         this.isolated = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-        this.messageInterceptors = new ArrayList<>();
-        this.messageInterceptorsLock = new ReentrantReadWriteLock();
-
         this.clientManager = new ClientManagerImpl(this);
 
         this.clientCallbackExecutor = new ThreadPoolExecutor(
@@ -159,6 +154,10 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             new ThreadFactoryImpl("ClientCallbackWorker"));
 
         this.clientMeterProvider = new ClientMeterProvider(this);
+
+        this.compositedMessageHandler =
+            new CompositedMessageHandler(Collections.singletonList(new MessageMeterHandler(this, clientMeterProvider)));
+
         this.telemetryCommandExecutor = new ThreadPoolExecutor(
             1,
             1,
@@ -229,47 +228,23 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         LOGGER.info("Shutdown the rocketmq client successfully, clientId={}", clientId);
     }
 
-    public void registerMessageInterceptor(MessageInterceptor messageInterceptor) {
-        messageInterceptorsLock.writeLock().lock();
+    @Override
+    public void doBefore(MessageHandlerContext context, List<GeneralMessage> generalMessages) {
         try {
-            messageInterceptors.add(messageInterceptor);
-        } finally {
-            messageInterceptorsLock.writeLock().unlock();
+            compositedMessageHandler.doBefore(context, generalMessages);
+        } catch (Throwable t) {
+            // Should never reach here.
+            LOGGER.error("[BUG] Exception raised while handling messages, clientId={}", clientId, t);
         }
     }
 
     @Override
-    public void doBefore(MessageHookPoints hookPoint, List<MessageCommon> messageCommons) {
-        messageInterceptorsLock.readLock().lock();
+    public void doAfter(MessageHandlerContext context, List<GeneralMessage> generalMessages) {
         try {
-            for (MessageInterceptor interceptor : messageInterceptors) {
-                try {
-                    interceptor.doBefore(hookPoint, messageCommons);
-                } catch (Throwable t) {
-                    LOGGER.warn("Exception raised while intercepting message, hookPoint={}, clientId={}", hookPoint,
-                        clientId);
-                }
-            }
-        } finally {
-            messageInterceptorsLock.readLock().unlock();
-        }
-    }
-
-    @Override
-    public void doAfter(MessageHookPoints hookPoints, List<MessageCommon> messageCommons, Duration duration,
-        MessageHookPointsStatus status) {
-        messageInterceptorsLock.readLock().lock();
-        try {
-            for (MessageInterceptor interceptor : messageInterceptors) {
-                try {
-                    interceptor.doAfter(hookPoints, messageCommons, duration, status);
-                } catch (Throwable t) {
-                    LOGGER.warn("Exception raised while intercepting message, hookPoint={}, clientId={}", hookPoints,
-                        clientId);
-                }
-            }
-        } finally {
-            messageInterceptorsLock.readLock().unlock();
+            compositedMessageHandler.doAfter(context, generalMessages);
+        } catch (Throwable t) {
+            // Should never reach here.
+            LOGGER.error("[BUG] Exception raised while handling messages, clientId={}", clientId, t);
         }
     }
 

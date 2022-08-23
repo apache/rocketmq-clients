@@ -28,7 +28,6 @@ import apache.rocketmq.v2.TelemetryCommand;
 import apache.rocketmq.v2.VerifyMessageCommand;
 import apache.rocketmq.v2.VerifyMessageResult;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -59,10 +58,13 @@ import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
 import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.java.exception.StatusChecker;
+import org.apache.rocketmq.client.java.hook.MessageHandlerContext;
+import org.apache.rocketmq.client.java.hook.MessageHandlerContextImpl;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.impl.Settings;
-import org.apache.rocketmq.client.java.message.MessageCommon;
+import org.apache.rocketmq.client.java.message.GeneralMessage;
+import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.metrics.MessageCacheObserver;
@@ -85,7 +87,7 @@ import org.slf4j.LoggerFactory;
  * @see PushConsumer
  */
 @SuppressWarnings({"UnstableApiUsage", "NullableProblems"})
-class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCacheObserver {
+class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private static final Logger LOGGER = LoggerFactory.getLogger(PushConsumerImpl.class);
 
     final AtomicLong consumptionOkQuantity;
@@ -140,6 +142,9 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
         this.consumptionErrorQuantity = new AtomicLong(0);
 
         this.processQueueTable = new ConcurrentHashMap<>();
+        MessageCacheObserver messageCacheObserver = new MessageCacheObserverImpl(processQueueTable);
+        this.clientMeterProvider.setMessageCacheObserver(messageCacheObserver);
+
         this.consumptionExecutor = new ThreadPoolExecutor(
             consumptionThreadCount,
             consumptionThreadCount,
@@ -154,7 +159,6 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
         try {
             LOGGER.info("Begin to start the rocketmq push consumer, clientId={}", clientId);
             super.startUp();
-            clientMeterProvider.setMessageCacheObserver(this);
             final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
             this.consumeService = createConsumeService();
             this.consumeService.startAsync().awaitRunning();
@@ -508,9 +512,9 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
     public RpcFuture<ForwardMessageToDeadLetterQueueRequest, ForwardMessageToDeadLetterQueueResponse>
     forwardMessageToDeadLetterQueue(final MessageViewImpl messageView) {
         // Intercept before forwarding message to DLQ.
-        final Stopwatch stopwatch = Stopwatch.createStarted();
-        final List<MessageCommon> messageCommons = Collections.singletonList(messageView.getMessageCommon());
-        doBefore(MessageHookPoints.FORWARD_TO_DLQ, messageCommons);
+        final List<GeneralMessage> generalMessages = Collections.singletonList(new GeneralMessageImpl(messageView));
+        final MessageHandlerContextImpl context = new MessageHandlerContextImpl(MessageHookPoints.FORWARD_TO_DLQ);
+        doBefore(context, generalMessages);
 
         final Endpoints endpoints = messageView.getEndpoints();
         RpcFuture<ForwardMessageToDeadLetterQueueRequest, ForwardMessageToDeadLetterQueueResponse> future;
@@ -526,18 +530,19 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
         Futures.addCallback(future, new FutureCallback<ForwardMessageToDeadLetterQueueResponse>() {
             @Override
             public void onSuccess(ForwardMessageToDeadLetterQueueResponse response) {
-                final Duration duration = stopwatch.elapsed();
-                MessageHookPointsStatus messageHookPointsStatus = Code.OK.equals(response.getStatus().getCode()) ?
-                    MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
                 // Intercept after forwarding message to DLQ.
-                doAfter(MessageHookPoints.FORWARD_TO_DLQ, messageCommons, duration, messageHookPointsStatus);
+                MessageHookPointsStatus status = Code.OK.equals(response.getStatus().getCode()) ?
+                    MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
+                final MessageHandlerContext context0 = new MessageHandlerContextImpl(context, status);
+                doAfter(context0, generalMessages);
             }
 
             @Override
             public void onFailure(Throwable t) {
                 // Intercept after forwarding message to DLQ.
-                final Duration duration = stopwatch.elapsed();
-                doAfter(MessageHookPoints.FORWARD_TO_DLQ, messageCommons, duration, MessageHookPointsStatus.ERROR);
+                final MessageHandlerContext context0 = new MessageHandlerContextImpl(context,
+                    MessageHookPointsStatus.ERROR);
+                doAfter(context0, generalMessages);
             }
         }, MoreExecutors.directExecutor());
         return future;
@@ -563,30 +568,5 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer, MessageCach
 
     public ThreadPoolExecutor getConsumptionExecutor() {
         return consumptionExecutor;
-    }
-
-    @Override
-    public Map<String, Long> getCachedMessageCount() {
-        Map<String, Long> cachedMessageCountMap = new HashMap<>();
-        for (ProcessQueue pq : processQueueTable.values()) {
-            final String topic = pq.getMessageQueue().getTopic();
-            long count = cachedMessageCountMap.containsKey(topic) ? cachedMessageCountMap.get(topic) : 0;
-            count += pq.getInflightMessageCount();
-            count += pq.getPendingMessageCount();
-            cachedMessageCountMap.put(topic, count);
-        }
-        return cachedMessageCountMap;
-    }
-
-    @Override
-    public Map<String, Long> getCachedMessageBytes() {
-        Map<String, Long> cachedMessageBytesMap = new HashMap<>();
-        for (ProcessQueue pq : processQueueTable.values()) {
-            final String topic = pq.getMessageQueue().getTopic();
-            long bytes = cachedMessageBytesMap.containsKey(topic) ? cachedMessageBytesMap.get(topic) : 0;
-            bytes += pq.getCachedMessageBytes();
-            cachedMessageBytesMap.put(topic, bytes);
-        }
-        return cachedMessageBytesMap;
     }
 }

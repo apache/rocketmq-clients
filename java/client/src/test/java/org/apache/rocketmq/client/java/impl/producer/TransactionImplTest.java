@@ -29,7 +29,7 @@ import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.apis.producer.TransactionResolution;
-import org.apache.rocketmq.client.java.message.MessageCommon;
+import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.message.MessageType;
 import org.apache.rocketmq.client.java.message.PublishingMessageImpl;
 import org.apache.rocketmq.client.java.route.Endpoints;
@@ -114,7 +114,7 @@ public class TransactionImplTest extends TestBase {
         final PublishingMessageImpl publishingMessage = transaction.tryAddMessage(message);
         final SendReceiptImpl sendReceipt = fakeSendReceiptImpl(fakeMessageQueueImpl(FAKE_TOPIC_0));
         transaction.tryAddReceipt(publishingMessage, sendReceipt);
-        Mockito.doNothing().when(producer).endTransaction(any(Endpoints.class), any(MessageCommon.class),
+        Mockito.doNothing().when(producer).endTransaction(any(Endpoints.class), any(GeneralMessage.class),
             any(MessageId.class), anyString(), any(TransactionResolution.class));
         transaction.commit();
     }
@@ -129,7 +129,7 @@ public class TransactionImplTest extends TestBase {
         final PublishingMessageImpl publishingMessage = transaction.tryAddMessage(message);
         final SendReceiptImpl sendReceipt = fakeSendReceiptImpl(fakeMessageQueueImpl(FAKE_TOPIC_0));
         transaction.tryAddReceipt(publishingMessage, sendReceipt);
-        Mockito.doNothing().when(producer).endTransaction(any(Endpoints.class), any(MessageCommon.class),
+        Mockito.doNothing().when(producer).endTransaction(any(Endpoints.class), any(GeneralMessage.class),
             any(MessageId.class), anyString(), any(TransactionResolution.class));
         transaction.rollback();
     }

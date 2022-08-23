@@ -23,7 +23,6 @@ import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext;
 import io.grpc.netty.shaded.io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.opentelemetry.api.common.Attributes;
-import io.opentelemetry.api.metrics.DoubleHistogram;
 import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.exporter.otlp.metrics.OtlpGrpcMetricExporter;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
@@ -37,7 +36,6 @@ import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
 import org.apache.rocketmq.client.java.impl.ClientImpl;
 import org.apache.rocketmq.client.java.route.Endpoints;
@@ -59,7 +57,6 @@ public class ClientMeterProvider {
 
     public ClientMeterProvider(ClientImpl client) {
         this.client = client;
-        this.client.registerMessageInterceptor(new MessageMeterInterceptor(this));
         this.clientMeter = ClientMeter.disabledInstance(client.clientId());
         this.messageCacheObserver = null;
     }
@@ -68,10 +65,11 @@ public class ClientMeterProvider {
         this.messageCacheObserver = messageCacheObserver;
     }
 
-    Optional<DoubleHistogram> getHistogramByEnum(HistogramEnum histogramEnum) {
-        return clientMeter.getHistogramByEnum(histogramEnum);
+    public void record(HistogramEnum histogramEnum, Attributes attributes, double value) {
+        clientMeter.record(histogramEnum, attributes, value);
     }
 
+    @SuppressWarnings("deprecation")
     public synchronized void reset(Metric metric) {
         final String clientId = client.clientId();
         try {
@@ -171,11 +169,8 @@ public class ClientMeterProvider {
         }
     }
 
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean isEnabled() {
         return clientMeter.isEnabled();
-    }
-
-    public ClientImpl getClient() {
-        return client;
     }
 }

@@ -30,7 +30,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
-import org.apache.rocketmq.client.java.hook.MessageInterceptor;
+import org.apache.rocketmq.client.java.hook.MessageHandler;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.misc.Dispatcher;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
@@ -46,18 +46,18 @@ public abstract class ConsumeService extends Dispatcher {
     protected final String clientId;
     private final MessageListener messageListener;
     private final ThreadPoolExecutor consumptionExecutor;
-    private final MessageInterceptor messageInterceptor;
+    private final MessageHandler messageHandler;
     private final ScheduledExecutorService scheduler;
 
     public ConsumeService(String clientId, ConcurrentMap<MessageQueueImpl, ProcessQueue> processQueueTable,
-        MessageListener messageListener, ThreadPoolExecutor consumptionExecutor, MessageInterceptor messageInterceptor,
+        MessageListener messageListener, ThreadPoolExecutor consumptionExecutor, MessageHandler messageHandler,
         ScheduledExecutorService scheduler) {
         super(clientId);
         this.clientId = clientId;
         this.processQueueTable = processQueueTable;
         this.messageListener = messageListener;
         this.consumptionExecutor = consumptionExecutor;
-        this.messageInterceptor = messageInterceptor;
+        this.messageHandler = messageHandler;
         this.scheduler = scheduler;
     }
 
@@ -67,7 +67,7 @@ public abstract class ConsumeService extends Dispatcher {
 
     public ListenableFuture<ConsumeResult> consume(MessageViewImpl messageView, Duration delay) {
         final ListeningExecutorService executorService = MoreExecutors.listeningDecorator(consumptionExecutor);
-        final ConsumeTask task = new ConsumeTask(clientId, messageListener, messageView, messageInterceptor);
+        final ConsumeTask task = new ConsumeTask(clientId, messageListener, messageView, messageHandler);
         // Consume message with no delay.
         if (Duration.ZERO.compareTo(delay) >= 0) {
             return executorService.submit(task);
