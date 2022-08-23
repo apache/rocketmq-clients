@@ -38,5 +38,6 @@ github:
     rebase: true
   protected_branches:
     master:
-      contexts:
-        - misspell-check
+      required_status_checks:
+        contexts:
+          - misspell-check
