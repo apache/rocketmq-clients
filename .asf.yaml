@@ -36,3 +36,9 @@ github:
     merge: false
     # Enable rebase button
     rebase: true
+  protected_branches:
+    master:
+      required_status_checks:
+        contexts:
+          - misspell-check
+          - check-license
