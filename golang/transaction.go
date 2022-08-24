@@ -67,7 +67,7 @@ func (t *transactionImpl) Commit() error {
 		err := t.producerImpl.(*defaultProducer).endTransaction(context.TODO(), sendReceipt.Endpoints,
 			pubMessage.msg.GetMessageCommon(), sendReceipt.MessageID, sendReceipt.TransactionId, COMMIT)
 		if err != nil {
-			sugarBaseLogger.Errorf("transaction message commit failed, err=%v", err)
+			sugarBaseLogger.Errorf("transaction message commit failed, err=%w", err)
 		}
 		return true
 	})
@@ -81,7 +81,7 @@ func (t *transactionImpl) RollBack() error {
 		err := t.producerImpl.(*defaultProducer).endTransaction(context.TODO(), sendReceipt.Endpoints,
 			pubMessage.msg.GetMessageCommon(), sendReceipt.MessageID, sendReceipt.TransactionId, ROLLBACK)
 		if err != nil {
-			sugarBaseLogger.Errorf("transaction message rollback failed, err=%v", err)
+			sugarBaseLogger.Errorf("transaction message rollback failed, err=%w", err)
 		}
 		return true
 	})

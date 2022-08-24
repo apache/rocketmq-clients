@@ -81,7 +81,7 @@ func (dcm *defaultClientMeter) shutdown() {
 		if ok {
 			err := oce.Stop()
 			if err != nil {
-				sugarBaseLogger.Errorf("ocExporter stop failed, err = %v", err)
+				sugarBaseLogger.Errorf("ocExporter stop failed, err=%w", err)
 			}
 		}
 	}

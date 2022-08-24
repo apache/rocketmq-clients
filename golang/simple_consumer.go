@@ -19,7 +19,6 @@ package golang
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -93,7 +92,10 @@ func (sc *defaultSimpleConsumer) changeInvisibleDuration0(messageView *MessageVi
 		sc.cli.log.Errorf("exception raised during message acknowledgement, messageId=%s, endpoints=%v", messageView.GetMessageId(), endpoints)
 	} else if resp.GetStatus().GetCode() != v2.Code_OK {
 		sc.cli.log.Errorf("failed to change message invisible duration, messageId=%s, endpoints=%v, code=%v, status message=[%s]", messageView.GetMessageId(), endpoints, resp.GetStatus().GetCode(), resp.GetStatus().GetMessage())
-		err = errors.New(resp.String())
+		err = &ErrRpcStatus{
+			Code:    int32(resp.Status.GetCode()),
+			Message: resp.GetStatus().GetMessage(),
+		}
 	}
 	if err != nil {
 		messageHookPointsStatus = MessageHookPointsStatus_ERROR
@@ -205,7 +207,7 @@ func (sc *defaultSimpleConsumer) receiveMessage(ctx context.Context, request *v2
 				break
 			}
 			if err != nil {
-				sc.cli.log.Errorf("simpleConsumer recv msg err=%v", err)
+				sc.cli.log.Errorf("simpleConsumer recv msg err=%w", err)
 				break
 			}
 			resps = append(resps, resp)
@@ -246,7 +248,10 @@ func (sc *defaultSimpleConsumer) receiveMessage(ctx context.Context, request *v2
 		if status.GetCode() == v2.Code_OK {
 			return messageViewList, nil
 		} else {
-			return nil, fmt.Errorf("[error] code=%d, message=%s", status.GetCode().Number(), status.GetMessage())
+			return nil, &ErrRpcStatus{
+				Code:    int32(status.GetCode()),
+				Message: status.GetMessage(),
+			}
 		}
 	}
 }
@@ -359,7 +364,7 @@ func (sc *defaultSimpleConsumer) Start() error {
 	}
 	err2 := sc.GracefulStop()
 	if err2 != nil {
-		return fmt.Errorf("startUp err = %v, shutdown err = %v", err, err2)
+		return fmt.Errorf("startUp err=%w, shutdown err=%w", err, err2)
 	}
 	return err
 }

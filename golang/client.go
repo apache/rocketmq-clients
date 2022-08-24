@@ -87,12 +87,12 @@ func (cs *defaultClientSession) startUp() {
 			if err != nil {
 				cs.release()
 
-				cs.cli.log.Errorf("telemetryCommand recv err = %v", err)
+				cs.cli.log.Errorf("telemetryCommand recv err=%w", err)
 				continue
 			}
 			err = cs.handleTelemetryCommand(response)
 			if err != nil {
-				cs.cli.log.Errorf("telemetryCommand recv err = %v", err)
+				cs.cli.log.Errorf("telemetryCommand recv err=%w", err)
 			}
 		}
 	}()
@@ -275,7 +275,10 @@ func (cli *defaultClient) queryRoute(ctx context.Context, topic string, duration
 		return nil, err
 	}
 	if response.GetStatus().GetCode() != v2.Code_OK {
-		return nil, fmt.Errorf("query route err = %s", response.String())
+		return nil, &ErrRpcStatus{
+			Code:    int32(response.Status.GetCode()),
+			Message: response.GetStatus().GetMessage(),
+		}
 	}
 
 	if len(response.GetMessageQueues()) == 0 {
@@ -337,9 +340,13 @@ func (cli *defaultClient) doHeartbeat(target string, request *v2.HeartbeatReques
 	}
 	if resp.Status.GetCode() != v2.Code_OK {
 		if resp.Status.GetCode() == v2.Code_UNRECOGNIZED_CLIENT_TYPE {
-			go cli.syncSettings()
+			go cli.trySyncSettings()
 		}
-		return fmt.Errorf("failed to send heartbeat, code=%v, status message=[%s], endpoints=%v", resp.Status.GetCode(), resp.Status.GetMessage(), endpoints)
+		cli.log.Errorf("failed to send heartbeat, code=%v, status message=[%s], endpoints=%v", resp.Status.GetCode(), resp.Status.GetMessage(), endpoints)
+		return &ErrRpcStatus{
+			Code:    int32(resp.Status.GetCode()),
+			Message: resp.GetStatus().GetMessage(),
+		}
 	}
 	cli.log.Infof("send heartbeat successfully, endpoints=%v", endpoints)
 	switch p := cli.clientImpl.(type) {
@@ -364,7 +371,7 @@ func (cli *defaultClient) Heartbeat() {
 	}
 }
 
-func (cli *defaultClient) syncSettings() {
+func (cli *defaultClient) trySyncSettings() {
 	cli.log.Info("start syncSetting")
 	command := cli.getSettingsCommand()
 	targets := cli.getTotalTargets()
@@ -373,25 +380,37 @@ func (cli *defaultClient) syncSettings() {
 	}
 }
 
-func (cli *defaultClient) telemeter(target string, command *v2.TelemetryCommand) {
+func (cli *defaultClient) mustSyncSettings() error {
+	cli.log.Info("start syncSetting")
+	command := cli.getSettingsCommand()
+	targets := cli.getTotalTargets()
+	for _, target := range targets {
+		if err := cli.telemeter(target, command); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (cli *defaultClient) telemeter(target string, command *v2.TelemetryCommand) error {
 	cs, err := cli.getDefaultClientSession(target)
 	if err != nil {
 		cli.log.Error("getDefaultClientSession failed, err=%v", target, err)
-		return
+		return err
 	}
 	ctx := cli.Sign(context.Background())
 	err = cs.publish(ctx, command)
 	if err != nil {
 		cli.log.Error("telemeter to %s failed, err=%v", target, err)
-		return
+		return err
 	}
 	cli.log.Infof("telemeter to %s success", target)
+	return nil
 }
 
 func (cli *defaultClient) startUp() error {
 	cli.log.Infof("begin to start the rocketmq client")
 	cli.clientManager = defaultClientManagerRegistry.RegisterClient(cli)
-
 	for _, topic := range cli.initTopics {
 		maxAttempts := int(cli.settings.GetRetryPolicy().GetMaxAttempts())
 		for i := 0; i < maxAttempts; i++ {
@@ -411,7 +430,9 @@ func (cli *defaultClient) startUp() error {
 			}
 		}
 	}
-
+	if err := cli.mustSyncSettings(); err != nil {
+		return err
+	}
 	f := func() {
 		cli.router.Range(func(k, v interface{}) bool {
 			topic := k.(string)
@@ -512,7 +533,7 @@ func (cli *defaultClient) onSettingsCommand(endpoints *v2.Endpoints, settings *v
 func (cli *defaultClient) onRecoverOrphanedTransactionCommand(endpoints *v2.Endpoints, command *v2.RecoverOrphanedTransactionCommand) {
 	if p, ok := cli.clientImpl.(*defaultProducer); ok {
 		if err := p.onRecoverOrphanedTransactionCommand(endpoints, command); err != nil {
-			cli.log.Errorf("onRecoverOrphanedTransactionCommand err = %v", err)
+			cli.log.Errorf("onRecoverOrphanedTransactionCommand err=%w", err)
 		}
 	} else {
 		cli.log.Infof("ignore orphaned transaction recovery command from remote, which is not expected, command=%v", command)

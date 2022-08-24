@@ -70,7 +70,7 @@ var NewRpcClient = func(target string, opts ...RpcClientOption) (RpcClient, erro
 	}
 	conn, err := rc.opts.clientConnFunc(target, rc.opts.connOptions...)
 	if err != nil {
-		return nil, fmt.Errorf("create grpc conn failed, err=%v", err)
+		return nil, fmt.Errorf("create grpc conn failed, err=%w", err)
 	}
 	rc.conn = conn
 	rc.msc = v2.NewMessagingServiceClient(conn.Conn())

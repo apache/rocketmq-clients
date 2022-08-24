@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// TODO: no global clientManager
 type ClientManager interface {
 	RegisterClient(client Client)
 	UnRegisterClient(client Client)
@@ -211,7 +212,7 @@ func (cm *defaultClientManager) syncSettings() {
 	sugarBaseLogger.Info("clientManager start syncSettings")
 	cm.clientTable.Range(func(_, v interface{}) bool {
 		client := v.(*defaultClient)
-		client.syncSettings()
+		client.trySyncSettings()
 		return true
 	})
 }
@@ -263,7 +264,7 @@ func (cm *defaultClientManager) handleGrpcError(rpcClient RpcClient, err error) 
 	if err != nil {
 		if e, ok := status.FromError(err); ok {
 			if e.Code() == codes.Unavailable {
-				sugarBaseLogger.Errorf("happened unavailable error=%v, close rpcClient=%s", err, rpcClient.GetTarget())
+				sugarBaseLogger.Errorf("happened unavailable err=%w, close rpcClient=%s", err, rpcClient.GetTarget())
 				cm.rpcClientTableLock.Lock()
 				defer cm.rpcClientTableLock.Unlock()
 				cm.deleteRpcClient(rpcClient)

@@ -19,7 +19,6 @@ package golang
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -57,9 +56,9 @@ func (p *defaultProducer) Start() error {
 	}
 	err2 := p.GracefulStop()
 	if err2 != nil {
-		return fmt.Errorf("startUp err = %v, shutdown err = %v", err, err2)
+		return fmt.Errorf("startUp err=%w, shutdown err=%w", err, err2)
 	}
-	return fmt.Errorf("startUp err = %v", err)
+	return fmt.Errorf("startUp err=%w", err)
 }
 
 var _ = Producer(&defaultProducer{})
@@ -208,7 +207,10 @@ func (p *defaultProducer) send1(ctx context.Context, topic string, messageType v
 	tooManyRequests := false
 	if err == nil && resp.GetStatus().GetCode() != v2.Code_OK {
 		tooManyRequests = resp.GetStatus().GetCode() == v2.Code_TOO_MANY_REQUESTS
-		err = errors.New(resp.String())
+		err = &ErrRpcStatus{
+			Code:    int32(resp.Status.GetCode()),
+			Message: resp.GetStatus().GetMessage(),
+		}
 	}
 	if err != nil {
 		messageHookPointsStatus = MessageHookPointsStatus_ERROR
@@ -414,7 +416,10 @@ func (p *defaultProducer) endTransaction(ctx context.Context, endpoints *v2.Endp
 	duration := time.Since(watchTime)
 	messageHookPointsStatus := MessageHookPointsStatus_OK
 	if err == nil && resp.GetStatus().GetCode() != v2.Code_OK {
-		err = errors.New(resp.String())
+		err = &ErrRpcStatus{
+			Code:    int32(resp.Status.GetCode()),
+			Message: resp.GetStatus().GetMessage(),
+		}
 	}
 	if err != nil {
 		messageHookPointsStatus = MessageHookPointsStatus_ERROR
@@ -435,7 +440,7 @@ func (p *defaultProducer) onRecoverOrphanedTransactionCommand(endpoints *v2.Endp
 		err := p.endTransaction(context.TODO(), endpoints,
 			mv.GetMessageCommon(), messageId, transactionId, resolution)
 		if err != nil {
-			p.cli.log.Errorf("exception raised while ending the transaction, messageId=%s, transactionId=%s, endpoints=%v, err=%v\n", messageId, transactionId, endpoints, err)
+			p.cli.log.Errorf("exception raised while ending the transaction, messageId=%s, transactionId=%s, endpoints=%v, err=%w\n", messageId, transactionId, endpoints, err)
 		}
 	}(messageView)
 	return nil
