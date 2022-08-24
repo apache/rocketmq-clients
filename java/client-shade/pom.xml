@@ -41,6 +41,10 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>rocketmq-client-java-noshade</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.apache.tomcat</groupId>
+            <artifactId>annotations-api</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
@@ -56,6 +60,11 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <artifactSet>
+                                <excludes>
+                                    <exclude>org.apache.tomcat:annotations-api</exclude>
+                                </excludes>
+                            </artifactSet>
                             <minimizeJar>false</minimizeJar>
                             <createSourcesJar>true</createSourcesJar>
                             <shadeSourcesContent>true</shadeSourcesContent>
