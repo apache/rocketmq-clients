@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import org.apache.rocketmq.client.java.impl.ClientType;
 import org.apache.rocketmq.client.java.impl.Settings;
 import org.apache.rocketmq.client.java.impl.UserAgent;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.retry.ExponentialBackoffRetryPolicy;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
@@ -43,7 +44,7 @@ public class PublishingSettings extends Settings {
     private volatile int maxBodySizeBytes = 4 * 1024 * 1024;
     private volatile boolean validateMessageType = true;
 
-    public PublishingSettings(String clientId, Endpoints accessPoint, ExponentialBackoffRetryPolicy retryPolicy,
+    public PublishingSettings(ClientId clientId, Endpoints accessPoint, ExponentialBackoffRetryPolicy retryPolicy,
         Duration requestTimeout, Set<String> topics) {
         super(clientId, ClientType.PRODUCER, accessPoint, retryPolicy, requestTimeout);
         this.topics = topics;

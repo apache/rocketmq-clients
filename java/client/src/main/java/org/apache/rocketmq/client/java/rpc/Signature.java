@@ -27,6 +27,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.SessionCredentials;
 import org.apache.rocketmq.client.apis.SessionCredentialsProvider;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.misc.MetadataUtils;
 import org.apache.rocketmq.client.java.misc.RequestIdGenerator;
 import org.apache.rocketmq.client.java.misc.Utilities;
@@ -52,7 +53,7 @@ public class Signature {
     private Signature() {
     }
 
-    public static Metadata sign(ClientConfiguration config, String clientId) throws
+    public static Metadata sign(ClientConfiguration config, ClientId clientId) throws
         NoSuchAlgorithmException, InvalidKeyException {
         Metadata metadata = new Metadata();
 
@@ -67,7 +68,7 @@ public class Signature {
         final String requestId = RequestIdGenerator.getInstance().next();
         metadata.put(Metadata.Key.of(REQUEST_ID_KEY, Metadata.ASCII_STRING_MARSHALLER), requestId);
 
-        metadata.put(Metadata.Key.of(CLIENT_ID_KEY, Metadata.ASCII_STRING_MARSHALLER), clientId);
+        metadata.put(Metadata.Key.of(CLIENT_ID_KEY, Metadata.ASCII_STRING_MARSHALLER), clientId.toString());
 
         final Optional<SessionCredentialsProvider> optionalSessionCredentialsProvider =
             config.getCredentialsProvider();

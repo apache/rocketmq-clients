@@ -19,17 +19,18 @@ package org.apache.rocketmq.client.java.impl;
 
 import com.google.common.base.MoreObjects;
 import java.time.Duration;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
 
 public abstract class Settings {
-    protected final String clientId;
+    protected final ClientId clientId;
     protected final ClientType clientType;
     protected final Endpoints accessPoint;
     protected volatile RetryPolicy retryPolicy;
     protected final Duration requestTimeout;
 
-    public Settings(String clientId, ClientType clientType, Endpoints accessPoint, RetryPolicy retryPolicy,
+    public Settings(ClientId clientId, ClientType clientType, Endpoints accessPoint, RetryPolicy retryPolicy,
         Duration requestTimeout) {
         this.clientId = clientId;
         this.clientType = clientType;
@@ -38,7 +39,7 @@ public abstract class Settings {
         this.requestTimeout = requestTimeout;
     }
 
-    public Settings(String clientId, ClientType clientType, Endpoints accessPoint, Duration requestTimeout) {
+    public Settings(ClientId clientId, ClientType clientType, Endpoints accessPoint, Duration requestTimeout) {
         this(clientId, clientType, accessPoint, null, requestTimeout);
     }
 

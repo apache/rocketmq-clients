@@ -39,6 +39,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.rpc.AuthInterceptor;
 import org.apache.rocketmq.client.java.rpc.IpNameResolverFactory;
@@ -52,12 +53,12 @@ public class ClientMeterManager {
     private static final Duration METRIC_READER_INTERVAL = Duration.ofMinutes(1);
     private static final String METRIC_INSTRUMENTATION_NAME = "org.apache.rocketmq.message";
 
-    private final String clientId;
+    private final ClientId clientId;
     private final ClientConfiguration clientConfiguration;
     private volatile ClientMeter clientMeter;
     private volatile GaugeObserver gaugeObserver = GaugeObserver.EMPTY;
 
-    public ClientMeterManager(String clientId, ClientConfiguration clientConfiguration) {
+    public ClientMeterManager(ClientId clientId, ClientConfiguration clientConfiguration) {
         this.clientId = clientId;
         this.clientConfiguration = clientConfiguration;
         this.clientMeter = ClientMeter.disabledInstance(clientId);

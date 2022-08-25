@@ -33,6 +33,7 @@ import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.impl.Client;
 import org.apache.rocketmq.client.java.impl.ClientImpl;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -45,8 +46,8 @@ public class MessageMeterHandlerTest extends TestBase {
         final ClientImpl producer = Mockito.mock(ClientImpl.class);
         final ClientMeterManager meterManager = Mockito.mock(ClientMeterManager.class);
         Mockito.doReturn(true).when(meterManager).isEnabled();
-        String clientId = "clientId";
-        Mockito.doReturn(clientId).when(producer).clientId();
+        ClientId clientId = new ClientId();
+        Mockito.doReturn(clientId).when(producer).getClientId();
         final MessageMeterHandler meterHandler = new MessageMeterHandler(producer, meterManager);
         final GeneralMessage message = Mockito.mock(GeneralMessage.class);
         String topic = FAKE_TOPIC_0;
@@ -63,7 +64,7 @@ public class MessageMeterHandlerTest extends TestBase {
             .record(Mockito.eq(HistogramEnum.SEND_COST_TIME), attributesArgumentCaptor.capture(), Mockito.anyDouble());
         final Attributes attributes = attributesArgumentCaptor.getValue();
         assertEquals(topic, attributes.get(MetricLabels.TOPIC));
-        assertEquals(clientId, attributes.get(MetricLabels.CLIENT_ID));
+        assertEquals(clientId.toString(), attributes.get(MetricLabels.CLIENT_ID));
         assertEquals(InvocationStatus.SUCCESS.getName(), attributes.get(MetricLabels.INVOCATION_STATUS));
     }
 
@@ -72,8 +73,8 @@ public class MessageMeterHandlerTest extends TestBase {
         final ClientImpl producer = Mockito.mock(ClientImpl.class);
         final ClientMeterManager meterManager = Mockito.mock(ClientMeterManager.class);
         Mockito.doReturn(true).when(meterManager).isEnabled();
-        String clientId = "clientId";
-        Mockito.doReturn(clientId).when(producer).clientId();
+        ClientId clientId = new ClientId();
+        Mockito.doReturn(clientId).when(producer).getClientId();
         final MessageMeterHandler meterHandler = new MessageMeterHandler(producer, meterManager);
         final GeneralMessage message = Mockito.mock(GeneralMessage.class);
         String topic = FAKE_TOPIC_0;
@@ -89,7 +90,7 @@ public class MessageMeterHandlerTest extends TestBase {
             .record(Mockito.eq(HistogramEnum.SEND_COST_TIME), attributesArgumentCaptor.capture(), Mockito.anyDouble());
         final Attributes attributes = attributesArgumentCaptor.getValue();
         assertEquals(topic, attributes.get(MetricLabels.TOPIC));
-        assertEquals(clientId, attributes.get(MetricLabels.CLIENT_ID));
+        assertEquals(clientId.toString(), attributes.get(MetricLabels.CLIENT_ID));
         assertEquals(InvocationStatus.FAILURE.getName(), attributes.get(MetricLabels.INVOCATION_STATUS));
     }
 
@@ -98,8 +99,8 @@ public class MessageMeterHandlerTest extends TestBase {
         final ClientImpl producer = Mockito.mock(ClientImpl.class);
         final ClientMeterManager meterManager = Mockito.mock(ClientMeterManager.class);
         Mockito.doReturn(true).when(meterManager).isEnabled();
-        String clientId = "clientId";
-        Mockito.doReturn(clientId).when(producer).clientId();
+        ClientId clientId = new ClientId();
+        Mockito.doReturn(clientId).when(producer).getClientId();
         final MessageMeterHandler meterHandler = new MessageMeterHandler(producer, meterManager);
         final GeneralMessage message = Mockito.mock(GeneralMessage.class);
         String topic = FAKE_TOPIC_0;
@@ -115,7 +116,7 @@ public class MessageMeterHandlerTest extends TestBase {
             .record(Mockito.eq(HistogramEnum.SEND_COST_TIME), attributesArgumentCaptor.capture(), Mockito.anyDouble());
         final Attributes attributes = attributesArgumentCaptor.getValue();
         assertEquals(topic, attributes.get(MetricLabels.TOPIC));
-        assertEquals(clientId, attributes.get(MetricLabels.CLIENT_ID));
+        assertEquals(clientId.toString(), attributes.get(MetricLabels.CLIENT_ID));
         assertEquals(InvocationStatus.FAILURE.getName(), attributes.get(MetricLabels.INVOCATION_STATUS));
     }
 
@@ -132,8 +133,8 @@ public class MessageMeterHandlerTest extends TestBase {
         Mockito.doReturn(consumerGroup).when(pushConsumer).getConsumerGroup();
         final ClientMeterManager meterManager = Mockito.mock(ClientMeterManager.class);
         Mockito.doReturn(true).when(meterManager).isEnabled();
-        String clientId = "clientId";
-        Mockito.doReturn(clientId).when(pushConsumer).clientId();
+        ClientId clientId = new ClientId();
+        Mockito.doReturn(clientId).when(pushConsumer).getClientId();
         final MessageMeterHandler meterHandler = new MessageMeterHandler(pushConsumer, meterManager);
         final GeneralMessage message = Mockito.mock(GeneralMessage.class);
         String topic = FAKE_TOPIC_0;
@@ -160,8 +161,8 @@ public class MessageMeterHandlerTest extends TestBase {
         Mockito.doReturn(FAKE_CONSUMER_GROUP_0).when(pushConsumer).getConsumerGroup();
         final ClientMeterManager meterManager = Mockito.mock(ClientMeterManager.class);
         Mockito.doReturn(true).when(meterManager).isEnabled();
-        String clientId = "clientId";
-        Mockito.doReturn(clientId).when(pushConsumer).clientId();
+        ClientId clientId = new ClientId();
+        Mockito.doReturn(clientId).when(pushConsumer).getClientId();
         final MessageMeterHandler meterHandler = new MessageMeterHandler(pushConsumer, meterManager);
         final GeneralMessage message = Mockito.mock(GeneralMessage.class);
         Mockito.doReturn(FAKE_TOPIC_0).when(message).getTopic();
@@ -181,8 +182,8 @@ public class MessageMeterHandlerTest extends TestBase {
         Mockito.doReturn(consumerGroup).when(simpleConsumer).getConsumerGroup();
         final ClientMeterManager meterManager = Mockito.mock(ClientMeterManager.class);
         Mockito.doReturn(true).when(meterManager).isEnabled();
-        String clientId = "clientId";
-        Mockito.doReturn(clientId).when(simpleConsumer).clientId();
+        ClientId clientId = new ClientId();
+        Mockito.doReturn(clientId).when(simpleConsumer).getClientId();
         final MessageMeterHandler meterHandler = new MessageMeterHandler(simpleConsumer, meterManager);
         final GeneralMessage message = Mockito.mock(GeneralMessage.class);
         String topic = FAKE_TOPIC_0;
@@ -210,8 +211,8 @@ public class MessageMeterHandlerTest extends TestBase {
         Mockito.doReturn(consumerGroup).when(pushConsumer).getConsumerGroup();
         final ClientMeterManager meterManager = Mockito.mock(ClientMeterManager.class);
         Mockito.doReturn(true).when(meterManager).isEnabled();
-        String clientId = "clientId";
-        Mockito.doReturn(clientId).when(pushConsumer).clientId();
+        ClientId clientId = new ClientId();
+        Mockito.doReturn(clientId).when(pushConsumer).getClientId();
         final MessageMeterHandler meterHandler = new MessageMeterHandler(pushConsumer, meterManager);
         List<GeneralMessage> generalMessages = new ArrayList<>();
         final GeneralMessage message = Mockito.mock(GeneralMessage.class);
@@ -232,7 +233,7 @@ public class MessageMeterHandlerTest extends TestBase {
         final Attributes attributes0 = attributes0ArgumentCaptor.getValue();
         assertEquals(topic, attributes0.get(MetricLabels.TOPIC));
         assertEquals(consumerGroup, attributes0.get(MetricLabels.CONSUMER_GROUP));
-        assertEquals(clientId, attributes0.get(MetricLabels.CLIENT_ID));
+        assertEquals(clientId.toString(), attributes0.get(MetricLabels.CLIENT_ID));
         assertNotNull(context.getAttributes().get(MessageMeterHandler.CONSUME_STOPWATCH_KEY));
 
         context.setStatus(MessageHookPointsStatus.OK);
@@ -244,7 +245,7 @@ public class MessageMeterHandlerTest extends TestBase {
         final Attributes attributes1 = attributes1ArgumentCaptor.getValue();
         assertEquals(topic, attributes1.get(MetricLabels.TOPIC));
         assertEquals(consumerGroup, attributes1.get(MetricLabels.CONSUMER_GROUP));
-        assertEquals(clientId, attributes1.get(MetricLabels.CLIENT_ID));
+        assertEquals(clientId.toString(), attributes1.get(MetricLabels.CLIENT_ID));
         assertEquals(InvocationStatus.SUCCESS.getName(), attributes1.get(MetricLabels.INVOCATION_STATUS));
     }
 }

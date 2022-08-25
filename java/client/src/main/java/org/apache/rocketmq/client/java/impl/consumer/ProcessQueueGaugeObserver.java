@@ -26,15 +26,16 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.rocketmq.client.java.metrics.GaugeEnum;
 import org.apache.rocketmq.client.java.metrics.GaugeObserver;
 import org.apache.rocketmq.client.java.metrics.MetricLabels;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 
 public class ProcessQueueGaugeObserver implements GaugeObserver {
     private final ConcurrentMap<MessageQueueImpl, ProcessQueue> processQueueTable;
-    private final String clientId;
+    private final ClientId clientId;
     private final String consumerGroup;
     private final List<GaugeEnum> gauges;
 
-    public ProcessQueueGaugeObserver(ConcurrentMap<MessageQueueImpl, ProcessQueue> processQueueTable, String clientId,
+    public ProcessQueueGaugeObserver(ConcurrentMap<MessageQueueImpl, ProcessQueue> processQueueTable, ClientId clientId,
         String consumerGroup) {
         this.processQueueTable = processQueueTable;
         this.clientId = clientId;
@@ -59,7 +60,7 @@ public class ProcessQueueGaugeObserver implements GaugeObserver {
                     Attributes attributes = Attributes.builder()
                         .put(MetricLabels.TOPIC, topic)
                         .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
-                        .put(MetricLabels.CLIENT_ID, clientId)
+                        .put(MetricLabels.CLIENT_ID, clientId.toString())
                         .build();
                     double count = cachedMessageCountMap.containsKey(attributes) ?
                         cachedMessageCountMap.get(attributes) : 0;
@@ -75,7 +76,7 @@ public class ProcessQueueGaugeObserver implements GaugeObserver {
                     Attributes attributes = Attributes.builder()
                         .put(MetricLabels.TOPIC, topic)
                         .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
-                        .put(MetricLabels.CLIENT_ID, clientId)
+                        .put(MetricLabels.CLIENT_ID, clientId.toString())
                         .build();
                     double bytes = cachedMessageBytesMap.containsKey(attributes) ?
                         cachedMessageBytesMap.get(attributes) : 0;

@@ -17,34 +17,40 @@
 
 package org.apache.rocketmq.client.java.misc;
 
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class ThreadFactoryImpl implements ThreadFactory {
-    public static final String THREAD_PREFIX = "Rocketmq";
+public class ClientId {
+    private static final AtomicLong INDEX = new AtomicLong(0);
+    private static final String CLIENT_ID_SEPARATOR = "@";
 
-    private static final AtomicLong THREAD_INDEX = new AtomicLong(0);
-    private final String customName;
-    private final boolean daemon;
+    private final long index;
+    private final String id;
 
-    public ThreadFactoryImpl(final String customName) {
-        this(customName, false);
+    public ClientId() {
+        this.index = INDEX.getAndIncrement();
+        StringBuilder sb = new StringBuilder();
+        final String hostName = Utilities.hostName();
+        sb.append(hostName);
+        sb.append(CLIENT_ID_SEPARATOR);
+        sb.append(Utilities.processId());
+        sb.append(CLIENT_ID_SEPARATOR);
+        sb.append(index);
+        sb.append(CLIENT_ID_SEPARATOR);
+        sb.append(Long.toString(System.nanoTime(), 36));
+        this.id = sb.toString();
     }
 
-    public ThreadFactoryImpl(final String customName, final long clientIndex) {
-        this(customName + "-" + clientIndex, false);
+    /**
+     * Client index within current process.
+     *
+     * @return index.
+     */
+    public long getIndex() {
+        return index;
     }
 
-    public ThreadFactoryImpl(final String customName, boolean daemon) {
-        this.customName = customName;
-        this.daemon = daemon;
-    }
-
-    @SuppressWarnings("NullableProblems")
     @Override
-    public Thread newThread(Runnable r) {
-        Thread thread = new Thread(r, THREAD_PREFIX + customName + "-" + THREAD_INDEX.incrementAndGet());
-        thread.setDaemon(daemon);
-        return thread;
+    public String toString() {
+        return id;
     }
 }

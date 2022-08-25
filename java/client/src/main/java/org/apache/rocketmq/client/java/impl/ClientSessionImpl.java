@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.impl.producer.ClientSessionHandler;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,7 +56,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
     }
 
     private void renewRequestObserver() {
-        final String clientId = sessionHandler.clientId();
+        final ClientId clientId = sessionHandler.getClientId();
         try {
             if (sessionHandler.isEndpointsDeprecated(endpoints)) {
                 LOGGER.info("Endpoints is deprecated, no longer to renew requestObserver, endpoints={}, clientId={}",
@@ -90,7 +91,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
      * Release telemetry session.
      */
     public void release() {
-        final String clientId = sessionHandler.clientId();
+        final ClientId clientId = sessionHandler.getClientId();
         if (null == requestObserver) {
             LOGGER.error("[Bug] request observer does not exist, no need to release, endpoints={}, clientId={}",
                 endpoints, clientId);
@@ -107,7 +108,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
     void write(TelemetryCommand command) {
         if (null == requestObserver) {
             LOGGER.error("[Bug] Request observer does not exist, ignore current command, endpoints={}, command={}, "
-                + "clientId={}", endpoints, command, sessionHandler.clientId());
+                + "clientId={}", endpoints, command, sessionHandler.getClientId());
             return;
         }
         requestObserver.onNext(command);
@@ -115,7 +116,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
 
     @Override
     public void onNext(TelemetryCommand command) {
-        final String clientId = sessionHandler.clientId();
+        final ClientId clientId = sessionHandler.getClientId();
         try {
             switch (command.getCommandCase()) {
                 case SETTINGS: {
@@ -160,7 +161,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
 
     @Override
     public void onError(Throwable throwable) {
-        final String clientId = sessionHandler.clientId();
+        final ClientId clientId = sessionHandler.getClientId();
         LOGGER.error("Exception raised from stream response observer, clientId={}, endpoints={}", clientId, endpoints,
             throwable);
         release();
@@ -175,7 +176,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
 
     @Override
     public void onCompleted() {
-        final String clientId = sessionHandler.clientId();
+        final ClientId clientId = sessionHandler.getClientId();
         LOGGER.info("Receive completion for stream response observer, clientId={}, endpoints={}", clientId, endpoints);
         release();
         if (!sessionHandler.isRunning()) {

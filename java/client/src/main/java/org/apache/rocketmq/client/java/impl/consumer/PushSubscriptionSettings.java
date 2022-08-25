@@ -33,6 +33,7 @@ import org.apache.rocketmq.client.java.impl.ClientType;
 import org.apache.rocketmq.client.java.impl.Settings;
 import org.apache.rocketmq.client.java.impl.UserAgent;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.retry.CustomizedBackoffRetryPolicy;
 import org.apache.rocketmq.client.java.retry.ExponentialBackoffRetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
@@ -48,7 +49,7 @@ public class PushSubscriptionSettings extends Settings {
     private volatile int receiveBatchSize = 32;
     private volatile Duration longPollingTimeout = Duration.ofSeconds(30);
 
-    public PushSubscriptionSettings(String clientId, Endpoints endpoints, Resource group,
+    public PushSubscriptionSettings(ClientId clientId, Endpoints endpoints, Resource group,
         Duration requestTimeout, Map<String, FilterExpression> subscriptionExpression) {
         super(clientId, ClientType.PUSH_CONSUMER, endpoints, requestTimeout);
         this.group = group;

@@ -29,11 +29,9 @@ import static org.mockito.Mockito.when;
 
 import apache.rocketmq.v2.AckMessageRequest;
 import apache.rocketmq.v2.AckMessageResponse;
-import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueResponse;
 import apache.rocketmq.v2.ReceiveMessageRequest;
-import apache.rocketmq.v2.Status;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
@@ -46,14 +44,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
-import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.misc.RequestIdGenerator;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
-import org.apache.rocketmq.client.java.rpc.Context;
 import org.apache.rocketmq.client.java.rpc.RpcFuture;
 import org.apache.rocketmq.client.java.rpc.Signature;
 import org.apache.rocketmq.client.java.tool.TestBase;
@@ -75,8 +71,6 @@ public class ProcessQueueImplTest extends TestBase {
     private RetryPolicy retryPolicy;
 
     private AtomicLong consumptionOkQuantity;
-    private AtomicLong consumptionErrorQuantity;
-    private AtomicLong receivedMessagesQuantity;
 
     private final FilterExpression filterExpression = FilterExpression.SUB_ALL;
 
@@ -92,7 +86,7 @@ public class ProcessQueueImplTest extends TestBase {
         field0.setAccessible(true);
         field0.set(pushConsumer, consumptionOkQuantity);
 
-        this.consumptionErrorQuantity = new AtomicLong(0);
+        AtomicLong consumptionErrorQuantity = new AtomicLong(0);
         Field field1 = PushConsumerImpl.class.getDeclaredField("consumptionErrorQuantity");
         field1.setAccessible(true);
         field1.set(pushConsumer, consumptionErrorQuantity);
@@ -100,7 +94,7 @@ public class ProcessQueueImplTest extends TestBase {
         when(pushConsumer.getPushConsumerSettings()).thenReturn(pushSubscriptionSettings);
         when(pushConsumer.getScheduler()).thenReturn(SCHEDULER);
 
-        this.receivedMessagesQuantity = new AtomicLong(0);
+        AtomicLong receivedMessagesQuantity = new AtomicLong(0);
         when(pushConsumer.getReceivedMessagesQuantity()).thenReturn(receivedMessagesQuantity);
         when(pushConsumer.getConsumeService()).thenReturn(consumeService);
     }
@@ -151,20 +145,17 @@ public class ProcessQueueImplTest extends TestBase {
     }
 
     @Test
-    public void testReceiveMessageImmediately() throws InterruptedException, ClientException {
+    public void testReceiveMessageImmediately() {
         final int cachedMessagesCountThresholdPerQueue = 8;
         when(pushConsumer.cacheMessageCountThresholdPerQueue()).thenReturn(cachedMessagesCountThresholdPerQueue);
         final int cachedMessageBytesThresholdPerQueue = 1024;
         when(pushConsumer.cacheMessageBytesThresholdPerQueue()).thenReturn(cachedMessageBytesThresholdPerQueue);
-        Status status = Status.newBuilder().setCode(Code.OK).build();
         List<MessageViewImpl> messageViewList = new ArrayList<>();
         final MessageViewImpl messageView = fakeMessageViewImpl();
         messageViewList.add(messageView);
         final Metadata metadata = new Metadata();
         metadata.put(Metadata.Key.of(Signature.REQUEST_ID_KEY, Metadata.ASCII_STRING_MARSHALLER),
             RequestIdGenerator.getInstance().next());
-        Context context = new Context(fakeEndpoints(), metadata);
-
         ReceiveMessageResult receiveMessageResult = new ReceiveMessageResult(fakeEndpoints(), messageViewList);
         SettableFuture<ReceiveMessageResult> future0 = SettableFuture.create();
         future0.set(receiveMessageResult);

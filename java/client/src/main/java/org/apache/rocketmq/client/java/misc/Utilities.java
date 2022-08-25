@@ -33,7 +33,6 @@ import java.util.Enumeration;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.CRC32;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
@@ -46,8 +45,6 @@ public class Utilities {
 
     private static final String OS_NAME = "os.name";
     private static final String OS_VERSION = "os.version";
-
-    private static final AtomicLong CLIENT_INDEX = new AtomicLong(0);
 
     private static final Random RANDOM = new SecureRandom();
     private static final int PROCESS_ID_NOT_SET = -2;
@@ -71,8 +68,6 @@ public class Utilities {
      */
     private static final char[] DIGITS_UPPER = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D',
         'E', 'F'};
-
-    private static final String CLIENT_ID_SEPARATOR = "@";
 
     private Utilities() {
     }
@@ -274,19 +269,6 @@ public class Utilities {
             result.append(e);
         }
         return result.toString();
-    }
-
-    public static String genClientId() {
-        StringBuilder sb = new StringBuilder();
-        final String hostName = Utilities.hostName();
-        sb.append(hostName);
-        sb.append(CLIENT_ID_SEPARATOR);
-        sb.append(Utilities.processId());
-        sb.append(CLIENT_ID_SEPARATOR);
-        sb.append(CLIENT_INDEX.getAndIncrement());
-        sb.append(CLIENT_ID_SEPARATOR);
-        sb.append(Long.toString(System.nanoTime(), 36));
-        return sb.toString();
     }
 
     public static String getOsDescription() {

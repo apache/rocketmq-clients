@@ -32,6 +32,7 @@ import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.java.hook.MessageHandler;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.misc.Dispatcher;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.slf4j.Logger;
@@ -43,13 +44,13 @@ public abstract class ConsumeService extends Dispatcher {
 
     protected final ConcurrentMap<MessageQueueImpl, ProcessQueue> processQueueTable;
 
-    protected final String clientId;
+    protected final ClientId clientId;
     private final MessageListener messageListener;
     private final ThreadPoolExecutor consumptionExecutor;
     private final MessageHandler messageHandler;
     private final ScheduledExecutorService scheduler;
 
-    public ConsumeService(String clientId, ConcurrentMap<MessageQueueImpl, ProcessQueue> processQueueTable,
+    public ConsumeService(ClientId clientId, ConcurrentMap<MessageQueueImpl, ProcessQueue> processQueueTable,
         MessageListener messageListener, ThreadPoolExecutor consumptionExecutor, MessageHandler messageHandler,
         ScheduledExecutorService scheduler) {
         super(clientId);

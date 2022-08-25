@@ -58,14 +58,14 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class Dispatcher extends AbstractIdleService {
     private static final Logger LOGGER = LoggerFactory.getLogger(Dispatcher.class);
-    private final String clientId;
+    private final ClientId clientId;
     /**
      * Flag indicates that whether task is queued or not.
      */
     private final AtomicBoolean dispatched;
     private final ThreadPoolExecutor dispatcherExecutor;
 
-    public Dispatcher(String clientId) {
+    public Dispatcher(ClientId clientId) {
         this.clientId = clientId;
         this.dispatched = new AtomicBoolean(false);
         this.dispatcherExecutor = new ThreadPoolExecutor(
@@ -74,7 +74,7 @@ public abstract class Dispatcher extends AbstractIdleService {
             60,
             TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(),
-            new ThreadFactoryImpl("Dispatcher"));
+            new ThreadFactoryImpl("Dispatcher", clientId.getIndex()));
     }
 
     @Override
@@ -114,5 +114,10 @@ public abstract class Dispatcher extends AbstractIdleService {
                 }
             }
         }
+    }
+
+    @Override
+    protected String serviceName() {
+        return super.serviceName() + "-" + clientId.getIndex();
     }
 }

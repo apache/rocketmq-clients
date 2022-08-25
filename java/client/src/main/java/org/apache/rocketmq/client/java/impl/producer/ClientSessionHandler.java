@@ -25,6 +25,7 @@ import apache.rocketmq.v2.VerifyMessageCommand;
 import io.grpc.stub.StreamObserver;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.rocketmq.client.apis.ClientException;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.route.Endpoints;
 
 public interface ClientSessionHandler {
@@ -51,7 +52,7 @@ public interface ClientSessionHandler {
      *
      * @return client identifier.
      */
-    String clientId();
+    ClientId getClientId();
 
     /**
      * Get the settings of client.

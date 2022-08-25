@@ -25,6 +25,7 @@ import io.grpc.ForwardingClientCall;
 import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,9 +33,9 @@ public class AuthInterceptor implements ClientInterceptor {
     private static final Logger LOGGER = LoggerFactory.getLogger(AuthInterceptor.class);
 
     private final ClientConfiguration clientConfiguration;
-    private final String clientId;
+    private final ClientId clientId;
 
-    public AuthInterceptor(ClientConfiguration clientConfiguration, String clientId) {
+    public AuthInterceptor(ClientConfiguration clientConfiguration, ClientId clientId) {
         this.clientConfiguration = clientConfiguration;
         this.clientId = clientId;
     }

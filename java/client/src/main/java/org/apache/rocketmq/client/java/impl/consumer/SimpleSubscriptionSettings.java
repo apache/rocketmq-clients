@@ -32,6 +32,7 @@ import org.apache.rocketmq.client.java.impl.ClientType;
 import org.apache.rocketmq.client.java.impl.Settings;
 import org.apache.rocketmq.client.java.impl.UserAgent;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,7 +44,7 @@ public class SimpleSubscriptionSettings extends Settings {
     private final Duration longPollingTimeout;
     private final Map<String, FilterExpression> subscriptionExpressions;
 
-    public SimpleSubscriptionSettings(String clientId, Endpoints endpoints, Resource group,
+    public SimpleSubscriptionSettings(ClientId clientId, Endpoints endpoints, Resource group,
         Duration requestTimeout, Duration longPollingTimeout, Map<String, FilterExpression> subscriptionExpression) {
         super(clientId, ClientType.SIMPLE_CONSUMER, endpoints, requestTimeout);
         this.group = group;

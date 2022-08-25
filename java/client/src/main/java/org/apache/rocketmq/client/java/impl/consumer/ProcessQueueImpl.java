@@ -57,6 +57,7 @@ import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
@@ -152,7 +153,7 @@ class ProcessQueueImpl implements ProcessQueue {
             return false;
         }
         LOGGER.warn("Process queue is idle, idleDuration={}, maxIdleDuration={}, afterCacheFullDuration={}, mq={}, "
-            + "clientId={}", idleDuration, maxIdleDuration, afterCacheFullDuration, mq, consumer.clientId());
+            + "clientId={}", idleDuration, maxIdleDuration, afterCacheFullDuration, mq, consumer.getClientId());
         return true;
     }
 
@@ -181,12 +182,12 @@ class ProcessQueueImpl implements ProcessQueue {
                 final MessageId messageId = messageView.getMessageId();
                 if (consumer.getPushConsumerSettings().isFifo()) {
                     LOGGER.error("Message is corrupted, forward it to dead letter queue in fifo mode, mq={}, " +
-                        "messageId={}, clientId={}", mq, messageId, consumer.clientId());
+                        "messageId={}, clientId={}", mq, messageId, consumer.getClientId());
                     forwardToDeadLetterQueue(messageView);
                     return;
                 }
                 LOGGER.error("Message is corrupted, nack it in standard mode, mq={}, messageId={}, clientId={}", mq,
-                    messageId, consumer.clientId());
+                    messageId, consumer.getClientId());
                 nackMessage(messageView);
             });
         }
@@ -215,7 +216,7 @@ class ProcessQueueImpl implements ProcessQueue {
     }
 
     private void receiveMessageLater(Duration delay) {
-        final String clientId = consumer.clientId();
+        final ClientId clientId = consumer.getClientId();
         final ScheduledExecutorService scheduler = consumer.getScheduler();
         try {
             LOGGER.info("Try to receive message later, mq={}, delay={}, clientId={}", mq, delay, clientId);
@@ -233,12 +234,12 @@ class ProcessQueueImpl implements ProcessQueue {
     public void receiveMessage() {
         if (dropped) {
             LOGGER.info("Process queue has been dropped, no longer receive message, mq={}, clientId={}", mq,
-                consumer.clientId());
+                consumer.getClientId());
             return;
         }
         if (this.isCacheFull()) {
             LOGGER.warn("Process queue cache is full, would receive message later, mq={}, clientId={}", mq,
-                consumer.clientId());
+                consumer.getClientId());
             receiveMessageLater(RECEIVING_BACKOFF_DELAY_WHEN_CACHE_IS_FULL);
             return;
         }
@@ -246,9 +247,10 @@ class ProcessQueueImpl implements ProcessQueue {
     }
 
     private void receiveMessageImmediately() {
+        final ClientId clientId = consumer.getClientId();
         if (!consumer.isRunning()) {
             LOGGER.info("Stop to receive message because consumer is not running, mq={}, clientId={}", mq,
-                consumer.clientId());
+                clientId);
             return;
         }
         try {
@@ -279,7 +281,7 @@ class ProcessQueueImpl implements ProcessQueue {
                     } catch (Throwable t) {
                         // Should never reach here.
                         LOGGER.error("[Bug] Exception raised while handling receive result, mq={}, endpoints={}, "
-                            + "clientId={}", mq, endpoints, consumer.clientId(), t);
+                            + "clientId={}", mq, endpoints, clientId, t);
                         onReceiveMessageException(t);
                     }
                 }
@@ -292,14 +294,14 @@ class ProcessQueueImpl implements ProcessQueue {
                     consumer.doAfter(context0, Collections.emptyList());
 
                     LOGGER.error("Exception raised during message reception, mq={}, endpoints={}, clientId={}", mq,
-                        endpoints, consumer.clientId(), t);
+                        endpoints, clientId, t);
                     onReceiveMessageException(t);
                 }
             }, MoreExecutors.directExecutor());
             receptionTimes.getAndIncrement();
             consumer.getReceptionTimes().getAndIncrement();
         } catch (Throwable t) {
-            LOGGER.error("Exception raised during message reception, mq={}, clientId={}", mq, consumer.clientId(), t);
+            LOGGER.error("Exception raised during message reception, mq={}, clientId={}", mq, clientId, t);
             onReceiveMessageException(t);
         }
     }
@@ -310,7 +312,7 @@ class ProcessQueueImpl implements ProcessQueue {
         if (cacheMessageCountThresholdPerQueue <= actualMessagesQuantity) {
             LOGGER.warn("Process queue total cached messages quantity exceeds the threshold, threshold={}, actual={}," +
                     " mq={}, clientId={}", cacheMessageCountThresholdPerQueue, actualMessagesQuantity, mq,
-                consumer.clientId());
+                consumer.getClientId());
             cacheFullNanoTime = System.nanoTime();
             return true;
         }
@@ -319,7 +321,7 @@ class ProcessQueueImpl implements ProcessQueue {
         if (cacheMessageBytesThresholdPerQueue <= actualCachedMessagesBytes) {
             LOGGER.warn("Process queue total cached messages memory exceeds the threshold, threshold={} bytes," +
                     " actual={} bytes, mq={}, clientId={}", cacheMessageBytesThresholdPerQueue,
-                actualCachedMessagesBytes, mq, consumer.clientId());
+                actualCachedMessagesBytes, mq, consumer.getClientId());
             cacheFullNanoTime = System.nanoTime();
             return true;
         }
@@ -418,7 +420,7 @@ class ProcessQueueImpl implements ProcessQueue {
 
     private void changeInvisibleDuration(final MessageViewImpl messageView, final Duration duration,
         final int attempt) {
-        final String clientId = consumer.clientId();
+        final ClientId clientId = consumer.getClientId();
         final String consumerGroup = consumer.getConsumerGroup();
         final MessageId messageId = messageView.getMessageId();
         final Endpoints endpoints = messageView.getEndpoints();
@@ -472,7 +474,7 @@ class ProcessQueueImpl implements ProcessQueue {
     private void changeInvisibleDurationLater(final MessageViewImpl messageView, final Duration duration,
         final int attempt) {
         final MessageId messageId = messageView.getMessageId();
-        final String clientId = consumer.clientId();
+        final ClientId clientId = consumer.getClientId();
         // Process queue is dropped, no need to proceed.
         if (dropped) {
             LOGGER.info("Process queue was dropped, give up to change invisible duration, mq={}, messageId={}, "
@@ -525,7 +527,7 @@ class ProcessQueueImpl implements ProcessQueue {
         int attempt = messageView.getDeliveryAttempt();
         final MessageId messageId = messageView.getMessageId();
         final ConsumeService service = consumer.getConsumeService();
-        final String clientId = consumer.clientId();
+        final ClientId clientId = consumer.getClientId();
         if (ConsumeResult.FAILURE.equals(consumeResult) && attempt < maxAttempts) {
             final Duration nextAttemptDelay = retryPolicy.getNextAttemptDelay(attempt);
             attempt = messageView.incrementAndGetDeliveryAttempt();
@@ -558,7 +560,7 @@ class ProcessQueueImpl implements ProcessQueue {
         final SettableFuture<Void> future0) {
         final RpcFuture<ForwardMessageToDeadLetterQueueRequest, ForwardMessageToDeadLetterQueueResponse> future =
             consumer.forwardMessageToDeadLetterQueue(messageView);
-        final String clientId = consumer.clientId();
+        final ClientId clientId = consumer.getClientId();
         final String consumerGroup = consumer.getConsumerGroup();
         final MessageId messageId = messageView.getMessageId();
         final Endpoints endpoints = messageView.getEndpoints();
@@ -605,7 +607,7 @@ class ProcessQueueImpl implements ProcessQueue {
     private void forwardToDeadLetterQueueLater(final MessageViewImpl messageView, final int attempt,
         final SettableFuture<Void> future0) {
         final MessageId messageId = messageView.getMessageId();
-        final String clientId = consumer.clientId();
+        final ClientId clientId = consumer.getClientId();
         // Process queue is dropped, no need to proceed.
         if (dropped) {
             LOGGER.info("Process queue was dropped, give up to forward message to dead letter queue, mq={}," +
@@ -634,7 +636,7 @@ class ProcessQueueImpl implements ProcessQueue {
     }
 
     private void ackMessage(final MessageViewImpl messageView, final int attempt, final SettableFuture<Void> future0) {
-        final String clientId = consumer.clientId();
+        final ClientId clientId = consumer.getClientId();
         final String consumerGroup = consumer.getConsumerGroup();
         final MessageId messageId = messageView.getMessageId();
         final Endpoints endpoints = messageView.getEndpoints();
@@ -690,7 +692,7 @@ class ProcessQueueImpl implements ProcessQueue {
     private void ackMessageLater(final MessageViewImpl messageView, final int attempt,
         final SettableFuture<Void> future0) {
         final MessageId messageId = messageView.getMessageId();
-        final String clientId = consumer.clientId();
+        final ClientId clientId = consumer.getClientId();
         // Process queue is dropped, no need to proceed.
         if (dropped) {
             LOGGER.info("Process queue was dropped, give up to ack message, mq={}, messageId={}, clientId={}",
@@ -740,7 +742,7 @@ class ProcessQueueImpl implements ProcessQueue {
         final long receptionTimes = this.receptionTimes.getAndSet(0);
         final long receivedMessagesQuantity = this.receivedMessagesQuantity.getAndSet(0);
         LOGGER.info("Process queue stats: clientId={}, mq={}, receptionTimes={}, receivedMessageQuantity={}, "
-                + "pendingMessageCount={}, inflightMessageCount={}, cachedMessageBytes={}", consumer.clientId(), mq,
+                + "pendingMessageCount={}, inflightMessageCount={}, cachedMessageBytes={}", consumer.getClientId(), mq,
             receptionTimes, receivedMessagesQuantity, this.getPendingMessageCount(), this.getInflightMessageCount(),
             this.getCachedMessageBytes());
     }

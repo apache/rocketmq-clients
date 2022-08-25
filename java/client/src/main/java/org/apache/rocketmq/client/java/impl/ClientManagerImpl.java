@@ -59,6 +59,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.net.ssl.SSLException;
 import org.apache.rocketmq.client.apis.ClientException;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.misc.ExecutorServices;
 import org.apache.rocketmq.client.java.misc.MetadataUtils;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
@@ -110,9 +111,10 @@ public class ClientManagerImpl extends ClientManager {
         this.client = client;
         this.rpcClientTable = new HashMap<>();
         this.rpcClientTableLock = new ReentrantReadWriteLock();
+        final long clientIndex = client.getClientId().getIndex();
         this.scheduler = new ScheduledThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors(),
-            new ThreadFactoryImpl("ClientScheduler"));
+            new ThreadFactoryImpl("ClientScheduler", clientIndex));
 
         this.asyncWorker = new ThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors(),
@@ -120,7 +122,7 @@ public class ClientManagerImpl extends ClientManager {
             60,
             TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(),
-            new ThreadFactoryImpl("ClientAsyncWorker"));
+            new ThreadFactoryImpl("ClientAsyncWorker", clientIndex));
     }
 
     /**
@@ -144,7 +146,7 @@ public class ClientManagerImpl extends ClientManager {
                     rpcClient.shutdown();
                     LOGGER.info("Rpc client has been idle for a long time, endpoints={}, idleDuration={}, " +
                             "rpcClientMaxIdleDuration={}, clientId={}", endpoints, idleDuration,
-                        RPC_CLIENT_MAX_IDLE_DURATION, client.clientId());
+                        RPC_CLIENT_MAX_IDLE_DURATION, client.getClientId());
                 }
             }
         } finally {
@@ -181,7 +183,7 @@ public class ClientManagerImpl extends ClientManager {
             try {
                 rpcClient = new RpcClientImpl(endpoints);
             } catch (SSLException e) {
-                LOGGER.error("Failed to get RPC client, endpoints={}, clientId={}", endpoints, client.clientId(), e);
+                LOGGER.error("Failed to get RPC client, endpoints={}, clientId={}", endpoints, client.getClientId(), e);
                 throw new ClientException("Failed to generate RPC client", e);
             }
             rpcClientTable.put(endpoints, rpcClient);
@@ -347,7 +349,7 @@ public class ClientManagerImpl extends ClientManager {
 
     @Override
     protected void startUp() {
-        final String clientId = client.clientId();
+        final ClientId clientId = client.getClientId();
         LOGGER.info("Begin to start the client manager, clientId={}", clientId);
         scheduler.scheduleWithFixedDelay(
             () -> {
@@ -407,7 +409,7 @@ public class ClientManagerImpl extends ClientManager {
 
     @Override
     protected void shutDown() throws IOException {
-        final String clientId = client.clientId();
+        final ClientId clientId = client.getClientId();
         LOGGER.info("Begin to shutdown the client manager, clientId={}", clientId);
         scheduler.shutdown();
         try {
@@ -440,5 +442,10 @@ public class ClientManagerImpl extends ClientManager {
             throw new IOException(e);
         }
         LOGGER.info("Shutdown the client manager successfully, clientId={}", clientId);
+    }
+
+    @Override
+    protected String serviceName() {
+        return super.serviceName() + "-" + client.getClientId().getIndex();
     }
 }

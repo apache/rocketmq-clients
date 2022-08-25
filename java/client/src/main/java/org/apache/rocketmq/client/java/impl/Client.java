@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.java.impl;
 
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.route.Endpoints;
 
 public interface Client {
@@ -25,7 +26,7 @@ public interface Client {
      *
      * @return unique client identifier.
      */
-    String clientId();
+    ClientId getClientId();
 
     /**
      * Send heart beat to remote {@link Endpoints}.
