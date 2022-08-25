@@ -114,7 +114,8 @@ public class TestBase {
     protected static final long FAKE_OFFSET = 1;
 
     protected static final ScheduledExecutorService SCHEDULER =
-        new ScheduledThreadPoolExecutor(1, new ThreadFactoryImpl("TestScheduler"));
+        new ScheduledThreadPoolExecutor(Runtime.getRuntime().availableProcessors(), new ThreadFactoryImpl(
+            "TestScheduler"));
 
     protected static final ThreadPoolExecutor SINGLE_THREAD_POOL_EXECUTOR =
         new ThreadPoolExecutor(1, 1, 60, TimeUnit.SECONDS,
