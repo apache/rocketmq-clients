@@ -25,6 +25,7 @@ import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.resources.Resource;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
 
@@ -35,21 +36,24 @@ public class ClientMeterTest extends TestBase {
         final SdkMeterProvider provider = SdkMeterProvider.builder().setResource(Resource.empty()).build();
         final OpenTelemetrySdk openTelemetry = OpenTelemetrySdk.builder().setMeterProvider(provider).build();
         Meter meter = openTelemetry.getMeter("test");
-        final ClientMeter clientMeter = new ClientMeter(meter, fakeEndpoints(), provider, "clientId");
+        final ClientId clientId = new ClientId();
+        final ClientMeter clientMeter = new ClientMeter(meter, fakeEndpoints(), provider, clientId);
         assertTrue(clientMeter.isEnabled());
         clientMeter.shutdown();
     }
 
     @Test
     public void testShutdownWithDisabledMeter() {
-        final ClientMeter clientMeter = ClientMeter.disabledInstance("clientId");
+        final ClientId clientId = new ClientId();
+        final ClientMeter clientMeter = ClientMeter.disabledInstance(clientId);
         assertFalse(clientMeter.isEnabled());
         clientMeter.shutdown();
     }
 
     @Test
     public void testSatisfy() {
-        ClientMeter clientMeter = ClientMeter.disabledInstance("clientId");
+        final ClientId clientId = new ClientId();
+        ClientMeter clientMeter = ClientMeter.disabledInstance(clientId);
         Metric metric = new Metric(apache.rocketmq.v2.Metric.newBuilder().setOn(false).build());
         assertTrue(clientMeter.satisfy(metric));
 
@@ -70,7 +74,7 @@ public class ClientMeterTest extends TestBase {
         final SdkMeterProvider provider = SdkMeterProvider.builder().setResource(Resource.empty()).build();
         final OpenTelemetrySdk openTelemetry = OpenTelemetrySdk.builder().setMeterProvider(provider).build();
         Meter meter = openTelemetry.getMeter("test");
-        clientMeter = new ClientMeter(meter, endpoints, provider, "clientId");
+        clientMeter = new ClientMeter(meter, endpoints, provider, clientId);
 
         metric = new Metric(apache.rocketmq.v2.Metric.newBuilder().setOn(false).build());
         assertFalse(clientMeter.satisfy(metric));

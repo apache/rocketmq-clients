@@ -79,6 +79,7 @@ import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.metrics.ClientMeterManager;
 import org.apache.rocketmq.client.java.metrics.MessageMeterHandler;
 import org.apache.rocketmq.client.java.metrics.Metric;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.misc.ExecutorServices;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.misc.Utilities;
@@ -110,7 +111,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      * Telemetry command executor, which aims to execute commands from the remote.
      */
     protected final ThreadPoolExecutor telemetryCommandExecutor;
-    protected final String clientId;
+    protected final ClientId clientId;
 
     private final ClientManager clientManager;
     private volatile ScheduledFuture<?> updateRouteCacheFuture;
@@ -131,7 +132,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         this.endpoints = new Endpoints(clientConfiguration.getEndpoints());
         this.topics = topics;
         // Generate client id firstly.
-        this.clientId = Utilities.genClientId();
+        this.clientId = new ClientId();
 
         this.topicRouteCache = new ConcurrentHashMap<>();
 
@@ -145,13 +146,14 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
 
         this.clientManager = new ClientManagerImpl(this);
 
+        final long clientIdIndex = clientId.getIndex();
         this.clientCallbackExecutor = new ThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors(),
             Runtime.getRuntime().availableProcessors(),
             60,
             TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(),
-            new ThreadFactoryImpl("ClientCallbackWorker"));
+            new ThreadFactoryImpl("ClientCallbackWorker", clientIdIndex));
 
         this.clientMeterManager = new ClientMeterManager(clientId, clientConfiguration);
 
@@ -164,7 +166,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             60,
             TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(),
-            new ThreadFactoryImpl("CommandExecutor"));
+            new ThreadFactoryImpl("CommandExecutor", clientIdIndex));
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             LOGGER.info("JVM shutdown hook is invoked, clientId={}, state={}", clientId, ClientImpl.this.state());
@@ -490,10 +492,10 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     }
 
     /**
-     * @see Client#clientId()
+     * @see Client#getClientId()
      */
     @Override
-    public String clientId() {
+    public ClientId getClientId() {
         return clientId;
     }
 
@@ -717,5 +719,10 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
 
     public ClientConfiguration getClientConfiguration() {
         return clientConfiguration;
+    }
+
+    @Override
+    protected String serviceName() {
+        return super.serviceName() + "-" + clientId.getIndex();
     }
 }

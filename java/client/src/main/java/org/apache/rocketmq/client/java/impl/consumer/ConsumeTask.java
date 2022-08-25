@@ -29,18 +29,19 @@ import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ConsumeTask implements Callable<ConsumeResult> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ConsumeTask.class);
 
-    private final String clientId;
+    private final ClientId clientId;
     private final MessageListener messageListener;
     private final MessageViewImpl messageView;
     private final MessageHandler messageHandler;
 
-    public ConsumeTask(String clientId, MessageListener messageListener, MessageViewImpl messageView,
+    public ConsumeTask(ClientId clientId, MessageListener messageListener, MessageViewImpl messageView,
         MessageHandler messageHandler) {
         this.clientId = clientId;
         this.messageListener = messageListener;

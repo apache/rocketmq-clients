@@ -34,6 +34,7 @@ import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.java.hook.MessageHandler;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.tool.TestBase;
@@ -41,7 +42,7 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 public class ConsumeServiceTest extends TestBase {
-    private final String clientId = "clientId";
+    private final ClientId clientId = new ClientId();
     private final ConcurrentMap<MessageQueueImpl, ProcessQueue> table = new ConcurrentHashMap<>();
     private final MessageHandler interceptor = Mockito.mock(MessageHandler.class);
     private final ThreadPoolExecutor consumptionExecutor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,

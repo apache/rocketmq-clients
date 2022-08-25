@@ -21,6 +21,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.apache.rocketmq.client.apis.ClientConfiguration;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
 
@@ -30,7 +31,7 @@ public class ClientMeterManagerTest extends TestBase {
     public void testResetWithMetricOn() {
         final ClientConfiguration clientConfiguration =
             ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS).build();
-        String clientId = "clientId";
+        ClientId clientId = new ClientId();
         final ClientMeterManager meterManager = new ClientMeterManager(clientId, clientConfiguration);
         final Metric metric =
             new Metric(apache.rocketmq.v2.Metric.newBuilder().setOn(true).setEndpoints(fakePbEndpoints0()).build());
@@ -42,7 +43,7 @@ public class ClientMeterManagerTest extends TestBase {
     public void testResetWithMetricOff() {
         final ClientConfiguration clientConfiguration =
             ClientConfiguration.newBuilder().setEndpoints(FAKE_ENDPOINTS).build();
-        String clientId = "clientId";
+        ClientId clientId = new ClientId();
         final ClientMeterManager meterManager = new ClientMeterManager(clientId, clientConfiguration);
         final Metric metric =
             new Metric(apache.rocketmq.v2.Metric.newBuilder().setOn(false).setEndpoints(fakePbEndpoints0()).build());

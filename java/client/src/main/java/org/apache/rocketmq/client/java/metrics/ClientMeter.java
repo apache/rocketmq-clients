@@ -27,6 +27,7 @@ import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,10 +39,10 @@ public class ClientMeter {
     private final Meter meter;
     private final Endpoints endpoints;
     private final SdkMeterProvider provider;
-    private final String clientId;
+    private final ClientId clientId;
     private final ConcurrentMap<String /* histogram name */, DoubleHistogram> histogramMap;
 
-    public ClientMeter(Meter meter, Endpoints endpoints, SdkMeterProvider provider, String clientId) {
+    public ClientMeter(Meter meter, Endpoints endpoints, SdkMeterProvider provider, ClientId clientId) {
         this.enabled = true;
         this.meter = checkNotNull(meter, "meter should not be null");
         this.endpoints = checkNotNull(endpoints, "endpoints should not be null");
@@ -50,7 +51,7 @@ public class ClientMeter {
         this.histogramMap = new ConcurrentHashMap<>();
     }
 
-    private ClientMeter(String clientId) {
+    private ClientMeter(ClientId clientId) {
         this.enabled = false;
         this.meter = null;
         this.endpoints = null;
@@ -59,7 +60,7 @@ public class ClientMeter {
         this.histogramMap = new ConcurrentHashMap<>();
     }
 
-    static ClientMeter disabledInstance(String clientId) {
+    static ClientMeter disabledInstance(ClientId clientId) {
         return new ClientMeter(clientId);
     }
 

@@ -23,6 +23,7 @@ import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.java.hook.MessageHandler;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -31,7 +32,7 @@ public class ConsumeTaskTest extends TestBase {
 
     @Test
     public void testCallWithConsumeSuccess() {
-        String clientId = "foobar";
+        ClientId clientId = new ClientId();
         final MessageViewImpl messageView = fakeMessageViewImpl();
         final MessageListener messageListener = Mockito.mock(MessageListener.class);
         Mockito.when(messageListener.consume(messageView)).thenReturn(ConsumeResult.SUCCESS);
@@ -43,7 +44,7 @@ public class ConsumeTaskTest extends TestBase {
 
     @Test
     public void testCallWithConsumeException() {
-        String clientId = "foobar";
+        ClientId clientId = new ClientId();
         final MessageViewImpl messageView = fakeMessageViewImpl();
         final MessageListener messageListener = Mockito.mock(MessageListener.class);
         Mockito.when(messageListener.consume(messageView)).thenThrow(new RuntimeException());

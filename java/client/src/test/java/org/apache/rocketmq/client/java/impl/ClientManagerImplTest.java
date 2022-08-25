@@ -29,6 +29,7 @@ import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.SendMessageRequest;
 import io.grpc.Metadata;
 import java.time.Duration;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -36,12 +37,15 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 public class ClientManagerImplTest extends TestBase {
-    private static final Client CLIENT = Mockito.mock(Client.class);
-    private static final ClientManagerImpl CLIENT_MANAGER = new ClientManagerImpl(CLIENT);
+    private static ClientManagerImpl CLIENT_MANAGER;
 
     @BeforeClass
     public static void setUp() {
-        Mockito.when(CLIENT.clientId()).thenReturn("clientId");
+        Client client = Mockito.mock(Client.class);
+        final ClientId clientId = new ClientId();
+        Mockito.doReturn(clientId).when(client).getClientId();
+        CLIENT_MANAGER = new ClientManagerImpl(client);
+        Mockito.when(client.getClientId()).thenReturn(FAKE_CLIENT_ID);
         CLIENT_MANAGER.startAsync().awaitRunning();
     }
 

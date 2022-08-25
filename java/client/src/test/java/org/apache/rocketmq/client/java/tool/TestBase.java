@@ -72,6 +72,7 @@ import org.apache.rocketmq.client.java.impl.producer.SendReceiptImpl;
 import org.apache.rocketmq.client.java.message.MessageBuilderImpl;
 import org.apache.rocketmq.client.java.message.MessageIdCodec;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.misc.RequestIdGenerator;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.misc.Utilities;
@@ -85,7 +86,7 @@ import org.apache.rocketmq.client.java.rpc.Signature;
 import org.mockito.Mockito;
 
 public class TestBase {
-    protected static final String FAKE_CLIENT_ID = "mbp@29848@cno0nhxy";
+    protected static final ClientId FAKE_CLIENT_ID = new ClientId();
 
     protected static final String FAKE_TOPIC_0 = "foo-bar-topic-0";
     protected static final String FAKE_TOPIC_1 = "foo-bar-topic-1";

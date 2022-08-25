@@ -149,7 +149,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
             60,
             TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(),
-            new ThreadFactoryImpl("MessageConsumption"));
+            new ThreadFactoryImpl("MessageConsumption", this.getClientId().getIndex()));
     }
 
     @Override

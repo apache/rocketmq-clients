@@ -65,7 +65,7 @@ public class MessageMeterHandler implements MessageHandler {
             InvocationStatus status = MessageHookPointsStatus.OK.equals(context.getStatus()) ?
                 InvocationStatus.SUCCESS : InvocationStatus.FAILURE;
             Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, message.getTopic())
-                .put(MetricLabels.CLIENT_ID, client.clientId())
+                .put(MetricLabels.CLIENT_ID, client.getClientId().toString())
                 .put(MetricLabels.INVOCATION_STATUS, status.getName()).build();
             meterManager.record(HistogramEnum.SEND_COST_TIME, attributes, duration.toMillis());
         }
@@ -83,7 +83,7 @@ public class MessageMeterHandler implements MessageHandler {
             consumerGroup = ((SimpleConsumer) client).getConsumerGroup();
         }
         if (null == consumerGroup) {
-            LOGGER.error("[Bug] consumerGroup is not recognized, clientId={}", client.clientId());
+            LOGGER.error("[Bug] consumerGroup is not recognized, clientId={}", client.getClientId());
             return;
         }
         final GeneralMessage message = messages.iterator().next();
@@ -100,7 +100,8 @@ public class MessageMeterHandler implements MessageHandler {
             return;
         }
         final Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, message.getTopic())
-            .put(MetricLabels.CONSUMER_GROUP, consumerGroup).put(MetricLabels.CLIENT_ID, client.clientId()).build();
+            .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
+            .put(MetricLabels.CLIENT_ID, client.getClientId().toString()).build();
         meterManager.record(HistogramEnum.DELIVERY_LATENCY, attributes, latency);
     }
 
@@ -114,7 +115,7 @@ public class MessageMeterHandler implements MessageHandler {
             consumerGroup = ((PushConsumer) client).getConsumerGroup();
         }
         if (null == consumerGroup) {
-            LOGGER.error("[Bug] consumerGroup is not recognized, clientId={}", client.clientId());
+            LOGGER.error("[Bug] consumerGroup is not recognized, clientId={}", client.getClientId());
             return;
         }
         final GeneralMessage message = messages.iterator().next();
@@ -125,7 +126,7 @@ public class MessageMeterHandler implements MessageHandler {
         final long decodeTimestamp = optionalDecodeTimestamp.get();
         Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, message.getTopic())
             .put(MetricLabels.CONSUMER_GROUP, consumerGroup)
-            .put(MetricLabels.CLIENT_ID, client.clientId()).build();
+            .put(MetricLabels.CLIENT_ID, client.getClientId().toString()).build();
         final long latency = System.currentTimeMillis() - decodeTimestamp;
         meterManager.record(HistogramEnum.AWAIT_TIME, attributes, latency);
         // Record the time before consuming message.
@@ -135,7 +136,7 @@ public class MessageMeterHandler implements MessageHandler {
     private void doAfterConsumeMessage(MessageHandlerContext context, List<GeneralMessage> messages) {
         if (!(client instanceof PushConsumer)) {
             // Should never reach here.
-            LOGGER.error("[Bug] current client is not push consumer, clientId={}", client.clientId());
+            LOGGER.error("[Bug] current client is not push consumer, clientId={}", client.getClientId());
             return;
         }
         final Attribute<Stopwatch> stopwatchAttr = context.getAttribute(CONSUME_STOPWATCH_KEY);
@@ -150,7 +151,7 @@ public class MessageMeterHandler implements MessageHandler {
                 InvocationStatus.FAILURE;
             Attributes attributes = Attributes.builder().put(MetricLabels.TOPIC, message.getTopic())
                 .put(MetricLabels.CONSUMER_GROUP, pushConsumer.getConsumerGroup())
-                .put(MetricLabels.CLIENT_ID, client.clientId())
+                .put(MetricLabels.CLIENT_ID, client.getClientId().toString())
                 .put(MetricLabels.INVOCATION_STATUS, invocationStatus.getName())
                 .build();
             final Duration duration = stopwatchAttr.get().elapsed();

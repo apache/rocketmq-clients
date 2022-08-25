@@ -32,6 +32,7 @@ import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.java.hook.MessageHandler;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +41,7 @@ import org.slf4j.LoggerFactory;
 public class StandardConsumeService extends ConsumeService {
     private static final Logger LOGGER = LoggerFactory.getLogger(StandardConsumeService.class);
 
-    public StandardConsumeService(String clientId, ConcurrentMap<MessageQueueImpl, ProcessQueue> processQueueTable,
+    public StandardConsumeService(ClientId clientId, ConcurrentMap<MessageQueueImpl, ProcessQueue> processQueueTable,
         MessageListener messageListener, ThreadPoolExecutor consumptionExecutor, MessageHandler messageHandler,
         ScheduledExecutorService scheduler) {
         super(clientId, processQueueTable, messageListener, consumptionExecutor, messageHandler, scheduler);

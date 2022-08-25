@@ -32,6 +32,7 @@ import java.util.Map;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.FilterExpressionType;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
+import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Assert;
 import org.junit.Test;
@@ -41,7 +42,7 @@ public class PushSubscriptionSettingsTest extends TestBase {
     @Test
     public void testToProtobuf() {
         Resource groupResource = new Resource(FAKE_CONSUMER_GROUP_0);
-        String clientId = "clientId";
+        ClientId clientId = new ClientId();
         Map<String, FilterExpression> subscriptionExpression = new HashMap<>();
         subscriptionExpression.put(FAKE_TOPIC_0, new FilterExpression());
         final Duration requestTimeout = Duration.ofSeconds(3);
@@ -66,7 +67,8 @@ public class PushSubscriptionSettingsTest extends TestBase {
     @Test
     public void testToProtobufWithSqlExpression() {
         Resource groupResource = new Resource(FAKE_CONSUMER_GROUP_0);
-        String clientId = "clientId";
+        ClientId clientId = new ClientId();
+
         Map<String, FilterExpression> subscriptionExpression = new HashMap<>();
         subscriptionExpression.put(FAKE_TOPIC_0, new FilterExpression("(a > 10 AND a < 100) OR (b IS NOT NULL AND "
             + "b=TRUE)", FilterExpressionType.SQL92));
@@ -108,7 +110,7 @@ public class PushSubscriptionSettingsTest extends TestBase {
             .setLongPollingTimeout(longPollingTimeout).build();
         Settings settings = Settings.newBuilder().setSubscription(subscription).setBackoffPolicy(retryPolicy).build();
         Resource groupResource = new Resource(FAKE_CONSUMER_GROUP_0);
-        String clientId = "clientId";
+        ClientId clientId = new ClientId();
         Map<String, FilterExpression> subscriptionExpression = new HashMap<>();
         subscriptionExpression.put(FAKE_TOPIC_0, new FilterExpression("(a > 10 AND a < 100) OR (b IS NOT NULL AND "
             + "b=TRUE)", FilterExpressionType.SQL92));
