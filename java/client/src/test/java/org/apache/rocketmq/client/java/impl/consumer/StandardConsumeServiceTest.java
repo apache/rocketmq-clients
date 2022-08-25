@@ -17,12 +17,14 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -72,10 +74,11 @@ public class StandardConsumeServiceTest extends TestBase {
         final StandardConsumeService service = new StandardConsumeService(FAKE_CLIENT_ID, processQueueTable, listener,
             SINGLE_THREAD_POOL_EXECUTOR, interceptor, SCHEDULER);
         service.dispatch0();
-        Thread.sleep(1000);
-        verify(processQueue0, times(1)).tryTakeMessage();
-        verify(processQueue1, times(1)).tryTakeMessage();
-        verify(processQueue0, times(1)).eraseMessage(any(MessageViewImpl.class), any(ConsumeResult.class));
-        verify(processQueue1, times(1)).eraseMessage(any(MessageViewImpl.class), any(ConsumeResult.class));
+        await().atMost(Duration.ofSeconds(1)).untilAsserted(() -> {
+            verify(processQueue0, times(1)).tryTakeMessage();
+            verify(processQueue1, times(1)).tryTakeMessage();
+            verify(processQueue0, times(1)).eraseMessage(any(MessageViewImpl.class), any(ConsumeResult.class));
+            verify(processQueue1, times(1)).eraseMessage(any(MessageViewImpl.class), any(ConsumeResult.class));
+        });
     }
 }
