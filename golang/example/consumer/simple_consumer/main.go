@@ -29,12 +29,12 @@ import (
 )
 
 const (
-	Topic         = "xxxxxx"
-	ConsumerGroup = "xxxxxx"
-	Endpoint      = "xxxxxx"
-	Region        = "xxxxxx"
-	AccessKey     = "xxxxxx"
-	SecretKey     = "xxxxxx"
+	Topic     = "xxxxxx"
+	GroupName = "xxxxxx"
+	Endpoint  = "xxxxxx"
+	Region    = "xxxxxx"
+	AccessKey = "xxxxxx"
+	SecretKey = "xxxxxx"
 )
 
 var (
@@ -54,7 +54,7 @@ func main() {
 	// new simpleConsumer instance
 	simpleConsumer, err := golang.NewSimpleConsumer(&golang.Config{
 		Endpoint: Endpoint,
-		Group:    ConsumerGroup,
+		Group:    GroupName,
 		Region:   Region,
 		Credentials: &credentials.SessionCredentials{
 			AccessKey:    AccessKey,

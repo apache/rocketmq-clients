@@ -18,12 +18,43 @@
 package golang
 
 import (
-	"time"
+	"errors"
+	"fmt"
 
 	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
 )
 
-type Consumer interface {
-	GetGroupName() string
-	wrapReceiveMessageRequest(batchSize int, messageQueue *v2.MessageQueue, filterExpression *FilterExpression, invisibleDuration time.Duration) *v2.ReceiveMessageRequest
+type ErrRpcStatus struct {
+	Code    int32
+	Message string
+}
+
+func (err *ErrRpcStatus) GetCode() int32 {
+	return err.GetCode()
+}
+
+func (err *ErrRpcStatus) GetMessage() string {
+	return err.Message
+}
+
+func (err *ErrRpcStatus) Error() string {
+	codeName, ok := v2.Code_name[err.Code]
+	if !ok {
+		codeName = string(err.Code)
+	}
+	return fmt.Sprintf("CODE: %s, MESSAGE: %s", codeName, err.Message)
+}
+
+var _ = error(&ErrRpcStatus{})
+
+func AsErrRpcStatus(err error) (*ErrRpcStatus, bool) {
+	if err == nil {
+		return nil, false
+	}
+	target, ok := err.(*ErrRpcStatus)
+	if ok {
+		return target, true
+	}
+	err = errors.Unwrap(err)
+	return AsErrRpcStatus(err)
 }

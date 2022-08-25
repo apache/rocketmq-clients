@@ -108,7 +108,7 @@ type simpleConsumerSettings struct {
 	retryPolicy    *v2.RetryPolicy
 	requestTimeout time.Duration
 
-	consumerGroup           *v2.Resource
+	groupName               *v2.Resource
 	longPollingTimeout      time.Duration
 	subscriptionExpressions map[string]*FilterExpression
 }
@@ -177,7 +177,7 @@ func (sc *simpleConsumerSettings) toProtobuf() *v2.Settings {
 	}
 	subSetting := &v2.Settings_Subscription{
 		Subscription: &v2.Subscription{
-			Group:              sc.consumerGroup,
+			Group:              sc.groupName,
 			Subscriptions:      subscriptions,
 			LongPollingTimeout: durationpb.New(sc.longPollingTimeout),
 		},

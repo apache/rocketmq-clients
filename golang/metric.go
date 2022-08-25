@@ -43,7 +43,6 @@ var (
 	topicTag, _            = tag.NewKey("topic")
 	clientIdTag, _         = tag.NewKey("client_id")
 	invocationStatusTag, _ = tag.NewKey("invocation_status")
-	consumerGroupTag, _    = tag.NewKey("consumer_group")
 
 	MLatencyMs = stats.Int64("publish_latency", "Publish latency in milliseconds", "ms")
 
@@ -82,7 +81,7 @@ func (dcm *defaultClientMeter) shutdown() {
 		if ok {
 			err := oce.Stop()
 			if err != nil {
-				sugarBaseLogger.Errorf("ocExporter stop failed, err = %v", err)
+				sugarBaseLogger.Errorf("ocExporter stop failed, err=%w", err)
 			}
 		}
 	}

@@ -118,6 +118,7 @@ func (c *clientConn) dialSetupOpts(dopts ...grpc.DialOption) (opts []grpc.DialOp
 	if c.creds != nil {
 		opts = append(opts, grpc.WithTransportCredentials(c.creds))
 	}
+	// TODO get requestID in header
 	opts = append(opts, grpc.WithBlock(), grpc.WithChainUnaryInterceptor(
 		zaplog.UnaryClientInterceptor(c.opts.Logger),
 	))

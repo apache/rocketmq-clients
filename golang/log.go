@@ -30,13 +30,14 @@ import (
 )
 
 const (
-	CLIENT_LOG_ROOT            = "rocketmq.client.logRoot"
-	CLIENT_LOG_MAXINDEX        = "rocketmq.client.logFileMaxIndex"
-	CLIENT_LOG_FILESIZE        = "rocketmq.client.logFileMaxSize"
-	CLIENT_LOG_LEVEL           = "rocketmq.client.logLevel"
-	CLIENT_LOG_ADDITIVE        = "rocketmq.client.log.additive"
-	CLIENT_LOG_FILENAME        = "rocketmq.client.logFileName"
-	CLIENT_LOG_ASYNC_QUEUESIZE = "rocketmq.client.logAsyncQueueSize"
+	CLIENT_LOG_ROOT     = "rocketmq.client.logRoot"
+	CLIENT_LOG_MAXINDEX = "rocketmq.client.logFileMaxIndex"
+	CLIENT_LOG_FILESIZE = "rocketmq.client.logFileMaxSize"
+	CLIENT_LOG_LEVEL    = "rocketmq.client.logLevel"
+	// CLIENT_LOG_ADDITIVE        = "rocketmq.client.log.additive"
+	CLIENT_LOG_FILENAME = "rocketmq.client.logFileName"
+	// CLIENT_LOG_ASYNC_QUEUESIZE = "rocketmq.client.logAsyncQueueSize"
+	ENABLE_CONSOLE_APPENDER = "mq.consoleAppender.enabled"
 )
 
 var sugarBaseLogger *zap.SugaredLogger
@@ -47,14 +48,14 @@ func ResetLogger() {
 
 func InitLogger() {
 	writeSyncer := getLogWriter()
-	isStdOut := utils.GetenvWithDef("mq.consoleAppender.enabled", "false")
+	isStdOut := utils.GetenvWithDef(ENABLE_CONSOLE_APPENDER, "false")
 	if isStdOut == "true" {
 		writeSyncer = os.Stdout
 	}
 	encoder := getEncoder()
 
 	var atomicLevel = zap.NewAtomicLevel()
-	switch strings.ToLower(os.Getenv("rocketmq.log.level")) {
+	switch strings.ToLower(os.Getenv(CLIENT_LOG_LEVEL)) {
 	case "debug":
 		atomicLevel.SetLevel(zap.DebugLevel)
 	case "warn":

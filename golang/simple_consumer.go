@@ -19,7 +19,6 @@ package golang
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -51,7 +50,7 @@ var _ = SimpleConsumer(&defaultSimpleConsumer{})
 type defaultSimpleConsumer struct {
 	cli *defaultClient
 
-	consumerGroup                string
+	groupName                    string
 	topicIndex                   int32
 	scOpts                       simpleConsumerOptions
 	scSettings                   *simpleConsumerSettings
@@ -79,7 +78,7 @@ func (sc *defaultSimpleConsumer) changeInvisibleDuration0(messageView *MessageVi
 			Name: messageView.GetTopic(),
 		},
 		Group: &v2.Resource{
-			Name: sc.consumerGroup,
+			Name: sc.groupName,
 		},
 		ReceiptHandle:     messageView.GetReceiptHandle(),
 		InvisibleDuration: durationpb.New(invisibleDuration),
@@ -93,7 +92,10 @@ func (sc *defaultSimpleConsumer) changeInvisibleDuration0(messageView *MessageVi
 		sc.cli.log.Errorf("exception raised during message acknowledgement, messageId=%s, endpoints=%v", messageView.GetMessageId(), endpoints)
 	} else if resp.GetStatus().GetCode() != v2.Code_OK {
 		sc.cli.log.Errorf("failed to change message invisible duration, messageId=%s, endpoints=%v, code=%v, status message=[%s]", messageView.GetMessageId(), endpoints, resp.GetStatus().GetCode(), resp.GetStatus().GetMessage())
-		err = errors.New(resp.String())
+		err = &ErrRpcStatus{
+			Code:    int32(resp.Status.GetCode()),
+			Message: resp.GetStatus().GetMessage(),
+		}
 	}
 	if err != nil {
 		messageHookPointsStatus = MessageHookPointsStatus_ERROR
@@ -151,7 +153,7 @@ func (sc *defaultSimpleConsumer) Unsubscribe(topic string) error {
 func (sc *defaultSimpleConsumer) wrapReceiveMessageRequest(batchSize int, messageQueue *v2.MessageQueue, filterExpression *FilterExpression, invisibleDuration time.Duration) *v2.ReceiveMessageRequest {
 	return &v2.ReceiveMessageRequest{
 		Group: &v2.Resource{
-			Name: sc.consumerGroup,
+			Name: sc.groupName,
 		},
 		MessageQueue: messageQueue,
 		FilterExpression: &v2.FilterExpression{
@@ -165,7 +167,7 @@ func (sc *defaultSimpleConsumer) wrapReceiveMessageRequest(batchSize int, messag
 
 func (sc *defaultSimpleConsumer) wrapAckMessageRequest(messageView *MessageView) *v2.AckMessageRequest {
 	return &v2.AckMessageRequest{
-		Group: sc.scSettings.consumerGroup,
+		Group: sc.scSettings.groupName,
 		Topic: &v2.Resource{
 			Name: messageView.GetTopic(),
 		},
@@ -178,8 +180,8 @@ func (sc *defaultSimpleConsumer) wrapAckMessageRequest(messageView *MessageView)
 	}
 }
 
-func (sc *defaultSimpleConsumer) GetConsumerGroup() string {
-	return sc.consumerGroup
+func (sc *defaultSimpleConsumer) GetGroupName() string {
+	return sc.groupName
 }
 
 func (sc *defaultSimpleConsumer) receiveMessage(ctx context.Context, request *v2.ReceiveMessageRequest, messageQueue *v2.MessageQueue, timeout time.Duration) ([]*MessageView, error) {
@@ -205,7 +207,7 @@ func (sc *defaultSimpleConsumer) receiveMessage(ctx context.Context, request *v2
 				break
 			}
 			if err != nil {
-				sc.cli.log.Errorf("simpleConsumer recv msg err=%v", err)
+				sc.cli.log.Errorf("simpleConsumer recv msg err=%w", err)
 				break
 			}
 			resps = append(resps, resp)
@@ -246,7 +248,10 @@ func (sc *defaultSimpleConsumer) receiveMessage(ctx context.Context, request *v2
 		if status.GetCode() == v2.Code_OK {
 			return messageViewList, nil
 		} else {
-			return nil, fmt.Errorf("[error] code=%d, message=%s", status.GetCode().Number(), status.GetMessage())
+			return nil, &ErrRpcStatus{
+				Code:    int32(status.GetCode()),
+				Message: status.GetMessage(),
+			}
 		}
 	}
 }
@@ -305,7 +310,7 @@ func (sc *defaultSimpleConsumer) onVerifyMessageCommand(endpoints *v2.Endpoints,
 
 func (sc *defaultSimpleConsumer) wrapHeartbeatRequest() *v2.HeartbeatRequest {
 	return &v2.HeartbeatRequest{
-		Group:      sc.scSettings.consumerGroup,
+		Group:      sc.scSettings.groupName,
 		ClientType: v2.ClientType_SIMPLE_CONSUMER,
 	}
 }
@@ -320,9 +325,9 @@ var NewSimpleConsumer = func(config *Config, opts ...SimpleConsumerOption) (Simp
 		return nil, err
 	}
 	sc := &defaultSimpleConsumer{
-		scOpts:        *scOpts,
-		cli:           cli.(*defaultClient),
-		consumerGroup: config.Group,
+		scOpts:    *scOpts,
+		cli:       cli.(*defaultClient),
+		groupName: config.Group,
 
 		awaitDuration:           scOpts.awaitDuration,
 		subscriptionExpressions: scOpts.subscriptionExpressions,
@@ -341,8 +346,8 @@ var NewSimpleConsumer = func(config *Config, opts ...SimpleConsumerOption) (Simp
 		clientType:     v2.ClientType_SIMPLE_CONSUMER,
 		requestTimeout: sc.cli.opts.timeout,
 
-		consumerGroup: &v2.Resource{
-			Name: sc.consumerGroup,
+		groupName: &v2.Resource{
+			Name: sc.groupName,
 		},
 		longPollingTimeout:      scOpts.awaitDuration,
 		subscriptionExpressions: scOpts.subscriptionExpressions,
@@ -359,7 +364,7 @@ func (sc *defaultSimpleConsumer) Start() error {
 	}
 	err2 := sc.GracefulStop()
 	if err2 != nil {
-		return fmt.Errorf("startUp err = %v, shutdown err = %v", err, err2)
+		return fmt.Errorf("startUp err=%w, shutdown err=%w", err, err2)
 	}
 	return err
 }
