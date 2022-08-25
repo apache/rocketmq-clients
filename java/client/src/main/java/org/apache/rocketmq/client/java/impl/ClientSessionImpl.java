@@ -39,7 +39,6 @@ import org.slf4j.LoggerFactory;
  */
 public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
     static final Duration REQUEST_OBSERVER_RENEW_BACKOFF_DELAY = Duration.ofSeconds(1);
-
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientSessionImpl.class);
     private static final long SETTINGS_INITIALIZATION_TIMEOUT_MILLIS = 3000;
 

@@ -163,43 +163,11 @@ public class ClientSessionImplTest extends TestBase {
         Mockito.doReturn("clientId").when(sessionHandler).clientId();
         Mockito.doReturn(true).when(sessionHandler).isRunning();
         Mockito.doReturn(SCHEDULER).when(sessionHandler).getScheduler();
-        Mockito.doReturn(false).when(sessionHandler).isEndpointsDeprecated(endpoints);
         final Exception e = new Exception();
         clientSession.onError(e);
         Mockito.verify(sessionHandler, times(1)).isRunning();
         Mockito.verify(requestObserver, times(1)).onCompleted();
         Mockito.verify(sessionHandler, times(1)).getScheduler();
-        await().atMost(ClientSessionImpl.REQUEST_OBSERVER_RENEW_BACKOFF_DELAY.plus(Durations.ONE_SECOND))
-            .untilAsserted(() -> {
-                Mockito.verify(sessionHandler, times(1)).isEndpointsDeprecated(eq(endpoints));
-                Mockito.verify(sessionHandler, times(2)).telemetry(eq(endpoints), eq(clientSession));
-            });
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    public void testOnErrorWithEndpointsDeprecated() throws ClientException {
-        final Endpoints endpoints = fakeEndpoints();
-        final ClientSessionHandler sessionHandler = Mockito.mock(ClientSessionHandler.class);
-        final StreamObserver<TelemetryCommand> requestObserver = Mockito.mock(StreamObserver.class);
-        Mockito.doReturn(requestObserver).when(sessionHandler).telemetry(any(Endpoints.class),
-            any(StreamObserver.class));
-        Mockito.doNothing().when(requestObserver).onCompleted();
-        final ClientSessionImpl clientSession = new ClientSessionImpl(sessionHandler, endpoints);
-        Mockito.doReturn("clientId").when(sessionHandler).clientId();
-        Mockito.doReturn(true).when(sessionHandler).isRunning();
-        Mockito.doReturn(SCHEDULER).when(sessionHandler).getScheduler();
-        Mockito.doReturn(true).when(sessionHandler).isEndpointsDeprecated(endpoints);
-        final Exception e = new Exception();
-        clientSession.onError(e);
-        Mockito.verify(sessionHandler, times(1)).isRunning();
-        Mockito.verify(requestObserver, times(1)).onCompleted();
-        Mockito.verify(sessionHandler, times(1)).getScheduler();
-        await().atMost(ClientSessionImpl.REQUEST_OBSERVER_RENEW_BACKOFF_DELAY.plus(Durations.ONE_SECOND))
-            .untilAsserted(() -> {
-                Mockito.verify(sessionHandler, times(1)).isEndpointsDeprecated(eq(endpoints));
-                Mockito.verify(sessionHandler, times(1)).telemetry(eq(endpoints), eq(clientSession));
-            });
     }
 
     @Test

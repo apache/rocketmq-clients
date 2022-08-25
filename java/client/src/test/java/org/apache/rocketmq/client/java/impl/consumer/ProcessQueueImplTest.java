@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
+import static org.awaitility.Awaitility.await;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -174,9 +175,9 @@ public class ProcessQueueImplTest extends TestBase {
         when(pushConsumer.wrapReceiveMessageRequest(anyInt(), any(MessageQueueImpl.class),
             any(FilterExpression.class))).thenReturn(request);
         processQueue.fetchMessageImmediately();
-        Thread.sleep(3000);
-        verify(pushConsumer, times(cachedMessagesCountThresholdPerQueue))
-            .receiveMessage(any(ReceiveMessageRequest.class), any(MessageQueueImpl.class), any(Duration.class));
+        await().atMost(Duration.ofSeconds(3))
+            .untilAsserted(() -> verify(pushConsumer, times(cachedMessagesCountThresholdPerQueue))
+                .receiveMessage(any(ReceiveMessageRequest.class), any(MessageQueueImpl.class), any(Duration.class)));
     }
 
     @Test
