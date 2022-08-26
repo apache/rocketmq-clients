@@ -18,64 +18,45 @@
 package org.apache.rocketmq.client.java.impl.consumer;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.Optional;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
-import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 
 /**
- * Process queue is a cache to store fetched messages from remote for {@link PushConsumer}, and it provides specialized
- * function to take the message to consume for push consumer.
+ * Process queue is a cache to store fetched messages from remote for {@link PushConsumer}.
  *
  * <p>{@link PushConsumer} queries assignments periodically and converts them into message queues, each message queue is
  * mapped into one process queue to fetch message from remote. If the message queue is removed from the newest
- * assignment, the corresponding process queue is marked as expired soon, which makes it deprecated, which means its
- * lifecycle is over.
+ * assignment, the corresponding process queue is marked as expired soon, which means its lifecycle is over.
  *
- * <h3>A standard procedure to take/erase message</h3>
+ * <h3>A standard procedure to cache/erase message</h3>
+ *
  *
  * <p>
  * phase 1: Fetch 32 messages successfully from remote.
  * <pre>
- * 32 in   ┌─────────────────────────┐      ┌───┐
- * ────────►           32            │      │ 0 │
- *         └─────────────────────────┘      └───┘
- *               pending messages     in-flight messages
+ * 32 in   ┌─────────────────────────┐
+ * ────────►           32            │
+ *         └─────────────────────────┘
+ *             cached messages = 32
  * </pre>
- * phase 2: {@link #tryTakeMessage} with 1 messages and prepare to consume it.
+ * phase 2: consuming 1 message.
  * <pre>
- *        ┌─────────────────────┐  1   ┌─────┐
- *        │         31          ├──────►  1  │
- *        └─────────────────────┘      └─────┘
- *            pending messages      in-flight messages
+ *        ┌─────────────────────┐   ┌───┐
+ *        │          31         ├───► 1 │ consuming
+ *        └─────────────────────┘   └───┘
+ *             cached messages = 32
  * </pre>
  * phase 3: {@link #eraseMessage(MessageViewImpl, ConsumeResult)} with 1 messages and its consume result.
  * <pre>
- *        ┌─────────────────────┐      ┌───┐ 1 out
- *        │         31          │      │ 0 ├──────►
- *        └─────────────────────┘      └───┘
- *           pending messages      in-flight messages
+ *        ┌─────────────────────┐   ┌───┐ 1 consumed
+ *        │          31         ├───► 0 ├───────────►
+ *        └─────────────────────┘   └───┘
+ *            cached messages = 31
  * </pre>
  *
- * <p>Especially, there are some different processing procedures for FIFO consumption.
- *
- * <p>Let us emphasize two points:
- * 1. For the push consumer, the order of FIFO messages means: for messages under the same message group, only when the
- * previous message is successfully consumed and successfully acknowledged or successfully sent to the dead-letter queue
- * if the consumption is failed, the latter message can be delivered into the {@link MessageListener}.
- * 2. The push consumer essentially uses the 'pull' to simulate the behavior of 'push', and the consumer pulls messages
- * in batches.
- *
- * <p>Based on the above assumptions, the server may put multiple messages of the same message group orderly in a
- * batch of message acquisition, but until the above messages are successfully acknowledged or sent to the dead letter
- * queue, the subsequent messages of the same message group will be obtained by the client. The above is enforced by
- * the server, this is why the return value of the {@link #tryTakeFifoMessages()} is an iterator, an iterator represents
- * a batch, the client itself must ensure the order of message consumption within the batch, and the order between
- * batches are guaranteed by the server.
+ * <p>Especially, there are some different processing procedures for FIFO consumption. // TODO
  */
 public interface ProcessQueue {
     /**
@@ -104,14 +85,7 @@ public interface ProcessQueue {
     void fetchMessageImmediately();
 
     /**
-     * Try to take messages from cache except FIFO messages.
-     *
-     * @return messages which have been taken.
-     */
-    Optional<MessageViewImpl> tryTakeMessage();
-
-    /**
-     * Erase messages which have been taken except FIFO messages.
+     * Erase messages(Non-FIFO-consume-mode) which have been consumed properly.
      *
      * @param messageView   the message to erase.
      * @param consumeResult consume result.
@@ -119,14 +93,7 @@ public interface ProcessQueue {
     void eraseMessage(MessageViewImpl messageView, ConsumeResult consumeResult);
 
     /**
-     * Try to take a FIFO message from the cache.
-     *
-     * @return message which has been taken, or {@link Collections#emptyIterator()} if no message.
-     */
-    Iterator<MessageViewImpl> tryTakeFifoMessages();
-
-    /**
-     * Erase FIFO message which has been taken.
+     * Erase message(FIFO-consume-mode) which have been consumed properly.
      *
      * @param messageView   the message to erase.
      * @param consumeResult consume status.
@@ -134,18 +101,25 @@ public interface ProcessQueue {
     ListenableFuture<Void> eraseFifoMessage(MessageViewImpl messageView, ConsumeResult consumeResult);
 
     /**
-     * Get the count of pending messages.
+     * Discard the message(Non-FIFO-consume-mode) which could not be consumed properly.
+     *
+     * @param messageView the message to discard.
+     */
+    void discardMessage(MessageViewImpl messageView);
+
+    /**
+     * Discard the message(FIFO-consume-mode) which could not consumed properly.
+     *
+     * @param messageView the FIFO message to discard.
+     */
+    void discardFifoMessage(MessageViewImpl messageView);
+
+    /**
+     * Get the count of cached messages.
      *
      * @return count of pending messages.
      */
-    long getPendingMessageCount();
-
-    /**
-     * Get the count of in-flight messages.
-     *
-     * @return count of in-flight messages.
-     */
-    long getInflightMessageCount();
+    long getCachedMessageCount();
 
     /**
      * Get the bytes of cached message memory footprint.

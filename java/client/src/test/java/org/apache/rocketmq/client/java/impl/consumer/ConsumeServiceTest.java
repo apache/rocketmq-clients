@@ -21,8 +21,7 @@ import static org.junit.Assert.assertEquals;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import java.time.Duration;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
@@ -36,14 +35,12 @@ import org.apache.rocketmq.client.java.hook.MessageHandler;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
-import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.apache.rocketmq.client.java.tool.TestBase;
 import org.junit.Test;
 import org.mockito.Mockito;
 
 public class ConsumeServiceTest extends TestBase {
     private final ClientId clientId = new ClientId();
-    private final ConcurrentMap<MessageQueueImpl, ProcessQueue> table = new ConcurrentHashMap<>();
     private final MessageHandler interceptor = Mockito.mock(MessageHandler.class);
     private final ThreadPoolExecutor consumptionExecutor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
         new LinkedBlockingQueue<>(), new ThreadFactoryImpl("TestMessageConsumption"));
@@ -54,10 +51,10 @@ public class ConsumeServiceTest extends TestBase {
     @Test
     public void testConsumeSuccess() throws ExecutionException, InterruptedException, TimeoutException {
         final MessageListener messageListener = messageView -> ConsumeResult.SUCCESS;
-        final ConsumeService consumeService = new ConsumeService(clientId, table, messageListener,
+        final ConsumeService consumeService = new ConsumeService(clientId, messageListener,
             consumptionExecutor, interceptor, scheduler) {
             @Override
-            public void dispatch() {
+            public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
             }
         };
         final MessageViewImpl messageView = fakeMessageViewImpl();
@@ -69,10 +66,10 @@ public class ConsumeServiceTest extends TestBase {
     @Test
     public void testConsumeFailure() throws ExecutionException, InterruptedException, TimeoutException {
         final MessageListener messageListener = messageView -> ConsumeResult.FAILURE;
-        final ConsumeService consumeService = new ConsumeService(clientId, table, messageListener,
+        final ConsumeService consumeService = new ConsumeService(clientId, messageListener,
             consumptionExecutor, interceptor, scheduler) {
             @Override
-            public void dispatch() {
+            public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
             }
         };
         final MessageViewImpl messageView = fakeMessageViewImpl();
@@ -86,10 +83,11 @@ public class ConsumeServiceTest extends TestBase {
         final MessageListener messageListener = messageView -> {
             throw new RuntimeException();
         };
-        final ConsumeService consumeService = new ConsumeService(clientId, table, messageListener,
+        final ConsumeService consumeService = new ConsumeService(clientId, messageListener,
             consumptionExecutor, interceptor, scheduler) {
             @Override
-            public void dispatch() {
+            public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
+
             }
         };
         final MessageViewImpl messageView = fakeMessageViewImpl();
@@ -101,10 +99,12 @@ public class ConsumeServiceTest extends TestBase {
     @Test
     public void testConsumeWithDelay() throws ExecutionException, InterruptedException {
         final MessageListener messageListener = messageView -> ConsumeResult.SUCCESS;
-        final ConsumeService consumeService = new ConsumeService(clientId, table, messageListener,
+        final ConsumeService consumeService = new ConsumeService(clientId, messageListener,
             consumptionExecutor, interceptor, scheduler) {
+
             @Override
-            public void dispatch() {
+            public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
+
             }
         };
         final MessageViewImpl messageView = fakeMessageViewImpl();

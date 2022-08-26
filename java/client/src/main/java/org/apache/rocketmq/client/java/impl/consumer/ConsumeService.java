@@ -24,7 +24,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import java.time.Duration;
-import java.util.concurrent.ConcurrentMap;
+import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -33,16 +33,12 @@ import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.java.hook.MessageHandler;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.misc.ClientId;
-import org.apache.rocketmq.client.java.misc.Dispatcher;
-import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("NullableProblems")
-public abstract class ConsumeService extends Dispatcher {
+public abstract class ConsumeService {
     private static final Logger LOGGER = LoggerFactory.getLogger(ConsumeService.class);
-
-    protected final ConcurrentMap<MessageQueueImpl, ProcessQueue> processQueueTable;
 
     protected final ClientId clientId;
     private final MessageListener messageListener;
@@ -50,17 +46,16 @@ public abstract class ConsumeService extends Dispatcher {
     private final MessageHandler messageHandler;
     private final ScheduledExecutorService scheduler;
 
-    public ConsumeService(ClientId clientId, ConcurrentMap<MessageQueueImpl, ProcessQueue> processQueueTable,
-        MessageListener messageListener, ThreadPoolExecutor consumptionExecutor, MessageHandler messageHandler,
-        ScheduledExecutorService scheduler) {
-        super(clientId);
+    public ConsumeService(ClientId clientId, MessageListener messageListener, ThreadPoolExecutor consumptionExecutor,
+        MessageHandler messageHandler, ScheduledExecutorService scheduler) {
         this.clientId = clientId;
-        this.processQueueTable = processQueueTable;
         this.messageListener = messageListener;
         this.consumptionExecutor = consumptionExecutor;
         this.messageHandler = messageHandler;
         this.scheduler = scheduler;
     }
+
+    public abstract void consume(ProcessQueue pq, List<MessageViewImpl> messageViews);
 
     public ListenableFuture<ConsumeResult> consume(MessageViewImpl messageView) {
         return consume(messageView, Duration.ZERO);

@@ -18,9 +18,7 @@
 package org.apache.rocketmq.client.java.impl.consumer;
 
 import static org.awaitility.Awaitility.await;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.times;
@@ -39,9 +37,7 @@ import io.grpc.Metadata;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
@@ -130,21 +126,6 @@ public class ProcessQueueImplTest extends TestBase {
     }
 
     @Test
-    public void testCacheCorruptedMessagesFifo() {
-        final MessageViewImpl corruptedMessageView0 = fakeMessageViewImpl(true);
-        List<MessageViewImpl> messageViewList = new ArrayList<>();
-        messageViewList.add(corruptedMessageView0);
-        when(pushSubscriptionSettings.isFifo()).thenReturn(true);
-        when(pushConsumer.forwardMessageToDeadLetterQueue(any(MessageViewImpl.class)))
-            .thenReturn(okForwardMessageToDeadLetterQueueResponseFuture());
-        processQueue.cacheMessages(messageViewList);
-        verify(pushConsumer, times(1))
-            .forwardMessageToDeadLetterQueue(any(MessageViewImpl.class));
-        final Iterator<MessageViewImpl> iterator = processQueue.tryTakeFifoMessages();
-        assertFalse(iterator.hasNext());
-    }
-
-    @Test
     public void testReceiveMessageImmediately() {
         final int cachedMessagesCountThresholdPerQueue = 8;
         when(pushConsumer.cacheMessageCountThresholdPerQueue()).thenReturn(cachedMessagesCountThresholdPerQueue);
@@ -169,59 +150,6 @@ public class ProcessQueueImplTest extends TestBase {
         await().atMost(Duration.ofSeconds(3))
             .untilAsserted(() -> verify(pushConsumer, times(cachedMessagesCountThresholdPerQueue))
                 .receiveMessage(any(ReceiveMessageRequest.class), any(MessageQueueImpl.class), any(Duration.class)));
-    }
-
-    @Test
-    public void testEraseMessageWithConsumeOk() {
-        List<MessageViewImpl> messageViewList = new ArrayList<>();
-        int cachedMessageCount = 8;
-        for (int i = 0; i < cachedMessageCount; i++) {
-            final MessageViewImpl messageView = fakeMessageViewImpl();
-            messageViewList.add(messageView);
-        }
-        processQueue.cacheMessages(messageViewList);
-        assertEquals(cachedMessageCount, processQueue.cachedMessagesCount());
-        final Optional<MessageViewImpl> optionalMessageView = processQueue.tryTakeMessage();
-        assertTrue(optionalMessageView.isPresent());
-        assertEquals(cachedMessageCount, processQueue.cachedMessagesCount());
-        assertEquals(1, processQueue.inflightMessagesCount());
-
-        final RpcFuture<AckMessageRequest, AckMessageResponse> future =
-            okAckMessageResponseFuture();
-        when(pushConsumer.ackMessage(any(MessageViewImpl.class))).thenReturn(future);
-        processQueue.eraseMessage(optionalMessageView.get(), ConsumeResult.SUCCESS);
-        future.addListener(() -> verify(pushConsumer, times(1))
-            .ackMessage(any(MessageViewImpl.class)), MoreExecutors.directExecutor());
-        assertEquals(processQueue.cachedMessagesCount(), cachedMessageCount - 1);
-        assertEquals(processQueue.inflightMessagesCount(), 0);
-        assertEquals(consumptionOkQuantity.get(), 1);
-    }
-
-    @Test
-    public void testTryTakeFifoMessage() {
-        List<MessageViewImpl> messageViewList0 = new ArrayList<>();
-        final MessageViewImpl messageView0 = fakeMessageViewImpl(2, false);
-        final MessageViewImpl messageView1 = fakeMessageViewImpl(2, false);
-        messageViewList0.add(messageView0);
-        messageViewList0.add(messageView1);
-
-        List<MessageViewImpl> messageViewList1 = new ArrayList<>();
-        final MessageViewImpl messageView2 = fakeMessageViewImpl(2, false);
-        messageViewList1.add(messageView2);
-        // First take.
-        processQueue.cacheMessages(messageViewList0);
-        Iterator<MessageViewImpl> iterator = processQueue.tryTakeFifoMessages();
-        assertTrue(iterator.hasNext());
-        assertEquals(messageView0, iterator.next());
-        assertTrue(iterator.hasNext());
-        assertEquals(messageView1, iterator.next());
-        assertFalse(iterator.hasNext());
-        // Second take.
-        processQueue.cacheMessages(messageViewList1);
-        iterator = processQueue.tryTakeFifoMessages();
-        assertTrue(iterator.hasNext());
-        assertEquals(messageView2, iterator.next());
-        assertFalse(iterator.hasNext());
     }
 
     @Test

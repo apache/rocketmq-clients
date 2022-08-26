@@ -35,9 +35,7 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -96,16 +94,10 @@ class ProcessQueueImpl implements ProcessQueue {
     /**
      * Messages which is pending means have been cached, but are not taken by consumer dispatcher yet.
      */
-    @GuardedBy("pendingMessagesLock")
-    private final List<MessageViewImpl> pendingMessages;
-    private final ReadWriteLock pendingMessagesLock;
+    @GuardedBy("cachedMessageLock")
+    private final List<MessageViewImpl> cachedMessages;
+    private final ReadWriteLock cachedMessageLock;
 
-    /**
-     * Message which is in-flight means have been dispatched, but the consumption process is not accomplished.
-     */
-    @GuardedBy("inflightMessagesLock")
-    private final List<MessageViewImpl> inflightMessages;
-    private final ReadWriteLock inflightMessagesLock;
 
     private final AtomicLong cachedMessagesBytes;
 
@@ -120,10 +112,8 @@ class ProcessQueueImpl implements ProcessQueue {
         this.dropped = false;
         this.mq = mq;
         this.filterExpression = filterExpression;
-        this.pendingMessages = new ArrayList<>();
-        this.pendingMessagesLock = new ReentrantReadWriteLock();
-        this.inflightMessages = new ArrayList<>();
-        this.inflightMessagesLock = new ReentrantReadWriteLock();
+        this.cachedMessages = new ArrayList<>();
+        this.cachedMessageLock = new ReentrantReadWriteLock();
         this.cachedMessagesBytes = new AtomicLong();
         this.receptionTimes = new AtomicLong(0);
         this.receivedMessagesQuantity = new AtomicLong(0);
@@ -159,24 +149,19 @@ class ProcessQueueImpl implements ProcessQueue {
 
     void cacheMessages(List<MessageViewImpl> messageList) {
         List<MessageViewImpl> corrupted = new ArrayList<>();
-        pendingMessagesLock.writeLock().lock();
+        cachedMessageLock.writeLock().lock();
         try {
-            MessageViewImpl previous = null;
             for (MessageViewImpl messageView : messageList) {
                 // Collect corrupted messages and dispose them individually.
                 if (messageView.isCorrupted()) {
                     corrupted.add(messageView);
                     continue;
                 }
-                if (null != previous) {
-                    previous.setNext(messageView);
-                }
-                previous = messageView;
-                pendingMessages.add(messageView);
+                cachedMessages.add(messageView);
                 cachedMessagesBytes.addAndGet(messageView.getBody().remaining());
             }
         } finally {
-            pendingMessagesLock.writeLock().unlock();
+            cachedMessageLock.writeLock().unlock();
             // Dispose corrupted messages.
             corrupted.forEach(messageView -> {
                 final MessageId messageId = messageView.getMessageId();
@@ -328,23 +313,28 @@ class ProcessQueueImpl implements ProcessQueue {
         return false;
     }
 
-    public int cachedMessagesCount() {
-        pendingMessagesLock.readLock().lock();
-        inflightMessagesLock.readLock().lock();
-        try {
-            return pendingMessages.size() + inflightMessages.size();
-        } finally {
-            inflightMessagesLock.readLock().unlock();
-            pendingMessagesLock.readLock().unlock();
-        }
+    @Override
+    public void discardMessage(MessageViewImpl messageView) {
+        LOGGER.info("Discard message, mq={}, messageId={}, clientId={}", mq, messageView.getMessageId(),
+            consumer.getClientId());
+        final ListenableFuture<Void> future = nackMessage(messageView);
+        future.addListener(() -> evictCache(messageView), MoreExecutors.directExecutor());
     }
 
-    public int inflightMessagesCount() {
-        inflightMessagesLock.readLock().lock();
+    @Override
+    public void discardFifoMessage(MessageViewImpl messageView) {
+        LOGGER.info("Discard fifo message, mq={}, messageId={}, clientId={}", mq, messageView.getMessageId(),
+            consumer.getClientId());
+        final ListenableFuture<Void> future = forwardToDeadLetterQueue(messageView);
+        future.addListener(() -> evictCache(messageView), MoreExecutors.directExecutor());
+    }
+
+    public int cachedMessagesCount() {
+        cachedMessageLock.readLock().lock();
         try {
-            return inflightMessages.size();
+            return cachedMessages.size();
         } finally {
-            inflightMessagesLock.readLock().unlock();
+            cachedMessageLock.readLock().unlock();
         }
     }
 
@@ -358,38 +348,19 @@ class ProcessQueueImpl implements ProcessQueue {
             cacheMessages(messages);
             receivedMessagesQuantity.getAndAdd(messages.size());
             consumer.getReceivedMessagesQuantity().getAndAdd(messages.size());
-            consumer.getConsumeService().signal();
+            consumer.getConsumeService().consume(this, messages);
         }
         receiveMessage();
     }
 
-    @Override
-    public Optional<MessageViewImpl> tryTakeMessage() {
-        pendingMessagesLock.writeLock().lock();
-        inflightMessagesLock.writeLock().lock();
+    private void evictCache(MessageViewImpl messageView) {
+        cachedMessageLock.writeLock().lock();
         try {
-            final Optional<MessageViewImpl> first = pendingMessages.stream().findFirst();
-            if (!first.isPresent()) {
-                return first;
-            }
-            final MessageViewImpl messageView = first.get();
-            inflightMessages.add(messageView);
-            pendingMessages.remove(messageView);
-            return first;
-        } finally {
-            inflightMessagesLock.writeLock().unlock();
-            pendingMessagesLock.writeLock().unlock();
-        }
-    }
-
-    private void eraseMessage(MessageViewImpl messageView) {
-        inflightMessagesLock.writeLock().lock();
-        try {
-            if (inflightMessages.remove(messageView)) {
+            if (cachedMessages.remove(messageView)) {
                 cachedMessagesBytes.addAndGet(-messageView.getBody().remaining());
             }
         } finally {
-            inflightMessagesLock.writeLock().unlock();
+            cachedMessageLock.writeLock().unlock();
         }
     }
 
@@ -404,22 +375,21 @@ class ProcessQueueImpl implements ProcessQueue {
     @Override
     public void eraseMessage(MessageViewImpl messageView, ConsumeResult consumeResult) {
         statsConsumptionResult(consumeResult);
-        eraseMessage(messageView);
-        if (ConsumeResult.SUCCESS.equals(consumeResult)) {
-            ackMessage(messageView);
-            return;
-        }
-        nackMessage(messageView);
+        ListenableFuture<Void> future = ConsumeResult.SUCCESS.equals(consumeResult) ? ackMessage(messageView) :
+            nackMessage(messageView);
+        future.addListener(() -> evictCache(messageView), MoreExecutors.directExecutor());
     }
 
-    private void nackMessage(MessageViewImpl messageView) {
+    private ListenableFuture<Void> nackMessage(final MessageViewImpl messageView) {
         final int deliveryAttempt = messageView.getDeliveryAttempt();
         final Duration duration = consumer.getRetryPolicy().getNextAttemptDelay(deliveryAttempt);
-        changeInvisibleDuration(messageView, duration, 1);
+        final SettableFuture<Void> future0 = SettableFuture.create();
+        changeInvisibleDuration(messageView, duration, 1, future0);
+        return future0;
     }
 
     private void changeInvisibleDuration(final MessageViewImpl messageView, final Duration duration,
-        final int attempt) {
+        final int attempt, final SettableFuture<Void> future0) {
         final ClientId clientId = consumer.getClientId();
         final String consumerGroup = consumer.getConsumerGroup();
         final MessageId messageId = messageView.getMessageId();
@@ -437,6 +407,7 @@ class ProcessQueueImpl implements ProcessQueue {
                             + "retry, clientId={}, consumerGroup={}, messageId={}, attempt={}, mq={}, endpoints={}, "
                             + "requestId={}, status message=[{}]", clientId, consumerGroup, messageId, attempt, mq,
                         endpoints, requestId, status.getMessage());
+                    future0.setException(new BadRequestException(code.getNumber(), requestId, status.getMessage()));
                     return;
                 }
                 // Log failure and retry later.
@@ -445,9 +416,11 @@ class ProcessQueueImpl implements ProcessQueue {
                             + "consumerGroup={}, messageId={}, attempt={}, mq={}, endpoints={}, requestId={}, "
                             + "status message=[{}]", clientId, consumerGroup, messageId, attempt, mq, endpoints,
                         requestId, status.getMessage());
-                    changeInvisibleDurationLater(messageView, duration, 1 + attempt);
+                    changeInvisibleDurationLater(messageView, duration, 1 + attempt, future0);
                     return;
                 }
+                // Set result if succeed in changing invisible time.
+                future0.setFuture(Futures.immediateVoidFuture());
                 // Log retries.
                 if (1 < attempt) {
                     LOGGER.info("Finally, change invisible duration successfully, clientId={}, consumerGroup={} "
@@ -466,24 +439,17 @@ class ProcessQueueImpl implements ProcessQueue {
                 LOGGER.error("Exception raised while changing invisible duration, would retry later, clientId={}, "
                         + "consumerGroup={}, messageId={}, mq={}, endpoints={}", clientId, consumerGroup,
                     messageId, mq, endpoints, t);
-                changeInvisibleDurationLater(messageView, duration, 1 + attempt);
+                changeInvisibleDurationLater(messageView, duration, 1 + attempt, future0);
             }
         }, MoreExecutors.directExecutor());
     }
 
     private void changeInvisibleDurationLater(final MessageViewImpl messageView, final Duration duration,
-        final int attempt) {
+        final int attempt, SettableFuture<Void> future) {
         final MessageId messageId = messageView.getMessageId();
-        final ClientId clientId = consumer.getClientId();
-        // Process queue is dropped, no need to proceed.
-        if (dropped) {
-            LOGGER.info("Process queue was dropped, give up to change invisible duration, mq={}, messageId={}, "
-                + "clientId={}", mq, messageId, clientId);
-            return;
-        }
         final ScheduledExecutorService scheduler = consumer.getScheduler();
         try {
-            scheduler.schedule(() -> changeInvisibleDuration(messageView, duration, attempt),
+            scheduler.schedule(() -> changeInvisibleDuration(messageView, duration, attempt, future),
                 CHANGE_INVISIBLE_DURATION_FAILURE_BACKOFF_DELAY.toNanos(), TimeUnit.NANOSECONDS);
         } catch (Throwable t) {
             if (scheduler.isShutdown()) {
@@ -491,31 +457,8 @@ class ProcessQueueImpl implements ProcessQueue {
             }
             // Should never reach here.
             LOGGER.error("[Bug] Failed to schedule message change invisible duration request, mq={}, messageId={}, "
-                + "clientId={}", mq, messageId, clientId);
-            changeInvisibleDurationLater(messageView, duration, 1 + attempt);
-        }
-    }
-
-    @Override
-    public Iterator<MessageViewImpl> tryTakeFifoMessages() {
-        pendingMessagesLock.writeLock().lock();
-        inflightMessagesLock.writeLock().lock();
-        try {
-            Optional<MessageViewImpl> next = pendingMessages.stream().findFirst();
-            // No new message arrived.
-            if (!next.isPresent()) {
-                return Collections.emptyIterator();
-            }
-            final MessageViewImpl first = next.get();
-            Iterator<MessageViewImpl> iterator = first.iterator();
-            iterator.forEachRemaining(messageView -> {
-                pendingMessages.remove(messageView);
-                inflightMessages.add(messageView);
-            });
-            return first.iterator();
-        } finally {
-            inflightMessagesLock.writeLock().unlock();
-            pendingMessagesLock.writeLock().unlock();
+                + "clientId={}", mq, messageId, consumer.getClientId());
+            changeInvisibleDurationLater(messageView, duration, 1 + attempt, future);
         }
     }
 
@@ -545,7 +488,7 @@ class ProcessQueueImpl implements ProcessQueue {
         }
         // Ack message or forward it to DLQ depends on consumption result.
         ListenableFuture<Void> future = ok ? ackMessage(messageView) : forwardToDeadLetterQueue(messageView);
-        future.addListener(() -> eraseMessage(messageView), consumer.getConsumptionExecutor());
+        future.addListener(() -> evictCache(messageView), consumer.getConsumptionExecutor());
         return future;
     }
 
@@ -606,14 +549,6 @@ class ProcessQueueImpl implements ProcessQueue {
 
     private void forwardToDeadLetterQueueLater(final MessageViewImpl messageView, final int attempt,
         final SettableFuture<Void> future0) {
-        final MessageId messageId = messageView.getMessageId();
-        final ClientId clientId = consumer.getClientId();
-        // Process queue is dropped, no need to proceed.
-        if (dropped) {
-            LOGGER.info("Process queue was dropped, give up to forward message to dead letter queue, mq={}," +
-                " messageId={}, clientId={}", mq, messageId, clientId);
-            return;
-        }
         final ScheduledExecutorService scheduler = consumer.getScheduler();
         try {
             scheduler.schedule(() -> forwardToDeadLetterQueue(messageView, attempt, future0),
@@ -624,7 +559,7 @@ class ProcessQueueImpl implements ProcessQueue {
             }
             // Should never reach here.
             LOGGER.error("[Bug] Failed to schedule DLQ message request, mq={}, messageId={}, clientId={}", mq,
-                messageView.getMessageId(), clientId);
+                messageView.getMessageId(), consumer.getClientId());
             forwardToDeadLetterQueueLater(messageView, 1 + attempt, future0);
         }
     }
@@ -690,18 +625,11 @@ class ProcessQueueImpl implements ProcessQueue {
     }
 
     private void ackMessageLater(final MessageViewImpl messageView, final int attempt,
-        final SettableFuture<Void> future0) {
+        final SettableFuture<Void> future) {
         final MessageId messageId = messageView.getMessageId();
-        final ClientId clientId = consumer.getClientId();
-        // Process queue is dropped, no need to proceed.
-        if (dropped) {
-            LOGGER.info("Process queue was dropped, give up to ack message, mq={}, messageId={}, clientId={}",
-                mq, messageId, clientId);
-            return;
-        }
         final ScheduledExecutorService scheduler = consumer.getScheduler();
         try {
-            scheduler.schedule(() -> ackMessage(messageView, attempt, future0),
+            scheduler.schedule(() -> ackMessage(messageView, attempt, future),
                 ACK_MESSAGE_FAILURE_BACKOFF_DELAY.toNanos(), TimeUnit.NANOSECONDS);
         } catch (Throwable t) {
             if (scheduler.isShutdown()) {
@@ -709,27 +637,18 @@ class ProcessQueueImpl implements ProcessQueue {
             }
             // Should never reach here.
             LOGGER.error("[Bug] Failed to schedule message ack request, mq={}, messageId={}, clientId={}",
-                mq, messageId, clientId);
-            ackMessageLater(messageView, 1 + attempt, future0);
+                mq, messageId, consumer.getClientId());
+            ackMessageLater(messageView, 1 + attempt, future);
         }
     }
 
     @Override
-    public long getPendingMessageCount() {
-        pendingMessagesLock.readLock().lock();
+    public long getCachedMessageCount() {
+        cachedMessageLock.readLock().lock();
         try {
-            return pendingMessages.size();
+            return cachedMessages.size();
         } finally {
-            pendingMessagesLock.readLock().unlock();
-        }
-    }
-
-    public long getInflightMessageCount() {
-        inflightMessagesLock.readLock().lock();
-        try {
-            return inflightMessages.size();
-        } finally {
-            inflightMessagesLock.readLock().unlock();
+            cachedMessageLock.readLock().unlock();
         }
     }
 
@@ -742,8 +661,7 @@ class ProcessQueueImpl implements ProcessQueue {
         final long receptionTimes = this.receptionTimes.getAndSet(0);
         final long receivedMessagesQuantity = this.receivedMessagesQuantity.getAndSet(0);
         LOGGER.info("Process queue stats: clientId={}, mq={}, receptionTimes={}, receivedMessageQuantity={}, "
-                + "pendingMessageCount={}, inflightMessageCount={}, cachedMessageBytes={}", consumer.getClientId(), mq,
-            receptionTimes, receivedMessagesQuantity, this.getPendingMessageCount(), this.getInflightMessageCount(),
-            this.getCachedMessageBytes());
+                + "cachedMessageCount={}, cachedMessageBytes={}", consumer.getClientId(), mq,
+            receptionTimes, receivedMessagesQuantity, this.getCachedMessageCount(), this.getCachedMessageBytes());
     }
 }

@@ -161,7 +161,6 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
             super.startUp();
             final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
             this.consumeService = createConsumeService();
-            this.consumeService.startAsync().awaitRunning();
             // Scan assignments periodically.
             scanAssignmentsFuture = scheduler.scheduleWithFixedDelay(() -> {
                 try {
@@ -185,7 +184,6 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
             scanAssignmentsFuture.cancel(false);
         }
         super.shutDown();
-        this.consumeService.stopAsync().awaitTerminated();
         this.consumptionExecutor.shutdown();
         ExecutorServices.awaitTerminated(consumptionExecutor);
         LOGGER.info("Shutdown the rocketmq push consumer successfully, clientId={}", clientId);
@@ -194,11 +192,9 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private ConsumeService createConsumeService() {
         final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
         if (pushSubscriptionSettings.isFifo()) {
-            return new FifoConsumeService(clientId, processQueueTable, messageListener,
-                consumptionExecutor, this, scheduler);
+            return new FifoConsumeService(clientId, messageListener, consumptionExecutor, this, scheduler);
         }
-        return new StandardConsumeService(clientId, processQueueTable, messageListener,
-            consumptionExecutor, this, scheduler);
+        return new StandardConsumeService(clientId, messageListener, consumptionExecutor, this, scheduler);
     }
 
     /**
