@@ -72,11 +72,11 @@ import org.slf4j.LoggerFactory;
  */
 @SuppressWarnings({"NullableProblems", "UnstableApiUsage"})
 class ProcessQueueImpl implements ProcessQueue {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ProcessQueueImpl.class);
+    static final Duration FORWARD_FIFO_MESSAGE_TO_DLQ_FAILURE_BACKOFF_DELAY = Duration.ofSeconds(1);
+    static final Duration ACK_MESSAGE_FAILURE_BACKOFF_DELAY = Duration.ofSeconds(1);
+    static final Duration CHANGE_INVISIBLE_DURATION_FAILURE_BACKOFF_DELAY = Duration.ofSeconds(1);
 
-    private static final Duration FORWARD_FIFO_MESSAGE_TO_DLQ_FAILURE_BACKOFF_DELAY = Duration.ofSeconds(1);
-    private static final Duration ACK_MESSAGE_FAILURE_BACKOFF_DELAY = Duration.ofSeconds(1);
-    private static final Duration CHANGE_INVISIBLE_DURATION_FAILURE_BACKOFF_DELAY = Duration.ofSeconds(1);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ProcessQueueImpl.class);
 
     private static final Duration RECEIVING_FLOW_CONTROL_BACKOFF_DELAY = Duration.ofMillis(20);
     private static final Duration RECEIVING_FAILURE_BACKOFF_DELAY = Duration.ofSeconds(1);
@@ -97,7 +97,6 @@ class ProcessQueueImpl implements ProcessQueue {
     @GuardedBy("cachedMessageLock")
     private final List<MessageViewImpl> cachedMessages;
     private final ReadWriteLock cachedMessageLock;
-
 
     private final AtomicLong cachedMessagesBytes;
 
@@ -131,9 +130,9 @@ class ProcessQueueImpl implements ProcessQueue {
 
     @Override
     public boolean expired() {
-        final PushSubscriptionSettings settings = consumer.getPushConsumerSettings();
-        Duration maxIdleDuration = Duration.ofNanos(3 * (settings.getLongPollingTimeout().toNanos()
-            + consumer.getClientConfiguration().getRequestTimeout().toNanos()));
+        final Duration longPollingTimeout = consumer.getPushConsumerSettings().getLongPollingTimeout();
+        final Duration requestTimeout = consumer.getClientConfiguration().getRequestTimeout();
+        final Duration maxIdleDuration = longPollingTimeout.plus(requestTimeout).multipliedBy(3);
         final Duration idleDuration = Duration.ofNanos(System.nanoTime() - activityNanoTime);
         if (idleDuration.compareTo(maxIdleDuration) < 0) {
             return false;
@@ -148,33 +147,14 @@ class ProcessQueueImpl implements ProcessQueue {
     }
 
     void cacheMessages(List<MessageViewImpl> messageList) {
-        List<MessageViewImpl> corrupted = new ArrayList<>();
         cachedMessageLock.writeLock().lock();
         try {
             for (MessageViewImpl messageView : messageList) {
-                // Collect corrupted messages and dispose them individually.
-                if (messageView.isCorrupted()) {
-                    corrupted.add(messageView);
-                    continue;
-                }
                 cachedMessages.add(messageView);
                 cachedMessagesBytes.addAndGet(messageView.getBody().remaining());
             }
         } finally {
             cachedMessageLock.writeLock().unlock();
-            // Dispose corrupted messages.
-            corrupted.forEach(messageView -> {
-                final MessageId messageId = messageView.getMessageId();
-                if (consumer.getPushConsumerSettings().isFifo()) {
-                    LOGGER.error("Message is corrupted, forward it to dead letter queue in fifo mode, mq={}, " +
-                        "messageId={}, clientId={}", mq, messageId, consumer.getClientId());
-                    forwardToDeadLetterQueue(messageView);
-                    return;
-                }
-                LOGGER.error("Message is corrupted, nack it in standard mode, mq={}, messageId={}, clientId={}", mq,
-                    messageId, consumer.getClientId());
-                nackMessage(messageView);
-            });
         }
     }
 
@@ -519,7 +499,7 @@ class ProcessQueueImpl implements ProcessQueue {
                             " clientId={}, consumerGroup={}, messageId={}, attempt={}, mq={}, endpoints={}, "
                             + "requestId={}, code={}, status message={}", clientId, consumerGroup, messageId, attempt,
                         mq, endpoints, requestId, code, status.getMessage());
-                    forwardToDeadLetterQueue(messageView, 1 + attempt, future0);
+                    forwardToDeadLetterQueueLater(messageView, 1 + attempt, future0);
                     return;
                 }
                 // Set result if message is forwarded successfully.
