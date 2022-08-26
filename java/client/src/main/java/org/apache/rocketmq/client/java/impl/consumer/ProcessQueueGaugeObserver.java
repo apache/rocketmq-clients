@@ -64,8 +64,7 @@ public class ProcessQueueGaugeObserver implements GaugeObserver {
                         .build();
                     double count = cachedMessageCountMap.containsKey(attributes) ?
                         cachedMessageCountMap.get(attributes) : 0;
-                    count += pq.getInflightMessageCount();
-                    count += pq.getPendingMessageCount();
+                    count += pq.getCachedMessageCount();
                     cachedMessageCountMap.put(attributes, count);
                 }
                 return cachedMessageCountMap;

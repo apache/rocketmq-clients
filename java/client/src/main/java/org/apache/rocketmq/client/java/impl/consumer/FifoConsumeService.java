@@ -20,11 +20,8 @@ package org.apache.rocketmq.client.java.impl.consumer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
@@ -32,54 +29,39 @@ import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.java.hook.MessageHandler;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.misc.ClientId;
-import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@SuppressWarnings("UnstableApiUsage")
 class FifoConsumeService extends ConsumeService {
     private static final Logger LOGGER = LoggerFactory.getLogger(FifoConsumeService.class);
 
-    public FifoConsumeService(ClientId clientId, ConcurrentMap<MessageQueueImpl, ProcessQueue> processQueueTable,
-        MessageListener messageListener, ThreadPoolExecutor consumptionExecutor, MessageHandler messageHandler,
-        ScheduledExecutorService scheduler) {
-        super(clientId, processQueueTable, messageListener, consumptionExecutor, messageHandler, scheduler);
+    public FifoConsumeService(ClientId clientId, MessageListener messageListener,
+        ThreadPoolExecutor consumptionExecutor, MessageHandler messageHandler, ScheduledExecutorService scheduler) {
+        super(clientId, messageListener, consumptionExecutor, messageHandler, scheduler);
     }
 
     @Override
-    public void startUp() {
-        LOGGER.info("Begin to start the FIFO consume service, clientId={}", clientId);
-        super.startUp();
-        LOGGER.info("Begin to shutdown the FIFO consume service, clientId={}", clientId);
+    public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
+        consumeIteratively(pq, messageViews.iterator());
     }
 
-    @Override
-    public void shutDown() throws InterruptedException {
-        LOGGER.info("Begin to shutdown the FIFO consume service, clientId={}", clientId);
-        super.shutDown();
-        LOGGER.info("Shutdown the FIFO consume service successfully, clientId={}", clientId);
-    }
-
-    @SuppressWarnings("UnstableApiUsage")
     public void consumeIteratively(ProcessQueue pq, Iterator<MessageViewImpl> iterator) {
         if (!iterator.hasNext()) {
             return;
         }
-        final MessageViewImpl next = iterator.next();
-        final ListenableFuture<ConsumeResult> future0 = consume(next);
-        final ListenableFuture<Void> future = Futures.transformAsync(future0, result -> pq.eraseFifoMessage(next,
+        final MessageViewImpl messageView = iterator.next();
+        if (messageView.isCorrupted()) {
+            // Discard corrupted message.
+            LOGGER.error("Message is corrupted for FIFO consumption, prepare to discard it, mq={}, messageId={}, "
+                + "clientId={}", pq.getMessageQueue(), messageView.getMessageId(), clientId);
+            pq.discardFifoMessage(messageView);
+            consumeIteratively(pq, iterator);
+            return;
+        }
+        final ListenableFuture<ConsumeResult> future0 = consume(messageView);
+        ListenableFuture<Void> future = Futures.transformAsync(future0, result -> pq.eraseFifoMessage(messageView,
             result), MoreExecutors.directExecutor());
         future.addListener(() -> consumeIteratively(pq, iterator), MoreExecutors.directExecutor());
-    }
-
-    @Override
-    public void dispatch() {
-        final List<ProcessQueue> processQueues = new ArrayList<>(processQueueTable.values());
-        // Shuffle all process queue in case messages are always consumed firstly in one message queue.
-        Collections.shuffle(processQueues);
-        // Iterate all process queues to submit consumption task.
-        for (final ProcessQueue pq : processQueues) {
-            Iterator<MessageViewImpl> iterator = pq.tryTakeFifoMessages();
-            consumeIteratively(pq, iterator);
-        }
     }
 }

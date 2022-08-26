@@ -21,11 +21,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
@@ -33,7 +29,6 @@ import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.java.hook.MessageHandler;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.misc.ClientId;
-import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,44 +36,21 @@ import org.slf4j.LoggerFactory;
 public class StandardConsumeService extends ConsumeService {
     private static final Logger LOGGER = LoggerFactory.getLogger(StandardConsumeService.class);
 
-    public StandardConsumeService(ClientId clientId, ConcurrentMap<MessageQueueImpl, ProcessQueue> processQueueTable,
-        MessageListener messageListener, ThreadPoolExecutor consumptionExecutor, MessageHandler messageHandler,
-        ScheduledExecutorService scheduler) {
-        super(clientId, processQueueTable, messageListener, consumptionExecutor, messageHandler, scheduler);
+    public StandardConsumeService(ClientId clientId, MessageListener messageListener,
+        ThreadPoolExecutor consumptionExecutor, MessageHandler messageHandler, ScheduledExecutorService scheduler) {
+        super(clientId, messageListener, consumptionExecutor, messageHandler, scheduler);
     }
 
     @Override
-    public void startUp() {
-        LOGGER.info("Begin to start the standard consume service, clientId={}", clientId);
-        super.startUp();
-        LOGGER.info("Begin to shutdown the standard consume service, clientId={}", clientId);
-    }
-
-    @Override
-    public void shutDown() throws InterruptedException {
-        LOGGER.info("Begin to shutdown the standard consume service, clientId={}", clientId);
-        super.shutDown();
-        LOGGER.info("Shutdown the standard consume service successfully, clientId={}", clientId);
-    }
-
-    /**
-     * dispatch message(s) once
-     *
-     * @return if message is dispatched.
-     */
-    public boolean dispatch0() {
-        final List<ProcessQueue> processQueues = new ArrayList<>(processQueueTable.values());
-        // Shuffle all process queue in case messages are always consumed firstly in one message queue.
-        Collections.shuffle(processQueues);
-        boolean dispatched = false;
-        // Iterate all process queues to submit consumption task.
-        for (ProcessQueue pq : processQueues) {
-            final Optional<MessageViewImpl> optionalMessageView = pq.tryTakeMessage();
-            if (!optionalMessageView.isPresent()) {
+    public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
+        for (MessageViewImpl messageView : messageViews) {
+            // Discard corrupted message.
+            if (messageView.isCorrupted()) {
+                LOGGER.error("Message is corrupted for standard consumption, prepare to discard it, mq={}, "
+                    + "messageId={}, clientId={}", pq.getMessageQueue(), messageView.getMessageId(), clientId);
+                pq.discardMessage(messageView);
                 continue;
             }
-            dispatched = true;
-            MessageViewImpl messageView = optionalMessageView.get();
             final ListenableFuture<ConsumeResult> future = consume(messageView);
             Futures.addCallback(future, new FutureCallback<ConsumeResult>() {
                 @Override
@@ -93,17 +65,5 @@ public class StandardConsumeService extends ConsumeService {
                 }
             }, MoreExecutors.directExecutor());
         }
-        return dispatched;
-    }
-
-    /**
-     * Loop of message dispatch.
-     */
-    @Override
-    public void dispatch() {
-        boolean dispatched;
-        do {
-            dispatched = dispatch0();
-        } while (dispatched);
     }
 }
