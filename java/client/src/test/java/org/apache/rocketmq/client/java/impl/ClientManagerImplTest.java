@@ -27,6 +27,7 @@ import apache.rocketmq.v2.QueryAssignmentRequest;
 import apache.rocketmq.v2.QueryRouteRequest;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.SendMessageRequest;
+import io.grpc.Metadata;
 import java.time.Duration;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.tool.TestBase;
@@ -39,8 +40,10 @@ public class ClientManagerImplTest extends TestBase {
     private static ClientManagerImpl CLIENT_MANAGER;
 
     @BeforeClass
-    public static void setUp() {
+    public static void setUp() throws Exception {
         Client client = Mockito.mock(Client.class);
+        final Metadata metadata = new Metadata();
+        Mockito.doReturn(metadata).when(client).sign();
         final ClientId clientId = new ClientId();
         Mockito.doReturn(clientId).when(client).getClientId();
         CLIENT_MANAGER = new ClientManagerImpl(client);
