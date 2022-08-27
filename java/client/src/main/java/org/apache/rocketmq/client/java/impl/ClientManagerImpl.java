@@ -38,7 +38,6 @@ import apache.rocketmq.v2.ReceiveMessageResponse;
 import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
 import apache.rocketmq.v2.TelemetryCommand;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.grpc.Metadata;
@@ -59,6 +58,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.net.ssl.SSLException;
 import org.apache.rocketmq.client.apis.ClientException;
+import org.apache.rocketmq.client.java.exception.InternalErrorException;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.misc.ExecutorServices;
 import org.apache.rocketmq.client.java.misc.MetadataUtils;
@@ -194,152 +194,167 @@ public class ClientManagerImpl extends ClientManager {
     }
 
     @Override
-    public RpcFuture<QueryRouteRequest, QueryRouteResponse> queryRoute(Endpoints endpoints, Metadata metadata,
-        QueryRouteRequest request, Duration duration) {
-        final Context context = new Context(endpoints, metadata);
+    public RpcFuture<QueryRouteRequest, QueryRouteResponse> queryRoute(Endpoints endpoints, QueryRouteRequest request,
+        Duration duration) {
         try {
+            final Metadata metadata = client.sign();
+            final Context context = new Context(endpoints, metadata);
             final RpcClient rpcClient = getRpcClient(endpoints);
             final ListenableFuture<QueryRouteResponse> future = rpcClient.queryRoute(metadata, request, asyncWorker,
                 duration);
             return new RpcFuture<>(context, request, future);
         } catch (Throwable t) {
-            return new RpcFuture<>(context, request, Futures.immediateFailedFuture(t));
+            return new RpcFuture<>(t);
         }
     }
 
     @Override
-    public RpcFuture<HeartbeatRequest, HeartbeatResponse> heartbeat(Endpoints endpoints, Metadata metadata,
-        HeartbeatRequest request, Duration duration) {
-        final Context context = new Context(endpoints, metadata);
+    public RpcFuture<HeartbeatRequest, HeartbeatResponse> heartbeat(Endpoints endpoints, HeartbeatRequest request,
+        Duration duration) {
         try {
+            final Metadata metadata = client.sign();
+            final Context context = new Context(endpoints, metadata);
             final RpcClient rpcClient = getRpcClient(endpoints);
             ListenableFuture<HeartbeatResponse> future = rpcClient.heartbeat(metadata, request, asyncWorker, duration);
             return new RpcFuture<>(context, request, future);
         } catch (Throwable t) {
-            return new RpcFuture<>(context, request, Futures.immediateFailedFuture(t));
+            return new RpcFuture<>(t);
         }
     }
 
     @Override
-    public RpcFuture<SendMessageRequest, SendMessageResponse> sendMessage(Endpoints endpoints, Metadata metadata,
+    public RpcFuture<SendMessageRequest, SendMessageResponse> sendMessage(Endpoints endpoints,
         SendMessageRequest request, Duration duration) {
-        final Context context = new Context(endpoints, metadata);
         try {
+            final Metadata metadata = client.sign();
+            final Context context = new Context(endpoints, metadata);
             final RpcClient rpcClient = getRpcClient(endpoints);
             final ListenableFuture<SendMessageResponse> future =
                 rpcClient.sendMessage(metadata, request, asyncWorker, duration);
             return new RpcFuture<>(context, request, future);
         } catch (Throwable t) {
-            return new RpcFuture<>(context, request, Futures.immediateFailedFuture(t));
+            return new RpcFuture<>(t);
         }
     }
 
     @Override
     public RpcFuture<QueryAssignmentRequest, QueryAssignmentResponse> queryAssignment(Endpoints endpoints,
-        Metadata metadata, QueryAssignmentRequest request, Duration duration) {
-        final Context context = new Context(endpoints, metadata);
+        QueryAssignmentRequest request, Duration duration) {
         try {
+            final Metadata metadata = client.sign();
+            final Context context = new Context(endpoints, metadata);
             final RpcClient rpcClient = getRpcClient(endpoints);
             final ListenableFuture<QueryAssignmentResponse> future =
                 rpcClient.queryAssignment(metadata, request, asyncWorker, duration);
             return new RpcFuture<>(context, request, future);
         } catch (Throwable t) {
-            return new RpcFuture<>(context, request, Futures.immediateFailedFuture(t));
+            return new RpcFuture<>(t);
         }
     }
 
     @Override
     public RpcFuture<ReceiveMessageRequest, List<ReceiveMessageResponse>> receiveMessage(Endpoints endpoints,
-        Metadata metadata, ReceiveMessageRequest request, Duration duration) {
-        final Context context = new Context(endpoints, metadata);
+        ReceiveMessageRequest request, Duration duration) {
         try {
+            final Metadata metadata = client.sign();
+            final Context context = new Context(endpoints, metadata);
             final RpcClient rpcClient = getRpcClient(endpoints);
             final ListenableFuture<List<ReceiveMessageResponse>> future =
                 rpcClient.receiveMessage(metadata, request, asyncWorker, duration);
             return new RpcFuture<>(context, request, future);
         } catch (Throwable t) {
-            return new RpcFuture<>(context, request, Futures.immediateFailedFuture(t));
+            return new RpcFuture<>(t);
         }
     }
 
     @Override
-    public RpcFuture<AckMessageRequest, AckMessageResponse> ackMessage(Endpoints endpoints, Metadata metadata,
-        AckMessageRequest request, Duration duration) {
-        final Context context = new Context(endpoints, metadata);
+    public RpcFuture<AckMessageRequest, AckMessageResponse> ackMessage(Endpoints endpoints, AckMessageRequest request,
+        Duration duration) {
         try {
+            final Metadata metadata = client.sign();
+            final Context context = new Context(endpoints, metadata);
             final RpcClient rpcClient = getRpcClient(endpoints);
             final ListenableFuture<AckMessageResponse> future =
                 rpcClient.ackMessage(metadata, request, asyncWorker, duration);
             return new RpcFuture<>(context, request, future);
         } catch (Throwable t) {
-            return new RpcFuture<>(context, request, Futures.immediateFailedFuture(t));
+            return new RpcFuture<>(t);
         }
     }
 
     @Override
     public RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse>
-    changeInvisibleDuration(Endpoints endpoints, Metadata metadata, ChangeInvisibleDurationRequest request,
+    changeInvisibleDuration(Endpoints endpoints, ChangeInvisibleDurationRequest request,
         Duration duration) {
-        final Context context = new Context(endpoints, metadata);
         try {
+            final Metadata metadata = client.sign();
+            final Context context = new Context(endpoints, metadata);
             final RpcClient rpcClient = getRpcClient(endpoints);
             final ListenableFuture<ChangeInvisibleDurationResponse> future =
                 rpcClient.changeInvisibleDuration(metadata, request, asyncWorker, duration);
             return new RpcFuture<>(context, request, future);
         } catch (Throwable t) {
-            return new RpcFuture<>(context, request, Futures.immediateFailedFuture(t));
+            return new RpcFuture<>(t);
         }
     }
 
     @Override
     public RpcFuture<ForwardMessageToDeadLetterQueueRequest, ForwardMessageToDeadLetterQueueResponse>
-    forwardMessageToDeadLetterQueue(Endpoints endpoints, Metadata metadata,
-        ForwardMessageToDeadLetterQueueRequest request, Duration duration) {
-        final Context context = new Context(endpoints, metadata);
+    forwardMessageToDeadLetterQueue(Endpoints endpoints, ForwardMessageToDeadLetterQueueRequest request,
+        Duration duration) {
         try {
+            final Metadata metadata = client.sign();
+            final Context context = new Context(endpoints, metadata);
             final RpcClient rpcClient = getRpcClient(endpoints);
             final ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future =
                 rpcClient.forwardMessageToDeadLetterQueue(metadata, request, asyncWorker, duration);
             return new RpcFuture<>(context, request, future);
         } catch (Throwable t) {
-            return new RpcFuture<>(context, request, Futures.immediateFailedFuture(t));
+            return new RpcFuture<>(t);
         }
     }
 
     @Override
     public RpcFuture<EndTransactionRequest, EndTransactionResponse> endTransaction(Endpoints endpoints,
-        Metadata metadata, EndTransactionRequest request, Duration duration) {
-        final Context context = new Context(endpoints, metadata);
+        EndTransactionRequest request, Duration duration) {
         try {
+            final Metadata metadata = client.sign();
+            final Context context = new Context(endpoints, metadata);
             final RpcClient rpcClient = getRpcClient(endpoints);
             final ListenableFuture<EndTransactionResponse> future =
                 rpcClient.endTransaction(metadata, request, asyncWorker, duration);
             return new RpcFuture<>(context, request, future);
         } catch (Throwable t) {
-            return new RpcFuture<>(context, request, Futures.immediateFailedFuture(t));
+            return new RpcFuture<>(t);
         }
     }
 
     @Override
     public RpcFuture<NotifyClientTerminationRequest, NotifyClientTerminationResponse>
-    notifyClientTermination(Endpoints endpoints, Metadata metadata, NotifyClientTerminationRequest request,
+    notifyClientTermination(Endpoints endpoints, NotifyClientTerminationRequest request,
         Duration duration) {
-        final Context context = new Context(endpoints, metadata);
         try {
+            final Metadata metadata = client.sign();
+            final Context context = new Context(endpoints, metadata);
             final RpcClient rpcClient = getRpcClient(endpoints);
             final ListenableFuture<NotifyClientTerminationResponse> future =
                 rpcClient.notifyClientTermination(metadata, request, asyncWorker, duration);
             return new RpcFuture<>(context, request, future);
         } catch (Throwable t) {
-            return new RpcFuture<>(context, request, Futures.immediateFailedFuture(t));
+            return new RpcFuture<>(t);
         }
     }
 
     @Override
-    public StreamObserver<TelemetryCommand> telemetry(Endpoints endpoints, Metadata metadata, Duration duration,
+    public StreamObserver<TelemetryCommand> telemetry(Endpoints endpoints, Duration duration,
         StreamObserver<TelemetryCommand> responseObserver) throws ClientException {
-        final RpcClient rpcClient = getRpcClient(endpoints);
-        return rpcClient.telemetry(metadata, asyncWorker, duration, responseObserver);
+        try {
+            final Metadata metadata = client.sign();
+            final RpcClient rpcClient = getRpcClient(endpoints);
+            return rpcClient.telemetry(metadata, asyncWorker, duration, responseObserver);
+        } catch (Throwable t) {
+            throw new InternalErrorException(t);
+        }
     }
 
     @Override
@@ -444,6 +459,7 @@ public class ClientManagerImpl extends ClientManager {
         LOGGER.info("Shutdown the client manager successfully, clientId={}", clientId);
     }
 
+    @SuppressWarnings("NullableProblems")
     @Override
     protected String serviceName() {
         return super.serviceName() + "-" + client.getClientId().getIndex();

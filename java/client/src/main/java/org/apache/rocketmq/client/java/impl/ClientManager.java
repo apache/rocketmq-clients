@@ -39,7 +39,6 @@ import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
 import apache.rocketmq.v2.TelemetryCommand;
 import com.google.common.util.concurrent.AbstractIdleService;
-import io.grpc.Metadata;
 import io.grpc.stub.StreamObserver;
 import java.time.Duration;
 import java.util.List;
@@ -67,134 +66,125 @@ public abstract class ClientManager extends AbstractIdleService {
      * Query topic route asynchronously, the method ensures no throwable.
      *
      * @param endpoints requested endpoints.
-     * @param metadata  gRPC request header metadata.
      * @param request   query route request.
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract RpcFuture<QueryRouteRequest, QueryRouteResponse>
-    queryRoute(Endpoints endpoints, Metadata metadata, QueryRouteRequest request, Duration duration);
+    public abstract RpcFuture<QueryRouteRequest, QueryRouteResponse> queryRoute(Endpoints endpoints,
+        QueryRouteRequest request, Duration duration);
 
     /**
      * Heart beat asynchronously, the method ensures no throwable.
      *
      * @param endpoints requested endpoints.
-     * @param metadata  gRPC request header metadata.
      * @param request   heartbeat request.
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract RpcFuture<HeartbeatRequest, HeartbeatResponse>
-    heartbeat(Endpoints endpoints, Metadata metadata, HeartbeatRequest request, Duration duration);
+    public abstract RpcFuture<HeartbeatRequest, HeartbeatResponse> heartbeat(Endpoints endpoints,
+        HeartbeatRequest request, Duration duration);
 
     /**
      * Send message asynchronously, the method ensures no throwable.
      *
      * @param endpoints requested endpoints.
-     * @param metadata  gRPC request header metadata.
      * @param request   send message request.
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract RpcFuture<SendMessageRequest, SendMessageResponse>
-    sendMessage(Endpoints endpoints, Metadata metadata, SendMessageRequest request, Duration duration);
+    public abstract RpcFuture<SendMessageRequest, SendMessageResponse> sendMessage(Endpoints endpoints,
+        SendMessageRequest request, Duration duration);
 
     /**
      * Query assignment asynchronously, the method ensures no throwable.
      *
      * @param endpoints requested endpoints.
-     * @param metadata  gRPC request header metadata.
      * @param request   query assignment request.
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract RpcFuture<QueryAssignmentRequest, QueryAssignmentResponse>
-    queryAssignment(Endpoints endpoints, Metadata metadata, QueryAssignmentRequest request, Duration duration);
+    public abstract RpcFuture<QueryAssignmentRequest, QueryAssignmentResponse> queryAssignment(Endpoints endpoints,
+        QueryAssignmentRequest request, Duration duration);
 
     /**
      * Receiving messages asynchronously from the server, the method ensures no throwable.
      *
      * @param endpoints requested endpoints.
-     * @param metadata  gRPC request header metadata.
+     * @param request   receive message request.
+     * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract RpcFuture<ReceiveMessageRequest, List<ReceiveMessageResponse>>
-    receiveMessage(Endpoints endpoints, Metadata metadata, ReceiveMessageRequest request, Duration duration);
+    public abstract RpcFuture<ReceiveMessageRequest, List<ReceiveMessageResponse>> receiveMessage(Endpoints endpoints,
+        ReceiveMessageRequest request, Duration duration);
 
     /**
      * Ack message asynchronously after the success of consumption, the method ensures no throwable.
      *
      * @param endpoints requested endpoints.
-     * @param metadata  gRPC request header metadata.
      * @param request   ack message request.
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract RpcFuture<AckMessageRequest, AckMessageResponse>
-    ackMessage(Endpoints endpoints, Metadata metadata, AckMessageRequest request, Duration duration);
+    public abstract RpcFuture<AckMessageRequest, AckMessageResponse> ackMessage(Endpoints endpoints,
+        AckMessageRequest request, Duration duration);
 
     /**
      * Nack message asynchronously after the failure of consumption, the method ensures no throwable.
      *
      * @param endpoints requested endpoints.
-     * @param metadata  gRPC request header metadata.
      * @param request   nack message request.
      * @param duration  request max duration.
      * @return invocation of response future.
      */
     public abstract RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse>
-    changeInvisibleDuration(Endpoints endpoints, Metadata metadata, ChangeInvisibleDurationRequest request,
+    changeInvisibleDuration(Endpoints endpoints, ChangeInvisibleDurationRequest request,
         Duration duration);
 
     /**
      * Send a message to the dead letter queue asynchronously, the method ensures no throwable.
      *
      * @param endpoints requested endpoints.
-     * @param metadata  gRPC request header metadata.
      * @param request   request of sending a message to DLQ.
      * @param duration  request max duration.
      * @return invocation of response future.
      */
     public abstract RpcFuture<ForwardMessageToDeadLetterQueueRequest,
         ForwardMessageToDeadLetterQueueResponse> forwardMessageToDeadLetterQueue(Endpoints endpoints,
-        Metadata metadata, ForwardMessageToDeadLetterQueueRequest request, Duration duration);
+        ForwardMessageToDeadLetterQueueRequest request, Duration duration);
 
     /**
      * Submit transaction resolution asynchronously, the method ensures no throwable.
      *
      * @param endpoints requested endpoints.
-     * @param metadata  gRPC request header metadata.
      * @param request   end transaction request.
      * @param duration  request max duration.
      * @return invocation of response future.
      */
-    public abstract RpcFuture<EndTransactionRequest, EndTransactionResponse>
-    endTransaction(Endpoints endpoints, Metadata metadata, EndTransactionRequest request, Duration duration);
+    public abstract RpcFuture<EndTransactionRequest, EndTransactionResponse> endTransaction(Endpoints endpoints,
+        EndTransactionRequest request, Duration duration);
 
     /**
      * Asynchronously notify the server that client is terminated, the method ensures no throwable.
      *
      * @param endpoints request endpoints.
-     * @param metadata  gRPC request header metadata.
      * @param request   notify client termination request.
      * @param duration  request max duration.
      * @return response future of notification of client termination.
      */
     @SuppressWarnings("UnusedReturnValue")
     public abstract RpcFuture<NotifyClientTerminationRequest, NotifyClientTerminationResponse>
-    notifyClientTermination(Endpoints endpoints, Metadata metadata, NotifyClientTerminationRequest request,
+    notifyClientTermination(Endpoints endpoints, NotifyClientTerminationRequest request,
         Duration duration);
 
     /**
      * Establish telemetry session stream to server.
      *
      * @param endpoints        request endpoints.
-     * @param metadata         gRPC request header metadata.
      * @param duration         stream max duration.
      * @param responseObserver response observer.
      * @return request observer.
      * @throws ClientException if failed to establish telemetry session stream.
      */
-    public abstract StreamObserver<TelemetryCommand> telemetry(Endpoints endpoints, Metadata metadata,
-        Duration duration, StreamObserver<TelemetryCommand> responseObserver) throws ClientException;
+    public abstract StreamObserver<TelemetryCommand> telemetry(Endpoints endpoints, Duration duration,
+        StreamObserver<TelemetryCommand> responseObserver) throws ClientException;
 }

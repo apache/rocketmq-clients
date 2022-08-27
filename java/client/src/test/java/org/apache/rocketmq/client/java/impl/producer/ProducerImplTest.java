@@ -30,7 +30,6 @@ import apache.rocketmq.v2.Permission;
 import apache.rocketmq.v2.Resource;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.Service;
-import io.grpc.Metadata;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -91,9 +90,9 @@ public class ProducerImplTest extends TestBase {
         final MessageQueueImpl messageQueue = fakeMessageQueueImpl(FAKE_TOPIC_0);
         final SendReceiptImpl sendReceiptImpl = fakeSendReceiptImpl(messageQueue);
         Mockito.doReturn(Futures.immediateFuture(Collections.singletonList(sendReceiptImpl)))
-            .when(producer).send0(any(Metadata.class), any(Endpoints.class), anyList(), any(MessageQueueImpl.class));
+            .when(producer).send0(any(Endpoints.class), anyList(), any(MessageQueueImpl.class));
         producer.send(message);
-        verify(producer, times(1)).send0(any(Metadata.class), any(Endpoints.class), anyList(),
+        verify(producer, times(1)).send0(any(Endpoints.class), anyList(),
             any(MessageQueueImpl.class));
         producer.close();
     }
@@ -104,11 +103,10 @@ public class ProducerImplTest extends TestBase {
         final Message message = fakeMessage(FAKE_TOPIC_0);
         final Exception exception = new IllegalArgumentException();
         Mockito.doReturn(Futures.immediateFailedFuture(exception))
-            .when(producer).send0(any(Metadata.class), any(Endpoints.class), anyList(), any(MessageQueueImpl.class));
+            .when(producer).send0(any(Endpoints.class), anyList(), any(MessageQueueImpl.class));
         producer.send(message);
         final int maxAttempts = producer.publishingSettings.getRetryPolicy().getMaxAttempts();
-        verify(producer, times(maxAttempts)).send0(any(Metadata.class), any(Endpoints.class), anyList(),
-            any(MessageQueueImpl.class));
+        verify(producer, times(maxAttempts)).send0(any(Endpoints.class), anyList(), any(MessageQueueImpl.class));
         producer.close();
     }
 }

@@ -27,7 +27,6 @@ import apache.rocketmq.v2.QueryAssignmentRequest;
 import apache.rocketmq.v2.QueryRouteRequest;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.SendMessageRequest;
-import io.grpc.Metadata;
 import java.time.Duration;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.tool.TestBase;
@@ -56,91 +55,81 @@ public class ClientManagerImplTest extends TestBase {
 
     @Test
     public void testQueryRoute() {
-        Metadata metadata = new Metadata();
         QueryRouteRequest request = QueryRouteRequest.newBuilder().build();
-        CLIENT_MANAGER.queryRoute(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        CLIENT_MANAGER.queryRoute(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.queryRoute(fakeEndpoints(), request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.queryRoute(null, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 
     @Test
     public void testHeartbeat() {
-        Metadata metadata = new Metadata();
         HeartbeatRequest request = HeartbeatRequest.newBuilder().build();
-        CLIENT_MANAGER.heartbeat(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        CLIENT_MANAGER.heartbeat(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.heartbeat(fakeEndpoints(), request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.heartbeat(null, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 
     @Test
     public void testSendMessage() {
-        Metadata metadata = new Metadata();
         SendMessageRequest request = SendMessageRequest.newBuilder().build();
-        CLIENT_MANAGER.sendMessage(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        CLIENT_MANAGER.sendMessage(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.sendMessage(fakeEndpoints(), request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.sendMessage(null, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 
     @Test
     public void testQueryAssignment() {
-        Metadata metadata = new Metadata();
         QueryAssignmentRequest request = QueryAssignmentRequest.newBuilder().build();
-        CLIENT_MANAGER.queryAssignment(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        CLIENT_MANAGER.queryAssignment(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.queryAssignment(fakeEndpoints(), request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.queryAssignment(null, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 
     @Test
     public void testReceiveMessage() {
-        Metadata metadata = new Metadata();
         ReceiveMessageRequest request = ReceiveMessageRequest.newBuilder().build();
-        CLIENT_MANAGER.receiveMessage(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        CLIENT_MANAGER.receiveMessage(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.receiveMessage(fakeEndpoints(), request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.receiveMessage(null, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 
     @Test
     public void testAckMessage() {
-        Metadata metadata = new Metadata();
         AckMessageRequest request = AckMessageRequest.newBuilder().build();
-        CLIENT_MANAGER.ackMessage(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        CLIENT_MANAGER.ackMessage(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.ackMessage(fakeEndpoints(), request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.ackMessage(null, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 
     @Test
     public void testChangeInvisibleDuration() {
-        Metadata metadata = new Metadata();
         ChangeInvisibleDurationRequest request = ChangeInvisibleDurationRequest.newBuilder().build();
-        CLIENT_MANAGER.changeInvisibleDuration(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        CLIENT_MANAGER.changeInvisibleDuration(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.changeInvisibleDuration(fakeEndpoints(), request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.changeInvisibleDuration(null, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 
     @Test
     public void testForwardMessageToDeadLetterQueue() {
-        Metadata metadata = new Metadata();
         ForwardMessageToDeadLetterQueueRequest request = ForwardMessageToDeadLetterQueueRequest.newBuilder().build();
-        CLIENT_MANAGER.forwardMessageToDeadLetterQueue(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        CLIENT_MANAGER.forwardMessageToDeadLetterQueue(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.forwardMessageToDeadLetterQueue(fakeEndpoints(), request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.forwardMessageToDeadLetterQueue(null, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 
     @Test
     public void testEndTransaction() {
-        Metadata metadata = new Metadata();
         EndTransactionRequest request = EndTransactionRequest.newBuilder().build();
-        CLIENT_MANAGER.endTransaction(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        CLIENT_MANAGER.endTransaction(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.endTransaction(fakeEndpoints(), request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.endTransaction(null, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 
     @Test
     public void testNotifyClientTermination() {
-        Metadata metadata = new Metadata();
         NotifyClientTerminationRequest request = NotifyClientTerminationRequest.newBuilder().build();
-        CLIENT_MANAGER.notifyClientTermination(fakeEndpoints(), metadata, request, Duration.ofSeconds(1));
-        CLIENT_MANAGER.notifyClientTermination(null, metadata, request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.notifyClientTermination(fakeEndpoints(), request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.notifyClientTermination(null, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 }

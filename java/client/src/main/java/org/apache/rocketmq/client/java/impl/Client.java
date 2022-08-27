@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.java.impl;
 
+import io.grpc.Metadata;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.route.Endpoints;
 
@@ -27,6 +28,11 @@ public interface Client {
      * @return unique client identifier.
      */
     ClientId getClientId();
+
+    /**
+     * @return signature for tls
+     */
+    Metadata sign() throws Exception;
 
     /**
      * Send heart beat to remote {@link Endpoints}.

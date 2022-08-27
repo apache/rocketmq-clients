@@ -38,7 +38,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
-import io.grpc.Metadata;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -79,13 +78,12 @@ abstract class ConsumerImpl extends ClientImpl {
         MessageQueueImpl mq, Duration awaitDuration) {
         List<MessageViewImpl> messages = new ArrayList<>();
         try {
-            Metadata metadata = sign();
             final Endpoints endpoints = mq.getBroker().getEndpoints();
             final Duration tolerance = clientConfiguration.getRequestTimeout();
             final Duration timeout = Duration.ofNanos(awaitDuration.toNanos() + tolerance.toNanos());
             final ClientManager clientManager = this.getClientManager();
             final RpcFuture<ReceiveMessageRequest, List<ReceiveMessageResponse>> future =
-                clientManager.receiveMessage(endpoints, metadata, request, timeout);
+                clientManager.receiveMessage(endpoints, request, timeout);
             return Futures.transformAsync(future, responses -> {
                 Status status = Status.newBuilder().setCode(Code.INTERNAL_SERVER_ERROR)
                     .setMessage("status was not set by server")
@@ -118,6 +116,8 @@ abstract class ConsumerImpl extends ClientImpl {
                 return Futures.immediateFuture(receiveMessageResult);
             }, MoreExecutors.directExecutor());
         } catch (Throwable t) {
+            // Should never reach here.
+            LOGGER.error("[Bug] Exception raised during message receiving, mq={}, clientId={}", mq, clientId, t);
             return Futures.immediateFailedFuture(t);
         }
     }
@@ -150,9 +150,8 @@ abstract class ConsumerImpl extends ClientImpl {
         doBefore(context, generalMessages);
         try {
             final AckMessageRequest request = wrapAckMessageRequest(messageView);
-            final Metadata metadata = sign();
             final Duration requestTimeout = clientConfiguration.getRequestTimeout();
-            future = this.getClientManager().ackMessage(endpoints, metadata, request, requestTimeout);
+            future = this.getClientManager().ackMessage(endpoints, request, requestTimeout);
         } catch (Throwable t) {
             future = new RpcFuture<>(t);
         }
@@ -185,14 +184,9 @@ abstract class ConsumerImpl extends ClientImpl {
         final MessageHandlerContextImpl context =
             new MessageHandlerContextImpl(MessageHookPoints.CHANGE_INVISIBLE_DURATION);
         doBefore(context, generalMessages);
-        try {
-            final Metadata metadata = sign();
-            final ChangeInvisibleDurationRequest request = wrapChangeInvisibleDuration(messageView, invisibleDuration);
-            final Duration requestTimeout = clientConfiguration.getRequestTimeout();
-            future = this.getClientManager().changeInvisibleDuration(endpoints, metadata, request, requestTimeout);
-        } catch (Throwable t) {
-            future = new RpcFuture<>(t);
-        }
+        final ChangeInvisibleDurationRequest request = wrapChangeInvisibleDuration(messageView, invisibleDuration);
+        final Duration requestTimeout = clientConfiguration.getRequestTimeout();
+        future = this.getClientManager().changeInvisibleDuration(endpoints, request, requestTimeout);
         final MessageId messageId = messageView.getMessageId();
         Futures.addCallback(future, new FutureCallback<ChangeInvisibleDurationResponse>() {
             @Override
