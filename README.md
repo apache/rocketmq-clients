@@ -1,12 +1,13 @@
 # RocketMQ Clients - Collection of Client Bindings for Apache RocketMQ
 
-[![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
-[![CPP](https://github.com/apache/rocketmq-clients/actions/workflows/cpp_build.yml/badge.svg)](https://github.com/apache/rocketmq-clients/actions/workflows/cpp_build.yml)
-[![C#](https://github.com/apache/rocketmq-clients/actions/workflows/csharp_build.yml/badge.svg)](https://github.com/apache/rocketmq-clients/actions/workflows/csharp_build.yml)
-[![Java](https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml/badge.svg)](https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml)
-[![Golang](https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml/badge.svg)](https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml)
-![Codecov branch](https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=cpp&label=CPP%20Coverage&logo=codecov)
-![Codecov branch](https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=java&label=Java%20Coverage&logo=codecov)
+[![License][license-image]][license-url]
+[![CPP][cpp-image]][cpp-url]
+[![C#][csharp-image]][csharp-url]
+[![Java][java-image]][java-url]
+[![Golang][golang-image]][golang-url]
+[![Codecov-cpp][codecov-cpp-image]][codecov-url]
+[![Codecov-java][codecov-java-image]][codecov-url]
+[![Maven Central][maven-image]][maven-url]
 
 ## Overview
 
@@ -41,3 +42,19 @@ Provide cloud-native and robust solutions for Java, C++, C#, Golang, Rust and al
 ## License
 
 [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.html) Copyright (C) Apache Software Foundation
+
+[license-image]: https://img.shields.io/badge/license-Apache%202-4EB1BA.svg
+[license-url]: https://www.apache.org/licenses/LICENSE-2.0.html
+[cpp-image]: https://github.com/apache/rocketmq-clients/actions/workflows/cpp_build.yml/badge.svg
+[cpp-url]: https://github.com/apache/rocketmq-clients/actions/workflows/cpp_build.yml
+[csharp-image]: https://github.com/apache/rocketmq-clients/actions/workflows/csharp_build.yml/badge.svg
+[csharp-url]: https://github.com/apache/rocketmq-clients/actions/workflows/csharp_build.yml
+[java-image]: https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml/badge.svg
+[java-url]: https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml
+[golang-image]: https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml/badge.svg
+[golang-url]: https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml
+[codecov-cpp-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=cpp&label=CPP%20Coverage&logo=codecov
+[codecov-java-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=java&label=Java%20Coverage&logo=codecov
+[codecov-url]: https://codecov.io/gh/apache/rocketmq-clients/branch/master/
+[maven-image]: https://maven-badges.herokuapp.com/maven-central/org.apache.rocketmq/rocketmq-client-java/badge.svg
+[maven-url]: https://maven-badges.herokuapp.com/maven-central/org.apache.rocketmq/rocketmq-client-java
