@@ -293,6 +293,15 @@ public class TestBase {
         return new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(response));
     }
 
+
+    protected RpcFuture<ForwardMessageToDeadLetterQueueRequest,
+        ForwardMessageToDeadLetterQueueResponse> forwardMessageToDeadLetterQueueResponseFuture(Code code) {
+        final Status status = Status.newBuilder().setCode(code).build();
+        final ForwardMessageToDeadLetterQueueResponse response =
+            ForwardMessageToDeadLetterQueueResponse.newBuilder().setStatus(status).build();
+        return new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(response));
+    }
+
     protected RpcFuture<SendMessageRequest, SendMessageResponse> okSendMessageResponseFutureWithSingleEntry() {
         final Status status = Status.newBuilder().setCode(Code.OK).build();
         final String messageId = MessageIdCodec.getInstance().nextMessageId().toString();
