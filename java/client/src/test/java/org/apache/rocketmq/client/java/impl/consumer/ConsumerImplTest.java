@@ -26,7 +26,6 @@ import apache.rocketmq.v2.ChangeInvisibleDurationResponse;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageResponse;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.grpc.Metadata;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +67,7 @@ public class ConsumerImplTest extends TestBase {
         final RpcFuture<ReceiveMessageRequest, List<ReceiveMessageResponse>> future =
             okReceiveMessageResponsesFuture(FAKE_TOPIC_0, receivedMessageCount);
         future.get();
-        Mockito.doReturn(future).when(clientManager).receiveMessage(any(Endpoints.class), any(Metadata.class),
+        Mockito.doReturn(future).when(clientManager).receiveMessage(any(Endpoints.class),
             any(ReceiveMessageRequest.class), any(Duration.class));
         final MessageQueueImpl mq = fakeMessageQueueImpl(FAKE_TOPIC_0);
         final ReceiveMessageRequest request = pushConsumer.wrapReceiveMessageRequest(1,
@@ -91,7 +90,7 @@ public class ConsumerImplTest extends TestBase {
         Mockito.doReturn(clientManager).when(pushConsumer).getClientManager();
         final RpcFuture<AckMessageRequest, AckMessageResponse> future =
             okAckMessageResponseFuture();
-        Mockito.doReturn(future).when(clientManager).ackMessage(any(Endpoints.class), any(Metadata.class),
+        Mockito.doReturn(future).when(clientManager).ackMessage(any(Endpoints.class),
             any(AckMessageRequest.class), any(Duration.class));
         final MessageViewImpl messageView = fakeMessageViewImpl();
         final RpcFuture<AckMessageRequest, AckMessageResponse> future0 =
@@ -112,7 +111,7 @@ public class ConsumerImplTest extends TestBase {
         Mockito.doReturn(clientManager).when(pushConsumer).getClientManager();
         final RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse> future =
             okChangeInvisibleDurationCtxFuture();
-        Mockito.doReturn(future).when(clientManager).changeInvisibleDuration(any(Endpoints.class), any(Metadata.class),
+        Mockito.doReturn(future).when(clientManager).changeInvisibleDuration(any(Endpoints.class),
             any(ChangeInvisibleDurationRequest.class), any(Duration.class));
         final MessageViewImpl messageView = fakeMessageViewImpl();
         final RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse> future0 =

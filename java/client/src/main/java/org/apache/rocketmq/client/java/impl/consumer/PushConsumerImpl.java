@@ -32,7 +32,6 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import io.grpc.Metadata;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
@@ -266,11 +265,10 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     ListenableFuture<Assignments> queryAssignment(final String topic) {
         final ListenableFuture<Endpoints> future0 = pickEndpointsToQueryAssignments(topic);
         return Futures.transformAsync(future0, endpoints -> {
-            final Metadata metadata = sign();
             final QueryAssignmentRequest request = wrapQueryAssignmentRequest(topic);
             final Duration requestTimeout = clientConfiguration.getRequestTimeout();
             final RpcFuture<QueryAssignmentRequest, QueryAssignmentResponse> future1 =
-                this.getClientManager().queryAssignment(endpoints, metadata, request, requestTimeout);
+                this.getClientManager().queryAssignment(endpoints, request, requestTimeout);
             return Futures.transformAsync(future1, response -> {
                 final Status status = response.getStatus();
                 StatusChecker.check(status, future1);
@@ -514,15 +512,10 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
 
         final Endpoints endpoints = messageView.getEndpoints();
         RpcFuture<ForwardMessageToDeadLetterQueueRequest, ForwardMessageToDeadLetterQueueResponse> future;
-        try {
-            final ForwardMessageToDeadLetterQueueRequest request =
-                wrapForwardMessageToDeadLetterQueueRequest(messageView);
-            final Metadata metadata = sign();
-            future = this.getClientManager().forwardMessageToDeadLetterQueue(endpoints, metadata, request,
-                clientConfiguration.getRequestTimeout());
-        } catch (Throwable t) {
-            future = new RpcFuture<>(t);
-        }
+        final ForwardMessageToDeadLetterQueueRequest request =
+            wrapForwardMessageToDeadLetterQueueRequest(messageView);
+        future = this.getClientManager().forwardMessageToDeadLetterQueue(endpoints, request,
+            clientConfiguration.getRequestTimeout());
         Futures.addCallback(future, new FutureCallback<ForwardMessageToDeadLetterQueueResponse>() {
             @Override
             public void onSuccess(ForwardMessageToDeadLetterQueueResponse response) {

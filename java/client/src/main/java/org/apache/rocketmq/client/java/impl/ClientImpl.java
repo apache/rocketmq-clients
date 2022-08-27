@@ -62,6 +62,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -260,8 +261,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     public StreamObserver<TelemetryCommand> telemetry(Endpoints endpoints,
         StreamObserver<TelemetryCommand> observer) throws ClientException {
         try {
-            final Metadata metadata = this.sign();
-            return clientManager.telemetry(endpoints, metadata, TELEMETRY_TIMEOUT, observer);
+            return clientManager.telemetry(endpoints, TELEMETRY_TIMEOUT, observer);
         } catch (ClientException e) {
             throw e;
         } catch (Throwable t) {
@@ -384,27 +384,21 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
 
     /**
      * Triggered when {@link TopicRouteData} is fetched from remote.
-     *
-     * <p>Never thrown any exception.
      */
-    public ListenableFuture<TopicRouteData> onTopicRouteDataFetched(String topic, TopicRouteData topicRouteData) {
+    public void onTopicRouteDataFetched(String topic, TopicRouteData topicRouteData) throws ClientException,
+        ExecutionException, InterruptedException, TimeoutException {
         final Set<Endpoints> routeEndpoints = topicRouteData
             .getMessageQueues().stream()
             .map(mq -> mq.getBroker().getEndpoints())
             .collect(Collectors.toSet());
         final Set<Endpoints> existRouteEndpoints = getTotalRouteEndpoints();
         final Set<Endpoints> newEndpoints = new HashSet<>(Sets.difference(routeEndpoints, existRouteEndpoints));
-        try {
-            for (Endpoints endpoints : newEndpoints) {
-                final ClientSessionImpl clientSession = getClientSession(endpoints);
-                clientSession.syncSettings();
-            }
-            topicRouteCache.put(topic, topicRouteData);
-            onTopicRouteDataUpdate0(topic, topicRouteData);
-            return Futures.immediateFuture(topicRouteData);
-        } catch (Throwable t) {
-            return Futures.immediateFailedFuture(t);
+        for (Endpoints endpoints : newEndpoints) {
+            final ClientSessionImpl clientSession = getClientSession(endpoints);
+            clientSession.syncSettings();
         }
+        topicRouteCache.put(topic, topicRouteData);
+        onTopicRouteDataUpdate0(topic, topicRouteData);
     }
 
     public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
@@ -477,13 +471,13 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         final Set<Endpoints> routeEndpointsSet = getTotalRouteEndpoints();
         final NotifyClientTerminationRequest notifyClientTerminationRequest = wrapNotifyClientTerminationRequest();
         try {
-            final Metadata metadata = sign();
             for (Endpoints endpoints : routeEndpointsSet) {
-                clientManager.notifyClientTermination(endpoints, metadata, notifyClientTerminationRequest,
+                clientManager.notifyClientTermination(endpoints, notifyClientTerminationRequest,
                     clientConfiguration.getRequestTimeout());
             }
         } catch (Throwable t) {
-            LOGGER.error("Exception raised while notifying client's termination, clientId={}", clientId, t);
+            // Should never reach here.
+            LOGGER.error("[Bug] Exception raised while notifying client's termination, clientId={}", clientId, t);
         }
     }
 
@@ -514,7 +508,8 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     /**
      * Real-time signature generation
      */
-    protected Metadata sign() throws NoSuchAlgorithmException, InvalidKeyException {
+    @Override
+    public Metadata sign() throws NoSuchAlgorithmException, InvalidKeyException {
         return Signature.sign(clientConfiguration, clientId);
     }
 
@@ -526,8 +521,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      */
     private void doHeartbeat(HeartbeatRequest request, final Endpoints endpoints) {
         try {
-            Metadata metadata = sign();
-            final RpcFuture<HeartbeatRequest, HeartbeatResponse> future = clientManager.heartbeat(endpoints, metadata,
+            final RpcFuture<HeartbeatRequest, HeartbeatResponse> future = clientManager.heartbeat(endpoints,
                 request, clientConfiguration.getRequestTimeout());
             Futures.addCallback(future, new FutureCallback<HeartbeatResponse>() {
                 @Override
@@ -552,9 +546,10 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
                     LOGGER.warn("Failed to send heartbeat, endpoints={}, clientId={}", endpoints, clientId, t);
                 }
             }, MoreExecutors.directExecutor());
-        } catch (Throwable e) {
-            LOGGER.error("Exception raised while preparing heartbeat, endpoints={}, clientId={}", endpoints, clientId,
-                e);
+        } catch (Throwable t) {
+            // Should never reach here.
+            LOGGER.error("[Bug] Exception raised while preparing heartbeat, endpoints={}, clientId={}", endpoints,
+                clientId, t);
         }
     }
 
@@ -571,8 +566,11 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     }
 
     private ListenableFuture<TopicRouteData> fetchTopicRoute(final String topic) {
-        final ListenableFuture<TopicRouteData> future = Futures.transformAsync(fetchTopicRoute0(topic),
-            topicRouteData -> onTopicRouteDataFetched(topic, topicRouteData), MoreExecutors.directExecutor());
+        final ListenableFuture<TopicRouteData> future0 = fetchTopicRoute0(topic);
+        final ListenableFuture<TopicRouteData> future = Futures.transformAsync(future0, topicRouteData -> {
+            onTopicRouteDataFetched(topic, topicRouteData);
+            return Futures.immediateFuture(topicRouteData);
+        }, MoreExecutors.directExecutor());
         Futures.addCallback(future, new FutureCallback<TopicRouteData>() {
             @Override
             public void onSuccess(TopicRouteData topicRouteData) {
@@ -589,23 +587,18 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     }
 
     protected ListenableFuture<TopicRouteData> fetchTopicRoute0(final String topic) {
-        try {
-            Resource topicResource = Resource.newBuilder().setName(topic).build();
-            final QueryRouteRequest request = QueryRouteRequest.newBuilder().setTopic(topicResource)
-                .setEndpoints(endpoints.toProtobuf()).build();
-            final Metadata metadata = sign();
-            final RpcFuture<QueryRouteRequest, QueryRouteResponse> future =
-                clientManager.queryRoute(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
-            return Futures.transformAsync(future, response -> {
-                final Status status = response.getStatus();
-                StatusChecker.check(status, future);
-                final List<MessageQueue> messageQueuesList = response.getMessageQueuesList();
-                final TopicRouteData topicRouteData = new TopicRouteData(messageQueuesList);
-                return Futures.immediateFuture(topicRouteData);
-            }, MoreExecutors.directExecutor());
-        } catch (Throwable t) {
-            return Futures.immediateFailedFuture(t);
-        }
+        Resource topicResource = Resource.newBuilder().setName(topic).build();
+        final QueryRouteRequest request = QueryRouteRequest.newBuilder().setTopic(topicResource)
+            .setEndpoints(endpoints.toProtobuf()).build();
+        final RpcFuture<QueryRouteRequest, QueryRouteResponse> future =
+            clientManager.queryRoute(endpoints, request, clientConfiguration.getRequestTimeout());
+        return Futures.transformAsync(future, response -> {
+            final Status status = response.getStatus();
+            StatusChecker.check(status, future);
+            final List<MessageQueue> messageQueuesList = response.getMessageQueuesList();
+            final TopicRouteData topicRouteData = new TopicRouteData(messageQueuesList);
+            return Futures.immediateFuture(topicRouteData);
+        }, MoreExecutors.directExecutor());
     }
 
     protected Set<Endpoints> getTotalRouteEndpoints() {

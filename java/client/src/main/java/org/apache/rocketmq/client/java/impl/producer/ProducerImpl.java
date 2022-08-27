@@ -35,7 +35,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-import io.grpc.Metadata;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -257,12 +256,6 @@ class ProducerImpl extends ClientImpl implements Producer {
 
     public void endTransaction(Endpoints endpoints, GeneralMessage generalMessage, MessageId messageId,
         String transactionId, final TransactionResolution resolution) throws ClientException {
-        Metadata metadata;
-        try {
-            metadata = sign();
-        } catch (Throwable t) {
-            throw new ClientException(t);
-        }
         final EndTransactionRequest.Builder builder = EndTransactionRequest.newBuilder()
             .setMessageId(messageId.toString()).setTransactionId(transactionId)
             .setTopic(apache.rocketmq.v2.Resource.newBuilder().setName(generalMessage.getTopic()).build());
@@ -283,7 +276,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         doBefore(context, generalMessages);
 
         final RpcFuture<EndTransactionRequest, EndTransactionResponse> future =
-            this.getClientManager().endTransaction(endpoints, metadata, request, requestTimeout);
+            this.getClientManager().endTransaction(endpoints, request, requestTimeout);
         Futures.addCallback(future, new FutureCallback<EndTransactionResponse>() {
             @Override
             public void onSuccess(EndTransactionResponse response) {
@@ -425,11 +418,11 @@ class ProducerImpl extends ClientImpl implements Producer {
         return SendMessageRequest.newBuilder().addAllMessages(messages).build();
     }
 
-    ListenableFuture<List<SendReceiptImpl>> send0(Metadata metadata, Endpoints endpoints,
-        List<PublishingMessageImpl> pubMessages, MessageQueueImpl mq) {
+    ListenableFuture<List<SendReceiptImpl>> send0(Endpoints endpoints, List<PublishingMessageImpl> pubMessages,
+        MessageQueueImpl mq) {
         final SendMessageRequest request = wrapSendMessageRequest(pubMessages, mq);
         final RpcFuture<SendMessageRequest, SendMessageResponse> future0 =
-            this.getClientManager().sendMessage(endpoints, metadata, request, clientConfiguration.getRequestTimeout());
+            this.getClientManager().sendMessage(endpoints, request, clientConfiguration.getRequestTimeout());
         return Futures.transformAsync(future0,
             response -> Futures.immediateFuture(SendReceiptImpl.processResponseInvocation(mq, response, future0)),
             MoreExecutors.directExecutor());
@@ -437,14 +430,6 @@ class ProducerImpl extends ClientImpl implements Producer {
 
     private void send0(SettableFuture<List<SendReceiptImpl>> future0, String topic, MessageType messageType,
         final List<MessageQueueImpl> candidates, final List<PublishingMessageImpl> messages, final int attempt) {
-        Metadata metadata;
-        try {
-            metadata = sign();
-        } catch (Throwable t) {
-            // Failed to sign, no need to proceed.
-            future0.setException(t);
-            return;
-        }
         // Calculate the current message queue.
         final MessageQueueImpl mq = candidates.get(IntMath.mod(attempt - 1, candidates.size()));
         final List<MessageType> acceptMessageTypes = mq.getAcceptMessageTypes();
@@ -456,7 +441,7 @@ class ProducerImpl extends ClientImpl implements Producer {
             return;
         }
         final Endpoints endpoints = mq.getBroker().getEndpoints();
-        final ListenableFuture<List<SendReceiptImpl>> future = send0(metadata, endpoints, messages, mq);
+        final ListenableFuture<List<SendReceiptImpl>> future = send0(endpoints, messages, mq);
         final int maxAttempts = this.getRetryPolicy().getMaxAttempts();
 
         // Intercept before message publishing.
