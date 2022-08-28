@@ -48,9 +48,9 @@ import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.java.exception.StatusChecker;
-import org.apache.rocketmq.client.java.hook.MessageHandlerContextImpl;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
+import org.apache.rocketmq.client.java.hook.MessageInterceptorContextImpl;
 import org.apache.rocketmq.client.java.impl.ClientImpl;
 import org.apache.rocketmq.client.java.impl.ClientManager;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
@@ -80,7 +80,7 @@ abstract class ConsumerImpl extends ClientImpl {
         try {
             final Endpoints endpoints = mq.getBroker().getEndpoints();
             final Duration tolerance = clientConfiguration.getRequestTimeout();
-            final Duration timeout = Duration.ofNanos(awaitDuration.toNanos() + tolerance.toNanos());
+            final Duration timeout = awaitDuration.plus(tolerance);
             final ClientManager clientManager = this.getClientManager();
             final RpcFuture<ReceiveMessageRequest, List<ReceiveMessageResponse>> future =
                 clientManager.receiveMessage(endpoints, request, timeout);
@@ -146,7 +146,7 @@ abstract class ConsumerImpl extends ClientImpl {
         final Endpoints endpoints = messageView.getEndpoints();
         RpcFuture<AckMessageRequest, AckMessageResponse> future;
         final List<GeneralMessage> generalMessages = Collections.singletonList(new GeneralMessageImpl(messageView));
-        final MessageHandlerContextImpl context = new MessageHandlerContextImpl(MessageHookPoints.ACK);
+        final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.ACK);
         doBefore(context, generalMessages);
         try {
             final AckMessageRequest request = wrapAckMessageRequest(messageView);
@@ -160,15 +160,15 @@ abstract class ConsumerImpl extends ClientImpl {
             public void onSuccess(AckMessageResponse response) {
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
-                MessageHookPointsStatus messageHookPointsStatus = Code.OK.equals(code) ?
+                MessageHookPointsStatus hookPointsStatus = Code.OK.equals(code) ?
                     MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
-                MessageHandlerContextImpl context0 = new MessageHandlerContextImpl(context, messageHookPointsStatus);
+                MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context, hookPointsStatus);
                 doAfter(context0, generalMessages);
             }
 
             @Override
             public void onFailure(Throwable t) {
-                MessageHandlerContextImpl context0 = new MessageHandlerContextImpl(context,
+                MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
                     MessageHookPointsStatus.ERROR);
                 doAfter(context0, generalMessages);
             }
@@ -181,8 +181,8 @@ abstract class ConsumerImpl extends ClientImpl {
         final Endpoints endpoints = messageView.getEndpoints();
         RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse> future;
         final List<GeneralMessage> generalMessages = Collections.singletonList(new GeneralMessageImpl(messageView));
-        final MessageHandlerContextImpl context =
-            new MessageHandlerContextImpl(MessageHookPoints.CHANGE_INVISIBLE_DURATION);
+        final MessageInterceptorContextImpl context =
+            new MessageInterceptorContextImpl(MessageHookPoints.CHANGE_INVISIBLE_DURATION);
         doBefore(context, generalMessages);
         final ChangeInvisibleDurationRequest request = wrapChangeInvisibleDuration(messageView, invisibleDuration);
         final Duration requestTimeout = clientConfiguration.getRequestTimeout();
@@ -193,19 +193,20 @@ abstract class ConsumerImpl extends ClientImpl {
             public void onSuccess(ChangeInvisibleDurationResponse response) {
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
-                MessageHookPointsStatus messageHookPointsStatus = Code.OK.equals(code) ?
+                MessageHookPointsStatus hookPointsStatus = Code.OK.equals(code) ?
                     MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
                 if (!Code.OK.equals(code)) {
                     LOGGER.error("Failed to change message invisible duration, messageId={}, endpoints={}, code={}, " +
                         "status message=[{}], clientId={}", messageId, endpoints, code, status.getMessage(), clientId);
                 }
-                MessageHandlerContextImpl context0 = new MessageHandlerContextImpl(context, messageHookPointsStatus);
+                MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
+                    hookPointsStatus);
                 doAfter(context0, generalMessages);
             }
 
             @Override
             public void onFailure(Throwable t) {
-                MessageHandlerContextImpl context0 = new MessageHandlerContextImpl(context,
+                MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
                     MessageHookPointsStatus.ERROR);
                 doAfter(context0, generalMessages);
                 LOGGER.error("Exception raised while changing message invisible duration, messageId={}, endpoints={}, "

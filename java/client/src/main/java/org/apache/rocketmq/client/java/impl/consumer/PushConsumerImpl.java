@@ -57,10 +57,10 @@ import org.apache.rocketmq.client.apis.consumer.MessageListener;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
 import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.java.exception.StatusChecker;
-import org.apache.rocketmq.client.java.hook.MessageHandlerContext;
-import org.apache.rocketmq.client.java.hook.MessageHandlerContextImpl;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
+import org.apache.rocketmq.client.java.hook.MessageInterceptorContext;
+import org.apache.rocketmq.client.java.hook.MessageInterceptorContextImpl;
 import org.apache.rocketmq.client.java.impl.Settings;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
@@ -191,8 +191,10 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private ConsumeService createConsumeService() {
         final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
         if (pushSubscriptionSettings.isFifo()) {
+            LOGGER.info("Create FIFO consume service, consumerGroup={}, clientId={}", consumerGroup, clientId);
             return new FifoConsumeService(clientId, messageListener, consumptionExecutor, this, scheduler);
         }
+        LOGGER.info("Create standard consume service, consumerGroup={}, clientId={}", consumerGroup, clientId);
         return new StandardConsumeService(clientId, messageListener, consumptionExecutor, this, scheduler);
     }
 
@@ -507,7 +509,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     forwardMessageToDeadLetterQueue(final MessageViewImpl messageView) {
         // Intercept before forwarding message to DLQ.
         final List<GeneralMessage> generalMessages = Collections.singletonList(new GeneralMessageImpl(messageView));
-        final MessageHandlerContextImpl context = new MessageHandlerContextImpl(MessageHookPoints.FORWARD_TO_DLQ);
+        MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.FORWARD_TO_DLQ);
         doBefore(context, generalMessages);
 
         final Endpoints endpoints = messageView.getEndpoints();
@@ -522,14 +524,14 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
                 // Intercept after forwarding message to DLQ.
                 MessageHookPointsStatus status = Code.OK.equals(response.getStatus().getCode()) ?
                     MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
-                final MessageHandlerContext context0 = new MessageHandlerContextImpl(context, status);
+                final MessageInterceptorContext context0 = new MessageInterceptorContextImpl(context, status);
                 doAfter(context0, generalMessages);
             }
 
             @Override
             public void onFailure(Throwable t) {
                 // Intercept after forwarding message to DLQ.
-                final MessageHandlerContext context0 = new MessageHandlerContextImpl(context,
+                final MessageInterceptorContext context0 = new MessageInterceptorContextImpl(context,
                     MessageHookPointsStatus.ERROR);
                 doAfter(context0, generalMessages);
             }

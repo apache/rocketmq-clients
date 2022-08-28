@@ -27,9 +27,9 @@ import java.util.List;
 import java.util.Optional;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
 import org.apache.rocketmq.client.apis.consumer.SimpleConsumer;
-import org.apache.rocketmq.client.java.hook.MessageHandlerContextImpl;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
+import org.apache.rocketmq.client.java.hook.MessageInterceptorContextImpl;
 import org.apache.rocketmq.client.java.impl.Client;
 import org.apache.rocketmq.client.java.impl.ClientImpl;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
@@ -48,15 +48,15 @@ public class MessageMeterHandlerTest extends TestBase {
         Mockito.doReturn(true).when(meterManager).isEnabled();
         ClientId clientId = new ClientId();
         Mockito.doReturn(clientId).when(producer).getClientId();
-        final MessageMeterHandler meterHandler = new MessageMeterHandler(producer, meterManager);
+        final MessageMeterInterceptor meterHandler = new MessageMeterInterceptor(producer, meterManager);
         final GeneralMessage message = Mockito.mock(GeneralMessage.class);
         String topic = FAKE_TOPIC_0;
         Mockito.doReturn(topic).when(message).getTopic();
         List<GeneralMessage> messageList = new ArrayList<>();
         messageList.add(message);
-        final MessageHandlerContextImpl context = new MessageHandlerContextImpl(MessageHookPoints.SEND);
+        final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.SEND);
         meterHandler.doBefore(context, messageList);
-        assertNotNull(context.getAttributes().get(MessageMeterHandler.SEND_STOPWATCH_KEY));
+        assertNotNull(context.getAttributes().get(MessageMeterInterceptor.SEND_STOPWATCH_KEY));
         context.setStatus(MessageHookPointsStatus.OK);
         meterHandler.doAfter(context, messageList);
         ArgumentCaptor<Attributes> attributesArgumentCaptor = ArgumentCaptor.forClass(Attributes.class);
@@ -75,13 +75,13 @@ public class MessageMeterHandlerTest extends TestBase {
         Mockito.doReturn(true).when(meterManager).isEnabled();
         ClientId clientId = new ClientId();
         Mockito.doReturn(clientId).when(producer).getClientId();
-        final MessageMeterHandler meterHandler = new MessageMeterHandler(producer, meterManager);
+        final MessageMeterInterceptor meterHandler = new MessageMeterInterceptor(producer, meterManager);
         final GeneralMessage message = Mockito.mock(GeneralMessage.class);
         String topic = FAKE_TOPIC_0;
         Mockito.doReturn(topic).when(message).getTopic();
         List<GeneralMessage> messageList = new ArrayList<>();
         messageList.add(message);
-        final MessageHandlerContextImpl context = new MessageHandlerContextImpl(MessageHookPoints.SEND);
+        final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.SEND);
         meterHandler.doBefore(context, messageList);
         context.setStatus(MessageHookPointsStatus.UNSET);
         meterHandler.doAfter(context, messageList);
@@ -101,13 +101,13 @@ public class MessageMeterHandlerTest extends TestBase {
         Mockito.doReturn(true).when(meterManager).isEnabled();
         ClientId clientId = new ClientId();
         Mockito.doReturn(clientId).when(producer).getClientId();
-        final MessageMeterHandler meterHandler = new MessageMeterHandler(producer, meterManager);
+        final MessageMeterInterceptor meterHandler = new MessageMeterInterceptor(producer, meterManager);
         final GeneralMessage message = Mockito.mock(GeneralMessage.class);
         String topic = FAKE_TOPIC_0;
         Mockito.doReturn(topic).when(message).getTopic();
         List<GeneralMessage> messageList = new ArrayList<>();
         messageList.add(message);
-        final MessageHandlerContextImpl context = new MessageHandlerContextImpl(MessageHookPoints.SEND);
+        final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.SEND);
         meterHandler.doBefore(context, messageList);
         context.setStatus(MessageHookPointsStatus.ERROR);
         meterHandler.doAfter(context, messageList);
@@ -135,7 +135,7 @@ public class MessageMeterHandlerTest extends TestBase {
         Mockito.doReturn(true).when(meterManager).isEnabled();
         ClientId clientId = new ClientId();
         Mockito.doReturn(clientId).when(pushConsumer).getClientId();
-        final MessageMeterHandler meterHandler = new MessageMeterHandler(pushConsumer, meterManager);
+        final MessageMeterInterceptor meterHandler = new MessageMeterInterceptor(pushConsumer, meterManager);
         final GeneralMessage message = Mockito.mock(GeneralMessage.class);
         String topic = FAKE_TOPIC_0;
         Mockito.doReturn(topic).when(message).getTopic();
@@ -143,7 +143,7 @@ public class MessageMeterHandlerTest extends TestBase {
         messageList.add(message);
         final Optional<Long> optionalTransportDeliveryTimestamp = Optional.of(System.currentTimeMillis());
         Mockito.doReturn(optionalTransportDeliveryTimestamp).when(message).getTransportDeliveryTimestamp();
-        final MessageHandlerContextImpl context = new MessageHandlerContextImpl(MessageHookPoints.RECEIVE);
+        final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.RECEIVE);
         meterHandler.doAfter(context, messageList);
         ArgumentCaptor<Attributes> attributesArgumentCaptor = ArgumentCaptor.forClass(Attributes.class);
         Mockito.verify(meterManager, Mockito.times(1))
@@ -163,13 +163,13 @@ public class MessageMeterHandlerTest extends TestBase {
         Mockito.doReturn(true).when(meterManager).isEnabled();
         ClientId clientId = new ClientId();
         Mockito.doReturn(clientId).when(pushConsumer).getClientId();
-        final MessageMeterHandler meterHandler = new MessageMeterHandler(pushConsumer, meterManager);
+        final MessageMeterInterceptor meterHandler = new MessageMeterInterceptor(pushConsumer, meterManager);
         final GeneralMessage message = Mockito.mock(GeneralMessage.class);
         Mockito.doReturn(FAKE_TOPIC_0).when(message).getTopic();
         List<GeneralMessage> messageList = new ArrayList<>();
         final Optional<Long> optionalTransportDeliveryTimestamp = Optional.of(System.currentTimeMillis());
         Mockito.doReturn(optionalTransportDeliveryTimestamp).when(message).getTransportDeliveryTimestamp();
-        final MessageHandlerContextImpl context = new MessageHandlerContextImpl(MessageHookPoints.RECEIVE);
+        final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.RECEIVE);
         meterHandler.doAfter(context, messageList);
         Mockito.verify(meterManager, Mockito.never())
             .record(any(HistogramEnum.class), any(Attributes.class), Mockito.anyDouble());
@@ -184,7 +184,7 @@ public class MessageMeterHandlerTest extends TestBase {
         Mockito.doReturn(true).when(meterManager).isEnabled();
         ClientId clientId = new ClientId();
         Mockito.doReturn(clientId).when(simpleConsumer).getClientId();
-        final MessageMeterHandler meterHandler = new MessageMeterHandler(simpleConsumer, meterManager);
+        final MessageMeterInterceptor meterHandler = new MessageMeterInterceptor(simpleConsumer, meterManager);
         final GeneralMessage message = Mockito.mock(GeneralMessage.class);
         String topic = FAKE_TOPIC_0;
         Mockito.doReturn(topic).when(message).getTopic();
@@ -192,7 +192,7 @@ public class MessageMeterHandlerTest extends TestBase {
         messageList.add(message);
         final Optional<Long> optionalTransportDeliveryTimestamp = Optional.of(System.currentTimeMillis());
         Mockito.doReturn(optionalTransportDeliveryTimestamp).when(message).getTransportDeliveryTimestamp();
-        final MessageHandlerContextImpl context = new MessageHandlerContextImpl(MessageHookPoints.RECEIVE);
+        final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.RECEIVE);
         meterHandler.doAfter(context, messageList);
         ArgumentCaptor<Attributes> attributesArgumentCaptor = ArgumentCaptor.forClass(Attributes.class);
         Mockito.verify(meterManager, Mockito.times(1))
@@ -213,7 +213,7 @@ public class MessageMeterHandlerTest extends TestBase {
         Mockito.doReturn(true).when(meterManager).isEnabled();
         ClientId clientId = new ClientId();
         Mockito.doReturn(clientId).when(pushConsumer).getClientId();
-        final MessageMeterHandler meterHandler = new MessageMeterHandler(pushConsumer, meterManager);
+        final MessageMeterInterceptor meterHandler = new MessageMeterInterceptor(pushConsumer, meterManager);
         List<GeneralMessage> generalMessages = new ArrayList<>();
         final GeneralMessage message = Mockito.mock(GeneralMessage.class);
         generalMessages.add(message);
@@ -222,7 +222,7 @@ public class MessageMeterHandlerTest extends TestBase {
         long awaitTimeMills = 3000;
         long decodeTimestamp = System.currentTimeMillis() - awaitTimeMills;
         Mockito.doReturn(Optional.of(decodeTimestamp)).when(message).getDecodeTimestamp();
-        final MessageHandlerContextImpl context = new MessageHandlerContextImpl(MessageHookPoints.CONSUME);
+        final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.CONSUME);
         meterHandler.doBefore(context, generalMessages);
         ArgumentCaptor<Attributes> attributes0ArgumentCaptor = ArgumentCaptor.forClass(Attributes.class);
         final ArgumentCaptor<Double> awaitTimeArgumentCaptor = ArgumentCaptor.forClass(Double.class);
@@ -234,7 +234,7 @@ public class MessageMeterHandlerTest extends TestBase {
         assertEquals(topic, attributes0.get(MetricLabels.TOPIC));
         assertEquals(consumerGroup, attributes0.get(MetricLabels.CONSUMER_GROUP));
         assertEquals(clientId.toString(), attributes0.get(MetricLabels.CLIENT_ID));
-        assertNotNull(context.getAttributes().get(MessageMeterHandler.CONSUME_STOPWATCH_KEY));
+        assertNotNull(context.getAttributes().get(MessageMeterInterceptor.CONSUME_STOPWATCH_KEY));
 
         context.setStatus(MessageHookPointsStatus.OK);
         meterHandler.doAfter(context, generalMessages);

@@ -49,9 +49,9 @@ import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.apis.message.MessageView;
 import org.apache.rocketmq.client.java.exception.BadRequestException;
 import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
-import org.apache.rocketmq.client.java.hook.MessageHandlerContextImpl;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
+import org.apache.rocketmq.client.java.hook.MessageInterceptorContextImpl;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
@@ -197,14 +197,13 @@ class ProcessQueueImpl implements ProcessQueue {
     }
 
     public void receiveMessage() {
+        final ClientId clientId = consumer.getClientId();
         if (dropped) {
-            LOGGER.info("Process queue has been dropped, no longer receive message, mq={}, clientId={}", mq,
-                consumer.getClientId());
+            LOGGER.info("Process queue has been dropped, no longer receive message, mq={}, clientId={}", mq, clientId);
             return;
         }
         if (this.isCacheFull()) {
-            LOGGER.warn("Process queue cache is full, would receive message later, mq={}, clientId={}", mq,
-                consumer.getClientId());
+            LOGGER.warn("Process queue cache is full, would receive message later, mq={}, clientId={}", mq, clientId);
             receiveMessageLater(RECEIVING_BACKOFF_DELAY_WHEN_CACHE_IS_FULL);
             return;
         }
@@ -214,8 +213,7 @@ class ProcessQueueImpl implements ProcessQueue {
     private void receiveMessageImmediately() {
         final ClientId clientId = consumer.getClientId();
         if (!consumer.isRunning()) {
-            LOGGER.info("Stop to receive message because consumer is not running, mq={}, clientId={}", mq,
-                clientId);
+            LOGGER.info("Stop to receive message because consumer is not running, mq={}, clientId={}", mq, clientId);
             return;
         }
         try {
@@ -225,7 +223,7 @@ class ProcessQueueImpl implements ProcessQueue {
             activityNanoTime = System.nanoTime();
 
             // Intercept before message reception.
-            final MessageHandlerContextImpl context = new MessageHandlerContextImpl(MessageHookPoints.RECEIVE);
+            final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.RECEIVE);
             consumer.doBefore(context, Collections.emptyList());
 
             final ListenableFuture<ReceiveMessageResult> future = consumer.receiveMessage(request, mq,
@@ -237,8 +235,8 @@ class ProcessQueueImpl implements ProcessQueue {
                     final List<GeneralMessage> generalMessages = result.getMessageViewImpls().stream()
                         .map((Function<MessageView, GeneralMessage>) GeneralMessageImpl::new)
                         .collect(Collectors.toList());
-                    final MessageHandlerContextImpl context0 =
-                        new MessageHandlerContextImpl(context, MessageHookPointsStatus.OK);
+                    final MessageInterceptorContextImpl context0 =
+                        new MessageInterceptorContextImpl(context, MessageHookPointsStatus.OK);
                     consumer.doAfter(context0, generalMessages);
 
                     try {
@@ -254,8 +252,8 @@ class ProcessQueueImpl implements ProcessQueue {
                 @Override
                 public void onFailure(Throwable t) {
                     // Intercept after message reception.
-                    final MessageHandlerContextImpl context0 =
-                        new MessageHandlerContextImpl(context, MessageHookPointsStatus.ERROR);
+                    final MessageInterceptorContextImpl context0 =
+                        new MessageInterceptorContextImpl(context, MessageHookPointsStatus.ERROR);
                     consumer.doAfter(context0, Collections.emptyList());
 
                     LOGGER.error("Exception raised during message reception, mq={}, endpoints={}, clientId={}", mq,
@@ -274,10 +272,10 @@ class ProcessQueueImpl implements ProcessQueue {
     public boolean isCacheFull() {
         final int cacheMessageCountThresholdPerQueue = consumer.cacheMessageCountThresholdPerQueue();
         final long actualMessagesQuantity = this.cachedMessagesCount();
+        final ClientId clientId = consumer.getClientId();
         if (cacheMessageCountThresholdPerQueue <= actualMessagesQuantity) {
             LOGGER.warn("Process queue total cached messages quantity exceeds the threshold, threshold={}, actual={}," +
-                    " mq={}, clientId={}", cacheMessageCountThresholdPerQueue, actualMessagesQuantity, mq,
-                consumer.getClientId());
+                " mq={}, clientId={}", cacheMessageCountThresholdPerQueue, actualMessagesQuantity, mq, clientId);
             cacheFullNanoTime = System.nanoTime();
             return true;
         }
@@ -286,7 +284,7 @@ class ProcessQueueImpl implements ProcessQueue {
         if (cacheMessageBytesThresholdPerQueue <= actualCachedMessagesBytes) {
             LOGGER.warn("Process queue total cached messages memory exceeds the threshold, threshold={} bytes," +
                     " actual={} bytes, mq={}, clientId={}", cacheMessageBytesThresholdPerQueue,
-                actualCachedMessagesBytes, mq, consumer.getClientId());
+                actualCachedMessagesBytes, mq, clientId);
             cacheFullNanoTime = System.nanoTime();
             return true;
         }
@@ -641,7 +639,7 @@ class ProcessQueueImpl implements ProcessQueue {
         final long receptionTimes = this.receptionTimes.getAndSet(0);
         final long receivedMessagesQuantity = this.receivedMessagesQuantity.getAndSet(0);
         LOGGER.info("Process queue stats: clientId={}, mq={}, receptionTimes={}, receivedMessageQuantity={}, "
-                + "cachedMessageCount={}, cachedMessageBytes={}", consumer.getClientId(), mq,
-            receptionTimes, receivedMessagesQuantity, this.getCachedMessageCount(), this.getCachedMessageBytes());
+            + "cachedMessageCount={}, cachedMessageBytes={}", consumer.getClientId(), mq, receptionTimes,
+            receivedMessagesQuantity, this.getCachedMessageCount(), this.getCachedMessageBytes());
     }
 }

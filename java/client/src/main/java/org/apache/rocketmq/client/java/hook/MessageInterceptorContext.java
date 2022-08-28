@@ -17,7 +17,7 @@
 
 package org.apache.rocketmq.client.java.hook;
 
-public interface MessageHandlerContext {
+public interface MessageInterceptorContext {
     MessageHookPoints getMessageHookPoints();
 
     MessageHookPointsStatus getStatus();

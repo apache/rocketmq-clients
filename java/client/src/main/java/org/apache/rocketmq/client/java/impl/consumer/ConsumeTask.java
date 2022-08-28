@@ -22,10 +22,10 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
-import org.apache.rocketmq.client.java.hook.MessageHandler;
-import org.apache.rocketmq.client.java.hook.MessageHandlerContextImpl;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
+import org.apache.rocketmq.client.java.hook.MessageInterceptor;
+import org.apache.rocketmq.client.java.hook.MessageInterceptorContextImpl;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
@@ -39,14 +39,14 @@ public class ConsumeTask implements Callable<ConsumeResult> {
     private final ClientId clientId;
     private final MessageListener messageListener;
     private final MessageViewImpl messageView;
-    private final MessageHandler messageHandler;
+    private final MessageInterceptor messageInterceptor;
 
     public ConsumeTask(ClientId clientId, MessageListener messageListener, MessageViewImpl messageView,
-        MessageHandler messageHandler) {
+        MessageInterceptor messageInterceptor) {
         this.clientId = clientId;
         this.messageListener = messageListener;
         this.messageView = messageView;
-        this.messageHandler = messageHandler;
+        this.messageInterceptor = messageInterceptor;
     }
 
     /**
@@ -58,8 +58,8 @@ public class ConsumeTask implements Callable<ConsumeResult> {
     public ConsumeResult call() {
         ConsumeResult consumeResult;
         final List<GeneralMessage> generalMessages = Collections.singletonList(new GeneralMessageImpl(messageView));
-        MessageHandlerContextImpl context = new MessageHandlerContextImpl(MessageHookPoints.CONSUME);
-        messageHandler.doBefore(context, generalMessages);
+        MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.CONSUME);
+        messageInterceptor.doBefore(context, generalMessages);
         try {
             consumeResult = messageListener.consume(messageView);
         } catch (Throwable t) {
@@ -69,8 +69,8 @@ public class ConsumeTask implements Callable<ConsumeResult> {
         }
         MessageHookPointsStatus status = ConsumeResult.SUCCESS.equals(consumeResult) ? MessageHookPointsStatus.OK :
             MessageHookPointsStatus.ERROR;
-        context = new MessageHandlerContextImpl(context, status);
-        messageHandler.doAfter(context, generalMessages);
+        context = new MessageInterceptorContextImpl(context, status);
+        messageInterceptor.doAfter(context, generalMessages);
         // Make sure that the return value is the subset of messageViews.
         return consumeResult;
     }

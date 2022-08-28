@@ -137,8 +137,7 @@ public abstract class ClientManager extends AbstractIdleService {
      * @return invocation of response future.
      */
     public abstract RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse>
-    changeInvisibleDuration(Endpoints endpoints, ChangeInvisibleDurationRequest request,
-        Duration duration);
+    changeInvisibleDuration(Endpoints endpoints, ChangeInvisibleDurationRequest request, Duration duration);
 
     /**
      * Send a message to the dead letter queue asynchronously, the method ensures no throwable.
@@ -173,8 +172,7 @@ public abstract class ClientManager extends AbstractIdleService {
      */
     @SuppressWarnings("UnusedReturnValue")
     public abstract RpcFuture<NotifyClientTerminationRequest, NotifyClientTerminationResponse>
-    notifyClientTermination(Endpoints endpoints, NotifyClientTerminationRequest request,
-        Duration duration);
+    notifyClientTermination(Endpoints endpoints, NotifyClientTerminationRequest request, Duration duration);
 
     /**
      * Establish telemetry session stream to server.

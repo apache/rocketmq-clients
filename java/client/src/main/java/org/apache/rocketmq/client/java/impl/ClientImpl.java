@@ -72,13 +72,13 @@ import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.exception.InternalErrorException;
 import org.apache.rocketmq.client.java.exception.StatusChecker;
-import org.apache.rocketmq.client.java.hook.CompositedMessageHandler;
-import org.apache.rocketmq.client.java.hook.MessageHandler;
-import org.apache.rocketmq.client.java.hook.MessageHandlerContext;
+import org.apache.rocketmq.client.java.hook.CompositedMessageInterceptor;
+import org.apache.rocketmq.client.java.hook.MessageInterceptor;
+import org.apache.rocketmq.client.java.hook.MessageInterceptorContext;
 import org.apache.rocketmq.client.java.impl.producer.ClientSessionHandler;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.metrics.ClientMeterManager;
-import org.apache.rocketmq.client.java.metrics.MessageMeterHandler;
+import org.apache.rocketmq.client.java.metrics.MessageMeterInterceptor;
 import org.apache.rocketmq.client.java.metrics.Metric;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.misc.ExecutorServices;
@@ -93,7 +93,7 @@ import org.slf4j.LoggerFactory;
 
 @SuppressWarnings({"UnstableApiUsage", "NullableProblems"})
 public abstract class ClientImpl extends AbstractIdleService implements Client, ClientSessionHandler,
-    MessageHandler {
+    MessageInterceptor {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClientImpl.class);
     /**
      * The telemetry timeout should not be too long, otherwise
@@ -126,7 +126,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     private final Map<Endpoints, ClientSessionImpl> sessionsTable;
     private final ReadWriteLock sessionsLock;
 
-    private final CompositedMessageHandler compositedMessageHandler;
+    private final CompositedMessageInterceptor compositedMessageInterceptor;
 
     public ClientImpl(ClientConfiguration clientConfiguration, Set<String> topics) {
         this.clientConfiguration = checkNotNull(clientConfiguration, "clientConfiguration should not be null");
@@ -158,8 +158,9 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
 
         this.clientMeterManager = new ClientMeterManager(clientId, clientConfiguration);
 
-        this.compositedMessageHandler =
-            new CompositedMessageHandler(Collections.singletonList(new MessageMeterHandler(this, clientMeterManager)));
+        this.compositedMessageInterceptor =
+            new CompositedMessageInterceptor(Collections.singletonList(new MessageMeterInterceptor(this,
+                clientMeterManager)));
 
         this.telemetryCommandExecutor = new ThreadPoolExecutor(
             1,
@@ -232,22 +233,22 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     }
 
     @Override
-    public void doBefore(MessageHandlerContext context, List<GeneralMessage> generalMessages) {
+    public void doBefore(MessageInterceptorContext context, List<GeneralMessage> generalMessages) {
         try {
-            compositedMessageHandler.doBefore(context, generalMessages);
+            compositedMessageInterceptor.doBefore(context, generalMessages);
         } catch (Throwable t) {
             // Should never reach here.
-            LOGGER.error("[BUG] Exception raised while handling messages, clientId={}", clientId, t);
+            LOGGER.error("[Bug] Exception raised while handling messages, clientId={}", clientId, t);
         }
     }
 
     @Override
-    public void doAfter(MessageHandlerContext context, List<GeneralMessage> generalMessages) {
+    public void doAfter(MessageInterceptorContext context, List<GeneralMessage> generalMessages) {
         try {
-            compositedMessageHandler.doAfter(context, generalMessages);
+            compositedMessageInterceptor.doAfter(context, generalMessages);
         } catch (Throwable t) {
             // Should never reach here.
-            LOGGER.error("[BUG] Exception raised while handling messages, clientId={}", clientId, t);
+            LOGGER.error("[Bug] Exception raised while handling messages, clientId={}", clientId, t);
         }
     }
 

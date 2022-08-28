@@ -30,7 +30,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
-import org.apache.rocketmq.client.java.hook.MessageHandler;
+import org.apache.rocketmq.client.java.hook.MessageInterceptor;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.slf4j.Logger;
@@ -43,15 +43,15 @@ public abstract class ConsumeService {
     protected final ClientId clientId;
     private final MessageListener messageListener;
     private final ThreadPoolExecutor consumptionExecutor;
-    private final MessageHandler messageHandler;
+    private final MessageInterceptor messageInterceptor;
     private final ScheduledExecutorService scheduler;
 
     public ConsumeService(ClientId clientId, MessageListener messageListener, ThreadPoolExecutor consumptionExecutor,
-        MessageHandler messageHandler, ScheduledExecutorService scheduler) {
+        MessageInterceptor messageInterceptor, ScheduledExecutorService scheduler) {
         this.clientId = clientId;
         this.messageListener = messageListener;
         this.consumptionExecutor = consumptionExecutor;
-        this.messageHandler = messageHandler;
+        this.messageInterceptor = messageInterceptor;
         this.scheduler = scheduler;
     }
 
@@ -63,7 +63,7 @@ public abstract class ConsumeService {
 
     public ListenableFuture<ConsumeResult> consume(MessageViewImpl messageView, Duration delay) {
         final ListeningExecutorService executorService = MoreExecutors.listeningDecorator(consumptionExecutor);
-        final ConsumeTask task = new ConsumeTask(clientId, messageListener, messageView, messageHandler);
+        final ConsumeTask task = new ConsumeTask(clientId, messageListener, messageView, messageInterceptor);
         // Consume message with no delay.
         if (Duration.ZERO.compareTo(delay) >= 0) {
             return executorService.submit(task);

@@ -25,48 +25,48 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("rawtypes")
-public class CompositedMessageHandler implements MessageHandler {
-    private static final Logger LOGGER = LoggerFactory.getLogger(MessageHandler.class);
-    private static final AttributeKey<Map<Integer, Map<AttributeKey, Attribute>>> HANDLER_ATTRIBUTES_KEY =
-        AttributeKey.create("composited_handler_attributes");
-    private final List<MessageHandler> handlers;
+public class CompositedMessageInterceptor implements MessageInterceptor {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MessageInterceptor.class);
+    private static final AttributeKey<Map<Integer, Map<AttributeKey, Attribute>>> INTERCEPTOR_ATTRIBUTES_KEY =
+        AttributeKey.create("composited_interceptor_attributes");
+    private final List<MessageInterceptor> interceptors;
 
-    public CompositedMessageHandler(List<MessageHandler> handlers) {
-        this.handlers = handlers;
+    public CompositedMessageInterceptor(List<MessageInterceptor> interceptors) {
+        this.interceptors = interceptors;
     }
 
     @Override
-    public void doBefore(MessageHandlerContext context0, List<GeneralMessage> messages) {
+    public void doBefore(MessageInterceptorContext context0, List<GeneralMessage> messages) {
         final HashMap<Integer, Map<AttributeKey, Attribute>> attributeMap = new HashMap<>();
-        for (int index = 0; index < handlers.size(); index++) {
-            MessageHandler handler = handlers.get(index);
+        for (int index = 0; index < interceptors.size(); index++) {
+            MessageInterceptor interceptor = interceptors.get(index);
             final MessageHookPoints messageHookPoints = context0.getMessageHookPoints();
             final MessageHookPointsStatus status = context0.getStatus();
-            final MessageHandlerContextImpl context = new MessageHandlerContextImpl(messageHookPoints, status);
+            final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(messageHookPoints, status);
             try {
-                handler.doBefore(context, messages);
+                interceptor.doBefore(context, messages);
             } catch (Throwable t) {
                 LOGGER.error("Exception raised while handing messages", t);
             }
             final Map<AttributeKey, Attribute> attributes = context.getAttributes();
             attributeMap.put(index, attributes);
         }
-        context0.putAttribute(HANDLER_ATTRIBUTES_KEY, Attribute.create(attributeMap));
+        context0.putAttribute(INTERCEPTOR_ATTRIBUTES_KEY, Attribute.create(attributeMap));
     }
 
     @Override
-    public void doAfter(MessageHandlerContext context0, List<GeneralMessage> messages) {
-        for (int index = handlers.size() - 1; index >= 0; index--) {
+    public void doAfter(MessageInterceptorContext context0, List<GeneralMessage> messages) {
+        for (int index = interceptors.size() - 1; index >= 0; index--) {
             final Map<Integer, Map<AttributeKey, Attribute>> attributeMap =
-                context0.getAttribute(HANDLER_ATTRIBUTES_KEY).get();
+                context0.getAttribute(INTERCEPTOR_ATTRIBUTES_KEY).get();
             final Map<AttributeKey, Attribute> attributes = attributeMap.get(index);
             final MessageHookPoints messageHookPoints = context0.getMessageHookPoints();
             final MessageHookPointsStatus status = context0.getStatus();
-            final MessageHandlerContextImpl context = new MessageHandlerContextImpl(messageHookPoints, status,
+            final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(messageHookPoints, status,
                 attributes);
-            MessageHandler handler = handlers.get(index);
+            MessageInterceptor interceptor = interceptors.get(index);
             try {
-                handler.doAfter(context, messages);
+                interceptor.doAfter(context, messages);
             } catch (Throwable t) {
                 LOGGER.error("Exception raised while handing messages", t);
             }
