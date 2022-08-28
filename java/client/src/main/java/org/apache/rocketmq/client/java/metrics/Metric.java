@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.java.metrics;
 
+import com.google.common.base.MoreObjects;
 import org.apache.rocketmq.client.java.route.Endpoints;
 
 public class Metric {
@@ -34,5 +35,13 @@ public class Metric {
 
     public boolean isOn() {
         return on;
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+            .add("endpoints", endpoints)
+            .add("on", on)
+            .toString();
     }
 }

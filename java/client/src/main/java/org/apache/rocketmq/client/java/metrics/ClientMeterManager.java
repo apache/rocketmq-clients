@@ -76,7 +76,8 @@ public class ClientMeterManager {
     public synchronized void reset(Metric metric) {
         try {
             if (clientMeter.satisfy(metric)) {
-                LOGGER.info("Metric settings is satisfied by the current message meter, clientId={}", clientId);
+                LOGGER.info("Metric settings is satisfied by the current message meter, metric={}, clientId={}",
+                    metric, clientId);
                 return;
             }
             if (!metric.isOn()) {
