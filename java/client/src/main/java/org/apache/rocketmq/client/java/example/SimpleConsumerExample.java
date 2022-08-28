@@ -29,6 +29,7 @@ import org.apache.rocketmq.client.apis.StaticSessionCredentialsProvider;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.FilterExpressionType;
 import org.apache.rocketmq.client.apis.consumer.SimpleConsumer;
+import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.apis.message.MessageView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,13 +71,16 @@ public class SimpleConsumerExample {
         // Max message num for each long polling.
         int maxMessageNum = 16;
         // Set message invisible duration after it is received.
-        Duration invisibleDuration = Duration.ofSeconds(5);
+        Duration invisibleDuration = Duration.ofSeconds(15);
         final List<MessageView> messages = consumer.receive(maxMessageNum, invisibleDuration);
+        LOGGER.info("Received {} message(s)", messages.size());
         for (MessageView message : messages) {
+            final MessageId messageId = message.getMessageId();
             try {
                 consumer.ack(message);
+                LOGGER.info("Message is acknowledged successfully, messageId={}", messageId);
             } catch (Throwable t) {
-                LOGGER.error("Failed to acknowledge message, messageId={}", message.getMessageId(), t);
+                LOGGER.error("Message is failed to be acknowledged, messageId={}", messageId, t);
             }
         }
         // Close the simple consumer when you don't need it anymore.
