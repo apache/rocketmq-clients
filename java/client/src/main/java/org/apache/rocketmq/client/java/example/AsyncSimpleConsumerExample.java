@@ -74,11 +74,12 @@ public class AsyncSimpleConsumerExample {
         // Max message num for each long polling.
         int maxMessageNum = 16;
         // Set message invisible duration after it is received.
-        Duration invisibleDuration = Duration.ofSeconds(5);
+        Duration invisibleDuration = Duration.ofSeconds(15);
         final CompletableFuture<List<MessageView>> future0 = consumer.receiveAsync(maxMessageNum, invisibleDuration);
-        future0.thenAccept(message -> {
+        future0.thenAccept(messages -> {
+            LOGGER.info("Received {} message(s)", messages.size());
             final Map<MessageId, CompletableFuture<Void>> map =
-                message.stream().collect(Collectors.toMap(MessageView::getMessageId, consumer::ackAsync));
+                messages.stream().collect(Collectors.toMap(MessageView::getMessageId, consumer::ackAsync));
             for (Map.Entry<MessageId, CompletableFuture<Void>> entry : map.entrySet()) {
                 final MessageId messageId = entry.getKey();
                 final CompletableFuture<Void> future = entry.getValue();
