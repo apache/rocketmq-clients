@@ -36,9 +36,9 @@ import org.apache.rocketmq.client.java.route.MessageQueueImpl;
  * <p>
  * phase 1: Fetch 32 messages successfully from remote.
  * <pre>
- * 32 in   ┌─────────────────────────┐
- * ────────►           32            │
- *         └─────────────────────────┘
+ *  32 in ┌─────────────────────────┐
+ * ───────►           32            │
+ *        └─────────────────────────┘
  *             cached messages = 32
  * </pre>
  * phase 2: consuming 1 message.
@@ -56,7 +56,15 @@ import org.apache.rocketmq.client.java.route.MessageQueueImpl;
  *            cached messages = 31
  * </pre>
  *
- * <p>Especially, there are some different processing procedures for FIFO consumption. // TODO
+ * <p>Especially, there are some different processing procedures for FIFO consumption. The server ensures that the
+ * next batch of messages will not be obtained by the client until the previous batch of messages is confirmed to be
+ * consumed successfully or not. In detail, the server confirms the success of consumption by message being
+ * successfully acknowledged, and confirms the consumption failure by being successfully forwarding to the dead
+ * letter queue, thus the client should try to ensure it succeeded in acknowledgement or forwarding to the dead
+ * letter queue as possible.
+ *
+ * <p>Considering the different workflow of FIFO consumption, {@link #eraseFifoMessage(MessageViewImpl, ConsumeResult)}
+ * and {@link #discardFifoMessage(MessageViewImpl)} is provided.
  */
 public interface ProcessQueue {
     /**

@@ -69,7 +69,7 @@ public class ProducerFifoMessageExample {
             // Key(s) of the message, another way to mark message besides message id.
             .setKeys("yourMessageKey-1ff69ada8e0e")
             // Message group decides the message delivery order.
-            .setMessageGroup("youMessageGroup0")
+            .setMessageGroup("yourMessageGroup0")
             .setBody(body)
             .build();
         try {

@@ -22,11 +22,11 @@ import java.util.List;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
 
 /**
- * Message interceptor based on {@link MessageHookPoints}.
+ * Interface for intercepting ingoing/outgoing message before/after they are dispatched by client.
  */
 @Beta
-public interface MessageHandler {
-    void doBefore(MessageHandlerContext context, List<GeneralMessage> messages);
+public interface MessageInterceptor {
+    void doBefore(MessageInterceptorContext context, List<GeneralMessage> messages);
 
-    void doAfter(MessageHandlerContext context, List<GeneralMessage> messages);
+    void doAfter(MessageInterceptorContext context, List<GeneralMessage> messages);
 }

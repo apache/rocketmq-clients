@@ -21,31 +21,31 @@ import java.util.HashMap;
 import java.util.Map;
 
 @SuppressWarnings("rawtypes")
-public class MessageHandlerContextImpl implements MessageHandlerContext {
+public class MessageInterceptorContextImpl implements MessageInterceptorContext {
     private final MessageHookPoints messageHookPoints;
     private MessageHookPointsStatus status;
     private final Map<AttributeKey, Attribute> attributes;
 
-    public MessageHandlerContextImpl(MessageHookPoints messageHookPoints) {
+    public MessageInterceptorContextImpl(MessageHookPoints messageHookPoints) {
         this.messageHookPoints = messageHookPoints;
         this.status = MessageHookPointsStatus.UNSET;
         this.attributes = new HashMap<>();
     }
 
-    public MessageHandlerContextImpl(MessageHookPoints messageHookPoints, MessageHookPointsStatus status) {
+    public MessageInterceptorContextImpl(MessageHookPoints messageHookPoints, MessageHookPointsStatus status) {
         this.messageHookPoints = messageHookPoints;
         this.status = status;
         this.attributes = new HashMap<>();
     }
 
-    public MessageHandlerContextImpl(MessageHookPoints messageHookPoints, MessageHookPointsStatus status,
+    public MessageInterceptorContextImpl(MessageHookPoints messageHookPoints, MessageHookPointsStatus status,
         Map<AttributeKey, Attribute> attributes) {
         this.messageHookPoints = messageHookPoints;
         this.status = status;
         this.attributes = attributes;
     }
 
-    public MessageHandlerContextImpl(MessageHandlerContextImpl context, MessageHookPointsStatus status) {
+    public MessageInterceptorContextImpl(MessageInterceptorContextImpl context, MessageHookPointsStatus status) {
         this.messageHookPoints = context.messageHookPoints;
         this.status = status;
         this.attributes = context.attributes;

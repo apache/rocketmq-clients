@@ -21,7 +21,7 @@ import static org.junit.Assert.assertEquals;
 
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.MessageListener;
-import org.apache.rocketmq.client.java.hook.MessageHandler;
+import org.apache.rocketmq.client.java.hook.MessageInterceptor;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.tool.TestBase;
@@ -36,8 +36,8 @@ public class ConsumeTaskTest extends TestBase {
         final MessageViewImpl messageView = fakeMessageViewImpl();
         final MessageListener messageListener = Mockito.mock(MessageListener.class);
         Mockito.when(messageListener.consume(messageView)).thenReturn(ConsumeResult.SUCCESS);
-        final MessageHandler messageHandler = Mockito.mock(MessageHandler.class);
-        final ConsumeTask consumeTask = new ConsumeTask(clientId, messageListener, messageView, messageHandler);
+        final MessageInterceptor messageInterceptor = Mockito.mock(MessageInterceptor.class);
+        final ConsumeTask consumeTask = new ConsumeTask(clientId, messageListener, messageView, messageInterceptor);
         final ConsumeResult consumeResult = consumeTask.call();
         assertEquals(ConsumeResult.SUCCESS, consumeResult);
     }
@@ -48,8 +48,8 @@ public class ConsumeTaskTest extends TestBase {
         final MessageViewImpl messageView = fakeMessageViewImpl();
         final MessageListener messageListener = Mockito.mock(MessageListener.class);
         Mockito.when(messageListener.consume(messageView)).thenThrow(new RuntimeException());
-        final MessageHandler messageHandler = Mockito.mock(MessageHandler.class);
-        final ConsumeTask consumeTask = new ConsumeTask(clientId, messageListener, messageView, messageHandler);
+        final MessageInterceptor messageInterceptor = Mockito.mock(MessageInterceptor.class);
+        final ConsumeTask consumeTask = new ConsumeTask(clientId, messageListener, messageView, messageInterceptor);
         final ConsumeResult consumeResult = consumeTask.call();
         assertEquals(ConsumeResult.FAILURE, consumeResult);
     }

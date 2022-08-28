@@ -60,9 +60,9 @@ import org.apache.rocketmq.client.apis.producer.TransactionChecker;
 import org.apache.rocketmq.client.apis.producer.TransactionResolution;
 import org.apache.rocketmq.client.java.exception.InternalErrorException;
 import org.apache.rocketmq.client.java.exception.TooManyRequestsException;
-import org.apache.rocketmq.client.java.hook.MessageHandlerContextImpl;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
+import org.apache.rocketmq.client.java.hook.MessageInterceptorContextImpl;
 import org.apache.rocketmq.client.java.impl.ClientImpl;
 import org.apache.rocketmq.client.java.impl.Settings;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
@@ -272,7 +272,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         final List<GeneralMessage> generalMessages = Collections.singletonList(generalMessage);
         MessageHookPoints messageHookPoints = TransactionResolution.COMMIT.equals(resolution) ?
             MessageHookPoints.COMMIT_TRANSACTION : MessageHookPoints.ROLLBACK_TRANSACTION;
-        final MessageHandlerContextImpl context = new MessageHandlerContextImpl(messageHookPoints);
+        final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(messageHookPoints);
         doBefore(context, generalMessages);
 
         final RpcFuture<EndTransactionRequest, EndTransactionResponse> future =
@@ -282,16 +282,16 @@ class ProducerImpl extends ClientImpl implements Producer {
             public void onSuccess(EndTransactionResponse response) {
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
-                MessageHookPointsStatus messageHookPointsStatus = Code.OK.equals(code) ? MessageHookPointsStatus.OK :
+                MessageHookPointsStatus hookPointsStatus = Code.OK.equals(code) ? MessageHookPointsStatus.OK :
                     MessageHookPointsStatus.ERROR;
-                final MessageHandlerContextImpl context0 = new MessageHandlerContextImpl(context,
-                    messageHookPointsStatus);
+                final MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
+                    hookPointsStatus);
                 doAfter(context0, generalMessages);
             }
 
             @Override
             public void onFailure(Throwable t) {
-                final MessageHandlerContextImpl context0 = new MessageHandlerContextImpl(context,
+                final MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
                     MessageHookPointsStatus.ERROR);
                 doAfter(context0, generalMessages);
             }
@@ -447,7 +447,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         // Intercept before message publishing.
         final List<GeneralMessage> generalMessages = messages.stream().map((Function<PublishingMessageImpl,
             GeneralMessage>) GeneralMessageImpl::new).collect(Collectors.toList());
-        final MessageHandlerContextImpl context = new MessageHandlerContextImpl(MessageHookPoints.SEND);
+        final MessageInterceptorContextImpl context = new MessageInterceptorContextImpl(MessageHookPoints.SEND);
         doBefore(context, generalMessages);
 
         Futures.addCallback(future, new FutureCallback<List<SendReceiptImpl>>() {
@@ -461,14 +461,14 @@ class ProducerImpl extends ClientImpl implements Producer {
                     future0.setException(e);
 
                     // Intercept after message publishing.
-                    final MessageHandlerContextImpl context0 = new MessageHandlerContextImpl(context,
+                    final MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
                         MessageHookPointsStatus.ERROR);
                     doAfter(context0, generalMessages);
 
                     return;
                 }
                 // Intercept after message publishing.
-                final MessageHandlerContextImpl context0 = new MessageHandlerContextImpl(context,
+                final MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
                     MessageHookPointsStatus.OK);
                 doAfter(context0, generalMessages);
 
@@ -491,7 +491,7 @@ class ProducerImpl extends ClientImpl implements Producer {
             @Override
             public void onFailure(Throwable t) {
                 // Intercept after message publishing.
-                final MessageHandlerContextImpl context0 = new MessageHandlerContextImpl(context,
+                final MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
                     MessageHookPointsStatus.ERROR);
                 doAfter(context0, generalMessages);
 

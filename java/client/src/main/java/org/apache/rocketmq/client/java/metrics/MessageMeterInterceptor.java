@@ -26,35 +26,35 @@ import org.apache.rocketmq.client.apis.consumer.PushConsumer;
 import org.apache.rocketmq.client.apis.consumer.SimpleConsumer;
 import org.apache.rocketmq.client.java.hook.Attribute;
 import org.apache.rocketmq.client.java.hook.AttributeKey;
-import org.apache.rocketmq.client.java.hook.MessageHandler;
-import org.apache.rocketmq.client.java.hook.MessageHandlerContext;
 import org.apache.rocketmq.client.java.hook.MessageHookPoints;
 import org.apache.rocketmq.client.java.hook.MessageHookPointsStatus;
+import org.apache.rocketmq.client.java.hook.MessageInterceptor;
+import org.apache.rocketmq.client.java.hook.MessageInterceptorContext;
 import org.apache.rocketmq.client.java.impl.Client;
 import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MessageMeterHandler implements MessageHandler {
+public class MessageMeterInterceptor implements MessageInterceptor {
     static final AttributeKey<Stopwatch> SEND_STOPWATCH_KEY = AttributeKey.create("send_stopwatch");
     static final AttributeKey<Stopwatch> CONSUME_STOPWATCH_KEY = AttributeKey.create("consume_stopwatch");
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(MessageMeterHandler.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MessageMeterInterceptor.class);
 
     private final Client client;
     private final ClientMeterManager meterManager;
 
-    public MessageMeterHandler(Client client, ClientMeterManager meterManager) {
+    public MessageMeterInterceptor(Client client, ClientMeterManager meterManager) {
         this.client = client;
         this.meterManager = meterManager;
     }
 
-    private void doBeforeSendMessage(MessageHandlerContext context) {
+    private void doBeforeSendMessage(MessageInterceptorContext context) {
         // Record the time before sending message.
         context.putAttribute(SEND_STOPWATCH_KEY, Attribute.create(Stopwatch.createStarted()));
     }
 
-    private void doAfterSendMessage(MessageHandlerContext context, List<GeneralMessage> messages) {
+    private void doAfterSendMessage(MessageInterceptorContext context, List<GeneralMessage> messages) {
         final Attribute<Stopwatch> stopwatchAttr = context.getAttribute(SEND_STOPWATCH_KEY);
         if (null == stopwatchAttr) {
             // Should never reach here.
@@ -105,7 +105,7 @@ public class MessageMeterHandler implements MessageHandler {
         meterManager.record(HistogramEnum.DELIVERY_LATENCY, attributes, latency);
     }
 
-    private void doBeforeConsumeMessage(MessageHandlerContext context, List<GeneralMessage> messages) {
+    private void doBeforeConsumeMessage(MessageInterceptorContext context, List<GeneralMessage> messages) {
         if (messages.isEmpty()) {
             // Should never reach here.
             return;
@@ -133,7 +133,7 @@ public class MessageMeterHandler implements MessageHandler {
         context.putAttribute(CONSUME_STOPWATCH_KEY, Attribute.create(Stopwatch.createStarted()));
     }
 
-    private void doAfterConsumeMessage(MessageHandlerContext context, List<GeneralMessage> messages) {
+    private void doAfterConsumeMessage(MessageInterceptorContext context, List<GeneralMessage> messages) {
         if (!(client instanceof PushConsumer)) {
             // Should never reach here.
             LOGGER.error("[Bug] current client is not push consumer, clientId={}", client.getClientId());
@@ -160,7 +160,7 @@ public class MessageMeterHandler implements MessageHandler {
     }
 
     @Override
-    public void doBefore(MessageHandlerContext context, List<GeneralMessage> messages) {
+    public void doBefore(MessageInterceptorContext context, List<GeneralMessage> messages) {
         if (!meterManager.isEnabled()) {
             return;
         }
@@ -180,7 +180,7 @@ public class MessageMeterHandler implements MessageHandler {
     }
 
     @Override
-    public void doAfter(MessageHandlerContext context, List<GeneralMessage> messages) {
+    public void doAfter(MessageInterceptorContext context, List<GeneralMessage> messages) {
         if (!meterManager.isEnabled()) {
             return;
         }
