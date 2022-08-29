@@ -1,17 +1,9 @@
 name: Java Build
-on:
-  pull_request:
-    types: [opened, reopened, synchronize]
-    paths:
-      - 'java/**'
-  push:
-    branches:
-      - master
-    paths:
-      - 'java/**'
+on: 
+  workflow_call:
 jobs:
   java_build:
-    name: "Java (${{ matrix.os }}, JDK-${{ matrix.jdk }})"
+    name: "${{ matrix.os }}, jdk-${{ matrix.jdk }}"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
