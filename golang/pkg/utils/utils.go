@@ -23,6 +23,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/url"
 	"os"
 	"runtime"
@@ -246,4 +247,20 @@ func DumpStacks() string {
 	buf := make([]byte, 16384)
 	buf = buf[:runtime.Stack(buf, true)]
 	return string(buf)
+}
+
+func GetMacAddress() []byte {
+	netInterfaces, err := net.Interfaces()
+	if err != nil {
+		return nil
+	}
+
+	for _, netInterface := range netInterfaces {
+		macAddr := netInterface.HardwareAddr
+		if len(macAddr) == 0 {
+			continue
+		}
+		return macAddr
+	}
+	return nil
 }

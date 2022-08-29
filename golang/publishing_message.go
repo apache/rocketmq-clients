@@ -22,7 +22,6 @@ import (
 
 	innerOS "github.com/apache/rocketmq-clients/golang/pkg/os"
 	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
-	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -53,8 +52,7 @@ var NewPublishingMessage = func(msg *Message, settings *producerSettings, txEnab
 	pMsg.encoding = v2.Encoding_IDENTITY
 
 	// Generate message id.
-	// TODO there is 'MessageIdCodec.getInstance().nextMessageId()' in java sdk
-	pMsg.messageId = uuid.New().String()
+	pMsg.messageId = GetMessageIdCodecInstance().NextMessageId().String()
 	// Normal message.
 	if msg.GetMessageGroup() == nil && msg.GetDeliveryTimestamp() == nil && !txEnabled {
 		pMsg.messageType = v2.MessageType_NORMAL
