@@ -1,18 +1,9 @@
 name: CPP Build
-on:
-  pull_request:
-    types: [opened, reopened, synchronize]
-    paths:
-      - 'cpp/**'
-  push:
-    branches:
-      - master
-      - cpp_dev
-    paths:
-      - 'cpp/**'
+on: 
+  workflow_call:
 jobs:
   cpp_build:
-    name: "CPP (${{ matrix.os }})"
+    name: "${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:

@@ -1,17 +1,9 @@
 name: Golang Build
-on:
-  pull_request:
-    types: [opened, reopened, synchronize]
-    paths:
-      - 'golang/**'
-  push:
-    branches:
-      - master
-    paths:
-      - 'golang/**'
+on: 
+  workflow_call:
 jobs:
   cpp_build:
-    name: "Golang (${{ matrix.os }}, Go ${{ matrix.go }})"
+    name: "${{ matrix.os }}, Go ${{ matrix.go }}"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:

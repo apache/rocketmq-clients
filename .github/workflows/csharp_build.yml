@@ -1,17 +1,9 @@
 name: C# Build
-on:
-  pull_request:
-    types: [opened, reopened, synchronize]
-    paths:
-      - 'csharp/**'
-  push:
-    branches:
-      - master
-    paths:
-      - 'csharp/**'  
+on: 
+  workflow_call: 
 jobs:
   c_sharp:
-    name: "C# (ubuntu-18.04)"
+    name: "ubuntu-18.04"
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
