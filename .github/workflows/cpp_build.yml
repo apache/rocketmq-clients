@@ -2,7 +2,7 @@ name: CPP Build
 on: 
   workflow_call:
 jobs:
-  cpp_build:
+  build:
     name: "${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
     strategy:
