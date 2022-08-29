@@ -2,9 +2,12 @@ name: C# Build
 on: 
   workflow_call: 
 jobs:
-  c_sharp:
-    name: "ubuntu-18.04"
-    runs-on: ubuntu-18.04
+  build:
+    name: "${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-18.04]
     steps:
       - name: Checkout
         uses: actions/checkout@v2

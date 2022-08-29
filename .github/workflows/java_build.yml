@@ -2,7 +2,7 @@ name: Java Build
 on: 
   workflow_call:
 jobs:
-  java_build:
+  build:
     name: "${{ matrix.os }}, jdk-${{ matrix.jdk }}"
     runs-on: ${{ matrix.os }}
     strategy:
