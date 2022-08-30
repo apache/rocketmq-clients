@@ -18,6 +18,7 @@ using System.IO;
 using System;
 using System.Text.Json;
 using System.Collections.Generic;
+using NLog;
 
 namespace Org.Apache.Rocketmq
 {
@@ -29,45 +30,59 @@ namespace Org.Apache.Rocketmq
      */
     public class ConfigFileCredentialsProvider : ICredentialsProvider
     {
+        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
         public ConfigFileCredentialsProvider()
         {
-            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            string configFileRelativePath = "/.rocketmq/config";
-            if (!File.Exists(home + configFileRelativePath))
+            var configFilePath = DefaultConfigFilePath();
+
+            if (!File.Exists(configFilePath))
             {
+                Logger.Warn("Config file[{}] does not exist", configFilePath);
                 return;
             }
 
             try
             {
-                using (var reader = new StreamReader(home + configFileRelativePath))
+                using var reader = new StreamReader(configFilePath);
+                string json = reader.ReadToEnd();
+                var kv = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+                if (null == kv)
                 {
-                    string json = reader.ReadToEnd();
-                    var kv = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
-                    accessKey = kv["AccessKey"];
-                    accessSecret = kv["AccessSecret"];
-                    valid = true;
+                    Logger.Error($"Failed to parse JSON configuration: {json}");
+                    return;
                 }
+                
+                _accessKey = kv["AccessKey"];
+                _accessSecret = kv["AccessSecret"];
+                _valid = true;
             }
-            catch (IOException)
+            catch (IOException e)
             {
+                Logger.Error($"Failed to read cofig file. Cause: {e.Message}");
             }
         }
 
         public Credentials getCredentials()
         {
-            if (!valid)
+            if (!_valid)
             {
                 return null;
             }
 
-            return new Credentials(accessKey, accessSecret);
+            return new Credentials(_accessKey, _accessSecret);
         }
 
-        private string accessKey;
-        private string accessSecret;
+        public static String DefaultConfigFilePath()
+        {
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            string[] pathSegments = {home, ".rocketmq", "config"}; 
+            return String.Join(Path.DirectorySeparatorChar, pathSegments);
+        }
 
-        private bool valid = false;
+        private readonly string _accessKey;
+        private readonly string _accessSecret;
+
+        private readonly bool _valid;
     }
 }

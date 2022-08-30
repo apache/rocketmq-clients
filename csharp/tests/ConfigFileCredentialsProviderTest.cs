@@ -16,19 +16,43 @@
  */
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
+using System.IO;
 
 namespace Org.Apache.Rocketmq
 {
     [TestClass]
     public class ConfigFileCredentialsProviderTest
     {
+        [TestInitialize]
+        public void Setup()
+        {
+            var configFilePath = ConfigFileCredentialsProvider.DefaultConfigFilePath();
+            FileInfo fileInfo = new FileInfo(configFilePath);
+            var dir = fileInfo.Directory;
+            if (!dir.Exists)
+            {
+                dir.Create();
+            }
+
+            string json = "{\"AccessKey\": \"key\", \"AccessSecret\": \"secret\"}";
+            File.WriteAllText(configFilePath, json);
+        }
+        
         [TestMethod]
-        public void testGetCredentials()
+        public void TestGetCredentials()
         {
             var provider = new ConfigFileCredentialsProvider();
             var credentials = provider.getCredentials();
             Assert.IsNotNull(credentials);
+            Assert.AreEqual(credentials.AccessKey, "key");
+            Assert.AreEqual(credentials.AccessSecret, "secret");
+        }
+
+        [TestCleanup]
+        public void TearDown()
+        {
+            var configFilePath = ConfigFileCredentialsProvider.DefaultConfigFilePath();
+            File.Delete(configFilePath);
         }
     }
 }

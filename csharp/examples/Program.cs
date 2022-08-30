@@ -26,11 +26,8 @@ namespace examples
     {
         static async Task Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
             string accessUrl = "rmq-cn-7mz2uk4nn0p.cn-hangzhou.rmq.aliyuncs.com:8080";
-            string accessKey = "949WI12QS2OJv39o";
-            string accessSecret = "870Rz9tptlt9oNEJ";
-            var credentialsProvider = new StaticCredentialsProvider(accessKey, accessSecret);
+            var credentialsProvider = new ConfigFileCredentialsProvider();
             var accessPoint = new AccessPoint(accessUrl);
             var producer = new Producer(accessPoint, "");
             producer.CredentialsProvider = credentialsProvider;
