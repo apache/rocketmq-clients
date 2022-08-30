@@ -23,17 +23,14 @@ namespace examples
 {
     class Program
     {
-        static async Task Main(string[] args)
+        private const string accessUrl = "rmq-cn-tl32uly8x0n.cn-hangzhou.rmq.aliyuncs.com:8080";
+        private const string standardTopic = "sdk_standard";
+        private const string fifoTopic = "sdk_fifo";
+        private const string timedTopic = "sdk_timed";
+        private const string transactionalTopic = "sdk_transactional";
+        
+        private static async Task<SendReceipt> SendStandardMessage(Producer producer)
         {
-            string accessUrl = "rmq-cn-tl32uly8x0n.cn-hangzhou.rmq.aliyuncs.com:8080";
-            var topic = "sdk_standard";
-            var credentialsProvider = new ConfigFileCredentialsProvider();
-            var producer = new Producer(accessUrl);
-            producer.CredentialsProvider = credentialsProvider;
-            producer.AddTopicOfInterest(topic);
-            
-            await producer.Start();
-
             byte[] body = new byte[1024];
             Array.Fill(body, (byte)'x');
             // Associate the message with one or multiple keys
@@ -43,7 +40,7 @@ namespace examples
                 "k2"
             };
             
-            var msg = new Message(topic, body)
+            var msg = new Message(standardTopic, body)
             {
                 // Tag the massage. A message has at most one tag.
                 Tag = "Tag-0",
@@ -52,9 +49,79 @@ namespace examples
             
             msg.Keys = keys;
 
-            var sendReceipt = await producer.Send(msg);
-            Console.WriteLine(sendReceipt.MessageId);
+            return await producer.Send(msg);
+        }
+
+        private static async Task<SendReceipt> SendFifoMessage(Producer producer)
+        {
+            byte[] body = new byte[1024];
+            Array.Fill(body, (byte)'x');
+            // Associate the message with one or multiple keys
+            var keys = new List<string>
+            {
+                "k1",
+                "k2"
+            };
             
+            var msg = new Message(fifoTopic, body)
+            {
+                // Tag the massage. A message has at most one tag.
+                Tag = "Tag-0",
+                Keys = keys
+            };
+            
+            msg.Keys = keys;
+
+            // Messages of the same message-group will be published orderly.
+            msg.MessageGroup = "SampleMessageGroup";
+
+            return await producer.Send(msg);
+        }
+
+        private static async Task<SendReceipt> SendTimedMessage(Producer producer)
+        {
+            byte[] body = new byte[1024];
+            Array.Fill(body, (byte)'x');
+            // Associate the message with one or multiple keys
+            var keys = new List<string>
+            {
+                "k1",
+                "k2"
+            };
+            
+            var msg = new Message(timedTopic, body)
+            {
+                // Tag the massage. A message has at most one tag.
+                Tag = "Tag-0",
+                Keys = keys
+            };
+            
+            msg.Keys = keys;
+            msg.DeliveryTimestamp = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+            return await producer.Send(msg);
+        }
+        
+        static async Task Main(string[] args)
+        {
+            var credentialsProvider = new ConfigFileCredentialsProvider();
+            var producer = new Producer(accessUrl);
+            producer.CredentialsProvider = credentialsProvider;
+            producer.AddTopicOfInterest(standardTopic);
+            producer.AddTopicOfInterest(fifoTopic);
+            producer.AddTopicOfInterest(timedTopic);
+            producer.AddTopicOfInterest(transactionalTopic);
+
+            await producer.Start();
+
+            var sendReceiptOfStandardMessage = await SendStandardMessage(producer);
+            Console.WriteLine($"Standard message-id: {sendReceiptOfStandardMessage.MessageId}");
+
+            var sendReceiptOfFifoMessage = await SendFifoMessage(producer);
+            Console.WriteLine($"FIFO message-id: {sendReceiptOfFifoMessage.MessageId}");
+            
+            var sendReceiptOfTimedMessage = await SendTimedMessage(producer);
+            Console.WriteLine($"Timed message-id: {sendReceiptOfTimedMessage.MessageId}");
+
             Console.ReadKey();
         }
     }
