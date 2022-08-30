@@ -55,12 +55,12 @@ namespace Org.Apache.Rocketmq
             await Heartbeat();
 
             // Step-3: Scan load assignments that are assigned to current client
-            schedule(async () =>
+            Schedule(async () =>
             {
                 await scanLoadAssignments();
             }, 10, _scanAssignmentCTS.Token);
 
-            schedule(() =>
+            Schedule(() =>
             {
                 ScanExpiredProcessQueue();
             }, 10, _scanExpiredProcessQueueCTS.Token);
@@ -81,7 +81,7 @@ namespace Org.Apache.Rocketmq
             List<Task<List<rmq::Assignment>>> tasks = new List<Task<List<rmq::Assignment>>>();
             foreach (var item in _topicFilterExpressionMap)
             {
-                tasks.Add(scanLoadAssignment(item.Key, _group));
+                tasks.Add(ScanLoadAssignment(item.Key, _group));
             }
             var result = await Task.WhenAll(tasks);
 

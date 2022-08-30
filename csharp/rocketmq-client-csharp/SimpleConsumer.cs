@@ -61,7 +61,7 @@ namespace Org.Apache.Rocketmq
             await base.Start();
             
             // Scan load assignment periodically
-            schedule(async () =>
+            Schedule(async () =>
             {
                 while (!_scanAssignmentCts.IsCancellationRequested)
                 {
@@ -100,13 +100,13 @@ namespace Org.Apache.Rocketmq
                 request.Endpoints = new rmq::Endpoints();
                 request.Endpoints.Scheme = rmq.AddressScheme.Ipv4;
                 var address = new rmq::Address();
-                address.Host = _accessPoint.Host;
-                address.Port = _accessPoint.Port;
+                address.Host = AccessPoint.Host;
+                address.Port = AccessPoint.Port;
                 request.Endpoints.Addresses.Add(address);
 
                 var metadata = new Metadata();
                 Signature.sign(this, metadata);
-                tasks.Add(Manager.QueryLoadAssignment(_accessPoint.TargetUrl(), metadata, request, TimeSpan.FromSeconds(3)));
+                tasks.Add(Manager.QueryLoadAssignment(AccessPoint.TargetUrl(), metadata, request, TimeSpan.FromSeconds(3)));
             }
 
             List<rmq.Assignment>[] list = await Task.WhenAll(tasks);

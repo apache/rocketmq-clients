@@ -17,7 +17,6 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using System.Threading;
 using Org.Apache.Rocketmq;
 
 namespace examples
@@ -26,15 +25,16 @@ namespace examples
     {
         static async Task Main(string[] args)
         {
-            string accessUrl = "rmq-cn-7mz2uk4nn0p.cn-hangzhou.rmq.aliyuncs.com:8080";
+            string accessUrl = "rmq-cn-tl32uly8x0n.cn-hangzhou.rmq.aliyuncs.com:8080";
+            var topic = "sdk_standard";
             var credentialsProvider = new ConfigFileCredentialsProvider();
             var accessPoint = new AccessPoint(accessUrl);
             var producer = new Producer(accessPoint, "");
             producer.CredentialsProvider = credentialsProvider;
+            producer.AddTopicOfInterest(topic);
+            
             await producer.Start();
 
-            var topic = "sdk_standard";
-            
             byte[] body = new byte[1024];
             Array.Fill(body, (byte)'x');
             // Associate the message with one or multiple keys
