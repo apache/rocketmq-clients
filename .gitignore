@@ -27,6 +27,9 @@ dependency-reduced-pom.xml
 
 # C# 
 obj/
+csharp/examples/bin/
+csharp/rocketmq-client-csharp/bin/
+csharp/tests/bin/
 
 # Rust
 rust/target
