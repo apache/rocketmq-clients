@@ -33,7 +33,7 @@ namespace Org.Apache.Rocketmq
 {
     public class Producer : Client, IProducer
     {
-        public Producer(AccessPoint accessPoint, string resourceNamespace) : base(accessPoint, resourceNamespace)
+        public Producer(string accessUrl) : base(accessUrl)
         {
             _loadBalancer = new ConcurrentDictionary<string, PublishLoadBalancer>();
             _sendFailureTotal = MetricMeter.CreateCounter<long>("rocketmq_send_failure_total");
@@ -51,8 +51,8 @@ namespace Org.Apache.Rocketmq
                 .AddOtlpExporter(delegate(OtlpExporterOptions options, MetricReaderOptions readerOptions)
                 {
                     options.Protocol = OtlpExportProtocol.Grpc;
-                    options.Endpoint = new Uri(_accessPoint.TargetUrl());
-                    options.TimeoutMilliseconds = (int) _clientSettings.RequestTimeout.ToTimeSpan().TotalMilliseconds;
+                    options.Endpoint = new Uri(AccessPoint.TargetUrl());
+                    options.TimeoutMilliseconds = (int) ClientSettings.RequestTimeout.ToTimeSpan().TotalMilliseconds;
 
                     readerOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds = 60 * 1000;
                 })
@@ -171,7 +171,7 @@ namespace Org.Apache.Rocketmq
                 {
                     var stopWatch = new Stopwatch();
                     stopWatch.Start();
-                    rmq::SendMessageResponse response = await Manager.SendMessage(target, metadata, request, RequestTimeout);
+                    rmq::SendMessageResponse response = await _manager.SendMessage(target, metadata, request, RequestTimeout);
                     if (null != response && rmq::Code.Ok == response.Status.Code)
                     {
                         var messageId = response.Entries[0].MessageId;

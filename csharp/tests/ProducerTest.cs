@@ -47,7 +47,7 @@ namespace tests
         [TestMethod]
         public async Task TestLifecycle()
         {
-            var producer = new Producer(_accessPoint, resourceNamespace);
+            var producer = new Producer($"{HOST}:{PORT}");
             producer.CredentialsProvider = new ConfigFileCredentialsProvider();
             producer.Region = "cn-hangzhou-pre";
             await producer.Start();
@@ -57,7 +57,7 @@ namespace tests
         [TestMethod]
         public async Task TestSendStandardMessage()
         {
-            var producer = new Producer(_accessPoint, resourceNamespace);
+            var producer = new Producer($"{HOST}:{PORT}");
             producer.CredentialsProvider = new ConfigFileCredentialsProvider();
             producer.Region = "cn-hangzhou-pre";
             await producer.Start();
@@ -82,7 +82,7 @@ namespace tests
         [TestMethod]
         public async Task TestSendMultipleMessages()
         {
-            var producer = new Producer(_accessPoint, resourceNamespace);
+            var producer = new Producer($"{HOST}:{PORT}");
             producer.CredentialsProvider = new ConfigFileCredentialsProvider();
             producer.Region = "cn-hangzhou-pre";
             await producer.Start();
@@ -109,7 +109,7 @@ namespace tests
         [TestMethod]
         public async Task TestSendFifoMessage()
         {
-            var producer = new Producer(_accessPoint, resourceNamespace);
+            var producer = new Producer($"{HOST}:{PORT}");
             producer.CredentialsProvider = new ConfigFileCredentialsProvider();
             producer.Region = "cn-hangzhou-pre";
             await producer.Start();
@@ -131,7 +131,7 @@ namespace tests
         [TestMethod]
         public async Task TestSendScheduledMessage()
         {
-            var producer = new Producer(_accessPoint, resourceNamespace);
+            var producer = new Producer($"{HOST}:{PORT}");
             producer.CredentialsProvider = new ConfigFileCredentialsProvider();
             producer.Region = "cn-hangzhou-pre";
             await producer.Start();
@@ -154,7 +154,7 @@ namespace tests
         [TestMethod]
         public async Task TestSendMessage_Failure()
         {
-            var producer = new Producer(_accessPoint, resourceNamespace);
+            var producer = new Producer($"{HOST}:{PORT}");
             producer.CredentialsProvider = new ConfigFileCredentialsProvider();
             producer.Region = "cn-hangzhou-pre";
             await producer.Start();
@@ -170,14 +170,12 @@ namespace tests
                 await producer.Send(msg);
                 Assert.Fail("Should have raised an exception");
             }
-            catch (MessageException e)
+            catch (MessageException)
             {
             }
             await producer.Shutdown();
         }
-
-        private static string resourceNamespace = "";
-
+        
         private static string topic = "cpp_sdk_standard";
 
         private static string HOST = "127.0.0.1";

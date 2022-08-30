@@ -25,9 +25,6 @@ using rmq = Apache.Rocketmq.V2;
 using grpc = global::Grpc.Core;
 using NLog;
 using System.Diagnostics.Metrics;
-using OpenTelemetry;
-using OpenTelemetry.Metrics;
-
 
 namespace Org.Apache.Rocketmq
 {
@@ -35,46 +32,45 @@ namespace Org.Apache.Rocketmq
     {
         protected static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
-        protected Client(AccessPoint accessPoint, string resourceNamespace)
+        protected Client(string accessUrl)
         {
-            _accessPoint = accessPoint;
+            AccessPoint = new AccessPoint(accessUrl);
 
-            // Support IPv4 for now
-            AccessPointScheme = rmq::AddressScheme.Ipv4;
+            AccessPointScheme = AccessPoint.HostScheme();
             var serviceEndpoint = new rmq::Address();
-            serviceEndpoint.Host = accessPoint.Host;
-            serviceEndpoint.Port = accessPoint.Port;
+            serviceEndpoint.Host = AccessPoint.Host;
+            serviceEndpoint.Port = AccessPoint.Port;
             AccessPointEndpoints = new List<rmq::Address> { serviceEndpoint };
 
-            _resourceNamespace = resourceNamespace;
+            _resourceNamespace = "";
 
-            _clientSettings = new rmq::Settings();
+            ClientSettings = new rmq::Settings();
 
-            _clientSettings.AccessPoint = new rmq::Endpoints();
-            _clientSettings.AccessPoint.Scheme = rmq::AddressScheme.Ipv4;
-            _clientSettings.AccessPoint.Addresses.Add(serviceEndpoint);
+            ClientSettings.AccessPoint = new rmq::Endpoints();
+            ClientSettings.AccessPoint.Scheme = rmq::AddressScheme.Ipv4;
+            ClientSettings.AccessPoint.Addresses.Add(serviceEndpoint);
 
-            _clientSettings.RequestTimeout = Google.Protobuf.WellKnownTypes.Duration.FromTimeSpan(TimeSpan.FromSeconds(3));
+            ClientSettings.RequestTimeout = Google.Protobuf.WellKnownTypes.Duration.FromTimeSpan(TimeSpan.FromSeconds(3));
 
-            _clientSettings.UserAgent = new rmq.UA();
-            _clientSettings.UserAgent.Language = rmq::Language.DotNet;
-            _clientSettings.UserAgent.Version = "5.0.0";
-            _clientSettings.UserAgent.Platform = Environment.OSVersion.ToString();
-            _clientSettings.UserAgent.Hostname = System.Net.Dns.GetHostName();
+            ClientSettings.UserAgent = new rmq.UA();
+            ClientSettings.UserAgent.Language = rmq::Language.DotNet;
+            ClientSettings.UserAgent.Version = "5.0.0";
+            ClientSettings.UserAgent.Platform = Environment.OSVersion.ToString();
+            ClientSettings.UserAgent.Hostname = System.Net.Dns.GetHostName();
 
-            Manager = ClientManagerFactory.getClientManager(resourceNamespace);
+            _manager = new ClientManager();
 
             _topicRouteTable = new ConcurrentDictionary<string, TopicRouteData>();
             _updateTopicRouteCts = new CancellationTokenSource();
 
             _healthCheckCts = new CancellationTokenSource();
 
-            telemetryCts_ = new CancellationTokenSource();
+            _telemetryCts = new CancellationTokenSource();
         }
 
         public virtual async Task Start()
         {
-            schedule(async () =>
+            Schedule(async () =>
             {
                 await UpdateTopicRoute();
 
@@ -83,8 +79,8 @@ namespace Org.Apache.Rocketmq
             // Get routes for topics of interest.
             await UpdateTopicRoute();
 
-            string accessPointUrl = _accessPoint.TargetUrl();
-            createSession(accessPointUrl);
+            string accessPointUrl = AccessPoint.TargetUrl();
+            CreateSession(accessPointUrl);
 
             await _sessions[accessPointUrl].AwaitSettingNegotiationCompletion();
 
@@ -95,8 +91,8 @@ namespace Org.Apache.Rocketmq
         {
             Logger.Info($"Shutdown client[resource-namespace={_resourceNamespace}");
             _updateTopicRouteCts.Cancel();
-            telemetryCts_.Cancel();
-            await Manager.Shutdown();
+            _telemetryCts.Cancel();
+            await _manager.Shutdown();
         }
 
         protected string FilterBroker(Func<string, bool> acceptor)
@@ -138,7 +134,7 @@ namespace Org.Apache.Rocketmq
         private async Task UpdateTopicRoute()
         {
             HashSet<string> topics = new HashSet<string>();
-            foreach (var topic in topicsOfInterest_)
+            foreach (var topic in _topicsOfInterest)
             {
                 topics.Add(topic);
             }
@@ -192,7 +188,7 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        public void schedule(Action action, int seconds, CancellationToken token)
+        public void Schedule(Action action, int seconds, CancellationToken token)
         {
             if (null == action)
             {
@@ -246,7 +242,7 @@ namespace Org.Apache.Rocketmq
             try
             {
                 Logger.Debug($"Resolving route for topic={topic}");
-                topicRouteData = await Manager.ResolveRoute(target, metadata, request, RequestTimeout);
+                topicRouteData = await _manager.ResolveRoute(target, metadata, request, RequestTimeout);
                 if (null != topicRouteData)
                 {
                     Logger.Debug($"Got route entries for {topic} from name server");
@@ -286,7 +282,7 @@ namespace Org.Apache.Rocketmq
             List<Task> tasks = new List<Task>();
             foreach (var endpoint in endpoints)
             {
-                tasks.Add(Manager.Heartbeat(endpoint, metadata, request, RequestTimeout));
+                tasks.Add(_manager.Heartbeat(endpoint, metadata, request, RequestTimeout));
             }
 
             await Task.WhenAll(tasks);
@@ -303,7 +299,7 @@ namespace Org.Apache.Rocketmq
 
         }
 
-        protected async Task<List<rmq::Assignment>> scanLoadAssignment(string topic, string group)
+        protected async Task<List<rmq::Assignment>> ScanLoadAssignment(string topic, string group)
         {
             // Pick a broker randomly
             string target = FilterBroker((s) => true);
@@ -324,7 +320,7 @@ namespace Org.Apache.Rocketmq
             {
                 var metadata = new grpc::Metadata();
                 Signature.sign(this, metadata);
-                return await Manager.QueryLoadAssignment(target, metadata, request, RequestTimeout);
+                return await _manager.QueryLoadAssignment(target, metadata, request, RequestTimeout);
             }
             catch (System.Exception e)
             {
@@ -345,14 +341,14 @@ namespace Org.Apache.Rocketmq
 
         public virtual void BuildClientSetting(rmq::Settings settings)
         {
-            settings.MergeFrom(_clientSettings);
+            settings.MergeFrom(ClientSettings);
         }
 
-        public void createSession(string url)
+        public void CreateSession(string url)
         {
             var metadata = new grpc::Metadata();
             Signature.sign(this, metadata);
-            var stream = Manager.Telemetry(url, metadata);
+            var stream = _manager.Telemetry(url, metadata);
             var session = new Session(url, stream, this);
             _sessions.TryAdd(url, session);
             Task.Run(async () =>
@@ -372,7 +368,7 @@ namespace Org.Apache.Rocketmq
             request.Group.ResourceNamespace = _resourceNamespace;
             request.Group.Name = group;
             request.MessageQueue = assignment.MessageQueue;
-            var messages = await Manager.ReceiveMessage(targetUrl, metadata, request, getLongPollingTimeout());
+            var messages = await _manager.ReceiveMessage(targetUrl, metadata, request, getLongPollingTimeout());
             return messages;
         }
 
@@ -394,7 +390,7 @@ namespace Org.Apache.Rocketmq
 
             var metadata = new grpc::Metadata();
             Signature.sign(this, metadata);
-            return await Manager.Ack(target, metadata, request, RequestTimeout);
+            return await _manager.Ack(target, metadata, request, RequestTimeout);
         }
 
         public async Task<Boolean> ChangeInvisibleDuration(string target, string group, string topic, string receiptHandle, String messageId)
@@ -413,7 +409,7 @@ namespace Org.Apache.Rocketmq
 
             var metadata = new grpc::Metadata();
             Signature.sign(this, metadata);
-            return await Manager.ChangeInvisibleDuration(target, metadata, request, RequestTimeout);
+            return await _manager.ChangeInvisibleDuration(target, metadata, request, RequestTimeout);
         }
 
         public async Task<bool> NotifyClientTermination()
@@ -429,7 +425,7 @@ namespace Org.Apache.Rocketmq
 
             foreach (var endpoint in endpoints)
             {
-                tasks.Add(Manager.NotifyClientTermination(endpoint, metadata, request, RequestTimeout));
+                tasks.Add(_manager.NotifyClientTermination(endpoint, metadata, request, RequestTimeout));
             }
 
             bool[] results = await Task.WhenAll(tasks);
@@ -447,24 +443,24 @@ namespace Org.Apache.Rocketmq
         {
             if (null != settings.Metric)
             {
-                _clientSettings.Metric = new rmq::Metric();
-                _clientSettings.Metric.MergeFrom(settings.Metric);
+                ClientSettings.Metric = new rmq::Metric();
+                ClientSettings.Metric.MergeFrom(settings.Metric);
             }
 
             if (null != settings.BackoffPolicy)
             {
-                _clientSettings.BackoffPolicy = new rmq::RetryPolicy();
-                _clientSettings.BackoffPolicy.MergeFrom(settings.BackoffPolicy);
+                ClientSettings.BackoffPolicy = new rmq::RetryPolicy();
+                ClientSettings.BackoffPolicy.MergeFrom(settings.BackoffPolicy);
             }
         }
 
-        protected readonly IClientManager Manager;
+        protected readonly IClientManager _manager;
 
-        private readonly HashSet<string> topicsOfInterest_ = new HashSet<string>();
+        private readonly HashSet<string> _topicsOfInterest = new HashSet<string>();
 
         public void AddTopicOfInterest(string topic)
         {
-            topicsOfInterest_.Add(topic);
+            _topicsOfInterest.Add(topic);
         }
 
         private readonly ConcurrentDictionary<string, TopicRouteData> _topicRouteTable;
@@ -472,24 +468,24 @@ namespace Org.Apache.Rocketmq
 
         private readonly CancellationTokenSource _healthCheckCts;
 
-        private readonly CancellationTokenSource telemetryCts_ = new CancellationTokenSource();
+        private readonly CancellationTokenSource _telemetryCts;
 
         public CancellationTokenSource TelemetryCts()
         {
-            return telemetryCts_;
+            return _telemetryCts;
         }
 
-        protected readonly AccessPoint _accessPoint;
+        protected readonly AccessPoint AccessPoint;
 
         // This field is subject changes from servers.
-        protected readonly rmq::Settings _clientSettings;
+        protected readonly rmq::Settings ClientSettings;
 
         private readonly Random _random = new Random();
-        
-        protected readonly ConcurrentDictionary<string, Session> _sessions = new ConcurrentDictionary<string, Session>();
 
-        public static readonly string MeterName = "Apache.RocketMQ.Client";
-        
+        private readonly ConcurrentDictionary<string, Session> _sessions = new ConcurrentDictionary<string, Session>();
+
+        protected const string MeterName = "Apache.RocketMQ.Client";
+
         protected static readonly Meter MetricMeter = new(MeterName, "1.0");
     }
 }

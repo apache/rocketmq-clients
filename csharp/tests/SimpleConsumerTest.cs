@@ -20,7 +20,6 @@ using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using rmq = Apache.Rocketmq.V2;
 using System.Threading.Tasks;
-using Castle.Core.Logging;
 using Org.Apache.Rocketmq;
 
 namespace tests
@@ -30,26 +29,16 @@ namespace tests
     public class SimpleConsumerTest
     {
 
-        private static AccessPoint accessPoint;
-        private static string _resourceNamespace = "";
         private static string _group = "GID_cpp_sdk_standard";
         private static string _topic = "cpp_sdk_standard";
-
-
-        [ClassInitialize]
-        public static void SetUp(TestContext context)
-        {
-            accessPoint = new AccessPoint
-            {
-                Host = "127.0.0.1",
-                Port = 8081
-            };
-        }
+        private const string HOST = "127.0.0.1";
+        private const int PORT = 8081;
+        
 
         [TestMethod]
         public async Task TestLifecycle()
         {
-            var simpleConsumer = new SimpleConsumer(accessPoint, _resourceNamespace, _group);
+            var simpleConsumer = new SimpleConsumer($"{HOST}:{PORT}", _group);
             simpleConsumer.Subscribe(_topic, rmq::FilterType.Tag, "*");
             await simpleConsumer.Start();
             Thread.Sleep(1_000);
@@ -59,7 +48,7 @@ namespace tests
         [TestMethod]
         public async Task TestReceive()
         {
-            var simpleConsumer = new SimpleConsumer(accessPoint, _resourceNamespace, _group);
+            var simpleConsumer = new SimpleConsumer($"{HOST}:{PORT}", _group);
             simpleConsumer.Subscribe(_topic, rmq::FilterType.Tag, "*");
             await simpleConsumer.Start();
             var batchSize = 32;
@@ -74,7 +63,7 @@ namespace tests
         [TestMethod]
         public async Task TestAck()
         {
-            var simpleConsumer = new SimpleConsumer(accessPoint, _resourceNamespace, _group);
+            var simpleConsumer = new SimpleConsumer($"{HOST}:{PORT}", _group);
             simpleConsumer.Subscribe(_topic, rmq::FilterType.Tag, "*");
             await simpleConsumer.Start();
             var batchSize = 32;
@@ -91,7 +80,7 @@ namespace tests
         [TestMethod]
         public async Task TestChangeInvisibleDuration()
         {
-            var simpleConsumer = new SimpleConsumer(accessPoint, _resourceNamespace, _group);
+            var simpleConsumer = new SimpleConsumer($"{HOST}:{PORT}", _group);
             simpleConsumer.Subscribe(_topic, rmq::FilterType.Tag, "*");
             await simpleConsumer.Start();
             var batchSize = 32;

@@ -40,4 +40,8 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="ClientManagerFactory.cs" />
+  </ItemGroup>
+
 </Project>

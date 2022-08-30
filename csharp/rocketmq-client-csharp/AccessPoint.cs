@@ -16,6 +16,9 @@
  */
 
 using System;
+using rmq = Apache.Rocketmq.V2;
+using System.Net;
+using System.Net.Sockets;
 
 namespace Org.Apache.Rocketmq
 {
@@ -57,6 +60,23 @@ namespace Org.Apache.Rocketmq
         public string TargetUrl()
         {
             return $"https://{_host}:{_port}";
+        }
+
+        public rmq::AddressScheme HostScheme()
+        {
+            IPAddress ip;
+            bool result = IPAddress.TryParse(_host, out ip);
+            if (!result)
+            {
+                return rmq::AddressScheme.DomainName;
+            }
+
+            return ip.AddressFamily switch
+            {
+                AddressFamily.InterNetwork => rmq::AddressScheme.Ipv4,
+                AddressFamily.InterNetworkV6 => rmq::AddressScheme.Ipv6,
+                _ => rmq::AddressScheme.Unspecified
+            };
         }
     }
 }
