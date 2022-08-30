@@ -175,8 +175,7 @@ message ThreadStackTrace {
 
 message VerifyMessageCommand {
   string nonce = 1;
-  MessageQueue message_queue = 2;
-  Message message = 3;
+  Message message = 2;
 }
 
 message VerifyMessageResult {
@@ -184,98 +183,8 @@ message VerifyMessageResult {
 }
 
 message RecoverOrphanedTransactionCommand {
-  MessageQueue message_queue = 1;
-  Message orphaned_transactional_message = 2;
-  string transaction_id = 3;
-}
-
-message Publishing {
-  // Publishing settings below here is appointed by client, thus it is
-  // unnecessary for server to push at present.
-  //
-  // List of topics to which messages will publish to.
-  repeated Resource topics = 1;
-
-  // Publishing settings below here are from server, it is essential for
-  // server to push.
-  //
-  // Body of message will be deflated if its size in bytes exceeds the
-  // threshold.
-  int32 compress_body_threshold = 2;
-
-  // If the message body size exceeds `max_body_size`, broker servers would
-  // reject the request. As a result, it is advisable that Producer performs
-  // client-side check validation.
-  int32 max_body_size = 3;
-}
-
-message Subscription {
-  // Subscription settings below here is appointed by client, thus it is
-  // unnecessary for server to push at present.
-  //
-  // Consumer group.
-  optional Resource group = 1;
-
-  // Subscription for consumer.
-  repeated SubscriptionEntry subscriptions = 2;
-
-  // Subscription settings below here are from server, it is essential for
-  // server to push.
-  //
-  // When FIFO flag is `true`, messages of the same message group are processed
-  // in first-in-first-out manner.
-  //
-  // Brokers will not deliver further messages of the same group utill prior
-  // ones are completely acknowledged.
-  optional bool fifo = 3;
-
-  // Message receive batch size here is essential for push consumer.
-  optional int32 receive_batch_size = 4;
-
-  // Long-polling timeout for `ReceiveMessageRequest`, which is essential for
-  // push consumer.
-  optional google.protobuf.Duration long_polling_timeout = 5;
-}
-
-message Metric {
-  // Indicates that if client should export local metrics to server.
-  bool on = 1;
-  
-  // The endpoint that client metrics should be exported to, which is required if the switch is on.
-  optional Endpoints endpoints = 2;
-}
-
-message Settings {
-  // Configurations for all clients.
-  optional ClientType client_type = 1;
-
-  optional Endpoints access_point = 2;
-
-  // If publishing of messages encounters throttling or server internal errors,
-  // publishers should implement automatic retries after progressive longer
-  // back-offs for consecutive errors.
-  //
-  // When processing message fails, `backoff_policy` describes an interval
-  // after which the message should be available to consume again.
-  //
-  // For FIFO messages, the interval should be relatively small because
-  // messages of the same message group would not be readily available utill
-  // the prior one depletes its lifecycle.
-  optional RetryPolicy backoff_policy = 3;
-
-  // Request timeout for RPCs excluding long-polling.
-  optional google.protobuf.Duration request_timeout = 4;
-
-  oneof pub_sub {
-    Publishing publishing = 5;
-
-    Subscription subscription = 6;
-  }
-
-  // User agent details
-  UA user_agent = 7;
-
-  Metric metric = 8;
+  Message message = 1;
+  string transaction_id = 2;
 }
 
 message TelemetryCommand {

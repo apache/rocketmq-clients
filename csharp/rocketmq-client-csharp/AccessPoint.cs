@@ -14,10 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+using System;
+
 namespace Org.Apache.Rocketmq
 {
     public class AccessPoint
     {
+        public AccessPoint()
+        {
+            
+        }
+
+        public AccessPoint(string accessUrl)
+        {
+            string[] segments = accessUrl.Split(":");
+            if (segments.Length != 2)
+            {
+                throw new ArgumentException("Access url should be of format host:port");
+            }
+
+            _host = segments[0];
+            _port = Int32.Parse(segments[1]);
+        }
+        
         private string _host;
 
         public string Host

@@ -15,67 +15,50 @@
  * limitations under the License.
  */
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Threading;
+using Org.Apache.Rocketmq;
 
 namespace examples
 {
-
-    class Foo
-    {
-        public int bar = 1;
-    }
     class Program
     {
-
-        static void RT(Action action, int seconds, CancellationToken token)
-        {
-            if (null == action)
-            {
-                return;
-            }
-
-            Task.Run(async () =>
-            {
-                while (!token.IsCancellationRequested)
-                {
-                    action();
-                    await Task.Delay(TimeSpan.FromSeconds(seconds), token);
-                }
-            });
-        }
-
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             Console.WriteLine("Hello World!");
+            string accessUrl = "rmq-cn-7mz2uk4nn0p.cn-hangzhou.rmq.aliyuncs.com:8080";
+            string accessKey = "949WI12QS2OJv39o";
+            string accessSecret = "870Rz9tptlt9oNEJ";
+            var credentialsProvider = new StaticCredentialsProvider(accessKey, accessSecret);
+            var accessPoint = new AccessPoint(accessUrl);
+            var producer = new Producer(accessPoint, "");
+            producer.CredentialsProvider = credentialsProvider;
+            await producer.Start();
 
-            string accessKey = "key";
-            string accessSecret = "secret";
-            var credentials = new Org.Apache.Rocketmq.StaticCredentialsProvider(accessKey, accessSecret).getCredentials();
-            bool expired = credentials.expired();
-
-            int workerThreads;
-            int completionPortThreads;
-            ThreadPool.GetMaxThreads(out workerThreads, out completionPortThreads);
-            Console.WriteLine($"Max: workerThread={workerThreads}, completionPortThreads={completionPortThreads}");
-            ThreadPool.GetMinThreads(out workerThreads, out completionPortThreads);
-            Console.WriteLine($"Min: workerThread={workerThreads}, completionPortThreads={completionPortThreads}");
-
-            ThreadPool.QueueUserWorkItem((Object stateInfo) =>
+            var topic = "sdk_standard";
+            
+            byte[] body = new byte[1024];
+            Array.Fill(body, (byte)'x');
+            // Associate the message with one or multiple keys
+            var keys = new List<string>
             {
-                Console.WriteLine("From ThreadPool");
-                if (stateInfo is Foo)
-                {
-                    Console.WriteLine("Foo: bar=" + (stateInfo as Foo).bar);
-                }
-            }, new Foo());
-
-            var cts = new CancellationTokenSource();
-            RT(() =>
+                "k1",
+                "k2"
+            };
+            
+            var msg = new Message(topic, body)
             {
-                Console.WriteLine("Hello Again" + Thread.CurrentThread.Name);
-            }, 1, cts.Token);
-            cts.CancelAfter(3000);
+                // Tag the massage. A message has at most one tag.
+                Tag = "Tag-0",
+                Keys = keys
+            };
+            
+            msg.Keys = keys;
+
+            var sendReceipt = await producer.Send(msg);
+            Console.WriteLine(sendReceipt.MessageId);
+            
             Console.ReadKey();
         }
     }
