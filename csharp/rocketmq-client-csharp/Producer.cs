@@ -25,7 +25,6 @@ using System.Diagnostics.Metrics;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
-using NLog;
 using OpenTelemetry;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Metrics;
@@ -46,8 +45,6 @@ namespace Org.Apache.Rocketmq
         public override async Task Start()
         {
             await base.Start();
-            // More initialization
-            // TODO: Add authentication header
 
             _meterProvider = Sdk.CreateMeterProviderBuilder()
                 .AddMeter("Apache.RocketMQ.Client")
@@ -104,11 +101,15 @@ namespace Org.Apache.Rocketmq
             var publishLb = _loadBalancer[message.Topic];
 
             var request = new rmq::SendMessageRequest();
-            var entry = new rmq::Message();
-            entry.Body = ByteString.CopyFrom(message.Body);
-            entry.Topic = new rmq::Resource();
-            entry.Topic.ResourceNamespace = resourceNamespace();
-            entry.Topic.Name = message.Topic;
+            var entry = new rmq::Message
+            {
+                Body = ByteString.CopyFrom(message.Body),
+                Topic = new rmq::Resource
+                {
+                    ResourceNamespace = resourceNamespace(),
+                    Name = message.Topic
+                }
+            };
             request.Messages.Add(entry);
 
             // User properties
@@ -117,9 +118,12 @@ namespace Org.Apache.Rocketmq
                 entry.UserProperties.Add(item.Key, item.Value);
             }
 
-            entry.SystemProperties = new rmq::SystemProperties();
-            entry.SystemProperties.MessageId = message.MessageId;
-            entry.SystemProperties.MessageType = rmq::MessageType.Normal;
+            entry.SystemProperties = new rmq::SystemProperties
+            {
+                MessageId = message.MessageId,
+                MessageType = rmq::MessageType.Normal
+            };
+            
             if (DateTime.MinValue != message.DeliveryTimestamp)
             {
                 entry.SystemProperties.MessageType = rmq::MessageType.Delay;
