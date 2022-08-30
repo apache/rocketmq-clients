@@ -49,6 +49,17 @@ There are four types of client.
 * Simple consumer: the simplest consumer, providing methods to receive messages and change invisible time for messages.
 * Pull consumer: for streaming, it allows to get route info manually and select message queues to bind for pulling message.
 
+### Client Identifier
+
+Client identifier provides indentity information for each client event within the same process. A typical client identifier: `macbook-pro@90009@0@2dyeb8lep`, which could be divided into 4 parts by the separator `@`.
+
+1. `macbook-pro`: hostname of device;
+2. `90009`: process identifier;
+3. `2`: client index within current process;
+4. `2dyeb8lep`: the unique string within process.
+
+>**Note**: Implementations of client identifier by different languages may vary slightly, but the uniqueness is the first principle that must be followed.
+
 ### Message Identifier
 
 Message identifer provides identity information for each message stored in broker, which means producer can not get the message identifier until it is sent out successfully.
