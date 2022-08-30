@@ -28,8 +28,7 @@ namespace examples
             string accessUrl = "rmq-cn-tl32uly8x0n.cn-hangzhou.rmq.aliyuncs.com:8080";
             var topic = "sdk_standard";
             var credentialsProvider = new ConfigFileCredentialsProvider();
-            var accessPoint = new AccessPoint(accessUrl);
-            var producer = new Producer(accessPoint, "");
+            var producer = new Producer(accessUrl);
             producer.CredentialsProvider = credentialsProvider;
             producer.AddTopicOfInterest(topic);
             

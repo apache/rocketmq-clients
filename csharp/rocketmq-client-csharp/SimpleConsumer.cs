@@ -30,9 +30,8 @@ namespace Org.Apache.Rocketmq
     public class SimpleConsumer : Client
     {
 
-        public SimpleConsumer(AccessPoint accessPoint,
-        string resourceNamespace, string group)
-        : base(accessPoint, resourceNamespace)
+        public SimpleConsumer(string accessUrl, string group)
+        : base(accessUrl)
         {
             _fifo = false;
             _subscriptions = new ConcurrentDictionary<string, rmq.SubscriptionEntry>();
@@ -106,7 +105,7 @@ namespace Org.Apache.Rocketmq
 
                 var metadata = new Metadata();
                 Signature.sign(this, metadata);
-                tasks.Add(Manager.QueryLoadAssignment(AccessPoint.TargetUrl(), metadata, request, TimeSpan.FromSeconds(3)));
+                tasks.Add(_manager.QueryLoadAssignment(AccessPoint.TargetUrl(), metadata, request, TimeSpan.FromSeconds(3)));
             }
 
             List<rmq.Assignment>[] list = await Task.WhenAll(tasks);
@@ -184,7 +183,7 @@ namespace Org.Apache.Rocketmq
             var metadata = new Metadata();
             Signature.sign(this, metadata);
             
-            return await Manager.ReceiveMessage(targetUrl, metadata, request, timeout);
+            return await _manager.ReceiveMessage(targetUrl, metadata, request, timeout);
         }
 
 
@@ -207,7 +206,7 @@ namespace Org.Apache.Rocketmq
             var targetUrl = message._sourceHost;
             var metadata = new Metadata();
             Signature.sign(this, metadata);
-            await Manager.Ack(targetUrl, metadata, request, RequestTimeout);
+            await _manager.Ack(targetUrl, metadata, request, RequestTimeout);
         }
 
         public async Task ChangeInvisibleDuration(Message message, TimeSpan invisibleDuration)
@@ -229,7 +228,7 @@ namespace Org.Apache.Rocketmq
             var targetUrl = message._sourceHost;
             var metadata = new Metadata();
             Signature.sign(this, metadata);
-            await Manager.ChangeInvisibleDuration(targetUrl, metadata, request, RequestTimeout);
+            await _manager.ChangeInvisibleDuration(targetUrl, metadata, request, RequestTimeout);
         }
         
         private rmq.MessageQueue NextQueue()
