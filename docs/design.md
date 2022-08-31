@@ -53,10 +53,10 @@ There are four types of client.
 
 Client identifier provides indentity information for each client event within the same process. A typical client identifier: `macbook-pro@90009@0@2dyeb8lep`, which could be divided into 4 parts by the separator `@`.
 
-1. `macbook-pro`: hostname of device;
-2. `90009`: process identifier;
-3. `2`: client index within current process;
-4. `2dyeb8lep`: the unique string within process.
+* `macbook-pro`: hostname of device;
+* `90009`: process identifier;
+* `2`: client index within current process;
+* `2dyeb8lep`: the unique string within process.
 
 >**Note**: Implementations of client identifier by different languages may vary slightly, but the uniqueness is the first principle that must be followed.
 
