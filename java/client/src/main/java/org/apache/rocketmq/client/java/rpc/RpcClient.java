@@ -186,6 +186,15 @@ public interface RpcClient {
     ListenableFuture<NotifyClientTerminationResponse> notifyClientTermination(Metadata metadata,
         NotifyClientTerminationRequest request, Executor executor, Duration duration);
 
+    /**
+     * Start a streaming request and get the request observer.
+     *
+     * @param metadata         gRPC request header metadata.
+     * @param executor         gRPC asynchronous executor.
+     * @param duration         streaming max duration.
+     * @param responseObserver stream response observer.
+     * @return request observer.
+     */
     StreamObserver<TelemetryCommand> telemetry(Metadata metadata, Executor executor, Duration duration,
         StreamObserver<TelemetryCommand> responseObserver);
 }
