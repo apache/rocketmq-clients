@@ -48,11 +48,7 @@ import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.rpc.RpcFuture;
 
 /**
- * Client manager supplies a series of unified APIs to execute remote procedure calls for each {@link Client}.
- *
- * <p>To manage lifecycle for client manager, {@link Client} must be registered before using client manager,
- * once {@link Client} is shut down, it must be unregistered by the client manager. The client manager holds the
- * connections and underlying threads, which are shared by all registered clients.
+ * Client manager supplies a series of unified APIs to execute remote procedure calls for {@link Client}.
  */
 public abstract class ClientManager extends AbstractIdleService {
     /**
