@@ -20,9 +20,9 @@
     <targets>
         <target name="asyncFile" xsi:type="AsyncWrapper">
             <target name="log_file" xsi:type="File"
-                    fileName="${specialfolder:folder=UserProfile}/logs/ons/ons-client.log"
+                    fileName="${specialfolder:folder=UserProfile}/logs/rocketmq/rocketmq-client.log"
                     layout="${longdate} ${level:uppercase=true:padding=-5} [${processid}] [${threadid}] [${callsite}:${callsite-linenumber}] ${message} ${onexception:${exception:format=ToString,Data}}"
-                    archiveFileName="${specialfolder:folder=UserProfile}/logs/ons/ons-client.{######}.log"
+                    archiveFileName="${specialfolder:folder=UserProfile}/logs/rocketmq/rocketmq-client.{######}.log"
                     archiveAboveSize="67108864"
                     archiveNumbering="DateAndSequence"
                     maxArchiveFiles="10"
