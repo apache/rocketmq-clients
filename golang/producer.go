@@ -227,14 +227,14 @@ func (p *defaultProducer) send1(ctx context.Context, topic string, messageType v
 			p.isolated.Store(utils.ParseAddress(address), true)
 		}
 		if attempt >= maxAttempts {
-			p.cli.log.Warnf("failed to send message(s) finally, run out of attempt times, topic=%s, messageId(s)=%v, maxAttempts=%d, attempt=%d, endpoints=%v",
-				topic, messageIds, maxAttempts, attempt, endpoints)
+			p.cli.log.Errorf("failed to send message(s) finally, run out of attempt times, topic=%s, messageId(s)=%v, maxAttempts=%d, attempt=%d, endpoints=%v, requestId=%s",
+				topic, messageIds, maxAttempts, attempt, endpoints, utils.GetRequestID(ctx))
 			return nil, err
 		}
 		// No need more attempts for transactional message.
 		if messageType == v2.MessageType_TRANSACTION {
-			p.cli.log.Errorf("failed to send transactional message finally, topic=%s, messageId(s)=%v,  maxAttempts=%d, attempt=%d, endpoints=%s",
-				topic, messageIds, maxAttempts, attempt, endpoints)
+			p.cli.log.Errorf("failed to send transactional message finally, topic=%s, messageId(s)=%v,  maxAttempts=%d, attempt=%d, endpoints=%s, requestId=%s",
+				topic, messageIds, maxAttempts, attempt, endpoints, utils.GetRequestID(ctx))
 			return nil, err
 		}
 		// Try to do more attempts.
@@ -242,12 +242,12 @@ func (p *defaultProducer) send1(ctx context.Context, topic string, messageType v
 		// Retry immediately if the request is not throttled.
 		if tooManyRequests {
 			waitTime := p.getNextAttemptDelay(nextAttempt)
-			p.cli.log.Warnf("failed to send message due to too many requests, would attempt to resend after %v, topic=%s, messageId(s)=%v, maxAttempts=%d, attempt=%d, endpoints=%v",
-				waitTime, topic, messageIds, maxAttempts, attempt, endpoints)
+			p.cli.log.Warnf("failed to send message due to too many requests, would attempt to resend after %v, topic=%s, messageId(s)=%v, maxAttempts=%d, attempt=%d, endpoints=%v, requestId=%s",
+				waitTime, topic, messageIds, maxAttempts, attempt, endpoints, utils.GetRequestID(ctx))
 			time.Sleep(waitTime)
 		} else {
-			p.cli.log.Warnf("failed to send message, would attempt to resend right now, topic=%s, messageId(s)=%v, maxAttempts=%d, attempt=%d, endpoints=%v",
-				topic, messageIds, maxAttempts, attempt, endpoints)
+			p.cli.log.Warnf("failed to send message, would attempt to resend right now, topic=%s, messageId(s)=%v, maxAttempts=%d, attempt=%d, endpoints=%v, requestId=%s",
+				topic, messageIds, maxAttempts, attempt, endpoints, utils.GetRequestID(ctx))
 		}
 		return p.send1(ctx, topic, messageType, candidates, pubMessages, nextAttempt)
 	}
@@ -440,7 +440,7 @@ func (p *defaultProducer) onRecoverOrphanedTransactionCommand(endpoints *v2.Endp
 		err := p.endTransaction(context.TODO(), endpoints,
 			mv.GetMessageCommon(), messageId, transactionId, resolution)
 		if err != nil {
-			p.cli.log.Errorf("exception raised while ending the transaction, messageId=%s, transactionId=%s, endpoints=%v, err=%w\n", messageId, transactionId, endpoints, err)
+			p.cli.log.Errorf("exception raised while ending the transaction, messageId=%s, transactionId=%s, endpoints=%v, err=%w", messageId, transactionId, endpoints, err)
 		}
 	}(messageView)
 	return nil

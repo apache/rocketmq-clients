@@ -336,13 +336,13 @@ func (cli *defaultClient) doHeartbeat(target string, request *v2.HeartbeatReques
 	}
 	resp, err := cli.clientManager.HeartBeat(ctx, endpoints, request, cli.settings.GetRequestTimeout())
 	if err != nil {
-		return fmt.Errorf("failed to send heartbeat, endpoints=%v, err=%v", endpoints, err)
+		return fmt.Errorf("failed to send heartbeat, endpoints=%v, err=%v, requestId=%s", endpoints, err, utils.GetRequestID(ctx))
 	}
 	if resp.Status.GetCode() != v2.Code_OK {
 		if resp.Status.GetCode() == v2.Code_UNRECOGNIZED_CLIENT_TYPE {
 			go cli.trySyncSettings()
 		}
-		cli.log.Errorf("failed to send heartbeat, code=%v, status message=[%s], endpoints=%v", resp.Status.GetCode(), resp.Status.GetMessage(), endpoints)
+		cli.log.Errorf("failed to send heartbeat, code=%v, status message=[%s], endpoints=%v, requestId=%s", resp.Status.GetCode(), resp.Status.GetMessage(), endpoints, utils.GetRequestID(ctx))
 		return &ErrRpcStatus{
 			Code:    int32(resp.Status.GetCode()),
 			Message: resp.GetStatus().GetMessage(),
@@ -352,7 +352,7 @@ func (cli *defaultClient) doHeartbeat(target string, request *v2.HeartbeatReques
 	switch p := cli.clientImpl.(type) {
 	case *defaultProducer:
 		if _, ok := p.isolated.LoadAndDelete(target); ok {
-			cli.log.Infof("rejoin endpoints which is isolated before, endpoints=%v\n", endpoints)
+			cli.log.Infof("rejoin endpoints which is isolated before, endpoints=%v", endpoints)
 		}
 	default:
 		// ignore
