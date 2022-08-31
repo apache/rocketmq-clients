@@ -18,4 +18,4 @@ jobs:
           go-version: ${{ matrix.go }}
       - name: Build
         working-directory: ./golang
-        run: go build
+        run: go build && go test ./...
