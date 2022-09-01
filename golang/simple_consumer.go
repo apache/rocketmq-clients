@@ -364,7 +364,7 @@ func (sc *defaultSimpleConsumer) Start() error {
 	}
 	err2 := sc.GracefulStop()
 	if err2 != nil {
-		return fmt.Errorf("startUp err=%w, shutdown err=%w", err, err2)
+		return fmt.Errorf("startUp err=%w, shutdown err=%v", err, err2)
 	}
 	return err
 }
