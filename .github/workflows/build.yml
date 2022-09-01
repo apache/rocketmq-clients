@@ -50,7 +50,7 @@ jobs:
     if: ${{ always() }}
     steps:
       - uses: actions/checkout@v2
-      - name: Collector build result
+      - name: Collect build result
         run: |
           if echo java-${{ needs.java-build.result }},cpp-${{ needs.cpp-build.result }},csharp-${{ needs.csharp-build.result }},golang-${{ needs.golang-build.result }} | grep -E 'cancelled|failure' -o > null
           then

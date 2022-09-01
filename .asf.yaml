@@ -42,3 +42,4 @@ github:
         contexts:
           - misspell-check
           - check-license
+          - build-result
