@@ -7,6 +7,7 @@
 [![Golang][golang-image]][golang-url]
 [![Codecov-cpp][codecov-cpp-image]][codecov-url]
 [![Codecov-java][codecov-java-image]][codecov-url]
+[![Codecov-golang][codecov-golang-image]][codecov-url]
 [![Maven Central][maven-image]][maven-url]
 
 ## Overview
@@ -55,6 +56,7 @@ Provide cloud-native and robust solutions for Java, C++, C#, Golang, Rust and al
 [golang-url]: https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml
 [codecov-cpp-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=cpp&label=CPP%20Coverage&logo=codecov
 [codecov-java-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=java&label=Java%20Coverage&logo=codecov
+[codecov-golang-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=golang&label=Golang%20Coverage&logo=codecov
 [codecov-url]: https://codecov.io/gh/apache/rocketmq-clients/branch/master/
 [maven-image]: https://maven-badges.herokuapp.com/maven-central/org.apache.rocketmq/rocketmq-client-java/badge.svg
 [maven-url]: https://maven-badges.herokuapp.com/maven-central/org.apache.rocketmq/rocketmq-client-java
