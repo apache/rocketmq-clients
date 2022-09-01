@@ -18,7 +18,7 @@
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using grpc = global::Grpc.Core;
+using grpc = Grpc.Core;
 using NLog;
 using rmq = Apache.Rocketmq.V2;
 
@@ -28,22 +28,22 @@ namespace Org.Apache.Rocketmq
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
-        public Session(string target,
-            grpc::AsyncDuplexStreamingCall<rmq::TelemetryCommand, rmq::TelemetryCommand> stream,
-            IClient client)
+        public Session(grpc::AsyncDuplexStreamingCall<rmq::TelemetryCommand, rmq::TelemetryCommand> stream,
+            Client client)
         {
-            this._target = target;
-            this._stream = stream;
-            this._client = client;
-            this._channel = Channel.CreateUnbounded<bool>();
+            _stream = stream;
+            _client = client;
+            _channel = Channel.CreateUnbounded<bool>();
         }
 
         public async Task Loop()
         {
-            var reader = this._stream.ResponseStream;
-            var writer = this._stream.RequestStream;
-            var request = new rmq::TelemetryCommand();
-            request.Settings = new rmq::Settings();
+            var reader = _stream.ResponseStream;
+            var writer = _stream.RequestStream;
+            var request = new rmq::TelemetryCommand
+            {
+                Settings = new rmq::Settings()
+            };
             _client.BuildClientSetting(request.Settings);
             await writer.WriteAsync(request);
             Logger.Debug($"Writing Client Settings Done: {request.Settings.ToString()}");
@@ -94,13 +94,6 @@ namespace Org.Apache.Rocketmq
             await writer.CompleteAsync();
         }
 
-        private string _target;
-
-        public string Target
-        {
-            get { return _target; }
-        }
-
         public async Task AwaitSettingNegotiationCompletion()
         {
             if (0 != Interlocked.Read(ref _established))
@@ -112,11 +105,11 @@ namespace Org.Apache.Rocketmq
             await _channel.Reader.ReadAsync();
         }
 
-        private grpc::AsyncDuplexStreamingCall<rmq::TelemetryCommand, rmq::TelemetryCommand> _stream;
-        private IClient _client;
+        private readonly grpc::AsyncDuplexStreamingCall<rmq::TelemetryCommand, rmq::TelemetryCommand> _stream;
+        private readonly Client _client;
 
-        private long _established = 0;
+        private long _established;
 
-        private Channel<bool> _channel;
+        private readonly Channel<bool> _channel;
     };
 }

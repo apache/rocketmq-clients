@@ -30,9 +30,7 @@ namespace Org.Apache.Rocketmq
         Task<bool> NotifyClientTermination();
 
         void BuildClientSetting(rmq::Settings settings);
-
-
-        void OnSettingsReceived(rmq::Settings settings);
+        
 
         CancellationTokenSource TelemetryCts();
     }

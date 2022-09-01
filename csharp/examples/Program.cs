@@ -23,11 +23,13 @@ namespace examples
 {
     class Program
     {
-        private const string accessUrl = "rmq-cn-tl32uly8x0n.cn-hangzhou.rmq.aliyuncs.com:8080";
-        private const string standardTopic = "sdk_standard";
-        private const string fifoTopic = "sdk_fifo";
-        private const string timedTopic = "sdk_timed";
-        private const string transactionalTopic = "sdk_transactional";
+        private const string ACCESS_URL = "rmq-cn-tl32uly8x0n.cn-hangzhou.rmq.aliyuncs.com:8080";
+        private const string STANDARD_TOPIC = "sdk_standard";
+        private const string FIFO_TOPIC = "sdk_fifo";
+        private const string TIMED_TOPIC = "sdk_timed";
+        private const string TRANSACTIONAL_TOPIC = "sdk_transactional";
+
+        private const string CONCURRENT_GROUP = "sdk_concurrency";
         
         private static async Task<SendReceipt> SendStandardMessage(Producer producer)
         {
@@ -40,7 +42,7 @@ namespace examples
                 "k2"
             };
             
-            var msg = new Message(standardTopic, body)
+            var msg = new Message(STANDARD_TOPIC, body)
             {
                 // Tag the massage. A message has at most one tag.
                 Tag = "Tag-0",
@@ -63,7 +65,7 @@ namespace examples
                 "k2"
             };
             
-            var msg = new Message(fifoTopic, body)
+            var msg = new Message(FIFO_TOPIC, body)
             {
                 // Tag the massage. A message has at most one tag.
                 Tag = "Tag-0",
@@ -89,7 +91,7 @@ namespace examples
                 "k2"
             };
             
-            var msg = new Message(timedTopic, body)
+            var msg = new Message(TIMED_TOPIC, body)
             {
                 // Tag the massage. A message has at most one tag.
                 Tag = "Tag-0",
@@ -100,16 +102,30 @@ namespace examples
             msg.DeliveryTimestamp = DateTime.UtcNow + TimeSpan.FromSeconds(30);
             return await producer.Send(msg);
         }
+
+        private static async Task ConsumeMessage(SimpleConsumer simpleConsumer)
+        {
+            var messages = await simpleConsumer.Receive(32, TimeSpan.FromSeconds(60));
+            if (null != messages)
+            {
+                foreach (var message in messages)
+                {
+                    Console.WriteLine($"Receive a message, topic={message.Topic}, message-id={message.MessageId}");
+                }
+            }
+        }
         
         static async Task Main(string[] args)
         {
             var credentialsProvider = new ConfigFileCredentialsProvider();
-            var producer = new Producer(accessUrl);
-            producer.CredentialsProvider = credentialsProvider;
-            producer.AddTopicOfInterest(standardTopic);
-            producer.AddTopicOfInterest(fifoTopic);
-            producer.AddTopicOfInterest(timedTopic);
-            producer.AddTopicOfInterest(transactionalTopic);
+            var producer = new Producer(ACCESS_URL)
+            {
+                CredentialsProvider = credentialsProvider
+            };
+            producer.AddTopicOfInterest(STANDARD_TOPIC);
+            producer.AddTopicOfInterest(FIFO_TOPIC);
+            producer.AddTopicOfInterest(TIMED_TOPIC);
+            producer.AddTopicOfInterest(TRANSACTIONAL_TOPIC);
 
             await producer.Start();
 
