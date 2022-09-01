@@ -16,22 +16,18 @@
  */
 using System;
 using System.Text;
-using grpc = global::Grpc.Core;
+using grpc = Grpc.Core;
 using System.Security.Cryptography;
 
 namespace Org.Apache.Rocketmq
 {
-    public class Signature
+    public static class Signature
     {
-        public static void sign(IClientConfig clientConfig, grpc::Metadata metadata)
+        public static void Sign(IClientConfig clientConfig, grpc::Metadata metadata)
         {
             metadata.Add(MetadataConstants.LANGUAGE_KEY, "DOTNET");
             metadata.Add(MetadataConstants.CLIENT_VERSION_KEY, "5.0.0");
             metadata.Add(MetadataConstants.CLIENT_ID_KEY, clientConfig.clientId());
-            if (!String.IsNullOrEmpty(clientConfig.tenantId()))
-            {
-                metadata.Add(MetadataConstants.TENANT_ID_KEY, clientConfig.tenantId());
-            }
 
             if (!String.IsNullOrEmpty(clientConfig.resourceNamespace()))
             {

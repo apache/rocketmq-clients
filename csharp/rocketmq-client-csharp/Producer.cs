@@ -161,7 +161,7 @@ namespace Org.Apache.Rocketmq
             }
 
             var metadata = new Metadata();
-            Signature.sign(this, metadata);
+            Signature.Sign(this, metadata);
 
             Exception ex = null;
 
@@ -171,7 +171,7 @@ namespace Org.Apache.Rocketmq
                 {
                     var stopWatch = new Stopwatch();
                     stopWatch.Start();
-                    rmq::SendMessageResponse response = await _manager.SendMessage(target, metadata, request, RequestTimeout);
+                    rmq::SendMessageResponse response = await Manager.SendMessage(target, metadata, request, RequestTimeout);
                     if (null != response && rmq::Code.Ok == response.Status.Code)
                     {
                         var messageId = response.Entries[0].MessageId;

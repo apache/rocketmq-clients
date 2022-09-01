@@ -48,7 +48,7 @@ namespace Org.Apache.Rocketmq
             clientConfig.CredentialsProvider = credentialsProvider;
             clientConfig.ResourceNamespace = resourceNamespace;
             clientConfig.Region = "cn-hangzhou-pre";
-            Signature.sign(clientConfig, metadata);
+            Signature.Sign(clientConfig, metadata);
             var clientManager = new ClientManager();
             string target = "https://116.62.231.199:80";
             var topicRouteData = clientManager.ResolveRoute(target, metadata, request, TimeSpan.FromSeconds(3)).GetAwaiter().GetResult();

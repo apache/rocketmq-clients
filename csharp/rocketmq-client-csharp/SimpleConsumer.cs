@@ -33,7 +33,6 @@ namespace Org.Apache.Rocketmq
         public SimpleConsumer(string accessUrl, string group)
         : base(accessUrl)
         {
-            _fifo = false;
             _subscriptions = new ConcurrentDictionary<string, rmq.SubscriptionEntry>();
             _topicAssignments = new ConcurrentDictionary<string, List<rmq.Assignment>>();
             _group = group;
@@ -44,15 +43,20 @@ namespace Org.Apache.Rocketmq
             base.BuildClientSetting(settings);
 
             settings.ClientType = rmq::ClientType.SimpleConsumer;
-            settings.Subscription = new rmq::Subscription();
-            settings.Subscription.Group = new rmq::Resource();
-            settings.Subscription.Group.Name = _group;
-            settings.Subscription.Group.ResourceNamespace = ResourceNamespace;
+            settings.Subscription = new rmq::Subscription
+            {
+                Group = new rmq::Resource
+                {
+                    Name = _group,
+                    ResourceNamespace = ResourceNamespace
+                }
+            };
 
             foreach (var kv in _subscriptions)
             {
                 settings.Subscription.Subscriptions.Add(kv.Value);
             }
+            Logger.Info($"ClientSettings built OK. {settings}");
         }
 
         public override async Task Start()
@@ -62,54 +66,70 @@ namespace Org.Apache.Rocketmq
             // Scan load assignment periodically
             Schedule(async () =>
             {
-                while (!_scanAssignmentCts.IsCancellationRequested)
-                {
-                    await ScanLoadAssignments();                    
-                }
+                Logger.Debug("Scan load assignments by schedule");
+                await ScanLoadAssignments();
             }, 30, _scanAssignmentCts.Token);
 
             await ScanLoadAssignments();
+            Logger.Debug("Step of #Start: ScanLoadAssignments completed");
         }
 
         public override async Task Shutdown()
         {
+            _scanAssignmentCts.Cancel();
             await base.Shutdown();
-            if (!await NotifyClientTermination())
+            var group = new rmq.Resource()
+            {
+                Name = _group,
+                ResourceNamespace = "",
+            };
+            if (!await NotifyClientTermination(group))
             {
                 Logger.Warn("Failed to NotifyClientTermination");
             }
         }
-
+        
+        /**
+         * For 5.x, we can assume there is a load-balancer before gateway nodes.
+         */
         private async Task ScanLoadAssignments()
         {
-
-            List<Task<List<rmq::Assignment>>> tasks = new List<Task<List<rmq.Assignment>>>();
-            List<string> topics = new List<string>();
+            var tasks = new List<Task<List<rmq.Assignment>>>();
+            var topics = new List<string>();
             foreach (var sub in _subscriptions)
             {
-                var request = new rmq::QueryAssignmentRequest();
-                request.Topic = new rmq::Resource();
-                request.Topic.ResourceNamespace = ResourceNamespace;
-                request.Topic.Name = sub.Key;
+                var request = new rmq::QueryAssignmentRequest
+                {
+                    Topic = new rmq::Resource
+                    {
+                        ResourceNamespace = ResourceNamespace,
+                        Name = sub.Key
+                    }
+                };
                 topics.Add(sub.Key);
-                request.Group = new rmq::Resource();
-                request.Group.Name = _group;
-                request.Group.ResourceNamespace = ResourceNamespace;
+                request.Group = new rmq::Resource
+                {
+                    Name = _group,
+                    ResourceNamespace = ResourceNamespace
+                };
 
-                request.Endpoints = new rmq::Endpoints();
-                request.Endpoints.Scheme = rmq.AddressScheme.Ipv4;
-                var address = new rmq::Address();
-                address.Host = AccessPoint.Host;
-                address.Port = AccessPoint.Port;
+                request.Endpoints = new rmq::Endpoints
+                {
+                    Scheme = AccessPoint.HostScheme()
+                };
+                var address = new rmq::Address
+                {
+                    Host = AccessPoint.Host,
+                    Port = AccessPoint.Port
+                };
                 request.Endpoints.Addresses.Add(address);
 
                 var metadata = new Metadata();
-                Signature.sign(this, metadata);
-                tasks.Add(_manager.QueryLoadAssignment(AccessPoint.TargetUrl(), metadata, request, TimeSpan.FromSeconds(3)));
+                Signature.Sign(this, metadata);
+                tasks.Add(Manager.QueryLoadAssignment(AccessPoint.TargetUrl(), metadata, request, TimeSpan.FromSeconds(3)));
             }
 
-            List<rmq.Assignment>[] list = await Task.WhenAll(tasks);
-
+            var list = await Task.WhenAll(tasks);
             var i = 0;
             foreach (var assignments in list)
             {
@@ -129,36 +149,48 @@ namespace Org.Apache.Rocketmq
         protected override void PrepareHeartbeatData(rmq::HeartbeatRequest request)
         {
             request.ClientType = rmq::ClientType.SimpleConsumer;
-            request.Group = new rmq::Resource();
-            request.Group.Name = _group;
-            request.Group.ResourceNamespace = ResourceNamespace;
+            request.Group = new rmq::Resource
+            {
+                Name = _group,
+                ResourceNamespace = ResourceNamespace
+            };
         }
 
-        public void Subscribe(string topic, rmq::FilterType filterType, string expression)
+        public void Subscribe(string topic, FilterExpression filterExpression)
         {
-            var entry = new rmq::SubscriptionEntry();
-            entry.Topic = new rmq::Resource();
-            entry.Topic.Name = topic;
-            entry.Topic.ResourceNamespace = ResourceNamespace;
-            entry.Expression = new rmq::FilterExpression();
-            entry.Expression.Type = filterType;
-            entry.Expression.Expression = expression;
+            var entry = new rmq::SubscriptionEntry
+            {
+                Topic = new rmq::Resource
+                {
+                    Name = topic,
+                    ResourceNamespace = ResourceNamespace
+                },
+                Expression = new rmq::FilterExpression
+                {
+                    Type = filterExpression.Type switch {
+                        ExpressionType.TAG => rmq::FilterType.Tag,
+                        ExpressionType.SQL92 => rmq::FilterType.Sql,
+                        _ => rmq.FilterType.Tag
+                    },
+                    Expression = filterExpression.Expression
+                }
+            };
+
             _subscriptions.AddOrUpdate(topic, entry, (k, prev) => entry);
             AddTopicOfInterest(topic);
         }
 
-        public override void OnSettingsReceived(rmq.Settings settings)
+        internal override void OnSettingsReceived(rmq.Settings settings)
         {
             base.OnSettingsReceived(settings);
 
             if (settings.Subscription.Fifo)
             {
-                _fifo = true;
                 Logger.Info($"#OnSettingsReceived: Group {_group} is FIFO");
             }
         }
 
-        public async Task<List<Message>> Receive(int batchSize, TimeSpan timeout)
+        public async Task<List<Message>> Receive(int batchSize, TimeSpan invisibleDuration)
         {
             var messageQueue = NextQueue();
             if (null == messageQueue)
@@ -167,37 +199,48 @@ namespace Org.Apache.Rocketmq
                 return new List<Message>();
             }
 
-            var request = new rmq.ReceiveMessageRequest();
-            request.Group = new rmq.Resource();
-            request.Group.ResourceNamespace = ResourceNamespace;
-            request.Group.Name = _group;
+            var request = new rmq.ReceiveMessageRequest
+            {
+                Group = new rmq.Resource
+                {
+                    ResourceNamespace = ResourceNamespace,
+                    Name = _group
+                },
+                MessageQueue = new rmq.MessageQueue()
+            };
 
-            request.MessageQueue = new rmq.MessageQueue();
             request.MessageQueue.MergeFrom(messageQueue);
             request.BatchSize = batchSize;
+            request.InvisibleDuration = Duration.FromTimeSpan(invisibleDuration);
             
             // Client is responsible of extending message invisibility duration
             request.AutoRenew = false;
             
             var targetUrl = Utilities.TargetUrl(messageQueue);
             var metadata = new Metadata();
-            Signature.sign(this, metadata);
+            Signature.Sign(this, metadata);
             
-            return await _manager.ReceiveMessage(targetUrl, metadata, request, timeout);
+            return await Manager.ReceiveMessage(targetUrl, metadata, request, 
+                ClientSettings.Subscription.LongPollingTimeout.ToTimeSpan());
         }
 
 
         public async Task Ack(Message message)
         {
-            var request = new rmq.AckMessageRequest();
-            request.Group = new rmq.Resource();
-            request.Group.ResourceNamespace = ResourceNamespace;
-            request.Group.Name = _group;
+            var request = new rmq.AckMessageRequest
+            {
+                Group = new rmq.Resource
+                {
+                    ResourceNamespace = ResourceNamespace,
+                    Name = _group
+                },
+                Topic = new rmq.Resource
+                {
+                    ResourceNamespace = ResourceNamespace,
+                    Name = message.Topic
+                }
+            };
 
-            request.Topic = new rmq.Resource();
-            request.Topic.ResourceNamespace = ResourceNamespace;
-            request.Topic.Name = message.Topic;
-            
             var entry = new rmq.AckMessageEntry();
             request.Entries.Add(entry);
             entry.MessageId = message.MessageId;
@@ -205,30 +248,33 @@ namespace Org.Apache.Rocketmq
 
             var targetUrl = message._sourceHost;
             var metadata = new Metadata();
-            Signature.sign(this, metadata);
-            await _manager.Ack(targetUrl, metadata, request, RequestTimeout);
+            Signature.Sign(this, metadata);
+            await Manager.Ack(targetUrl, metadata, request, RequestTimeout);
         }
 
         public async Task ChangeInvisibleDuration(Message message, TimeSpan invisibleDuration)
         {
-            var request = new rmq.ChangeInvisibleDurationRequest();
-            request.Group = new rmq.Resource();
-            request.Group.ResourceNamespace = ResourceNamespace;
-            request.Group.Name = _group;
-
-            request.Topic = new rmq.Resource();
-            request.Topic.ResourceNamespace = ResourceNamespace;
-            request.Topic.Name = message.Topic;
-
-            request.ReceiptHandle = message._receiptHandle;
-            request.MessageId = message.MessageId;
-            
-            request.InvisibleDuration = Duration.FromTimeSpan(invisibleDuration);
+            var request = new rmq.ChangeInvisibleDurationRequest
+            {
+                Group = new rmq.Resource
+                {
+                    ResourceNamespace = ResourceNamespace,
+                    Name = _group
+                },
+                Topic = new rmq.Resource
+                {
+                    ResourceNamespace = ResourceNamespace,
+                    Name = message.Topic
+                },
+                ReceiptHandle = message._receiptHandle,
+                MessageId = message.MessageId,
+                InvisibleDuration = Duration.FromTimeSpan(invisibleDuration)
+            };
 
             var targetUrl = message._sourceHost;
             var metadata = new Metadata();
-            Signature.sign(this, metadata);
-            await _manager.ChangeInvisibleDuration(targetUrl, metadata, request, RequestTimeout);
+            Signature.Sign(this, metadata);
+            await Manager.ChangeInvisibleDuration(targetUrl, metadata, request, RequestTimeout);
         }
         
         private rmq.MessageQueue NextQueue()
@@ -238,35 +284,35 @@ namespace Org.Apache.Rocketmq
                 return null;
             }
             
-            UInt32 topicSeq = CurrentTopicSequence.Value;
-            CurrentTopicSequence.Value = topicSeq + 1;
+            var topicSeq = _currentTopicSequence.Value;
+            _currentTopicSequence.Value = topicSeq + 1;
 
             var total = _topicAssignments.Count;
             var topicIndex = topicSeq % total;
             var topic = _topicAssignments.Keys.Skip((int)topicIndex).First();
             
-            UInt32 queueSeq = CurrentQueueSequence.Value;
-            CurrentQueueSequence.Value = queueSeq + 1;
-            List<rmq.Assignment> assignments;
-            if (_topicAssignments.TryGetValue(topic, out assignments))
+            UInt32 queueSeq = _currentQueueSequence.Value;
+            _currentQueueSequence.Value = queueSeq + 1;
+            if (!_topicAssignments.TryGetValue(topic, out var assignments))
             {
-                if (null == assignments)
-                {
-                    return null;
-                }
-                var idx = queueSeq % assignments.Count;
-                return assignments[(int)idx].MessageQueue;
-
+                return null;
             }
 
-            return null;
+            var idx = queueSeq % assignments?.Count;
+            return assignments?[(int)idx].MessageQueue;
         }
 
-        private ThreadLocal<UInt32> CurrentTopicSequence = new ThreadLocal<UInt32>(true);
-        private ThreadLocal<UInt32> CurrentQueueSequence = new ThreadLocal<UInt32>(true);
+        private readonly ThreadLocal<UInt32> _currentTopicSequence = new ThreadLocal<UInt32>(true)
+        {
+            Value = 0
+        };
+        
+        private readonly ThreadLocal<UInt32> _currentQueueSequence = new ThreadLocal<UInt32>(true)
+        {
+            Value = 0
+        };
 
         private readonly string _group;
-        private bool _fifo;
         private readonly ConcurrentDictionary<string, rmq::SubscriptionEntry> _subscriptions;
         private readonly ConcurrentDictionary<string, List<rmq.Assignment>> _topicAssignments;
         private readonly CancellationTokenSource _scanAssignmentCts = new CancellationTokenSource();

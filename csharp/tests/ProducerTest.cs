@@ -26,30 +26,14 @@ namespace tests
     [TestClass]
     public class ProducerTest
     {
-
-        private static AccessPoint _accessPoint;
-
-        [ClassInitialize]
-        public static void SetUp(TestContext context)
-        {
-            _accessPoint = new AccessPoint
-            {
-                Host = HOST,
-                Port = PORT
-            };
-        }
-
-        [ClassCleanup]
-        public static void TearDown()
-        {
-        }
-
         [TestMethod]
         public async Task TestLifecycle()
         {
-            var producer = new Producer($"{HOST}:{PORT}");
-            producer.CredentialsProvider = new ConfigFileCredentialsProvider();
-            producer.Region = "cn-hangzhou-pre";
+            var producer = new Producer($"{HOST}:{PORT}")
+            {
+                CredentialsProvider = new ConfigFileCredentialsProvider(),
+                Region = "cn-hangzhou-pre"
+            };
             await producer.Start();
             await producer.Shutdown();
         }
@@ -57,21 +41,26 @@ namespace tests
         [TestMethod]
         public async Task TestSendStandardMessage()
         {
-            var producer = new Producer($"{HOST}:{PORT}");
-            producer.CredentialsProvider = new ConfigFileCredentialsProvider();
-            producer.Region = "cn-hangzhou-pre";
+            var producer = new Producer($"{HOST}:{PORT}")
+            {
+                CredentialsProvider = new ConfigFileCredentialsProvider(),
+                Region = "cn-hangzhou-pre"
+            };
             await producer.Start();
             byte[] body = new byte[1024];
             Array.Fill(body, (byte)'x');
-            var msg = new Message(topic, body);
-            
-            // Tag the massage. A message has at most one tag.
-            msg.Tag = "Tag-0";
-            
+            var msg = new Message(TOPIC, body)
+            {
+                // Tag the massage. A message has at most one tag.
+                Tag = "Tag-0"
+            };
+
             // Associate the message with one or multiple keys
-            var keys = new List<string>();
-            keys.Add("k1");
-            keys.Add("k2");
+            var keys = new List<string>
+            {
+                "k1",
+                "k2"
+            };
             msg.Keys = keys;
             
             var sendResult = await producer.Send(msg);
@@ -82,23 +71,28 @@ namespace tests
         [TestMethod]
         public async Task TestSendMultipleMessages()
         {
-            var producer = new Producer($"{HOST}:{PORT}");
-            producer.CredentialsProvider = new ConfigFileCredentialsProvider();
-            producer.Region = "cn-hangzhou-pre";
+            var producer = new Producer($"{HOST}:{PORT}")
+            {
+                CredentialsProvider = new ConfigFileCredentialsProvider(),
+                Region = "cn-hangzhou-pre"
+            };
             await producer.Start();
             byte[] body = new byte[1024];
             Array.Fill(body, (byte)'x');
             for (var i = 0; i < 128; i++)
             {
-                var msg = new Message(topic, body);
-            
-                // Tag the massage. A message has at most one tag.
-                msg.Tag = "Tag-0";
-            
+                var msg = new Message(TOPIC, body)
+                {
+                    // Tag the massage. A message has at most one tag.
+                    Tag = "Tag-0"
+                };
+
                 // Associate the message with one or multiple keys
-                var keys = new List<string>();
-                keys.Add("k1");
-                keys.Add("k2");
+                var keys = new List<string>
+                {
+                    "k1",
+                    "k2"
+                };
                 msg.Keys = keys;
                 var sendResult = await producer.Send(msg);
                 Assert.IsNotNull(sendResult);                
@@ -109,17 +103,20 @@ namespace tests
         [TestMethod]
         public async Task TestSendFifoMessage()
         {
-            var producer = new Producer($"{HOST}:{PORT}");
-            producer.CredentialsProvider = new ConfigFileCredentialsProvider();
-            producer.Region = "cn-hangzhou-pre";
+            var producer = new Producer($"{HOST}:{PORT}")
+            {
+                CredentialsProvider = new ConfigFileCredentialsProvider(),
+                Region = "cn-hangzhou-pre"
+            };
             await producer.Start();
             byte[] body = new byte[1024];
             Array.Fill(body, (byte)'x');
-            var msg = new Message(topic, body);
-            
-            // Messages of the same group will get delivered one after another. 
-            msg.MessageGroup = "message-group-0";
-            
+            var msg = new Message(TOPIC, body)
+            {
+                // Messages of the same group will get delivered one after another. 
+                MessageGroup = "message-group-0"
+            };
+
             // Verify messages are FIFO iff their message group is not null or empty.
             Assert.IsTrue(msg.Fifo());
 
@@ -131,15 +128,19 @@ namespace tests
         [TestMethod]
         public async Task TestSendScheduledMessage()
         {
-            var producer = new Producer($"{HOST}:{PORT}");
-            producer.CredentialsProvider = new ConfigFileCredentialsProvider();
-            producer.Region = "cn-hangzhou-pre";
+            var producer = new Producer($"{HOST}:{PORT}")
+            {
+                CredentialsProvider = new ConfigFileCredentialsProvider(),
+                Region = "cn-hangzhou-pre"
+            };
             await producer.Start();
             byte[] body = new byte[1024];
             Array.Fill(body, (byte)'x');
-            var msg = new Message(topic, body);
-            
-            msg.DeliveryTimestamp = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+            var msg = new Message(TOPIC, body)
+            {
+                DeliveryTimestamp = DateTime.UtcNow + TimeSpan.FromSeconds(10)
+            };
+
             Assert.IsTrue(msg.Scheduled());
             
             var sendResult = await producer.Send(msg);
@@ -154,15 +155,19 @@ namespace tests
         [TestMethod]
         public async Task TestSendMessage_Failure()
         {
-            var producer = new Producer($"{HOST}:{PORT}");
-            producer.CredentialsProvider = new ConfigFileCredentialsProvider();
-            producer.Region = "cn-hangzhou-pre";
+            var producer = new Producer($"{HOST}:{PORT}")
+            {
+                CredentialsProvider = new ConfigFileCredentialsProvider(),
+                Region = "cn-hangzhou-pre"
+            };
             await producer.Start();
             byte[] body = new byte[1024];
             Array.Fill(body, (byte)'x');
-            var msg = new Message(topic, body);
-            msg.MessageGroup = "Group-0";
-            msg.DeliveryTimestamp = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+            var msg = new Message(TOPIC, body)
+            {
+                MessageGroup = "Group-0",
+                DeliveryTimestamp = DateTime.UtcNow + TimeSpan.FromSeconds(10)
+            };
             Assert.IsTrue(msg.Scheduled());
 
             try
@@ -176,10 +181,9 @@ namespace tests
             await producer.Shutdown();
         }
         
-        private static string topic = "cpp_sdk_standard";
-
-        private static string HOST = "127.0.0.1";
-        private static int PORT = 8081;
+        private const string TOPIC = "cpp_sdk_standard";
+        private const string HOST = "127.0.0.1";
+        private const int PORT = 8081;
     }
 
 }

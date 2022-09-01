@@ -28,10 +28,6 @@ namespace Org.Apache.Rocketmq
 
         ICredentialsProvider credentialsProvider();
 
-        string tenantId();
-
-        TimeSpan getLongPollingTimeout();
-
         string getGroupName();
 
         string clientId();

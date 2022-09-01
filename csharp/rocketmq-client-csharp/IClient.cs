@@ -27,12 +27,10 @@ namespace Org.Apache.Rocketmq
 
         Task Heartbeat();
 
-        Task<bool> NotifyClientTermination();
+        Task<bool> NotifyClientTermination(rmq.Resource group);
 
         void BuildClientSetting(rmq::Settings settings);
-
-
-        void OnSettingsReceived(rmq::Settings settings);
+        
 
         CancellationTokenSource TelemetryCts();
     }

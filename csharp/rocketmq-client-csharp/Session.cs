@@ -18,7 +18,7 @@
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using grpc = global::Grpc.Core;
+using grpc = Grpc.Core;
 using NLog;
 using rmq = Apache.Rocketmq.V2;
 
@@ -28,31 +28,33 @@ namespace Org.Apache.Rocketmq
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
-        public Session(string target,
+        public Session(string target, 
             grpc::AsyncDuplexStreamingCall<rmq::TelemetryCommand, rmq::TelemetryCommand> stream,
-            IClient client)
+            Client client)
         {
-            this._target = target;
-            this._stream = stream;
-            this._client = client;
-            this._channel = Channel.CreateUnbounded<bool>();
+            _target = target;
+            _stream = stream;
+            _client = client;
+            _channel = Channel.CreateUnbounded<bool>();
         }
 
         public async Task Loop()
         {
-            var reader = this._stream.ResponseStream;
-            var writer = this._stream.RequestStream;
-            var request = new rmq::TelemetryCommand();
-            request.Settings = new rmq::Settings();
+            var reader = _stream.ResponseStream;
+            var writer = _stream.RequestStream;
+            var request = new rmq::TelemetryCommand
+            {
+                Settings = new rmq::Settings()
+            };
             _client.BuildClientSetting(request.Settings);
             await writer.WriteAsync(request);
-            Logger.Debug($"Writing Client Settings Done: {request.Settings.ToString()}");
+            Logger.Debug($"Writing Client Settings to {_target} Done: {request.Settings}");
             while (!_client.TelemetryCts().IsCancellationRequested)
             {
                 if (await reader.MoveNext(_client.TelemetryCts().Token))
                 {
                     var cmd = reader.Current;
-                    Logger.Debug($"Received a TelemetryCommand: {cmd.ToString()}");
+                    Logger.Debug($"Received a TelemetryCommand from {_target}: {cmd}");
                     switch (cmd.CommandCase)
                     {
                         case rmq::TelemetryCommand.CommandOneofCase.None:
@@ -71,7 +73,7 @@ namespace Org.Apache.Rocketmq
                                     await _channel.Writer.WriteAsync(true);
                                 }
 
-                                Logger.Info($"Received settings from server {cmd.Settings.ToString()}");
+                                Logger.Info($"Received settings from {_target}: {cmd.Settings}");
                                 _client.OnSettingsReceived(cmd.Settings);
                                 break;
                             }
@@ -90,15 +92,8 @@ namespace Org.Apache.Rocketmq
                     }
                 }
             }
-            Logger.Info("Telemetry stream cancelled");
+            Logger.Info($"Telemetry stream for {_target} is cancelled");
             await writer.CompleteAsync();
-        }
-
-        private string _target;
-
-        public string Target
-        {
-            get { return _target; }
         }
 
         public async Task AwaitSettingNegotiationCompletion()
@@ -112,11 +107,12 @@ namespace Org.Apache.Rocketmq
             await _channel.Reader.ReadAsync();
         }
 
-        private grpc::AsyncDuplexStreamingCall<rmq::TelemetryCommand, rmq::TelemetryCommand> _stream;
-        private IClient _client;
+        private readonly grpc::AsyncDuplexStreamingCall<rmq::TelemetryCommand, rmq::TelemetryCommand> _stream;
+        private readonly Client _client;
 
-        private long _established = 0;
+        private long _established;
 
-        private Channel<bool> _channel;
+        private readonly Channel<bool> _channel;
+        private readonly string _target;
     };
 }
