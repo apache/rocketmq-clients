@@ -149,7 +149,7 @@ namespace Org.Apache.Rocketmq
             };
         }
 
-        public void Subscribe(string topic, rmq::FilterType filterType, string expression)
+        public void Subscribe(string topic, FilterExpression filterExpression)
         {
             var entry = new rmq::SubscriptionEntry
             {
@@ -160,8 +160,12 @@ namespace Org.Apache.Rocketmq
                 },
                 Expression = new rmq::FilterExpression
                 {
-                    Type = filterType,
-                    Expression = expression
+                    Type = filterExpression.Type switch {
+                        ExpressionType.TAG => rmq::FilterType.Tag,
+                        ExpressionType.SQL92 => rmq::FilterType.Sql,
+                        _ => rmq.FilterType.Tag
+                    },
+                    Expression = filterExpression.Expression
                 }
             };
 
@@ -179,7 +183,7 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        public async Task<List<Message>> Receive(int batchSize, TimeSpan timeout)
+        public async Task<List<Message>> Receive(int batchSize, TimeSpan invisibleDuration)
         {
             var messageQueue = NextQueue();
             if (null == messageQueue)
@@ -200,6 +204,7 @@ namespace Org.Apache.Rocketmq
 
             request.MessageQueue.MergeFrom(messageQueue);
             request.BatchSize = batchSize;
+            request.InvisibleDuration = Duration.FromTimeSpan(invisibleDuration);
             
             // Client is responsible of extending message invisibility duration
             request.AutoRenew = false;
@@ -208,7 +213,8 @@ namespace Org.Apache.Rocketmq
             var metadata = new Metadata();
             Signature.sign(this, metadata);
             
-            return await _manager.ReceiveMessage(targetUrl, metadata, request, timeout);
+            return await _manager.ReceiveMessage(targetUrl, metadata, request, 
+                ClientSettings.Subscription.LongPollingTimeout.ToTimeSpan());
         }
 
 

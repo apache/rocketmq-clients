@@ -221,10 +221,12 @@ namespace Org.Apache.Rocketmq
 
         private Message Convert(string sourceHost, rmq::Message message)
         {
-            var msg = new Message();
-            msg.Topic = message.Topic.Name;
-            msg.MessageId = message.SystemProperties.MessageId;
-            msg.Tag = message.SystemProperties.Tag;
+            var msg = new Message
+            {
+                Topic = message.Topic.Name,
+                MessageId = message.SystemProperties.MessageId,
+                Tag = message.SystemProperties.Tag
+            };
 
             // Validate message body checksum
             byte[] raw = message.Body.ToByteArray();

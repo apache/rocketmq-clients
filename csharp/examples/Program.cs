@@ -103,15 +103,20 @@ namespace examples
             return await producer.Send(msg);
         }
 
-        private static async Task ConsumeMessage(SimpleConsumer simpleConsumer)
+        private static async Task ConsumeAndAckMessages(SimpleConsumer simpleConsumer)
         {
             var messages = await simpleConsumer.Receive(32, TimeSpan.FromSeconds(60));
             if (null != messages)
             {
+                var tasks = new List<Task>();
                 foreach (var message in messages)
                 {
                     Console.WriteLine($"Receive a message, topic={message.Topic}, message-id={message.MessageId}");
+                    var task = simpleConsumer.Ack(message);
+                    tasks.Add(task);
                 }
+                await Task.WhenAll(tasks);
+                Console.WriteLine($"{tasks.Count} messages have been acknowledged");
             }
         }
         
@@ -137,6 +142,17 @@ namespace examples
             
             var sendReceiptOfTimedMessage = await SendTimedMessage(producer);
             Console.WriteLine($"Timed message-id: {sendReceiptOfTimedMessage.MessageId}");
+
+            await producer.Shutdown();
+
+            Console.WriteLine("Now start a simple consumer");
+            var simpleConsumer = new SimpleConsumer(ACCESS_URL, CONCURRENT_GROUP);
+            simpleConsumer.Subscribe(STANDARD_TOPIC, new FilterExpression("*", ExpressionType.TAG));
+            await simpleConsumer.Start();
+
+            await ConsumeAndAckMessages(simpleConsumer);
+
+            await simpleConsumer.Shutdown();
 
             Console.ReadKey();
         }

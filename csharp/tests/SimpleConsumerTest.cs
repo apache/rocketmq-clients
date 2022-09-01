@@ -39,7 +39,7 @@ namespace tests
         public async Task TestLifecycle()
         {
             var simpleConsumer = new SimpleConsumer($"{HOST}:{PORT}", _group);
-            simpleConsumer.Subscribe(_topic, rmq::FilterType.Tag, "*");
+            simpleConsumer.Subscribe(_topic, new FilterExpression("*", ExpressionType.TAG));
             await simpleConsumer.Start();
             Thread.Sleep(1_000);
             await simpleConsumer.Shutdown();
@@ -49,11 +49,11 @@ namespace tests
         public async Task TestReceive()
         {
             var simpleConsumer = new SimpleConsumer($"{HOST}:{PORT}", _group);
-            simpleConsumer.Subscribe(_topic, rmq::FilterType.Tag, "*");
+            simpleConsumer.Subscribe(_topic, new FilterExpression("*", ExpressionType.TAG));
             await simpleConsumer.Start();
             var batchSize = 32;
-            var receiveTimeout = TimeSpan.FromSeconds(10);
-            var messages  = await simpleConsumer.Receive(batchSize, receiveTimeout);
+            var invisibleDuration = TimeSpan.FromSeconds(10);
+            var messages  = await simpleConsumer.Receive(batchSize, invisibleDuration);
             Assert.IsTrue(messages.Count > 0);
             Assert.IsTrue(messages.Count <= batchSize);
             await simpleConsumer.Shutdown();
@@ -64,11 +64,11 @@ namespace tests
         public async Task TestAck()
         {
             var simpleConsumer = new SimpleConsumer($"{HOST}:{PORT}", _group);
-            simpleConsumer.Subscribe(_topic, rmq::FilterType.Tag, "*");
+            simpleConsumer.Subscribe(_topic, new FilterExpression("*", ExpressionType.TAG));
             await simpleConsumer.Start();
             var batchSize = 32;
-            var receiveTimeout = TimeSpan.FromSeconds(10);
-            var messages  = await simpleConsumer.Receive(batchSize, receiveTimeout);
+            var invisibleDuration = TimeSpan.FromSeconds(10);
+            var messages  = await simpleConsumer.Receive(batchSize, invisibleDuration);
             foreach (var message in messages)
             {
                 await simpleConsumer.Ack(message);
@@ -81,11 +81,11 @@ namespace tests
         public async Task TestChangeInvisibleDuration()
         {
             var simpleConsumer = new SimpleConsumer($"{HOST}:{PORT}", _group);
-            simpleConsumer.Subscribe(_topic, rmq::FilterType.Tag, "*");
+            simpleConsumer.Subscribe(_topic, new FilterExpression("*", ExpressionType.TAG));
             await simpleConsumer.Start();
             var batchSize = 32;
-            var receiveTimeout = TimeSpan.FromSeconds(10);
-            var messages  = await simpleConsumer.Receive(batchSize, receiveTimeout);
+            var invisibleDuration = TimeSpan.FromSeconds(10);
+            var messages  = await simpleConsumer.Receive(batchSize, invisibleDuration);
             foreach (var message in messages)
             {
                 await simpleConsumer.ChangeInvisibleDuration(message, TimeSpan.FromSeconds(10));
