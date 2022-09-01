@@ -54,7 +54,7 @@ func TestProducer(t *testing.T) {
 		Endpoint:    endpoints,
 		Group:       MOCK_GROUP,
 		Credentials: &credentials.SessionCredentials{},
-	}, WithTopics(MOCK_TOPIC))
+	})
 	if err != nil {
 		t.Error(err)
 	}

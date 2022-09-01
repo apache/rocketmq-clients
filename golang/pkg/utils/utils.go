@@ -20,6 +20,7 @@ package utils
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
@@ -32,9 +33,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/apache/rocketmq-clients/golang/metadata"
 	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
 	"github.com/valyala/fastrand"
 	"go.opencensus.io/trace"
+	MD "google.golang.org/grpc/metadata"
 )
 
 func Mod(n int32, m int) int {
@@ -263,4 +266,13 @@ func GetMacAddress() []byte {
 		return macAddr
 	}
 	return nil
+}
+
+func GetRequestID(ctx context.Context) string {
+	ret := "nil"
+	md, ok := MD.FromOutgoingContext(ctx)
+	if ok {
+		ret = fmt.Sprintf("%v", md.Get(metadata.RequestID))
+	}
+	return ret
 }
