@@ -56,7 +56,7 @@ func (p *defaultProducer) Start() error {
 	}
 	err2 := p.GracefulStop()
 	if err2 != nil {
-		return fmt.Errorf("startUp err=%w, shutdown err=%w", err, err2)
+		return fmt.Errorf("startUp err=%w, shutdown err=%v", err, err2)
 	}
 	return fmt.Errorf("startUp err=%w", err)
 }
