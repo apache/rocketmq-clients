@@ -34,9 +34,11 @@ namespace Org.Apache.Rocketmq
         protected static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
         private readonly rmq::MessagingService.MessagingServiceClient _stub;
         private readonly GrpcChannel _channel;
+        private readonly string _target;
 
         public RpcClient(string target)
         {
+            _target = target;
             _channel = GrpcChannel.ForAddress(target, new GrpcChannelOptions
             {
                 HttpHandler = CreateHttpHandler()
@@ -125,15 +127,16 @@ namespace Org.Apache.Rocketmq
             var deadline = DateTime.UtcNow.Add(timeout);
             var callOptions = new CallOptions(metadata, deadline);
             var call = _stub.ReceiveMessage(request, callOptions);
+            Logger.Debug($"ReceiveMessageRequest has been written to {_target}");
             var result = new List<rmq::ReceiveMessageResponse>();
             var stream = call.ResponseStream;
             while (await stream.MoveNext())
             {
                 var entry = stream.Current;
-                Logger.Debug($"Got ReceiveMessageResponse {entry}");
+                Logger.Debug($"Got ReceiveMessageResponse {entry} from {_target}");
                 result.Add(entry);
             }
-            Logger.Debug($"Receiving of messages completed");
+            Logger.Debug($"Receiving messages from {_target} completed");
             return result;
         }
 

@@ -449,12 +449,13 @@ namespace Org.Apache.Rocketmq
             return await Manager.ChangeInvisibleDuration(target, metadata, request, RequestTimeout);
         }
 
-        public async Task<bool> NotifyClientTermination()
+        public async Task<bool> NotifyClientTermination(rmq.Resource group)
         {
             List<string> endpoints = AvailableBrokerEndpoints();
-            var request = new rmq::NotifyClientTerminationRequest();
-
-
+            var request = new rmq::NotifyClientTerminationRequest
+            {
+                Group = group
+            };
             var metadata = new grpc.Metadata();
             Signature.Sign(this, metadata);
 

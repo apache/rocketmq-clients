@@ -78,7 +78,12 @@ namespace Org.Apache.Rocketmq
         {
             _scanAssignmentCts.Cancel();
             await base.Shutdown();
-            if (!await NotifyClientTermination())
+            var group = new rmq.Resource()
+            {
+                Name = _group,
+                ResourceNamespace = "",
+            };
+            if (!await NotifyClientTermination(group))
             {
                 Logger.Warn("Failed to NotifyClientTermination");
             }

@@ -123,27 +123,27 @@ namespace examples
         static async Task Main(string[] args)
         {
             var credentialsProvider = new ConfigFileCredentialsProvider();
-            // var producer = new Producer(ACCESS_URL)
-            // {
-            //     CredentialsProvider = credentialsProvider
-            // };
-            // producer.AddTopicOfInterest(STANDARD_TOPIC);
-            // producer.AddTopicOfInterest(FIFO_TOPIC);
-            // producer.AddTopicOfInterest(TIMED_TOPIC);
-            // producer.AddTopicOfInterest(TRANSACTIONAL_TOPIC);
-            //
-            // await producer.Start();
-            //
-            // var sendReceiptOfStandardMessage = await SendStandardMessage(producer);
-            // Console.WriteLine($"Standard message-id: {sendReceiptOfStandardMessage.MessageId}");
-            //
-            // var sendReceiptOfFifoMessage = await SendFifoMessage(producer);
-            // Console.WriteLine($"FIFO message-id: {sendReceiptOfFifoMessage.MessageId}");
-            //
-            // var sendReceiptOfTimedMessage = await SendTimedMessage(producer);
-            // Console.WriteLine($"Timed message-id: {sendReceiptOfTimedMessage.MessageId}");
-            //
-            // await producer.Shutdown();
+            var producer = new Producer(ACCESS_URL)
+            {
+                CredentialsProvider = credentialsProvider
+            };
+            producer.AddTopicOfInterest(STANDARD_TOPIC);
+            producer.AddTopicOfInterest(FIFO_TOPIC);
+            producer.AddTopicOfInterest(TIMED_TOPIC);
+            producer.AddTopicOfInterest(TRANSACTIONAL_TOPIC);
+            
+            await producer.Start();
+            
+            var sendReceiptOfStandardMessage = await SendStandardMessage(producer);
+            Console.WriteLine($"Standard message-id: {sendReceiptOfStandardMessage.MessageId}");
+            
+            var sendReceiptOfFifoMessage = await SendFifoMessage(producer);
+            Console.WriteLine($"FIFO message-id: {sendReceiptOfFifoMessage.MessageId}");
+            
+            var sendReceiptOfTimedMessage = await SendTimedMessage(producer);
+            Console.WriteLine($"Timed message-id: {sendReceiptOfTimedMessage.MessageId}");
+            
+            await producer.Shutdown();
 
             Console.WriteLine("Now start a simple consumer");
             var simpleConsumer = new SimpleConsumer(ACCESS_URL, CONCURRENT_GROUP)
@@ -156,7 +156,7 @@ namespace examples
 
             await ConsumeAndAckMessages(simpleConsumer);
 
-            // await simpleConsumer.Shutdown();
+            await simpleConsumer.Shutdown();
 
             Console.ReadKey();
         }

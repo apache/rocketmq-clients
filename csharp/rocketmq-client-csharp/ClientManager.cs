@@ -191,6 +191,11 @@ namespace Org.Apache.Rocketmq
                                 Logger.Warn("TooManyRequest: servers throttled");
                                 break;
                             }
+                            case rmq.Code.MessageNotFound:
+                            {
+                                Logger.Info("No message is found in the server");
+                                break;
+                            }
                             default:
                             {
                                 Logger.Warn("Unknown error status");
