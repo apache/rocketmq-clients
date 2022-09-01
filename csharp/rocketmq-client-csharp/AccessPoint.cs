@@ -37,35 +37,27 @@ namespace Org.Apache.Rocketmq
                 throw new ArgumentException("Access url should be of format host:port");
             }
 
-            _host = segments[0];
-            _port = Int32.Parse(segments[1]);
-        }
-        
-        private string _host;
-
-        public string Host
-        {
-            get { return _host; }
-            set { _host = value; }
+            Host = segments[0];
+            Port = Int32.Parse(segments[1]);
         }
 
-        private int _port;
+        public string Host { get; }
 
-        public int Port
-        {
-            get { return _port; }
-            set { _port = value; }
-        }
+        public int Port { get; set; }
 
         public string TargetUrl()
         {
-            return $"https://{_host}:{_port}";
+            return $"https://{Host}:{Port}";
         }
 
         public rmq::AddressScheme HostScheme()
         {
-            IPAddress ip;
-            bool result = IPAddress.TryParse(_host, out ip);
+            return SchemeOf(Host);
+        }
+
+        private static rmq::AddressScheme SchemeOf(string host)
+        {
+            var result = IPAddress.TryParse(host, out var ip);
             if (!result)
             {
                 return rmq::AddressScheme.DomainName;

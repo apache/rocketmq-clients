@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using grpc = global::Grpc.Core;
+using grpc = Grpc.Core;
 using Moq;
-using System;
+using Org.Apache.Rocketmq;
 
-namespace Org.Apache.Rocketmq
+namespace tests
 {
 
     [TestClass]
@@ -27,11 +27,10 @@ namespace Org.Apache.Rocketmq
     {
 
         [TestMethod]
-        public void testSign()
+        public void TestSign()
         {
             var mock = new Mock<IClientConfig>();
             mock.Setup(x => x.getGroupName()).Returns("G1");
-            mock.Setup(x => x.tenantId()).Returns("Tenant-id");
             mock.Setup(x => x.resourceNamespace()).Returns("mq:arn:test:");
             mock.Setup(x => x.serviceName()).Returns("mq");
             mock.Setup(x => x.region()).Returns("cn-hangzhou");
@@ -42,7 +41,7 @@ namespace Org.Apache.Rocketmq
             mock.Setup(x => x.credentialsProvider()).Returns(credentialsProvider);
 
             var metadata = new grpc::Metadata();
-            Signature.sign(mock.Object, metadata);
+            Signature.Sign(mock.Object, metadata);
             Assert.IsNotNull(metadata.Get(MetadataConstants.AUTHORIZATION));
         }
     }

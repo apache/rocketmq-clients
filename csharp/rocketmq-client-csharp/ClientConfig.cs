@@ -75,15 +75,6 @@ namespace Org.Apache.Rocketmq
             set { credentialsProvider_ = value; }
         }
 
-        public string tenantId()
-        {
-            return _tenantId;
-        }
-        public string TenantId
-        {
-            set { _tenantId = value; }
-        }
-
         public TimeSpan RequestTimeout
         {
             get
@@ -94,15 +85,6 @@ namespace Org.Apache.Rocketmq
             {
                 _requestTimeout = value;
             }
-        }
-
-        public TimeSpan getLongPollingTimeout()
-        {
-            return longPollingIoTimeout_;
-        }
-        public TimeSpan LongPollingTimeout
-        {
-            set { longPollingIoTimeout_ = value; }
         }
 
         public string getGroupName()
@@ -139,9 +121,7 @@ namespace Org.Apache.Rocketmq
         protected string _resourceNamespace;
 
         private ICredentialsProvider credentialsProvider_;
-
-        private string _tenantId;
-
+        
         private TimeSpan _requestTimeout;
 
         private TimeSpan longPollingIoTimeout_;
@@ -150,7 +130,7 @@ namespace Org.Apache.Rocketmq
 
         private string clientId_;
 
-        private bool tracingEnabled_ = false;
+        private bool tracingEnabled_;
 
         private string instanceName_ = "default";
 

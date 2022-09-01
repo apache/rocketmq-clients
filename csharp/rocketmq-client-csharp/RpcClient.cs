@@ -76,7 +76,7 @@ namespace Org.Apache.Rocketmq
 
         public AsyncDuplexStreamingCall<rmq::TelemetryCommand, rmq::TelemetryCommand> Telemetry(Metadata metadata)
         {
-            var deadline = DateTime.UtcNow.Add(TimeSpan.FromSeconds(3));
+            var deadline = DateTime.UtcNow.Add(TimeSpan.FromDays(3650));
             var callOptions = new CallOptions(metadata, deadline);
             return _stub.Telemetry(callOptions);
         }

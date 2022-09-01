@@ -56,6 +56,7 @@ namespace Org.Apache.Rocketmq
             {
                 settings.Subscription.Subscriptions.Add(kv.Value);
             }
+            Logger.Info($"ClientSettings built OK. {settings}");
         }
 
         public override async Task Start()
@@ -65,29 +66,31 @@ namespace Org.Apache.Rocketmq
             // Scan load assignment periodically
             Schedule(async () =>
             {
-                while (!_scanAssignmentCts.IsCancellationRequested)
-                {
-                    await ScanLoadAssignments();                    
-                }
+                Logger.Debug("Scan load assignments by schedule");
+                await ScanLoadAssignments();
             }, 30, _scanAssignmentCts.Token);
 
             await ScanLoadAssignments();
+            Logger.Debug("Step of #Start: ScanLoadAssignments completed");
         }
 
         public override async Task Shutdown()
         {
+            _scanAssignmentCts.Cancel();
             await base.Shutdown();
             if (!await NotifyClientTermination())
             {
                 Logger.Warn("Failed to NotifyClientTermination");
             }
         }
-
+        
+        /**
+         * For 5.x, we can assume there is a load-balancer before gateway nodes.
+         */
         private async Task ScanLoadAssignments()
         {
-
-            List<Task<List<rmq::Assignment>>> tasks = new List<Task<List<rmq.Assignment>>>();
-            List<string> topics = new List<string>();
+            var tasks = new List<Task<List<rmq.Assignment>>>();
+            var topics = new List<string>();
             foreach (var sub in _subscriptions)
             {
                 var request = new rmq::QueryAssignmentRequest
@@ -107,7 +110,7 @@ namespace Org.Apache.Rocketmq
 
                 request.Endpoints = new rmq::Endpoints
                 {
-                    Scheme = rmq.AddressScheme.Ipv4
+                    Scheme = AccessPoint.HostScheme()
                 };
                 var address = new rmq::Address
                 {
@@ -117,12 +120,11 @@ namespace Org.Apache.Rocketmq
                 request.Endpoints.Addresses.Add(address);
 
                 var metadata = new Metadata();
-                Signature.sign(this, metadata);
-                tasks.Add(_manager.QueryLoadAssignment(AccessPoint.TargetUrl(), metadata, request, TimeSpan.FromSeconds(3)));
+                Signature.Sign(this, metadata);
+                tasks.Add(Manager.QueryLoadAssignment(AccessPoint.TargetUrl(), metadata, request, TimeSpan.FromSeconds(3)));
             }
 
-            List<rmq.Assignment>[] list = await Task.WhenAll(tasks);
-
+            var list = await Task.WhenAll(tasks);
             var i = 0;
             foreach (var assignments in list)
             {
@@ -211,9 +213,9 @@ namespace Org.Apache.Rocketmq
             
             var targetUrl = Utilities.TargetUrl(messageQueue);
             var metadata = new Metadata();
-            Signature.sign(this, metadata);
+            Signature.Sign(this, metadata);
             
-            return await _manager.ReceiveMessage(targetUrl, metadata, request, 
+            return await Manager.ReceiveMessage(targetUrl, metadata, request, 
                 ClientSettings.Subscription.LongPollingTimeout.ToTimeSpan());
         }
 
@@ -241,8 +243,8 @@ namespace Org.Apache.Rocketmq
 
             var targetUrl = message._sourceHost;
             var metadata = new Metadata();
-            Signature.sign(this, metadata);
-            await _manager.Ack(targetUrl, metadata, request, RequestTimeout);
+            Signature.Sign(this, metadata);
+            await Manager.Ack(targetUrl, metadata, request, RequestTimeout);
         }
 
         public async Task ChangeInvisibleDuration(Message message, TimeSpan invisibleDuration)
@@ -266,8 +268,8 @@ namespace Org.Apache.Rocketmq
 
             var targetUrl = message._sourceHost;
             var metadata = new Metadata();
-            Signature.sign(this, metadata);
-            await _manager.ChangeInvisibleDuration(targetUrl, metadata, request, RequestTimeout);
+            Signature.Sign(this, metadata);
+            await Manager.ChangeInvisibleDuration(targetUrl, metadata, request, RequestTimeout);
         }
         
         private rmq.MessageQueue NextQueue()

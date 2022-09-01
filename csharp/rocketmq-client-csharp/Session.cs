@@ -28,9 +28,11 @@ namespace Org.Apache.Rocketmq
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
-        public Session(grpc::AsyncDuplexStreamingCall<rmq::TelemetryCommand, rmq::TelemetryCommand> stream,
+        public Session(string target, 
+            grpc::AsyncDuplexStreamingCall<rmq::TelemetryCommand, rmq::TelemetryCommand> stream,
             Client client)
         {
+            _target = target;
             _stream = stream;
             _client = client;
             _channel = Channel.CreateUnbounded<bool>();
@@ -46,13 +48,13 @@ namespace Org.Apache.Rocketmq
             };
             _client.BuildClientSetting(request.Settings);
             await writer.WriteAsync(request);
-            Logger.Debug($"Writing Client Settings Done: {request.Settings.ToString()}");
+            Logger.Debug($"Writing Client Settings to {_target} Done: {request.Settings}");
             while (!_client.TelemetryCts().IsCancellationRequested)
             {
                 if (await reader.MoveNext(_client.TelemetryCts().Token))
                 {
                     var cmd = reader.Current;
-                    Logger.Debug($"Received a TelemetryCommand: {cmd.ToString()}");
+                    Logger.Debug($"Received a TelemetryCommand from {_target}: {cmd}");
                     switch (cmd.CommandCase)
                     {
                         case rmq::TelemetryCommand.CommandOneofCase.None:
@@ -71,7 +73,7 @@ namespace Org.Apache.Rocketmq
                                     await _channel.Writer.WriteAsync(true);
                                 }
 
-                                Logger.Info($"Received settings from server {cmd.Settings.ToString()}");
+                                Logger.Info($"Received settings from {_target}: {cmd.Settings}");
                                 _client.OnSettingsReceived(cmd.Settings);
                                 break;
                             }
@@ -90,7 +92,7 @@ namespace Org.Apache.Rocketmq
                     }
                 }
             }
-            Logger.Info("Telemetry stream cancelled");
+            Logger.Info($"Telemetry stream for {_target} is cancelled");
             await writer.CompleteAsync();
         }
 
@@ -111,5 +113,6 @@ namespace Org.Apache.Rocketmq
         private long _established;
 
         private readonly Channel<bool> _channel;
+        private readonly string _target;
     };
 }

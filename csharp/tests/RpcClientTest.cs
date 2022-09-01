@@ -39,7 +39,7 @@ namespace Org.Apache.Rocketmq
             var rpc_client = new RpcClient(target);
             var client_config = new ClientConfig();
             var metadata = new grpc::Metadata();
-            Signature.sign(client_config, metadata);
+            Signature.Sign(client_config, metadata);
 
             var cmd = new rmq::TelemetryCommand();
             cmd.Settings = new rmq::Settings();
@@ -107,7 +107,7 @@ namespace Org.Apache.Rocketmq
             var rpc_client = new RpcClient(target);
             var client_config = new ClientConfig();
             var metadata = new grpc::Metadata();
-            Signature.sign(client_config, metadata);
+            Signature.Sign(client_config, metadata);
             var request = new rmq::QueryRouteRequest();
             request.Topic = new rmq::Resource();
             request.Topic.Name = "cpp_sdk_standard";
@@ -128,7 +128,7 @@ namespace Org.Apache.Rocketmq
             var rpc_client = new RpcClient(target);
             var client_config = new ClientConfig();
             var metadata = new grpc::Metadata();
-            Signature.sign(client_config, metadata);
+            Signature.Sign(client_config, metadata);
 
             var request = new rmq::SendMessageRequest();
             var message = new rmq::Message();
