@@ -22,3 +22,7 @@ flags:
     carryforward: true
     paths:
       - "java/**"
+  golang:
+    carryforward: true
+    paths:
+      - "golang/**"
