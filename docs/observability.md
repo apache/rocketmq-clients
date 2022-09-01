@@ -11,4 +11,5 @@
 | Language | Path                                      |
 | -------- | ----------------------------------------- |
 | CPP      | `$HOME/logs/rocketmq/client.log`          |
+| C#       | `$HOME/logs/rocketmq/client.log`          |
 | Java     | `$HOME/logs/rocketmq/rocketmq-client.log` |
