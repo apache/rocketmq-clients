@@ -1,0 +1,20 @@
+name: Markdown Lint
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  push:
+    branches:
+      - master
+jobs:
+  lint-changelog:
+    name: Lint changelog file
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+      - name: Lint changelog file
+        uses: avto-dev/markdown-lint@v1
+        with:
+          config: "./style/markdown/config.yml"
+          args: "**/*.md"
+          ignore: "./cpp_third_party/**/*.md"

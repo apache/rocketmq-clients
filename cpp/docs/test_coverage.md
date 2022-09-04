@@ -1,4 +1,7 @@
-### Generate Coverage Data
+# Generate Coverage Data and Report
+
+## Generate Coverage Data
+
 ```text
     bazel coverage -s           \
     --instrument_test_targets   \
@@ -8,7 +11,8 @@
    //src/test/...
 ```
 
-### Generate HTML pages
+## Generate HTML pages
+
 ```text
 genhtml bazel-out/_coverage/_coverage_report.dat  \
         --output-directory coverage_html
