@@ -34,6 +34,7 @@ jobs:
     uses: ./.github/workflows/java_build.yml
   cpp-build:
     needs: [paths-filter]
+    secrets: inherit
     if: ${{ needs.paths-filter.outputs.cpp == 'true' }}
     uses: ./.github/workflows/cpp_build.yml
   csharp-build:
