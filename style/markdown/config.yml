@@ -99,7 +99,8 @@ MD031: true
 MD032: true
 
 # Inline HTML <https://github.com/DavidAnson/markdownlint/blob/master/doc/Rules.md#md033>
-MD033: true
+MD033:
+  allowed_elements: ["div", "img"]
 
 # Bare URL used <https://github.com/DavidAnson/markdownlint/blob/master/doc/Rules.md#md034>
 MD034: true

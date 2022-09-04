@@ -11,9 +11,7 @@ Different from previous clients, the new version adds some preparations during t
 
 Failure of any preparation will result in the failure of client startup.
 
-<div align="center">
-<img src="./artwork/client_startup_process.png" width="80%">
-</div>
+![Client Startup Process](./artwork/client_startup_process.png)
 
 In details, the **server-client telemetry** provides a channel to upload the local settings and to overwrite the client settings.
 
