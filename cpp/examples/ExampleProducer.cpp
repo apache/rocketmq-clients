@@ -68,6 +68,7 @@ int main(int argc, char* argv[]) {
 
   // Access Key/Secret pair may be acquired from management console
   CredentialsProviderPtr credentials_provider;
+  
   if (!FLAGS_access_key.empty() && !FLAGS_access_secret.empty()) {
     credentials_provider = std::make_shared<StaticCredentialsProvider>(FLAGS_access_key, FLAGS_access_secret);
   }
