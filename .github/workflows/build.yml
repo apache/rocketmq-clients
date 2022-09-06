@@ -15,7 +15,7 @@ jobs:
       golang: ${{ steps.filter.outputs.golang }}
       csharp: ${{ steps.filter.outputs.csharp }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -50,7 +50,7 @@ jobs:
     needs: [java-build, cpp-build, csharp-build, golang-build]
     if: ${{ always() }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Collect build result
         run: |
           if echo java-${{ needs.java-build.result }},cpp-${{ needs.cpp-build.result }},csharp-${{ needs.csharp-build.result }},golang-${{ needs.golang-build.result }} | grep -E 'cancelled|failure' -o > null

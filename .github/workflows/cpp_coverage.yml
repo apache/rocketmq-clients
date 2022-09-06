@@ -8,7 +8,7 @@ jobs:
   calculate-coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Generate coverage report
         working-directory: ./cpp
         run: bazel coverage  //...
