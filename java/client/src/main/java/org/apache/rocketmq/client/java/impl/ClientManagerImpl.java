@@ -395,8 +395,9 @@ public class ClientManagerImpl extends ClientManager {
         scheduler.scheduleWithFixedDelay(
             () -> {
                 try {
-                    LOGGER.info("Start to log statistics, clientVersion={}, clientWrapperVersion={}, clientId={}",
-                        MetadataUtils.getVersion(), MetadataUtils.getWrapperVersion(), clientId);
+                    LOGGER.info("Start to log statistics, clientVersion={}, clientWrapperVersion={}, "
+                            + "clientEndpoints={}, clientId={}", MetadataUtils.getVersion(),
+                        MetadataUtils.getWrapperVersion(), client.getEndpoints(), clientId);
                     client.doStats();
                 } catch (Throwable t) {
                     LOGGER.error("Exception raised during statistics logging, clientId={}", clientId, t);
