@@ -23,6 +23,11 @@ import org.apache.rocketmq.client.java.route.Endpoints;
 
 public interface Client {
     /**
+     * @return endpoints.
+     */
+    Endpoints getEndpoints();
+
+    /**
      * Get the unique client identifier for each client.
      *
      * @return unique client identifier.

@@ -486,6 +486,11 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         return clientManager;
     }
 
+    @Override
+    public Endpoints getEndpoints() {
+        return endpoints;
+    }
+
     /**
      * @see Client#getClientId()
      */
