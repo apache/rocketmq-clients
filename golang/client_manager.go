@@ -90,13 +90,14 @@ type ClientManagerRegistry interface {
 }
 
 type clientManagerRegistry struct {
-	clientIds              map[string]bool
-	clientIdsLock          sync.Mutex
-	singletonClientManager ClientManager
+	clientIds               map[string]bool
+	clientIdsLock           sync.Mutex
+	singletonClientManagers map[string]ClientManager
 }
 
 var defaultClientManagerRegistry = &clientManagerRegistry{
-	clientIds: make(map[string]bool),
+	clientIds:               make(map[string]bool),
+	singletonClientManagers: make(map[string]ClientManager),
 }
 
 var _ = ClientManagerRegistry(&clientManagerRegistry{})
@@ -105,13 +106,12 @@ func (cmr *clientManagerRegistry) RegisterClient(client Client) ClientManager {
 	cmr.clientIdsLock.Lock()
 	defer cmr.clientIdsLock.Unlock()
 
-	if cmr.singletonClientManager == nil {
-		cmr.singletonClientManager = NewDefaultClientManager()
-		cmr.singletonClientManager.(*defaultClientManager).startUp()
-	}
+	singletonClientManager := NewDefaultClientManager()
+	singletonClientManager.startUp()
+	singletonClientManager.RegisterClient(client)
 	cmr.clientIds[client.GetClientID()] = true
-	cmr.singletonClientManager.RegisterClient(client)
-	return cmr.singletonClientManager
+	cmr.singletonClientManagers[client.GetClientID()] = singletonClientManager
+	return singletonClientManager
 }
 
 func (cmr *clientManagerRegistry) UnRegisterClient(client Client) bool {
@@ -120,10 +120,9 @@ func (cmr *clientManagerRegistry) UnRegisterClient(client Client) bool {
 	cmr.clientIdsLock.Lock()
 	{
 		delete(cmr.clientIds, client.GetClientID())
-		cmr.singletonClientManager.UnRegisterClient(client)
-		if len(cmr.clientIds) == 0 {
-			tmpClientManager = cmr.singletonClientManager
-			cmr.singletonClientManager = nil
+		if singletonClientManager, ok := cmr.singletonClientManagers[client.GetClientID()]; ok {
+			singletonClientManager.UnRegisterClient(client)
+			delete(cmr.singletonClientManagers, client.GetClientID())
 		}
 	}
 	cmr.clientIdsLock.Unlock()

@@ -67,7 +67,8 @@ func TestMain(m *testing.M) {
 
 func TestCMRegisterClient(t *testing.T) {
 	defaultClientManagerRegistry.RegisterClient(MOCK_CLIENT)
-	v, ok := defaultClientManagerRegistry.singletonClientManager.(*defaultClientManager).clientTable.Load(MOCK_CLIENT_ID)
+	singletonClientManager := defaultClientManagerRegistry.singletonClientManagers[MOCK_CLIENT_ID]
+	v, ok := singletonClientManager.(*defaultClientManager).clientTable.Load(MOCK_CLIENT_ID)
 	if !ok {
 		t.Errorf("test RegisterClient failed")
 	}
@@ -83,7 +84,7 @@ func TestCMRegisterClient(t *testing.T) {
 func TestCMUnRegisterClient(t *testing.T) {
 	defaultClientManagerRegistry.RegisterClient(MOCK_CLIENT)
 	defaultClientManagerRegistry.UnRegisterClient(MOCK_CLIENT)
-	if defaultClientManagerRegistry.singletonClientManager != nil {
+	if len(defaultClientManagerRegistry.singletonClientManagers) != 0 {
 		t.Errorf("test UnRegisterClient failed")
 	}
 }
@@ -254,7 +255,10 @@ func TestCMClearIdleRpcClients(t *testing.T) {
 	cm.HeartBeat(context.TODO(), fakeEndpoints(), &v2.HeartbeatRequest{}, time.Minute)
 
 	startTime := time.Now()
-	for len(defaultClientManagerRegistry.singletonClientManager.(*defaultClientManager).rpcClientTable) != 0 {
+
+	singletonClientManager := defaultClientManagerRegistry.singletonClientManagers[MOCK_CLIENT_ID]
+
+	for len(singletonClientManager.(*defaultClientManager).rpcClientTable) != 0 {
 		if time.Since(startTime) > time.Second*5 {
 			t.Errorf("test ClearIdleRpcClients failed")
 		}
