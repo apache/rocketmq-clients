@@ -11,7 +11,9 @@ Different from previous clients, the new version adds some preparations during t
 
 Failure of any preparation will result in the failure of client startup.
 
-![Client Startup Process](./artwork/client_startup_process.png)
+<div align="center">
+<img src="./artwork/client_startup_process.png" width="80%">
+</div>
 
 In details, the **server-client telemetry** provides a channel to upload the local settings and to overwrite the client settings.
 
@@ -35,7 +37,7 @@ The workflow to publish a single message of NORMAL type. The message publishing 
 <img src="./artwork/message_publishing_in_producer.png" width="70%">
 </div>
 
-The publishing process is as follows:
+The publishing procedure is as follows:
 
 1. Check if topic route is cached before or not.
 2. If topic route is not cached, then try to fetch it from server, otherwise go to step 4.
@@ -65,6 +67,13 @@ For TRANSACTIONAL messages, the publishing will not be retried if failure is enc
 <div align="center">
 <img src="./artwork/message_receiving_in_push_consumer.png" width="70%">
 </div>
+
+The receiving procedure is as follows:
+
+1. Fetch the latest queue assignment from server.
+2. If flow control occurs during message receiving, consumer will retry after 20 milliseconds, otherwise go to step3.
+3. Cache message and trigger the consumption(Once the lifecycle of message is over, it will removed from cache immmediately).
+4. Check the cache is full, consumer will try to receive message immediately, otherwise retry after 1 seconds.
 
 ### Message Consumption in Push Consumer(Non-FIFO)
 
