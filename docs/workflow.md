@@ -56,6 +56,8 @@ The publishing procedure is as follows:
 
 For TRANSACTIONAL messages, the publishing will not be retried if failure is encountered. The ordering of FIFO message is based on the assumption that messages which have the same `message group` will be put into the same message queue, thus the message queue to publish is not disturbed by the isolated enpoint([SipHash](https://en.wikipedia.org/wiki/SipHash) algorithm is used to calculate the message queue index for FIFO message publishing).
 
+About the message publishing retry policy when failure is encountered, in order to ensure the timeliness of message publishing, the next attempt would be executed immediately in most case if flow control does not encountered. Actually the server would deliver the explicit retry policy flow control for each producer while publishing flow control occurs.
+
 <div align="center">
 <img src="./artwork/fifo_message_group_message_queue_mapping.png" width="50%">
 </div>
