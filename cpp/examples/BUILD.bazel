@@ -16,6 +16,7 @@
 #
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 load("@io_bazel_rules_docker//cc:image.bzl", "cc_image")
+load("@io_bazel_rules_docker//container:container.bzl", "container_pull", "container_image")
 
 cc_binary(
     name = "example_producer",
@@ -28,6 +29,22 @@ cc_binary(
     ],
 )
 
+container_pull(
+    name = "alpine",
+    registry = "index.docker.io",
+    repository = "library/alpine",
+    tag = "3.8",
+)
+
+container_image(
+    name = "base_image",
+    base = "alpine",
+    env = {
+        "GRPC_VERBOSITY": "debug",
+        "GRPC_TRACE": "tcp,http,api",
+    },
+)
+
 cc_image(
     name = "container_example_producer",
     srcs = [
@@ -37,6 +54,7 @@ cc_image(
         "//source/rocketmq:rocketmq_library",
         "@com_github_gflags_gflags//:gflags",
     ],
+    base = ":base_image",
 )
 
 cc_binary(
