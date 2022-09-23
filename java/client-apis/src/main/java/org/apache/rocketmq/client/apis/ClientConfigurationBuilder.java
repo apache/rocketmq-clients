@@ -38,7 +38,7 @@ public class ClientConfigurationBuilder {
      * @return the client configuration builder instance.
      */
     public ClientConfigurationBuilder setEndpoints(String endpoints) {
-        checkNotNull(endpoints, "endpoints should not be not null");
+        checkNotNull(endpoints, "endpoints should not be null");
         this.endpoints = endpoints;
         return this;
     }
@@ -66,7 +66,7 @@ public class ClientConfigurationBuilder {
      * @return the client configuration builder instance.
      */
     public ClientConfigurationBuilder setRequestTimeout(Duration requestTimeout) {
-        this.requestTimeout = checkNotNull(requestTimeout, "requestTimeout should not be not null");
+        this.requestTimeout = checkNotNull(requestTimeout, "requestTimeout should not be null");
         return this;
     }
 
