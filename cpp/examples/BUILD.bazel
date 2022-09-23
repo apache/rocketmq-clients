@@ -54,9 +54,8 @@ container_push(
     name = "push_example_producer_container",
     format = "Docker",
     image = ":container_example_producer",
-    registry = "docker.io",
+    registry = "hub.docker.com",
     repository = "lizhanhui/sdk5",
-    windows_paths = False,
 )
 
 cc_binary(
