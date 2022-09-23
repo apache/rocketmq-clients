@@ -15,9 +15,21 @@
 # limitations under the License.
 #
 load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("@io_bazel_rules_docker//cc:image.bzl", "cc_image")
 
 cc_binary(
     name = "example_producer",
+    srcs = [
+        "ExampleProducer.cpp",
+    ],
+    deps = [
+        "//source/rocketmq:rocketmq_library",
+        "@com_github_gflags_gflags//:gflags",
+    ],
+)
+
+cc_image(
+    name = "container_example_producer",
     srcs = [
         "ExampleProducer.cpp",
     ],

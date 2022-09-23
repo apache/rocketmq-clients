@@ -188,3 +188,13 @@ def rocketmq_deps():
             "https://github.com/bazelbuild/rules_proto/archive/refs/tags/4.0.0-3.20.0.tar.gz",
         ],
     )
+
+    maybe(
+        http_archive,
+        name = "io_bazel_rules_docker",
+        sha256 = "b1e80761a8a8243d03ebca8845e9cc1ba6c82ce7c5179ce2b295cd36f7e394bf",
+        urls = [
+            "https://shutian.oss-cn-hangzhou.aliyuncs.com/cdn/rules_docker/rules_docker-v0.25.0.tar.gz",
+            "https://github.com/bazelbuild/rules_docker/releases/download/v0.25.0/rules_docker-v0.25.0.tar.gz",
+        ],
+    )
