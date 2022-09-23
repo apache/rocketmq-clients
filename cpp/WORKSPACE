@@ -24,6 +24,9 @@ container_repositories()
 load("@io_bazel_rules_docker//repositories:deps.bzl", container_deps = "deps")
 container_deps()
 
+load("@io_bazel_rules_docker//cc:image.bzl", cc_image_repos = "repositories")
+cc_image_repos()
+
 # Support Bazel RBE(remote build execution)
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
