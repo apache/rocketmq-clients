@@ -581,7 +581,11 @@ void ProducerImpl::topicsOfInterest(std::vector<std::string> topics) {
 void ProducerImpl::buildClientSettings(rmq::Settings& settings) {
   settings.set_client_type(rmq::ClientType::PRODUCER);
 
-  auto topics = settings.mutable_publishing()->mutable_topics();
+  auto publishing_setting = settings.mutable_publishing();
+  publishing_setting->set_validate_message_type(false);
+  publishing_setting->set_max_body_size(MixAll::MAX_MESSAGE_BODY_SIZE);
+  
+  auto topics = publishing_setting->mutable_topics();
   {
     absl::MutexLock lk(&topics_mtx_);
     for (const auto& item : topics_) {
