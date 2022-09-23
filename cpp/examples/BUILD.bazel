@@ -54,7 +54,7 @@ container_push(
     name = "push_example_producer_container",
     format = "Docker",
     image = ":container_example_producer",
-    registry = "hub.docker.com",
+    registry = "docker.io",
     repository = "lizhanhui/sdk5",
 )
 
