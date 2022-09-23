@@ -30,8 +30,8 @@ load("@io_bazel_rules_docker//container:container.bzl", "container_pull")
 container_pull(
     name = "cc_base",
     registry = "index.docker.io",
-    repository = "library/alpine",
-    tag = "3.8",
+    repository = "ubuntu",
+    tag = "18.04",
 )
 
 # Support Bazel RBE(remote build execution)
