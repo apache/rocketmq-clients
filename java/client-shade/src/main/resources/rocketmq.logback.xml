@@ -18,7 +18,7 @@
     <conversionRule conversionWord="pid" converterClass="org.apache.rocketmq.client.java.logging.ProcessIdConverter"/>
     <appender name="CustomConsoleAppender" class="org.apache.rocketmq.client.java.logging.CustomConsoleAppender">
         <encoder>
-            <pattern>%yellow(%d{yyy-MM-dd HH:mm:ss,GMT+8}) %highlight(%-5p) %boldWhite([%pid]) %magenta([%t]) %boldGreen([%logger{12}#%M:%L]) - %m%n
+            <pattern>%yellow(%d{yyy-MM-dd HH:mm:ss.SSS,GMT+8}) %highlight(%-5p) %boldWhite([%pid]) %magenta([%t]) %boldGreen([%logger{12}#%M:%L]) - %m%n
             </pattern>
             <charset class="java.nio.charset.Charset">UTF-8</charset>
         </encoder>
@@ -39,7 +39,7 @@
             <maxFileSize>64MB</maxFileSize>
         </triggeringPolicy>
         <encoder class="org.apache.rocketmq.shaded.ch.qos.logback.classic.encoder.PatternLayoutEncoder">
-            <pattern>%d{yyy-MM-dd HH:mm:ss,GMT+8} %-5p [%pid] [%t] [%logger{12}#%M:%L] - %m%n</pattern>
+            <pattern>%d{yyy-MM-dd HH:mm:ss.SSS,GMT+8} %-5p [%pid] [%t] [%logger{12}#%M:%L] - %m%n</pattern>
             <charset class="java.nio.charset.Charset">UTF-8</charset>
         </encoder>
     </appender>
