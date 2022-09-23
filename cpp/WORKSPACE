@@ -31,7 +31,7 @@ container_pull(
     name = "cc_base",
     registry = "index.docker.io",
     repository = "ubuntu",
-    tag = "18.04",
+    tag = "22.04",
 )
 
 # Support Bazel RBE(remote build execution)
