@@ -113,12 +113,12 @@ public class ClientManagerImpl extends ClientManager {
         this.rpcClientTableLock = new ReentrantReadWriteLock();
         final long clientIndex = client.getClientId().getIndex();
         this.scheduler = new ScheduledThreadPoolExecutor(
-            Runtime.getRuntime().availableProcessors(),
+            2 * Runtime.getRuntime().availableProcessors(),
             new ThreadFactoryImpl("ClientScheduler", clientIndex));
 
         this.asyncWorker = new ThreadPoolExecutor(
-            Runtime.getRuntime().availableProcessors(),
-            Runtime.getRuntime().availableProcessors(),
+            2 * Runtime.getRuntime().availableProcessors(),
+            2 * Runtime.getRuntime().availableProcessors(),
             60,
             TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(),
