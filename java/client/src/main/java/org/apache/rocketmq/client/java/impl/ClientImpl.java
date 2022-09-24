@@ -149,8 +149,8 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
 
         final long clientIdIndex = clientId.getIndex();
         this.clientCallbackExecutor = new ThreadPoolExecutor(
-            Runtime.getRuntime().availableProcessors(),
-            Runtime.getRuntime().availableProcessors(),
+            2 * Runtime.getRuntime().availableProcessors(),
+            2 * Runtime.getRuntime().availableProcessors(),
             60,
             TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(),
