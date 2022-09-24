@@ -292,7 +292,7 @@ func (p *defaultProducer) send0(ctx context.Context, msgs []*UnifiedMessage, txE
 		pubMessages[idx] = pubMessage
 	}
 
-	// check topic Name
+	// check message Type
 	messageType := pubMessages[0].messageType
 	for _, pubMessage := range pubMessages {
 		if pubMessage.messageType != messageType {
