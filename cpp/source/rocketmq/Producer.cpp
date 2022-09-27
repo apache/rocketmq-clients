@@ -54,7 +54,7 @@ void Producer::send(MessageConstPtr message, const SendCallback& callback) noexc
     return;
   }
 
-  if (message->group().has_value()) {
+  if (!message->group().empty()) {
     SendReceipt     empty;
     std::error_code ec = ErrorCode::BadRequestAsyncPubFifoMessage;
     callback(ec, empty);

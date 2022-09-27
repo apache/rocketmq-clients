@@ -124,8 +124,8 @@ void ProducerImpl::wrapSendMessageRequest(const Message& message, SendMessageReq
   auto system_properties = msg->mutable_system_properties();
 
   // Handle Tag
-  if (message.tag().has_value()) {
-    system_properties->set_tag(message.tag().value());
+  if (!message.tag().empty()) {
+    system_properties->set_tag(message.tag());
   }
 
   // Handle Key
@@ -135,16 +135,16 @@ void ProducerImpl::wrapSendMessageRequest(const Message& message, SendMessageReq
   }
 
   // TraceContext
-  if (message.traceContext().has_value()) {
-    const auto& trace_context = message.traceContext().value();
+  if (!message.traceContext().empty()) {
+    const auto& trace_context = message.traceContext();
     if (!trace_context.empty()) {
       system_properties->set_trace_context(trace_context);
     }
   }
 
   // Delivery Timestamp
-  if (message.deliveryTimestamp().has_value()) {
-    auto delivery_timestamp = message.deliveryTimestamp().value();
+  if (message.deliveryTimestamp().time_since_epoch().count()) {
+    auto delivery_timestamp = message.deliveryTimestamp();
     if (delivery_timestamp.time_since_epoch().count()) {
       auto duration = delivery_timestamp.time_since_epoch();
       system_properties->set_delivery_attempt(std::chrono::duration_cast<std::chrono::milliseconds>(duration).count());
@@ -159,9 +159,9 @@ void ProducerImpl::wrapSendMessageRequest(const Message& message, SendMessageReq
 
   system_properties->set_born_host(UtilAll::hostname());
 
-  if (message.deliveryTimestamp().has_value()) {
+  if (message.deliveryTimestamp().time_since_epoch().count()) {
     system_properties->set_message_type(rmq::MessageType::DELAY);
-  } else if (message.group().has_value()) {
+  } else if (!message.group().empty()) {
     system_properties->set_message_type(rmq::MessageType::FIFO);
   } else if (message.extension().transactional) {
     system_properties->set_message_type(rmq::MessageType::TRANSACTION);
@@ -179,8 +179,8 @@ void ProducerImpl::wrapSendMessageRequest(const Message& message, SendMessageReq
     system_properties->set_body_encoding(rmq::Encoding::IDENTITY);
   }
 
-  if (message.group().has_value()) {
-    system_properties->set_message_group(message.group().value());
+  if (!message.group().empty()) {
+    system_properties->set_message_group(message.group());
   }
 
   system_properties->set_message_id(message.id());
@@ -301,9 +301,8 @@ void ProducerImpl::sendImpl(std::shared_ptr<SendContext> context) {
 
   {
     // Trace Send RPC
-    if (context->message_->traceContext().has_value() && client_config_.sampler_) {
-      auto span_context =
-          opencensus::trace::propagation::FromTraceParentHeader(context->message_->traceContext().value());
+    if (!context->message_->traceContext().empty() && client_config_.sampler_) {
+      auto span_context = opencensus::trace::propagation::FromTraceParentHeader(context->message_->traceContext());
       auto span = opencensus::trace::Span::BlankSpan();
       std::string span_name = resourceNamespace() + "/" + context->message_->topic() + " " +
                               MixAll::SPAN_ATTRIBUTE_VALUE_ROCKETMQ_SEND_OPERATION;
@@ -320,9 +319,9 @@ void ProducerImpl::sendImpl(std::shared_ptr<SendContext> context) {
       TracingUtility::addUniversalSpanAttributes(*context->message_, config(), span);
       // Note: attempt-time is 0-based
       span.AddAttribute(MixAll::SPAN_ATTRIBUTE_KEY_ROCKETMQ_ATTEMPT, 1 + context->attempt_times_);
-      if (context->message_->deliveryTimestamp().has_value()) {
+      if (context->message_->deliveryTimestamp().time_since_epoch().count()) {
         span.AddAttribute(MixAll::SPAN_ATTRIBUTE_KEY_ROCKETMQ_DELIVERY_TIMESTAMP,
-                          absl::FormatTime(absl::FromChrono(context->message_->deliveryTimestamp().value())));
+                          absl::FormatTime(absl::FromChrono(context->message_->deliveryTimestamp())));
       }
       auto ptr = const_cast<Message*>(context->message_.get());
       ptr->traceContext(opencensus::trace::propagation::ToTraceParentHeader(span.context()));
@@ -463,15 +462,15 @@ void ProducerImpl::isolateEndpoint(const std::string& target) {
 void ProducerImpl::send(MessageConstPtr message, std::error_code& ec, Transaction& transaction) {
   MiniTransaction mini = {};
   mini.topic = message->topic();
-  mini.trace_context = message->traceContext().value_or("");
+  mini.trace_context = message->traceContext();
 
-  if (message->group().has_value()) {
+  if (!message->group().empty()) {
     ec = ErrorCode::MessagePropertyConflictWithType;
     SPDLOG_WARN("FIFO message may not be transactional");
     return;
   }
 
-  if (message->deliveryTimestamp().has_value()) {
+  if (message->deliveryTimestamp().time_since_epoch().count()) {
     ec = ErrorCode::MessagePropertyConflictWithType;
     SPDLOG_WARN("Timed message may not be transactional");
     return;
@@ -564,7 +563,7 @@ void ProducerImpl::onOrphanedTransactionalMessage(MessageConstSharedPtr message)
     transaction.topic = message->topic();
     transaction.message_id = message->id();
     transaction.transaction_id = message->extension().transaction_id;
-    transaction.trace_context = message->traceContext().value_or("");
+    transaction.trace_context = message->traceContext();
     transaction.target = message->extension().target_endpoint;
     TransactionState state = transaction_checker_(*message);
     endTransaction0(transaction, state);

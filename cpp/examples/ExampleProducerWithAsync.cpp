@@ -24,8 +24,6 @@
 #include <string>
 #include <system_error>
 
-#include "absl/base/thread_annotations.h"
-#include "absl/synchronization/mutex.h"
 #include "gflags/gflags.h"
 #include "rocketmq/Message.h"
 #include "rocketmq/Producer.h"
@@ -43,32 +41,32 @@ public:
   /**
    * @brief Acquire a permit.
    */
-  void acquire() LOCKS_EXCLUDED(mtx_) {
+  void acquire() {
     while (true) {
-      absl::MutexLock lk(&mtx_);
+      std::unique_lock<std::mutex> lk(mtx_);
       if (permits_ > 0) {
         permits_--;
         return;
       }
-      cv_.Wait(&mtx_);
+      cv_.wait(lk, [this]() { return permits_ > 0; });
     }
   }
 
   /**
    * @brief Release the permit back to semaphore.
    */
-  void release() LOCKS_EXCLUDED(mtx_) {
-    absl::MutexLock lk(&mtx_);
+  void release() {
+    std::unique_lock<std::mutex> lk(mtx_);
     permits_++;
     if (1 == permits_) {
-      cv_.Signal();
+      cv_.notify_one();
     }
   }
 
 private:
   std::size_t permits_{0};
-  absl::Mutex mtx_;
-  absl::CondVar cv_;
+  std::mutex mtx_;
+  std::condition_variable cv_;
 };
 
 const std::string& alphaNumeric() {
@@ -142,7 +140,7 @@ int main(int argc, char* argv[]) {
   std::mutex mtx;
   std::condition_variable cv;
 
-  auto semaphore = absl::make_unique<Semaphore>(FLAGS_concurrency);
+  std::unique_ptr<Semaphore> semaphore(new Semaphore(FLAGS_concurrency));
 
   auto send_callback = [&](const std::error_code& ec, const SendReceipt& receipt) {
     std::unique_lock<std::mutex> lk(mtx);

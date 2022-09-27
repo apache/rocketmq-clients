@@ -26,7 +26,6 @@
 #include <vector>
 
 #include "RocketMQ.h"
-#include "absl/types/optional.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -61,25 +60,19 @@ public:
     return topic_;
   }
 
-  absl::optional<std::string> tag() const {
-    if (tag_.empty()) {
-      return {};
-    }
-    return absl::make_optional(tag_);
+  const std::string& tag() const {
+    return tag_;
   }
 
   const std::vector<std::string>& keys() const {
     return keys_;
   }
 
-  absl::optional<std::string> traceContext() const {
-    if (trace_context_.empty()) {
-      return {};
-    }
-    return absl::make_optional(trace_context_);
+  const std::string& traceContext() const {
+    return trace_context_;
   }
 
-  void traceContext(std::string &&trace_context) {
+  void traceContext(std::string&& trace_context) {
     trace_context_ = std::move(trace_context);
   }
 
@@ -91,7 +84,7 @@ public:
     return born_time_;
   }
 
-  absl::optional<std::chrono::system_clock::time_point> deliveryTimestamp() const {
+  std::chrono::system_clock::time_point deliveryTimestamp() const {
     return delivery_timestamp_;
   }
 
@@ -103,11 +96,8 @@ public:
     return properties_;
   }
 
-  absl::optional<std::string> group() const {
-    if (group_.empty()) {
-      return {};
-    }
-    return absl::make_optional(group_);
+  const std::string& group() const {
+    return group_;
   }
 
   const Extension& extension() const {
@@ -121,7 +111,6 @@ public:
   static MessageBuilder newBuilder();
 
 protected:
-  friend std::unique_ptr<Message> absl::make_unique<Message>();
   friend class MessageBuilder;
 
   Message();
@@ -134,7 +123,7 @@ private:
   std::string trace_context_;
   std::string born_host_;
   std::chrono::system_clock::time_point born_time_{std::chrono::system_clock::now()};
-  absl::optional<std::chrono::system_clock::time_point> delivery_timestamp_;
+  std::chrono::system_clock::time_point delivery_timestamp_;
   std::string body_;
   std::unordered_map<std::string, std::string> properties_;
   std::string group_;
