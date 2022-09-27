@@ -28,7 +28,6 @@ func TestCLINewClient(t *testing.T) {
 	endpoints := fmt.Sprintf("%s:%d", fakeHost, fakePort)
 	cli, err := NewClient(&Config{
 		Endpoint:    endpoints,
-		Group:       "",
 		Credentials: &credentials.SessionCredentials{},
 	})
 	if err != nil {

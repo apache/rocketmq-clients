@@ -32,7 +32,6 @@ const (
 	Topic     = "xxxxxx"
 	GroupName = "xxxxxx"
 	Endpoint  = "xxxxxx"
-	Region    = "xxxxxx"
 	AccessKey = "xxxxxx"
 	SecretKey = "xxxxxx"
 )
@@ -53,9 +52,8 @@ func main() {
 	golang.ResetLogger()
 	// new simpleConsumer instance
 	simpleConsumer, err := golang.NewSimpleConsumer(&golang.Config{
-		Endpoint: Endpoint,
-		Group:    GroupName,
-		Region:   Region,
+		Endpoint:      Endpoint,
+		ConsumerGroup: GroupName,
 		Credentials: &credentials.SessionCredentials{
 			AccessKey:    AccessKey,
 			AccessSecret: SecretKey,

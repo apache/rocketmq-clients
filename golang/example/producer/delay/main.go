@@ -31,9 +31,7 @@ import (
 
 const (
 	Topic     = "xxxxxx"
-	GroupName = "xxxxxx"
 	Endpoint  = "xxxxxx"
-	Region    = "xxxxxx"
 	AccessKey = "xxxxxx"
 	SecretKey = "xxxxxx"
 )
@@ -45,8 +43,6 @@ func main() {
 	// new producer instance
 	producer, err := golang.NewProducer(&golang.Config{
 		Endpoint: Endpoint,
-		Group:    GroupName,
-		Region:   Region,
 		Credentials: &credentials.SessionCredentials{
 			AccessKey:    AccessKey,
 			AccessSecret: SecretKey,

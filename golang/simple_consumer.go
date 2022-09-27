@@ -320,6 +320,9 @@ var NewSimpleConsumer = func(config *Config, opts ...SimpleConsumerOption) (Simp
 	for _, opt := range opts {
 		opt.apply(scOpts)
 	}
+	if len(config.ConsumerGroup) == 0 {
+		return nil, fmt.Errorf("consumerGroup could not be nil")
+	}
 	cli, err := scOpts.clientFunc(config)
 	if err != nil {
 		return nil, err
@@ -327,7 +330,7 @@ var NewSimpleConsumer = func(config *Config, opts ...SimpleConsumerOption) (Simp
 	sc := &defaultSimpleConsumer{
 		scOpts:    *scOpts,
 		cli:       cli.(*defaultClient),
-		groupName: config.Group,
+		groupName: config.ConsumerGroup,
 
 		awaitDuration:           scOpts.awaitDuration,
 		subscriptionExpressions: scOpts.subscriptionExpressions,

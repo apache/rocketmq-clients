@@ -20,9 +20,8 @@ package golang
 import "github.com/apache/rocketmq-clients/golang/credentials"
 
 type Config struct {
-	Endpoint    string `validate:"required"`
-	Region      string
-	NameSpace   string
-	Group       string                          `validate:"required"`
-	Credentials *credentials.SessionCredentials `validate:"required"`
+	Endpoint      string `validate:"required"`
+	NameSpace     string
+	ConsumerGroup string
+	Credentials   *credentials.SessionCredentials `validate:"required"`
 }
