@@ -27,8 +27,8 @@ void TracingUtility::addUniversalSpanAttributes(const Message& message, const Cl
                                                 opencensus::trace::Span& span) {
   span.AddAttribute(MixAll::SPAN_ATTRIBUTE_KEY_MESSAGING_ID, message.id());
   span.AddAttribute(MixAll::SPAN_ATTRIBUTE_KEY_MESSAGING_PAYLOAD_SIZE_BYTES, message.body().length());
-  if (message.tag().has_value()) {
-    span.AddAttribute(MixAll::SPAN_ATTRIBUTE_KEY_ROCKETMQ_TAG, message.tag().value());
+  if (!message.tag().empty()) {
+    span.AddAttribute(MixAll::SPAN_ATTRIBUTE_KEY_ROCKETMQ_TAG, message.tag());
   }
 
   const std::vector<std::string>& keys = message.keys();
@@ -56,8 +56,8 @@ void TracingUtility::addUniversalSpanAttributes(const Message& message, const Cl
       break;
   }
 
-  if (message.deliveryTimestamp().has_value()) {
-    std::chrono::system_clock::time_point timestamp = message.deliveryTimestamp().value();
+  if (message.deliveryTimestamp().time_since_epoch().count()) {
+    std::chrono::system_clock::time_point timestamp = message.deliveryTimestamp();
     auto duration = absl::FromChrono(timestamp.time_since_epoch());
     int64_t timestamp_millis = absl::ToInt64Milliseconds(duration);
     if (timestamp_millis > 0) {

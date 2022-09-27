@@ -38,7 +38,7 @@ TEST_F(MessageBuilderTest, testBuilder) {
   ASSERT_EQ(tag_, message->tag());
   ASSERT_TRUE(keys_ == message->keys());
   ASSERT_EQ(body_, message->body());
-  ASSERT_EQ(false, message->traceContext().has_value());
+  ASSERT_EQ(true, message->traceContext().empty());
 }
 
 TEST_F(MessageBuilderTest, testBuilder2) {
@@ -49,7 +49,7 @@ TEST_F(MessageBuilderTest, testBuilder2) {
     ASSERT_EQ(tag_, message->tag());
     ASSERT_TRUE(keys_ == message->keys());
     ASSERT_EQ(body_, message->body());
-    ASSERT_EQ(false, message->traceContext().has_value());
+    ASSERT_EQ(true, message->traceContext().empty());
   }
 }
 

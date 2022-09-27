@@ -16,6 +16,9 @@
  */
 #include "rocketmq/Message.h"
 
+#include <chrono>
+#include <memory>
+
 #include "UniqueIdGenerator.h"
 #include "absl/memory/memory.h"
 
@@ -29,7 +32,7 @@ MessageBuilder Message::newBuilder() {
   return {};
 }
 
-MessageBuilder::MessageBuilder() : message_(absl::make_unique<Message>()) {
+MessageBuilder::MessageBuilder() : message_(new Message()) {
 }
 
 MessageBuilder& MessageBuilder::withTopic(std::string topic) {

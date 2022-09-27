@@ -16,14 +16,16 @@
  */
 #include "MessageExt.h"
 
+#include <chrono>
+
 ROCKETMQ_NAMESPACE_BEGIN
 
 rmq::MessageType typeOf(const Message& message) {
-  if (message.group().has_value()) {
+  if (!message.group().empty()) {
     return rmq::MessageType::FIFO;
   }
 
-  if (message.deliveryTimestamp().has_value()) {
+  if (message.deliveryTimestamp().time_since_epoch().count()) {
     return rmq::MessageType::DELAY;
   }
 
