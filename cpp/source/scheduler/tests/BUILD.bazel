@@ -27,4 +27,5 @@ cc_test(
         "//source/scheduler:scheduler_library",
         "@com_google_googletest//:gtest_main",
     ],
+    flaky = True,
 )
