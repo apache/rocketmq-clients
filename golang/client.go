@@ -507,7 +507,7 @@ func (cli *defaultClient) Sign(ctx context.Context) context.Context {
 			innerMD.EncryptHeader,
 			innerMD.Credential,
 			cli.config.Credentials.AccessKey,
-			cli.config.Region,
+			"",
 			innerMD.Rocketmq,
 			innerMD.SignedHeaders,
 			innerMD.DateTime,

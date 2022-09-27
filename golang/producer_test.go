@@ -52,7 +52,6 @@ func TestProducer(t *testing.T) {
 	endpoints := fmt.Sprintf("%s:%d", fakeHost, fakePort)
 	p, err := NewProducer(&Config{
 		Endpoint:    endpoints,
-		Group:       MOCK_GROUP,
 		Credentials: &credentials.SessionCredentials{},
 	})
 	if err != nil {
