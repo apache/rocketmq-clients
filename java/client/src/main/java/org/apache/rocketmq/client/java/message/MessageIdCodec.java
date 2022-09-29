@@ -20,6 +20,7 @@ package org.apache.rocketmq.client.java.message;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Calendar;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.rocketmq.client.apis.message.MessageId;
@@ -104,7 +105,7 @@ public class MessageIdCodec {
 
     private long customEpochMillis() {
         // 2021-01-01 00:00:00
-        final Calendar calendar = Calendar.getInstance();
+        final Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"));
         calendar.set(Calendar.YEAR, 2021);
         calendar.set(Calendar.MONTH, Calendar.JANUARY);
         calendar.set(Calendar.DAY_OF_MONTH, 1);
