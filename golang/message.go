@@ -136,6 +136,10 @@ func (msg *Message) GetMessageCommon() *MessageCommon {
 	}
 }
 
+func (msg *Message) AddProperty(key, value string) {
+	msg.properties[key] = value
+}
+
 type MessageCommon struct {
 	messageId                   *string
 	topic                       string
