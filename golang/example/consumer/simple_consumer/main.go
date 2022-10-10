@@ -24,16 +24,16 @@ import (
 	"os"
 	"time"
 
-	"github.com/apache/rocketmq-clients/golang"
+	rmq_client "github.com/apache/rocketmq-clients/golang"
 	"github.com/apache/rocketmq-clients/golang/credentials"
 )
 
 const (
-	Topic     = "xxxxxx"
-	GroupName = "xxxxxx"
-	Endpoint  = "xxxxxx"
-	AccessKey = "xxxxxx"
-	SecretKey = "xxxxxx"
+	Topic         = "xxxxxx"
+	ConsumerGroup = "xxxxxx"
+	Endpoint      = "xxxxxx"
+	AccessKey     = "xxxxxx"
+	SecretKey     = "xxxxxx"
 )
 
 var (
@@ -49,19 +49,19 @@ var (
 func main() {
 	// log to console
 	os.Setenv("mq.consoleAppender.enabled", "true")
-	golang.ResetLogger()
+	rmq_client.ResetLogger()
 	// new simpleConsumer instance
-	simpleConsumer, err := golang.NewSimpleConsumer(&golang.Config{
+	simpleConsumer, err := rmq_client.NewSimpleConsumer(&rmq_client.Config{
 		Endpoint:      Endpoint,
-		ConsumerGroup: GroupName,
+		ConsumerGroup: ConsumerGroup,
 		Credentials: &credentials.SessionCredentials{
 			AccessKey:    AccessKey,
 			AccessSecret: SecretKey,
 		},
 	},
-		golang.WithAwaitDuration(awaitDuration),
-		golang.WithSubscriptionExpressions(map[string]*golang.FilterExpression{
-			Topic: golang.SUB_ALL,
+		rmq_client.WithAwaitDuration(awaitDuration),
+		rmq_client.WithSubscriptionExpressions(map[string]*rmq_client.FilterExpression{
+			Topic: rmq_client.SUB_ALL,
 		}),
 	)
 	if err != nil {
