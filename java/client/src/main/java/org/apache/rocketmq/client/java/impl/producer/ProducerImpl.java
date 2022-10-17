@@ -428,6 +428,9 @@ class ProducerImpl extends ClientImpl implements Producer {
             MoreExecutors.directExecutor());
     }
 
+    /**
+     * Warning: please DO NOT modify the signature of this method, it is used by OpenTelemetry instrumentation.
+     */
     private void send0(SettableFuture<List<SendReceiptImpl>> future0, String topic, MessageType messageType,
         final List<MessageQueueImpl> candidates, final List<PublishingMessageImpl> messages, final int attempt) {
         // Calculate the current message queue.
