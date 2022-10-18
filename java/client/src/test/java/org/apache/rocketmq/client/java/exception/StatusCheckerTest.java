@@ -274,6 +274,17 @@ public class StatusCheckerTest extends TestBase {
                 // ignore on purpose
             }
         }
+
+        {
+            Status status = Status.newBuilder().setCode(Code.ILLEGAL_POLLING_TIME).build();
+            RpcFuture<Object, Object> invocation = new RpcFuture<>(context, null, Futures.immediateFuture(response));
+            try {
+                StatusChecker.check(status, invocation);
+                fail();
+            } catch (BadRequestException ignore) {
+                // ignore on purpose
+            }
+        }
     }
 
     @Test

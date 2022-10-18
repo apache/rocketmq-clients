@@ -59,6 +59,7 @@ public class StatusChecker {
             case UNRECOGNIZED_CLIENT_TYPE:
             case MESSAGE_CORRUPTED:
             case CLIENT_ID_REQUIRED:
+            case ILLEGAL_POLLING_TIME:
                 throw new BadRequestException(codeNumber, requestId, statusMessage);
             case UNAUTHORIZED:
                 throw new UnauthorizedException(codeNumber, requestId, statusMessage);

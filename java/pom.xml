@@ -47,7 +47,7 @@
            ~  1. Whether it is essential, because the current shaded jar is fat enough.
            ~  2. Make sure that it is compatible with Java 8.
          -->
-        <rocketmq-proto.version>2.0.0</rocketmq-proto.version>
+        <rocketmq-proto.version>2.0.1</rocketmq-proto.version>
         <annotations-api.version>6.0.53</annotations-api.version>
         <protobuf.version>3.19.2</protobuf.version>
         <grpc.version>1.47.0</grpc.version>
