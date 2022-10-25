@@ -81,6 +81,7 @@ public class ClientMeter {
         if (!enabled) {
             return;
         }
+        LOGGER.info("Begin to shutdown client meter, clientId={}, endpoints={}", clientId, endpoints);
         final CountDownLatch latch = new CountDownLatch(1);
         provider.shutdown().whenComplete(latch::countDown);
         try {

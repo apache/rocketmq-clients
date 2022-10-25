@@ -229,6 +229,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         if (!ExecutorServices.awaitTerminated(clientCallbackExecutor)) {
             LOGGER.error("[Bug] Timeout to shutdown the client callback executor, clientId={}", clientId);
         }
+        clientMeterManager.shutdown();
         LOGGER.info("Shutdown the rocketmq client successfully, clientId={}", clientId);
     }
 
