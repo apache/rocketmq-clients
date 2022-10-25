@@ -72,6 +72,10 @@ public class ClientMeterManager {
         clientMeter.record(histogramEnum, attributes, value);
     }
 
+    public void shutdown() {
+        clientMeter.shutdown();
+    }
+
     @SuppressWarnings("deprecation")
     public synchronized void reset(Metric metric) {
         try {
