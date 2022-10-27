@@ -277,7 +277,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         final RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse> future =
             changeInvisibleDuration(impl, invisibleDuration);
         return Futures.transformAsync(future, response -> {
-            // Refresh receipt handle manually.
+            // Refresh receipt handle manually
             impl.setReceiptHandle(response.getReceiptHandle());
             final Status status = response.getStatus();
             StatusChecker.check(status, future);
