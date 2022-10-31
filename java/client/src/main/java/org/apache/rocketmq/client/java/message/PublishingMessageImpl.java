@@ -22,8 +22,6 @@ import apache.rocketmq.v2.SystemProperties;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.util.Timestamps;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.message.MessageId;
@@ -41,14 +39,10 @@ public class PublishingMessageImpl extends MessageImpl {
     private final MessageType messageType;
     private volatile String traceContext;
 
-    // Allow to inject extra user properties in runtime.
-    private final Map<String, String> extraProperties;
-
     public PublishingMessageImpl(Message message, PublishingSettings publishingSettings, boolean txEnabled)
         throws IOException {
         super(message);
         this.traceContext = null;
-        this.extraProperties = new HashMap<>();
         final int length = message.getBody().remaining();
         final int maxBodySizeBytes = publishingSettings.getMaxBodySizeBytes();
         if (length > maxBodySizeBytes) {
@@ -98,10 +92,6 @@ public class PublishingMessageImpl extends MessageImpl {
         return Optional.ofNullable(traceContext);
     }
 
-    public Map<String, String> getExtraProperties() {
-        return extraProperties;
-    }
-
     /**
      * Convert {@link PublishingMessageImpl} to protocol buffer.
      *
@@ -136,10 +126,6 @@ public class PublishingMessageImpl extends MessageImpl {
         this.getMessageGroup().ifPresent(systemPropertiesBuilder::setMessageGroup);
         final SystemProperties systemProperties = systemPropertiesBuilder.build();
         Resource topicResource = Resource.newBuilder().setName(getTopic()).build();
-        Map<String, String> userProperties = new HashMap<>();
-        userProperties.putAll(this.getProperties());
-        // Extra properties has higher priority.
-        userProperties.putAll(this.extraProperties);
         return apache.rocketmq.v2.Message.newBuilder()
             // Topic
             .setTopic(topicResource)
@@ -148,7 +134,7 @@ public class PublishingMessageImpl extends MessageImpl {
             // System properties
             .setSystemProperties(systemProperties)
             // User properties
-            .putAllUserProperties(userProperties)
+            .putAllUserProperties(getProperties())
             .build();
     }
 }
