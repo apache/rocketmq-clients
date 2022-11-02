@@ -398,7 +398,7 @@ class ProducerImpl extends ClientImpl implements Producer {
 
         this.topics.add(topic);
         // Get publishing topic route.
-        final ListenableFuture<PublishingLoadBalancer> routeFuture = getPublishingTopicRouteResult(topic);
+        final ListenableFuture<PublishingLoadBalancer> routeFuture = getPublishingLoadBalancer(topic);
         return Futures.transformAsync(routeFuture, result -> {
             // Prepare the candidate message queue(s) for retry-sending in advance.
             final List<MessageQueueImpl> candidates = null == messageGroup ? takeMessageQueues(result) :
@@ -541,21 +541,25 @@ class ProducerImpl extends ClientImpl implements Producer {
         }, clientCallbackExecutor);
     }
 
-    @Override
-    public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
-        final PublishingLoadBalancer publishingLoadBalancer = new PublishingLoadBalancer(topicRouteData);
+    private PublishingLoadBalancer updatePublishingLoadBalancer(String topic, TopicRouteData topicRouteData) {
+        PublishingLoadBalancer publishingLoadBalancer = publishingRouteDataCache.get(topic);
+        publishingLoadBalancer = null == publishingLoadBalancer ? new PublishingLoadBalancer(topicRouteData) :
+            publishingLoadBalancer.update(topicRouteData);
         publishingRouteDataCache.put(topic, publishingLoadBalancer);
+        return publishingLoadBalancer;
     }
 
-    private ListenableFuture<PublishingLoadBalancer> getPublishingTopicRouteResult(final String topic) {
-        final PublishingLoadBalancer result = publishingRouteDataCache.get(topic);
-        if (null != result) {
-            return Futures.immediateFuture(result);
-        }
-        return Futures.transformAsync(getRouteData(topic), topicRouteDataResult -> {
-            final PublishingLoadBalancer loadBalancer = new PublishingLoadBalancer(topicRouteDataResult);
-            publishingRouteDataCache.put(topic, loadBalancer);
+    @Override
+    public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
+        updatePublishingLoadBalancer(topic, topicRouteData);
+    }
+
+    private ListenableFuture<PublishingLoadBalancer> getPublishingLoadBalancer(final String topic) {
+        final PublishingLoadBalancer loadBalancer = publishingRouteDataCache.get(topic);
+        if (null != loadBalancer) {
             return Futures.immediateFuture(loadBalancer);
-        }, MoreExecutors.directExecutor());
+        }
+        return Futures.transform(getRouteData(topic), topicRouteData -> updatePublishingLoadBalancer(topic,
+            topicRouteData), MoreExecutors.directExecutor());
     }
 }

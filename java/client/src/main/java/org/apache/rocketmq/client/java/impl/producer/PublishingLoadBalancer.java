@@ -50,7 +50,11 @@ public class PublishingLoadBalancer {
     private final ImmutableList<MessageQueueImpl> messageQueues;
 
     public PublishingLoadBalancer(TopicRouteData topicRouteData) {
-        this.index = new AtomicInteger(RandomUtils.nextInt(0, Integer.MAX_VALUE));
+        this(new AtomicInteger(RandomUtils.nextInt(0, Integer.MAX_VALUE)), topicRouteData);
+    }
+
+    private PublishingLoadBalancer(AtomicInteger index, TopicRouteData topicRouteData) {
+        this.index = index;
         final List<MessageQueueImpl> mqs = topicRouteData.getMessageQueues().stream()
             .filter((Predicate<MessageQueueImpl>) mq -> mq.getPermission().isWritable() &&
                 Utilities.MASTER_BROKER_ID == mq.getBroker().getId())
@@ -59,6 +63,10 @@ public class PublishingLoadBalancer {
             throw new IllegalArgumentException("No writable message queue found, topiRouteData=" + topicRouteData);
         }
         this.messageQueues = ImmutableList.<MessageQueueImpl>builder().addAll(mqs).build();
+    }
+
+    PublishingLoadBalancer update(TopicRouteData topicRouteData) {
+        return new PublishingLoadBalancer(index, topicRouteData);
     }
 
     public MessageQueueImpl takeMessageQueueByMessageGroup(String messageGroup) {

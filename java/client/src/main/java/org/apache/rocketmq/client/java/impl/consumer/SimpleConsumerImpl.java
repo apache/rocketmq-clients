@@ -27,7 +27,6 @@ import com.google.common.math.IntMath;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.SettableFuture;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -68,7 +67,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     private final AtomicInteger topicIndex;
 
     private final Map<String /* topic */, FilterExpression> subscriptionExpressions;
-    private final ConcurrentMap<String /* topic */, SubscriptionLoadBalancer> subTopicRouteDataResultCache;
+    private final ConcurrentMap<String /* topic */, SubscriptionLoadBalancer> subscriptionRouteDataCache;
 
     public SimpleConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup, Duration awaitDuration,
         Map<String, FilterExpression> subscriptionExpressions) {
@@ -82,7 +81,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         this.topicIndex = new AtomicInteger(RandomUtils.nextInt(0, Integer.MAX_VALUE));
 
         this.subscriptionExpressions = subscriptionExpressions;
-        this.subTopicRouteDataResultCache = new ConcurrentHashMap<>();
+        this.subscriptionRouteDataCache = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -191,7 +190,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         }
         final String topic = topics.get(IntMath.mod(topicIndex.getAndIncrement(), topics.size()));
         final FilterExpression filterExpression = copy.get(topic);
-        final ListenableFuture<SubscriptionLoadBalancer> routeFuture = getSubscriptionTopicRouteResult(topic);
+        final ListenableFuture<SubscriptionLoadBalancer> routeFuture = getSubscriptionLoadBalancer(topic);
         final ListenableFuture<ReceiveMessageResult> future0 = Futures.transformAsync(routeFuture, result -> {
             final MessageQueueImpl mq = result.takeMessageQueue();
             final ReceiveMessageRequest request = wrapReceiveMessageRequest(maxMessageNum, mq, filterExpression,
@@ -298,25 +297,25 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         return simpleSubscriptionSettings;
     }
 
-    public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
-        final SubscriptionLoadBalancer subscriptionLoadBalancer =
-            new SubscriptionLoadBalancer(topicRouteData);
-        subTopicRouteDataResultCache.put(topic, subscriptionLoadBalancer);
+    private SubscriptionLoadBalancer updateSubscriptionLoadBalancer(String topic, TopicRouteData topicRouteData) {
+        SubscriptionLoadBalancer subscriptionLoadBalancer = subscriptionRouteDataCache.get(topic);
+        subscriptionLoadBalancer = null == subscriptionLoadBalancer ? new SubscriptionLoadBalancer(topicRouteData) :
+            subscriptionLoadBalancer.update(topicRouteData);
+        subscriptionRouteDataCache.put(topic, subscriptionLoadBalancer);
+        return subscriptionLoadBalancer;
     }
 
-    private ListenableFuture<SubscriptionLoadBalancer> getSubscriptionTopicRouteResult(final String topic) {
-        SettableFuture<SubscriptionLoadBalancer> future0 = SettableFuture.create();
-        final SubscriptionLoadBalancer result = subTopicRouteDataResultCache.get(topic);
-        if (null != result) {
-            future0.set(result);
-            return future0;
+    @Override
+    public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
+        updateSubscriptionLoadBalancer(topic, topicRouteData);
+    }
+
+    private ListenableFuture<SubscriptionLoadBalancer> getSubscriptionLoadBalancer(final String topic) {
+        final SubscriptionLoadBalancer loadBalancer = subscriptionRouteDataCache.get(topic);
+        if (null != loadBalancer) {
+            return Futures.immediateFuture(loadBalancer);
         }
-        final ListenableFuture<TopicRouteData> future = getRouteData(topic);
-        return Futures.transform(future, topicRouteDataResult -> {
-            final SubscriptionLoadBalancer subscriptionLoadBalancer =
-                new SubscriptionLoadBalancer(topicRouteDataResult);
-            subTopicRouteDataResultCache.put(topic, subscriptionLoadBalancer);
-            return subscriptionLoadBalancer;
-        }, MoreExecutors.directExecutor());
+        return Futures.transform(getRouteData(topic), topicRouteData -> updateSubscriptionLoadBalancer(topic,
+            topicRouteData), MoreExecutors.directExecutor());
     }
 }

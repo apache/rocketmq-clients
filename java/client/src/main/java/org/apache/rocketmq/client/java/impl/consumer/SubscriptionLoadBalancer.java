@@ -41,7 +41,11 @@ public class SubscriptionLoadBalancer {
     private final ImmutableList<MessageQueueImpl> messageQueues;
 
     public SubscriptionLoadBalancer(TopicRouteData topicRouteData) {
-        this.index = new AtomicInteger(RandomUtils.nextInt(0, Integer.MAX_VALUE));
+        this(new AtomicInteger(RandomUtils.nextInt(0, Integer.MAX_VALUE)), topicRouteData);
+    }
+
+    private SubscriptionLoadBalancer(AtomicInteger index, TopicRouteData topicRouteData) {
+        this.index = index;
         final List<MessageQueueImpl> mqs = topicRouteData.getMessageQueues().stream()
             .filter((Predicate<MessageQueueImpl>) mq -> mq.getPermission().isReadable() &&
                 Utilities.MASTER_BROKER_ID == mq.getBroker().getId())
@@ -50,6 +54,10 @@ public class SubscriptionLoadBalancer {
             throw new IllegalArgumentException("No readable message queue found, topiRouteData=" + topicRouteData);
         }
         this.messageQueues = ImmutableList.<MessageQueueImpl>builder().addAll(mqs).build();
+    }
+
+    SubscriptionLoadBalancer update(TopicRouteData topicRouteData) {
+        return new SubscriptionLoadBalancer(index, topicRouteData);
     }
 
     public MessageQueueImpl takeMessageQueue() {
