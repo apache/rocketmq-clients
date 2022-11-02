@@ -34,13 +34,14 @@ public class SubscriptionLoadBalancer {
     /**
      * Index for round-robin.
      */
-    private static final AtomicInteger INDEX = new AtomicInteger(RandomUtils.nextInt(0, Integer.MAX_VALUE));
+    private final AtomicInteger index;
     /**
      * Message queues to receive message.
      */
     private final ImmutableList<MessageQueueImpl> messageQueues;
 
     public SubscriptionLoadBalancer(TopicRouteData topicRouteData) {
+        this.index = new AtomicInteger(RandomUtils.nextInt(0, Integer.MAX_VALUE));
         final List<MessageQueueImpl> mqs = topicRouteData.getMessageQueues().stream()
             .filter((Predicate<MessageQueueImpl>) mq -> mq.getPermission().isReadable() &&
                 Utilities.MASTER_BROKER_ID == mq.getBroker().getId())
@@ -52,7 +53,7 @@ public class SubscriptionLoadBalancer {
     }
 
     public MessageQueueImpl takeMessageQueue() {
-        final int next = INDEX.getAndIncrement();
+        final int next = index.getAndIncrement();
         return messageQueues.get(IntMath.mod(next, messageQueues.size()));
     }
 }
