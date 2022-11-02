@@ -43,13 +43,14 @@ public class PublishingLoadBalancer {
     /**
      * Index for round-robin.
      */
-    private static final AtomicInteger INDEX = new AtomicInteger(RandomUtils.nextInt(0, Integer.MAX_VALUE));
+    private final AtomicInteger index;
     /**
      * Message queues to send message.
      */
     private final ImmutableList<MessageQueueImpl> messageQueues;
 
     public PublishingLoadBalancer(TopicRouteData topicRouteData) {
+        this.index = new AtomicInteger(RandomUtils.nextInt(0, Integer.MAX_VALUE));
         final List<MessageQueueImpl> mqs = topicRouteData.getMessageQueues().stream()
             .filter((Predicate<MessageQueueImpl>) mq -> mq.getPermission().isWritable() &&
                 Utilities.MASTER_BROKER_ID == mq.getBroker().getId())
@@ -67,7 +68,7 @@ public class PublishingLoadBalancer {
     }
 
     public List<MessageQueueImpl> takeMessageQueues(Set<Endpoints> excluded, int count) {
-        int next = INDEX.getAndIncrement();
+        int next = index.getAndIncrement();
         List<MessageQueueImpl> candidates = new ArrayList<>();
         Set<String> candidateBrokerNames = new HashSet<>();
 
