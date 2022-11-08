@@ -20,32 +20,22 @@ package org.apache.rocketmq.client.java.logging;
 import ch.qos.logback.classic.pattern.ClassicConverter;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import java.lang.management.ManagementFactory;
-import java.lang.management.RuntimeMXBean;
 
 public class ProcessIdConverter extends ClassicConverter {
-    private static final long PROCESS_ID_NOT_SET = -2L;
     private static final long PROCESS_ID_NOT_FOUND = -1L;
-    private static long PROCESS_ID = -2L;
+    private static final String PROCESS_ID = String.valueOf(getProcessId());
 
-    public ProcessIdConverter() {
-    }
-
-    public String convert(ILoggingEvent iLoggingEvent) {
-        return String.valueOf(this.processId());
-    }
-
-    private long processId() {
-        if (PROCESS_ID_NOT_SET == PROCESS_ID) {
-            RuntimeMXBean runtime = ManagementFactory.getRuntimeMXBean();
-            String name = runtime.getName();
-
-            try {
-                PROCESS_ID = Integer.parseInt(name.substring(0, name.indexOf(64)));
-            } catch (Throwable var4) {
-                PROCESS_ID = PROCESS_ID_NOT_FOUND;
-            }
-
+    private static long getProcessId() {
+        try {
+            String processName = ManagementFactory.getRuntimeMXBean().getName();
+            return Long.parseLong(processName.split("@")[0]);
+        } catch (Throwable t) {
+            return PROCESS_ID_NOT_FOUND;
         }
+    }
+
+    @Override
+    public String convert(ILoggingEvent event) {
         return PROCESS_ID;
     }
 }
