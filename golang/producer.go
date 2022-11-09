@@ -114,7 +114,8 @@ func (p *defaultProducer) wrapSendMessageRequest(pMsgs []*PublishingMessage) (*v
 }
 
 var NewProducer = func(config *Config, opts ...ProducerOption) (Producer, error) {
-	po := &defaultProducerOptions
+	copyOpt := defaultProducerOptions
+	po := &copyOpt
 	for _, opt := range opts {
 		opt.apply(po)
 	}

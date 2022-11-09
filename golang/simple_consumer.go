@@ -316,7 +316,8 @@ func (sc *defaultSimpleConsumer) wrapHeartbeatRequest() *v2.HeartbeatRequest {
 }
 
 var NewSimpleConsumer = func(config *Config, opts ...SimpleConsumerOption) (SimpleConsumer, error) {
-	scOpts := &defaultSimpleConsumerOptions
+	copyOpt := defaultSimpleConsumerOptions
+	scOpts := &copyOpt
 	for _, opt := range opts {
 		opt.apply(scOpts)
 	}
