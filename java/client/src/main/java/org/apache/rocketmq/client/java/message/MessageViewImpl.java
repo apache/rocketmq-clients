@@ -63,7 +63,6 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
     private final MessageQueueImpl messageQueue;
     private final Endpoints endpoints;
     private volatile String receiptHandle;
-    private final String traceContext;
     private final long offset;
     private final boolean corrupted;
     private final long decodeTimestamp;
@@ -73,7 +72,7 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
     public MessageViewImpl(MessageId messageId, String topic, byte[] body, String tag, String messageGroup,
         Long deliveryTimestamp, Collection<String> keys, Map<String, String> properties,
         String bornHost, long bornTimestamp, int deliveryAttempt, MessageQueueImpl messageQueue,
-        String receiptHandle, String traceContext, long offset, boolean corrupted,
+        String receiptHandle, long offset, boolean corrupted,
         Long transportDeliveryTimestamp) {
         this.messageId = checkNotNull(messageId, "messageId should not be null");
         this.topic = checkNotNull(topic, "topic should not be null");
@@ -89,7 +88,6 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
         this.messageQueue = messageQueue;
         this.endpoints = null == messageQueue ? null : messageQueue.getBroker().getEndpoints();
         this.receiptHandle = checkNotNull(receiptHandle, "receiptHandle should not be null");
-        this.traceContext = traceContext;
         this.offset = offset;
         this.corrupted = corrupted;
         this.decodeTimestamp = System.currentTimeMillis();
@@ -183,10 +181,6 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
     @Override
     public int getDeliveryAttempt() {
         return deliveryAttempt;
-    }
-
-    public Optional<String> getTraceContext() {
-        return Optional.ofNullable(traceContext);
     }
 
     public int incrementAndGetDeliveryAttempt() {
@@ -323,10 +317,8 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
         final long offset = systemProperties.getQueueOffset();
         final Map<String, String> properties = message.getUserPropertiesMap();
         final String receiptHandle = systemProperties.getReceiptHandle();
-        String traceContext = systemProperties.hasTraceContext() ? systemProperties.getTraceContext() : null;
         return new MessageViewImpl(messageId, topic, body, tag, messageGroup, deliveryTimestamp, keys, properties,
-            bornHost, bornTimestamp, deliveryAttempt, mq, receiptHandle, traceContext, offset, corrupted,
-            transportDeliveryTimestamp);
+            bornHost, bornTimestamp, deliveryAttempt, mq, receiptHandle, offset, corrupted, transportDeliveryTimestamp);
     }
 
     @Override

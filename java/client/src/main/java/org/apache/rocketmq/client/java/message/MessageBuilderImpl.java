@@ -38,7 +38,6 @@ public class MessageBuilderImpl implements MessageBuilder {
     private byte[] body = null;
     private String tag = null;
     private String messageGroup = null;
-    private String traceContext = null;
     private Long deliveryTimestamp = null;
     private Collection<String> keys = new HashSet<>();
     private final Map<String, String> properties = new HashMap<>();
@@ -104,16 +103,6 @@ public class MessageBuilderImpl implements MessageBuilder {
     }
 
     /**
-     * See {@link MessageBuilder#setTraceContext(String)}
-     */
-    @Override
-    public MessageBuilder setTraceContext(String traceContext) {
-        checkArgument(StringUtils.isNotBlank(traceContext), "traceContext should not be blank");
-        this.traceContext = traceContext;
-        return this;
-    }
-
-    /**
      * See {@link MessageBuilder#setDeliveryTimestamp(long)}
      */
     @Override
@@ -141,6 +130,6 @@ public class MessageBuilderImpl implements MessageBuilder {
     public Message build() {
         checkNotNull(topic, "topic has not been set yet");
         checkNotNull(body, "body has not been set yet");
-        return new MessageImpl(topic, body, tag, keys, messageGroup, traceContext, deliveryTimestamp, properties);
+        return new MessageImpl(topic, body, tag, keys, messageGroup, deliveryTimestamp, properties);
     }
 }

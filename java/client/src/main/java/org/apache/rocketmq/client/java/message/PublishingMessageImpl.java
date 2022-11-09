@@ -22,7 +22,6 @@ import apache.rocketmq.v2.SystemProperties;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.util.Timestamps;
 import java.io.IOException;
-import java.util.Optional;
 import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.java.impl.producer.PublishingSettings;
@@ -37,12 +36,10 @@ import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 public class PublishingMessageImpl extends MessageImpl {
     private final MessageId messageId;
     private final MessageType messageType;
-    private volatile String traceContext;
 
     public PublishingMessageImpl(Message message, PublishingSettings publishingSettings, boolean txEnabled)
         throws IOException {
         super(message);
-        this.traceContext = null;
         final int length = message.getBody().remaining();
         final int maxBodySizeBytes = publishingSettings.getMaxBodySizeBytes();
         if (length > maxBodySizeBytes) {
@@ -84,14 +81,6 @@ public class PublishingMessageImpl extends MessageImpl {
         return messageType;
     }
 
-    public void setTraceContext(String traceContext) {
-        this.traceContext = traceContext;
-    }
-
-    public Optional<String> getTraceContext() {
-        return Optional.ofNullable(traceContext);
-    }
-
     /**
      * Convert {@link PublishingMessageImpl} to protocol buffer.
      *
@@ -117,8 +106,6 @@ public class PublishingMessageImpl extends MessageImpl {
                 .setMessageType(MessageType.toProtobuf(messageType));
         // Message tag
         this.getTag().ifPresent(systemPropertiesBuilder::setTag);
-        // Trace context
-        this.getTraceContext().ifPresent(systemPropertiesBuilder::setTraceContext);
         // Delivery timestamp
         this.getDeliveryTimestamp()
             .ifPresent(millis -> systemPropertiesBuilder.setDeliveryTimestamp(Timestamps.fromMillis(millis)));
