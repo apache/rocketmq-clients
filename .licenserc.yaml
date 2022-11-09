@@ -49,6 +49,5 @@ header:
     - 'cpp/cmake'
     - 'php/grpc/**/*.php'
     - 'php/composer.json'
-    - 'php/composer.lock'
 
   comment: on-failure
