@@ -34,12 +34,16 @@ class Producer
 
     public function init()
     {
-        // 客户端ID 因为目前我的主机名称是中文的，害怕解析会有问题，所以暂时先将主机名称写死
+        /**
+         *  Client ID Because my host name is currently in Chinese,
+         * I am afraid that there will be problems with parsing,
+         * so for the time being, the host name will be written dead
+         */
         $clientId = 'missyourlove' . '@' . posix_getpid() . '@' . rand(0, 10) . '@' . $this->getRandStr(10);
         $client = new MessagingServiceClient('rmq-cn-cs02xhf2k01.cn-hangzhou.rmq.aliyuncs.com:8080', [
             'credentials' => ChannelCredentials::createInsecure(),
             'update_metadata' => function ($metaData) use ($clientId) {
-                $metaData['headers'] = ['clientID' => $clientId]; // 通过header将ClientID传递到服务端
+                $metaData['headers'] = ['clientID' => $clientId]; // Pass the ClientID to the server through the header
                 return $metaData;
             }
         ]);
@@ -50,11 +54,11 @@ class Producer
         $rs->setName('normal_topic');
         $qr->setTopic($rs);
        $status = $client->QueryRoute($qr)->wait();
-       var_dump($status); // 此处打印出服务端返回的响应数据
+       var_dump($status); // This prints out the response data returned by the server
     }
 
     public function getRandStr($length){
-        //字符组合
+        //Character combinations
         $str = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         $len = strlen($str)-1;
         $randstr = '';
