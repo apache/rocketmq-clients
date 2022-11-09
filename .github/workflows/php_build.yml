@@ -1,0 +1,24 @@
+name: PHP Build
+on:
+  workflow_call:
+jobs:
+  build:
+    name: "${{ matrix.os }}, PHP-${{ matrix.php-version }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        php-version: ["7.4", "8.0", "8.1"]
+        os: [ubuntu-20.04, macos-11, windows-2022]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+      - name: Validate composer.json
+        working-directory: ./php
+        run: composer validate
+      - name: Install Dependecies
+        working-directory: ./php
+        run: composer install
