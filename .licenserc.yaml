@@ -47,5 +47,8 @@ header:
     - 'cpp/.gitignore'
     - 'cpp/third_party'
     - 'cpp/cmake'
+    - 'php/grpc/**/*.php'
+    - 'php/composer.json'
+    - 'php/composer.lock'
 
   comment: on-failure
