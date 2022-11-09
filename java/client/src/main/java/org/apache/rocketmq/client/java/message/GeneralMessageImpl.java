@@ -37,8 +37,6 @@ public class GeneralMessageImpl implements GeneralMessage {
     private final String messageGroup;
     private final Long deliveryTimestamp;
     private final String bornHost;
-    private final String parentTraceContext;
-    private final String traceContext;
     private final Long bornTimestamp;
     private final Integer deliveryAttempt;
     private final Long decodeTimestamp;
@@ -62,8 +60,6 @@ public class GeneralMessageImpl implements GeneralMessage {
         this.messageGroup = message.getMessageGroup().orElse(null);
         this.deliveryTimestamp = message.getDeliveryTimestamp().orElse(null);
         this.bornHost = null;
-        this.parentTraceContext = message.getParentTraceContext().orElse(null);
-        this.traceContext = null;
         this.bornTimestamp = null;
         this.deliveryAttempt = null;
         this.decodeTimestamp = null;
@@ -74,13 +70,11 @@ public class GeneralMessageImpl implements GeneralMessage {
         this.topic = message.getTopic();
         this.messageId = message.getMessageId();
         byte[] messageBody;
-        String messageTraceContext;
         Long messageDecodeTimestamp;
         Long messageTransportDeliveryTimestamp;
         if (message instanceof MessageViewImpl) {
             MessageViewImpl impl = (MessageViewImpl) message;
             messageBody = impl.body;
-            messageTraceContext = impl.getTraceContext().orElse(null);
             messageDecodeTimestamp = impl.getDecodeTimestamp();
             messageTransportDeliveryTimestamp = impl.getTransportDeliveryTimestamp().orElse(null);
         } else {
@@ -88,7 +82,6 @@ public class GeneralMessageImpl implements GeneralMessage {
             final ByteBuffer byteBuffer = message.getBody();
             messageBody = new byte[byteBuffer.remaining()];
             byteBuffer.get(messageBody);
-            messageTraceContext = null;
             // Could not get accurate decode timestamp.
             messageDecodeTimestamp = null;
             // Could not get accurate transport delivery timestamp.
@@ -101,8 +94,6 @@ public class GeneralMessageImpl implements GeneralMessage {
         this.messageGroup = message.getMessageGroup().orElse(null);
         this.deliveryTimestamp = message.getDeliveryTimestamp().orElse(null);
         this.bornHost = message.getBornHost();
-        this.parentTraceContext = null;
-        this.traceContext = messageTraceContext;
         this.bornTimestamp = message.getBornTimestamp();
         this.deliveryAttempt = message.getDeliveryAttempt();
         this.decodeTimestamp = messageDecodeTimestamp;
@@ -143,16 +134,6 @@ public class GeneralMessageImpl implements GeneralMessage {
     @Override
     public Optional<String> getMessageGroup() {
         return Optional.ofNullable(messageGroup);
-    }
-
-    @Override
-    public Optional<String> getParentTraceContext() {
-        return Optional.ofNullable(parentTraceContext);
-    }
-
-    @Override
-    public Optional<String> getTraceContext() {
-        return Optional.ofNullable(traceContext);
     }
 
     @Override

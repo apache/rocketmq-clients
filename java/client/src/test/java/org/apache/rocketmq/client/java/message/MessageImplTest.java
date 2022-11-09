@@ -130,6 +130,5 @@ public class MessageImplTest extends TestBase {
         assertArrayEquals(FAKE_MESSAGE_BODY, bytes);
         assertFalse(message.getDeliveryTimestamp().isPresent());
         assertFalse(message.getMessageGroup().isPresent());
-        assertFalse(message.getParentTraceContext().isPresent());
     }
 }

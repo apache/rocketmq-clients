@@ -73,14 +73,6 @@ public interface Message {
     Optional<String> getMessageGroup();
 
     /**
-     * Get the parent trace context, see
-     * <a href="https://opentelemetry.io/docs/concepts/signals/traces/#trace-context">OpenTelemetry Trace context</a>.
-     *
-     * @return parent trace context, which is optional, {@link Optional#empty()} means trace context is not specified.
-     */
-    Optional<String> getParentTraceContext();
-
-    /**
      * Get the expected delivery timestamp, which make sense only when topic type is delay.
      *
      * @return message expected delivery timestamp, which is optional, {@link Optional#empty()} means delivery

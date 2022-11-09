@@ -95,14 +95,6 @@ public interface MessageView {
     String getBornHost();
 
     /**
-     * Message trace context, see
-     * <a href="https://opentelemetry.io/docs/concepts/signals/traces/#trace-context">OpenTelemetry Trace context</a>.
-     *
-     * @return message trace context.
-     */
-    Optional<String> getTraceContext();
-
-    /**
      * Get the born timestamp of the message.
      *
      * <p>Born time means the timestamp that the message is prepared to send rather than the timestamp the

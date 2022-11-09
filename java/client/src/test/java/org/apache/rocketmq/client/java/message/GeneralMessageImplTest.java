@@ -41,13 +41,12 @@ public class GeneralMessageImplTest extends TestBase {
         List<String> keys = new ArrayList<>();
         keys.add("keyA");
         String messageGroup = "messageGroup0";
-        String parentTraceContext = "parentTraceContext0";
         long deliveryTimestamp = System.currentTimeMillis();
         Map<String, String> properties = new HashMap<>();
         properties.put("propertyA", "valueA");
 
-        final MessageImpl message = new MessageImpl(topic, body, tag, keys, messageGroup, parentTraceContext,
-            deliveryTimestamp, properties);
+        final MessageImpl message = new MessageImpl(topic, body, tag, keys, messageGroup, deliveryTimestamp,
+            properties);
         final GeneralMessageImpl generalMessage = new GeneralMessageImpl(message);
         assertFalse(generalMessage.getMessageId().isPresent());
         assertEquals(topic, generalMessage.getTopic());
@@ -58,9 +57,6 @@ public class GeneralMessageImplTest extends TestBase {
         assertEquals(keys, generalMessage.getKeys());
         assertTrue(generalMessage.getMessageGroup().isPresent());
         assertEquals(messageGroup, generalMessage.getMessageGroup().get());
-        assertTrue(generalMessage.getParentTraceContext().isPresent());
-        assertEquals(parentTraceContext, generalMessage.getParentTraceContext().get());
-        assertFalse(generalMessage.getTraceContext().isPresent());
         assertTrue(generalMessage.getDeliveryTimestamp().isPresent());
         assertEquals(deliveryTimestamp, (long) generalMessage.getDeliveryTimestamp().get());
         assertFalse(generalMessage.getBornHost().isPresent());
@@ -87,14 +83,13 @@ public class GeneralMessageImplTest extends TestBase {
         int deliveryAttempt = 1;
         final MessageQueueImpl mq = fakeMessageQueueImpl(topic);
         String receiptHandle = "receiptHandle0";
-        String traceContext = "traceContext0";
         long offset = 8;
         boolean corrupted = false;
         long transportDeliveryTimestamp = System.currentTimeMillis();
 
         final MessageViewImpl messageView = new MessageViewImpl(messageId, topic, body, tag, messageGroup,
             deliveryTimestamp, keys, properties, bornHost, bornTimestamp, deliveryAttempt, mq, receiptHandle,
-            traceContext, offset, corrupted, transportDeliveryTimestamp);
+            offset, corrupted, transportDeliveryTimestamp);
         final GeneralMessageImpl generalMessage = new GeneralMessageImpl(messageView);
         assertTrue(generalMessage.getMessageId().isPresent());
         assertEquals(messageId, generalMessage.getMessageId().get());
@@ -106,9 +101,6 @@ public class GeneralMessageImplTest extends TestBase {
         assertEquals(keys, generalMessage.getKeys());
         assertTrue(generalMessage.getMessageGroup().isPresent());
         assertEquals(messageGroup, generalMessage.getMessageGroup().get());
-        assertFalse(generalMessage.getParentTraceContext().isPresent());
-        assertTrue(generalMessage.getTraceContext().isPresent());
-        assertEquals(traceContext, generalMessage.getTraceContext().get());
         assertTrue(generalMessage.getDeliveryTimestamp().isPresent());
         assertEquals(deliveryTimestamp, (long) generalMessage.getDeliveryTimestamp().get());
         assertTrue(generalMessage.getBornHost().isPresent());
