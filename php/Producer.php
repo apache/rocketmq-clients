@@ -35,9 +35,8 @@ class Producer
     public function init()
     {
         /**
-         *  Client ID Because my host name is currently in Chinese,
-         * I am afraid that there will be problems with parsing,
-         * so for the time being, the host name will be written dead
+         * Client ID is currently concatenated using a fixed host name to
+         * facilitate code debugging.
          */
         $clientId = 'missyourlove' . '@' . posix_getpid() . '@' . rand(0, 10) . '@' . $this->getRandStr(10);
         $client = new MessagingServiceClient('rmq-cn-cs02xhf2k01.cn-hangzhou.rmq.aliyuncs.com:8080', [
