@@ -1,0 +1,13 @@
+{
+  "require":{
+    "google/protobuf": "^3.3",
+    "grpc/grpc": "^1.42",
+    "hanson/foundation-sdk": "^4.0"
+  },
+  "autoload": {
+     "psr-4": {
+       "GPBMetadata\\": "grpc/GPBMetadata",
+       "Apache\\Rocketmq\\V2\\": "grpc/Apache/Rocketmq/V2"
+     }
+  }
+}
