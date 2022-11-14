@@ -87,7 +87,7 @@ import org.slf4j.LoggerFactory;
  */
 @SuppressWarnings({"UnstableApiUsage", "NullableProblems"})
 class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
-    private static final Logger LOGGER = LoggerFactory.getLogger(PushConsumerImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(PushConsumerImpl.class);
 
     final AtomicLong consumptionOkQuantity;
     final AtomicLong consumptionErrorQuantity;
@@ -154,7 +154,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     @Override
     protected void startUp() throws Exception {
         try {
-            LOGGER.info("Begin to start the rocketmq push consumer, clientId={}", clientId);
+            log.info("Begin to start the rocketmq push consumer, clientId={}", clientId);
             GaugeObserver gaugeObserver = new ProcessQueueGaugeObserver(processQueueTable, clientId, consumerGroup);
             this.clientMeterManager.setGaugeObserver(gaugeObserver);
             super.startUp();
@@ -165,12 +165,12 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
                 try {
                     scanAssignments();
                 } catch (Throwable t) {
-                    LOGGER.error("Exception raised while scanning the load assignments, clientId={}", clientId, t);
+                    log.error("Exception raised while scanning the load assignments, clientId={}", clientId, t);
                 }
             }, 1, 5, TimeUnit.SECONDS);
-            LOGGER.info("The rocketmq push consumer starts successfully, clientId={}", clientId);
+            log.info("The rocketmq push consumer starts successfully, clientId={}", clientId);
         } catch (Throwable t) {
-            LOGGER.error("Exception raised while starting the rocketmq push consumer, clientId={}", clientId, t);
+            log.error("Exception raised while starting the rocketmq push consumer, clientId={}", clientId, t);
             shutDown();
             throw t;
         }
@@ -178,23 +178,23 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
 
     @Override
     protected void shutDown() throws InterruptedException {
-        LOGGER.info("Begin to shutdown the rocketmq push consumer, clientId={}", clientId);
+        log.info("Begin to shutdown the rocketmq push consumer, clientId={}", clientId);
         if (null != scanAssignmentsFuture) {
             scanAssignmentsFuture.cancel(false);
         }
         super.shutDown();
         this.consumptionExecutor.shutdown();
         ExecutorServices.awaitTerminated(consumptionExecutor);
-        LOGGER.info("Shutdown the rocketmq push consumer successfully, clientId={}", clientId);
+        log.info("Shutdown the rocketmq push consumer successfully, clientId={}", clientId);
     }
 
     private ConsumeService createConsumeService() {
         final ScheduledExecutorService scheduler = this.getClientManager().getScheduler();
         if (pushSubscriptionSettings.isFifo()) {
-            LOGGER.info("Create FIFO consume service, consumerGroup={}, clientId={}", consumerGroup, clientId);
+            log.info("Create FIFO consume service, consumerGroup={}, clientId={}", consumerGroup, clientId);
             return new FifoConsumeService(clientId, messageListener, consumptionExecutor, this, scheduler);
         }
-        LOGGER.info("Create standard consume service, consumerGroup={}, clientId={}", consumerGroup, clientId);
+        log.info("Create standard consume service, consumerGroup={}, clientId={}", consumerGroup, clientId);
         return new StandardConsumeService(clientId, messageListener, consumptionExecutor, this, scheduler);
     }
 
@@ -225,7 +225,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     public PushConsumer subscribe(String topic, FilterExpression filterExpression) throws ClientException {
         // Check consumer status.
         if (!this.isRunning()) {
-            LOGGER.error("Unable to add subscription because push consumer is not running, state={}, clientId={}",
+            log.error("Unable to add subscription because push consumer is not running, state={}, clientId={}",
                 this.state(), clientId);
             throw new IllegalStateException("Push consumer is not running now");
         }
@@ -242,7 +242,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     public PushConsumer unsubscribe(String topic) {
         // Check consumer status.
         if (!this.isRunning()) {
-            LOGGER.error("Unable to remove subscription because push consumer is not running, state={}, clientId={}",
+            log.error("Unable to remove subscription because push consumer is not running, state={}, clientId={}",
                 this.state(), clientId);
             throw new IllegalStateException("Push consumer is not running now");
         }
@@ -340,14 +340,14 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
             }
 
             if (!latest.contains(mq)) {
-                LOGGER.info("Drop message queue according to the latest assignmentList, mq={}, clientId={}", mq,
+                log.info("Drop message queue according to the latest assignmentList, mq={}, clientId={}", mq,
                     clientId);
                 dropProcessQueue(mq);
                 continue;
             }
 
             if (pq.expired()) {
-                LOGGER.warn("Drop message queue because it is expired, mq={}, clientId={}", mq, clientId);
+                log.warn("Drop message queue because it is expired, mq={}, clientId={}", mq, clientId);
                 dropProcessQueue(mq);
                 continue;
             }
@@ -360,7 +360,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
             }
             final Optional<ProcessQueue> optionalProcessQueue = createProcessQueue(mq, filterExpression);
             if (optionalProcessQueue.isPresent()) {
-                LOGGER.info("Start to fetch message from remote, mq={}, clientId={}", mq, clientId);
+                log.info("Start to fetch message from remote, mq={}, clientId={}", mq, clientId);
                 optionalProcessQueue.get().fetchMessageImmediately();
             }
         }
@@ -369,7 +369,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     @VisibleForTesting
     void scanAssignments() {
         try {
-            LOGGER.debug("Start to scan assignments periodically, clientId={}", clientId);
+            log.debug("Start to scan assignments periodically, clientId={}", clientId);
             for (Map.Entry<String, FilterExpression> entry : subscriptionExpressions.entrySet()) {
                 final String topic = entry.getKey();
                 final FilterExpression filterExpression = entry.getValue();
@@ -380,22 +380,22 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
                     public void onSuccess(Assignments latest) {
                         if (latest.getAssignmentList().isEmpty()) {
                             if (null == existed || existed.getAssignmentList().isEmpty()) {
-                                LOGGER.info("Acquired empty assignments from remote, would scan later, topic={}, "
+                                log.info("Acquired empty assignments from remote, would scan later, topic={}, "
                                     + "clientId={}", topic, clientId);
                                 return;
                             }
-                            LOGGER.info("Attention!!! acquired empty assignments from remote, but existed assignments"
+                            log.info("Attention!!! acquired empty assignments from remote, but existed assignments"
                                 + " is not empty, topic={}, clientId={}", topic, clientId);
                         }
 
                         if (!latest.equals(existed)) {
-                            LOGGER.info("Assignments of topic={} has changed, {} => {}, clientId={}", topic, existed,
+                            log.info("Assignments of topic={} has changed, {} => {}, clientId={}", topic, existed,
                                 latest, clientId);
                             syncProcessQueue(topic, latest, filterExpression);
                             cacheAssignments.put(topic, latest);
                             return;
                         }
-                        LOGGER.debug("Assignments of topic={} remains the same, assignments={}, clientId={}", topic,
+                        log.debug("Assignments of topic={} remains the same, assignments={}, clientId={}", topic,
                             existed, clientId);
                         // Process queue may be dropped, need to be synchronized anyway.
                         syncProcessQueue(topic, latest, filterExpression);
@@ -403,13 +403,13 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
 
                     @Override
                     public void onFailure(Throwable t) {
-                        LOGGER.error("Exception raised while scanning the assignments, topic={}, clientId={}", topic,
+                        log.error("Exception raised while scanning the assignments, topic={}, clientId={}", topic,
                             clientId, t);
                     }
                 }, MoreExecutors.directExecutor());
             }
         } catch (Throwable t) {
-            LOGGER.error("Exception raised while scanning the assignments for all topics, clientId={}", clientId, t);
+            log.error("Exception raised while scanning the assignments for all topics, clientId={}", clientId, t);
         }
     }
 
@@ -480,7 +480,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
                 try {
                     telemetry(endpoints, command);
                 } catch (Throwable t) {
-                    LOGGER.error("Failed to send message verification result command, endpoints={}, command={}, "
+                    log.error("Failed to send message verification result command, endpoints={}, command={}, "
                         + "messageId={}, clientId={}", endpoints, command, messageId, clientId, t);
                 }
             }
@@ -488,7 +488,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
             @Override
             public void onFailure(Throwable t) {
                 // Should never reach here.
-                LOGGER.error("[Bug] Failed to get message verification result, endpoints={}, messageId={}, "
+                log.error("[Bug] Failed to get message verification result, endpoints={}, messageId={}, "
                     + "clientId={}", endpoints, messageId, clientId, t);
             }
         }, MoreExecutors.directExecutor());
@@ -547,7 +547,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         final long consumptionOkQuantity = this.consumptionOkQuantity.getAndSet(0);
         final long consumptionErrorQuantity = this.consumptionErrorQuantity.getAndSet(0);
 
-        LOGGER.info("clientId={}, consumerGroup={}, receptionTimes={}, receivedMessagesQuantity={}, "
+        log.info("clientId={}, consumerGroup={}, receptionTimes={}, receivedMessagesQuantity={}, "
                 + "consumptionOkQuantity={}, consumptionErrorQuantity={}", clientId, consumerGroup, receptionTimes,
             receivedMessagesQuantity, consumptionOkQuantity, consumptionErrorQuantity);
         processQueueTable.values().forEach(ProcessQueue::doStats);

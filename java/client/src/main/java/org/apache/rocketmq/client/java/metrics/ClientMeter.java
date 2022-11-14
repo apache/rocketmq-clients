@@ -33,7 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ClientMeter {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ClientMeter.class);
+    private static final Logger log = LoggerFactory.getLogger(ClientMeter.class);
 
     private final boolean enabled;
     private final Meter meter;
@@ -81,14 +81,14 @@ public class ClientMeter {
         if (!enabled) {
             return;
         }
-        LOGGER.info("Begin to shutdown client meter, clientId={}, endpoints={}", clientId, endpoints);
+        log.info("Begin to shutdown client meter, clientId={}, endpoints={}", clientId, endpoints);
         final CountDownLatch latch = new CountDownLatch(1);
         provider.shutdown().whenComplete(latch::countDown);
         try {
             latch.await();
-            LOGGER.info("Shutdown client meter successfully, clientId={}, endpoints={}", clientId, endpoints);
+            log.info("Shutdown client meter successfully, clientId={}, endpoints={}", clientId, endpoints);
         } catch (Throwable t) {
-            LOGGER.error("Failed to shutdown message meter, clientId={}, endpoints={}", clientId, endpoints, t);
+            log.error("Failed to shutdown message meter, clientId={}, endpoints={}", clientId, endpoints, t);
         }
     }
 

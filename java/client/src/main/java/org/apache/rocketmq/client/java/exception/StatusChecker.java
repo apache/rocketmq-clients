@@ -27,7 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class StatusChecker {
-    private static final Logger LOGGER = LoggerFactory.getLogger(StatusChecker.class);
+    private static final Logger log = LoggerFactory.getLogger(StatusChecker.class);
 
     private StatusChecker() {
     }
@@ -97,7 +97,7 @@ public class StatusChecker {
             case VERIFY_FIFO_MESSAGE_UNSUPPORTED:
                 throw new UnsupportedException(codeNumber, requestId, statusMessage);
             default:
-                LOGGER.warn("Unrecognized status code={}, requestId={}, statusMessage={}, clientVersion={}",
+                log.warn("Unrecognized status code={}, requestId={}, statusMessage={}, clientVersion={}",
                     codeNumber, requestId, statusMessage, MetadataUtils.getVersion());
                 throw new UnsupportedException(codeNumber, requestId, statusMessage);
         }

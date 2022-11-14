@@ -47,7 +47,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageView {
-    private static final Logger LOGGER = LoggerFactory.getLogger(MessageViewImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(MessageViewImpl.class);
 
     final byte[] body;
     private final MessageId messageId;
@@ -269,7 +269,7 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
                     }
                 } catch (NoSuchAlgorithmException e) {
                     corrupted = true;
-                    LOGGER.error("MD5 is not supported unexpectedly, skip it, topic={}, messageId={}", topic,
+                    log.error("MD5 is not supported unexpectedly, skip it, topic={}, messageId={}", topic,
                         messageId);
                 }
                 break;
@@ -281,12 +281,12 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
                     }
                 } catch (NoSuchAlgorithmException e) {
                     corrupted = true;
-                    LOGGER.error("SHA-1 is not supported unexpectedly, skip it, topic={}, messageId={}", topic,
+                    log.error("SHA-1 is not supported unexpectedly, skip it, topic={}, messageId={}", topic,
                         messageId);
                 }
                 break;
             default:
-                LOGGER.error("Unsupported message body digest algorithm, digestType={}, topic={}, messageId={}",
+                log.error("Unsupported message body digest algorithm, digestType={}, topic={}, messageId={}",
                     digestType, topic, messageId);
         }
         final Encoding bodyEncoding = systemProperties.getBodyEncoding();
@@ -295,14 +295,14 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
                 try {
                     body = Utilities.uncompressBytesGzip(body);
                 } catch (IOException e) {
-                    LOGGER.error("Failed to uncompress message body, topic={}, messageId={}", topic, messageId);
+                    log.error("Failed to uncompress message body, topic={}, messageId={}", topic, messageId);
                     corrupted = true;
                 }
                 break;
             case IDENTITY:
                 break;
             default:
-                LOGGER.error("Unsupported message encoding algorithm, topic={}, messageId={}, bodyEncoding={}", topic,
+                log.error("Unsupported message encoding algorithm, topic={}, messageId={}, bodyEncoding={}", topic,
                     messageId, bodyEncoding);
         }
 

@@ -34,7 +34,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ConsumeTask implements Callable<ConsumeResult> {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ConsumeTask.class);
+    private static final Logger log = LoggerFactory.getLogger(ConsumeTask.class);
 
     private final ClientId clientId;
     private final MessageListener messageListener;
@@ -63,7 +63,7 @@ public class ConsumeTask implements Callable<ConsumeResult> {
         try {
             consumeResult = messageListener.consume(messageView);
         } catch (Throwable t) {
-            LOGGER.error("Message listener raised an exception while consuming messages, clientId={}", clientId, t);
+            log.error("Message listener raised an exception while consuming messages, clientId={}", clientId, t);
             // If exception was thrown during the period of message consumption, mark it as failure.
             consumeResult = ConsumeResult.FAILURE;
         }

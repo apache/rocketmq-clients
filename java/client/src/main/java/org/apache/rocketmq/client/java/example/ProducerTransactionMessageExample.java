@@ -34,7 +34,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ProducerTransactionMessageExample {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ProducerTransactionMessageExample.class);
+    private static final Logger log = LoggerFactory.getLogger(ProducerTransactionMessageExample.class);
 
     private ProducerTransactionMessageExample() {
     }
@@ -55,7 +55,7 @@ public class ProducerTransactionMessageExample {
             .build();
         String topic = "yourTransactionTopic";
         TransactionChecker checker = messageView -> {
-            LOGGER.info("Receive transactional message check, message={}", messageView);
+            log.info("Receive transactional message check, message={}", messageView);
             // Return the transaction resolution according to your business logic.
             return TransactionResolution.COMMIT;
         };
@@ -82,9 +82,9 @@ public class ProducerTransactionMessageExample {
             .build();
         try {
             final SendReceipt sendReceipt = producer.send(message, transaction);
-            LOGGER.info("Send transaction message successfully, messageId={}", sendReceipt.getMessageId());
+            log.info("Send transaction message successfully, messageId={}", sendReceipt.getMessageId());
         } catch (Throwable t) {
-            LOGGER.error("Failed to send message", t);
+            log.error("Failed to send message", t);
             return;
         }
         // Commit the transaction.

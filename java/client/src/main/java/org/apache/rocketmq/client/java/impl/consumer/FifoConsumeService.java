@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("UnstableApiUsage")
 class FifoConsumeService extends ConsumeService {
-    private static final Logger LOGGER = LoggerFactory.getLogger(FifoConsumeService.class);
+    private static final Logger log = LoggerFactory.getLogger(FifoConsumeService.class);
 
     public FifoConsumeService(ClientId clientId, MessageListener messageListener,
         ThreadPoolExecutor consumptionExecutor, MessageInterceptor messageInterceptor,
@@ -54,7 +54,7 @@ class FifoConsumeService extends ConsumeService {
         final MessageViewImpl messageView = iterator.next();
         if (messageView.isCorrupted()) {
             // Discard corrupted message.
-            LOGGER.error("Message is corrupted for FIFO consumption, prepare to discard it, mq={}, messageId={}, "
+            log.error("Message is corrupted for FIFO consumption, prepare to discard it, mq={}, messageId={}, "
                 + "clientId={}", pq.getMessageQueue(), messageView.getMessageId(), clientId);
             pq.discardFifoMessage(messageView);
             consumeIteratively(pq, iterator);

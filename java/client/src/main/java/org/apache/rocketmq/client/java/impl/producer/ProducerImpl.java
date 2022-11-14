@@ -86,7 +86,7 @@ import org.slf4j.LoggerFactory;
  */
 @SuppressWarnings({"UnstableApiUsage", "NullableProblems"})
 class ProducerImpl extends ClientImpl implements Producer {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ProducerImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(ProducerImpl.class);
 
     protected final PublishingSettings publishingSettings;
     final ConcurrentMap<String/* topic */, PublishingLoadBalancer> publishingRouteDataCache;
@@ -109,11 +109,11 @@ class ProducerImpl extends ClientImpl implements Producer {
     @Override
     protected void startUp() throws Exception {
         try {
-            LOGGER.info("Begin to start the rocketmq producer, clientId={}", clientId);
+            log.info("Begin to start the rocketmq producer, clientId={}", clientId);
             super.startUp();
-            LOGGER.info("The rocketmq producer starts successfully, clientId={}", clientId);
+            log.info("The rocketmq producer starts successfully, clientId={}", clientId);
         } catch (Throwable t) {
-            LOGGER.error("Failed to start the rocketmq producer, try to shutdown it, clientId={}", clientId, t);
+            log.error("Failed to start the rocketmq producer, try to shutdown it, clientId={}", clientId, t);
             shutDown();
             throw t;
         }
@@ -121,9 +121,9 @@ class ProducerImpl extends ClientImpl implements Producer {
 
     @Override
     protected void shutDown() throws InterruptedException {
-        LOGGER.info("Begin to shutdown the rocketmq producer, clientId={}", clientId);
+        log.info("Begin to shutdown the rocketmq producer, clientId={}", clientId);
         super.shutDown();
-        LOGGER.info("Shutdown the rocketmq producer successfully, clientId={}", clientId);
+        log.info("Shutdown the rocketmq producer successfully, clientId={}", clientId);
     }
 
     @Override
@@ -131,7 +131,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         final String transactionId = command.getTransactionId();
         final String messageId = command.getMessage().getSystemProperties().getMessageId();
         if (null == checker) {
-            LOGGER.error("No transaction checker registered, ignore it, messageId={}, transactionId={}, endpoints={},"
+            log.error("No transaction checker registered, ignore it, messageId={}, transactionId={}, endpoints={},"
                 + " clientId={}", messageId, transactionId, endpoints, clientId);
             return;
         }
@@ -139,7 +139,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         try {
             messageView = MessageViewImpl.fromProtobuf(command.getMessage());
         } catch (Throwable t) {
-            LOGGER.error("[Bug] Failed to decode message during orphaned transaction message recovery, messageId={}, "
+            log.error("[Bug] Failed to decode message during orphaned transaction message recovery, messageId={}, "
                 + "transactionId={}, endpoints={}, clientId={}", messageId, transactionId, endpoints, clientId, t);
             return;
         }
@@ -164,14 +164,14 @@ class ProducerImpl extends ClientImpl implements Producer {
                     endTransaction(endpoints, generalMessage, messageView.getMessageId(),
                         transactionId, resolution);
                 } catch (Throwable t) {
-                    LOGGER.error("Exception raised while ending the transaction, messageId={}, transactionId={}, "
+                    log.error("Exception raised while ending the transaction, messageId={}, transactionId={}, "
                         + "endpoints={}, clientId={}", messageId, transactionId, endpoints, clientId, t);
                 }
             }
 
             @Override
             public void onFailure(Throwable t) {
-                LOGGER.error("Exception raised while checking the transaction, messageId={}, transactionId={}, "
+                log.error("Exception raised while checking the transaction, messageId={}, transactionId={}, "
                     + "endpoints={}, clientId={}", messageId, transactionId, endpoints, clientId, t);
 
             }
@@ -242,7 +242,7 @@ class ProducerImpl extends ClientImpl implements Producer {
     public Transaction beginTransaction() {
         checkNotNull(checker, "Transaction checker should not be null");
         if (!this.isRunning()) {
-            LOGGER.error("Unable to begin a transaction because producer is not running, state={}, clientId={}",
+            log.error("Unable to begin a transaction because producer is not running, state={}, clientId={}",
                 this.state(), clientId);
             throw new IllegalStateException("Producer is not running now");
         }
@@ -329,7 +329,7 @@ class ProducerImpl extends ClientImpl implements Producer {
         if (!this.isRunning()) {
             final IllegalStateException e = new IllegalStateException("Producer is not running now");
             future.setException(e);
-            LOGGER.error("Unable to send message because producer is not running, state={}, clientId={}",
+            log.error("Unable to send message because producer is not running, state={}, clientId={}",
                 this.state(), clientId);
             return future;
         }
@@ -342,7 +342,7 @@ class ProducerImpl extends ClientImpl implements Producer {
                 pubMessages.add(pubMessage);
             } catch (Throwable t) {
                 // Failed to refine message, no need to proceed.
-                LOGGER.error("Failed to refine message to send, clientId={}, message={}", clientId, message, t);
+                log.error("Failed to refine message to send, clientId={}, message={}", clientId, message, t);
                 future.setException(t);
                 return future;
             }
@@ -354,7 +354,7 @@ class ProducerImpl extends ClientImpl implements Producer {
             // Messages have different topics, no need to proceed.
             final IllegalArgumentException e = new IllegalArgumentException("Messages to send have different topics");
             future.setException(e);
-            LOGGER.error("Messages to be sent have different topics, no need to proceed, topic(s)={}, clientId={}",
+            log.error("Messages to be sent have different topics, no need to proceed, topic(s)={}, clientId={}",
                 topics, clientId);
             return future;
         }
@@ -369,7 +369,7 @@ class ProducerImpl extends ClientImpl implements Producer {
             final IllegalArgumentException e = new IllegalArgumentException("Messages to send have different types, "
                 + "please check");
             future.setException(e);
-            LOGGER.error("Messages to be sent have different message types, no need to proceed, topic={}, messageType"
+            log.error("Messages to be sent have different message types, no need to proceed, topic={}, messageType"
                 + "(s)={}, clientId={}", topic, messageTypes, clientId, e);
             return future;
         }
@@ -387,7 +387,7 @@ class ProducerImpl extends ClientImpl implements Producer {
                 final IllegalArgumentException e = new IllegalArgumentException("FIFO messages to send have different "
                     + "message groups, messageGroups=" + messageGroups);
                 future.setException(e);
-                LOGGER.error("FIFO messages to be sent have different message groups, no need to proceed, topic={}, "
+                log.error("FIFO messages to be sent have different message groups, no need to proceed, topic={}, "
                     + "messageGroups={}, clientId={}", topic, messageGroups, clientId, e);
                 return future;
             }
@@ -484,7 +484,7 @@ class ProducerImpl extends ClientImpl implements Producer {
                     for (SendReceipt receipt : sendReceipts) {
                         messageIds.add(receipt.getMessageId());
                     }
-                    LOGGER.info("Resend message successfully, topic={}, messageId(s)={}, maxAttempts={}, "
+                    log.info("Resend message successfully, topic={}, messageId(s)={}, maxAttempts={}, "
                             + "attempt={}, endpoints={}, clientId={}", topic, messageIds, maxAttempts, attempt,
                         endpoints, clientId);
                 }
@@ -508,7 +508,7 @@ class ProducerImpl extends ClientImpl implements Producer {
                 if (attempt >= maxAttempts) {
                     // No need more attempts.
                     future0.setException(t);
-                    LOGGER.error("Failed to send message(s) finally, run out of attempt times, maxAttempts={}, " +
+                    log.error("Failed to send message(s) finally, run out of attempt times, maxAttempts={}, " +
                             "attempt={}, topic={}, messageId(s)={}, endpoints={}, clientId={}",
                         maxAttempts, attempt, topic, messageIds, endpoints, clientId, t);
                     return;
@@ -516,7 +516,7 @@ class ProducerImpl extends ClientImpl implements Producer {
                 // No need more attempts for transactional message.
                 if (MessageType.TRANSACTION.equals(messageType)) {
                     future0.setException(t);
-                    LOGGER.error("Failed to send transactional message finally, maxAttempts=1, attempt={}, " +
+                    log.error("Failed to send transactional message finally, maxAttempts=1, attempt={}, " +
                             "topic={}, messageId(s)={}, endpoints={}, clientId={}", attempt, topic, messageIds,
                         endpoints, clientId, t);
                     return;
@@ -525,14 +525,14 @@ class ProducerImpl extends ClientImpl implements Producer {
                 int nextAttempt = 1 + attempt;
                 // Retry immediately if the request is not throttled.
                 if (!(t instanceof TooManyRequestsException)) {
-                    LOGGER.warn("Failed to send message, would attempt to resend right now, maxAttempts={}, "
+                    log.warn("Failed to send message, would attempt to resend right now, maxAttempts={}, "
                             + "attempt={}, topic={}, messageId(s)={}, endpoints={}, clientId={}", maxAttempts, attempt,
                         topic, messageIds, endpoints, clientId, t);
                     send0(future0, topic, messageType, candidates, messages, nextAttempt);
                     return;
                 }
                 final Duration delay = ProducerImpl.this.getRetryPolicy().getNextAttemptDelay(nextAttempt);
-                LOGGER.warn("Failed to send message due to too many requests, would attempt to resend after {}, "
+                log.warn("Failed to send message due to too many requests, would attempt to resend after {}, "
                         + "maxAttempts={}, attempt={}, topic={}, messageId(s)={}, endpoints={}, clientId={}", delay,
                     maxAttempts, attempt, topic, messageIds, endpoints, clientId, t);
                 ProducerImpl.this.getClientManager().getScheduler().schedule(() -> send0(future0, topic, messageType,

@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
     static final Duration REQUEST_OBSERVER_RENEW_BACKOFF_DELAY = Duration.ofSeconds(1);
-    private static final Logger LOGGER = LoggerFactory.getLogger(ClientSessionImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(ClientSessionImpl.class);
     private static final long SETTINGS_INITIALIZATION_TIMEOUT_MILLIS = 3000;
 
     private final ClientSessionHandler sessionHandler;
@@ -59,20 +59,20 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
         final ClientId clientId = sessionHandler.getClientId();
         try {
             if (sessionHandler.isEndpointsDeprecated(endpoints)) {
-                LOGGER.info("Endpoints is deprecated, no longer to renew requestObserver, endpoints={}, clientId={}",
+                log.info("Endpoints is deprecated, no longer to renew requestObserver, endpoints={}, clientId={}",
                     endpoints, clientId);
                 return;
             }
-            LOGGER.info("Try to renew requestObserver, endpoints={}, clientId={}", endpoints, clientId);
+            log.info("Try to renew requestObserver, endpoints={}, clientId={}", endpoints, clientId);
             this.requestObserver = sessionHandler.telemetry(endpoints, this);
         } catch (Throwable t) {
-            LOGGER.error("Failed to renew requestObserver, attempt to renew later, endpoints={}, delay={}, clientId={}",
+            log.error("Failed to renew requestObserver, attempt to renew later, endpoints={}, delay={}, clientId={}",
                 endpoints, REQUEST_OBSERVER_RENEW_BACKOFF_DELAY, clientId, t);
             sessionHandler.getScheduler().schedule(this::renewRequestObserver,
                 REQUEST_OBSERVER_RENEW_BACKOFF_DELAY.toNanos(), TimeUnit.NANOSECONDS);
             return;
         }
-        LOGGER.info("Sync setting to remote after requestObserver is renewed, endpoints={}, clientId={}", endpoints,
+        log.info("Sync setting to remote after requestObserver is renewed, endpoints={}, clientId={}", endpoints,
             clientId);
         syncSettings0();
     }
@@ -93,11 +93,11 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
     public void release() {
         final ClientId clientId = sessionHandler.getClientId();
         if (null == requestObserver) {
-            LOGGER.error("[Bug] request observer does not exist, no need to release, endpoints={}, clientId={}",
+            log.error("[Bug] request observer does not exist, no need to release, endpoints={}, clientId={}",
                 endpoints, clientId);
             return;
         }
-        LOGGER.info("Begin to release client session, endpoints={}, clientId={}", endpoints, clientId);
+        log.info("Begin to release client session, endpoints={}, clientId={}", endpoints, clientId);
         try {
             requestObserver.onCompleted();
         } catch (Throwable ignore) {
@@ -107,7 +107,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
 
     void write(TelemetryCommand command) {
         if (null == requestObserver) {
-            LOGGER.error("[Bug] Request observer does not exist, ignore current command, endpoints={}, command={}, "
+            log.error("[Bug] Request observer does not exist, ignore current command, endpoints={}, command={}, "
                 + "clientId={}", endpoints, command, sessionHandler.getClientId());
             return;
         }
@@ -121,7 +121,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
             switch (command.getCommandCase()) {
                 case SETTINGS: {
                     final Settings settings = command.getSettings();
-                    LOGGER.info("Receive settings from remote, endpoints={}, clientId={}", endpoints, clientId);
+                    log.info("Receive settings from remote, endpoints={}, clientId={}", endpoints, clientId);
                     sessionHandler.onSettingsCommand(endpoints, settings);
                     settingsSettableFuture.set(settings);
                     break;
@@ -129,14 +129,14 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
                 case RECOVER_ORPHANED_TRANSACTION_COMMAND: {
                     final RecoverOrphanedTransactionCommand recoverOrphanedTransactionCommand =
                         command.getRecoverOrphanedTransactionCommand();
-                    LOGGER.info("Receive orphaned transaction recovery command from remote, endpoints={}, "
+                    log.info("Receive orphaned transaction recovery command from remote, endpoints={}, "
                         + "clientId={}", endpoints, clientId);
                     sessionHandler.onRecoverOrphanedTransactionCommand(endpoints, recoverOrphanedTransactionCommand);
                     break;
                 }
                 case VERIFY_MESSAGE_COMMAND: {
                     final VerifyMessageCommand verifyMessageCommand = command.getVerifyMessageCommand();
-                    LOGGER.info("Receive message verification command from remote, endpoints={}, clientId={}",
+                    log.info("Receive message verification command from remote, endpoints={}, clientId={}",
                         endpoints, clientId);
                     sessionHandler.onVerifyMessageCommand(endpoints, verifyMessageCommand);
                     break;
@@ -144,17 +144,17 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
                 case PRINT_THREAD_STACK_TRACE_COMMAND: {
                     final PrintThreadStackTraceCommand printThreadStackTraceCommand =
                         command.getPrintThreadStackTraceCommand();
-                    LOGGER.info("Receive thread stack print command from remote, endpoints={}, clientId={}",
+                    log.info("Receive thread stack print command from remote, endpoints={}, clientId={}",
                         endpoints, clientId);
                     sessionHandler.onPrintThreadStackTraceCommand(endpoints, printThreadStackTraceCommand);
                     break;
                 }
                 default:
-                    LOGGER.warn("Receive unrecognized command from remote, endpoints={}, command={}, clientId={}",
+                    log.warn("Receive unrecognized command from remote, endpoints={}, command={}, clientId={}",
                         endpoints, command, clientId);
             }
         } catch (Throwable t) {
-            LOGGER.error("[Bug] unexpected exception raised while receiving command from remote, command={}, "
+            log.error("[Bug] unexpected exception raised while receiving command from remote, command={}, "
                 + "clientId={}", command, clientId, t);
         }
     }
@@ -162,11 +162,11 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
     @Override
     public void onError(Throwable throwable) {
         final ClientId clientId = sessionHandler.getClientId();
-        LOGGER.error("Exception raised from stream response observer, clientId={}, endpoints={}", clientId, endpoints,
+        log.error("Exception raised from stream response observer, clientId={}, endpoints={}", clientId, endpoints,
             throwable);
         release();
         if (!sessionHandler.isRunning()) {
-            LOGGER.info("Session handler is not running, forgive to renew request observer, clientId={}, "
+            log.info("Session handler is not running, forgive to renew request observer, clientId={}, "
                 + "endpoints={}", clientId, endpoints);
             return;
         }
@@ -177,10 +177,10 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
     @Override
     public void onCompleted() {
         final ClientId clientId = sessionHandler.getClientId();
-        LOGGER.info("Receive completion for stream response observer, clientId={}, endpoints={}", clientId, endpoints);
+        log.info("Receive completion for stream response observer, clientId={}, endpoints={}", clientId, endpoints);
         release();
         if (!sessionHandler.isRunning()) {
-            LOGGER.info("Session handler is not running, forgive to renew request observer, clientId={}, "
+            log.info("Session handler is not running, forgive to renew request observer, clientId={}, "
                 + "endpoints={}", clientId, endpoints);
             return;
         }

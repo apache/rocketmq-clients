@@ -39,7 +39,7 @@ public class MessageMeterInterceptor implements MessageInterceptor {
     static final AttributeKey<Stopwatch> SEND_STOPWATCH_KEY = AttributeKey.create("send_stopwatch");
     static final AttributeKey<Stopwatch> CONSUME_STOPWATCH_KEY = AttributeKey.create("consume_stopwatch");
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(MessageMeterInterceptor.class);
+    private static final Logger log = LoggerFactory.getLogger(MessageMeterInterceptor.class);
 
     private final Client client;
     private final ClientMeterManager meterManager;
@@ -83,7 +83,7 @@ public class MessageMeterInterceptor implements MessageInterceptor {
             consumerGroup = ((SimpleConsumer) client).getConsumerGroup();
         }
         if (null == consumerGroup) {
-            LOGGER.error("[Bug] consumerGroup is not recognized, clientId={}", client.getClientId());
+            log.error("[Bug] consumerGroup is not recognized, clientId={}", client.getClientId());
             return;
         }
         final GeneralMessage message = messages.iterator().next();
@@ -95,7 +95,7 @@ public class MessageMeterInterceptor implements MessageInterceptor {
         final long currentTimeMillis = System.currentTimeMillis();
         final long latency = currentTimeMillis - transportDeliveryTimestamp;
         if (0 > latency) {
-            LOGGER.debug("latency is negative, latency={}ms, currentTimeMillis={}, transportDeliveryTimestamp={}",
+            log.debug("latency is negative, latency={}ms, currentTimeMillis={}, transportDeliveryTimestamp={}",
                 latency, currentTimeMillis, transportDeliveryTimestamp);
             return;
         }
@@ -115,7 +115,7 @@ public class MessageMeterInterceptor implements MessageInterceptor {
             consumerGroup = ((PushConsumer) client).getConsumerGroup();
         }
         if (null == consumerGroup) {
-            LOGGER.error("[Bug] consumerGroup is not recognized, clientId={}", client.getClientId());
+            log.error("[Bug] consumerGroup is not recognized, clientId={}", client.getClientId());
             return;
         }
         final GeneralMessage message = messages.iterator().next();
@@ -136,7 +136,7 @@ public class MessageMeterInterceptor implements MessageInterceptor {
     private void doAfterConsumeMessage(MessageInterceptorContext context, List<GeneralMessage> messages) {
         if (!(client instanceof PushConsumer)) {
             // Should never reach here.
-            LOGGER.error("[Bug] current client is not push consumer, clientId={}", client.getClientId());
+            log.error("[Bug] current client is not push consumer, clientId={}", client.getClientId());
             return;
         }
         final Attribute<Stopwatch> stopwatchAttr = context.getAttribute(CONSUME_STOPWATCH_KEY);

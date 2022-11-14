@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("NullableProblems")
 public class StandardConsumeService extends ConsumeService {
-    private static final Logger LOGGER = LoggerFactory.getLogger(StandardConsumeService.class);
+    private static final Logger log = LoggerFactory.getLogger(StandardConsumeService.class);
 
     public StandardConsumeService(ClientId clientId, MessageListener messageListener,
         ThreadPoolExecutor consumptionExecutor, MessageInterceptor messageInterceptor,
@@ -47,7 +47,7 @@ public class StandardConsumeService extends ConsumeService {
         for (MessageViewImpl messageView : messageViews) {
             // Discard corrupted message.
             if (messageView.isCorrupted()) {
-                LOGGER.error("Message is corrupted for standard consumption, prepare to discard it, mq={}, "
+                log.error("Message is corrupted for standard consumption, prepare to discard it, mq={}, "
                     + "messageId={}, clientId={}", pq.getMessageQueue(), messageView.getMessageId(), clientId);
                 pq.discardMessage(messageView);
                 continue;
@@ -62,7 +62,7 @@ public class StandardConsumeService extends ConsumeService {
                 @Override
                 public void onFailure(Throwable t) {
                     // Should never reach here.
-                    LOGGER.error("[Bug] Exception raised in consumption callback, clientId={}", clientId, t);
+                    log.error("[Bug] Exception raised in consumption callback, clientId={}", clientId, t);
                 }
             }, MoreExecutors.directExecutor());
         }

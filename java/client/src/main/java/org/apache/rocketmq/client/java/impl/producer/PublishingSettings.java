@@ -35,7 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class PublishingSettings extends Settings {
-    private static final Logger LOGGER = LoggerFactory.getLogger(PublishingSettings.class);
+    private static final Logger log = LoggerFactory.getLogger(PublishingSettings.class);
 
     private final Set<String> topics;
     /**
@@ -73,7 +73,7 @@ public class PublishingSettings extends Settings {
     public void sync(apache.rocketmq.v2.Settings settings) {
         final apache.rocketmq.v2.Settings.PubSubCase pubSubCase = settings.getPubSubCase();
         if (!apache.rocketmq.v2.Settings.PubSubCase.PUBLISHING.equals(pubSubCase)) {
-            LOGGER.error("[Bug] Issued settings not match with the client type, clientId={}, pubSubCase={}, "
+            log.error("[Bug] Issued settings not match with the client type, clientId={}, pubSubCase={}, "
                 + "clientType={}", clientId, pubSubCase, clientType);
             return;
         }

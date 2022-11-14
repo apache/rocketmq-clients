@@ -58,7 +58,7 @@ import org.slf4j.LoggerFactory;
  */
 @SuppressWarnings("UnstableApiUsage")
 class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
-    private static final Logger LOGGER = LoggerFactory.getLogger(SimpleConsumerImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(SimpleConsumerImpl.class);
 
     private final SimpleSubscriptionSettings simpleSubscriptionSettings;
     private final String consumerGroup;
@@ -87,11 +87,11 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     @Override
     protected void startUp() throws Exception {
         try {
-            LOGGER.info("Begin to start the rocketmq simple consumer, clientId={}", clientId);
+            log.info("Begin to start the rocketmq simple consumer, clientId={}", clientId);
             super.startUp();
-            LOGGER.info("The rocketmq simple consumer starts successfully, clientId={}", clientId);
+            log.info("The rocketmq simple consumer starts successfully, clientId={}", clientId);
         } catch (Throwable t) {
-            LOGGER.error("Failed to start the rocketmq simple consumer, try to shutdown it, clientId={}", clientId, t);
+            log.error("Failed to start the rocketmq simple consumer, try to shutdown it, clientId={}", clientId, t);
             shutDown();
             throw t;
         }
@@ -99,9 +99,9 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
 
     @Override
     protected void shutDown() throws InterruptedException {
-        LOGGER.info("Begin to shutdown the rocketmq simple consumer, clientId={}", clientId);
+        log.info("Begin to shutdown the rocketmq simple consumer, clientId={}", clientId);
         super.shutDown();
-        LOGGER.info("Shutdown the rocketmq simple consumer successfully, clientId={}", clientId);
+        log.info("Shutdown the rocketmq simple consumer successfully, clientId={}", clientId);
     }
 
     /**
@@ -119,7 +119,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     public SimpleConsumer subscribe(String topic, FilterExpression filterExpression) throws ClientException {
         // Check consumer status.
         if (!this.isRunning()) {
-            LOGGER.error("Unable to add subscription because simple consumer is not running, state={}, clientId={}",
+            log.error("Unable to add subscription because simple consumer is not running, state={}, clientId={}",
                 this.state(), clientId);
             throw new IllegalStateException("Simple consumer is not running now");
         }
@@ -136,7 +136,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     public SimpleConsumer unsubscribe(String topic) {
         // Check consumer status.
         if (!this.isRunning()) {
-            LOGGER.error("Unable to remove subscription because simple consumer is not running, state={}, "
+            log.error("Unable to remove subscription because simple consumer is not running, state={}, "
                 + "clientId={}", this.state(), clientId);
             throw new IllegalStateException("Simple consumer is not running now");
         }
@@ -172,7 +172,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
 
     public ListenableFuture<List<MessageView>> receive0(int maxMessageNum, Duration invisibleDuration) {
         if (!this.isRunning()) {
-            LOGGER.error("Unable to receive message because simple consumer is not running, state={}, clientId={}",
+            log.error("Unable to receive message because simple consumer is not running, state={}, clientId={}",
                 this.state(), clientId);
             final IllegalStateException e = new IllegalStateException("Simple consumer is not running now");
             return Futures.immediateFailedFuture(e);
@@ -222,7 +222,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     private ListenableFuture<Void> ack0(MessageView messageView) {
         // Check consumer status.
         if (!this.isRunning()) {
-            LOGGER.error("Unable to ack message because simple consumer is not running, state={}, clientId={}",
+            log.error("Unable to ack message because simple consumer is not running, state={}, clientId={}",
                 this.state(), clientId);
             final IllegalStateException e = new IllegalStateException("Simple consumer is not running now");
             return Futures.immediateFailedFuture(e);
@@ -262,7 +262,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     public ListenableFuture<Void> changeInvisibleDuration0(MessageView messageView, Duration invisibleDuration) {
         // Check consumer status.
         if (!this.isRunning()) {
-            LOGGER.error("Unable to change invisible duration because simple consumer is not running, state={}, "
+            log.error("Unable to change invisible duration because simple consumer is not running, state={}, "
                 + "clientId={}", this.state(), clientId);
             final IllegalStateException e = new IllegalStateException("Simple consumer is not running now");
             return Futures.immediateFailedFuture(e);

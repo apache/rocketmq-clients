@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
  * The client log interceptor based on grpc can track any remote procedure call that interacts with the client locally.
  */
 public class LoggingInterceptor implements ClientInterceptor {
-    private static final Logger LOGGER = LoggerFactory.getLogger(LoggingInterceptor.class);
+    private static final Logger log = LoggerFactory.getLogger(LoggingInterceptor.class);
 
     private static final LoggingInterceptor INSTANCE = new LoggingInterceptor();
 
@@ -53,20 +53,20 @@ public class LoggingInterceptor implements ClientInterceptor {
         return new ForwardingClientCall.SimpleForwardingClientCall<T, E>(next.newCall(method, callOptions)) {
             @Override
             public void start(Listener<E> responseListener, final Metadata headers) {
-                LOGGER.trace("gRPC request header, rpcId={}, serviceName={}, methodName={}, authority={}, headers={}",
+                log.trace("gRPC request header, rpcId={}, serviceName={}, methodName={}, authority={}, headers={}",
                     rpcId, serviceName, methodName, authority, headers);
                 Listener<E> observabilityListener =
                     new ForwardingClientCallListener.SimpleForwardingClientCallListener<E>(responseListener) {
                         @Override
                         public void onMessage(E response) {
-                            LOGGER.trace("gRPC response, rpcId={}, serviceName={}, methodName={}, content:\n{}",
+                            log.trace("gRPC response, rpcId={}, serviceName={}, methodName={}, content:\n{}",
                                 rpcId, serviceName, methodName, response);
                             super.onMessage(response);
                         }
 
                         @Override
                         public void onHeaders(Metadata headers) {
-                            LOGGER.trace("gRPC response header, rpcId={}, serviceName={}, methodName={}, "
+                            log.trace("gRPC response header, rpcId={}, serviceName={}, methodName={}, "
                                 + "authority={}, headers={}", rpcId, serviceName, methodName, authority, headers);
                             super.onHeaders(headers);
                         }
@@ -76,7 +76,7 @@ public class LoggingInterceptor implements ClientInterceptor {
 
             @Override
             public void sendMessage(T request) {
-                LOGGER.trace("gRPC request, rpcId={}, serviceName={}, methodName={}, content:\n{}", rpcId,
+                log.trace("gRPC request, rpcId={}, serviceName={}, methodName={}, content:\n{}", rpcId,
                     serviceName, methodName, request);
                 super.sendMessage(request);
             }

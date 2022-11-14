@@ -47,7 +47,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ClientMeterManager {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ClientMeterManager.class);
+    private static final Logger log = LoggerFactory.getLogger(ClientMeterManager.class);
 
     private static final Duration METRIC_EXPORTER_RPC_TIMEOUT = Duration.ofSeconds(3);
     private static final Duration METRIC_READER_INTERVAL = Duration.ofMinutes(1);
@@ -80,12 +80,12 @@ public class ClientMeterManager {
     public synchronized void reset(Metric metric) {
         try {
             if (clientMeter.satisfy(metric)) {
-                LOGGER.info("Metric settings is satisfied by the current message meter, metric={}, clientId={}",
+                log.info("Metric settings is satisfied by the current message meter, metric={}, clientId={}",
                     metric, clientId);
                 return;
             }
             if (!metric.isOn()) {
-                LOGGER.info("Metric is off, clientId={}", clientId);
+                log.info("Metric is off, clientId={}", clientId);
                 clientMeter.shutdown();
                 clientMeter = ClientMeter.disabledInstance(clientId);
                 return;
@@ -142,7 +142,7 @@ public class ClientMeterManager {
             ClientMeter existedClientMeter = clientMeter;
             clientMeter = new ClientMeter(meter, endpoints, provider, clientId);
             existedClientMeter.shutdown();
-            LOGGER.info("Metrics is on, endpoints={}, clientId={}", endpoints, clientId);
+            log.info("Metrics is on, endpoints={}, clientId={}", endpoints, clientId);
 
             final List<GaugeEnum> gauges = gaugeObserver.getGauges();
             for (GaugeEnum gauge : gauges) {
@@ -159,7 +159,7 @@ public class ClientMeterManager {
                 });
             }
         } catch (Throwable t) {
-            LOGGER.error("Exception raised when resetting message meter, clientId={}", clientId, t);
+            log.error("Exception raised when resetting message meter, clientId={}", clientId, t);
         }
     }
 

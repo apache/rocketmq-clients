@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("rawtypes")
 public class CompositedMessageInterceptor implements MessageInterceptor {
-    private static final Logger LOGGER = LoggerFactory.getLogger(MessageInterceptor.class);
+    private static final Logger log = LoggerFactory.getLogger(MessageInterceptor.class);
     private static final AttributeKey<Map<Integer, Map<AttributeKey, Attribute>>> INTERCEPTOR_ATTRIBUTES_KEY =
         AttributeKey.create("composited_interceptor_attributes");
     private final List<MessageInterceptor> interceptors;
@@ -46,7 +46,7 @@ public class CompositedMessageInterceptor implements MessageInterceptor {
             try {
                 interceptor.doBefore(context, messages);
             } catch (Throwable t) {
-                LOGGER.error("Exception raised while handing messages", t);
+                log.error("Exception raised while handing messages", t);
             }
             final Map<AttributeKey, Attribute> attributes = context.getAttributes();
             attributeMap.put(index, attributes);
@@ -68,7 +68,7 @@ public class CompositedMessageInterceptor implements MessageInterceptor {
             try {
                 interceptor.doAfter(context, messages);
             } catch (Throwable t) {
-                LOGGER.error("Exception raised while handing messages", t);
+                log.error("Exception raised while handing messages", t);
             }
         }
     }

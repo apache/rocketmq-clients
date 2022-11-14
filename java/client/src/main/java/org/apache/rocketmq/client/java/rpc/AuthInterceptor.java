@@ -30,7 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class AuthInterceptor implements ClientInterceptor {
-    private static final Logger LOGGER = LoggerFactory.getLogger(AuthInterceptor.class);
+    private static final Logger log = LoggerFactory.getLogger(AuthInterceptor.class);
 
     private final ClientConfiguration clientConfiguration;
     private final ClientId clientId;
@@ -45,7 +45,7 @@ public class AuthInterceptor implements ClientInterceptor {
             final Metadata metadata = Signature.sign(clientConfiguration, clientId);
             headers.merge(metadata);
         } catch (Throwable t) {
-            LOGGER.error("Failed to sign headers, clientId={}", clientId, t);
+            log.error("Failed to sign headers, clientId={}", clientId, t);
         }
     }
 

@@ -32,7 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class PushConsumerExample {
-    private static final Logger LOGGER = LoggerFactory.getLogger(PushConsumerExample.class);
+    private static final Logger log = LoggerFactory.getLogger(PushConsumerExample.class);
 
     private PushConsumerExample() {
     }
@@ -63,7 +63,7 @@ public class PushConsumerExample {
             .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
             .setMessageListener(messageView -> {
                 // Handle the received message and return consume result.
-                LOGGER.info("Consume message={}", messageView);
+                log.info("Consume message={}", messageView);
                 return ConsumeResult.SUCCESS;
             })
             .build();
