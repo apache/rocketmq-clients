@@ -41,7 +41,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class PushSubscriptionSettings extends Settings {
-    private static final Logger LOGGER = LoggerFactory.getLogger(PushSubscriptionSettings.class);
+    private static final Logger log = LoggerFactory.getLogger(PushSubscriptionSettings.class);
 
     private final Resource group;
     private final Map<String, FilterExpression> subscriptionExpressions;
@@ -86,7 +86,7 @@ public class PushSubscriptionSettings extends Settings {
                     expressionBuilder.setType(FilterType.SQL);
                     break;
                 default:
-                    LOGGER.warn("[Bug] Unrecognized filter type, type={}", type);
+                    log.warn("[Bug] Unrecognized filter type, type={}", type);
             }
             SubscriptionEntry subscriptionEntry =
                 SubscriptionEntry.newBuilder().setTopic(topic).setExpression(expressionBuilder.build()).build();
@@ -103,7 +103,7 @@ public class PushSubscriptionSettings extends Settings {
     public void sync(apache.rocketmq.v2.Settings settings) {
         final apache.rocketmq.v2.Settings.PubSubCase pubSubCase = settings.getPubSubCase();
         if (!apache.rocketmq.v2.Settings.PubSubCase.SUBSCRIPTION.equals(pubSubCase)) {
-            LOGGER.error("[Bug] Issued settings not match with the client type, clientId={}, pubSubCase={}, "
+            log.error("[Bug] Issued settings not match with the client type, clientId={}, pubSubCase={}, "
                 + "clientType={}", clientId, pubSubCase, clientType);
             return;
         }

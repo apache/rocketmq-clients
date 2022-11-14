@@ -31,7 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ProducerNormalMessageExample {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ProducerNormalMessageExample.class);
+    private static final Logger log = LoggerFactory.getLogger(ProducerNormalMessageExample.class);
 
     private ProducerNormalMessageExample() {
     }
@@ -72,9 +72,9 @@ public class ProducerNormalMessageExample {
             .build();
         try {
             final SendReceipt sendReceipt = producer.send(message);
-            LOGGER.info("Send message successfully, messageId={}", sendReceipt.getMessageId());
+            log.info("Send message successfully, messageId={}", sendReceipt.getMessageId());
         } catch (Throwable t) {
-            LOGGER.error("Failed to send message", t);
+            log.error("Failed to send message", t);
         }
         // Close the producer when you don't need it anymore.
         producer.close();

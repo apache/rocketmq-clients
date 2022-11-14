@@ -94,7 +94,7 @@ import org.slf4j.LoggerFactory;
 @SuppressWarnings({"UnstableApiUsage", "NullableProblems"})
 public abstract class ClientImpl extends AbstractIdleService implements Client, ClientSessionHandler,
     MessageInterceptor {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ClientImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(ClientImpl.class);
     /**
      * The telemetry timeout should not be too long, otherwise
      * <a href="https://github.com/grpc/grpc-java/issues/7351">this issue</a> may be triggered in JDK8 + macOS.
@@ -171,7 +171,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             new ThreadFactoryImpl("CommandExecutor", clientIdIndex));
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            LOGGER.info("JVM shutdown hook is invoked, clientId={}, state={}", clientId, ClientImpl.this.state());
+            log.info("JVM shutdown hook is invoked, clientId={}, state={}", clientId, ClientImpl.this.state());
             ClientImpl.this.stopAsync().awaitTerminated();
         }));
     }
@@ -182,16 +182,16 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      */
     @Override
     protected void startUp() throws Exception {
-        LOGGER.info("Begin to start the rocketmq client, clientId={}", clientId);
+        log.info("Begin to start the rocketmq client, clientId={}", clientId);
         this.clientManager.startAsync().awaitRunning();
         // Fetch topic route from remote.
-        LOGGER.info("Begin to fetch topic(s) route data from remote during client startup, clientId={}, topics={}",
+        log.info("Begin to fetch topic(s) route data from remote during client startup, clientId={}, topics={}",
             clientId, topics);
         for (String topic : topics) {
             final ListenableFuture<TopicRouteData> future = fetchTopicRoute(topic);
             future.get();
         }
-        LOGGER.info("Fetch topic route data from remote successfully during startup, clientId={}, topics={}",
+        log.info("Fetch topic route data from remote successfully during startup, clientId={}, topics={}",
             clientId, topics);
         // Update route cache periodically.
         final ScheduledExecutorService scheduler = clientManager.getScheduler();
@@ -199,10 +199,10 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             try {
                 updateRouteCache();
             } catch (Throwable t) {
-                LOGGER.error("Exception raised while updating topic route cache, clientId={}", clientId, t);
+                log.error("Exception raised while updating topic route cache, clientId={}", clientId, t);
             }
         }, 10, 30, TimeUnit.SECONDS);
-        LOGGER.info("The rocketmq client starts successfully, clientId={}", clientId);
+        log.info("The rocketmq client starts successfully, clientId={}", clientId);
     }
 
     /**
@@ -210,27 +210,27 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      */
     @Override
     protected void shutDown() throws InterruptedException {
-        LOGGER.info("Begin to shutdown the rocketmq client, clientId={}", clientId);
+        log.info("Begin to shutdown the rocketmq client, clientId={}", clientId);
         notifyClientTermination();
         if (null != this.updateRouteCacheFuture) {
             updateRouteCacheFuture.cancel(false);
         }
         telemetryCommandExecutor.shutdown();
         if (!ExecutorServices.awaitTerminated(telemetryCommandExecutor)) {
-            LOGGER.error("[Bug] Timeout to shutdown the telemetry command executor, clientId={}", clientId);
+            log.error("[Bug] Timeout to shutdown the telemetry command executor, clientId={}", clientId);
         } else {
-            LOGGER.info("Shutdown the telemetry command executor successfully, clientId={}", clientId);
+            log.info("Shutdown the telemetry command executor successfully, clientId={}", clientId);
         }
-        LOGGER.info("Begin to release all telemetry sessions, clientId={}", clientId);
+        log.info("Begin to release all telemetry sessions, clientId={}", clientId);
         releaseClientSessions();
-        LOGGER.info("Release all telemetry sessions successfully, clientId={}", clientId);
+        log.info("Release all telemetry sessions successfully, clientId={}", clientId);
         clientManager.stopAsync().awaitTerminated();
         clientCallbackExecutor.shutdown();
         if (!ExecutorServices.awaitTerminated(clientCallbackExecutor)) {
-            LOGGER.error("[Bug] Timeout to shutdown the client callback executor, clientId={}", clientId);
+            log.error("[Bug] Timeout to shutdown the client callback executor, clientId={}", clientId);
         }
         clientMeterManager.shutdown();
-        LOGGER.info("Shutdown the rocketmq client successfully, clientId={}", clientId);
+        log.info("Shutdown the rocketmq client successfully, clientId={}", clientId);
     }
 
     @Override
@@ -239,7 +239,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             compositedMessageInterceptor.doBefore(context, generalMessages);
         } catch (Throwable t) {
             // Should never reach here.
-            LOGGER.error("[Bug] Exception raised while handling messages, clientId={}", clientId, t);
+            log.error("[Bug] Exception raised while handling messages, clientId={}", clientId, t);
         }
     }
 
@@ -249,7 +249,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             compositedMessageInterceptor.doAfter(context, generalMessages);
         } catch (Throwable t) {
             // Should never reach here.
-            LOGGER.error("[Bug] Exception raised while handling messages, clientId={}", clientId, t);
+            log.error("[Bug] Exception raised while handling messages, clientId={}", clientId, t);
         }
     }
 
@@ -298,14 +298,14 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
                     .build();
                 telemetry(endpoints, telemetryCommand);
             } catch (Throwable t) {
-                LOGGER.error("Failed to send thread stack trace to remote, endpoints={}, nonce={}, clientId={}",
+                log.error("Failed to send thread stack trace to remote, endpoints={}, nonce={}, clientId={}",
                     endpoints, nonce, clientId, t);
             }
         };
         try {
             telemetryCommandExecutor.submit(task);
         } catch (Throwable t) {
-            LOGGER.error("[Bug] Exception raised while submitting task to print thread stack trace, endpoints={}, "
+            log.error("[Bug] Exception raised while submitting task to print thread stack trace, endpoints={}, "
                 + "nonce={}, clientId={}", endpoints, nonce, clientId, t);
         }
     }
@@ -337,7 +337,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             try {
                 telemetry(endpoints, command);
             } catch (Throwable t) {
-                LOGGER.error("Failed to telemeter settings, clientId={}, endpoints={}", clientId, endpoints, t);
+                log.error("Failed to telemeter settings, clientId={}, endpoints={}", clientId, endpoints, t);
             }
         }
     }
@@ -347,7 +347,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             final ClientSessionImpl clientSession = getClientSession(endpoints);
             clientSession.write(command);
         } catch (Throwable t) {
-            LOGGER.error("Failed to fire write telemetry command, clientId={}, endpoints={}", clientId, endpoints, t);
+            log.error("Failed to fire write telemetry command, clientId={}, endpoints={}", clientId, endpoints, t);
         }
     }
 
@@ -414,7 +414,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      */
     @Override
     public void onVerifyMessageCommand(Endpoints endpoints, VerifyMessageCommand command) {
-        LOGGER.warn("Ignore verify message command from remote, which is not expected, clientId={}, command={}",
+        log.warn("Ignore verify message command from remote, which is not expected, clientId={}, command={}",
             clientId, command);
         final String nonce = command.getNonce();
         final Status status = Status.newBuilder().setCode(Code.NOT_IMPLEMENTED).build();
@@ -426,7 +426,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         try {
             telemetry(endpoints, telemetryCommand);
         } catch (Throwable t) {
-            LOGGER.warn("Failed to send message verification result, clientId={}", clientId, t);
+            log.warn("Failed to send message verification result, clientId={}", clientId, t);
         }
     }
 
@@ -438,12 +438,12 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      */
     @Override
     public void onRecoverOrphanedTransactionCommand(Endpoints endpoints, RecoverOrphanedTransactionCommand command) {
-        LOGGER.warn("Ignore orphaned transaction recovery command from remote, which is not expected, clientId={}, "
+        log.warn("Ignore orphaned transaction recovery command from remote, which is not expected, clientId={}, "
             + "command={}", clientId, command);
     }
 
     private void updateRouteCache() {
-        LOGGER.info("Start to update route cache for a new round, clientId={}", clientId);
+        log.info("Start to update route cache for a new round, clientId={}", clientId);
         topicRouteCache.keySet().forEach(topic -> {
             final ListenableFuture<TopicRouteData> future = fetchTopicRoute(topic);
             Futures.addCallback(future, new FutureCallback<TopicRouteData>() {
@@ -453,7 +453,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
 
                 @Override
                 public void onFailure(Throwable t) {
-                    LOGGER.error("Failed to fetch topic route for update cache, topic={}, clientId={}", topic,
+                    log.error("Failed to fetch topic route for update cache, topic={}, clientId={}", topic,
                         clientId, t);
                 }
             }, MoreExecutors.directExecutor());
@@ -469,7 +469,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      * Notify remote that current client is prepared to be terminated.
      */
     private void notifyClientTermination() {
-        LOGGER.info("Notify remote that client is terminated, clientId={}", clientId);
+        log.info("Notify remote that client is terminated, clientId={}", clientId);
         final Set<Endpoints> routeEndpointsSet = getTotalRouteEndpoints();
         final NotifyClientTerminationRequest notifyClientTerminationRequest = wrapNotifyClientTerminationRequest();
         try {
@@ -479,7 +479,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             }
         } catch (Throwable t) {
             // Should never reach here.
-            LOGGER.error("[Bug] Exception raised while notifying client's termination, clientId={}", clientId, t);
+            log.error("[Bug] Exception raised while notifying client's termination, clientId={}", clientId, t);
         }
     }
 
@@ -536,26 +536,26 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
                     final Status status = response.getStatus();
                     final Code code = status.getCode();
                     if (Code.OK != code) {
-                        LOGGER.warn("Failed to send heartbeat, code={}, status message=[{}], endpoints={}, clientId={}",
+                        log.warn("Failed to send heartbeat, code={}, status message=[{}], endpoints={}, clientId={}",
                             code, status.getMessage(), endpoints, clientId);
                         return;
                     }
-                    LOGGER.info("Send heartbeat successfully, endpoints={}, clientId={}", endpoints, clientId);
+                    log.info("Send heartbeat successfully, endpoints={}, clientId={}", endpoints, clientId);
                     final boolean removed = isolated.remove(endpoints);
                     if (removed) {
-                        LOGGER.info("Rejoin endpoints which is isolated before, clientId={}, endpoints={}", clientId,
+                        log.info("Rejoin endpoints which is isolated before, clientId={}, endpoints={}", clientId,
                             endpoints);
                     }
                 }
 
                 @Override
                 public void onFailure(Throwable t) {
-                    LOGGER.warn("Failed to send heartbeat, endpoints={}, clientId={}", endpoints, clientId, t);
+                    log.warn("Failed to send heartbeat, endpoints={}, clientId={}", endpoints, clientId, t);
                 }
             }, MoreExecutors.directExecutor());
         } catch (Throwable t) {
             // Should never reach here.
-            LOGGER.error("[Bug] Exception raised while preparing heartbeat, endpoints={}, clientId={}", endpoints,
+            log.error("[Bug] Exception raised while preparing heartbeat, endpoints={}, clientId={}", endpoints,
                 clientId, t);
         }
     }
@@ -581,13 +581,13 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         Futures.addCallback(future, new FutureCallback<TopicRouteData>() {
             @Override
             public void onSuccess(TopicRouteData topicRouteData) {
-                LOGGER.info("Fetch topic route successfully, clientId={}, topic={}, topicRouteData={}", clientId,
+                log.info("Fetch topic route successfully, clientId={}, topic={}, topicRouteData={}", clientId,
                     topic, topicRouteData);
             }
 
             @Override
             public void onFailure(Throwable t) {
-                LOGGER.error("Failed to fetch topic route, clientId={}, topic={}", clientId, topic, t);
+                log.error("Failed to fetch topic route, clientId={}, topic={}", clientId, topic, t);
             }
         }, MoreExecutors.directExecutor());
         return future;
@@ -654,18 +654,18 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
                         inflightRouteFutureTable.remove(topic);
                     if (null == newFutureSet) {
                         // Should never reach here.
-                        LOGGER.error("[Bug] in-flight route futures was empty, topic={}, clientId={}", topic,
+                        log.error("[Bug] in-flight route futures was empty, topic={}, clientId={}", topic,
                             clientId);
                         return;
                     }
-                    LOGGER.debug("Fetch topic route successfully, topic={}, in-flight route future "
+                    log.debug("Fetch topic route successfully, topic={}, in-flight route future "
                         + "size={}, clientId={}", topic, newFutureSet.size(), clientId);
                     for (SettableFuture<TopicRouteData> newFuture : newFutureSet) {
                         newFuture.set(topicRouteData);
                     }
                 } catch (Throwable t) {
                     // Should never reach here.
-                    LOGGER.error("[Bug] Exception raised while update route data, topic={}, clientId={}", topic,
+                    log.error("[Bug] Exception raised while update route data, topic={}, clientId={}", topic,
                         clientId, t);
                 } finally {
                     inflightRouteFutureLock.unlock();
@@ -680,10 +680,10 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
                         inflightRouteFutureTable.remove(topic);
                     if (null == newFutureSet) {
                         // Should never reach here.
-                        LOGGER.error("[Bug] in-flight route futures was empty, topic={}, clientId={}", topic, clientId);
+                        log.error("[Bug] in-flight route futures was empty, topic={}, clientId={}", topic, clientId);
                         return;
                     }
-                    LOGGER.debug("Failed to fetch topic route, topic={}, in-flight route future " +
+                    log.debug("Failed to fetch topic route, topic={}, in-flight route future " +
                         "size={}, clientId={}", topic, newFutureSet.size(), clientId, t);
                     for (SettableFuture<TopicRouteData> future : newFutureSet) {
                         future.setException(t);

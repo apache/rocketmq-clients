@@ -38,7 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class AsyncSimpleConsumerExample {
-    private static final Logger LOGGER = LoggerFactory.getLogger(AsyncSimpleConsumerExample.class);
+    private static final Logger log = LoggerFactory.getLogger(AsyncSimpleConsumerExample.class);
 
     private AsyncSimpleConsumerExample() {
     }
@@ -77,21 +77,21 @@ public class AsyncSimpleConsumerExample {
         Duration invisibleDuration = Duration.ofSeconds(15);
         final CompletableFuture<List<MessageView>> future0 = consumer.receiveAsync(maxMessageNum, invisibleDuration);
         future0.thenAccept(messages -> {
-            LOGGER.info("Received {} message(s)", messages.size());
+            log.info("Received {} message(s)", messages.size());
             // Using messageView as key rather than message id because message id may be duplicated.
             final Map<MessageView, CompletableFuture<Void>> map =
                 messages.stream().collect(Collectors.toMap(message -> message, consumer::ackAsync));
             for (Map.Entry<MessageView, CompletableFuture<Void>> entry : map.entrySet()) {
                 final MessageId messageId = entry.getKey().getMessageId();
                 final CompletableFuture<Void> future = entry.getValue();
-                future.thenAccept(v -> LOGGER.info("Message is acknowledged successfully, messageId={}", messageId))
+                future.thenAccept(v -> log.info("Message is acknowledged successfully, messageId={}", messageId))
                     .exceptionally(throwable -> {
-                        LOGGER.error("Message is failed to be acknowledged, messageId={}", messageId);
+                        log.error("Message is failed to be acknowledged, messageId={}", messageId);
                         return null;
                     });
             }
         }).exceptionally(t -> {
-            LOGGER.error("Failed to receive message from remote", t);
+            log.error("Failed to receive message from remote", t);
             return null;
         });
         // Block to avoid exist of background threads.

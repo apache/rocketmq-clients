@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("NullableProblems")
 public abstract class ConsumeService {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ConsumeService.class);
+    private static final Logger log = LoggerFactory.getLogger(ConsumeService.class);
 
     protected final ClientId clientId;
     private final MessageListener messageListener;
@@ -80,7 +80,7 @@ public abstract class ConsumeService {
                 @Override
                 public void onFailure(Throwable t) {
                     // Should never reach here.
-                    LOGGER.error("[Bug] Exception raised while submitting scheduled consumption task, clientId={}",
+                    log.error("[Bug] Exception raised while submitting scheduled consumption task, clientId={}",
                         clientId, t);
                 }
             }, MoreExecutors.directExecutor());

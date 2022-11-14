@@ -32,7 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class AsyncProducerExample {
-    private static final Logger LOGGER = LoggerFactory.getLogger(AsyncProducerExample.class);
+    private static final Logger log = LoggerFactory.getLogger(AsyncProducerExample.class);
 
     private AsyncProducerExample() {
     }
@@ -74,9 +74,9 @@ public class AsyncProducerExample {
         final CompletableFuture<SendReceipt> future = producer.sendAsync(message);
         future.whenComplete((sendReceipt, throwable) -> {
             if (null == throwable) {
-                LOGGER.info("Send message successfully, messageId={}", sendReceipt.getMessageId());
+                log.info("Send message successfully, messageId={}", sendReceipt.getMessageId());
             } else {
-                LOGGER.error("Failed to send message", throwable);
+                log.error("Failed to send message", throwable);
             }
         });
         // Block to avoid exist of background threads.

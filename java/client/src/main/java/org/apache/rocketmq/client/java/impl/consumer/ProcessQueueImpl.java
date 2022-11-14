@@ -76,7 +76,7 @@ class ProcessQueueImpl implements ProcessQueue {
     static final Duration ACK_MESSAGE_FAILURE_BACKOFF_DELAY = Duration.ofSeconds(1);
     static final Duration CHANGE_INVISIBLE_DURATION_FAILURE_BACKOFF_DELAY = Duration.ofSeconds(1);
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ProcessQueueImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(ProcessQueueImpl.class);
 
     private static final Duration RECEIVING_FLOW_CONTROL_BACKOFF_DELAY = Duration.ofMillis(20);
     private static final Duration RECEIVING_FAILURE_BACKOFF_DELAY = Duration.ofSeconds(1);
@@ -141,7 +141,7 @@ class ProcessQueueImpl implements ProcessQueue {
         if (afterCacheFullDuration.compareTo(maxIdleDuration) < 0) {
             return false;
         }
-        LOGGER.warn("Process queue is idle, idleDuration={}, maxIdleDuration={}, afterCacheFullDuration={}, mq={}, "
+        log.warn("Process queue is idle, idleDuration={}, maxIdleDuration={}, afterCacheFullDuration={}, mq={}, "
             + "clientId={}", idleDuration, maxIdleDuration, afterCacheFullDuration, mq, consumer.getClientId());
         return true;
     }
@@ -184,14 +184,14 @@ class ProcessQueueImpl implements ProcessQueue {
         final ClientId clientId = consumer.getClientId();
         final ScheduledExecutorService scheduler = consumer.getScheduler();
         try {
-            LOGGER.info("Try to receive message later, mq={}, delay={}, clientId={}", mq, delay, clientId);
+            log.info("Try to receive message later, mq={}, delay={}, clientId={}", mq, delay, clientId);
             scheduler.schedule(this::receiveMessage, delay.toNanos(), TimeUnit.NANOSECONDS);
         } catch (Throwable t) {
             if (scheduler.isShutdown()) {
                 return;
             }
             // Should never reach here.
-            LOGGER.error("[Bug] Failed to schedule message receiving request, mq={}, clientId={}", mq, clientId, t);
+            log.error("[Bug] Failed to schedule message receiving request, mq={}, clientId={}", mq, clientId, t);
             onReceiveMessageException(t);
         }
     }
@@ -199,11 +199,11 @@ class ProcessQueueImpl implements ProcessQueue {
     public void receiveMessage() {
         final ClientId clientId = consumer.getClientId();
         if (dropped) {
-            LOGGER.info("Process queue has been dropped, no longer receive message, mq={}, clientId={}", mq, clientId);
+            log.info("Process queue has been dropped, no longer receive message, mq={}, clientId={}", mq, clientId);
             return;
         }
         if (this.isCacheFull()) {
-            LOGGER.warn("Process queue cache is full, would receive message later, mq={}, clientId={}", mq, clientId);
+            log.warn("Process queue cache is full, would receive message later, mq={}, clientId={}", mq, clientId);
             receiveMessageLater(RECEIVING_BACKOFF_DELAY_WHEN_CACHE_IS_FULL);
             return;
         }
@@ -213,7 +213,7 @@ class ProcessQueueImpl implements ProcessQueue {
     private void receiveMessageImmediately() {
         final ClientId clientId = consumer.getClientId();
         if (!consumer.isRunning()) {
-            LOGGER.info("Stop to receive message because consumer is not running, mq={}, clientId={}", mq, clientId);
+            log.info("Stop to receive message because consumer is not running, mq={}, clientId={}", mq, clientId);
             return;
         }
         try {
@@ -243,7 +243,7 @@ class ProcessQueueImpl implements ProcessQueue {
                         onReceiveMessageResult(result);
                     } catch (Throwable t) {
                         // Should never reach here.
-                        LOGGER.error("[Bug] Exception raised while handling receive result, mq={}, endpoints={}, "
+                        log.error("[Bug] Exception raised while handling receive result, mq={}, endpoints={}, "
                             + "clientId={}", mq, endpoints, clientId, t);
                         onReceiveMessageException(t);
                     }
@@ -256,7 +256,7 @@ class ProcessQueueImpl implements ProcessQueue {
                         new MessageInterceptorContextImpl(context, MessageHookPointsStatus.ERROR);
                     consumer.doAfter(context0, Collections.emptyList());
 
-                    LOGGER.error("Exception raised during message reception, mq={}, endpoints={}, clientId={}", mq,
+                    log.error("Exception raised during message reception, mq={}, endpoints={}, clientId={}", mq,
                         endpoints, clientId, t);
                     onReceiveMessageException(t);
                 }
@@ -264,7 +264,7 @@ class ProcessQueueImpl implements ProcessQueue {
             receptionTimes.getAndIncrement();
             consumer.getReceptionTimes().getAndIncrement();
         } catch (Throwable t) {
-            LOGGER.error("Exception raised during message reception, mq={}, clientId={}", mq, clientId, t);
+            log.error("Exception raised during message reception, mq={}, clientId={}", mq, clientId, t);
             onReceiveMessageException(t);
         }
     }
@@ -274,7 +274,7 @@ class ProcessQueueImpl implements ProcessQueue {
         final long actualMessagesQuantity = this.cachedMessagesCount();
         final ClientId clientId = consumer.getClientId();
         if (cacheMessageCountThresholdPerQueue <= actualMessagesQuantity) {
-            LOGGER.warn("Process queue total cached messages quantity exceeds the threshold, threshold={}, actual={}," +
+            log.warn("Process queue total cached messages quantity exceeds the threshold, threshold={}, actual={}," +
                 " mq={}, clientId={}", cacheMessageCountThresholdPerQueue, actualMessagesQuantity, mq, clientId);
             cacheFullNanoTime = System.nanoTime();
             return true;
@@ -282,7 +282,7 @@ class ProcessQueueImpl implements ProcessQueue {
         final int cacheMessageBytesThresholdPerQueue = consumer.cacheMessageBytesThresholdPerQueue();
         final long actualCachedMessagesBytes = this.cachedMessageBytes();
         if (cacheMessageBytesThresholdPerQueue <= actualCachedMessagesBytes) {
-            LOGGER.warn("Process queue total cached messages memory exceeds the threshold, threshold={} bytes," +
+            log.warn("Process queue total cached messages memory exceeds the threshold, threshold={} bytes," +
                     " actual={} bytes, mq={}, clientId={}", cacheMessageBytesThresholdPerQueue,
                 actualCachedMessagesBytes, mq, clientId);
             cacheFullNanoTime = System.nanoTime();
@@ -293,7 +293,7 @@ class ProcessQueueImpl implements ProcessQueue {
 
     @Override
     public void discardMessage(MessageViewImpl messageView) {
-        LOGGER.info("Discard message, mq={}, messageId={}, clientId={}", mq, messageView.getMessageId(),
+        log.info("Discard message, mq={}, messageId={}, clientId={}", mq, messageView.getMessageId(),
             consumer.getClientId());
         final ListenableFuture<Void> future = nackMessage(messageView);
         future.addListener(() -> evictCache(messageView), MoreExecutors.directExecutor());
@@ -301,7 +301,7 @@ class ProcessQueueImpl implements ProcessQueue {
 
     @Override
     public void discardFifoMessage(MessageViewImpl messageView) {
-        LOGGER.info("Discard fifo message, mq={}, messageId={}, clientId={}", mq, messageView.getMessageId(),
+        log.info("Discard fifo message, mq={}, messageId={}, clientId={}", mq, messageView.getMessageId(),
             consumer.getClientId());
         final ListenableFuture<Void> future = forwardToDeadLetterQueue(messageView);
         future.addListener(() -> evictCache(messageView), MoreExecutors.directExecutor());
@@ -381,7 +381,7 @@ class ProcessQueueImpl implements ProcessQueue {
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
                 if (Code.INVALID_RECEIPT_HANDLE.equals(code)) {
-                    LOGGER.error("Failed to change invisible duration due to the invalid receipt handle, forgive to "
+                    log.error("Failed to change invisible duration due to the invalid receipt handle, forgive to "
                             + "retry, clientId={}, consumerGroup={}, messageId={}, attempt={}, mq={}, endpoints={}, "
                             + "requestId={}, status message=[{}]", clientId, consumerGroup, messageId, attempt, mq,
                         endpoints, requestId, status.getMessage());
@@ -390,7 +390,7 @@ class ProcessQueueImpl implements ProcessQueue {
                 }
                 // Log failure and retry later.
                 if (!Code.OK.equals(code)) {
-                    LOGGER.error("Failed to change invisible duration, would retry later, clientId={}, "
+                    log.error("Failed to change invisible duration, would retry later, clientId={}, "
                             + "consumerGroup={}, messageId={}, attempt={}, mq={}, endpoints={}, requestId={}, "
                             + "status message=[{}]", clientId, consumerGroup, messageId, attempt, mq, endpoints,
                         requestId, status.getMessage());
@@ -401,12 +401,12 @@ class ProcessQueueImpl implements ProcessQueue {
                 future0.setFuture(Futures.immediateVoidFuture());
                 // Log retries.
                 if (1 < attempt) {
-                    LOGGER.info("Finally, change invisible duration successfully, clientId={}, consumerGroup={} "
+                    log.info("Finally, change invisible duration successfully, clientId={}, consumerGroup={} "
                             + "messageId={}, attempt={}, mq={}, endpoints={}, requestId={}", clientId, consumerGroup,
                         messageId, attempt, mq, endpoints, requestId);
                     return;
                 }
-                LOGGER.debug("Change invisible duration successfully, clientId={}, consumerGroup={}, messageId={}, "
+                log.debug("Change invisible duration successfully, clientId={}, consumerGroup={}, messageId={}, "
                         + "mq={}, endpoints={}, requestId={}", clientId, consumerGroup, messageId, mq, endpoints,
                     requestId);
             }
@@ -414,7 +414,7 @@ class ProcessQueueImpl implements ProcessQueue {
             @Override
             public void onFailure(Throwable t) {
                 // Log failure and retry later.
-                LOGGER.error("Exception raised while changing invisible duration, would retry later, clientId={}, "
+                log.error("Exception raised while changing invisible duration, would retry later, clientId={}, "
                         + "consumerGroup={}, messageId={}, mq={}, endpoints={}", clientId, consumerGroup,
                     messageId, mq, endpoints, t);
                 changeInvisibleDurationLater(messageView, duration, 1 + attempt, future0);
@@ -434,7 +434,7 @@ class ProcessQueueImpl implements ProcessQueue {
                 return;
             }
             // Should never reach here.
-            LOGGER.error("[Bug] Failed to schedule message change invisible duration request, mq={}, messageId={}, "
+            log.error("[Bug] Failed to schedule message change invisible duration request, mq={}, messageId={}, "
                 + "clientId={}", mq, messageId, consumer.getClientId());
             changeInvisibleDurationLater(messageView, duration, 1 + attempt, future);
         }
@@ -452,7 +452,7 @@ class ProcessQueueImpl implements ProcessQueue {
         if (ConsumeResult.FAILURE.equals(consumeResult) && attempt < maxAttempts) {
             final Duration nextAttemptDelay = retryPolicy.getNextAttemptDelay(attempt);
             attempt = messageView.incrementAndGetDeliveryAttempt();
-            LOGGER.debug("Prepare to redeliver the fifo message because of the consumption failure, maxAttempt={}," +
+            log.debug("Prepare to redeliver the fifo message because of the consumption failure, maxAttempt={}," +
                     " attempt={}, mq={}, messageId={}, nextAttemptDelay={}, clientId={}", maxAttempts, attempt, mq,
                 messageId, nextAttemptDelay, clientId);
             final ListenableFuture<ConsumeResult> future = service.consume(messageView, nextAttemptDelay);
@@ -461,7 +461,7 @@ class ProcessQueueImpl implements ProcessQueue {
         }
         boolean ok = ConsumeResult.SUCCESS.equals(consumeResult);
         if (!ok) {
-            LOGGER.info("Failed to consume fifo message finally, run out of attempt times, maxAttempts={}, "
+            log.info("Failed to consume fifo message finally, run out of attempt times, maxAttempts={}, "
                 + "attempt={}, mq={}, messageId={}, clientId={}", maxAttempts, attempt, mq, messageId, clientId);
         }
         // Ack message or forward it to DLQ depends on consumption result.
@@ -493,7 +493,7 @@ class ProcessQueueImpl implements ProcessQueue {
                 final Code code = status.getCode();
                 // Log failure and retry later.
                 if (!Code.OK.equals(code)) {
-                    LOGGER.error("Failed to forward message to dead letter queue, would attempt to re-forward later," +
+                    log.error("Failed to forward message to dead letter queue, would attempt to re-forward later," +
                             " clientId={}, consumerGroup={}, messageId={}, attempt={}, mq={}, endpoints={}, "
                             + "requestId={}, code={}, status message={}", clientId, consumerGroup, messageId, attempt,
                         mq, endpoints, requestId, code, status.getMessage());
@@ -504,12 +504,12 @@ class ProcessQueueImpl implements ProcessQueue {
                 future0.setFuture(Futures.immediateVoidFuture());
                 // Log retries.
                 if (1 < attempt) {
-                    LOGGER.info("Re-forward message to dead letter queue successfully, clientId={}, consumerGroup={}, "
+                    log.info("Re-forward message to dead letter queue successfully, clientId={}, consumerGroup={}, "
                             + "attempt={}, messageId={}, mq={}, endpoints={}, requestId={}", clientId, consumerGroup,
                         attempt, messageId, mq, endpoints, requestId);
                     return;
                 }
-                LOGGER.info("Forward message to dead letter queue successfully, clientId={}, consumerGroup={}, "
+                log.info("Forward message to dead letter queue successfully, clientId={}, consumerGroup={}, "
                         + "messageId={}, mq={}, endpoints={}, requestId={}", clientId, consumerGroup, messageId, mq,
                     endpoints, requestId);
             }
@@ -517,7 +517,7 @@ class ProcessQueueImpl implements ProcessQueue {
             @Override
             public void onFailure(Throwable t) {
                 // Log failure and retry later.
-                LOGGER.error("Exception raised while forward message to DLQ, would attempt to re-forward later, " +
+                log.error("Exception raised while forward message to DLQ, would attempt to re-forward later, " +
                         "clientId={}, consumerGroup={}, attempt={}, messageId={}, mq={}", clientId, consumerGroup,
                     attempt, messageId, mq, t);
                 forwardToDeadLetterQueueLater(messageView, 1 + attempt, future0);
@@ -536,7 +536,7 @@ class ProcessQueueImpl implements ProcessQueue {
                 return;
             }
             // Should never reach here.
-            LOGGER.error("[Bug] Failed to schedule DLQ message request, mq={}, messageId={}, clientId={}", mq,
+            log.error("[Bug] Failed to schedule DLQ message request, mq={}, messageId={}, clientId={}", mq,
                 messageView.getMessageId(), consumer.getClientId());
             forwardToDeadLetterQueueLater(messageView, 1 + attempt, future0);
         }
@@ -562,7 +562,7 @@ class ProcessQueueImpl implements ProcessQueue {
                 final Status status = response.getStatus();
                 final Code code = status.getCode();
                 if (Code.INVALID_RECEIPT_HANDLE.equals(code)) {
-                    LOGGER.error("Failed to ack message due to the invalid receipt handle, forgive to retry, "
+                    log.error("Failed to ack message due to the invalid receipt handle, forgive to retry, "
                             + "clientId={}, consumerGroup={}, messageId={}, attempt={}, mq={}, endpoints={}, "
                             + "requestId={}, status message=[{}]", clientId, consumerGroup, messageId, attempt, mq,
                         endpoints, requestId, status.getMessage());
@@ -571,7 +571,7 @@ class ProcessQueueImpl implements ProcessQueue {
                 }
                 // Log failure and retry later.
                 if (!Code.OK.equals(code)) {
-                    LOGGER.error("Failed to ack message, would attempt to re-ack later, clientId={}, "
+                    log.error("Failed to ack message, would attempt to re-ack later, clientId={}, "
                             + "consumerGroup={}, attempt={}, messageId={}, mq={}, code={}, requestId={}, endpoints={}, "
                             + "status message=[{}]", clientId, consumerGroup, attempt, messageId, mq, code, requestId,
                         endpoints, status.getMessage());
@@ -582,19 +582,19 @@ class ProcessQueueImpl implements ProcessQueue {
                 future0.setFuture(Futures.immediateVoidFuture());
                 // Log retries.
                 if (1 < attempt) {
-                    LOGGER.info("Finally, ack message successfully, clientId={}, consumerGroup={}, attempt={}, "
+                    log.info("Finally, ack message successfully, clientId={}, consumerGroup={}, attempt={}, "
                             + "messageId={}, mq={}, endpoints={}, requestId={}", clientId, consumerGroup, attempt,
                         messageId, mq, endpoints, requestId);
                     return;
                 }
-                LOGGER.debug("Ack message successfully, clientId={}, consumerGroup={}, messageId={}, mq={}, "
+                log.debug("Ack message successfully, clientId={}, consumerGroup={}, messageId={}, mq={}, "
                     + "endpoints={}, requestId={}", clientId, consumerGroup, messageId, mq, endpoints, requestId);
             }
 
             @Override
             public void onFailure(Throwable t) {
                 // Log failure and retry later.
-                LOGGER.error("Exception raised while acknowledging message, clientId={}, consumerGroup={}, "
+                log.error("Exception raised while acknowledging message, clientId={}, consumerGroup={}, "
                         + "would attempt to re-ack later, attempt={}, messageId={}, mq={}, endpoints={}", clientId,
                     consumerGroup, attempt, messageId, mq, endpoints, t);
                 ackMessageLater(messageView, 1 + attempt, future0);
@@ -614,7 +614,7 @@ class ProcessQueueImpl implements ProcessQueue {
                 return;
             }
             // Should never reach here.
-            LOGGER.error("[Bug] Failed to schedule message ack request, mq={}, messageId={}, clientId={}",
+            log.error("[Bug] Failed to schedule message ack request, mq={}, messageId={}, clientId={}",
                 mq, messageId, consumer.getClientId());
             ackMessageLater(messageView, 1 + attempt, future);
         }
@@ -638,7 +638,7 @@ class ProcessQueueImpl implements ProcessQueue {
     public void doStats() {
         final long receptionTimes = this.receptionTimes.getAndSet(0);
         final long receivedMessagesQuantity = this.receivedMessagesQuantity.getAndSet(0);
-        LOGGER.info("Process queue stats: clientId={}, mq={}, receptionTimes={}, receivedMessageQuantity={}, "
+        log.info("Process queue stats: clientId={}, mq={}, receptionTimes={}, receivedMessageQuantity={}, "
             + "cachedMessageCount={}, cachedMessageBytes={}", consumer.getClientId(), mq, receptionTimes,
             receivedMessagesQuantity, this.getCachedMessageCount(), this.getCachedMessageBytes());
     }

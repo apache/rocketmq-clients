@@ -65,7 +65,7 @@ import org.slf4j.LoggerFactory;
 @SuppressWarnings({"UnstableApiUsage", "NullableProblems"})
 abstract class ConsumerImpl extends ClientImpl {
     static final Pattern CONSUMER_GROUP_PATTERN = Pattern.compile("^[%a-zA-Z0-9_-]+$");
-    private static final Logger LOGGER = LoggerFactory.getLogger(ConsumerImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(ConsumerImpl.class);
     private final String consumerGroup;
 
     ConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup, Set<String> topics) {
@@ -103,7 +103,7 @@ abstract class ConsumerImpl extends ClientImpl {
                             transportDeliveryTimestamp = Timestamps.toMillis(deliveryTimestamp);
                             break;
                         default:
-                            LOGGER.warn("[Bug] Not recognized content for receive message response, mq={}, " +
+                            log.warn("[Bug] Not recognized content for receive message response, mq={}, " +
                                 "clientId={}, response={}", mq, clientId, response);
                     }
                 }
@@ -117,7 +117,7 @@ abstract class ConsumerImpl extends ClientImpl {
             }, MoreExecutors.directExecutor());
         } catch (Throwable t) {
             // Should never reach here.
-            LOGGER.error("[Bug] Exception raised during message receiving, mq={}, clientId={}", mq, clientId, t);
+            log.error("[Bug] Exception raised during message receiving, mq={}, clientId={}", mq, clientId, t);
             return Futures.immediateFailedFuture(t);
         }
     }
@@ -196,7 +196,7 @@ abstract class ConsumerImpl extends ClientImpl {
                 MessageHookPointsStatus hookPointsStatus = Code.OK.equals(code) ?
                     MessageHookPointsStatus.OK : MessageHookPointsStatus.ERROR;
                 if (!Code.OK.equals(code)) {
-                    LOGGER.error("Failed to change message invisible duration, messageId={}, endpoints={}, code={}, " +
+                    log.error("Failed to change message invisible duration, messageId={}, endpoints={}, code={}, " +
                         "status message=[{}], clientId={}", messageId, endpoints, code, status.getMessage(), clientId);
                 }
                 MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
@@ -209,7 +209,7 @@ abstract class ConsumerImpl extends ClientImpl {
                 MessageInterceptorContextImpl context0 = new MessageInterceptorContextImpl(context,
                     MessageHookPointsStatus.ERROR);
                 doAfter(context0, generalMessages);
-                LOGGER.error("Exception raised while changing message invisible duration, messageId={}, endpoints={}, "
+                log.error("Exception raised while changing message invisible duration, messageId={}, endpoints={}, "
                         + "clientId={}",
                     messageId, endpoints, clientId, t);
 
