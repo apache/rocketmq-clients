@@ -22,12 +22,12 @@ import apache.rocketmq.v2.RecoverOrphanedTransactionCommand;
 import apache.rocketmq.v2.Settings;
 import apache.rocketmq.v2.TelemetryCommand;
 import apache.rocketmq.v2.VerifyMessageCommand;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import io.grpc.stub.StreamObserver;
 import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.impl.producer.ClientSessionHandler;
 import org.apache.rocketmq.client.java.misc.ClientId;
@@ -41,17 +41,21 @@ import org.slf4j.LoggerFactory;
 public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
     static final Duration REQUEST_OBSERVER_RENEW_BACKOFF_DELAY = Duration.ofSeconds(1);
     private static final Logger log = LoggerFactory.getLogger(ClientSessionImpl.class);
-    private static final long SETTINGS_INITIALIZATION_TIMEOUT_MILLIS = 3000;
+    private static final Duration SETTINGS_INITIALIZATION_TIMEOUT = Duration.ofSeconds(3);
 
     private final ClientSessionHandler sessionHandler;
     private final Endpoints endpoints;
     private final SettableFuture<Settings> settingsSettableFuture;
     private volatile StreamObserver<TelemetryCommand> requestObserver;
 
-    protected ClientSessionImpl(ClientSessionHandler sessionHandler, Endpoints endpoints) throws ClientException {
+    @SuppressWarnings("UnstableApiUsage")
+    protected ClientSessionImpl(ClientSessionHandler sessionHandler, Duration tolerance, Endpoints endpoints)
+        throws ClientException {
         this.sessionHandler = sessionHandler;
         this.endpoints = endpoints;
         this.settingsSettableFuture = SettableFuture.create();
+        Futures.withTimeout(settingsSettableFuture, SETTINGS_INITIALIZATION_TIMEOUT.plus(tolerance).toMillis(),
+            TimeUnit.MILLISECONDS, sessionHandler.getScheduler());
         this.requestObserver = sessionHandler.telemetry(endpoints, this);
     }
 
@@ -77,9 +81,9 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
         syncSettings0();
     }
 
-    protected void syncSettings() throws TimeoutException, ExecutionException, InterruptedException {
+    protected void syncSettings() throws ExecutionException, InterruptedException {
         this.syncSettings0();
-        settingsSettableFuture.get(SETTINGS_INITIALIZATION_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        settingsSettableFuture.get();
     }
 
     private void syncSettings0() {
