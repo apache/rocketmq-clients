@@ -62,7 +62,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -376,7 +375,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
             if (null != session) {
                 return session;
             }
-            session = new ClientSessionImpl(this, endpoints);
+            session = new ClientSessionImpl(this, clientConfiguration.getRequestTimeout(), endpoints);
             sessionsTable.put(endpoints, session);
             return session;
         } finally {
@@ -388,7 +387,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
      * Triggered when {@link TopicRouteData} is fetched from remote.
      */
     public void onTopicRouteDataFetched(String topic, TopicRouteData topicRouteData) throws ClientException,
-        ExecutionException, InterruptedException, TimeoutException {
+        ExecutionException, InterruptedException {
         final Set<Endpoints> routeEndpoints = topicRouteData
             .getMessageQueues().stream()
             .map(mq -> mq.getBroker().getEndpoints())
