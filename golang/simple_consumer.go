@@ -292,7 +292,7 @@ func (sc *defaultSimpleConsumer) Receive(ctx context.Context, maxMessageNum int3
 		return nil, err
 	}
 	request := sc.wrapReceiveMessageRequest(int(maxMessageNum), selectMessageQueue, filterExpression, invisibleDuration)
-	timeout := invisibleDuration + sc.cli.opts.timeout
+	timeout := sc.scOpts.awaitDuration + sc.cli.opts.timeout
 	return sc.receiveMessage(ctx, request, selectMessageQueue, timeout)
 }
 
