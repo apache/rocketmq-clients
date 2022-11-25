@@ -96,12 +96,16 @@ func (rc *rpcClient) GracefulStop() error {
 
 func (rc *rpcClient) QueryRoute(ctx context.Context, request *v2.QueryRouteRequest) (*v2.QueryRouteResponse, error) {
 	rc.activityNanoTime = time.Now()
-	return rc.msc.QueryRoute(ctx, request)
+	resp, err := rc.msc.QueryRoute(ctx, request)
+	sugarBaseLogger.Debugf("queryRoute request: %v, response: %v, err: %v", request, resp, err)
+	return resp, err
 }
 
 func (rc *rpcClient) SendMessage(ctx context.Context, request *v2.SendMessageRequest) (*v2.SendMessageResponse, error) {
 	rc.activityNanoTime = time.Now()
-	return rc.msc.SendMessage(ctx, request)
+	resp, err := rc.msc.SendMessage(ctx, request)
+	sugarBaseLogger.Debugf("sendMessage request: %v, response: %v, err: %v", request, resp, err)
+	return resp, err
 }
 
 func (rc *rpcClient) Telemetry(ctx context.Context) (v2.MessagingService_TelemetryClient, error) {
@@ -110,30 +114,42 @@ func (rc *rpcClient) Telemetry(ctx context.Context) (v2.MessagingService_Telemet
 
 func (rc *rpcClient) EndTransaction(ctx context.Context, request *v2.EndTransactionRequest) (*v2.EndTransactionResponse, error) {
 	rc.activityNanoTime = time.Now()
-	return rc.msc.EndTransaction(ctx, request)
+	resp, err := rc.msc.EndTransaction(ctx, request)
+	sugarBaseLogger.Debugf("endTransaction request: %v, response: %v, err: %v", request, resp, err)
+	return resp, err
 }
 
 func (rc *rpcClient) HeartBeat(ctx context.Context, request *v2.HeartbeatRequest) (*v2.HeartbeatResponse, error) {
 	rc.activityNanoTime = time.Now()
-	return rc.msc.Heartbeat(ctx, request)
+	resp, err := rc.msc.Heartbeat(ctx, request)
+	sugarBaseLogger.Debugf("heartBeat request: %v, response: %v, err: %v", request, resp, err)
+	return resp, err
 }
 
 func (rc *rpcClient) NotifyClientTermination(ctx context.Context, request *v2.NotifyClientTerminationRequest) (*v2.NotifyClientTerminationResponse, error) {
 	rc.activityNanoTime = time.Now()
-	return rc.msc.NotifyClientTermination(ctx, request)
+	resp, err := rc.msc.NotifyClientTermination(ctx, request)
+	sugarBaseLogger.Debugf("notifyClientTermination request: %v, response: %v, err: %v", request, resp, err)
+	return resp, err
 }
 
 func (rc *rpcClient) ReceiveMessage(ctx context.Context, request *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error) {
 	rc.activityNanoTime = time.Now()
-	return rc.msc.ReceiveMessage(ctx, request)
+	resp, err := rc.msc.ReceiveMessage(ctx, request)
+	sugarBaseLogger.Debugf("receiveMessage request: %v, err: %v", request, err)
+	return resp, err
 }
 
 func (rc *rpcClient) AckMessage(ctx context.Context, request *v2.AckMessageRequest) (*v2.AckMessageResponse, error) {
 	rc.activityNanoTime = time.Now()
-	return rc.msc.AckMessage(ctx, request)
+	resp, err := rc.msc.AckMessage(ctx, request)
+	sugarBaseLogger.Debugf("ackMessage request: %v, response: %v, err: %v", request, resp, err)
+	return resp, err
 }
 
 func (rc *rpcClient) ChangeInvisibleDuration(ctx context.Context, request *v2.ChangeInvisibleDurationRequest) (*v2.ChangeInvisibleDurationResponse, error) {
 	rc.activityNanoTime = time.Now()
-	return rc.msc.ChangeInvisibleDuration(ctx, request)
+	resp, err := rc.msc.ChangeInvisibleDuration(ctx, request)
+	sugarBaseLogger.Debugf("changeInvisibleDuration request: %v, response: %v, err: %v", request, resp, err)
+	return resp, err
 }

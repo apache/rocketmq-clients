@@ -210,6 +210,7 @@ func (sc *defaultSimpleConsumer) receiveMessage(ctx context.Context, request *v2
 				sc.cli.log.Errorf("simpleConsumer recv msg err=%w, requestId=%s", err, utils.GetRequestID(ctx))
 				break
 			}
+			sugarBaseLogger.Debugf("receiveMessage response: %v", resp)
 			resps = append(resps, resp)
 		}
 		cancel()
