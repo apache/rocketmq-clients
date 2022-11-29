@@ -29,7 +29,7 @@ type userAgent struct {
 }
 
 var globalUserAgent = &userAgent{
-	version:  "5.0.0",
+	version:  "5.0.1",
 	platform: utils.GetOsDescription(),
 	hostName: utils.HostName(),
 }
