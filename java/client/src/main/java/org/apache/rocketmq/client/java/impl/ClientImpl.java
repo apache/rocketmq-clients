@@ -359,6 +359,15 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         }
     }
 
+    public void removeClientSession(Endpoints endpoints, ClientSessionImpl clientSession) {
+        sessionsLock.writeLock().lock();
+        try {
+            sessionsTable.remove(endpoints, clientSession);
+        } finally {
+            sessionsLock.writeLock().unlock();
+        }
+    }
+
     private ClientSessionImpl getClientSession(Endpoints endpoints) throws ClientException {
         sessionsLock.readLock().lock();
         try {
