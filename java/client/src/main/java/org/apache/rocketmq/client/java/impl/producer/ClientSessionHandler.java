@@ -25,6 +25,7 @@ import apache.rocketmq.v2.VerifyMessageCommand;
 import io.grpc.stub.StreamObserver;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.rocketmq.client.apis.ClientException;
+import org.apache.rocketmq.client.java.impl.ClientSessionImpl;
 import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.route.Endpoints;
 
@@ -46,6 +47,11 @@ public interface ClientSessionHandler {
      * Returns {@code true} if the endpoints is deprecated.
      */
     boolean isEndpointsDeprecated(Endpoints endpoints);
+
+    /**
+     * Remove client session.
+     */
+    void removeClientSession(Endpoints endpoints, ClientSessionImpl clientSession);
 
     /**
      * Indicates the client identifier.

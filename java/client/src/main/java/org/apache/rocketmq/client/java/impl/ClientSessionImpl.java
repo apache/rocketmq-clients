@@ -65,6 +65,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
             if (sessionHandler.isEndpointsDeprecated(endpoints)) {
                 log.info("Endpoints is deprecated, no longer to renew requestObserver, endpoints={}, clientId={}",
                     endpoints, clientId);
+                sessionHandler.removeClientSession(endpoints, this);
                 return;
             }
             log.info("Try to renew requestObserver, endpoints={}, clientId={}", endpoints, clientId);
