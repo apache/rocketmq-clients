@@ -63,7 +63,7 @@ public class ClientSessionImplTest extends TestBase {
         final Settings settings = Settings.newBuilder().build();
         TelemetryCommand settingsCommand = TelemetryCommand.newBuilder().setSettings(settings).build();
         executor.submit(() -> clientSession.onNext(settingsCommand));
-        clientSession.syncSettings();
+        clientSession.syncSettings().get();
         Mockito.verify(sessionHandler, times(1)).onSettingsCommand(eq(endpoints), eq(settings));
     }
 

@@ -34,6 +34,7 @@ import apache.rocketmq.v2.TelemetryCommand;
 import apache.rocketmq.v2.ThreadStackTrace;
 import apache.rocketmq.v2.VerifyMessageCommand;
 import apache.rocketmq.v2.VerifyMessageResult;
+import com.google.common.base.Function;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.AbstractIdleService;
 import com.google.common.util.concurrent.FutureCallback;
@@ -47,6 +48,7 @@ import io.grpc.stub.StreamObserver;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -362,6 +364,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     public void removeClientSession(Endpoints endpoints, ClientSessionImpl clientSession) {
         sessionsLock.writeLock().lock();
         try {
+            log.info("Remove client session, clientId={}, endpoints={}", clientId, endpoints);
             sessionsTable.remove(endpoints, clientSession);
         } finally {
             sessionsLock.writeLock().unlock();
@@ -395,20 +398,25 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     /**
      * Triggered when {@link TopicRouteData} is fetched from remote.
      */
-    public void onTopicRouteDataFetched(String topic, TopicRouteData topicRouteData) throws ClientException,
-        ExecutionException, InterruptedException {
+    public ListenableFuture<TopicRouteData> onTopicRouteDataFetched(String topic,
+    TopicRouteData topicRouteData) throws ClientException {
         final Set<Endpoints> routeEndpoints = topicRouteData
             .getMessageQueues().stream()
             .map(mq -> mq.getBroker().getEndpoints())
             .collect(Collectors.toSet());
         final Set<Endpoints> existRouteEndpoints = getTotalRouteEndpoints();
         final Set<Endpoints> newEndpoints = new HashSet<>(Sets.difference(routeEndpoints, existRouteEndpoints));
+        List<ListenableFuture<?>> futures = new ArrayList<>();
         for (Endpoints endpoints : newEndpoints) {
             final ClientSessionImpl clientSession = getClientSession(endpoints);
-            clientSession.syncSettings();
+            futures.add(clientSession.syncSettings());
         }
-        topicRouteCache.put(topic, topicRouteData);
-        onTopicRouteDataUpdate0(topic, topicRouteData);
+        final ListenableFuture<?> future = Futures.allAsList(futures);
+        return Futures.transform(future, (Function<Object, TopicRouteData>) input -> {
+            topicRouteCache.put(topic, topicRouteData);
+            onTopicRouteDataUpdate0(topic, topicRouteData);
+            return topicRouteData;
+        }, MoreExecutors.directExecutor());
     }
 
     public void onTopicRouteDataUpdate0(String topic, TopicRouteData topicRouteData) {
@@ -582,10 +590,8 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
 
     private ListenableFuture<TopicRouteData> fetchTopicRoute(final String topic) {
         final ListenableFuture<TopicRouteData> future0 = fetchTopicRoute0(topic);
-        final ListenableFuture<TopicRouteData> future = Futures.transformAsync(future0, topicRouteData -> {
-            onTopicRouteDataFetched(topic, topicRouteData);
-            return Futures.immediateFuture(topicRouteData);
-        }, MoreExecutors.directExecutor());
+        final ListenableFuture<TopicRouteData> future = Futures.transformAsync(future0,
+            topicRouteData -> onTopicRouteDataFetched(topic, topicRouteData), MoreExecutors.directExecutor());
         Futures.addCallback(future, new FutureCallback<TopicRouteData>() {
             @Override
             public void onSuccess(TopicRouteData topicRouteData) {

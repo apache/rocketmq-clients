@@ -23,10 +23,10 @@ import apache.rocketmq.v2.Settings;
 import apache.rocketmq.v2.TelemetryCommand;
 import apache.rocketmq.v2.VerifyMessageCommand;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.grpc.stub.StreamObserver;
 import java.time.Duration;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.java.impl.producer.ClientSessionHandler;
@@ -45,7 +45,7 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
 
     private final ClientSessionHandler sessionHandler;
     private final Endpoints endpoints;
-    private final SettableFuture<Settings> settingsSettableFuture;
+    private final SettableFuture<Settings> future;
     private volatile StreamObserver<TelemetryCommand> requestObserver;
 
     @SuppressWarnings("UnstableApiUsage")
@@ -53,8 +53,8 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
         throws ClientException {
         this.sessionHandler = sessionHandler;
         this.endpoints = endpoints;
-        this.settingsSettableFuture = SettableFuture.create();
-        Futures.withTimeout(settingsSettableFuture, SETTINGS_INITIALIZATION_TIMEOUT.plus(tolerance).toMillis(),
+        this.future = SettableFuture.create();
+        Futures.withTimeout(future, SETTINGS_INITIALIZATION_TIMEOUT.plus(tolerance).toMillis(),
             TimeUnit.MILLISECONDS, sessionHandler.getScheduler());
         this.requestObserver = sessionHandler.telemetry(endpoints, this);
     }
@@ -82,9 +82,9 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
         syncSettings0();
     }
 
-    protected void syncSettings() throws ExecutionException, InterruptedException {
+    protected ListenableFuture<Settings> syncSettings() {
         this.syncSettings0();
-        settingsSettableFuture.get();
+        return future;
     }
 
     private void syncSettings0() {
@@ -128,7 +128,9 @@ public class ClientSessionImpl implements StreamObserver<TelemetryCommand> {
                     final Settings settings = command.getSettings();
                     log.info("Receive settings from remote, endpoints={}, clientId={}", endpoints, clientId);
                     sessionHandler.onSettingsCommand(endpoints, settings);
-                    settingsSettableFuture.set(settings);
+                    if (future.set(settings)) {
+                        log.info("Init settings successfully, endpoints={}, clientId={}", endpoints, clientId);
+                    }
                     break;
                 }
                 case RECOVER_ORPHANED_TRANSACTION_COMMAND: {
