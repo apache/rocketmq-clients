@@ -83,8 +83,30 @@ namespace Org.Apache.Rocketmq
             // Concept of ProducerGroup has been removed.
         }
 
+        public override void BuildClientSetting(rmq::Settings settings)
+        {
+            base.BuildClientSetting(settings);
+
+            settings.ClientType = rmq.ClientType.Producer;
+            var publishing = new rmq.Publishing();
+            
+            foreach (var topic in _topicsOfInterest)
+            {
+                var resource = new rmq.Resource()
+                {
+                    Name = topic,
+                    ResourceNamespace = ResourceNamespace
+                };
+                publishing.Topics.Add(resource);
+            }
+
+            settings.Publishing = publishing;
+        }
+
         public async Task<SendReceipt> Send(Message message)
         {
+            _topicsOfInterest.Add(message.Topic);
+
             if (!_loadBalancer.ContainsKey(message.Topic))
             {
                 var topicRouteData = await GetRouteFor(message.Topic, false);
