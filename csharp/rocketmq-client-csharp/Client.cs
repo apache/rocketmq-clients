@@ -509,7 +509,7 @@ namespace Org.Apache.Rocketmq
 
         protected readonly IClientManager Manager;
 
-        private readonly HashSet<string> _topicsOfInterest = new HashSet<string>();
+        protected readonly HashSet<string> _topicsOfInterest = new HashSet<string>();
 
         public void AddTopicOfInterest(string topic)
         {
