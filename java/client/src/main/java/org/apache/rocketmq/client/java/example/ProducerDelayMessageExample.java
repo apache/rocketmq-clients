@@ -60,7 +60,7 @@ public class ProducerDelayMessageExample {
             .setTopics(topic)
             // May throw {@link ClientException} if the producer is not initialized.
             .build();
-        // Define your message body.a
+        // Define your message body.
         byte[] body = "This is a delay message for Apache RocketMQ".getBytes(StandardCharsets.UTF_8);
         String tag = "yourMessageTagA";
         Duration messageDelayTime = Duration.ofSeconds(10);
