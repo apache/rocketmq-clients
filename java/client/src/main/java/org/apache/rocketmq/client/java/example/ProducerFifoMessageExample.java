@@ -51,10 +51,11 @@ public class ProducerFifoMessageExample {
             .setCredentialProvider(sessionCredentialsProvider)
             .build();
         String topic = "yourFifoTopic";
+        // In most case, you don't need to create too many producers, singleton pattern is recommended.
         final Producer producer = provider.newProducerBuilder()
             .setClientConfiguration(clientConfiguration)
-            // Set the topic name(s), which is optional. It makes producer could prefetch the topic route before 
-            // message publishing.
+            // Set the topic name(s), which is optional but recommended. It makes producer could prefetch the topic
+            // route before message publishing.
             .setTopics(topic)
             // May throw {@link ClientException} if the producer is not initialized.
             .build();
