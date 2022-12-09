@@ -63,7 +63,6 @@ import javax.net.ssl.SSLException;
 import org.apache.rocketmq.client.java.route.Endpoints;
 
 public class RpcClientImpl implements RpcClient {
-    private static final Duration KEEP_ALIVE_DURATION = Duration.ofSeconds(30);
     private static final int CONNECT_TIMEOUT_MILLIS = 3 * 1000;
     private static final int GRPC_MAX_MESSAGE_SIZE = Integer.MAX_VALUE;
 
