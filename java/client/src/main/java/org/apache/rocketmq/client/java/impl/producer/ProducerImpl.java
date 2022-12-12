@@ -19,6 +19,7 @@ package org.apache.rocketmq.client.java.impl.producer;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import apache.rocketmq.v2.ClientType;
 import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.EndTransactionRequest;
 import apache.rocketmq.v2.EndTransactionResponse;
@@ -190,7 +191,7 @@ class ProducerImpl extends ClientImpl implements Producer {
 
     @Override
     public HeartbeatRequest wrapHeartbeatRequest() {
-        return HeartbeatRequest.newBuilder().build();
+        return HeartbeatRequest.newBuilder().setClientType(ClientType.PRODUCER).build();
     }
 
     /**
