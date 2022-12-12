@@ -17,6 +17,7 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
+import apache.rocketmq.v2.ClientType;
 import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueResponse;
@@ -317,7 +318,8 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
 
     @Override
     public HeartbeatRequest wrapHeartbeatRequest() {
-        return HeartbeatRequest.newBuilder().setGroup(getProtobufGroup()).build();
+        return HeartbeatRequest.newBuilder().setGroup(getProtobufGroup())
+            .setClientType(ClientType.PUSH_CONSUMER).build();
     }
 
 

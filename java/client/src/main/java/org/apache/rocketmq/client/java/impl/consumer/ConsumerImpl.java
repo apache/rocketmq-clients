@@ -24,7 +24,6 @@ import apache.rocketmq.v2.ChangeInvisibleDurationRequest;
 import apache.rocketmq.v2.ChangeInvisibleDurationResponse;
 import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.FilterType;
-import apache.rocketmq.v2.HeartbeatRequest;
 import apache.rocketmq.v2.Message;
 import apache.rocketmq.v2.NotifyClientTerminationRequest;
 import apache.rocketmq.v2.ReceiveMessageRequest;
@@ -216,11 +215,6 @@ abstract class ConsumerImpl extends ClientImpl {
             }
         }, MoreExecutors.directExecutor());
         return future;
-    }
-
-    @Override
-    public HeartbeatRequest wrapHeartbeatRequest() {
-        return HeartbeatRequest.newBuilder().setGroup(getProtobufGroup()).build();
     }
 
     protected Resource getProtobufGroup() {
