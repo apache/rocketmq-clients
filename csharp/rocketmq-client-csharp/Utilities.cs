@@ -34,8 +34,6 @@ namespace Org.Apache.Rocketmq
         private static readonly string HostName = System.Net.Dns.GetHostName();
         private static readonly byte[] RandomMacAddressBytes =
             Enumerable.Range(0, 6).Select(_ => (byte)new Random().Next(256)).ToArray();
-        private static readonly ThreadLocal<MD5> Md5 = new ThreadLocal<MD5>(MD5.Create);
-        private static readonly ThreadLocal<SHA1> Sha1 = new ThreadLocal<SHA1>(SHA1.Create);
 
         public const int MasterBrokerId = 0;
 
@@ -85,16 +83,24 @@ namespace Org.Apache.Rocketmq
 #if NET5_0_OR_GREATER
         public static string ComputeMd5Hash(byte[] data)
         {
-            var hashBytes = Md5.Value.ComputeHash(data);
+            var hashBytes = MD5.HashData(data);
             return Convert.ToHexString(hashBytes);
         }
 
         public static string ComputeSha1Hash(byte[] data)
         {
-            var hashBytes = Sha1.Value.ComputeHash(data);
+            var hashBytes = SHA1.HashData(data);
             return Convert.ToHexString(hashBytes);
         }
+
+        public static string ByteArrayToHexString(byte[] bytes)
+        {
+            return Convert.ToHexString(bytes);
+        }
 #else
+        private static readonly ThreadLocal<MD5> Md5 = new ThreadLocal<MD5>(MD5.Create);
+        private static readonly ThreadLocal<SHA1> Sha1 = new ThreadLocal<SHA1>(SHA1.Create);
+
         public static string ComputeMd5Hash(byte[] data)
         {
             var hashBytes = Md5.Value.ComputeHash(data);
@@ -105,6 +111,11 @@ namespace Org.Apache.Rocketmq
         {
             var hashBytes = Sha1.Value.ComputeHash(data);
             return BitConverter.ToString(hashBytes).Replace("-", "");
+        }
+
+        public static string ByteArrayToHexString(byte[] bytes)
+        {
+            return BitConverter.ToString(bytes).Replace("-", "");
         }
 #endif
 
@@ -120,20 +131,6 @@ namespace Org.Apache.Rocketmq
             }
 
             return result;
-        }
-
-        public static string ByteArrayToHexString(byte[] bytes)
-        {
-            var result = new StringBuilder(bytes.Length * 2);
-            const string hexAlphabet = "0123456789ABCDEF";
-
-            foreach (var b in bytes)
-            {
-                result.Append(hexAlphabet[(int)(b >> 4)]);
-                result.Append(hexAlphabet[(int)(b & 0xF)]);
-            }
-
-            return result.ToString();
         }
 
         public static byte[] CompressBytesGzip(byte[] src, CompressionLevel level)
@@ -152,8 +149,8 @@ namespace Org.Apache.Rocketmq
         public static byte[] DecompressBytesGzip(byte[] src)
         {
             var inputStream = new MemoryStream(src);
-            var gzipStream = new GZipStream(inputStream, CompressionMode.Decompress);
-            var outputStream = new MemoryStream();
+            using var gzipStream = new GZipStream(inputStream, CompressionMode.Decompress);
+            using var outputStream = new MemoryStream();
             gzipStream.CopyTo(outputStream);
             return outputStream.ToArray();
         }
