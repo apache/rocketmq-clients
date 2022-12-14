@@ -16,6 +16,7 @@
  */
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using rmq = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
@@ -23,12 +24,13 @@ namespace Org.Apache.Rocketmq
 
     public class ClientConfig : IClientConfig
     {
+        private static long instanceSequence = 0;
 
         public ClientConfig()
         {
             var hostName = System.Net.Dns.GetHostName();
             var pid = System.Diagnostics.Process.GetCurrentProcess().Id;
-            this.clientId_ = string.Format("{0}@{1}#{2}", hostName, pid, instanceName_);
+            this.clientId_ = string.Format("{0}@{1}#{2}", hostName, pid, Interlocked.Increment(ref instanceSequence));
             this._requestTimeout = TimeSpan.FromSeconds(3);
             this.longPollingIoTimeout_ = TimeSpan.FromSeconds(30);
             this.client_type_ = rmq::ClientType.Unspecified;
@@ -110,11 +112,6 @@ namespace Org.Apache.Rocketmq
             set { tracingEnabled_ = value; }
         }
 
-        public void setInstanceName(string instanceName)
-        {
-            this.instanceName_ = instanceName;
-        }
-
         private string _region = "cn-hangzhou";
         private string _serviceName = "ONS";
 
@@ -131,8 +128,6 @@ namespace Org.Apache.Rocketmq
         private string clientId_;
 
         private bool tracingEnabled_;
-
-        private string instanceName_ = "default";
 
         private rmq::ClientType client_type_;
         public rmq::ClientType ClientType
