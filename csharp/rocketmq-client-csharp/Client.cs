@@ -70,6 +70,7 @@ namespace Org.Apache.Rocketmq
 
             _topicRouteTable = new ConcurrentDictionary<string, TopicRouteData>();
             _updateTopicRouteCts = new CancellationTokenSource();
+            _HeartbeatCts = new CancellationTokenSource();
             _telemetryCts = new CancellationTokenSource();
         }
 
@@ -90,6 +91,13 @@ namespace Org.Apache.Rocketmq
             CreateSession(accessPointUrl);
             await _sessions[accessPointUrl].AwaitSettingNegotiationCompletion();
             Logger.Debug($"Session has been created for {accessPointUrl}");
+
+            Schedule(async () =>
+            {
+                Logger.Debug("Sending heartbeat by schedule");
+                await Heartbeat();
+
+            }, 10, _HeartbeatCts.Token);
             await Heartbeat();
         }
 
@@ -97,6 +105,7 @@ namespace Org.Apache.Rocketmq
         {
             Logger.Info($"Shutdown client");
             _updateTopicRouteCts.Cancel();
+            _HeartbeatCts.Cancel();
             _telemetryCts.Cancel();
             await Manager.Shutdown();
         }
@@ -518,7 +527,7 @@ namespace Org.Apache.Rocketmq
 
         private readonly ConcurrentDictionary<string, TopicRouteData> _topicRouteTable;
         private readonly CancellationTokenSource _updateTopicRouteCts;
-        
+        private readonly CancellationTokenSource _HeartbeatCts;
         private readonly CancellationTokenSource _telemetryCts;
 
         public CancellationTokenSource TelemetryCts()

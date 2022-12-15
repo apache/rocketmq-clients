@@ -198,7 +198,7 @@ namespace Org.Apache.Rocketmq
                             }
                             default:
                             {
-                                Logger.Warn("Unknown error status");
+                                Logger.Warn($"Unknown error status({entry.Status.Code}): {entry.Status.Message}");
                                 break;
                             }
                         }
