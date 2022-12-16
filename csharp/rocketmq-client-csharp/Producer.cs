@@ -107,7 +107,7 @@ namespace Org.Apache.Rocketmq
         {
             _topicsOfInterest.Add(message.Topic);
 
-            if (!_loadBalancer.ContainsKey(message.Topic))
+            if (!_loadBalancer.TryGetValue(message.Topic, out var publishLb))
             {
                 var topicRouteData = await GetRouteFor(message.Topic, false);
                 if (null == topicRouteData || null == topicRouteData.MessageQueues || 0 == topicRouteData.MessageQueues.Count)
@@ -116,11 +116,9 @@ namespace Org.Apache.Rocketmq
                     throw new TopicRouteException(string.Format("No topic route for {0}", message.Topic));
                 }
 
-                var loadBalancerItem = new PublishLoadBalancer(topicRouteData);
-                _loadBalancer.TryAdd(message.Topic, loadBalancerItem);
+                publishLb = new PublishLoadBalancer(topicRouteData);
+                _loadBalancer.TryAdd(message.Topic, publishLb);
             }
-
-            var publishLb = _loadBalancer[message.Topic];
 
             var request = new rmq::SendMessageRequest();
             var entry = new rmq::Message
@@ -176,7 +174,7 @@ namespace Org.Apache.Rocketmq
             }
 
             List<string> targets = new List<string>();
-            List<rmq::MessageQueue> candidates = publishLb.Select(message.MaxAttemptTimes);
+            List<rmq::MessageQueue> candidates = publishLb.Select(message.MessageGroup, message.MaxAttemptTimes);
             foreach (var messageQueue in candidates)
             {
                 targets.Add(Utilities.TargetUrl(messageQueue));
@@ -204,6 +202,10 @@ namespace Org.Apache.Rocketmq
                         _sendLatency.Record(latency, new("topic", message.Topic), new("client_id", clientId()));
                         
                         return new SendReceipt(messageId);
+                    }
+                    else if (response?.Status is not null)
+                    {
+                        Logger.Warn($"Send failed with code: {response.Status.Code}, error: {response.Status.Message}");
                     }
                 }
                 catch (Exception e)
