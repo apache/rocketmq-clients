@@ -85,7 +85,7 @@ namespace Org.Apache.Rocketmq
             return true;
         }
 
-        public List<rmq::MessageQueue> Select(int maxAttemptTimes)
+        public List<rmq::MessageQueue> Select(string messageGroup, int maxAttemptTimes)
         {
             List<rmq::MessageQueue> result = new List<rmq::MessageQueue>();
 
@@ -94,6 +94,13 @@ namespace Org.Apache.Rocketmq
             {
                 return result;
             }
+
+            if (!string.IsNullOrEmpty(messageGroup))
+            {
+                result.Add(all[messageGroup.GetHashCode() % all.Count]);
+                return result;
+            }
+
             int start = ++_roundRobinIndex;
             int found = 0;
 
