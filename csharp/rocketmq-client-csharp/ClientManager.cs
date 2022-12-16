@@ -44,9 +44,9 @@ namespace Org.Apache.Rocketmq
             try
             {
                 // client exists, return in advance.
-                if (_rpcClients.ContainsKey(target))
+                if (_rpcClients.TryGetValue(target, out var cachedClient))
                 {
-                    return _rpcClients[target];
+                    return cachedClient;
                 }
             }
             finally
@@ -58,9 +58,9 @@ namespace Org.Apache.Rocketmq
             try
             {
                 // client exists, return in advance.
-                if (_rpcClients.ContainsKey(target))
+                if (_rpcClients.TryGetValue(target, out var cachedClient))
                 {
-                    return _rpcClients[target];
+                    return cachedClient;
                 }
 
                 // client does not exist, generate a new one

@@ -149,21 +149,13 @@ namespace Org.Apache.Rocketmq
         {
             get
             {
-                List<rmq::Address> addresses = new List<rmq::Address>();
-                foreach (var item in access_point_.Addresses)
-                {
-                    addresses.Add(item);
-                }
-                return addresses;
+                return new List<rmq::Address>(access_point_.Addresses);
             }
 
             set
             {
                 access_point_.Addresses.Clear();
-                foreach (var item in value)
-                {
-                    access_point_.Addresses.Add(item);
-                }
+                access_point_.Addresses.AddRange(value);
             }
         }
 

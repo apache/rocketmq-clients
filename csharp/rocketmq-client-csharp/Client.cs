@@ -227,10 +227,10 @@ namespace Org.Apache.Rocketmq
         protected async Task<TopicRouteData> GetRouteFor(string topic, bool direct)
         {
             Logger.Debug($"Get route for topic={topic}, direct={direct}");
-            if (!direct && _topicRouteTable.ContainsKey(topic))
+            if (!direct && _topicRouteTable.TryGetValue(topic, out var routeData))
             {
                 Logger.Debug($"Return cached route for {topic}");
-                return _topicRouteTable[topic];
+                return routeData;
             }
 
             // We got one or more name servers available.
@@ -243,13 +243,10 @@ namespace Org.Apache.Rocketmq
                 },
                 Endpoints = new rmq::Endpoints
                 {
-                    Scheme = AccessPointScheme
+                    Scheme = AccessPointScheme,
+                    Addresses = { AccessPointEndpoints },
                 }
             };
-            foreach (var address in AccessPointEndpoints)
-            {
-                request.Endpoints.Addresses.Add(address);
-            }
 
             var metadata = new grpc.Metadata();
             Signature.Sign(this, metadata);
@@ -337,14 +334,11 @@ namespace Org.Apache.Rocketmq
                 },
                 Endpoints = new rmq::Endpoints
                 {
-                    Scheme = AccessPointScheme
+                    Scheme = AccessPointScheme,
+                    Addresses = { AccessPointEndpoints },
                 }
             };
             
-            foreach (var endpoint in AccessPointEndpoints)
-            {
-                request.Endpoints.Addresses.Add(endpoint);
-            }
             try
             {
                 var metadata = new grpc::Metadata();
