@@ -268,25 +268,21 @@ namespace Org.Apache.Rocketmq
             msg._receiptHandle = message.SystemProperties.ReceiptHandle;
             msg._sourceHost = sourceHost;
 
-            foreach (var key in message.SystemProperties.Keys)
-            {
-                msg.Keys.Add(key);
-            }
-
+            msg.Keys.AddRange(message.SystemProperties.Keys);
             msg.DeliveryAttempt = message.SystemProperties.DeliveryAttempt;
 
             if (message.SystemProperties.BodyEncoding == rmq::Encoding.Gzip)
             {
                 // Decompress/Inflate message body
-                var inputStream = new MemoryStream(message.Body.ToByteArray());
-                var gzipStream = new GZipStream(inputStream, CompressionMode.Decompress);
-                var outputStream = new MemoryStream();
+                using var inputStream = new MemoryStream(raw);
+                using var gzipStream = new GZipStream(inputStream, CompressionMode.Decompress);
+                using var outputStream = new MemoryStream();
                 gzipStream.CopyTo(outputStream);
                 msg.Body = outputStream.ToArray();
             }
             else
             {
-                msg.Body = message.Body.ToByteArray();
+                msg.Body = raw;
             }
 
             return msg;
