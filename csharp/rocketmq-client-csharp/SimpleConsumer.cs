@@ -219,9 +219,12 @@ namespace Org.Apache.Rocketmq
             var targetUrl = Utilities.TargetUrl(messageQueue);
             var metadata = new Metadata();
             Signature.Sign(this, metadata);
-            
-            return await Manager.ReceiveMessage(targetUrl, metadata, request, 
-                ClientSettings.Subscription.LongPollingTimeout.ToTimeSpan());
+
+            var timeout = ClientSettings.Subscription.LongPollingTimeout
+                .ToTimeSpan()
+                .Add(this.RequestTimeout);
+
+            return await Manager.ReceiveMessage(targetUrl, metadata, request, timeout);
         }
 
 
