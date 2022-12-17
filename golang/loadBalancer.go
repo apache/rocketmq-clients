@@ -105,7 +105,7 @@ func (plb *publishingLoadBalancer) TakeMessageQueues(excluded sync.Map, count in
 			broker := selectMessageQueue.Broker
 			brokerName := broker.GetName()
 
-			if _, ok := candidateBrokerNames[brokerName]; !ok {
+			if _, ok := candidateBrokerNames[brokerName]; ok {
 				continue
 			}
 			candidates = append(candidates, selectMessageQueue)
