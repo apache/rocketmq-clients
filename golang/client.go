@@ -299,6 +299,14 @@ func (cli *defaultClient) getQueryRouteRequest(topic string) *v2.QueryRouteReque
 func (cli *defaultClient) getTotalTargets() []string {
 	endpoints := make([]string, 0)
 	endpointsSet := make(map[string]bool)
+	for _, address := range cli.accessPoint.GetAddresses() {
+		target := utils.ParseAddress(address)
+		if _, ok := endpointsSet[target]; ok {
+			continue
+		}
+		endpointsSet[target] = true
+		endpoints = append(endpoints, target)
+	}
 	cli.router.Range(func(_, v interface{}) bool {
 		messageQueues := v.([]*v2.MessageQueue)
 		for _, messageQueue := range messageQueues {
@@ -372,7 +380,7 @@ func (cli *defaultClient) Heartbeat() {
 }
 
 func (cli *defaultClient) trySyncSettings() {
-	cli.log.Info("start syncSetting")
+	cli.log.Info("start trySyncSettings")
 	command := cli.getSettingsCommand()
 	targets := cli.getTotalTargets()
 	for _, target := range targets {
@@ -381,7 +389,7 @@ func (cli *defaultClient) trySyncSettings() {
 }
 
 func (cli *defaultClient) mustSyncSettings() error {
-	cli.log.Info("start syncSetting")
+	cli.log.Info("start mustSyncSettings")
 	command := cli.getSettingsCommand()
 	targets := cli.getTotalTargets()
 	for _, target := range targets {

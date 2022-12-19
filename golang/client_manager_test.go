@@ -20,6 +20,7 @@ package golang
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"testing"
 	"time"
@@ -27,6 +28,7 @@ import (
 	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/prashantv/gostub"
+	"google.golang.org/grpc/metadata"
 )
 
 var MOCK_CLIENT_ID = "mock_client_id"
@@ -34,6 +36,60 @@ var MOCK_TOPIC = "mock_topic"
 var MOCK_GROUP = "mock_group"
 var MOCK_CLIENT *MockClient
 var MOCK_RPC_CLIENT *MockRpcClient
+
+type MOCK_MessagingService_TelemetryClient struct {
+	trace []string
+}
+
+// CloseSend implements v2.MessagingService_TelemetryClient
+func (mt *MOCK_MessagingService_TelemetryClient) CloseSend() error {
+	mt.trace = append(mt.trace, "closesend")
+	return nil
+}
+
+// Context implements v2.MessagingService_TelemetryClient
+func (mt *MOCK_MessagingService_TelemetryClient) Context() context.Context {
+	mt.trace = append(mt.trace, "context")
+	return nil
+}
+
+// Header implements v2.MessagingService_TelemetryClient
+func (mt *MOCK_MessagingService_TelemetryClient) Header() (metadata.MD, error) {
+	mt.trace = append(mt.trace, "header")
+	return nil, nil
+}
+
+// RecvMsg implements v2.MessagingService_TelemetryClient
+func (mt *MOCK_MessagingService_TelemetryClient) RecvMsg(m interface{}) error {
+	mt.trace = append(mt.trace, "recvmsg")
+	return nil
+}
+
+// SendMsg implements v2.MessagingService_TelemetryClient
+func (mt *MOCK_MessagingService_TelemetryClient) SendMsg(m interface{}) error {
+	mt.trace = append(mt.trace, "sendmsg")
+	return nil
+}
+
+// Trailer implements v2.MessagingService_TelemetryClient
+func (mt *MOCK_MessagingService_TelemetryClient) Trailer() metadata.MD {
+	mt.trace = append(mt.trace, "trailer")
+	return nil
+}
+
+// Recv implements v2.MessagingService_TelemetryClient
+func (mt *MOCK_MessagingService_TelemetryClient) Recv() (*v2.TelemetryCommand, error) {
+	mt.trace = append(mt.trace, "recv")
+	return nil, io.EOF
+}
+
+// Send implements v2.MessagingService_TelemetryClient
+func (mt *MOCK_MessagingService_TelemetryClient) Send(*v2.TelemetryCommand) error {
+	mt.trace = append(mt.trace, "send")
+	return nil
+}
+
+var _ = v2.MessagingService_TelemetryClient(&MOCK_MessagingService_TelemetryClient{})
 
 func TestMain(m *testing.M) {
 	os.Setenv("mq.consoleAppender.enabled", "true")
@@ -50,6 +106,7 @@ func TestMain(m *testing.M) {
 			Code: v2.Code_OK,
 		},
 	}, nil).AnyTimes()
+
 	MOCK_RPC_CLIENT.EXPECT().GracefulStop().Return(nil).AnyTimes()
 	MOCK_RPC_CLIENT.EXPECT().GetTarget().Return(fakeAddresss).AnyTimes()
 	stubs := gostub.Stub(&NewRpcClient, func(target string, opts ...RpcClientOption) (RpcClient, error) {

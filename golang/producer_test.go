@@ -20,7 +20,6 @@ package golang
 import (
 	"context"
 	"fmt"
-	"io"
 	"testing"
 	"time"
 
@@ -28,7 +27,6 @@ import (
 	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/prashantv/gostub"
-	"google.golang.org/grpc/metadata"
 )
 
 func TestProducer(t *testing.T) {
@@ -47,7 +45,22 @@ func TestProducer(t *testing.T) {
 		SYNC_SETTINGS_DELAY:  time.Hour,
 		SYNC_SETTINGS_PERIOD: time.Hour,
 	})
-	defer stubs.Reset()
+
+	stubs2 := gostub.Stub(&NewRpcClient, func(target string, opts ...RpcClientOption) (RpcClient, error) {
+		if target == fakeAddresss {
+			return MOCK_RPC_CLIENT, nil
+		}
+		return nil, fmt.Errorf("invalid target=%s", target)
+	})
+
+	defer func() {
+		stubs.Reset()
+		stubs2.Reset()
+	}()
+
+	MOCK_RPC_CLIENT.EXPECT().Telemetry(gomock.Any()).Return(&MOCK_MessagingService_TelemetryClient{
+		trace: make([]string, 0),
+	}, nil).AnyTimes()
 
 	endpoints := fmt.Sprintf("%s:%d", fakeHost, fakePort)
 	p, err := NewProducer(&Config{
@@ -72,7 +85,7 @@ func TestProducer(t *testing.T) {
 				v2.MessageType_TRANSACTION,
 			},
 		}},
-	}, nil)
+	}, nil).AnyTimes()
 	err = p.Start()
 	if err != nil {
 		t.Error(err)
@@ -88,7 +101,7 @@ func TestProducer(t *testing.T) {
 				Code: v2.Code_OK,
 			},
 			Entries: []*v2.SendResultEntry{{}},
-		}, nil)
+		}, nil).AnyTimes()
 
 		_, err := p.Send(context.TODO(), msg)
 		if err != nil {
@@ -101,7 +114,7 @@ func TestProducer(t *testing.T) {
 				Code: v2.Code_OK,
 			},
 			Entries: []*v2.SendResultEntry{{}},
-		}, nil)
+		}, nil).AnyTimes()
 
 		done := make(chan bool)
 		p.SendAsync(context.TODO(), msg, func(ctx context.Context, sr []*SendReceipt, err error) {
@@ -118,12 +131,12 @@ func TestProducer(t *testing.T) {
 				Code: v2.Code_OK,
 			},
 			Entries: []*v2.SendResultEntry{{}},
-		}, nil)
+		}, nil).AnyTimes()
 		MOCK_RPC_CLIENT.EXPECT().EndTransaction(gomock.Any(), gomock.Any()).Return(&v2.EndTransactionResponse{
 			Status: &v2.Status{
 				Code: v2.Code_OK,
 			},
-		}, nil)
+		}, nil).AnyTimes()
 
 		transaction := p.BeginTransaction()
 		_, err := p.SendWithTransaction(context.TODO(), msg, transaction)
@@ -141,12 +154,12 @@ func TestProducer(t *testing.T) {
 				Code: v2.Code_OK,
 			},
 			Entries: []*v2.SendResultEntry{{}},
-		}, nil)
+		}, nil).AnyTimes()
 		MOCK_RPC_CLIENT.EXPECT().EndTransaction(gomock.Any(), gomock.Any()).Return(&v2.EndTransactionResponse{
 			Status: &v2.Status{
 				Code: v2.Code_OK,
 			},
-		}, nil)
+		}, nil).AnyTimes()
 
 		transaction := p.BeginTransaction()
 		_, err := p.SendWithTransaction(context.TODO(), msg, transaction)
@@ -164,7 +177,7 @@ func TestProducer(t *testing.T) {
 				Code: v2.Code_OK,
 			},
 			Entries: []*v2.SendResultEntry{{}},
-		}, nil)
+		}, nil).AnyTimes()
 		msg.SetMessageGroup(MOCK_GROUP)
 		defer func() { msg.messageGroup = nil }()
 		_, err := p.Send(context.TODO(), msg)
@@ -178,7 +191,7 @@ func TestProducer(t *testing.T) {
 				Code: v2.Code_OK,
 			},
 			Entries: []*v2.SendResultEntry{{}},
-		}, nil)
+		}, nil).AnyTimes()
 		msg.SetDelayTimestamp(time.Now().Add(time.Hour))
 		defer func() { msg.deliveryTimestamp = nil }()
 		_, err := p.Send(context.TODO(), msg)
@@ -204,19 +217,6 @@ func TestProducer(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	t.Run("syncsettings", func(t *testing.T) {
-		mt := &MOCK_MessagingService_TelemetryClient{
-			trace: make([]string, 0),
-		}
-		MOCK_RPC_CLIENT.EXPECT().Telemetry(gomock.Any()).Return(mt, nil)
-		p.(*defaultProducer).cli.clientManager.(*defaultClientManager).syncSettings()
-		for {
-			time.Sleep(time.Duration(100))
-			if len(mt.trace) >= 3 && mt.trace[0] == "send" && mt.trace[1] == "recv" && mt.trace[2] == "closesend" {
-				break
-			}
-		}
-	})
 	t.Run("do heartbeat", func(t *testing.T) {
 		err := p.(*defaultProducer).cli.doHeartbeat(endpoints, nil)
 		if err != nil {
@@ -224,57 +224,3 @@ func TestProducer(t *testing.T) {
 		}
 	})
 }
-
-type MOCK_MessagingService_TelemetryClient struct {
-	trace []string
-}
-
-// CloseSend implements v2.MessagingService_TelemetryClient
-func (mt *MOCK_MessagingService_TelemetryClient) CloseSend() error {
-	mt.trace = append(mt.trace, "closesend")
-	return nil
-}
-
-// Context implements v2.MessagingService_TelemetryClient
-func (mt *MOCK_MessagingService_TelemetryClient) Context() context.Context {
-	mt.trace = append(mt.trace, "context")
-	return nil
-}
-
-// Header implements v2.MessagingService_TelemetryClient
-func (mt *MOCK_MessagingService_TelemetryClient) Header() (metadata.MD, error) {
-	mt.trace = append(mt.trace, "header")
-	return nil, nil
-}
-
-// RecvMsg implements v2.MessagingService_TelemetryClient
-func (mt *MOCK_MessagingService_TelemetryClient) RecvMsg(m interface{}) error {
-	mt.trace = append(mt.trace, "recvmsg")
-	return nil
-}
-
-// SendMsg implements v2.MessagingService_TelemetryClient
-func (mt *MOCK_MessagingService_TelemetryClient) SendMsg(m interface{}) error {
-	mt.trace = append(mt.trace, "sendmsg")
-	return nil
-}
-
-// Trailer implements v2.MessagingService_TelemetryClient
-func (mt *MOCK_MessagingService_TelemetryClient) Trailer() metadata.MD {
-	mt.trace = append(mt.trace, "trailer")
-	return nil
-}
-
-// Recv implements v2.MessagingService_TelemetryClient
-func (mt *MOCK_MessagingService_TelemetryClient) Recv() (*v2.TelemetryCommand, error) {
-	mt.trace = append(mt.trace, "recv")
-	return nil, io.EOF
-}
-
-// Send implements v2.MessagingService_TelemetryClient
-func (mt *MOCK_MessagingService_TelemetryClient) Send(*v2.TelemetryCommand) error {
-	mt.trace = append(mt.trace, "send")
-	return nil
-}
-
-var _ = v2.MessagingService_TelemetryClient(&MOCK_MessagingService_TelemetryClient{})
