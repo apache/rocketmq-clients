@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <PackageId>RocketMQ-Client-CSharp</PackageId>
-    <Version>1.0.0</Version>
+    <Version>5.0.0</Version>
     <Authors>Zhanhui Li</Authors>
     <Company>Apache Software Foundation</Company>
     <TargetFramework>net5.0</TargetFramework>

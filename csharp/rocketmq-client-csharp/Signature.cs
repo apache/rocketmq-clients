@@ -26,7 +26,7 @@ namespace Org.Apache.Rocketmq
         public static void Sign(IClientConfig clientConfig, grpc::Metadata metadata)
         {
             metadata.Add(MetadataConstants.LANGUAGE_KEY, "DOTNET");
-            metadata.Add(MetadataConstants.CLIENT_VERSION_KEY, "5.0.0");
+            metadata.Add(MetadataConstants.CLIENT_VERSION_KEY, MetadataConstants.CLIENT_VERSION);
             metadata.Add(MetadataConstants.CLIENT_ID_KEY, clientConfig.clientId());
 
             if (!String.IsNullOrEmpty(clientConfig.resourceNamespace()))
