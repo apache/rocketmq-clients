@@ -148,11 +148,7 @@ namespace Org.Apache.Rocketmq
 
         private async Task UpdateTopicRoute()
         {
-            HashSet<string> topics = new HashSet<string>();
-            foreach (var topic in _topicsOfInterest)
-            {
-                topics.Add(topic);
-            }
+            HashSet<string> topics = new HashSet<string>(_topicsOfInterest.Keys);
 
             foreach (var item in _topicRouteTable)
             {
@@ -518,11 +514,16 @@ namespace Org.Apache.Rocketmq
 
         protected readonly IClientManager Manager;
 
-        protected readonly HashSet<string> _topicsOfInterest = new HashSet<string>();
+        protected readonly ConcurrentDictionary<string, bool> _topicsOfInterest = new ();
 
         public void AddTopicOfInterest(string topic)
         {
-            _topicsOfInterest.Add(topic);
+            _topicsOfInterest.TryAdd(topic, true);
+        }
+
+        public void RemoveTopicOfInterest(string topic)
+        {
+            _topicsOfInterest.TryRemove(topic, out var _);
         }
 
         private readonly ConcurrentDictionary<string, TopicRouteData> _topicRouteTable;

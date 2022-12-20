@@ -180,6 +180,12 @@ namespace Org.Apache.Rocketmq
             AddTopicOfInterest(topic);
         }
 
+        public void Unsubscribe(string topic)
+        {
+            _subscriptions.TryRemove(topic, out var _);
+            RemoveTopicOfInterest(topic);
+        }
+
         internal override void OnSettingsReceived(rmq.Settings settings)
         {
             base.OnSettingsReceived(settings);
