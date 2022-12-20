@@ -94,7 +94,7 @@ namespace Org.Apache.Rocketmq
             {
                 var resource = new rmq.Resource()
                 {
-                    Name = topic,
+                    Name = topic.Key,
                     ResourceNamespace = ResourceNamespace
                 };
                 publishing.Topics.Add(resource);
@@ -105,7 +105,7 @@ namespace Org.Apache.Rocketmq
 
         public async Task<SendReceipt> Send(Message message)
         {
-            _topicsOfInterest.Add(message.Topic);
+            _topicsOfInterest.TryAdd(message.Topic, true);
 
             if (!_loadBalancer.TryGetValue(message.Topic, out var publishLb))
             {
