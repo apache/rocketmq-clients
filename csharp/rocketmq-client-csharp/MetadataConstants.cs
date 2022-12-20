@@ -16,6 +16,7 @@
  */
 
 using System;
+using System.Reflection;
 
 namespace Org.Apache.Rocketmq
 {
@@ -37,5 +38,10 @@ namespace Org.Apache.Rocketmq
         public const string REQUEST_ID_KEY = "x-mq-request-id";
 
         public const string CLIENT_ID_KEY = "x-mq-client-id";
+
+        public static readonly string CLIENT_VERSION = Assembly
+            .GetAssembly(typeof(MetadataConstants))
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            .InformationalVersion;
     }
 }

@@ -61,7 +61,7 @@ namespace Org.Apache.Rocketmq
             ClientSettings.UserAgent = new rmq.UA
             {
                 Language = rmq::Language.DotNet,
-                Version = "5.0.0",
+                Version = MetadataConstants.CLIENT_VERSION,
                 Platform = Environment.OSVersion.ToString(),
                 Hostname = System.Net.Dns.GetHostName()
             };
