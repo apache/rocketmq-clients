@@ -31,7 +31,7 @@ const (
 const (
 	LanguageValue = "GO"
 	ProtocolValue = "v2"
-	VersionValue  = "5.0.1"
+	VersionValue  = "5.0.1-rc1"
 )
 
 const (
