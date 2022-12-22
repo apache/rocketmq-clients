@@ -128,22 +128,17 @@ namespace Org.Apache.Rocketmq
                 {
                     ResourceNamespace = resourceNamespace(),
                     Name = message.Topic
-                }
+                },
+                UserProperties = { message.UserProperties },
+                SystemProperties = new rmq::SystemProperties
+                {
+                    MessageId = message.MessageId,
+                    MessageType = rmq::MessageType.Normal,
+                    Keys = { message.Keys },
+                },
             };
             request.Messages.Add(entry);
 
-            // User properties
-            foreach (var item in message.UserProperties)
-            {
-                entry.UserProperties.Add(item.Key, item.Value);
-            }
-
-            entry.SystemProperties = new rmq::SystemProperties
-            {
-                MessageId = message.MessageId,
-                MessageType = rmq::MessageType.Normal
-            };
-            
             if (DateTime.MinValue != message.DeliveryTimestamp)
             {
                 entry.SystemProperties.MessageType = rmq::MessageType.Delay;
@@ -154,30 +149,16 @@ namespace Org.Apache.Rocketmq
                     Logger.Warn("A message may not be FIFO and delayed at the same time");
                     throw new MessageException("A message may not be both FIFO and Timed");
                 }
-            } else if (!String.IsNullOrEmpty(message.MessageGroup))
+            }
+            else if (!String.IsNullOrEmpty(message.MessageGroup))
             {
                 entry.SystemProperties.MessageType = rmq::MessageType.Fifo;
                 entry.SystemProperties.MessageGroup = message.MessageGroup;
             }
-            
+
             if (!string.IsNullOrEmpty(message.Tag))
             {
                 entry.SystemProperties.Tag = message.Tag;
-            }
-
-            if (0 != message.Keys.Count)
-            {
-                foreach (var key in message.Keys)
-                {
-                    entry.SystemProperties.Keys.Add(key);
-                }
-            }
-
-            List<string> targets = new List<string>();
-            List<rmq::MessageQueue> candidates = publishLb.Select(message.MessageGroup, message.MaxAttemptTimes);
-            foreach (var messageQueue in candidates)
-            {
-                targets.Add(Utilities.TargetUrl(messageQueue));
             }
 
             var metadata = new Metadata();
@@ -185,8 +166,13 @@ namespace Org.Apache.Rocketmq
 
             Exception ex = null;
 
-            foreach (var target in targets)
+            var candidates = publishLb.Select(message.MessageGroup, message.MaxAttemptTimes);
+            foreach (var messageQueue in candidates)
             {
+                var target = Utilities.TargetUrl(messageQueue);
+                entry.SystemProperties.BornTimestamp = Timestamp.FromDateTimeOffset(DateTimeOffset.UtcNow);
+                entry.SystemProperties.QueueId = messageQueue.Id;
+
                 try
                 {
                     var stopWatch = new Stopwatch();
