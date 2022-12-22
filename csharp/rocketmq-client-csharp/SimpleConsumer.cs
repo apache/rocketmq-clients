@@ -33,8 +33,8 @@ namespace Org.Apache.Rocketmq
         public SimpleConsumer(string accessUrl, string group)
         : base(accessUrl)
         {
-            _subscriptions = new ConcurrentDictionary<string, rmq.SubscriptionEntry>();
-            _topicAssignments = new ConcurrentDictionary<string, List<rmq.Assignment>>();
+            _subscriptions = new();
+            _topicAssignments = new();
             _group = group;
         }
 
@@ -133,16 +133,16 @@ namespace Org.Apache.Rocketmq
             var i = 0;
             foreach (var assignments in list)
             {
-                string topic = topics[i];
+                string topic = topics[i++];
                 if (null == assignments || 0 == assignments.Count)
                 {
                     Logger.Warn($"Faild to acquire assignments. Topic={topic}, Group={_group}");
-                    ++i;
                     continue;
                 }
+
                 Logger.Debug($"Assignments received. Topic={topic}, Group={_group}");
-                _topicAssignments.AddOrUpdate(topic, assignments, (t, prev) => assignments);
-                ++i;
+                var newSubscriptionLB = new SubscriptionLoadBalancer(assignments);
+                _topicAssignments.AddOrUpdate(topic, newSubscriptionLB, (t, prev) => prev.Update(assignments));
             }
         }
 
@@ -201,8 +201,7 @@ namespace Org.Apache.Rocketmq
             var messageQueue = NextQueue();
             if (null == messageQueue)
             {
-                Logger.Debug("NextQueue returned null");
-                return new List<Message>();
+                throw new TopicRouteException("No topic to receive message from");
             }
 
             var request = new rmq.ReceiveMessageRequest
@@ -299,31 +298,23 @@ namespace Org.Apache.Rocketmq
             var total = _topicAssignments.Count;
             var topicIndex = topicSeq % total;
             var topic = _topicAssignments.Keys.Skip((int)topicIndex).First();
-            
-            UInt32 queueSeq = _currentQueueSequence.Value;
-            _currentQueueSequence.Value = queueSeq + 1;
-            if (!_topicAssignments.TryGetValue(topic, out var assignments))
+
+            if (!_topicAssignments.TryGetValue(topic, out var subscriptionLB))
             {
                 return null;
             }
 
-            var idx = queueSeq % assignments?.Count;
-            return assignments?[(int)idx].MessageQueue;
+            return subscriptionLB.TakeMessageQueue();
         }
 
         private readonly ThreadLocal<UInt32> _currentTopicSequence = new ThreadLocal<UInt32>(true)
         {
             Value = 0
         };
-        
-        private readonly ThreadLocal<UInt32> _currentQueueSequence = new ThreadLocal<UInt32>(true)
-        {
-            Value = 0
-        };
 
         private readonly string _group;
         private readonly ConcurrentDictionary<string, rmq::SubscriptionEntry> _subscriptions;
-        private readonly ConcurrentDictionary<string, List<rmq.Assignment>> _topicAssignments;
+        private readonly ConcurrentDictionary<string, SubscriptionLoadBalancer> _topicAssignments;
         private readonly CancellationTokenSource _scanAssignmentCts = new CancellationTokenSource();
     }
 }
