@@ -196,7 +196,7 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        public async Task<List<Message>> Receive(int batchSize, TimeSpan invisibleDuration)
+        public async Task<List<Message>> Receive(int batchSize, TimeSpan invisibleDuration, TimeSpan? awaitDuration = null)
         {
             var messageQueue = NextQueue();
             if (null == messageQueue)
@@ -225,8 +225,7 @@ namespace Org.Apache.Rocketmq
             var metadata = new Metadata();
             Signature.Sign(this, metadata);
 
-            var timeout = ClientSettings.Subscription.LongPollingTimeout
-                .ToTimeSpan()
+            var timeout = (awaitDuration ?? ClientSettings.Subscription.LongPollingTimeout.ToTimeSpan())
                 .Add(this.RequestTimeout);
 
             return await Manager.ReceiveMessage(targetUrl, metadata, request, timeout);
