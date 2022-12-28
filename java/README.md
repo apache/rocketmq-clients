@@ -1,44 +1,60 @@
 # The Java Implementation of Apache RocketMQ Client
 
-Here is the java implementation of the client for [Apache RocketMQ](https://rocketmq.apache.org/).
+English | [简体中文](README-CN.md)
 
-## Prerequisites
+Here is the java implementation of the client for [Apache RocketMQ](https://rocketmq.apache.org/). Different from the [remoting-based client](https://github.com/apache/rocketmq/tree/develop/client), the current implementation is based on separating architecture for computing and storage, which is the more recommended way to access the RocketMQ service.
 
-| Stage   | Requirements |
-| ------- | ------------ |
-| Build   | JDK 11+      |
-| Runtime | JRE 8+       |
+Here are some preparations you may need to know.
+
+1. Java 8+ for runtime, Java 11+ for the build;
+2. Setup namesrv, broker, and [proxy](https://github.com/apache/rocketmq/tree/develop/proxy).
 
 ## Getting Started
 
-Firstly, add the dependency to your `pom.xml`, and replace the `${rocketmq.version}` with the latest version.
+Dependencies must be included in accordance with your build automation tools, and replace the `${rocketmq.version}` with the [latest version]((https://search.maven.org/search?q=g:org.apache.rocketmq%20AND%20a:rocketmq-client-java)).
 
 ```xml
+<!-- For Apache Maven -->
 <dependency>
     <groupId>org.apache.rocketmq</groupId>
     <artifactId>rocketmq-client-java</artifactId>
     <version>${rocketmq.version}</version>
 </dependency>
+
+<!-- Groovy Kotlin DSL for Gradle -->
+implementation("org.apache.rocketmq:rocketmq-client-java:${rocketmq.version}")
+
+<!-- Groovy DSL for Gradle -->
+implementation 'org.apache.rocketmq:rocketmq-client-java:${rocketmq.version}'
 ```
 
-Note: `rocketmq-client-java` is a shaded jar, which means you could not substitute its dependencies.
-From the perspective of avoiding dependency conflicts, you may need a shaded client in most cases, but we also provided
-the no-shaded client.
+The `rocketmq-client-java` is a shaded jar, which means its dependencies can not be manually changed. While we still offer the no-shaded jar for exceptional situations, use the shaded one if you are unsure which version to use. In the majority of cases, this is a good technique for dealing with library dependencies that clash with one another.
 
 ```xml
+<!-- For Apache Maven -->
 <dependency>
     <groupId>org.apache.rocketmq</groupId>
     <artifactId>rocketmq-client-java-noshade</artifactId>
     <version>${rocketmq.version}</version>
 </dependency>
+
+<!-- Groovy Kotlin DSL for Gradle -->
+implementation("org.apache.rocketmq:rocketmq-client-java-noshade:${rocketmq.version}")
+
+<!-- Groovy DSL for Gradle -->
+implementation 'org.apache.rocketmq:rocketmq-client-java-noshade:${rocketmq.version}'
 ```
 
 You can see more code examples [here](./client/src/main/java/org/apache/rocketmq/client/java/example).
 
 ## Logging System
 
-We use [logback](https://logback.qos.ch/) as our logging system and redirect the log of gRPC to [SLF4j](https://www.slf4j.org/) as well.
+We picked [Logback](https://logback.qos.ch/) and shaded it into the client implementation to guarantee that logging is reliably persistent. Because RocketMQ utilizes a distinct configuration file, you shouldn't be concerned that the Logback configuration file will clash with yours.
 
-To prevent the conflict of configuration file while both of rocketmq client and standard logback is introduced in the same project, we shaded a new logback using `rocketmq.logback.xml/rocketmq.logback-test.xml/rocketmq.logback.groovy` instead of `logback.xml/logback-test.xml/logback.groovy` as its configuration file in the shaded jar.
+The following logging parameters are all supported for specification by JVM system parameters (for example, "java -Drocketmq.log.level=INFO -jar foobar.jar") or environment variables.
 
-You can adjust the log level by the environment parameter or the java system property - `rocketmq.log.level`. See [here](https://logback.qos.ch/manual/architecture.html#effectiveLevel) for more details about logback log level.
+* `rocketmq.log.level`: log output level, default is INFO.
+* `rocketmq.log.root`: the root directory of the log output, default is the current user's HOME directory.
+* `rocketmq.log.file.maxIndex`: the maximum number of log files to keep, default is 10 (the size of a single log file is limited to 64 MB, no adjustment is supported now).
+
+Specifically, by setting `mq.consoleAppender.enabled` to 'true,' you can output client logs to the console simultaneously if you need debugging.
