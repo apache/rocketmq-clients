@@ -19,7 +19,7 @@
 
 ## 设计目标
 
-为 Apache RocketMQ 提供包含 Java，C++，C#，Golang，JavaScript，Rust 在内的所有主流编程语言在内的云原生的，健壮的客户端解决方案。
+为 Apache RocketMQ 提供包含 Java，C++，C#，Golang，JavaScript，Rust 在内的所有主流编程语言的云原生的，健壮的客户端解决方案。
 
 ## 特性与进度
 
@@ -38,7 +38,7 @@
 
 ## 参与贡献
 
-与 Apache RocketMQ 的其他项目类似，我们欢迎任何形式的贡献，包括但不仅限于提交 bug 报告、勘误纠错、文档撰写或提交 feature。从第一个 issue/pull request 开始！
+与 Apache RocketMQ 的其他项目类似，我们欢迎任何形式的贡献，包括但不仅限于提交 bug 报告、勘误纠错、文档撰写或提交 feature。成为 Apache RocketMQ contributor，从第一个 issue/pull request 开始！
 
 ## 相关链接
 
