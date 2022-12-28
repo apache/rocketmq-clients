@@ -1,4 +1,4 @@
-# RocketMQ Clients - Collection of Client Bindings for Apache RocketMQ
+# Apache RocketMQ 客户端
 
 [![License][license-image]][license-url]
 [![CPP][cpp-image]][cpp-url]
@@ -11,22 +11,22 @@
 [![Codecov-golang][codecov-golang-image]][codecov-url]
 [![Maven Central][maven-image]][maven-url]
 
-English | [简体中文](README-CN.md) | [RocketMQ Website](https://rocketmq.apache.org/)
+[English](README.md) | 简体中文 | [RocketMQ 官网](https://rocketmq.apache.org/)
 
-## Overview
+## 概述
 
-Client bindings for [Apache RocketMQ](https://rocketmq.apache.org/), all of them follow the specification of [rocketmq-apis](https://github.com/apache/rocketmq-apis), replacing 4.x remoting-based counterparts. Clients in this repository are built on top of [Protocol Buffers](https://developers.google.com/protocol-buffers) and [gRPC](https://grpc.io/).
+[Apache RocketMQ](https://rocketmq.apache.org/) 的多语言客户端实现。遵从 [rocketmq-apis](https://github.com/apache/rocketmq-apis) 约束，使用 [Protocol Buffers](https://developers.google.com/protocol-buffers) 和 [gRPC](https://grpc.io/) 替代了 4.x 的旧有协议。
 
-## Goal
+## 设计目标
 
-Provide cloud-native and robust solutions for Java, C++, C#, Golang, Rust and all other mainstream programming languages.
+为 Apache RocketMQ 提供包含 Java，C++，C#，Golang，JavaScript，Rust 在内的所有主流编程语言在内的云原生的，健壮的客户端解决方案。
 
-## Features and Status
+## 特性与进度
 
-* Ready - ✅
-* Work in progress - 🚧
+* 可用 - ✅
+* 进行中 - 🚧
 
-| Feature                                        | Java  | C/C++ |  C#   | Golang | Rust  | Node.js | Python |
+| 特性                                            | Java  | C/C++ |  C#   | Golang | Rust  | Node.js | Python |
 | ---------------------------------------------- | :---: | :---: | :---: | :----: | :---: | :-----: | :----: |
 | Producer with standard messages                |   ✅   |   ✅   |   ✅   |   ✅    |   🚧   |    🚧    |   🚧    |
 | Producer with FIFO messages                    |   ✅   |   ✅   |   ✅   |   ✅    |   🚧   |    🚧    |   🚧    |
@@ -36,18 +36,18 @@ Provide cloud-native and robust solutions for Java, C++, C#, Golang, Rust and al
 | Push consumer with concurrent message listener |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |    🚧    |   🚧    |
 | Push consumer with FIFO message listener       |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |    🚧    |   🚧    |
 
-## Contributing
+## 参与贡献
 
-Similar to other projects of Apache RocketMQ, any attempt to make this project better is welcome, including but not limited to filing a bug report, correcting type error or document writing to complete feature implementation. Do not hesitate to make a pull request if this project catches your attention.
+与 Apache RocketMQ 的其他项目类似，我们欢迎任何形式的贡献，包括但不仅限于提交 bug 报告、勘误纠错、文档撰写或提交 feature。从第一个 issue/pull request 开始！
 
-## Related
+## 相关链接
 
-* [rocketmq](https://github.com/apache/rocketmq): The implementation of server-side.
-* [rocketmq-apis](https://github.com/apache/rocketmq-apis): Common communication protocol between server and client.
-* [RIP-37: New and Unified APIs](https://shimo.im/docs/m5kv92OeRRU8olqX): RocketMQ proposal of new and unified APIs crossing different languages.
-* [RIP-39: Support gRPC protocol](https://shimo.im/docs/gXqmeEPYgdUw5bqo): RocketMQ proposal of gRPC protocol support.
+* [rocketmq](https://github.com/apache/rocketmq): RocketMQ 主仓库（含服务端实现）。
+* [rocketmq-apis](https://github.com/apache/rocketmq-apis): RocketMQ 协议约束。
+* [RIP-37: New and Unified APIs](https://shimo.im/docs/m5kv92OeRRU8olqX): RocketMQ 关于统一精简 API 设计的 RIP。
+* [RIP-39: Support gRPC protocol](https://shimo.im/docs/gXqmeEPYgdUw5bqo): RocketMQ 关于 gRPC 协议支持的 RIP。
 
-## License
+## 开源许可证
 
 [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.html) Copyright (C) Apache Software Foundation
 
