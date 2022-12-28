@@ -1,10 +1,12 @@
 # The Java Implementation of Apache RocketMQ Client
 
-English | [简体中文](README-CN.md)
+English | [简体中文](README-CN.md) | [RocketMQ Website](https://rocketmq.apache.org/)
+
+## Overview
 
 Here is the java implementation of the client for [Apache RocketMQ](https://rocketmq.apache.org/). Different from the [remoting-based client](https://github.com/apache/rocketmq/tree/develop/client), the current implementation is based on separating architecture for computing and storage, which is the more recommended way to access the RocketMQ service.
 
-Here are some preparations you may need to know.
+Here are some preparations you may need to know (or refer to [here](https://rocketmq.apache.org/docs/quickStart/02quickstart/https://rocketmq.apache.org/docs/quickStart/02quickstart/)).
 
 1. Java 8+ for runtime, Java 11+ for the build;
 2. Setup namesrv, broker, and [proxy](https://github.com/apache/rocketmq/tree/develop/proxy).
