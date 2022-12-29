@@ -45,7 +45,7 @@ func TestCLINewClient(t *testing.T) {
 	})
 
 	stubs2 := gostub.Stub(&NewRpcClient, func(target string, opts ...RpcClientOption) (RpcClient, error) {
-		if target == fakeAddresss {
+		if target == fakeAddress {
 			return MOCK_RPC_CLIENT, nil
 		}
 		return nil, fmt.Errorf("invalid target=%s", target)

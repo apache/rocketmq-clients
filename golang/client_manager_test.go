@@ -108,9 +108,9 @@ func TestMain(m *testing.M) {
 	}, nil).AnyTimes()
 
 	MOCK_RPC_CLIENT.EXPECT().GracefulStop().Return(nil).AnyTimes()
-	MOCK_RPC_CLIENT.EXPECT().GetTarget().Return(fakeAddresss).AnyTimes()
+	MOCK_RPC_CLIENT.EXPECT().GetTarget().Return(fakeAddress).AnyTimes()
 	stubs := gostub.Stub(&NewRpcClient, func(target string, opts ...RpcClientOption) (RpcClient, error) {
-		if target == fakeAddresss {
+		if target == fakeAddress {
 			return MOCK_RPC_CLIENT, nil
 		}
 		return nil, fmt.Errorf("invalid target=%s", target)
@@ -146,9 +146,9 @@ func TestCMUnRegisterClient(t *testing.T) {
 }
 
 var (
-	fakeHost           = "127.0.0.1"
-	fakePort     int32 = 80
-	fakeAddresss       = fmt.Sprintf("%s:%d", fakeHost, fakePort)
+	fakeHost          = "127.0.0.1"
+	fakePort    int32 = 80
+	fakeAddress       = fmt.Sprintf("%s:%d", fakeHost, fakePort)
 )
 
 func fakeEndpoints() *v2.Endpoints {
