@@ -13,7 +13,7 @@ Here are some preparations you may need to know (or refer to [here](https://rock
 
 ## Getting Started
 
-Dependencies must be included in accordance with your build automation tools, and replace the `${rocketmq.version}` with the [latest version]((https://search.maven.org/search?q=g:org.apache.rocketmq%20AND%20a:rocketmq-client-java)).
+Dependencies must be included in accordance with your build automation tools, and replace the `${rocketmq.version}` with the [latest version](https://search.maven.org/search?q=g:org.apache.rocketmq%20AND%20a:rocketmq-client-java).
 
 ```xml
 <!-- For Apache Maven -->
@@ -22,15 +22,19 @@ Dependencies must be included in accordance with your build automation tools, an
     <artifactId>rocketmq-client-java</artifactId>
     <version>${rocketmq.version}</version>
 </dependency>
+```
 
-<!-- Groovy Kotlin DSL for Gradle -->
+```kotlin
+// Kotlin DSL for Gradle
 implementation("org.apache.rocketmq:rocketmq-client-java:${rocketmq.version}")
+```
 
-<!-- Groovy DSL for Gradle -->
+```groovy
+// Groovy DSL for Gradle
 implementation 'org.apache.rocketmq:rocketmq-client-java:${rocketmq.version}'
 ```
 
-The `rocketmq-client-java` is a shaded jar, which means its dependencies can not be manually changed. While we still offer the no-shaded jar for exceptional situations, use the shaded one if you are unsure which version to use. In the majority of cases, this is a good technique for dealing with library dependencies that clash with one another.
+The `rocketmq-client-java` is a shaded jar, which means its dependencies can not be manually changed. While we still offer the no-shaded jar for exceptional situations, use the shaded one if you are unsure which version to use. In most cases, this is a good technique for dealing with library dependencies that clash with one another.
 
 ```xml
 <!-- For Apache Maven -->
@@ -39,21 +43,25 @@ The `rocketmq-client-java` is a shaded jar, which means its dependencies can not
     <artifactId>rocketmq-client-java-noshade</artifactId>
     <version>${rocketmq.version}</version>
 </dependency>
+```
 
-<!-- Groovy Kotlin DSL for Gradle -->
+```kotlin
+// Kotlin DSL for Gradle
 implementation("org.apache.rocketmq:rocketmq-client-java-noshade:${rocketmq.version}")
+```
 
-<!-- Groovy DSL for Gradle -->
+```groovy
+// Groovy DSL for Gradle
 implementation 'org.apache.rocketmq:rocketmq-client-java-noshade:${rocketmq.version}'
 ```
 
-You can see more code examples [here](./client/src/main/java/org/apache/rocketmq/client/java/example).
+More code examples are provided [here](./client/src/main/java/org/apache/rocketmq/client/java/example) to assist you in working with various clients and different message types.
 
 ## Logging System
 
 We picked [Logback](https://logback.qos.ch/) and shaded it into the client implementation to guarantee that logging is reliably persistent. Because RocketMQ utilizes a distinct configuration file, you shouldn't be concerned that the Logback configuration file will clash with yours.
 
-The following logging parameters are all supported for specification by JVM system parameters (for example, "java -Drocketmq.log.level=INFO -jar foobar.jar") or environment variables.
+The following logging parameters are all supported for specification by JVM system parameters (for example, `java -Drocketmq.log.level=INFO -jar foobar.jar`) or environment variables.
 
 * `rocketmq.log.level`: log output level, default is INFO.
 * `rocketmq.log.root`: the root directory of the log output, default is the current user's HOME directory.

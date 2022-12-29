@@ -22,11 +22,15 @@
     <artifactId>rocketmq-client-java</artifactId>
     <version>${rocketmq.version}</version>
 </dependency>
+```
 
-<!-- Groovy Kotlin DSL for Gradle -->
+```kotlin
+// Kotlin DSL for Gradle
 implementation("org.apache.rocketmq:rocketmq-client-java:${rocketmq.version}")
+```
 
-<!-- Groovy DSL for Gradle -->
+```groovy
+// Groovy DSL for Gradle
 implementation 'org.apache.rocketmq:rocketmq-client-java:${rocketmq.version}'
 ```
 
@@ -41,11 +45,15 @@ implementation 'org.apache.rocketmq:rocketmq-client-java:${rocketmq.version}'
     <artifactId>rocketmq-client-java-noshade</artifactId>
     <version>${rocketmq.version}</version>
 </dependency>
+```
 
-<!-- Groovy Kotlin DSL for Gradle -->
+```kotlin
+// Kotlin DSL for Gradle
 implementation("org.apache.rocketmq:rocketmq-client-java-noshade:${rocketmq.version}")
+```
 
-<!-- Groovy DSL for Gradle -->
+```groovy
+// Groovy DSL for Gradle
 implementation 'org.apache.rocketmq:rocketmq-client-java-noshade:${rocketmq.version}'
 ```
 
