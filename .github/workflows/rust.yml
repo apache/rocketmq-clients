@@ -11,7 +11,22 @@ on:
     paths:
       - 'rust/**'
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: cargo fmt
+        working-directory: ./rust
+        run: cargo fmt -- --check --color ${{ env.CARGO_TERM_COLOR }}
+      - name: cargo clippy
+        working-directory: ./rust
+        run: cargo clippy -- -W warnings
+
   build_and_test:
     name: Rust project
     runs-on: ubuntu-latest

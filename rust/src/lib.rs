@@ -23,4 +23,5 @@ mod command;
 
 mod client;
 
+#[cfg(feature = "producer")]
 mod producer;

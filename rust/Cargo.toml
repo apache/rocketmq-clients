@@ -18,12 +18,25 @@
 name = "rocketmq"
 version = "0.1.0"
 edition = "2021"
+authors = ["rocketmq-group"]
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/apache/rocketmq-clients"
+homepage = "https://rocketmq.apache.org"
+description = "The Rust Implementation of Apache RocketMQ Client."
+categories = ["network-programming", "development-tools"]
+keywords = ["microservices", "distributed-systems", "message-queue", "mq"]
+
+[features]
+default = ["producer", "consumer"]
+producer = []
+consumer = []
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-tonic = {version = "0.7", features = ["tls", "default", "channel", "tls-roots"]}
-prost = "0.10"
-prost-types = "0.10"
+tonic = {version = "0.8", features = ["tls", "default", "channel", "tls-roots"]}
+prost = "0.11"
+prost-types = "0.11"
 thiserror = "1.0"
 slog = {version = "2.7.0", features=["max_level_trace", "release_max_level_info"]}
 slog-term = "2.9.0"
@@ -34,4 +47,4 @@ hostname = "0.3.1"
 tokio-rustls = {version = "0.23", features = ["default", "dangerous_configuration"] }
 
 [build-dependencies]
-tonic-build = "0.7"
+tonic-build = "0.8"
