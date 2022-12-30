@@ -14,8 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#[path = "pb/apache.rocketmq.v2.rs"]
-mod pb;
+/// Proto of rocketmq v2
+#[allow(dead_code)]
+mod pb {
+    include!("pb/apache.rocketmq.v2.rs");
+}
 
 mod error;
 
