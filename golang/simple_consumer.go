@@ -135,7 +135,7 @@ func (sc *defaultSimpleConsumer) ChangeInvisibleDurationAsync(messageView *Messa
 func (sc *defaultSimpleConsumer) Subscribe(topic string, filterExpression *FilterExpression) error {
 	_, err := sc.cli.getMessageQueues(context.Background(), topic)
 	if err != nil {
-		sc.cli.log.Errorf("subscribe error with topic %s for simpleConsumer", topic)
+		sc.cli.log.Errorf("subscribe error=%v with topic %s for simpleConsumer", err, topic)
 		return err
 	}
 	sc.subscriptionExpressionsLock.Lock()
@@ -148,7 +148,7 @@ func (sc *defaultSimpleConsumer) Subscribe(topic string, filterExpression *Filte
 func (sc *defaultSimpleConsumer) Unsubscribe(topic string) error {
 	_, err := sc.cli.getMessageQueues(context.Background(), topic)
 	if err != nil {
-		sc.cli.log.Errorf("unsubscribe error with topic %s for simpleConsumer", topic)
+		sc.cli.log.Errorf("unsubscribe error=%v with topic %s for simpleConsumer", err, topic)
 		return err
 	}
 	sc.subscriptionExpressionsLock.Lock()
