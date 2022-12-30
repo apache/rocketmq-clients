@@ -23,12 +23,15 @@ Note: `features = ["default"]` contains `producer` and `consumer`, you can selec
 You can see more code examples [here](./examples).
 
 ### Usage of Producer
+
 - TODO
 
 ### Usage of Consumer
+
 - TODO
 
 ## Contribute
+
 Ensure that the following command is executed and passed
 
 - Build with `cargo build`
