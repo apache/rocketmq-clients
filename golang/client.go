@@ -410,7 +410,10 @@ func (cli *defaultClient) telemeter(target string, command *v2.TelemetryCommand)
 
 func (cli *defaultClient) startUp() error {
 	cli.log.Infof("begin to start the rocketmq client")
-	cli.clientManager = defaultClientManagerRegistry.RegisterClient(cli)
+	cm := NewDefaultClientManager()
+	cm.startUp()
+	cm.RegisterClient(cli)
+	cli.clientManager = cm
 	for _, topic := range cli.initTopics {
 		maxAttempts := int(cli.settings.GetRetryPolicy().GetMaxAttempts())
 		for i := 0; i < maxAttempts; i++ {
@@ -478,7 +481,7 @@ func (cli *defaultClient) GracefulStop() error {
 		return fmt.Errorf("client has been closed")
 	}
 	cli.notifyClientTermination()
-	defaultClientManagerRegistry.UnRegisterClient(cli)
+	cli.clientManager.UnRegisterClient(cli)
 	cli.done <- struct{}{}
 	close(cli.done)
 	cli.clientMeterProvider.Reset(&v2.Metric{

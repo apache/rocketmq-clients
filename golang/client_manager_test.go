@@ -64,11 +64,12 @@ func TestMain(m *testing.M) {
 	m.Run()
 	sugarBaseLogger.Info("end")
 }
-
 func TestCMRegisterClient(t *testing.T) {
-	defaultClientManagerRegistry.RegisterClient(MOCK_CLIENT)
-	singletonClientManager := defaultClientManagerRegistry.singletonClientManagers[MOCK_CLIENT_ID]
-	v, ok := singletonClientManager.(*defaultClientManager).clientTable.Load(MOCK_CLIENT_ID)
+	cm := NewDefaultClientManager()
+	cm.startUp()
+	cm.RegisterClient(MOCK_CLIENT)
+	defer cm.UnRegisterClient(MOCK_CLIENT)
+	v, ok := cm.clientTable.Load(MOCK_CLIENT_ID)
 	if !ok {
 		t.Errorf("test RegisterClient failed")
 	}
@@ -82,9 +83,11 @@ func TestCMRegisterClient(t *testing.T) {
 }
 
 func TestCMUnRegisterClient(t *testing.T) {
-	defaultClientManagerRegistry.RegisterClient(MOCK_CLIENT)
-	defaultClientManagerRegistry.UnRegisterClient(MOCK_CLIENT)
-	if len(defaultClientManagerRegistry.singletonClientManagers) != 0 {
+	cm := NewDefaultClientManager()
+	cm.startUp()
+	cm.RegisterClient(MOCK_CLIENT)
+	defer cm.UnRegisterClient(MOCK_CLIENT)
+	if _, ok := cm.clientTable.Load(MOCK_CLIENT.GetClientID()); !ok {
 		t.Errorf("test UnRegisterClient failed")
 	}
 }
@@ -106,8 +109,10 @@ func fakeEndpoints() *v2.Endpoints {
 	}
 }
 func TestCMQueryRoute(t *testing.T) {
-	cm := defaultClientManagerRegistry.RegisterClient(MOCK_CLIENT)
-	defer defaultClientManagerRegistry.UnRegisterClient(MOCK_CLIENT)
+	cm := NewDefaultClientManager()
+	cm.startUp()
+	cm.RegisterClient(MOCK_CLIENT)
+	defer cm.UnRegisterClient(MOCK_CLIENT)
 
 	MOCK_RPC_CLIENT.EXPECT().QueryRoute(gomock.Any(), gomock.Any()).Return(&v2.QueryRouteResponse{
 		Status: &v2.Status{
@@ -124,8 +129,10 @@ func TestCMQueryRoute(t *testing.T) {
 }
 
 func TestCMHeartBeat(t *testing.T) {
-	cm := defaultClientManagerRegistry.RegisterClient(MOCK_CLIENT)
-	defer defaultClientManagerRegistry.UnRegisterClient(MOCK_CLIENT)
+	cm := NewDefaultClientManager()
+	cm.startUp()
+	cm.RegisterClient(MOCK_CLIENT)
+	defer cm.UnRegisterClient(MOCK_CLIENT)
 
 	resp, err := cm.HeartBeat(context.TODO(), fakeEndpoints(), &v2.HeartbeatRequest{}, time.Minute)
 	if err != nil {
@@ -137,8 +144,10 @@ func TestCMHeartBeat(t *testing.T) {
 }
 
 func TestCMSendMessage(t *testing.T) {
-	cm := defaultClientManagerRegistry.RegisterClient(MOCK_CLIENT)
-	defer defaultClientManagerRegistry.UnRegisterClient(MOCK_CLIENT)
+	cm := NewDefaultClientManager()
+	cm.startUp()
+	cm.RegisterClient(MOCK_CLIENT)
+	defer cm.UnRegisterClient(MOCK_CLIENT)
 
 	MOCK_RPC_CLIENT.EXPECT().SendMessage(gomock.Any(), gomock.Any()).Return(&v2.SendMessageResponse{
 		Status: &v2.Status{
@@ -155,8 +164,10 @@ func TestCMSendMessage(t *testing.T) {
 }
 
 func TestCMTelemetry(t *testing.T) {
-	cm := defaultClientManagerRegistry.RegisterClient(MOCK_CLIENT)
-	defer defaultClientManagerRegistry.UnRegisterClient(MOCK_CLIENT)
+	cm := NewDefaultClientManager()
+	cm.startUp()
+	cm.RegisterClient(MOCK_CLIENT)
+	defer cm.UnRegisterClient(MOCK_CLIENT)
 
 	MOCK_RPC_CLIENT.EXPECT().Telemetry(gomock.Any()).Return(nil, nil)
 	_, err := cm.Telemetry(context.TODO(), fakeEndpoints(), time.Minute)
@@ -166,8 +177,10 @@ func TestCMTelemetry(t *testing.T) {
 }
 
 func TestCMEndTransaction(t *testing.T) {
-	cm := defaultClientManagerRegistry.RegisterClient(MOCK_CLIENT)
-	defer defaultClientManagerRegistry.UnRegisterClient(MOCK_CLIENT)
+	cm := NewDefaultClientManager()
+	cm.startUp()
+	cm.RegisterClient(MOCK_CLIENT)
+	defer cm.UnRegisterClient(MOCK_CLIENT)
 
 	MOCK_RPC_CLIENT.EXPECT().EndTransaction(gomock.Any(), gomock.Any()).Return(&v2.EndTransactionResponse{
 		Status: &v2.Status{
@@ -184,8 +197,10 @@ func TestCMEndTransaction(t *testing.T) {
 }
 
 func TestCMNotifyClientTermination(t *testing.T) {
-	cm := defaultClientManagerRegistry.RegisterClient(MOCK_CLIENT)
-	defer defaultClientManagerRegistry.UnRegisterClient(MOCK_CLIENT)
+	cm := NewDefaultClientManager()
+	cm.startUp()
+	cm.RegisterClient(MOCK_CLIENT)
+	defer cm.UnRegisterClient(MOCK_CLIENT)
 
 	MOCK_RPC_CLIENT.EXPECT().NotifyClientTermination(gomock.Any(), gomock.Any()).Return(&v2.NotifyClientTerminationResponse{
 		Status: &v2.Status{
@@ -202,8 +217,10 @@ func TestCMNotifyClientTermination(t *testing.T) {
 }
 
 func TestCMReceiveMessage(t *testing.T) {
-	cm := defaultClientManagerRegistry.RegisterClient(MOCK_CLIENT)
-	defer defaultClientManagerRegistry.UnRegisterClient(MOCK_CLIENT)
+	cm := NewDefaultClientManager()
+	cm.startUp()
+	cm.RegisterClient(MOCK_CLIENT)
+	defer cm.UnRegisterClient(MOCK_CLIENT)
 
 	MOCK_RPC_CLIENT.EXPECT().ReceiveMessage(gomock.Any(), gomock.Any()).Return(nil, nil)
 	_, err := cm.ReceiveMessage(context.TODO(), fakeEndpoints(), &v2.ReceiveMessageRequest{})
@@ -213,8 +230,10 @@ func TestCMReceiveMessage(t *testing.T) {
 }
 
 func TestCMAckMessage(t *testing.T) {
-	cm := defaultClientManagerRegistry.RegisterClient(MOCK_CLIENT)
-	defer defaultClientManagerRegistry.UnRegisterClient(MOCK_CLIENT)
+	cm := NewDefaultClientManager()
+	cm.startUp()
+	cm.RegisterClient(MOCK_CLIENT)
+	defer cm.UnRegisterClient(MOCK_CLIENT)
 
 	MOCK_RPC_CLIENT.EXPECT().AckMessage(gomock.Any(), gomock.Any()).Return(&v2.AckMessageResponse{
 		Status: &v2.Status{
@@ -249,16 +268,16 @@ func TestCMClearIdleRpcClients(t *testing.T) {
 	defer stubs.Reset()
 
 	MOCK_RPC_CLIENT.EXPECT().idleDuration().Return(time.Hour * 24 * 365)
-	cm := defaultClientManagerRegistry.RegisterClient(MOCK_CLIENT)
-	defer defaultClientManagerRegistry.UnRegisterClient(MOCK_CLIENT)
+	cm := NewDefaultClientManager()
+	cm.startUp()
+	cm.RegisterClient(MOCK_CLIENT)
+	defer cm.UnRegisterClient(MOCK_CLIENT)
 
 	cm.HeartBeat(context.TODO(), fakeEndpoints(), &v2.HeartbeatRequest{}, time.Minute)
 
 	startTime := time.Now()
 
-	singletonClientManager := defaultClientManagerRegistry.singletonClientManagers[MOCK_CLIENT_ID]
-
-	for len(singletonClientManager.(*defaultClientManager).rpcClientTable) != 0 {
+	for len(cm.rpcClientTable) != 0 {
 		if time.Since(startTime) > time.Second*5 {
 			t.Errorf("test ClearIdleRpcClients failed")
 		}
