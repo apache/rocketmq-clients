@@ -58,7 +58,7 @@ implementation 'org.apache.rocketmq:rocketmq-client-java-noshade:${rocketmq.vers
 客户端提供了一些可配置的日志参数，均支持 JVM 系统参数（示例： `java -Drocketmq.log.level=INFO -jar foobar.jar`）或环境变量指定：
 
 * `rocketmq.log.level`: 日志输出级别，默认为 INFO。
-* `rocketmq.log.root`: 日志输出根目录，默认为当前用户的 HOME 目录。
+* `rocketmq.log.root`: 日志输出根目录，默认为 `$HOME/logs/rocketmq`，此时日志输出路径为 `$HOME/logs/rocketmq/rocketmq-client.log`。注意：文件名 `rocketmq-client.log` 不可改。
 * `rocketmq.log.file.maxIndex`: 日志文件最大保留个数，默认为 10（单个日志文件大小限制为 64 MB，暂不支持调整）。
 
 特别地，如果有调试的需求，可以通过把 `mq.consoleAppender.enabled` 设置成 `true` 将客户端的日志同时输出到控制台。
