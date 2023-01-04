@@ -64,7 +64,7 @@ We picked [Logback](https://logback.qos.ch/) and shaded it into the client imple
 The following logging parameters are all supported for specification by JVM system parameters (for example, `java -Drocketmq.log.level=INFO -jar foobar.jar`) or environment variables.
 
 * `rocketmq.log.level`: log output level, default is INFO.
-* `rocketmq.log.root`: the root directory of the log output, default is the current user's HOME directory.
+* `rocketmq.log.root`: the root directory of the log output, default is `$HOME/logs/rocketmq`, so the full path is `$HOME/logs/rocketmq/rocketmq-client.log`.
 * `rocketmq.log.file.maxIndex`: the maximum number of log files to keep, default is 10 (the size of a single log file is limited to 64 MB, no adjustment is supported now).
 
 Specifically, by setting `mq.consoleAppender.enabled` to 'true,' you can output client logs to the console simultaneously if you need debugging.
