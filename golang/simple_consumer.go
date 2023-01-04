@@ -146,11 +146,6 @@ func (sc *defaultSimpleConsumer) Subscribe(topic string, filterExpression *Filte
 }
 
 func (sc *defaultSimpleConsumer) Unsubscribe(topic string) error {
-	_, err := sc.cli.getMessageQueues(context.Background(), topic)
-	if err != nil {
-		sc.cli.log.Errorf("unsubscribe error=%v with topic %s for simpleConsumer", err, topic)
-		return err
-	}
 	sc.subscriptionExpressionsLock.Lock()
 	defer sc.subscriptionExpressionsLock.Unlock()
 
