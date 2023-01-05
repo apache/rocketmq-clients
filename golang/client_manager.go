@@ -84,55 +84,6 @@ type defaultClientManager struct {
 	opts               clientManagerOptions
 }
 
-type ClientManagerRegistry interface {
-	RegisterClient(client Client) ClientManager
-	UnRegisterClient(client Client) bool
-}
-
-type clientManagerRegistry struct {
-	clientIds              map[string]bool
-	clientIdsLock          sync.Mutex
-	singletonClientManager ClientManager
-}
-
-var defaultClientManagerRegistry = &clientManagerRegistry{
-	clientIds: make(map[string]bool),
-}
-
-var _ = ClientManagerRegistry(&clientManagerRegistry{})
-
-func (cmr *clientManagerRegistry) RegisterClient(client Client) ClientManager {
-	cmr.clientIdsLock.Lock()
-	defer cmr.clientIdsLock.Unlock()
-
-	if cmr.singletonClientManager == nil {
-		cmr.singletonClientManager = NewDefaultClientManager()
-		cmr.singletonClientManager.(*defaultClientManager).startUp()
-	}
-	cmr.clientIds[client.GetClientID()] = true
-	cmr.singletonClientManager.RegisterClient(client)
-	return cmr.singletonClientManager
-}
-
-func (cmr *clientManagerRegistry) UnRegisterClient(client Client) bool {
-	var tmpClientManager ClientManager
-
-	cmr.clientIdsLock.Lock()
-	{
-		delete(cmr.clientIds, client.GetClientID())
-		cmr.singletonClientManager.UnRegisterClient(client)
-		if len(cmr.clientIds) == 0 {
-			tmpClientManager = cmr.singletonClientManager
-			cmr.singletonClientManager = nil
-		}
-	}
-	cmr.clientIdsLock.Unlock()
-	if tmpClientManager != nil {
-		tmpClientManager.(*defaultClientManager).shutdown()
-	}
-	return tmpClientManager != nil
-}
-
 var _ = ClientManager(&defaultClientManager{})
 
 var NewDefaultClientManager = func() *defaultClientManager {
