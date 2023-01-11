@@ -1,6 +1,6 @@
 # The Golang Implementation of Apache RocketMQ Client
 
-Project github.com/apache/rocketmq-clients/golang is targeted to implement with golang. At the current moment, it is still a work-in-progress project. Do not use it in production till it grows mature enough.
+Here is the golang implementation of the client for [Apache RocketMQ](https://rocketmq.apache.org/).
 
 ## Architecture
 

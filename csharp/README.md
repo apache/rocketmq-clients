@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This is still a work-in-progress project. Do not use it in production till it grows mature enough.
+Here is the C# implementation of the client for [Apache RocketMQ](https://rocketmq.apache.org/).
 
 ## Architecture
 
