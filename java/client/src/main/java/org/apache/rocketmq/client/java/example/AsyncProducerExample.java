@@ -20,6 +20,8 @@ package org.apache.rocketmq.client.java.example;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.ClientServiceProvider;
@@ -72,14 +74,17 @@ public class AsyncProducerExample {
             .setKeys("yourMessageKey-0e094a5f9d85")
             .setBody(body)
             .build();
+        // Set individual thread pool for send callback.
         final CompletableFuture<SendReceipt> future = producer.sendAsync(message);
-        future.whenComplete((sendReceipt, throwable) -> {
-            if (null == throwable) {
-                log.info("Send message successfully, messageId={}", sendReceipt.getMessageId());
-            } else {
+        ExecutorService sendCallbackExecutor = Executors.newCachedThreadPool();
+        future.whenCompleteAsync((sendReceipt, throwable) -> {
+            if (null != throwable) {
                 log.error("Failed to send message", throwable);
+                // Return early.
+                return;
             }
-        });
+            log.info("Send message successfully, messageId={}", sendReceipt.getMessageId());
+        }, sendCallbackExecutor);
         // Block to avoid exist of background threads.
         Thread.sleep(Long.MAX_VALUE);
         // Close the producer when you don't need it anymore.

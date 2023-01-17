@@ -23,6 +23,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
@@ -75,8 +77,17 @@ public class AsyncSimpleConsumerExample {
         int maxMessageNum = 16;
         // Set message invisible duration after it is received.
         Duration invisibleDuration = Duration.ofSeconds(15);
+        // Set individual thread pool for receive callback.
+        ExecutorService receiveCallbackExecutor = Executors.newCachedThreadPool();
+        // Set individual thread pool for ack callback.
+        ExecutorService ackCallbackExecutor = Executors.newCachedThreadPool();
         final CompletableFuture<List<MessageView>> future0 = consumer.receiveAsync(maxMessageNum, invisibleDuration);
-        future0.thenAccept(messages -> {
+        future0.whenCompleteAsync(((messages, throwable) -> {
+            if (null != throwable) {
+                log.error("Failed to receive message from remote", throwable);
+                // Return early.
+                return;
+            }
             log.info("Received {} message(s)", messages.size());
             // Using messageView as key rather than message id because message id may be duplicated.
             final Map<MessageView, CompletableFuture<Void>> map =
@@ -84,16 +95,17 @@ public class AsyncSimpleConsumerExample {
             for (Map.Entry<MessageView, CompletableFuture<Void>> entry : map.entrySet()) {
                 final MessageId messageId = entry.getKey().getMessageId();
                 final CompletableFuture<Void> future = entry.getValue();
-                future.thenAccept(v -> log.info("Message is acknowledged successfully, messageId={}", messageId))
-                    .exceptionally(throwable -> {
-                        log.error("Message is failed to be acknowledged, messageId={}", messageId);
-                        return null;
-                    });
+                future.whenCompleteAsync((v, t) -> {
+                    if (null != t) {
+                        log.error("Message is failed to be acknowledged, messageId={}", messageId, t);
+                        // Return early.
+                        return;
+                    }
+                    log.info("Message is acknowledged successfully, messageId={}", messageId);
+                }, ackCallbackExecutor);
             }
-        }).exceptionally(t -> {
-            log.error("Failed to receive message from remote", t);
-            return null;
-        });
+
+        }), receiveCallbackExecutor);
         // Block to avoid exist of background threads.
         Thread.sleep(Long.MAX_VALUE);
         // Close the simple consumer when you don't need it anymore.
