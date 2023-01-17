@@ -269,10 +269,10 @@ func (sc *defaultSimpleConsumer) Receive(ctx context.Context, maxMessageNum int3
 	}
 	sc.subscriptionExpressionsLock.RLock()
 	topics := make([]string, 0, len(sc.subscriptionExpressions))
-	sc.subscriptionExpressionsLock.RUnlock()
 	for k, _ := range sc.subscriptionExpressions {
 		topics = append(topics, k)
 	}
+	sc.subscriptionExpressionsLock.RUnlock()
 	// All topic is subscribed.
 	if len(topics) == 0 {
 		return nil, fmt.Errorf("there is no topic to receive message")
