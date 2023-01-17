@@ -340,6 +340,9 @@ var NewSimpleConsumer = func(config *Config, opts ...SimpleConsumerOption) (Simp
 		awaitDuration:           scOpts.awaitDuration,
 		subscriptionExpressions: scOpts.subscriptionExpressions,
 	}
+	if sc.subscriptionExpressions == nil {
+		sc.subscriptionExpressions = make(map[string]*FilterExpression)
+	}
 	sc.cli.initTopics = make([]string, 0)
 	for topic, _ := range scOpts.subscriptionExpressions {
 		sc.cli.initTopics = append(sc.cli.initTopics, topic)
