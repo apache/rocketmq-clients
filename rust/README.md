@@ -30,7 +30,7 @@ You can see more code examples [here](./examples).
 
 - TODO
 
-## Contribute
+## Contributing
 
 Ensure that the following command is executed and passed
 
