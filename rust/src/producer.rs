@@ -17,9 +17,17 @@
 use slog::Logger;
 
 use crate::{client, error};
+use crate::error::ClientError;
+use crate::pb::SendMessageResponse;
 
 struct Producer {
     client: client::Client,
+}
+
+impl Producer {
+    pub async fn send(&self, p0: &str) -> Result<SendMessageResponse, ClientError> {
+        self.client.send(p0).await
+    }
 }
 
 impl Producer {
@@ -28,7 +36,7 @@ impl Producer {
         T: IntoIterator,
         T::Item: AsRef<str>,
     {
-        let access_point = "localhost:8081";
+        let access_point = "127.0.0.1:8081";
         let client = client::Client::new(logger, access_point)?;
         for _topic in topics.into_iter() {
             // client.subscribe(topic.as_ref()).await;
@@ -38,4 +46,25 @@ impl Producer {
     }
 
     pub fn start(&mut self) {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use slog::Drain;
+
+    #[tokio::test]
+    async fn test_producer() {
+        let drain = slog::Discard;
+        let logger = Logger::root(drain, slog::o!());
+        let _producer = Producer::new(logger, vec!["TopicTest"]).await.unwrap();
+        match   _producer.send("hello world").await {
+            Ok(r) => {
+                println!("response: {:?}", r);
+            }
+            Err(e) => {
+                println!("error: {:?}", e);
+            }
+        }
+    }
 }

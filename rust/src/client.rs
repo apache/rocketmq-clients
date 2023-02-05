@@ -16,7 +16,7 @@
  */
 use crate::command;
 use crate::error;
-use crate::pb::{self, QueryRouteRequest, Resource};
+use crate::pb::{self, QueryRouteRequest, Resource, SendMessageRequest, SendMessageResponse, SystemProperties};
 use crate::{error::ClientError, pb::messaging_service_client::MessagingServiceClient};
 use parking_lot::Mutex;
 use slog::info;
@@ -27,12 +27,27 @@ use std::{
     sync::{atomic::AtomicUsize, Weak},
 };
 use tokio::sync::oneshot;
+use tonic::Request;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig};
 
 #[derive(Debug, Clone)]
 struct Session {
     stub: MessagingServiceClient<Channel>,
     logger: Logger,
+}
+
+impl Session {
+    pub(crate) async fn send(&mut self, request: Request<SendMessageRequest>) -> Result<tonic::Response<pb::SendMessageResponse>, error::ClientError> {
+        match self.stub.send_message(request).await {
+            Ok(response) => {
+                return Ok(response);
+            }
+            Err(e) => {
+                error!(self.logger, "QueryRoute failed. Cause: {:?}", e);
+                return Err(error::ClientError::ClientInternal);
+            }
+        }
+    }
 }
 
 impl Session {
@@ -47,11 +62,13 @@ impl Session {
                 error!(logger, "Failed to create channel. Cause: {:?}", e);
                 error::ClientError::Connect
             })?
-            .tls_config(tls)
+          /*  .tls_config(tls)
             .map_err(|e| {
                 error!(logger, "Failed to configure TLS. Cause: {:?}", e);
                 error::ClientError::Connect
             })?
+
+           */
             .connect_timeout(std::time::Duration::from_secs(3))
             .tcp_nodelay(true)
             .connect()
@@ -92,6 +109,82 @@ struct SessionManager {
 }
 
 impl SessionManager {
+    async fn send(
+        &self,
+        data: &str,
+        client: Weak<&Client>,
+    ) -> Result<SendMessageResponse, ClientError> {
+        let client = match client.upgrade() {
+            Some(client) => client,
+            None => {
+                return Err(error::ClientError::ClientInternal);
+            }
+        };
+
+        let mut srequest = SendMessageRequest {
+            messages: vec![],
+        };
+
+        srequest.messages.push(pb::Message {
+            topic: Some(Resource {
+                resource_namespace: "".to_string(),
+                name: String::from("TopicTest"),
+            }),
+            user_properties: Default::default(),
+            system_properties: Option::from(pb::SystemProperties {
+                tag: None,
+                keys: vec![],
+                message_id: "123".to_string(),
+                body_digest: None,
+                body_encoding: 0,
+                message_type: 0,
+                born_timestamp: None,
+                born_host: "".to_string(),
+                store_timestamp: None,
+                store_host: "".to_string(),
+                delivery_timestamp: None,
+                receipt_handle: None,
+                queue_id: 0,
+                queue_offset: None,
+                invisible_duration: None,
+                delivery_attempt: None,
+                message_group: None,
+                trace_context: None,
+                orphaned_transaction_recovery_duration: None,
+            }),
+            body: data.as_bytes().to_vec(),
+        });
+
+        let mut request = tonic::Request::new(srequest);
+        client.sign(request.metadata_mut());
+
+        let (tx1, rx1) = oneshot::channel();
+        let command = command::Command::Send {
+            peer: String::from("http://127.0.0.1:8081"),
+            request,
+            tx: tx1,
+        };
+
+        match self.tx.send(command).await {
+            Ok(_) => {}
+            Err(e) => {
+                error!(self.logger, "Failed to submit request");
+            }
+        }
+
+        match rx1.await {
+            Ok(result) => result.map(|_response| {
+                _response.into_inner()
+            }),
+            Err(e) => {
+                error!(self.logger, "oneshot channel error. Cause: {:?}", e);
+                Err(ClientError::ClientInternal)
+            }
+        }
+    }
+}
+
+impl SessionManager {
     fn new(logger: Logger) -> Self {
         let (tx, mut rx) = tokio::sync::mpsc::channel(256);
 
@@ -125,6 +218,36 @@ impl SessionManager {
                                     let mut session = session.clone();
                                     tokio::spawn(async move {
                                         let result = session.query_route(request).await;
+                                        let _ = tx.send(result);
+                                    });
+                                }
+                                None => {}
+                            }
+                        }
+                        command::Command::Send { peer, request, tx } => {
+                            if !session_map.contains_key(&peer) {
+                                match Session::new(peer.clone(), &submitter_logger).await {
+                                    Ok(session) => {
+                                        session_map.insert(peer.clone(), session);
+                                    }
+                                    Err(e) => {
+                                        error!(
+                                            submitter_logger,
+                                            "Failed to create session to {}. Cause: {:?}", peer, e
+                                        );
+                                        let _ = tx.send(Err(ClientError::Connect));
+                                        continue;
+                                    }
+                                }
+                            }
+
+                            match session_map.get(&peer) {
+                                Some(session) => {
+                                    // Cloning Channel is cheap and encouraged
+                                    // https://docs.rs/tonic/0.7.2/tonic/transport/struct.Channel.html#multiplexing-requests
+                                    let mut session = session.clone();
+                                    tokio::spawn(async move {
+                                        let result = session.send(request).await;
                                         let _ = tx.send(result);
                                     });
                                 }
@@ -210,6 +333,17 @@ pub(crate) struct Client {
     access_point: pb::Endpoints,
 }
 
+impl Client {
+    pub async fn send(&self, p0: &str)-> Result<SendMessageResponse, ClientError> {
+        let client = Arc::new(*&self);
+        let client_weak = Arc::downgrade(&client);
+        match self.session_manager.send(p0,client_weak).await {
+            Ok(response) => Ok(response),
+            Err(e) => Err(e),
+        }
+    }
+}
+
 static CLIENT_ID_SEQUENCE: AtomicUsize = AtomicUsize::new(0);
 
 impl Client {
@@ -241,10 +375,14 @@ impl Client {
             scheme: pb::AddressScheme::IPv4 as i32,
             addresses: vec![],
         };
-
         for socket_addr in access_url
             .to_socket_addrs()
-            .map_err(|e| error::ClientError::ClientInternal)?
+            .map_err(|e|
+                {
+                    error!(logger, "Failed to resolve access url. Cause: {:?}", e);
+                    error::ClientError::ClientInternal
+                }
+            )?
         {
             if socket_addr.is_ipv4() {
                 access_point.scheme = pb::AddressScheme::IPv4 as i32;
@@ -381,7 +519,6 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use slog::Drain;
 

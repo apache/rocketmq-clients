@@ -16,7 +16,7 @@
  */
 use crate::client::Client;
 use crate::error::ClientError;
-use crate::pb::{QueryRouteRequest, QueryRouteResponse};
+use crate::pb::{QueryRouteRequest, QueryRouteResponse, SendMessageRequest, SendMessageResponse};
 use tokio::sync::oneshot;
 use tonic::{Request, Response};
 
@@ -25,5 +25,10 @@ pub(crate) enum Command {
         peer: String,
         request: Request<QueryRouteRequest>,
         tx: oneshot::Sender<Result<Response<QueryRouteResponse>, ClientError>>,
+    },
+    Send {
+        peer: String,
+        request: Request<SendMessageRequest>,
+        tx: oneshot::Sender<Result<Response<SendMessageResponse>, ClientError>>,
     },
 }
