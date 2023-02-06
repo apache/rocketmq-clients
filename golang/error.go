@@ -30,7 +30,7 @@ type ErrRpcStatus struct {
 }
 
 func (err *ErrRpcStatus) GetCode() int32 {
-	return err.GetCode()
+	return err.Code
 }
 
 func (err *ErrRpcStatus) GetMessage() string {
