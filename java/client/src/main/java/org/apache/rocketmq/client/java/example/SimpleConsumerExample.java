@@ -17,7 +17,6 @@
 
 package org.apache.rocketmq.client.java.example;
 
-import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
@@ -40,7 +39,8 @@ public class SimpleConsumerExample {
     private SimpleConsumerExample() {
     }
 
-    public static void main(String[] args) throws ClientException, IOException {
+    @SuppressWarnings({"resource", "InfiniteLoopStatement"})
+    public static void main(String[] args) throws ClientException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
 
         // Credential provider is optional for client configuration.
@@ -72,18 +72,21 @@ public class SimpleConsumerExample {
         int maxMessageNum = 16;
         // Set message invisible duration after it is received.
         Duration invisibleDuration = Duration.ofSeconds(15);
-        final List<MessageView> messages = consumer.receive(maxMessageNum, invisibleDuration);
-        log.info("Received {} message(s)", messages.size());
-        for (MessageView message : messages) {
-            final MessageId messageId = message.getMessageId();
-            try {
-                consumer.ack(message);
-                log.info("Message is acknowledged successfully, messageId={}", messageId);
-            } catch (Throwable t) {
-                log.error("Message is failed to be acknowledged, messageId={}", messageId, t);
+        // Receive message, multi-threading is more recommended.
+        do {
+            final List<MessageView> messages = consumer.receive(maxMessageNum, invisibleDuration);
+            log.info("Received {} message(s)", messages.size());
+            for (MessageView message : messages) {
+                final MessageId messageId = message.getMessageId();
+                try {
+                    consumer.ack(message);
+                    log.info("Message is acknowledged successfully, messageId={}", messageId);
+                } catch (Throwable t) {
+                    log.error("Message is failed to be acknowledged, messageId={}", messageId, t);
+                }
             }
-        }
+        } while (true);
         // Close the simple consumer when you don't need it anymore.
-        consumer.close();
+        // consumer.close();
     }
 }

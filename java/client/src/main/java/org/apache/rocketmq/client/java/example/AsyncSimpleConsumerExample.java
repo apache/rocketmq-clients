@@ -17,7 +17,6 @@
 
 package org.apache.rocketmq.client.java.example;
 
-import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
@@ -45,7 +44,8 @@ public class AsyncSimpleConsumerExample {
     private AsyncSimpleConsumerExample() {
     }
 
-    public static void main(String[] args) throws ClientException, IOException, InterruptedException {
+    @SuppressWarnings({"resource", "InfiniteLoopStatement"})
+    public static void main(String[] args) throws ClientException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
 
         // Credential provider is optional for client configuration.
@@ -81,34 +81,36 @@ public class AsyncSimpleConsumerExample {
         ExecutorService receiveCallbackExecutor = Executors.newCachedThreadPool();
         // Set individual thread pool for ack callback.
         ExecutorService ackCallbackExecutor = Executors.newCachedThreadPool();
-        final CompletableFuture<List<MessageView>> future0 = consumer.receiveAsync(maxMessageNum, invisibleDuration);
-        future0.whenCompleteAsync(((messages, throwable) -> {
-            if (null != throwable) {
-                log.error("Failed to receive message from remote", throwable);
-                // Return early.
-                return;
-            }
-            log.info("Received {} message(s)", messages.size());
-            // Using messageView as key rather than message id because message id may be duplicated.
-            final Map<MessageView, CompletableFuture<Void>> map =
-                messages.stream().collect(Collectors.toMap(message -> message, consumer::ackAsync));
-            for (Map.Entry<MessageView, CompletableFuture<Void>> entry : map.entrySet()) {
-                final MessageId messageId = entry.getKey().getMessageId();
-                final CompletableFuture<Void> future = entry.getValue();
-                future.whenCompleteAsync((v, t) -> {
-                    if (null != t) {
-                        log.error("Message is failed to be acknowledged, messageId={}", messageId, t);
-                        // Return early.
-                        return;
-                    }
-                    log.info("Message is acknowledged successfully, messageId={}", messageId);
-                }, ackCallbackExecutor);
-            }
+        // Receive message.
+        do {
+            final CompletableFuture<List<MessageView>> future0 = consumer.receiveAsync(maxMessageNum,
+                invisibleDuration);
+            future0.whenCompleteAsync(((messages, throwable) -> {
+                if (null != throwable) {
+                    log.error("Failed to receive message from remote", throwable);
+                    // Return early.
+                    return;
+                }
+                log.info("Received {} message(s)", messages.size());
+                // Using messageView as key rather than message id because message id may be duplicated.
+                final Map<MessageView, CompletableFuture<Void>> map =
+                    messages.stream().collect(Collectors.toMap(message -> message, consumer::ackAsync));
+                for (Map.Entry<MessageView, CompletableFuture<Void>> entry : map.entrySet()) {
+                    final MessageId messageId = entry.getKey().getMessageId();
+                    final CompletableFuture<Void> future = entry.getValue();
+                    future.whenCompleteAsync((v, t) -> {
+                        if (null != t) {
+                            log.error("Message is failed to be acknowledged, messageId={}", messageId, t);
+                            // Return early.
+                            return;
+                        }
+                        log.info("Message is acknowledged successfully, messageId={}", messageId);
+                    }, ackCallbackExecutor);
+                }
 
-        }), receiveCallbackExecutor);
-        // Block to avoid exist of background threads.
-        Thread.sleep(Long.MAX_VALUE);
+            }), receiveCallbackExecutor);
+        } while (true);
         // Close the simple consumer when you don't need it anymore.
-        consumer.close();
+        // consumer.close();
     }
 }
