@@ -72,12 +72,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// gracefule stop simpleConsumer
+	// graceful stop simpleConsumer
 	defer simpleConsumer.GracefulStop()
 
 	go func() {
 		for {
-			fmt.Println("start recevie message")
+			fmt.Println("start receive message")
 			mvs, err := simpleConsumer.Receive(context.TODO(), maxMessageNum, invisibleDuration)
 			if err != nil {
 				fmt.Println(err)
