@@ -35,7 +35,10 @@ namespace Org.Apache.Rocketmq
         {
             get { return TopicResource.Name; }
         }
-        
-        
+
+        public override string ToString()
+        {
+            return $"{Broker.Name}.{TopicResource}.{QueueId}";
+        }
     }
 }
