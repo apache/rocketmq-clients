@@ -56,7 +56,7 @@ namespace Org.Apache.Rocketmq
             try
             {
                 var response = await t;
-                Logger.Debug($"Response received: {response}");
+                Logger.Trace($"Response received: {response}");
                 return response;
             }
             catch (Exception ex)
@@ -101,7 +101,7 @@ namespace Org.Apache.Rocketmq
             where TRequest : class
             where TResponse : class
         {
-            Logger.Debug($"Starting call. Type: {method.Type}. Request: {typeof(TRequest)}. Response: {typeof(TResponse)}");
+            Logger.Trace($"Starting call. Type: {method.Type}. Request: {typeof(TRequest)}. Response: {typeof(TResponse)}");
         }
 
         private void AddCallerMetadata<TRequest, TResponse>(ref ClientInterceptorContext<TRequest, TResponse> context)

@@ -26,7 +26,7 @@ namespace Org.Apache.Rocketmq
     {
         public TopicRouteData(List<rmq::MessageQueue> messageQueues)
         {
-            List<MessageQueue> messageQueuesList = new List<MessageQueue>();
+            var messageQueuesList = new List<MessageQueue>();
             foreach (var mq in messageQueues)
             {
                 messageQueuesList.Add(new MessageQueue(mq));
@@ -40,17 +40,27 @@ namespace Org.Apache.Rocketmq
 
         public bool Equals(TopicRouteData other)
         {
-            if (ReferenceEquals(null, other)) return false;
-            if (ReferenceEquals(this, other)) return true;
-            return Equals(MessageQueues, other.MessageQueues);
+            if (ReferenceEquals(null, other))
+            {
+                return false;
+            }
+
+            return ReferenceEquals(this, other) || Equals(MessageQueues, other.MessageQueues);
         }
 
         public override bool Equals(object obj)
         {
-            if (ReferenceEquals(null, obj)) return false;
-            if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
-            return Equals((TopicRouteData)obj);
+            if (ReferenceEquals(null, obj))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, obj))
+            {
+                return true;
+            }
+
+            return obj.GetType() == GetType() && Equals((TopicRouteData)obj);
         }
 
         public override int GetHashCode()

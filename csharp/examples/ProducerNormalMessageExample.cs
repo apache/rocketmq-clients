@@ -17,6 +17,7 @@
 
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using NLog;
 using Org.Apache.Rocketmq;
@@ -64,8 +65,9 @@ namespace examples
             };
             var sendReceipt = await producer.Send(message);
             Logger.Info($"Send message successfully, sendReceipt={sendReceipt}");
+            Thread.Sleep(9999999);
             // Close the producer if you don't need it anymore.
-            await producer.Shutdown();
+            // await producer.Shutdown();
         }
     }
 }

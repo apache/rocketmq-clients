@@ -181,6 +181,7 @@ namespace Org.Apache.Rocketmq
 
         private async void UpdateTopicRouteCache()
         {
+            Logger.Info($"Start to update topic route cache for a new round, clientId={ClientId}");
             foreach (var topic in Topics.Keys)
             {
                 var topicRouteData = await FetchTopicRoute(topic);
@@ -230,9 +231,17 @@ namespace Org.Apache.Rocketmq
                 Endpoints = ClientConfig.Endpoints.ToProtobuf()
             };
 
-            var queryRouteResponse =
+            var response =
                 await Manager.QueryRoute(ClientConfig.Endpoints, request, ClientConfig.RequestTimeout);
-            var messageQueues = queryRouteResponse.MessageQueues.ToList();
+            var code = response.Status.Code;
+            if (!Proto.Code.Ok.Equals(code))
+            {
+                Logger.Error($"Failed to fetch topic route, clientId={ClientId}, topic={topic}, code={code}, " +
+                             $"statusMessage={response.Status.Message}");
+            }
+            StatusChecker.Check(response.Status, request);
+
+            var messageQueues = response.MessageQueues.ToList();
             return new TopicRouteData(messageQueues);
         }
 
@@ -246,11 +255,26 @@ namespace Org.Apache.Rocketmq
             }
 
             var request = WrapHeartbeatRequest();
-
-            var tasks = endpoints.Select(endpoint => Manager.Heartbeat(endpoint, request, ClientConfig.RequestTimeout))
-                .Cast<Task>().ToList();
-
-            await Task.WhenAll(tasks);
+            Dictionary<Endpoints, Task<Proto.HeartbeatResponse>> responses = new ();
+            // Collect task into a map.
+            foreach (var item in endpoints)
+            {
+                var task = Manager.Heartbeat(item, request, ClientConfig.RequestTimeout);
+                responses[item]= task;
+            }
+            foreach (var item in responses.Keys)
+            {
+                var response = await responses[item];
+                var code = response.Status.Code;
+                
+                if (code.Equals(Proto.Code.Ok))
+                {
+                    Logger.Info($"Send heartbeat successfully, endpoints={item}, clientId={ClientId}");
+                    return;
+                }
+                var statusMessage = response.Status.Message;
+                Logger.Info($"Failed to send heartbeat, endpoints={item}, code={code}, statusMessage={statusMessage}, clientId={ClientId}");
+            }
         }
 
 
