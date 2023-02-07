@@ -67,6 +67,11 @@ namespace Org.Apache.Rocketmq
             Addresses = addresses;
         }
 
+        public override string ToString()
+        {
+            return GrpcTarget;
+        }
+
         public string GrpcTarget
         {
             // TODO
@@ -82,7 +87,7 @@ namespace Org.Apache.Rocketmq
                 return "";
             }
         }
-
+        
         public bool Equals(Endpoints other)
         {
             if (ReferenceEquals(null, other))

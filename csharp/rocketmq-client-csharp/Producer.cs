@@ -19,7 +19,12 @@ namespace Org.Apache.Rocketmq
         {
         }
 
-        public Producer(ClientConfig clientConfig, ConcurrentDictionary<string, bool> topics, int maxAttempts) :
+        public Producer(ClientConfig clientConfig, int maxAttempts) : this(clientConfig,
+            new ConcurrentDictionary<string, bool>(), maxAttempts)
+        {
+        }
+
+        private Producer(ClientConfig clientConfig, ConcurrentDictionary<string, bool> topics, int maxAttempts) :
             base(clientConfig, topics)
         {
             var retryPolicy = ExponentialBackoffRetryPolicy.immediatelyRetryPolicy(maxAttempts);
@@ -72,12 +77,6 @@ namespace Org.Apache.Rocketmq
             if (!_publishingRouteDataCache.TryGetValue(message.Topic, out var publishingLoadBalancer))
             {
                 var topicRouteData = await FetchTopicRoute(message.Topic);
-                if (null == topicRouteData || null == topicRouteData.MessageQueues ||
-                    0 == topicRouteData.MessageQueues.Count)
-                {
-                    throw new TopicRouteException($"No topic route for {message.Topic}");
-                }
-
                 publishingLoadBalancer = new PublishingLoadBalancer(topicRouteData);
                 _publishingRouteDataCache.TryAdd(message.Topic, publishingLoadBalancer);
             }
@@ -87,7 +86,7 @@ namespace Org.Apache.Rocketmq
             var maxAttempts = retryPolicy.getMaxAttempts();
             var candidates = publishingLoadBalancer.TakeMessageQueues(publishingMessage.MessageGroup, maxAttempts);
             Exception exception = null;
-            for (int attempt = 0; attempt < maxAttempts; attempt++)
+            for (var attempt = 0; attempt < maxAttempts; attempt++)
             {
                 try
                 {
