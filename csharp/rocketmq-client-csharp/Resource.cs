@@ -1,3 +1,4 @@
+using System;
 using rmq = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
@@ -20,6 +21,11 @@ namespace Org.Apache.Rocketmq
                 ResourceNamespace = Namespace,
                 Name = Name
             };
+        }
+        
+        public override string ToString()
+        {
+            return String.IsNullOrEmpty(Namespace) ? Name : $"{Namespace}.{Name}";
         }
     }
 }

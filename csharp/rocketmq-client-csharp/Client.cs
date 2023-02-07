@@ -213,6 +213,8 @@ namespace Org.Apache.Rocketmq
         {
             var topicRouteData = await FetchTopicRoute0(topic);
             await OnTopicRouteDataFetched(topic, topicRouteData);
+            Logger.Info(
+                $"Fetch topic route successfully, clientId={ClientId}, topic={topic}, topicRouteData={topicRouteData}");
             return topicRouteData;
         }
 

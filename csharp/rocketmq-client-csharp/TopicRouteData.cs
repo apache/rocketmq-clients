@@ -17,6 +17,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using rmq = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
@@ -59,7 +60,8 @@ namespace Org.Apache.Rocketmq
 
         public override string ToString()
         {
-            return $"{nameof(MessageQueues)}: {MessageQueues}";
+            var mqs = MessageQueues.Select(mq => mq.ToString()).ToList();
+            return $"[{string.Join(",", mqs)}]";
         }
     }
 }
