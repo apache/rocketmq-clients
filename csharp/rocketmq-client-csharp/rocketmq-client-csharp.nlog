@@ -35,7 +35,7 @@
         </target>
     </targets>
     <rules>
-        <logger name="*" minlevel="info" writeTo="asyncFile" />
-        <logger name="*" minlevel="Info" writeTo="colorConsole" />
+        <logger name="*" minlevel="Debug" writeTo="asyncFile" />
+        <logger name="*" minlevel="Debug" writeTo="colorConsole" />
     </rules>
 </nlog>
