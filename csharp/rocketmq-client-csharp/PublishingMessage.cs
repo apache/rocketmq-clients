@@ -19,7 +19,7 @@ using System;
 using System.IO;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
-using rmq = Apache.Rocketmq.V2;
+using Proto = Apache.Rocketmq.V2;
 using Org.Apache.Rocketmq.Error;
 
 namespace Org.Apache.Rocketmq
@@ -31,7 +31,7 @@ namespace Org.Apache.Rocketmq
     {
         public MessageType MessageType { set; get; }
 
-        public String MessageId { get; }
+        private string MessageId { get; }
 
         public PublishingMessage(Message message, PublishingSettings publishingSettings, bool txEnabled) : base(
             message.Topic, message.Body)
@@ -45,7 +45,7 @@ namespace Org.Apache.Rocketmq
             // Generate message id.
             MessageId = MessageIdGenerator.GetInstance().Next();
             // For NORMAL message.
-            if (String.IsNullOrEmpty(message.MessageGroup) && !message.DeliveryTimestamp.HasValue &&
+            if (string.IsNullOrEmpty(message.MessageGroup) && !message.DeliveryTimestamp.HasValue &&
                 !txEnabled)
             {
                 MessageType = MessageType.Normal;
@@ -53,7 +53,7 @@ namespace Org.Apache.Rocketmq
             }
 
             // For FIFO message.
-            if (!String.IsNullOrEmpty(message.MessageGroup) && !txEnabled)
+            if (!string.IsNullOrEmpty(message.MessageGroup) && !txEnabled)
             {
                 MessageType = MessageType.Fifo;
                 return;
@@ -67,18 +67,15 @@ namespace Org.Apache.Rocketmq
             }
 
             // For TRANSACTION message.
-            if (!String.IsNullOrEmpty(message.MessageGroup) && !message.DeliveryTimestamp.HasValue && txEnabled)
-            {
-                MessageType = MessageType.Transaction;
-                return;
-            }
-
-            throw new InternalErrorException("Transactional message should not set messageGroup or deliveryTimestamp");
+            if (string.IsNullOrEmpty(message.MessageGroup) || message.DeliveryTimestamp.HasValue || !txEnabled)
+                throw new InternalErrorException(
+                    "Transactional message should not set messageGroup or deliveryTimestamp");
+            MessageType = MessageType.Transaction;
         }
 
-        public rmq::Message ToProtobuf(int queueId)
+        public Proto::Message ToProtobuf(int queueId)
         {
-            rmq.SystemProperties systemProperties = new rmq.SystemProperties
+            var systemProperties = new Proto.SystemProperties
             {
                 Keys = { Keys },
                 MessageId = MessageId,
@@ -103,11 +100,11 @@ namespace Org.Apache.Rocketmq
                 systemProperties.MessageGroup = MessageGroup;
             }
 
-            rmq.Resource topicResource = new rmq.Resource
+            var topicResource = new Proto.Resource
             {
                 Name = Topic
             };
-            return new rmq.Message
+            return new Proto.Message
             {
                 Topic = topicResource,
                 Body = ByteString.CopyFrom(Body),

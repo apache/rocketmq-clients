@@ -1,5 +1,22 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 using System;
-using rmq = Apache.Rocketmq.V2;
+using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
@@ -8,10 +25,10 @@ namespace Org.Apache.Rocketmq
         protected readonly string ClientId;
         protected readonly ClientType ClientType;
         protected readonly Endpoints AccessPoint;
-        protected volatile RetryPolicy RetryPolicy;
+        protected volatile IRetryPolicy RetryPolicy;
         protected readonly TimeSpan RequestTimeout;
 
-        public Settings(string clientId, ClientType clientType, Endpoints accessPoint, RetryPolicy retryPolicy,
+        public Settings(string clientId, ClientType clientType, Endpoints accessPoint, IRetryPolicy retryPolicy,
             TimeSpan requestTimeout)
         {
             ClientId = clientId;
@@ -30,11 +47,11 @@ namespace Org.Apache.Rocketmq
             RequestTimeout = requestTimeout;
         }
 
-        public abstract rmq::Settings ToProtobuf();
+        public abstract Proto::Settings ToProtobuf();
 
-        public abstract void Sync(rmq::Settings settings);
+        public abstract void Sync(Proto::Settings settings);
 
-        public RetryPolicy GetRetryPolicy()
+        public IRetryPolicy GetRetryPolicy()
         {
             return RetryPolicy;
         }

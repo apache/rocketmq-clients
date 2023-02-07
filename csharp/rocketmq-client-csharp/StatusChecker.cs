@@ -28,7 +28,7 @@ namespace Org.Apache.Rocketmq
 
         public static void Check(Proto.Status status, IMessage message)
         {
-            Proto.Code statusCode = status.Code;
+            var statusCode = status.Code;
 
             var statusMessage = status.Message;
             switch (statusCode)

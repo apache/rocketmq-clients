@@ -4,11 +4,11 @@ using Google.Protobuf.WellKnownTypes;
 
 namespace Org.Apache.Rocketmq
 {
-    public class ExponentialBackoffRetryPolicy : RetryPolicy
+    public class ExponentialBackoffRetryPolicy : IRetryPolicy
     {
-        private int _maxAttempts;
+        private readonly int _maxAttempts;
 
-        public ExponentialBackoffRetryPolicy(int maxAttempts, TimeSpan initialBackoff, TimeSpan maxBackoff,
+        private ExponentialBackoffRetryPolicy(int maxAttempts, TimeSpan initialBackoff, TimeSpan maxBackoff,
             double backoffMultiplier)
         {
             _maxAttempts = maxAttempts;
@@ -17,7 +17,7 @@ namespace Org.Apache.Rocketmq
             BackoffMultiplier = backoffMultiplier;
         }
 
-        public int getMaxAttempts()
+        public int GetMaxAttempts()
         {
             return _maxAttempts;
         }
@@ -28,17 +28,17 @@ namespace Org.Apache.Rocketmq
 
         public double BackoffMultiplier { get; }
 
-        public TimeSpan getNextAttemptDelay(int attempt)
+        public TimeSpan GetNextAttemptDelay(int attempt)
         {
             return TimeSpan.Zero;
         }
 
-        public static ExponentialBackoffRetryPolicy immediatelyRetryPolicy(int maxAttempts)
+        public static ExponentialBackoffRetryPolicy ImmediatelyRetryPolicy(int maxAttempts)
         {
             return new ExponentialBackoffRetryPolicy(maxAttempts, TimeSpan.Zero, TimeSpan.Zero, 1);
         }
 
-        public global::Apache.Rocketmq.V2.RetryPolicy toProtobuf()
+        public global::Apache.Rocketmq.V2.RetryPolicy ToProtobuf()
         {
             var exponentialBackoff = new ExponentialBackoff
             {

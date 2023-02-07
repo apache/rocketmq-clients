@@ -16,7 +16,8 @@
  */
 
 using System.Collections.Generic;
-using rmq = Apache.Rocketmq.V2;
+using System.Linq;
+using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
@@ -34,12 +35,12 @@ namespace Org.Apache.Rocketmq
             return $"{nameof(MessageId)}: {MessageId}";
         }
 
-        public static List<SendReceipt> processSendMessageResponse(rmq.SendMessageResponse response)
+        public static List<SendReceipt> ProcessSendMessageResponse(Proto.SendMessageResponse response)
         {
-            rmq.Status status = response.Status;
+            var status = response.Status;
             foreach (var entry in response.Entries)
             {
-                if (rmq.Code.Ok.Equals(entry.Status.Code))
+                if (Proto.Code.Ok.Equals(entry.Status.Code))
                 {
                     status = entry.Status;
                 }
@@ -47,13 +48,7 @@ namespace Org.Apache.Rocketmq
 
             // May throw exception.
             StatusChecker.Check(status, response);
-            List<SendReceipt> sendReceipts = new List<SendReceipt>();
-            foreach (var entry in response.Entries)
-            {
-                sendReceipts.Add(new SendReceipt(entry.MessageId));
-            }
-
-            return sendReceipts;
+            return response.Entries.Select(entry => new SendReceipt(entry.MessageId)).ToList();
         }
     }
 }

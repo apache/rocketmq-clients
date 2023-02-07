@@ -21,7 +21,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using grpc = Grpc.Core;
 using System.Collections.Generic;
-using NLog;
 
 namespace Org.Apache.Rocketmq
 {

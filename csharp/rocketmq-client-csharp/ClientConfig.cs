@@ -22,13 +22,8 @@ namespace Org.Apache.Rocketmq
 {
     public class ClientConfig : IClientConfig
     {
-        private static long _instanceSequence = 0;
-
         public ClientConfig(string endpoints)
         {
-            var hostName = System.Net.Dns.GetHostName();
-            var pid = System.Diagnostics.Process.GetCurrentProcess().Id;
-            ClientId = $"{hostName}@{pid}@{Interlocked.Increment(ref _instanceSequence)}";
             RequestTimeout = TimeSpan.FromSeconds(3);
             Endpoints = new Endpoints(endpoints);
         }
@@ -36,9 +31,6 @@ namespace Org.Apache.Rocketmq
         public ICredentialsProvider CredentialsProvider { get; set; }
 
         public TimeSpan RequestTimeout { get; set; }
-
-        public string ClientId { get; }
-
 
         public Endpoints Endpoints { get; }
     }

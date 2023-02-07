@@ -20,14 +20,15 @@ using System.Collections.Generic;
 
 namespace Org.Apache.Rocketmq
 {
-
     public class Message
     {
         public Message() : this(null, null)
         {
         }
 
-        public Message(string topic, byte[] body) : this(topic, null, new List<string>(), body) { }
+        public Message(string topic, byte[] body) : this(topic, null, new List<string>(), body)
+        {
+        }
 
         public Message(string topic, string tag, byte[] body) : this(topic, tag, new List<string>(), body)
         {
@@ -35,7 +36,6 @@ namespace Org.Apache.Rocketmq
 
         public Message(string topic, string tag, List<string> keys, byte[] body)
         {
-            MaxAttemptTimes = 3;
             Topic = topic;
             Tag = tag;
             Keys = keys;
@@ -44,73 +44,20 @@ namespace Org.Apache.Rocketmq
             DeliveryTimestamp = null;
         }
 
-        public string Topic
-        {
-            get;
-            set;
-        }
+        public string Topic { get; set; }
 
-        public byte[] Body
-        {
-            get;
-            set;
-        }
+        public byte[] Body { get; set; }
 
-        public string Tag
-        {
-            get;
-            set;
-        }
+        public string Tag { get; set; }
 
-        public List<string> Keys
-        {
-            get;
-            set;
-        }
-        public Dictionary<string, string> UserProperties
-        {
-            get;
-            set;
-        }
-
-        public int MaxAttemptTimes
-        {
-            get;
-            set;
-        }
+        public List<string> Keys { get; set; }
+        public Dictionary<string, string> UserProperties { get; set; }
 
 
-        public DateTime? DeliveryTimestamp
-        {
-            get;
-            set;
-        }
-        
-        public int DeliveryAttempt
-        {
-            get;
-            internal set;
-        }
-        
-        public string MessageGroup
-        {
-            get;
-            set;
-        }
-        
-        public bool Fifo()
-        {
-            return !String.IsNullOrEmpty(MessageGroup);
-        }
+        public DateTime? DeliveryTimestamp { get; set; }
 
-        public bool Scheduled()
-        {
-            return DeliveryTimestamp > DateTime.UtcNow;
-        }
+        public int DeliveryAttempt { get; internal set; }
 
-        internal bool _checksumVerifiedOk = true;
-        internal string _receiptHandle;
-        internal string _sourceHost;
+        public string MessageGroup { get; set; }
     }
-
 }

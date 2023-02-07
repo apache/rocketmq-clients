@@ -57,8 +57,7 @@ namespace Org.Apache.Rocketmq
                 return true;
             }
 
-            if (obj.GetType() != this.GetType()) return false;
-            return Equals((Address)obj);
+            return obj.GetType() == GetType() && Equals((Address)obj);
         }
 
         public override int GetHashCode()

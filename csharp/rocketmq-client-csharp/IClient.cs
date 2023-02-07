@@ -23,22 +23,44 @@ namespace Org.Apache.Rocketmq
 {
     public interface IClient
     {
-        void Heartbeat();
-
-        void NotifyClientTermination(Proto.Resource group);
-
         CancellationTokenSource TelemetryCts();
+
+        ClientConfig GetClientConfig();
 
         Proto.Settings GetSettings();
 
+        /// <summary>
+        /// Get the identifier of current client. 
+        /// </summary>
+        /// <returns>Client identifier.</returns>
         string GetClientId();
 
+        /// <summary>
+        /// This method will be triggered when client settings is received from remote endpoints.
+        /// </summary>
+        /// <param name="endpoints"></param>
+        /// <param name="settings"></param>
         void OnSettingsCommand(Endpoints endpoints, Proto.Settings settings);
 
+        /// <summary>
+        /// This method will be triggered when orphaned transaction need to be recovered.
+        /// </summary>
+        /// <param name="endpoints">Remote endpoints.</param>
+        /// <param name="command">Command of orphaned transaction recovery.</param>
         void OnRecoverOrphanedTransactionCommand(Endpoints endpoints, Proto.RecoverOrphanedTransactionCommand command);
 
+        /// <summary>
+        /// This method will be triggered when message verification command is received.
+        /// </summary>
+        /// <param name="endpoints">Remote endpoints.</param>
+        /// <param name="command">Command of message verification.</param>
         void OnVerifyMessageCommand(Endpoints endpoints, Proto.VerifyMessageCommand command);
 
+        /// <summary>
+        /// This method will be triggered when thread stack trace command is received.
+        /// </summary>
+        /// <param name="endpoints">Remote endpoints.</param>
+        /// <param name="command">Command of printing thread stack trace.</param>
         void OnPrintThreadStackTraceCommand(Endpoints endpoints, Proto.PrintThreadStackTraceCommand command);
 
         Metadata Sign();

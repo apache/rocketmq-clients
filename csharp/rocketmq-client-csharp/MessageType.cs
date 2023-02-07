@@ -16,7 +16,7 @@
  */
 
 using Org.Apache.Rocketmq.Error;
-using rmq = Apache.Rocketmq.V2;
+using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
@@ -30,38 +30,34 @@ namespace Org.Apache.Rocketmq
 
     public static class MessageTypeHelper
     {
-        public static MessageType FromProtobuf(rmq.MessageType messageType)
+        public static MessageType FromProtobuf(Proto.MessageType messageType)
         {
             switch (messageType)
             {
-                case rmq.MessageType.Normal:
+                case Proto.MessageType.Normal:
                     return MessageType.Normal;
-                case rmq.MessageType.Fifo:
+                case Proto.MessageType.Fifo:
                     return MessageType.Fifo;
-                case rmq.MessageType.Delay:
+                case Proto.MessageType.Delay:
                     return MessageType.Delay;
-                case rmq.MessageType.Transaction:
+                case Proto.MessageType.Transaction:
                     return MessageType.Transaction;
+                case Proto.MessageType.Unspecified:
                 default:
                     throw new InternalErrorException("MessageType is not specified");
             }
         }
 
-        public static rmq.MessageType ToProtobuf(MessageType messageType)
+        public static Proto.MessageType ToProtobuf(MessageType messageType)
         {
-            switch (messageType)
+            return messageType switch
             {
-                case MessageType.Normal:
-                    return rmq.MessageType.Normal;
-                case MessageType.Fifo:
-                    return rmq.MessageType.Fifo;
-                case MessageType.Delay:
-                    return rmq.MessageType.Delay;
-                case MessageType.Transaction:
-                    return rmq.MessageType.Transaction;
-                default:
-                    return rmq.MessageType.Unspecified;
-            }
+                MessageType.Normal => Proto.MessageType.Normal,
+                MessageType.Fifo => Proto.MessageType.Fifo,
+                MessageType.Delay => Proto.MessageType.Delay,
+                MessageType.Transaction => Proto.MessageType.Transaction,
+                _ => Proto.MessageType.Unspecified
+            };
         }
     }
 }

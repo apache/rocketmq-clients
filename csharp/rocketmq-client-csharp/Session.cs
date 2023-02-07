@@ -34,14 +34,14 @@ namespace Org.Apache.Rocketmq
         private readonly grpc::AsyncDuplexStreamingCall<Proto::TelemetryCommand, Proto::TelemetryCommand>
             _streamingCall;
 
-        private readonly Client _client;
+        private readonly IClient _client;
         private readonly Channel<bool> _channel;
         private readonly Endpoints _endpoints;
         private readonly SemaphoreSlim _semaphore;
 
         public Session(Endpoints endpoints,
             AsyncDuplexStreamingCall<Proto::TelemetryCommand, Proto::TelemetryCommand> streamingCall,
-            Client client)
+            IClient client)
         {
             _endpoints = endpoints;
             _semaphore = new SemaphoreSlim(1);
@@ -79,21 +79,6 @@ namespace Org.Apache.Rocketmq
                 _semaphore.Release();
             }
         }
-
-        // public async void xx()
-        // {
-        //     while (true)
-        //     {
-        //         var reader = _streamingCall.ResponseStream;
-        //         if (await reader.MoveNext(_client.TelemetryCts().Token))
-        //         {
-        //             var command = reader.Current;
-        //             Console.WriteLine("xxxxxxxx");
-        //             Console.WriteLine(command);
-        //         }
-        //     }
-        // }
-
 
         private void Loop()
         {
