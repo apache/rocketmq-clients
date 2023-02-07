@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -27,7 +44,7 @@ namespace Org.Apache.Rocketmq
         private Producer(ClientConfig clientConfig, ConcurrentDictionary<string, bool> topics, int maxAttempts) :
             base(clientConfig, topics)
         {
-            var retryPolicy = ExponentialBackoffRetryPolicy.immediatelyRetryPolicy(maxAttempts);
+            var retryPolicy = ExponentialBackoffRetryPolicy.ImmediatelyRetryPolicy(maxAttempts);
             _publishingSettings = new PublishingSettings(ClientId, clientConfig.Endpoints, retryPolicy,
                 clientConfig.RequestTimeout, topics);
             _publishingRouteDataCache = new ConcurrentDictionary<string, PublishingLoadBalancer>();
@@ -63,27 +80,37 @@ namespace Org.Apache.Rocketmq
             };
         }
 
-        protected override void OnTopicDataFetched0(string topic, TopicRouteData topicRouteData)
+        private async Task<PublishingLoadBalancer> GetPublishingLoadBalancer(string topic)
         {
+            if (_publishingRouteDataCache.TryGetValue(topic, out var publishingLoadBalancer))
+            {
+                return publishingLoadBalancer;
+            }
+
+            var topicRouteData = await FetchTopicRoute(topic);
+            publishingLoadBalancer = new PublishingLoadBalancer(topicRouteData);
+            _publishingRouteDataCache.TryAdd(topic, publishingLoadBalancer);
+
+            return publishingLoadBalancer;
         }
 
-        private RetryPolicy GetRetryPolicy()
+        protected override void OnTopicRouteDataFetched0(string topic, TopicRouteData topicRouteData)
+        {
+            var publishingLoadBalancer = new PublishingLoadBalancer(topicRouteData);
+            _publishingRouteDataCache.TryAdd(topic, publishingLoadBalancer);
+        }
+
+        private IRetryPolicy GetRetryPolicy()
         {
             return _publishingSettings.GetRetryPolicy();
         }
 
         public async Task<SendReceipt> Send(Message message)
         {
-            if (!_publishingRouteDataCache.TryGetValue(message.Topic, out var publishingLoadBalancer))
-            {
-                var topicRouteData = await FetchTopicRoute(message.Topic);
-                publishingLoadBalancer = new PublishingLoadBalancer(topicRouteData);
-                _publishingRouteDataCache.TryAdd(message.Topic, publishingLoadBalancer);
-            }
-
+            var publishingLoadBalancer = await GetPublishingLoadBalancer(message.Topic);
             var publishingMessage = new PublishingMessage(message, _publishingSettings, false);
             var retryPolicy = GetRetryPolicy();
-            var maxAttempts = retryPolicy.getMaxAttempts();
+            var maxAttempts = retryPolicy.GetMaxAttempts();
             var candidates = publishingLoadBalancer.TakeMessageQueues(publishingMessage.MessageGroup, maxAttempts);
             Exception exception = null;
             for (var attempt = 0; attempt < maxAttempts; attempt++)
@@ -102,7 +129,7 @@ namespace Org.Apache.Rocketmq
             throw exception!;
         }
 
-        private Proto.SendMessageRequest WrapSendMessageRequest(PublishingMessage message, MessageQueue mq)
+        private static Proto.SendMessageRequest WrapSendMessageRequest(PublishingMessage message, MessageQueue mq)
         {
             return new Proto.SendMessageRequest
             {
@@ -125,11 +152,11 @@ namespace Org.Apache.Rocketmq
 
             var sendMessageRequest = WrapSendMessageRequest(message, mq);
             var endpoints = mq.Broker.Endpoints;
-            Proto.SendMessageResponse response =
-                await Manager.SendMessage(endpoints, sendMessageRequest, ClientConfig.RequestTimeout);
+            var response =
+                await ClientManager.SendMessage(endpoints, sendMessageRequest, ClientConfig.RequestTimeout);
             try
             {
-                var sendReceipts = SendReceipt.processSendMessageResponse(response);
+                var sendReceipts = SendReceipt.ProcessSendMessageResponse(response);
 
                 var sendReceipt = sendReceipts.First();
                 if (attempt > 1)

@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-using System;
 using System.Collections.Generic;
 using System.Threading;
 using rmq = Apache.Rocketmq.V2;

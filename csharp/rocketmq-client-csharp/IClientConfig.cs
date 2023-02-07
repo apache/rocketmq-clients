@@ -15,21 +15,10 @@
  * limitations under the License.
  */
 
-using System;
-
 namespace Org.Apache.Rocketmq
 {
     public interface IClientConfig
     {
-
-        ICredentialsProvider CredentialsProvider
-        {
-            get;
-        }
-
-        string ClientId
-        {
-            get;
-        }
+        ICredentialsProvider CredentialsProvider { get; }
     }
 }

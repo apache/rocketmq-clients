@@ -27,7 +27,7 @@ namespace Org.Apache.Rocketmq
      */
     public class MessageIdGenerator
     {
-        public static readonly string version = "01";
+        public const string Version = "01";
         private static readonly MessageIdGenerator Instance = new();
 
         private readonly string _prefix;
@@ -39,15 +39,15 @@ namespace Org.Apache.Rocketmq
 
         private MessageIdGenerator()
         {
-            MemoryStream stream = new MemoryStream();
-            BinaryWriter writer = new BinaryWriter(stream);
+            var stream = new MemoryStream();
+            var writer = new BinaryWriter(stream);
 
             var macAddress = Utilities.GetMacAddress();
             writer.Write(macAddress, 0, 6);
 
-            int processId = Utilities.GetProcessId();
+            var processId = Utilities.GetProcessId();
 
-            byte[] processIdBytes = BitConverter.GetBytes(processId);
+            var processIdBytes = BitConverter.GetBytes(processId);
             if (BitConverter.IsLittleEndian)
             {
                 Array.Reverse(processIdBytes);
@@ -55,9 +55,9 @@ namespace Org.Apache.Rocketmq
 
             writer.Write(processIdBytes, 2, 2);
             var array = stream.ToArray();
-            _prefix = version + Utilities.ByteArrayToHexString(array);
+            _prefix = Version + Utilities.ByteArrayToHexString(array);
 
-            DateTime epoch = new DateTime(2021, 1, 1,
+            var epoch = new DateTime(2021, 1, 1,
                 0, 0, 0, 0, DateTimeKind.Utc);
 
             var now = DateTime.Now;
@@ -67,12 +67,12 @@ namespace Org.Apache.Rocketmq
             _sequence = 0;
         }
 
-        public String Next()
+        public string Next()
         {
-            long deltaSeconds = _secondsSinceCustomEpoch + _stopwatch.ElapsedMilliseconds / 1_000;
+            var deltaSeconds = _secondsSinceCustomEpoch + _stopwatch.ElapsedMilliseconds / 1_000;
 
-            MemoryStream stream = new MemoryStream();
-            BinaryWriter writer = new BinaryWriter(stream);
+            var stream = new MemoryStream();
+            var writer = new BinaryWriter(stream);
 
             byte[] deltaSecondsBytes = BitConverter.GetBytes(deltaSeconds);
             if (BitConverter.IsLittleEndian)
@@ -82,8 +82,8 @@ namespace Org.Apache.Rocketmq
 
             writer.Write(deltaSecondsBytes, 4, 4);
 
-            int no = Interlocked.Increment(ref _sequence);
-            byte[] noBytes = BitConverter.GetBytes(no);
+            var no = Interlocked.Increment(ref _sequence);
+            var noBytes = BitConverter.GetBytes(no);
             if (BitConverter.IsLittleEndian)
             {
                 Array.Reverse(noBytes);

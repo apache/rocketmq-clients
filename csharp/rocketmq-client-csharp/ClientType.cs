@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-using rmq = Apache.Rocketmq.V2;
+using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
@@ -28,19 +28,15 @@ namespace Org.Apache.Rocketmq
 
     public static class ClientTypeHelper
     {
-        public static rmq.ClientType ToProtobuf(ClientType clientType)
+        public static Proto.ClientType ToProtobuf(ClientType clientType)
         {
-            switch (clientType)
+            return clientType switch
             {
-                case ClientType.Producer:
-                    return rmq.ClientType.Producer;
-                case ClientType.SimpleConsumer:
-                    return rmq.ClientType.SimpleConsumer;
-                case ClientType.PushConsumer:
-                    return rmq.ClientType.PushConsumer;
-                default:
-                    return rmq.ClientType.Unspecified;
-            }
+                ClientType.Producer => Proto.ClientType.Producer,
+                ClientType.SimpleConsumer => Proto.ClientType.SimpleConsumer,
+                ClientType.PushConsumer => Proto.ClientType.PushConsumer,
+                _ => Proto.ClientType.Unspecified
+            };
         }
     }
 }

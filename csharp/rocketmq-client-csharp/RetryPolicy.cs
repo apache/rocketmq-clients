@@ -2,12 +2,12 @@ using System;
 
 namespace Org.Apache.Rocketmq
 {
-    public interface RetryPolicy
+    public interface IRetryPolicy
     {
-        int getMaxAttempts();
+        int GetMaxAttempts();
 
-        TimeSpan getNextAttemptDelay(int attempt);
+        TimeSpan GetNextAttemptDelay(int attempt);
 
-        global::Apache.Rocketmq.V2.RetryPolicy toProtobuf();
+        global::Apache.Rocketmq.V2.RetryPolicy ToProtobuf();
     }
 }

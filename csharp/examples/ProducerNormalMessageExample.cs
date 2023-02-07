@@ -24,7 +24,7 @@ using Org.Apache.Rocketmq;
 
 namespace examples
 {
-    static class ProducerNormalMessageExample
+    internal static class ProducerNormalMessageExample
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 

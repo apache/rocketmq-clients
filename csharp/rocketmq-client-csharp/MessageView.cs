@@ -79,7 +79,7 @@ namespace Org.Apache.Rocketmq
 
         public int DeliveryAttempt { get; }
 
-        public static MessageView fromProtobuf(rmq.Message message, rmq.MessageQueue messageQueue)
+        public static MessageView FromProtobuf(rmq.Message message, rmq.MessageQueue messageQueue)
         {
             var topic = message.Topic.Name;
             var systemProperties = message.SystemProperties;

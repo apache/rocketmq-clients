@@ -19,15 +19,13 @@ using System.Threading.Tasks;
 using System;
 using System.Collections.Generic;
 using Apache.Rocketmq.V2;
-using grpc = Grpc.Core;
-using rmq = Apache.Rocketmq.V2;
-
+using Grpc.Core;
 
 namespace Org.Apache.Rocketmq
 {
     public interface IClientManager
     {
-        grpc::AsyncDuplexStreamingCall<TelemetryCommand, TelemetryCommand> Telemetry(Endpoints endpoints);
+        AsyncDuplexStreamingCall<TelemetryCommand, TelemetryCommand> Telemetry(Endpoints endpoints);
 
         Task<QueryRouteResponse> QueryRoute(Endpoints endpoints, QueryRouteRequest request, TimeSpan timeout);
 

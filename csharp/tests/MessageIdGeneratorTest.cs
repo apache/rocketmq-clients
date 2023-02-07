@@ -29,11 +29,11 @@ namespace tests
             MessageIdGenerator instance = MessageIdGenerator.GetInstance();
             var firstMessageId = instance.Next();
             Assert.AreEqual(34, firstMessageId.Length);
-            Assert.AreEqual(MessageIdGenerator.version, firstMessageId.Substring(0, 2));
+            Assert.AreEqual(MessageIdGenerator.Version, firstMessageId.Substring(0, 2));
 
             var secondMessageId = instance.Next();
             Assert.AreEqual(34, secondMessageId.Length);
-            Assert.AreEqual(MessageIdGenerator.version, secondMessageId.Substring(0, 2));
+            Assert.AreEqual(MessageIdGenerator.Version, secondMessageId.Substring(0, 2));
 
             Assert.AreNotEqual(firstMessageId, secondMessageId);
             Assert.AreEqual(firstMessageId.Substring(0, 24), secondMessageId.Substring(0, 24));

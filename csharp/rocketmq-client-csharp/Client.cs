@@ -41,7 +41,7 @@ namespace Org.Apache.Rocketmq
         private readonly CancellationTokenSource _settingsSyncCtx;
 
         protected readonly ClientConfig ClientConfig;
-        protected readonly IClientManager Manager;
+        protected readonly IClientManager ClientManager;
         protected readonly string ClientId;
 
         protected readonly ConcurrentDictionary<string, bool> Topics;
@@ -58,7 +58,7 @@ namespace Org.Apache.Rocketmq
             Topics = topics;
             ClientId = Utilities.GetClientId();
 
-            Manager = new ClientManager(this);
+            ClientManager = new ClientManager(this);
 
             _topicRouteCache = new ConcurrentDictionary<string, TopicRouteData>();
 
@@ -91,7 +91,7 @@ namespace Org.Apache.Rocketmq
             _topicRouteUpdateCtx.Cancel();
             _heartbeatCts.Cancel();
             _telemetryCts.Cancel();
-            await Manager.Shutdown();
+            await ClientManager.Shutdown();
             Logger.Debug($"Shutdown the rocketmq client successfully, clientId={ClientId}");
         }
 
@@ -120,7 +120,7 @@ namespace Org.Apache.Rocketmq
                     return (false, session);
                 }
 
-                var stream = Manager.Telemetry(endpoints);
+                var stream = ClientManager.Telemetry(endpoints);
                 var created = new Session(endpoints, stream, this);
                 _sessionsTable.Add(endpoints, created);
                 return (true, created);
@@ -134,7 +134,7 @@ namespace Org.Apache.Rocketmq
         protected abstract Proto::HeartbeatRequest WrapHeartbeatRequest();
 
 
-        protected abstract void OnTopicDataFetched0(string topic, TopicRouteData topicRouteData);
+        protected abstract void OnTopicRouteDataFetched0(string topic, TopicRouteData topicRouteData);
 
 
         private async Task OnTopicRouteDataFetched(string topic, TopicRouteData topicRouteData)
@@ -158,7 +158,7 @@ namespace Org.Apache.Rocketmq
             }
 
             _topicRouteCache[topic] = topicRouteData;
-            OnTopicDataFetched0(topic, topicRouteData);
+            OnTopicRouteDataFetched0(topic, topicRouteData);
         }
 
 
@@ -198,16 +198,26 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        private static void ScheduleWithFixedDelay(Action action, TimeSpan period, CancellationToken token)
+        private void ScheduleWithFixedDelay(Action action, TimeSpan period, CancellationToken token)
         {
             Task.Run(async () =>
             {
                 while (!token.IsCancellationRequested)
                 {
-                    action();
-                    await Task.Delay(period, token);
+                    try
+                    {
+                        action();
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.Error(e, $"Failed to execute scheduled task, ClientId={ClientId}");
+                    }
+                    finally
+                    {
+                        await Task.Delay(period, token);
+                    }
                 }
-            });
+            }, token);
         }
 
         protected async Task<TopicRouteData> FetchTopicRoute(string topic)
@@ -232,7 +242,7 @@ namespace Org.Apache.Rocketmq
             };
 
             var response =
-                await Manager.QueryRoute(ClientConfig.Endpoints, request, ClientConfig.RequestTimeout);
+                await ClientManager.QueryRoute(ClientConfig.Endpoints, request, ClientConfig.RequestTimeout);
             var code = response.Status.Code;
             if (!Proto.Code.Ok.Equals(code))
             {
@@ -245,7 +255,7 @@ namespace Org.Apache.Rocketmq
             return new TopicRouteData(messageQueues);
         }
 
-        public async void Heartbeat()
+        private async void Heartbeat()
         {
             var endpoints = GetTotalRouteEndpoints();
             if (0 == endpoints.Count)
@@ -259,7 +269,7 @@ namespace Org.Apache.Rocketmq
             // Collect task into a map.
             foreach (var item in endpoints)
             {
-                var task = Manager.Heartbeat(item, request, ClientConfig.RequestTimeout);
+                var task = ClientManager.Heartbeat(item, request, ClientConfig.RequestTimeout);
                 responses[item]= task;
             }
             foreach (var item in responses.Keys)
@@ -276,12 +286,14 @@ namespace Org.Apache.Rocketmq
                 Logger.Info($"Failed to send heartbeat, endpoints={item}, code={code}, statusMessage={statusMessage}, clientId={ClientId}");
             }
         }
+        
+        
 
 
         public grpc.Metadata Sign()
         {
             var metadata = new grpc::Metadata();
-            Signature.Sign(ClientConfig, metadata);
+            Signature.Sign(this, metadata);
             return metadata;
         }
 
@@ -294,7 +306,7 @@ namespace Org.Apache.Rocketmq
             };
             foreach (var item in endpoints)
             {
-                var response = await Manager.NotifyClientTermination(item, request, ClientConfig.RequestTimeout);
+                var response = await ClientManager.NotifyClientTermination(item, request, ClientConfig.RequestTimeout);
                 try
                 {
                     StatusChecker.Check(response.Status, request);
@@ -317,6 +329,11 @@ namespace Org.Apache.Rocketmq
         public string GetClientId()
         {
             return ClientId;
+        }
+
+        public ClientConfig GetClientConfig()
+        {
+            return ClientConfig;
         }
 
         public void OnRecoverOrphanedTransactionCommand(Endpoints endpoints,

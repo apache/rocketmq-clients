@@ -48,32 +48,30 @@ namespace Org.Apache.Rocketmq
         }
         
         public static bool IsWritable(Permission permission) {
-            if (Permission.Write.Equals(permission))
+            switch (permission)
             {
-                return true;
+                case Permission.Write:
+                case Permission.ReadWrite:
+                    return true;
+                case Permission.None:
+                case Permission.Read:
+                default:
+                    return false;
             }
-
-            if (Permission.ReadWrite.Equals(permission))
-            {
-                return true;
-            }
-
-            return false;
         }
 
         public static bool IsReadable(Permission permission)
         {
-            if (Permission.Read.Equals(permission))
+            switch (permission)
             {
-                return true;
+                case Permission.Read:
+                case Permission.ReadWrite:
+                    return true;
+                case Permission.None:
+                case Permission.Write:
+                default:
+                    return false;
             }
-
-            if (Permission.ReadWrite.Equals(permission))
-            {
-                return true;
-            }
-
-            return false;
         }
     }
     
