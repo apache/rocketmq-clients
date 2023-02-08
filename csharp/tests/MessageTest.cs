@@ -29,8 +29,6 @@ namespace Org.Apache.Rocketmq
         public void testCtor()
         {
             var msg1 = new Message();
-            Assert.IsNotNull(msg1.MessageId);
-            Assert.IsTrue(msg1.MessageId.StartsWith("01"));
             Assert.IsNull(msg1.Topic);
             Assert.IsNull(msg1.Body);
             Assert.IsNull(msg1.Tag);

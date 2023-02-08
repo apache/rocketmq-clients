@@ -14,30 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-using System;
-namespace Org.Apache.Rocketmq
+
+namespace Org.Apache.Rocketmq.Error
 {
-    public class ProcessQueue
+    /// <summary>
+    /// Generic exception for bad request, indicating that the required fields of headers are missing.
+    /// </summary>
+    public class BadRequestException : ClientException
     {
-
-        public ProcessQueue()
+        public BadRequestException(int responseCode, string requestId, string message) : base(responseCode, requestId,
+            message)
         {
-            _lastReceivedTime = DateTime.UtcNow;
-        }
-        public bool Dropped { get; set; }
-
-        private DateTime _lastReceivedTime;
-
-        public DateTime LastReceiveTime
-        {
-            get { return _lastReceivedTime; }
-            set { _lastReceivedTime = value; }
         }
 
-        internal bool Expired()
+        public BadRequestException(int responseCode, string message) : base(responseCode, message)
         {
-            return DateTime.UtcNow.Subtract(_lastReceivedTime).TotalMilliseconds > 30 * 1000;
         }
-
     }
 }

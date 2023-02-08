@@ -14,24 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 using System;
 
 namespace Org.Apache.Rocketmq
 {
     public interface IClientConfig
     {
-        string region();
 
-        string serviceName();
+        ICredentialsProvider CredentialsProvider
+        {
+            get;
+        }
 
-        string resourceNamespace();
-
-        ICredentialsProvider credentialsProvider();
-
-        string getGroupName();
-
-        string clientId();
-
-        bool isTracingEnabled();
+        string ClientId
+        {
+            get;
+        }
     }
 }

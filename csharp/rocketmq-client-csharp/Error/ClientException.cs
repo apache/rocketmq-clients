@@ -15,11 +15,30 @@
  * limitations under the License.
  */
 
-namespace Org.Apache.Rocketmq
+using System;
+
+namespace Org.Apache.Rocketmq.Error
 {
-    public enum ExpressionType
+    public class ClientException : Exception
     {
-        Tag,
-        Sql92,
+        private static readonly string RequestIdKey = "request-id";
+        private static readonly string ResponseCodeKey = "response-code";
+
+        protected ClientException(string message, Exception exception) : base(message, exception)
+        {
+        }
+
+        protected ClientException(string message) : base(message)
+        {
+        }
+
+        protected ClientException(int responseCode, string requestId, string message) : base(
+            $"[{RequestIdKey}={requestId}, {ResponseCodeKey}={responseCode}] {message}")
+        {
+        }
+
+        protected ClientException(int responseCode, string message) : base()
+        {
+        }
     }
 }

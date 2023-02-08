@@ -31,15 +31,15 @@ namespace Org.Apache.Rocketmq
 {
     public class RpcClient : IRpcClient
     {
-        protected static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
         private readonly rmq::MessagingService.MessagingServiceClient _stub;
         private readonly GrpcChannel _channel;
         private readonly string _target;
 
-        public RpcClient(string target)
+        public RpcClient(Endpoints endpoints)
         {
-            _target = target;
-            _channel = GrpcChannel.ForAddress(target, new GrpcChannelOptions
+            _target = endpoints.GrpcTarget;
+            _channel = GrpcChannel.ForAddress(_target, new GrpcChannelOptions
             {
                 HttpHandler = CreateHttpHandler()
             });
@@ -68,8 +68,6 @@ namespace Org.Apache.Rocketmq
             var handler = new SocketsHttpHandler
             {
                 PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan,
-                KeepAlivePingDelay = TimeSpan.FromSeconds(60),
-                KeepAlivePingTimeout = TimeSpan.FromSeconds(30),
                 EnableMultipleHttp2Connections = true,
                 SslOptions = sslOptions,
             };
@@ -83,7 +81,8 @@ namespace Org.Apache.Rocketmq
             return _stub.Telemetry(callOptions);
         }
 
-        public async Task<rmq::QueryRouteResponse> QueryRoute(Metadata metadata, rmq::QueryRouteRequest request, TimeSpan timeout)
+        public async Task<rmq::QueryRouteResponse> QueryRoute(Metadata metadata, rmq::QueryRouteRequest request,
+            TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);
             var callOptions = new CallOptions(metadata, deadline);
@@ -93,7 +92,8 @@ namespace Org.Apache.Rocketmq
         }
 
 
-        public async Task<rmq::HeartbeatResponse> Heartbeat(Metadata metadata, rmq::HeartbeatRequest request, TimeSpan timeout)
+        public async Task<rmq::HeartbeatResponse> Heartbeat(Metadata metadata, rmq::HeartbeatRequest request,
+            TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);
             var callOptions = new CallOptions(metadata, deadline);
@@ -112,7 +112,8 @@ namespace Org.Apache.Rocketmq
             return await call.ResponseAsync;
         }
 
-        public async Task<rmq::QueryAssignmentResponse> QueryAssignment(Metadata metadata, rmq::QueryAssignmentRequest request,
+        public async Task<rmq::QueryAssignmentResponse> QueryAssignment(Metadata metadata,
+            rmq::QueryAssignmentRequest request,
             TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);
@@ -122,8 +123,9 @@ namespace Org.Apache.Rocketmq
             return await call.ResponseAsync;
         }
 
-        public async Task<List<rmq::ReceiveMessageResponse>> ReceiveMessage(Metadata metadata, 
-            rmq::ReceiveMessageRequest request, TimeSpan timeout) {
+        public async Task<List<rmq::ReceiveMessageResponse>> ReceiveMessage(Metadata metadata,
+            rmq::ReceiveMessageRequest request, TimeSpan timeout)
+        {
             var deadline = DateTime.UtcNow.Add(timeout);
             var callOptions = new CallOptions(metadata, deadline);
             var call = _stub.ReceiveMessage(request, callOptions);
@@ -136,6 +138,7 @@ namespace Org.Apache.Rocketmq
                 Logger.Debug($"Got ReceiveMessageResponse {entry} from {_target}");
                 result.Add(entry);
             }
+
             Logger.Debug($"Receiving messages from {_target} completed");
             return result;
         }
@@ -150,7 +153,8 @@ namespace Org.Apache.Rocketmq
             return await call.ResponseAsync;
         }
 
-        public async Task<rmq::ChangeInvisibleDurationResponse> ChangeInvisibleDuration(Metadata metadata, rmq::ChangeInvisibleDurationRequest request,
+        public async Task<rmq::ChangeInvisibleDurationResponse> ChangeInvisibleDuration(Metadata metadata,
+            rmq::ChangeInvisibleDurationRequest request,
             TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);
@@ -160,7 +164,8 @@ namespace Org.Apache.Rocketmq
             return await call.ResponseAsync;
         }
 
-        public async Task<rmq::ForwardMessageToDeadLetterQueueResponse> ForwardMessageToDeadLetterQueue(Metadata metadata,
+        public async Task<rmq::ForwardMessageToDeadLetterQueueResponse> ForwardMessageToDeadLetterQueue(
+            Metadata metadata,
             rmq::ForwardMessageToDeadLetterQueueRequest request, TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);
@@ -170,7 +175,8 @@ namespace Org.Apache.Rocketmq
             return await call.ResponseAsync;
         }
 
-        public async Task<rmq::EndTransactionResponse> EndTransaction(Metadata metadata, rmq::EndTransactionRequest request,
+        public async Task<rmq::EndTransactionResponse> EndTransaction(Metadata metadata,
+            rmq::EndTransactionRequest request,
             TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);

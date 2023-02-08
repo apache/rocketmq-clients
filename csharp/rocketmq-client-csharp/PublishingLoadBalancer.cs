@@ -14,61 +14,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 using System;
 using System.Collections.Generic;
 using rmq = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
-    public class PublishLoadBalancer
+    public class PublishingLoadBalancer
     {
-        public PublishLoadBalancer(TopicRouteData route)
+        private readonly List<MessageQueue> _messageQueues;
+        private int _roundRobinIndex;
+
+        public PublishingLoadBalancer(TopicRouteData route)
         {
-            this._messageQueues = new List<rmq::MessageQueue>();
+            _messageQueues = new List<MessageQueue>();
             foreach (var messageQueue in route.MessageQueues)
             {
-                if (rmq::Permission.Unspecified == messageQueue.Permission)
+                if (!PermissionHelper.IsWritable(messageQueue.Permission))
                 {
                     continue;
                 }
 
-                if (rmq::Permission.Read == messageQueue.Permission)
-                {
-                    continue;
-                }
-
-                this._messageQueues.Add(messageQueue);
+                _messageQueues.Add(messageQueue);
             }
 
-            this._messageQueues.Sort(Utilities.CompareMessageQueue);
             Random random = new Random();
-            this._roundRobinIndex = random.Next(0, this._messageQueues.Count);
-        }
-
-        public void Update(TopicRouteData route)
-        {
-            List<rmq::MessageQueue> partitions = new List<rmq::MessageQueue>();
-            foreach (var partition in route.MessageQueues)
-            {
-                if (rmq::Permission.Unspecified == partition.Permission)
-                {
-                    continue;
-                }
-
-                if (rmq::Permission.Read == partition.Permission)
-                {
-                    continue;
-                }
-                partitions.Add(partition);
-            }
-            partitions.Sort();
-            this._messageQueues = partitions;
+            _roundRobinIndex = random.Next(0, _messageQueues.Count);
         }
 
         /**
          * Accept a partition iff its broker is different.
          */
-        private bool Accept(List<rmq::MessageQueue> existing, rmq::MessageQueue messageQueue)
+        private bool Accept(List<MessageQueue> existing, MessageQueue messageQueue)
         {
             if (0 == existing.Count)
             {
@@ -82,14 +60,15 @@ namespace Org.Apache.Rocketmq
                     return false;
                 }
             }
+
             return true;
         }
 
-        public List<rmq::MessageQueue> Select(string messageGroup, int maxAttemptTimes)
+        public List<MessageQueue> TakeMessageQueues(string messageGroup, int maxAttemptTimes)
         {
-            List<rmq::MessageQueue> result = new List<rmq::MessageQueue>();
+            List<MessageQueue> result = new List<MessageQueue>();
 
-            List<rmq::MessageQueue> all = this._messageQueues;
+            List<MessageQueue> all = _messageQueues;
             if (0 == all.Count)
             {
                 return result;
@@ -119,9 +98,5 @@ namespace Org.Apache.Rocketmq
 
             return result;
         }
-
-        private List<rmq::MessageQueue> _messageQueues;
-
-        private int _roundRobinIndex;
     }
 }

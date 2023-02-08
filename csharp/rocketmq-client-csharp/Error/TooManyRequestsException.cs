@@ -15,11 +15,20 @@
  * limitations under the License.
  */
 
-namespace Org.Apache.Rocketmq
+namespace Org.Apache.Rocketmq.Error
 {
-    public enum ExpressionType
+    /// <summary>
+    /// Generic exception indicates that too many requests are made in short period of duration.
+    /// </summary>
+    public class TooManyRequestsException : ClientException
     {
-        Tag,
-        Sql92,
+        public TooManyRequestsException(int responseCode, string requestId, string message) : base(responseCode,
+            requestId, message)
+        {
+        }
+
+        public TooManyRequestsException(int responseCode, string message) : base(responseCode, message)
+        {
+        }
     }
 }

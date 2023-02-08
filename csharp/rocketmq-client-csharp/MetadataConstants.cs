@@ -15,33 +15,55 @@
  * limitations under the License.
  */
 
-using System;
 using System.Reflection;
 
 namespace Org.Apache.Rocketmq
 {
     public class MetadataConstants
     {
-        public const string TENANT_ID_KEY = "x-mq-tenant-id";
-        public const string NAMESPACE_KEY = "x-mq-namespace";
-        public const string AUTHORIZATION = "authorization";
-        public const string STS_SESSION_TOKEN = "x-mq-session-token";
-        public const string DATE_TIME_KEY = "x-mq-date-time";
-        public const string ALGORITHM_KEY = "MQv2-HMAC-SHA1";
-        public const string CREDENTIAL_KEY = "Credential";
-        public const string SIGNED_HEADERS_KEY = "SignedHeaders";
-        public const string SIGNATURE_KEY = "Signature";
-        public const string DATE_TIME_FORMAT = "yyyyMMddTHHmmssZ";
-        public const string LANGUAGE_KEY = "x-mq-language";
-        public const string CLIENT_VERSION_KEY = "x-mq-client-version";
-        public const string PROTOCOL_VERSION_KEY = "x-mq-protocol-version";
-        public const string REQUEST_ID_KEY = "x-mq-request-id";
+        public const string NamespaceKey = "x-mq-namespace";
+        public const string SessionTokenKey = "x-mq-session-token";
+        public const string DateTimeKey = "x-mq-date-time";
+        public const string LanguageKey = "x-mq-language";
+        public const string ClientVersionKey = "x-mq-client-version";
+        public const string ClientIdKey = "x-mq-client-id";
+        public const string RequestIdKey = "x-mq-request-id";
+        public const string ProtocolVersionKey = "x-mq-protocol-version";
 
-        public const string CLIENT_ID_KEY = "x-mq-client-id";
+        public const string Authorization = "authorization";
+        public const string AlgorithmKey = "MQv2-HMAC-SHA1";
+        public const string CredentialKey = "Credential";
+        public const string SignedHeadersKey = "SignedHeaders";
+        public const string SignatureKey = "Signature";
+        public const string DateTimeFormat = "yyyyMMddTHHmmssZ";
+        public const string LanguageValue = "DOTNET";
 
-        public static readonly string CLIENT_VERSION = Assembly
-            .GetAssembly(typeof(MetadataConstants))
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-            .InformationalVersion;
+        private const string UnknownVersion = "unknown";
+
+        public string ClientVersion { get; }
+
+
+        public static readonly MetadataConstants Instance = new();
+
+        private MetadataConstants()
+        {
+            var assembly = Assembly.GetAssembly(typeof(MetadataConstants));
+            if (null == assembly)
+            {
+                ClientVersion = UnknownVersion;
+                return;
+            }
+
+            var assemblyInformationalVersionAttribute =
+                assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
+            if (null == assemblyInformationalVersionAttribute)
+            {
+                ClientVersion = UnknownVersion;
+                return;
+            }
+
+            ClientVersion = assemblyInformationalVersionAttribute
+                .InformationalVersion;
+        }
     }
 }

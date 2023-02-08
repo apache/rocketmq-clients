@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+using Org.Apache.Rocketmq.Error;
+using rmq = Apache.Rocketmq.V2;
+
 namespace Org.Apache.Rocketmq
 {
     public enum MessageType
@@ -22,6 +25,43 @@ namespace Org.Apache.Rocketmq
         Normal,
         Fifo,
         Delay,
-        Transaction,
+        Transaction
+    }
+
+    public static class MessageTypeHelper
+    {
+        public static MessageType FromProtobuf(rmq.MessageType messageType)
+        {
+            switch (messageType)
+            {
+                case rmq.MessageType.Normal:
+                    return MessageType.Normal;
+                case rmq.MessageType.Fifo:
+                    return MessageType.Fifo;
+                case rmq.MessageType.Delay:
+                    return MessageType.Delay;
+                case rmq.MessageType.Transaction:
+                    return MessageType.Transaction;
+                default:
+                    throw new InternalErrorException("MessageType is not specified");
+            }
+        }
+
+        public static rmq.MessageType ToProtobuf(MessageType messageType)
+        {
+            switch (messageType)
+            {
+                case MessageType.Normal:
+                    return rmq.MessageType.Normal;
+                case MessageType.Fifo:
+                    return rmq.MessageType.Fifo;
+                case MessageType.Delay:
+                    return rmq.MessageType.Delay;
+                case MessageType.Transaction:
+                    return rmq.MessageType.Transaction;
+                default:
+                    return rmq.MessageType.Unspecified;
+            }
+        }
     }
 }

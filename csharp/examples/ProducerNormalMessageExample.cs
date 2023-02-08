@@ -18,28 +18,31 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using NLog;
 using Org.Apache.Rocketmq;
 
 namespace examples
 {
     static class ProducerNormalMessageExample
     {
+        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+
         internal static async Task QuickStart()
         {
-            string accessKey = "yourAccessKey";
-            string secretKey = "yourSecretKey";
+            string accessKey = "5jFk0wK7OU6Uq395";
+            string secretKey = "V1u8z19URHs4o6RQ";
             // Credential provider is optional for client configuration.
             var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
-            string endpoints = "foobar.com:8080";
-
-            var producer = new Producer(endpoints)
-            {
-                CredentialsProvider = credentialsProvider
-            };
-            string topic = "yourNormalTopic";
-            // Set the topic name(s), which is optional. It makes producer could prefetch the topic route before 
-            // message publishing.
-            producer.AddTopicOfInterest(topic);
+            string endpoints = "rmq-cn-7mz30qjc71a.cn-hangzhou.rmq.aliyuncs.com:8080";
+            var clientConfig = new ClientConfig(endpoints);
+            clientConfig.CredentialsProvider = credentialsProvider;
+            // In most case, you don't need to create too many producers, single pattern is recommended.
+            var producer = new Producer(clientConfig);
+            
+            string topic = "lingchu_normal_topic";
+            producer.SetTopics(topic);
+            // Set the topic name(s), which is optional but recommended. It makes producer could prefetch
+            // the topic route before message publishing.
 
             await producer.Start();
             // Define your message body.
@@ -57,7 +60,9 @@ namespace examples
                 Tag = tag,
                 Keys = keys
             };
-            await producer.Send(message);
+            var sendReceipt = await producer.Send(message);
+            Logger.Info($"Send message successfully, sendReceipt={sendReceipt}");
+            // Close the producer if you don't need it anymore.
             await producer.Shutdown();
         }
     }

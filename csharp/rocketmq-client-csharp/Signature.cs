@@ -25,21 +25,16 @@ namespace Org.Apache.Rocketmq
     {
         public static void Sign(IClientConfig clientConfig, grpc::Metadata metadata)
         {
-            metadata.Add(MetadataConstants.LANGUAGE_KEY, "DOTNET");
-            metadata.Add(MetadataConstants.CLIENT_VERSION_KEY, MetadataConstants.CLIENT_VERSION);
-            metadata.Add(MetadataConstants.CLIENT_ID_KEY, clientConfig.clientId());
+            metadata.Add(MetadataConstants.LanguageKey, MetadataConstants.LanguageValue);
+            metadata.Add(MetadataConstants.ClientVersionKey, MetadataConstants.Instance.ClientVersion);
+            metadata.Add(MetadataConstants.ClientIdKey, clientConfig.ClientId);
+            
+            string time = DateTime.Now.ToString(MetadataConstants.DateTimeFormat);
+            metadata.Add(MetadataConstants.DateTimeKey, time);
 
-            if (!String.IsNullOrEmpty(clientConfig.resourceNamespace()))
+            if (null != clientConfig.CredentialsProvider)
             {
-                metadata.Add(MetadataConstants.NAMESPACE_KEY, clientConfig.resourceNamespace());
-            }
-
-            string time = DateTime.Now.ToString(MetadataConstants.DATE_TIME_FORMAT);
-            metadata.Add(MetadataConstants.DATE_TIME_KEY, time);
-
-            if (null != clientConfig.credentialsProvider())
-            {
-                var credentials = clientConfig.credentialsProvider().getCredentials();
+                var credentials = clientConfig.CredentialsProvider.Credentials;
                 if (null == credentials || credentials.expired())
                 {
                     return;
@@ -47,7 +42,7 @@ namespace Org.Apache.Rocketmq
 
                 if (!String.IsNullOrEmpty(credentials.SessionToken))
                 {
-                    metadata.Add(MetadataConstants.STS_SESSION_TOKEN, credentials.SessionToken);
+                    metadata.Add(MetadataConstants.SessionTokenKey, credentials.SessionToken);
                 }
 
                 byte[] secretData = Encoding.ASCII.GetBytes(credentials.AccessSecret);
@@ -55,17 +50,15 @@ namespace Org.Apache.Rocketmq
                 HMACSHA1 signer = new HMACSHA1(secretData);
                 byte[] digest = signer.ComputeHash(data);
                 string hmac = BitConverter.ToString(digest).Replace("-", "");
-                string authorization = string.Format("{0} {1}={2}/{3}/{4}, {5}={6}, {7}={8}",
-                    MetadataConstants.ALGORITHM_KEY,
-                    MetadataConstants.CREDENTIAL_KEY,
+                string authorization = string.Format("{0} {1}={2}, {3}={4}, {5}={6}",
+                    MetadataConstants.AlgorithmKey,
+                    MetadataConstants.CredentialKey,
                     credentials.AccessKey,
-                    clientConfig.region(),
-                    clientConfig.serviceName(),
-                    MetadataConstants.SIGNED_HEADERS_KEY,
-                    MetadataConstants.DATE_TIME_KEY,
-                    MetadataConstants.SIGNATURE_KEY,
+                    MetadataConstants.SignedHeadersKey,
+                    MetadataConstants.DateTimeKey,
+                    MetadataConstants.SignatureKey,
                     hmac);
-                metadata.Add(MetadataConstants.AUTHORIZATION, authorization);
+                metadata.Add(MetadataConstants.Authorization, authorization);
             }
         }
     }

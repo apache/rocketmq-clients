@@ -15,104 +15,133 @@
  * limitations under the License.
  */
 
+using System;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using Grpc.Core;
 using grpc = Grpc.Core;
 using NLog;
-using rmq = Apache.Rocketmq.V2;
+using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
+    // refer to  https://learn.microsoft.com/en-us/aspnet/core/grpc/client?view=aspnetcore-7.0#bi-directional-streaming-call.
     public class Session
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
-        public Session(string target, 
-            grpc::AsyncDuplexStreamingCall<rmq::TelemetryCommand, rmq::TelemetryCommand> stream,
+        private readonly grpc::AsyncDuplexStreamingCall<Proto::TelemetryCommand, Proto::TelemetryCommand>
+            _streamingCall;
+
+        private readonly Client _client;
+        private readonly Channel<bool> _channel;
+        private readonly Endpoints _endpoints;
+        private readonly SemaphoreSlim _semaphore;
+
+        public Session(Endpoints endpoints,
+            AsyncDuplexStreamingCall<Proto::TelemetryCommand, Proto::TelemetryCommand> streamingCall,
             Client client)
         {
-            _target = target;
-            _stream = stream;
+            _endpoints = endpoints;
+            _semaphore = new SemaphoreSlim(1);
+            _streamingCall = streamingCall;
             _client = client;
-            _channel = Channel.CreateUnbounded<bool>();
+            _channel = Channel.CreateBounded<bool>(new BoundedChannelOptions(1)
+            {
+                FullMode = BoundedChannelFullMode.DropOldest
+            });
+            Loop();
         }
 
-        public async Task Loop()
-        {
-            var reader = _stream.ResponseStream;
-            var writer = _stream.RequestStream;
-            var request = new rmq::TelemetryCommand
-            {
-                Settings = new rmq::Settings()
-            };
-            _client.BuildClientSetting(request.Settings);
-            await writer.WriteAsync(request);
-            Logger.Debug($"Writing Client Settings to {_target} Done: {request.Settings}");
-            while (!_client.TelemetryCts().IsCancellationRequested)
-            {
-                if (await reader.MoveNext(_client.TelemetryCts().Token))
-                {
-                    var cmd = reader.Current;
-                    Logger.Debug($"Received a TelemetryCommand from {_target}: {cmd}");
-                    switch (cmd.CommandCase)
-                    {
-                        case rmq::TelemetryCommand.CommandOneofCase.None:
-                            {
-                                Logger.Warn($"Telemetry failed: {cmd.Status}");
-                                if (0 == Interlocked.CompareExchange(ref _established, 0, 2))
-                                {
-                                    await _channel.Writer.WriteAsync(false);
-                                }
-                                break;
-                            }
-                        case rmq::TelemetryCommand.CommandOneofCase.Settings:
-                            {
-                                if (0 == Interlocked.CompareExchange(ref _established, 0, 1))
-                                {
-                                    await _channel.Writer.WriteAsync(true);
-                                }
 
-                                Logger.Info($"Received settings from {_target}: {cmd.Settings}");
-                                _client.OnSettingsReceived(cmd.Settings);
-                                break;
-                            }
-                        case rmq::TelemetryCommand.CommandOneofCase.PrintThreadStackTraceCommand:
-                            {
-                                break;
-                            }
-                        case rmq::TelemetryCommand.CommandOneofCase.RecoverOrphanedTransactionCommand:
-                            {
-                                break;
-                            }
-                        case rmq::TelemetryCommand.CommandOneofCase.VerifyMessageCommand:
-                            {
-                                break;
-                            }
-                    }
+        public async Task SyncSettings(bool awaitResp)
+        {
+            await _semaphore.WaitAsync();
+            try
+            {
+                var writer = _streamingCall.RequestStream;
+                // await readTask;
+                var settings = _client.GetSettings();
+                Proto.TelemetryCommand telemetryCommand = new Proto.TelemetryCommand
+                {
+                    Settings = settings
+                };
+                await writer.WriteAsync(telemetryCommand);
+                // await writer.CompleteAsync();
+                if (awaitResp)
+                {
+                    await _channel.Reader.ReadAsync();
                 }
             }
-            Logger.Info($"Telemetry stream for {_target} is cancelled");
-            await writer.CompleteAsync();
-        }
-
-        public async Task AwaitSettingNegotiationCompletion()
-        {
-            if (0 != Interlocked.Read(ref _established))
+            finally
             {
-                return;
+                _semaphore.Release();
             }
-
-            Logger.Debug("Await setting negotiation");
-            await _channel.Reader.ReadAsync();
         }
 
-        private readonly grpc::AsyncDuplexStreamingCall<rmq::TelemetryCommand, rmq::TelemetryCommand> _stream;
-        private readonly Client _client;
+        // public async void xx()
+        // {
+        //     while (true)
+        //     {
+        //         var reader = _streamingCall.ResponseStream;
+        //         if (await reader.MoveNext(_client.TelemetryCts().Token))
+        //         {
+        //             var command = reader.Current;
+        //             Console.WriteLine("xxxxxxxx");
+        //             Console.WriteLine(command);
+        //         }
+        //     }
+        // }
 
-        private long _established;
 
-        private readonly Channel<bool> _channel;
-        private readonly string _target;
+        private void Loop()
+        {
+            Task.Run(async () =>
+            {
+                await foreach (var response in _streamingCall.ResponseStream.ReadAllAsync())
+                {
+                    switch (response.CommandCase)
+                    {
+                        case Proto.TelemetryCommand.CommandOneofCase.Settings:
+                        {
+                            Logger.Info(
+                                $"Receive setting from remote, endpoints={_endpoints}, clientId={_client.GetClientId()}");
+                            await _channel.Writer.WriteAsync(true);
+                            _client.OnSettingsCommand(_endpoints, response.Settings);
+                            break;
+                        }
+                        case Proto.TelemetryCommand.CommandOneofCase.RecoverOrphanedTransactionCommand:
+                        {
+                            Logger.Info(
+                                $"Receive orphaned transaction recovery command from remote, endpoints={_endpoints}, clientId={_client.GetClientId()}");
+                            _client.OnRecoverOrphanedTransactionCommand(_endpoints,
+                                response.RecoverOrphanedTransactionCommand);
+                            break;
+                        }
+                        case Proto.TelemetryCommand.CommandOneofCase.VerifyMessageCommand:
+                        {
+                            Logger.Info(
+                                $"Receive message verification command from remote, endpoints={_endpoints}, clientId={_client.GetClientId()}");
+                            _client.OnVerifyMessageCommand(_endpoints, response.VerifyMessageCommand);
+                            break;
+                        }
+                        case Proto.TelemetryCommand.CommandOneofCase.PrintThreadStackTraceCommand:
+                        {
+                            Logger.Info(
+                                $"Receive thread stack print command from remote, endpoints={_endpoints}, clientId={_client.GetClientId()}");
+                            _client.OnPrintThreadStackTraceCommand(_endpoints, response.PrintThreadStackTraceCommand);
+                            break;
+                        }
+                        default:
+                        {
+                            Logger.Warn(
+                                $"Receive unrecognized command from remote, endpoints={_endpoints}, command={response}, clientId={_client.GetClientId()}");
+                            break;
+                        }
+                    }
+                }
+            });
+        }
     };
 }

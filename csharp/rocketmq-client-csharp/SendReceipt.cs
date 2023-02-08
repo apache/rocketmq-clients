@@ -15,35 +15,45 @@
  * limitations under the License.
  */
 
+using System.Collections.Generic;
+using rmq = Apache.Rocketmq.V2;
+
 namespace Org.Apache.Rocketmq
 {
     public sealed class SendReceipt
     {
         public SendReceipt(string messageId)
         {
-            status_ = SendStatus.SEND_OK;
-            messageId_ = messageId;
+            MessageId = messageId;
         }
 
-        public SendReceipt(string messageId, SendStatus status)
+        public string MessageId { get; }
+
+        public override string ToString()
         {
-            status_ = status;
-            messageId_ = messageId;
+            return $"{nameof(MessageId)}: {MessageId}";
         }
 
-        private string messageId_;
-
-        public string MessageId
+        public static List<SendReceipt> processSendMessageResponse(rmq.SendMessageResponse response)
         {
-            get { return messageId_; }
-        }
+            rmq.Status status = response.Status;
+            foreach (var entry in response.Entries)
+            {
+                if (rmq.Code.Ok.Equals(entry.Status.Code))
+                {
+                    status = entry.Status;
+                }
+            }
 
+            // May throw exception.
+            StatusChecker.Check(status, response);
+            List<SendReceipt> sendReceipts = new List<SendReceipt>();
+            foreach (var entry in response.Entries)
+            {
+                sendReceipts.Add(new SendReceipt(entry.MessageId));
+            }
 
-        private SendStatus status_;
-
-        public SendStatus Status
-        {
-            get { return status_; }
+            return sendReceipts;
         }
     }
 }

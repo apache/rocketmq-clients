@@ -14,27 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-
-namespace Org.Apache.Rocketmq
+namespace Org.Apache.Rocketmq.Error
 {
-    [TestClass]
-    public class StaticCredentialsProviderTest
+    /// <summary>
+    /// Generic exception for resource not found.
+    /// </summary>
+    public class NotFoundException : ClientException
     {
-
-        [TestMethod]
-        public void testGetCredentials()
+        public NotFoundException(string message) : base(message)
         {
-            var accessKey = "key";
-            var accessSecret = "secret";
-            var provider = new StaticCredentialsProvider(accessKey, accessSecret);
-            var credentials = provider.getCredentials();
-            Assert.IsNotNull(credentials);
-            Assert.IsFalse(credentials.expired(), "Credentials from StaticCredentialsProvider should never expire");
-            Assert.AreEqual(credentials.AccessKey, accessKey);
-            Assert.AreEqual(credentials.AccessSecret, accessSecret);
         }
 
+        public NotFoundException(int responseCode, string requestId, string message) : base(responseCode, requestId,
+            message)
+        {
+        }
+
+        public NotFoundException(int responseCode, string message) : base(responseCode, message)
+        {
+        }
     }
 }
