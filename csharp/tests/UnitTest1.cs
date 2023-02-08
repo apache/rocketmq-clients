@@ -62,12 +62,6 @@ namespace tests
         }
 
         [TestMethod]
-        public void TestRpcClientImplCtor()
-        {
-            RpcClient impl = new RpcClient("https://localhost:5001");
-        }
-
-        [TestMethod]
         public void TestConcurrentDictionary()
         {
             var dict = new ConcurrentDictionary<string, List<String>>();

@@ -15,11 +15,17 @@
  * limitations under the License.
  */
 
-namespace Org.Apache.Rocketmq
+namespace Org.Apache.Rocketmq.Error
 {
-    public enum ExpressionType
+    public class PaymentRequiredException : ClientException
     {
-        Tag,
-        Sql92,
+        public PaymentRequiredException(int responseCode, string requestId, string message) : base(responseCode,
+            requestId, message)
+        {
+        }
+
+        public PaymentRequiredException(int responseCode, string message) : base(responseCode, message)
+        {
+        }
     }
 }

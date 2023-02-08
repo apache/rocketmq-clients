@@ -29,42 +29,43 @@ namespace examples
 
         internal static async Task QuickStart()
         {
-            string accessKey = "yourAccessKey";
-            string secretKey = "yourSecretKey";
-            // Credential provider is optional for client configuration.
-            var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
-            string endpoints = "foobar.com:8080";
-
-            var producer = new Producer(endpoints)
-            {
-                CredentialsProvider = credentialsProvider
-            };
-            string topic = "yourFifoTopic";
-            // Set the topic name(s), which is optional. It makes producer could prefetch the topic route before 
-            // message publishing.
-            producer.AddTopicOfInterest(topic);
-
-            await producer.Start();
-            // Define your message body.
-            byte[] bytes = Encoding.UTF8.GetBytes("foobar");
-            string tag = "yourMessageTagA";
-            // You could set multiple keys for the single message.
-            var keys = new List<string>
-            {
-                "yourMessageKey-6cc8b65ed1c8",
-                "yourMessageKey-43783375d9a5"
-            };
-            // Set topic for current message.
-            var message = new Message(topic, bytes)
-            {
-                Tag = tag,
-                Keys = keys,
-                // Essential for FIFO message, messages that belongs to the same message group follow the FIFO semantics.
-                MessageGroup = "yourMessageGroup0"
-            };
-            var sendReceipt = await producer.Send(message);
-            Logger.Info($"Send message successfully, sendReceipt={sendReceipt}.");
-            await producer.Shutdown();
+            // string accessKey = "yourAccessKey";
+            // string secretKey = "yourSecretKey";
+            // // Credential provider is optional for client configuration.
+            // var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
+            // string endpoints = "foobar.com:8080";
+            // // In most case, you don't need to create too many producers, single pattern is recommended.
+            // var producer = new Producer(endpoints)
+            // {
+            //     CredentialsProvider = credentialsProvider
+            // };
+            // string topic = "yourFifoTopic";
+            // // Set the topic name(s), which is optional but recommended. It makes producer could prefetch
+            // // the topic route before message publishing.
+            // producer.AddTopicOfInterest(topic);
+            //
+            // await producer.Start();
+            // // Define your message body.
+            // byte[] bytes = Encoding.UTF8.GetBytes("foobar");
+            // string tag = "yourMessageTagA";
+            // // You could set multiple keys for the single message.
+            // var keys = new List<string>
+            // {
+            //     "yourMessageKey-6cc8b65ed1c8",
+            //     "yourMessageKey-43783375d9a5"
+            // };
+            // // Set topic for current message.
+            // var message = new Message(topic, bytes)
+            // {
+            //     Tag = tag,
+            //     Keys = keys,
+            //     // Essential for FIFO message, messages that belongs to the same message group follow the FIFO semantics.
+            //     MessageGroup = "yourMessageGroup0"
+            // };
+            // var sendReceipt = await producer.Send(message);
+            // Logger.Info($"Send FIFO message successfully, sendReceipt={sendReceipt}.");
+            // // Close the producer if you don't need it anymore.
+            // await producer.Shutdown();
         }
     }
 }

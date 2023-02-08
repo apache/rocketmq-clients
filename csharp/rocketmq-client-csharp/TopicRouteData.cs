@@ -23,21 +23,25 @@ namespace Org.Apache.Rocketmq
 {
     public class TopicRouteData : IEquatable<TopicRouteData>
     {
-        public TopicRouteData(List<rmq::MessageQueue> partitions)
+        public TopicRouteData(List<rmq::MessageQueue> messageQueues)
         {
-            _messageQueues = partitions;
+            List<MessageQueue> messageQueuesList = new List<MessageQueue>();
+            foreach (var mq in messageQueues)
+            {
+                messageQueuesList.Add(new MessageQueue(mq));
+            }
 
-            _messageQueues.Sort(Utilities.CompareMessageQueue);
+            MessageQueues = messageQueuesList;
         }
 
-        private List<rmq::MessageQueue> _messageQueues;
-        public List<rmq::MessageQueue> MessageQueues { get { return _messageQueues; } }
+        public List<MessageQueue> MessageQueues { get; }
+
 
         public bool Equals(TopicRouteData other)
         {
             if (ReferenceEquals(null, other)) return false;
             if (ReferenceEquals(this, other)) return true;
-            return Equals(_messageQueues, other._messageQueues);
+            return Equals(MessageQueues, other.MessageQueues);
         }
 
         public override bool Equals(object obj)
@@ -50,7 +54,12 @@ namespace Org.Apache.Rocketmq
 
         public override int GetHashCode()
         {
-            return (_messageQueues != null ? _messageQueues.GetHashCode() : 0);
+            return (MessageQueues != null ? MessageQueues.GetHashCode() : 0);
+        }
+
+        public override string ToString()
+        {
+            return $"{nameof(MessageQueues)}: {MessageQueues}";
         }
     }
 }

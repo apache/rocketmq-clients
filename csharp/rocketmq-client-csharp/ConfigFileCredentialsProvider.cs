@@ -28,7 +28,7 @@ namespace Org.Apache.Rocketmq
      * A sample config content is as follows:
      * {"AccessKey": "key", "AccessSecret": "secret"}
      */
-    public class ConfigFileCredentialsProvider : ICredentialsProvider
+    public class ConfigFileCredentialsProvider 
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
@@ -63,7 +63,7 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        public Credentials getCredentials()
+        public Credentials GetCredentials()
         {
             if (!_valid)
             {

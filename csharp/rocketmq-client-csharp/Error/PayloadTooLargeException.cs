@@ -14,21 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
 
-namespace Org.Apache.Rocketmq
+namespace Org.Apache.Rocketmq.Error
 {
-    [TestClass]
-    public class ClientConfigTest
+    /// <summary>
+    /// Generic exception represents that the request entity is larger than the limits defined by the server.
+    /// </summary>
+    public class PayloadTooLargeException : ClientException
     {
-        [TestMethod]
-        public void testClientId()
+        public PayloadTooLargeException(int responseCode, string requestId, string message) : base(responseCode,
+            requestId, message)
         {
-            var clientConfig = new ClientConfig();
-            string clientId = clientConfig.clientId();
-            Assert.IsTrue(clientId.Contains("@"));
-            Assert.IsTrue(clientId.Contains("#default"));
+        }
+
+        public PayloadTooLargeException(int responseCode, string message) : base(responseCode, message)
+        {
         }
     }
 }

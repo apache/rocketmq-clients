@@ -15,13 +15,32 @@
  * limitations under the License.
  */
 
+using rmq = Apache.Rocketmq.V2;
+
 namespace Org.Apache.Rocketmq
 {
-    public enum SendStatus
+    public enum ClientType
     {
-        SEND_OK,
-        FLUSH_DISK_TIMEOUT,
-        FLUSH_SLAVE_TIMEOUT,
-        SLAVE_NOT_AVAILABLE,
+        Producer,
+        SimpleConsumer,
+        PushConsumer
+    }
+
+    public static class ClientTypeHelper
+    {
+        public static rmq.ClientType ToProtobuf(ClientType clientType)
+        {
+            switch (clientType)
+            {
+                case ClientType.Producer:
+                    return rmq.ClientType.Producer;
+                case ClientType.SimpleConsumer:
+                    return rmq.ClientType.SimpleConsumer;
+                case ClientType.PushConsumer:
+                    return rmq.ClientType.PushConsumer;
+                default:
+                    return rmq.ClientType.Unspecified;
+            }
+        }
     }
 }

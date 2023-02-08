@@ -18,7 +18,8 @@
 using System.Threading.Tasks;
 using System;
 using System.Collections.Generic;
-using grpc = global::Grpc.Core;
+using Apache.Rocketmq.V2;
+using grpc = Grpc.Core;
 using rmq = Apache.Rocketmq.V2;
 
 
@@ -26,25 +27,28 @@ namespace Org.Apache.Rocketmq
 {
     public interface IClientManager
     {
-        IRpcClient GetRpcClient(string target);
+        grpc::AsyncDuplexStreamingCall<TelemetryCommand, TelemetryCommand> Telemetry(Endpoints endpoints);
 
-        grpc::AsyncDuplexStreamingCall<rmq::TelemetryCommand, rmq::TelemetryCommand> Telemetry(string target, grpc::Metadata metadata);
+        Task<QueryRouteResponse> QueryRoute(Endpoints endpoints, QueryRouteRequest request, TimeSpan timeout);
 
-        Task<TopicRouteData> ResolveRoute(string target, grpc::Metadata metadata, rmq::QueryRouteRequest request, TimeSpan timeout);
+        Task<HeartbeatResponse> Heartbeat(Endpoints endpoints, HeartbeatRequest request, TimeSpan timeout);
 
-        Task<Boolean> Heartbeat(string target, grpc::Metadata metadata, rmq::HeartbeatRequest request, TimeSpan timeout);
+        Task<NotifyClientTerminationResponse> NotifyClientTermination(Endpoints endpoints,
+            NotifyClientTerminationRequest request, TimeSpan timeout);
 
-        Task<Boolean> NotifyClientTermination(string target, grpc::Metadata metadata, rmq::NotifyClientTerminationRequest request, TimeSpan timeout);
+        Task<SendMessageResponse> SendMessage(Endpoints endpoints, SendMessageRequest request,
+            TimeSpan timeout);
 
-        Task<rmq::SendMessageResponse> SendMessage(string target, grpc::Metadata metadata, rmq::SendMessageRequest request, TimeSpan timeout);
+        Task<QueryAssignmentResponse> QueryAssignment(Endpoints endpoints, QueryAssignmentRequest request,
+            TimeSpan timeout);
 
-        Task<List<rmq::Assignment>> QueryLoadAssignment(string target, grpc::Metadata metadata, rmq::QueryAssignmentRequest request, TimeSpan timeout);
+        Task<List<ReceiveMessageResponse>> ReceiveMessage(Endpoints endpoints, ReceiveMessageRequest request,
+            TimeSpan timeout);
 
-        Task<List<Message>> ReceiveMessage(string target, grpc::Metadata metadata, rmq::ReceiveMessageRequest request, TimeSpan timeout);
+        Task<AckMessageResponse> AckMessage(Endpoints endpoints, AckMessageRequest request, TimeSpan timeout);
 
-        Task<Boolean> Ack(string target, grpc::Metadata metadata, rmq::AckMessageRequest request, TimeSpan timeout);
-
-        Task<Boolean> ChangeInvisibleDuration(string target, grpc::Metadata metadata, rmq::ChangeInvisibleDurationRequest request, TimeSpan timeout);
+        Task<ChangeInvisibleDurationResponse> ChangeInvisibleDuration(Endpoints endpoints,
+            ChangeInvisibleDurationRequest request, TimeSpan timeout);
 
         Task Shutdown();
     }

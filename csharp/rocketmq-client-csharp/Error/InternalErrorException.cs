@@ -15,16 +15,25 @@
  * limitations under the License.
  */
 
-using System.Collections.Generic;
-using System.Threading.Tasks;
-
-namespace Org.Apache.Rocketmq
+namespace Org.Apache.Rocketmq.Error
 {
-
-    public interface IMessageListener
+    /// <summary>
+    /// Generic exception indicates that the server/client encountered an unexpected condition
+    /// that prevented it from fulfilling the request.
+    /// </summary>
+    public class InternalErrorException : ClientException
     {
-        Task Consume(List<Message> messages, List<Message> failed);
+        public InternalErrorException(string message) : base(message)
+        {
+        }
 
+        public InternalErrorException(int responseCode, string requestId, string message) : base(responseCode,
+            requestId, message)
+        {
+        }
+
+        public InternalErrorException(int responseCode, string message) : base(responseCode, message)
+        {
+        }
     }
-
 }

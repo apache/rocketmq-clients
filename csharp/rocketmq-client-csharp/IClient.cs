@@ -15,23 +15,32 @@
  * limitations under the License.
  */
 
-using System.Threading.Tasks;
 using System.Threading;
-using System;
-using rmq = Apache.Rocketmq.V2;
+using Grpc.Core;
+using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
-    public interface IClient : IClientConfig
+    public interface IClient
     {
+        void Heartbeat();
 
-        Task Heartbeat();
-
-        Task<bool> NotifyClientTermination(rmq.Resource group);
-
-        void BuildClientSetting(rmq::Settings settings);
-        
+        void NotifyClientTermination(Proto.Resource group);
 
         CancellationTokenSource TelemetryCts();
+
+        Proto.Settings GetSettings();
+
+        string GetClientId();
+
+        void OnSettingsCommand(Endpoints endpoints, Proto.Settings settings);
+
+        void OnRecoverOrphanedTransactionCommand(Endpoints endpoints, Proto.RecoverOrphanedTransactionCommand command);
+
+        void OnVerifyMessageCommand(Endpoints endpoints, Proto.VerifyMessageCommand command);
+
+        void OnPrintThreadStackTraceCommand(Endpoints endpoints, Proto.PrintThreadStackTraceCommand command);
+
+        Metadata Sign();
     }
 }

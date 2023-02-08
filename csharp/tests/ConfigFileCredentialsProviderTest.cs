@@ -42,7 +42,7 @@ namespace Org.Apache.Rocketmq
         public void TestGetCredentials()
         {
             var provider = new ConfigFileCredentialsProvider();
-            var credentials = provider.getCredentials();
+            var credentials = provider.GetCredentials();
             Assert.IsNotNull(credentials);
             Assert.AreEqual(credentials.AccessKey, "key");
             Assert.AreEqual(credentials.AccessSecret, "secret");

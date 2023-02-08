@@ -15,11 +15,22 @@
  * limitations under the License.
  */
 
-namespace Org.Apache.Rocketmq
+namespace Org.Apache.Rocketmq.Error
 {
-    public enum ExpressionType
+    /// <summary>
+    /// Generic exception for the case that the server is unwilling to process the request
+    /// because its header fields are too large. The request may be resubmitted after reducing
+    /// the size of the request header fields.
+    /// </summary>
+    public class RequestHeaderFieldsTooLargeException : ClientException
     {
-        Tag,
-        Sql92,
+        public RequestHeaderFieldsTooLargeException(int responseCode, string requestId, string message) : base(
+            responseCode, requestId, message)
+        {
+        }
+
+        public RequestHeaderFieldsTooLargeException(int responseCode, string message) : base(responseCode, message)
+        {
+        }
     }
 }

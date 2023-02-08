@@ -35,22 +35,15 @@ namespace Org.Apache.Rocketmq
 
         public Message(string topic, string tag, List<string> keys, byte[] body)
         {
-            MessageId = SequenceGenerator.Instance.Next();
             MaxAttemptTimes = 3;
             Topic = topic;
             Tag = tag;
             Keys = keys;
             Body = body;
             UserProperties = new Dictionary<string, string>();
-            DeliveryTimestamp = DateTime.MinValue;
+            DeliveryTimestamp = null;
         }
 
-        public string MessageId
-        {
-            get;
-            internal set;
-        }
-        
         public string Topic
         {
             get;
@@ -74,7 +67,6 @@ namespace Org.Apache.Rocketmq
             get;
             set;
         }
-
         public Dictionary<string, string> UserProperties
         {
             get;
@@ -88,7 +80,7 @@ namespace Org.Apache.Rocketmq
         }
 
 
-        public DateTime DeliveryTimestamp
+        public DateTime? DeliveryTimestamp
         {
             get;
             set;

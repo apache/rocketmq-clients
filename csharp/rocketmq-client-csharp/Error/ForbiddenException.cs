@@ -15,11 +15,20 @@
  * limitations under the License.
  */
 
-namespace Org.Apache.Rocketmq
+namespace Org.Apache.Rocketmq.Error
 {
-    public enum ExpressionType
+    /// <summary>
+    /// Generic exception for the case that user does not have permission to access/operation the resource.
+    /// </summary>
+    public class ForbiddenException : ClientException
     {
-        Tag,
-        Sql92,
+        public ForbiddenException(int responseCode, string requestId, string message) : base(responseCode, requestId,
+            message)
+        {
+        }
+
+        public ForbiddenException(int responseCode, string message) : base(responseCode, message)
+        {
+        }
     }
 }

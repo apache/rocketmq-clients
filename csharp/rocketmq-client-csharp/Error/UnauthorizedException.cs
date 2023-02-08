@@ -15,11 +15,21 @@
  * limitations under the License.
  */
 
-namespace Org.Apache.Rocketmq
+namespace Org.Apache.Rocketmq.Error
 {
-    public enum ExpressionType
+    /// <summary>
+    /// Generic exception indicates that the client request lacks valid authentication credentials
+    /// for the requested resource.
+    /// </summary>
+    public class UnauthorizedException : ClientException
     {
-        Tag,
-        Sql92,
+        public UnauthorizedException(int responseCode, string requestId, string message) : base(responseCode, requestId,
+            message)
+        {
+        }
+
+        public UnauthorizedException(int responseCode, string message) : base(responseCode, message)
+        {
+        }
     }
 }

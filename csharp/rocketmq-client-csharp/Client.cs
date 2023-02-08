@@ -19,528 +19,293 @@ using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using System.Threading;
-using System.Diagnostics;
 using System;
-using rmq = Apache.Rocketmq.V2;
+using System.Linq;
+using Proto = Apache.Rocketmq.V2;
 using grpc = Grpc.Core;
 using NLog;
-using System.Diagnostics.Metrics;
 
 namespace Org.Apache.Rocketmq
 {
-    public abstract class Client : ClientConfig, IClient
+    public abstract class Client : IClient
     {
-        protected static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
-        protected Client(string accessUrl)
+        private static readonly TimeSpan HeartbeatScheduleDelay = TimeSpan.FromSeconds(10);
+        private readonly CancellationTokenSource _heartbeatCts;
+
+        private static readonly TimeSpan TopicRouteUpdateScheduleDelay = TimeSpan.FromSeconds(30);
+        private readonly CancellationTokenSource _topicRouteUpdateCtx;
+
+        private static readonly TimeSpan SettingsSyncScheduleDelay = TimeSpan.FromMinutes(5);
+        private readonly CancellationTokenSource _settingsSyncCtx;
+
+        protected readonly ClientConfig ClientConfig;
+        protected readonly IClientManager Manager;
+        protected readonly string ClientId;
+
+        protected readonly ConcurrentDictionary<string, bool> Topics;
+
+        private readonly ConcurrentDictionary<string, TopicRouteData> _topicRouteCache;
+        private readonly CancellationTokenSource _telemetryCts;
+
+        private readonly Dictionary<Endpoints, Session> _sessionsTable;
+        private readonly ReaderWriterLockSlim _sessionLock;
+
+        protected Client(ClientConfig clientConfig, ConcurrentDictionary<string, bool> topics)
         {
-            AccessPoint = new AccessPoint(accessUrl);
+            ClientConfig = clientConfig;
+            Topics = topics;
+            ClientId = Utilities.GetClientId();
 
-            AccessPointScheme = AccessPoint.HostScheme();
-            var serviceEndpoint = new rmq::Address
-            {
-                Host = AccessPoint.Host,
-                Port = AccessPoint.Port
-            };
-            AccessPointEndpoints = new List<rmq::Address> { serviceEndpoint };
+            Manager = new ClientManager(this);
 
-            _resourceNamespace = "";
+            _topicRouteCache = new ConcurrentDictionary<string, TopicRouteData>();
 
-            ClientSettings = new rmq::Settings
-            {
-                AccessPoint = new rmq::Endpoints
-                {
-                    Scheme = AccessPoint.HostScheme()
-                }
-            };
-
-            ClientSettings.AccessPoint.Addresses.Add(serviceEndpoint);
-
-            ClientSettings.RequestTimeout = Google.Protobuf.WellKnownTypes.Duration.FromTimeSpan(TimeSpan.FromSeconds(3));
-
-            ClientSettings.UserAgent = new rmq.UA
-            {
-                Language = rmq::Language.DotNet,
-                Version = MetadataConstants.CLIENT_VERSION,
-                Platform = Environment.OSVersion.ToString(),
-                Hostname = System.Net.Dns.GetHostName()
-            };
-
-            Manager = new ClientManager();
-
-            _topicRouteTable = new ConcurrentDictionary<string, TopicRouteData>();
-            _updateTopicRouteCts = new CancellationTokenSource();
-            _HeartbeatCts = new CancellationTokenSource();
+            _topicRouteUpdateCtx = new CancellationTokenSource();
+            _settingsSyncCtx = new CancellationTokenSource();
+            _heartbeatCts = new CancellationTokenSource();
             _telemetryCts = new CancellationTokenSource();
+
+            _sessionsTable = new Dictionary<Endpoints, Session>();
+            _sessionLock = new ReaderWriterLockSlim();
         }
 
         public virtual async Task Start()
         {
-            Schedule(async () =>
+            Logger.Debug($"Begin to start the rocketmq client, clientId={ClientId}");
+            ScheduleWithFixedDelay(UpdateTopicRouteCache, TopicRouteUpdateScheduleDelay, _topicRouteUpdateCtx.Token);
+            ScheduleWithFixedDelay(Heartbeat, HeartbeatScheduleDelay, _heartbeatCts.Token);
+            ScheduleWithFixedDelay(SyncSettings, SettingsSyncScheduleDelay, _settingsSyncCtx.Token);
+            foreach (var topic in Topics.Keys)
             {
-                Logger.Debug("Update topic route by schedule");
-                await UpdateTopicRoute();
+                await FetchTopicRoute(topic);
+            }
 
-            }, 30, _updateTopicRouteCts.Token);
-
-            // Get routes for topics of interest.
-            Logger.Debug("Step of #Start: get route for topics of interest");
-            await UpdateTopicRoute();
-
-            string accessPointUrl = AccessPoint.TargetUrl();
-            CreateSession(accessPointUrl);
-            await _sessions[accessPointUrl].AwaitSettingNegotiationCompletion();
-            Logger.Debug($"Session has been created for {accessPointUrl}");
-
-            Schedule(async () =>
-            {
-                Logger.Debug("Sending heartbeat by schedule");
-                await Heartbeat();
-
-            }, 10, _HeartbeatCts.Token);
-            await Heartbeat();
+            Logger.Debug($"Start the rocketmq client successfully, clientId={ClientId}");
         }
 
         public virtual async Task Shutdown()
         {
-            Logger.Info($"Shutdown client");
-            _updateTopicRouteCts.Cancel();
-            _HeartbeatCts.Cancel();
+            Logger.Debug($"Begin to shutdown rocketmq client, clientId={ClientId}");
+            _topicRouteUpdateCtx.Cancel();
+            _heartbeatCts.Cancel();
             _telemetryCts.Cancel();
             await Manager.Shutdown();
+            Logger.Debug($"Shutdown the rocketmq client successfully, clientId={ClientId}");
         }
 
-        private string FilterBroker(Func<string, bool> acceptor)
+        private (bool, Session) GetSession(Endpoints endpoints)
         {
-            foreach (var item in _topicRouteTable)
+            _sessionLock.EnterReadLock();
+            try
             {
-                foreach (var partition in item.Value.MessageQueues)
+                // Session exists, return in advance.
+                if (_sessionsTable.TryGetValue(endpoints, out var session))
                 {
-                    var target = Utilities.TargetUrl(partition);
-                    if (acceptor(target))
-                    {
-                        return target;
-                    }
+                    return (false, session);
                 }
             }
-            return null;
+            finally
+            {
+                _sessionLock.ExitReadLock();
+            }
+
+            _sessionLock.EnterWriteLock();
+            try
+            {
+                // Session exists, return in advance.
+                if (_sessionsTable.TryGetValue(endpoints, out var session))
+                {
+                    return (false, session);
+                }
+
+                var stream = Manager.Telemetry(endpoints);
+                var created = new Session(endpoints, stream, this);
+                _sessionsTable.Add(endpoints, created);
+                return (true, created);
+            }
+            finally
+            {
+                _sessionLock.ExitWriteLock();
+            }
         }
+
+        protected abstract Proto::HeartbeatRequest WrapHeartbeatRequest();
+
+
+        protected abstract void OnTopicDataFetched0(string topic, TopicRouteData topicRouteData);
+
+
+        private async Task OnTopicRouteDataFetched(string topic, TopicRouteData topicRouteData)
+        {
+            var routeEndpoints = new HashSet<Endpoints>();
+            foreach (var mq in topicRouteData.MessageQueues)
+            {
+                routeEndpoints.Add(mq.Broker.Endpoints);
+            }
+
+            var existedRouteEndpoints = GetTotalRouteEndpoints();
+            var newEndpoints = routeEndpoints.Except(existedRouteEndpoints);
+
+            foreach (var endpoints in newEndpoints)
+            {
+                var (created, session) = GetSession(endpoints);
+                if (created)
+                {
+                    await session.SyncSettings(true);
+                }
+            }
+
+            _topicRouteCache[topic] = topicRouteData;
+            OnTopicDataFetched0(topic, topicRouteData);
+        }
+
 
         /**
          * Return all endpoints of brokers in route table.
          */
-        private List<string> AvailableBrokerEndpoints()
+        private HashSet<Endpoints> GetTotalRouteEndpoints()
         {
-            var endpoints = new List<string>();
-            foreach (var item in _topicRouteTable)
+            var endpoints = new HashSet<Endpoints>();
+            foreach (var item in _topicRouteCache)
             {
-                foreach (var partition in item.Value.MessageQueues)
+                foreach (var endpoint in item.Value.MessageQueues.Select(mq => mq.Broker.Endpoints))
                 {
-                    string endpoint = Utilities.TargetUrl(partition);
-                    if (!endpoints.Contains(endpoint))
-                    {
-                        endpoints.Add(endpoint);
-                    }
+                    endpoints.Add(endpoint);
                 }
             }
+
             return endpoints;
         }
 
-        private async Task UpdateTopicRoute()
+        private async void UpdateTopicRouteCache()
         {
-            HashSet<string> topics = new HashSet<string>(_topicsOfInterest.Keys);
-
-            foreach (var item in _topicRouteTable)
+            foreach (var topic in Topics.Keys)
             {
-                topics.Add(item.Key);
-            }
-            Logger.Debug($"Fetch topic route for {topics.Count} topics");
-
-            // Wrap topics into list such that we can map async result to topic 
-            List<string> topicList = new List<string>();
-            topicList.AddRange(topics);
-
-            var tasks = new List<Task<TopicRouteData>>();
-            foreach (var item in topicList)
-            {
-                tasks.Add(GetRouteFor(item, true));
-            }
-
-            // Update topic route data
-            TopicRouteData[] result = await Task.WhenAll(tasks);
-            var i = 0;
-            foreach (var item in result)
-            {
-                if (null == item)
-                {
-                    Logger.Warn($"Failed to fetch route for {topicList[i]}, null response");
-                    ++i;
-                    continue;
-                }
-
-                if (0 == item.MessageQueues.Count)
-                {
-                    Logger.Warn($"Failed to fetch route for {topicList[i]}, empty message queue");
-                    ++i;
-                    continue;
-                }
-
-                var topicName = item.MessageQueues[0].Topic.Name;
-
-                // Make assertion
-                Debug.Assert(topicName.Equals(topicList[i]));
-
-                var existing = _topicRouteTable[topicName];
-                if (!existing.Equals(item))
-                {
-                    _topicRouteTable[topicName] = item;
-                }
-                ++i;
+                var topicRouteData = await FetchTopicRoute(topic);
+                _topicRouteCache[topic] = topicRouteData;
             }
         }
 
-        protected void Schedule(Action action, int seconds, CancellationToken token)
+        private async void SyncSettings()
         {
-            if (null == action)
+            var totalRouteEndpoints = GetTotalRouteEndpoints();
+            foreach (var (_, session) in totalRouteEndpoints.Select(GetSession))
             {
-                // TODO: log warning
-                return;
+                await session.SyncSettings(false);
             }
+        }
 
+        private static void ScheduleWithFixedDelay(Action action, TimeSpan period, CancellationToken token)
+        {
             Task.Run(async () =>
             {
                 while (!token.IsCancellationRequested)
                 {
                     action();
-                    await Task.Delay(TimeSpan.FromSeconds(seconds), token);
+                    await Task.Delay(period, token);
                 }
             });
         }
 
-        /**
-         * Parameters:
-         * topic
-         *    Topic to query
-         * direct
-         *    Indicate if we should by-pass cache and fetch route entries from name server.
-         */
-        protected async Task<TopicRouteData> GetRouteFor(string topic, bool direct)
+        protected async Task<TopicRouteData> FetchTopicRoute(string topic)
         {
-            Logger.Debug($"Get route for topic={topic}, direct={direct}");
-            if (!direct && _topicRouteTable.TryGetValue(topic, out var routeData))
-            {
-                Logger.Debug($"Return cached route for {topic}");
-                return routeData;
-            }
-
-            // We got one or more name servers available.
-            var request = new rmq::QueryRouteRequest
-            {
-                Topic = new rmq::Resource
-                {
-                    ResourceNamespace = _resourceNamespace,
-                    Name = topic
-                },
-                Endpoints = new rmq::Endpoints
-                {
-                    Scheme = AccessPointScheme,
-                    Addresses = { AccessPointEndpoints },
-                }
-            };
-
-            var metadata = new grpc.Metadata();
-            Signature.Sign(this, metadata);
-            int index = _random.Next(0, AccessPointEndpoints.Count);
-            var serviceEndpoint = AccessPointEndpoints[index];
-            // AccessPointAddresses.Count
-            string target = $"https://{serviceEndpoint.Host}:{serviceEndpoint.Port}";
-            try
-            {
-                Logger.Debug($"Resolving route for topic={topic}");
-                var topicRouteData = await Manager.ResolveRoute(target, metadata, request, RequestTimeout);
-                if (null != topicRouteData)
-                {
-                    Logger.Debug($"Got route entries for {topic} from name server");
-                    _topicRouteTable.TryAdd(topic, topicRouteData);
-                    Logger.Debug($"Got route for {topic} from {target}");
-                    return topicRouteData;
-                }
-                Logger.Warn($"Failed to query route of {topic} from {target}");
-            }
-            catch (Exception e)
-            {
-                Logger.Warn(e, "Failed when querying route");
-            }
-
-            return null;
+            var topicRouteData = await FetchTopicRoute0(topic);
+            await OnTopicRouteDataFetched(topic, topicRouteData);
+            return topicRouteData;
         }
 
-        protected abstract void PrepareHeartbeatData(rmq::HeartbeatRequest request);
 
-        public async Task Heartbeat()
+        private async Task<TopicRouteData> FetchTopicRoute0(string topic)
         {
-            List<string> endpoints = AvailableBrokerEndpoints();
+            var request = new Proto::QueryRouteRequest
+            {
+                Topic = new Proto::Resource
+                {
+                    Name = topic
+                },
+                Endpoints = ClientConfig.Endpoints.ToProtobuf()
+            };
+
+            var queryRouteResponse =
+                await Manager.QueryRoute(ClientConfig.Endpoints, request, ClientConfig.RequestTimeout);
+            var messageQueues = queryRouteResponse.MessageQueues.ToList();
+            return new TopicRouteData(messageQueues);
+        }
+
+        public async void Heartbeat()
+        {
+            var endpoints = GetTotalRouteEndpoints();
             if (0 == endpoints.Count)
             {
                 Logger.Debug("No broker endpoints available in topic route");
                 return;
             }
 
-            var request = new rmq::HeartbeatRequest
-            {
-                Group = null,
-                ClientType = rmq.ClientType.Unspecified
-            };
-            PrepareHeartbeatData(request);
+            var request = WrapHeartbeatRequest();
 
-            var metadata = new grpc::Metadata();
-            Signature.Sign(this, metadata);
-
-            List<Task> tasks = new List<Task>();
-            foreach (var endpoint in endpoints)
-            {
-                tasks.Add(Manager.Heartbeat(endpoint, metadata, request, RequestTimeout));
-            }
+            var tasks = endpoints.Select(endpoint => Manager.Heartbeat(endpoint, request, ClientConfig.RequestTimeout))
+                .Cast<Task>().ToList();
 
             await Task.WhenAll(tasks);
         }
 
-        private List<string> BlockedBrokerEndpoints()
-        {
-            List<string> endpoints = new List<string>();
-            return endpoints;
-        }
 
-        private void RemoveFromBlockList(string endpoint)
+        public grpc.Metadata Sign()
         {
-
-        }
-
-        protected async Task<List<rmq::Assignment>> ScanLoadAssignment(string topic, string group)
-        {
-            // Pick a broker randomly
-            string target = FilterBroker((s) => true);
-            var request = new rmq::QueryAssignmentRequest
-            {
-                Topic = new rmq::Resource
-                {
-                    ResourceNamespace = _resourceNamespace,
-                    Name = topic
-                },
-                Group = new rmq::Resource
-                {
-                    ResourceNamespace = _resourceNamespace,
-                    Name = group
-                },
-                Endpoints = new rmq::Endpoints
-                {
-                    Scheme = AccessPointScheme,
-                    Addresses = { AccessPointEndpoints },
-                }
-            };
-            
-            try
-            {
-                var metadata = new grpc::Metadata();
-                Signature.Sign(this, metadata);
-                return await Manager.QueryLoadAssignment(target, metadata, request, RequestTimeout);
-            }
-            catch (System.Exception e)
-            {
-                Logger.Warn(e, $"Failed to acquire load assignments from {target}");
-            }
-            // Just return an empty list.
-            return new List<rmq.Assignment>();
-        }
-
-        private string TargetUrl(rmq::Assignment assignment)
-        {
-            var broker = assignment.MessageQueue.Broker;
-            var addresses = broker.Endpoints.Addresses;
-            // TODO: use the first address for now. 
-            var address = addresses[0];
-            return $"https://{address.Host}:{address.Port}";
-        }
-
-        public virtual void BuildClientSetting(rmq::Settings settings)
-        {
-            settings.MergeFrom(ClientSettings);
-        }
-
-        private async Task CreateSession(string url)
-        {
-            Logger.Debug($"Create session for url={url}");
             var metadata = new grpc::Metadata();
-            Signature.Sign(this, metadata);
-            var stream = Manager.Telemetry(url, metadata);
-            var session = new Session(url, stream, this);
-            _sessions.TryAdd(url, session);
-            await session.Loop();
+            Signature.Sign(ClientConfig, metadata);
+            return metadata;
         }
 
-        internal async Task<List<Message>> ReceiveMessage(rmq::Assignment assignment, string group)
+        public async void NotifyClientTermination(Proto.Resource group)
         {
-            var targetUrl = TargetUrl(assignment);
-            var metadata = new grpc::Metadata();
-            Signature.Sign(this, metadata);
-            var request = new rmq::ReceiveMessageRequest
-            {
-                Group = new rmq::Resource
-                {
-                    ResourceNamespace = _resourceNamespace,
-                    Name = group
-                },
-                MessageQueue = assignment.MessageQueue
-            };
-            var messages = await Manager.ReceiveMessage(targetUrl, metadata, request, 
-                ClientSettings.Subscription.LongPollingTimeout.ToTimeSpan());
-            return messages;
-        }
-
-        public async Task<Boolean> Ack(string target, string group, string topic, string receiptHandle, String messageId)
-        {
-            var request = new rmq::AckMessageRequest
-            {
-                Group = new rmq::Resource
-                {
-                    ResourceNamespace = _resourceNamespace,
-                    Name = group
-                },
-                Topic = new rmq::Resource
-                {
-                    ResourceNamespace = _resourceNamespace,
-                    Name = topic
-                }
-            };
-
-            var entry = new rmq::AckMessageEntry
-            {
-                ReceiptHandle = receiptHandle,
-                MessageId = messageId
-            };
-            request.Entries.Add(entry);
-
-            var metadata = new grpc::Metadata();
-            Signature.Sign(this, metadata);
-            return await Manager.Ack(target, metadata, request, RequestTimeout);
-        }
-
-        public async Task<Boolean> ChangeInvisibleDuration(string target, string group, string topic, string receiptHandle, String messageId)
-        {
-            var request = new rmq::ChangeInvisibleDurationRequest
-            {
-                ReceiptHandle = receiptHandle,
-                Group = new rmq::Resource
-                {
-                    ResourceNamespace = _resourceNamespace,
-                    Name = group
-                },
-                Topic = new rmq::Resource
-                {
-                    ResourceNamespace = _resourceNamespace,
-                    Name = topic
-                },
-                MessageId = messageId
-            };
-
-            var metadata = new grpc::Metadata();
-            Signature.Sign(this, metadata);
-            return await Manager.ChangeInvisibleDuration(target, metadata, request, RequestTimeout);
-        }
-
-        public async Task<bool> NotifyClientTermination(rmq.Resource group)
-        {
-            List<string> endpoints = AvailableBrokerEndpoints();
-            var request = new rmq::NotifyClientTerminationRequest
+            var endpoints = GetTotalRouteEndpoints();
+            var request = new Proto::NotifyClientTerminationRequest
             {
                 Group = group
             };
-            var metadata = new grpc.Metadata();
-            Signature.Sign(this, metadata);
-
-            List<Task<Boolean>> tasks = new List<Task<Boolean>>();
-
-            foreach (var endpoint in endpoints)
+            foreach (var item in endpoints)
             {
-                tasks.Add(Manager.NotifyClientTermination(endpoint, metadata, request, RequestTimeout));
-            }
-
-            bool[] results = await Task.WhenAll(tasks);
-            foreach (bool b in results)
-            {
-                if (!b)
+                var response = await Manager.NotifyClientTermination(item, request, ClientConfig.RequestTimeout);
+                try
                 {
-                    return false;
+                    StatusChecker.Check(response.Status, request);
                 }
-            }
-            return true;
-        }
-
-        internal virtual void OnSettingsReceived(rmq::Settings settings)
-        {
-            if (null != settings.Metric)
-            {
-                ClientSettings.Metric = new rmq::Metric();
-                ClientSettings.Metric.MergeFrom(settings.Metric);
-            }
-
-            if (null != settings.BackoffPolicy)
-            {
-                ClientSettings.BackoffPolicy = new rmq::RetryPolicy();
-                ClientSettings.BackoffPolicy.MergeFrom(settings.BackoffPolicy);
-            }
-
-            switch (settings.PubSubCase)
-            {
-                case rmq.Settings.PubSubOneofCase.Publishing:
+                catch (Exception e)
                 {
-                    ClientSettings.Publishing = settings.Publishing;
-                    break;
-                }
-
-                case rmq.Settings.PubSubOneofCase.Subscription:
-                {
-                    ClientSettings.Subscription = settings.Subscription;
-                    break;
+                    Logger.Error(e, $"Failed to notify client's termination, clientId=${ClientId}, " +
+                                    $"endpoints=${item}");
                 }
             }
         }
-
-        protected readonly IClientManager Manager;
-
-        protected readonly ConcurrentDictionary<string, bool> _topicsOfInterest = new ();
-
-        public void AddTopicOfInterest(string topic)
-        {
-            _topicsOfInterest.TryAdd(topic, true);
-        }
-
-        public void RemoveTopicOfInterest(string topic)
-        {
-            _topicsOfInterest.TryRemove(topic, out var _);
-        }
-
-        private readonly ConcurrentDictionary<string, TopicRouteData> _topicRouteTable;
-        private readonly CancellationTokenSource _updateTopicRouteCts;
-        private readonly CancellationTokenSource _HeartbeatCts;
-        private readonly CancellationTokenSource _telemetryCts;
 
         public CancellationTokenSource TelemetryCts()
         {
             return _telemetryCts;
         }
 
-        protected readonly AccessPoint AccessPoint;
+        public abstract Proto.Settings GetSettings();
 
-        // This field is subject changes from servers.
-        protected readonly rmq::Settings ClientSettings;
+        public string GetClientId()
+        {
+            return ClientId;
+        }
 
-        private readonly Random _random = new Random();
+        public void OnRecoverOrphanedTransactionCommand(Endpoints endpoints,
+            Proto.RecoverOrphanedTransactionCommand command)
+        {
+        }
 
-        private readonly ConcurrentDictionary<string, Session> _sessions = new ConcurrentDictionary<string, Session>();
+        public void OnVerifyMessageCommand(Endpoints endpoints, Proto.VerifyMessageCommand command)
+        {
+        }
 
-        protected const string MeterName = "Apache.RocketMQ.Client";
+        public void OnPrintThreadStackTraceCommand(Endpoints endpoints, Proto.PrintThreadStackTraceCommand command)
+        {
+        }
 
-        protected static readonly Meter MetricMeter = new(MeterName, "1.0");
+        public abstract void OnSettingsCommand(Endpoints endpoints, Proto.Settings settings);
     }
 }

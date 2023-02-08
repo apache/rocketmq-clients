@@ -28,7 +28,7 @@ namespace Org.Apache.Rocketmq
         public void testFormat()
         {
             DateTime instant = new DateTime(2022, 02, 15, 08, 31, 56);
-            string time = instant.ToString(MetadataConstants.DATE_TIME_FORMAT);
+            string time = instant.ToString(MetadataConstants.DateTimeFormat);
             string expected = "20220215T083156Z";
             Assert.AreEqual(time, expected);
         }

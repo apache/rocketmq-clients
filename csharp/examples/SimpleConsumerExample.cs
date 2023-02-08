@@ -29,39 +29,41 @@ namespace examples
 
         internal static async Task QuickStart()
         {
-            string accessKey = "yourAccessKey";
-            string secretKey = "yourSecretKey";
-            // Credential provider is optional for client configuration.
-            var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
-            string endpoints = "foobar.com:8080";
-
-            string consumerGroup = "yourConsumerGroup";
-            SimpleConsumer simpleConsumer = new SimpleConsumer(endpoints, consumerGroup)
-            {
-                CredentialsProvider = credentialsProvider
-            };
-
-            string topic = "yourTopic";
-            string tag = "tagA";
-            // Set topic subscription for consumer.
-            simpleConsumer.Subscribe(topic, new FilterExpression(tag, ExpressionType.TAG));
-            await simpleConsumer.Start();
-
-            int maxMessageNum = 16;
-            TimeSpan invisibleDuration = TimeSpan.FromSeconds(15);
-            var messages = await simpleConsumer.Receive(maxMessageNum, invisibleDuration);
-            Logger.Info($"{messages.Count} messages has been received.");
-
-            var tasks = new List<Task>();
-            foreach (var message in messages)
-            {
-                Logger.Info($"Received a message, topic={message.Topic}, message-id={message.MessageId}.");
-                var task = simpleConsumer.Ack(message);
-                tasks.Add(task);
-            }
-
-            await Task.WhenAll(tasks);
-            Logger.Info($"{tasks.Count} messages have been acknowledged.");
+            // string accessKey = "yourAccessKey";
+            // string secretKey = "yourSecretKey";
+            // // Credential provider is optional for client configuration.
+            // var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
+            // string endpoints = "foobar.com:8080";
+            //
+            // string consumerGroup = "yourConsumerGroup";
+            // SimpleConsumer simpleConsumer = new SimpleConsumer(endpoints, consumerGroup)
+            // {
+            //     CredentialsProvider = credentialsProvider
+            // };
+            //
+            // string topic = "yourTopic";
+            // string tag = "tagA";
+            // // Set topic subscription for consumer.
+            // simpleConsumer.Subscribe(topic, new FilterExpression(tag, ExpressionType.Tag));
+            // await simpleConsumer.Start();
+            //
+            // int maxMessageNum = 16;
+            // TimeSpan invisibleDuration = TimeSpan.FromSeconds(15);
+            // var messages = await simpleConsumer.Receive(maxMessageNum, invisibleDuration);
+            // Logger.Info($"{messages.Count} messages has been received.");
+            //
+            // var tasks = new List<Task>();
+            // foreach (var message in messages)
+            // {
+            //     Logger.Info($"Received a message, topic={message.Topic}, message-id={message.MessageId}.");
+            //     var task = simpleConsumer.Ack(message);
+            //     tasks.Add(task);
+            // }
+            //
+            // await Task.WhenAll(tasks);
+            // Logger.Info($"{tasks.Count} messages have been acknowledged.");
+            // // Close the consumer if you don't need it anymore.
+            // await simpleConsumer.Shutdown();
         }
     }
 }

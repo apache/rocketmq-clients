@@ -15,11 +15,20 @@
  * limitations under the License.
  */
 
-namespace Org.Apache.Rocketmq
+namespace Org.Apache.Rocketmq.Error
 {
-    public enum ExpressionType
+    /// <summary>
+    /// Generic exception for unsupported operation.
+    /// </summary>
+    public class UnsupportedException : ClientException
     {
-        Tag,
-        Sql92,
+        public UnsupportedException(int responseCode, string requestId, string message) : base(responseCode, requestId,
+            message)
+        {
+        }
+
+        public UnsupportedException(int responseCode, string message) : base(responseCode, message)
+        {
+        }
     }
 }

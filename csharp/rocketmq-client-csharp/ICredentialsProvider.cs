@@ -18,6 +18,9 @@ namespace Org.Apache.Rocketmq
 {
     public interface ICredentialsProvider
     {
-        Credentials getCredentials();
+        Credentials Credentials
+        {
+            get;
+        }
     }
 }
