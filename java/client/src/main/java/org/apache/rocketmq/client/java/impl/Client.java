@@ -23,34 +23,56 @@ import org.apache.rocketmq.client.java.route.Endpoints;
 
 public interface Client {
     /**
-     * @return endpoints.
+     * Retrieve Endpoints Information
+     *
+     * @return the endpoints associated with this client.
      */
     Endpoints getEndpoints();
 
     /**
-     * Get the unique client identifier for each client.
+     * Get Unique Client Identifier
      *
-     * @return unique client identifier.
+     * <p>Get the unique client identifier for each client.
+     *
+     * @return a unique client identifier.
      */
     ClientId getClientId();
 
     /**
-     * @return signature for tls
+     * Get TLS Signature
+     *
+     * @return the signature for TLS (Transport Layer Security).
+     * @throws Exception if an error occurs during the signature generation process.
      */
     Metadata sign() throws Exception;
 
     /**
-     * Send heart beat to remote {@link Endpoints}.
+     * Check SSL Status
+     *
+     * <p>Check if SSL (Secure Sockets Layer) is enabled.
+     *
+     * @return a boolean value indicating whether SSL is enabled or not.
+     */
+    boolean isSslEnabled();
+
+    /**
+     * Send Heartbeat
+     *
+     * <p> Send a heartbeat to the remote endpoint.
      */
     void doHeartbeat();
 
     /**
-     * Sync settings to remote.
+     * Sync Settings
+     *
+     * <p>Synchronize client settings with the remote endpoint.
      */
     void syncSettings();
 
     /**
-     * Do some stats for client.
+     * Do Statistics
+     *
+     * <p>Perform some statistics for the client.
      */
     void doStats();
 }

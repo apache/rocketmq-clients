@@ -23,6 +23,7 @@ import io.grpc.ManagedChannel;
 import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext;
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContextBuilder;
 import io.grpc.netty.shaded.io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.Meter;
@@ -91,10 +92,18 @@ public class ClientMeterManager {
                 return;
             }
             final Endpoints endpoints = metric.getEndpoints();
-            final SslContext sslContext = GrpcSslContexts.forClient().trustManager(InsecureTrustManagerFactory.INSTANCE)
-                .build();
             final NettyChannelBuilder channelBuilder = NettyChannelBuilder.forTarget(endpoints.getGrpcTarget())
-                .sslContext(sslContext).intercept(new AuthInterceptor(clientConfiguration, clientId));
+                .intercept(new AuthInterceptor(clientConfiguration, clientId));
+
+            if (clientConfiguration.isSslEnabled()) {
+                final SslContextBuilder builder = GrpcSslContexts.forClient();
+                builder.trustManager(InsecureTrustManagerFactory.INSTANCE);
+                SslContext sslContext = builder.build();
+                channelBuilder.sslContext(sslContext);
+            } else {
+                channelBuilder.usePlaintext();
+            }
+
             final List<InetSocketAddress> socketAddresses = endpoints.toSocketAddresses();
             if (null != socketAddresses) {
                 IpNameResolverFactory metricResolverFactory = new IpNameResolverFactory(socketAddresses);

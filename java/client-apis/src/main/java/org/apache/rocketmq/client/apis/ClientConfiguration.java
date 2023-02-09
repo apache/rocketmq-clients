@@ -27,16 +27,18 @@ public class ClientConfiguration {
     private final String endpoints;
     private final SessionCredentialsProvider sessionCredentialsProvider;
     private final Duration requestTimeout;
+    private final boolean sslEnabled;
 
     /**
      * The caller is supposed to have validated the arguments and handled throwing exceptions or
      * logging warnings already, so we avoid repeating args check here.
      */
     ClientConfiguration(String endpoints, SessionCredentialsProvider sessionCredentialsProvider,
-        Duration requestTimeout) {
+        Duration requestTimeout, boolean sslEnabled) {
         this.endpoints = endpoints;
         this.sessionCredentialsProvider = sessionCredentialsProvider;
         this.requestTimeout = requestTimeout;
+        this.sslEnabled = sslEnabled;
     }
 
     public static ClientConfigurationBuilder newBuilder() {
@@ -53,5 +55,9 @@ public class ClientConfiguration {
 
     public Duration getRequestTimeout() {
         return requestTimeout;
+    }
+
+    public boolean isSslEnabled() {
+        return sslEnabled;
     }
 }
