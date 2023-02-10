@@ -21,7 +21,8 @@ public enum MessageType {
     NORMAL,
     FIFO,
     DELAY,
-    TRANSACTION;
+    TRANSACTION,
+    MESSAGE_TYPE_UNSPECIFIED;
 
     public static MessageType fromProtobuf(apache.rocketmq.v2.MessageType messageType) {
         switch (messageType) {
@@ -33,9 +34,8 @@ public enum MessageType {
                 return MessageType.DELAY;
             case TRANSACTION:
                 return MessageType.TRANSACTION;
-            case MESSAGE_TYPE_UNSPECIFIED:
             default:
-                throw new IllegalArgumentException("Message type is not specified");
+                return MessageType.MESSAGE_TYPE_UNSPECIFIED;
         }
     }
 

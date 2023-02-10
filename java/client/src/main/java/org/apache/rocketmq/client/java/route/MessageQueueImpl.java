@@ -40,7 +40,10 @@ public class MessageQueueImpl {
         this.acceptMessageTypes = new ArrayList<>();
         final List<apache.rocketmq.v2.MessageType> types = messageQueue.getAcceptMessageTypesList();
         for (apache.rocketmq.v2.MessageType type : types) {
-            acceptMessageTypes.add(MessageType.fromProtobuf(type));
+            MessageType messageType = MessageType.fromProtobuf(type);
+            if (messageType != MessageType.MESSAGE_TYPE_UNSPECIFIED) {
+                acceptMessageTypes.add(messageType);
+            }
         }
         this.broker = new Broker(messageQueue.getBroker());
     }
