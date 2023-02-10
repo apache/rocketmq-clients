@@ -17,6 +17,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using rmq = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
@@ -29,74 +30,65 @@ namespace Org.Apache.Rocketmq
         public PublishingLoadBalancer(TopicRouteData route)
         {
             _messageQueues = new List<MessageQueue>();
-            foreach (var messageQueue in route.MessageQueues)
+            foreach (var messageQueue in route.MessageQueues.Where(messageQueue =>
+                         PermissionHelper.IsWritable(messageQueue.Permission) &&
+                         Utilities.MasterBrokerId == messageQueue.Broker.Id))
             {
-                if (!PermissionHelper.IsWritable(messageQueue.Permission))
-                {
-                    continue;
-                }
-
                 _messageQueues.Add(messageQueue);
             }
 
-            Random random = new Random();
+            var random = new Random();
             _roundRobinIndex = random.Next(0, _messageQueues.Count);
         }
 
-        /**
-         * Accept a partition iff its broker is different.
-         */
-        private bool Accept(List<MessageQueue> existing, MessageQueue messageQueue)
-        {
-            if (0 == existing.Count)
-            {
-                return true;
-            }
 
-            foreach (var item in existing)
+        public MessageQueue TakeMessageQueueByMessageGroup(string messageGroup)
+        {
+            // TODO: use SipHash24 algorithm
+            var index = Utilities.GetPositiveMod(messageGroup.GetHashCode(), _messageQueues.Count);
+            return _messageQueues[index];
+        }
+
+        public List<MessageQueue> TakeMessageQueues(HashSet<Endpoints> excluded, int count)
+        {
+            var next = ++_roundRobinIndex;
+            var candidates = new List<MessageQueue>();
+            var candidateBrokerNames = new HashSet<string>();
+
+            foreach (var mq in _messageQueues.Select(_ => Utilities.GetPositiveMod(next++, _messageQueues.Count))
+                         .Select(index => _messageQueues[index]))
             {
-                if (item.Broker.Equals(messageQueue.Broker))
+                if (!excluded.Contains(mq.Broker.Endpoints) && !candidateBrokerNames.Contains(mq.Broker.Name))
                 {
-                    return false;
+                    candidateBrokerNames.Add(mq.Broker.Name);
+                    candidates.Add(mq);
+                }
+
+                if (candidates.Count >= count)
+                {
+                    return candidates;
                 }
             }
 
-            return true;
-        }
-
-        public List<MessageQueue> TakeMessageQueues(string messageGroup, int maxAttemptTimes)
-        {
-            List<MessageQueue> result = new List<MessageQueue>();
-
-            List<MessageQueue> all = _messageQueues;
-            if (0 == all.Count)
+            if (candidates.Count != 0) return candidates;
             {
-                return result;
-            }
-
-            if (!string.IsNullOrEmpty(messageGroup))
-            {
-                result.Add(all[messageGroup.GetHashCode() % all.Count]);
-                return result;
-            }
-
-            int start = ++_roundRobinIndex;
-            int found = 0;
-
-            for (int i = 0; i < all.Count; i++)
-            {
-                int idx = ((start + i) & int.MaxValue) % all.Count;
-                if (Accept(result, all[idx]))
+                foreach (var mq in _messageQueues.Select(_ => Utilities.GetPositiveMod(next++, _messageQueues.Count))
+                             .Select(positiveMod => _messageQueues[positiveMod]))
                 {
-                    result.Add(all[idx]);
-                    if (++found >= maxAttemptTimes)
+                    if (!candidateBrokerNames.Contains(mq.Broker.Name))
+                    {
+                        candidateBrokerNames.Add(mq.Broker.Name);
+                        candidates.Add(mq);
+                    }
+
+                    if (candidates.Count >= count)
                     {
                         break;
                     }
                 }
             }
 
-            return result;
+            return candidates;
         }
     }
 }

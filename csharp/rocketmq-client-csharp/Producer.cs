@@ -111,7 +111,12 @@ namespace Org.Apache.Rocketmq
             var publishingMessage = new PublishingMessage(message, _publishingSettings, false);
             var retryPolicy = GetRetryPolicy();
             var maxAttempts = retryPolicy.GetMaxAttempts();
-            var candidates = publishingLoadBalancer.TakeMessageQueues(publishingMessage.MessageGroup, maxAttempts);
+
+            // Prepare the candidate message queue(s) for retry-sending in advance.
+            var candidates = null == publishingMessage.MessageGroup
+                ? publishingLoadBalancer.TakeMessageQueues(new HashSet<Endpoints>(Isolated.Keys), maxAttempts)
+                : new List<MessageQueue>
+                    { publishingLoadBalancer.TakeMessageQueueByMessageGroup(publishingMessage.MessageGroup) };
             Exception exception = null;
             for (var attempt = 0; attempt < maxAttempts; attempt++)
             {
@@ -145,7 +150,7 @@ namespace Org.Apache.Rocketmq
             if (_publishingSettings.IsValidateMessageType() &&
                 !mq.AcceptMessageTypes.Contains(message.MessageType))
             {
-                throw new ArgumentException($"Current message type does not match with the accept message types," +
+                throw new ArgumentException("Current message type does not match with the accept message types," +
                                             $" topic={message.Topic}, actualMessageType={message.MessageType}" +
                                             $" acceptMessageType={string.Join(",", mq.AcceptMessageTypes)}");
             }
@@ -170,6 +175,8 @@ namespace Org.Apache.Rocketmq
             }
             catch (Exception e)
             {
+                // Isolate current endpoints.
+                Isolated[endpoints] = true;
                 Logger.Warn(e, $"Failed to send message, topic={message.Topic}, maxAttempts={maxAttempts}, " +
                                $"endpoints={endpoints}, clientId={ClientId}");
                 throw;
