@@ -45,7 +45,8 @@ namespace Org.Apache.Rocketmq
         protected readonly string ClientId;
 
         protected readonly ConcurrentDictionary<string, bool> Topics;
-
+        
+        protected readonly ConcurrentDictionary<Endpoints, bool> Isolated;
         private readonly ConcurrentDictionary<string, TopicRouteData> _topicRouteCache;
         private readonly CancellationTokenSource _telemetryCts;
 
@@ -59,7 +60,7 @@ namespace Org.Apache.Rocketmq
             ClientId = Utilities.GetClientId();
 
             ClientManager = new ClientManager(this);
-
+            Isolated = new ConcurrentDictionary<Endpoints, bool>();
             _topicRouteCache = new ConcurrentDictionary<string, TopicRouteData>();
 
             _topicRouteUpdateCtx = new CancellationTokenSource();
@@ -276,12 +277,19 @@ namespace Org.Apache.Rocketmq
             {
                 var response = await responses[item];
                 var code = response.Status.Code;
-                
+
                 if (code.Equals(Proto.Code.Ok))
                 {
                     Logger.Info($"Send heartbeat successfully, endpoints={item}, clientId={ClientId}");
+                    if (Isolated.TryRemove(item, out _))
+                    {
+                        Logger.Info(
+                            $"Rejoin endpoints which was isolate before, endpoints={item}, clientId={ClientId}");
+                    }
+
                     return;
                 }
+
                 var statusMessage = response.Status.Message;
                 Logger.Info($"Failed to send heartbeat, endpoints={item}, code={code}, statusMessage={statusMessage}, clientId={ClientId}");
             }

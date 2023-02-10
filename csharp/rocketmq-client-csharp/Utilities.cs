@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-using System.Diagnostics;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Text;
@@ -30,6 +29,14 @@ namespace Org.Apache.Rocketmq
     public static class Utilities
     {
         private static long _instanceSequence = 0;
+        public const int MasterBrokerId = 0;
+
+        public static int GetPositiveMod(int k, int n)
+        {
+            var result = k % n;
+            return result < 0 ? result + n : result;
+        }
+
         public static byte[] GetMacAddress()
         {
             return NetworkInterface.GetAllNetworkInterfaces().FirstOrDefault(nic =>
@@ -39,26 +46,26 @@ namespace Org.Apache.Rocketmq
 
         public static int GetProcessId()
         {
-            return Process.GetCurrentProcess().Id;
+            return Environment.ProcessId;
         }
 
-        public static String GetHostName()
+        public static string GetHostName()
         {
             return System.Net.Dns.GetHostName();
         }
 
-        public static String GetClientId()
+        public static string GetClientId()
         {
             var hostName = System.Net.Dns.GetHostName();
-            var pid = Process.GetCurrentProcess().Id;
+            var pid = Environment.ProcessId;
             var index = Interlocked.Increment(ref _instanceSequence);
             var nowMillisecond = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalMilliseconds;
             var no = DecimalToBase36(nowMillisecond);
             return $"{hostName}@{pid}@{index}@{no}";
         }
-        
-        
-        static string DecimalToBase36(long decimalNumber)
+
+
+        private static string DecimalToBase36(long decimalNumber)
         {
             const string chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
             string result = string.Empty;
@@ -86,38 +93,13 @@ namespace Org.Apache.Rocketmq
             return result.ToString();
         }
 
-        public static byte[] uncompressBytesGzip(byte[] src)
+        public static byte[] DecompressBytesGzip(byte[] src)
         {
             var inputStream = new MemoryStream(src);
             var gzipStream = new GZipStream(inputStream, CompressionMode.Decompress);
             var outputStream = new MemoryStream();
             gzipStream.CopyTo(outputStream);
             return outputStream.ToArray();
-        }
-
-        public static string TargetUrl(rmq::MessageQueue messageQueue)
-        {
-            // TODO: Assert associated broker has as least one service endpoint.
-            var serviceEndpoint = messageQueue.Broker.Endpoints.Addresses[0];
-            return $"https://{serviceEndpoint.Host}:{serviceEndpoint.Port}";
-        }
-
-        public static int CompareMessageQueue(rmq::MessageQueue lhs, rmq::MessageQueue rhs)
-        {
-            int topic_comparison = String.Compare(lhs.Topic.ResourceNamespace + lhs.Topic.Name,
-                rhs.Topic.ResourceNamespace + rhs.Topic.Name);
-            if (topic_comparison != 0)
-            {
-                return topic_comparison;
-            }
-
-            int broker_name_comparison = String.Compare(lhs.Broker.Name, rhs.Broker.Name);
-            if (0 != broker_name_comparison)
-            {
-                return broker_name_comparison;
-            }
-
-            return lhs.Id < rhs.Id ? -1 : (lhs.Id == rhs.Id ? 0 : 1);
         }
     }
 }

@@ -14,31 +14,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using grpc = Grpc.Core;
-using Moq;
-using Org.Apache.Rocketmq;
 
-namespace tests
+using System;
+using Apache.Rocketmq.V2;
+
+namespace Org.Apache.Rocketmq
 {
-
-    [TestClass]
-    public class SignatureTest
+    /// <summary>
+    /// Internal interface for retry policy.
+    /// </summary>
+    public interface IRetryPolicy
     {
+        /// <summary>
+        /// Get the max attempt times for retry.
+        /// </summary>
+        /// <returns>The max attempt times.</returns>
+        int GetMaxAttempts();
 
-        [TestMethod]
-        public void TestSign()
-        {
-            // var mock = new Mock<IClientConfig>();
-            //
-            // string accessKey = "key";
-            // string accessSecret = "secret";
-            // var credentialsProvider = new StaticCredentialsProvider(accessKey, accessSecret);
-            //
-            // var metadata = new grpc::Metadata();
-            // Signature.Sign(mock.Object, metadata);
-            // Assert.IsNotNull(metadata.Get(MetadataConstants.Authorization));
-        }
+        /// <summary>
+        /// Get await time after current attempts, the attempt index starts at 1.
+        /// </summary>
+        /// <param name="attempt">Current attempt.</param>
+        /// <returns>Await time.</returns>
+        TimeSpan GetNextAttemptDelay(int attempt);
+
+        /// <summary>
+        /// Convert to protobuf.
+        /// </summary>
+        /// <returns></returns>
+        RetryPolicy ToProtobuf();
     }
-
 }

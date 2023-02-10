@@ -136,7 +136,7 @@ namespace Org.Apache.Rocketmq
             {
                 case rmq.Encoding.Gzip:
                 {
-                    body = Utilities.uncompressBytesGzip(message.Body.ToByteArray());
+                    body = Utilities.DecompressBytesGzip(message.Body.ToByteArray());
                     break;
                 }
                 case rmq.Encoding.Identity:
