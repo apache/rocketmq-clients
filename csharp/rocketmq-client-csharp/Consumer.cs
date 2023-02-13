@@ -28,8 +28,8 @@ namespace Org.Apache.Rocketmq
     {
         protected readonly string ConsumerGroup;
 
-        protected Consumer(ClientConfig clientConfig, string consumerGroup, ICollection<string> topics) : base(
-            clientConfig, topics)
+        protected Consumer(ClientConfig clientConfig, string consumerGroup) : base(
+            clientConfig)
         {
             ConsumerGroup = consumerGroup;
         }

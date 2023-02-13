@@ -44,7 +44,7 @@ namespace Org.Apache.Rocketmq
 
         private Producer(ClientConfig clientConfig, ConcurrentDictionary<string, bool> publishingTopics,
             int maxAttempts) :
-            base(clientConfig, publishingTopics.Keys)
+            base(clientConfig)
         {
             var retryPolicy = ExponentialBackoffRetryPolicy.ImmediatelyRetryPolicy(maxAttempts);
             _publishingSettings = new PublishingSettings(ClientId, clientConfig.Endpoints, retryPolicy,
@@ -59,6 +59,11 @@ namespace Org.Apache.Rocketmq
             {
                 _publishingTopics.TryAdd(topic, true);
             }
+        }
+
+        protected override ICollection<string> GetTopics()
+        {
+            return _publishingTopics.Keys;
         }
 
         public override async Task Start()
@@ -90,7 +95,7 @@ namespace Org.Apache.Rocketmq
                 return publishingLoadBalancer;
             }
 
-            var topicRouteData = await FetchTopicRoute(topic);
+            var topicRouteData = await GetRouteData(topic);
             publishingLoadBalancer = new PublishingLoadBalancer(topicRouteData);
             _publishingRouteDataCache.TryAdd(topic, publishingLoadBalancer);
 

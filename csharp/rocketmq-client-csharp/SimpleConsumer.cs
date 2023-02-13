@@ -43,8 +43,7 @@ namespace Org.Apache.Rocketmq
         }
 
         private SimpleConsumer(ClientConfig clientConfig, string consumerGroup, TimeSpan awaitDuration,
-            ConcurrentDictionary<string, FilterExpression> subscriptionExpressions) : base(clientConfig, consumerGroup,
-            subscriptionExpressions.Keys)
+            ConcurrentDictionary<string, FilterExpression> subscriptionExpressions) : base(clientConfig, consumerGroup)
         {
             _awaitDuration = awaitDuration;
             _subscriptionRouteDataCache = new ConcurrentDictionary<string, SubscriptionLoadBalancer>();
@@ -79,6 +78,11 @@ namespace Org.Apache.Rocketmq
             await base.Shutdown();
             Logger.Info($"The rocketmq simple consumer starts successfully, clientId={ClientId}");
         }
+        
+        protected override ICollection<string> GetTopics()
+        {
+            return _subscriptionExpressions.Keys;
+        }
 
         protected override Proto.HeartbeatRequest WrapHeartbeatRequest()
         {
@@ -106,7 +110,7 @@ namespace Org.Apache.Rocketmq
                 return subscriptionLoadBalancer;
             }
 
-            var topicRouteData = await FetchTopicRoute(topic);
+            var topicRouteData = await GetRouteData(topic);
             subscriptionLoadBalancer = new SubscriptionLoadBalancer(topicRouteData);
             _subscriptionRouteDataCache.TryAdd(topic, subscriptionLoadBalancer);
 
