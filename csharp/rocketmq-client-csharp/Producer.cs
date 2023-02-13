@@ -42,7 +42,8 @@ namespace Org.Apache.Rocketmq
         {
         }
 
-        private Producer(ClientConfig clientConfig, ConcurrentDictionary<string, bool> publishingTopics, int maxAttempts) :
+        private Producer(ClientConfig clientConfig, ConcurrentDictionary<string, bool> publishingTopics,
+            int maxAttempts) :
             base(clientConfig, publishingTopics.Keys)
         {
             var retryPolicy = ExponentialBackoffRetryPolicy.ImmediatelyRetryPolicy(maxAttempts);
@@ -120,7 +121,7 @@ namespace Org.Apache.Rocketmq
                 : new List<MessageQueue>
                     { publishingLoadBalancer.TakeMessageQueueByMessageGroup(publishingMessage.MessageGroup) };
             Exception exception = null;
-            for (var attempt = 0; attempt < maxAttempts; attempt++)
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
             {
                 try
                 {
@@ -179,8 +180,16 @@ namespace Org.Apache.Rocketmq
             {
                 // Isolate current endpoints.
                 Isolated[endpoints] = true;
+                if (attempt >= maxAttempts)
+                {
+                    Logger.Error(
+                        $"Failed to send message finally, run out of attempt times, topic={message.Topic}, " +
+                        $"maxAttempt={maxAttempts}, attempt={attempt}, endpoints={endpoints}, clientId={ClientId}");
+                    throw;
+                }
+
                 Logger.Warn(e, $"Failed to send message, topic={message.Topic}, maxAttempts={maxAttempts}, " +
-                               $"endpoints={endpoints}, clientId={ClientId}");
+                               $"attempt={attempt}, endpoints={endpoints}, clientId={ClientId}");
                 throw;
             }
         }
