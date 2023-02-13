@@ -32,6 +32,7 @@ namespace examples
         {
             const string accessKey = "5jFk0wK7OU6Uq395";
             const string secretKey = "V1u8z19URHs4o6RQ";
+
             // Credential provider is optional for client configuration.
             var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
             const string endpoints = "rmq-cn-7mz30qjc71a.cn-hangzhou.rmq.aliyuncs.com:8080";
@@ -41,12 +42,11 @@ namespace examples
             };
             // In most case, you don't need to create too many producers, single pattern is recommended.
             var producer = new Producer(clientConfig);
-            
+
             const string topic = "lingchu_normal_topic";
             producer.SetTopics(topic);
             // Set the topic name(s), which is optional but recommended. It makes producer could prefetch
             // the topic route before message publishing.
-
             await producer.Start();
             // Define your message body.
             var bytes = Encoding.UTF8.GetBytes("foobar");
@@ -67,7 +67,7 @@ namespace examples
             Logger.Info($"Send message successfully, sendReceipt={sendReceipt}");
             Thread.Sleep(9999999);
             // Close the producer if you don't need it anymore.
-            // await producer.Shutdown();
+            await producer.Shutdown();
         }
     }
 }

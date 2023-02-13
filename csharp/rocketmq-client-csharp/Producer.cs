@@ -25,7 +25,7 @@ using NLog;
 
 namespace Org.Apache.Rocketmq
 {
-    public class Producer : Client, IProducer
+    public class Producer : Client
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
         private readonly ConcurrentDictionary<string /* topic */, PublishingLoadBalancer> _publishingRouteDataCache;
@@ -42,7 +42,7 @@ namespace Org.Apache.Rocketmq
         }
 
         private Producer(ClientConfig clientConfig, ConcurrentDictionary<string, bool> topics, int maxAttempts) :
-            base(clientConfig, topics)
+            base(clientConfig, topics.Keys)
         {
             var retryPolicy = ExponentialBackoffRetryPolicy.ImmediatelyRetryPolicy(maxAttempts);
             _publishingSettings = new PublishingSettings(ClientId, clientConfig.Endpoints, retryPolicy,
@@ -54,7 +54,7 @@ namespace Org.Apache.Rocketmq
         {
             foreach (var topic in topics)
             {
-                Topics[topic] = false;
+                Topics.Add(topic);
             }
         }
 
@@ -94,7 +94,7 @@ namespace Org.Apache.Rocketmq
             return publishingLoadBalancer;
         }
 
-        protected override void OnTopicRouteDataFetched0(string topic, TopicRouteData topicRouteData)
+        protected override void OnTopicRouteDataUpdated0(string topic, TopicRouteData topicRouteData)
         {
             var publishingLoadBalancer = new PublishingLoadBalancer(topicRouteData);
             _publishingRouteDataCache.TryAdd(topic, publishingLoadBalancer);

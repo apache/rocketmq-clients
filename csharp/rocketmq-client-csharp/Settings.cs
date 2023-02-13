@@ -24,25 +24,25 @@ namespace Org.Apache.Rocketmq
     {
         protected readonly string ClientId;
         protected readonly ClientType ClientType;
-        protected readonly Endpoints AccessPoint;
+        protected readonly Endpoints Endpoints;
         protected volatile IRetryPolicy RetryPolicy;
         protected readonly TimeSpan RequestTimeout;
 
-        public Settings(string clientId, ClientType clientType, Endpoints accessPoint, IRetryPolicy retryPolicy,
+        public Settings(string clientId, ClientType clientType, Endpoints endpoints, IRetryPolicy retryPolicy,
             TimeSpan requestTimeout)
         {
             ClientId = clientId;
             ClientType = clientType;
-            AccessPoint = accessPoint;
+            Endpoints = endpoints;
             RetryPolicy = retryPolicy;
             RequestTimeout = requestTimeout;
         }
 
-        public Settings(string clientId, ClientType clientType, Endpoints accessPoint, TimeSpan requestTimeout)
+        public Settings(string clientId, ClientType clientType, Endpoints endpoints, TimeSpan requestTimeout)
         {
             ClientId = clientId;
             ClientType = clientType;
-            AccessPoint = accessPoint;
+            Endpoints = endpoints;
             RetryPolicy = null;
             RequestTimeout = requestTimeout;
         }

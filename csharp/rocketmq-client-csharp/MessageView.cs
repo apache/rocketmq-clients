@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-using rmq = Apache.Rocketmq.V2;
+using Proto = Apache.Rocketmq.V2;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Cryptography;
 using NLog;
 
@@ -30,14 +31,14 @@ namespace Org.Apache.Rocketmq
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
-        private readonly rmq.MessageQueue _messageQueue;
-        private readonly string _receiptHandle;
+        internal readonly MessageQueue MessageQueue;
+        internal readonly string ReceiptHandle;
         private readonly long _offset;
         private readonly bool _corrupted;
 
         internal MessageView(string messageId, string topic, byte[] body, string tag, string messageGroup,
             DateTime deliveryTime, List<string> keys, Dictionary<string, string> properties, string bornHost,
-            DateTime bornTime, int deliveryAttempt, rmq.MessageQueue messageQueue, string receiptHandle, long offset,
+            DateTime bornTime, int deliveryAttempt, MessageQueue messageQueue, string receiptHandle, long offset,
             bool corrupted)
         {
             MessageId = messageId;
@@ -51,8 +52,8 @@ namespace Org.Apache.Rocketmq
             BornHost = bornHost;
             BornTime = bornTime;
             DeliveryAttempt = deliveryAttempt;
-            _messageQueue = messageQueue;
-            _receiptHandle = receiptHandle;
+            MessageQueue = messageQueue;
+            ReceiptHandle = receiptHandle;
             _offset = offset;
             _corrupted = corrupted;
         }
@@ -79,7 +80,7 @@ namespace Org.Apache.Rocketmq
 
         public int DeliveryAttempt { get; }
 
-        public static MessageView FromProtobuf(rmq.Message message, rmq.MessageQueue messageQueue)
+        public static MessageView FromProtobuf(Proto.Message message, MessageQueue messageQueue)
         {
             var topic = message.Topic.Name;
             var systemProperties = message.SystemProperties;
@@ -87,11 +88,11 @@ namespace Org.Apache.Rocketmq
             var bodyDigest = systemProperties.BodyDigest;
             var checkSum = bodyDigest.Checksum;
             var raw = message.Body.ToByteArray();
-            bool corrupted = false;
+            var corrupted = false;
             var type = bodyDigest.Type;
             switch (type)
             {
-                case rmq.DigestType.Crc32:
+                case Proto.DigestType.Crc32:
                 {
                     var expectedCheckSum = Force.Crc32.Crc32Algorithm.Compute(raw, 0, raw.Length).ToString("X");
                     if (!expectedCheckSum.Equals(checkSum))
@@ -101,7 +102,7 @@ namespace Org.Apache.Rocketmq
 
                     break;
                 }
-                case rmq.DigestType.Md5:
+                case Proto.DigestType.Md5:
                 {
                     var expectedCheckSum = Convert.ToHexString(MD5.HashData(raw));
                     if (!expectedCheckSum.Equals(checkSum))
@@ -111,7 +112,7 @@ namespace Org.Apache.Rocketmq
 
                     break;
                 }
-                case rmq.DigestType.Sha1:
+                case Proto.DigestType.Sha1:
                 {
                     var expectedCheckSum = Convert.ToHexString(SHA1.HashData(raw));
                     if (!expectedCheckSum.Equals(checkSum))
@@ -121,6 +122,7 @@ namespace Org.Apache.Rocketmq
 
                     break;
                 }
+                case Proto.DigestType.Unspecified:
                 default:
                 {
                     Logger.Error(
@@ -131,18 +133,19 @@ namespace Org.Apache.Rocketmq
             }
 
             var bodyEncoding = systemProperties.BodyEncoding;
-            byte[] body = raw;
+            var body = raw;
             switch (bodyEncoding)
             {
-                case rmq.Encoding.Gzip:
+                case Proto.Encoding.Gzip:
                 {
                     body = Utilities.DecompressBytesGzip(message.Body.ToByteArray());
                     break;
                 }
-                case rmq.Encoding.Identity:
+                case Proto.Encoding.Identity:
                 {
                     break;
                 }
+                case Proto.Encoding.Unspecified:
                 default:
                 {
                     Logger.Error($"Unsupported message encoding algorithm," +
@@ -151,24 +154,21 @@ namespace Org.Apache.Rocketmq
                 }
             }
 
-            string tag = systemProperties.HasTag ? systemProperties.Tag : null;
-            string messageGroup = systemProperties.HasMessageGroup ? systemProperties.MessageGroup : null;
+            var tag = systemProperties.HasTag ? systemProperties.Tag : null;
+            var messageGroup = systemProperties.HasMessageGroup ? systemProperties.MessageGroup : null;
             var deliveryTime = systemProperties.DeliveryTimestamp.ToDateTime();
-            List<string> keys = new List<string>();
-            foreach (var key in systemProperties.Keys)
-            {
-                keys.Add(key);
-            }
+            var keys = systemProperties.Keys.ToList();
 
             var bornHost = systemProperties.BornHost;
             var bornTime = systemProperties.BornTimestamp.ToDateTime();
             var deliveryAttempt = systemProperties.DeliveryAttempt;
             var queueOffset = systemProperties.QueueOffset;
-            Dictionary<string, string> properties = new Dictionary<string, string>();
+            var properties = new Dictionary<string, string>();
             foreach (var (key, value) in message.UserProperties)
             {
                 properties.Add(key, value);
             }
+
 
             var receiptHandle = systemProperties.ReceiptHandle;
             return new MessageView(messageId, topic, body, tag, messageGroup, deliveryTime, keys, properties, bornHost,

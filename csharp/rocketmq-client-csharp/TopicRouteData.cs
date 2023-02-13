@@ -18,19 +18,15 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using rmq = Apache.Rocketmq.V2;
+using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
     public class TopicRouteData : IEquatable<TopicRouteData>
     {
-        public TopicRouteData(List<rmq::MessageQueue> messageQueues)
+        public TopicRouteData(IEnumerable<Proto.MessageQueue> messageQueues)
         {
-            var messageQueuesList = new List<MessageQueue>();
-            foreach (var mq in messageQueues)
-            {
-                messageQueuesList.Add(new MessageQueue(mq));
-            }
+            var messageQueuesList = messageQueues.Select(mq => new MessageQueue(mq)).ToList();
 
             MessageQueues = messageQueuesList;
         }

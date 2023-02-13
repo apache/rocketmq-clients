@@ -18,23 +18,24 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using rmq = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
     public class PublishingLoadBalancer
     {
         private readonly List<MessageQueue> _messageQueues;
+
+        // TODO
         private int _roundRobinIndex;
 
         public PublishingLoadBalancer(TopicRouteData route)
         {
             _messageQueues = new List<MessageQueue>();
-            foreach (var messageQueue in route.MessageQueues.Where(messageQueue =>
+            foreach (var mq in route.MessageQueues.Where(messageQueue =>
                          PermissionHelper.IsWritable(messageQueue.Permission) &&
                          Utilities.MasterBrokerId == messageQueue.Broker.Id))
             {
-                _messageQueues.Add(messageQueue);
+                _messageQueues.Add(mq);
             }
 
             var random = new Random();
@@ -70,21 +71,23 @@ namespace Org.Apache.Rocketmq
                 }
             }
 
-            if (candidates.Count != 0) return candidates;
+            if (candidates.Count != 0)
             {
-                foreach (var mq in _messageQueues.Select(_ => Utilities.GetPositiveMod(next++, _messageQueues.Count))
-                             .Select(positiveMod => _messageQueues[positiveMod]))
-                {
-                    if (!candidateBrokerNames.Contains(mq.Broker.Name))
-                    {
-                        candidateBrokerNames.Add(mq.Broker.Name);
-                        candidates.Add(mq);
-                    }
+                return candidates;
+            }
 
-                    if (candidates.Count >= count)
-                    {
-                        break;
-                    }
+            foreach (var mq in _messageQueues.Select(_ => Utilities.GetPositiveMod(next++, _messageQueues.Count))
+                         .Select(positiveMod => _messageQueues[positiveMod]))
+            {
+                if (!candidateBrokerNames.Contains(mq.Broker.Name))
+                {
+                    candidateBrokerNames.Add(mq.Broker.Name);
+                    candidates.Add(mq);
+                }
+
+                if (candidates.Count >= count)
+                {
+                    break;
                 }
             }
 

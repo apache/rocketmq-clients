@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Org.Apache.Rocketmq;
-using Grpc.Net.Client;
-using rmq = Apache.Rocketmq.V2;
 
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Proto = Apache.Rocketmq.V2;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -31,33 +29,32 @@ namespace tests
         [TestMethod]
         public void TestMethod1()
         {
-            rmq::Permission perm = rmq::Permission.None;
+            Proto::Permission perm = Proto::Permission.None;
             switch (perm)
             {
-                case rmq::Permission.None:
-                    {
-                        Console.WriteLine("None");
-                        break;
-                    }
+                case Proto::Permission.None:
+                {
+                    Console.WriteLine("None");
+                    break;
+                }
 
-                case rmq::Permission.Read:
-                    {
-                        Console.WriteLine("Read");
-                        break;
-                    }
+                case Proto::Permission.Read:
+                {
+                    Console.WriteLine("Read");
+                    break;
+                }
 
-                case rmq::Permission.Write:
-                    {
-                        Console.WriteLine("Write");
-                        break;
-                    }
+                case Proto::Permission.Write:
+                {
+                    Console.WriteLine("Write");
+                    break;
+                }
 
-                case rmq::Permission.ReadWrite:
-                    {
-                        Console.WriteLine("ReadWrite");
-                        break;
-                    }
-
+                case Proto::Permission.ReadWrite:
+                {
+                    Console.WriteLine("ReadWrite");
+                    break;
+                }
             }
         }
 

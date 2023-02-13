@@ -46,8 +46,24 @@ namespace Org.Apache.Rocketmq
                     throw new InternalErrorException("Permission is not specified");
             }
         }
-        
-        public static bool IsWritable(Permission permission) {
+
+        public static Proto.Permission ToProtobuf(Permission permission)
+        {
+            switch (permission)
+            {
+                case Permission.Read:
+                    return Proto.Permission.Read;
+                case Permission.Write:
+                    return Proto.Permission.Write;
+                case Permission.ReadWrite:
+                    return Proto.Permission.ReadWrite;
+                default:
+                    throw new InternalErrorException("Permission is not specified");
+            }
+        }
+
+        public static bool IsWritable(Permission permission)
+        {
             switch (permission)
             {
                 case Permission.Write:
@@ -74,6 +90,4 @@ namespace Org.Apache.Rocketmq
             }
         }
     }
-    
-
 }

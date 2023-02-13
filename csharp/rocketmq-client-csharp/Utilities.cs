@@ -22,7 +22,6 @@ using System;
 using System.IO;
 using System.IO.Compression;
 using System.Threading;
-using rmq = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
@@ -81,10 +80,10 @@ namespace Org.Apache.Rocketmq
 
         public static string ByteArrayToHexString(byte[] bytes)
         {
-            StringBuilder result = new StringBuilder(bytes.Length * 2);
+            var result = new StringBuilder(bytes.Length * 2);
             const string hexAlphabet = "0123456789ABCDEF";
 
-            foreach (byte b in bytes)
+            foreach (var b in bytes)
             {
                 result.Append(hexAlphabet[(int)(b >> 4)]);
                 result.Append(hexAlphabet[(int)(b & 0xF)]);

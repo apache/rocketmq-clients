@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-using rmq = Apache.Rocketmq.V2;
+using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
@@ -28,17 +28,17 @@ namespace Org.Apache.Rocketmq
 
     public static class AddressSchemeHelper
     {
-        public static rmq.AddressScheme ToProtobuf(AddressScheme scheme)
+        public static Proto.AddressScheme ToProtobuf(AddressScheme scheme)
         {
             switch (scheme)
             {
                 case AddressScheme.Ipv4:
-                    return rmq.AddressScheme.Ipv4;
+                    return Proto.AddressScheme.Ipv4;
                 case AddressScheme.Ipv6:
-                    return rmq.AddressScheme.Ipv6;
+                    return Proto.AddressScheme.Ipv6;
                 case AddressScheme.DomainName:
                 default:
-                    return rmq.AddressScheme.DomainName;
+                    return Proto.AddressScheme.DomainName;
             }
         }
     }

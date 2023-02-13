@@ -24,49 +24,50 @@ using Org.Apache.Rocketmq;
 
 namespace examples
 {
-    static class ProducerDelayMessageExample
+    internal static class ProducerDelayMessageExample
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
         internal static async Task QuickStart()
         {
-            // string accessKey = "yourAccessKey";
-            // string secretKey = "yourSecretKey";
-            // // Credential provider is optional for client configuration.
-            // var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
-            // string endpoints = "foobar.com:8080";
-            // // In most case, you don't need to create too many producers, single pattern is recommended.
-            // var producer = new Producer(endpoints)
-            // {
-            //     CredentialsProvider = credentialsProvider
-            // };
-            // string topic = "yourDelayTopic";
-            // // Set the topic name(s), which is optional but recommended. It makes producer could prefetch
-            // // the topic route before message publishing.
-            // producer.AddTopicOfInterest(topic);
-            //
-            // await producer.Start();
-            // // Define your message body.
-            // var bytes = Encoding.UTF8.GetBytes("foobar");
-            // string tag = "yourMessageTagA";
-            // // You could set multiple keys for the single message.
-            // var keys = new List<string>
-            // {
-            //     "yourMessageKey-2f00df144e48",
-            //     "yourMessageKey-49df1dd332b7"
-            // };
-            // // Set topic for current message.
-            // var message = new Message(topic, bytes)
-            // {
-            //     Tag = tag,
-            //     Keys = keys,
-            //     // Essential for DELAY message.
-            //     DeliveryTimestamp = DateTime.UtcNow + TimeSpan.FromSeconds(30)
-            // };
-            // var sendReceipt = await producer.Send(message);
-            // Logger.Info($"Send message successfully, sendReceipt={sendReceipt}");
-            // // Close the producer if you don't need it anymore.
-            // await producer.Shutdown();
+            const string accessKey = "yourAccessKey";
+            const string secretKey = "yourSecretKey";
+            // Credential provider is optional for client configuration.
+            var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
+            const string endpoints = "rmq-cn-7mz30qjc71a.cn-hangzhou.rmq.aliyuncs.com:8080";
+            var clientConfig = new ClientConfig(endpoints)
+            {
+                CredentialsProvider = credentialsProvider
+            };
+            // In most case, you don't need to create too many producers, single pattern is recommended.
+            var producer = new Producer(clientConfig);
+            const string topic = "yourDelayTopic";
+            // Set the topic name(s), which is optional but recommended. It makes producer could prefetch
+            // the topic route before message publishing.
+            producer.SetTopics(topic);
+
+            await producer.Start();
+            // Define your message body.
+            var bytes = Encoding.UTF8.GetBytes("foobar");
+            const string tag = "yourMessageTagA";
+            // You could set multiple keys for the single message.
+            var keys = new List<string>
+            {
+                "yourMessageKey-2f00df144e48",
+                "yourMessageKey-49df1dd332b7"
+            };
+            // Set topic for current message.
+            var message = new Message(topic, bytes)
+            {
+                Tag = tag,
+                Keys = keys,
+                // Essential for DELAY message.
+                DeliveryTimestamp = DateTime.UtcNow + TimeSpan.FromSeconds(30)
+            };
+            var sendReceipt = await producer.Send(message);
+            Logger.Info($"Send message successfully, sendReceipt={sendReceipt}");
+            // Close the producer if you don't need it anymore.
+            await producer.Shutdown();
         }
     }
 }
