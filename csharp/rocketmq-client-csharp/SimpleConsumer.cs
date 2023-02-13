@@ -84,6 +84,14 @@ namespace Org.Apache.Rocketmq
             return _subscriptionExpressions.Keys;
         }
 
+        protected override Proto.NotifyClientTerminationRequest WrapNotifyClientTerminationRequest()
+        {
+            return new Proto.NotifyClientTerminationRequest()
+            {
+                Group = GetProtobufGroup()
+            };
+        }
+
         protected override Proto.HeartbeatRequest WrapHeartbeatRequest()
         {
             return new Proto::HeartbeatRequest

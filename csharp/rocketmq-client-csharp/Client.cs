@@ -94,6 +94,7 @@ namespace Org.Apache.Rocketmq
             _topicRouteUpdateCtx.Cancel();
             _heartbeatCts.Cancel();
             _telemetryCts.Cancel();
+            NotifyClientTermination();
             await ClientManager.Shutdown();
             Logger.Debug($"Shutdown the rocketmq client successfully, clientId={ClientId}");
         }
@@ -299,7 +300,7 @@ namespace Org.Apache.Rocketmq
                     if (Isolated.TryRemove(item, out _))
                     {
                         Logger.Info(
-                            $"Rejoin endpoints which was isolate before, endpoints={item}, clientId={ClientId}");
+                            $"Rejoin endpoints which was isolated before, endpoints={item}, clientId={ClientId}");
                     }
 
                     return;
@@ -319,13 +320,13 @@ namespace Org.Apache.Rocketmq
             return metadata;
         }
 
-        public async void NotifyClientTermination(Proto.Resource group)
+        protected abstract Proto::NotifyClientTerminationRequest WrapNotifyClientTerminationRequest();
+
+        private async void NotifyClientTermination()
         {
+            Logger.Info($"Notify remote endpoints that current client is terminated, clientId={ClientId}");
             var endpoints = GetTotalRouteEndpoints();
-            var request = new Proto::NotifyClientTerminationRequest
-            {
-                Group = group
-            };
+            var request = WrapNotifyClientTerminationRequest();
             foreach (var item in endpoints)
             {
                 var response = await ClientManager.NotifyClientTermination(item, request, ClientConfig.RequestTimeout);
