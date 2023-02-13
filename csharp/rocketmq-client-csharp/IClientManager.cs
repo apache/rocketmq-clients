@@ -25,15 +25,48 @@ namespace Org.Apache.Rocketmq
 {
     public interface IClientManager
     {
+        /// <summary>
+        /// Establish a telemetry channel between client and remote endpoints.
+        /// </summary>
+        /// <param name="endpoints">The target endpoints.</param>
+        /// <returns>gRPC bi-directional stream.</returns>
         AsyncDuplexStreamingCall<TelemetryCommand, TelemetryCommand> Telemetry(Endpoints endpoints);
 
+        /// <summary>
+        /// Query topic route info from remote.
+        /// </summary>
+        /// <param name="endpoints">The target endpoints.</param>
+        /// <param name="request">gRPC request of querying topic route.</param>
+        /// <param name="timeout">Request max duration.</param>
+        /// <returns>Task of response.</returns>
         Task<QueryRouteResponse> QueryRoute(Endpoints endpoints, QueryRouteRequest request, TimeSpan timeout);
 
+        /// <summary>
+        /// Send heartbeat to remote endpoints.
+        /// </summary>
+        /// <param name="endpoints">The target endpoints.</param>
+        /// <param name="request">gRPC request of heartbeat.</param>
+        /// <param name="timeout">Request max duration.</param>
+        /// <returns>Task of response.</returns>
         Task<HeartbeatResponse> Heartbeat(Endpoints endpoints, HeartbeatRequest request, TimeSpan timeout);
 
+        /// <summary>
+        /// Notify client's termination.
+        /// </summary>
+        /// <param name="endpoints">The target endpoints.</param>
+        /// <param name="request">gRPC request of notifying client's termination.</param>
+        /// <param name="timeout">Request max duration.</param>
+        /// <returns>Task of response.</returns>
         Task<NotifyClientTerminationResponse> NotifyClientTermination(Endpoints endpoints,
             NotifyClientTerminationRequest request, TimeSpan timeout);
 
+        /// <summary>
+        /// Send message to remote endpoints.
+        /// </summary>
+        /// <param name="endpoints"></param>
+        /// <param name="request"></param>
+        /// <param name="timeout"></param>
+        /// <returns></returns>
         Task<SendMessageResponse> SendMessage(Endpoints endpoints, SendMessageRequest request,
             TimeSpan timeout);
 

@@ -11,6 +11,12 @@ namespace Org.Apache.Rocketmq
             Name = resource.Name;
         }
 
+        public Resource(string name)
+        {
+            Namespace = "";
+            Name = name;
+        }
+
         public string Namespace { get; }
         public string Name { get; }
 
@@ -22,7 +28,7 @@ namespace Org.Apache.Rocketmq
                 Name = Name
             };
         }
-        
+
         public override string ToString()
         {
             return String.IsNullOrEmpty(Namespace) ? Name : $"{Namespace}.{Name}";

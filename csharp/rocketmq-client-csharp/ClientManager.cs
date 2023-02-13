@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-using rmq = Apache.Rocketmq.V2;
+using Proto = Apache.Rocketmq.V2;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -78,7 +78,7 @@ namespace Org.Apache.Rocketmq
             _clientLock.EnterReadLock();
             try
             {
-                List<Task> tasks = new List<Task>();
+                var tasks = new List<Task>();
                 foreach (var item in _rpcClients)
                 {
                     tasks.Add(item.Value.Shutdown());
@@ -92,56 +92,57 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        public grpc::AsyncDuplexStreamingCall<rmq::TelemetryCommand, rmq::TelemetryCommand> Telemetry(
+        public grpc::AsyncDuplexStreamingCall<Proto::TelemetryCommand, Proto::TelemetryCommand> Telemetry(
             Endpoints endpoints)
         {
             return GetRpcClient(endpoints).Telemetry(_client.Sign());
         }
 
-        public async Task<rmq.QueryRouteResponse> QueryRoute(Endpoints endpoints, rmq.QueryRouteRequest request,
+        public async Task<Proto.QueryRouteResponse> QueryRoute(Endpoints endpoints, Proto.QueryRouteRequest request,
             TimeSpan timeout)
         {
             return await GetRpcClient(endpoints).QueryRoute(_client.Sign(), request, timeout);
         }
 
-        public async Task<rmq.HeartbeatResponse> Heartbeat(Endpoints endpoints, rmq.HeartbeatRequest request,
+        public async Task<Proto.HeartbeatResponse> Heartbeat(Endpoints endpoints, Proto.HeartbeatRequest request,
             TimeSpan timeout)
         {
             return await GetRpcClient(endpoints).Heartbeat(_client.Sign(), request, timeout);
         }
 
-        public async Task<rmq.NotifyClientTerminationResponse> NotifyClientTermination(Endpoints endpoints,
-            rmq.NotifyClientTerminationRequest request, TimeSpan timeout)
+        public async Task<Proto.NotifyClientTerminationResponse> NotifyClientTermination(Endpoints endpoints,
+            Proto.NotifyClientTerminationRequest request, TimeSpan timeout)
         {
             return await GetRpcClient(endpoints).NotifyClientTermination(_client.Sign(), request, timeout);
         }
 
-        public async Task<rmq::SendMessageResponse> SendMessage(Endpoints endpoints, rmq::SendMessageRequest request,
+        public async Task<Proto::SendMessageResponse> SendMessage(Endpoints endpoints,
+            Proto::SendMessageRequest request,
             TimeSpan timeout)
         {
             return await GetRpcClient(endpoints).SendMessage(_client.Sign(), request, timeout);
         }
 
-        public async Task<rmq::QueryAssignmentResponse> QueryAssignment(Endpoints endpoints,
-            rmq.QueryAssignmentRequest request, TimeSpan timeout)
+        public async Task<Proto::QueryAssignmentResponse> QueryAssignment(Endpoints endpoints,
+            Proto.QueryAssignmentRequest request, TimeSpan timeout)
         {
             return await GetRpcClient(endpoints).QueryAssignment(_client.Sign(), request, timeout);
         }
 
-        public async Task<List<rmq::ReceiveMessageResponse>> ReceiveMessage(Endpoints endpoints,
-            rmq.ReceiveMessageRequest request, TimeSpan timeout)
+        public async Task<List<Proto::ReceiveMessageResponse>> ReceiveMessage(Endpoints endpoints,
+            Proto.ReceiveMessageRequest request, TimeSpan timeout)
         {
             return await GetRpcClient(endpoints).ReceiveMessage(_client.Sign(), request, timeout);
         }
 
-        public async Task<rmq::AckMessageResponse> AckMessage(Endpoints endpoints,
-            rmq.AckMessageRequest request, TimeSpan timeout)
+        public async Task<Proto::AckMessageResponse> AckMessage(Endpoints endpoints,
+            Proto.AckMessageRequest request, TimeSpan timeout)
         {
             return await GetRpcClient(endpoints).AckMessage(_client.Sign(), request, timeout);
         }
 
-        public async Task<rmq::ChangeInvisibleDurationResponse> ChangeInvisibleDuration(Endpoints endpoints,
-            rmq.ChangeInvisibleDurationRequest request, TimeSpan timeout)
+        public async Task<Proto::ChangeInvisibleDurationResponse> ChangeInvisibleDuration(Endpoints endpoints,
+            Proto.ChangeInvisibleDurationRequest request, TimeSpan timeout)
         {
             return await GetRpcClient(endpoints).ChangeInvisibleDuration(_client.Sign(), request, timeout);
         }

@@ -23,47 +23,43 @@ using Org.Apache.Rocketmq;
 
 namespace examples
 {
-    static class SimpleConsumerExample
+    internal static class SimpleConsumerExample
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
         internal static async Task QuickStart()
         {
-            // string accessKey = "yourAccessKey";
-            // string secretKey = "yourSecretKey";
-            // // Credential provider is optional for client configuration.
-            // var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
-            // string endpoints = "foobar.com:8080";
-            //
-            // string consumerGroup = "yourConsumerGroup";
-            // SimpleConsumer simpleConsumer = new SimpleConsumer(endpoints, consumerGroup)
-            // {
-            //     CredentialsProvider = credentialsProvider
-            // };
-            //
-            // string topic = "yourTopic";
-            // string tag = "tagA";
-            // // Set topic subscription for consumer.
-            // simpleConsumer.Subscribe(topic, new FilterExpression(tag, ExpressionType.Tag));
-            // await simpleConsumer.Start();
-            //
-            // int maxMessageNum = 16;
-            // TimeSpan invisibleDuration = TimeSpan.FromSeconds(15);
-            // var messages = await simpleConsumer.Receive(maxMessageNum, invisibleDuration);
-            // Logger.Info($"{messages.Count} messages has been received.");
-            //
-            // var tasks = new List<Task>();
-            // foreach (var message in messages)
-            // {
-            //     Logger.Info($"Received a message, topic={message.Topic}, message-id={message.MessageId}.");
-            //     var task = simpleConsumer.Ack(message);
-            //     tasks.Add(task);
-            // }
-            //
-            // await Task.WhenAll(tasks);
-            // Logger.Info($"{tasks.Count} messages have been acknowledged.");
-            // // Close the consumer if you don't need it anymore.
-            // await simpleConsumer.Shutdown();
+            const string accessKey = "yourAccessKey";
+            const string secretKey = "yourSecretKey";
+
+            // Credential provider is optional for client configuration.
+            var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
+            const string endpoints = "foobar.com:8080";
+            var clientConfig = new ClientConfig(endpoints)
+            {
+                CredentialsProvider = credentialsProvider
+            };
+            // Add your subscriptions.
+            const string consumerGroup = "yourConsumerGroup";
+            var subscription = new Dictionary<string, FilterExpression>
+                { { consumerGroup, new FilterExpression("*") } };
+            // In most case, you don't need to create too many consumers, single pattern is recommended.
+            var simpleConsumer =
+                new SimpleConsumer(clientConfig, consumerGroup, TimeSpan.FromSeconds(15), subscription);
+
+            await simpleConsumer.Start();
+            var messageViews = await simpleConsumer.Receive(16, TimeSpan.FromSeconds(15));
+            foreach (var message in messageViews)
+            {
+                Logger.Info($"Received a message, topic={message.Topic}, message-id={message.MessageId}");
+                await simpleConsumer.Ack(message);
+                Logger.Info($"Message is acknowledged successfully, message-id={message.MessageId}");
+                // await simpleConsumer.ChangeInvisibleDuration(message, TimeSpan.FromSeconds(15));
+                // Logger.Info($"Changing message invisible duration successfully, message=id={message.MessageId}");
+            }
+
+            // Close the consumer if you don't need it anymore.
+            await simpleConsumer.Shutdown();
         }
     }
 }

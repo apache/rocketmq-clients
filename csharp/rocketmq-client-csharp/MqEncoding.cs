@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-using rmq = Apache.Rocketmq.V2;
+using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
@@ -27,13 +27,13 @@ namespace Org.Apache.Rocketmq
 
     public static class EncodingHelper
     {
-        public static rmq.Encoding ToProtobuf(MqEncoding mqEncoding)
+        public static Proto.Encoding ToProtobuf(MqEncoding mqEncoding)
         {
             return mqEncoding switch
             {
-                MqEncoding.Gzip => rmq.Encoding.Gzip,
-                MqEncoding.Identity => rmq.Encoding.Identity,
-                _ => rmq.Encoding.Unspecified
+                MqEncoding.Gzip => Proto.Encoding.Gzip,
+                MqEncoding.Identity => Proto.Encoding.Identity,
+                _ => Proto.Encoding.Unspecified
             };
         }
     }

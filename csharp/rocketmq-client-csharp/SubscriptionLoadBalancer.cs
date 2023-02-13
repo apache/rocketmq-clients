@@ -15,37 +15,35 @@
  * limitations under the License.
  */
 
+using System;
 using System.Collections.Generic;
-using System.Threading;
-using rmq = Apache.Rocketmq.V2;
+using System.Linq;
 
 namespace Org.Apache.Rocketmq
 {
     internal sealed class SubscriptionLoadBalancer
     {
-        public List<rmq.Assignment> Assignments { get; private set; }
-        private uint index = 0;
+        private readonly List<MessageQueue> _messageQueues;
+        private int _roundRobinIndex;
 
-        public SubscriptionLoadBalancer(List<rmq.Assignment> assignments)
+        public SubscriptionLoadBalancer(TopicRouteData topicRouteData)
         {
-            Assignments = assignments;
+            _messageQueues = new List<MessageQueue>();
+            foreach (var mq in topicRouteData.MessageQueues.Where(mq => PermissionHelper.IsReadable(mq.Permission))
+                         .Where(mq => Utilities.MasterBrokerId == mq.Broker.Id))
+            {
+                _messageQueues.Add(mq);
+            }
+
+            var random = new Random();
+            _roundRobinIndex = random.Next(0, _messageQueues.Count);
         }
 
-        private SubscriptionLoadBalancer(uint oldIndex, List<rmq.Assignment> assignments)
+        public MessageQueue TakeMessageQueue()
         {
-            index = oldIndex;
-            Assignments = assignments;
-        }
-
-        public SubscriptionLoadBalancer Update(List<rmq.Assignment> newAssignments)
-        {
-            return new SubscriptionLoadBalancer(index, newAssignments);
-        }
-
-        public rmq.MessageQueue TakeMessageQueue()
-        {
-            var i = Interlocked.Increment(ref index);
-            return Assignments[(int)(i % Assignments.Count)].MessageQueue;
+            var next = ++_roundRobinIndex;
+            var index = Utilities.GetPositiveMod(next, _messageQueues.Count);
+            return _messageQueues[index];
         }
     }
 }

@@ -21,7 +21,7 @@ using System.Net.Http;
 using System.Net.Security;
 using System.Threading;
 using System.Threading.Tasks;
-using rmq = Apache.Rocketmq.V2;
+using Proto = Apache.Rocketmq.V2;
 using Grpc.Core;
 using Grpc.Core.Interceptors;
 using Grpc.Net.Client;
@@ -32,7 +32,7 @@ namespace Org.Apache.Rocketmq
     public class RpcClient : IRpcClient
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
-        private readonly rmq::MessagingService.MessagingServiceClient _stub;
+        private readonly Proto::MessagingService.MessagingServiceClient _stub;
         private readonly GrpcChannel _channel;
         private readonly string _target;
 
@@ -44,7 +44,7 @@ namespace Org.Apache.Rocketmq
                 HttpHandler = CreateHttpHandler()
             });
             var invoker = _channel.Intercept(new ClientLoggerInterceptor());
-            _stub = new rmq::MessagingService.MessagingServiceClient(invoker);
+            _stub = new Proto::MessagingService.MessagingServiceClient(invoker);
         }
 
         public async Task Shutdown()
@@ -74,14 +74,14 @@ namespace Org.Apache.Rocketmq
             return handler;
         }
 
-        public AsyncDuplexStreamingCall<rmq::TelemetryCommand, rmq::TelemetryCommand> Telemetry(Metadata metadata)
+        public AsyncDuplexStreamingCall<Proto::TelemetryCommand, Proto::TelemetryCommand> Telemetry(Metadata metadata)
         {
             var deadline = DateTime.UtcNow.Add(TimeSpan.FromDays(3650));
             var callOptions = new CallOptions(metadata, deadline);
             return _stub.Telemetry(callOptions);
         }
 
-        public async Task<rmq::QueryRouteResponse> QueryRoute(Metadata metadata, rmq::QueryRouteRequest request,
+        public async Task<Proto::QueryRouteResponse> QueryRoute(Metadata metadata, Proto::QueryRouteRequest request,
             TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);
@@ -92,7 +92,7 @@ namespace Org.Apache.Rocketmq
         }
 
 
-        public async Task<rmq::HeartbeatResponse> Heartbeat(Metadata metadata, rmq::HeartbeatRequest request,
+        public async Task<Proto::HeartbeatResponse> Heartbeat(Metadata metadata, Proto::HeartbeatRequest request,
             TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);
@@ -102,7 +102,7 @@ namespace Org.Apache.Rocketmq
             return await call.ResponseAsync;
         }
 
-        public async Task<rmq::SendMessageResponse> SendMessage(Metadata metadata, rmq::SendMessageRequest request,
+        public async Task<Proto::SendMessageResponse> SendMessage(Metadata metadata, Proto::SendMessageRequest request,
             TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);
@@ -112,8 +112,8 @@ namespace Org.Apache.Rocketmq
             return await call.ResponseAsync;
         }
 
-        public async Task<rmq::QueryAssignmentResponse> QueryAssignment(Metadata metadata,
-            rmq::QueryAssignmentRequest request,
+        public async Task<Proto::QueryAssignmentResponse> QueryAssignment(Metadata metadata,
+            Proto::QueryAssignmentRequest request,
             TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);
@@ -123,14 +123,14 @@ namespace Org.Apache.Rocketmq
             return await call.ResponseAsync;
         }
 
-        public async Task<List<rmq::ReceiveMessageResponse>> ReceiveMessage(Metadata metadata,
-            rmq::ReceiveMessageRequest request, TimeSpan timeout)
+        public async Task<List<Proto::ReceiveMessageResponse>> ReceiveMessage(Metadata metadata,
+            Proto::ReceiveMessageRequest request, TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);
             var callOptions = new CallOptions(metadata, deadline);
             var call = _stub.ReceiveMessage(request, callOptions);
             Logger.Debug($"ReceiveMessageRequest has been written to {_target}");
-            var result = new List<rmq::ReceiveMessageResponse>();
+            var result = new List<Proto::ReceiveMessageResponse>();
             var stream = call.ResponseStream;
             while (await stream.MoveNext())
             {
@@ -143,7 +143,7 @@ namespace Org.Apache.Rocketmq
             return result;
         }
 
-        public async Task<rmq::AckMessageResponse> AckMessage(Metadata metadata, rmq::AckMessageRequest request,
+        public async Task<Proto::AckMessageResponse> AckMessage(Metadata metadata, Proto::AckMessageRequest request,
             TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);
@@ -153,8 +153,8 @@ namespace Org.Apache.Rocketmq
             return await call.ResponseAsync;
         }
 
-        public async Task<rmq::ChangeInvisibleDurationResponse> ChangeInvisibleDuration(Metadata metadata,
-            rmq::ChangeInvisibleDurationRequest request,
+        public async Task<Proto::ChangeInvisibleDurationResponse> ChangeInvisibleDuration(Metadata metadata,
+            Proto::ChangeInvisibleDurationRequest request,
             TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);
@@ -164,9 +164,9 @@ namespace Org.Apache.Rocketmq
             return await call.ResponseAsync;
         }
 
-        public async Task<rmq::ForwardMessageToDeadLetterQueueResponse> ForwardMessageToDeadLetterQueue(
+        public async Task<Proto::ForwardMessageToDeadLetterQueueResponse> ForwardMessageToDeadLetterQueue(
             Metadata metadata,
-            rmq::ForwardMessageToDeadLetterQueueRequest request, TimeSpan timeout)
+            Proto::ForwardMessageToDeadLetterQueueRequest request, TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);
             var callOptions = new CallOptions(metadata, deadline);
@@ -175,8 +175,8 @@ namespace Org.Apache.Rocketmq
             return await call.ResponseAsync;
         }
 
-        public async Task<rmq::EndTransactionResponse> EndTransaction(Metadata metadata,
-            rmq::EndTransactionRequest request,
+        public async Task<Proto::EndTransactionResponse> EndTransaction(Metadata metadata,
+            Proto::EndTransactionRequest request,
             TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);
@@ -186,8 +186,8 @@ namespace Org.Apache.Rocketmq
             return await call.ResponseAsync;
         }
 
-        public async Task<rmq::NotifyClientTerminationResponse> NotifyClientTermination(Metadata metadata,
-            rmq::NotifyClientTerminationRequest request, TimeSpan timeout)
+        public async Task<Proto::NotifyClientTerminationResponse> NotifyClientTermination(Metadata metadata,
+            Proto::NotifyClientTerminationRequest request, TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);
             var callOptions = new CallOptions(metadata, deadline);

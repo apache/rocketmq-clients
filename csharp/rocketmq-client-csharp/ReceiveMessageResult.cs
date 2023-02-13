@@ -15,16 +15,20 @@
  * limitations under the License.
  */
 
-using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace Org.Apache.Rocketmq
 {
-    public interface IProducer
+    public class ReceiveMessageResult
     {
-        Task Start();
+        public ReceiveMessageResult(Endpoints endpoints, List<MessageView> messages)
+        {
+            Endpoints = endpoints;
+            Messages = messages;
+        }
 
-        Task Shutdown();
+        public Endpoints Endpoints { get; }
 
-        Task<SendReceipt> Send(Message message);
+        public List<MessageView> Messages { get; }
     }
 }

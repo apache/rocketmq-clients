@@ -25,6 +25,12 @@ namespace Org.Apache.Rocketmq
             Type = type;
         }
 
+        public FilterExpression(string expression)
+        {
+            Expression = expression;
+            Type = ExpressionType.Tag;
+        }
+
         public ExpressionType Type { get; }
         public string Expression { get; }
     }

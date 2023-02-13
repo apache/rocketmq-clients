@@ -16,23 +16,20 @@
  */
 
 using System.Collections.Generic;
-using rmq = Apache.Rocketmq.V2;
+using System.Linq;
+using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
     public class MessageQueue
     {
-        public MessageQueue(rmq::MessageQueue messageQueue)
+        public MessageQueue(Proto::MessageQueue messageQueue)
         {
             TopicResource = new Resource(messageQueue.Topic);
             QueueId = messageQueue.Id;
             Permission = PermissionHelper.FromProtobuf(messageQueue.Permission);
-            var messageTypes = new List<MessageType>();
-            foreach (var acceptMessageType in messageQueue.AcceptMessageTypes)
-            {
-                var messageType = MessageTypeHelper.FromProtobuf(acceptMessageType);
-                messageTypes.Add(messageType);
-            }
+            var messageTypes = messageQueue.AcceptMessageTypes
+                .Select(MessageTypeHelper.FromProtobuf).ToList();
 
             AcceptMessageTypes = messageTypes;
             Broker = new Broker(messageQueue.Broker);
@@ -56,6 +53,20 @@ namespace Org.Apache.Rocketmq
         public override string ToString()
         {
             return $"{Broker.Name}.{TopicResource}.{QueueId}";
+        }
+
+        public Proto.MessageQueue ToProtobuf()
+        {
+            var messageTypes = AcceptMessageTypes.Select(MessageTypeHelper.ToProtobuf).ToList();
+
+            return new Proto.MessageQueue
+            {
+                Topic = TopicResource.ToProtobuf(),
+                Id = QueueId,
+                Permission = PermissionHelper.ToProtobuf(Permission),
+                Broker = Broker.ToProtobuf(),
+                AcceptMessageTypes = { messageTypes }
+            };
         }
     }
 }

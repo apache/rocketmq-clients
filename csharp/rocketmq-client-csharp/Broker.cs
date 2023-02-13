@@ -31,5 +31,15 @@ namespace Org.Apache.Rocketmq
         public string Name { get; }
         public int Id { get; }
         public Endpoints Endpoints { get; }
+
+        public Proto.Broker ToProtobuf()
+        {
+            return new Proto.Broker()
+            {
+                Name = Name,
+                Id = Id,
+                Endpoints = Endpoints.ToProtobuf()
+            };
+        }
     }
 }

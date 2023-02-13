@@ -44,8 +44,8 @@ namespace Org.Apache.Rocketmq
         protected readonly IClientManager ClientManager;
         protected readonly string ClientId;
 
-        protected readonly ConcurrentDictionary<string, bool> Topics;
-        
+        protected readonly ICollection<string> Topics;
+
         protected readonly ConcurrentDictionary<Endpoints, bool> Isolated;
         private readonly ConcurrentDictionary<string, TopicRouteData> _topicRouteCache;
         private readonly CancellationTokenSource _telemetryCts;
@@ -53,7 +53,7 @@ namespace Org.Apache.Rocketmq
         private readonly Dictionary<Endpoints, Session> _sessionsTable;
         private readonly ReaderWriterLockSlim _sessionLock;
 
-        protected Client(ClientConfig clientConfig, ConcurrentDictionary<string, bool> topics)
+        protected Client(ClientConfig clientConfig, ICollection<string> topics)
         {
             ClientConfig = clientConfig;
             Topics = topics;
@@ -78,7 +78,7 @@ namespace Org.Apache.Rocketmq
             ScheduleWithFixedDelay(UpdateTopicRouteCache, TopicRouteUpdateScheduleDelay, _topicRouteUpdateCtx.Token);
             ScheduleWithFixedDelay(Heartbeat, HeartbeatScheduleDelay, _heartbeatCts.Token);
             ScheduleWithFixedDelay(SyncSettings, SettingsSyncScheduleDelay, _settingsSyncCtx.Token);
-            foreach (var topic in Topics.Keys)
+            foreach (var topic in Topics)
             {
                 await FetchTopicRoute(topic);
             }
@@ -135,7 +135,7 @@ namespace Org.Apache.Rocketmq
         protected abstract Proto::HeartbeatRequest WrapHeartbeatRequest();
 
 
-        protected abstract void OnTopicRouteDataFetched0(string topic, TopicRouteData topicRouteData);
+        protected abstract void OnTopicRouteDataUpdated0(string topic, TopicRouteData topicRouteData);
 
 
         private async Task OnTopicRouteDataFetched(string topic, TopicRouteData topicRouteData)
@@ -159,7 +159,7 @@ namespace Org.Apache.Rocketmq
             }
 
             _topicRouteCache[topic] = topicRouteData;
-            OnTopicRouteDataFetched0(topic, topicRouteData);
+            OnTopicRouteDataUpdated0(topic, topicRouteData);
         }
 
 
@@ -183,7 +183,7 @@ namespace Org.Apache.Rocketmq
         private async void UpdateTopicRouteCache()
         {
             Logger.Info($"Start to update topic route cache for a new round, clientId={ClientId}");
-            foreach (var topic in Topics.Keys)
+            foreach (var topic in Topics)
             {
                 var topicRouteData = await FetchTopicRoute(topic);
                 _topicRouteCache[topic] = topicRouteData;
@@ -250,6 +250,7 @@ namespace Org.Apache.Rocketmq
                 Logger.Error($"Failed to fetch topic route, clientId={ClientId}, topic={topic}, code={code}, " +
                              $"statusMessage={response.Status.Message}");
             }
+
             StatusChecker.Check(response.Status, request);
 
             var messageQueues = response.MessageQueues.ToList();
@@ -266,13 +267,14 @@ namespace Org.Apache.Rocketmq
             }
 
             var request = WrapHeartbeatRequest();
-            Dictionary<Endpoints, Task<Proto.HeartbeatResponse>> responses = new ();
+            Dictionary<Endpoints, Task<Proto.HeartbeatResponse>> responses = new();
             // Collect task into a map.
             foreach (var item in endpoints)
             {
                 var task = ClientManager.Heartbeat(item, request, ClientConfig.RequestTimeout);
-                responses[item]= task;
+                responses[item] = task;
             }
+
             foreach (var item in responses.Keys)
             {
                 var response = await responses[item];
@@ -291,11 +293,10 @@ namespace Org.Apache.Rocketmq
                 }
 
                 var statusMessage = response.Status.Message;
-                Logger.Info($"Failed to send heartbeat, endpoints={item}, code={code}, statusMessage={statusMessage}, clientId={ClientId}");
+                Logger.Info(
+                    $"Failed to send heartbeat, endpoints={item}, code={code}, statusMessage={statusMessage}, clientId={ClientId}");
             }
         }
-        
-        
 
 
         public grpc.Metadata Sign()

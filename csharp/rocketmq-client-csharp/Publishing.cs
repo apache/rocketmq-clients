@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-using rmq = Apache.Rocketmq.V2;
+using Proto = Apache.Rocketmq.V2;
 using System.Collections.Generic;
 
 namespace Org.Apache.Rocketmq
@@ -23,7 +23,7 @@ namespace Org.Apache.Rocketmq
     // Settings for publishing
     public class Publishing
     {
-        public List<rmq::Resource> Topics { get; set; }
+        public List<Proto::Resource> Topics { get; set; }
         public int CompressBodyThreshold { get; set; }
 
         public int MaxBodySize { get; set; }
