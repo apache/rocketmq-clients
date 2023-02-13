@@ -333,7 +333,7 @@ namespace Org.Apache.Rocketmq
             return _telemetryCts;
         }
 
-        public abstract Proto.Settings GetSettings();
+        public abstract Settings GetSettings();
 
         public string GetClientId()
         {
@@ -358,6 +358,9 @@ namespace Org.Apache.Rocketmq
         {
         }
 
-        public abstract void OnSettingsCommand(Endpoints endpoints, Proto.Settings settings);
+        public void OnSettingsCommand(Endpoints endpoints, Proto.Settings settings)
+        {
+            GetSettings().Sync(settings);
+        }
     }
 }

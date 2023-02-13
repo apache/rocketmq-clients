@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-using System;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -63,9 +62,9 @@ namespace Org.Apache.Rocketmq
                 var writer = _streamingCall.RequestStream;
                 // await readTask;
                 var settings = _client.GetSettings();
-                Proto.TelemetryCommand telemetryCommand = new Proto.TelemetryCommand
+                var telemetryCommand = new Proto.TelemetryCommand
                 {
-                    Settings = settings
+                    Settings = settings.ToProtobuf()
                 };
                 await writer.WriteAsync(telemetryCommand);
                 // await writer.CompleteAsync();
