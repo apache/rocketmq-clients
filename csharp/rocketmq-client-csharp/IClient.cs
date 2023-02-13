@@ -27,7 +27,7 @@ namespace Org.Apache.Rocketmq
 
         ClientConfig GetClientConfig();
 
-        Proto.Settings GetSettings();
+        Settings GetSettings();
 
         /// <summary>
         /// Get the identifier of current client. 

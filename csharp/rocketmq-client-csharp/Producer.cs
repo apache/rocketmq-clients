@@ -30,6 +30,7 @@ namespace Org.Apache.Rocketmq
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
         private readonly ConcurrentDictionary<string /* topic */, PublishingLoadBalancer> _publishingRouteDataCache;
         private readonly PublishingSettings _publishingSettings;
+        private readonly ConcurrentDictionary<string, bool> _publishingTopics;
 
 
         public Producer(ClientConfig clientConfig) : this(clientConfig, new ConcurrentDictionary<string, bool>(), 3)
@@ -41,20 +42,21 @@ namespace Org.Apache.Rocketmq
         {
         }
 
-        private Producer(ClientConfig clientConfig, ConcurrentDictionary<string, bool> topics, int maxAttempts) :
-            base(clientConfig, topics.Keys)
+        private Producer(ClientConfig clientConfig, ConcurrentDictionary<string, bool> publishingTopics, int maxAttempts) :
+            base(clientConfig, publishingTopics.Keys)
         {
             var retryPolicy = ExponentialBackoffRetryPolicy.ImmediatelyRetryPolicy(maxAttempts);
             _publishingSettings = new PublishingSettings(ClientId, clientConfig.Endpoints, retryPolicy,
-                clientConfig.RequestTimeout, topics);
+                clientConfig.RequestTimeout, publishingTopics);
             _publishingRouteDataCache = new ConcurrentDictionary<string, PublishingLoadBalancer>();
+            _publishingTopics = publishingTopics;
         }
 
         public void SetTopics(params string[] topics)
         {
             foreach (var topic in topics)
             {
-                Topics.Add(topic);
+                _publishingTopics.TryAdd(topic, true);
             }
         }
 
@@ -183,14 +185,9 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        public override Proto.Settings GetSettings()
+        public override Settings GetSettings()
         {
-            return _publishingSettings.ToProtobuf();
-        }
-
-        public override void OnSettingsCommand(Endpoints endpoints, Proto.Settings settings)
-        {
-            _publishingSettings.Sync(settings);
+            return _publishingSettings;
         }
     }
 }
