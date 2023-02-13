@@ -134,7 +134,7 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        protected abstract ICollection<string> GetTopics();
+        protected abstract IEnumerable<string> GetTopics();
 
         protected abstract Proto::HeartbeatRequest WrapHeartbeatRequest();
 
@@ -156,10 +156,14 @@ namespace Org.Apache.Rocketmq
             foreach (var endpoints in newEndpoints)
             {
                 var (created, session) = GetSession(endpoints);
-                if (created)
+                if (!created)
                 {
-                    await session.SyncSettings(true);
+                    continue;
                 }
+
+                Logger.Info($"Begin to establish session for endpoints={endpoints}, clientId={ClientId}");
+                await session.SyncSettings(true);
+                Logger.Info($"Establish session for endpoints={endpoints} successfully, clientId={ClientId}");
             }
 
             _topicRouteCache[topic] = topicRouteData;

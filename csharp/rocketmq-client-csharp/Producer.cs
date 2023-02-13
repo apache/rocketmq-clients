@@ -61,7 +61,7 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        protected override ICollection<string> GetTopics()
+        protected override IEnumerable<string> GetTopics()
         {
             return _publishingTopics.Keys;
         }
