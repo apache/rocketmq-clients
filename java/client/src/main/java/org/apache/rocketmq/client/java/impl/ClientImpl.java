@@ -531,6 +531,11 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
         return Signature.sign(clientConfiguration, clientId);
     }
 
+    @Override
+    public boolean isSslEnabled() {
+        return clientConfiguration.isSslEnabled();
+    }
+
     /**
      * Send heartbeat data to the appointed endpoint
      *

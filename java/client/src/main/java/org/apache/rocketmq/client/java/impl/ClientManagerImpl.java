@@ -155,10 +155,8 @@ public class ClientManagerImpl extends ClientManager {
     }
 
     /**
-     * Return the RPC client by remote {@link Endpoints}, would create the client automatically if it does not exist.
-     *
-     * <p>In case of the occasion that {@link RpcClient} is garbage collected before shutdown when invoked
-     * concurrently, lock here is essential.
+     * Obtain the RPC client by remote {@link Endpoints}, if it does not already exist, it will be created
+     * automatically.
      *
      * @param endpoints remote endpoints.
      * @return RPC client.
@@ -181,7 +179,7 @@ public class ClientManagerImpl extends ClientManager {
                 return rpcClient;
             }
             try {
-                rpcClient = new RpcClientImpl(endpoints);
+                rpcClient = new RpcClientImpl(endpoints, client.isSslEnabled());
             } catch (SSLException e) {
                 log.error("Failed to get RPC client, endpoints={}, clientId={}", endpoints, client.getClientId(), e);
                 throw new ClientException("Failed to generate RPC client", e);

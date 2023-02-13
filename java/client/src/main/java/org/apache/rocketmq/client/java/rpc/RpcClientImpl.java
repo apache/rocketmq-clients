@@ -73,17 +73,22 @@ public class RpcClientImpl implements RpcClient {
     private long activityNanoTime;
 
     @SuppressWarnings("deprecation")
-    public RpcClientImpl(Endpoints endpoints) throws SSLException {
-        final SslContextBuilder builder = GrpcSslContexts.forClient();
-        builder.trustManager(InsecureTrustManagerFactory.INSTANCE);
-        SslContext sslContext = builder.build();
-
+    public RpcClientImpl(Endpoints endpoints, boolean sslEnabled) throws SSLException {
         final NettyChannelBuilder channelBuilder =
             NettyChannelBuilder.forTarget(endpoints.getGrpcTarget())
                 .withOption(ChannelOption.CONNECT_TIMEOUT_MILLIS, CONNECT_TIMEOUT_MILLIS)
                 .maxInboundMessageSize(GRPC_MAX_MESSAGE_SIZE)
-                .intercept(LoggingInterceptor.getInstance())
-                .sslContext(sslContext);
+                .intercept(LoggingInterceptor.getInstance());
+
+        if (sslEnabled) {
+            final SslContextBuilder builder = GrpcSslContexts.forClient();
+            builder.trustManager(InsecureTrustManagerFactory.INSTANCE);
+            SslContext sslContext = builder.build();
+            channelBuilder.sslContext(sslContext);
+        } else {
+            channelBuilder.usePlaintext();
+        }
+
         // Disable grpc's auto-retry here.
         channelBuilder.disableRetry();
         final List<InetSocketAddress> socketAddresses = endpoints.toSocketAddresses();
