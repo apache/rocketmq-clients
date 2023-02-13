@@ -79,7 +79,7 @@ namespace Org.Apache.Rocketmq
             Logger.Info($"The rocketmq simple consumer starts successfully, clientId={ClientId}");
         }
         
-        protected override ICollection<string> GetTopics()
+        protected override IEnumerable<string> GetTopics()
         {
             return _subscriptionExpressions.Keys;
         }
