@@ -31,20 +31,21 @@ namespace Org.Apache.Rocketmq
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
-        private static readonly TimeSpan HeartbeatScheduleDelay = TimeSpan.FromSeconds(10);
+        private static readonly TimeSpan HeartbeatScheduleDelay = TimeSpan.FromSeconds(1);
+        private static readonly TimeSpan HeartbeatSchedulePeriod = TimeSpan.FromSeconds(10);
         private readonly CancellationTokenSource _heartbeatCts;
 
-        private static readonly TimeSpan TopicRouteUpdateScheduleDelay = TimeSpan.FromSeconds(30);
+        private static readonly TimeSpan TopicRouteUpdateScheduleDelay = TimeSpan.FromSeconds(10);
+        private static readonly TimeSpan TopicRouteUpdateSchedulePeriod = TimeSpan.FromSeconds(30);
         private readonly CancellationTokenSource _topicRouteUpdateCtx;
 
-        private static readonly TimeSpan SettingsSyncScheduleDelay = TimeSpan.FromMinutes(5);
+        private static readonly TimeSpan SettingsSyncScheduleDelay = TimeSpan.FromSeconds(1);
+        private static readonly TimeSpan SettingsSyncSchedulePeriod = TimeSpan.FromMinutes(5);
         private readonly CancellationTokenSource _settingsSyncCtx;
 
         protected readonly ClientConfig ClientConfig;
         protected readonly IClientManager ClientManager;
         protected readonly string ClientId;
-
-        protected readonly ICollection<string> Topics;
 
         protected readonly ConcurrentDictionary<Endpoints, bool> Isolated;
         private readonly ConcurrentDictionary<string, TopicRouteData> _topicRouteCache;
@@ -53,10 +54,9 @@ namespace Org.Apache.Rocketmq
         private readonly Dictionary<Endpoints, Session> _sessionsTable;
         private readonly ReaderWriterLockSlim _sessionLock;
 
-        protected Client(ClientConfig clientConfig, ICollection<string> topics)
+        protected Client(ClientConfig clientConfig)
         {
             ClientConfig = clientConfig;
-            Topics = topics;
             ClientId = Utilities.GetClientId();
 
             ClientManager = new ClientManager(this);
@@ -75,10 +75,12 @@ namespace Org.Apache.Rocketmq
         public virtual async Task Start()
         {
             Logger.Debug($"Begin to start the rocketmq client, clientId={ClientId}");
-            ScheduleWithFixedDelay(UpdateTopicRouteCache, TopicRouteUpdateScheduleDelay, _topicRouteUpdateCtx.Token);
-            ScheduleWithFixedDelay(Heartbeat, HeartbeatScheduleDelay, _heartbeatCts.Token);
-            ScheduleWithFixedDelay(SyncSettings, SettingsSyncScheduleDelay, _settingsSyncCtx.Token);
-            foreach (var topic in Topics)
+            ScheduleWithFixedDelay(UpdateTopicRouteCache, TopicRouteUpdateScheduleDelay, TopicRouteUpdateSchedulePeriod,
+                _topicRouteUpdateCtx.Token);
+            ScheduleWithFixedDelay(Heartbeat, HeartbeatScheduleDelay, HeartbeatSchedulePeriod, _heartbeatCts.Token);
+            ScheduleWithFixedDelay(SyncSettings, SettingsSyncScheduleDelay, SettingsSyncSchedulePeriod,
+                _settingsSyncCtx.Token);
+            foreach (var topic in GetTopics())
             {
                 await FetchTopicRoute(topic);
             }
@@ -132,6 +134,8 @@ namespace Org.Apache.Rocketmq
             }
         }
 
+        protected abstract ICollection<string> GetTopics();
+
         protected abstract Proto::HeartbeatRequest WrapHeartbeatRequest();
 
 
@@ -183,10 +187,9 @@ namespace Org.Apache.Rocketmq
         private async void UpdateTopicRouteCache()
         {
             Logger.Info($"Start to update topic route cache for a new round, clientId={ClientId}");
-            foreach (var topic in Topics)
+            foreach (var topic in GetTopics())
             {
-                var topicRouteData = await FetchTopicRoute(topic);
-                _topicRouteCache[topic] = topicRouteData;
+                await FetchTopicRoute(topic);
             }
         }
 
@@ -199,10 +202,11 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        private void ScheduleWithFixedDelay(Action action, TimeSpan period, CancellationToken token)
+        private void ScheduleWithFixedDelay(Action action, TimeSpan delay, TimeSpan period, CancellationToken token)
         {
             Task.Run(async () =>
             {
+                await Task.Delay(delay, token);
                 while (!token.IsCancellationRequested)
                 {
                     try
@@ -221,7 +225,18 @@ namespace Org.Apache.Rocketmq
             }, token);
         }
 
-        protected async Task<TopicRouteData> FetchTopicRoute(string topic)
+        protected async Task<TopicRouteData> GetRouteData(string topic)
+        {
+            if (_topicRouteCache.TryGetValue(topic, out var topicRouteData))
+            {
+                return topicRouteData;
+            }
+
+            topicRouteData = await FetchTopicRoute(topic);
+            return topicRouteData;
+        }
+
+        private async Task<TopicRouteData> FetchTopicRoute(string topic)
         {
             var topicRouteData = await FetchTopicRoute0(topic);
             await OnTopicRouteDataFetched(topic, topicRouteData);
@@ -260,12 +275,6 @@ namespace Org.Apache.Rocketmq
         private async void Heartbeat()
         {
             var endpoints = GetTotalRouteEndpoints();
-            if (0 == endpoints.Count)
-            {
-                Logger.Debug("No broker endpoints available in topic route");
-                return;
-            }
-
             var request = WrapHeartbeatRequest();
             Dictionary<Endpoints, Task<Proto.HeartbeatResponse>> responses = new();
             // Collect task into a map.
