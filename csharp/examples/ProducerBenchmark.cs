@@ -15,6 +15,10 @@
  * limitations under the License.
  */
 
+using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using NLog;
 using Org.Apache.Rocketmq;
@@ -25,8 +29,76 @@ namespace examples
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
-        internal static async Task QuickStart()
+        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(0);
+        private static long _counter = 0;
+
+        internal static void QuickStart()
         {
+            const string accessKey = "5jFk0wK7OU6Uq395";
+            const string secretKey = "V1u8z19URHs4o6RQ";
+
+            // Credential provider is optional for client configuration.
+            var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
+            const string endpoints = "rmq-cn-7mz30qjc71a.cn-hangzhou.rmq.aliyuncs.com:8080";
+            var clientConfig = new ClientConfig(endpoints)
+            {
+                CredentialsProvider = credentialsProvider
+            };
+            // In most case, you don't need to create too many producers, single pattern is recommended.
+            var producer = new Producer(clientConfig);
+
+            const string topic = "lingchu_normal_topic";
+            producer.SetTopics(topic);
+            // Set the topic name(s), which is optional but recommended. It makes producer could prefetch
+            // the topic route before message publishing.
+            producer.Start().Wait();
+            // Define your message body.
+            var bytes = Encoding.UTF8.GetBytes("foobar");
+            const string tag = "yourMessageTagA";
+            // You could set multiple keys for the single message.
+            var keys = new List<string>
+            {
+                "yourMessageKey-7044358f98fc",
+                "yourMessageKey-f72539fbc246"
+            };
+            // Set topic for current message.
+            var message = new Message(topic, bytes)
+            {
+                Tag = tag,
+                Keys = keys
+            };
+
+            const int tpsLimit = 1000;
+
+            Task.Run(async () =>
+            {
+                while (true)
+                {
+                    _semaphore.Release(tpsLimit/1000);
+                    await Task.Delay(TimeSpan.FromMilliseconds(1));
+                }
+            });
+
+            Task.Run(async () =>
+            {
+                while (true)
+                {
+                    Logger.Info($"Send {_counter} messages successfully.");
+                    Interlocked.Exchange(ref _counter, 0);
+                    await Task.Delay(TimeSpan.FromSeconds(1));
+                }
+            });
+
+            var tasks = new List<Task>();
+            while (true)
+            {
+                _semaphore.Wait();
+                Interlocked.Increment(ref _counter);
+                var task = producer.Send(message);
+                tasks.Add(task);
+            }
+
+            Task.WhenAll(tasks).Wait();
         }
     }
 }
