@@ -34,12 +34,12 @@ namespace examples
 
         internal static void QuickStart()
         {
-            const string accessKey = "5jFk0wK7OU6Uq395";
-            const string secretKey = "V1u8z19URHs4o6RQ";
+            const string accessKey = "amKhwEM40L61znSz";
+            const string secretKey = "bT6c3gpF3EFB10F3";
 
             // Credential provider is optional for client configuration.
             var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
-            const string endpoints = "rmq-cn-7mz30qjc71a.cn-hangzhou.rmq.aliyuncs.com:8080";
+            const string endpoints = "rmq-cn-nwy337bf81g.cn-hangzhou.rmq.aliyuncs.com:8080";
             var clientConfig = new ClientConfig(endpoints)
             {
                 CredentialsProvider = credentialsProvider
@@ -68,14 +68,14 @@ namespace examples
                 Keys = keys
             };
 
-            const int tpsLimit = 1000;
+            const int tpsLimit = 800;
 
             Task.Run(async () =>
             {
                 while (true)
                 {
-                    _semaphore.Release(tpsLimit/1000);
-                    await Task.Delay(TimeSpan.FromMilliseconds(1));
+                    _semaphore.Release(tpsLimit);
+                    await Task.Delay(TimeSpan.FromMilliseconds(1000));
                 }
             });
 

@@ -56,6 +56,7 @@ namespace Org.Apache.Rocketmq
 
         public async Task SyncSettings(bool awaitResp)
         {
+            // TODO
             await _semaphore.WaitAsync();
             try
             {

@@ -54,17 +54,9 @@ namespace Org.Apache.Rocketmq
 
         private async Task<TResponse> HandleResponse<TResponse>(Task<TResponse> t)
         {
-            try
-            {
-                var response = await t;
-                Logger.Trace($"Response received: {response}");
-                return response;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Call error: {ex.Message}");
-                throw;
-            }
+            var response = await t;
+            Logger.Trace($"Response received: {response}");
+            return response;
         }
 
         public override AsyncClientStreamingCall<TRequest, TResponse> AsyncClientStreamingCall<TRequest, TResponse>(
