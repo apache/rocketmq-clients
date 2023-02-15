@@ -41,8 +41,9 @@ namespace examples
             };
             // Add your subscriptions.
             const string consumerGroup = "yourConsumerGroup";
+            const string topic = "yourTopic";
             var subscription = new Dictionary<string, FilterExpression>
-                { { consumerGroup, new FilterExpression("*") } };
+                { { topic, new FilterExpression("*") } };
             // In most case, you don't need to create too many consumers, single pattern is recommended.
             var simpleConsumer =
                 new SimpleConsumer(clientConfig, consumerGroup, TimeSpan.FromSeconds(15), subscription);

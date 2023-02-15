@@ -191,19 +191,33 @@ namespace Org.Apache.Rocketmq
 
         private async void UpdateTopicRouteCache()
         {
-            Logger.Info($"Start to update topic route cache for a new round, clientId={ClientId}");
-            foreach (var topic in GetTopics())
+            try
             {
-                await FetchTopicRoute(topic);
+                Logger.Info($"Start to update topic route cache for a new round, clientId={ClientId}");
+                foreach (var topic in GetTopics())
+                {
+                    await FetchTopicRoute(topic);
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.Error(e, $"[Bug] unexpected exception raised during topic route cache update, clientId={ClientId}");
             }
         }
 
         private async void SyncSettings()
         {
-            var totalRouteEndpoints = GetTotalRouteEndpoints();
-            foreach (var (_, session) in totalRouteEndpoints.Select(GetSession))
+            try
             {
-                await session.SyncSettings(false);
+                var totalRouteEndpoints = GetTotalRouteEndpoints();
+                foreach (var (_, session) in totalRouteEndpoints.Select(GetSession))
+                {
+                    await session.SyncSettings(false);
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.Error(e, $"[Bug] unexpected exception raised during setting sync, clientId={ClientId}");
             }
         }
 
@@ -279,36 +293,50 @@ namespace Org.Apache.Rocketmq
 
         private async void Heartbeat()
         {
-            var endpoints = GetTotalRouteEndpoints();
-            var request = WrapHeartbeatRequest();
-            Dictionary<Endpoints, Task<Proto.HeartbeatResponse>> responses = new();
-            // Collect task into a map.
-            foreach (var item in endpoints)
+            try
             {
-                var task = ClientManager.Heartbeat(item, request, ClientConfig.RequestTimeout);
-                responses[item] = task;
-            }
+                var endpoints = GetTotalRouteEndpoints();
+                var request = WrapHeartbeatRequest();
+                Dictionary<Endpoints, Task<Proto.HeartbeatResponse>> responses = new();
 
-            foreach (var item in responses.Keys)
-            {
-                var response = await responses[item];
-                var code = response.Status.Code;
-
-                if (code.Equals(Proto.Code.Ok))
+                // Collect task into a map.
+                foreach (var item in endpoints)
                 {
-                    Logger.Info($"Send heartbeat successfully, endpoints={item}, clientId={ClientId}");
-                    if (Isolated.TryRemove(item, out _))
+                    try
                     {
-                        Logger.Info(
-                            $"Rejoin endpoints which was isolated before, endpoints={item}, clientId={ClientId}");
+                        var task = ClientManager.Heartbeat(item, request, ClientConfig.RequestTimeout);
+                        responses[item] = task;
                     }
-
-                    return;
+                    catch (Exception e)
+                    {
+                        Logger.Error(e, $"Failed to send heartbeat, endpoints={item}");
+                    }
                 }
 
-                var statusMessage = response.Status.Message;
-                Logger.Info(
-                    $"Failed to send heartbeat, endpoints={item}, code={code}, statusMessage={statusMessage}, clientId={ClientId}");
+
+                foreach (var item in responses.Keys)
+                {
+                    var response = await responses[item];
+                    var code = response.Status.Code;
+
+                    if (code.Equals(Proto.Code.Ok))
+                    {
+                        Logger.Info($"Send heartbeat successfully, endpoints={item}, clientId={ClientId}");
+                        if (Isolated.TryRemove(item, out _))
+                        {
+                            Logger.Info($"Rejoin endpoints which was isolated before, endpoints={item}, clientId={ClientId}");
+                        }
+
+                        return;
+                    }
+
+                    var statusMessage = response.Status.Message;
+                    Logger.Info($"Failed to send heartbeat, endpoints={item}, code={code}, statusMessage={statusMessage}, clientId={ClientId}");
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.Error(e, $"[Bug] unexpected exception raised during heartbeat, clientId={ClientId}");
             }
         }
 
