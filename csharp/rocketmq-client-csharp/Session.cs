@@ -53,6 +53,11 @@ namespace Org.Apache.Rocketmq
             Loop();
         }
 
+        public async Task write(Proto.TelemetryCommand telemetryCommand)
+        {
+            var writer = _streamingCall.RequestStream;
+            await writer.WriteAsync(telemetryCommand);
+        } 
 
         public async Task SyncSettings(bool awaitResp)
         {
