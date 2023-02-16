@@ -27,11 +27,11 @@ namespace examples
         {
             // Console.WriteLine(MetadataConstants.Instance.ClientVersion);
 
-            ProducerNormalMessageExample.QuickStart().Wait();
+            // ProducerNormalMessageExample.QuickStart().Wait();
             // await ProducerFifoMessageExample.QuickStart();
             // await ProducerDelayMessageExample.QuickStart();
             // await SimpleConsumerExample.QuickStart();
-            // ProducerBenchmark.QuickStart();
+            ProducerBenchmark.QuickStart();
         }
     }
 }

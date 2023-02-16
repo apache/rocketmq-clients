@@ -81,6 +81,9 @@ namespace Org.Apache.Rocketmq
         Task<ChangeInvisibleDurationResponse> ChangeInvisibleDuration(Endpoints endpoints,
             ChangeInvisibleDurationRequest request, TimeSpan timeout);
 
+        Task<EndTransactionResponse> EndTransaction(Endpoints endpoints, EndTransactionRequest request,
+            TimeSpan timeout);
+
         Task Shutdown();
     }
 }

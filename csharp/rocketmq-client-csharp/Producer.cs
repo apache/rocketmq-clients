@@ -29,9 +29,9 @@ namespace Org.Apache.Rocketmq
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
         private readonly ConcurrentDictionary<string /* topic */, PublishingLoadBalancer> _publishingRouteDataCache;
-        private readonly PublishingSettings _publishingSettings;
+        internal readonly PublishingSettings PublishingSettings;
         private readonly ConcurrentDictionary<string, bool> _publishingTopics;
-
+        private ITransactionChecker _checker = null;
 
         public Producer(ClientConfig clientConfig) : this(clientConfig, new ConcurrentDictionary<string, bool>(), 3)
         {
@@ -47,7 +47,7 @@ namespace Org.Apache.Rocketmq
             base(clientConfig)
         {
             var retryPolicy = ExponentialBackoffRetryPolicy.ImmediatelyRetryPolicy(maxAttempts);
-            _publishingSettings = new PublishingSettings(ClientId, clientConfig.Endpoints, retryPolicy,
+            PublishingSettings = new PublishingSettings(ClientId, clientConfig.Endpoints, retryPolicy,
                 clientConfig.RequestTimeout, publishingTopics);
             _publishingRouteDataCache = new ConcurrentDictionary<string, PublishingLoadBalancer>();
             _publishingTopics = publishingTopics;
@@ -59,6 +59,11 @@ namespace Org.Apache.Rocketmq
             {
                 _publishingTopics.TryAdd(topic, true);
             }
+        }
+
+        public void SetTransactionChecker(ITransactionChecker checker)
+        {
+            _checker = checker;
         }
 
         protected override IEnumerable<string> GetTopics()
@@ -115,13 +120,13 @@ namespace Org.Apache.Rocketmq
 
         private IRetryPolicy GetRetryPolicy()
         {
-            return _publishingSettings.GetRetryPolicy();
+            return PublishingSettings.GetRetryPolicy();
         }
 
         public async Task<SendReceipt> Send(Message message)
         {
             var publishingLoadBalancer = await GetPublishingLoadBalancer(message.Topic);
-            var publishingMessage = new PublishingMessage(message, _publishingSettings, false);
+            var publishingMessage = new PublishingMessage(message, PublishingSettings, false);
             var retryPolicy = GetRetryPolicy();
             var maxAttempts = retryPolicy.GetMaxAttempts();
 
@@ -147,6 +152,12 @@ namespace Org.Apache.Rocketmq
             throw exception!;
         }
 
+        public async Task<SendReceipt> Send(Message message, Transaction transaction)
+        {
+            // TODO
+            return null;
+        }
+
         private static Proto.SendMessageRequest WrapSendMessageRequest(PublishingMessage message, MessageQueue mq)
         {
             return new Proto.SendMessageRequest
@@ -160,7 +171,7 @@ namespace Org.Apache.Rocketmq
         {
             var candidateIndex = (attempt - 1) % candidates.Count;
             var mq = candidates[candidateIndex];
-            if (_publishingSettings.IsValidateMessageType() &&
+            if (PublishingSettings.IsValidateMessageType() &&
                 !mq.AcceptMessageTypes.Contains(message.MessageType))
             {
                 throw new ArgumentException("Current message type does not match with the accept message types," +
@@ -174,7 +185,7 @@ namespace Org.Apache.Rocketmq
                 await ClientManager.SendMessage(endpoints, sendMessageRequest, ClientConfig.RequestTimeout);
             try
             {
-                var sendReceipts = SendReceipt.ProcessSendMessageResponse(response);
+                var sendReceipts = SendReceipt.ProcessSendMessageResponse(mq, response);
 
                 var sendReceipt = sendReceipts.First();
                 if (attempt > 1)
@@ -206,7 +217,58 @@ namespace Org.Apache.Rocketmq
 
         public override Settings GetSettings()
         {
-            return _publishingSettings;
+            return PublishingSettings;
+        }
+
+        public override async void OnRecoverOrphanedTransactionCommand(Endpoints endpoints,
+            Proto.RecoverOrphanedTransactionCommand command)
+        {
+            var messageId = command.Message.SystemProperties.MessageId;
+            if (null == _checker)
+            {
+                Logger.Error($"No transaction checker registered, ignore it, messageId={messageId}, " +
+                             $"transactionId={command.TransactionId}, endpoints={endpoints}, clientId={ClientId}");
+                return;
+            }
+
+            var message = MessageView.FromProtobuf(command.Message);
+            var transactionResolution = _checker.Check(message);
+            switch (transactionResolution)
+            {
+                case TransactionResolution.COMMIT:
+                case TransactionResolution.ROLLBACK:
+                    await EndTransaction(endpoints, message.Topic, message.MessageId, command.TransactionId,
+                        transactionResolution);
+                    break;
+                case TransactionResolution.UNKNOWN:
+                default:
+                    break;
+            }
+        }
+
+        public Transaction BeginTransaction()
+        {
+            return new Transaction(this);
+        }
+
+        internal async Task EndTransaction(Endpoints endpoints, string topic, string messageId, string transactionId,
+            TransactionResolution resolution)
+        {
+            var topicResource = new Proto.Resource
+            {
+                Name = topic
+            };
+            var request = new Proto.EndTransactionRequest
+            {
+                TransactionId = transactionId,
+                MessageId = messageId,
+                Topic = topicResource,
+                Resolution = TransactionResolution.COMMIT == resolution
+                    ? Proto.TransactionResolution.Commit
+                    : Proto.TransactionResolution.Rollback
+            };
+            var response = await ClientManager.EndTransaction(endpoints, request, ClientConfig.RequestTimeout);
+            StatusChecker.Check(response.Status, request);
         }
     }
 }

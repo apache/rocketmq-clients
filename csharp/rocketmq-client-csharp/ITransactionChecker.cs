@@ -15,19 +15,16 @@
  * limitations under the License.
  */
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-
 namespace Org.Apache.Rocketmq
 {
-    [TestClass]
-    public class SendResultTest
+    public interface ITransactionChecker
     {
-        [TestMethod]
-        public void testCtor()
-        {
-            // string messageId = new string("abc");
-            // var sendResult = new SendReceipt(messageId);
-            // Assert.AreEqual(messageId, sendResult.MessageId);
-        }
+        /// <summary>
+        /// Interface that implement this interface will be able to check transactions and
+        /// return a TransactionResolution object representing the result of the check.
+        /// </summary>
+        /// <param name="messageView"></param>
+        /// <returns></returns>
+        TransactionResolution Check(MessageView messageView);
     }
 }

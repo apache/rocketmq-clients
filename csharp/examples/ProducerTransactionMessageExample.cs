@@ -15,31 +15,33 @@
  * limitations under the License.
  */
 
-using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using NLog;
 using Org.Apache.Rocketmq;
 
 namespace examples
 {
-    public class ProducerBenchmark
+    internal static class ProducerTransactionMessageExample
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
-        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(0);
-        private static long _counter = 0;
-
-        internal static void QuickStart()
+        private class TransactionChecker : ITransactionChecker
         {
-            const string accessKey = "amKhwEM40L61znSz";
-            const string secretKey = "bT6c3gpF3EFB10F3";
+            public TransactionResolution Check(MessageView messageView)
+            {
+                return TransactionResolution.COMMIT;
+            }
+        }
 
+        internal static async Task QuickStart()
+        {
+            const string accessKey = "yourAccessKey";
+            const string secretKey = "yourSecretKey";
             // Credential provider is optional for client configuration.
             var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
-            const string endpoints = "rmq-cn-nwy337bf81g.cn-hangzhou.rmq.aliyuncs.com:8080";
+            const string endpoints = "rmq-cn-7mz30qjc71a.cn-hangzhou.rmq.aliyuncs.com:8080";
             var clientConfig = new ClientConfig(endpoints)
             {
                 CredentialsProvider = credentialsProvider
@@ -47,11 +49,12 @@ namespace examples
             // In most case, you don't need to create too many producers, single pattern is recommended.
             var producer = new Producer(clientConfig);
 
-            const string topic = "lingchu_normal_topic";
+            const string topic = "lingchu_transactional_topic";
             producer.SetTopics(topic);
-            // Set the topic name(s), which is optional but recommended. It makes producer could prefetch
-            // the topic route before message publishing.
-            producer.Start().Wait();
+            producer.SetTransactionChecker(new TransactionChecker());
+
+            await producer.Start();
+            var transaction = producer.BeginTransaction();
             // Define your message body.
             var bytes = Encoding.UTF8.GetBytes("foobar");
             const string tag = "yourMessageTagA";
@@ -67,38 +70,14 @@ namespace examples
                 Tag = tag,
                 Keys = keys
             };
-
-            const int tpsLimit = 500;
-
-            Task.Run(async () =>
-            {
-                while (true)
-                {
-                    _semaphore.Release(tpsLimit);
-                    await Task.Delay(TimeSpan.FromMilliseconds(1000));
-                }
-            });
-
-            Task.Run(async () =>
-            {
-                while (true)
-                {
-                    Logger.Info($"Send {_counter} messages successfully.");
-                    Interlocked.Exchange(ref _counter, 0);
-                    await Task.Delay(TimeSpan.FromSeconds(1));
-                }
-            });
-
-            var tasks = new List<Task>();
-            while (true)
-            {
-                _semaphore.Wait();
-                Interlocked.Increment(ref _counter);
-                var task = producer.Send(message);
-                tasks.Add(task);
-            }
-
-            Task.WhenAll(tasks).Wait();
+            var sendReceipt = await producer.Send(message, transaction);
+            Logger.Info("Send transaction message successfully, messageId={}", sendReceipt.MessageId);
+            // Commit the transaction.
+            transaction.commit();
+            // Or rollback the transaction.
+            // transaction.rollback();
+            // Close the producer if you don't need it anymore.
+            await producer.Shutdown();
         }
     }
 }

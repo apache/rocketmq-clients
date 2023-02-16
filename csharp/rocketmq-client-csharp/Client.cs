@@ -389,10 +389,22 @@ namespace Org.Apache.Rocketmq
             return ClientConfig;
         }
 
-        public void OnRecoverOrphanedTransactionCommand(Endpoints endpoints,
+        public virtual async void OnRecoverOrphanedTransactionCommand(Endpoints endpoints,
             Proto.RecoverOrphanedTransactionCommand command)
         {
-            // TODO
+            Logger.Warn($"Ignore orphaned transaction recovery command from remote, which is not expected, " +
+                        $"clientId={ClientId}, endpoints={endpoints}");
+            var status = new Proto.Status
+            {
+                Code = Proto.Code.InternalError,
+                Message = "Current client don't support transaction message recovery"
+            };
+            var telemetryCommand = new Proto.TelemetryCommand
+            {
+                Status = status
+            };
+            var (_, session) = GetSession(endpoints);
+            await session.write(telemetryCommand);
         }
 
         public async void OnVerifyMessageCommand(Endpoints endpoints, Proto.VerifyMessageCommand command)
@@ -405,7 +417,7 @@ namespace Org.Apache.Rocketmq
                 Code = Proto.Code.Unsupported,
                 Message = "Message consumption verification is not supported"
             };
-            var telemetryCommand = new Proto.TelemetryCommand()
+            var telemetryCommand = new Proto.TelemetryCommand
             {
                 Status = status
             };
