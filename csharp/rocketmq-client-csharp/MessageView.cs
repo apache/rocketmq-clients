@@ -80,6 +80,11 @@ namespace Org.Apache.Rocketmq
 
         public int DeliveryAttempt { get; }
 
+        public static MessageView FromProtobuf(Proto.Message message)
+        {
+            return FromProtobuf(message, null);
+        }
+
         public static MessageView FromProtobuf(Proto.Message message, MessageQueue messageQueue)
         {
             var topic = message.Topic.Name;

@@ -15,19 +15,12 @@
  * limitations under the License.
  */
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-
 namespace Org.Apache.Rocketmq
 {
-    [TestClass]
-    public class SendResultTest
+    public interface ITransaction
     {
-        [TestMethod]
-        public void testCtor()
-        {
-            // string messageId = new string("abc");
-            // var sendResult = new SendReceipt(messageId);
-            // Assert.AreEqual(messageId, sendResult.MessageId);
-        }
+        void commit();
+
+        void rollback();
     }
 }

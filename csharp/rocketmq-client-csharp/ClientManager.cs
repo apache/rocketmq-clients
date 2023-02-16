@@ -146,5 +146,11 @@ namespace Org.Apache.Rocketmq
         {
             return await GetRpcClient(endpoints).ChangeInvisibleDuration(_client.Sign(), request, timeout);
         }
+
+        public async Task<Proto.EndTransactionResponse> EndTransaction(Endpoints endpoints,
+            Proto.EndTransactionRequest request, TimeSpan timeout)
+        {
+            return await GetRpcClient(endpoints).EndTransaction(_client.Sign(), request, timeout);
+        }
     }
 }

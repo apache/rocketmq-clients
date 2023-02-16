@@ -17,55 +17,60 @@
 
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using NLog;
 using Org.Apache.Rocketmq;
 
 namespace examples
 {
-    static class ProducerFifoMessageExample
+    internal static class ProducerFifoMessageExample
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
         internal static async Task QuickStart()
         {
-            // string accessKey = "yourAccessKey";
-            // string secretKey = "yourSecretKey";
-            // // Credential provider is optional for client configuration.
-            // var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
-            // string endpoints = "foobar.com:8080";
-            // // In most case, you don't need to create too many producers, single pattern is recommended.
-            // var producer = new Producer(endpoints)
-            // {
-            //     CredentialsProvider = credentialsProvider
-            // };
-            // string topic = "yourFifoTopic";
-            // // Set the topic name(s), which is optional but recommended. It makes producer could prefetch
-            // // the topic route before message publishing.
-            // producer.AddTopicOfInterest(topic);
-            //
-            // await producer.Start();
-            // // Define your message body.
-            // byte[] bytes = Encoding.UTF8.GetBytes("foobar");
-            // string tag = "yourMessageTagA";
-            // // You could set multiple keys for the single message.
-            // var keys = new List<string>
-            // {
-            //     "yourMessageKey-6cc8b65ed1c8",
-            //     "yourMessageKey-43783375d9a5"
-            // };
-            // // Set topic for current message.
-            // var message = new Message(topic, bytes)
-            // {
-            //     Tag = tag,
-            //     Keys = keys,
-            //     // Essential for FIFO message, messages that belongs to the same message group follow the FIFO semantics.
-            //     MessageGroup = "yourMessageGroup0"
-            // };
-            // var sendReceipt = await producer.Send(message);
-            // Logger.Info($"Send FIFO message successfully, sendReceipt={sendReceipt}.");
-            // // Close the producer if you don't need it anymore.
-            // await producer.Shutdown();
+            const string accessKey = "5jFk0wK7OU6Uq395";
+            const string secretKey = "V1u8z19URHs4o6RQ";
+
+            // Credential provider is optional for client configuration.
+            var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
+            const string endpoints = "rmq-cn-7mz30qjc71a.cn-hangzhou.rmq.aliyuncs.com:8080";
+            var clientConfig = new ClientConfig(endpoints)
+            {
+                CredentialsProvider = credentialsProvider
+            };
+            // In most case, you don't need to create too many producers, single pattern is recommended.
+            var producer = new Producer(clientConfig);
+
+            const string topic = "lingchu_fifo_topic";
+            producer.SetTopics(topic);
+            // Set the topic name(s), which is optional but recommended. It makes producer could prefetch
+            // the topic route before message publishing.
+            await producer.Start();
+            // Define your message body.
+            var bytes = Encoding.UTF8.GetBytes("foobar");
+            const string tag = "yourMessageTagA";
+            // You could set multiple keys for the single message.
+            var keys = new List<string>
+            {
+                "yourMessageKey-7044358f98fc",
+                "yourMessageKey-f72539fbc246"
+            };
+            const string messageGroup = "yourMessageGroup";
+            // Set topic for current message.
+            var message = new Message(topic, bytes)
+            {
+                Tag = tag,
+                Keys = keys,
+                // Set message group for FIFO message.
+                MessageGroup = messageGroup
+            };
+            var sendReceipt = await producer.Send(message);
+            Logger.Info($"Send message successfully, sendReceipt={sendReceipt}");
+            Thread.Sleep(9999999);
+            // Close the producer if you don't need it anymore.
+            await producer.Shutdown();
         }
     }
 }
