@@ -31,7 +31,7 @@ namespace Org.Apache.Rocketmq
     {
         public MessageType MessageType { set; get; }
 
-        private string MessageId { get; }
+        internal string MessageId { get; }
 
         public PublishingMessage(Message message, PublishingSettings publishingSettings, bool txEnabled) : base(
             message.Topic, message.Body)
