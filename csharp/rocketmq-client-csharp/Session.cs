@@ -33,7 +33,7 @@ namespace Org.Apache.Rocketmq
 
         private static readonly TimeSpan SettingsInitializationTimeout = TimeSpan.FromSeconds(3);
 
-        private readonly grpc::AsyncDuplexStreamingCall<Proto::TelemetryCommand, Proto::TelemetryCommand>
+        private readonly AsyncDuplexStreamingCall<Proto::TelemetryCommand, Proto::TelemetryCommand>
             _streamingCall;
 
         private readonly IClient _client;
@@ -56,26 +56,25 @@ namespace Org.Apache.Rocketmq
             Loop();
         }
 
-        public async Task write(Proto.TelemetryCommand telemetryCommand)
+        public async Task WriteAsync(Proto.TelemetryCommand telemetryCommand)
         {
             var writer = _streamingCall.RequestStream;
             await writer.WriteAsync(telemetryCommand);
         }
 
+        // TODO: Test concurrency.
         public async Task SyncSettings(bool awaitResp)
         {
             // Add more buffer time.
             await _semaphore.WaitAsync(_client.GetClientConfig().RequestTimeout.Add(SettingsInitializationTimeout));
             try
             {
-                var writer = _streamingCall.RequestStream;
-                // await readTask;
                 var settings = _client.GetSettings();
                 var telemetryCommand = new Proto.TelemetryCommand
                 {
                     Settings = settings.ToProtobuf()
                 };
-                await writer.WriteAsync(telemetryCommand);
+                await WriteAsync(telemetryCommand);
                 // await writer.CompleteAsync();
                 if (awaitResp)
                 {

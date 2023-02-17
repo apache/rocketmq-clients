@@ -40,11 +40,11 @@ namespace Org.Apache.Rocketmq
         private readonly CancellationTokenSource _topicRouteUpdateCts;
 
         private static readonly TimeSpan SettingsSyncScheduleDelay = TimeSpan.FromSeconds(1);
-        private static readonly TimeSpan SettingsSyncSchedulePeriod = TimeSpan.FromMinutes(5);
+        private static readonly TimeSpan SettingsSyncSchedulePeriod = TimeSpan.FromSeconds(1);
         private readonly CancellationTokenSource _settingsSyncCts;
         
-        private static readonly TimeSpan StatsScheduleDelay = TimeSpan.FromSeconds(1);
-        private static readonly TimeSpan StatsSchedulePeriod = TimeSpan.FromSeconds(1);
+        private static readonly TimeSpan StatsScheduleDelay = TimeSpan.FromSeconds(60);
+        private static readonly TimeSpan StatsSchedulePeriod = TimeSpan.FromSeconds(60);
         private readonly CancellationTokenSource _statsCts;
 
         protected readonly ClientConfig ClientConfig;
@@ -201,6 +201,26 @@ namespace Org.Apache.Rocketmq
             try
             {
                 Logger.Info($"Start to update topic route cache for a new round, clientId={ClientId}");
+                Dictionary<string, Task<TopicRouteData>> responses = new();
+                
+                foreach (var topic in GetTopics())
+                {
+                    var task = FetchTopicRoute(topic);
+                    responses[topic] = task;
+                }
+                
+                foreach (var item in responses.Keys)
+                {
+                    try
+                    {
+                        await responses[item];
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.Error(e, $"Failed to update topic route cache, topic={item}");
+                    }
+                }
+                
                 foreach (var topic in GetTopics())
                 {
                     await FetchTopicRoute(topic);
@@ -208,8 +228,8 @@ namespace Org.Apache.Rocketmq
             }
             catch (Exception e)
             {
-                Logger.Error(e,
-                    $"[Bug] unexpected exception raised during topic route cache update, clientId={ClientId}");
+                Logger.Error(e, $"[Bug] unexpected exception raised during topic route cache update, " +
+                                $"clientId={ClientId}");
             }
         }
 
@@ -218,9 +238,12 @@ namespace Org.Apache.Rocketmq
             try
             {
                 var totalRouteEndpoints = GetTotalRouteEndpoints();
-                foreach (var (_, session) in totalRouteEndpoints.Select(GetSession))
+                foreach (var endpoints in totalRouteEndpoints)
                 {
+                    var (_, session) = GetSession(endpoints);
                     await session.SyncSettings(false);
+                    Logger.Info($"Sync settings to remote, endpoints={endpoints}");
+
                 }
             }
             catch (Exception e)
@@ -319,38 +342,37 @@ namespace Org.Apache.Rocketmq
                 // Collect task into a map.
                 foreach (var item in endpoints)
                 {
+                    var task = ClientManager.Heartbeat(item, request, ClientConfig.RequestTimeout);
+                    responses[item] = task;
+                }
+
+                foreach (var item in responses.Keys)
+                {
                     try
                     {
-                        var task = ClientManager.Heartbeat(item, request, ClientConfig.RequestTimeout);
-                        responses[item] = task;
+                        var response = await responses[item];
+                        var code = response.Status.Code;
+
+                        if (code.Equals(Proto.Code.Ok))
+                        {
+                            Logger.Info($"Send heartbeat successfully, endpoints={item}, clientId={ClientId}");
+                            if (Isolated.TryRemove(item, out _))
+                            {
+                                Logger.Info($"Rejoin endpoints which was isolated before, endpoints={item}, " +
+                                            $"clientId={ClientId}");
+                            }
+
+                            return;
+                        }
+
+                        var statusMessage = response.Status.Message;
+                        Logger.Info($"Failed to send heartbeat, endpoints={item}, code={code}, " +
+                                    $"statusMessage={statusMessage}, clientId={ClientId}");
                     }
                     catch (Exception e)
                     {
                         Logger.Error(e, $"Failed to send heartbeat, endpoints={item}");
                     }
-                }
-
-
-                foreach (var item in responses.Keys)
-                {
-                    var response = await responses[item];
-                    var code = response.Status.Code;
-
-                    if (code.Equals(Proto.Code.Ok))
-                    {
-                        Logger.Info($"Send heartbeat successfully, endpoints={item}, clientId={ClientId}");
-                        if (Isolated.TryRemove(item, out _))
-                        {
-                            Logger.Info(
-                                $"Rejoin endpoints which was isolated before, endpoints={item}, clientId={ClientId}");
-                        }
-
-                        return;
-                    }
-
-                    var statusMessage = response.Status.Message;
-                    Logger.Info(
-                        $"Failed to send heartbeat, endpoints={item}, code={code}, statusMessage={statusMessage}, clientId={ClientId}");
                 }
             }
             catch (Exception e)
@@ -421,7 +443,7 @@ namespace Org.Apache.Rocketmq
                 Status = status
             };
             var (_, session) = GetSession(endpoints);
-            await session.write(telemetryCommand);
+            await session.WriteAsync(telemetryCommand);
         }
 
         public async void OnVerifyMessageCommand(Endpoints endpoints, Proto.VerifyMessageCommand command)
@@ -439,7 +461,7 @@ namespace Org.Apache.Rocketmq
                 Status = status
             };
             var (_, session) = GetSession(endpoints);
-            await session.write(telemetryCommand);
+            await session.WriteAsync(telemetryCommand);
         }
 
         public async void OnPrintThreadStackTraceCommand(Endpoints endpoints,
@@ -457,7 +479,7 @@ namespace Org.Apache.Rocketmq
                 Status = status
             };
             var (_, session) = GetSession(endpoints);
-            await session.write(telemetryCommand);
+            await session.WriteAsync(telemetryCommand);
         }
 
         public void OnSettingsCommand(Endpoints endpoints, Proto.Settings settings)
