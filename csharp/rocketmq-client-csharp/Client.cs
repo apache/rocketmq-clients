@@ -48,6 +48,7 @@ namespace Org.Apache.Rocketmq
         private readonly CancellationTokenSource _statsCts;
 
         protected readonly ClientConfig ClientConfig;
+        protected readonly Endpoints Endpoints;
         protected readonly IClientManager ClientManager;
         protected readonly string ClientId;
 
@@ -61,6 +62,7 @@ namespace Org.Apache.Rocketmq
         protected Client(ClientConfig clientConfig)
         {
             ClientConfig = clientConfig;
+            Endpoints = new Endpoints(clientConfig.Endpoints);
             ClientId = Utilities.GetClientId();
 
             ClientManager = new ClientManager(this);
@@ -288,11 +290,11 @@ namespace Org.Apache.Rocketmq
                 {
                     Name = topic
                 },
-                Endpoints = ClientConfig.Endpoints.ToProtobuf()
+                Endpoints = Endpoints.ToProtobuf()
             };
 
             var response =
-                await ClientManager.QueryRoute(ClientConfig.Endpoints, request, ClientConfig.RequestTimeout);
+                await ClientManager.QueryRoute(Endpoints, request, ClientConfig.RequestTimeout);
             var code = response.Status.Code;
             if (!Proto.Code.Ok.Equals(code))
             {

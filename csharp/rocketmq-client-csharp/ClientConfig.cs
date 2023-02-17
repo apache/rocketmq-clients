@@ -25,13 +25,13 @@ namespace Org.Apache.Rocketmq
         public ClientConfig(string endpoints)
         {
             RequestTimeout = TimeSpan.FromSeconds(3);
-            Endpoints = new Endpoints(endpoints);
+            Endpoints = endpoints;
         }
 
         public ICredentialsProvider CredentialsProvider { get; set; }
 
         public TimeSpan RequestTimeout { get; set; }
 
-        public Endpoints Endpoints { get; }
+        public string Endpoints { get; }
     }
 }

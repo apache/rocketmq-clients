@@ -47,7 +47,7 @@ namespace Org.Apache.Rocketmq
             base(clientConfig)
         {
             var retryPolicy = ExponentialBackoffRetryPolicy.ImmediatelyRetryPolicy(maxAttempts);
-            PublishingSettings = new PublishingSettings(ClientId, clientConfig.Endpoints, retryPolicy,
+            PublishingSettings = new PublishingSettings(ClientId, Endpoints, retryPolicy,
                 clientConfig.RequestTimeout, publishingTopics);
             _publishingRouteDataCache = new ConcurrentDictionary<string, PublishingLoadBalancer>();
             _publishingTopics = publishingTopics;

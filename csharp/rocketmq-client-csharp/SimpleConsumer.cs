@@ -48,7 +48,7 @@ namespace Org.Apache.Rocketmq
             _awaitDuration = awaitDuration;
             _subscriptionRouteDataCache = new ConcurrentDictionary<string, SubscriptionLoadBalancer>();
             _subscriptionExpressions = subscriptionExpressions;
-            _simpleSubscriptionSettings = new SimpleSubscriptionSettings(ClientId, clientConfig.Endpoints,
+            _simpleSubscriptionSettings = new SimpleSubscriptionSettings(ClientId, Endpoints,
                 ConsumerGroup, clientConfig.RequestTimeout, awaitDuration, subscriptionExpressions);
             _topicRoundRobinIndex = 0;
         }
