@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+using System;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -29,6 +30,8 @@ namespace Org.Apache.Rocketmq
     public class Session
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+
+        private static readonly TimeSpan SettingsInitializationTimeout = TimeSpan.FromSeconds(3);
 
         private readonly grpc::AsyncDuplexStreamingCall<Proto::TelemetryCommand, Proto::TelemetryCommand>
             _streamingCall;
@@ -57,12 +60,12 @@ namespace Org.Apache.Rocketmq
         {
             var writer = _streamingCall.RequestStream;
             await writer.WriteAsync(telemetryCommand);
-        } 
+        }
 
         public async Task SyncSettings(bool awaitResp)
         {
-            // TODO
-            await _semaphore.WaitAsync();
+            // Add more buffer time.
+            await _semaphore.WaitAsync(_client.GetClientConfig().RequestTimeout.Add(SettingsInitializationTimeout));
             try
             {
                 var writer = _streamingCall.RequestStream;

@@ -15,10 +15,16 @@
  * limitations under the License.
  */
 
+using System;
+
 namespace Org.Apache.Rocketmq
 {
     public interface IClientConfig
     {
         ICredentialsProvider CredentialsProvider { get; }
+
+        TimeSpan RequestTimeout { get; }
+
+        string Endpoints { get; }
     }
 }
