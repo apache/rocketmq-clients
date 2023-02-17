@@ -28,22 +28,19 @@ namespace Org.Apache.Rocketmq
      *
      * Configure component logging, please refer to https://github.com/NLog/NLog/wiki/Configure-component-logging
      */
-    public class MqLogManager
+    public static class MqLogManager
     {
-        public static LogFactory Instance
-        {
-            get { return LazyInstance.Value; }
-        }
+        public static LogFactory Instance => LazyInstance.Value;
 
         private static readonly Lazy<LogFactory> LazyInstance = new(BuildLogFactory);
 
         private static LogFactory BuildLogFactory()
         {
             // Use name of current assembly to construct NLog config filename 
-            Assembly thisAssembly = Assembly.GetExecutingAssembly();
-            string configFilePath = Path.ChangeExtension(thisAssembly.Location, ".nlog");
+            var thisAssembly = Assembly.GetExecutingAssembly();
+            var configFilePath = Path.ChangeExtension(thisAssembly.Location, ".nlog");
 
-            LogFactory logFactory = new LogFactory();
+            var logFactory = new LogFactory();
             logFactory.Configuration = new XmlLoggingConfiguration(configFilePath, logFactory);
             return logFactory;
         }

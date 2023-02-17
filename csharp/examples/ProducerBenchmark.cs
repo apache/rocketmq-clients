@@ -68,14 +68,14 @@ namespace examples
                 Keys = keys
             };
 
-            const int tpsLimit = 500;
+            const int tpsLimit = 1;
 
             Task.Run(async () =>
             {
                 while (true)
                 {
                     _semaphore.Release(tpsLimit);
-                    await Task.Delay(TimeSpan.FromMilliseconds(1000));
+                    await Task.Delay(TimeSpan.FromSeconds(1));
                 }
             });
 
@@ -83,8 +83,7 @@ namespace examples
             {
                 while (true)
                 {
-                    Logger.Info($"Send {_counter} messages successfully.");
-                    Interlocked.Exchange(ref _counter, 0);
+                    Logger.Info($"Send {Interlocked.Exchange(ref _counter, 0)} messages successfully.");
                     await Task.Delay(TimeSpan.FromSeconds(1));
                 }
             });
