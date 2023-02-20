@@ -37,7 +37,7 @@ namespace Org.Apache.Rocketmq
         private readonly bool _corrupted;
 
         internal MessageView(string messageId, string topic, byte[] body, string tag, string messageGroup,
-            DateTime deliveryTime, List<string> keys, Dictionary<string, string> properties, string bornHost,
+            DateTime? deliveryTimestamp, List<string> keys, Dictionary<string, string> properties, string bornHost,
             DateTime bornTime, int deliveryAttempt, MessageQueue messageQueue, string receiptHandle, long offset,
             bool corrupted)
         {
@@ -46,7 +46,7 @@ namespace Org.Apache.Rocketmq
             Body = body;
             Tag = tag;
             MessageGroup = messageGroup;
-            DeliveryTime = deliveryTime;
+            DeliveryTimestamp = deliveryTimestamp;
             Keys = keys;
             Properties = properties;
             BornHost = bornHost;
@@ -68,7 +68,7 @@ namespace Org.Apache.Rocketmq
 
         public string MessageGroup { get; }
 
-        public DateTime DeliveryTime { get; }
+        public DateTime? DeliveryTimestamp { get; }
 
         public List<string> Keys { get; }
 
@@ -161,7 +161,9 @@ namespace Org.Apache.Rocketmq
 
             var tag = systemProperties.HasTag ? systemProperties.Tag : null;
             var messageGroup = systemProperties.HasMessageGroup ? systemProperties.MessageGroup : null;
-            var deliveryTime = systemProperties.DeliveryTimestamp.ToDateTime();
+            DateTime? deliveryTime = null == systemProperties.DeliveryTimestamp
+                ? null
+                : systemProperties.DeliveryTimestamp.ToDateTime();
             var keys = systemProperties.Keys.ToList();
 
             var bornHost = systemProperties.BornHost;
@@ -184,7 +186,7 @@ namespace Org.Apache.Rocketmq
         {
             return
                 $"{nameof(MessageId)}: {MessageId}, {nameof(Topic)}: {Topic}, {nameof(Tag)}: {Tag}," +
-                $" {nameof(MessageGroup)}: {MessageGroup}, {nameof(DeliveryTime)}: {DeliveryTime}," +
+                $" {nameof(MessageGroup)}: {MessageGroup}, {nameof(DeliveryTimestamp)}: {DeliveryTimestamp}," +
                 $" {nameof(Keys)}: {Keys}, {nameof(Properties)}: {Properties}, {nameof(BornHost)}: {BornHost}, " +
                 $"{nameof(BornTime)}: {BornTime}, {nameof(DeliveryAttempt)}: {DeliveryAttempt}";
         }

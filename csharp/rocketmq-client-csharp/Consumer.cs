@@ -33,7 +33,7 @@ namespace Org.Apache.Rocketmq
         {
             ConsumerGroup = consumerGroup;
         }
-        
+
         protected async Task<ReceiveMessageResult> ReceiveMessage(Proto.ReceiveMessageRequest request, MessageQueue mq,
             TimeSpan awaitDuration)
         {
@@ -83,11 +83,16 @@ namespace Org.Apache.Rocketmq
             };
         }
 
-        protected static Proto.ReceiveMessageRequest WrapReceiveMessageRequest(int batchSize, MessageQueue mq,
+        protected Proto.ReceiveMessageRequest WrapReceiveMessageRequest(int batchSize, MessageQueue mq,
             FilterExpression filterExpression, TimeSpan invisibleDuration)
         {
-            return new Proto.ReceiveMessageRequest()
+            var group = new Proto.Resource
             {
+                Name = ConsumerGroup
+            };
+            return new Proto.ReceiveMessageRequest
+            {
+                Group = group,
                 MessageQueue = mq.ToProtobuf(),
                 FilterExpression = WrapFilterExpression(filterExpression),
                 BatchSize = batchSize,
