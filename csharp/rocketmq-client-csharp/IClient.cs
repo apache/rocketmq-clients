@@ -23,8 +23,6 @@ namespace Org.Apache.Rocketmq
 {
     public interface IClient
     {
-        CancellationTokenSource TelemetryCts();
-
         ClientConfig GetClientConfig();
 
         Settings GetSettings();
