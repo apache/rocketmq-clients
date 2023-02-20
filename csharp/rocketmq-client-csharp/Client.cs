@@ -54,7 +54,6 @@ namespace Org.Apache.Rocketmq
 
         protected readonly ConcurrentDictionary<Endpoints, bool> Isolated;
         private readonly ConcurrentDictionary<string, TopicRouteData> _topicRouteCache;
-        private readonly CancellationTokenSource _telemetryCts;
 
         private readonly Dictionary<Endpoints, Session> _sessionsTable;
         private readonly ReaderWriterLockSlim _sessionLock;
@@ -72,7 +71,6 @@ namespace Org.Apache.Rocketmq
             _topicRouteUpdateCts = new CancellationTokenSource();
             _settingsSyncCts = new CancellationTokenSource();
             _heartbeatCts = new CancellationTokenSource();
-            _telemetryCts = new CancellationTokenSource();
             _statsCts = new CancellationTokenSource();
 
             _sessionsTable = new Dictionary<Endpoints, Session>();
@@ -99,9 +97,10 @@ namespace Org.Apache.Rocketmq
         public virtual async Task Shutdown()
         {
             Logger.Debug($"Begin to shutdown rocketmq client, clientId={ClientId}");
-            _topicRouteUpdateCts.Cancel();
             _heartbeatCts.Cancel();
-            _telemetryCts.Cancel();
+            _topicRouteUpdateCts.Cancel();
+            _settingsSyncCts.Cancel();
+            _statsCts.Cancel();
             NotifyClientTermination();
             await ClientManager.Shutdown();
             Logger.Debug($"Shutdown the rocketmq client successfully, clientId={ClientId}");
@@ -409,11 +408,6 @@ namespace Org.Apache.Rocketmq
                                     $"endpoints=${item}");
                 }
             }
-        }
-
-        public CancellationTokenSource TelemetryCts()
-        {
-            return _telemetryCts;
         }
 
         public abstract Settings GetSettings();
