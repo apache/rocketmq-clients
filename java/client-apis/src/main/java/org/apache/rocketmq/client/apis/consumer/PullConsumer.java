@@ -57,6 +57,8 @@ public interface PullConsumer extends Closeable {
     /**
      * Fetch messages from assigned message queues specified by {@link #assign(Collection)}.
      *
+     * <p>The messages polled from remote are across the message queue.
+     *
      * @param timeout the maximum time to block.
      * @return list of fetched messages.
      */
