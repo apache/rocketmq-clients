@@ -24,3 +24,4 @@ mod command;
 mod client;
 
 mod producer;
+mod models;

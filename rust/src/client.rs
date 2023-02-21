@@ -16,6 +16,7 @@
  */
 use crate::command;
 use crate::error;
+use crate::models;
 use crate::pb::{self, QueryRouteRequest, Resource, SendMessageRequest, SendMessageResponse, SystemProperties};
 use crate::{error::ClientError, pb::messaging_service_client::MessagingServiceClient};
 use parking_lot::Mutex;
@@ -26,6 +27,7 @@ use std::{
     sync::Arc,
     sync::{atomic::AtomicUsize, Weak},
 };
+use prost_types::Timestamp;
 use tokio::sync::oneshot;
 use tonic::Request;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig};
@@ -62,13 +64,13 @@ impl Session {
                 error!(logger, "Failed to create channel. Cause: {:?}", e);
                 error::ClientError::Connect
             })?
-          /*  .tls_config(tls)
-            .map_err(|e| {
-                error!(logger, "Failed to configure TLS. Cause: {:?}", e);
-                error::ClientError::Connect
-            })?
+            /*  .tls_config(tls)
+              .map_err(|e| {
+                  error!(logger, "Failed to configure TLS. Cause: {:?}", e);
+                  error::ClientError::Connect
+              })?
 
-           */
+             */
             .connect_timeout(std::time::Duration::from_secs(3))
             .tcp_nodelay(true)
             .connect()
@@ -111,7 +113,7 @@ struct SessionManager {
 impl SessionManager {
     async fn send(
         &self,
-        data: &str,
+        message: &models::MessageImpl,
         client: Weak<&Client>,
     ) -> Result<SendMessageResponse, ClientError> {
         let client = match client.upgrade() {
@@ -128,12 +130,12 @@ impl SessionManager {
         srequest.messages.push(pb::Message {
             topic: Some(Resource {
                 resource_namespace: "".to_string(),
-                name: String::from("TopicTest"),
+                name: message.topic.clone(),
             }),
             user_properties: Default::default(),
             system_properties: Option::from(pb::SystemProperties {
-                tag: None,
-                keys: vec![],
+                tag: Option::from(message.tags.clone()),
+                keys: message.keys.clone(),
                 message_id: "123".to_string(),
                 body_digest: None,
                 body_encoding: 0,
@@ -142,25 +144,58 @@ impl SessionManager {
                 born_host: "".to_string(),
                 store_timestamp: None,
                 store_host: "".to_string(),
-                delivery_timestamp: None,
+                delivery_timestamp: Option::from(Timestamp {
+                    seconds: message.deliveryTimestamp,
+                    nanos: 0,
+                }),
                 receipt_handle: None,
                 queue_id: 0,
                 queue_offset: None,
                 invisible_duration: None,
                 delivery_attempt: None,
-                message_group: None,
+                message_group: Option::from(message.messageGroup.clone()),
                 trace_context: None,
                 orphaned_transaction_recovery_duration: None,
             }),
-            body: data.as_bytes().to_vec(),
+            body: message.body.clone(),
         });
 
         let mut request = tonic::Request::new(srequest);
         client.sign(request.metadata_mut());
 
+
+        // get route table
+        let guard = client.route_table.lock();
+        let rxx = guard.get(&message.topic).clone();
+
+        let curr : Route;
+        match rxx {
+            Some(RouteStatus::Found(route)) => {
+                curr= Route{
+                    index: route.index,
+                    messageQueueImpls: route.messageQueueImpls.clone(),
+                };
+            }
+            Some(RouteStatus::Querying(mut v)) => {
+                for tx in v.drain(..) {
+                    let _ = tx.send(Err(error::ClientError::ClientInternal));
+                }
+                return Err(error::ClientError::ClientInternal);
+            }
+            None => {
+                return Err(error::ClientError::ClientInternal);
+            }
+        }
+
         let (tx1, rx1) = oneshot::channel();
+
+        let messageQueue = curr.messageQueueImpls.get(curr.index);
+        let broker = &messageQueue.unwrap().broker;
+        let peer = broker.clone().unwrap().endpoints.unwrap();
+        let address = peer.addresses;
+        let port = address.clone()[0].port;
         let command = command::Command::Send {
-            peer: String::from("http://127.0.0.1:8081"),
+            peer: String::from(address.clone()[0].host.clone() + ":" + &*port.to_string()),
             request,
             tx: tx1,
         };
@@ -305,7 +340,10 @@ impl SessionManager {
         }
 
         match rx1.await {
-            Ok(result) => result.map(|_response| Route {}),
+            Ok(result) => result.map(|_response| Route {
+                index: 0,
+                messageQueueImpls: _response.into_inner().message_queues,
+            }),
             Err(e) => {
                 error!(self.logger, "oneshot channel error. Cause: {:?}", e);
                 Err(ClientError::ClientInternal)
@@ -315,7 +353,10 @@ impl SessionManager {
 }
 
 #[derive(Debug)]
-struct Route {}
+struct Route {
+    index: usize,
+    messageQueueImpls: Vec<pb::MessageQueue>,
+}
 
 #[derive(Debug)]
 enum RouteStatus {
@@ -334,10 +375,10 @@ pub(crate) struct Client {
 }
 
 impl Client {
-    pub async fn send(&self, p0: &str)-> Result<SendMessageResponse, ClientError> {
+    pub async fn send(&self, message: &models::MessageImpl) -> Result<SendMessageResponse, ClientError> {
         let client = Arc::new(*&self);
         let client_weak = Arc::downgrade(&client);
-        match self.session_manager.send(p0,client_weak).await {
+        match self.session_manager.send(message, client_weak).await {
             Ok(response) => Ok(response),
             Err(e) => Err(e),
         }

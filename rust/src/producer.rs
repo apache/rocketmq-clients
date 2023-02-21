@@ -16,7 +16,7 @@
  */
 use slog::Logger;
 
-use crate::{client, error};
+use crate::{client, error, models};
 use crate::error::ClientError;
 use crate::pb::SendMessageResponse;
 
@@ -25,18 +25,17 @@ struct Producer {
 }
 
 impl Producer {
-    pub async fn send(&self, p0: &str) -> Result<SendMessageResponse, ClientError> {
-        self.client.send(p0).await
+    pub async fn send(&self, message: &models::MessageImpl) -> Result<SendMessageResponse, ClientError> {
+        self.client.send(message).await
     }
 }
 
 impl Producer {
-    pub async fn new<T>(logger: Logger, topics: T) -> Result<Self, error::ClientError>
-    where
-        T: IntoIterator,
-        T::Item: AsRef<str>,
+    pub async fn new<T>(logger: Logger, access_point: &str, topics: T) -> Result<Self, error::ClientError>
+        where
+            T: IntoIterator,
+            T::Item: AsRef<str>,
     {
-        let access_point = "127.0.0.1:8081";
         let client = client::Client::new(logger, access_point)?;
         for _topic in topics.into_iter() {
             // client.subscribe(topic.as_ref()).await;
@@ -57,8 +56,13 @@ mod tests {
     async fn test_producer() {
         let drain = slog::Discard;
         let logger = Logger::root(drain, slog::o!());
-        let _producer = Producer::new(logger, vec!["TopicTest"]).await.unwrap();
-        match   _producer.send("hello world").await {
+        let access_point = "127.0.0.1:8081";
+        let _producer = Producer::new(logger, access_point, vec!["TopicTest"]).await.unwrap();
+        let tag = "TagA";
+        let mut keys = Vec::new();
+        keys.push(String::from("key1"));
+        let message = models::MessageImpl::new("TopicTest", tag, keys, "hello world");
+        match _producer.send(&message).await {
             Ok(r) => {
                 println!("response: {:?}", r);
             }
