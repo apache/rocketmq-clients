@@ -27,6 +27,7 @@ use std::{
     sync::Arc,
     sync::{atomic::AtomicUsize, Weak},
 };
+use std::borrow::Borrow;
 use prost_types::Timestamp;
 use tokio::sync::oneshot;
 use tonic::Request;
@@ -127,6 +128,16 @@ impl SessionManager {
             messages: vec![],
         };
 
+
+        let mut delivery_timestamp = None;
+
+        if message.deliveryTimestamp != 0 {
+            delivery_timestamp = Option::from(Timestamp {
+                seconds: message.deliveryTimestamp,
+                nanos: 0,
+            })
+        }
+
         srequest.messages.push(pb::Message {
             topic: Some(Resource {
                 resource_namespace: "".to_string(),
@@ -139,15 +150,12 @@ impl SessionManager {
                 message_id: "123".to_string(),
                 body_digest: None,
                 body_encoding: 0,
-                message_type: 0,
+                message_type: pb::MessageType::Normal as i32,
                 born_timestamp: None,
                 born_host: "".to_string(),
                 store_timestamp: None,
                 store_host: "".to_string(),
-                delivery_timestamp: Option::from(Timestamp {
-                    seconds: message.deliveryTimestamp,
-                    nanos: 0,
-                }),
+                delivery_timestamp: delivery_timestamp,
                 receipt_handle: None,
                 queue_id: 0,
                 queue_offset: None,
@@ -166,23 +174,16 @@ impl SessionManager {
 
         // get route table
         let guard = client.route_table.lock();
-        let rxx = guard.get(&message.topic).clone();
-
-        let curr : Route;
+        let rxx = guard.get(&message.topic).unwrap().clone();
+        let curr: Route;
         match rxx {
-            Some(RouteStatus::Found(route)) => {
-                curr= Route{
+            RouteStatus::Found(route) => {
+                curr = Route {
                     index: route.index,
                     messageQueueImpls: route.messageQueueImpls.clone(),
                 };
             }
-            Some(RouteStatus::Querying(mut v)) => {
-                for tx in v.drain(..) {
-                    let _ = tx.send(Err(error::ClientError::ClientInternal));
-                }
-                return Err(error::ClientError::ClientInternal);
-            }
-            None => {
+            _ => {
                 return Err(error::ClientError::ClientInternal);
             }
         }
@@ -193,9 +194,11 @@ impl SessionManager {
         let broker = &messageQueue.unwrap().broker;
         let peer = broker.clone().unwrap().endpoints.unwrap();
         let address = peer.addresses;
+        let host = &address.clone()[0].host;
         let port = address.clone()[0].port;
+        let s = format!("http://{}:{}", host, port);
         let command = command::Command::Send {
-            peer: String::from(address.clone()[0].host.clone() + ":" + &*port.to_string()),
+            peer: s,
             request,
             tx: tx1,
         };
@@ -353,7 +356,7 @@ impl SessionManager {
 }
 
 #[derive(Debug)]
-struct Route {
+pub(crate) struct Route {
     index: usize,
     messageQueueImpls: Vec<pb::MessageQueue>,
 }
@@ -448,7 +451,7 @@ impl Client {
         })
     }
 
-    async fn query_route(
+    pub(crate) async fn query_route(
         &self,
         topic: &str,
         lookup_cache: bool,
@@ -490,10 +493,15 @@ impl Client {
 
         let client = Arc::new(*&self);
         let client_weak = Arc::downgrade(&client);
-        let endpoint = "https://127.0.0.1:8081";
+
+        let ad = self.access_point.addresses.get(0).unwrap();
+
+        let host = ad.host.clone();
+        let port = ad.port.to_string();
+        let s = format!("http://{}:{}", host, port);
         match self
             .session_manager
-            .route(endpoint, topic, client_weak)
+            .route(&s, topic, client_weak)
             .await
         {
             Ok(route) => {

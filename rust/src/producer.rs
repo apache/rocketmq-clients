@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 use slog::Logger;
+use tokio::sync::oneshot;
+use tokio::task::block_in_place;
 
 use crate::{client, error, models};
 use crate::error::ClientError;
@@ -37,12 +39,13 @@ impl Producer {
             T::Item: AsRef<str>,
     {
         let client = client::Client::new(logger, access_point)?;
-        for _topic in topics.into_iter() {
-            // client.subscribe(topic.as_ref()).await;
-        }
 
+        for _topic in topics.into_iter() {
+            client.query_route(_topic.as_ref(), false).await.unwrap();
+        }
         Ok(Producer { client })
     }
+
 
     pub fn start(&mut self) {}
 }
@@ -62,6 +65,7 @@ mod tests {
         let mut keys = Vec::new();
         keys.push(String::from("key1"));
         let message = models::MessageImpl::new("TopicTest", tag, keys, "hello world");
+
         match _producer.send(&message).await {
             Ok(r) => {
                 println!("response: {:?}", r);
