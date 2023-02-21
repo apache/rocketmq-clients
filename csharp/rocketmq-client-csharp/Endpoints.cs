@@ -24,6 +24,10 @@ namespace Org.Apache.Rocketmq
 {
     public class Endpoints : IEquatable<Endpoints>
     {
+        private const string HttpPrefix = "http://";
+        private const string HttpsPrefix = "https://";
+        private const int DefaultPort = 80;
+
         private static readonly AddressListEqualityComparer AddressListComparer = new();
         private const string EndpointSeparator = ":";
         private List<Address> Addresses { get; }
@@ -72,16 +76,43 @@ namespace Org.Apache.Rocketmq
             }
         }
 
+        // TODO: Multiple addresses has not been supported yet.
         public Endpoints(string endpoints)
         {
-            // TODO
-            var strs = endpoints.Split(EndpointSeparator);
+            if (endpoints.StartsWith(HttpPrefix))
+            {
+                endpoints = endpoints[HttpPrefix.Length..];
+            }
+
+            if (endpoints.StartsWith(HttpsPrefix))
+            {
+                endpoints = endpoints[HttpsPrefix.Length..];
+            }
+
+            var index = endpoints.IndexOf(EndpointSeparator, StringComparison.Ordinal);
+            var port = index > 0 ? int.Parse(endpoints[(1 + index)..]) : DefaultPort;
+            var host = index > 0 ? endpoints.Substring(0, index) : endpoints;
+
+            var uriHostNameType = Uri.CheckHostName(host);
             Scheme = AddressScheme.DomainName;
-            string host = strs[0];
-            int port = int.Parse(strs[1]);
-            Address address = new Address(host, port);
-            var addresses = new List<Address>();
-            addresses.Add(address);
+            switch (uriHostNameType)
+            {
+                case UriHostNameType.IPv4:
+                    Scheme = AddressScheme.Ipv4;
+                    break;
+                case UriHostNameType.IPv6:
+                    Scheme = AddressScheme.Ipv6;
+                    break;
+                case UriHostNameType.Dns:
+                case UriHostNameType.Basic:
+                case UriHostNameType.Unknown:
+                default:
+                    Scheme = AddressScheme.DomainName;
+                    break;
+            }
+
+            var address = new Address(host, port);
+            var addresses = new List<Address> { address };
             Addresses = addresses;
         }
 
@@ -90,22 +121,20 @@ namespace Org.Apache.Rocketmq
             return GrpcTarget;
         }
 
+        // TODO: Support non-TLS and multiple addresses.
         public string GrpcTarget
         {
-            // TODO
             get
             {
                 foreach (var address in Addresses)
                 {
-                    var target = "https://" + address.Host + ":" + address.Port;
-                    // Console.WriteLine(target);
-                    return "https://" + address.Host + ":" + address.Port;
+                    return HttpsPrefix + address.Host + EndpointSeparator + address.Port;
                 }
 
                 return "";
             }
         }
-        
+
         public bool Equals(Endpoints other)
         {
             if (ReferenceEquals(null, other))
