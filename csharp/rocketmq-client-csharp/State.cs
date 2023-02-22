@@ -19,6 +19,11 @@ namespace Org.Apache.Rocketmq
 {
     public enum State
     {
-        
+        New,
+        Starting,
+        Running,
+        Stopping,
+        Terminated,
+        Failed
     }
 }

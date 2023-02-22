@@ -73,16 +73,36 @@ namespace Org.Apache.Rocketmq
 
         public override async Task Start()
         {
-            Logger.Info($"Begin to start the rocketmq producer, clientId={ClientId}");
-            await base.Start();
-            Logger.Info($"The rocketmq producer starts successfully, clientId={ClientId}");
+            try
+            {
+                State = State.Starting;
+                Logger.Info($"Begin to start the rocketmq producer, clientId={ClientId}");
+                await base.Start();
+                Logger.Info($"The rocketmq producer starts successfully, clientId={ClientId}");
+                State = State.Running;
+            }
+            catch (Exception)
+            {
+                State = State.Failed;
+                throw;
+            }
         }
 
         public override async Task Shutdown()
         {
-            Logger.Info($"Begin to shutdown the rocketmq producer, clientId={ClientId}");
-            await base.Shutdown();
-            Logger.Info($"Shutdown the rocketmq producer successfully, clientId={ClientId}");
+            try
+            {
+                State = State.Stopping;
+                Logger.Info($"Begin to shutdown the rocketmq producer, clientId={ClientId}");
+                await base.Shutdown();
+                Logger.Info($"Shutdown the rocketmq producer successfully, clientId={ClientId}");
+                State = State.Terminated;
+            }
+            catch (Exception)
+            {
+                State = State.Failed;
+                throw;
+            }
         }
 
         protected override Proto::HeartbeatRequest WrapHeartbeatRequest()
@@ -165,7 +185,7 @@ namespace Org.Apache.Rocketmq
 
         public async Task<SendReceipt> Send(Message message, ITransaction transaction)
         {
-            var tx = (Transaction) transaction;
+            var tx = (Transaction)transaction;
             var publishingMessage = tx.TryAddMessage(message);
             var sendReceipt = await Send(message, true);
             tx.TryAddReceipt(publishingMessage, sendReceipt);
