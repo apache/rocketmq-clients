@@ -31,7 +31,7 @@ namespace Org.Apache.Rocketmq
             var statusCode = status.Code;
 
             var statusMessage = status.Message;
-            // TODO
+            // TODO: add request-id.
             switch (statusCode)
             {
                 case Proto.Code.Ok:
@@ -95,6 +95,12 @@ namespace Org.Apache.Rocketmq
                 case Proto.Code.VersionUnsupported:
                 case Proto.Code.VerifyFifoMessageUnsupported:
                     throw new UnsupportedException((int)statusCode, statusMessage);
+                // Not used code.
+                case Proto.Code.RequestTimeout:
+                case Proto.Code.PreconditionFailed:
+                case Proto.Code.NotImplemented:
+                case Proto.Code.FailedToConsumeMessage:
+                case Proto.Code.Unspecified:
                 default:
                     Logger.Warn($"Unrecognized status code={statusCode}, statusMessage={statusMessage}");
                     throw new UnsupportedException((int)statusCode, statusMessage);
