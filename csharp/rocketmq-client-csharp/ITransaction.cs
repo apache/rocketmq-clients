@@ -19,8 +19,8 @@ namespace Org.Apache.Rocketmq
 {
     public interface ITransaction
     {
-        void commit();
+        void Commit();
 
-        void rollback();
+        void Rollback();
     }
 }
