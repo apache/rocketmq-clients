@@ -179,12 +179,20 @@ namespace Org.Apache.Rocketmq
 
         public async Task<SendReceipt> Send(Message message)
         {
+            if (State.Running != State)
+            {
+                throw new InvalidOperationException("Producer is not running");
+            }
             var sendReceipt = await Send(message, false);
             return sendReceipt;
         }
 
         public async Task<SendReceipt> Send(Message message, ITransaction transaction)
         {
+            if (State.Running != State)
+            {
+                throw new InvalidOperationException("Producer is not running");
+            }
             var tx = (Transaction)transaction;
             var publishingMessage = tx.TryAddMessage(message);
             var sendReceipt = await Send(message, true);
@@ -223,8 +231,9 @@ namespace Org.Apache.Rocketmq
                 var sendReceipt = sendReceipts.First();
                 if (attempt > 1)
                 {
-                    Logger.Info($"Re-send message successfully, topic={message.Topic}, messageId={sendReceipt.MessageId}," +
-                                $" maxAttempts={maxAttempts}, endpoints={endpoints}, clientId={ClientId}");
+                    Logger.Info(
+                        $"Re-send message successfully, topic={message.Topic}, messageId={sendReceipt.MessageId}," +
+                        $" maxAttempts={maxAttempts}, endpoints={endpoints}, clientId={ClientId}");
                 }
 
                 return sendReceipt;

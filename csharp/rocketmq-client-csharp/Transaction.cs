@@ -90,8 +90,13 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        public async void commit()
+        public async void Commit()
         {
+            if (State.Running != _producer.State)
+            {
+                throw new InvalidOperationException("Producer is not running");
+            }
+            
             if (_messageSendReceiptDict.IsEmpty)
             {
                 throw new ArgumentException("Transactional message has not been sent yet");
@@ -104,8 +109,13 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        public async void rollback()
+        public async void Rollback()
         {
+            if (State.Running != _producer.State)
+            {
+                throw new InvalidOperationException("Producer is not running");
+            }
+            
             if (_messageSendReceiptDict.IsEmpty)
             {
                 throw new ArgumentException("Transaction message has not been sent yet");

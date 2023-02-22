@@ -58,7 +58,7 @@ namespace Org.Apache.Rocketmq
         private readonly Dictionary<Endpoints, Session> _sessionsTable;
         private readonly ReaderWriterLockSlim _sessionLock;
 
-        protected volatile State State;
+        internal volatile State State;
 
         protected Client(ClientConfig clientConfig)
         {

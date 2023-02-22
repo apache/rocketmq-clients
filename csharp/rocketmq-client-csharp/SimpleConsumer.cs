@@ -157,6 +157,11 @@ namespace Org.Apache.Rocketmq
 
         public async Task<List<MessageView>> Receive(int maxMessageNum, TimeSpan invisibleDuration)
         {
+            if (State.Running != State)
+            {
+                throw new InvalidOperationException("Simple consumer is not running");
+            }
+
             if (maxMessageNum <= 0)
             {
                 throw new InternalErrorException("maxMessageNum must be greater than 0");
@@ -182,6 +187,11 @@ namespace Org.Apache.Rocketmq
 
         public async void ChangeInvisibleDuration(MessageView messageView, TimeSpan invisibleDuration)
         {
+            if (State.Running != State)
+            {
+                throw new InvalidOperationException("Simple consumer is not running");
+            }
+
             var request = WrapChangeInvisibleDuration(messageView, invisibleDuration);
             var response = await ClientManager.ChangeInvisibleDuration(messageView.MessageQueue.Broker.Endpoints,
                 request, ClientConfig.RequestTimeout);
@@ -191,6 +201,11 @@ namespace Org.Apache.Rocketmq
 
         public async Task Ack(MessageView messageView)
         {
+            if (State.Running != State)
+            {
+                throw new InvalidOperationException("Simple consumer is not running");
+            }
+
             var request = WrapAckMessageRequest(messageView);
             var response = await ClientManager.AckMessage(messageView.MessageQueue.Broker.Endpoints, request,
                 ClientConfig.RequestTimeout);
