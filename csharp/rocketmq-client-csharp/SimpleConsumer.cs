@@ -55,30 +55,59 @@ namespace Org.Apache.Rocketmq
 
         public async Task Subscribe(string topic, FilterExpression filterExpression)
         {
-            // TODO: check running status.
+            if (State.Running != State)
+            {
+                throw new InvalidOperationException("Simple consumer is not running");
+            }
+
             await GetSubscriptionLoadBalancer(topic);
             _subscriptionExpressions.TryAdd(topic, filterExpression);
         }
 
         public void Unsubscribe(string topic)
         {
+            if (State.Running != State)
+            {
+                throw new InvalidOperationException("Simple consumer is not running");
+            }
+
             _subscriptionExpressions.TryRemove(topic, out _);
         }
 
         public override async Task Start()
         {
-            Logger.Info($"Begin to start the rocketmq simple consumer, clientId={ClientId}");
-            await base.Start();
-            Logger.Info($"The rocketmq simple consumer starts successfully, clientId={ClientId}");
+            try
+            {
+                State = State.Starting;
+                Logger.Info($"Begin to start the rocketmq simple consumer, clientId={ClientId}");
+                await base.Start();
+                Logger.Info($"The rocketmq simple consumer starts successfully, clientId={ClientId}");
+                State = State.Running;
+            }
+            catch (Exception)
+            {
+                State = State.Failed;
+                throw;
+            }
         }
 
         public override async Task Shutdown()
         {
-            Logger.Info($"Begin to shutdown the rocketmq simple consumer, clientId={ClientId}");
-            await base.Shutdown();
-            Logger.Info($"The rocketmq simple consumer starts successfully, clientId={ClientId}");
+            try
+            {
+                State = State.Stopping;
+                Logger.Info($"Begin to shutdown the rocketmq simple consumer, clientId={ClientId}");
+                await base.Shutdown();
+                Logger.Info($"The rocketmq simple consumer starts successfully, clientId={ClientId}");
+                State = State.Terminated;
+            }
+            catch (Exception)
+            {
+                State = State.Failed;
+                throw;
+            }
         }
-        
+
         protected override IEnumerable<string> GetTopics()
         {
             return _subscriptionExpressions.Keys;

@@ -58,6 +58,8 @@ namespace Org.Apache.Rocketmq
         private readonly Dictionary<Endpoints, Session> _sessionsTable;
         private readonly ReaderWriterLockSlim _sessionLock;
 
+        protected volatile State State;
+
         protected Client(ClientConfig clientConfig)
         {
             ClientConfig = clientConfig;
@@ -75,6 +77,8 @@ namespace Org.Apache.Rocketmq
 
             _sessionsTable = new Dictionary<Endpoints, Session>();
             _sessionLock = new ReaderWriterLockSlim();
+
+            State = State.New;
         }
 
         public virtual async Task Start()
