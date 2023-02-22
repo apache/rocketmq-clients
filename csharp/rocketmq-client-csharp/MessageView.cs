@@ -36,7 +36,7 @@ namespace Org.Apache.Rocketmq
         private readonly long _offset;
         private readonly bool _corrupted;
 
-        internal MessageView(string messageId, string topic, byte[] body, string tag, string messageGroup,
+        private MessageView(string messageId, string topic, byte[] body, string tag, string messageGroup,
             DateTime? deliveryTimestamp, List<string> keys, Dictionary<string, string> properties, string bornHost,
             DateTime bornTime, int deliveryAttempt, MessageQueue messageQueue, string receiptHandle, long offset,
             bool corrupted)
