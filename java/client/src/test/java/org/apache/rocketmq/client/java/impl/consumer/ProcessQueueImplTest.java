@@ -134,7 +134,7 @@ public class ProcessQueueImplTest extends TestBase {
         when(pushSubscriptionSettings.getReceiveBatchSize()).thenReturn(32);
         ReceiveMessageRequest request = ReceiveMessageRequest.newBuilder().build();
         when(pushConsumer.wrapReceiveMessageRequest(anyInt(), any(MessageQueueImpl.class),
-            any(FilterExpression.class))).thenReturn(request);
+            any(FilterExpression.class), any(Duration.class))).thenReturn(request);
         processQueue.fetchMessageImmediately();
         await().atMost(Duration.ofSeconds(3))
             .untilAsserted(() -> verify(pushConsumer, times(cachedMessagesCountThresholdPerQueue))

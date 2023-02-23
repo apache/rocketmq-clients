@@ -219,7 +219,9 @@ class ProcessQueueImpl implements ProcessQueue {
         try {
             final Endpoints endpoints = mq.getBroker().getEndpoints();
             final int batchSize = this.getReceptionBatchSize();
-            final ReceiveMessageRequest request = consumer.wrapReceiveMessageRequest(batchSize, mq, filterExpression);
+            final Duration longPollingTimeout = consumer.getPushConsumerSettings().getLongPollingTimeout();
+            final ReceiveMessageRequest request = consumer.wrapReceiveMessageRequest(batchSize, mq, filterExpression,
+                longPollingTimeout);
             activityNanoTime = System.nanoTime();
 
             // Intercept before message reception.
@@ -227,7 +229,7 @@ class ProcessQueueImpl implements ProcessQueue {
             consumer.doBefore(context, Collections.emptyList());
 
             final ListenableFuture<ReceiveMessageResult> future = consumer.receiveMessage(request, mq,
-                consumer.getPushConsumerSettings().getLongPollingTimeout());
+                longPollingTimeout);
             Futures.addCallback(future, new FutureCallback<ReceiveMessageResult>() {
                 @Override
                 public void onSuccess(ReceiveMessageResult result) {
