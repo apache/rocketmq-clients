@@ -19,18 +19,21 @@ using System;
 using System.Collections.Concurrent;
 using System.Linq;
 using Google.Protobuf.WellKnownTypes;
+using NLog;
 using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
     public class PublishingSettings : Settings
     {
+        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+
         private volatile int _maxBodySizeBytes = 4 * 1024 * 1024;
         private volatile bool _validateMessageType = true;
 
         public PublishingSettings(string clientId, Endpoints endpoints, ExponentialBackoffRetryPolicy retryPolicy,
-            TimeSpan requestTimeout, ConcurrentDictionary<string, bool> topics) : base(clientId, ClientType.Producer, endpoints,
-            retryPolicy, requestTimeout)
+            TimeSpan requestTimeout, ConcurrentDictionary<string, bool> topics) : base(clientId, ClientType.Producer,
+            endpoints, retryPolicy, requestTimeout)
         {
             Topics = topics;
         }
@@ -49,7 +52,16 @@ namespace Org.Apache.Rocketmq
 
         public override void Sync(Proto::Settings settings)
         {
-            // TODO
+            if (Proto.Settings.PubSubOneofCase.Publishing != settings.PubSubCase)
+            {
+                Logger.Error($"[Bug] Issued settings does not match with the client type, clientId={ClientId}, " +
+                             $"pubSubCase={settings.PubSubCase}, clientType={ClientType}");
+                return;
+            }
+
+            RetryPolicy = RetryPolicy.InheritBackoff(settings.BackoffPolicy);
+            _validateMessageType = settings.Publishing.ValidateMessageType;
+            _maxBodySizeBytes = settings.Publishing.MaxBodySize;
         }
 
         public override Proto.Settings ToProtobuf()
