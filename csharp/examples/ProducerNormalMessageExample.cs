@@ -30,12 +30,12 @@ namespace examples
 
         internal static async Task QuickStart()
         {
-            const string accessKey = "5jFk0wK7OU6Uq395";
-            const string secretKey = "V1u8z19URHs4o6RQ";
+            const string accessKey = "yourAccessKey";
+            const string secretKey = "yourSecretKey";
 
             // Credential provider is optional for client configuration.
             var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
-            const string endpoints = "rmq-cn-7mz30qjc71a.cn-hangzhou.rmq.aliyuncs.com:8080";
+            const string endpoints = "foobar.com:8080";
             var clientConfig = new ClientConfig(endpoints)
             {
                 CredentialsProvider = credentialsProvider
@@ -43,7 +43,7 @@ namespace examples
             // In most case, you don't need to create too many producers, single pattern is recommended.
             var producer = new Producer(clientConfig);
 
-            const string topic = "lingchu_normal_topic";
+            const string topic = "yourNormalTopic";
             producer.SetTopics(topic);
             // Set the topic name(s), which is optional but recommended. It makes producer could prefetch
             // the topic route before message publishing.

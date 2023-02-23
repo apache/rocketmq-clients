@@ -17,6 +17,7 @@
 
 using System;
 using Apache.Rocketmq.V2;
+using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
@@ -43,5 +44,7 @@ namespace Org.Apache.Rocketmq
         /// </summary>
         /// <returns></returns>
         RetryPolicy ToProtobuf();
+
+        IRetryPolicy InheritBackoff(Proto.RetryPolicy retryPolicy);
     }
 }

@@ -41,7 +41,7 @@ namespace examples
             const string secretKey = "yourSecretKey";
             // Credential provider is optional for client configuration.
             var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
-            const string endpoints = "rmq-cn-7mz30qjc71a.cn-hangzhou.rmq.aliyuncs.com:8080";
+            const string endpoints = "foobar.com:8080";
             var clientConfig = new ClientConfig(endpoints)
             {
                 CredentialsProvider = credentialsProvider
@@ -49,7 +49,7 @@ namespace examples
             // In most case, you don't need to create too many producers, single pattern is recommended.
             var producer = new Producer(clientConfig);
 
-            const string topic = "lingchu_transactional_topic";
+            const string topic = "yourTransactionTopic";
             producer.SetTopics(topic);
             producer.SetTransactionChecker(new TransactionChecker());
 

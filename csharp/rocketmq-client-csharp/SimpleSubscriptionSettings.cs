@@ -44,7 +44,11 @@ namespace Org.Apache.Rocketmq
 
         public override void Sync(Proto::Settings settings)
         {
-            // TODO
+            if (Proto.Settings.PubSubOneofCase.Subscription != settings.PubSubCase)
+            {
+                Logger.Error($"[Bug] Issued settings doesn't match with the client type, clientId={ClientId}, " +
+                             $"pubSubCase={settings.PubSubCase}, clientType={ClientType}");
+            }
         }
 
         public override Proto.Settings ToProtobuf()
