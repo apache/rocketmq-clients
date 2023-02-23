@@ -242,17 +242,19 @@ abstract class ConsumerImpl extends ClientImpl {
     }
 
     ReceiveMessageRequest wrapReceiveMessageRequest(int batchSize, MessageQueueImpl mq,
-        FilterExpression filterExpression) {
+        FilterExpression filterExpression, Duration longPollingTimeout) {
         return ReceiveMessageRequest.newBuilder().setGroup(getProtobufGroup())
             .setMessageQueue(mq.toProtobuf()).setFilterExpression(wrapFilterExpression(filterExpression))
+            .setLongPollingTimeout(Durations.fromNanos(longPollingTimeout.toNanos()))
             .setBatchSize(batchSize).setAutoRenew(true).build();
     }
 
     ReceiveMessageRequest wrapReceiveMessageRequest(int batchSize, MessageQueueImpl mq,
-        FilterExpression filterExpression, Duration invisibleDuration) {
+        FilterExpression filterExpression, Duration invisibleDuration, Duration longPollingTimeout) {
         final com.google.protobuf.Duration duration = Durations.fromNanos(invisibleDuration.toNanos());
         return ReceiveMessageRequest.newBuilder().setGroup(getProtobufGroup())
             .setMessageQueue(mq.toProtobuf()).setFilterExpression(wrapFilterExpression(filterExpression))
+            .setLongPollingTimeout(Durations.fromNanos(longPollingTimeout.toNanos()))
             .setBatchSize(batchSize).setAutoRenew(false).setInvisibleDuration(duration).build();
     }
 }

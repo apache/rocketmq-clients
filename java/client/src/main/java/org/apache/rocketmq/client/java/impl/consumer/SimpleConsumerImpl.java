@@ -202,7 +202,7 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
         final ListenableFuture<ReceiveMessageResult> future0 = Futures.transformAsync(routeFuture, result -> {
             final MessageQueueImpl mq = result.takeMessageQueue();
             final ReceiveMessageRequest request = wrapReceiveMessageRequest(maxMessageNum, mq, filterExpression,
-                invisibleDuration);
+                invisibleDuration, awaitDuration);
             return receiveMessage(request, mq, awaitDuration);
         }, MoreExecutors.directExecutor());
         return Futures.transformAsync(future0, result -> Futures.immediateFuture(result.getMessageViews()),
