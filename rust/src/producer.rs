@@ -27,7 +27,7 @@ struct Producer {
 }
 
 impl Producer {
-    pub async fn send(&self, message: &models::MessageImpl) -> Result<SendMessageResponse, ClientError> {
+    pub async fn send(&self, message: &models::message::MessageImpl) -> Result<SendMessageResponse, ClientError> {
         self.client.send(message).await
     }
 }
@@ -64,7 +64,7 @@ mod tests {
         let tag = "TagA";
         let mut keys = Vec::new();
         keys.push(String::from("key1"));
-        let message = models::MessageImpl::new("TopicTest", tag, keys, "hello world");
+        let message = models::message::MessageImpl::new("TopicTest", tag, keys, "hello world");
 
         match _producer.send(&message).await {
             Ok(r) => {

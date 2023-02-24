@@ -17,7 +17,6 @@
 use crate::command;
 use crate::error;
 use crate::models;
-use crate::models::generateMessageId;
 use crate::pb::{self, QueryRouteRequest, Resource, SendMessageRequest, SendMessageResponse, SystemProperties};
 use crate::{error::ClientError, pb::messaging_service_client::MessagingServiceClient};
 use parking_lot::Mutex;
@@ -33,6 +32,7 @@ use prost_types::Timestamp;
 use tokio::sync::oneshot;
 use tonic::Request;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig};
+use models::message_id::UNIQ_ID_GENERATOR;
 
 #[derive(Debug, Clone)]
 struct Session {
@@ -115,7 +115,7 @@ struct SessionManager {
 impl SessionManager {
     async fn send(
         &self,
-        message: &models::MessageImpl,
+        message: &models::message::MessageImpl,
         client: Weak<&Client>,
     ) -> Result<SendMessageResponse, ClientError> {
         let client = match client.upgrade() {
@@ -148,7 +148,7 @@ impl SessionManager {
             system_properties: Option::from(pb::SystemProperties {
                 tag: Option::from(message.tags.clone()),
                 keys: message.keys.clone(),
-                message_id: generateMessageId(),
+                message_id: UNIQ_ID_GENERATOR.lock().generate(),
                 body_digest: None,
                 body_encoding: 0,
                 message_type: pb::MessageType::Normal as i32,
@@ -380,7 +380,7 @@ pub(crate) struct Client {
 }
 
 impl Client {
-    pub async fn send(&self, message: &models::MessageImpl) -> Result<SendMessageResponse, ClientError> {
+    pub async fn send(&self, message: &models::message::MessageImpl) -> Result<SendMessageResponse, ClientError> {
         let client = Arc::new(*&self);
         let client_weak = Arc::downgrade(&client);
         match self.session_manager.send(message, client_weak).await {
