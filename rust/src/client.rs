@@ -17,6 +17,7 @@
 use crate::command;
 use crate::error;
 use crate::models;
+use crate::models::generateMessageId;
 use crate::pb::{self, QueryRouteRequest, Resource, SendMessageRequest, SendMessageResponse, SystemProperties};
 use crate::{error::ClientError, pb::messaging_service_client::MessagingServiceClient};
 use parking_lot::Mutex;
@@ -147,7 +148,7 @@ impl SessionManager {
             system_properties: Option::from(pb::SystemProperties {
                 tag: Option::from(message.tags.clone()),
                 keys: message.keys.clone(),
-                message_id: "123".to_string(),
+                message_id: generateMessageId(),
                 body_digest: None,
                 body_encoding: 0,
                 message_type: pb::MessageType::Normal as i32,
@@ -191,11 +192,12 @@ impl SessionManager {
         let (tx1, rx1) = oneshot::channel();
 
         let messageQueue = curr.messageQueueImpls.get(curr.index);
-        let broker = &messageQueue.unwrap().broker;
-        let peer = broker.clone().unwrap().endpoints.unwrap();
-        let address = peer.addresses;
-        let host = &address.clone()[0].host;
-        let port = address.clone()[0].port;
+        let broker = messageQueue.and_then(|mq| mq.broker.clone());
+        let peer = broker.and_then(|br|br.endpoints);
+        let mut address = peer.unwrap().addresses;
+        let addressPop = address.pop().unwrap();
+        let host = addressPop.host;
+        let port = addressPop.port;
         let s = format!("http://{}:{}", host, port);
         let command = command::Command::Send {
             peer: s,

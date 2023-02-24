@@ -32,6 +32,10 @@ parking_lot = "0.12"
 hmac = "0.12"
 hostname = "0.3.1"
 tokio-rustls = {version = "0.23", features = ["default", "dangerous_configuration"] }
+byteorder = "1"
+mac_address = "1.1.4"
+hex = "0.4.3"
+time = "0.3.19"
 
 [build-dependencies]
 tonic-build = "0.7"
