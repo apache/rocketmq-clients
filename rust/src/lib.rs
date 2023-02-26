@@ -26,3 +26,5 @@ mod client;
 mod producer;
 
 pub mod models;
+
+mod selector;

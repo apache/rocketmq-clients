@@ -33,6 +33,7 @@ use tokio::sync::oneshot;
 use tonic::Request;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig};
 use models::message_id::UNIQ_ID_GENERATOR;
+use crate::selector::{QueueSelect, QueueSelector};
 
 #[derive(Debug, Clone)]
 struct Session {
@@ -110,6 +111,7 @@ impl Session {
 struct SessionManager {
     logger: Logger,
     tx: tokio::sync::mpsc::Sender<command::Command>,
+    selector: QueueSelector,
 }
 
 impl SessionManager {
@@ -180,7 +182,6 @@ impl SessionManager {
         match rxx {
             RouteStatus::Found(route) => {
                 curr = Route {
-                    index: route.index,
                     messageQueueImpls: route.messageQueueImpls.clone(),
                 };
             }
@@ -191,9 +192,10 @@ impl SessionManager {
 
         let (tx1, rx1) = oneshot::channel();
 
-        let messageQueue = curr.messageQueueImpls.get(curr.index);
+        let messageQueue = self.selector.select(request.get_ref().messages.get(0).unwrap(), curr.messageQueueImpls);
+
         let broker = messageQueue.and_then(|mq| mq.broker.clone());
-        let peer = broker.and_then(|br|br.endpoints);
+        let peer = broker.and_then(|br| br.endpoints);
         let mut address = peer.unwrap().addresses;
         let addressPop = address.pop().unwrap();
         let host = addressPop.host;
@@ -303,7 +305,7 @@ impl SessionManager {
             }
         });
 
-        SessionManager { logger, tx }
+        SessionManager { logger, tx,selector: QueueSelector::default()}
     }
 
     async fn route(
@@ -346,7 +348,6 @@ impl SessionManager {
 
         match rx1.await {
             Ok(result) => result.map(|_response| Route {
-                index: 0,
                 messageQueueImpls: _response.into_inner().message_queues,
             }),
             Err(e) => {
@@ -359,7 +360,6 @@ impl SessionManager {
 
 #[derive(Debug)]
 pub(crate) struct Route {
-    index: usize,
     messageQueueImpls: Vec<pb::MessageQueue>,
 }
 
