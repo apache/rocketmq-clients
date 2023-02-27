@@ -16,6 +16,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Text;
 using grpc = Grpc.Core;
 using System.Security.Cryptography;
@@ -26,23 +27,33 @@ namespace Org.Apache.Rocketmq
     {
         public static void Sign(IClient client, grpc::Metadata metadata)
         {
+            var headers = Sign(client);
+            foreach (var (key, value) in headers)
+            {
+                metadata.Add(key, value);
+            }
+        }
+
+        public static Dictionary<string, string> Sign(IClient client)
+        {
+            Dictionary<string, string> dictionary = new Dictionary<string, string>();
             var clientConfig = client.GetClientConfig();
-            metadata.Add(MetadataConstants.LanguageKey, MetadataConstants.LanguageValue);
-            metadata.Add(MetadataConstants.ClientVersionKey, MetadataConstants.Instance.ClientVersion);
-            metadata.Add(MetadataConstants.ClientIdKey, client.GetClientId());
+            dictionary.Add(MetadataConstants.LanguageKey, MetadataConstants.LanguageValue);
+            dictionary.Add(MetadataConstants.ClientVersionKey, MetadataConstants.Instance.ClientVersion);
+            dictionary.Add(MetadataConstants.ClientIdKey, client.GetClientId());
 
             var time = DateTime.Now.ToString(MetadataConstants.DateTimeFormat);
-            metadata.Add(MetadataConstants.DateTimeKey, time);
+            dictionary.Add(MetadataConstants.DateTimeKey, time);
 
             var credentials = clientConfig.CredentialsProvider?.Credentials;
             if (credentials == null || credentials.expired())
             {
-                return;
+                return dictionary;
             }
 
             if (!string.IsNullOrEmpty(credentials.SessionToken))
             {
-                metadata.Add(MetadataConstants.SessionTokenKey, credentials.SessionToken);
+                dictionary.Add(MetadataConstants.SessionTokenKey, credentials.SessionToken);
             }
 
             var secretData = Encoding.ASCII.GetBytes(credentials.AccessSecret);
@@ -54,7 +65,8 @@ namespace Org.Apache.Rocketmq
                                 $"{MetadataConstants.CredentialKey}={credentials.AccessKey}, " +
                                 $"{MetadataConstants.SignedHeadersKey}={MetadataConstants.DateTimeKey}, " +
                                 $"{MetadataConstants.SignatureKey}={hmac}";
-            metadata.Add(MetadataConstants.Authorization, authorization);
+            dictionary.Add(MetadataConstants.Authorization, authorization);
+            return dictionary;
         }
     }
 }

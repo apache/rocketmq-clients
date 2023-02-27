@@ -59,12 +59,14 @@ namespace Org.Apache.Rocketmq
          * See https://docs.microsoft.com/en-us/aspnet/core/grpc/performance?view=aspnetcore-6.0 for performance consideration and
          * why parameters are configured this way.
          */
-        private HttpMessageHandler CreateHttpHandler()
+        internal static HttpMessageHandler CreateHttpHandler()
         {
-            var sslOptions = new SslClientAuthenticationOptions();
-            // Disable server certificate validation during development phase.
-            // Comment out the following line if server certificate validation is required. 
-            sslOptions.RemoteCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => { return true; };
+            var sslOptions = new SslClientAuthenticationOptions
+            {
+                // Comment out the following line if server certificate validation is required. 
+                // Disable server certificate validation during development phase.
+                RemoteCertificateValidationCallback = (_, _, _, _) => true
+            };
             var handler = new SocketsHttpHandler
             {
                 PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan,

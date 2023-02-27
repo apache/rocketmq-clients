@@ -18,6 +18,8 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Threading.Tasks;
 using Proto = Apache.Rocketmq.V2;
@@ -32,6 +34,8 @@ namespace Org.Apache.Rocketmq
         internal readonly PublishingSettings PublishingSettings;
         private readonly ConcurrentDictionary<string, bool> _publishingTopics;
         private ITransactionChecker _checker = null;
+
+        private readonly Histogram<double> _sendCostTimeHistogram;
 
         public Producer(ClientConfig clientConfig) : this(clientConfig, new ConcurrentDictionary<string, bool>(), 3)
         {
@@ -51,6 +55,8 @@ namespace Org.Apache.Rocketmq
                 clientConfig.RequestTimeout, publishingTopics);
             _publishingRouteDataCache = new ConcurrentDictionary<string, PublishingLoadBalancer>();
             _publishingTopics = publishingTopics;
+            _sendCostTimeHistogram =
+                ClientMeterManager.Meter.CreateHistogram<double>(MetricConstant.SendCostTimeMetricName, "milliseconds");
         }
 
         public void SetTopics(params string[] topics)
@@ -163,6 +169,7 @@ namespace Org.Apache.Rocketmq
             Exception exception = null;
             for (var attempt = 1; attempt <= maxAttempts; attempt++)
             {
+                var stopwatch = Stopwatch.StartNew();
                 try
                 {
                     var sendReceipt = await Send0(publishingMessage, candidates, attempt, maxAttempts);
@@ -171,6 +178,15 @@ namespace Org.Apache.Rocketmq
                 catch (Exception e)
                 {
                     exception = e;
+                }
+                finally
+                {
+                    var elapsed = stopwatch.Elapsed.Milliseconds;
+                    _sendCostTimeHistogram.Record(elapsed,
+                        new KeyValuePair<string, object>(MetricConstant.Topic, message.Topic),
+                        new KeyValuePair<string, object>(MetricConstant.ClientId, ClientId),
+                        new KeyValuePair<string, object>(MetricConstant.InvocationStatus,
+                            null == exception ? MetricConstant.True : MetricConstant.False));
                 }
             }
 
@@ -183,6 +199,7 @@ namespace Org.Apache.Rocketmq
             {
                 throw new InvalidOperationException("Producer is not running");
             }
+
             var sendReceipt = await Send(message, false);
             return sendReceipt;
         }
@@ -193,6 +210,7 @@ namespace Org.Apache.Rocketmq
             {
                 throw new InvalidOperationException("Producer is not running");
             }
+
             var tx = (Transaction)transaction;
             var publishingMessage = tx.TryAddMessage(message);
             var sendReceipt = await Send(message, true);
