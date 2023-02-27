@@ -51,6 +51,7 @@ namespace Org.Apache.Rocketmq
         protected readonly Endpoints Endpoints;
         protected readonly IClientManager ClientManager;
         protected readonly string ClientId;
+        protected readonly ClientMeterManager ClientMeterManager;
 
         protected readonly ConcurrentDictionary<Endpoints, bool> Isolated;
         private readonly ConcurrentDictionary<string, TopicRouteData> _topicRouteCache;
@@ -65,6 +66,7 @@ namespace Org.Apache.Rocketmq
             ClientConfig = clientConfig;
             Endpoints = new Endpoints(clientConfig.Endpoints);
             ClientId = Utilities.GetClientId();
+            ClientMeterManager = new ClientMeterManager(this);
 
             ClientManager = new ClientManager(this);
             Isolated = new ConcurrentDictionary<Endpoints, bool>();
@@ -107,6 +109,7 @@ namespace Org.Apache.Rocketmq
             _statsCts.Cancel();
             NotifyClientTermination();
             await ClientManager.Shutdown();
+            ClientMeterManager.Shutdown();
             Logger.Debug($"Shutdown the rocketmq client successfully, clientId={ClientId}");
         }
 
@@ -482,6 +485,8 @@ namespace Org.Apache.Rocketmq
 
         public void OnSettingsCommand(Endpoints endpoints, Proto.Settings settings)
         {
+            var metric = new Metric(settings.Metric);
+            ClientMeterManager.Reset(metric);
             GetSettings().Sync(settings);
         }
     }
