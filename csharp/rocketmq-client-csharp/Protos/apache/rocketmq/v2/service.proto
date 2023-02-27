@@ -96,6 +96,7 @@ message ReceiveMessageRequest {
   optional google.protobuf.Duration invisible_duration = 5;
   // For message auto renew and clean
   bool auto_renew = 6;
+  optional google.protobuf.Duration long_polling_timeout = 7;
 }
 
 message ReceiveMessageResponse {

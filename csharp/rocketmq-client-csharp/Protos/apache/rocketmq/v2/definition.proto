@@ -266,6 +266,16 @@ message SystemProperties {
   // orphan. Servers that manages orphan messages would pick up
   // a capable publisher to resolve
   optional google.protobuf.Duration orphaned_transaction_recovery_duration = 19;
+
+  // Information to identify whether this message is from dead letter queue.
+  optional DeadLetterQueue dead_letter_queue = 20;
+}
+
+message DeadLetterQueue {
+  // Original topic for this DLQ message.
+  string topic = 1;
+  // Original message id for this DLQ message.
+  string message_id = 2;
 }
 
 message Message {

@@ -84,7 +84,7 @@ namespace Org.Apache.Rocketmq
         }
 
         protected Proto.ReceiveMessageRequest WrapReceiveMessageRequest(int batchSize, MessageQueue mq,
-            FilterExpression filterExpression, TimeSpan invisibleDuration)
+            FilterExpression filterExpression, TimeSpan awaitDuration, TimeSpan invisibleDuration)
         {
             var group = new Proto.Resource
             {
@@ -95,6 +95,7 @@ namespace Org.Apache.Rocketmq
                 Group = group,
                 MessageQueue = mq.ToProtobuf(),
                 FilterExpression = WrapFilterExpression(filterExpression),
+                LongPollingTimeout = Duration.FromTimeSpan(awaitDuration),
                 BatchSize = batchSize,
                 AutoRenew = false,
                 InvisibleDuration = Duration.FromTimeSpan(invisibleDuration)

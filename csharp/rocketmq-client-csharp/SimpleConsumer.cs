@@ -180,7 +180,8 @@ namespace Org.Apache.Rocketmq
             var subscriptionLoadBalancer = await GetSubscriptionLoadBalancer(topic);
 
             var mq = subscriptionLoadBalancer.TakeMessageQueue();
-            var request = WrapReceiveMessageRequest(maxMessageNum, mq, filterExpression, invisibleDuration);
+            var request =
+                WrapReceiveMessageRequest(maxMessageNum, mq, filterExpression, _awaitDuration, invisibleDuration);
             var receiveMessageResult = await ReceiveMessage(request, mq, _awaitDuration);
             return receiveMessageResult.Messages;
         }
