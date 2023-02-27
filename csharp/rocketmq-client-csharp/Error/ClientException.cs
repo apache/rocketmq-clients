@@ -37,7 +37,8 @@ namespace Org.Apache.Rocketmq.Error
         {
         }
 
-        protected ClientException(int responseCode, string message) : base()
+        protected ClientException(int responseCode, string message) : base(
+            $"[{ResponseCodeKey}={responseCode}] {message}")
         {
         }
     }
