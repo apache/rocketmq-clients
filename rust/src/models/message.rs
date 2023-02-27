@@ -15,24 +15,20 @@
  * limitations under the License.
  */
 
-use byteorder::WriteBytesExt;
-use mac_address::get_mac_address;
 use std::{
     collections::HashMap,
     io::Write,
     mem, process,
-    sync::Arc,
     sync::{atomic::AtomicUsize, Weak},
+    sync::Arc,
 };
-use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
-
 pub(crate) struct MessageImpl {
     pub(crate) keys: Vec<String>,
     pub(crate) body: Vec<u8>,
     pub(crate) topic: String,
     pub(crate) tags: String,
-    pub(crate) messageGroup: String,
-    pub(crate) deliveryTimestamp: i64,
+    pub(crate) message_group: String,
+    pub(crate) delivery_timestamp: i64,
     pub(crate) properties: HashMap<String, String>,
 }
 
@@ -43,8 +39,8 @@ impl MessageImpl {
             body: body.as_bytes().to_vec(),
             topic: topic.to_string(),
             tags: tags.to_string(),
-            messageGroup: "".to_string(),
-            deliveryTimestamp: 0,
+            message_group: "".to_string(),
+            delivery_timestamp: 0,
             properties: HashMap::new(),
         }
     }

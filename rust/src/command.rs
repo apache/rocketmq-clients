@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::client::Client;
-use crate::error::ClientError;
-use crate::pb::{QueryRouteRequest, QueryRouteResponse, SendMessageRequest, SendMessageResponse};
 use tokio::sync::oneshot;
 use tonic::{Request, Response};
+
+use crate::error::ClientError;
+use crate::pb::{QueryRouteRequest, QueryRouteResponse, SendMessageRequest, SendMessageResponse};
 
 pub(crate) enum Command {
     QueryRoute {

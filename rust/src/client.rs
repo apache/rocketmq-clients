@@ -14,25 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::command;
-use crate::error;
-use crate::models;
-use crate::pb::{self, QueryRouteRequest, Resource, SendMessageRequest, SendMessageResponse, SystemProperties};
-use crate::{error::ClientError, pb::messaging_service_client::MessagingServiceClient};
-use parking_lot::Mutex;
-use slog::info;
-use slog::{debug, error, o, warn, Logger};
 use std::{
     collections::HashMap,
-    sync::Arc,
     sync::{atomic::AtomicUsize, Weak},
+    sync::Arc,
 };
 use std::borrow::Borrow;
-use prost_types::Timestamp;
+
+use parking_lot::Mutex;
+use slog::{debug, error, Logger, o, warn};
+use slog::info;
 use tokio::sync::oneshot;
 use tonic::Request;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig};
-use models::message_id::UNIQ_ID_GENERATOR;
+use crate::{error::ClientError, pb::messaging_service_client::MessagingServiceClient};
+use crate::command;
+use crate::error;
+use crate::pb::{
+    self, QueryRouteRequest, Resource, SendMessageRequest, SendMessageResponse, SystemProperties,
+};
 use crate::selector::{QueueSelect, QueueSelector};
 
 #[derive(Debug, Clone)]
@@ -40,21 +40,6 @@ struct Session {
     stub: MessagingServiceClient<Channel>,
     logger: Logger,
 }
-
-impl Session {
-    pub(crate) async fn send(&mut self, request: Request<SendMessageRequest>) -> Result<tonic::Response<pb::SendMessageResponse>, error::ClientError> {
-        match self.stub.send_message(request).await {
-            Ok(response) => {
-                return Ok(response);
-            }
-            Err(e) => {
-                error!(self.logger, "QueryRoute failed. Cause: {:?}", e);
-                return Err(error::ClientError::ClientInternal);
-            }
-        }
-    }
-}
-
 impl Session {
     async fn new(endpoint: String, logger: &Logger) -> Result<Self, error::ClientError> {
         debug!(logger, "Creating session to {}", endpoint);
@@ -68,12 +53,11 @@ impl Session {
                 error::ClientError::Connect
             })?
             /*  .tls_config(tls)
-              .map_err(|e| {
-                  error!(logger, "Failed to configure TLS. Cause: {:?}", e);
-                  error::ClientError::Connect
-              })?
-
-             */
+             .map_err(|e| {
+                 error!(logger, "Failed to configure TLS. Cause: {:?}", e);
+                 error::ClientError::Connect
+             })?
+            */
             .connect_timeout(std::time::Duration::from_secs(3))
             .tcp_nodelay(true)
             .connect()
@@ -105,125 +89,27 @@ impl Session {
             }
         }
     }
-}
 
-#[derive(Debug)]
-struct SessionManager {
-    logger: Logger,
-    tx: tokio::sync::mpsc::Sender<command::Command>,
-    selector: QueueSelector,
-}
-
-impl SessionManager {
     async fn send(
-        &self,
-        message: &models::message::MessageImpl,
-        client: Weak<&Client>,
-    ) -> Result<SendMessageResponse, ClientError> {
-        let client = match client.upgrade() {
-            Some(client) => client,
-            None => {
-                return Err(error::ClientError::ClientInternal);
+        &mut self,
+        request: Request<SendMessageRequest>,
+    ) -> Result<tonic::Response<pb::SendMessageResponse>, error::ClientError> {
+        match self.stub.send_message(request).await {
+            Ok(response) => {
+                return Ok(response);
             }
-        };
-
-        let mut srequest = SendMessageRequest {
-            messages: vec![],
-        };
-
-
-        let mut delivery_timestamp = None;
-
-        if message.deliveryTimestamp != 0 {
-            delivery_timestamp = Option::from(Timestamp {
-                seconds: message.deliveryTimestamp,
-                nanos: 0,
-            })
-        }
-
-        srequest.messages.push(pb::Message {
-            topic: Some(Resource {
-                resource_namespace: "".to_string(),
-                name: message.topic.clone(),
-            }),
-            user_properties: Default::default(),
-            system_properties: Option::from(pb::SystemProperties {
-                tag: Option::from(message.tags.clone()),
-                keys: message.keys.clone(),
-                message_id: UNIQ_ID_GENERATOR.lock().generate(),
-                body_digest: None,
-                body_encoding: 0,
-                message_type: pb::MessageType::Normal as i32,
-                born_timestamp: None,
-                born_host: "".to_string(),
-                store_timestamp: None,
-                store_host: "".to_string(),
-                delivery_timestamp: delivery_timestamp,
-                receipt_handle: None,
-                queue_id: 0,
-                queue_offset: None,
-                invisible_duration: None,
-                delivery_attempt: None,
-                message_group: Option::from(message.messageGroup.clone()),
-                trace_context: None,
-                orphaned_transaction_recovery_duration: None,
-            }),
-            body: message.body.clone(),
-        });
-
-        let mut request = tonic::Request::new(srequest);
-        client.sign(request.metadata_mut());
-
-
-        // get route table
-        let guard = client.route_table.lock();
-        let rxx = guard.get(&message.topic).unwrap().clone();
-        let curr: Route;
-        match rxx {
-            RouteStatus::Found(route) => {
-                curr = Route {
-                    messageQueueImpls: route.messageQueueImpls.clone(),
-                };
-            }
-            _ => {
-                return Err(error::ClientError::ClientInternal);
-            }
-        }
-
-        let (tx1, rx1) = oneshot::channel();
-
-        let messageQueue = self.selector.select(request.get_ref().messages.get(0).unwrap(), curr.messageQueueImpls);
-
-        let broker = messageQueue.and_then(|mq| mq.broker.clone());
-        let peer = broker.and_then(|br| br.endpoints);
-        let mut address = peer.unwrap().addresses;
-        let addressPop = address.pop().unwrap();
-        let host = addressPop.host;
-        let port = addressPop.port;
-        let s = format!("http://{}:{}", host, port);
-        let command = command::Command::Send {
-            peer: s,
-            request,
-            tx: tx1,
-        };
-
-        match self.tx.send(command).await {
-            Ok(_) => {}
             Err(e) => {
-                error!(self.logger, "Failed to submit request");
-            }
-        }
-
-        match rx1.await {
-            Ok(result) => result.map(|_response| {
-                _response.into_inner()
-            }),
-            Err(e) => {
-                error!(self.logger, "oneshot channel error. Cause: {:?}", e);
-                Err(ClientError::ClientInternal)
+                error!(self.logger, "QueryRoute failed. Cause: {:?}", e);
+                return Err(error::ClientError::ClientInternal);
             }
         }
     }
+}
+
+#[derive(Debug)]
+pub(crate) struct SessionManager {
+    logger: Logger,
+    pub(crate) tx: tokio::sync::mpsc::Sender<command::Command>,
 }
 
 impl SessionManager {
@@ -305,7 +191,7 @@ impl SessionManager {
             }
         });
 
-        SessionManager { logger, tx,selector: QueueSelector::default()}
+        SessionManager { logger, tx }
     }
 
     async fn route(
@@ -348,7 +234,7 @@ impl SessionManager {
 
         match rx1.await {
             Ok(result) => result.map(|_response| Route {
-                messageQueueImpls: _response.into_inner().message_queues,
+                message_queue_impls: _response.into_inner().message_queues,
             }),
             Err(e) => {
                 error!(self.logger, "oneshot channel error. Cause: {:?}", e);
@@ -360,11 +246,19 @@ impl SessionManager {
 
 #[derive(Debug)]
 pub(crate) struct Route {
-    messageQueueImpls: Vec<pb::MessageQueue>,
+    pub(crate) message_queue_impls: Vec<pb::MessageQueue>,
+}
+
+impl Route {
+    pub(crate) fn new(message_queues: Vec<pb::MessageQueue>) -> Route {
+        Route {
+            message_queue_impls: message_queues,
+        }
+    }
 }
 
 #[derive(Debug)]
-enum RouteStatus {
+pub(crate) enum RouteStatus {
     Querying(Vec<oneshot::Sender<Result<Arc<Route>, error::ClientError>>>),
     Found(Arc<Route>),
 }
@@ -373,21 +267,10 @@ enum RouteStatus {
 pub(crate) struct Client {
     session_manager: SessionManager,
     logger: Logger,
-    route_table: Mutex<HashMap<String /* topic */, RouteStatus>>,
+    pub(crate) route_table: Mutex<HashMap<String /* topic */, RouteStatus>>,
     arn: String,
     id: String,
     access_point: pb::Endpoints,
-}
-
-impl Client {
-    pub async fn send(&self, message: &models::message::MessageImpl) -> Result<SendMessageResponse, ClientError> {
-        let client = Arc::new(*&self);
-        let client_weak = Arc::downgrade(&client);
-        match self.session_manager.send(message, client_weak).await {
-            Ok(response) => Ok(response),
-            Err(e) => Err(e),
-        }
-    }
 }
 
 static CLIENT_ID_SEQUENCE: AtomicUsize = AtomicUsize::new(0);
@@ -412,6 +295,11 @@ impl Client {
         )
     }
 
+    // return session manager
+    pub(crate) fn fetch_session_manager(&self) -> &SessionManager {
+        self.session_manager.borrow()
+    }
+
     pub(crate) fn new(
         logger: Logger,
         access_url: impl std::net::ToSocketAddrs,
@@ -421,15 +309,10 @@ impl Client {
             scheme: pb::AddressScheme::IPv4 as i32,
             addresses: vec![],
         };
-        for socket_addr in access_url
-            .to_socket_addrs()
-            .map_err(|e|
-                {
-                    error!(logger, "Failed to resolve access url. Cause: {:?}", e);
-                    error::ClientError::ClientInternal
-                }
-            )?
-        {
+        for socket_addr in access_url.to_socket_addrs().map_err(|e| {
+            error!(logger, "Failed to resolve access url. Cause: {:?}", e);
+            error::ClientError::ClientInternal
+        })? {
             if socket_addr.is_ipv4() {
                 access_point.scheme = pb::AddressScheme::IPv4 as i32;
             } else {
@@ -501,11 +384,7 @@ impl Client {
         let host = ad.host.clone();
         let port = ad.port.to_string();
         let s = format!("http://{}:{}", host, port);
-        match self
-            .session_manager
-            .route(&s, topic, client_weak)
-            .await
-        {
+        match self.session_manager.route(&s, topic, client_weak).await {
             Ok(route) => {
                 let route = Arc::new(route);
                 let prev = self
@@ -547,7 +426,7 @@ impl Client {
         }
     }
 
-    fn sign(&self, metadata: &mut tonic::metadata::MetadataMap) {
+    pub(crate) fn sign(&self, metadata: &mut tonic::metadata::MetadataMap) {
         let _ = tonic::metadata::AsciiMetadataValue::try_from(&self.id).and_then(|v| {
             metadata.insert("x-mq-client-id", v);
             Ok(())
@@ -570,8 +449,9 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use slog::Drain;
+
+    use super::*;
 
     #[test]
     fn test_client_id() {

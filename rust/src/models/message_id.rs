@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use byteorder::{BigEndian, WriteBytesExt};
+use once_cell::sync::Lazy;
+use parking_lot::Mutex;
 use std::io::Write;
 use std::process;
 use std::time::SystemTime;
-use byteorder::{BigEndian, WriteBytesExt};
-use parking_lot::Mutex;
-use once_cell::sync::Lazy;
 use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
 
 /**
@@ -91,7 +91,7 @@ pub struct UniqueIdGenerator {
 }
 
 impl UniqueIdGenerator {
-   pub fn generate(&mut self) -> String {
+    pub fn generate(&mut self) -> String {
         if SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()

@@ -17,8 +17,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use parking_lot::Mutex;
 use crate::pb;
+use parking_lot::Mutex;
 
 pub trait QueueSelect {
     fn select(&self, msg: &pb::Message, mqs: Vec<pb::MessageQueue>) -> Option<pb::MessageQueue>;
