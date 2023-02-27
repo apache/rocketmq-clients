@@ -34,7 +34,7 @@ namespace Org.Apache.Rocketmq
         internal string MessageId { get; }
 
         public PublishingMessage(Message message, PublishingSettings publishingSettings, bool txEnabled) : base(
-            message.Topic, message.Body)
+            message)
         {
             var maxBodySizeBytes = publishingSettings.GetMaxBodySizeBytes();
             if (message.Body.Length > maxBodySizeBytes)

@@ -44,6 +44,17 @@ namespace Org.Apache.Rocketmq
             DeliveryTimestamp = null;
         }
 
+        internal Message(Message message)
+        {
+            Topic = message.Topic;
+            Tag = message.Tag;
+            Keys = message.Keys;
+            Body = message.Body;
+            MessageGroup = message.MessageGroup;
+            UserProperties = message.UserProperties;
+            DeliveryTimestamp = message.DeliveryTimestamp;
+        }
+
         public string Topic { get; set; }
 
         public byte[] Body { get; set; }

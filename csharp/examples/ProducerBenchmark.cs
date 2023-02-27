@@ -29,7 +29,7 @@ namespace examples
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
-        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(0);
+        private static readonly SemaphoreSlim Semaphore = new(0);
         private static long _counter = 0;
 
         internal static void QuickStart()
@@ -74,7 +74,7 @@ namespace examples
             {
                 while (true)
                 {
-                    _semaphore.Release(tpsLimit);
+                    Semaphore.Release(tpsLimit);
                     await Task.Delay(TimeSpan.FromSeconds(1));
                 }
             });
@@ -91,7 +91,7 @@ namespace examples
             var tasks = new List<Task>();
             while (true)
             {
-                _semaphore.Wait();
+                Semaphore.Wait();
                 Interlocked.Increment(ref _counter);
                 var task = producer.Send(message);
                 tasks.Add(task);
