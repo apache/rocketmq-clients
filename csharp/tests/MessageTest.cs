@@ -16,6 +16,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Text;
 
@@ -28,10 +29,108 @@ namespace Org.Apache.Rocketmq
         [ExpectedException(typeof(ArgumentException))]
         public void TestIllegalTopic0()
         {
-            // const string topic = "\t\n";
-            // const string bodyString = "body";
-            // var body = Encoding.ASCII.GetBytes(bodyString);
-            // var _ = new Message(topic, body);
+            const string topic = null;
+            new Message.Builder().SetTopic(topic);
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentException))]
+        public void TestIllegalTag0()
+        {
+            new Message.Builder().SetTag(null);
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentException))]
+        public void TestIllegalTag1()
+        {
+            new Message.Builder().SetTag("");
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentException))]
+        public void TestIllegalTag2()
+        {
+            new Message.Builder().SetTag("\t");
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentException))]
+        public void TestIllegalTag3()
+        {
+            new Message.Builder().SetTag("\t\n");
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentException))]
+        public void TestIllegalMessageGroup0()
+        {
+            new Message.Builder().SetMessageGroup(null);
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentException))]
+        public void TestIllegalMessageGroup1()
+        {
+            new Message.Builder().SetMessageGroup("");
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentException))]
+        public void TestIllegalMessageGroup2()
+        {
+            new Message.Builder().SetMessageGroup("\t");
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentException))]
+        public void TestIllegalMessageGroup3()
+        {
+            new Message.Builder().SetMessageGroup("\t\n");
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentException))]
+        public void TestIllegalProperty0()
+        {
+            new Message.Builder().AddProperty(null, "b");
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentException))]
+        public void TestIllegalProperty1()
+        {
+            new Message.Builder().AddProperty("a", null);
+        }
+
+        [TestMethod]
+        public void TestAddProperty()
+        {
+            var message = new Message.Builder()
+                .SetTopic("topic")
+                .AddProperty("a", "b")
+                .SetBody(Encoding.UTF8.GetBytes("foobar"))
+                .Build();
+            var properties = new Dictionary<string, string>
+            {
+                ["a"] = "b"
+            };
+            Assert.AreEqual(1, message.Properties.Count);
+            Assert.AreEqual(properties["a"], message.Properties["a"]);
+
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentException))]
+        public void TestIllegalKey()
+        {
+            new Message.Builder().SetKeys("\t");
+        }
+
+        [TestMethod]
+        public void TestKeys()
+        {
+            new Message.Builder().SetKeys("a", "b");
         }
     }
 }

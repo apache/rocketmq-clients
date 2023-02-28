@@ -53,18 +53,12 @@ namespace examples
             // Define your message body.
             var bytes = Encoding.UTF8.GetBytes("foobar");
             const string tag = "yourMessageTagA";
-            // You could set multiple keys for the single message.
-            var keys = new List<string>
-            {
-                "yourMessageKey-7044358f98fc",
-                "yourMessageKey-f72539fbc246"
-            };
-            // Set topic for current message.
             var message = new Message.Builder()
                 .SetTopic(topic)
                 .SetBody(bytes)
                 .SetTag(tag)
-                .SetKeys(keys)
+                // You could set multiple keys for the single message actually.
+                .SetKeys("yourMessageKey-7044358f98fc")
                 .Build();
 
             var sendReceipt = await producer.Send(message);

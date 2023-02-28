@@ -23,13 +23,13 @@ namespace Org.Apache.Rocketmq
     public class Message
     {
         private Message(string topic, byte[] body, string tag, List<string> keys,
-            Dictionary<string, string> userProperties, DateTime? deliveryTimestamp, string messageGroup)
+            Dictionary<string, string> properties, DateTime? deliveryTimestamp, string messageGroup)
         {
             Topic = topic;
             Tag = tag;
             Keys = keys;
             Body = body;
-            UserProperties = userProperties;
+            Properties = properties;
             DeliveryTimestamp = deliveryTimestamp;
             MessageGroup = messageGroup;
         }
@@ -40,7 +40,7 @@ namespace Org.Apache.Rocketmq
             Tag = message.Tag;
             Keys = message.Keys;
             Body = message.Body;
-            UserProperties = message.UserProperties;
+            Properties = message.Properties;
             MessageGroup = message.MessageGroup;
             DeliveryTimestamp = message.DeliveryTimestamp;
         }
@@ -52,7 +52,7 @@ namespace Org.Apache.Rocketmq
         public string Tag { get; }
 
         public List<string> Keys { get; }
-        public Dictionary<string, string> UserProperties { get; }
+        public Dictionary<string, string> Properties { get; }
 
         public DateTime? DeliveryTimestamp { get; }
 
@@ -64,37 +64,51 @@ namespace Org.Apache.Rocketmq
             private byte[] _body;
             private string _tag;
             private List<string> _keys = new();
-            private Dictionary<string, string> _userProperties = new();
+            private readonly Dictionary<string, string> _properties = new();
             private DateTime? _deliveryTimestamp;
             private string _messageGroup;
 
             public Builder SetTopic(string topic)
             {
+                Preconditions.CheckArgument(null != topic, "topic should not be null");
                 _topic = topic;
                 return this;
             }
 
             public Builder SetBody(byte[] body)
             {
+                Preconditions.CheckArgument(null != body, "body should not be null");
                 _body = body;
                 return this;
             }
 
             public Builder SetTag(string tag)
             {
+                Preconditions.CheckArgument(!string.IsNullOrWhiteSpace(tag), "tag should not be null or white space");
                 _tag = tag;
                 return this;
             }
 
-            public Builder SetKeys(List<string> keys)
+            public Builder SetKeys(params string[] keys)
             {
-                _keys = keys;
+                _keys = new List<string>();
+                foreach (var key in keys)
+                {
+                    Preconditions.CheckArgument(!string.IsNullOrWhiteSpace(key),
+                        "key should not be null or white space");
+                    _keys.Add(key);
+                }
+
                 return this;
             }
 
-            public Builder SetUserProperties(Dictionary<string, string> userProperties)
+            public Builder AddProperty(string key, string value)
             {
-                _userProperties = userProperties;
+                Preconditions.CheckArgument(!string.IsNullOrWhiteSpace(key),
+                    "key should not be null or white space");
+                Preconditions.CheckArgument(!string.IsNullOrWhiteSpace(value),
+                    "value should not be null or white space");
+                _properties[key!] = value;
                 return this;
             }
 
@@ -106,13 +120,17 @@ namespace Org.Apache.Rocketmq
 
             public Builder SetMessageGroup(string messageGroup)
             {
+                Preconditions.CheckArgument(!string.IsNullOrWhiteSpace(messageGroup),
+                    "messageGroup should not be null or white space");
                 _messageGroup = messageGroup;
                 return this;
             }
 
             public Message Build()
             {
-                return new Message(_topic, _body, _tag, _keys, _userProperties, _deliveryTimestamp, _messageGroup);
+                Preconditions.CheckArgument(null != _topic, "topic has not been set yet");
+                Preconditions.CheckArgument(null != _body, "body has not been set yet");
+                return new Message(_topic, _body, _tag, _keys, _properties, _deliveryTimestamp, _messageGroup);
             }
         }
     }
