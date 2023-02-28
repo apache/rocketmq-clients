@@ -17,7 +17,7 @@
 
 namespace examples
 {
-    static class QuickStart
+    internal static class QuickStart
     {
         public static void Main()
         {
