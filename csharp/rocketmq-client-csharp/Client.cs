@@ -86,17 +86,18 @@ namespace Org.Apache.Rocketmq
         protected virtual async Task Start()
         {
             Logger.Debug($"Begin to start the rocketmq client, clientId={ClientId}");
-            ScheduleWithFixedDelay(UpdateTopicRouteCache, TopicRouteUpdateScheduleDelay, TopicRouteUpdateSchedulePeriod,
-                _topicRouteUpdateCts.Token);
-            ScheduleWithFixedDelay(Heartbeat, HeartbeatScheduleDelay, HeartbeatSchedulePeriod, _heartbeatCts.Token);
-            ScheduleWithFixedDelay(SyncSettings, SettingsSyncScheduleDelay, SettingsSyncSchedulePeriod,
-                _settingsSyncCts.Token);
-            ScheduleWithFixedDelay(Stats, StatsScheduleDelay, StatsSchedulePeriod, _statsCts.Token);
             foreach (var topic in GetTopics())
             {
                 await FetchTopicRoute(topic);
             }
 
+            ScheduleWithFixedDelay(UpdateTopicRouteCache, TopicRouteUpdateScheduleDelay,
+                TopicRouteUpdateSchedulePeriod,
+                _topicRouteUpdateCts.Token);
+            ScheduleWithFixedDelay(Heartbeat, HeartbeatScheduleDelay, HeartbeatSchedulePeriod, _heartbeatCts.Token);
+            ScheduleWithFixedDelay(SyncSettings, SettingsSyncScheduleDelay, SettingsSyncSchedulePeriod,
+                _settingsSyncCts.Token);
+            ScheduleWithFixedDelay(Stats, StatsScheduleDelay, StatsSchedulePeriod, _statsCts.Token);
             Logger.Debug($"Start the rocketmq client successfully, clientId={ClientId}");
         }
 
