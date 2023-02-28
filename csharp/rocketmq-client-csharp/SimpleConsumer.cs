@@ -27,7 +27,7 @@ using Org.Apache.Rocketmq.Error;
 
 namespace Org.Apache.Rocketmq
 {
-    public class SimpleConsumer : Consumer
+    public class SimpleConsumer : Consumer, IAsyncDisposable, IDisposable
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
         private readonly ConcurrentDictionary<string /* topic */, SubscriptionLoadBalancer> _subscriptionRouteDataCache;
@@ -89,6 +89,18 @@ namespace Org.Apache.Rocketmq
                 State = State.Failed;
                 throw;
             }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await Shutdown().ConfigureAwait(false);
+            GC.SuppressFinalize(this);
+        }
+
+        public void Dispose()
+        {
+            Shutdown().Wait();
+            GC.SuppressFinalize(this);
         }
 
         public override async Task Shutdown()
@@ -255,6 +267,43 @@ namespace Org.Apache.Rocketmq
             {
                 Name = ConsumerGroup
             };
+        }
+
+        public class Builder
+        {
+            private ClientConfig _clientConfig;
+            private string _consumerGroup;
+            private TimeSpan _awaitDuration;
+            private ConcurrentDictionary<string, FilterExpression> _subscriptionExpressions;
+
+            public Builder SetClientConfig(ClientConfig clientConfig)
+            {
+                _clientConfig = clientConfig;
+                return this;
+            }
+
+            public Builder SetConsumerGroup(string consumerGroup)
+            {
+                _consumerGroup = consumerGroup;
+                return this;
+            }
+
+            public Builder SetAwaitDuration(TimeSpan awaitDuration)
+            {
+                _awaitDuration = awaitDuration;
+                return this;
+            }
+
+            public Builder SetSubscriptionExpression(Dictionary<string, FilterExpression> subscriptionExpressions)
+            {
+                _subscriptionExpressions = new ConcurrentDictionary<string, FilterExpression>(subscriptionExpressions);
+                return this;
+            }
+
+            public SimpleConsumer Build()
+            {
+                return new SimpleConsumer(_clientConfig, _consumerGroup, _awaitDuration, _subscriptionExpressions);
+            }
         }
     }
 }

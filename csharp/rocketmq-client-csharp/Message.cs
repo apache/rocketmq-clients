@@ -22,26 +22,16 @@ namespace Org.Apache.Rocketmq
 {
     public class Message
     {
-        public Message() : this(null, null)
-        {
-        }
-
-        public Message(string topic, byte[] body) : this(topic, null, new List<string>(), body)
-        {
-        }
-
-        public Message(string topic, string tag, byte[] body) : this(topic, tag, new List<string>(), body)
-        {
-        }
-
-        public Message(string topic, string tag, List<string> keys, byte[] body)
+        private Message(string topic, byte[] body, string tag, List<string> keys,
+            Dictionary<string, string> userProperties, DateTime? deliveryTimestamp, string messageGroup)
         {
             Topic = topic;
             Tag = tag;
             Keys = keys;
             Body = body;
-            UserProperties = new Dictionary<string, string>();
-            DeliveryTimestamp = null;
+            UserProperties = userProperties;
+            DeliveryTimestamp = deliveryTimestamp;
+            MessageGroup = messageGroup;
         }
 
         internal Message(Message message)
@@ -50,25 +40,80 @@ namespace Org.Apache.Rocketmq
             Tag = message.Tag;
             Keys = message.Keys;
             Body = message.Body;
-            MessageGroup = message.MessageGroup;
             UserProperties = message.UserProperties;
+            MessageGroup = message.MessageGroup;
             DeliveryTimestamp = message.DeliveryTimestamp;
         }
 
-        public string Topic { get; set; }
+        public string Topic { get; }
 
-        public byte[] Body { get; set; }
+        public byte[] Body { get; }
 
-        public string Tag { get; set; }
+        public string Tag { get; }
 
-        public List<string> Keys { get; set; }
-        public Dictionary<string, string> UserProperties { get; set; }
+        public List<string> Keys { get; }
+        public Dictionary<string, string> UserProperties { get; }
 
+        public DateTime? DeliveryTimestamp { get; }
 
-        public DateTime? DeliveryTimestamp { get; set; }
+        public string MessageGroup { get; }
 
-        public int DeliveryAttempt { get; internal set; }
+        public class Builder
+        {
+            private string _topic;
+            private byte[] _body;
+            private string _tag;
+            private List<string> _keys = new();
+            private Dictionary<string, string> _userProperties = new();
+            private DateTime? _deliveryTimestamp;
+            private string _messageGroup;
 
-        public string MessageGroup { get; set; }
+            public Builder SetTopic(string topic)
+            {
+                _topic = topic;
+                return this;
+            }
+
+            public Builder SetBody(byte[] body)
+            {
+                _body = body;
+                return this;
+            }
+
+            public Builder SetTag(string tag)
+            {
+                _tag = tag;
+                return this;
+            }
+
+            public Builder SetKeys(List<string> keys)
+            {
+                _keys = keys;
+                return this;
+            }
+
+            public Builder SetUserProperties(Dictionary<string, string> userProperties)
+            {
+                _userProperties = userProperties;
+                return this;
+            }
+
+            public Builder SetDeliveryTimestamp(DateTime deliveryTimestamp)
+            {
+                _deliveryTimestamp = deliveryTimestamp;
+                return this;
+            }
+
+            public Builder SetMessageGroup(string messageGroup)
+            {
+                _messageGroup = messageGroup;
+                return this;
+            }
+
+            public Message Build()
+            {
+                return new Message(_topic, _body, _tag, _keys, _userProperties, _deliveryTimestamp, _messageGroup);
+            }
+        }
     }
 }

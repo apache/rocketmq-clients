@@ -35,18 +35,18 @@ namespace examples
             // Credential provider is optional for client configuration.
             var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
             const string endpoints = "foobar.com:8080";
-            var clientConfig = new ClientConfig(endpoints)
-            {
-                CredentialsProvider = credentialsProvider
-            };
-            // In most case, you don't need to create too many producers, single pattern is recommended.
-            var producer = new Producer(clientConfig);
+            var clientConfig = new ClientConfig.Builder()
+                .SetEndpoints(endpoints)
+                .SetCredentialsProvider(credentialsProvider)
+                .Build();
             const string topic = "yourDelayTopic";
-            // Set the topic name(s), which is optional but recommended. It makes producer could prefetch
-            // the topic route before message publishing.
-            producer.SetTopics(topic);
-
-            await producer.Start();
+            // In most case, you don't need to create too many producers, single pattern is recommended.
+            await using var producer = await new Producer.Builder()
+                // Set the topic name(s), which is optional but recommended.
+                // It makes producer could prefetch the topic route before message publishing.
+                .SetTopics(topic)
+                .SetClientConfig(clientConfig)
+                .Build();
             // Define your message body.
             var bytes = Encoding.UTF8.GetBytes("foobar");
             const string tag = "yourMessageTagA";
@@ -56,14 +56,12 @@ namespace examples
                 "yourMessageKey-2f00df144e48",
                 "yourMessageKey-49df1dd332b7"
             };
-            // Set topic for current message.
-            var message = new Message(topic, bytes)
-            {
-                Tag = tag,
-                Keys = keys,
-                // Essential for DELAY message.
-                DeliveryTimestamp = DateTime.UtcNow + TimeSpan.FromSeconds(30)
-            };
+            var message = new Message.Builder()
+                .SetTopic(topic)
+                .SetBody(bytes)
+                .SetTag(tag)
+                .SetKeys(keys)
+                .SetDeliveryTimestamp(DateTime.UtcNow + TimeSpan.FromSeconds(30)).Build();
             var sendReceipt = await producer.Send(message);
             Logger.Info($"Send message successfully, sendReceipt={sendReceipt}");
             // Close the producer if you don't need it anymore.

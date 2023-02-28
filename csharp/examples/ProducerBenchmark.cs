@@ -30,51 +30,16 @@ namespace examples
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
         private static readonly SemaphoreSlim Semaphore = new(0);
+        private const int TpsLimit = 1;
         private static long _counter = 0;
 
-        internal static void QuickStart()
+        private static void DoStats()
         {
-            const string accessKey = "amKhwEM40L61znSz";
-            const string secretKey = "bT6c3gpF3EFB10F3";
-
-            // Credential provider is optional for client configuration.
-            var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
-            const string endpoints = "rmq-cn-nwy337bf81g.cn-hangzhou.rmq.aliyuncs.com:8080";
-            var clientConfig = new ClientConfig(endpoints)
-            {
-                CredentialsProvider = credentialsProvider
-            };
-            // In most case, you don't need to create too many producers, single pattern is recommended.
-            var producer = new Producer(clientConfig);
-
-            const string topic = "lingchu_normal_topic";
-            producer.SetTopics(topic);
-            // Set the topic name(s), which is optional but recommended. It makes producer could prefetch
-            // the topic route before message publishing.
-            producer.Start().Wait();
-            // Define your message body.
-            var bytes = Encoding.UTF8.GetBytes("foobar");
-            const string tag = "yourMessageTagA";
-            // You could set multiple keys for the single message.
-            var keys = new List<string>
-            {
-                "yourMessageKey-7044358f98fc",
-                "yourMessageKey-f72539fbc246"
-            };
-            // Set topic for current message.
-            var message = new Message(topic, bytes)
-            {
-                Tag = tag,
-                Keys = keys
-            };
-
-            const int tpsLimit = 1;
-
             Task.Run(async () =>
             {
                 while (true)
                 {
-                    Semaphore.Release(tpsLimit);
+                    Semaphore.Release(TpsLimit);
                     await Task.Delay(TimeSpan.FromSeconds(1));
                 }
             });
@@ -87,7 +52,46 @@ namespace examples
                     await Task.Delay(TimeSpan.FromSeconds(1));
                 }
             });
+        }
 
+        internal static async Task QuickStart()
+        {
+            const string accessKey = "yourAccessKey";
+            const string secretKey = "yourSecretKey";
+
+            // Credential provider is optional for client configuration.
+            var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
+            const string endpoints = "foobar.com:8080";
+            var clientConfig = new ClientConfig.Builder()
+                .SetEndpoints(endpoints)
+                .SetCredentialsProvider(credentialsProvider)
+                .Build();
+            const string topic = "yourNormalTopic";
+            // In most case, you don't need to create too many producers, single pattern is recommended.
+            await using var producer = await new Producer.Builder()
+                // Set the topic name(s), which is optional but recommended.
+                // It makes producer could prefetch the topic route before message publishing.
+                .SetTopics(topic)
+                .SetClientConfig(clientConfig)
+                .Build();
+
+            // Define your message body.
+            var bytes = Encoding.UTF8.GetBytes("foobar");
+            const string tag = "yourMessageTagA";
+            // You could set multiple keys for the single message.
+            var keys = new List<string>
+            {
+                "yourMessageKey-7044358f98fc",
+                "yourMessageKey-f72539fbc246"
+            };
+            var message = new Message.Builder()
+                .SetTopic(topic)
+                .SetBody(bytes)
+                .SetTag(tag)
+                .SetKeys(keys)
+                .Build();
+
+            DoStats();
             var tasks = new List<Task>();
             while (true)
             {

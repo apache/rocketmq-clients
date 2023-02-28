@@ -16,22 +16,17 @@
  */
 
 using System;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System.Text;
 
 namespace Org.Apache.Rocketmq
 {
-    [TestClass]
-    public class MessageTest
+    public static class Preconditions
     {
-        [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
-        public void TestIllegalTopic0()
+        public static void CheckArgument(bool condition, string message)
         {
-            // const string topic = "\t\n";
-            // const string bodyString = "body";
-            // var body = Encoding.ASCII.GetBytes(bodyString);
-            // var _ = new Message(topic, body);
+            if (!condition)
+            {
+                throw new ArgumentException(message);
+            }
         }
     }
 }

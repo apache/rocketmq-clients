@@ -42,16 +42,20 @@ namespace examples
             // Credential provider is optional for client configuration.
             var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
             const string endpoints = "foobar.com:8080";
-            var clientConfig = new ClientConfig(endpoints)
-            {
-                CredentialsProvider = credentialsProvider
-            };
-            // In most case, you don't need to create too many producers, single pattern is recommended.
-            var producer = new Producer(clientConfig);
+            var clientConfig = new ClientConfig.Builder()
+                .SetEndpoints(endpoints)
+                .SetCredentialsProvider(credentialsProvider)
+                .Build();
 
             const string topic = "yourTransactionTopic";
-            producer.SetTopics(topic);
-            producer.SetTransactionChecker(new TransactionChecker());
+            // In most case, you don't need to create too many producers, single pattern is recommended.
+            await using var producer = await new Producer.Builder()
+                // Set the topic name(s), which is optional but recommended.
+                // It makes producer could prefetch the topic route before message publishing.
+                .SetTopics(topic)
+                .SetClientConfig(clientConfig)
+                .SetTransactionChecker(new TransactionChecker())
+                .Build();
 
             await producer.Start();
             var transaction = producer.BeginTransaction();
@@ -64,12 +68,12 @@ namespace examples
                 "yourMessageKey-7044358f98fc",
                 "yourMessageKey-f72539fbc246"
             };
-            // Set topic for current message.
-            var message = new Message(topic, bytes)
-            {
-                Tag = tag,
-                Keys = keys
-            };
+            var message = new Message.Builder()
+                .SetTopic(topic)
+                .SetBody(bytes)
+                .SetTag(tag)
+                .SetKeys(keys)
+                .Build();
             var sendReceipt = await producer.Send(message, transaction);
             Logger.Info("Send transaction message successfully, messageId={}", sendReceipt.MessageId);
             // Commit the transaction.
