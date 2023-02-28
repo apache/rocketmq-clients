@@ -40,14 +40,17 @@ namespace examples
                 .SetEndpoints(endpoints)
                 .SetCredentialsProvider(credentialsProvider)
                 .Build();
+
             const string topic = "yourFifoTopic";
             // In most case, you don't need to create too many producers, single pattern is recommended.
+            // Producer here will be closed automatically.
             await using var producer = await new Producer.Builder()
                 // Set the topic name(s), which is optional but recommended.
                 // It makes producer could prefetch the topic route before message publishing.
                 .SetTopics(topic)
                 .SetClientConfig(clientConfig)
                 .Build();
+
             // Define your message body.
             var bytes = Encoding.UTF8.GetBytes("foobar");
             const string tag = "yourMessageTagA";
@@ -65,11 +68,11 @@ namespace examples
                 .SetKeys(keys)
                 .SetMessageGroup(messageGroup)
                 .Build();
+
             var sendReceipt = await producer.Send(message);
             Logger.Info($"Send message successfully, sendReceipt={sendReceipt}");
             Thread.Sleep(9999999);
-            // Close the producer if you don't need it anymore.
-            await producer.Shutdown();
+            // await producer.DisposeAsync();
         }
     }
 }

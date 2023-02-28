@@ -33,13 +33,13 @@ namespace Org.Apache.Rocketmq
         private const string Version = "1.0";
         private const int MetricExportPeriodInMillis = 60 * 1000;
 
-        private readonly IClient _client;
+        private readonly Client _client;
         private volatile ClientMeter _clientMeter;
         private readonly HttpClient _httpClient;
         private readonly object _lock;
         internal readonly Meter Meter;
 
-        public ClientMeterManager(IClient client)
+        public ClientMeterManager(Client client)
         {
             _client = client;
             var httpDelegatingHandler = new MetricHttpDelegatingHandler(client);

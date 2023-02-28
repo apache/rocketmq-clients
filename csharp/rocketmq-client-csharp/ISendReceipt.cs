@@ -15,34 +15,10 @@
  * limitations under the License.
  */
 
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace Org.Apache.Rocketmq
 {
-    public class MetricHttpDelegatingHandler : DelegatingHandler
+    public interface ISendReceipt
     {
-        private readonly Client _client;
-
-        public MetricHttpDelegatingHandler(Client client)
-        {
-            _client = client;
-            InnerHandler = RpcClient.CreateHttpHandler();
-        }
-
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken cancellationToken)
-        {
-            var headers = Signature.Sign(_client);
-            foreach (var (key, value) in headers)
-            {
-                // Add extra headers for auth.
-                request.Headers.TryAddWithoutValidation(key, value);
-            }
-
-            return await base.SendAsync(request, cancellationToken);
-        }
+        string MessageId { get; }
     }
 }

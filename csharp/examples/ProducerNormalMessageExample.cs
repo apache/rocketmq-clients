@@ -39,14 +39,17 @@ namespace examples
                 .SetEndpoints(endpoints)
                 .SetCredentialsProvider(credentialsProvider)
                 .Build();
+
             const string topic = "yourNormalTopic";
             // In most case, you don't need to create too many producers, single pattern is recommended.
+            // Producer here will be closed automatically.
             await using var producer = await new Producer.Builder()
                 // Set the topic name(s), which is optional but recommended.
                 // It makes producer could prefetch the topic route before message publishing.
                 .SetTopics(topic)
                 .SetClientConfig(clientConfig)
                 .Build();
+
             // Define your message body.
             var bytes = Encoding.UTF8.GetBytes("foobar");
             const string tag = "yourMessageTagA";
@@ -63,8 +66,11 @@ namespace examples
                 .SetTag(tag)
                 .SetKeys(keys)
                 .Build();
+
             var sendReceipt = await producer.Send(message);
             Logger.Info($"Send message successfully, sendReceipt={sendReceipt}");
+            // Or you could close the producer manually.
+            // await producer.DisposeAsync();
         }
     }
 }

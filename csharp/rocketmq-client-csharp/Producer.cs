@@ -55,7 +55,7 @@ namespace Org.Apache.Rocketmq
             return _publishingTopics.Keys;
         }
 
-        public override async Task Start()
+        protected override async Task Start()
         {
             try
             {
@@ -84,7 +84,7 @@ namespace Org.Apache.Rocketmq
             GC.SuppressFinalize(this);
         }
         
-        public override async Task Shutdown()
+        protected override async Task Shutdown()
         {
             try
             {
@@ -183,7 +183,7 @@ namespace Org.Apache.Rocketmq
             throw exception!;
         }
 
-        public async Task<SendReceipt> Send(Message message)
+        public async Task<ISendReceipt> Send(Message message)
         {
             if (State.Running != State)
             {
@@ -265,12 +265,12 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        public override Settings GetSettings()
+        internal override Settings GetSettings()
         {
             return PublishingSettings;
         }
 
-        public override async void OnRecoverOrphanedTransactionCommand(Endpoints endpoints,
+        internal override async void OnRecoverOrphanedTransactionCommand(Endpoints endpoints,
             Proto.RecoverOrphanedTransactionCommand command)
         {
             var messageId = command.Message.SystemProperties.MessageId;

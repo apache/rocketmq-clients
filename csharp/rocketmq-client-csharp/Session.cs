@@ -36,14 +36,14 @@ namespace Org.Apache.Rocketmq
         private readonly AsyncDuplexStreamingCall<Proto::TelemetryCommand, Proto::TelemetryCommand>
             _streamingCall;
 
-        private readonly IClient _client;
+        private readonly Client _client;
         private readonly Channel<bool> _channel;
         private readonly Endpoints _endpoints;
         private readonly SemaphoreSlim _semaphore;
 
         public Session(Endpoints endpoints,
             AsyncDuplexStreamingCall<Proto::TelemetryCommand, Proto::TelemetryCommand> streamingCall,
-            IClient client)
+            Client client)
         {
             _endpoints = endpoints;
             _semaphore = new SemaphoreSlim(1);

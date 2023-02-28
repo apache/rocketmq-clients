@@ -49,6 +49,7 @@ namespace examples
 
             const string topic = "yourTransactionTopic";
             // In most case, you don't need to create too many producers, single pattern is recommended.
+            // Producer here will be closed automatically.
             await using var producer = await new Producer.Builder()
                 // Set the topic name(s), which is optional but recommended.
                 // It makes producer could prefetch the topic route before message publishing.
@@ -57,7 +58,6 @@ namespace examples
                 .SetTransactionChecker(new TransactionChecker())
                 .Build();
 
-            await producer.Start();
             var transaction = producer.BeginTransaction();
             // Define your message body.
             var bytes = Encoding.UTF8.GetBytes("foobar");
@@ -74,14 +74,15 @@ namespace examples
                 .SetTag(tag)
                 .SetKeys(keys)
                 .Build();
+
             var sendReceipt = await producer.Send(message, transaction);
             Logger.Info("Send transaction message successfully, messageId={}", sendReceipt.MessageId);
             // Commit the transaction.
             transaction.Commit();
             // Or rollback the transaction.
             // transaction.rollback();
-            // Close the producer if you don't need it anymore.
-            await producer.Shutdown();
+            // Or you could close the producer manually.
+            // await producer.DisposeAsync();
         }
     }
 }

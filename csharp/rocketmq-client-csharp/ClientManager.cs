@@ -26,11 +26,11 @@ namespace Org.Apache.Rocketmq
 {
     public class ClientManager : IClientManager
     {
-        private readonly IClient _client;
+        private readonly Client _client;
         private readonly Dictionary<Endpoints, RpcClient> _rpcClients;
         private readonly ReaderWriterLockSlim _clientLock;
 
-        public ClientManager(IClient client)
+        public ClientManager(Client client)
         {
             _client = client;
             _rpcClients = new Dictionary<Endpoints, RpcClient>();

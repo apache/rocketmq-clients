@@ -25,7 +25,7 @@ using Org.Apache.Rocketmq;
 
 namespace examples
 {
-    public class ProducerBenchmark
+    public static class ProducerBenchmark
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
@@ -66,6 +66,7 @@ namespace examples
                 .SetEndpoints(endpoints)
                 .SetCredentialsProvider(credentialsProvider)
                 .Build();
+
             const string topic = "yourNormalTopic";
             // In most case, you don't need to create too many producers, single pattern is recommended.
             await using var producer = await new Producer.Builder()
