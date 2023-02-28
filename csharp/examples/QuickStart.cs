@@ -15,18 +15,12 @@
  * limitations under the License.
  */
 
-using System;
-using System.Threading.Tasks;
-using Org.Apache.Rocketmq;
-
 namespace examples
 {
     static class QuickStart
     {
         public static void Main()
         {
-            // Console.WriteLine(MetadataConstants.Instance.ClientVersion);
-
             // ProducerNormalMessageExample.QuickStart().Wait();
             // await ProducerFifoMessageExample.QuickStart();
             // await ProducerDelayMessageExample.QuickStart();
