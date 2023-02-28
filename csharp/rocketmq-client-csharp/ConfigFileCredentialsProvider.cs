@@ -64,14 +64,14 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        public Credentials GetCredentials()
+        public SessionCredentials GetCredentials()
         {
             if (!_valid)
             {
                 return null;
             }
 
-            return new Credentials(_accessKey, _accessSecret);
+            return new SessionCredentials(_accessKey, _accessSecret);
         }
 
         public static String DefaultConfigFilePath()

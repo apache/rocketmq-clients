@@ -17,13 +17,11 @@
 
 namespace Org.Apache.Rocketmq
 {
-    public class StaticCredentialsProvider : ICredentialsProvider
+    public interface ISessionCredentialsProvider
     {
-        public StaticCredentialsProvider(string accessKey, string accessSecret)
+        SessionCredentials SessionCredentials
         {
-            Credentials = new Credentials(accessKey, accessSecret);
+            get;
         }
-
-        public Credentials Credentials { get; }
     }
 }

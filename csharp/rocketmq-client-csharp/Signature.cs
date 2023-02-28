@@ -45,15 +45,15 @@ namespace Org.Apache.Rocketmq
             var time = DateTime.Now.ToString(MetadataConstants.DateTimeFormat);
             dictionary.Add(MetadataConstants.DateTimeKey, time);
 
-            var credentials = clientConfig.CredentialsProvider?.Credentials;
-            if (credentials == null || credentials.expired())
+            var credentials = clientConfig.SessionCredentialsProvider?.SessionCredentials;
+            if (credentials == null)
             {
                 return dictionary;
             }
 
-            if (!string.IsNullOrEmpty(credentials.SessionToken))
+            if (!string.IsNullOrEmpty(credentials.SecurityToken))
             {
-                dictionary.Add(MetadataConstants.SessionTokenKey, credentials.SessionToken);
+                dictionary.Add(MetadataConstants.SessionTokenKey, credentials.SecurityToken);
             }
 
             var secretData = Encoding.ASCII.GetBytes(credentials.AccessSecret);

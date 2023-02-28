@@ -32,7 +32,7 @@ namespace examples
             const string accessKey = "yourAccessKey";
             const string secretKey = "yourSecretKey";
             // Credential provider is optional for client configuration.
-            var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
+            var credentialsProvider = new StaticSessionCredentialsProvider(accessKey, secretKey);
             const string endpoints = "foobar.com:8080";
             var clientConfig = new ClientConfig.Builder()
                 .SetEndpoints(endpoints)
