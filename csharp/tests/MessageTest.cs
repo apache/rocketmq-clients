@@ -35,6 +35,14 @@ namespace Org.Apache.Rocketmq
 
         [TestMethod]
         [ExpectedException(typeof(ArgumentException))]
+        public void TestIllegalTopic1()
+        {
+            const string topic = "";
+            new Message.Builder().SetTopic(topic);
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentException))]
         public void TestIllegalTag0()
         {
             new Message.Builder().SetTag(null);
@@ -59,6 +67,13 @@ namespace Org.Apache.Rocketmq
         public void TestIllegalTag3()
         {
             new Message.Builder().SetTag("\t\n");
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentException))]
+        public void TestIllegalTag4()
+        {
+            new Message.Builder().SetTag("abc|cde");
         }
 
         [TestMethod]
@@ -117,7 +132,6 @@ namespace Org.Apache.Rocketmq
             };
             Assert.AreEqual(1, message.Properties.Count);
             Assert.AreEqual(properties["a"], message.Properties["a"]);
-
         }
 
         [TestMethod]
