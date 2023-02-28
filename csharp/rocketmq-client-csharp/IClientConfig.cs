@@ -21,7 +21,7 @@ namespace Org.Apache.Rocketmq
 {
     public interface IClientConfig
     {
-        ICredentialsProvider CredentialsProvider { get; }
+        ISessionCredentialsProvider SessionCredentialsProvider { get; }
 
         TimeSpan RequestTimeout { get; }
 

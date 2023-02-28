@@ -21,14 +21,14 @@ namespace Org.Apache.Rocketmq
 {
     public class ClientConfig : IClientConfig
     {
-        private ClientConfig(ICredentialsProvider credentialsProvider, TimeSpan requestTimeout, string endpoints)
+        private ClientConfig(ISessionCredentialsProvider sessionCredentialsProvider, TimeSpan requestTimeout, string endpoints)
         {
-            CredentialsProvider = credentialsProvider;
+            SessionCredentialsProvider = sessionCredentialsProvider;
             RequestTimeout = requestTimeout;
             Endpoints = endpoints;
         }
 
-        public ICredentialsProvider CredentialsProvider { get; }
+        public ISessionCredentialsProvider SessionCredentialsProvider { get; }
 
         public TimeSpan RequestTimeout { get; }
 
@@ -36,13 +36,13 @@ namespace Org.Apache.Rocketmq
 
         public class Builder
         {
-            private ICredentialsProvider _credentialsProvider;
+            private ISessionCredentialsProvider _sessionCredentialsProvider;
             private TimeSpan _requestTimeout = TimeSpan.FromSeconds(3);
             private string _endpoints;
 
-            public Builder SetCredentialsProvider(ICredentialsProvider credentialsProvider)
+            public Builder SetCredentialsProvider(ISessionCredentialsProvider sessionCredentialsProvider)
             {
-                _credentialsProvider = credentialsProvider;
+                _sessionCredentialsProvider = sessionCredentialsProvider;
                 return this;
             }
 
@@ -60,7 +60,7 @@ namespace Org.Apache.Rocketmq
 
             public ClientConfig Build()
             {
-                return new ClientConfig(_credentialsProvider, _requestTimeout, _endpoints);
+                return new ClientConfig(_sessionCredentialsProvider, _requestTimeout, _endpoints);
             }
         }
     }
