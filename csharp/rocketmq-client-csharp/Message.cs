@@ -17,11 +17,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 namespace Org.Apache.Rocketmq
 {
     public class Message
     {
+        internal static readonly Regex TopicRegex = new("^[%a-zA-Z0-9_-]+$"); 
         private Message(string topic, byte[] body, string tag, List<string> keys,
             Dictionary<string, string> properties, DateTime? deliveryTimestamp, string messageGroup)
         {
@@ -71,6 +73,7 @@ namespace Org.Apache.Rocketmq
             public Builder SetTopic(string topic)
             {
                 Preconditions.CheckArgument(null != topic, "topic should not be null");
+                Preconditions.CheckArgument(topic != null && TopicRegex.Match(topic).Success, $"topic does not match the regex {TopicRegex}");
                 _topic = topic;
                 return this;
             }
@@ -85,6 +88,7 @@ namespace Org.Apache.Rocketmq
             public Builder SetTag(string tag)
             {
                 Preconditions.CheckArgument(!string.IsNullOrWhiteSpace(tag), "tag should not be null or white space");
+                Preconditions.CheckArgument(tag != null && !tag.Contains("|"), "tag should not contain \"|\"");
                 _tag = tag;
                 return this;
             }

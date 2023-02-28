@@ -83,7 +83,7 @@ namespace Org.Apache.Rocketmq
             Shutdown().Wait();
             GC.SuppressFinalize(this);
         }
-        
+
         protected override async Task Shutdown()
         {
             try
@@ -177,6 +177,7 @@ namespace Org.Apache.Rocketmq
                         new KeyValuePair<string, object>(MetricConstant.ClientId, ClientId),
                         new KeyValuePair<string, object>(MetricConstant.InvocationStatus,
                             null == exception ? MetricConstant.True : MetricConstant.False));
+                    // TODO
                 }
             }
 
@@ -330,6 +331,7 @@ namespace Org.Apache.Rocketmq
 
             public Builder SetClientConfig(ClientConfig clientConfig)
             {
+                Preconditions.CheckArgument(null != clientConfig, "clientConfig should not be null");
                 _clientConfig = clientConfig;
                 return this;
             }
@@ -338,7 +340,10 @@ namespace Org.Apache.Rocketmq
             {
                 foreach (var topic in topics)
                 {
-                    _publishingTopics[topic] = true;
+                    Preconditions.CheckArgument(null != topic, "topic should not be null");
+                    Preconditions.CheckArgument(topic != null && Message.TopicRegex.Match(topic).Success,
+                        $"topic does not match the regex {Message.TopicRegex}");
+                    _publishingTopics[topic!] = true;
                 }
 
                 return this;
@@ -346,18 +351,21 @@ namespace Org.Apache.Rocketmq
 
             public Builder SetMaxAttempts(int maxAttempts)
             {
+                Preconditions.CheckArgument(maxAttempts > 0, "maxAttempts must be positive");
                 _maxAttempts = maxAttempts;
                 return this;
             }
 
             public Builder SetTransactionChecker(ITransactionChecker checker)
             {
+                Preconditions.CheckArgument(null != checker, "checker should not be null");
                 _checker = checker;
                 return this;
             }
 
             public async Task<Producer> Build()
             {
+                Preconditions.CheckArgument(null != _clientConfig, "clientConfig has not been set yet");
                 var producer = new Producer(_clientConfig, _publishingTopics, _maxAttempts, _checker);
                 await producer.Start();
                 return producer;

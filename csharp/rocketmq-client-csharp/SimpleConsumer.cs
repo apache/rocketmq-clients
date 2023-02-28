@@ -278,12 +278,16 @@ namespace Org.Apache.Rocketmq
 
             public Builder SetClientConfig(ClientConfig clientConfig)
             {
+                Preconditions.CheckArgument(null != clientConfig, "clientConfig should not be null");
                 _clientConfig = clientConfig;
                 return this;
             }
 
             public Builder SetConsumerGroup(string consumerGroup)
             {
+                Preconditions.CheckArgument(null != consumerGroup, "consumerGroup should not be null");
+                Preconditions.CheckArgument(consumerGroup != null && ConsumerGroupRegex.Match(consumerGroup).Success,
+                    $"topic does not match the regex {ConsumerGroupRegex}");
                 _consumerGroup = consumerGroup;
                 return this;
             }
@@ -296,13 +300,24 @@ namespace Org.Apache.Rocketmq
 
             public Builder SetSubscriptionExpression(Dictionary<string, FilterExpression> subscriptionExpressions)
             {
-                _subscriptionExpressions = new ConcurrentDictionary<string, FilterExpression>(subscriptionExpressions);
+                Preconditions.CheckArgument(null != subscriptionExpressions,
+                    "subscriptionExpressions should not be null");
+                Preconditions.CheckArgument(subscriptionExpressions!.Count != 0,
+                    "subscriptionExpressions should not be empty");
+                _subscriptionExpressions = new ConcurrentDictionary<string, FilterExpression>(subscriptionExpressions!);
                 return this;
             }
 
-            public SimpleConsumer Build()
+            public async Task<SimpleConsumer> Build()
             {
-                return new SimpleConsumer(_clientConfig, _consumerGroup, _awaitDuration, _subscriptionExpressions);
+                Preconditions.CheckArgument(null != _clientConfig, "clientConfig has not been set yet");
+                Preconditions.CheckArgument(null != _consumerGroup, "consumerGroup has not been set yet");
+                Preconditions.CheckArgument(!_subscriptionExpressions!.IsEmpty,
+                    "subscriptionExpressions has not been set yet");
+                var simpleConsumer = new SimpleConsumer(_clientConfig, _consumerGroup, _awaitDuration,
+                    _subscriptionExpressions);
+                await simpleConsumer.Start();
+                return simpleConsumer;
             }
         }
     }

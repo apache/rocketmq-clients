@@ -18,6 +18,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Google.Protobuf.WellKnownTypes;
 using Proto = Apache.Rocketmq.V2;
@@ -26,6 +27,7 @@ namespace Org.Apache.Rocketmq
 {
     public abstract class Consumer : Client
     {
+        internal static readonly Regex ConsumerGroupRegex = new("^[%a-zA-Z0-9_-]+$");
         protected readonly string ConsumerGroup;
 
         protected Consumer(ClientConfig clientConfig, string consumerGroup) : base(
