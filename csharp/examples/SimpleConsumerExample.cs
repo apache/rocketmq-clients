@@ -35,18 +35,21 @@ namespace examples
             // Credential provider is optional for client configuration.
             var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
             const string endpoints = "foobar.com:8080";
-            var clientConfig = new ClientConfig(endpoints)
-            {
-                CredentialsProvider = credentialsProvider
-            };
+            var clientConfig = new ClientConfig.Builder()
+                .SetEndpoints(endpoints)
+                .SetCredentialsProvider(credentialsProvider)
+                .Build();
             // Add your subscriptions.
             const string consumerGroup = "yourConsumerGroup";
             const string topic = "yourTopic";
             var subscription = new Dictionary<string, FilterExpression>
                 { { topic, new FilterExpression("*") } };
             // In most case, you don't need to create too many consumers, single pattern is recommended.
-            var simpleConsumer =
-                new SimpleConsumer(clientConfig, consumerGroup, TimeSpan.FromSeconds(15), subscription);
+            await using var simpleConsumer = new SimpleConsumer.Builder()
+                .SetClientConfig(clientConfig).SetConsumerGroup(consumerGroup)
+                .SetAwaitDuration(TimeSpan.FromSeconds(15))
+                .SetSubscriptionExpression(subscription)
+                .Build();
 
             await simpleConsumer.Start();
             var messageViews = await simpleConsumer.Receive(16, TimeSpan.FromSeconds(15));
@@ -58,9 +61,6 @@ namespace examples
                 // await simpleConsumer.ChangeInvisibleDuration(message, TimeSpan.FromSeconds(15));
                 // Logger.Info($"Changing message invisible duration successfully, message=id={message.MessageId}");
             }
-
-            // Close the consumer if you don't need it anymore.
-            await simpleConsumer.Shutdown();
         }
     }
 }

@@ -27,28 +27,18 @@ using NLog;
 
 namespace Org.Apache.Rocketmq
 {
-    public class Producer : Client
+    public class Producer : Client, IAsyncDisposable, IDisposable
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
         private readonly ConcurrentDictionary<string /* topic */, PublishingLoadBalancer> _publishingRouteDataCache;
         internal readonly PublishingSettings PublishingSettings;
         private readonly ConcurrentDictionary<string, bool> _publishingTopics;
-        private ITransactionChecker _checker = null;
+        private readonly ITransactionChecker _checker;
 
         private readonly Histogram<double> _sendCostTimeHistogram;
 
-        public Producer(ClientConfig clientConfig) : this(clientConfig, new ConcurrentDictionary<string, bool>(), 3)
-        {
-        }
-
-        public Producer(ClientConfig clientConfig, int maxAttempts) : this(clientConfig,
-            new ConcurrentDictionary<string, bool>(), maxAttempts)
-        {
-        }
-
         private Producer(ClientConfig clientConfig, ConcurrentDictionary<string, bool> publishingTopics,
-            int maxAttempts) :
-            base(clientConfig)
+            int maxAttempts, ITransactionChecker checker) : base(clientConfig)
         {
             var retryPolicy = ExponentialBackoffRetryPolicy.ImmediatelyRetryPolicy(maxAttempts);
             PublishingSettings = new PublishingSettings(ClientId, Endpoints, retryPolicy,
@@ -57,18 +47,6 @@ namespace Org.Apache.Rocketmq
             _publishingTopics = publishingTopics;
             _sendCostTimeHistogram =
                 ClientMeterManager.Meter.CreateHistogram<double>(MetricConstant.SendCostTimeMetricName, "milliseconds");
-        }
-
-        public void SetTopics(params string[] topics)
-        {
-            foreach (var topic in topics)
-            {
-                _publishingTopics.TryAdd(topic, true);
-            }
-        }
-
-        public void SetTransactionChecker(ITransactionChecker checker)
-        {
             _checker = checker;
         }
 
@@ -94,6 +72,18 @@ namespace Org.Apache.Rocketmq
             }
         }
 
+        public async ValueTask DisposeAsync()
+        {
+            await Shutdown().ConfigureAwait(false);
+            GC.SuppressFinalize(this);
+        }
+
+        public void Dispose()
+        {
+            Shutdown().Wait();
+            GC.SuppressFinalize(this);
+        }
+        
         public override async Task Shutdown()
         {
             try
@@ -329,6 +319,49 @@ namespace Org.Apache.Rocketmq
             };
             var response = await ClientManager.EndTransaction(endpoints, request, ClientConfig.RequestTimeout);
             StatusChecker.Check(response.Status, request);
+        }
+
+        public class Builder
+        {
+            private ClientConfig _clientConfig;
+            private readonly ConcurrentDictionary<string, bool> _publishingTopics = new();
+            private int _maxAttempts = 3;
+            private ITransactionChecker _checker;
+
+            public Builder SetClientConfig(ClientConfig clientConfig)
+            {
+                _clientConfig = clientConfig;
+                return this;
+            }
+
+            public Builder SetTopics(params string[] topics)
+            {
+                foreach (var topic in topics)
+                {
+                    _publishingTopics[topic] = true;
+                }
+
+                return this;
+            }
+
+            public Builder SetMaxAttempts(int maxAttempts)
+            {
+                _maxAttempts = maxAttempts;
+                return this;
+            }
+
+            public Builder SetTransactionChecker(ITransactionChecker checker)
+            {
+                _checker = checker;
+                return this;
+            }
+
+            public async Task<Producer> Build()
+            {
+                var producer = new Producer(_clientConfig, _publishingTopics, _maxAttempts, _checker);
+                await producer.Start();
+                return producer;
+            }
         }
     }
 }

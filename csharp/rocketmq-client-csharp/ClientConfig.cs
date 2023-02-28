@@ -16,22 +16,52 @@
  */
 
 using System;
-using System.Threading;
 
 namespace Org.Apache.Rocketmq
 {
     public class ClientConfig : IClientConfig
     {
-        public ClientConfig(string endpoints)
+        private ClientConfig(ICredentialsProvider credentialsProvider, TimeSpan requestTimeout, string endpoints)
         {
-            RequestTimeout = TimeSpan.FromSeconds(3);
+            CredentialsProvider = credentialsProvider;
+            RequestTimeout = requestTimeout;
             Endpoints = endpoints;
         }
 
-        public ICredentialsProvider CredentialsProvider { get; set; }
+        public ICredentialsProvider CredentialsProvider { get; }
 
-        public TimeSpan RequestTimeout { get; set; }
+        public TimeSpan RequestTimeout { get; }
 
         public string Endpoints { get; }
+
+        public class Builder
+        {
+            private ICredentialsProvider _credentialsProvider;
+            private TimeSpan _requestTimeout = TimeSpan.FromSeconds(3);
+            private string _endpoints;
+
+            public Builder SetCredentialsProvider(ICredentialsProvider credentialsProvider)
+            {
+                _credentialsProvider = credentialsProvider;
+                return this;
+            }
+
+            public Builder SetRequestTimeout(TimeSpan requestTimeout)
+            {
+                _requestTimeout = requestTimeout;
+                return this;
+            }
+
+            public Builder SetEndpoints(string endpoints)
+            {
+                _endpoints = endpoints;
+                return this;
+            }
+
+            public ClientConfig Build()
+            {
+                return new ClientConfig(_credentialsProvider, _requestTimeout, _endpoints);
+            }
+        }
     }
 }

@@ -31,7 +31,7 @@ namespace examples
             // await ProducerFifoMessageExample.QuickStart();
             // await ProducerDelayMessageExample.QuickStart();
             // await SimpleConsumerExample.QuickStart();
-            ProducerBenchmark.QuickStart();
+            ProducerBenchmark.QuickStart().Wait();
         }
     }
 }

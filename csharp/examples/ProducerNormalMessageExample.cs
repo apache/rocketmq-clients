@@ -17,7 +17,6 @@
 
 using System.Collections.Generic;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using NLog;
 using Org.Apache.Rocketmq;
@@ -36,18 +35,18 @@ namespace examples
             // Credential provider is optional for client configuration.
             var credentialsProvider = new StaticCredentialsProvider(accessKey, secretKey);
             const string endpoints = "foobar.com:8080";
-            var clientConfig = new ClientConfig(endpoints)
-            {
-                CredentialsProvider = credentialsProvider
-            };
-            // In most case, you don't need to create too many producers, single pattern is recommended.
-            var producer = new Producer(clientConfig);
-
+            var clientConfig = new ClientConfig.Builder()
+                .SetEndpoints(endpoints)
+                .SetCredentialsProvider(credentialsProvider)
+                .Build();
             const string topic = "yourNormalTopic";
-            producer.SetTopics(topic);
-            // Set the topic name(s), which is optional but recommended. It makes producer could prefetch
-            // the topic route before message publishing.
-            await producer.Start();
+            // In most case, you don't need to create too many producers, single pattern is recommended.
+            await using var producer = await new Producer.Builder()
+                // Set the topic name(s), which is optional but recommended.
+                // It makes producer could prefetch the topic route before message publishing.
+                .SetTopics(topic)
+                .SetClientConfig(clientConfig)
+                .Build();
             // Define your message body.
             var bytes = Encoding.UTF8.GetBytes("foobar");
             const string tag = "yourMessageTagA";
@@ -58,16 +57,14 @@ namespace examples
                 "yourMessageKey-f72539fbc246"
             };
             // Set topic for current message.
-            var message = new Message(topic, bytes)
-            {
-                Tag = tag,
-                Keys = keys
-            };
+            var message = new Message.Builder()
+                .SetTopic(topic)
+                .SetBody(bytes)
+                .SetTag(tag)
+                .SetKeys(keys)
+                .Build();
             var sendReceipt = await producer.Send(message);
             Logger.Info($"Send message successfully, sendReceipt={sendReceipt}");
-            Thread.Sleep(9999999);
-            // Close the producer if you don't need it anymore.
-            await producer.Shutdown();
         }
     }
 }
