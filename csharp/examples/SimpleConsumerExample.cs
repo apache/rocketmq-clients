@@ -39,6 +39,7 @@ namespace examples
                 .SetEndpoints(endpoints)
                 .SetCredentialsProvider(credentialsProvider)
                 .Build();
+
             // Add your subscriptions.
             const string consumerGroup = "yourConsumerGroup";
             const string topic = "yourTopic";
@@ -46,12 +47,12 @@ namespace examples
                 { { topic, new FilterExpression("*") } };
             // In most case, you don't need to create too many consumers, single pattern is recommended.
             await using var simpleConsumer = new SimpleConsumer.Builder()
-                .SetClientConfig(clientConfig).SetConsumerGroup(consumerGroup)
+                .SetClientConfig(clientConfig)
+                .SetConsumerGroup(consumerGroup)
                 .SetAwaitDuration(TimeSpan.FromSeconds(15))
                 .SetSubscriptionExpression(subscription)
                 .Build();
 
-            await simpleConsumer.Start();
             var messageViews = await simpleConsumer.Receive(16, TimeSpan.FromSeconds(15));
             foreach (var message in messageViews)
             {

@@ -39,14 +39,17 @@ namespace examples
                 .SetEndpoints(endpoints)
                 .SetCredentialsProvider(credentialsProvider)
                 .Build();
+
             const string topic = "yourDelayTopic";
             // In most case, you don't need to create too many producers, single pattern is recommended.
+            // Producer here will be closed automatically.
             await using var producer = await new Producer.Builder()
                 // Set the topic name(s), which is optional but recommended.
                 // It makes producer could prefetch the topic route before message publishing.
                 .SetTopics(topic)
                 .SetClientConfig(clientConfig)
                 .Build();
+
             // Define your message body.
             var bytes = Encoding.UTF8.GetBytes("foobar");
             const string tag = "yourMessageTagA";
@@ -61,11 +64,13 @@ namespace examples
                 .SetBody(bytes)
                 .SetTag(tag)
                 .SetKeys(keys)
-                .SetDeliveryTimestamp(DateTime.UtcNow + TimeSpan.FromSeconds(30)).Build();
+                .SetDeliveryTimestamp(DateTime.UtcNow + TimeSpan.FromSeconds(30))
+                .Build();
+
             var sendReceipt = await producer.Send(message);
             Logger.Info($"Send message successfully, sendReceipt={sendReceipt}");
-            // Close the producer if you don't need it anymore.
-            await producer.Shutdown();
+            // Or you could close the producer manually.
+            // await producer.DisposeAsync();
         }
     }
 }

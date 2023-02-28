@@ -74,7 +74,7 @@ namespace Org.Apache.Rocketmq
             _subscriptionExpressions.TryRemove(topic, out _);
         }
 
-        public override async Task Start()
+        protected override async Task Start()
         {
             try
             {
@@ -103,7 +103,7 @@ namespace Org.Apache.Rocketmq
             GC.SuppressFinalize(this);
         }
 
-        public override async Task Shutdown()
+        protected override async Task Shutdown()
         {
             try
             {
@@ -147,7 +147,7 @@ namespace Org.Apache.Rocketmq
             _subscriptionRouteDataCache.TryAdd(topic, subscriptionLoadBalancer);
         }
 
-        public override Settings GetSettings()
+        internal override Settings GetSettings()
         {
             return _simpleSubscriptionSettings;
         }

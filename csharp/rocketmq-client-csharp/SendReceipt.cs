@@ -21,7 +21,7 @@ using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
-    public sealed class SendReceipt
+    public sealed class SendReceipt : ISendReceipt
     {
         public SendReceipt(string messageId, string transactionId, MessageQueue messageQueue)
         {

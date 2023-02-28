@@ -45,10 +45,7 @@ namespace Org.Apache.Rocketmq
 
         public List<MessageType> AcceptMessageTypes { get; }
 
-        public string Topic
-        {
-            get { return TopicResource.Name; }
-        }
+        public string Topic => TopicResource.Name;
 
         public override string ToString()
         {

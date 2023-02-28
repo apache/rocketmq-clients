@@ -25,7 +25,7 @@ namespace Org.Apache.Rocketmq
 {
     public static class Signature
     {
-        public static void Sign(IClient client, grpc::Metadata metadata)
+        public static void Sign(Client client, grpc::Metadata metadata)
         {
             var headers = Sign(client);
             foreach (var (key, value) in headers)
@@ -34,7 +34,7 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        public static Dictionary<string, string> Sign(IClient client)
+        public static Dictionary<string, string> Sign(Client client)
         {
             Dictionary<string, string> dictionary = new Dictionary<string, string>();
             var clientConfig = client.GetClientConfig();

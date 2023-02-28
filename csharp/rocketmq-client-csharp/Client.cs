@@ -27,7 +27,7 @@ using NLog;
 
 namespace Org.Apache.Rocketmq
 {
-    public abstract class Client : IClient
+    public abstract class Client
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
@@ -83,7 +83,7 @@ namespace Org.Apache.Rocketmq
             State = State.New;
         }
 
-        public virtual async Task Start()
+        protected virtual async Task Start()
         {
             Logger.Debug($"Begin to start the rocketmq client, clientId={ClientId}");
             ScheduleWithFixedDelay(UpdateTopicRouteCache, TopicRouteUpdateScheduleDelay, TopicRouteUpdateSchedulePeriod,
@@ -100,7 +100,7 @@ namespace Org.Apache.Rocketmq
             Logger.Debug($"Start the rocketmq client successfully, clientId={ClientId}");
         }
 
-        public virtual async Task Shutdown()
+        protected virtual async Task Shutdown()
         {
             Logger.Debug($"Begin to shutdown rocketmq client, clientId={ClientId}");
             _heartbeatCts.Cancel();
@@ -387,7 +387,7 @@ namespace Org.Apache.Rocketmq
         }
 
 
-        public grpc.Metadata Sign()
+        internal grpc.Metadata Sign()
         {
             var metadata = new grpc::Metadata();
             Signature.Sign(this, metadata);
@@ -416,26 +416,26 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        public abstract Settings GetSettings();
+        internal abstract Settings GetSettings();
 
-        public string GetClientId()
+        internal string GetClientId()
         {
             return ClientId;
         }
 
-        public ClientConfig GetClientConfig()
+        internal ClientConfig GetClientConfig()
         {
             return ClientConfig;
         }
 
-        public virtual void OnRecoverOrphanedTransactionCommand(Endpoints endpoints,
+        internal virtual void OnRecoverOrphanedTransactionCommand(Endpoints endpoints,
             Proto.RecoverOrphanedTransactionCommand command)
         {
             Logger.Warn($"Ignore orphaned transaction recovery command from remote, which is not expected, " +
                         $"clientId={ClientId}, endpoints={endpoints}");
         }
 
-        public async void OnVerifyMessageCommand(Endpoints endpoints, Proto.VerifyMessageCommand command)
+        internal async void OnVerifyMessageCommand(Endpoints endpoints, Proto.VerifyMessageCommand command)
         {
             // Only push consumer support message consumption verification.
             Logger.Warn($"Ignore verify message command from remote, which is not expected, clientId={ClientId}, " +
@@ -459,7 +459,7 @@ namespace Org.Apache.Rocketmq
             await session.WriteAsync(telemetryCommand);
         }
 
-        public async void OnPrintThreadStackTraceCommand(Endpoints endpoints,
+        internal async void OnPrintThreadStackTraceCommand(Endpoints endpoints,
             Proto.PrintThreadStackTraceCommand command)
         {
             Logger.Warn("Ignore thread stack trace printing command from remote because it is still not supported, " +
@@ -483,7 +483,7 @@ namespace Org.Apache.Rocketmq
             await session.WriteAsync(telemetryCommand);
         }
 
-        public void OnSettingsCommand(Endpoints endpoints, Proto.Settings settings)
+        internal void OnSettingsCommand(Endpoints endpoints, Proto.Settings settings)
         {
             var metric = new Metric(settings.Metric);
             ClientMeterManager.Reset(metric);
