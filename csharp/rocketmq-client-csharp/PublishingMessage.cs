@@ -109,7 +109,7 @@ namespace Org.Apache.Rocketmq
                 Topic = topicResource,
                 Body = ByteString.CopyFrom(Body),
                 SystemProperties = systemProperties,
-                UserProperties = { UserProperties }
+                UserProperties = { Properties }
             };
         }
     }

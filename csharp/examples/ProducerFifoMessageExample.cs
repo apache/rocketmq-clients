@@ -54,24 +54,21 @@ namespace examples
             // Define your message body.
             var bytes = Encoding.UTF8.GetBytes("foobar");
             const string tag = "yourMessageTagA";
-            // You could set multiple keys for the single message.
-            var keys = new List<string>
-            {
-                "yourMessageKey-7044358f98fc",
-                "yourMessageKey-f72539fbc246"
-            };
             const string messageGroup = "yourMessageGroup";
             var message = new Message.Builder()
                 .SetTopic(topic)
                 .SetBody(bytes)
                 .SetTag(tag)
-                .SetKeys(keys)
+                // You could set multiple keys for the single message actually.
+                .SetKeys("yourMessageKey-7044358f98fc")
+                // Message group decides the message delivery order.
                 .SetMessageGroup(messageGroup)
                 .Build();
 
             var sendReceipt = await producer.Send(message);
             Logger.Info($"Send message successfully, sendReceipt={sendReceipt}");
             Thread.Sleep(9999999);
+            // Or you could close the producer manually.
             // await producer.DisposeAsync();
         }
     }
