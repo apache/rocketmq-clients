@@ -1,17 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <PackageId>RocketMQ-Client-CSharp</PackageId>
-    <Version>5.0.1</Version>
+    <PackageId>RocketMQ.Client</PackageId>
+    <Version>0.0.1-SNAPSHOT</Version>
 
-    <Authors>Zhanhui Li</Authors>
+    <Authors>RocketMQ Authors</Authors>
     <Company>Apache Software Foundation</Company>
     <TargetFramework>net5.0</TargetFramework>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <RootNamespace>Org.Apache.Rocketmq</RootNamespace>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Description>.NET Client for Apache RocketMQ</Description>
+    <PackageProjectUrl>https://github.com/apache/rocketmq-clients</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/apache/rocketmq-clients</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\"/>
     <PackageReference Include="Crc32.NET" Version="1.2.0" />
     <PackageReference Include="Google.Protobuf" Version="3.19.4" />
     <PackageReference Include="Grpc.Net.Client" Version="2.43.0" />

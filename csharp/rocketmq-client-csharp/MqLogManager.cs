@@ -16,10 +16,11 @@
  */
 
 using System;
-using System.IO;
-using System.Reflection;
 using NLog;
 using NLog.Config;
+using NLog.Layouts;
+using NLog.Targets;
+using NLog.Targets.Wrappers;
 
 namespace Org.Apache.Rocketmq
 {
@@ -36,12 +37,43 @@ namespace Org.Apache.Rocketmq
 
         private static LogFactory BuildLogFactory()
         {
-            // Use name of current assembly to construct NLog config filename 
-            var thisAssembly = Assembly.GetExecutingAssembly();
-            var configFilePath = Path.ChangeExtension(thisAssembly.Location, ".nlog");
+            var config = new LoggingConfiguration();
+            var fileTarget = new FileTarget();
+            fileTarget.Name = "log_file";
+            fileTarget.FileName =
+                new SimpleLayout("${specialfolder:folder=UserProfile}/logs/rocketmq/rocketmq-client.log");
+            fileTarget.Layout =
+                new SimpleLayout(
+                    "${longdate} ${level:uppercase=true:padding=-5} [${processid}] [${threadid}] [${callsite}:${callsite-linenumber}] ${message} ${onexception:${exception:format=ToString,Data}}");
+            fileTarget.ArchiveFileName =
+                new SimpleLayout("${specialfolder:folder=UserProfile}/logs/rocketmq/rocketmq-client.{######}.log");
+            fileTarget.ArchiveAboveSize = 67108864;
+            fileTarget.ArchiveNumbering = ArchiveNumberingMode.DateAndSequence;
+            fileTarget.MaxArchiveFiles = 10;
+            fileTarget.ConcurrentWrites = true;
+            fileTarget.KeepFileOpen = false;
+
+            var asyncTargetWrapper = new AsyncTargetWrapper(fileTarget);
+            asyncTargetWrapper.Name = "asyncFile";
+            config.AddTarget(asyncTargetWrapper);
+
+            var consoleTarget = new ColoredConsoleTarget();
+            consoleTarget.Name = "colorConsole";
+            consoleTarget.UseDefaultRowHighlightingRules = true;
+            consoleTarget.Layout =
+                new SimpleLayout(
+                    "${longdate} ${level:uppercase=true:padding=-5} [${processid}] [${threadid}] [${callsite}:${callsite-linenumber}] ${message} ${onexception:${exception:format=ToString,Data}}");
+
+            config.AddTarget(consoleTarget);
+
+            var asyncFileRule = new LoggingRule("*", LogLevel.FromString("Debug"), asyncTargetWrapper);
+            config.LoggingRules.Add(asyncFileRule);
+
+            var consoleRule = new LoggingRule("*", LogLevel.FromString("Debug"), consoleTarget);
+            config.LoggingRules.Add(consoleRule);
 
             var logFactory = new LogFactory();
-            logFactory.Configuration = new XmlLoggingConfiguration(configFilePath, logFactory);
+            logFactory.Configuration = config;
             return logFactory;
         }
     }
