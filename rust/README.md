@@ -3,12 +3,6 @@
 Here is the rust implementation of the client for [Apache RocketMQ](https://rocketmq.apache.org/).
 It is still at a very early stage of development.
 
-## Prerequisites
-
-| Stage   | Requirements |
-| ------- |--------------|
-| Build   | Rust 1.66+   |
-
 ## Getting Started
 
 Firstly, add the dependency to your `Cargo.toml`, and replace the `version` with the latest version.
