@@ -17,6 +17,10 @@
 <nlog xmlns="http://www.nlog-project.org/schemas/NLog.xsd"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       throwconfigexceptions="true">
+    <variables>
+        <variable name="logLevel" value="${environment:rocketmq.log.level:whenEmpty=Info}" />
+        <variable name="ConsoleLogLevel" value="${environment:rocketmq.console.log.level:whenEmpty=Off}" />
+    </variables>
     <targets>
         <target name="asyncFile" xsi:type="AsyncWrapper">
             <target name="log_file" xsi:type="File"
@@ -35,7 +39,7 @@
         </target>
     </targets>
     <rules>
-        <logger name="*" minlevel="Debug" writeTo="asyncFile" />
-        <logger name="*" minlevel="Debug" writeTo="colorConsole" />
+        <logger name="*" minLevel="${logLevel}" writeTo="asyncFile" />
+        <logger name="*" minLevel="${ConsoleLogLevel}" writeTo="colorConsole" />
     </rules>
 </nlog>
