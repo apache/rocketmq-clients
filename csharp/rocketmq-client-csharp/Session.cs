@@ -99,8 +99,8 @@ namespace Org.Apache.Rocketmq
                         {
                             Logger.Info(
                                 $"Receive setting from remote, endpoints={_endpoints}, clientId={_client.GetClientId()}");
-                            await _channel.Writer.WriteAsync(true);
                             _client.OnSettingsCommand(_endpoints, response.Settings);
+                            await _channel.Writer.WriteAsync(true);
                             break;
                         }
                         case Proto.TelemetryCommand.CommandOneofCase.RecoverOrphanedTransactionCommand:

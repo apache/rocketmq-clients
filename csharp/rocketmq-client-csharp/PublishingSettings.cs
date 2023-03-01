@@ -38,7 +38,7 @@ namespace Org.Apache.Rocketmq
             Topics = topics;
         }
 
-        public ConcurrentDictionary<string, bool> Topics { get; }
+        private ConcurrentDictionary<string, bool> Topics { get; }
 
         public int GetMaxBodySizeBytes()
         {

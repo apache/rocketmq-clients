@@ -24,6 +24,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Proto = Apache.Rocketmq.V2;
 using NLog;
+using Org.Apache.Rocketmq.Error;
 
 namespace Org.Apache.Rocketmq
 {
@@ -177,7 +178,13 @@ namespace Org.Apache.Rocketmq
                         new KeyValuePair<string, object>(MetricConstant.ClientId, ClientId),
                         new KeyValuePair<string, object>(MetricConstant.InvocationStatus,
                             null == exception ? MetricConstant.True : MetricConstant.False));
-                    // TODO
+                    // Retry immediately if the request is not throttled.
+                    if (exception is TooManyRequestsException)
+                    {
+                        var nextAttempt = 1 + attempt;
+                        var delay = retryPolicy.GetNextAttemptDelay(nextAttempt);
+                        await Task.Delay(delay);
+                    }
                 }
             }
 
