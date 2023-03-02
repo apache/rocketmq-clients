@@ -313,28 +313,36 @@ namespace Org.Apache.Rocketmq
 
         private async Task<TopicRouteData> FetchTopicRoute0(string topic)
         {
-            var request = new Proto::QueryRouteRequest
+            try
             {
-                Topic = new Proto::Resource
+                var request = new Proto::QueryRouteRequest
                 {
-                    Name = topic
-                },
-                Endpoints = Endpoints.ToProtobuf()
-            };
+                    Topic = new Proto::Resource
+                    {
+                        Name = topic
+                    },
+                    Endpoints = Endpoints.ToProtobuf()
+                };
 
-            var invocation =
-                await ClientManager.QueryRoute(Endpoints, request, ClientConfig.RequestTimeout);
-            var code = invocation.Response.Status.Code;
-            if (!Proto.Code.Ok.Equals(code))
-            {
-                Logger.Error($"Failed to fetch topic route, clientId={ClientId}, topic={topic}, code={code}, " +
-                             $"statusMessage={invocation.Response.Status.Message}");
+                var invocation =
+                    await ClientManager.QueryRoute(Endpoints, request, ClientConfig.RequestTimeout);
+                var code = invocation.Response.Status.Code;
+                if (!Proto.Code.Ok.Equals(code))
+                {
+                    Logger.Error($"Failed to fetch topic route, clientId={ClientId}, topic={topic}, code={code}, " +
+                                 $"statusMessage={invocation.Response.Status.Message}");
+                }
+
+                StatusChecker.Check(invocation.Response.Status, request, invocation.RequestId);
+
+                var messageQueues = invocation.Response.MessageQueues.ToList();
+                return new TopicRouteData(messageQueues);
             }
-
-            StatusChecker.Check(invocation.Response.Status, request, invocation.RequestId);
-
-            var messageQueues = invocation.Response.MessageQueues.ToList();
-            return new TopicRouteData(messageQueues);
+            catch (Exception e)
+            {
+                Logger.Error(e, $"Failed to fetch topic route, clientId={ClientId}, topic={topic}");
+                throw;
+            }
         }
 
         private async void Heartbeat()
