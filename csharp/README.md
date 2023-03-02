@@ -1,36 +1,34 @@
-# The C# Implementation of Apache RocketMQ Client
+# The .NET Implementation of Apache RocketMQ Client
 
-## Introduction
+Here is the .NET implementation of the client for [Apache RocketMQ](https://rocketmq.apache.org/).
 
-Here is the C# implementation of the client for [Apache RocketMQ](https://rocketmq.apache.org/).
+## Supported .NET Versions
+
+Due to the release of .NET 5 in 2020, which unified .NET Framework and .NET Core, and has gradually become the mainstream platform for .NET development, the RocketMQ client will support .NET 5 and later versions.
+
+See more details about .NET 5 from [Introducing .NET 5](https://devblogs.microsoft.com/dotnet/introducing-net-5/).
 
 ## Architecture
 
-Basically, this project would follow the same paradigm of [rocketmq-client-cpp v5.0.0](https://github.com/apache/rocketmq-client-cpp/tree/main). Namely, we would build the whole client following protocols described in [rocketmq-apis](https://github.com/apache/rocketmq-apis) on top of [gRPC-dotnet](https://github.com/grpc/grpc-dotnet), utilizing [Protocol buffers](https://developers.google.com/protocol-buffers) to serialize and deserialize data in transmission.
+The client would be developed using the protocols outlined in [rocketmq-apis](https://github.com/apache/rocketmq-apis) and built on [gRPC-dotnet](https://github.com/grpc/grpc-dotnet), leveraging Protocol Buffers for data serialization and deserialization during transmission.
 
-## How to build
+## Quickstart
+
+```sh
+dotnet add package RocketMQ.Client
+```
+
+You can obtain the latest version of `RocketMQ.Client` from [NuGet Gallery](https://www.nuget.org/packages/RocketMQ.Client). To assist with getting started quickly and working with various message types and clients, we offer additional code [here](./examples) here.
+
+## Build
 
 Layout of this project roughly follows [this guide](https://docs.microsoft.com/en-us/dotnet/core/tutorials/library-with-visual-studio-code?pivots=dotnet-5-0). The solution contains a class library, a unit test module and an example console module.
 
-1. Install dotnet tool chains following instructions [here](https://dotnet.microsoft.com/en-us/download);
-2. Visual Studio Code with official C# plugin is used during development;
-
-Assuming you are at the home of this repository,
-
-### Build
+Assuming you are at the home of this repository:
 
 ```sh
+# build the project
 dotnet build
-```
-
-### Run Unit Tests
-
-```sh
+# run unit tests
 dotnet test -l "console;verbosity=detailed"
-```
-
-### Run Examples
-
-```sh
-dotnet run -p examples
 ```
