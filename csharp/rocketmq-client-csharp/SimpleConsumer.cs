@@ -206,9 +206,9 @@ namespace Org.Apache.Rocketmq
             }
 
             var request = WrapChangeInvisibleDuration(messageView, invisibleDuration);
-            var response = await ClientManager.ChangeInvisibleDuration(messageView.MessageQueue.Broker.Endpoints,
+            var invocation = await ClientManager.ChangeInvisibleDuration(messageView.MessageQueue.Broker.Endpoints,
                 request, ClientConfig.RequestTimeout);
-            StatusChecker.Check(response.Status, request);
+            StatusChecker.Check(invocation.Response.Status, request, invocation.RequestId);
         }
 
 
@@ -220,9 +220,9 @@ namespace Org.Apache.Rocketmq
             }
 
             var request = WrapAckMessageRequest(messageView);
-            var response = await ClientManager.AckMessage(messageView.MessageQueue.Broker.Endpoints, request,
+            var invocation = await ClientManager.AckMessage(messageView.MessageQueue.Broker.Endpoints, request,
                 ClientConfig.RequestTimeout);
-            StatusChecker.Check(response.Status, request);
+            StatusChecker.Check(invocation.Response.Status, request, invocation.RequestId);
         }
 
         private Proto.AckMessageRequest WrapAckMessageRequest(MessageView messageView)

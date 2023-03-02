@@ -18,7 +18,7 @@ The client would be developed using the protocols outlined in [rocketmq-apis](ht
 dotnet add package RocketMQ.Client
 ```
 
-You can obtain the latest version of `RocketMQ.Client` from [NuGet Gallery](https://www.nuget.org/packages/RocketMQ.Client). To assist with getting started quickly and working with various message types and clients, we offer additional code [here](./examples) here.
+You can obtain the latest version of `RocketMQ.Client` from [NuGet Gallery](https://www.nuget.org/packages/RocketMQ.Client). To assist with getting started quickly and working with various message types and clients, we offer examples [here](./examples) here.
 
 ## Build
 

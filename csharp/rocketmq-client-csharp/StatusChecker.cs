@@ -26,12 +26,11 @@ namespace Org.Apache.Rocketmq
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
-        public static void Check(Proto.Status status, IMessage message)
+        public static void Check(Proto.Status status, IMessage request, string requestId)
         {
             var statusCode = status.Code;
 
             var statusMessage = status.Message;
-            // TODO: add request-id.
             switch (statusCode)
             {
                 case Proto.Code.Ok:
@@ -56,15 +55,15 @@ namespace Org.Apache.Rocketmq
                 case Proto.Code.MessageCorrupted:
                 case Proto.Code.ClientIdRequired:
                 case Proto.Code.IllegalPollingTime:
-                    throw new BadRequestException((int)statusCode, statusMessage);
+                    throw new BadRequestException((int)statusCode, requestId, statusMessage);
                 case Proto.Code.Unauthorized:
-                    throw new UnauthorizedException((int)statusCode, statusMessage);
+                    throw new UnauthorizedException((int)statusCode, requestId, statusMessage);
                 case Proto.Code.PaymentRequired:
-                    throw new PaymentRequiredException((int)statusCode, statusMessage);
+                    throw new PaymentRequiredException((int)statusCode, requestId, statusMessage);
                 case Proto.Code.Forbidden:
-                    throw new ForbiddenException((int)statusCode, statusMessage);
+                    throw new ForbiddenException((int)statusCode, requestId, statusMessage);
                 case Proto.Code.MessageNotFound:
-                    if (message is Proto.ReceiveMessageRequest)
+                    if (request is Proto.ReceiveMessageRequest)
                     {
                         return;
                     }
@@ -74,27 +73,27 @@ namespace Org.Apache.Rocketmq
                 case Proto.Code.NotFound:
                 case Proto.Code.TopicNotFound:
                 case Proto.Code.ConsumerGroupNotFound:
-                    throw new NotFoundException((int)statusCode, statusMessage);
+                    throw new NotFoundException((int)statusCode, requestId, statusMessage);
                 case Proto.Code.PayloadTooLarge:
                 case Proto.Code.MessageBodyTooLarge:
-                    throw new PayloadTooLargeException((int)statusCode, statusMessage);
+                    throw new PayloadTooLargeException((int)statusCode, requestId, statusMessage);
                 case Proto.Code.TooManyRequests:
-                    throw new TooManyRequestsException((int)statusCode, statusMessage);
+                    throw new TooManyRequestsException((int)statusCode, requestId, statusMessage);
                 case Proto.Code.RequestHeaderFieldsTooLarge:
                 case Proto.Code.MessagePropertiesTooLarge:
-                    throw new RequestHeaderFieldsTooLargeException((int)statusCode, statusMessage);
+                    throw new RequestHeaderFieldsTooLargeException((int)statusCode, requestId, statusMessage);
                 case Proto.Code.InternalError:
                 case Proto.Code.InternalServerError:
                 case Proto.Code.HaNotAvailable:
-                    throw new InternalErrorException((int)statusCode, statusMessage);
+                    throw new InternalErrorException((int)statusCode, requestId, statusMessage);
                 case Proto.Code.ProxyTimeout:
                 case Proto.Code.MasterPersistenceTimeout:
                 case Proto.Code.SlavePersistenceTimeout:
-                    throw new ProxyTimeoutException((int)statusCode, statusMessage);
+                    throw new ProxyTimeoutException((int)statusCode, requestId, statusMessage);
                 case Proto.Code.Unsupported:
                 case Proto.Code.VersionUnsupported:
                 case Proto.Code.VerifyFifoMessageUnsupported:
-                    throw new UnsupportedException((int)statusCode, statusMessage);
+                    throw new UnsupportedException((int)statusCode, requestId, statusMessage);
                 // Not used code.
                 case Proto.Code.RequestTimeout:
                 case Proto.Code.PreconditionFailed:
@@ -102,8 +101,8 @@ namespace Org.Apache.Rocketmq
                 case Proto.Code.FailedToConsumeMessage:
                 case Proto.Code.Unspecified:
                 default:
-                    Logger.Warn($"Unrecognized status code={statusCode}, statusMessage={statusMessage}");
-                    throw new UnsupportedException((int)statusCode, statusMessage);
+                    Logger.Warn($"Unrecognized status code={statusCode}, requestId={requestId}, statusMessage={statusMessage}");
+                    throw new UnsupportedException((int)statusCode, requestId, statusMessage);
             }
         }
     }

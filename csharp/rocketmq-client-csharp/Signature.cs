@@ -40,6 +40,7 @@ namespace Org.Apache.Rocketmq
             var clientConfig = client.GetClientConfig();
             dictionary.Add(MetadataConstants.LanguageKey, MetadataConstants.LanguageValue);
             dictionary.Add(MetadataConstants.ClientVersionKey, MetadataConstants.Instance.ClientVersion);
+            dictionary.Add(MetadataConstants.RequestIdKey, Guid.NewGuid().ToString());
             dictionary.Add(MetadataConstants.ClientIdKey, client.GetClientId());
 
             var time = DateTime.Now.ToString(MetadataConstants.DateTimeFormat);

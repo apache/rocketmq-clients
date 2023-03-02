@@ -44,10 +44,11 @@ namespace Org.Apache.Rocketmq
         }
 
         public static IEnumerable<SendReceipt> ProcessSendMessageResponse(MessageQueue mq,
-            Proto.SendMessageResponse response)
+            RpcInvocation<Proto.SendMessageRequest, Proto.SendMessageResponse>
+                invocation)
         {
-            var status = response.Status;
-            foreach (var entry in response.Entries)
+            var status = invocation.Response.Status;
+            foreach (var entry in invocation.Response.Entries)
             {
                 if (Proto.Code.Ok.Equals(entry.Status.Code))
                 {
@@ -56,8 +57,8 @@ namespace Org.Apache.Rocketmq
             }
 
             // May throw exception.
-            StatusChecker.Check(status, response);
-            return response.Entries.Select(entry => new SendReceipt(entry.MessageId, entry.TransactionId, mq)).ToList();
+            StatusChecker.Check(status, invocation.Request, invocation.RequestId);
+            return invocation.Response.Entries.Select(entry => new SendReceipt(entry.MessageId, entry.TransactionId, mq)).ToList();
         }
     }
 }

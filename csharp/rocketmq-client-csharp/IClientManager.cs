@@ -39,7 +39,8 @@ namespace Org.Apache.Rocketmq
         /// <param name="request">gRPC request of querying topic route.</param>
         /// <param name="timeout">Request max duration.</param>
         /// <returns>Task of response.</returns>
-        Task<QueryRouteResponse> QueryRoute(Endpoints endpoints, QueryRouteRequest request, TimeSpan timeout);
+        Task<RpcInvocation<QueryRouteRequest, QueryRouteResponse>> QueryRoute(Endpoints endpoints,
+            QueryRouteRequest request, TimeSpan timeout);
 
         /// <summary>
         /// Send heartbeat to remote endpoints.
@@ -48,7 +49,8 @@ namespace Org.Apache.Rocketmq
         /// <param name="request">gRPC request of heartbeat.</param>
         /// <param name="timeout">Request max duration.</param>
         /// <returns>Task of response.</returns>
-        Task<HeartbeatResponse> Heartbeat(Endpoints endpoints, HeartbeatRequest request, TimeSpan timeout);
+        Task<RpcInvocation<HeartbeatRequest, HeartbeatResponse>> Heartbeat(Endpoints endpoints,
+            HeartbeatRequest request, TimeSpan timeout);
 
         /// <summary>
         /// Notify client's termination.
@@ -57,8 +59,8 @@ namespace Org.Apache.Rocketmq
         /// <param name="request">gRPC request of notifying client's termination.</param>
         /// <param name="timeout">Request max duration.</param>
         /// <returns>Task of response.</returns>
-        Task<NotifyClientTerminationResponse> NotifyClientTermination(Endpoints endpoints,
-            NotifyClientTerminationRequest request, TimeSpan timeout);
+        Task<RpcInvocation<NotifyClientTerminationRequest, NotifyClientTerminationResponse>> NotifyClientTermination(
+            Endpoints endpoints, NotifyClientTerminationRequest request, TimeSpan timeout);
 
         /// <summary>
         /// Send message to remote endpoints.
@@ -67,22 +69,25 @@ namespace Org.Apache.Rocketmq
         /// <param name="request"></param>
         /// <param name="timeout"></param>
         /// <returns></returns>
-        Task<SendMessageResponse> SendMessage(Endpoints endpoints, SendMessageRequest request,
+        Task<RpcInvocation<SendMessageRequest, SendMessageResponse>> SendMessage(Endpoints endpoints,
+            SendMessageRequest request, TimeSpan timeout);
+
+        Task<RpcInvocation<QueryAssignmentRequest, QueryAssignmentResponse>> QueryAssignment(Endpoints endpoints,
+            QueryAssignmentRequest request, TimeSpan timeout);
+
+        Task<RpcInvocation<ReceiveMessageRequest, List<ReceiveMessageResponse>>> ReceiveMessage(Endpoints endpoints,
+            ReceiveMessageRequest request,
             TimeSpan timeout);
 
-        Task<QueryAssignmentResponse> QueryAssignment(Endpoints endpoints, QueryAssignmentRequest request,
-            TimeSpan timeout);
+        Task<RpcInvocation<AckMessageRequest, AckMessageResponse>> AckMessage(Endpoints endpoints,
+            AckMessageRequest request, TimeSpan timeout);
 
-        Task<List<ReceiveMessageResponse>> ReceiveMessage(Endpoints endpoints, ReceiveMessageRequest request,
-            TimeSpan timeout);
-
-        Task<AckMessageResponse> AckMessage(Endpoints endpoints, AckMessageRequest request, TimeSpan timeout);
-
-        Task<ChangeInvisibleDurationResponse> ChangeInvisibleDuration(Endpoints endpoints,
+        Task<RpcInvocation<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse>> ChangeInvisibleDuration(
+            Endpoints endpoints,
             ChangeInvisibleDurationRequest request, TimeSpan timeout);
 
-        Task<EndTransactionResponse> EndTransaction(Endpoints endpoints, EndTransactionRequest request,
-            TimeSpan timeout);
+        Task<RpcInvocation<EndTransactionRequest, EndTransactionResponse>> EndTransaction(Endpoints endpoints,
+            EndTransactionRequest request, TimeSpan timeout);
 
         Task Shutdown();
     }

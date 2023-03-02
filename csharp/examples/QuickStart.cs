@@ -21,11 +21,11 @@ namespace examples
     {
         public static void Main()
         {
-            // ProducerNormalMessageExample.QuickStart().Wait();
+            ProducerNormalMessageExample.QuickStart().Wait();
             // await ProducerFifoMessageExample.QuickStart();
             // await ProducerDelayMessageExample.QuickStart();
             // await SimpleConsumerExample.QuickStart();
-            ProducerBenchmark.QuickStart().Wait();
+            // ProducerBenchmark.QuickStart().Wait();
         }
     }
 }
