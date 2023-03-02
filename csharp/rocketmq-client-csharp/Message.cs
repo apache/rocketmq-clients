@@ -17,13 +17,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace Org.Apache.Rocketmq
 {
     public class Message
     {
-        internal static readonly Regex TopicRegex = new("^[%a-zA-Z0-9_-]+$"); 
+        internal static readonly Regex TopicRegex = new("^[%a-zA-Z0-9_-]+$");
+
         private Message(string topic, byte[] body, string tag, List<string> keys,
             Dictionary<string, string> properties, DateTime? deliveryTimestamp, string messageGroup)
         {
@@ -60,6 +62,14 @@ namespace Org.Apache.Rocketmq
 
         public string MessageGroup { get; }
 
+        public override string ToString()
+        {
+            return
+                $"{nameof(Topic)}: {Topic}, {nameof(Tag)}: {Tag}, {nameof(Keys)}: {string.Join(", ", Keys)}, {nameof(Properties)}: " +
+                $"{string.Join(", ", Properties.Select(kvp => kvp.ToString()))}, {nameof(DeliveryTimestamp)}: {DeliveryTimestamp}, {nameof(MessageGroup)}: " +
+                $"{MessageGroup}";
+        }
+
         public class Builder
         {
             private string _topic;
@@ -73,7 +83,8 @@ namespace Org.Apache.Rocketmq
             public Builder SetTopic(string topic)
             {
                 Preconditions.CheckArgument(null != topic, "topic should not be null");
-                Preconditions.CheckArgument(topic != null && TopicRegex.Match(topic).Success, $"topic does not match the regex {TopicRegex}");
+                Preconditions.CheckArgument(topic != null && TopicRegex.Match(topic).Success,
+                    $"topic does not match the regex {TopicRegex}");
                 _topic = topic;
                 return this;
             }
