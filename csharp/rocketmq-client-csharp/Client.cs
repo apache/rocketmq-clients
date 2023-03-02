@@ -322,18 +322,18 @@ namespace Org.Apache.Rocketmq
                 Endpoints = Endpoints.ToProtobuf()
             };
 
-            var response =
+            var invocation =
                 await ClientManager.QueryRoute(Endpoints, request, ClientConfig.RequestTimeout);
-            var code = response.Status.Code;
+            var code = invocation.Response.Status.Code;
             if (!Proto.Code.Ok.Equals(code))
             {
                 Logger.Error($"Failed to fetch topic route, clientId={ClientId}, topic={topic}, code={code}, " +
-                             $"statusMessage={response.Status.Message}");
+                             $"statusMessage={invocation.Response.Status.Message}");
             }
 
-            StatusChecker.Check(response.Status, request);
+            StatusChecker.Check(invocation.Response.Status, request, invocation.RequestId);
 
-            var messageQueues = response.MessageQueues.ToList();
+            var messageQueues = invocation.Response.MessageQueues.ToList();
             return new TopicRouteData(messageQueues);
         }
 
@@ -343,21 +343,21 @@ namespace Org.Apache.Rocketmq
             {
                 var endpoints = GetTotalRouteEndpoints();
                 var request = WrapHeartbeatRequest();
-                Dictionary<Endpoints, Task<Proto.HeartbeatResponse>> responses = new();
+                Dictionary<Endpoints, Task<RpcInvocation<Proto.HeartbeatRequest, Proto.HeartbeatResponse>>> invocations = new();
 
                 // Collect task into a map.
                 foreach (var item in endpoints)
                 {
                     var task = ClientManager.Heartbeat(item, request, ClientConfig.RequestTimeout);
-                    responses[item] = task;
+                    invocations[item] = task;
                 }
 
-                foreach (var item in responses.Keys)
+                foreach (var item in invocations.Keys)
                 {
                     try
                     {
-                        var response = await responses[item];
-                        var code = response.Status.Code;
+                        var invocation = await invocations[item];
+                        var code = invocation.Response.Status.Code;
 
                         if (code.Equals(Proto.Code.Ok))
                         {
@@ -371,7 +371,7 @@ namespace Org.Apache.Rocketmq
                             return;
                         }
 
-                        var statusMessage = response.Status.Message;
+                        var statusMessage = invocation.Response.Status.Message;
                         Logger.Info($"Failed to send heartbeat, endpoints={item}, code={code}, " +
                                     $"statusMessage={statusMessage}, clientId={ClientId}");
                     }
@@ -404,10 +404,10 @@ namespace Org.Apache.Rocketmq
             var request = WrapNotifyClientTerminationRequest();
             foreach (var item in endpoints)
             {
-                var response = await ClientManager.NotifyClientTermination(item, request, ClientConfig.RequestTimeout);
+                var invocation = await ClientManager.NotifyClientTermination(item, request, ClientConfig.RequestTimeout);
                 try
                 {
-                    StatusChecker.Check(response.Status, request);
+                    StatusChecker.Check(invocation.Response.Status, request, invocation.RequestId);
                 }
                 catch (Exception e)
                 {

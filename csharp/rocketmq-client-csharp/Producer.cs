@@ -239,10 +239,10 @@ namespace Org.Apache.Rocketmq
 
             var sendMessageRequest = WrapSendMessageRequest(message, mq);
             var endpoints = mq.Broker.Endpoints;
-            var response = await ClientManager.SendMessage(endpoints, sendMessageRequest, ClientConfig.RequestTimeout);
+            var invocation = await ClientManager.SendMessage(endpoints, sendMessageRequest, ClientConfig.RequestTimeout);
             try
             {
-                var sendReceipts = SendReceipt.ProcessSendMessageResponse(mq, response);
+                var sendReceipts = SendReceipt.ProcessSendMessageResponse(mq, invocation);
 
                 var sendReceipt = sendReceipts.First();
                 if (attempt > 1)
@@ -260,9 +260,9 @@ namespace Org.Apache.Rocketmq
                 Isolated[endpoints] = true;
                 if (attempt >= maxAttempts)
                 {
-                    Logger.Error("Failed to send message finally, run out of attempt times, " +
-                                 $"topic={message.Topic}, maxAttempt={maxAttempts}, attempt={attempt}, " +
-                                 $"endpoints={endpoints}, messageId={message.MessageId}, clientId={ClientId}");
+                    Logger.Error(e, "Failed to send message finally, run out of attempt times, " +
+                                    $"topic={message.Topic}, maxAttempt={maxAttempts}, attempt={attempt}, " +
+                                    $"endpoints={endpoints}, messageId={message.MessageId}, clientId={ClientId}");
                     throw;
                 }
 
@@ -325,8 +325,8 @@ namespace Org.Apache.Rocketmq
                     ? Proto.TransactionResolution.Commit
                     : Proto.TransactionResolution.Rollback
             };
-            var response = await ClientManager.EndTransaction(endpoints, request, ClientConfig.RequestTimeout);
-            StatusChecker.Check(response.Status, request);
+            var invocation = await ClientManager.EndTransaction(endpoints, request, ClientConfig.RequestTimeout);
+            StatusChecker.Check(invocation.Response.Status, request, invocation.RequestId);
         }
 
         public class Builder

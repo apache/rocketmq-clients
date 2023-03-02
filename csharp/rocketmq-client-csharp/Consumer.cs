@@ -41,14 +41,14 @@ namespace Org.Apache.Rocketmq
         {
             var tolerance = ClientConfig.RequestTimeout;
             var timeout = tolerance.Add(awaitDuration);
-            var response = await ClientManager.ReceiveMessage(mq.Broker.Endpoints, request, timeout);
+            var invocation = await ClientManager.ReceiveMessage(mq.Broker.Endpoints, request, timeout);
             var status = new Proto.Status()
             {
                 Code = Proto.Code.InternalServerError,
                 Message = "Status was not set by server"
             };
             var messageList = new List<Proto.Message>();
-            foreach (var entry in response)
+            foreach (var entry in invocation.Response)
             {
                 switch (entry.ContentCase)
                 {
@@ -66,7 +66,7 @@ namespace Org.Apache.Rocketmq
             }
 
             var messages = messageList.Select(message => MessageView.FromProtobuf(message, mq)).ToList();
-            StatusChecker.Check(status, request);
+            StatusChecker.Check(status, request, invocation.RequestId);
             return new ReceiveMessageResult(mq.Broker.Endpoints, messages);
         }
 

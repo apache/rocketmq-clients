@@ -98,59 +98,86 @@ namespace Org.Apache.Rocketmq
             return GetRpcClient(endpoints).Telemetry(_client.Sign());
         }
 
-        public async Task<Proto.QueryRouteResponse> QueryRoute(Endpoints endpoints, Proto.QueryRouteRequest request,
-            TimeSpan timeout)
+        public async Task<RpcInvocation<Proto.QueryRouteRequest, Proto.QueryRouteResponse>> QueryRoute(
+            Endpoints endpoints,
+            Proto.QueryRouteRequest request, TimeSpan timeout)
         {
-            return await GetRpcClient(endpoints).QueryRoute(_client.Sign(), request, timeout);
+            var metadata = _client.Sign();
+            var response = await GetRpcClient(endpoints).QueryRoute(metadata, request, timeout);
+            return new RpcInvocation<Proto.QueryRouteRequest, Proto.QueryRouteResponse>(request, response, metadata);
         }
 
-        public async Task<Proto.HeartbeatResponse> Heartbeat(Endpoints endpoints, Proto.HeartbeatRequest request,
-            TimeSpan timeout)
+        public async Task<RpcInvocation<Proto.HeartbeatRequest, Proto.HeartbeatResponse>> Heartbeat(Endpoints endpoints,
+            Proto.HeartbeatRequest request, TimeSpan timeout)
         {
-            return await GetRpcClient(endpoints).Heartbeat(_client.Sign(), request, timeout);
+            var metadata = _client.Sign();
+            var response = await GetRpcClient(endpoints).Heartbeat(metadata, request, timeout);
+            return new RpcInvocation<Proto.HeartbeatRequest, Proto.HeartbeatResponse>(request, response, metadata);
         }
 
-        public async Task<Proto.NotifyClientTerminationResponse> NotifyClientTermination(Endpoints endpoints,
-            Proto.NotifyClientTerminationRequest request, TimeSpan timeout)
+        public async Task<RpcInvocation<Proto.NotifyClientTerminationRequest, Proto.NotifyClientTerminationResponse>>
+            NotifyClientTermination(Endpoints endpoints, Proto.NotifyClientTerminationRequest request, TimeSpan timeout)
         {
-            return await GetRpcClient(endpoints).NotifyClientTermination(_client.Sign(), request, timeout);
+            var metadata = _client.Sign();
+            var response = await GetRpcClient(endpoints).NotifyClientTermination(metadata, request, timeout);
+            return new RpcInvocation<Proto.NotifyClientTerminationRequest, Proto.NotifyClientTerminationResponse>(
+                request, response, metadata);
         }
 
-        public async Task<Proto::SendMessageResponse> SendMessage(Endpoints endpoints,
-            Proto::SendMessageRequest request,
-            TimeSpan timeout)
+        public async Task<RpcInvocation<Proto.SendMessageRequest, Proto.SendMessageResponse>> SendMessage(
+            Endpoints endpoints, Proto::SendMessageRequest request, TimeSpan timeout)
         {
-            return await GetRpcClient(endpoints).SendMessage(_client.Sign(), request, timeout);
+            var metadata = _client.Sign();
+            var response = await GetRpcClient(endpoints).SendMessage(metadata, request, timeout);
+            return new RpcInvocation<Proto.SendMessageRequest, Proto.SendMessageResponse>(
+                request, response, metadata);
         }
 
-        public async Task<Proto::QueryAssignmentResponse> QueryAssignment(Endpoints endpoints,
-            Proto.QueryAssignmentRequest request, TimeSpan timeout)
+        public async Task<RpcInvocation<Proto.QueryAssignmentRequest, Proto.QueryAssignmentResponse>> QueryAssignment(
+            Endpoints endpoints, Proto.QueryAssignmentRequest request, TimeSpan timeout)
         {
-            return await GetRpcClient(endpoints).QueryAssignment(_client.Sign(), request, timeout);
+            var metadata = _client.Sign();
+            var response = await GetRpcClient(endpoints).QueryAssignment(metadata, request, timeout);
+            return new RpcInvocation<Proto.QueryAssignmentRequest, Proto.QueryAssignmentResponse>(
+                request, response, metadata);
         }
 
-        public async Task<List<Proto::ReceiveMessageResponse>> ReceiveMessage(Endpoints endpoints,
-            Proto.ReceiveMessageRequest request, TimeSpan timeout)
+        public async Task<RpcInvocation<Proto.ReceiveMessageRequest, List<Proto.ReceiveMessageResponse>>>
+            ReceiveMessage(Endpoints endpoints, Proto.ReceiveMessageRequest request, TimeSpan timeout)
         {
-            return await GetRpcClient(endpoints).ReceiveMessage(_client.Sign(), request, timeout);
+            var metadata = _client.Sign();
+            var response = await GetRpcClient(endpoints).ReceiveMessage(metadata, request, timeout);
+            return new RpcInvocation<Proto.ReceiveMessageRequest, List<Proto.ReceiveMessageResponse>>(
+                request, response, metadata);
         }
 
-        public async Task<Proto::AckMessageResponse> AckMessage(Endpoints endpoints,
-            Proto.AckMessageRequest request, TimeSpan timeout)
+        public async Task<RpcInvocation<Proto.AckMessageRequest, Proto.AckMessageResponse>> AckMessage(
+            Endpoints endpoints, Proto.AckMessageRequest request, TimeSpan timeout)
         {
-            return await GetRpcClient(endpoints).AckMessage(_client.Sign(), request, timeout);
+            var metadata = _client.Sign();
+            var response = await GetRpcClient(endpoints).AckMessage(metadata, request, timeout);
+            return new RpcInvocation<Proto.AckMessageRequest, Proto.AckMessageResponse>(
+                request, response, metadata);
         }
 
-        public async Task<Proto::ChangeInvisibleDurationResponse> ChangeInvisibleDuration(Endpoints endpoints,
-            Proto.ChangeInvisibleDurationRequest request, TimeSpan timeout)
+        public async Task<RpcInvocation<Proto.ChangeInvisibleDurationRequest, Proto.ChangeInvisibleDurationResponse>>
+            ChangeInvisibleDuration(Endpoints endpoints,
+                Proto.ChangeInvisibleDurationRequest request, TimeSpan timeout)
         {
-            return await GetRpcClient(endpoints).ChangeInvisibleDuration(_client.Sign(), request, timeout);
+            var metadata = _client.Sign();
+            var response = await GetRpcClient(endpoints).ChangeInvisibleDuration(metadata, request, timeout);
+            return new RpcInvocation<Proto.ChangeInvisibleDurationRequest, Proto.ChangeInvisibleDurationResponse>(
+                request, response, metadata);
         }
 
-        public async Task<Proto.EndTransactionResponse> EndTransaction(Endpoints endpoints,
+        public async Task<RpcInvocation<Proto.EndTransactionRequest, Proto.EndTransactionResponse>> EndTransaction(
+            Endpoints endpoints,
             Proto.EndTransactionRequest request, TimeSpan timeout)
         {
-            return await GetRpcClient(endpoints).EndTransaction(_client.Sign(), request, timeout);
+            var metadata = _client.Sign();
+            var response = await GetRpcClient(endpoints).EndTransaction(metadata, request, timeout);
+            return new RpcInvocation<Proto.EndTransactionRequest, Proto.EndTransactionResponse>(
+                request, response, metadata);
         }
     }
 }
