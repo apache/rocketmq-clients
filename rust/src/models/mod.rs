@@ -16,3 +16,4 @@
  */
 pub(crate) mod message;
 pub(crate) mod message_id;
+pub(crate) mod message_view;

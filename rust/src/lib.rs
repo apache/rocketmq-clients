@@ -28,3 +28,7 @@ mod producer;
 pub mod models;
 
 mod selector;
+
+mod consumer;
+
+mod consumer_selector;

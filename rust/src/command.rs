@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::vec::IntoIter;
 use tokio::sync::oneshot;
+use tokio_stream::Iter;
 use tonic::{Request, Response};
 
 use crate::error::ClientError;
-use crate::pb::{QueryRouteRequest, QueryRouteResponse, SendMessageRequest, SendMessageResponse};
+use crate::pb::{Message, QueryRouteRequest, QueryRouteResponse, ReceiveMessageRequest, ReceiveMessageResponse, SendMessageRequest, SendMessageResponse, Settings, TelemetryCommand};
 
 pub(crate) enum Command {
     QueryRoute {
@@ -30,5 +32,15 @@ pub(crate) enum Command {
         peer: String,
         request: Request<SendMessageRequest>,
         tx: oneshot::Sender<Result<Response<SendMessageResponse>, ClientError>>,
+    },
+    Receive {
+        peer: String,
+        request: Request<ReceiveMessageRequest>,
+        tx: oneshot::Sender<Result<Response<Vec<Message>>, ClientError>>,
+    },
+    SendClientTelemetry {
+        peer: String,
+        request: Request<Iter<IntoIter<TelemetryCommand>>>,
+        tx: oneshot::Sender<Result<Response<TelemetryCommand>, ClientError>>,
     },
 }

@@ -25,21 +25,24 @@ use parking_lot::Mutex;
 use slog::{debug, error, Logger, o, warn};
 use slog::info;
 use tokio::sync::oneshot;
-use tonic::Request;
+use tonic::{IntoRequest, IntoStreamingRequest, Request, Response};
 use tonic::transport::{Certificate, Channel, ClientTlsConfig};
 use crate::{error::ClientError, pb::messaging_service_client::MessagingServiceClient};
 use crate::command;
+use crate::command::Command;
 use crate::error;
-use crate::pb::{
-    self, QueryRouteRequest, Resource, SendMessageRequest, SendMessageResponse, SystemProperties,
-};
+use crate::pb::{self, Message, QueryRouteRequest, ReceiveMessageRequest, ReceiveMessageResponse, Resource, SendMessageRequest, SendMessageResponse, SystemProperties, TelemetryCommand};
 use crate::selector::{QueueSelect, QueueSelector};
+use tokio_stream::{self as stream, StreamExt};
+use tonic::metadata::KeyAndValueRef;
+use crate::pb::receive_message_response::Content;
 
 #[derive(Debug, Clone)]
 struct Session {
     stub: MessagingServiceClient<Channel>,
     logger: Logger,
 }
+
 impl Session {
     async fn new(endpoint: String, logger: &Logger) -> Result<Self, error::ClientError> {
         debug!(logger, "Creating session to {}", endpoint);
@@ -103,6 +106,49 @@ impl Session {
                 return Err(error::ClientError::ClientInternal);
             }
         }
+    }
+
+    async fn sendT(
+        &mut self,
+        request: impl tonic::IntoStreamingRequest<Message=TelemetryCommand>,
+    ) -> Result<tonic::Response<pb::TelemetryCommand>, error::ClientError> {
+        match self.stub.telemetry(request).await {
+            Ok(response) => {
+                println!("response: {:?}", response);
+                while let Ok(received) = response.into_inner().message().await {
+                    let received = received.unwrap();
+                    return Ok(Response::new(received));
+                }
+                return Err(error::ClientError::ClientInternal);
+            }
+            Err(e) => {
+                error!(self.logger, "QueryRoute failed. Cause: {:?}", e);
+                return Err(error::ClientError::ClientInternal);
+            }
+        }
+    }
+
+    async fn receive(
+        &mut self,
+        request: Request<ReceiveMessageRequest>,
+    ) -> Result<tonic::Response<Vec<Message>>, error::ClientError> {
+        let mut reuslt:Vec<Message>=Vec::new();
+        let response = self.stub.receive_message(request).await.unwrap();
+        let mut resp_stream = response.into_inner();
+        while let Some(received) = resp_stream.next().await {
+            let received = received.unwrap();
+            let c=received.content.unwrap();
+            match c {
+                Content::Status(_) => {
+                }
+                Content::Message(m) => {
+                    reuslt.push(m.clone())
+                }
+                Content::DeliveryTimestamp(_) => {
+                }
+            }
+        }
+        return Ok(Response::new(reuslt));
     }
 }
 
@@ -176,6 +222,38 @@ impl SessionManager {
                                     let mut session = session.clone();
                                     tokio::spawn(async move {
                                         let result = session.send(request).await;
+                                        let _ = tx.send(result);
+                                    });
+                                }
+                                None => {}
+                            }
+                        }
+                        Command::Receive {
+                            peer, request, tx
+                        } => {
+                            match session_map.get(&peer) {
+                                Some(session) => {
+                                    // Cloning Channel is cheap and encouraged
+                                    // https://docs.rs/tonic/0.7.2/tonic/transport/struct.Channel.html#multiplexing-requests
+                                    let mut session = session.clone();
+                                    tokio::spawn(async move {
+                                        let result = session.receive(request).await;
+                                        let _ = tx.send(result);
+                                    });
+                                }
+                                None => {}
+                            }
+                        }
+                        Command::SendClientTelemetry {
+                            peer, request, tx
+                        } => {
+                            match session_map.get(&peer) {
+                                Some(session) => {
+                                    // Cloning Channel is cheap and encouraged
+                                    // https://docs.rs/tonic/0.7.2/tonic/transport/struct.Channel.html#multiplexing-requests
+                                    let mut session = session.clone();
+                                    tokio::spawn(async move {
+                                        let result = session.sendT(request).await;
                                         let _ = tx.send(result);
                                     });
                                 }
