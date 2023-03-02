@@ -23,7 +23,7 @@ namespace Org.Apache.Rocketmq
 {
     public sealed class SendReceipt : ISendReceipt
     {
-        public SendReceipt(string messageId, string transactionId, MessageQueue messageQueue)
+        private SendReceipt(string messageId, string transactionId, MessageQueue messageQueue)
         {
             MessageId = messageId;
             TransactionId = transactionId;
@@ -34,7 +34,7 @@ namespace Org.Apache.Rocketmq
 
         public string TransactionId { get; }
 
-        public MessageQueue MessageQueue { get; }
+        private MessageQueue MessageQueue { get; }
 
         public Endpoints Endpoints => MessageQueue.Broker.Endpoints;
 
