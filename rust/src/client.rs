@@ -31,7 +31,7 @@ use crate::{error::ClientError, pb::messaging_service_client::MessagingServiceCl
 use crate::command;
 use crate::command::Command;
 use crate::error;
-use crate::pb::{self, Message, QueryRouteRequest, ReceiveMessageRequest, ReceiveMessageResponse, Resource, SendMessageRequest, SendMessageResponse, SystemProperties, TelemetryCommand};
+use crate::pb::{self, AckMessageRequest, Message, QueryRouteRequest, ReceiveMessageRequest, ReceiveMessageResponse, Resource, SendMessageRequest, SendMessageResponse, SystemProperties, TelemetryCommand};
 use crate::selector::{QueueSelect, QueueSelector};
 use tokio_stream::{self as stream, StreamExt};
 use tonic::metadata::KeyAndValueRef;
@@ -132,23 +132,28 @@ impl Session {
         &mut self,
         request: Request<ReceiveMessageRequest>,
     ) -> Result<tonic::Response<Vec<Message>>, error::ClientError> {
-        let mut reuslt:Vec<Message>=Vec::new();
+        let mut reuslt: Vec<Message> = Vec::new();
         let response = self.stub.receive_message(request).await.unwrap();
         let mut resp_stream = response.into_inner();
         while let Some(received) = resp_stream.next().await {
             let received = received.unwrap();
-            let c=received.content.unwrap();
+            let c = received.content.unwrap();
             match c {
-                Content::Status(_) => {
-                }
+                Content::Status(_) => {}
                 Content::Message(m) => {
                     reuslt.push(m.clone())
                 }
-                Content::DeliveryTimestamp(_) => {
-                }
+                Content::DeliveryTimestamp(_) => {}
             }
         }
         return Ok(Response::new(reuslt));
+    }
+    async fn ack(
+        &mut self,
+        request: Request<AckMessageRequest>,
+    ) -> Result<tonic::Response<pb::AckMessageResponse>, error::ClientError> {
+        let response = self.stub.ack_message(request).await.unwrap();
+        return Ok(response);
     }
 }
 
@@ -244,6 +249,24 @@ impl SessionManager {
                                 None => {}
                             }
                         }
+
+                        Command::Ack {
+                            peer, request, tx
+                        } => {
+                            match session_map.get(&peer) {
+                                Some(session) => {
+                                    // Cloning Channel is cheap and encouraged
+                                    // https://docs.rs/tonic/0.7.2/tonic/transport/struct.Channel.html#multiplexing-requests
+                                    let mut session = session.clone();
+                                    tokio::spawn(async move {
+                                        let result = session.ack(request).await;
+                                        let _ = tx.send(result);
+                                    });
+                                }
+                                None => {}
+                            }
+                        }
+
                         Command::SendClientTelemetry {
                             peer, request, tx
                         } => {

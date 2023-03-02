@@ -19,7 +19,6 @@ package org.apache.rocketmq.client.java.example;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.ClientServiceProvider;
@@ -46,12 +45,12 @@ public class ProducerNormalMessageExample {
         SessionCredentialsProvider sessionCredentialsProvider =
             new StaticSessionCredentialsProvider(accessKey, secretKey);
 
-        String endpoints = "127.0.0.1:8081";
+        String endpoints = "foobar.com:8080";
         ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
             .setEndpoints(endpoints)
             .setCredentialProvider(sessionCredentialsProvider)
             .build();
-        String topic = "TopicTest";
+        String topic = "yourNormalTopic";
         // In most case, you don't need to create too many producers, singleton pattern is recommended.
         final Producer producer = provider.newProducerBuilder()
             .setClientConfiguration(clientConfiguration)
@@ -62,32 +61,22 @@ public class ProducerNormalMessageExample {
             .build();
         // Define your message body.
         byte[] body = "This is a normal message for Apache RocketMQ".getBytes(StandardCharsets.UTF_8);
+        String tag = "yourMessageTagA";
         final Message message = provider.newMessageBuilder()
             // Set topic for the current message.
             .setTopic(topic)
             // Message secondary classifier of message besides topic.
+            .setTag(tag)
             // Key(s) of the message, another way to mark message besides message id.
             .setKeys("yourMessageKey-1c151062f96e")
             .setBody(body)
             .build();
-
-        for (int i=0;i<100;i++){
-            try {
-                final SendReceipt sendReceipt = producer.send(message);
-                System.out.println(i+"-->"+sendReceipt.getMessageId());
-                log.info("Send message successfully, messageId={}", sendReceipt.getMessageId());
-            } catch (Throwable t) {
-                log.error("Failed to send message", t);
-                t.printStackTrace();
-            }
-
-            try {
-                TimeUnit.SECONDS.sleep(1);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
+        try {
+            final SendReceipt sendReceipt = producer.send(message);
+            log.info("Send message successfully, messageId={}", sendReceipt.getMessageId());
+        } catch (Throwable t) {
+            log.error("Failed to send message", t);
         }
-
         // Close the producer when you don't need it anymore.
         producer.close();
     }

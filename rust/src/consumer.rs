@@ -24,7 +24,7 @@ use tokio::sync::oneshot::error::RecvError;
 use tonic::{Request, Response};
 use crate::client::{Route, RouteStatus};
 use crate::error::ClientError;
-use crate::pb::{Message, MessageType, ReceiveMessageRequest, ReceiveMessageResponse, Resource, SendMessageRequest, SendMessageResponse, Settings, SubscriptionEntry, SystemProperties, TelemetryCommand};
+use crate::pb::{AckMessageEntry, AckMessageRequest, AckMessageResponse, Message, MessageType, ReceiveMessageRequest, ReceiveMessageResponse, Resource, SendMessageRequest, SendMessageResponse, Settings, SubscriptionEntry, SystemProperties, TelemetryCommand};
 use crate::selector::{QueueSelect, QueueSelector};
 use crate::{client, command, error, models, pb};
 use models::message_id::UNIQ_ID_GENERATOR;
@@ -42,6 +42,7 @@ struct Consumer {
     client: client::Client,
     selector: ConsumeQueueSelector,
     logger: Logger,
+    access_point: String,
 }
 
 impl Consumer {
@@ -180,7 +181,7 @@ impl Consumer {
             message_queue: message_queue.clone(),
             filter_expression: None,
             batch_size: 1,
-            invisible_duration: Some(prost_types::Duration::from(Duration::from_secs(2*60))),
+            invisible_duration: Some(prost_types::Duration::from(Duration::from_secs(2 * 60))),
             auto_renew: false,
         };
         let mut request = tonic::Request::new(srequest);
@@ -219,9 +220,99 @@ impl Consumer {
                     result.push(MessageView {
                         body: x.body.clone(),
                         message_id: x.system_properties.clone().unwrap().message_id,
+                        topic: self.topic.clone(),
+                        consume_group: self.group.clone(),
+                        endpoint: self.access_point.clone(),
+                        receipt_handle: x.system_properties.clone().unwrap().receipt_handle.unwrap(),
                     })
                 }
                 result
+            }),
+        }
+    }
+}
+
+impl Consumer {
+    pub async fn ack(
+        &self,
+        message: &MessageView,
+    ) -> Result<AckMessageResponse, ClientError> {
+        let client = Arc::new(&self.client);
+        let client_weak = Arc::downgrade(&client);
+        let client = match client_weak.upgrade() {
+            Some(client) => client,
+            None => {
+                return Err(error::ClientError::ClientInternal);
+            }
+        };
+        // get route table
+        let guard = client.route_table.lock();
+        let rxx = guard.get(self.topic.as_str()).unwrap().clone();
+        let curr: Route;
+        match rxx {
+            RouteStatus::Found(route) => {
+                curr = Route::new(route.message_queue_impls.clone());
+            }
+            _ => {
+                return Err(error::ClientError::ClientInternal);
+            }
+        }
+
+        let (tx1, rx1) = oneshot::channel();
+
+        let message_queue = self.selector.select(
+            curr.message_queue_impls,
+        );
+
+
+        let mut srequest = AckMessageRequest {
+            group: Some(Resource {
+                resource_namespace: "".to_string(),
+                name: self.group.clone(),
+            }),
+            topic: Some(Resource {
+                resource_namespace: "".to_string(),
+                name: self.topic.clone(),
+            }),
+            entries: vec![{
+              AckMessageEntry{
+                  message_id: message.message_id.clone(),
+                  receipt_handle: message.receipt_handle.clone(),
+              }
+            }],
+        };
+        let mut request = tonic::Request::new(srequest);
+        client.sign(request.metadata_mut());
+        request.set_timeout(Duration::from_secs(10));
+
+        let broker = message_queue.and_then(|mq| mq.broker.clone());
+        let peer = broker.and_then(|br| br.endpoints);
+        let mut address = peer.unwrap().addresses;
+        let address_pop = address.pop().unwrap();
+        let host = address_pop.host;
+        let port = address_pop.port;
+        let s = format!("http://{}:{}", host, port);
+        let command = command::Command::Ack {
+            peer: s,
+            request,
+            tx: tx1,
+        };
+
+        match self.client.fetch_session_manager().tx.send(command).await {
+            Ok(_) => {}
+            Err(e) => {
+                error!(self.logger, "Failed to submit request");
+            }
+        }
+
+        match rx1.await {
+            Err(e) => {
+                error!(self.logger, "oneshot channel error. Cause: {:?}", e);
+                Err(ClientError::ClientInternal)
+            }
+            Ok(result) => result.map(|_response| {
+                let content = _response.into_inner();
+                content
             }),
         }
     }
@@ -252,6 +343,7 @@ impl Consumer {
             client: client,
             selector: ConsumeQueueSelector::default(),
             logger: prodcuer_logger,
+            access_point: access_point.to_string(),
         })
     }
 
@@ -274,9 +366,8 @@ mod tests {
         let tag = "TagA";
         let mut keys = Vec::new();
         keys.push(String::from("key1"));
-        let message = models::message::MessageImpl::new("TopicTest", tag, keys, "hello world");
 
-        let rs=_consumer.sendClientTelemetry().await;
+        let rs = _consumer.sendClientTelemetry().await;
         match rs {
             Ok(tc) => {
                 println!("response: {:?}", tc);
@@ -286,13 +377,18 @@ mod tests {
             }
         }
 
-        match _consumer.receive(1, Duration::from_secs(2 * 60)).await {
+        let messages = match _consumer.receive(1, Duration::from_secs(2 * 60)).await {
             Ok(r) => {
                 println!("response: {:?}", r);
+                r
             }
             Err(e) => {
                 println!("error: {:?}", e);
+                Vec::new()
             }
-        }
+        };
+
+        let ack_result = _consumer.ack(messages.get(0).unwrap()).await;
+        println!("ack_result: {:?}", ack_result);
     }
 }

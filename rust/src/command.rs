@@ -20,7 +20,7 @@ use tokio_stream::Iter;
 use tonic::{Request, Response};
 
 use crate::error::ClientError;
-use crate::pb::{Message, QueryRouteRequest, QueryRouteResponse, ReceiveMessageRequest, ReceiveMessageResponse, SendMessageRequest, SendMessageResponse, Settings, TelemetryCommand};
+use crate::pb::{AckMessageRequest, AckMessageResponse, Message, QueryRouteRequest, QueryRouteResponse, ReceiveMessageRequest, ReceiveMessageResponse, SendMessageRequest, SendMessageResponse, Settings, TelemetryCommand};
 
 pub(crate) enum Command {
     QueryRoute {
@@ -37,6 +37,11 @@ pub(crate) enum Command {
         peer: String,
         request: Request<ReceiveMessageRequest>,
         tx: oneshot::Sender<Result<Response<Vec<Message>>, ClientError>>,
+    },
+    Ack {
+        peer: String,
+        request: Request<AckMessageRequest>,
+        tx: oneshot::Sender<Result<Response<AckMessageResponse>, ClientError>>,
     },
     SendClientTelemetry {
         peer: String,
