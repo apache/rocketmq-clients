@@ -35,13 +35,36 @@ namespace Org.Apache.Rocketmq
 
         private static readonly Lazy<LogFactory> LazyInstance = new(BuildLogFactory);
 
+        private const string FileLogLevelKey = "rocketmq.log.level";
+        private const string FileLogLevel = "Info";
+
+        private const string ConsoleAppenderEnabledKey = "mq.consoleAppender.enabled";
+        private const string ConsoleAppenderEnabled = "false";
+        private const string ConsoleAppenderLogLevel = "Off";
+
+
+        private const string FileLogRootKey = "rocketmq.log.root";
+
+        private const string FileMaxIndexKey = "rocketmq.log.file.maxIndex";
+        private const string FileMaxIndex = "10";
+
         private static LogFactory BuildLogFactory()
         {
+            var fileLogLevel = Environment.GetEnvironmentVariable(FileLogLevelKey) ?? FileLogLevel;
+            var consoleAppenderEnabled =
+                Environment.GetEnvironmentVariable(ConsoleAppenderEnabledKey) ?? ConsoleAppenderEnabled;
+            var consoleLogLevel = bool.Parse(consoleAppenderEnabled) ? fileLogLevel : ConsoleAppenderLogLevel;
+            var fileLogRoot = Environment.GetEnvironmentVariable(FileLogRootKey) ??
+                              Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var fileMaxIndexStr = Environment.GetEnvironmentVariable(FileMaxIndexKey) ?? FileMaxIndex;
+            var fileMaxIndex = int.Parse(fileMaxIndexStr);
+
+
             var config = new LoggingConfiguration();
             var fileTarget = new FileTarget();
             fileTarget.Name = "log_file";
             fileTarget.FileName =
-                new SimpleLayout("${specialfolder:folder=UserProfile}/logs/rocketmq/rocketmq-client.log");
+                new SimpleLayout($"{fileLogRoot}/logs/rocketmq/rocketmq-client.log");
             fileTarget.Layout =
                 new SimpleLayout(
                     "${longdate} ${level:uppercase=true:padding=-5} [${processid}] [${threadid}] [${callsite}:${callsite-linenumber}] ${message} ${onexception:${exception:format=ToString,Data}}");
@@ -49,7 +72,7 @@ namespace Org.Apache.Rocketmq
                 new SimpleLayout("${specialfolder:folder=UserProfile}/logs/rocketmq/rocketmq-client.{######}.log");
             fileTarget.ArchiveAboveSize = 67108864;
             fileTarget.ArchiveNumbering = ArchiveNumberingMode.DateAndSequence;
-            fileTarget.MaxArchiveFiles = 10;
+            fileTarget.MaxArchiveFiles = fileMaxIndex;
             fileTarget.ConcurrentWrites = true;
             fileTarget.KeepFileOpen = false;
 
@@ -66,10 +89,10 @@ namespace Org.Apache.Rocketmq
 
             config.AddTarget(consoleTarget);
 
-            var asyncFileRule = new LoggingRule("*", LogLevel.FromString("Debug"), asyncTargetWrapper);
+            var asyncFileRule = new LoggingRule("*", LogLevel.FromString(fileLogLevel), asyncTargetWrapper);
             config.LoggingRules.Add(asyncFileRule);
 
-            var consoleRule = new LoggingRule("*", LogLevel.FromString("Debug"), consoleTarget);
+            var consoleRule = new LoggingRule("*", LogLevel.FromString(consoleLogLevel), consoleTarget);
             config.LoggingRules.Add(consoleRule);
 
             var logFactory = new LogFactory();
