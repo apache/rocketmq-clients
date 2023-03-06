@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+using System;
 using System.Text;
 using System.Threading.Tasks;
 using NLog;
@@ -60,8 +61,13 @@ namespace examples
                 .SetKeys("yourMessageKey-7044358f98fc")
                 .Build();
 
-            var sendReceipt = await producer.Send(message);
-            Logger.Info($"Send message successfully, sendReceipt={sendReceipt}");
+            for (int i = 0; i < 99999999; i++)
+            {
+                var sendReceipt = await producer.Send(message);
+                Logger.Info($"Send message successfully, sendReceipt={sendReceipt}");
+                await Task.Delay(TimeSpan.FromSeconds(1));
+            }
+
             // Or you could close the producer manually.
             // await producer.DisposeAsync();
         }

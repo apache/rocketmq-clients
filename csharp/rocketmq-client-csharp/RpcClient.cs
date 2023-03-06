@@ -36,9 +36,9 @@ namespace Org.Apache.Rocketmq
         private readonly GrpcChannel _channel;
         private readonly string _target;
 
-        public RpcClient(Endpoints endpoints)
+        public RpcClient(Endpoints endpoints, bool sslEnabled)
         {
-            _target = endpoints.GrpcTarget;
+            _target = endpoints.GrpcTarget(sslEnabled);
             _channel = GrpcChannel.ForAddress(_target, new GrpcChannelOptions
             {
                 HttpHandler = CreateHttpHandler()
