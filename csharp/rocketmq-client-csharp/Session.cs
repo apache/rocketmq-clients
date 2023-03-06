@@ -17,7 +17,6 @@
 
 using System;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 using Grpc.Core;
 using grpc = Grpc.Core;
@@ -32,12 +31,12 @@ namespace Org.Apache.Rocketmq
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
         private static readonly TimeSpan SettingsInitializationTimeout = TimeSpan.FromSeconds(3);
+        private readonly ManualResetEventSlim _event = new(false);
 
         private readonly AsyncDuplexStreamingCall<Proto::TelemetryCommand, Proto::TelemetryCommand>
             _streamingCall;
 
         private readonly Client _client;
-        private readonly Channel<bool> _channel;
         private readonly Endpoints _endpoints;
         private readonly SemaphoreSlim _semaphore;
 
@@ -49,10 +48,6 @@ namespace Org.Apache.Rocketmq
             _semaphore = new SemaphoreSlim(1);
             _streamingCall = streamingCall;
             _client = client;
-            _channel = Channel.CreateBounded<bool>(new BoundedChannelOptions(1)
-            {
-                FullMode = BoundedChannelFullMode.DropOldest
-            });
             Loop();
         }
 
@@ -66,7 +61,7 @@ namespace Org.Apache.Rocketmq
         public async Task SyncSettings(bool awaitResp)
         {
             // Add more buffer time.
-            await _semaphore.WaitAsync(_client.GetClientConfig().RequestTimeout.Add(SettingsInitializationTimeout));
+            await _semaphore.WaitAsync();
             try
             {
                 var settings = _client.GetSettings();
@@ -78,7 +73,7 @@ namespace Org.Apache.Rocketmq
                 // await writer.CompleteAsync();
                 if (awaitResp)
                 {
-                    await _channel.Reader.ReadAsync();
+                    _event.Wait(_client.GetClientConfig().RequestTimeout.Add(SettingsInitializationTimeout));
                 }
             }
             finally
@@ -100,7 +95,7 @@ namespace Org.Apache.Rocketmq
                             Logger.Info(
                                 $"Receive setting from remote, endpoints={_endpoints}, clientId={_client.GetClientId()}");
                             _client.OnSettingsCommand(_endpoints, response.Settings);
-                            await _channel.Writer.WriteAsync(true);
+                            _event.Set();
                             break;
                         }
                         case Proto.TelemetryCommand.CommandOneofCase.RecoverOrphanedTransactionCommand:

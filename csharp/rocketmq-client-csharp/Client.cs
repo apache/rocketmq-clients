@@ -40,7 +40,7 @@ namespace Org.Apache.Rocketmq
         private readonly CancellationTokenSource _topicRouteUpdateCts;
 
         private static readonly TimeSpan SettingsSyncScheduleDelay = TimeSpan.FromSeconds(1);
-        private static readonly TimeSpan SettingsSyncSchedulePeriod = TimeSpan.FromSeconds(1);
+        private static readonly TimeSpan SettingsSyncSchedulePeriod = TimeSpan.FromMinutes(5);
         private readonly CancellationTokenSource _settingsSyncCts;
 
         private static readonly TimeSpan StatsScheduleDelay = TimeSpan.FromSeconds(60);
@@ -226,11 +226,6 @@ namespace Org.Apache.Rocketmq
                     {
                         Logger.Error(e, $"Failed to update topic route cache, topic={item}");
                     }
-                }
-
-                foreach (var topic in GetTopics())
-                {
-                    await FetchTopicRoute(topic);
                 }
             }
             catch (Exception e)
