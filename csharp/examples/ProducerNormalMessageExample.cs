@@ -61,12 +61,8 @@ namespace examples
                 .SetKeys("yourMessageKey-7044358f98fc")
                 .Build();
 
-            for (int i = 0; i < 99999999; i++)
-            {
-                var sendReceipt = await producer.Send(message);
-                Logger.Info($"Send message successfully, sendReceipt={sendReceipt}");
-                await Task.Delay(TimeSpan.FromSeconds(1));
-            }
+            var sendReceipt = await producer.Send(message);
+            Logger.Info($"Send message successfully, sendReceipt={sendReceipt}");
 
             // Or you could close the producer manually.
             // await producer.DisposeAsync();

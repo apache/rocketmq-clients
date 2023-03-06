@@ -30,6 +30,7 @@ namespace examples
         {
             public TransactionResolution Check(MessageView messageView)
             {
+                Logger.Info("Receive transaction check, messageId={}", messageView.MessageId);
                 return TransactionResolution.COMMIT;
             }
         }
@@ -38,6 +39,7 @@ namespace examples
         {
             const string accessKey = "yourAccessKey";
             const string secretKey = "yourSecretKey";
+
             // Credential provider is optional for client configuration.
             var credentialsProvider = new StaticSessionCredentialsProvider(accessKey, secretKey);
             const string endpoints = "foobar.com:8080";
@@ -74,7 +76,7 @@ namespace examples
             // Commit the transaction.
             transaction.Commit();
             // Or rollback the transaction.
-            // transaction.rollback();
+            // transaction.Rollback();
             // Or you could close the producer manually.
             // await producer.DisposeAsync();
         }
