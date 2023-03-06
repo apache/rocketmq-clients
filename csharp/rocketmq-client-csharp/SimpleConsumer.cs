@@ -137,7 +137,8 @@ namespace Org.Apache.Rocketmq
         {
             return new Proto::HeartbeatRequest
             {
-                ClientType = Proto.ClientType.SimpleConsumer
+                ClientType = Proto.ClientType.SimpleConsumer,
+                Group = GetProtobufGroup()
             };
         }
 
