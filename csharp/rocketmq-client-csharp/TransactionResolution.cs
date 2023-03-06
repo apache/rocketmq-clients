@@ -19,8 +19,8 @@ namespace Org.Apache.Rocketmq
 {
     public enum TransactionResolution
     {
-        COMMIT,
-        ROLLBACK,
-        UNKNOWN
+        Commit,
+        Rollback,
+        Unknown
     }
 }

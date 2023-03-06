@@ -31,7 +31,7 @@ namespace Org.Apache.Rocketmq
         private volatile int _maxBodySizeBytes = 4 * 1024 * 1024;
         private volatile bool _validateMessageType = true;
 
-        public PublishingSettings(string clientId, Endpoints endpoints, ExponentialBackoffRetryPolicy retryPolicy,
+        public PublishingSettings(string clientId, Endpoints endpoints, IRetryPolicy retryPolicy,
             TimeSpan requestTimeout, ConcurrentDictionary<string, bool> topics) : base(clientId, ClientType.Producer,
             endpoints, retryPolicy, requestTimeout)
         {

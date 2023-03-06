@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Org.Apache.Rocketmq;
 
@@ -25,11 +24,19 @@ namespace tests
     public class EndpointsTest
     {
         [TestMethod]
-        public void testConstructor()
+        public void TestGrpcTargetWithoutSsl()
         {
-            Console.WriteLine(Uri.CheckHostName("127.0.0.1"));
-            Console.WriteLine(Uri.CheckHostName("1050:0000:0000:0000:0005:0600:300c:326b"));
-            Console.WriteLine(Uri.CheckHostName("baidu.com"));
+            var endpoints = new Endpoints("127.0.0.1");
+            var targetWithoutSsl = endpoints.GrpcTarget(false);
+            Assert.AreEqual("http://127.0.0.1:80", targetWithoutSsl);
+        }
+
+        [TestMethod]
+        public void TestGrpcTargetWithSsl()
+        {
+            var endpoints = new Endpoints("127.0.0.1");
+            var targetWithoutSsl = endpoints.GrpcTarget(true);
+            Assert.AreEqual("https://127.0.0.1:80", targetWithoutSsl);
         }
     }
 }

@@ -34,7 +34,7 @@ namespace Org.Apache.Rocketmq
 
         public Proto.Broker ToProtobuf()
         {
-            return new Proto.Broker()
+            return new Proto.Broker
             {
                 Name = Name,
                 Id = Id,

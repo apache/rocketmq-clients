@@ -31,7 +31,7 @@ namespace examples
             public TransactionResolution Check(MessageView messageView)
             {
                 Logger.Info("Receive transaction check, messageId={}", messageView.MessageId);
-                return TransactionResolution.COMMIT;
+                return TransactionResolution.Commit;
             }
         }
 

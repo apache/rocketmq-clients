@@ -37,7 +37,7 @@ namespace Org.Apache.Rocketmq
 
         public Broker Broker { get; }
 
-        public Resource TopicResource { get; }
+        private Resource TopicResource { get; }
 
         public Permission Permission { get; }
 

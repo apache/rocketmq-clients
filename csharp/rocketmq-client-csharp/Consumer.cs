@@ -42,7 +42,7 @@ namespace Org.Apache.Rocketmq
             var tolerance = ClientConfig.RequestTimeout;
             var timeout = tolerance.Add(awaitDuration);
             var invocation = await ClientManager.ReceiveMessage(mq.Broker.Endpoints, request, timeout);
-            var status = new Proto.Status()
+            var status = new Proto.Status
             {
                 Code = Proto.Code.InternalServerError,
                 Message = "Status was not set by server"

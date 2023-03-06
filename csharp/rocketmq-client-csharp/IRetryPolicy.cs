@@ -45,6 +45,11 @@ namespace Org.Apache.Rocketmq
         /// <returns></returns>
         RetryPolicy ToProtobuf();
 
-        IRetryPolicy InheritBackoff(Proto.RetryPolicy retryPolicy);
+        /// <summary>
+        /// Inherit backoff of retry policy.
+        /// </summary>
+        /// <param name="retryPolicy"></param>
+        /// <returns></returns>
+        IRetryPolicy InheritBackoff(RetryPolicy retryPolicy);
     }
 }

@@ -105,7 +105,7 @@ namespace Org.Apache.Rocketmq
             foreach (var (publishingMessage, sendReceipt) in _messageSendReceiptDict)
             {
                 await _producer.EndTransaction(sendReceipt.Endpoints, publishingMessage.Topic, sendReceipt.MessageId,
-                    sendReceipt.TransactionId, TransactionResolution.COMMIT);
+                    sendReceipt.TransactionId, TransactionResolution.Commit);
             }
         }
 
@@ -124,7 +124,7 @@ namespace Org.Apache.Rocketmq
             foreach (var (publishingMessage, sendReceipt) in _messageSendReceiptDict)
             {
                 await _producer.EndTransaction(sendReceipt.Endpoints, publishingMessage.Topic, sendReceipt.MessageId,
-                    sendReceipt.TransactionId, TransactionResolution.ROLLBACK);
+                    sendReceipt.TransactionId, TransactionResolution.Rollback);
             }
         }
     }

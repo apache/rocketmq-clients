@@ -17,10 +17,11 @@
 
 using System;
 using System.Collections.Generic;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Text;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Org.Apache.Rocketmq;
 
-namespace Org.Apache.Rocketmq
+namespace tests
 {
     [TestClass]
     public class MessageTest
@@ -145,6 +146,23 @@ namespace Org.Apache.Rocketmq
         public void TestKeys()
         {
             new Message.Builder().SetKeys("a", "b");
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentException))]
+        public void TestSetDeliveryTimestampAndMessageGroup()
+        {
+            new Message.Builder().SetDeliveryTimestamp(DateTime.UtcNow + TimeSpan.FromSeconds(30))
+                .SetMessageGroup("messageGroup").Build();
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentException))]
+        public void TestSetMessageGroupAndDeliveryTimestamp()
+        {
+            new Message.Builder().SetMessageGroup("messageGroup")
+                .SetDeliveryTimestamp(DateTime.UtcNow + TimeSpan.FromSeconds(30))
+                .Build();
         }
     }
 }

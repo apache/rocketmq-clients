@@ -29,7 +29,7 @@ namespace Org.Apache.Rocketmq
     /// </summary>
     public class PublishingMessage : Message
     {
-        public MessageType MessageType { set; get; }
+        public MessageType MessageType { get; }
 
         internal string MessageId { get; }
 

@@ -129,6 +129,8 @@ namespace Org.Apache.Rocketmq
 
             public Builder SetDeliveryTimestamp(DateTime deliveryTimestamp)
             {
+                Preconditions.CheckArgument(null == _messageGroup,
+                    "deliveryTimestamp and messageGroup should not be set at same time");
                 _deliveryTimestamp = deliveryTimestamp;
                 return this;
             }
@@ -137,6 +139,8 @@ namespace Org.Apache.Rocketmq
             {
                 Preconditions.CheckArgument(!string.IsNullOrWhiteSpace(messageGroup),
                     "messageGroup should not be null or white space");
+                Preconditions.CheckArgument(null == _deliveryTimestamp,
+                    "messageGroup and deliveryTimestamp should not be set at same time");
                 _messageGroup = messageGroup;
                 return this;
             }

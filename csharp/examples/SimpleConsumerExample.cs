@@ -56,7 +56,7 @@ namespace examples
             var messageViews = await simpleConsumer.Receive(16, TimeSpan.FromSeconds(15));
             foreach (var message in messageViews)
             {
-                Logger.Info($"Received a message, topic={message.Topic}, message-id={message.MessageId}");
+                Logger.Info($"Received a message, topic={message.Topic}, message-id={message.MessageId}, body-size={message.Body.Length}");
                 await simpleConsumer.Ack(message);
                 Logger.Info($"Message is acknowledged successfully, message-id={message.MessageId}");
                 // await simpleConsumer.ChangeInvisibleDuration(message, TimeSpan.FromSeconds(15));

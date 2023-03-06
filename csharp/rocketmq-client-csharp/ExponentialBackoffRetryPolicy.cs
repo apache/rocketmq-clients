@@ -39,11 +39,11 @@ namespace Org.Apache.Rocketmq
             return _maxAttempts;
         }
 
-        public TimeSpan InitialBackoff { get; }
+        private TimeSpan InitialBackoff { get; }
 
-        public TimeSpan MaxBackoff { get; }
+        private TimeSpan MaxBackoff { get; }
 
-        public double BackoffMultiplier { get; }
+        private double BackoffMultiplier { get; }
 
         public IRetryPolicy InheritBackoff(Proto.RetryPolicy retryPolicy)
         {
