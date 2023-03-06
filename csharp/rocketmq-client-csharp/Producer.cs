@@ -293,12 +293,12 @@ namespace Org.Apache.Rocketmq
             var transactionResolution = _checker.Check(message);
             switch (transactionResolution)
             {
-                case TransactionResolution.COMMIT:
-                case TransactionResolution.ROLLBACK:
+                case TransactionResolution.Commit:
+                case TransactionResolution.Rollback:
                     await EndTransaction(endpoints, message.Topic, message.MessageId, command.TransactionId,
                         transactionResolution);
                     break;
-                case TransactionResolution.UNKNOWN:
+                case TransactionResolution.Unknown:
                 default:
                     break;
             }
@@ -321,7 +321,7 @@ namespace Org.Apache.Rocketmq
                 TransactionId = transactionId,
                 MessageId = messageId,
                 Topic = topicResource,
-                Resolution = TransactionResolution.COMMIT == resolution
+                Resolution = TransactionResolution.Commit == resolution
                     ? Proto.TransactionResolution.Commit
                     : Proto.TransactionResolution.Rollback
             };

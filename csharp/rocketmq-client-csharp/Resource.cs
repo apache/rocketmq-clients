@@ -34,7 +34,7 @@ namespace Org.Apache.Rocketmq
             Name = name;
         }
 
-        public string Namespace { get; }
+        private string Namespace { get; }
         public string Name { get; }
 
         public Proto.Resource ToProtobuf()
@@ -48,7 +48,7 @@ namespace Org.Apache.Rocketmq
 
         public override string ToString()
         {
-            return String.IsNullOrEmpty(Namespace) ? Name : $"{Namespace}.{Name}";
+            return string.IsNullOrEmpty(Namespace) ? Name : $"{Namespace}.{Name}";
         }
     }
 }

@@ -28,7 +28,7 @@ namespace Org.Apache.Rocketmq
         protected volatile IRetryPolicy RetryPolicy;
         protected readonly TimeSpan RequestTimeout;
 
-        public Settings(string clientId, ClientType clientType, Endpoints endpoints, IRetryPolicy retryPolicy,
+        protected Settings(string clientId, ClientType clientType, Endpoints endpoints, IRetryPolicy retryPolicy,
             TimeSpan requestTimeout)
         {
             ClientId = clientId;
@@ -38,7 +38,7 @@ namespace Org.Apache.Rocketmq
             RequestTimeout = requestTimeout;
         }
 
-        public Settings(string clientId, ClientType clientType, Endpoints endpoints, TimeSpan requestTimeout)
+        protected Settings(string clientId, ClientType clientType, Endpoints endpoints, TimeSpan requestTimeout)
         {
             ClientId = clientId;
             ClientType = clientType;

@@ -38,11 +38,11 @@ namespace Org.Apache.Rocketmq
             ClientId = clientId;
         }
 
-        public Endpoints Endpoints { get; }
+        private Endpoints Endpoints { get; }
 
-        public MeterProvider MeterProvider { get; }
+        private MeterProvider MeterProvider { get; }
 
-        public string ClientId { get; }
+        private string ClientId { get; }
 
         public bool Enabled { get; }
 

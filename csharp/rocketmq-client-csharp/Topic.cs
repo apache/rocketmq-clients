@@ -27,8 +27,8 @@ namespace Org.Apache.Rocketmq
             Name = name;
         }
 
-        public string ResourceNamespace { get; }
-        public string Name { get; }
+        private string ResourceNamespace { get; }
+        private string Name { get; }
 
         public bool Equals(Topic other)
         {

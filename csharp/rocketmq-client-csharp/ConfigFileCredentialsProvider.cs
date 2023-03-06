@@ -23,13 +23,12 @@ using NLog;
 
 namespace Org.Apache.Rocketmq
 {
-
     /**
      * File-based credentials provider that reads JSON configurations from ${HOME}/.rocketmq/config
      * A sample config content is as follows:
      * {"AccessKey": "key", "AccessSecret": "secret"}
      */
-    public class ConfigFileCredentialsProvider 
+    public class ConfigFileCredentialsProvider
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
@@ -53,7 +52,7 @@ namespace Org.Apache.Rocketmq
                     Logger.Error($"Failed to parse JSON configuration: {json}");
                     return;
                 }
-                
+
                 _accessKey = kv["AccessKey"];
                 _accessSecret = kv["AccessSecret"];
                 _valid = true;
@@ -66,19 +65,14 @@ namespace Org.Apache.Rocketmq
 
         public SessionCredentials GetCredentials()
         {
-            if (!_valid)
-            {
-                return null;
-            }
-
-            return new SessionCredentials(_accessKey, _accessSecret);
+            return !_valid ? null : new SessionCredentials(_accessKey, _accessSecret);
         }
 
-        public static String DefaultConfigFilePath()
+        public static string DefaultConfigFilePath()
         {
             var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            string[] pathSegments = {home, ".rocketmq", "config"}; 
-            return String.Join(Path.DirectorySeparatorChar, pathSegments);
+            string[] pathSegments = { home, ".rocketmq", "config" };
+            return string.Join(Path.DirectorySeparatorChar, pathSegments);
         }
 
         private readonly string _accessKey;

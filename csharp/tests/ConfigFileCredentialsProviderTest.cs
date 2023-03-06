@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.IO;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Org.Apache.Rocketmq;
 
-namespace Org.Apache.Rocketmq
+namespace tests
 {
     [TestClass]
     public class ConfigFileCredentialsProviderTest
@@ -27,14 +28,14 @@ namespace Org.Apache.Rocketmq
         public void Setup()
         {
             var configFilePath = ConfigFileCredentialsProvider.DefaultConfigFilePath();
-            FileInfo fileInfo = new FileInfo(configFilePath);
+            var fileInfo = new FileInfo(configFilePath);
             var dir = fileInfo.Directory;
-            if (!dir.Exists)
+            if (dir != null && !dir.Exists)
             {
                 dir.Create();
             }
 
-            string json = "{\"AccessKey\": \"key\", \"AccessSecret\": \"secret\"}";
+            var json = "{\"AccessKey\": \"key\", \"AccessSecret\": \"secret\"}";
             File.WriteAllText(configFilePath, json);
         }
         

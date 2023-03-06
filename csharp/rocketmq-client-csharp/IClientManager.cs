@@ -65,27 +65,61 @@ namespace Org.Apache.Rocketmq
         /// <summary>
         /// Send message to remote endpoints.
         /// </summary>
-        /// <param name="endpoints"></param>
-        /// <param name="request"></param>
-        /// <param name="timeout"></param>
+        /// <param name="endpoints">The target endpoints.</param>
+        /// <param name="request">gRPC request for message publishing.</param>
+        /// <param name="timeout">Request max duration.</param>
         /// <returns></returns>
         Task<RpcInvocation<SendMessageRequest, SendMessageResponse>> SendMessage(Endpoints endpoints,
             SendMessageRequest request, TimeSpan timeout);
 
+        /// <summary>
+        /// Query assignment to receive message for push consumer.
+        /// </summary>
+        /// <param name="endpoints">The target endpoints.</param>
+        /// <param name="request">gRPC request for querying assignment.</param>
+        /// <param name="timeout">Request max duration.</param>
+        /// <returns></returns>
         Task<RpcInvocation<QueryAssignmentRequest, QueryAssignmentResponse>> QueryAssignment(Endpoints endpoints,
             QueryAssignmentRequest request, TimeSpan timeout);
 
+        /// <summary>
+        /// Receive message from remote endpoints.
+        /// </summary>
+        /// <param name="endpoints">The target endpoints.</param>
+        /// <param name="request">gRPC request for message receiving.</param>
+        /// <param name="timeout">Request max duration.</param>
+        /// <returns></returns>
         Task<RpcInvocation<ReceiveMessageRequest, List<ReceiveMessageResponse>>> ReceiveMessage(Endpoints endpoints,
             ReceiveMessageRequest request,
             TimeSpan timeout);
 
+        /// <summary>
+        /// Message acknowledgement towards remote endpoints.
+        /// </summary>
+        /// <param name="endpoints">The target endpoints.</param>
+        /// <param name="request">gRPC request for message acknowledgement.</param>
+        /// <param name="timeout">Request max duration.</param>
+        /// <returns></returns>
         Task<RpcInvocation<AckMessageRequest, AckMessageResponse>> AckMessage(Endpoints endpoints,
             AckMessageRequest request, TimeSpan timeout);
 
+        /// <summary>
+        /// Change message invisible duration.
+        /// </summary>
+        /// <param name="endpoints">The target endpoints.</param>
+        /// <param name="request">gRPC request of changing message invisible duration.</param>
+        /// <param name="timeout">Request max duration.</param>
+        /// <returns></returns>
         Task<RpcInvocation<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse>> ChangeInvisibleDuration(
-            Endpoints endpoints,
-            ChangeInvisibleDurationRequest request, TimeSpan timeout);
+            Endpoints endpoints, ChangeInvisibleDurationRequest request, TimeSpan timeout);
 
+        /// <summary>
+        /// Transaction ending request.
+        /// </summary>
+        /// <param name="endpoints">The target endpoints.</param>
+        /// <param name="request">gRPC request of ending transaction.</param>
+        /// <param name="timeout">Request max duration.</param>
+        /// <returns></returns>
         Task<RpcInvocation<EndTransactionRequest, EndTransactionResponse>> EndTransaction(Endpoints endpoints,
             EndTransactionRequest request, TimeSpan timeout);
 
