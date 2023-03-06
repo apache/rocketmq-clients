@@ -80,7 +80,7 @@ namespace Org.Apache.Rocketmq
                     .AddOtlpExporter(delegate(OtlpExporterOptions options, MetricReaderOptions readerOptions)
                     {
                         options.Protocol = OtlpExportProtocol.Grpc;
-                        options.Endpoint = new Uri(metric.Endpoints.GrpcTarget);
+                        options.Endpoint = new Uri(metric.Endpoints.GrpcTarget(_client.GetClientConfig().SslEnabled));
                         options.TimeoutMilliseconds = (int)_client.GetClientConfig().RequestTimeout.TotalMilliseconds;
                         options.HttpClientFactory = () => _httpClient;
                         readerOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds =

@@ -91,7 +91,7 @@ namespace examples
             var tasks = new List<Task>();
             while (true)
             {
-                Semaphore.Wait();
+                await Semaphore.WaitAsync();
                 Interlocked.Increment(ref _counter);
                 var task = producer.Send(message);
                 tasks.Add(task);

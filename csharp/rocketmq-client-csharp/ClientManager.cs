@@ -20,7 +20,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using grpc = Grpc.Core;
-using System.Collections.Generic;
+using System.Collections.Generic;   
 
 namespace Org.Apache.Rocketmq
 {
@@ -63,7 +63,7 @@ namespace Org.Apache.Rocketmq
                 }
 
                 // client does not exist, generate a new one
-                var client = new RpcClient(endpoints);
+                var client = new RpcClient(endpoints, _client.GetClientConfig().SslEnabled);
                 _rpcClients.Add(endpoints, client);
                 return client;
             }

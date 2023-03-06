@@ -118,21 +118,24 @@ namespace Org.Apache.Rocketmq
 
         public override string ToString()
         {
-            return GrpcTarget;
+            foreach (var address in Addresses)
+            {
+                return address.Host + EndpointSeparator + address.Port;
+            }
+
+            throw new ArgumentException("No available address");
         }
 
-        // TODO: Support non-TLS and multiple addresses.
-        public string GrpcTarget
+        // TODO: Support multiple addresses.
+        public string GrpcTarget(bool sslEnabled)
         {
-            get
+            var prefix = sslEnabled ? HttpsPrefix : HttpPrefix;
+            foreach (var address in Addresses)
             {
-                foreach (var address in Addresses)
-                {
-                    return HttpsPrefix + address.Host + EndpointSeparator + address.Port;
-                }
-
-                return "";
+                return prefix + address.Host + EndpointSeparator + address.Port;
             }
+
+            throw new ArgumentException("No available address");
         }
 
         public bool Equals(Endpoints other)

@@ -21,11 +21,13 @@ namespace Org.Apache.Rocketmq
 {
     public class ClientConfig : IClientConfig
     {
-        private ClientConfig(ISessionCredentialsProvider sessionCredentialsProvider, TimeSpan requestTimeout, string endpoints)
+        private ClientConfig(ISessionCredentialsProvider sessionCredentialsProvider, TimeSpan requestTimeout,
+            string endpoints, bool sslEnabled)
         {
             SessionCredentialsProvider = sessionCredentialsProvider;
             RequestTimeout = requestTimeout;
             Endpoints = endpoints;
+            SslEnabled = sslEnabled;
         }
 
         public ISessionCredentialsProvider SessionCredentialsProvider { get; }
@@ -34,11 +36,14 @@ namespace Org.Apache.Rocketmq
 
         public string Endpoints { get; }
 
+        public bool SslEnabled { get; }
+
         public class Builder
         {
             private ISessionCredentialsProvider _sessionCredentialsProvider;
             private TimeSpan _requestTimeout = TimeSpan.FromSeconds(3);
             private string _endpoints;
+            private bool _sslEnabled;
 
             public Builder SetCredentialsProvider(ISessionCredentialsProvider sessionCredentialsProvider)
             {
@@ -58,9 +63,15 @@ namespace Org.Apache.Rocketmq
                 return this;
             }
 
+            public Builder EnableSsl(bool sslEnabled)
+            {
+                _sslEnabled = sslEnabled;
+                return this;
+            }
+
             public ClientConfig Build()
             {
-                return new ClientConfig(_sessionCredentialsProvider, _requestTimeout, _endpoints);
+                return new ClientConfig(_sessionCredentialsProvider, _requestTimeout, _endpoints, _sslEnabled);
             }
         }
     }

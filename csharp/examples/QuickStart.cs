@@ -22,9 +22,9 @@ namespace examples
         public static void Main()
         {
             ProducerNormalMessageExample.QuickStart().Wait();
-            // await ProducerFifoMessageExample.QuickStart();
-            // await ProducerDelayMessageExample.QuickStart();
-            // await SimpleConsumerExample.QuickStart();
+            // ProducerFifoMessageExample.QuickStart().Wait();
+            // ProducerDelayMessageExample.QuickStart().Wait();
+            // SimpleConsumerExample.QuickStart().Wait();
             // ProducerBenchmark.QuickStart().Wait();
         }
     }
