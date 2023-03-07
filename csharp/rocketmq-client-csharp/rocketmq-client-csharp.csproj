@@ -14,7 +14,7 @@
     <Description>.NET Client for Apache RocketMQ</Description>
     <PackageProjectUrl>https://github.com/apache/rocketmq-clients</PackageProjectUrl>
     <RepositoryUrl>https://github.com/apache/rocketmq-clients</RepositoryUrl>
-    <PackageVersion>0.0.8-SNAPSHOT</PackageVersion>
+    <PackageVersion>0.0.9-SNAPSHOT</PackageVersion>
     <PackageIcon>logo.png</PackageIcon>
   </PropertyGroup>
 
