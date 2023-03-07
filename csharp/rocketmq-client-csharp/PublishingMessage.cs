@@ -92,7 +92,7 @@ namespace Org.Apache.Rocketmq
 
             if (DeliveryTimestamp.HasValue)
             {
-                systemProperties.DeliveryTimestamp = Timestamp.FromDateTime(DeliveryTimestamp.Value);
+                systemProperties.DeliveryTimestamp = Timestamp.FromDateTime(DeliveryTimestamp.Value.ToUniversalTime());
             }
 
             if (null != MessageGroup)

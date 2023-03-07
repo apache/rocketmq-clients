@@ -188,7 +188,8 @@ namespace Org.Apache.Rocketmq
                 }
             }
 
-            throw exception!;
+            throw new Exception($"Failed to send message finally, topic={message.Topic}, clientId={ClientId}",
+                exception);
         }
 
         public async Task<ISendReceipt> Send(Message message)

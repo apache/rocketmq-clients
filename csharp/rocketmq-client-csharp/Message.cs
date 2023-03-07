@@ -131,7 +131,9 @@ namespace Org.Apache.Rocketmq
             {
                 Preconditions.CheckArgument(null == _messageGroup,
                     "deliveryTimestamp and messageGroup should not be set at same time");
-                _deliveryTimestamp = deliveryTimestamp;
+                _deliveryTimestamp = DateTimeKind.Utc == deliveryTimestamp.Kind
+                    ? TimeZoneInfo.ConvertTimeFromUtc(deliveryTimestamp, TimeZoneInfo.Local)
+                    : deliveryTimestamp;
                 return this;
             }
 

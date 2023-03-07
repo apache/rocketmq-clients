@@ -59,7 +59,7 @@ namespace examples
                 .SetTag(tag)
                 // You could set multiple keys for the single message actually.
                 .SetKeys("yourMessageKey-2f00df144e48")
-                .SetDeliveryTimestamp(DateTime.UtcNow + TimeSpan.FromSeconds(30))
+                .SetDeliveryTimestamp(DateTime.Now + TimeSpan.FromSeconds(30))
                 .Build();
 
             var sendReceipt = await producer.Send(message);

@@ -158,11 +158,12 @@ namespace Org.Apache.Rocketmq
             var messageGroup = systemProperties.HasMessageGroup ? systemProperties.MessageGroup : null;
             DateTime? deliveryTime = null == systemProperties.DeliveryTimestamp
                 ? null
-                : systemProperties.DeliveryTimestamp.ToDateTime();
+                : TimeZoneInfo.ConvertTimeFromUtc(systemProperties.DeliveryTimestamp.ToDateTime(), TimeZoneInfo.Local);
             var keys = systemProperties.Keys.ToList();
 
             var bornHost = systemProperties.BornHost;
-            var bornTime = systemProperties.BornTimestamp.ToDateTime();
+            var bornTime =
+                TimeZoneInfo.ConvertTimeFromUtc(systemProperties.BornTimestamp.ToDateTime(), TimeZoneInfo.Local);
             var deliveryAttempt = systemProperties.DeliveryAttempt;
             var queueOffset = systemProperties.QueueOffset;
             var properties = new Dictionary<string, string>();

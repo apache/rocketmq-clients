@@ -149,6 +149,31 @@ namespace tests
         }
 
         [TestMethod]
+        public void TestSetDeliveryTimestampWithLocalTime()
+        {
+            var deliveryTimestamp = DateTime.Now;
+            var message = new Message.Builder().SetTopic("yourTopic").SetDeliveryTimestamp(deliveryTimestamp)
+                .SetBody(Encoding.UTF8.GetBytes("foobar"))
+                .Build();
+            Assert.IsTrue(message.DeliveryTimestamp.HasValue);
+            Assert.AreEqual(DateTimeKind.Local, message.DeliveryTimestamp.Value.Kind);
+            Assert.AreEqual(deliveryTimestamp, message.DeliveryTimestamp.Value);
+        }
+
+        [TestMethod]
+        public void TestSetDeliveryTimestampWithUtcTime()
+        {
+            var deliveryTimestamp = DateTime.UtcNow;
+            var message = new Message.Builder().SetTopic("yourTopic").SetDeliveryTimestamp(deliveryTimestamp)
+                .SetBody(Encoding.UTF8.GetBytes("foobar"))
+                .Build();
+            Assert.IsTrue(message.DeliveryTimestamp.HasValue);
+            Assert.AreEqual(DateTimeKind.Local, message.DeliveryTimestamp.Value.Kind);
+            var localTimestamp = TimeZoneInfo.ConvertTimeFromUtc(deliveryTimestamp, TimeZoneInfo.Local);
+            Assert.AreEqual(localTimestamp, message.DeliveryTimestamp.Value);
+        }
+
+        [TestMethod]
         [ExpectedException(typeof(ArgumentException))]
         public void TestSetDeliveryTimestampAndMessageGroup()
         {
