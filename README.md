@@ -10,6 +10,7 @@
 [![Codecov-java][codecov-java-image]][codecov-url]
 [![Codecov-golang][codecov-golang-image]][codecov-url]
 [![Maven Central][maven-image]][maven-url]
+[![NuGet Gallery][nuget-image]][nuget-url]
 
 English | [简体中文](README-CN.md) | [RocketMQ Website](https://rocketmq.apache.org/)
 
@@ -69,3 +70,5 @@ Similar to other projects of Apache RocketMQ, any attempt to make this project b
 [codecov-url]: https://codecov.io/gh/apache/rocketmq-clients/branch/master/
 [maven-image]: https://maven-badges.herokuapp.com/maven-central/org.apache.rocketmq/rocketmq-client-java/badge.svg
 [maven-url]: https://maven-badges.herokuapp.com/maven-central/org.apache.rocketmq/rocketmq-client-java
+[nuget-image]: https://img.shields.io/nuget/v/RocketMQ.Client.svg?label=nuget
+[nuget-url]: https://www.nuget.org/packages/RocketMQ.Client/
