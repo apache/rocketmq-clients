@@ -90,8 +90,7 @@ namespace Org.Apache.Rocketmq
         /// <param name="timeout">Request max duration.</param>
         /// <returns></returns>
         Task<RpcInvocation<ReceiveMessageRequest, List<ReceiveMessageResponse>>> ReceiveMessage(Endpoints endpoints,
-            ReceiveMessageRequest request,
-            TimeSpan timeout);
+            ReceiveMessageRequest request, TimeSpan timeout);
 
         /// <summary>
         /// Message acknowledgement towards remote endpoints.

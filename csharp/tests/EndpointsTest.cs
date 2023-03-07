@@ -35,8 +35,8 @@ namespace tests
         public void TestGrpcTargetWithSsl()
         {
             var endpoints = new Endpoints("127.0.0.1");
-            var targetWithoutSsl = endpoints.GrpcTarget(true);
-            Assert.AreEqual("https://127.0.0.1:80", targetWithoutSsl);
+            var targetWithSsl = endpoints.GrpcTarget(true);
+            Assert.AreEqual("https://127.0.0.1:80", targetWithSsl);
         }
     }
 }
