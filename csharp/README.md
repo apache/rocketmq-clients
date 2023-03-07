@@ -12,7 +12,7 @@ See more details about .NET 5 from [Introducing .NET 5](https://devblogs.microso
 
 The client would be developed using the protocols outlined in [rocketmq-apis](https://github.com/apache/rocketmq-apis) and built on [gRPC-dotnet](https://github.com/grpc/grpc-dotnet), leveraging Protocol Buffers for data serialization and deserialization during transmission.
 
-## Quickstart
+## Quickstart & Build
 
 ```sh
 dotnet add package RocketMQ.Client
@@ -20,11 +20,7 @@ dotnet add package RocketMQ.Client
 
 You can obtain the latest version of `RocketMQ.Client` from [NuGet Gallery](https://www.nuget.org/packages/RocketMQ.Client). To assist with getting started quickly and working with various message types and clients, we offer examples [here](./examples).
 
-## Build
-
-Layout of this project roughly follows [this guide](https://docs.microsoft.com/en-us/dotnet/core/tutorials/library-with-visual-studio-code?pivots=dotnet-5-0). The solution contains a class library, a unit test module and an example console module.
-
-Assuming you are at the home of this repository:
+Layout of this project roughly follows [this guide](https://docs.microsoft.com/en-us/dotnet/core/tutorials/library-with-visual-studio-code?pivots=dotnet-5-0). The solution contains a class library, a unit test module and an example console module. Assuming you are at the home of this repository:
 
 ```sh
 # build the project
@@ -32,3 +28,10 @@ dotnet build
 # run unit tests
 dotnet test -l "console;verbosity=detailed"
 ```
+
+## Publishing Steps
+
+1. Open the command prompt, and change the directory to the project folder that you want to package.
+2. Run the `dotnet pack --configuration Release` command. This will create a NuGet package in the `bin/Release` folder of the project.
+3. To upload the package to NuGet, go to the NuGet website and sign in. Click on the "Upload" button and select the package file from the `bin/Release` folder.
+4. Follow the instructions on the website to complete the upload process. Once the package is uploaded, it will be available for others to download and use.
