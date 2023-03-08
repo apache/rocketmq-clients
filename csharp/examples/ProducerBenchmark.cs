@@ -16,7 +16,7 @@
  */
 
 using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,8 +30,10 @@ namespace examples
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
         private static readonly SemaphoreSlim Semaphore = new(0);
-        private const int TpsLimit = 1;
-        private static long _counter = 0;
+        private const int TpsLimit = 300;
+        private static long _successCounter;
+        private static long _failureCounter;
+        private static readonly BlockingCollection<Task<ISendReceipt>> Tasks = new();
 
         private static void DoStats()
         {
@@ -48,8 +50,25 @@ namespace examples
             {
                 while (true)
                 {
-                    Logger.Info($"Send {Interlocked.Exchange(ref _counter, 0)} messages successfully.");
+                    Logger.Info($"{Interlocked.Exchange(ref _successCounter, 0)} success, " +
+                                $"{Interlocked.Exchange(ref _failureCounter, 0)} failure.");
                     await Task.Delay(TimeSpan.FromSeconds(1));
+                }
+            });
+
+            Task.Run(async () =>
+            {
+                foreach (var task in Tasks.GetConsumingEnumerable())
+                {
+                    try
+                    {
+                        await task;
+                        Interlocked.Increment(ref _successCounter);
+                    }
+                    catch (Exception)
+                    {
+                        Interlocked.Increment(ref _failureCounter);
+                    }
                 }
             });
         }
@@ -88,16 +107,12 @@ namespace examples
                 .Build();
 
             DoStats();
-            var tasks = new List<Task>();
             while (true)
             {
                 await Semaphore.WaitAsync();
-                Interlocked.Increment(ref _counter);
                 var task = producer.Send(message);
-                tasks.Add(task);
+                Tasks.Add(task);
             }
-
-            Task.WhenAll(tasks).Wait();
         }
     }
 }
