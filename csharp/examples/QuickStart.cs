@@ -21,9 +21,10 @@ namespace examples
     {
         public static void Main()
         {
-            ProducerNormalMessageExample.QuickStart().Wait();
+            // ProducerNormalMessageExample.QuickStart().Wait();
             // ProducerFifoMessageExample.QuickStart().Wait();
             // ProducerDelayMessageExample.QuickStart().Wait();
+            // ProducerTransactionMessageExample.QuickStart().Wait();
             // SimpleConsumerExample.QuickStart().Wait();
             // ProducerBenchmark.QuickStart().Wait();
         }
