@@ -43,7 +43,7 @@ namespace Org.Apache.Rocketmq
         private static readonly TimeSpan SettingsSyncSchedulePeriod = TimeSpan.FromMinutes(5);
         private readonly CancellationTokenSource _settingsSyncCts;
 
-        private static readonly TimeSpan StatsScheduleDelay = TimeSpan.FromSeconds(60);
+        private static readonly TimeSpan StatsScheduleDelay = TimeSpan.FromSeconds(1);
         private static readonly TimeSpan StatsSchedulePeriod = TimeSpan.FromSeconds(60);
         private readonly CancellationTokenSource _statsCts;
 
@@ -256,10 +256,12 @@ namespace Org.Apache.Rocketmq
         private void Stats()
         {
             ThreadPool.GetAvailableThreads(out var availableWorker, out var availableIo);
-            Logger.Info($"ThreadCount={ThreadPool.ThreadCount}, " +
-                        $"CompletedWorkItemCount={ThreadPool.CompletedWorkItemCount}, " +
-                        $"PendingWorkItemCount={ThreadPool.PendingWorkItemCount}, AvailableWorkerThreads={availableWorker}, " +
-                        $"AvailableCompletionPortThreads={availableIo}, ClientId={ClientId}");
+            Logger.Info(
+                $"ClientId={ClientId}, ClientVersion={MetadataConstants.Instance.ClientVersion}, " +
+                $".NET Version={Environment.Version}, ThreadCount={ThreadPool.ThreadCount}, " +
+                $"CompletedWorkItemCount={ThreadPool.CompletedWorkItemCount}, " +
+                $"PendingWorkItemCount={ThreadPool.PendingWorkItemCount}, AvailableWorkerThreads={availableWorker}, " +
+                $"AvailableCompletionPortThreads={availableIo}");
         }
 
         private void ScheduleWithFixedDelay(Action action, TimeSpan delay, TimeSpan period, CancellationToken token)
@@ -346,7 +348,8 @@ namespace Org.Apache.Rocketmq
             {
                 var endpoints = GetTotalRouteEndpoints();
                 var request = WrapHeartbeatRequest();
-                Dictionary<Endpoints, Task<RpcInvocation<Proto.HeartbeatRequest, Proto.HeartbeatResponse>>> invocations = new();
+                Dictionary<Endpoints, Task<RpcInvocation<Proto.HeartbeatRequest, Proto.HeartbeatResponse>>>
+                    invocations = new();
 
                 // Collect task into a map.
                 foreach (var item in endpoints)
@@ -407,7 +410,8 @@ namespace Org.Apache.Rocketmq
             var request = WrapNotifyClientTerminationRequest();
             foreach (var item in endpoints)
             {
-                var invocation = await ClientManager.NotifyClientTermination(item, request, ClientConfig.RequestTimeout);
+                var invocation =
+                    await ClientManager.NotifyClientTermination(item, request, ClientConfig.RequestTimeout);
                 try
                 {
                     StatusChecker.Check(invocation.Response.Status, request, invocation.RequestId);

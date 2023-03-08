@@ -2,7 +2,8 @@
 
   <PropertyGroup>
     <PackageId>RocketMQ.Client</PackageId>
-    <Version>0.0.1-SNAPSHOT</Version>
+    <!-- Please keep the same with PackageVersion -->
+    <Version>0.0.9-SNAPSHOT</Version>
 
     <Authors>RocketMQ Authors</Authors>
     <Company>Apache Software Foundation</Company>
@@ -14,6 +15,7 @@
     <Description>.NET Client for Apache RocketMQ</Description>
     <PackageProjectUrl>https://github.com/apache/rocketmq-clients</PackageProjectUrl>
     <RepositoryUrl>https://github.com/apache/rocketmq-clients</RepositoryUrl>
+    <!-- Please keep the same with Version -->
     <PackageVersion>0.0.9-SNAPSHOT</PackageVersion>
     <PackageIcon>logo.png</PackageIcon>
   </PropertyGroup>
