@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-using System;
 using System.Text;
 using System.Threading.Tasks;
 using NLog;
@@ -62,7 +61,7 @@ namespace examples
                 .Build();
 
             var sendReceipt = await producer.Send(message);
-            Logger.Info($"Send message successfully, sendReceipt={sendReceipt}");
+            Logger.Info($"Send message successfully, messageId={sendReceipt.MessageId}");
 
             // Or you could close the producer manually.
             // await producer.DisposeAsync();

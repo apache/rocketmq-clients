@@ -36,17 +36,18 @@ namespace Org.Apache.Rocketmq
         Task<QueryAssignmentResponse> QueryAssignment(Metadata metadata, QueryAssignmentRequest request,
             TimeSpan timeout);
 
-        Task<List<ReceiveMessageResponse>> ReceiveMessage(Metadata metadata, ReceiveMessageRequest request, TimeSpan timeout);
+        Task<List<ReceiveMessageResponse>> ReceiveMessage(Metadata metadata, ReceiveMessageRequest request,
+            TimeSpan timeout);
 
         Task<AckMessageResponse> AckMessage(Metadata metadata, AckMessageRequest request, TimeSpan timeout);
 
-        Task<ChangeInvisibleDurationResponse> ChangeInvisibleDuration(Metadata metadata, ChangeInvisibleDurationRequest request, TimeSpan timeout);
+        Task<ChangeInvisibleDurationResponse> ChangeInvisibleDuration(Metadata metadata,
+            ChangeInvisibleDurationRequest request, TimeSpan timeout);
 
         Task<ForwardMessageToDeadLetterQueueResponse> ForwardMessageToDeadLetterQueue(Metadata metadata,
             ForwardMessageToDeadLetterQueueRequest request, TimeSpan timeout);
 
         Task<EndTransactionResponse> EndTransaction(Metadata metadata, EndTransactionRequest request, TimeSpan timeout);
-
 
         Task<NotifyClientTerminationResponse> NotifyClientTermination(Metadata metadata,
             NotifyClientTerminationRequest request, TimeSpan timeout);

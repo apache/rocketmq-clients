@@ -92,8 +92,7 @@ namespace Org.Apache.Rocketmq
             }
 
             ScheduleWithFixedDelay(UpdateTopicRouteCache, TopicRouteUpdateScheduleDelay,
-                TopicRouteUpdateSchedulePeriod,
-                _topicRouteUpdateCts.Token);
+                TopicRouteUpdateSchedulePeriod, _topicRouteUpdateCts.Token);
             ScheduleWithFixedDelay(Heartbeat, HeartbeatScheduleDelay, HeartbeatSchedulePeriod, _heartbeatCts.Token);
             ScheduleWithFixedDelay(SyncSettings, SettingsSyncScheduleDelay, SettingsSyncSchedulePeriod,
                 _settingsSyncCts.Token);
@@ -154,9 +153,7 @@ namespace Org.Apache.Rocketmq
 
         protected abstract Proto::HeartbeatRequest WrapHeartbeatRequest();
 
-
         protected abstract void OnTopicRouteDataUpdated0(string topic, TopicRouteData topicRouteData);
-
 
         private async Task OnTopicRouteDataFetched(string topic, TopicRouteData topicRouteData)
         {
@@ -392,8 +389,7 @@ namespace Org.Apache.Rocketmq
                 Logger.Error(e, $"[Bug] unexpected exception raised during heartbeat, clientId={ClientId}");
             }
         }
-
-
+        
         internal grpc.Metadata Sign()
         {
             var metadata = new grpc::Metadata();
