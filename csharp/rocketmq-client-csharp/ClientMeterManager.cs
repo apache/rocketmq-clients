@@ -36,7 +36,6 @@ namespace Org.Apache.Rocketmq
         private readonly Client _client;
         private volatile ClientMeter _clientMeter;
         private readonly HttpClient _httpClient;
-        private readonly object _lock;
         internal readonly Meter Meter;
 
         public ClientMeterManager(Client client)
@@ -45,7 +44,6 @@ namespace Org.Apache.Rocketmq
             var httpDelegatingHandler = new MetricHttpDelegatingHandler(client);
             _httpClient = new HttpClient(httpDelegatingHandler);
             _clientMeter = ClientMeter.DisabledInstance(_client.GetClientId());
-            _lock = new object();
             Meter = new Meter(MeterName, Version);
         }
 
@@ -56,7 +54,7 @@ namespace Org.Apache.Rocketmq
 
         public void Reset(Metric metric)
         {
-            lock (_lock)
+            lock (this)
             {
                 var clientId = _client.GetClientId();
                 if (_clientMeter.Satisfy(metric))
