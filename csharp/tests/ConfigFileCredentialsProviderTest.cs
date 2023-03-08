@@ -38,7 +38,7 @@ namespace tests
             var json = "{\"AccessKey\": \"key\", \"AccessSecret\": \"secret\"}";
             File.WriteAllText(configFilePath, json);
         }
-        
+
         [TestMethod]
         public void TestGetCredentials()
         {

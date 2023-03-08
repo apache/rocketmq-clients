@@ -75,7 +75,7 @@ namespace Org.Apache.Rocketmq
                 var meterProvider = Sdk.CreateMeterProviderBuilder()
                     .SetResourceBuilder(ResourceBuilder.CreateEmpty())
                     .AddMeter(MeterName)
-                    .AddOtlpExporter(delegate(OtlpExporterOptions options, MetricReaderOptions readerOptions)
+                    .AddOtlpExporter(delegate (OtlpExporterOptions options, MetricReaderOptions readerOptions)
                     {
                         options.Protocol = OtlpExportProtocol.Grpc;
                         options.Endpoint = new Uri(metric.Endpoints.GrpcTarget(_client.GetClientConfig().SslEnabled));

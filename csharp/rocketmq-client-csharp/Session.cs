@@ -91,41 +91,41 @@ namespace Org.Apache.Rocketmq
                     switch (response.CommandCase)
                     {
                         case Proto.TelemetryCommand.CommandOneofCase.Settings:
-                        {
-                            Logger.Info(
-                                $"Receive setting from remote, endpoints={_endpoints}, clientId={_client.GetClientId()}");
-                            _client.OnSettingsCommand(_endpoints, response.Settings);
-                            _event.Set();
-                            break;
-                        }
+                            {
+                                Logger.Info(
+                                    $"Receive setting from remote, endpoints={_endpoints}, clientId={_client.GetClientId()}");
+                                _client.OnSettingsCommand(_endpoints, response.Settings);
+                                _event.Set();
+                                break;
+                            }
                         case Proto.TelemetryCommand.CommandOneofCase.RecoverOrphanedTransactionCommand:
-                        {
-                            Logger.Info(
-                                $"Receive orphaned transaction recovery command from remote, endpoints={_endpoints}, clientId={_client.GetClientId()}");
-                            _client.OnRecoverOrphanedTransactionCommand(_endpoints,
-                                response.RecoverOrphanedTransactionCommand);
-                            break;
-                        }
+                            {
+                                Logger.Info(
+                                    $"Receive orphaned transaction recovery command from remote, endpoints={_endpoints}, clientId={_client.GetClientId()}");
+                                _client.OnRecoverOrphanedTransactionCommand(_endpoints,
+                                    response.RecoverOrphanedTransactionCommand);
+                                break;
+                            }
                         case Proto.TelemetryCommand.CommandOneofCase.VerifyMessageCommand:
-                        {
-                            Logger.Info(
-                                $"Receive message verification command from remote, endpoints={_endpoints}, clientId={_client.GetClientId()}");
-                            _client.OnVerifyMessageCommand(_endpoints, response.VerifyMessageCommand);
-                            break;
-                        }
+                            {
+                                Logger.Info(
+                                    $"Receive message verification command from remote, endpoints={_endpoints}, clientId={_client.GetClientId()}");
+                                _client.OnVerifyMessageCommand(_endpoints, response.VerifyMessageCommand);
+                                break;
+                            }
                         case Proto.TelemetryCommand.CommandOneofCase.PrintThreadStackTraceCommand:
-                        {
-                            Logger.Info(
-                                $"Receive thread stack print command from remote, endpoints={_endpoints}, clientId={_client.GetClientId()}");
-                            _client.OnPrintThreadStackTraceCommand(_endpoints, response.PrintThreadStackTraceCommand);
-                            break;
-                        }
+                            {
+                                Logger.Info(
+                                    $"Receive thread stack print command from remote, endpoints={_endpoints}, clientId={_client.GetClientId()}");
+                                _client.OnPrintThreadStackTraceCommand(_endpoints, response.PrintThreadStackTraceCommand);
+                                break;
+                            }
                         default:
-                        {
-                            Logger.Warn(
-                                $"Receive unrecognized command from remote, endpoints={_endpoints}, command={response}, clientId={_client.GetClientId()}");
-                            break;
-                        }
+                            {
+                                Logger.Warn(
+                                    $"Receive unrecognized command from remote, endpoints={_endpoints}, command={response}, clientId={_client.GetClientId()}");
+                                break;
+                            }
                     }
                 }
             });

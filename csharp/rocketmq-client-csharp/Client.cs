@@ -389,7 +389,7 @@ namespace Org.Apache.Rocketmq
                 Logger.Error(e, $"[Bug] unexpected exception raised during heartbeat, clientId={ClientId}");
             }
         }
-        
+
         internal grpc.Metadata Sign()
         {
             var metadata = new grpc::Metadata();
