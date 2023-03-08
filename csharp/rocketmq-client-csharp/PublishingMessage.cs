@@ -68,8 +68,11 @@ namespace Org.Apache.Rocketmq
 
             // For TRANSACTION message.
             if (!string.IsNullOrEmpty(message.MessageGroup) || message.DeliveryTimestamp.HasValue || !txEnabled)
+            {
                 throw new InternalErrorException(
                     "Transactional message should not set messageGroup or deliveryTimestamp");
+            }
+
             MessageType = MessageType.Transaction;
         }
 
