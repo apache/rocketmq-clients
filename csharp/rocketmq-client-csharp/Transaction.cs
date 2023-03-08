@@ -96,7 +96,7 @@ namespace Org.Apache.Rocketmq
             {
                 throw new InvalidOperationException("Producer is not running");
             }
-            
+
             if (_messageSendReceiptDict.IsEmpty)
             {
                 throw new ArgumentException("Transactional message has not been sent yet");
@@ -115,7 +115,7 @@ namespace Org.Apache.Rocketmq
             {
                 throw new InvalidOperationException("Producer is not running");
             }
-            
+
             if (_messageSendReceiptDict.IsEmpty)
             {
                 throw new ArgumentException("Transaction message has not been sent yet");

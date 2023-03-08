@@ -93,43 +93,43 @@ namespace Org.Apache.Rocketmq
             switch (type)
             {
                 case Proto.DigestType.Crc32:
-                {
-                    var expectedCheckSum = Force.Crc32.Crc32Algorithm.Compute(raw, 0, raw.Length).ToString("X");
-                    if (!expectedCheckSum.Equals(checkSum))
                     {
-                        corrupted = true;
-                    }
+                        var expectedCheckSum = Force.Crc32.Crc32Algorithm.Compute(raw, 0, raw.Length).ToString("X");
+                        if (!expectedCheckSum.Equals(checkSum))
+                        {
+                            corrupted = true;
+                        }
 
-                    break;
-                }
+                        break;
+                    }
                 case Proto.DigestType.Md5:
-                {
-                    var expectedCheckSum = Convert.ToHexString(MD5.HashData(raw));
-                    if (!expectedCheckSum.Equals(checkSum))
                     {
-                        corrupted = true;
-                    }
+                        var expectedCheckSum = Convert.ToHexString(MD5.HashData(raw));
+                        if (!expectedCheckSum.Equals(checkSum))
+                        {
+                            corrupted = true;
+                        }
 
-                    break;
-                }
+                        break;
+                    }
                 case Proto.DigestType.Sha1:
-                {
-                    var expectedCheckSum = Convert.ToHexString(SHA1.HashData(raw));
-                    if (!expectedCheckSum.Equals(checkSum))
                     {
-                        corrupted = true;
-                    }
+                        var expectedCheckSum = Convert.ToHexString(SHA1.HashData(raw));
+                        if (!expectedCheckSum.Equals(checkSum))
+                        {
+                            corrupted = true;
+                        }
 
-                    break;
-                }
+                        break;
+                    }
                 case Proto.DigestType.Unspecified:
                 default:
-                {
-                    Logger.Error(
-                        $"Unsupported message body digest algorithm," +
-                        $"digestType={type}, topic={topic}, messageId={messageId}");
-                    break;
-                }
+                    {
+                        Logger.Error(
+                            $"Unsupported message body digest algorithm," +
+                            $"digestType={type}, topic={topic}, messageId={messageId}");
+                        break;
+                    }
             }
 
             var bodyEncoding = systemProperties.BodyEncoding;
@@ -137,21 +137,21 @@ namespace Org.Apache.Rocketmq
             switch (bodyEncoding)
             {
                 case Proto.Encoding.Gzip:
-                {
-                    body = Utilities.DecompressBytesGzip(message.Body.ToByteArray());
-                    break;
-                }
+                    {
+                        body = Utilities.DecompressBytesGzip(message.Body.ToByteArray());
+                        break;
+                    }
                 case Proto.Encoding.Identity:
-                {
-                    break;
-                }
+                    {
+                        break;
+                    }
                 case Proto.Encoding.Unspecified:
                 default:
-                {
-                    Logger.Error($"Unsupported message encoding algorithm," +
-                                 $" topic={topic}, messageId={messageId}, bodyEncoding={bodyEncoding}");
-                    break;
-                }
+                    {
+                        Logger.Error($"Unsupported message encoding algorithm," +
+                                     $" topic={topic}, messageId={messageId}, bodyEncoding={bodyEncoding}");
+                        break;
+                    }
             }
 
             var tag = systemProperties.HasTag ? systemProperties.Tag : null;
