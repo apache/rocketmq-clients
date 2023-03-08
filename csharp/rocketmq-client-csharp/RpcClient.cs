@@ -41,7 +41,7 @@ namespace Org.Apache.Rocketmq
             _target = endpoints.GrpcTarget(sslEnabled);
             _channel = GrpcChannel.ForAddress(_target, new GrpcChannelOptions
             {
-                HttpHandler = CreateHttpHandler()
+                HttpHandler = CreateHttpHandler(),
             });
             var invoker = _channel.Intercept(new ClientLoggerInterceptor());
             _stub = new Proto::MessagingService.MessagingServiceClient(invoker);
@@ -93,7 +93,6 @@ namespace Org.Apache.Rocketmq
             return await call.ResponseAsync;
         }
 
-
         public async Task<Proto::HeartbeatResponse> Heartbeat(Metadata metadata, Proto::HeartbeatRequest request,
             TimeSpan timeout)
         {
@@ -115,8 +114,7 @@ namespace Org.Apache.Rocketmq
         }
 
         public async Task<Proto::QueryAssignmentResponse> QueryAssignment(Metadata metadata,
-            Proto::QueryAssignmentRequest request,
-            TimeSpan timeout)
+            Proto::QueryAssignmentRequest request, TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);
             var callOptions = new CallOptions(metadata, deadline);
@@ -156,8 +154,7 @@ namespace Org.Apache.Rocketmq
         }
 
         public async Task<Proto::ChangeInvisibleDurationResponse> ChangeInvisibleDuration(Metadata metadata,
-            Proto::ChangeInvisibleDurationRequest request,
-            TimeSpan timeout)
+            Proto::ChangeInvisibleDurationRequest request, TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);
             var callOptions = new CallOptions(metadata, deadline);
@@ -167,8 +164,7 @@ namespace Org.Apache.Rocketmq
         }
 
         public async Task<Proto::ForwardMessageToDeadLetterQueueResponse> ForwardMessageToDeadLetterQueue(
-            Metadata metadata,
-            Proto::ForwardMessageToDeadLetterQueueRequest request, TimeSpan timeout)
+            Metadata metadata, Proto::ForwardMessageToDeadLetterQueueRequest request, TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);
             var callOptions = new CallOptions(metadata, deadline);
@@ -178,8 +174,7 @@ namespace Org.Apache.Rocketmq
         }
 
         public async Task<Proto::EndTransactionResponse> EndTransaction(Metadata metadata,
-            Proto::EndTransactionRequest request,
-            TimeSpan timeout)
+            Proto::EndTransactionRequest request, TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow.Add(timeout);
             var callOptions = new CallOptions(metadata, deadline);

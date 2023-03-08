@@ -21,6 +21,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using grpc = Grpc.Core;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Org.Apache.Rocketmq
 {
@@ -78,11 +79,7 @@ namespace Org.Apache.Rocketmq
             _clientLock.EnterReadLock();
             try
             {
-                var tasks = new List<Task>();
-                foreach (var item in _rpcClients)
-                {
-                    tasks.Add(item.Value.Shutdown());
-                }
+                var tasks = _rpcClients.Select(item => item.Value.Shutdown()).ToList();
 
                 await Task.WhenAll(tasks);
             }
@@ -99,8 +96,7 @@ namespace Org.Apache.Rocketmq
         }
 
         public async Task<RpcInvocation<Proto.QueryRouteRequest, Proto.QueryRouteResponse>> QueryRoute(
-            Endpoints endpoints,
-            Proto.QueryRouteRequest request, TimeSpan timeout)
+            Endpoints endpoints, Proto.QueryRouteRequest request, TimeSpan timeout)
         {
             var metadata = _client.Sign();
             var response = await GetRpcClient(endpoints).QueryRoute(metadata, request, timeout);
@@ -171,8 +167,7 @@ namespace Org.Apache.Rocketmq
         }
 
         public async Task<RpcInvocation<Proto.EndTransactionRequest, Proto.EndTransactionResponse>> EndTransaction(
-            Endpoints endpoints,
-            Proto.EndTransactionRequest request, TimeSpan timeout)
+            Endpoints endpoints, Proto.EndTransactionRequest request, TimeSpan timeout)
         {
             var metadata = _client.Sign();
             var response = await GetRpcClient(endpoints).EndTransaction(metadata, request, timeout);

@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-using System;
 using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq

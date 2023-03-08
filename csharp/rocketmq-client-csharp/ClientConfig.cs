@@ -19,7 +19,7 @@ using System;
 
 namespace Org.Apache.Rocketmq
 {
-    public class ClientConfig : IClientConfig
+    public class ClientConfig
     {
         private ClientConfig(ISessionCredentialsProvider sessionCredentialsProvider, TimeSpan requestTimeout,
             string endpoints, bool sslEnabled)
