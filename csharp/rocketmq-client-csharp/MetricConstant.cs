@@ -34,8 +34,8 @@ namespace Org.Apache.Rocketmq
         public const string InvocationStatus = "invocation_status";
 
         // Metric Label Value
-        public const string True = "true";
-        public const string False = "false";
+        public const string Success = "success";
+        public const string Failure = "failure";
 
         public readonly ExplicitBucketHistogramConfiguration SendCostTimeBucket;
         public readonly ExplicitBucketHistogramConfiguration DeliveryLatencyBucket;
