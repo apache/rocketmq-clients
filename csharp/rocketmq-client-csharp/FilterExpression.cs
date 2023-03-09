@@ -19,16 +19,10 @@ namespace Org.Apache.Rocketmq
 {
     public class FilterExpression
     {
-        public FilterExpression(string expression, ExpressionType type)
+        public FilterExpression(string expression, ExpressionType type = ExpressionType.Tag)
         {
             Expression = expression;
             Type = type;
-        }
-
-        public FilterExpression(string expression)
-        {
-            Expression = expression;
-            Type = ExpressionType.Tag;
         }
 
         public ExpressionType Type { get; }
