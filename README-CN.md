@@ -15,7 +15,7 @@
 
 ## 概述
 
-[Apache RocketMQ](https://rocketmq.apache.org/) 的多语言客户端实现。遵从 [rocketmq-apis](https://github.com/apache/rocketmq-apis) 约束，使用 [Protocol Buffers](https://developers.google.com/protocol-buffers) 和 [gRPC](https://grpc.io/) 替代了 4.x 的旧有协议。
+[Apache RocketMQ](https://rocketmq.apache.org/) 的多语言客户端实现，也被称为 RocketMQ 5.x 客户端。遵从 [rocketmq-apis](https://github.com/apache/rocketmq-apis) 约束，使用 [Protocol Buffers](https://developers.google.com/protocol-buffers) 和 [gRPC](https://grpc.io/) 替代了 4.x 的旧有协议。
 
 ## 设计目标
 
