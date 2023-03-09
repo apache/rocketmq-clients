@@ -177,7 +177,7 @@ namespace Org.Apache.Rocketmq
                         new KeyValuePair<string, object>(MetricConstant.Topic, message.Topic),
                         new KeyValuePair<string, object>(MetricConstant.ClientId, ClientId),
                         new KeyValuePair<string, object>(MetricConstant.InvocationStatus,
-                            null == exception ? MetricConstant.True : MetricConstant.False));
+                            null == exception ? MetricConstant.Success : MetricConstant.Failure));
                     // Retry immediately if the request is not throttled.
                     if (exception is TooManyRequestsException)
                     {
