@@ -16,7 +16,7 @@ English | [简体中文](README-CN.md) | [RocketMQ Website](https://rocketmq.apa
 
 ## Overview
 
-Client bindings for [Apache RocketMQ](https://rocketmq.apache.org/), all of them follow the specification of [rocketmq-apis](https://github.com/apache/rocketmq-apis), replacing 4.x remoting-based counterparts. Clients in this repository are built on top of [Protocol Buffers](https://developers.google.com/protocol-buffers) and [gRPC](https://grpc.io/).
+Client bindings for [Apache RocketMQ](https://rocketmq.apache.org/), as known as RocketMQ 5.x SDK. All of them follow the specification of [rocketmq-apis](https://github.com/apache/rocketmq-apis), replacing 4.x remoting-based counterparts. Clients in this repository are built on top of [Protocol Buffers](https://developers.google.com/protocol-buffers) and [gRPC](https://grpc.io/).
 
 ## Goal
 
