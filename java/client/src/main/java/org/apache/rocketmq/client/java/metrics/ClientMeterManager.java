@@ -51,7 +51,7 @@ import org.slf4j.LoggerFactory;
 public class ClientMeterManager {
     private static final Logger log = LoggerFactory.getLogger(ClientMeterManager.class);
 
-    private static final Duration METRIC_EXPORTER_RPC_TIMEOUT = Duration.ofSeconds(3);
+    private static final Duration METRIC_EXPORTER_RPC_TIMEOUT = Duration.ofSeconds(5);
     private static final Duration METRIC_READER_INTERVAL = Duration.ofMinutes(1);
     private static final String METRIC_INSTRUMENTATION_NAME = "org.apache.rocketmq.message";
 
@@ -170,7 +170,7 @@ public class ClientMeterManager {
                 })) {
                     log.debug("Build observable double gauge successfully, gauge={}, clientId={}", name, clientId);
                 } catch (Exception e) {
-                    log.error("Failed to build observable double gauge, gauge={}, clientId={}", name, clientId);
+                    log.error("Failed to build observable double gauge, gauge={}, clientId={}", name, clientId, e);
                 }
             }
         } catch (Throwable t) {
