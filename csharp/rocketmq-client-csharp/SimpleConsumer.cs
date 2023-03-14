@@ -177,7 +177,7 @@ namespace Org.Apache.Rocketmq
         {
             return _simpleSubscriptionSettings;
         }
-        
+
         public async Task<List<MessageView>> Receive(int maxMessageNum, TimeSpan invisibleDuration)
         {
             if (State.Running != State)
