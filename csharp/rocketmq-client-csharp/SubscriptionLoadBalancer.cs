@@ -18,30 +18,40 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace Org.Apache.Rocketmq
 {
     internal sealed class SubscriptionLoadBalancer
     {
-        private readonly List<MessageQueue> _messageQueues;
-        private int _roundRobinIndex;
+        private static readonly Random Random = new();
 
-        public SubscriptionLoadBalancer(TopicRouteData topicRouteData)
+        private readonly List<MessageQueue> _messageQueues;
+        private int _index;
+
+        public SubscriptionLoadBalancer(TopicRouteData topicRouteData) : this(Random.Next(), topicRouteData)
         {
+        }
+
+        private SubscriptionLoadBalancer(int index, TopicRouteData topicRouteData)
+        {
+            _index = index;
             _messageQueues = new List<MessageQueue>();
             foreach (var mq in topicRouteData.MessageQueues.Where(mq => PermissionHelper.IsReadable(mq.Permission))
                          .Where(mq => Utilities.MasterBrokerId == mq.Broker.Id))
             {
                 _messageQueues.Add(mq);
             }
+        }
 
-            var random = new Random();
-            _roundRobinIndex = random.Next(0, _messageQueues.Count);
+        internal SubscriptionLoadBalancer Update(TopicRouteData topicRouteData)
+        {
+            return new SubscriptionLoadBalancer(_index, topicRouteData);
         }
 
         public MessageQueue TakeMessageQueue()
         {
-            var next = ++_roundRobinIndex;
+            var next = Interlocked.Increment(ref _index);
             var index = Utilities.GetPositiveMod(next, _messageQueues.Count);
             return _messageQueues[index];
         }

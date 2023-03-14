@@ -18,28 +18,36 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace Org.Apache.Rocketmq
 {
     public class PublishingLoadBalancer
     {
+        private static readonly Random Random = new();
+
         private readonly List<MessageQueue> _messageQueues;
+        private int _index;
 
-        // TODO
-        private int _roundRobinIndex;
-
-        public PublishingLoadBalancer(TopicRouteData route)
+        public PublishingLoadBalancer(TopicRouteData topicRouteData) : this(Random.Next(), topicRouteData)
         {
+        }
+
+        private PublishingLoadBalancer(int index, TopicRouteData topicRouteData)
+        {
+            _index = index;
             _messageQueues = new List<MessageQueue>();
-            foreach (var mq in route.MessageQueues.Where(messageQueue =>
+            foreach (var mq in topicRouteData.MessageQueues.Where(messageQueue =>
                          PermissionHelper.IsWritable(messageQueue.Permission) &&
                          Utilities.MasterBrokerId == messageQueue.Broker.Id))
             {
                 _messageQueues.Add(mq);
             }
+        }
 
-            var random = new Random();
-            _roundRobinIndex = random.Next(0, _messageQueues.Count);
+        internal PublishingLoadBalancer Update(TopicRouteData topicRouteData)
+        {
+            return new PublishingLoadBalancer(_index, topicRouteData);
         }
 
 
@@ -52,7 +60,7 @@ namespace Org.Apache.Rocketmq
 
         public List<MessageQueue> TakeMessageQueues(HashSet<Endpoints> excluded, int count)
         {
-            var next = ++_roundRobinIndex;
+            var next = Interlocked.Increment(ref _index);
             var candidates = new List<MessageQueue>();
             var candidateBrokerNames = new HashSet<string>();
 
