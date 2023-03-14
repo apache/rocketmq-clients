@@ -61,7 +61,7 @@ namespace Org.Apache.Rocketmq
             }
 
             await GetSubscriptionLoadBalancer(topic);
-            _subscriptionExpressions.TryAdd(topic, filterExpression);
+            _subscriptionExpressions[topic] = filterExpression;
         }
 
         public void Unsubscribe(string topic)
@@ -142,15 +142,19 @@ namespace Org.Apache.Rocketmq
             };
         }
 
-        protected override void OnTopicRouteDataUpdated0(string topic, TopicRouteData topicRouteData)
+        private SubscriptionLoadBalancer UpdateSubscriptionLoadBalancer(string topic, TopicRouteData topicRouteData)
         {
-            var subscriptionLoadBalancer = new SubscriptionLoadBalancer(topicRouteData);
-            _subscriptionRouteDataCache.TryAdd(topic, subscriptionLoadBalancer);
-        }
+            if (_subscriptionRouteDataCache.TryGetValue(topic, out var subscriptionLoadBalancer))
+            {
+                subscriptionLoadBalancer = subscriptionLoadBalancer.Update(topicRouteData);
+            }
+            else
+            {
+                subscriptionLoadBalancer = new SubscriptionLoadBalancer(topicRouteData);
+            }
 
-        internal override Settings GetSettings()
-        {
-            return _simpleSubscriptionSettings;
+            _subscriptionRouteDataCache[topic] = subscriptionLoadBalancer;
+            return subscriptionLoadBalancer;
         }
 
         private async Task<SubscriptionLoadBalancer> GetSubscriptionLoadBalancer(string topic)
@@ -161,13 +165,19 @@ namespace Org.Apache.Rocketmq
             }
 
             var topicRouteData = await GetRouteData(topic);
-            subscriptionLoadBalancer = new SubscriptionLoadBalancer(topicRouteData);
-            _subscriptionRouteDataCache.TryAdd(topic, subscriptionLoadBalancer);
-
-            return subscriptionLoadBalancer;
+            return UpdateSubscriptionLoadBalancer(topic, topicRouteData);
         }
 
+        protected override void OnTopicRouteDataUpdated0(string topic, TopicRouteData topicRouteData)
+        {
+            UpdateSubscriptionLoadBalancer(topic, topicRouteData);
+        }
 
+        internal override Settings GetSettings()
+        {
+            return _simpleSubscriptionSettings;
+        }
+        
         public async Task<List<MessageView>> Receive(int maxMessageNum, TimeSpan invisibleDuration)
         {
             if (State.Running != State)

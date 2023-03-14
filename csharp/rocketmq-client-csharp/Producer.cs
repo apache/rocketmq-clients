@@ -115,6 +115,21 @@ namespace Org.Apache.Rocketmq
             return new Proto::NotifyClientTerminationRequest();
         }
 
+        private PublishingLoadBalancer UpdatePublishingLoadBalancer(string topic, TopicRouteData topicRouteData)
+        {
+            if (_publishingRouteDataCache.TryGetValue(topic, out var publishingLoadBalancer))
+            {
+                publishingLoadBalancer = publishingLoadBalancer.Update(topicRouteData);
+            }
+            else
+            {
+                publishingLoadBalancer = new PublishingLoadBalancer(topicRouteData);
+            }
+
+            _publishingRouteDataCache[topic] = publishingLoadBalancer;
+            return publishingLoadBalancer;
+        }
+
         private async Task<PublishingLoadBalancer> GetPublishingLoadBalancer(string topic)
         {
             if (_publishingRouteDataCache.TryGetValue(topic, out var publishingLoadBalancer))
@@ -123,16 +138,12 @@ namespace Org.Apache.Rocketmq
             }
 
             var topicRouteData = await GetRouteData(topic);
-            publishingLoadBalancer = new PublishingLoadBalancer(topicRouteData);
-            _publishingRouteDataCache.TryAdd(topic, publishingLoadBalancer);
-
-            return publishingLoadBalancer;
+            return UpdatePublishingLoadBalancer(topic, topicRouteData);
         }
 
         protected override void OnTopicRouteDataUpdated0(string topic, TopicRouteData topicRouteData)
         {
-            var publishingLoadBalancer = new PublishingLoadBalancer(topicRouteData);
-            _publishingRouteDataCache.TryAdd(topic, publishingLoadBalancer);
+            UpdatePublishingLoadBalancer(topic, topicRouteData);
         }
 
         private IRetryPolicy GetRetryPolicy()
