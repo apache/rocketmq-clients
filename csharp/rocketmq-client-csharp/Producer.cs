@@ -157,11 +157,6 @@ namespace Org.Apache.Rocketmq
             var publishingMessage = new PublishingMessage(message, PublishingSettings, txEnabled);
             var retryPolicy = GetRetryPolicy();
             var maxAttempts = retryPolicy.GetMaxAttempts();
-            if (MessageType.Transaction == publishingMessage.MessageType)
-            {
-                // No more retries for transactional message.
-                maxAttempts = 1;
-            }
 
             // Prepare the candidate message queue(s) for retry-sending in advance.
             var candidates = null == publishingMessage.MessageGroup
@@ -244,6 +239,8 @@ namespace Org.Apache.Rocketmq
                 }
                 catch (Exception e)
                 {
+                    exception = e;
+
                     // Isolate current endpoints.
                     Isolated[endpoints] = true;
                     if (attempt >= maxAttempts)
@@ -262,7 +259,6 @@ namespace Org.Apache.Rocketmq
                         throw;
                     }
 
-                    exception = e;
                     if (exception is not TooManyRequestsException)
                     {
                         // Retry immediately if the request is not throttled.
