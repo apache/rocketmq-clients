@@ -28,7 +28,7 @@ namespace Org.Apache.Rocketmq
     public class MessageIdGenerator
     {
         public const string Version = "01";
-        private static readonly MessageIdGenerator Instance = new();
+        private static readonly MessageIdGenerator Instance = new MessageIdGenerator();
 
         private readonly string _prefix;
 

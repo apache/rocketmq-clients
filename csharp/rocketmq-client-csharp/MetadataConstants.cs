@@ -43,7 +43,7 @@ namespace Org.Apache.Rocketmq
         public string ClientVersion { get; }
 
 
-        public static readonly MetadataConstants Instance = new();
+        public static readonly MetadataConstants Instance = new MetadataConstants();
 
         private MetadataConstants()
         {

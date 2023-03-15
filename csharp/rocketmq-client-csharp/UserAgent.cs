@@ -26,7 +26,7 @@ namespace Org.Apache.Rocketmq
         private readonly string _platform;
         private readonly string _hostName;
 
-        public static readonly UserAgent Instance = new();
+        public static readonly UserAgent Instance = new UserAgent();
 
         private UserAgent()
         {

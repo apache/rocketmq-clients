@@ -110,7 +110,7 @@ namespace Org.Apache.Rocketmq
                 State = State.Stopping;
                 Logger.Info($"Begin to shutdown the rocketmq simple consumer, clientId={ClientId}");
                 await base.Shutdown();
-                Logger.Info($"The rocketmq simple consumer starts successfully, clientId={ClientId}");
+                Logger.Info($"Shutdown the rocketmq simple consumer successfully, clientId={ClientId}");
                 State = State.Terminated;
             }
             catch (Exception)

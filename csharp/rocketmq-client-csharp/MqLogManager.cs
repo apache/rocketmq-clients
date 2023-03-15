@@ -33,19 +33,19 @@ namespace Org.Apache.Rocketmq
     {
         public static LogFactory Instance => LazyInstance.Value;
 
-        private static readonly Lazy<LogFactory> LazyInstance = new(BuildLogFactory);
+        private static readonly Lazy<LogFactory> LazyInstance = new Lazy<LogFactory>(BuildLogFactory);
 
-        private const string FileLogLevelKey = "rocketmq.log.level";
+        private const string FileLogLevelKey = "rocketmq_log_level";
         private const string FileLogLevel = "Info";
 
-        private const string ConsoleAppenderEnabledKey = "mq.consoleAppender.enabled";
+        private const string ConsoleAppenderEnabledKey = "mq_consoleAppender_enabled";
         private const string ConsoleAppenderEnabled = "false";
         private const string ConsoleAppenderLogLevel = "Off";
 
 
-        private const string FileLogRootKey = "rocketmq.log.root";
+        private const string FileLogRootKey = "rocketmq_log_root";
 
-        private const string FileMaxIndexKey = "rocketmq.log.file.maxIndex";
+        private const string FileMaxIndexKey = "rocketmq_log_file_maxIndex";
         private const string FileMaxIndex = "10";
 
         private static LogFactory BuildLogFactory()

@@ -46,7 +46,7 @@ namespace examples
             var subscription = new Dictionary<string, FilterExpression>
                 { { topic, new FilterExpression("*") } };
             // In most case, you don't need to create too many consumers, single pattern is recommended.
-            await using var simpleConsumer = await new SimpleConsumer.Builder()
+            var simpleConsumer = await new SimpleConsumer.Builder()
                 .SetClientConfig(clientConfig)
                 .SetConsumerGroup(consumerGroup)
                 .SetAwaitDuration(TimeSpan.FromSeconds(15))

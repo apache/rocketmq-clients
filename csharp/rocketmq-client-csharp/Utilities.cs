@@ -19,8 +19,10 @@ using System.Linq;
 using System.Net.NetworkInformation;
 using System.Text;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Threading;
 
 namespace Org.Apache.Rocketmq
@@ -45,7 +47,7 @@ namespace Org.Apache.Rocketmq
 
         public static int GetProcessId()
         {
-            return Environment.ProcessId;
+            return Process.GetCurrentProcess().Id;
         }
 
         public static string GetHostName()
@@ -56,11 +58,29 @@ namespace Org.Apache.Rocketmq
         public static string GetClientId()
         {
             var hostName = System.Net.Dns.GetHostName();
-            var pid = Environment.ProcessId;
+            var pid = Process.GetCurrentProcess().Id;
             var index = Interlocked.Increment(ref _instanceSequence);
             var nowMillisecond = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalMilliseconds;
             var no = DecimalToBase36(nowMillisecond);
             return $"{hostName}@{pid}@{index}@{no}";
+        }
+
+        public static string ComputeMd5Hash(byte[] data)
+        {
+            using (var md5 = MD5.Create())
+            {
+                var hashBytes = md5.ComputeHash(data);
+                return BitConverter.ToString(hashBytes).Replace("-", "");
+            }
+        }
+
+        public static string ComputeSha1Hash(byte[] data)
+        {
+            using (var sha1 = SHA1.Create())
+            {
+                var hashBytes = sha1.ComputeHash(data);
+                return BitConverter.ToString(hashBytes).Replace("-", "");
+            }
         }
 
 
@@ -90,6 +110,19 @@ namespace Org.Apache.Rocketmq
             }
 
             return result.ToString();
+        }
+
+        public static byte[] CompressBytesGzip(byte[] src, CompressionLevel level)
+        {
+            using (var ms = new MemoryStream())
+            {
+                using (var gzip = new GZipStream(ms, level))
+                {
+                    gzip.Write(src, 0, src.Length);
+                }
+
+                return ms.ToArray();
+            }
         }
 
         public static byte[] DecompressBytesGzip(byte[] src)

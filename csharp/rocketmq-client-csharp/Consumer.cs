@@ -27,7 +27,7 @@ namespace Org.Apache.Rocketmq
 {
     public abstract class Consumer : Client
     {
-        internal static readonly Regex ConsumerGroupRegex = new("^[%a-zA-Z0-9_-]+$");
+        internal static readonly Regex ConsumerGroupRegex = new Regex("^[%a-zA-Z0-9_-]+$");
         protected readonly string ConsumerGroup;
 
         protected Consumer(ClientConfig clientConfig, string consumerGroup) : base(
