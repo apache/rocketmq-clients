@@ -30,7 +30,7 @@ namespace Org.Apache.Rocketmq
 
         private static readonly AddressListEqualityComparer AddressListComparer = new();
         private const string EndpointSeparator = ":";
-        private List<Address> Addresses { get; }
+        public List<Address> Addresses { get; }
         private AddressScheme Scheme { get; }
         private readonly int _hashCode;
 
@@ -114,6 +114,14 @@ namespace Org.Apache.Rocketmq
             var address = new Address(host, port);
             var addresses = new List<Address> { address };
             Addresses = addresses;
+
+            unchecked
+            {
+                var hash = 17;
+                hash = (hash * 31) + AddressListComparer.GetHashCode(Addresses);
+                hash = (hash * 31) + (int)Scheme;
+                _hashCode = hash;
+            }
         }
 
         public override string ToString()
