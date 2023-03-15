@@ -24,7 +24,7 @@ namespace Org.Apache.Rocketmq
 {
     public class Message
     {
-        internal static readonly Regex TopicRegex = new("^[%a-zA-Z0-9_-]+$");
+        internal static readonly Regex TopicRegex = new Regex("^[%a-zA-Z0-9_-]+$");
 
         private Message(string topic, byte[] body, string tag, List<string> keys,
             Dictionary<string, string> properties, DateTime? deliveryTimestamp, string messageGroup)
@@ -75,8 +75,8 @@ namespace Org.Apache.Rocketmq
             private string _topic;
             private byte[] _body;
             private string _tag;
-            private List<string> _keys = new();
-            private readonly Dictionary<string, string> _properties = new();
+            private List<string> _keys = new List<string>();
+            private readonly Dictionary<string, string> _properties = new Dictionary<string, string>();
             private DateTime? _deliveryTimestamp;
             private string _messageGroup;
 

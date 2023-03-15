@@ -43,7 +43,7 @@ namespace examples
             const string topic = "yourDelayTopic";
             // In most case, you don't need to create too many producers, single pattern is recommended.
             // Producer here will be closed automatically.
-            await using var producer = await new Producer.Builder()
+            var producer = await new Producer.Builder()
                 // Set the topic name(s), which is optional but recommended.
                 // It makes producer could prefetch the topic route before message publishing.
                 .SetTopics(topic)

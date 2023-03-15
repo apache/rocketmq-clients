@@ -28,7 +28,7 @@ namespace Org.Apache.Rocketmq
         private const string HttpsPrefix = "https://";
         private const int DefaultPort = 80;
 
-        private static readonly AddressListEqualityComparer AddressListComparer = new();
+        private static readonly AddressListEqualityComparer AddressListComparer = new AddressListEqualityComparer();
         private const string EndpointSeparator = ":";
         public List<Address> Addresses { get; }
         private AddressScheme Scheme { get; }

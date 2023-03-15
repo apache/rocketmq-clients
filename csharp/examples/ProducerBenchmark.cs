@@ -29,11 +29,13 @@ namespace examples
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
-        private static readonly SemaphoreSlim Semaphore = new(0);
+        private static readonly SemaphoreSlim Semaphore = new SemaphoreSlim(0);
         private const int TpsLimit = 300;
         private static long _successCounter;
         private static long _failureCounter;
-        private static readonly BlockingCollection<Task<ISendReceipt>> Tasks = new();
+
+        private static readonly BlockingCollection<Task<ISendReceipt>> Tasks =
+            new BlockingCollection<Task<ISendReceipt>>();
 
         private static void DoStats()
         {
@@ -88,7 +90,7 @@ namespace examples
 
             const string topic = "yourNormalTopic";
             // In most case, you don't need to create too many producers, single pattern is recommended.
-            await using var producer = await new Producer.Builder()
+            var producer = await new Producer.Builder()
                 // Set the topic name(s), which is optional but recommended.
                 // It makes producer could prefetch the topic route before message publishing.
                 .SetTopics(topic)

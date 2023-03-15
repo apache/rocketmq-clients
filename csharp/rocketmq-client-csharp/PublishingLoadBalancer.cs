@@ -24,7 +24,7 @@ namespace Org.Apache.Rocketmq
 {
     public class PublishingLoadBalancer
     {
-        private static readonly Random Random = new();
+        private static readonly Random Random = new Random();
 
         private readonly List<MessageQueue> _messageQueues;
         private int _index;

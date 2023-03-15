@@ -42,7 +42,7 @@ namespace Org.Apache.Rocketmq
         public readonly ExplicitBucketHistogramConfiguration AwaitTimeBucket;
         public readonly ExplicitBucketHistogramConfiguration ProcessTimeBucket;
 
-        public static readonly MetricConstant Instance = new();
+        public static readonly MetricConstant Instance = new MetricConstant();
 
         private MetricConstant()
         {

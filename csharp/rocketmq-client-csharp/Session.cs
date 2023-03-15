@@ -31,7 +31,7 @@ namespace Org.Apache.Rocketmq
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
         private static readonly TimeSpan SettingsInitializationTimeout = TimeSpan.FromSeconds(3);
-        private readonly ManualResetEventSlim _event = new(false);
+        private readonly ManualResetEventSlim _event = new ManualResetEventSlim(false);
 
         private readonly AsyncDuplexStreamingCall<Proto::TelemetryCommand, Proto::TelemetryCommand>
             _streamingCall;
