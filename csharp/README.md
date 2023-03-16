@@ -7,9 +7,10 @@ English | [简体中文](README-CN.md) | [RocketMQ Website](https://rocketmq.apa
 .NET 5+ and .NET Core 3.1 is supported.
 
 Due to the release of .NET 5 in 2020, which unified .NET Framework and .NET Core, and has gradually become the
-mainstream platform for .NET development. We strongly recommend using .NET 5 to access RocketMQ, and we also support
-accessing it using .NET Core 3.1. If you want to access it using .NET Core 3.1, please add the following code before
-running it.
+mainstream platform for .NET development. We strongly recommend using .NET 5+ to access RocketMQ.
+
+We also support accessing RocketMQ using .NET Core 3.1. If you prefer .NET Core 3.1, please add the following code
+before running it.
 
 ```csharp
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true)
