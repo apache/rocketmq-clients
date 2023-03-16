@@ -49,7 +49,7 @@ dotnet test -l "console;verbosity=detailed"
 
 我们使用 [NLog](https://nlog-project.org/) 作为日志实现，与 Java 客户端类似，我们允许使用环境来自定义日志相关的配置。
 
-* `rocketmq_log_level`：日志输出级别，默认为INFO。
+* `rocketmq_log_level`：日志输出级别，默认为 INFO。
 * `rocketmq_log_root`
   ：日志输出的根目录。默认路径为 `$HOME/logs/rocketmq`，因此完整路径为 `$HOME/logs/rocketmq/rocketmq-client.log`。
 * `rocketmq_log_file_maxIndex`：要保留的日志文件的最大数量。默认值为 10，单个日志文件的大小限制为 64 MB。暂不支持调整。

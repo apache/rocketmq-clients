@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <PackageId>RocketMQ.Client</PackageId>
-        <PackageVersion>0.0.15-SNAPSHOT</PackageVersion>
+        <PackageVersion>0.0.17-SNAPSHOT</PackageVersion>
         <Version>$(PackageVersion)</Version>
 
         <Authors>RocketMQ Authors</Authors>
@@ -15,6 +15,9 @@
         <PackageProjectUrl>https://github.com/apache/rocketmq-clients</PackageProjectUrl>
         <RepositoryUrl>https://github.com/apache/rocketmq-clients</RepositoryUrl>
         <PackageIcon>logo.png</PackageIcon>
+
+        <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
+
     </PropertyGroup>
 
     <ItemGroup>
@@ -40,6 +43,6 @@
             <Link>Protos\google\rpc\status.proto</Link>
             <Link>Protos\google\rpc\error_details.proto</Link>
         </Protobuf>
-        <None Include="logo.png" Pack="true" PackagePath=""/>
+        <None Include="logo.png" Pack="true" PackagePath="" />
     </ItemGroup>
 </Project>
