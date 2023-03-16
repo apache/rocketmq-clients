@@ -27,7 +27,7 @@ namespace tests
     public class PublishingMessageTest
     {
         private const string ClientId = "fakeClientId";
-        private static readonly Endpoints Endpoints = new("127.0.0.1:8081");
+        private static readonly Endpoints Endpoints = new Endpoints("127.0.0.1:8081");
 
 
         [TestMethod]
