@@ -1,12 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <PackageId>RocketMQ.Client</PackageId>
-        <PackageVersion>0.0.14-SNAPSHOT</PackageVersion>
+        <PackageVersion>0.0.15-SNAPSHOT</PackageVersion>
         <Version>$(PackageVersion)</Version>
 
         <Authors>RocketMQ Authors</Authors>
         <Company>Apache Software Foundation</Company>
-        <TargetFrameworks>net5.0;netstandard21</TargetFrameworks>
+        <TargetFrameworks>net5.0;netcoreapp3.1</TargetFrameworks>
         <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
         <RootNamespace>Org.Apache.Rocketmq</RootNamespace>
         <PackageReadmeFile>README.md</PackageReadmeFile>
