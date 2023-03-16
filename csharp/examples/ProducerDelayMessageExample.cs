@@ -29,6 +29,8 @@ namespace examples
 
         internal static async Task QuickStart()
         {
+            // Enable the switch if you use .NET Core 3.1.
+            // AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
             const string accessKey = "yourAccessKey";
             const string secretKey = "yourSecretKey";
 
