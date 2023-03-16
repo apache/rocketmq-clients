@@ -1,11 +1,19 @@
 # The .NET Implementation of Apache RocketMQ Client
 
-Here is the .NET implementation of the client for [Apache RocketMQ](https://rocketmq.apache.org/).
+English | [简体中文](README-CN.md) | [RocketMQ Website](https://rocketmq.apache.org/)
 
 ## Supported .NET Versions
 
+.NET 5+ and .NET Core 3.1 is supported.
+
 Due to the release of .NET 5 in 2020, which unified .NET Framework and .NET Core, and has gradually become the
-mainstream platform for .NET development, the RocketMQ client will support .NET 5 and later versions.
+mainstream platform for .NET development. We strongly recommend using .NET 5 to access RocketMQ, and we also support
+accessing it using .NET Core 3.1. If you want to access it using .NET Core 3.1, please add the following code before
+running it.
+
+```csharp
+AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true)
+```
 
 See more details about .NET 5 from [Introducing .NET 5](https://devblogs.microsoft.com/dotnet/introducing-net-5/).
 
@@ -16,6 +24,8 @@ and built on [gRPC-dotnet](https://github.com/grpc/grpc-dotnet), leveraging Prot
 deserialization during transmission.
 
 ## Quickstart & Build
+
+Use the command below to add client into your dependencies.
 
 ```sh
 dotnet add package RocketMQ.Client
@@ -42,18 +52,18 @@ dotnet test -l "console;verbosity=detailed"
 We use [NLog](https://nlog-project.org/) as our logging implementation. Similar to the Java binding, we allow the use of
 environment variables to customize the related configuration:
 
-* `rocketmq.log.level`: Log output level, default is INFO.
-* `rocketmq.log.root`: The root directory of the log output. The default path is `$HOME/logs/rocketmq`, so the full path
+* `rocketmq_log_level`: Log output level, default is INFO.
+* `rocketmq_log_root`: The root directory of the log output. The default path is `$HOME/logs/rocketmq`, so the full path
   is `$HOME/logs/rocketmq/rocketmq-client.log`.
-* `rocketmq.log.file.maxIndex`: The maximum number of log files to keep. The default is 10, and the size of a single log
+* `rocketmq_log_file_maxIndex`: The maximum number of log files to keep. The default is 10, and the size of a single log
   file is limited to 64 MB. Adjustment is not supported yet.
 
-Specifically, by setting `mq.consoleAppender.enabled` to true, you can output client logs to the console simultaneously
+Specifically, by setting `mq_consoleAppender_enabled` to true, you can output client logs to the console simultaneously
 if you need debugging.
 
 ## Publishing Steps
 
-1. Open the command prompt, and change the directory to the project folder that you want to package.
+1. Open the command line, and change the directory to the project folder that you want to package.
 2. Run the `dotnet pack --configuration Release` command. This will create a NuGet package in the `bin/Release` folder
    of the project.
 3. To upload the package to NuGet, go to the NuGet website and sign in. Click on the "Upload" button and select the
