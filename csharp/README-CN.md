@@ -6,7 +6,7 @@
 
 支持.NET 5+ 和 .NET Core 3.1。
 
-由于.NET 5 在 2020 年的发布，统一了.NET Framework 和 .NET Core ，并逐渐成为 .NET 开发的主流平台。我们强烈推荐使用.NET
+由于.NET 5 在 2020 年的发布，统一了.NET Framework 和 .NET Core ，并逐渐成为 .NET 开发的主流平台。我们强烈推荐使用 .NET
 5 访问 RocketMQ，但是与此同时我们也支持使用 .NET Core 3.1。如果您想使用 .NET Core 3.1 接入 RocketMQ，请在运行之前添加以下代码。
 
 ```csharp
