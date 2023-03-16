@@ -1,6 +1,7 @@
 # The .NET Implementation of Apache RocketMQ Client
 
-English | [简体中文](https://github.com/apache/rocketmq-clients/blob/master/csharp/README-CN.md) | [RocketMQ Website](https://rocketmq.apache.org/)
+English | [简体中文](https://github.com/apache/rocketmq-clients/blob/master/csharp/README-CN.md)
+| [RocketMQ Website](https://rocketmq.apache.org/)
 
 ## Supported .NET Versions
 
@@ -9,10 +10,11 @@ English | [简体中文](https://github.com/apache/rocketmq-clients/blob/master/
 Due to the release of .NET 5 in 2020, which unified .NET Framework and .NET Core, and has gradually become the
 mainstream platform for .NET development. We strongly recommend using .NET 5+ to access RocketMQ.
 
-We also support accessing RocketMQ using .NET Core 3.1. If you prefer .NET Core 3.1, please add the following code
-before running it.
+We also support access to RocketMQ using .NET Core 3.1. Note: If you want to use .NET Core 3.1 and want to disable
+TLS/SSL by `Org.Apache.Rocketmq.ClientConfig.Builder.EnableSsl(false)`, add the following code before you run.
 
 ```csharp
+// Only necessary if you want to disable TLS/SSL on .NET Core 3.1
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true)
 ```
 

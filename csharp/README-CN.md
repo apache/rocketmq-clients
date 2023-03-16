@@ -9,9 +9,11 @@
 由于 .NET 5 在 2020 年的发布，统一了.NET Framework 和 .NET Core ，并逐渐成为 .NET 开发的主流平台。我们强烈推荐使用 .NET 5+
 访问 RocketMQ。
 
-与此同时我们也支持 .NET Core 3.1。如果您想使用 .NET Core 3.1 接入 RocketMQ，请在运行之前添加以下代码。
+与此同时我们也支持 .NET Core 3.1。注意：如果您想使用 .NET Core 3.1 接入 RocketMQ
+且想通过 `Org.Apache.Rocketmq.ClientConfig.Builder.EnableSsl(false)` 关闭 TLS/SSL，请在运行之前添加以下代码。
 
 ```csharp
+// .NET Core 3.1 环境下想关闭 TLS/SSL 时需要添加此代码
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true)
 ```
 
