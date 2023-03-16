@@ -43,7 +43,7 @@ namespace Org.Apache.Rocketmq
             private ISessionCredentialsProvider _sessionCredentialsProvider;
             private TimeSpan _requestTimeout = TimeSpan.FromSeconds(3);
             private string _endpoints;
-            private bool _sslEnabled;
+            private bool _sslEnabled = true;
 
             public Builder SetCredentialsProvider(ISessionCredentialsProvider sessionCredentialsProvider)
             {
