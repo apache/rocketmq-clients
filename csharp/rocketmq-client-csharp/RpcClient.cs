@@ -20,7 +20,6 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
-using System.Threading;
 using System.Threading.Tasks;
 using Proto = Apache.Rocketmq.V2;
 using Grpc.Core;
@@ -43,6 +42,8 @@ namespace Org.Apache.Rocketmq
             _channel = GrpcChannel.ForAddress(_target, new GrpcChannelOptions
             {
                 HttpHandler = CreateHttpHandler(),
+                // Disable auto-retry.
+                MaxRetryAttempts = 0
             });
             var invoker = _channel.Intercept(new ClientLoggerInterceptor());
             _stub = new Proto::MessagingService.MessagingServiceClient(invoker);
@@ -63,13 +64,8 @@ namespace Org.Apache.Rocketmq
             return true;
         }
 
-        /**
-         * See https://docs.microsoft.com/en-us/aspnet/core/grpc/performance?view=aspnetcore-6.0 for performance consideration and
-         * why parameters are configured this way.
-         */
         internal static HttpMessageHandler CreateHttpHandler()
         {
-            // TODO
             var handler = new HttpClientHandler
             {
                 ServerCertificateCustomValidationCallback = CertValidator,
