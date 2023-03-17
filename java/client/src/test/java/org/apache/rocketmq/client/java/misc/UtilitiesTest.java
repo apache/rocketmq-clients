@@ -61,4 +61,10 @@ public class UtilitiesTest {
         assertNotNull(stackTrace);
         assertTrue(stackTrace.length() > 0);
     }
+
+    @Test
+    public void testGetJavaDescription() {
+        final String javaDescription = Utilities.getJavaDescription();
+        assertNotNull(javaDescription);
+    }
 }
