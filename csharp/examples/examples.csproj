@@ -6,5 +6,6 @@
     <PropertyGroup>
         <OutputType>Exe</OutputType>
         <TargetFrameworks>net5.0;netcoreapp3.1</TargetFrameworks>
+        <ServerGarbageCollection>true</ServerGarbageCollection>
     </PropertyGroup>
 </Project>

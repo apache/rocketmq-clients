@@ -30,6 +30,8 @@ namespace Org.Apache.Rocketmq
     public static class Utilities
     {
         private static long _instanceSequence = 0;
+        private static readonly int ProcessId = Process.GetCurrentProcess().Id;
+        private static readonly string HostName = System.Net.Dns.GetHostName();
         public const int MasterBrokerId = 0;
 
         public static int GetPositiveMod(int k, int n)
@@ -47,12 +49,12 @@ namespace Org.Apache.Rocketmq
 
         public static int GetProcessId()
         {
-            return Process.GetCurrentProcess().Id;
+            return ProcessId;
         }
 
         public static string GetHostName()
         {
-            return System.Net.Dns.GetHostName();
+            return HostName;
         }
 
         public static string GetClientId()
