@@ -79,8 +79,9 @@ namespace examples
             transaction.Commit();
             // Or rollback the transaction.
             // transaction.Rollback();
-            // Or you could close the producer manually.
-            // await producer.DisposeAsync();
+
+            // Close the producer if you don't need it anymore.
+            await producer.DisposeAsync();
         }
     }
 }
