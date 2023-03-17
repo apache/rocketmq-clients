@@ -49,7 +49,7 @@ dotnet test -l "console;verbosity=detailed"
 
 ## 日志系统
 
-我们使用 [NLog](https://nlog-project.org/) 作为日志实现，与 Java 客户端类似，我们允许使用环境来自定义日志相关的配置。
+我们使用 [NLog](https://nlog-project.org/) 作为日志实现，与 Java 客户端类似，我们允许使用环境变量来自定义日志相关的配置。
 
 * `rocketmq_log_level`：日志输出级别，默认为 INFO。
 * `rocketmq_log_root`
