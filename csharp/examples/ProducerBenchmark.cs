@@ -30,7 +30,7 @@ namespace examples
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
 
         private static readonly SemaphoreSlim Semaphore = new SemaphoreSlim(0);
-        private const int TpsLimit = 300;
+        private const int TpsLimit = 1024;
         private static long _successCounter;
         private static long _failureCounter;
 
