@@ -56,6 +56,7 @@ type defaultClientSession struct {
 	observerLock sync.RWMutex
 	cli          *defaultClient
 	timeout      time.Duration
+	recovering   bool
 }
 
 func NewDefaultClientSession(target string, cli *defaultClient) (*defaultClientSession, error) {
@@ -64,36 +65,76 @@ func NewDefaultClientSession(target string, cli *defaultClient) (*defaultClientS
 		return nil, err
 	}
 	cs := &defaultClientSession{
-		endpoints: endpoints,
-		cli:       cli,
-		timeout:   365 * 24 * time.Hour,
+		endpoints:  endpoints,
+		cli:        cli,
+		timeout:    365 * 24 * time.Hour,
+		recovering: false,
 	}
 	cs.startUp()
 	return cs, nil
 }
+
+func (cs *defaultClientSession) _acquire_observer() (v2.MessagingService_TelemetryClient, bool) {
+	cs.observerLock.RLock()
+	observer := cs.observer
+	cs.observerLock.RUnlock()
+
+	if observer == nil {
+		time.Sleep(time.Second)
+		return nil, false
+	} else {
+		return observer, true
+	}
+
+}
+
+func (cs *defaultClientSession) _execute_server_telemetry_command(command *v2.TelemetryCommand) {
+	err := cs.handleTelemetryCommand(command)
+	if err != nil {
+		cs.cli.log.Errorf("telemetryCommand recv err=%w", err)
+	}
+}
+
 func (cs *defaultClientSession) startUp() {
 	cs.cli.log.Infof("defaultClientSession is startUp! endpoints=%v", cs.endpoints)
 	go func() {
 		for {
-			cs.observerLock.RLock()
-			observer := cs.observer
-			cs.observerLock.RUnlock()
-
-			if observer == nil {
-				time.Sleep(time.Second)
+			// ensure that observer is present, if not wait for it to be regenerated on publish.
+			observer, acquired_observer := cs._acquire_observer()
+			if !acquired_observer {
 				continue
 			}
+
 			response, err := observer.Recv()
 			if err != nil {
-				cs.release()
-
-				cs.cli.log.Errorf("telemetryCommand recv err=%w", err)
+				// we are recovering because we encountered a transmission error
+				if !cs.recovering {
+					cs.recovering = true
+					cs.cli.log.Info("Encountered error while receiving TelemetryCommand, trying to recover")
+					// we wait five seconds to give time for the transmission error to be resolved externally before we attempt to read the message again.
+					time.Sleep(5 * time.Second)
+				} else {
+					// we are recovering but we failed to read the message again, resetting observer
+					cs.cli.log.Info("Failed to recover, err=%w")
+					cs.release()
+				}
 				continue
 			}
-			err = cs.handleTelemetryCommand(response)
-			if err != nil {
-				cs.cli.log.Errorf("telemetryCommand recv err=%w", err)
+			// at this point we received the message and must confirm that the sender is healthy
+			if cs.recovering {
+				// we don't know which server sent the request so we must check that each of the servers is on line.
+				// we assume that the list of the servers hasn't changed, so the server that sent the message is still present.
+				hearbeat_response, err := cs.cli.clientManager.HeartBeat(context.TODO(), cs.endpoints, &v2.HeartbeatRequest{}, 10*time.Second)
+				if err == nil && hearbeat_response.Status.Code == v2.Code_OK {
+					cs.cli.log.Info("Managed to recover, executing message")
+					cs._execute_server_telemetry_command(response)
+				} else {
+					// we managed to read the message after a transmission error but one of the servers is unhealthy
+					cs.cli.log.Errorf("Failed to recover, Some of the servers are unhealthy, Heartbeat err=%w", err)
+					cs.release()
+				}
 			}
+			cs._execute_server_telemetry_command(response)
 		}
 	}()
 }
