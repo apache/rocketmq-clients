@@ -68,9 +68,9 @@ namespace examples
 
             var sendReceipt = await producer.Send(message);
             Logger.Info($"Send message successfully, sendReceipt={sendReceipt}");
-            Thread.Sleep(9999999);
-            // Or you could close the producer manually.
-            // await producer.DisposeAsync();
+
+            // Close the producer if you don't need it anymore.
+            await producer.DisposeAsync();
         }
     }
 }
