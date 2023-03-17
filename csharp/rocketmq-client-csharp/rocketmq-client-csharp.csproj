@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <PackageId>RocketMQ.Client</PackageId>
-        <PackageVersion>0.0.17-rc2</PackageVersion>
+        <PackageVersion>5.1.0-rc1</PackageVersion>
         <Version>$(PackageVersion)</Version>
 
         <Authors>RocketMQ Authors</Authors>
