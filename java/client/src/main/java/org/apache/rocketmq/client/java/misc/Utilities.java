@@ -297,4 +297,10 @@ public class Utilities {
             return null;
         }
     }
+
+    public static String getJavaDescription() {
+        return System.getProperty("java.vm.vendor")
+            + " " + System.getProperty("java.vm.name")
+            + " " + System.getProperty("java.vm.version");
+    }
 }

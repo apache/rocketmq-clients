@@ -63,6 +63,7 @@ import org.apache.rocketmq.client.java.misc.ClientId;
 import org.apache.rocketmq.client.java.misc.ExecutorServices;
 import org.apache.rocketmq.client.java.misc.MetadataUtils;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
+import org.apache.rocketmq.client.java.misc.Utilities;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.rpc.Context;
 import org.apache.rocketmq.client.java.rpc.RpcClient;
@@ -394,8 +395,9 @@ public class ClientManagerImpl extends ClientManager {
             () -> {
                 try {
                     log.info("Start to log statistics, clientVersion={}, clientWrapperVersion={}, "
-                            + "clientEndpoints={}, clientId={}", MetadataUtils.getVersion(),
-                        MetadataUtils.getWrapperVersion(), client.getEndpoints(), clientId);
+                            + "clientEndpoints={}, os description=[{}], java description=[{}], clientId={}",
+                        MetadataUtils.getVersion(), MetadataUtils.getWrapperVersion(), client.getEndpoints(),
+                        Utilities.getOsDescription(), Utilities.getJavaDescription(), clientId);
                     client.doStats();
                 } catch (Throwable t) {
                     log.error("Exception raised during statistics logging, clientId={}", clientId, t);
