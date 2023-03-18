@@ -83,6 +83,23 @@ func BuildCLient(t *testing.T) *defaultClient {
 	return cli
 }
 
+func GetClientAndDefaultClientSession(t *testing.T) (*defaultClient, *defaultClientSession) {
+	cli := BuildCLient(t)
+	default_cli_session, err := cli.getDefaultClientSession(fakeAddress)
+	if err != nil {
+		t.Error(err)
+	}
+	return cli, default_cli_session
+}
+
+func PrepareTestLogger(cli *defaultClient) *observer.ObservedLogs {
+	observedZapCore, observedLogs := observer.New(zap.InfoLevel)
+	observedLogger := zap.New(observedZapCore)
+	cli.log = observedLogger.Sugar()
+
+	return observedLogs
+}
+
 func TestCLINewClient(t *testing.T) {
 	stubs := gostub.Stub(&defaultClientManagerOptions, clientManagerOptions{
 		RPC_CLIENT_MAX_IDLE_DURATION: time.Second,
@@ -133,11 +150,7 @@ func TestCLINewClient(t *testing.T) {
 
 func Test_acquire_observer_uninitialized(t *testing.T) {
 	// given
-	cli := BuildCLient(t)
-	default_cli_session, err := cli.getDefaultClientSession(fakeAddress)
-	if err != nil {
-		t.Error(err)
-	}
+	_, default_cli_session := GetClientAndDefaultClientSession(t)
 
 	// when
 	observer, acquired_observer := default_cli_session._acquire_observer()
@@ -153,11 +166,7 @@ func Test_acquire_observer_uninitialized(t *testing.T) {
 
 func Test_acquire_observer_initialized(t *testing.T) {
 	// given
-	cli := BuildCLient(t)
-	default_cli_session, err := cli.getDefaultClientSession(fakeAddress)
-	if err != nil {
-		t.Error(err)
-	}
+	_, default_cli_session := GetClientAndDefaultClientSession(t)
 	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
 
 	// when
@@ -174,15 +183,9 @@ func Test_acquire_observer_initialized(t *testing.T) {
 
 func Test_execute_server_telemetry_command_fail(t *testing.T) {
 	// given
-	cli := BuildCLient(t)
-	default_cli_session, err := cli.getDefaultClientSession(fakeAddress)
-	if err != nil {
-		t.Error(err)
-	}
+	cli, default_cli_session := GetClientAndDefaultClientSession(t)
 	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
-	observedZapCore, observedLogs := observer.New(zap.InfoLevel)
-	observedLogger := zap.New(observedZapCore)
-	cli.log = observedLogger.Sugar()
+	observedLogs := PrepareTestLogger(cli)
 
 	// when
 	default_cli_session._execute_server_telemetry_command(&v2.TelemetryCommand{})
@@ -195,15 +198,9 @@ func Test_execute_server_telemetry_command_fail(t *testing.T) {
 
 func Test_execute_server_telemetry_command(t *testing.T) {
 	// given
-	cli := BuildCLient(t)
-	default_cli_session, err := cli.getDefaultClientSession(fakeAddress)
-	if err != nil {
-		t.Error(err)
-	}
+	cli, default_cli_session := GetClientAndDefaultClientSession(t)
 	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
-	observedZapCore, observedLogs := observer.New(zap.InfoLevel)
-	observedLogger := zap.New(observedZapCore)
-	cli.log = observedLogger.Sugar()
+	observedLogs := PrepareTestLogger(cli)
 
 	// when
 	default_cli_session._execute_server_telemetry_command(&v2.TelemetryCommand{Command: &v2.TelemetryCommand_RecoverOrphanedTransactionCommand{}})
