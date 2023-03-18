@@ -92,6 +92,8 @@ func (cs *defaultClientSession) _execute_server_telemetry_command(command *v2.Te
 	err := cs.handleTelemetryCommand(command)
 	if err != nil {
 		cs.cli.log.Errorf("telemetryCommand recv err=%w", err)
+	} else {
+		cs.cli.log.Info("Executed command successfully")
 	}
 }
 
@@ -219,6 +221,29 @@ type defaultClient struct {
 }
 
 var NewClient = func(config *Config, opts ...ClientOption) (Client, error) {
+	endpoints, err := utils.ParseTarget(config.Endpoint)
+	if err != nil {
+		return nil, err
+	}
+	cli := &defaultClient{
+		config:                        config,
+		opts:                          defaultNSOptions,
+		clientID:                      utils.GenClientID(),
+		accessPoint:                   endpoints,
+		messageInterceptors:           make([]MessageInterceptor, 0),
+		endpointsTelemetryClientTable: make(map[string]*defaultClientSession),
+		on:                            *atomic.NewBool(true),
+	}
+	cli.log = sugarBaseLogger.With("client_id", cli.clientID)
+	for _, opt := range opts {
+		opt.apply(&cli.opts)
+	}
+	cli.done = make(chan struct{}, 1)
+	cli.clientMeterProvider = NewDefaultClientMeterProvider(cli)
+	return cli, nil
+}
+
+var NewClientConcrete = func(config *Config, opts ...ClientOption) (*defaultClient, error) {
 	endpoints, err := utils.ParseTarget(config.Endpoint)
 	if err != nil {
 		return nil, err
