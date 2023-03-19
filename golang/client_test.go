@@ -210,3 +210,82 @@ func Test_execute_server_telemetry_command(t *testing.T) {
 	commandExecutionLog := observedLogs.All()[1]
 	assert.Equal(t, "Executed command successfully", commandExecutionLog.Message)
 }
+
+func TestRestoreDefaultClientSessionZeroErrors(t *testing.T) {
+	// given
+	cli := BuildCLient(t)
+	default_cli_session, err := cli.getDefaultClientSession(fakeAddress)
+	if err != nil {
+		t.Error(err)
+	}
+	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
+	observedLogs := PrepareTestLogger(cli)
+	default_cli_session.observer = &MOCK_MessagingService_TelemetryClient{
+		recv_error_count: 0,
+		cli:              cli,
+	}
+	default_cli_session.recoveryWaitTime = time.Second
+	cli.settings = &simpleConsumerSettings{}
+
+	// when
+	// we wait some time while consumer goroutine runs
+	time.Sleep(3 * time.Second)
+
+	// then
+	commandExecutionLog := observedLogs.All()[:2]
+	assert.Equal(t, "Executed command successfully", commandExecutionLog[0].Message)
+	assert.Equal(t, "Executed command successfully", commandExecutionLog[1].Message)
+}
+
+func TestRestoreDefaultClientSessionOneError(t *testing.T) {
+	// given
+	cli := BuildCLient(t)
+	default_cli_session, err := cli.getDefaultClientSession(fakeAddress)
+	if err != nil {
+		t.Error(err)
+	}
+	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
+	observedLogs := PrepareTestLogger(cli)
+	default_cli_session.observer = &MOCK_MessagingService_TelemetryClient{
+		recv_error_count: 1,
+		cli:              cli,
+	}
+	default_cli_session.recoveryWaitTime = time.Second
+	cli.settings = &simpleConsumerSettings{}
+
+	// when
+	// we wait some time while consumer goroutine runs
+	time.Sleep(3 * time.Second)
+
+	// then
+	commandExecutionLog := observedLogs.All()[:3]
+	assert.Equal(t, "Encountered error while receiving TelemetryCommand, trying to recover", commandExecutionLog[0].Message)
+	assert.Equal(t, "Managed to recover, executing message", commandExecutionLog[1].Message)
+	assert.Equal(t, "Executed command successfully", commandExecutionLog[2].Message)
+}
+
+func TestRestoreDefaultClientSessionTwoErrors(t *testing.T) {
+	// given
+	cli := BuildCLient(t)
+	default_cli_session, err := cli.getDefaultClientSession(fakeAddress)
+	if err != nil {
+		t.Error(err)
+	}
+	default_cli_session.publish(context.TODO(), &v2.TelemetryCommand{})
+	observedLogs := PrepareTestLogger(cli)
+	default_cli_session.observer = &MOCK_MessagingService_TelemetryClient{
+		recv_error_count: 2,
+		cli:              cli,
+	}
+	default_cli_session.recoveryWaitTime = time.Second
+	cli.settings = &simpleConsumerSettings{}
+
+	// when
+	// we wait some time while consumer goroutine runs
+	time.Sleep(3 * time.Second)
+
+	// then
+	commandExecutionLog := observedLogs.All()[:2]
+	assert.Equal(t, "Encountered error while receiving TelemetryCommand, trying to recover", commandExecutionLog[0].Message)
+	assert.Equal(t, "Failed to recover, err=%wEOF", commandExecutionLog[1].Message)
+}

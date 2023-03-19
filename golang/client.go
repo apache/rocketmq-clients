@@ -51,12 +51,13 @@ type isClient interface {
 	onVerifyMessageCommand(endpoints *v2.Endpoints, command *v2.VerifyMessageCommand) error
 }
 type defaultClientSession struct {
-	endpoints    *v2.Endpoints
-	observer     v2.MessagingService_TelemetryClient
-	observerLock sync.RWMutex
-	cli          *defaultClient
-	timeout      time.Duration
-	recovering   bool
+	endpoints        *v2.Endpoints
+	observer         v2.MessagingService_TelemetryClient
+	observerLock     sync.RWMutex
+	cli              *defaultClient
+	timeout          time.Duration
+	recovering       bool
+	recoveryWaitTime time.Duration `default:"5s"`
 }
 
 func NewDefaultClientSession(target string, cli *defaultClient) (*defaultClientSession, error) {
@@ -113,11 +114,11 @@ func (cs *defaultClientSession) startUp() {
 				if !cs.recovering {
 					cs.cli.log.Info("Encountered error while receiving TelemetryCommand, trying to recover")
 					// we wait five seconds to give time for the transmission error to be resolved externally before we attempt to read the message again.
-					time.Sleep(5 * time.Second)
+					time.Sleep(cs.recoveryWaitTime)
 					cs.recovering = true
 				} else {
 					// we are recovering but we failed to read the message again, resetting observer
-					cs.cli.log.Info("Failed to recover, err=%w")
+					cs.cli.log.Info("Failed to recover, err=%w", err)
 					cs.release()
 					cs.recovering = false
 				}
@@ -256,6 +257,7 @@ var NewClientConcrete = func(config *Config, opts ...ClientOption) (*defaultClie
 		messageInterceptors:           make([]MessageInterceptor, 0),
 		endpointsTelemetryClientTable: make(map[string]*defaultClientSession),
 		on:                            *atomic.NewBool(true),
+		clientManager:                 &MockClientManager{},
 	}
 	cli.log = sugarBaseLogger.With("client_id", cli.clientID)
 	for _, opt := range opts {
