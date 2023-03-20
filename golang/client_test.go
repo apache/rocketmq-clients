@@ -279,7 +279,6 @@ func TestRestoreDefaultClientSessionTwoErrors(t *testing.T) {
 	cli.settings = &simpleConsumerSettings{}
 
 	// when
-	// we wait some time while consumer goroutine runs
 	time.Sleep(5 * time.Second)
 
 	// then
