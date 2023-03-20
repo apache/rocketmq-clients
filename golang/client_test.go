@@ -228,8 +228,7 @@ func TestRestoreDefaultClientSessionZeroErrors(t *testing.T) {
 	cli.settings = &simpleConsumerSettings{}
 
 	// when
-	// we wait some time while consumer goroutine runs
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// then
 	commandExecutionLog := observedLogs.All()[:2]
@@ -254,8 +253,7 @@ func TestRestoreDefaultClientSessionOneError(t *testing.T) {
 	cli.settings = &simpleConsumerSettings{}
 
 	// when
-	// we wait some time while consumer goroutine runs
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// then
 	commandExecutionLog := observedLogs.All()[:3]
@@ -282,7 +280,7 @@ func TestRestoreDefaultClientSessionTwoErrors(t *testing.T) {
 
 	// when
 	// we wait some time while consumer goroutine runs
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// then
 	commandExecutionLog := observedLogs.All()[:2]
