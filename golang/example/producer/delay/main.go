@@ -25,8 +25,8 @@ import (
 	"strconv"
 	"time"
 
-	rmq_client "github.com/apache/rocketmq-clients/golang"
-	"github.com/apache/rocketmq-clients/golang/credentials"
+	rmq_client "github.com/apache/rocketmq-clients/golang/v5"
+	"github.com/apache/rocketmq-clients/golang/v5/credentials"
 )
 
 const (
