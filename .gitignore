@@ -43,4 +43,6 @@ composer.lock
 vendor/
 
 # Go
-*.tests
+golang/*.tests
+golang/*.test
+golang/*.exe

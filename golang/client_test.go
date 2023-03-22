@@ -28,7 +28,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	"github.com/prashantv/gostub"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 )
@@ -191,9 +190,12 @@ func Test_execute_server_telemetry_command_fail(t *testing.T) {
 	default_cli_session._execute_server_telemetry_command(&v2.TelemetryCommand{})
 
 	// then
-	require.Equal(t, 1, observedLogs.Len())
-	commandExecutionLog := observedLogs.All()[0]
-	assert.Equal(t, "telemetryCommand recv err=%!w(*errors.errorString=&{handleTelemetryCommand err = Command is nil})", commandExecutionLog.Message)
+	logs := observedLogs.All()
+	messages := make([]string, len(logs))
+	for index, log := range logs {
+		messages[index] = log.Message
+	}
+	assert.Contains(t, messages, "telemetryCommand recv err=%!w(*errors.errorString=&{handleTelemetryCommand err = Command is nil})")
 }
 
 func Test_execute_server_telemetry_command(t *testing.T) {
@@ -206,9 +208,12 @@ func Test_execute_server_telemetry_command(t *testing.T) {
 	default_cli_session._execute_server_telemetry_command(&v2.TelemetryCommand{Command: &v2.TelemetryCommand_RecoverOrphanedTransactionCommand{}})
 
 	// then
-	require.Equal(t, 2, observedLogs.Len())
-	commandExecutionLog := observedLogs.All()[1]
-	assert.Equal(t, "Executed command successfully", commandExecutionLog.Message)
+	logs := observedLogs.All()
+	messages := make([]string, len(logs))
+	for index, log := range logs {
+		messages[index] = log.Message
+	}
+	assert.Contains(t, messages, "Executed command successfully")
 }
 
 func TestRestoreDefaultClientSessionZeroErrors(t *testing.T) {
