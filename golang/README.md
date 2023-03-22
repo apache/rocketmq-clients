@@ -13,11 +13,11 @@ We build the following protocols described in [rocketmq-apis](https://github.com
 With [Go modules](https://go.dev/doc/go1.11#modules)(Go 1.11+), simply add the following import to your code, and then `go [build|run|test]` will automatically fetch the necessary dependencies.
 
 ```go
-import "github.com/apache/rocketmq-clients/golang"
+import "github.com/apache/rocketmq-clients/golang/v5"
 ```
 
 Otherwise, to install the `golang` package, run the following command:
 
 ```sh
-go get -u github.com/apache/rocketmq-clients/golang
+go get -u github.com/apache/rocketmq-clients/golang/v5
 ```

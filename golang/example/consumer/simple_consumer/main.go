@@ -25,7 +25,7 @@ import (
 	"time"
 
 	rmq_client "github.com/apache/rocketmq-clients/golang"
-	"github.com/apache/rocketmq-clients/golang/credentials"
+	"github.com/apache/rocketmq-clients/golang/v5/credentials"
 )
 
 const (
