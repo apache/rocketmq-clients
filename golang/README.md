@@ -19,5 +19,5 @@ import "github.com/apache/rocketmq-clients/golang"
 Otherwise, to install the `golang` package, run the following command:
 
 ```sh
-go get -u github.com/apache/rocketmq-clients/golang
+go get -u github.com/apache/rocketmq-clients/golang/v5
 ```
