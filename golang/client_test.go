@@ -73,7 +73,6 @@ func BuildCLient(t *testing.T) *defaultClient {
 	if err != nil {
 		t.Error(err)
 	}
-	sugarBaseLogger.Info(cli)
 	err = cli.startUp()
 	if err != nil {
 		t.Error(err)
@@ -236,6 +235,7 @@ func TestRestoreDefaultClientSessionZeroErrors(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// then
+	sugarBaseLogger.Info(observedLogs.All())
 	commandExecutionLog := observedLogs.All()[:2]
 	assert.Equal(t, "Executed command successfully", commandExecutionLog[0].Message)
 	assert.Equal(t, "Executed command successfully", commandExecutionLog[1].Message)
@@ -261,6 +261,7 @@ func TestRestoreDefaultClientSessionOneError(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// then
+	sugarBaseLogger.Info(observedLogs.All())
 	commandExecutionLog := observedLogs.All()[:3]
 	assert.Equal(t, "Encountered error while receiving TelemetryCommand, trying to recover", commandExecutionLog[0].Message)
 	assert.Equal(t, "Managed to recover, executing message", commandExecutionLog[1].Message)
@@ -287,6 +288,7 @@ func TestRestoreDefaultClientSessionTwoErrors(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// then
+	sugarBaseLogger.Info(observedLogs.All())
 	commandExecutionLog := observedLogs.All()[:2]
 	assert.Equal(t, "Encountered error while receiving TelemetryCommand, trying to recover", commandExecutionLog[0].Message)
 	assert.Equal(t, "Failed to recover, err=%wEOF", commandExecutionLog[1].Message)
