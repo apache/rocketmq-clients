@@ -84,7 +84,7 @@ func (rc *rpcClient) GetTarget() string {
 }
 
 func (rc *rpcClient) idleDuration() time.Duration {
-	return time.Now().Sub(rc.activityNanoTime)
+	return time.Since(rc.activityNanoTime)
 }
 
 func (rc *rpcClient) Close() {}

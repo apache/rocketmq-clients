@@ -232,7 +232,7 @@ func TestRestoreDefaultClientSessionZeroErrors(t *testing.T) {
 	cli.settings = &simpleConsumerSettings{}
 
 	// when
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	// then
 	sugarBaseLogger.Info(observedLogs.All())
@@ -258,7 +258,7 @@ func TestRestoreDefaultClientSessionOneError(t *testing.T) {
 	cli.settings = &simpleConsumerSettings{}
 
 	// when
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	// then
 	sugarBaseLogger.Info(observedLogs.All())
@@ -285,7 +285,7 @@ func TestRestoreDefaultClientSessionTwoErrors(t *testing.T) {
 	cli.settings = &simpleConsumerSettings{}
 
 	// when
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	// then
 	sugarBaseLogger.Info(observedLogs.All())
