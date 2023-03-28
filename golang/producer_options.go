@@ -97,7 +97,7 @@ type producerSettings struct {
 	retryPolicy         *v2.RetryPolicy
 	requestTimeout      time.Duration
 	validateMessageType atomic.Bool
-	maxBodySizeBytes    int
+	maxBodySizeBytes    atomic.Int32
 }
 
 func (ps *producerSettings) GetClientID() string {
@@ -163,7 +163,7 @@ func (ps *producerSettings) applySettingsCommand(settings *v2.Settings) error {
 		}
 	}
 	ps.validateMessageType.Store(v.Publishing.GetValidateMessageType())
-	ps.maxBodySizeBytes = int(v.Publishing.GetMaxBodySize())
+	ps.maxBodySizeBytes.Store(v.Publishing.GetMaxBodySize())
 
 	return nil
 }
