@@ -269,7 +269,7 @@ func (sc *defaultSimpleConsumer) Receive(ctx context.Context, maxMessageNum int3
 	}
 	sc.subscriptionExpressionsLock.RLock()
 	topics := make([]string, 0, len(sc.subscriptionExpressions))
-	for k, _ := range sc.subscriptionExpressions {
+	for k := range sc.subscriptionExpressions {
 		topics = append(topics, k)
 	}
 	sc.subscriptionExpressionsLock.RUnlock()
@@ -305,7 +305,7 @@ func (sc *defaultSimpleConsumer) isClient() {
 }
 
 func (sc *defaultSimpleConsumer) onRecoverOrphanedTransactionCommand(endpoints *v2.Endpoints, command *v2.RecoverOrphanedTransactionCommand) error {
-	return fmt.Errorf("Ignore orphaned transaction recovery command from remote, which is not expected, client id=%s, command=%v", sc.cli.clientID, command)
+	return fmt.Errorf("ignore orphaned transaction recovery command from remote, which is not expected, client id=%s, command=%v", sc.cli.clientID, command)
 }
 
 func (sc *defaultSimpleConsumer) onVerifyMessageCommand(endpoints *v2.Endpoints, command *v2.VerifyMessageCommand) error {
@@ -344,7 +344,7 @@ var NewSimpleConsumer = func(config *Config, opts ...SimpleConsumerOption) (Simp
 		sc.subscriptionExpressions = make(map[string]*FilterExpression)
 	}
 	sc.cli.initTopics = make([]string, 0)
-	for topic, _ := range scOpts.subscriptionExpressions {
+	for topic := range scOpts.subscriptionExpressions {
 		sc.cli.initTopics = append(sc.cli.initTopics, topic)
 	}
 	endpoints, err := utils.ParseTarget(config.Endpoint)

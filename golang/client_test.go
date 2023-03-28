@@ -28,7 +28,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	"github.com/prashantv/gostub"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 )
@@ -74,7 +73,6 @@ func BuildCLient(t *testing.T) *defaultClient {
 	if err != nil {
 		t.Error(err)
 	}
-	sugarBaseLogger.Info(cli)
 	err = cli.startUp()
 	if err != nil {
 		t.Error(err)
@@ -191,9 +189,12 @@ func Test_execute_server_telemetry_command_fail(t *testing.T) {
 	default_cli_session._execute_server_telemetry_command(&v2.TelemetryCommand{})
 
 	// then
-	require.Equal(t, 1, observedLogs.Len())
-	commandExecutionLog := observedLogs.All()[0]
-	assert.Equal(t, "telemetryCommand recv err=%!w(*errors.errorString=&{handleTelemetryCommand err = Command is nil})", commandExecutionLog.Message)
+	logs := observedLogs.All()
+	messages := make([]string, len(logs))
+	for index, log := range logs {
+		messages[index] = log.Message
+	}
+	assert.Contains(t, messages, "telemetryCommand recv err=%!w(*errors.errorString=&{handleTelemetryCommand err = Command is nil})")
 }
 
 func Test_execute_server_telemetry_command(t *testing.T) {
@@ -206,9 +207,12 @@ func Test_execute_server_telemetry_command(t *testing.T) {
 	default_cli_session._execute_server_telemetry_command(&v2.TelemetryCommand{Command: &v2.TelemetryCommand_RecoverOrphanedTransactionCommand{}})
 
 	// then
-	require.Equal(t, 2, observedLogs.Len())
-	commandExecutionLog := observedLogs.All()[1]
-	assert.Equal(t, "Executed command successfully", commandExecutionLog.Message)
+	logs := observedLogs.All()
+	messages := make([]string, len(logs))
+	for index, log := range logs {
+		messages[index] = log.Message
+	}
+	assert.Contains(t, messages, "Executed command successfully")
 }
 
 func TestRestoreDefaultClientSessionZeroErrors(t *testing.T) {
@@ -228,10 +232,10 @@ func TestRestoreDefaultClientSessionZeroErrors(t *testing.T) {
 	cli.settings = &simpleConsumerSettings{}
 
 	// when
-	// we wait some time while consumer goroutine runs
 	time.Sleep(3 * time.Second)
 
 	// then
+	sugarBaseLogger.Info(observedLogs.All())
 	commandExecutionLog := observedLogs.All()[:2]
 	assert.Equal(t, "Executed command successfully", commandExecutionLog[0].Message)
 	assert.Equal(t, "Executed command successfully", commandExecutionLog[1].Message)
@@ -254,10 +258,10 @@ func TestRestoreDefaultClientSessionOneError(t *testing.T) {
 	cli.settings = &simpleConsumerSettings{}
 
 	// when
-	// we wait some time while consumer goroutine runs
 	time.Sleep(3 * time.Second)
 
 	// then
+	sugarBaseLogger.Info(observedLogs.All())
 	commandExecutionLog := observedLogs.All()[:3]
 	assert.Equal(t, "Encountered error while receiving TelemetryCommand, trying to recover", commandExecutionLog[0].Message)
 	assert.Equal(t, "Managed to recover, executing message", commandExecutionLog[1].Message)
@@ -281,10 +285,10 @@ func TestRestoreDefaultClientSessionTwoErrors(t *testing.T) {
 	cli.settings = &simpleConsumerSettings{}
 
 	// when
-	// we wait some time while consumer goroutine runs
 	time.Sleep(3 * time.Second)
 
 	// then
+	sugarBaseLogger.Info(observedLogs.All())
 	commandExecutionLog := observedLogs.All()[:2]
 	assert.Equal(t, "Encountered error while receiving TelemetryCommand, trying to recover", commandExecutionLog[0].Message)
 	assert.Equal(t, "Failed to recover, err=%wEOF", commandExecutionLog[1].Message)

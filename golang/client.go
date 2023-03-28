@@ -150,16 +150,12 @@ func (cs *defaultClientSession) handleTelemetryCommand(response *v2.TelemetryCom
 	switch c := command.(type) {
 	case *v2.TelemetryCommand_Settings:
 		cs.cli.onSettingsCommand(cs.endpoints, c.Settings)
-		break
 	case *v2.TelemetryCommand_RecoverOrphanedTransactionCommand:
 		cs.cli.onRecoverOrphanedTransactionCommand(cs.endpoints, c.RecoverOrphanedTransactionCommand)
-		break
 	case *v2.TelemetryCommand_VerifyMessageCommand:
 		cs.cli.onVerifyMessageCommand(cs.endpoints, c.VerifyMessageCommand)
-		break
 	case *v2.TelemetryCommand_PrintThreadStackTraceCommand:
 		cs.cli.onPrintThreadStackTraceCommand(cs.endpoints, c.PrintThreadStackTraceCommand)
-		break
 	default:
 		return fmt.Errorf("receive unrecognized command from remote, endpoints=%v, command=%v, clientId=%s", cs.endpoints, command, cs.cli.clientID)
 	}
@@ -512,13 +508,11 @@ func (cli *defaultClient) startUp() error {
 					if err == nil {
 						impl.publishingRouteDataResultCache.Store(topic, plb)
 					}
-					break
 				case *defaultSimpleConsumer:
 					slb, err := NewSubscriptionLoadBalancer(newRoute)
 					if err == nil {
 						impl.subTopicRouteDataResultCache.Store(topic, slb)
 					}
-					break
 				}
 			}
 			return true

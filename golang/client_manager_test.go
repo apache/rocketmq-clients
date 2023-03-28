@@ -82,6 +82,7 @@ func (mt *MOCK_MessagingService_TelemetryClient) Trailer() metadata.MD {
 // Recv implements v2.MessagingService_TelemetryClient
 func (mt *MOCK_MessagingService_TelemetryClient) Recv() (*v2.TelemetryCommand, error) {
 	mt.trace = append(mt.trace, "recv")
+	sugarBaseLogger.Info("calling recv function", "state", mt.recv_error_count, "cli", mt.cli)
 	if mt.recv_error_count >= 1 {
 		mt.recv_error_count -= 1
 		return nil, io.EOF
