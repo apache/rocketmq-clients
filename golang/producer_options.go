@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/atomic"
+
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -94,7 +96,7 @@ type producerSettings struct {
 	clientType          v2.ClientType
 	retryPolicy         *v2.RetryPolicy
 	requestTimeout      time.Duration
-	validateMessageType bool
+	validateMessageType atomic.Bool
 	maxBodySizeBytes    int
 }
 
@@ -114,7 +116,7 @@ func (ps *producerSettings) GetRequestTimeout() time.Duration {
 	return ps.requestTimeout
 }
 func (ps *producerSettings) IsValidateMessageType() bool {
-	return ps.validateMessageType
+	return ps.validateMessageType.Load()
 }
 
 func (ps *producerSettings) toProtobuf() *v2.Settings {
@@ -160,7 +162,7 @@ func (ps *producerSettings) applySettingsCommand(settings *v2.Settings) error {
 			}
 		}
 	}
-	ps.validateMessageType = v.Publishing.GetValidateMessageType()
+	ps.validateMessageType.Store(v.Publishing.GetValidateMessageType())
 	ps.maxBodySizeBytes = int(v.Publishing.GetMaxBodySize())
 
 	return nil
