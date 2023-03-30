@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/atomic"
+
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -148,8 +150,8 @@ var NewProducer = func(config *Config, opts ...ProducerOption) (Producer, error)
 			},
 		},
 		requestTimeout:      p.cli.opts.timeout,
-		validateMessageType: true,
-		maxBodySizeBytes:    4 * 1024 * 1024,
+		validateMessageType: *atomic.NewBool(true),
+		maxBodySizeBytes:    *atomic.NewInt32(4 * 1024 * 1024),
 	}
 	for _, topic := range po.topics {
 		topicResource := &v2.Resource{

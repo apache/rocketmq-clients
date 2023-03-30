@@ -41,7 +41,7 @@ var NewPublishingMessage = func(msg *Message, settings *producerSettings, txEnab
 		msg: msg,
 	}
 
-	maxBodySizeBytes := settings.maxBodySizeBytes
+	maxBodySizeBytes := int(settings.maxBodySizeBytes.Load())
 
 	length := len(msg.Body)
 	if length > maxBodySizeBytes {

@@ -27,6 +27,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	uberatomic "go.uber.org/atomic"
+
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
 )
 
@@ -83,7 +85,7 @@ var (
 	processFixedStringV1    string
 	secondsSinceCustomEpoch int64
 	secondsStartTimestamp   int64
-	seconds                 int64
+	seconds                 uberatomic.Int64
 	sequence                int32
 )
 
@@ -113,7 +115,7 @@ func init() {
 	secondsSinceCustomEpoch = time.Now().Unix() - time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
 	// TODO Implement System.nanoTime() in golang, see https://github.com/golang/go/issues/16658
 	secondsStartTimestamp = time.Now().Unix()
-	seconds = deltaSeconds()
+	seconds.Store(deltaSeconds())
 
 	sequence = -1
 
@@ -135,8 +137,8 @@ func (mic *messageIdCodec) NextMessageId() MessageId {
 	var buffer bytes.Buffer
 
 	deltaSeconds := deltaSeconds()
-	if seconds != deltaSeconds {
-		seconds = deltaSeconds
+	if seconds.Load() != deltaSeconds {
+		seconds.Store(deltaSeconds)
 	}
 
 	if err := binary.Write(&buffer, binary.BigEndian, uint32(deltaSeconds)); err != nil {
