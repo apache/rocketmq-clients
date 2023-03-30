@@ -20,6 +20,7 @@ package utils
 import (
 	"bytes"
 	"compress/gzip"
+	"compress/zlib"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -145,6 +146,17 @@ func GZIPDecode(in []byte) ([]byte, error) {
 	}
 	defer reader.Close()
 	return ioutil.ReadAll(reader)
+}
+
+func ZLIBDecode(in []byte) ([]byte, error) {
+	b := bytes.NewReader(in)
+	r, err := zlib.NewReader(b)
+	if err != nil {
+		return nil, err
+	}
+	o, err := ioutil.ReadAll(r)
+	r.Close()
+	return o, err
 }
 
 var clientIdx int64 = 0
