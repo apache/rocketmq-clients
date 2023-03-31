@@ -13,7 +13,7 @@ jobs:
       - name: Compile On Linux
         working-directory: ./cpp
         if: runner.os == 'Linux'
-        run: bazel build --config=remote --remote_header=x-buildbuddy-api-key=${{ secrets.BUILD_BUDDY_API_KEY }} //...
+        run: bazel build //...
       - name: Compile On Windows
         working-directory: ./cpp
         if: runner.os == 'Windows'
@@ -25,7 +25,7 @@ jobs:
       - name: Run Unit Tests On Linux
         working-directory: ./cpp
         if: runner.os == 'Linux'
-        run: bazel test --config=remote --remote_header=x-buildbuddy-api-key=${{ secrets.BUILD_BUDDY_API_KEY }} //...
+        run: bazel test //...
       - name: Run Unit Tests On Windows
         working-directory: ./cpp  
         if: runner.os == 'Windows'
