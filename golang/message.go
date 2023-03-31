@@ -103,8 +103,19 @@ func (msg *Message) SetKeys(keys ...string) {
 	msg.keys = keys
 }
 
-func (msg *Message) GetProperties() map[string]string {
+func (msg *Message) getOrNewProperties() map[string]string {
+	if msg.properties == nil {
+		msg.properties = make(map[string]string)
+	}
 	return msg.properties
+}
+
+func (msg *Message) GetProperties() map[string]string {
+	return msg.getOrNewProperties()
+}
+
+func (msg *Message) AddProperty(key, value string) {
+	msg.getOrNewProperties()[key] = value
 }
 
 func (msg *Message) SetDelayTimestamp(deliveryTimestamp time.Time) {
