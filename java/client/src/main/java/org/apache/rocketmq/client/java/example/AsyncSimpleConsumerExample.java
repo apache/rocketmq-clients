@@ -64,6 +64,7 @@ public class AsyncSimpleConsumerExample {
         String tag = "yourMessageTagA";
         String topic = "yourTopic";
         FilterExpression filterExpression = new FilterExpression(tag, FilterExpressionType.TAG);
+        // In most case, you don't need to create too many consumers, singleton pattern is recommended.
         SimpleConsumer consumer = provider.newSimpleConsumerBuilder()
             .setClientConfiguration(clientConfiguration)
             // Set the consumer group name.
