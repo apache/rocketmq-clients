@@ -20,6 +20,7 @@ package org.apache.rocketmq.client.java.impl;
 import com.google.common.base.MoreObjects;
 import java.time.Duration;
 import org.apache.rocketmq.client.java.misc.ClientId;
+import org.apache.rocketmq.client.java.misc.ExcludeFromJacocoGeneratedReport;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
 
@@ -51,6 +52,7 @@ public abstract class Settings {
         return retryPolicy;
     }
 
+    @ExcludeFromJacocoGeneratedReport
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)

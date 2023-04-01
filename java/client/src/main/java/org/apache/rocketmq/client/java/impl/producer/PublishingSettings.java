@@ -28,6 +28,7 @@ import org.apache.rocketmq.client.java.impl.ClientType;
 import org.apache.rocketmq.client.java.impl.Settings;
 import org.apache.rocketmq.client.java.impl.UserAgent;
 import org.apache.rocketmq.client.java.misc.ClientId;
+import org.apache.rocketmq.client.java.misc.ExcludeFromJacocoGeneratedReport;
 import org.apache.rocketmq.client.java.retry.ExponentialBackoffRetryPolicy;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
@@ -85,6 +86,7 @@ public class PublishingSettings extends Settings {
         this.maxBodySizeBytes = publishing.getMaxBodySize();
     }
 
+    @ExcludeFromJacocoGeneratedReport
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)

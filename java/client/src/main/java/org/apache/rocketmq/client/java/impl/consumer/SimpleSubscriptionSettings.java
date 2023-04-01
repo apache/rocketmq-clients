@@ -33,6 +33,7 @@ import org.apache.rocketmq.client.java.impl.Settings;
 import org.apache.rocketmq.client.java.impl.UserAgent;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.misc.ClientId;
+import org.apache.rocketmq.client.java.misc.ExcludeFromJacocoGeneratedReport;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,6 +94,7 @@ public class SimpleSubscriptionSettings extends Settings {
         }
     }
 
+    @ExcludeFromJacocoGeneratedReport
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
