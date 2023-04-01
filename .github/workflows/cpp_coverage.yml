@@ -15,6 +15,7 @@ jobs:
       - name: Upload to Codecov
         uses: codecov/codecov-action@v3
         with:
+          token: aaafabbe-565f-478d-aab8-bcd79ec930b5
           file: ./cpp/bazel-out/_coverage/_coverage_report.dat
           flags: cpp
           fail_ci_if_error: true
