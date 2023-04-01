@@ -50,6 +50,7 @@ public class ProducerNormalMessageExample {
             .setEndpoints(endpoints)
             .setCredentialProvider(sessionCredentialsProvider)
             .build();
+
         String topic = "yourNormalTopic";
         // In most case, you don't need to create too many producers, singleton pattern is recommended.
         final Producer producer = provider.newProducerBuilder()
