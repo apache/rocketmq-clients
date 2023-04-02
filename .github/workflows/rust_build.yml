@@ -1,20 +1,13 @@
-name: Rust
+name: Rust Build
 on:
-  pull_request:
-    types: [opened, reopened, synchronize]
-    paths:
-      - 'rust/**'
-  push:
-    branches:
-      - master
-      - rust_dev
-    paths:
-      - 'rust/**'
-
+  workflow_call:
 jobs:
-  build_and_test:
-    name: Rust project
-    runs-on: ubuntu-latest
+  build:
+    name: "${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, macos-11, windows-2022]
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
