@@ -40,7 +40,7 @@ github:
     master:
       required_status_checks:
         contexts:
-          - misspell-check
+          - codespell
           - check-license
           - build-result
 notifications:
