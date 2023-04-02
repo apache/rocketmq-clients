@@ -73,6 +73,26 @@ func TestParseTarget(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	endpointsExpect := &v2.Endpoints{
+		Scheme: v2.AddressScheme_IPv4,
+		Addresses: []*v2.Address{
+			{
+				Host: "127.0.0.1",
+				Port: 80,
+			},
+			{
+				Host: "127.0.0.1",
+				Port: 81,
+			},
+		},
+	}
+	endpoints, err := ParseTarget("127.0.0.1:80;127.0.0.1:81;")
+	if err != nil {
+		t.Error(err)
+	} else if !CompareEndpoints(endpointsExpect, endpoints) {
+		t.Errorf("Expected endpoints: %v, but got: %v", endpointsExpect, endpoints)
+	}
 }
 
 func TestMatchMessageType(t *testing.T) {

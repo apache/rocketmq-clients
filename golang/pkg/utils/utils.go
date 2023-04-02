@@ -72,31 +72,34 @@ func ParseAddress(address *v2.Address) string {
 func ParseTarget(target string) (*v2.Endpoints, error) {
 	ret := &v2.Endpoints{
 		Scheme: v2.AddressScheme_DOMAIN_NAME,
-		Addresses: []*v2.Address{
-			{
-				Host: "",
-				Port: 80,
-			},
-		},
 	}
-	path := target
-	u, err := url.Parse(target)
-	if err != nil {
-		path = target
-		ret.Scheme = v2.AddressScheme_IPv4
-	} else {
-		if u.Host != "" {
-			path = u.Host
+	addressRawList := strings.Split(target, ";")
+	for _, path := range addressRawList {
+		if len(path) == 0 {
+			continue
 		}
-	}
-	paths := strings.Split(path, ":")
-	if len(paths) > 1 {
-		if port, err2 := strconv.ParseInt(paths[1], 10, 32); err2 == nil {
-			ret.Addresses[0].Port = int32(port)
+		address := &v2.Address{
+			Host: "",
+			Port: 80,
 		}
-		ret.Addresses[0].Host = paths[0]
-	} else {
-		return nil, fmt.Errorf("parse target failed, target=%s", target)
+		if u, err := url.Parse(path); err != nil {
+			address.Host = path
+			ret.Scheme = v2.AddressScheme_IPv4
+		} else {
+			if u.Host != "" {
+				address.Host = u.Host
+			}
+		}
+		paths := strings.Split(path, ":")
+		if len(paths) > 1 {
+			if port, err2 := strconv.ParseInt(paths[1], 10, 32); err2 == nil {
+				address.Port = int32(port)
+			}
+			address.Host = paths[0]
+		} else {
+			return nil, fmt.Errorf("parse target failed, target=%s", target)
+		}
+		ret.Addresses = append(ret.Addresses, address)
 	}
 	return ret, nil
 }
