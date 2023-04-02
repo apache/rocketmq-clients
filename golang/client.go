@@ -118,7 +118,7 @@ func (cs *defaultClientSession) startUp() {
 					cs.recovering = true
 				} else {
 					// we are recovering but we failed to read the message again, resetting observer
-					cs.cli.log.Info("Failed to recover, err=%w", err)
+					cs.cli.log.Infof("Failed to recover, err=%w", err)
 					cs.release()
 					cs.recovering = false
 				}
@@ -470,13 +470,13 @@ func (cli *defaultClient) mustSyncSettingsToTargert(target string) error {
 func (cli *defaultClient) telemeter(target string, command *v2.TelemetryCommand) error {
 	cs, err := cli.getDefaultClientSession(target)
 	if err != nil {
-		cli.log.Error("getDefaultClientSession failed, err=%v", target, err)
+		cli.log.Errorf("getDefaultClientSession %s failed, err=%v", target, err)
 		return err
 	}
 	ctx := cli.Sign(context.Background())
 	err = cs.publish(ctx, command)
 	if err != nil {
-		cli.log.Error("telemeter to %s failed, err=%v", target, err)
+		cli.log.Errorf("telemeter to %s failed, err=%v", target, err)
 		return err
 	}
 	cli.log.Infof("telemeter to %s success", target)
