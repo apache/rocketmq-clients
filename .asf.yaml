@@ -41,7 +41,6 @@ github:
       required_status_checks:
         contexts:
           - codespell
-          - check-license
           - build-result
 notifications:
   commits:      commits@rocketmq.apache.org
