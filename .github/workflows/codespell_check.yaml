@@ -1,19 +1,25 @@
 name: CodeSpell Check
+
 on:
   pull_request:
     types: [opened, reopened, synchronize]
   push:
     branches:
       - master
+
 jobs:
   codespell:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+
       - name: Install CodeSpell
-        run: |
-          pip install codespell
+        run: pip install codespell
+
       - name: Run CodeSpell
         run: |
-          codespell --quiet-level=2 --ignore-words ./style/codespell/ingore_words.txt
+          codespell --quiet-level=2 \
+                   --skip "./cpp/third_party,./style/codespell/ignore_words.txt,./.git" \
+                   --ignore-words ./style/codespell/ignore_words.txt \
+                   --exclude-file ./style/codespell/exclude_file.txt \
