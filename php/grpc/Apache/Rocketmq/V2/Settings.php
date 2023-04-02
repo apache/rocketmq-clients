@@ -30,7 +30,7 @@ class Settings extends \Google\Protobuf\Internal\Message
      * When processing message fails, `backoff_policy` describes an interval
      * after which the message should be available to consume again.
      * For FIFO messages, the interval should be relatively small because
-     * messages of the same message group would not be readily available utill
+     * messages of the same message group would not be readily available until
      * the prior one depletes its lifecycle.
      *
      * Generated from protobuf field <code>optional .apache.rocketmq.v2.RetryPolicy backoff_policy = 3;</code>
@@ -70,7 +70,7 @@ class Settings extends \Google\Protobuf\Internal\Message
      *           When processing message fails, `backoff_policy` describes an interval
      *           after which the message should be available to consume again.
      *           For FIFO messages, the interval should be relatively small because
-     *           messages of the same message group would not be readily available utill
+     *           messages of the same message group would not be readily available until
      *           the prior one depletes its lifecycle.
      *     @type \Google\Protobuf\Duration $request_timeout
      *           Request timeout for RPCs excluding long-polling.
@@ -161,7 +161,7 @@ class Settings extends \Google\Protobuf\Internal\Message
      * When processing message fails, `backoff_policy` describes an interval
      * after which the message should be available to consume again.
      * For FIFO messages, the interval should be relatively small because
-     * messages of the same message group would not be readily available utill
+     * messages of the same message group would not be readily available until
      * the prior one depletes its lifecycle.
      *
      * Generated from protobuf field <code>optional .apache.rocketmq.v2.RetryPolicy backoff_policy = 3;</code>
@@ -189,7 +189,7 @@ class Settings extends \Google\Protobuf\Internal\Message
      * When processing message fails, `backoff_policy` describes an interval
      * after which the message should be available to consume again.
      * For FIFO messages, the interval should be relatively small because
-     * messages of the same message group would not be readily available utill
+     * messages of the same message group would not be readily available until
      * the prior one depletes its lifecycle.
      *
      * Generated from protobuf field <code>optional .apache.rocketmq.v2.RetryPolicy backoff_policy = 3;</code>

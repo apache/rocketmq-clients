@@ -40,8 +40,7 @@ github:
     master:
       required_status_checks:
         contexts:
-          - misspell-check
-          - check-license
+          - codespell-check
           - build-result
 notifications:
   commits:      commits@rocketmq.apache.org

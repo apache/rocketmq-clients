@@ -75,8 +75,8 @@ type funcSimpleConsumerOption struct {
 	f func(*simpleConsumerOptions)
 }
 
-func (fo *funcSimpleConsumerOption) apply(do *simpleConsumerOptions) {
-	fo.f(do)
+func (option *funcSimpleConsumerOption) apply(do *simpleConsumerOptions) {
+	option.f(do)
 }
 
 func newFuncSimpleConsumerOption(f func(*simpleConsumerOptions)) *funcSimpleConsumerOption {

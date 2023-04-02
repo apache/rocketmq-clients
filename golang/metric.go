@@ -79,9 +79,9 @@ func (dcm *defaultClientMeter) shutdown() {
 	defer dcm.mutex.Unlock()
 	view.UnregisterExporter(dcm.ocaExporter)
 	if dcm.ocaExporter != nil {
-		oce, ok := dcm.ocaExporter.(*ocagent.Exporter)
+		exporter, ok := dcm.ocaExporter.(*ocagent.Exporter)
 		if ok {
-			err := oce.Stop()
+			err := exporter.Stop()
 			if err != nil {
 				sugarBaseLogger.Errorf("ocExporter stop failed, err=%w", err)
 			}
@@ -186,7 +186,7 @@ func (dcmp *defaultClientMeterProvider) Reset(metric *v2.Metric) {
 		return
 	}
 	agentAddr := utils.ParseAddress(utils.SelectAnAddress(endpoints))
-	oce, err := ocagent.NewExporter(
+	exporter, err := ocagent.NewExporter(
 		ocagent.WithInsecure(),
 		ocagent.WithTLSCredentials(credentials.NewTLS(defaultConnOptions.TLS)),
 		ocagent.WithAddress(agentAddr),
@@ -198,7 +198,7 @@ func (dcmp *defaultClientMeterProvider) Reset(metric *v2.Metric) {
 	}
 	// Reset message meter.
 	dcmp.clientMeter.shutdown()
-	dcmp.clientMeter = NewDefaultClientMeter(oce, true, endpoints, dcmp.client.GetClientID())
+	dcmp.clientMeter = NewDefaultClientMeter(exporter, true, endpoints, dcmp.client.GetClientID())
 	dcmp.clientMeter.start()
 	sugarBaseLogger.Infof("metrics is on, endpoints=%v, clientId=%s", endpoints, dcmp.client.GetClientID())
 }

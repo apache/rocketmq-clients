@@ -1,6 +1,6 @@
 # Design
 
-This project aims to build lightweight, cloud-native clients, and establish the unified messaging model/APIs design acorss languages.
+This project aims to build lightweight, cloud-native clients, and establish the unified messaging model/APIs design across languages.
 
 ## Messaging Model
 
@@ -29,7 +29,7 @@ As we all know, consumer group is the basic unit of load balancing for consumers
 * FIFO consumption switch: enable/disable FIFO consumption for FIFO messages.
 * Message consumption retry policy: decide the max delivery times and backoff algorithm for the message which is failed to be consumed in push consumer.
 
-Especially, this table shows the sequence of message receiption with the combination of FIFO/non-FIFO topics and FIFO/non-FIFO consumer groups.
+Especially, this table shows the sequence of message reception with the combination of FIFO/non-FIFO topics and FIFO/non-FIFO consumer groups.
 
 <div align="center">
 
@@ -51,7 +51,7 @@ There are four types of client.
 
 ### Client Identifier
 
-Client identifier provides indentity information for each client event within the same process. A typical client identifier: `macbook-pro@90009@0@2dyeb8lep`, which could be divided into 4 parts by the separator `@`.
+Client identifier provides identity information for each client event within the same process. A typical client identifier: `macbook-pro@90009@0@2dyeb8lep`, which could be divided into 4 parts by the separator `@`.
 
 * `macbook-pro`: hostname of device;
 * `90009`: process identifier;
@@ -62,11 +62,11 @@ Client identifier provides indentity information for each client event within th
 
 ### Message Identifier
 
-Message identifer provides identity information for each message stored in broker, which means producer can not get the message identifier until it is sent out successfully.
+Message identifier provides identity information for each message stored in broker, which means producer can not get the message identifier until it is sent out successfully.
 
->**Note**: Internal retries during message publishing may cause message duplication, the duplicate messages here have the same message indentifier.
+>**Note**: Internal retries during message publishing may cause message duplication, the duplicate messages here have the same message identifier.
 
-The message identifer layout is redesigned, see more details [here](./message_id.md).
+The message identifier layout is redesigned, see more details [here](./message_id.md).
 
 ## New and Unified APIs
 
