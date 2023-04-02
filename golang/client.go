@@ -118,7 +118,7 @@ func (cs *defaultClientSession) startUp() {
 					cs.recovering = true
 				} else {
 					// we are recovering but we failed to read the message again, resetting observer
-					cs.cli.log.Infof("Failed to recover, err=%w", err)
+					cs.cli.log.Infof("Failed to recover, err=%v", err)
 					cs.release()
 					cs.recovering = false
 				}
