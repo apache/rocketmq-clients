@@ -16,4 +16,4 @@ jobs:
           pip install codespell
       - name: Run CodeSpell
         run: |
-          codespell --quiet-level=2
+          codespell --quiet-level=2 --ignore-words ./style/codespell/ingore_words.txt
