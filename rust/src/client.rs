@@ -28,8 +28,6 @@ use crate::pb::{
 };
 use crate::session::{RPCClient, Session, SessionManager};
 
-pub trait Foo {}
-
 pub(crate) struct Client {
     logger: Logger,
     option: ClientOption,
@@ -39,7 +37,9 @@ pub(crate) struct Client {
     endpoints: Endpoints,
 }
 
-static CLIENT_ID_SEQUENCE: AtomicUsize = AtomicUsize::new(0);
+lazy_static::lazy_static! {
+    static ref CLIENT_ID_SEQUENCE: AtomicUsize = AtomicUsize::new(0);
+}
 
 impl Client {
     const OPERATION_CLIENT_NEW: &'static str = "client.new";
@@ -50,7 +50,7 @@ impl Client {
         let id = Self::generate_client_id();
         let endpoints = Endpoints::from_access_url(option.access_url().to_string())
             .map_err(|e| e.with_operation(Self::OPERATION_CLIENT_NEW))?;
-        let session_manager = SessionManager::new(&logger, id.clone(), &option);
+        let session_manager = SessionManager::new(logger, id.clone(), &option);
         Ok(Client {
             logger: logger.new(o!("component" => "client")),
             option,
@@ -250,11 +250,22 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::Ordering;
+
     use crate::client::Client;
     use crate::conf::ClientOption;
     use crate::log::terminal_logger;
     use crate::pb::{Code, MessageQueue, QueryRouteResponse, Resource, Status};
     use crate::session;
+
+    use super::CLIENT_ID_SEQUENCE;
+
+    #[test]
+    fn test_client_id_sequence() {
+        let v1 = CLIENT_ID_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let v2 = CLIENT_ID_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        assert!(v2 > v1, "Client ID sequence should be increasing");
+    }
 
     #[tokio::test]
     async fn client_query_route() {

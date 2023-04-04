@@ -23,6 +23,8 @@ mod log;
 
 mod client;
 mod model;
+
+#[allow(clippy::all)]
 #[path = "pb/apache.rocketmq.v2.rs"]
 mod pb;
 mod session;
