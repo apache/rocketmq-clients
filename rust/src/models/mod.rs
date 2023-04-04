@@ -14,24 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#[allow(dead_code)]
-mod conf;
-#[allow(dead_code)]
-mod error;
-#[allow(dead_code)]
-mod log;
-
-mod client;
-mod model;
-
-#[allow(clippy::all)]
-#[path = "pb/apache.rocketmq.v2.rs"]
-mod pb;
-mod session;
-
-pub(crate) mod producer;
-
-// Export structs that are part of crate API.
-pub use producer::Producer;
-
-pub mod models;
+pub(crate) mod message;
+pub(crate) mod message_id;
+pub(crate) mod message_view;
