@@ -14,15 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use slog::{info, Logger};
+
+//! Publish messages of various types to brokers.
+//!
+//! `Producer` is a thin wrapper of internal `Client` struct that shoulders the actual workloads.
+//! Most of its methods take shared reference so that application developers may use it at will.
 
 use crate::client::Client;
 use crate::conf::{ClientOption, ProducerOption};
 use crate::error::ClientError;
 use crate::log;
 use crate::pb::{Message, SendResultEntry};
+use slog::{info, Logger};
 
-struct Producer {
+/// `Producer` is the core struct, to which application developers should turn, when publishing messages to brokers.
+///
+/// `Producer` is `Send` and `Sync` by design, so that developers may get started easily.
+#[derive(Debug)]
+pub struct Producer {
     option: ProducerOption,
     logger: Logger,
     client: Client,

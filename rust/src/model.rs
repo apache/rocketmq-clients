@@ -34,6 +34,7 @@ pub(crate) enum RouteStatus {
     Found(Arc<Route>),
 }
 
+#[derive(Debug)]
 pub(crate) struct Endpoints {
     access_url: String,
     scheme: AddressScheme,

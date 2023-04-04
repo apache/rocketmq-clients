@@ -64,7 +64,7 @@ impl Session {
         client_id: String,
         option: &ClientOption,
     ) -> Result<Self, ClientError> {
-        let peer = endpoints.access_url().clone();
+        let peer = endpoints.access_url().to_owned();
         debug!(logger, "creating session, peer={}", peer);
 
         let mut channel_endpoints = Vec::new();
@@ -78,7 +78,7 @@ impl Session {
                 "No endpoint available.".to_string(),
                 Self::OPERATION_CREATE,
             )
-            .with_context("peer", peer));
+            .with_context("peer", peer.clone()));
         }
 
         let channel = if channel_endpoints.len() == 1 {
@@ -89,7 +89,7 @@ impl Session {
                     Self::OPERATION_CREATE,
                 )
                 .set_source(e)
-                .with_context("peer", peer)
+                .with_context("peer", peer.clone())
             })?
         } else {
             Channel::balance_list(channel_endpoints.into_iter())
@@ -104,7 +104,7 @@ impl Session {
         );
 
         Ok(Session {
-            logger: logger.new(o!("component" => "session", "peer" => peer.to_owned())),
+            logger: logger.new(o!("component" => "session", "peer" => peer.clone())),
             client_id,
             stub,
         })

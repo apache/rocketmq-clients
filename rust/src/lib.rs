@@ -23,8 +23,13 @@ mod log;
 
 mod client;
 mod model;
+
+#[allow(clippy::all)]
 #[path = "pb/apache.rocketmq.v2.rs"]
 mod pb;
 mod session;
 
-mod producer;
+pub(crate) mod producer;
+
+// Export structs that are part of crate API.
+pub use producer::Producer;
