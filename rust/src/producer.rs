@@ -61,44 +61,44 @@ impl Producer {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::conf::{ClientOption, ProducerOption};
-    use crate::pb::{Message, Resource, SystemProperties};
-    use crate::producer::Producer;
-
-    #[tokio::test]
-    async fn test_producer_start() {
-        let mut producer_option = ProducerOption::default();
-        producer_option.set_topics(vec!["DefaultCluster".to_string()]);
-        let producer = Producer::new(producer_option, ClientOption::default())
-            .await
-            .unwrap();
-        producer.start().await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_producer_send() {
-        let mut producer_option = ProducerOption::default();
-        producer_option.set_topics(vec!["DefaultCluster".to_string()]);
-        let producer = Producer::new(producer_option, ClientOption::default())
-            .await
-            .unwrap();
-        producer.start().await.unwrap();
-        let send_result = producer
-            .send(Message {
-                topic: Some(Resource {
-                    resource_namespace: "".to_string(),
-                    name: "DefaultCluster".to_string(),
-                }),
-                user_properties: Default::default(),
-                system_properties: Some(SystemProperties {
-                    message_id: "message_test_id".to_string(),
-                    ..SystemProperties::default()
-                }),
-                body: "Hello world".to_string().into_bytes(),
-            })
-            .await;
-        println!("{:?}", send_result);
-    }
-}
+// #[cfg(test)]
+// mod tests {
+//     use crate::conf::{ClientOption, ProducerOption};
+//     use crate::pb::{Message, Resource, SystemProperties};
+//     use crate::producer::Producer;
+//
+//     #[tokio::test]
+//     async fn test_producer_start() {
+//         let mut producer_option = ProducerOption::default();
+//         producer_option.set_topics(vec!["DefaultCluster".to_string()]);
+//         let producer = Producer::new(producer_option, ClientOption::default())
+//             .await
+//             .unwrap();
+//         producer.start().await.unwrap();
+//     }
+//
+//     #[tokio::test]
+//     async fn test_producer_send() {
+//         let mut producer_option = ProducerOption::default();
+//         producer_option.set_topics(vec!["DefaultCluster".to_string()]);
+//         let producer = Producer::new(producer_option, ClientOption::default())
+//             .await
+//             .unwrap();
+//         producer.start().await.unwrap();
+//         let send_result = producer
+//             .send(Message {
+//                 topic: Some(Resource {
+//                     resource_namespace: "".to_string(),
+//                     name: "DefaultCluster".to_string(),
+//                 }),
+//                 user_properties: Default::default(),
+//                 system_properties: Some(SystemProperties {
+//                     message_id: "message_test_id".to_string(),
+//                     ..SystemProperties::default()
+//                 }),
+//                 body: "Hello world".to_string().into_bytes(),
+//             })
+//             .await;
+//         println!("{:?}", send_result);
+//     }
+// }

@@ -18,7 +18,7 @@ use std::error::Error;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, PartialEq, Eq)]
 pub enum ErrorKind {
     #[error("Failed to parse config")]
     Config,
@@ -43,11 +43,11 @@ pub enum ErrorKind {
 }
 
 pub struct ClientError {
-    kind: ErrorKind,
-    message: String,
-    operation: &'static str,
-    context: Vec<(&'static str, String)>,
-    source: Option<anyhow::Error>,
+    pub(crate) kind: ErrorKind,
+    pub(crate) message: String,
+    pub(crate) operation: &'static str,
+    pub(crate) context: Vec<(&'static str, String)>,
+    pub(crate) source: Option<anyhow::Error>,
 }
 
 impl Error for ClientError {}
