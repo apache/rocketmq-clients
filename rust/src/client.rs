@@ -28,6 +28,7 @@ use crate::pb::{
 };
 use crate::session::{RPCClient, Session, SessionManager};
 
+#[derive(Debug)]
 pub(crate) struct Client {
     logger: Logger,
     option: ClientOption,

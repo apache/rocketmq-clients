@@ -29,4 +29,7 @@ mod model;
 mod pb;
 mod session;
 
-mod producer;
+pub(crate) mod producer;
+
+// Export structs that are part of crate API.
+pub use producer::Producer;
