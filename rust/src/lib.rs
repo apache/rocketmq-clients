@@ -14,13 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#[path = "pb/apache.rocketmq.v2.rs"]
-mod pb;
-
+#[allow(dead_code)]
+mod conf;
+#[allow(dead_code)]
 mod error;
-
-mod command;
+#[allow(dead_code)]
+mod log;
 
 mod client;
+mod model;
+#[path = "pb/apache.rocketmq.v2.rs"]
+mod pb;
+mod session;
 
 mod producer;

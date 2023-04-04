@@ -14,28 +14,91 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use slog::Logger;
+use slog::{info, Logger};
 
-use crate::{client, error};
+use crate::client::Client;
+use crate::conf::{ClientOption, ProducerOption};
+use crate::error::ClientError;
+use crate::log;
+use crate::pb::{Message, SendResultEntry};
 
 struct Producer {
-    client: client::Client,
+    option: ProducerOption,
+    logger: Logger,
+    client: Client,
 }
 
 impl Producer {
-    pub async fn new<T>(logger: Logger, topics: T) -> Result<Self, error::ClientError>
-    where
-        T: IntoIterator,
-        T::Item: AsRef<str>,
-    {
-        let access_point = "localhost:8081";
-        let client = client::Client::new(logger, access_point)?;
-        for _topic in topics.into_iter() {
-            // client.subscribe(topic.as_ref()).await;
-        }
-
-        Ok(Producer { client })
+    pub async fn new(
+        option: ProducerOption,
+        client_option: ClientOption,
+    ) -> Result<Self, ClientError> {
+        let logger = log::logger(&option);
+        let client = Client::new(&logger, client_option)?;
+        Ok(Producer {
+            option,
+            logger,
+            client,
+        })
     }
 
-    pub fn start(&mut self) {}
+    pub async fn start(&self) -> Result<(), ClientError> {
+        if let Some(topics) = self.option.topics() {
+            for topic in topics {
+                self.client.topic_route(topic, true).await?;
+            }
+        }
+        info!(
+            self.logger,
+            "start producer success, client_id: {}",
+            self.client.client_id()
+        );
+        Ok(())
+    }
+
+    pub async fn send(&self, message: Message) -> Result<SendResultEntry, ClientError> {
+        self.client.send_message(message).await
+    }
 }
+
+// #[cfg(test)]
+// mod tests {
+//     use crate::conf::{ClientOption, ProducerOption};
+//     use crate::pb::{Message, Resource, SystemProperties};
+//     use crate::producer::Producer;
+//
+//     #[tokio::test]
+//     async fn test_producer_start() {
+//         let mut producer_option = ProducerOption::default();
+//         producer_option.set_topics(vec!["DefaultCluster".to_string()]);
+//         let producer = Producer::new(producer_option, ClientOption::default())
+//             .await
+//             .unwrap();
+//         producer.start().await.unwrap();
+//     }
+//
+//     #[tokio::test]
+//     async fn test_producer_send() {
+//         let mut producer_option = ProducerOption::default();
+//         producer_option.set_topics(vec!["DefaultCluster".to_string()]);
+//         let producer = Producer::new(producer_option, ClientOption::default())
+//             .await
+//             .unwrap();
+//         producer.start().await.unwrap();
+//         let send_result = producer
+//             .send(Message {
+//                 topic: Some(Resource {
+//                     resource_namespace: "".to_string(),
+//                     name: "DefaultCluster".to_string(),
+//                 }),
+//                 user_properties: Default::default(),
+//                 system_properties: Some(SystemProperties {
+//                     message_id: "message_test_id".to_string(),
+//                     ..SystemProperties::default()
+//                 }),
+//                 body: "Hello world".to_string().into_bytes(),
+//             })
+//             .await;
+//         println!("{:?}", send_result);
+//     }
+// }
