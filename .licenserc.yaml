@@ -32,6 +32,7 @@ header:
     - '**/*.bazel'
     - '.github/**'
     - '.gitignore'
+    - '.gitmodules'
     - 'golang/go.mod'
     - 'golang/go.sum'
     - 'java/client/src/main/resources/META-INF/services/org.apache.rocketmq.client.apis.ClientServiceProvider'
