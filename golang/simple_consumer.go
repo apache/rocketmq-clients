@@ -52,7 +52,7 @@ type defaultSimpleConsumer struct {
 
 	groupName                    string
 	topicIndex                   int32
-	scOpts                       simpleConsumerOptions
+	scOpts                       consumerOptions
 	scSettings                   *simpleConsumerSettings
 	awaitDuration                time.Duration
 	subscriptionExpressionsLock  sync.RWMutex
@@ -296,7 +296,7 @@ func (sc *defaultSimpleConsumer) Receive(ctx context.Context, maxMessageNum int3
 		return nil, err
 	}
 	request := sc.wrapReceiveMessageRequest(int(maxMessageNum), selectMessageQueue, filterExpression, invisibleDuration)
-	timeout := sc.scOpts.awaitDuration + sc.cli.opts.timeout
+	timeout := sc.awaitDuration + sc.cli.opts.timeout
 	return sc.receiveMessage(ctx, request, selectMessageQueue, timeout)
 }
 
@@ -319,8 +319,8 @@ func (sc *defaultSimpleConsumer) wrapHeartbeatRequest() *v2.HeartbeatRequest {
 	}
 }
 
-var NewSimpleConsumer = func(config *Config, opts ...SimpleConsumerOption) (SimpleConsumer, error) {
-	copyOpt := defaultSimpleConsumerOptions
+var NewSimpleConsumer = func(config *Config, opts ...ConsumerOption) (SimpleConsumer, error) {
+	copyOpt := defaultConsumerOptions
 	scOpts := &copyOpt
 	for _, opt := range opts {
 		opt.apply(scOpts)

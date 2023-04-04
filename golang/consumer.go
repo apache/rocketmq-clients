@@ -27,3 +27,10 @@ type Consumer interface {
 	GetGroupName() string
 	wrapReceiveMessageRequest(batchSize int, messageQueue *v2.MessageQueue, filterExpression *FilterExpression, invisibleDuration time.Duration) *v2.ReceiveMessageRequest
 }
+
+type ConsumeResult int
+
+const (
+	Success ConsumeResult = iota
+	FAILURE
+)

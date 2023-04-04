@@ -25,9 +25,46 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-var _ = ClientSettings(&simpleConsumerSettings{})
+type pushConsumerOptions struct {
+	consumerOptions      *consumerOptions
+	messageViewCacheSize int
+}
 
-type simpleConsumerSettings struct {
+var defaultPushConsumerOptions = pushConsumerOptions{
+	consumerOptions: &defaultConsumerOptions,
+}
+
+// A PushConsumerOption sets options such as tag, etc.
+type PushConsumerOption interface {
+	ConsumerOption
+}
+
+// funcPushConsumerOption wraps a function that modifies options into an implementation of
+// the Option interface.
+type funcPushConsumerOption struct {
+	funcConsumerOption
+	f1 func(pushConsumerOptions)
+}
+
+func (fo *funcPushConsumerOption) apply(do *consumerOptions) {
+	fo.f(do)
+}
+
+func newFuncPushConsumerOption(f1 func(pushConsumerOptions)) *funcPushConsumerOption {
+	return &funcPushConsumerOption{
+		f1: f1,
+	}
+}
+
+func WithMessageViewCacheSize(messageViewCacheSize int) PushConsumerOption {
+	return newFuncPushConsumerOption(func(o pushConsumerOptions) {
+		o.messageViewCacheSize = messageViewCacheSize
+	})
+}
+
+var _ = ClientSettings(&pushConsumerSettings{})
+
+type pushConsumerSettings struct {
 	clientId       string
 	endpoints      *v2.Endpoints
 	clientType     v2.ClientType
@@ -40,47 +77,47 @@ type simpleConsumerSettings struct {
 }
 
 // GetAccessPoint implements ClientSettings
-func (sc *simpleConsumerSettings) GetAccessPoint() *v2.Endpoints {
-	return sc.endpoints
+func (pc *pushConsumerSettings) GetAccessPoint() *v2.Endpoints {
+	return pc.endpoints
 }
 
 // GetClientID implements ClientSettings
-func (sc *simpleConsumerSettings) GetClientID() string {
-	return sc.clientId
+func (pc *pushConsumerSettings) GetClientID() string {
+	return pc.clientId
 }
 
 // GetClientType implements ClientSettings
-func (sc *simpleConsumerSettings) GetClientType() v2.ClientType {
-	return sc.clientType
+func (pc *pushConsumerSettings) GetClientType() v2.ClientType {
+	return pc.clientType
 }
 
 // GetRequestTimeout implements ClientSettings
-func (sc *simpleConsumerSettings) GetRequestTimeout() time.Duration {
-	return sc.requestTimeout
+func (pc *pushConsumerSettings) GetRequestTimeout() time.Duration {
+	return pc.requestTimeout
 }
 
 // GetRetryPolicy implements ClientSettings
-func (sc *simpleConsumerSettings) GetRetryPolicy() *v2.RetryPolicy {
-	return sc.retryPolicy
+func (pc *pushConsumerSettings) GetRetryPolicy() *v2.RetryPolicy {
+	return pc.retryPolicy
 }
 
 // applySettingsCommand implements ClientSettings
-func (sc *simpleConsumerSettings) applySettingsCommand(settings *v2.Settings) error {
+func (pc *pushConsumerSettings) applySettingsCommand(settings *v2.Settings) error {
 	pubSub := settings.GetPubSub()
 	if pubSub == nil {
 		return fmt.Errorf("onSettingsCommand err = pubSub is nil")
 	}
 	_, ok := pubSub.(*v2.Settings_Subscription)
 	if !ok {
-		return fmt.Errorf("[bug] Issued settings not match with the client type, clientId=%v, clientType=%v", sc.GetClientID(), sc.GetClientType())
+		return fmt.Errorf("[bug] Issued settings not match with the client type, clientId=%v, clientType=%v", pc.GetClientID(), pc.GetClientType())
 	}
 	return nil
 }
 
 // toProtobuf implements ClientSettings
-func (sc *simpleConsumerSettings) toProtobuf() *v2.Settings {
+func (pc *pushConsumerSettings) toProtobuf() *v2.Settings {
 	subscriptions := make([]*v2.SubscriptionEntry, 0)
-	for k, v := range sc.subscriptionExpressions {
+	for k, v := range pc.subscriptionExpressions {
 		topic := &v2.Resource{
 			Name: k,
 		}
@@ -94,7 +131,7 @@ func (sc *simpleConsumerSettings) toProtobuf() *v2.Settings {
 			filterExpression.Type = v2.FilterType_TAG
 		default:
 			filterExpression.Type = v2.FilterType_FILTER_TYPE_UNSPECIFIED
-			sugarBaseLogger.Warnf("[bug] Unrecognized filter type for simple consumer, type=%v, client_id=%v", v.expressionType, sc.clientId)
+			sugarBaseLogger.Warnf("[bug] Unrecognized filter type for push consumer, type=%v, client_id=%v", v.expressionType, pc.clientId)
 		}
 		subscriptions = append(subscriptions, &v2.SubscriptionEntry{
 			Topic:      topic,
@@ -103,15 +140,15 @@ func (sc *simpleConsumerSettings) toProtobuf() *v2.Settings {
 	}
 	subSetting := &v2.Settings_Subscription{
 		Subscription: &v2.Subscription{
-			Group:              sc.groupName,
+			Group:              pc.groupName,
 			Subscriptions:      subscriptions,
-			LongPollingTimeout: durationpb.New(sc.longPollingTimeout),
+			LongPollingTimeout: durationpb.New(pc.longPollingTimeout),
 		},
 	}
 	settings := &v2.Settings{
-		ClientType:     &sc.clientType,
-		AccessPoint:    sc.GetAccessPoint(),
-		RequestTimeout: durationpb.New(sc.requestTimeout),
+		ClientType:     &pc.clientType,
+		AccessPoint:    pc.GetAccessPoint(),
+		RequestTimeout: durationpb.New(pc.requestTimeout),
 		PubSub:         subSetting,
 		UserAgent:      globalUserAgent.toProtoBuf(),
 	}

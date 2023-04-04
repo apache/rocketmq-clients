@@ -7,6 +7,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/prashantv/gostub v1.1.0
 	github.com/stretchr/testify v1.7.1
 	go.uber.org/zap v1.21.0
