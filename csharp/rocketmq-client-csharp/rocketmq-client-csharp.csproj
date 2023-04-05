@@ -34,15 +34,8 @@
         <PackageReference Include="OpenTelemetry.Api" Version="1.3.1" />
         <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.3.1" />
 
-        <Protobuf Include="Protos\apache\rocketmq\v2\definition.proto" ProtoRoot="Protos" GrpcServices="Client" />
-        <Protobuf Include="Protos\google\rpc\code.proto" ProtoRoot="Protos" GrpcServices="Client" />
-        <Protobuf Include="Protos\google\rpc\error_details.proto" ProtoRoot="Protos" GrpcServices="Client" />
-        <Protobuf Include="Protos\google\rpc\status.proto" ProtoRoot="Protos" GrpcServices="Client" />
-        <Protobuf Include="Protos\apache\rocketmq\v2\service.proto" ProtoRoot="Protos" GrpcServices="Client">
-            <Link>Protos\apache\rocketmq\v2\definition.proto</Link>
-            <Link>Protos\google\rpc\status.proto</Link>
-            <Link>Protos\google\rpc\error_details.proto</Link>
-        </Protobuf>
+        <Protobuf Include="..\..\protos\apache\rocketmq\v2\definition.proto" ProtoRoot="..\..\protos" GrpcServices="Client" />
+        <Protobuf Include="..\..\protos\apache\rocketmq\v2\service.proto" ProtoRoot="..\..\protos" GrpcServices="Client" />
         <None Include="logo.png" Pack="true" PackagePath="" />
     </ItemGroup>
 </Project>
