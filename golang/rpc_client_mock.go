@@ -215,9 +215,7 @@ func (mr *MockRpcClientMockRecorder) Telemetry(ctx interface{}) *gomock.Call {
 // idleDuration mocks base method.
 func (m *MockRpcClient) idleDuration() time.Duration {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "idleDuration")
-	ret0, _ := ret[0].(time.Duration)
-	return ret0
+	return time.Hour
 }
 
 // idleDuration indicates an expected call of idleDuration.

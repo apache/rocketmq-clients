@@ -137,7 +137,6 @@ func (cm *defaultClientManager) deleteRpcClient(rpcClient RpcClient) {
 }
 
 func (cm *defaultClientManager) clearIdleRpcClients() {
-	sugarBaseLogger.Info("clientManager start clearIdleRpcClients")
 	cm.rpcClientTableLock.Lock()
 	defer cm.rpcClientTableLock.Unlock()
 	for target, rpcClient := range cm.rpcClientTable {
