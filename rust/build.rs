@@ -21,10 +21,10 @@ fn main() {
         .out_dir("src/pb")
         .compile(
             &[
-                "proto/apache/rocketmq/v2/service.proto",
-                "proto/apache/rocketmq/v2/admin.proto",
+                "../protos/apache/rocketmq/v2/service.proto",
+                "../protos/apache/rocketmq/v2/admin.proto",
             ],
-            &["proto"],
+            &["../protos"],
         )
         .unwrap_or_else(|e| panic!("Failed to compile protos {:?}", e));
 }

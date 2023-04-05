@@ -10,6 +10,8 @@ jobs:
         os: [ubuntu-20.04, macos-11, windows-2022]
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: true
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
