@@ -36,6 +36,14 @@ Provide cloud-native and robust solutions for Java, C++, C#, Golang, Rust and al
 | Push consumer with concurrent message listener |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |    🚧    |   🚧    |
 | Push consumer with FIFO message listener       |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |    🚧    |   🚧    |
 
+## Prerequisite and Build
+
+As this project is structured as a monorepo, instructions on how to build it can be found in the subdirectories for each language's bindings. Since the [rocketmq-apis](https://github.com/apache/rocketmq-apis) submodule is included in this project and may be referenced by some bindings, we strongly recommend that you clone this repository using the following command:
+
+```sh
+git clone --recursive git@github.com:apache/rocketmq-clients.git
+```
+
 ## Contributing
 
 Similar to other projects of Apache RocketMQ, any attempt to make this project better is welcome, including but not limited to filing a bug report, correcting type error or document writing to complete feature implementation. Do not hesitate to make a pull request if this project catches your attention.
