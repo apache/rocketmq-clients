@@ -14,24 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#[allow(dead_code)]
-mod conf;
-#[allow(dead_code)]
-mod error;
-#[allow(dead_code)]
-mod log;
-
-mod client;
-mod model;
-
-#[allow(clippy::all)]
-#[path = "pb/apache.rocketmq.v2.rs"]
-mod pb;
-mod session;
-
-pub(crate) mod producer;
-
-// Export structs that are part of crate API.
-pub use producer::Producer;
-
-pub mod models;
+#[derive(Debug)]
+pub(crate) struct MessageView {
+    pub(crate) body: Vec<u8>,
+    pub(crate) message_id: String,
+    pub(crate) topic: String,
+    pub(crate) consume_group: String,
+    pub(crate) endpoint: String,
+    pub(crate) receipt_handle: String,
+}
