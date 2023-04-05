@@ -51,6 +51,7 @@ int main(int argc, char* argv[]) {
     credentials_provider = std::make_shared<StaticCredentialsProvider>(FLAGS_access_key, FLAGS_access_secret);
   }
 
+  // In most case, you don't need to create too many consumers, singletion pattern is recommended.
   auto push_consumer = PushConsumer::newBuilder()
                            .withGroup(FLAGS_group)
                            .withConfiguration(Configuration::newBuilder()

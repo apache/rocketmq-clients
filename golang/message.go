@@ -25,8 +25,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/apache/rocketmq-clients/golang/pkg/utils"
-	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
+	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
+	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -103,8 +103,19 @@ func (msg *Message) SetKeys(keys ...string) {
 	msg.keys = keys
 }
 
-func (msg *Message) GetProperties() map[string]string {
+func (msg *Message) getOrNewProperties() map[string]string {
+	if msg.properties == nil {
+		msg.properties = make(map[string]string)
+	}
 	return msg.properties
+}
+
+func (msg *Message) GetProperties() map[string]string {
+	return msg.getOrNewProperties()
+}
+
+func (msg *Message) AddProperty(key, value string) {
+	msg.getOrNewProperties()[key] = value
 }
 
 func (msg *Message) SetDelayTimestamp(deliveryTimestamp time.Time) {

@@ -25,8 +25,8 @@ import (
 	"strconv"
 	"time"
 
-	rmq_client "github.com/apache/rocketmq-clients/golang"
-	"github.com/apache/rocketmq-clients/golang/credentials"
+	rmq_client "github.com/apache/rocketmq-clients/golang/v5"
+	"github.com/apache/rocketmq-clients/golang/v5/credentials"
 )
 
 const (
@@ -39,7 +39,7 @@ const (
 func main() {
 	os.Setenv("mq.consoleAppender.enabled", "true")
 	rmq_client.ResetLogger()
-	// new producer instance
+	// In most case, you don't need to create many producers, singletion pattern is more recommended.
 	producer, err := rmq_client.NewProducer(&rmq_client.Config{
 		Endpoint: Endpoint,
 		Credentials: &credentials.SessionCredentials{

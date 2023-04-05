@@ -21,7 +21,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/apache/rocketmq-clients/golang/pkg/zaplog/ctxzap"
+	"github.com/apache/rocketmq-clients/golang/v5/pkg/zaplog/ctxzap"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"

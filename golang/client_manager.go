@@ -22,9 +22,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apache/rocketmq-clients/golang/pkg/ticker"
-	"github.com/apache/rocketmq-clients/golang/pkg/utils"
-	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
+	"github.com/apache/rocketmq-clients/golang/v5/pkg/ticker"
+	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
+	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -137,7 +137,6 @@ func (cm *defaultClientManager) deleteRpcClient(rpcClient RpcClient) {
 }
 
 func (cm *defaultClientManager) clearIdleRpcClients() {
-	sugarBaseLogger.Info("clientManager start clearIdleRpcClients")
 	cm.rpcClientTableLock.Lock()
 	defer cm.rpcClientTableLock.Unlock()
 	for target, rpcClient := range cm.rpcClientTable {

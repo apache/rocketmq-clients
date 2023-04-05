@@ -22,7 +22,7 @@ import (
 	reflect "reflect"
 	time "time"
 
-	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
+	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -215,9 +215,7 @@ func (mr *MockRpcClientMockRecorder) Telemetry(ctx interface{}) *gomock.Call {
 // idleDuration mocks base method.
 func (m *MockRpcClient) idleDuration() time.Duration {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "idleDuration")
-	ret0, _ := ret[0].(time.Duration)
-	return ret0
+	return time.Hour
 }
 
 // idleDuration indicates an expected call of idleDuration.

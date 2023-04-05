@@ -68,6 +68,7 @@ import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
 import org.apache.rocketmq.client.java.metrics.GaugeObserver;
+import org.apache.rocketmq.client.java.misc.ExcludeFromJacocoGeneratedReport;
 import org.apache.rocketmq.client.java.misc.ExecutorServices;
 import org.apache.rocketmq.client.java.misc.ThreadFactoryImpl;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
@@ -541,6 +542,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         return future;
     }
 
+    @ExcludeFromJacocoGeneratedReport
     @Override
     public void doStats() {
         final long receptionTimes = this.receptionTimes.getAndSet(0);

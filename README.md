@@ -5,7 +5,6 @@
 [![C#][csharp-image]][csharp-url]
 [![Java][java-image]][java-url]
 [![Golang][golang-image]][golang-url]
-[![PHP][php-image]][php-url]
 [![Codecov-cpp][codecov-cpp-image]][codecov-url]
 [![Codecov-java][codecov-java-image]][codecov-url]
 [![Codecov-golang][codecov-golang-image]][codecov-url]
@@ -37,6 +36,14 @@ Provide cloud-native and robust solutions for Java, C++, C#, Golang, Rust and al
 | Push consumer with concurrent message listener |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |    🚧    |   🚧    |
 | Push consumer with FIFO message listener       |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |    🚧    |   🚧    |
 
+## Prerequisite and Build
+
+As this project is structured as a monorepo, instructions on how to build it can be found in the subdirectories for each language's bindings. Since the [rocketmq-apis](https://github.com/apache/rocketmq-apis) submodule is included in this project and may be referenced by some bindings, we strongly recommend that you clone this repository using the following command:
+
+```sh
+git clone --recursive git@github.com:apache/rocketmq-clients.git
+```
+
 ## Contributing
 
 Similar to other projects of Apache RocketMQ, any attempt to make this project better is welcome, including but not limited to filing a bug report, correcting type error or document writing to complete feature implementation. Do not hesitate to make a pull request if this project catches your attention.
@@ -62,8 +69,6 @@ Similar to other projects of Apache RocketMQ, any attempt to make this project b
 [java-url]: https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml
 [golang-image]: https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml/badge.svg
 [golang-url]: https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml
-[php-image]: https://github.com/apache/rocketmq-clients/actions/workflows/php_build.yml/badge.svg
-[php-url]: https://github.com/apache/rocketmq-clients/actions/workflows/php_build.yml
 [codecov-cpp-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=cpp&label=CPP%20Coverage&logo=codecov
 [codecov-java-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=java&label=Java%20Coverage&logo=codecov
 [codecov-golang-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=golang&label=Golang%20Coverage&logo=codecov

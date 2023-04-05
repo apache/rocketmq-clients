@@ -227,7 +227,7 @@ message Subscription {
   // When FIFO flag is `true`, messages of the same message group are processed
   // in first-in-first-out manner.
   //
-  // Brokers will not deliver further messages of the same group utill prior
+  // Brokers will not deliver further messages of the same group until prior
   // ones are completely acknowledged.
   optional bool fifo = 3;
 
@@ -261,7 +261,7 @@ message Settings {
   // after which the message should be available to consume again.
   //
   // For FIFO messages, the interval should be relatively small because
-  // messages of the same message group would not be readily available utill
+  // messages of the same message group would not be readily available until
   // the prior one depletes its lifecycle.
   optional RetryPolicy backoff_policy = 3;
 

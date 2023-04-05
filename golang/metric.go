@@ -22,9 +22,11 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/atomic"
+
 	"contrib.go.opencensus.io/exporter/ocagent"
-	"github.com/apache/rocketmq-clients/golang/pkg/utils"
-	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
+	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
+	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
@@ -63,23 +65,23 @@ func init() {
 }
 
 type defaultClientMeter struct {
-	enabled     bool
+	enabled     atomic.Bool
 	endpoints   *v2.Endpoints
 	ocaExporter view.Exporter
 	mutex       sync.Mutex
 }
 
 func (dcm *defaultClientMeter) shutdown() {
-	if !dcm.enabled {
+	if !dcm.enabled.Load() {
 		return
 	}
 	dcm.mutex.Lock()
 	defer dcm.mutex.Unlock()
 	view.UnregisterExporter(dcm.ocaExporter)
 	if dcm.ocaExporter != nil {
-		oce, ok := dcm.ocaExporter.(*ocagent.Exporter)
+		exporter, ok := dcm.ocaExporter.(*ocagent.Exporter)
 		if ok {
-			err := oce.Stop()
+			err := exporter.Stop()
 			if err != nil {
 				sugarBaseLogger.Errorf("ocExporter stop failed, err=%w", err)
 			}
@@ -88,7 +90,7 @@ func (dcm *defaultClientMeter) shutdown() {
 }
 
 func (dcm *defaultClientMeter) start() {
-	if !dcm.enabled {
+	if !dcm.enabled.Load() {
 		return
 	}
 	view.RegisterExporter(dcm.ocaExporter)
@@ -96,7 +98,7 @@ func (dcm *defaultClientMeter) start() {
 
 var NewDefaultClientMeter = func(exporter view.Exporter, on bool, endpoints *v2.Endpoints, clientID string) *defaultClientMeter {
 	return &defaultClientMeter{
-		enabled:     on,
+		enabled:     *atomic.NewBool(on),
 		endpoints:   endpoints,
 		ocaExporter: exporter,
 	}
@@ -163,7 +165,7 @@ func (dmmi *defaultMessageMeterInterceptor) doAfter(messageHookPoints MessageHoo
 	return nil
 }
 func (dcmp *defaultClientMeterProvider) isEnabled() bool {
-	return dcmp.clientMeter.enabled
+	return dcmp.clientMeter.enabled.Load()
 }
 func (dcmp *defaultClientMeterProvider) getClientID() string {
 	return dcmp.client.GetClientID()
@@ -172,7 +174,7 @@ func (dcmp *defaultClientMeterProvider) Reset(metric *v2.Metric) {
 	dcmp.globalMutex.Lock()
 	defer dcmp.globalMutex.Unlock()
 	endpoints := metric.GetEndpoints()
-	if dcmp.clientMeter.enabled && metric.GetOn() && utils.CompareEndpoints(dcmp.clientMeter.endpoints, endpoints) {
+	if dcmp.clientMeter.enabled.Load() && metric.GetOn() && utils.CompareEndpoints(dcmp.clientMeter.endpoints, endpoints) {
 		sugarBaseLogger.Infof("metric settings is satisfied by the current message meter, clientId=%s", dcmp.client.GetClientID())
 		return
 	}
@@ -184,7 +186,7 @@ func (dcmp *defaultClientMeterProvider) Reset(metric *v2.Metric) {
 		return
 	}
 	agentAddr := utils.ParseAddress(utils.SelectAnAddress(endpoints))
-	oce, err := ocagent.NewExporter(
+	exporter, err := ocagent.NewExporter(
 		ocagent.WithInsecure(),
 		ocagent.WithTLSCredentials(credentials.NewTLS(defaultConnOptions.TLS)),
 		ocagent.WithAddress(agentAddr),
@@ -196,7 +198,7 @@ func (dcmp *defaultClientMeterProvider) Reset(metric *v2.Metric) {
 	}
 	// Reset message meter.
 	dcmp.clientMeter.shutdown()
-	dcmp.clientMeter = NewDefaultClientMeter(oce, true, endpoints, dcmp.client.GetClientID())
+	dcmp.clientMeter = NewDefaultClientMeter(exporter, true, endpoints, dcmp.client.GetClientID())
 	dcmp.clientMeter.start()
 	sugarBaseLogger.Infof("metrics is on, endpoints=%v, clientId=%s", endpoints, dcmp.client.GetClientID())
 }

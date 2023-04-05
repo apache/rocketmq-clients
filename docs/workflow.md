@@ -52,9 +52,9 @@ The publishing procedure is as follows:
 11. Isolate the current endpoint for publishing.
 12. Rotate to next message queue to publish message, and go to step 6.
 
-> **Note**: The failure of message publishing will isolate the endpoint, this makes the endpoint will not be selected for load balancing as much as possible. The periodic heartbeat to the isolate endpoint will check health status about it and remove it from the isolate endpoints if no more exception is deteched.
+> **Note**: The failure of message publishing will isolate the endpoint, this makes the endpoint will not be selected for load balancing as much as possible. The periodic heartbeat to the isolate endpoint will check health status about it and remove it from the isolate endpoints if no more exception is detected.
 
-For TRANSACTIONAL messages, the publishing will not be retried if failure is encountered. The ordering of FIFO message is based on the assumption that messages which have the same `message group` will be put into the same message queue, thus the message queue to publish is not disturbed by the isolated enpoint([SipHash](https://en.wikipedia.org/wiki/SipHash) algorithm is used to calculate the message queue index for FIFO message publishing).
+For TRANSACTIONAL messages, the publishing will not be retried if failure is encountered. The ordering of FIFO message is based on the assumption that messages which have the same `message group` will be put into the same message queue, thus the message queue to publish is not disturbed by the isolated endpoint([SipHash](https://en.wikipedia.org/wiki/SipHash) algorithm is used to calculate the message queue index for FIFO message publishing).
 
 About the message publishing retry policy when failure is encountered, in order to ensure the timeliness of message publishing, the next attempt would be executed immediately in most case if flow control does not encountered. Actually the server would deliver the explicit retry policy flow control for each producer while publishing flow control occurs.
 
@@ -74,7 +74,7 @@ The receiving procedure is as follows:
 
 1. Fetch the latest queue assignment from server.
 2. If flow control occurs during message receiving, consumer will retry after 20 milliseconds, otherwise go to step3.
-3. Cache message and trigger the consumption(Once the lifecycle of message is over, it will removed from cache immmediately).
+3. Cache message and trigger the consumption(Once the lifecycle of message is over, it will removed from cache immediately).
 4. Check the cache is full, consumer will try to receive message immediately, otherwise retry after 1 seconds.
 
 ### Message Consumption in Push Consumer(Non-FIFO)

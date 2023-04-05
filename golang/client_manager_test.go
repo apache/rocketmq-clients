@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
+	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/prashantv/gostub"
 	"google.golang.org/grpc/metadata"
@@ -38,7 +38,9 @@ var MOCK_CLIENT *MockClient
 var MOCK_RPC_CLIENT *MockRpcClient
 
 type MOCK_MessagingService_TelemetryClient struct {
-	trace []string
+	trace            []string
+	recv_error_count int            `default:"0"`
+	cli              *defaultClient `default:"nil"`
 }
 
 // CloseSend implements v2.MessagingService_TelemetryClient
@@ -80,7 +82,19 @@ func (mt *MOCK_MessagingService_TelemetryClient) Trailer() metadata.MD {
 // Recv implements v2.MessagingService_TelemetryClient
 func (mt *MOCK_MessagingService_TelemetryClient) Recv() (*v2.TelemetryCommand, error) {
 	mt.trace = append(mt.trace, "recv")
-	return nil, io.EOF
+	sugarBaseLogger.Info("calling recv function", "state", mt.recv_error_count, "cli", mt.cli)
+	if mt.recv_error_count >= 1 {
+		mt.recv_error_count -= 1
+		return nil, io.EOF
+	} else {
+		if mt.cli == nil {
+			return nil, io.EOF
+		} else {
+			time.Sleep(time.Second)
+			command := mt.cli.getSettingsCommand()
+			return command, nil
+		}
+	}
 }
 
 // Send implements v2.MessagingService_TelemetryClient

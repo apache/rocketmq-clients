@@ -41,3 +41,8 @@ rust/src/pb/*.rs
 composer.phar
 composer.lock
 vendor/
+
+# Go
+golang/*.tests
+golang/*.test
+golang/*.exe

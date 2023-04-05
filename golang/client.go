@@ -28,10 +28,10 @@ import (
 	"sync"
 	"time"
 
-	innerMD "github.com/apache/rocketmq-clients/golang/metadata"
-	"github.com/apache/rocketmq-clients/golang/pkg/ticker"
-	"github.com/apache/rocketmq-clients/golang/pkg/utils"
-	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
+	innerMD "github.com/apache/rocketmq-clients/golang/v5/metadata"
+	"github.com/apache/rocketmq-clients/golang/v5/pkg/ticker"
+	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
+	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -51,11 +51,13 @@ type isClient interface {
 	onVerifyMessageCommand(endpoints *v2.Endpoints, command *v2.VerifyMessageCommand) error
 }
 type defaultClientSession struct {
-	endpoints    *v2.Endpoints
-	observer     v2.MessagingService_TelemetryClient
-	observerLock sync.RWMutex
-	cli          *defaultClient
-	timeout      time.Duration
+	endpoints        *v2.Endpoints
+	observer         v2.MessagingService_TelemetryClient
+	observerLock     sync.RWMutex
+	cli              *defaultClient
+	timeout          time.Duration
+	recovering       bool
+	recoveryWaitTime time.Duration `default:"5s"`
 }
 
 func NewDefaultClientSession(target string, cli *defaultClient) (*defaultClientSession, error) {
@@ -64,36 +66,79 @@ func NewDefaultClientSession(target string, cli *defaultClient) (*defaultClientS
 		return nil, err
 	}
 	cs := &defaultClientSession{
-		endpoints: endpoints,
-		cli:       cli,
-		timeout:   365 * 24 * time.Hour,
+		endpoints:  endpoints,
+		cli:        cli,
+		timeout:    365 * 24 * time.Hour,
+		recovering: false,
 	}
 	cs.startUp()
 	return cs, nil
 }
+
+func (cs *defaultClientSession) _acquire_observer() (v2.MessagingService_TelemetryClient, bool) {
+	cs.observerLock.RLock()
+	observer := cs.observer
+	cs.observerLock.RUnlock()
+
+	if observer == nil {
+		time.Sleep(time.Second)
+		return nil, false
+	} else {
+		return observer, true
+	}
+
+}
+
+func (cs *defaultClientSession) _execute_server_telemetry_command(command *v2.TelemetryCommand) {
+	err := cs.handleTelemetryCommand(command)
+	if err != nil {
+		cs.cli.log.Errorf("telemetryCommand recv err=%w", err)
+	} else {
+		cs.cli.log.Info("Executed command successfully")
+	}
+}
+
 func (cs *defaultClientSession) startUp() {
 	cs.cli.log.Infof("defaultClientSession is startUp! endpoints=%v", cs.endpoints)
 	go func() {
 		for {
-			cs.observerLock.RLock()
-			observer := cs.observer
-			cs.observerLock.RUnlock()
-
-			if observer == nil {
-				time.Sleep(time.Second)
+			// ensure that observer is present, if not wait for it to be regenerated on publish.
+			observer, acquired_observer := cs._acquire_observer()
+			if !acquired_observer {
 				continue
 			}
+
 			response, err := observer.Recv()
 			if err != nil {
-				cs.release()
-
-				cs.cli.log.Errorf("telemetryCommand recv err=%w", err)
+				// we are recovering
+				if !cs.recovering {
+					cs.cli.log.Info("Encountered error while receiving TelemetryCommand, trying to recover")
+					// we wait five seconds to give time for the transmission error to be resolved externally before we attempt to read the message again.
+					time.Sleep(cs.recoveryWaitTime)
+					cs.recovering = true
+				} else {
+					// we are recovering but we failed to read the message again, resetting observer
+					cs.cli.log.Infof("Failed to recover, err=%v", err)
+					cs.release()
+					cs.recovering = false
+				}
 				continue
 			}
-			err = cs.handleTelemetryCommand(response)
-			if err != nil {
-				cs.cli.log.Errorf("telemetryCommand recv err=%w", err)
+			// at this point we received the message and must confirm that the sender is healthy
+			if cs.recovering {
+				// we don't know which server sent the request so we must check that each of the servers is healthy.
+				// we assume that the list of the servers hasn't changed, so the server that sent the message is still present.
+				hearbeat_response, err := cs.cli.clientManager.HeartBeat(context.TODO(), cs.endpoints, &v2.HeartbeatRequest{}, 10*time.Second)
+				if err == nil && hearbeat_response.Status.Code == v2.Code_OK {
+					cs.cli.log.Info("Managed to recover, executing message")
+					cs._execute_server_telemetry_command(response)
+				} else {
+					cs.cli.log.Errorf("Failed to recover, Some of the servers are unhealthy, Heartbeat err=%w", err)
+					cs.release()
+				}
+				cs.recovering = false
 			}
+			cs._execute_server_telemetry_command(response)
 		}
 	}()
 }
@@ -105,16 +150,12 @@ func (cs *defaultClientSession) handleTelemetryCommand(response *v2.TelemetryCom
 	switch c := command.(type) {
 	case *v2.TelemetryCommand_Settings:
 		cs.cli.onSettingsCommand(cs.endpoints, c.Settings)
-		break
 	case *v2.TelemetryCommand_RecoverOrphanedTransactionCommand:
 		cs.cli.onRecoverOrphanedTransactionCommand(cs.endpoints, c.RecoverOrphanedTransactionCommand)
-		break
 	case *v2.TelemetryCommand_VerifyMessageCommand:
 		cs.cli.onVerifyMessageCommand(cs.endpoints, c.VerifyMessageCommand)
-		break
 	case *v2.TelemetryCommand_PrintThreadStackTraceCommand:
 		cs.cli.onPrintThreadStackTraceCommand(cs.endpoints, c.PrintThreadStackTraceCommand)
-		break
 	default:
 		return fmt.Errorf("receive unrecognized command from remote, endpoints=%v, command=%v, clientId=%s", cs.endpoints, command, cs.cli.clientID)
 	}
@@ -189,6 +230,30 @@ var NewClient = func(config *Config, opts ...ClientOption) (Client, error) {
 		messageInterceptors:           make([]MessageInterceptor, 0),
 		endpointsTelemetryClientTable: make(map[string]*defaultClientSession),
 		on:                            *atomic.NewBool(true),
+	}
+	cli.log = sugarBaseLogger.With("client_id", cli.clientID)
+	for _, opt := range opts {
+		opt.apply(&cli.opts)
+	}
+	cli.done = make(chan struct{}, 1)
+	cli.clientMeterProvider = NewDefaultClientMeterProvider(cli)
+	return cli, nil
+}
+
+var NewClientConcrete = func(config *Config, opts ...ClientOption) (*defaultClient, error) {
+	endpoints, err := utils.ParseTarget(config.Endpoint)
+	if err != nil {
+		return nil, err
+	}
+	cli := &defaultClient{
+		config:                        config,
+		opts:                          defaultNSOptions,
+		clientID:                      utils.GenClientID(),
+		accessPoint:                   endpoints,
+		messageInterceptors:           make([]MessageInterceptor, 0),
+		endpointsTelemetryClientTable: make(map[string]*defaultClientSession),
+		on:                            *atomic.NewBool(true),
+		clientManager:                 &MockClientManager{},
 	}
 	cli.log = sugarBaseLogger.With("client_id", cli.clientID)
 	for _, opt := range opts {
@@ -405,13 +470,13 @@ func (cli *defaultClient) mustSyncSettingsToTargert(target string) error {
 func (cli *defaultClient) telemeter(target string, command *v2.TelemetryCommand) error {
 	cs, err := cli.getDefaultClientSession(target)
 	if err != nil {
-		cli.log.Error("getDefaultClientSession failed, err=%v", target, err)
+		cli.log.Errorf("getDefaultClientSession %s failed, err=%v", target, err)
 		return err
 	}
 	ctx := cli.Sign(context.Background())
 	err = cs.publish(ctx, command)
 	if err != nil {
-		cli.log.Error("telemeter to %s failed, err=%v", target, err)
+		cli.log.Errorf("telemeter to %s failed, err=%v", target, err)
 		return err
 	}
 	cli.log.Infof("telemeter to %s success", target)
@@ -443,13 +508,11 @@ func (cli *defaultClient) startUp() error {
 					if err == nil {
 						impl.publishingRouteDataResultCache.Store(topic, plb)
 					}
-					break
 				case *defaultSimpleConsumer:
 					slb, err := NewSubscriptionLoadBalancer(newRoute)
 					if err == nil {
 						impl.subTopicRouteDataResultCache.Store(topic, slb)
 					}
-					break
 				}
 			}
 			return true

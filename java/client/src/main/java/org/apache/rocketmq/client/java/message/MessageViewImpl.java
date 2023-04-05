@@ -33,20 +33,17 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.rocketmq.client.apis.message.MessageId;
 import org.apache.rocketmq.client.apis.message.MessageView;
-import org.apache.rocketmq.client.java.misc.LinkedElement;
-import org.apache.rocketmq.client.java.misc.LinkedIterator;
 import org.apache.rocketmq.client.java.misc.Utilities;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageView {
+public class MessageViewImpl implements MessageView {
     private static final Logger log = LoggerFactory.getLogger(MessageViewImpl.class);
 
     final byte[] body;
@@ -67,7 +64,6 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
     private final boolean corrupted;
     private final long decodeTimestamp;
     private final Long transportDeliveryTimestamp;
-    private MessageViewImpl next;
 
     public MessageViewImpl(MessageId messageId, String topic, byte[] body, String tag, String messageGroup,
         Long deliveryTimestamp, Collection<String> keys, Map<String, String> properties,
@@ -92,7 +88,6 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
         this.corrupted = corrupted;
         this.decodeTimestamp = System.currentTimeMillis();
         this.transportDeliveryTimestamp = transportDeliveryTimestamp;
-        this.next = null;
     }
 
     /**
@@ -219,20 +214,6 @@ public class MessageViewImpl implements LinkedElement<MessageViewImpl>, MessageV
 
     public Optional<Long> getTransportDeliveryTimestamp() {
         return Optional.ofNullable(transportDeliveryTimestamp);
-    }
-
-    public void setNext(MessageViewImpl messageView) {
-        this.next = messageView;
-    }
-
-    @Override
-    public MessageViewImpl getNext() {
-        return next;
-    }
-
-    @Override
-    public Iterator<MessageViewImpl> iterator() {
-        return new LinkedIterator<>(this);
     }
 
     public static MessageViewImpl fromProtobuf(Message message) {
