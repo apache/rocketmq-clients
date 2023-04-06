@@ -40,6 +40,7 @@ type SimpleConsumer interface {
 	Subscribe(topic string, filterExpression *FilterExpression) error
 	Unsubscribe(topic string) error
 	Ack(ctx context.Context, messageView *MessageView) error
+	ForwardMessageToDeadLetterQueue(ctx context.Context, messageView *MessageView) error
 	Receive(ctx context.Context, maxMessageNum int32, invisibleDuration time.Duration) ([]*MessageView, error)
 	ChangeInvisibleDuration(messageView *MessageView, invisibleDuration time.Duration) error
 	ChangeInvisibleDurationAsync(messageView *MessageView, invisibleDuration time.Duration)
@@ -180,6 +181,19 @@ func (sc *defaultSimpleConsumer) wrapAckMessageRequest(messageView *MessageView)
 				ReceiptHandle: messageView.GetReceiptHandle(),
 			},
 		},
+	}
+}
+
+func (sc *defaultSimpleConsumer) wrapForwardMessageToDeadLetterQueueRequest(messageView *MessageView) *v2.ForwardMessageToDeadLetterQueueRequest {
+	return &v2.ForwardMessageToDeadLetterQueueRequest{
+		Group: sc.scSettings.groupName,
+		Topic: &v2.Resource{
+			Name: messageView.GetTopic(),
+		},
+		ReceiptHandle:       messageView.GetReceiptHandle(),
+		MessageId:           messageView.GetMessageId(),
+		DeliveryAttempt:     messageView.GetDeliveryAttempt(),
+		MaxDeliveryAttempts: messageView.GetDeliveryAttempt(),
 	}
 }
 
@@ -425,5 +439,29 @@ func (sc *defaultSimpleConsumer) Ack(ctx context.Context, messageView *MessageVi
 		messageHookPointsStatus = MessageHookPointsStatus_OK
 	}
 	sc.cli.doAfter(MessageHookPoints_ACK, messageCommons, duration, messageHookPointsStatus)
+	return nil
+}
+
+func (sc *defaultSimpleConsumer) ForwardMessageToDeadLetterQueue(ctx context.Context, messageView *MessageView) error {
+	if !sc.isOn() {
+		return fmt.Errorf("simple consumer is not running")
+	}
+	endpoints := messageView.endpoints
+	watchTime := time.Now()
+	messageCommons := []*MessageCommon{messageView.GetMessageCommon()}
+	sc.cli.doBefore(MessageHookPoints_FORWARD_TO_DLQ, messageCommons)
+	request := sc.wrapForwardMessageToDeadLetterQueueRequest(messageView)
+	ctx = sc.cli.Sign(ctx)
+	resp, err := sc.cli.clientManager.ForwardMessageToDeadLetterQueue(ctx, endpoints, request, sc.cli.opts.timeout)
+	messageHookPointsStatus := MessageHookPointsStatus_ERROR
+	duration := time.Since(watchTime)
+	if err != nil {
+		sc.cli.doAfter(MessageHookPoints_FORWARD_TO_DLQ, messageCommons, duration, messageHookPointsStatus)
+		return err
+	}
+	if resp.GetStatus().GetCode() != v2.Code_OK {
+		messageHookPointsStatus = MessageHookPointsStatus_OK
+	}
+	sc.cli.doAfter(MessageHookPoints_FORWARD_TO_DLQ, messageCommons, duration, messageHookPointsStatus)
 	return nil
 }
