@@ -41,6 +41,7 @@ type ClientManager interface {
 	NotifyClientTermination(ctx context.Context, endpoints *v2.Endpoints, request *v2.NotifyClientTerminationRequest, duration time.Duration) (*v2.NotifyClientTerminationResponse, error)
 	ReceiveMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error)
 	AckMessage(ctx context.Context, endpoints *v2.Endpoints, request *v2.AckMessageRequest, duration time.Duration) (*v2.AckMessageResponse, error)
+	ForwardMessageToDeadLetterQueue(ctx context.Context, endpoints *v2.Endpoints, request *v2.ForwardMessageToDeadLetterQueueRequest, duration time.Duration) (*v2.ForwardMessageToDeadLetterQueueResponse, error)
 	ChangeInvisibleDuration(ctx context.Context, endpoints *v2.Endpoints, request *v2.ChangeInvisibleDurationRequest, duration time.Duration) (*v2.ChangeInvisibleDurationResponse, error)
 }
 
@@ -306,6 +307,17 @@ func (cm *defaultClientManager) AckMessage(ctx context.Context, endpoints *v2.En
 		return nil, err
 	}
 	ret, err := rpcClient.AckMessage(ctx, request)
+	cm.handleGrpcError(rpcClient, err)
+	return ret, err
+}
+
+func (cm *defaultClientManager) ForwardMessageToDeadLetterQueue(ctx context.Context, endpoints *v2.Endpoints, request *v2.ForwardMessageToDeadLetterQueueRequest, duration time.Duration) (*v2.ForwardMessageToDeadLetterQueueResponse, error) {
+	ctx, _ = context.WithTimeout(ctx, duration)
+	rpcClient, err := cm.getRpcClient(endpoints)
+	if err != nil {
+		return nil, err
+	}
+	ret, err := rpcClient.ForwardMessageToDeadLetterQueue(ctx, request)
 	cm.handleGrpcError(rpcClient, err)
 	return ret, err
 }

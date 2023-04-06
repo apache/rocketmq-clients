@@ -64,6 +64,21 @@ func (mr *MockRpcClientMockRecorder) AckMessage(ctx, request interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AckMessage", reflect.TypeOf((*MockRpcClient)(nil).AckMessage), ctx, request)
 }
 
+// ForwardMessageToDeadLetterQueue mocks base method.
+func (m *MockRpcClient) ForwardMessageToDeadLetterQueue(ctx context.Context, request *v2.ForwardMessageToDeadLetterQueueRequest) (*v2.ForwardMessageToDeadLetterQueueResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ForwardMessageToDeadLetterQueue", ctx, request)
+	ret0, _ := ret[0].(*v2.ForwardMessageToDeadLetterQueueResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ForwardMessageToDeadLetterQueue indicates an expected call of ForwardMessageToDeadLetterQueue.
+func (mr *MockRpcClientMockRecorder) ForwardMessageToDeadLetterQueue(ctx, request interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForwardMessageToDeadLetterQueue", reflect.TypeOf((*MockRpcClient)(nil).ForwardMessageToDeadLetterQueue), ctx, request)
+}
+
 // ChangeInvisibleDuration mocks base method.
 func (m *MockRpcClient) ChangeInvisibleDuration(ctx context.Context, request *v2.ChangeInvisibleDurationRequest) (*v2.ChangeInvisibleDurationResponse, error) {
 	m.ctrl.T.Helper()

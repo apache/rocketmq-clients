@@ -42,6 +42,7 @@ type RpcClient interface {
 	NotifyClientTermination(ctx context.Context, request *v2.NotifyClientTerminationRequest) (*v2.NotifyClientTerminationResponse, error)
 	ReceiveMessage(ctx context.Context, request *v2.ReceiveMessageRequest) (v2.MessagingService_ReceiveMessageClient, error)
 	AckMessage(ctx context.Context, request *v2.AckMessageRequest) (*v2.AckMessageResponse, error)
+	ForwardMessageToDeadLetterQueue(ctx context.Context, request *v2.ForwardMessageToDeadLetterQueueRequest) (*v2.ForwardMessageToDeadLetterQueueResponse, error)
 	ChangeInvisibleDuration(ctx context.Context, request *v2.ChangeInvisibleDurationRequest) (*v2.ChangeInvisibleDurationResponse, error)
 	idleDuration() time.Duration
 	GetTarget() string
@@ -170,6 +171,15 @@ func (rc *rpcClient) AckMessage(ctx context.Context, request *v2.AckMessageReque
 	rc.mux.Unlock()
 	resp, err := rc.msc.AckMessage(ctx, request)
 	sugarBaseLogger.Debugf("ackMessage request: %v, response: %v, err: %v", request, resp, err)
+	return resp, err
+}
+
+func (rc *rpcClient) ForwardMessageToDeadLetterQueue(ctx context.Context, request *v2.ForwardMessageToDeadLetterQueueRequest) (*v2.ForwardMessageToDeadLetterQueueResponse, error) {
+	rc.mux.Lock()
+	rc.activityNanoTime = time.Now()
+	rc.mux.Unlock()
+	resp, err := rc.msc.ForwardMessageToDeadLetterQueue(ctx, request)
+	sugarBaseLogger.Debugf("forwardMessageToDeadLetterQueue request: %v, response: %v, err: %v", request, resp, err)
 	return resp, err
 }
 
