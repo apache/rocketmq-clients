@@ -61,6 +61,7 @@ type defaultPushConsumer struct {
 	pcOpts                       pushConsumerOptions
 	scSettings                   *pushConsumerSettings
 	awaitDuration                time.Duration
+	invisibleDuration            time.Duration
 	subscriptionExpressionsLock  sync.RWMutex
 	subscriptionExpressions      map[string]*FilterExpression
 	subTopicRouteDataResultCache sync.Map
@@ -74,7 +75,12 @@ var NewPushConsumer = func(config *Config, opts ...PushConsumerOption) (PushCons
 	pcOpts := &copyOpt
 	cOpts := pcOpts.consumerOptions
 	for _, opt := range opts {
-		opt.apply(cOpts)
+		if opt.(*FuncPushConsumerOption).FuncConsumerOption != nil {
+			opt.apply(cOpts)
+		}
+		if opt.(*FuncPushConsumerOption).f1 != nil {
+			opt.apply0(pcOpts)
+		}
 	}
 	if len(config.ConsumerGroup) == 0 {
 		return nil, fmt.Errorf("consumerGroup could not be nil")
@@ -89,6 +95,7 @@ var NewPushConsumer = func(config *Config, opts ...PushConsumerOption) (PushCons
 		groupName: config.ConsumerGroup,
 
 		awaitDuration:           cOpts.awaitDuration,
+		invisibleDuration:       pcOpts.invisibleDuration,
 		subscriptionExpressions: cOpts.subscriptionExpressions,
 		messageViewCacheSize:    pcOpts.messageViewCacheSize,
 		// This cache will never expire
@@ -455,7 +462,6 @@ func (pc *defaultPushConsumer) Start() error {
 	ctx := pc.cli.Sign(context.Background())
 
 	// Receive data and store into cache
-	invisibleDuration := time.Duration(0)
 	go func() {
 		fmt.Println("start receive message")
 		for {
@@ -464,7 +470,7 @@ func (pc *defaultPushConsumer) Start() error {
 				time.Sleep(1 * time.Second)
 				continue
 			}
-			err := pc.Receive(ctx, invisibleDuration)
+			err := pc.Receive(ctx, pc.invisibleDuration)
 			if err != nil {
 				fmt.Println(err)
 				break
@@ -496,7 +502,7 @@ func (pc *defaultPushConsumer) Start() error {
 					}
 				} else {
 					// change message invisible duration
-					err := pc.changeInvisibleDuration(mv, invisibleDuration)
+					err := pc.changeInvisibleDuration(mv, pc.invisibleDuration)
 					if err != nil {
 						pc.cli.log.Errorf("%s", err)
 						break

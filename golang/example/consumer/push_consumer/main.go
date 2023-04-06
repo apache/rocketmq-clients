@@ -57,10 +57,15 @@ func main() {
 			AccessSecret: SecretKey,
 		},
 	},
-		rmq_client.WithAwaitDuration(awaitDuration),
-		rmq_client.WithSubscriptionExpressions(map[string]*rmq_client.FilterExpression{
-			Topic: rmq_client.SUB_ALL,
-		}),
+		&rmq_client.FuncPushConsumerOption{
+			FuncConsumerOption: rmq_client.WithAwaitDuration(awaitDuration),
+		},
+		&rmq_client.FuncPushConsumerOption{
+			FuncConsumerOption: rmq_client.WithSubscriptionExpressions(map[string]*rmq_client.FilterExpression{
+				Topic: rmq_client.SUB_ALL,
+			}),
+		},
+		rmq_client.WithInvisibleDuration(invisibleDuration),
 		rmq_client.WithMessageViewCacheSize(messageViewCacheSize),
 	)
 	if err != nil {

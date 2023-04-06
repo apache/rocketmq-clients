@@ -63,29 +63,29 @@ type ConsumerOption interface {
 	apply(*consumerOptions)
 }
 
-// funcConsumerOption wraps a function that modifies options into an implementation of
+// FuncConsumerOption wraps a function that modifies options into an implementation of
 // the Option interface.
-type funcConsumerOption struct {
+type FuncConsumerOption struct {
 	f func(*consumerOptions)
 }
 
-func (fo *funcConsumerOption) apply(do *consumerOptions) {
+func (fo *FuncConsumerOption) apply(do *consumerOptions) {
 	fo.f(do)
 }
 
-func newFuncConsumerOption(f func(*consumerOptions)) *funcConsumerOption {
-	return &funcConsumerOption{
+func newFuncConsumerOption(f func(*consumerOptions)) *FuncConsumerOption {
+	return &FuncConsumerOption{
 		f: f,
 	}
 }
 
-func WithSubscriptionExpressions(subscriptionExpressions map[string]*FilterExpression) ConsumerOption {
+func WithSubscriptionExpressions(subscriptionExpressions map[string]*FilterExpression) *FuncConsumerOption {
 	return newFuncConsumerOption(func(o *consumerOptions) {
 		o.subscriptionExpressions = subscriptionExpressions
 	})
 }
 
-func WithAwaitDuration(awaitDuration time.Duration) ConsumerOption {
+func WithAwaitDuration(awaitDuration time.Duration) *FuncConsumerOption {
 	return newFuncConsumerOption(func(o *consumerOptions) {
 		o.awaitDuration = awaitDuration
 	})

@@ -28,6 +28,7 @@ import (
 type pushConsumerOptions struct {
 	consumerOptions      *consumerOptions
 	messageViewCacheSize int
+	invisibleDuration    time.Duration
 }
 
 var defaultPushConsumerOptions = pushConsumerOptions{
@@ -37,28 +38,39 @@ var defaultPushConsumerOptions = pushConsumerOptions{
 // A PushConsumerOption sets options such as tag, etc.
 type PushConsumerOption interface {
 	ConsumerOption
+	apply0(*pushConsumerOptions)
 }
 
-// funcPushConsumerOption wraps a function that modifies options into an implementation of
+// FuncPushConsumerOption wraps a function that modifies options into an implementation of
 // the Option interface.
-type funcPushConsumerOption struct {
-	funcConsumerOption
-	f1 func(pushConsumerOptions)
+type FuncPushConsumerOption struct {
+	*FuncConsumerOption
+	f1 func(*pushConsumerOptions)
 }
 
-func (fo *funcPushConsumerOption) apply(do *consumerOptions) {
+func (fo *FuncPushConsumerOption) apply(do *consumerOptions) {
 	fo.f(do)
 }
 
-func newFuncPushConsumerOption(f1 func(pushConsumerOptions)) *funcPushConsumerOption {
-	return &funcPushConsumerOption{
+func (fo *FuncPushConsumerOption) apply0(do *pushConsumerOptions) {
+	fo.f1(do)
+}
+
+func newFuncPushConsumerOption(f1 func(*pushConsumerOptions)) *FuncPushConsumerOption {
+	return &FuncPushConsumerOption{
 		f1: f1,
 	}
 }
 
-func WithMessageViewCacheSize(messageViewCacheSize int) PushConsumerOption {
-	return newFuncPushConsumerOption(func(o pushConsumerOptions) {
+func WithMessageViewCacheSize(messageViewCacheSize int) *FuncPushConsumerOption {
+	return newFuncPushConsumerOption(func(o *pushConsumerOptions) {
 		o.messageViewCacheSize = messageViewCacheSize
+	})
+}
+
+func WithInvisibleDuration(invisibleDuration time.Duration) *FuncPushConsumerOption {
+	return newFuncPushConsumerOption(func(o *pushConsumerOptions) {
+		o.invisibleDuration = invisibleDuration
 	})
 }
 
