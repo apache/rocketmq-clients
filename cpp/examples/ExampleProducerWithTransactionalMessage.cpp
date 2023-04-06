@@ -74,6 +74,7 @@ int main(int argc, char* argv[]) {
     credentials_provider = std::make_shared<StaticCredentialsProvider>(FLAGS_access_key, FLAGS_access_secret);
   }
 
+  // In most case, you don't need to create too many producers, singletion pattern is recommended.
   auto producer = Producer::newBuilder()
                       .withConfiguration(Configuration::newBuilder()
                                              .withEndpoints(FLAGS_access_point)

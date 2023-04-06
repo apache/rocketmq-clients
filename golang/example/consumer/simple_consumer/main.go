@@ -24,8 +24,8 @@ import (
 	"os"
 	"time"
 
-	rmq_client "github.com/apache/rocketmq-clients/golang"
-	"github.com/apache/rocketmq-clients/golang/credentials"
+	rmq_client "github.com/apache/rocketmq-clients/golang/v5"
+	"github.com/apache/rocketmq-clients/golang/v5/credentials"
 )
 
 const (
@@ -50,7 +50,7 @@ func main() {
 	// log to console
 	os.Setenv("mq.consoleAppender.enabled", "true")
 	rmq_client.ResetLogger()
-	// new simpleConsumer instance
+	// In most case, you don't need to create many consumers, singletion pattern is more recommended.
 	simpleConsumer, err := rmq_client.NewSimpleConsumer(&rmq_client.Config{
 		Endpoint:      Endpoint,
 		ConsumerGroup: ConsumerGroup,

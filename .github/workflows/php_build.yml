@@ -19,6 +19,6 @@ jobs:
       - name: Validate composer.json
         working-directory: ./php
         run: composer validate
-      - name: Install Dependecies
+      - name: Install Dependencies
         working-directory: ./php
         run: composer install

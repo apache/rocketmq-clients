@@ -101,7 +101,7 @@ bool UtilAll::macAddress(std::vector<unsigned char>& mac) {
   char mac_address[18];
   adaptor_info = (IP_ADAPTER_INFO*)malloc(buf_len);
   if (!adaptor_info) {
-    // TODO: running out of memroy
+    // TODO: running out of memory
   }
 
   if (GetAdaptersInfo(adaptor_info, &buf_len) == NO_ERROR) {

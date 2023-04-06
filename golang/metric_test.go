@@ -15,23 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.java.misc;
+package golang
 
-import java.util.Iterator;
+import (
+	"testing"
 
-/**
- * Linked element is a simple class that allows you to link elements together.
- *
- * @param <T> the type of the elements to be linked.
- */
-public interface LinkedElement<T> {
-    /**
-     * @return the next element in the linked list.
-     */
-    T getNext();
+	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
+)
 
-    /**
-     * @return the iterator over the linked list.
-     */
-    Iterator<T> iterator();
+// This test is designed to verify there is no data race in dcmp.Reset
+func TestDefaultClientMeterProviderResetNoDataRace(t *testing.T) {
+	cli := BuildCLient(t)
+	metric := &v2.Metric{On: false, Endpoints: cli.accessPoint}
+
+	for i := 0; i < 5; i++ {
+		go func() {
+			cli.clientMeterProvider.Reset(metric)
+		}()
+	}
 }

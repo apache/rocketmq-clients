@@ -56,6 +56,7 @@ import org.apache.rocketmq.client.java.message.GeneralMessage;
 import org.apache.rocketmq.client.java.message.GeneralMessageImpl;
 import org.apache.rocketmq.client.java.message.MessageViewImpl;
 import org.apache.rocketmq.client.java.misc.ClientId;
+import org.apache.rocketmq.client.java.misc.ExcludeFromJacocoGeneratedReport;
 import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
 import org.apache.rocketmq.client.java.route.MessageQueueImpl;
@@ -637,6 +638,7 @@ class ProcessQueueImpl implements ProcessQueue {
         return cachedMessagesBytes.get();
     }
 
+    @ExcludeFromJacocoGeneratedReport
     public void doStats() {
         final long receptionTimes = this.receptionTimes.getAndSet(0);
         final long receivedMessagesQuantity = this.receivedMessagesQuantity.getAndSet(0);

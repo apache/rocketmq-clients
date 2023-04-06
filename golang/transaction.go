@@ -26,7 +26,7 @@ import (
 type TransactionResolution int32
 
 const (
-	UNKNOW TransactionResolution = iota // 开始生成枚举值, 默认为0
+	UNKNOWN TransactionResolution = iota // 开始生成枚举值, 默认为0
 	COMMIT
 	ROLLBACK
 )

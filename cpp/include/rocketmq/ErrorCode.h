@@ -153,7 +153,7 @@ enum class ErrorCode : int {
   PreconditionRequired = 42800,
 
   /**
-   * @brief Quota exchausted. The user has sent too many requests in a given
+   * @brief Quota exhausted. The user has sent too many requests in a given
    * amount of time.
    *
    */

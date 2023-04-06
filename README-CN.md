@@ -5,7 +5,6 @@
 [![C#][csharp-image]][csharp-url]
 [![Java][java-image]][java-url]
 [![Golang][golang-image]][golang-url]
-[![PHP][php-image]][php-url]
 [![Codecov-cpp][codecov-cpp-image]][codecov-url]
 [![Codecov-java][codecov-java-image]][codecov-url]
 [![Codecov-golang][codecov-golang-image]][codecov-url]
@@ -36,6 +35,14 @@
 | Push consumer with concurrent message listener |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |    🚧    |   🚧    |
 | Push consumer with FIFO message listener       |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |    🚧    |   🚧    |
 
+## 先决条件和构建
+
+由于本项目是以 monorepo 的形式组织的，因此如何构建它的说明可以在每种语言实现的子目录中找到。此外，由于 [rocketmq-apis](https://github.com/apache/rocketmq-apis) 作为一个子模块被包含在本项目中，可能会被一些语言的实现在构建时所引用，因此我们强烈建议使用以下命令克隆此存储库：
+
+```sh
+git clone --recursive git@github.com:apache/rocketmq-clients.git
+```
+
 ## 参与贡献
 
 与 Apache RocketMQ 的其他项目类似，我们欢迎任何形式的贡献，包括但不仅限于提交 bug 报告、勘误纠错、文档撰写或提交 feature。成为 Apache RocketMQ contributor，从第一个 issue/pull request 开始！
@@ -61,8 +68,6 @@
 [java-url]: https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml
 [golang-image]: https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml/badge.svg
 [golang-url]: https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml
-[php-image]: https://github.com/apache/rocketmq-clients/actions/workflows/php_build.yml/badge.svg
-[php-url]: https://github.com/apache/rocketmq-clients/actions/workflows/php_build.yml
 [codecov-cpp-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=cpp&label=CPP%20Coverage&logo=codecov
 [codecov-java-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=java&label=Java%20Coverage&logo=codecov
 [codecov-golang-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=golang&label=Golang%20Coverage&logo=codecov

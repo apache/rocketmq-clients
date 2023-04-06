@@ -32,7 +32,7 @@ class Subscription extends \Google\Protobuf\Internal\Message
      * server to push.
      * When FIFO flag is `true`, messages of the same message group are processed
      * in first-in-first-out manner.
-     * Brokers will not deliver further messages of the same group utill prior
+     * Brokers will not deliver further messages of the same group until prior
      * ones are completely acknowledged.
      *
      * Generated from protobuf field <code>optional bool fifo = 3;</code>
@@ -69,7 +69,7 @@ class Subscription extends \Google\Protobuf\Internal\Message
      *           server to push.
      *           When FIFO flag is `true`, messages of the same message group are processed
      *           in first-in-first-out manner.
-     *           Brokers will not deliver further messages of the same group utill prior
+     *           Brokers will not deliver further messages of the same group until prior
      *           ones are completely acknowledged.
      *     @type int $receive_batch_size
      *           Message receive batch size here is essential for push consumer.
@@ -154,7 +154,7 @@ class Subscription extends \Google\Protobuf\Internal\Message
      * server to push.
      * When FIFO flag is `true`, messages of the same message group are processed
      * in first-in-first-out manner.
-     * Brokers will not deliver further messages of the same group utill prior
+     * Brokers will not deliver further messages of the same group until prior
      * ones are completely acknowledged.
      *
      * Generated from protobuf field <code>optional bool fifo = 3;</code>
@@ -180,7 +180,7 @@ class Subscription extends \Google\Protobuf\Internal\Message
      * server to push.
      * When FIFO flag is `true`, messages of the same message group are processed
      * in first-in-first-out manner.
-     * Brokers will not deliver further messages of the same group utill prior
+     * Brokers will not deliver further messages of the same group until prior
      * ones are completely acknowledged.
      *
      * Generated from protobuf field <code>optional bool fifo = 3;</code>

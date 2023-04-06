@@ -28,10 +28,10 @@ import (
 	"sync"
 	"time"
 
-	innerMD "github.com/apache/rocketmq-clients/golang/metadata"
-	"github.com/apache/rocketmq-clients/golang/pkg/ticker"
-	"github.com/apache/rocketmq-clients/golang/pkg/utils"
-	v2 "github.com/apache/rocketmq-clients/golang/protocol/v2"
+	innerMD "github.com/apache/rocketmq-clients/golang/v5/metadata"
+	"github.com/apache/rocketmq-clients/golang/v5/pkg/ticker"
+	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
+	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -118,7 +118,7 @@ func (cs *defaultClientSession) startUp() {
 					cs.recovering = true
 				} else {
 					// we are recovering but we failed to read the message again, resetting observer
-					cs.cli.log.Info("Failed to recover, err=%w", err)
+					cs.cli.log.Infof("Failed to recover, err=%v", err)
 					cs.release()
 					cs.recovering = false
 				}
@@ -150,16 +150,12 @@ func (cs *defaultClientSession) handleTelemetryCommand(response *v2.TelemetryCom
 	switch c := command.(type) {
 	case *v2.TelemetryCommand_Settings:
 		cs.cli.onSettingsCommand(cs.endpoints, c.Settings)
-		break
 	case *v2.TelemetryCommand_RecoverOrphanedTransactionCommand:
 		cs.cli.onRecoverOrphanedTransactionCommand(cs.endpoints, c.RecoverOrphanedTransactionCommand)
-		break
 	case *v2.TelemetryCommand_VerifyMessageCommand:
 		cs.cli.onVerifyMessageCommand(cs.endpoints, c.VerifyMessageCommand)
-		break
 	case *v2.TelemetryCommand_PrintThreadStackTraceCommand:
 		cs.cli.onPrintThreadStackTraceCommand(cs.endpoints, c.PrintThreadStackTraceCommand)
-		break
 	default:
 		return fmt.Errorf("receive unrecognized command from remote, endpoints=%v, command=%v, clientId=%s", cs.endpoints, command, cs.cli.clientID)
 	}
@@ -474,13 +470,13 @@ func (cli *defaultClient) mustSyncSettingsToTargert(target string) error {
 func (cli *defaultClient) telemeter(target string, command *v2.TelemetryCommand) error {
 	cs, err := cli.getDefaultClientSession(target)
 	if err != nil {
-		cli.log.Error("getDefaultClientSession failed, err=%v", target, err)
+		cli.log.Errorf("getDefaultClientSession %s failed, err=%v", target, err)
 		return err
 	}
 	ctx := cli.Sign(context.Background())
 	err = cs.publish(ctx, command)
 	if err != nil {
-		cli.log.Error("telemeter to %s failed, err=%v", target, err)
+		cli.log.Errorf("telemeter to %s failed, err=%v", target, err)
 		return err
 	}
 	cli.log.Infof("telemeter to %s success", target)
@@ -512,13 +508,11 @@ func (cli *defaultClient) startUp() error {
 					if err == nil {
 						impl.publishingRouteDataResultCache.Store(topic, plb)
 					}
-					break
 				case *defaultSimpleConsumer:
 					slb, err := NewSubscriptionLoadBalancer(newRoute)
 					if err == nil {
 						impl.subTopicRouteDataResultCache.Store(topic, slb)
 					}
-					break
 				}
 			}
 			return true

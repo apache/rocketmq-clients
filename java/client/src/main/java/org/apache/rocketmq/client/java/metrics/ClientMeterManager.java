@@ -27,7 +27,6 @@ import io.grpc.netty.shaded.io.netty.handler.ssl.SslContextBuilder;
 import io.grpc.netty.shaded.io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.Meter;
-import io.opentelemetry.api.metrics.ObservableDoubleGauge;
 import io.opentelemetry.exporter.otlp.metrics.OtlpGrpcMetricExporter;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.metrics.InstrumentSelector;
@@ -78,7 +77,7 @@ public class ClientMeterManager {
         clientMeter.shutdown();
     }
 
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings({"deprecation", "resource"})
     public synchronized void reset(Metric metric) {
         try {
             if (clientMeter.satisfy(metric)) {
@@ -156,8 +155,7 @@ public class ClientMeterManager {
 
             final List<GaugeEnum> gauges = gaugeObserver.getGauges();
             for (GaugeEnum gauge : gauges) {
-                final String name = gauge.getName();
-                try (ObservableDoubleGauge ignored = meter.gaugeBuilder(name).buildWithCallback(measurement -> {
+                meter.gaugeBuilder(gauge.getName()).buildWithCallback(measurement -> {
                     final Map<Attributes, Double> map = gaugeObserver.getValues(gauge);
                     if (map.isEmpty()) {
                         return;
@@ -167,11 +165,7 @@ public class ClientMeterManager {
                         final Double value = entry.getValue();
                         measurement.record(value, attributes);
                     }
-                })) {
-                    log.debug("Build observable double gauge successfully, gauge={}, clientId={}", name, clientId);
-                } catch (Exception e) {
-                    log.error("Failed to build observable double gauge, gauge={}, clientId={}", name, clientId, e);
-                }
+                });
             }
         } catch (Throwable t) {
             log.error("Exception raised when resetting message meter, clientId={}", clientId, t);
