@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::net::IpAddr;
+use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 
 use tokio::sync::oneshot;
@@ -25,57 +26,60 @@ use crate::pb::{Address, AddressScheme, MessageQueue};
 
 #[derive(Debug)]
 pub struct Route {
+    pub(crate) index: AtomicUsize,
     pub queue: Vec<MessageQueue>,
 }
 
 #[derive(Debug)]
 pub(crate) enum RouteStatus {
-    Querying(Vec<oneshot::Sender<Result<Arc<Route>, ClientError>>>),
+    Querying(Option<Vec<oneshot::Sender<Result<Arc<Route>, ClientError>>>>),
     Found(Arc<Route>),
 }
 
 #[derive(Debug)]
 pub(crate) struct Endpoints {
-    access_url: String,
+    endpoint_url: String,
     scheme: AddressScheme,
     inner: pb::Endpoints,
 }
 
 impl Endpoints {
+    const OPERATION_PARSE: &'static str = "endpoint.parse";
+
     const ENDPOINT_SEPARATOR: &'static str = ",";
     const ADDRESS_SEPARATOR: &'static str = ":";
 
-    pub fn from_access_url(access_url: String) -> Result<Self, ClientError> {
-        if access_url.is_empty() {
+    pub fn from_url(endpoint_url: &str) -> Result<Self, ClientError> {
+        if endpoint_url.is_empty() {
             return Err(ClientError::new(
                 ErrorKind::Config,
-                "Access url is empty.".to_string(),
-                "access_url.parse",
+                "Access url is empty.",
+                Self::OPERATION_PARSE,
             )
-            .with_context("access_url", access_url));
+            .with_context("access_url", endpoint_url));
         }
 
         let mut scheme = AddressScheme::DomainName;
         let mut urls = Vec::new();
-        for url in access_url.split(Self::ENDPOINT_SEPARATOR) {
+        for url in endpoint_url.split(Self::ENDPOINT_SEPARATOR) {
             if let Some((host, port)) = url.rsplit_once(Self::ADDRESS_SEPARATOR) {
                 let port_i32 = port.parse::<i32>().map_err(|e| {
                     ClientError::new(
                         ErrorKind::Config,
-                        format!("Port {} in access url is invalid.", port),
-                        "access_url.parse",
+                        &format!("Port {} in access url is invalid.", port),
+                        Self::OPERATION_PARSE,
                     )
-                    .with_context("access_url", access_url.clone())
+                    .with_context("access_url", endpoint_url.clone())
                     .set_source(e)
                 })?;
                 urls.push((host.to_string(), port_i32));
             } else {
                 return Err(ClientError::new(
                     ErrorKind::Config,
-                    "Port in access url is missing.".to_string(),
-                    "access_url.parse",
+                    "Port in access url is missing.",
+                    Self::OPERATION_PARSE,
                 )
-                .with_context("access_url", access_url));
+                .with_context("access_url", endpoint_url));
             }
         }
 
@@ -89,10 +93,10 @@ impl Endpoints {
                             if scheme == AddressScheme::IPv6 {
                                 return Err(ClientError::new(
                                     ErrorKind::Config,
-                                    "Multiple addresses not in the same schema.".to_string(),
-                                    "access_url.parse",
+                                    "Multiple addresses not in the same schema.",
+                                    Self::OPERATION_PARSE,
                                 )
-                                .with_context("access_url", access_url));
+                                .with_context("access_url", endpoint_url));
                             }
                             scheme = AddressScheme::IPv4
                         }
@@ -100,10 +104,10 @@ impl Endpoints {
                             if scheme == AddressScheme::IPv4 {
                                 return Err(ClientError::new(
                                     ErrorKind::Config,
-                                    "Multiple addresses not in the same schema.".to_string(),
-                                    "access_url.parse",
+                                    "Multiple addresses not in the same schema.",
+                                    Self::OPERATION_PARSE,
                                 )
-                                .with_context("access_url", access_url));
+                                .with_context("access_url", endpoint_url));
                             }
                             scheme = AddressScheme::IPv6
                         }
@@ -114,10 +118,10 @@ impl Endpoints {
                     if urls_len > 1 {
                         return Err(ClientError::new(
                             ErrorKind::Config,
-                            "Multiple addresses not allowed in domain schema.".to_string(),
-                            "access_url.parse",
+                            "Multiple addresses not allowed in domain schema.",
+                            Self::OPERATION_PARSE,
                         )
-                        .with_context("access_url", access_url));
+                        .with_context("access_url", endpoint_url));
                     }
                     scheme = AddressScheme::DomainName;
                     addresses.push(Address { host, port });
@@ -126,7 +130,7 @@ impl Endpoints {
         }
 
         Ok(Endpoints {
-            access_url,
+            endpoint_url: endpoint_url.to_string(),
             scheme,
             inner: pb::Endpoints {
                 scheme: scheme as i32,
@@ -135,8 +139,21 @@ impl Endpoints {
         })
     }
 
+    pub(crate) fn from_pb_endpoints(endpoints: pb::Endpoints) -> Self {
+        let mut addresses = Vec::new();
+        for address in endpoints.addresses.iter() {
+            addresses.push(format!("{}:{}", address.host, address.port));
+        }
+
+        Endpoints {
+            endpoint_url: addresses.join(Self::ENDPOINT_SEPARATOR),
+            scheme: endpoints.scheme(),
+            inner: endpoints,
+        }
+    }
+
     pub fn access_url(&self) -> &str {
-        &self.access_url
+        &self.endpoint_url
     }
 
     pub fn scheme(&self) -> AddressScheme {
@@ -155,12 +172,12 @@ impl Endpoints {
 #[cfg(test)]
 mod tests {
     use crate::error::ErrorKind;
-    use crate::model::Endpoints;
+    use crate::model::common::Endpoints;
     use crate::pb::AddressScheme;
 
     #[test]
     fn parse_domain_access_url() {
-        let endpoints = Endpoints::from_access_url("localhost:8080".to_string()).unwrap();
+        let endpoints = Endpoints::from_url("localhost:8080").unwrap();
         assert_eq!(endpoints.access_url(), "localhost:8080");
         assert_eq!(endpoints.scheme(), AddressScheme::DomainName);
         let inner = endpoints.into_inner();
@@ -171,7 +188,7 @@ mod tests {
 
     #[test]
     fn parse_ipv4_access_url() {
-        let endpoints = Endpoints::from_access_url("127.0.0.1:8080".to_string()).unwrap();
+        let endpoints = Endpoints::from_url("127.0.0.1:8080").unwrap();
         assert_eq!(endpoints.access_url(), "127.0.0.1:8080");
         assert_eq!(endpoints.scheme(), AddressScheme::IPv4);
         let inner = endpoints.into_inner();
@@ -182,7 +199,7 @@ mod tests {
 
     #[test]
     fn parse_ipv6_access_url() {
-        let endpoints = Endpoints::from_access_url("::1:8080".to_string()).unwrap();
+        let endpoints = Endpoints::from_url("::1:8080").unwrap();
         assert_eq!(endpoints.access_url(), "::1:8080");
         assert_eq!(endpoints.scheme(), AddressScheme::IPv6);
         let inner = endpoints.into_inner();
@@ -193,44 +210,40 @@ mod tests {
 
     #[test]
     fn parse_access_url_failed() {
-        let err = Endpoints::from_access_url("".to_string()).err().unwrap();
+        let err = Endpoints::from_url("").err().unwrap();
         assert_eq!(err.kind, ErrorKind::Config);
-        assert_eq!(err.operation, "access_url.parse");
+        assert_eq!(err.operation, "endpoint.parse");
         assert_eq!(err.message, "Access url is empty.");
 
-        let err = Endpoints::from_access_url("localhost:<port>".to_string())
-            .err()
-            .unwrap();
+        let err = Endpoints::from_url("localhost:<port>").err().unwrap();
         assert_eq!(err.kind, ErrorKind::Config);
-        assert_eq!(err.operation, "access_url.parse");
+        assert_eq!(err.operation, "endpoint.parse");
         assert_eq!(err.message, "Port <port> in access url is invalid.");
 
-        let err = Endpoints::from_access_url("localhost".to_string())
-            .err()
-            .unwrap();
+        let err = Endpoints::from_url("localhost").err().unwrap();
         assert_eq!(err.kind, ErrorKind::Config);
-        assert_eq!(err.operation, "access_url.parse");
+        assert_eq!(err.operation, "endpoint.parse");
         assert_eq!(err.message, "Port in access url is missing.");
 
-        let err = Endpoints::from_access_url("127.0.0.1:8080,::1:8080".to_string())
+        let err = Endpoints::from_url("127.0.0.1:8080,::1:8080")
             .err()
             .unwrap();
         assert_eq!(err.kind, ErrorKind::Config);
-        assert_eq!(err.operation, "access_url.parse");
+        assert_eq!(err.operation, "endpoint.parse");
         assert_eq!(err.message, "Multiple addresses not in the same schema.");
 
-        let err = Endpoints::from_access_url("::1:8080,127.0.0.1:8080".to_string())
+        let err = Endpoints::from_url("::1:8080,127.0.0.1:8080")
             .err()
             .unwrap();
         assert_eq!(err.kind, ErrorKind::Config);
-        assert_eq!(err.operation, "access_url.parse");
+        assert_eq!(err.operation, "endpoint.parse");
         assert_eq!(err.message, "Multiple addresses not in the same schema.");
 
-        let err = Endpoints::from_access_url("localhost:8080,localhost:8081".to_string())
+        let err = Endpoints::from_url("localhost:8080,localhost:8081")
             .err()
             .unwrap();
         assert_eq!(err.kind, ErrorKind::Config);
-        assert_eq!(err.operation, "access_url.parse");
+        assert_eq!(err.operation, "endpoint.parse");
         assert_eq!(
             err.message,
             "Multiple addresses not allowed in domain schema."

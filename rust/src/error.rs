@@ -26,8 +26,14 @@ pub enum ErrorKind {
     #[error("Failed to create session")]
     Connect,
 
+    #[error("Message is invalid")]
+    InvalidMessage,
+
     #[error("Server error")]
     Server,
+
+    #[error("No broker available to send message")]
+    NoBrokerAvailable,
 
     #[error("Client internal error")]
     ClientInternal,
@@ -53,10 +59,10 @@ pub struct ClientError {
 impl Error for ClientError {}
 
 impl ClientError {
-    pub fn new(kind: ErrorKind, message: String, operation: &'static str) -> Self {
+    pub fn new(kind: ErrorKind, message: &str, operation: &'static str) -> Self {
         Self {
             kind,
-            message,
+            message: message.to_string(),
             operation,
             context: Vec::new(),
             source: None,

@@ -53,6 +53,8 @@ minitrace = "0.4.1"
 
 mockall = "0.11.4"
 
+siphasher = "0.3.10"
+
 [build-dependencies]
 tonic-build = "0.9.0"
 

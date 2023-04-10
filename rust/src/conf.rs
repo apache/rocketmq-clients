@@ -65,6 +65,7 @@ pub struct ProducerOption {
     logging_format: LoggingFormat,
     prefetch_route: bool,
     topics: Option<Vec<String>>,
+    name_space: String,
 }
 
 impl Default for ProducerOption {
@@ -73,6 +74,7 @@ impl Default for ProducerOption {
             logging_format: LoggingFormat::Terminal,
             prefetch_route: true,
             topics: None,
+            name_space: "".to_string(),
         }
     }
 }
@@ -97,5 +99,12 @@ impl ProducerOption {
     }
     pub fn set_topics(&mut self, topics: Vec<String>) {
         self.topics = Some(topics);
+    }
+
+    pub fn name_space(&self) -> &str {
+        &self.name_space
+    }
+    pub fn set_name_space(&mut self, name_space: String) {
+        self.name_space = name_space;
     }
 }
