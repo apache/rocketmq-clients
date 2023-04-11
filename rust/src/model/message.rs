@@ -19,14 +19,14 @@ use crate::model::message_id::UNIQ_ID_GENERATOR;
 use std::collections::HashMap;
 
 pub trait Message {
-    fn get_message_id(&mut self) -> String;
-    fn get_topic(&mut self) -> String;
-    fn get_body(&mut self) -> Vec<u8>;
-    fn get_tag(&mut self) -> Option<String>;
-    fn get_keys(&mut self) -> Vec<String>;
-    fn get_properties(&mut self) -> HashMap<String, String>;
-    fn get_message_group(&mut self) -> Option<String>;
-    fn get_delivery_timestamp(&mut self) -> Option<i64>;
+    fn take_message_id(&mut self) -> String;
+    fn take_topic(&mut self) -> String;
+    fn take_body(&mut self) -> Vec<u8>;
+    fn take_tag(&mut self) -> Option<String>;
+    fn take_keys(&mut self) -> Vec<String>;
+    fn take_properties(&mut self) -> HashMap<String, String>;
+    fn take_message_group(&mut self) -> Option<String>;
+    fn take_delivery_timestamp(&mut self) -> Option<i64>;
 }
 
 #[derive(Debug)]
@@ -42,35 +42,35 @@ pub struct MessageImpl {
 }
 
 impl Message for MessageImpl {
-    fn get_message_id(&mut self) -> String {
+    fn take_message_id(&mut self) -> String {
         self.message_id.clone()
     }
 
-    fn get_topic(&mut self) -> String {
+    fn take_topic(&mut self) -> String {
         self.topic.clone()
     }
 
-    fn get_body(&mut self) -> Vec<u8> {
+    fn take_body(&mut self) -> Vec<u8> {
         self.body.take().unwrap_or(vec![])
     }
 
-    fn get_tag(&mut self) -> Option<String> {
+    fn take_tag(&mut self) -> Option<String> {
         self.tags.take()
     }
 
-    fn get_keys(&mut self) -> Vec<String> {
+    fn take_keys(&mut self) -> Vec<String> {
         self.keys.take().unwrap_or(vec![])
     }
 
-    fn get_properties(&mut self) -> HashMap<String, String> {
+    fn take_properties(&mut self) -> HashMap<String, String> {
         self.properties.take().unwrap_or(HashMap::new())
     }
 
-    fn get_message_group(&mut self) -> Option<String> {
+    fn take_message_group(&mut self) -> Option<String> {
         self.message_group.take()
     }
 
-    fn get_delivery_timestamp(&mut self) -> Option<i64> {
+    fn take_delivery_timestamp(&mut self) -> Option<i64> {
         self.delivery_timestamp.take()
     }
 }
@@ -209,11 +209,11 @@ mod tests {
         assert!(message.is_ok());
 
         let mut message = message.unwrap();
-        assert_eq!(message.get_topic(), "test");
-        assert_eq!(message.get_body(), vec![1, 2, 3]);
-        assert_eq!(message.get_tag(), Some("tag".to_string()));
-        assert_eq!(message.get_keys(), vec!["key".to_string()]);
-        assert_eq!(message.get_properties(), {
+        assert_eq!(message.take_topic(), "test");
+        assert_eq!(message.take_body(), vec![1, 2, 3]);
+        assert_eq!(message.take_tag(), Some("tag".to_string()));
+        assert_eq!(message.take_keys(), vec!["key".to_string()]);
+        assert_eq!(message.take_properties(), {
             let mut properties = HashMap::new();
             properties.insert("key".to_string(), "value".to_string());
             properties
@@ -240,7 +240,7 @@ mod tests {
             .build();
         let mut message = message.unwrap();
         assert_eq!(
-            message.get_message_group(),
+            message.take_message_group(),
             Some("message_group".to_string())
         );
 
@@ -250,6 +250,6 @@ mod tests {
             .set_delivery_timestamp(123456789)
             .build();
         let mut message = message.unwrap();
-        assert_eq!(message.get_delivery_timestamp(), Some(123456789));
+        assert_eq!(message.take_delivery_timestamp(), Some(123456789));
     }
 }

@@ -53,10 +53,10 @@ impl Endpoints {
         if endpoint_url.is_empty() {
             return Err(ClientError::new(
                 ErrorKind::Config,
-                "Access url is empty.",
+                "Endpoint url is empty.",
                 Self::OPERATION_PARSE,
             )
-            .with_context("access_url", endpoint_url));
+            .with_context("url", endpoint_url));
         }
 
         let mut scheme = AddressScheme::DomainName;
@@ -66,20 +66,20 @@ impl Endpoints {
                 let port_i32 = port.parse::<i32>().map_err(|e| {
                     ClientError::new(
                         ErrorKind::Config,
-                        &format!("Port {} in access url is invalid.", port),
+                        &format!("Port {} in endpoint url is invalid.", port),
                         Self::OPERATION_PARSE,
                     )
-                    .with_context("access_url", endpoint_url.clone())
+                    .with_context("url", endpoint_url)
                     .set_source(e)
                 })?;
                 urls.push((host.to_string(), port_i32));
             } else {
                 return Err(ClientError::new(
                     ErrorKind::Config,
-                    "Port in access url is missing.",
+                    "Port in endpoint url is missing.",
                     Self::OPERATION_PARSE,
                 )
-                .with_context("access_url", endpoint_url));
+                .with_context("url", endpoint_url));
             }
         }
 
@@ -96,7 +96,7 @@ impl Endpoints {
                                     "Multiple addresses not in the same schema.",
                                     Self::OPERATION_PARSE,
                                 )
-                                .with_context("access_url", endpoint_url));
+                                .with_context("url", endpoint_url));
                             }
                             scheme = AddressScheme::IPv4
                         }
@@ -107,7 +107,7 @@ impl Endpoints {
                                     "Multiple addresses not in the same schema.",
                                     Self::OPERATION_PARSE,
                                 )
-                                .with_context("access_url", endpoint_url));
+                                .with_context("url", endpoint_url));
                             }
                             scheme = AddressScheme::IPv6
                         }
@@ -121,7 +121,7 @@ impl Endpoints {
                             "Multiple addresses not allowed in domain schema.",
                             Self::OPERATION_PARSE,
                         )
-                        .with_context("access_url", endpoint_url));
+                        .with_context("url", endpoint_url));
                     }
                     scheme = AddressScheme::DomainName;
                     addresses.push(Address { host, port });
@@ -152,7 +152,7 @@ impl Endpoints {
         }
     }
 
-    pub fn access_url(&self) -> &str {
+    pub fn endpoint_url(&self) -> &str {
         &self.endpoint_url
     }
 
@@ -173,12 +173,13 @@ impl Endpoints {
 mod tests {
     use crate::error::ErrorKind;
     use crate::model::common::Endpoints;
-    use crate::pb::AddressScheme;
+    use crate::pb;
+    use crate::pb::{Address, AddressScheme};
 
     #[test]
-    fn parse_domain_access_url() {
+    fn parse_domain_endpoint_url() {
         let endpoints = Endpoints::from_url("localhost:8080").unwrap();
-        assert_eq!(endpoints.access_url(), "localhost:8080");
+        assert_eq!(endpoints.endpoint_url(), "localhost:8080");
         assert_eq!(endpoints.scheme(), AddressScheme::DomainName);
         let inner = endpoints.into_inner();
         assert_eq!(inner.addresses.len(), 1);
@@ -187,9 +188,9 @@ mod tests {
     }
 
     #[test]
-    fn parse_ipv4_access_url() {
+    fn parse_ipv4_endpoint_url() {
         let endpoints = Endpoints::from_url("127.0.0.1:8080").unwrap();
-        assert_eq!(endpoints.access_url(), "127.0.0.1:8080");
+        assert_eq!(endpoints.endpoint_url(), "127.0.0.1:8080");
         assert_eq!(endpoints.scheme(), AddressScheme::IPv4);
         let inner = endpoints.into_inner();
         assert_eq!(inner.addresses.len(), 1);
@@ -198,9 +199,9 @@ mod tests {
     }
 
     #[test]
-    fn parse_ipv6_access_url() {
+    fn parse_ipv6_endpoint_url() {
         let endpoints = Endpoints::from_url("::1:8080").unwrap();
-        assert_eq!(endpoints.access_url(), "::1:8080");
+        assert_eq!(endpoints.endpoint_url(), "::1:8080");
         assert_eq!(endpoints.scheme(), AddressScheme::IPv6);
         let inner = endpoints.into_inner();
         assert_eq!(inner.addresses.len(), 1);
@@ -209,21 +210,21 @@ mod tests {
     }
 
     #[test]
-    fn parse_access_url_failed() {
+    fn parse_endpoint_url_failed() {
         let err = Endpoints::from_url("").err().unwrap();
         assert_eq!(err.kind, ErrorKind::Config);
         assert_eq!(err.operation, "endpoint.parse");
-        assert_eq!(err.message, "Access url is empty.");
+        assert_eq!(err.message, "Endpoint url is empty.");
 
         let err = Endpoints::from_url("localhost:<port>").err().unwrap();
         assert_eq!(err.kind, ErrorKind::Config);
         assert_eq!(err.operation, "endpoint.parse");
-        assert_eq!(err.message, "Port <port> in access url is invalid.");
+        assert_eq!(err.message, "Port <port> in endpoint url is invalid.");
 
         let err = Endpoints::from_url("localhost").err().unwrap();
         assert_eq!(err.kind, ErrorKind::Config);
         assert_eq!(err.operation, "endpoint.parse");
-        assert_eq!(err.message, "Port in access url is missing.");
+        assert_eq!(err.message, "Port in endpoint url is missing.");
 
         let err = Endpoints::from_url("127.0.0.1:8080,::1:8080")
             .err()
@@ -248,5 +249,27 @@ mod tests {
             err.message,
             "Multiple addresses not allowed in domain schema."
         );
+    }
+
+    #[test]
+    fn parse_pb_endpoints() {
+        let pb_endpoints = pb::Endpoints {
+            scheme: AddressScheme::IPv4 as i32,
+            addresses: vec![
+                Address {
+                    host: "localhost".to_string(),
+                    port: 8080,
+                },
+                Address {
+                    host: "127.0.0.1".to_string(),
+                    port: 8081,
+                },
+            ],
+        };
+
+        let endpoints = Endpoints::from_pb_endpoints(pb_endpoints);
+        assert_eq!(endpoints.endpoint_url(), "localhost:8080,127.0.0.1:8081");
+        assert_eq!(endpoints.scheme(), AddressScheme::IPv4);
+        assert_eq!(endpoints.into_inner().addresses.len(), 2);
     }
 }

@@ -292,6 +292,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
     use std::thread::sleep;
+    use std::time::Duration;
 
     use crate::client::Client;
     use crate::conf::ClientOption;
@@ -426,7 +427,7 @@ mod tests {
         tokio::spawn(async move {
             let mut mock = session::MockRPCClient::new();
             mock.expect_query_route().return_once(|_| {
-                sleep(std::time::Duration::from_millis(200));
+                sleep(Duration::from_millis(200));
                 Box::pin(futures::future::ready(new_topic_route_response()))
             });
 
@@ -435,14 +436,13 @@ mod tests {
         });
 
         let handle = tokio::spawn(async move {
-            sleep(std::time::Duration::from_millis(100));
+            sleep(Duration::from_millis(100));
             let mock = session::MockRPCClient::new();
             let result = client.topic_route_inner(mock, "DefaultCluster").await;
             assert!(result.is_ok());
         });
 
-        sleep(std::time::Duration::from_millis(300));
-        assert!(handle.is_finished())
+        awaitility::at_most(Duration::from_secs(1)).until(|| handle.is_finished());
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -455,7 +455,7 @@ mod tests {
         tokio::spawn(async move {
             let mut mock = session::MockRPCClient::new();
             mock.expect_query_route().return_once(|_| {
-                sleep(std::time::Duration::from_millis(200));
+                sleep(Duration::from_millis(200));
                 Box::pin(futures::future::ready(Err(ClientError::new(
                     ErrorKind::Server,
                     "Server error",
@@ -468,14 +468,13 @@ mod tests {
         });
 
         let handle = tokio::spawn(async move {
-            sleep(std::time::Duration::from_millis(100));
+            sleep(Duration::from_millis(100));
             let mock = session::MockRPCClient::new();
             let result = client.topic_route_inner(mock, "DefaultCluster").await;
             assert!(result.is_err());
         });
 
-        sleep(std::time::Duration::from_millis(300));
-        assert!(handle.is_finished())
+        awaitility::at_most(Duration::from_secs(1)).until(|| handle.is_finished());
     }
 
     #[tokio::test]

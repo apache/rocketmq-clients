@@ -65,7 +65,7 @@ impl Session {
         client_id: String,
         option: &ClientOption,
     ) -> Result<Self, ClientError> {
-        let peer = endpoints.access_url().to_owned();
+        let peer = endpoints.endpoint_url().to_owned();
 
         let mut channel_endpoints = Vec::new();
         for endpoint in endpoints.inner().addresses.clone() {
@@ -100,7 +100,7 @@ impl Session {
         info!(
             logger,
             "create session success, peer={}",
-            endpoints.access_url()
+            endpoints.endpoint_url()
         );
 
         Ok(Session {
@@ -221,9 +221,9 @@ impl SessionManager {
 
     pub(crate) async fn get_session(&self, endpoints: &Endpoints) -> Result<Session, ClientError> {
         let mut session_map = self.session_map.lock().await;
-        let access_url = endpoints.access_url().to_string();
-        return if session_map.contains_key(&access_url) {
-            Ok(session_map.get(&access_url).unwrap().clone())
+        let endpoint_url = endpoints.endpoint_url().to_string();
+        return if session_map.contains_key(&endpoint_url) {
+            Ok(session_map.get(&endpoint_url).unwrap().clone())
         } else {
             let session = Session::new(
                 &self.logger,
@@ -232,7 +232,7 @@ impl SessionManager {
                 &self.option,
             )
             .await?;
-            session_map.insert(access_url.clone(), session.clone());
+            session_map.insert(endpoint_url.clone(), session.clone());
             Ok(session)
         };
     }

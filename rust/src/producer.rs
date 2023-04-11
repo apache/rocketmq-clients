@@ -110,7 +110,7 @@ impl Producer {
 
         for mut message in messages {
             if let Some(last_topic) = last_topic.clone() {
-                if last_topic.ne(&message.get_topic()) {
+                if last_topic.ne(&message.take_topic()) {
                     return Err(ClientError::new(
                         ErrorKind::InvalidMessage,
                         "Not all messages have the same topic.",
@@ -118,10 +118,10 @@ impl Producer {
                     ));
                 }
             } else {
-                last_topic = Some(message.get_topic());
+                last_topic = Some(message.take_topic());
             }
 
-            let message_group = message.get_message_group();
+            let message_group = message.take_message_group();
             if let Some(last_message_group) = last_message_group.clone() {
                 if last_message_group.ne(&message_group) {
                     return Err(ClientError::new(
@@ -135,19 +135,19 @@ impl Producer {
             }
 
             let delivery_timestamp = message
-                .get_delivery_timestamp()
+                .take_delivery_timestamp()
                 .map(|seconds| Timestamp { seconds, nanos: 0 });
 
             let pb_message = pb::Message {
                 topic: Some(Resource {
-                    name: message.get_topic(),
-                    resource_namespace: self.option.name_space().to_string(),
+                    name: message.take_topic(),
+                    resource_namespace: self.option.namespace().to_string(),
                 }),
-                user_properties: message.get_properties(),
+                user_properties: message.take_properties(),
                 system_properties: Some(SystemProperties {
-                    tag: message.get_tag(),
-                    keys: message.get_keys(),
-                    message_id: message.get_message_id(),
+                    tag: message.take_tag(),
+                    keys: message.take_keys(),
+                    message_id: message.take_message_id(),
                     message_group,
                     delivery_timestamp,
                     born_host: HOST_NAME.clone(),
@@ -156,7 +156,7 @@ impl Producer {
                     body_encoding: Encoding::Identity as i32,
                     ..SystemProperties::default()
                 }),
-                body: message.get_body(),
+                body: message.take_body(),
             };
             pb_messages.push(pb_message);
         }
@@ -185,7 +185,8 @@ impl Producer {
         &self,
         messages: Vec<impl message::Message>,
     ) -> Result<Vec<SendResultEntry>, ClientError> {
-        let (topic, message_group, pb_messages) = self.transform_messages_to_protobuf(messages)?;
+        let (topic, message_group, mut pb_messages) =
+            self.transform_messages_to_protobuf(messages)?;
 
         let route = self.client.topic_route(&topic, true).await?;
 
@@ -217,6 +218,10 @@ impl Producer {
         }
 
         let endpoints = Endpoints::from_pb_endpoints(broker.endpoints.unwrap());
+        for message in pb_messages.iter_mut() {
+            message.system_properties.as_mut().unwrap().queue_id = message_queue.id;
+        }
+
         self.client.send_message(pb_messages, &endpoints).await
     }
 
