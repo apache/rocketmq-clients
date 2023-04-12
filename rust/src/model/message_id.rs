@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use byteorder::{BigEndian, WriteBytesExt};
-use once_cell::sync::Lazy;
-use parking_lot::Mutex;
 use std::io::Write;
 use std::process;
 use std::time::SystemTime;
+
+use byteorder::{BigEndian, WriteBytesExt};
+use once_cell::sync::Lazy;
+use parking_lot::Mutex;
 use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
 
 /**
@@ -62,7 +63,7 @@ use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
 pub(crate) static UNIQ_ID_GENERATOR: Lazy<Mutex<UniqueIdGenerator>> = Lazy::new(|| {
     let mut wtr = Vec::new();
     wtr.write_u8(1).unwrap();
-    //mac
+    // mac
     let x = mac_address::get_mac_address().unwrap();
     let ma = match x {
         Some(ma) => ma,
@@ -71,9 +72,8 @@ pub(crate) static UNIQ_ID_GENERATOR: Lazy<Mutex<UniqueIdGenerator>> = Lazy::new(
         }
     };
     wtr.write_all(&ma.bytes()).unwrap();
-    //processid
-    wtr.write_u16::<byteorder::BigEndian>(process::id() as u16)
-        .unwrap();
+    // process id
+    wtr.write_u16::<BigEndian>(process::id() as u16).unwrap();
     let generator = UniqueIdGenerator {
         counter: 0,
         start_timestamp: 0,
@@ -91,7 +91,7 @@ pub struct UniqueIdGenerator {
 }
 
 impl UniqueIdGenerator {
-    pub fn generate(&mut self) -> String {
+    pub fn next_id(&mut self) -> String {
         if SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
@@ -133,7 +133,7 @@ mod test {
     fn text_generate_uniq_id() {
         use super::UNIQ_ID_GENERATOR;
         for i in 0..10 {
-            let uid = UNIQ_ID_GENERATOR.lock().generate();
+            let uid = UNIQ_ID_GENERATOR.lock().next_id();
             println!("i: {}, uid: {}", i, uid);
         }
     }

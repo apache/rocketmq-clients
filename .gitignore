@@ -1,5 +1,6 @@
 # Intellij IDEA
 .idea/
+.run/
 out/
 *.ipr
 *.iml

@@ -18,13 +18,14 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use mockall::automock;
-use slog::{debug, info, o, Logger};
+use slog::{info, o, Logger};
 use tokio::sync::Mutex;
+use tonic::metadata::AsciiMetadataValue;
 use tonic::transport::{Channel, Endpoint};
 
 use crate::conf::ClientOption;
 use crate::error::ErrorKind;
-use crate::model::Endpoints;
+use crate::model::common::Endpoints;
 use crate::pb::{QueryRouteRequest, QueryRouteResponse, SendMessageRequest, SendMessageResponse};
 use crate::{error::ClientError, pb::messaging_service_client::MessagingServiceClient};
 
@@ -64,8 +65,7 @@ impl Session {
         client_id: String,
         option: &ClientOption,
     ) -> Result<Self, ClientError> {
-        let peer = endpoints.access_url().to_owned();
-        debug!(logger, "creating session, peer={}", peer);
+        let peer = endpoints.endpoint_url().to_owned();
 
         let mut channel_endpoints = Vec::new();
         for endpoint in endpoints.inner().addresses.clone() {
@@ -75,7 +75,7 @@ impl Session {
         if channel_endpoints.is_empty() {
             return Err(ClientError::new(
                 ErrorKind::Connect,
-                "No endpoint available.".to_string(),
+                "No endpoint available.",
                 Self::OPERATION_CREATE,
             )
             .with_context("peer", peer.clone()));
@@ -85,7 +85,7 @@ impl Session {
             channel_endpoints[0].connect().await.map_err(|e| {
                 ClientError::new(
                     ErrorKind::Connect,
-                    "Failed to connect to peer.".to_string(),
+                    "Failed to connect to peer.",
                     Self::OPERATION_CREATE,
                 )
                 .set_source(e)
@@ -100,7 +100,7 @@ impl Session {
         info!(
             logger,
             "create session success, peer={}",
-            endpoints.access_url()
+            endpoints.endpoint_url()
         );
 
         Ok(Session {
@@ -124,7 +124,7 @@ impl Session {
             .map_err(|e| {
                 ClientError::new(
                     ErrorKind::Connect,
-                    "Failed to create channel endpoint.".to_string(),
+                    "Failed to create channel endpoint.",
                     Self::OPERATION_CREATE,
                 )
                 .set_source(e)
@@ -147,22 +147,17 @@ impl Session {
     }
 
     fn sign(&self, metadata: &mut tonic::metadata::MetadataMap) {
-        // let _ = tonic::metadata::AsciiMetadataValue::try_from(&self.id).and_then(|v| {
-        //     metadata.insert("x-mq-client-id", v);
-        //     Ok(())
-        // });
+        let _ = AsciiMetadataValue::try_from(&self.client_id)
+            .map(|v| metadata.insert("x-mq-client-id", v));
 
-        metadata.insert(
-            "x-mq-language",
-            tonic::metadata::AsciiMetadataValue::from_static("RUST"),
-        );
+        metadata.insert("x-mq-language", AsciiMetadataValue::from_static("RUST"));
         metadata.insert(
             "x-mq-client-version",
-            tonic::metadata::AsciiMetadataValue::from_static("5.0.0"),
+            AsciiMetadataValue::from_static("5.0.0"),
         );
         metadata.insert(
             "x-mq-protocol-version",
-            tonic::metadata::AsciiMetadataValue::from_static("2.0.0"),
+            AsciiMetadataValue::from_static("2.0.0"),
         );
     }
 }
@@ -178,7 +173,7 @@ impl RPCClient for Session {
         let response = self.stub.query_route(request).await.map_err(|e| {
             ClientError::new(
                 ErrorKind::ClientInternal,
-                "Query topic route rpc failed.".to_string(),
+                "Query topic route rpc failed.",
                 Self::OPERATION_QUERY_ROUTE,
             )
             .set_source(e)
@@ -190,10 +185,12 @@ impl RPCClient for Session {
         &mut self,
         request: SendMessageRequest,
     ) -> Result<SendMessageResponse, ClientError> {
+        let mut request = tonic::Request::new(request);
+        self.sign(request.metadata_mut());
         let response = self.stub.send_message(request).await.map_err(|e| {
             ClientError::new(
                 ErrorKind::ClientInternal,
-                "Send message rpc failed.".to_string(),
+                "Send message rpc failed.",
                 Self::OPERATION_SEND_MESSAGE,
             )
             .set_source(e)
@@ -224,9 +221,9 @@ impl SessionManager {
 
     pub(crate) async fn get_session(&self, endpoints: &Endpoints) -> Result<Session, ClientError> {
         let mut session_map = self.session_map.lock().await;
-        let access_url = endpoints.access_url().to_string();
-        return if session_map.contains_key(&access_url) {
-            Ok(session_map.get(&access_url).unwrap().clone())
+        let endpoint_url = endpoints.endpoint_url().to_string();
+        return if session_map.contains_key(&endpoint_url) {
+            Ok(session_map.get(&endpoint_url).unwrap().clone())
         } else {
             let session = Session::new(
                 &self.logger,
@@ -235,7 +232,7 @@ impl SessionManager {
                 &self.option,
             )
             .await?;
-            session_map.insert(access_url.clone(), session.clone());
+            session_map.insert(endpoint_url.clone(), session.clone());
             Ok(session)
         };
     }
@@ -244,6 +241,7 @@ impl SessionManager {
 #[cfg(test)]
 mod tests {
     use crate::log::terminal_logger;
+    use slog::debug;
     use wiremock_grpc::generate;
 
     use super::*;
@@ -256,7 +254,7 @@ mod tests {
         let logger = terminal_logger();
         let session = Session::new(
             &logger,
-            &Endpoints::from_access_url(format!("localhost:{}", server.address().port())).unwrap(),
+            &Endpoints::from_url(&format!("localhost:{}", server.address().port())).unwrap(),
             "test_client".to_string(),
             &ClientOption::default(),
         )
@@ -269,7 +267,7 @@ mod tests {
         let logger = terminal_logger();
         let session = Session::new(
             &logger,
-            &Endpoints::from_access_url("127.0.0.1:8080,127.0.0.1:8081".to_string()).unwrap(),
+            &Endpoints::from_url("127.0.0.1:8080,127.0.0.1:8081").unwrap(),
             "test_client".to_string(),
             &ClientOption::default(),
         )
@@ -285,8 +283,7 @@ mod tests {
             SessionManager::new(&logger, "test_client".to_string(), &ClientOption::default());
         let session = session_manager
             .get_session(
-                &Endpoints::from_access_url(format!("localhost:{}", server.address().port()))
-                    .unwrap(),
+                &Endpoints::from_url(&format!("localhost:{}", server.address().port())).unwrap(),
             )
             .await
             .unwrap();
