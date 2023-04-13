@@ -40,7 +40,14 @@ public class MessageQueueImpl {
         this.acceptMessageTypes = new ArrayList<>();
         final List<apache.rocketmq.v2.MessageType> types = messageQueue.getAcceptMessageTypesList();
         for (apache.rocketmq.v2.MessageType type : types) {
-            acceptMessageTypes.add(MessageType.fromProtobuf(type));
+            // 原内容 版本：rocketmq-client-java 5.0.4 及 5.0.6-SNAPSHOT
+            // acceptMessageTypes.add(MessageType.fromProtobuf(type));
+            // Super Update 20230413 不加此判断，按照官网和其它网上的示例。根本运行不起来
+            // 官网：快速开始 https://rocketmq.apache.org/zh/docs/quickStart/01quickstart
+            // 提示：Message type is not specified
+            if (apache.rocketmq.v2.MessageType.MESSAGE_TYPE_UNSPECIFIED != type) {
+                acceptMessageTypes.add(MessageType.fromProtobuf(type));
+            }
         }
         this.broker = new Broker(messageQueue.getBroker());
     }
