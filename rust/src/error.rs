@@ -38,6 +38,9 @@ pub enum ErrorKind {
     #[error("Client internal error")]
     ClientInternal,
 
+    #[error("Client is not running")]
+    ClientIsNotRunning,
+
     #[error("Failed to send message via channel")]
     ChannelSend,
 

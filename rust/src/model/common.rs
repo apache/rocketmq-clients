@@ -24,8 +24,16 @@ use crate::error::{ClientError, ErrorKind};
 use crate::pb;
 use crate::pb::{Address, AddressScheme, MessageQueue};
 
+#[derive(Debug, Clone)]
+pub(crate) enum ClientType {
+    Producer = 1,
+    PushConsumer = 2,
+    SimpleConsumer = 3,
+    PullConsumer = 4,
+}
+
 #[derive(Debug)]
-pub struct Route {
+pub(crate) struct Route {
     pub(crate) index: AtomicUsize,
     pub queue: Vec<MessageQueue>,
 }
@@ -36,8 +44,8 @@ pub(crate) enum RouteStatus {
     Found(Arc<Route>),
 }
 
-#[derive(Debug)]
-pub(crate) struct Endpoints {
+#[derive(Debug, Clone)]
+pub struct Endpoints {
     endpoint_url: String,
     scheme: AddressScheme,
     inner: pb::Endpoints,
@@ -53,7 +61,7 @@ impl Endpoints {
         if endpoint_url.is_empty() {
             return Err(ClientError::new(
                 ErrorKind::Config,
-                "Endpoint url is empty.",
+                "endpoint url is empty",
                 Self::OPERATION_PARSE,
             )
             .with_context("url", endpoint_url));
@@ -66,7 +74,7 @@ impl Endpoints {
                 let port_i32 = port.parse::<i32>().map_err(|e| {
                     ClientError::new(
                         ErrorKind::Config,
-                        &format!("Port {} in endpoint url is invalid.", port),
+                        &format!("port {} in endpoint url is invalid", port),
                         Self::OPERATION_PARSE,
                     )
                     .with_context("url", endpoint_url)
@@ -76,7 +84,7 @@ impl Endpoints {
             } else {
                 return Err(ClientError::new(
                     ErrorKind::Config,
-                    "Port in endpoint url is missing.",
+                    "port in endpoint url is missing",
                     Self::OPERATION_PARSE,
                 )
                 .with_context("url", endpoint_url));
@@ -93,7 +101,7 @@ impl Endpoints {
                             if scheme == AddressScheme::IPv6 {
                                 return Err(ClientError::new(
                                     ErrorKind::Config,
-                                    "Multiple addresses not in the same schema.",
+                                    "multiple addresses not in the same schema",
                                     Self::OPERATION_PARSE,
                                 )
                                 .with_context("url", endpoint_url));
@@ -104,7 +112,7 @@ impl Endpoints {
                             if scheme == AddressScheme::IPv4 {
                                 return Err(ClientError::new(
                                     ErrorKind::Config,
-                                    "Multiple addresses not in the same schema.",
+                                    "multiple addresses not in the same schema",
                                     Self::OPERATION_PARSE,
                                 )
                                 .with_context("url", endpoint_url));
@@ -118,7 +126,7 @@ impl Endpoints {
                     if urls_len > 1 {
                         return Err(ClientError::new(
                             ErrorKind::Config,
-                            "Multiple addresses not allowed in domain schema.",
+                            "multiple addresses not allowed in domain schema",
                             Self::OPERATION_PARSE,
                         )
                         .with_context("url", endpoint_url));
@@ -169,6 +177,27 @@ impl Endpoints {
     }
 }
 
+#[derive(Clone, Copy)]
+#[repr(i32)]
+pub enum FilterType {
+    Tag = 1,
+    Sql = 2,
+}
+
+pub struct FilterExpression {
+    pub(crate) filter_type: FilterType,
+    pub(crate) expression: String,
+}
+
+impl FilterExpression {
+    pub fn new(filter_type: FilterType, expression: String) -> Self {
+        FilterExpression {
+            filter_type,
+            expression,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::error::ErrorKind;
@@ -214,31 +243,31 @@ mod tests {
         let err = Endpoints::from_url("").err().unwrap();
         assert_eq!(err.kind, ErrorKind::Config);
         assert_eq!(err.operation, "endpoint.parse");
-        assert_eq!(err.message, "Endpoint url is empty.");
+        assert_eq!(err.message, "endpoint url is empty");
 
         let err = Endpoints::from_url("localhost:<port>").err().unwrap();
         assert_eq!(err.kind, ErrorKind::Config);
         assert_eq!(err.operation, "endpoint.parse");
-        assert_eq!(err.message, "Port <port> in endpoint url is invalid.");
+        assert_eq!(err.message, "port <port> in endpoint url is invalid");
 
         let err = Endpoints::from_url("localhost").err().unwrap();
         assert_eq!(err.kind, ErrorKind::Config);
         assert_eq!(err.operation, "endpoint.parse");
-        assert_eq!(err.message, "Port in endpoint url is missing.");
+        assert_eq!(err.message, "port in endpoint url is missing");
 
         let err = Endpoints::from_url("127.0.0.1:8080,::1:8080")
             .err()
             .unwrap();
         assert_eq!(err.kind, ErrorKind::Config);
         assert_eq!(err.operation, "endpoint.parse");
-        assert_eq!(err.message, "Multiple addresses not in the same schema.");
+        assert_eq!(err.message, "multiple addresses not in the same schema");
 
         let err = Endpoints::from_url("::1:8080,127.0.0.1:8080")
             .err()
             .unwrap();
         assert_eq!(err.kind, ErrorKind::Config);
         assert_eq!(err.operation, "endpoint.parse");
-        assert_eq!(err.message, "Multiple addresses not in the same schema.");
+        assert_eq!(err.message, "multiple addresses not in the same schema");
 
         let err = Endpoints::from_url("localhost:8080,localhost:8081")
             .err()
@@ -247,7 +276,7 @@ mod tests {
         assert_eq!(err.operation, "endpoint.parse");
         assert_eq!(
             err.message,
-            "Multiple addresses not allowed in domain schema."
+            "multiple addresses not allowed in domain schema"
         );
     }
 

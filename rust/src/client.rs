@@ -19,14 +19,21 @@ use std::string::ToString;
 use std::{collections::HashMap, sync::atomic::AtomicUsize, sync::Arc};
 
 use parking_lot::Mutex;
+use prost_types::Duration;
 use slog::{debug, error, info, o, warn, Logger};
+use tokio::select;
 use tokio::sync::oneshot;
 
 use crate::conf::ClientOption;
 use crate::error::{ClientError, ErrorKind};
-use crate::model::common::{Endpoints, Route, RouteStatus};
+use crate::model::common::{ClientType, Endpoints, Route, RouteStatus};
+use crate::model::message::AckMessageEntry;
+use crate::pb;
+use crate::pb::receive_message_response::Content;
 use crate::pb::{
-    Code, Message, QueryRouteRequest, Resource, SendMessageRequest, SendResultEntry, Status,
+    AckMessageRequest, AckMessageResultEntry, Code, FilterExpression, HeartbeatRequest, Message,
+    MessageQueue, QueryRouteRequest, ReceiveMessageRequest, Resource, SendMessageRequest,
+    SendResultEntry, Status, TelemetryCommand,
 };
 use crate::session::{RPCClient, Session, SessionManager};
 
@@ -34,10 +41,11 @@ use crate::session::{RPCClient, Session, SessionManager};
 pub(crate) struct Client {
     logger: Logger,
     option: ClientOption,
-    session_manager: SessionManager,
+    session_manager: Arc<SessionManager>,
     route_table: Mutex<HashMap<String /* topic */, RouteStatus>>,
     id: String,
     access_endpoints: Endpoints,
+    settings: TelemetryCommand,
 }
 
 lazy_static::lazy_static! {
@@ -47,9 +55,16 @@ lazy_static::lazy_static! {
 impl Client {
     const OPERATION_CLIENT_NEW: &'static str = "client.new";
     const OPERATION_QUERY_ROUTE: &'static str = "client.query_route";
+    const OPERATION_HEARTBEAT: &'static str = "client.heartbeat";
     const OPERATION_SEND_MESSAGE: &'static str = "client.send_message";
+    const OPERATION_RECEIVE_MESSAGE: &'static str = "client.receive_message";
+    const OPERATION_ACK_MESSAGE: &'static str = "client.ack_message";
 
-    pub(crate) fn new(logger: &Logger, option: ClientOption) -> Result<Self, ClientError> {
+    pub(crate) fn new(
+        logger: &Logger,
+        option: ClientOption,
+        settings: TelemetryCommand,
+    ) -> Result<Self, ClientError> {
         let id = Self::generate_client_id();
         let endpoints = Endpoints::from_url(option.access_url())
             .map_err(|e| e.with_operation(Self::OPERATION_CLIENT_NEW))?;
@@ -57,11 +72,83 @@ impl Client {
         Ok(Client {
             logger: logger.new(o!("component" => "client")),
             option,
-            session_manager,
+            session_manager: Arc::new(session_manager),
             route_table: Mutex::new(HashMap::new()),
             id,
             access_endpoints: endpoints,
+            settings,
         })
+    }
+
+    async fn heart_beat(
+        logger: &Logger,
+        session_manager: Arc<SessionManager>,
+        group: &str,
+        namespace: &str,
+        client_type: &ClientType,
+    ) {
+        let sessions = session_manager.get_all_sessions().await;
+        if sessions.is_err() {
+            error!(
+                logger,
+                "send heartbeat failed: failed to get sessions: {}",
+                sessions.unwrap_err()
+            );
+            return;
+        }
+        for mut session in sessions.unwrap() {
+            let request = HeartbeatRequest {
+                group: Some(Resource {
+                    name: group.to_string(),
+                    resource_namespace: namespace.to_string(),
+                }),
+                client_type: client_type.clone() as i32,
+            };
+            let response = session.heartbeat(request).await;
+            if response.is_err() {
+                error!(
+                    logger,
+                    "send heartbeat failed: failed to send heartbeat rpc: {}",
+                    response.unwrap_err()
+                );
+                return;
+            }
+            let result =
+                Self::handle_response_status(response.unwrap().status, Self::OPERATION_HEARTBEAT);
+            if result.is_err() {
+                error!(
+                    logger,
+                    "send heartbeat failed: server return error: {}",
+                    result.unwrap_err()
+                );
+                return;
+            }
+            debug!(
+                logger,
+                "send heartbeat to server success, peer={}",
+                session.peer()
+            );
+        }
+    }
+
+    pub(crate) fn start(&self) {
+        let logger = self.logger.clone();
+        let session_manager = self.session_manager.clone();
+
+        let group = self.option.group.to_string();
+        let namespace = self.option.namespace.to_string();
+        let client_type = self.option.client_type.clone();
+
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
+            loop {
+                select! {
+                    _ = interval.tick() => {
+                        Self::heart_beat(&logger, session_manager.clone(), &group, &namespace, &client_type).await;
+                    },
+                }
+            }
+        });
     }
 
     pub(crate) fn client_id(&self) -> &str {
@@ -88,27 +175,32 @@ impl Client {
     }
 
     async fn get_session(&self) -> Result<Session, ClientError> {
-        self.session_manager
-            .get_session(&self.access_endpoints)
-            .await
+        let session = self
+            .session_manager
+            .get_or_create_session(&self.access_endpoints, self.settings.clone())
+            .await?;
+        Ok(session)
     }
 
     async fn get_session_with_endpoints(
         &self,
         endpoints: &Endpoints,
     ) -> Result<Session, ClientError> {
-        self.session_manager.get_session(endpoints).await
+        let session = self
+            .session_manager
+            .get_or_create_session(endpoints, self.settings.clone())
+            .await?;
+        Ok(session)
     }
 
     fn handle_response_status(
-        &self,
         status: Option<Status>,
         operation: &'static str,
     ) -> Result<(), ClientError> {
         if status.is_none() {
             return Err(ClientError::new(
                 ErrorKind::Server,
-                "Server do not return status, this may be a bug.",
+                "server do not return status, this may be a bug",
                 operation,
             ));
         }
@@ -117,7 +209,7 @@ impl Client {
         let status_code = Code::from_i32(status.code).unwrap();
         if !status_code.eq(&Code::Ok) {
             return Err(
-                ClientError::new(ErrorKind::Server, "Server return an error.", operation)
+                ClientError::new(ErrorKind::Server, "server return an error", operation)
                     .with_context("code", status_code.as_str_name())
                     .with_context("message", status.message),
             );
@@ -158,13 +250,13 @@ impl Client {
         let request = QueryRouteRequest {
             topic: Some(Resource {
                 name: topic.to_owned(),
-                resource_namespace: self.option.name_space().to_string(),
+                resource_namespace: self.option.namespace.to_string(),
             }),
             endpoints: Some(self.access_endpoints.inner().clone()),
         };
 
         let response = rpc_client.query_route(request).await?;
-        self.handle_response_status(response.status, Self::OPERATION_QUERY_ROUTE)?;
+        Self::handle_response_status(response.status, Self::OPERATION_QUERY_ROUTE)?;
 
         let route = Route {
             index: AtomicUsize::new(0),
@@ -209,7 +301,7 @@ impl Client {
                 Ok(route) => route,
                 Err(_e) => Err(ClientError::new(
                     ErrorKind::ChannelReceive,
-                    "Wait for inflight query topic route request failed.",
+                    "wait for inflight query topic route request failed",
                     Self::OPERATION_QUERY_ROUTE,
                 )),
             };
@@ -248,7 +340,7 @@ impl Client {
                 for item in v.drain(..) {
                     let _ = item.send(Err(ClientError::new(
                         ErrorKind::Server,
-                        "Query route failed.",
+                        "query topic route failed",
                         Self::OPERATION_QUERY_ROUTE,
                     )));
                 }
@@ -259,8 +351,8 @@ impl Client {
 
     pub(crate) async fn send_message(
         &self,
-        messages: Vec<Message>,
         endpoints: &Endpoints,
+        messages: Vec<Message>,
     ) -> Result<Vec<SendResultEntry>, ClientError> {
         self.send_message_inner(
             self.get_session_with_endpoints(endpoints).await.unwrap(),
@@ -277,12 +369,110 @@ impl Client {
         let message_count = messages.len();
         let request = SendMessageRequest { messages };
         let response = rpc_client.send_message(request).await?;
-        self.handle_response_status(response.status, Self::OPERATION_SEND_MESSAGE)?;
+        Self::handle_response_status(response.status, Self::OPERATION_SEND_MESSAGE)?;
 
         if response.entries.len() != message_count {
             error!(self.logger, "server do not return illegal send result, this may be a bug. except result count: {}, found: {}", response.entries.len(), message_count);
         }
 
+        Ok(response.entries)
+    }
+
+    pub(crate) async fn receive_message(
+        &self,
+        endpoints: &Endpoints,
+        message_queue: MessageQueue,
+        expression: FilterExpression,
+        batch_size: i32,
+        invisible_duration: Duration,
+    ) -> Result<Vec<Message>, ClientError> {
+        self.receive_message_inner(
+            self.get_session_with_endpoints(endpoints).await.unwrap(),
+            message_queue,
+            expression,
+            batch_size,
+            invisible_duration,
+        )
+        .await
+    }
+
+    pub(crate) async fn receive_message_inner(
+        &self,
+        mut rpc_client: impl RPCClient,
+        message_queue: MessageQueue,
+        expression: FilterExpression,
+        batch_size: i32,
+        invisible_duration: Duration,
+    ) -> Result<Vec<Message>, ClientError> {
+        let request = ReceiveMessageRequest {
+            group: Some(Resource {
+                name: self.option.group.to_string(),
+                resource_namespace: self.option.namespace.to_string(),
+            }),
+            message_queue: Some(message_queue),
+            filter_expression: Some(expression),
+            batch_size,
+            invisible_duration: Some(invisible_duration),
+            auto_renew: false,
+            long_polling_timeout: Some(
+                Duration::try_from(*self.option.long_polling_timeout()).unwrap(),
+            ),
+        };
+        let responses = rpc_client.receive_message(request).await?;
+
+        let mut messages = Vec::with_capacity(batch_size as usize);
+        for response in responses {
+            match response.content.unwrap() {
+                Content::Status(status) => {
+                    Self::handle_response_status(Some(status), Self::OPERATION_RECEIVE_MESSAGE)?;
+                }
+                Content::Message(message) => {
+                    messages.push(message);
+                }
+                Content::DeliveryTimestamp(_) => {}
+            }
+        }
+        Ok(messages)
+    }
+
+    pub(crate) async fn ack_message(
+        &self,
+        ack_entry: impl AckMessageEntry,
+    ) -> Result<AckMessageResultEntry, ClientError> {
+        let result = self
+            .ack_message_inner(
+                self.get_session_with_endpoints(ack_entry.endpoints())
+                    .await
+                    .unwrap(),
+                ack_entry.topic(),
+                vec![pb::AckMessageEntry {
+                    message_id: ack_entry.message_id(),
+                    receipt_handle: ack_entry.receipt_handle(),
+                }],
+            )
+            .await?;
+        Ok(result[0].clone())
+    }
+
+    pub(crate) async fn ack_message_inner(
+        &self,
+        mut rpc_client: impl RPCClient,
+        topic: String,
+        entries: Vec<pb::AckMessageEntry>,
+    ) -> Result<Vec<AckMessageResultEntry>, ClientError> {
+        let request = AckMessageRequest {
+            group: Some(Resource {
+                name: self.option.group.to_string(),
+                resource_namespace: self.option.namespace.to_string(),
+            }),
+            topic: Some(Resource {
+                name: topic,
+                resource_namespace: self.option.namespace.to_string(),
+            }),
+            entries,
+        };
+        let response = rpc_client.ack_message(request).await?;
+        Self::handle_response_status(response.status, Self::OPERATION_ACK_MESSAGE)?;
         Ok(response.entries)
     }
 }
@@ -299,8 +489,11 @@ mod tests {
     use crate::error::{ClientError, ErrorKind};
     use crate::log::terminal_logger;
     use crate::model::common::Route;
+    use crate::pb::receive_message_response::Content;
     use crate::pb::{
-        Code, MessageQueue, QueryRouteResponse, Resource, SendMessageResponse, Status,
+        AckMessageEntry, AckMessageResponse, Code, FilterExpression, Message, MessageQueue,
+        QueryRouteResponse, ReceiveMessageResponse, Resource, SendMessageResponse, Status,
+        TelemetryCommand,
     };
     use crate::session;
 
@@ -315,19 +508,17 @@ mod tests {
 
     #[test]
     fn handle_response_status() {
-        let client = Client::new(&terminal_logger(), ClientOption::default()).unwrap();
-
-        let result = client.handle_response_status(None, "test");
+        let result = Client::handle_response_status(None, "test");
         assert!(result.is_err(), "should return error when status is None");
         let result = result.unwrap_err();
         assert_eq!(result.kind, ErrorKind::Server);
         assert_eq!(
             result.message,
-            "Server do not return status, this may be a bug."
+            "server do not return status, this may be a bug"
         );
         assert_eq!(result.operation, "test");
 
-        let result = client.handle_response_status(
+        let result = Client::handle_response_status(
             Some(Status {
                 code: Code::BadRequest as i32,
                 message: "test failed".to_string(),
@@ -340,17 +531,17 @@ mod tests {
         );
         let result = result.unwrap_err();
         assert_eq!(result.kind, ErrorKind::Server);
-        assert_eq!(result.message, "Server return an error.");
+        assert_eq!(result.message, "server return an error");
         assert_eq!(result.operation, "test failed");
         assert_eq!(
             result.context,
             vec![
                 ("code", "BAD_REQUEST".to_string()),
-                ("message", "test failed".to_string())
+                ("message", "test failed".to_string()),
             ]
         );
 
-        let result = client.handle_response_status(
+        let result = Client::handle_response_status(
             Some(Status {
                 code: Code::Ok as i32,
                 message: "test success".to_string(),
@@ -382,7 +573,12 @@ mod tests {
     #[tokio::test]
     async fn client_query_route_from_cache() {
         let logger = terminal_logger();
-        let client = Client::new(&logger, ClientOption::default()).unwrap();
+        let client = Client::new(
+            &logger,
+            ClientOption::default(),
+            TelemetryCommand::default(),
+        )
+        .unwrap();
         client.route_table.lock().insert(
             "DefaultCluster".to_string(),
             super::RouteStatus::Found(Arc::new(Route {
@@ -397,7 +593,12 @@ mod tests {
     #[tokio::test]
     async fn client_query_route() {
         let logger = terminal_logger();
-        let client = Client::new(&logger, ClientOption::default()).unwrap();
+        let client = Client::new(
+            &logger,
+            ClientOption::default(),
+            TelemetryCommand::default(),
+        )
+        .unwrap();
 
         let mut mock = session::MockRPCClient::new();
         mock.expect_query_route()
@@ -420,7 +621,12 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn client_query_route_with_inflight_request() {
         let logger = terminal_logger();
-        let client = Client::new(&logger, ClientOption::default()).unwrap();
+        let client = Client::new(
+            &logger,
+            ClientOption::default(),
+            TelemetryCommand::default(),
+        )
+        .unwrap();
         let client = Arc::new(client);
 
         let client_clone = client.clone();
@@ -448,7 +654,12 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn client_query_route_with_failed_request() {
         let logger = terminal_logger();
-        let client = Client::new(&logger, ClientOption::default()).unwrap();
+        let client = Client::new(
+            &logger,
+            ClientOption::default(),
+            TelemetryCommand::default(),
+        )
+        .unwrap();
         let client = Arc::new(client);
 
         let client_clone = client.clone();
@@ -458,7 +669,7 @@ mod tests {
                 sleep(Duration::from_millis(200));
                 Box::pin(futures::future::ready(Err(ClientError::new(
                     ErrorKind::Server,
-                    "Server error",
+                    "server error",
                     "test",
                 ))))
             });
@@ -490,11 +701,138 @@ mod tests {
         mock.expect_send_message()
             .return_once(|_| Box::pin(futures::future::ready(response)));
 
-        let client = Client::new(&terminal_logger(), ClientOption::default()).unwrap();
+        let client = Client::new(
+            &terminal_logger(),
+            ClientOption::default(),
+            TelemetryCommand::default(),
+        )
+        .unwrap();
         let send_result = client.send_message_inner(mock, vec![]).await;
         assert!(send_result.is_ok());
 
         let send_results = send_result.unwrap();
         assert_eq!(send_results.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn client_receive_message() {
+        let response = Ok(vec![ReceiveMessageResponse {
+            content: Some(Content::Message(Message::default())),
+        }]);
+        let mut mock = session::MockRPCClient::new();
+        mock.expect_receive_message()
+            .return_once(|_| Box::pin(futures::future::ready(response)));
+
+        let client = Client::new(
+            &terminal_logger(),
+            ClientOption::default(),
+            TelemetryCommand::default(),
+        )
+        .unwrap();
+        let receive_result = client
+            .receive_message_inner(
+                mock,
+                MessageQueue::default(),
+                FilterExpression::default(),
+                32,
+                prost_types::Duration::default(),
+            )
+            .await;
+        assert!(receive_result.is_ok());
+
+        let messages = receive_result.unwrap();
+        assert_eq!(messages.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn client_receive_message_failed() {
+        let response = Ok(vec![ReceiveMessageResponse {
+            content: Some(Content::Status(Status {
+                code: Code::BadRequest as i32,
+                message: "Unknown error".to_string(),
+            })),
+        }]);
+        let mut mock = session::MockRPCClient::new();
+        mock.expect_receive_message()
+            .return_once(|_| Box::pin(futures::future::ready(response)));
+
+        let client = Client::new(
+            &terminal_logger(),
+            ClientOption::default(),
+            TelemetryCommand::default(),
+        )
+        .unwrap();
+        let receive_result = client
+            .receive_message_inner(
+                mock,
+                MessageQueue::default(),
+                FilterExpression::default(),
+                32,
+                prost_types::Duration::default(),
+            )
+            .await;
+        assert!(receive_result.is_err());
+
+        let error = receive_result.unwrap_err();
+        assert_eq!(error.kind, ErrorKind::Server);
+        assert_eq!(error.message, "server return an error");
+        assert_eq!(error.operation, "client.receive_message");
+    }
+
+    #[tokio::test]
+    async fn client_ack_message() {
+        let response = Ok(AckMessageResponse {
+            status: Some(Status {
+                code: Code::Ok as i32,
+                message: "Success".to_string(),
+            }),
+            entries: vec![],
+        });
+        let mut mock = session::MockRPCClient::new();
+        mock.expect_ack_message()
+            .return_once(|_| Box::pin(futures::future::ready(response)));
+
+        let client = Client::new(
+            &terminal_logger(),
+            ClientOption::default(),
+            TelemetryCommand::default(),
+        )
+        .unwrap();
+        let ack_entries: Vec<AckMessageEntry> = vec![];
+        let ack_result = client
+            .ack_message_inner(mock, "test_topic".to_string(), ack_entries)
+            .await;
+        assert!(ack_result.is_ok());
+        assert_eq!(ack_result.unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn client_ack_message_failed() {
+        let response = Ok(AckMessageResponse {
+            status: Some(Status {
+                code: Code::BadRequest as i32,
+                message: "Success".to_string(),
+            }),
+            entries: vec![],
+        });
+        let mut mock = session::MockRPCClient::new();
+        mock.expect_ack_message()
+            .return_once(|_| Box::pin(futures::future::ready(response)));
+
+        let client = Client::new(
+            &terminal_logger(),
+            ClientOption::default(),
+            TelemetryCommand::default(),
+        )
+        .unwrap();
+        let ack_entries: Vec<AckMessageEntry> = vec![];
+        let ack_result = client
+            .ack_message_inner(mock, "test_topic".to_string(), ack_entries)
+            .await;
+
+        let error = ack_result.unwrap_err();
+        assert_eq!(error.kind, ErrorKind::Server);
+        assert_eq!(error.message, "server return an error");
+        assert_eq!(error.operation, "client.ack_message");
     }
 }

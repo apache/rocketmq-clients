@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 use crate::error::{ClientError, ErrorKind};
+use crate::model::common::Endpoints;
 use crate::model::message_id::UNIQ_ID_GENERATOR;
+use crate::pb;
 use std::collections::HashMap;
 
 pub trait Message {
@@ -188,6 +190,113 @@ impl MessageBuilder {
             ClientError::new(ErrorKind::InvalidMessage, &e, Self::OPERATION_BUILD_MESSAGE)
         })?;
         Ok(self.message)
+    }
+}
+
+pub trait AckMessageEntry {
+    fn topic(&self) -> String;
+    fn message_id(&self) -> String;
+    fn receipt_handle(&self) -> String;
+    fn endpoints(&self) -> &Endpoints;
+}
+
+#[derive(Debug)]
+pub struct MessageView {
+    pub(crate) message_id: String,
+    pub(crate) receipt_handle: Option<String>,
+    pub(crate) topic: String,
+    pub(crate) body: Vec<u8>,
+    pub(crate) tag: Option<String>,
+    pub(crate) keys: Vec<String>,
+    pub(crate) properties: HashMap<String, String>,
+    pub(crate) message_group: Option<String>,
+    pub(crate) delivery_timestamp: Option<i64>,
+    pub(crate) born_host: String,
+    pub(crate) born_timestamp: i64,
+    pub(crate) delivery_attempt: i32,
+    pub(crate) endpoints: Endpoints,
+}
+
+impl AckMessageEntry for MessageView {
+    fn topic(&self) -> String {
+        self.topic.clone()
+    }
+
+    fn message_id(&self) -> String {
+        self.message_id.clone()
+    }
+
+    fn receipt_handle(&self) -> String {
+        self.receipt_handle.clone().unwrap()
+    }
+
+    fn endpoints(&self) -> &Endpoints {
+        &self.endpoints
+    }
+}
+
+impl MessageView {
+    pub(crate) fn from_pb_message(message: pb::Message, endpoints: Endpoints) -> Self {
+        let system_properties = message.system_properties.unwrap();
+        MessageView {
+            message_id: system_properties.message_id,
+            receipt_handle: system_properties.receipt_handle,
+            topic: message.topic.unwrap().name,
+            body: message.body,
+            tag: system_properties.tag,
+            keys: system_properties.keys,
+            properties: message.user_properties,
+            message_group: system_properties.message_group,
+            delivery_timestamp: system_properties.delivery_timestamp.map(|t| t.seconds),
+            born_host: system_properties.born_host,
+            born_timestamp: system_properties.born_timestamp.map_or(0, |t| t.seconds),
+            delivery_attempt: system_properties.delivery_attempt.unwrap_or(0),
+            endpoints,
+        }
+    }
+
+    pub fn message_id(&self) -> &str {
+        &self.message_id
+    }
+
+    pub fn topic(&self) -> &str {
+        &self.topic
+    }
+
+    pub fn body(&self) -> &[u8] {
+        &self.body
+    }
+
+    pub fn tag(&self) -> Option<&str> {
+        self.tag.as_deref()
+    }
+
+    pub fn keys(&self) -> &[String] {
+        &self.keys
+    }
+
+    pub fn properties(&self) -> &HashMap<String, String> {
+        &self.properties
+    }
+
+    pub fn message_group(&self) -> Option<&str> {
+        self.message_group.as_deref()
+    }
+
+    pub fn delivery_timestamp(&self) -> Option<i64> {
+        self.delivery_timestamp
+    }
+
+    pub fn born_host(&self) -> &str {
+        &self.born_host
+    }
+
+    pub fn born_timestamp(&self) -> i64 {
+        self.born_timestamp
+    }
+
+    pub fn delivery_attempt(&self) -> i32 {
+        self.delivery_attempt
     }
 }
 

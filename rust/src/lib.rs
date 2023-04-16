@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 #[allow(dead_code)]
-mod conf;
+pub mod conf;
 #[allow(dead_code)]
 mod error;
 #[allow(dead_code)]
@@ -29,11 +29,12 @@ mod pb;
 mod session;
 
 #[allow(dead_code)]
-mod model;
+pub mod model;
+mod util;
+
 mod producer;
+mod simple_consumer;
 
 // Export structs that are part of crate API.
-pub use conf::ClientOption;
-pub use conf::ProducerOption;
-pub use model::message::MessageImpl;
 pub use producer::Producer;
+pub use simple_consumer::SimpleConsumer;

@@ -14,21 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use rocketmq::{ClientOption, MessageImpl, Producer, ProducerOption};
+use rocketmq::conf::{ClientOption, ProducerOption};
+use rocketmq::model::message::MessageImpl;
+use rocketmq::Producer;
 
 #[tokio::main]
 async fn main() {
-    // specify which topic(s) you would like to send message to
+    // recommend to specify which topic(s) you would like to send message to
     // producer will prefetch topic route when start and failed fast if topic not exist
     let mut producer_option = ProducerOption::default();
     producer_option.set_topics(vec!["test_topic".to_string()]);
+    producer_option.set_producer_group("ProducerGroup".to_string());
 
     // set which rocketmq proxy to connect
     let mut client_option = ClientOption::default();
     client_option.set_access_url("localhost:8081".to_string());
 
     // build and start producer
-    let producer = Producer::new(producer_option, client_option).await.unwrap();
+    let producer = Producer::new(producer_option, client_option).unwrap();
     producer.start().await.unwrap();
 
     // build message

@@ -19,7 +19,7 @@ use std::fs::OpenOptions;
 use slog::{o, Drain, Logger};
 use slog_async::OverflowStrategy;
 
-use crate::conf::{LoggingFormat, ProducerOption};
+use crate::conf::LoggingFormat;
 
 pub(crate) fn terminal_logger() -> Logger {
     let decorator = slog_term::TermDecorator::new().build();
@@ -47,8 +47,8 @@ fn json_logger(filepath: &str) -> Logger {
     Logger::root(drain, o!())
 }
 
-pub(crate) fn logger(_option: &ProducerOption) -> Logger {
-    match _option.logging_format() {
+pub(crate) fn logger(logging_format: &LoggingFormat) -> Logger {
+    match logging_format {
         LoggingFormat::Terminal => terminal_logger(),
         LoggingFormat::Json => json_logger("logs/rocketmq_client.log"),
     }

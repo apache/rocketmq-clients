@@ -20,21 +20,21 @@
 //! `Producer` is a thin wrapper of internal `Client` struct that shoulders the actual workloads.
 //! Most of its methods take shared reference so that application developers may use it at will.
 
-use std::hash::Hasher;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use prost_types::Timestamp;
-use siphasher::sip::SipHasher24;
 use slog::{info, Logger};
 
 use crate::client::Client;
 use crate::conf::{ClientOption, ProducerOption};
 use crate::error::{ClientError, ErrorKind};
-use crate::model::common::{Endpoints, Route};
+use crate::model::common::ClientType;
 use crate::model::message;
-use crate::pb::{Encoding, MessageQueue, Resource, SendResultEntry, SystemProperties};
+use crate::pb::{Encoding, Resource, SendResultEntry, SystemProperties};
+use crate::util::{
+    build_endpoints_by_message_queue, build_producer_settings, select_message_queue,
+    select_message_queue_by_message_group, HOST_NAME,
+};
 use crate::{log, pb};
 
 /// `Producer` is the core struct, to which application developers should turn, when publishing messages to brokers.
@@ -47,22 +47,19 @@ pub struct Producer {
     client: Client,
 }
 
-lazy_static::lazy_static! {
-    static ref HOST_NAME: String = match hostname::get() {
-        Ok(name) => name.to_str().unwrap_or("localhost").to_string(),
-        Err(_) => "localhost".to_string(),
-    };
-}
-
 impl Producer {
     const OPERATION_SEND_MESSAGE: &'static str = "producer.send_message";
 
-    pub async fn new(
-        option: ProducerOption,
-        client_option: ClientOption,
-    ) -> Result<Self, ClientError> {
-        let logger = log::logger(&option);
-        let client = Client::new(&logger, client_option)?;
+    pub fn new(option: ProducerOption, client_option: ClientOption) -> Result<Self, ClientError> {
+        let client_option = ClientOption {
+            client_type: ClientType::Producer,
+            group: option.producer_group().to_string(),
+            namespace: option.namespace().to_string(),
+            ..client_option
+        };
+        let logger = log::logger(option.logging_format());
+        let settings = build_producer_settings(&option, &client_option);
+        let client = Client::new(&logger, client_option, settings)?;
         Ok(Producer {
             option,
             logger,
@@ -76,6 +73,7 @@ impl Producer {
                 self.client.topic_route(topic, true).await?;
             }
         }
+        self.client.start();
         info!(
             self.logger,
             "start producer success, client_id: {}",
@@ -91,7 +89,7 @@ impl Producer {
         if messages.is_empty() {
             return Err(ClientError::new(
                 ErrorKind::InvalidMessage,
-                "No message found.",
+                "no message found",
                 Self::OPERATION_SEND_MESSAGE,
             ));
         }
@@ -126,7 +124,7 @@ impl Producer {
                 if last_message_group.ne(&message_group) {
                     return Err(ClientError::new(
                         ErrorKind::InvalidMessage,
-                        "Not all messages have the same message group.",
+                        "not all messages have the same message group",
                         Self::OPERATION_SEND_MESSAGE,
                     ));
                 }
@@ -165,7 +163,7 @@ impl Producer {
         if topic.is_empty() {
             return Err(ClientError::new(
                 ErrorKind::InvalidMessage,
-                "Message topic is empty.",
+                "message topic is empty",
                 Self::OPERATION_SEND_MESSAGE,
             ));
         }
@@ -191,54 +189,18 @@ impl Producer {
         let route = self.client.topic_route(&topic, true).await?;
 
         let message_queue = if let Some(message_group) = message_group {
-            self.select_message_queue_by_message_group(route, message_group)
+            select_message_queue_by_message_group(route, message_group)
         } else {
-            self.select_message_queue(route)
+            select_message_queue(route)
         };
 
-        if message_queue.broker.is_none() {
-            return Err(ClientError::new(
-                ErrorKind::NoBrokerAvailable,
-                "Message queue do not have a available endpoint.",
-                Self::OPERATION_SEND_MESSAGE,
-            )
-            .with_context("message_queue", format!("{:?}", message_queue)));
-        }
-
-        let broker = message_queue.broker.unwrap();
-        if broker.endpoints.is_none() {
-            return Err(ClientError::new(
-                ErrorKind::NoBrokerAvailable,
-                "Message queue do not have a available endpoint.",
-                Self::OPERATION_SEND_MESSAGE,
-            )
-            .with_context("broker", broker.name)
-            .with_context("topic", topic)
-            .with_context("queue_id", message_queue.id.to_string()));
-        }
-
-        let endpoints = Endpoints::from_pb_endpoints(broker.endpoints.unwrap());
+        let endpoints =
+            build_endpoints_by_message_queue(&message_queue, Self::OPERATION_SEND_MESSAGE)?;
         for message in pb_messages.iter_mut() {
             message.system_properties.as_mut().unwrap().queue_id = message_queue.id;
         }
 
-        self.client.send_message(pb_messages, &endpoints).await
-    }
-
-    fn select_message_queue(&self, route: Arc<Route>) -> MessageQueue {
-        let i = route.index.fetch_add(1, Ordering::Relaxed);
-        route.queue[i % route.queue.len()].clone()
-    }
-
-    fn select_message_queue_by_message_group(
-        &self,
-        route: Arc<Route>,
-        message_group: String,
-    ) -> MessageQueue {
-        let mut sip_hasher24 = SipHasher24::default();
-        sip_hasher24.write(message_group.as_bytes());
-        let index = sip_hasher24.finish() % route.queue.len() as u64;
-        route.queue[index as usize].clone()
+        self.client.send_message(&endpoints, pb_messages).await
     }
 }
 
@@ -261,9 +223,7 @@ mod tests {
 
     #[tokio::test]
     async fn producer_transform_messages_to_protobuf() {
-        let producer = Producer::new(ProducerOption::default(), ClientOption::default())
-            .await
-            .unwrap();
+        let producer = Producer::new(ProducerOption::default(), ClientOption::default()).unwrap();
         let messages = vec![MessageImpl::builder()
             .set_topic("DefaultCluster".to_string())
             .set_body("hello world".as_bytes().to_vec())
@@ -298,16 +258,14 @@ mod tests {
 
     #[tokio::test]
     async fn producer_transform_messages_to_protobuf_failed() {
-        let producer = Producer::new(ProducerOption::default(), ClientOption::default())
-            .await
-            .unwrap();
+        let producer = Producer::new(ProducerOption::default(), ClientOption::default()).unwrap();
 
         let messages: Vec<MessageImpl> = vec![];
         let result = producer.transform_messages_to_protobuf(messages);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.kind, ErrorKind::InvalidMessage);
-        assert_eq!(err.message, "No message found.");
+        assert_eq!(err.message, "no message found");
 
         let messages = vec![MessageImpl {
             message_id: "".to_string(),
@@ -323,7 +281,7 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.kind, ErrorKind::InvalidMessage);
-        assert_eq!(err.message, "Message topic is empty.");
+        assert_eq!(err.message, "message topic is empty");
 
         let messages = vec![
             MessageImpl::builder()
@@ -361,6 +319,6 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.kind, ErrorKind::InvalidMessage);
-        assert_eq!(err.message, "Not all messages have the same message group.");
+        assert_eq!(err.message, "not all messages have the same message group");
     }
 }
