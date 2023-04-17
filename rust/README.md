@@ -1,4 +1,4 @@
-# The Java Implementation of Apache RocketMQ Client
+# The Rust Implementation of Apache RocketMQ Client
 
 [RocketMQ Website](https://rocketmq.apache.org/)
 
