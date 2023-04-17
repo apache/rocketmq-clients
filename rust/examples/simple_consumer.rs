@@ -23,12 +23,12 @@ async fn main() {
     // recommend to specify which topic(s) you would like to send message to
     // simple consumer will prefetch topic route when start and failed fast if topic not exist
     let mut consumer_option = SimpleConsumerOption::default();
-    consumer_option.set_topics(vec!["test_topic".to_string()]);
-    consumer_option.set_consumer_group("SimpleConsumerGroup".to_string());
+    consumer_option.set_topics(vec!["test_topic"]);
+    consumer_option.set_consumer_group("SimpleConsumerGroup");
 
     // set which rocketmq proxy to connect
     let mut client_option = ClientOption::default();
-    client_option.set_access_url("localhost:8081".to_string());
+    client_option.set_access_url("localhost:8081");
 
     // build and start simple consumer
     let consumer = SimpleConsumer::new(consumer_option, client_option).unwrap();
@@ -37,8 +37,8 @@ async fn main() {
     // pop message from rocketmq proxy
     let receive_result = consumer
         .receive(
-            "test_topic",
-            &FilterExpression::new(FilterType::Tag, "test_tag".to_string()),
+            "test_topic".to_string(),
+            &FilterExpression::new(FilterType::Tag, "test_tag"),
         )
         .await;
     debug_assert!(

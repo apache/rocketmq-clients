@@ -83,10 +83,10 @@ impl SimpleConsumer {
 
     pub async fn receive(
         &self,
-        topic: &str,
+        topic: impl AsRef<str>,
         expression: &FilterExpression,
     ) -> Result<Vec<MessageView>, ClientError> {
-        self.receive_with_batch_size(topic, expression, 32, Duration::from_secs(15))
+        self.receive_with_batch_size(topic.as_ref(), expression, 32, Duration::from_secs(15))
             .await
     }
 

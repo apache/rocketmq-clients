@@ -46,8 +46,8 @@ impl ClientOption {
     pub fn access_url(&self) -> &str {
         &self.access_url
     }
-    pub fn set_access_url(&mut self, access_url: String) {
-        self.access_url = access_url;
+    pub fn set_access_url(&mut self, access_url: impl Into<String>) {
+        self.access_url = access_url.into();
     }
 
     pub fn enable_tls(&self) -> bool {
@@ -105,8 +105,8 @@ impl ProducerOption {
     pub fn producer_group(&self) -> &str {
         &self.producer_group
     }
-    pub fn set_producer_group(&mut self, producer_group: String) {
-        self.producer_group = producer_group;
+    pub fn set_producer_group(&mut self, producer_group: impl Into<String>) {
+        self.producer_group = producer_group.into();
     }
 
     pub fn logging_format(&self) -> &LoggingFormat {
@@ -126,15 +126,15 @@ impl ProducerOption {
     pub fn topics(&self) -> &Option<Vec<String>> {
         &self.topics
     }
-    pub fn set_topics(&mut self, topics: Vec<String>) {
-        self.topics = Some(topics);
+    pub fn set_topics(&mut self, topics: Vec<impl Into<String>>) {
+        self.topics = Some(topics.into_iter().map(|t| t.into()).collect());
     }
 
     pub fn namespace(&self) -> &str {
         &self.namespace
     }
-    pub fn set_namespace(&mut self, name_space: String) {
-        self.namespace = name_space;
+    pub fn set_namespace(&mut self, name_space: impl Into<String>) {
+        self.namespace = name_space.into();
     }
 
     pub fn validate_message_type(&self) -> bool {
@@ -179,8 +179,8 @@ impl SimpleConsumerOption {
     pub fn consumer_group(&self) -> &str {
         &self.consumer_group
     }
-    pub fn set_consumer_group(&mut self, consumer_group: String) {
-        self.consumer_group = consumer_group;
+    pub fn set_consumer_group(&mut self, consumer_group: impl Into<String>) {
+        self.consumer_group = consumer_group.into();
     }
 
     pub fn prefetch_route(&self) -> &bool {
@@ -193,15 +193,15 @@ impl SimpleConsumerOption {
     pub fn topics(&self) -> &Option<Vec<String>> {
         &self.topics
     }
-    pub fn set_topics(&mut self, topics: Vec<String>) {
-        self.topics = Some(topics);
+    pub fn set_topics(&mut self, topics: Vec<impl Into<String>>) {
+        self.topics = Some(topics.into_iter().map(|t| t.into()).collect());
     }
 
     pub fn namespace(&self) -> &str {
         &self.namespace
     }
-    pub fn set_namespace(&mut self, name_space: String) {
-        self.namespace = name_space;
+    pub fn set_namespace(&mut self, name_space: impl Into<String>) {
+        self.namespace = name_space.into();
     }
 
     pub fn await_duration(&self) -> &Duration {

@@ -225,15 +225,11 @@ mod tests {
     async fn producer_transform_messages_to_protobuf() {
         let producer = Producer::new(ProducerOption::default(), ClientOption::default()).unwrap();
         let messages = vec![MessageImpl::builder()
-            .set_topic("DefaultCluster".to_string())
+            .set_topic("DefaultCluster")
             .set_body("hello world".as_bytes().to_vec())
-            .set_tags("tag".to_string())
-            .set_keys(vec!["key".to_string()])
-            .set_properties(
-                vec![("key".to_string(), "value".to_string())]
-                    .into_iter()
-                    .collect(),
-            )
+            .set_tags("tag")
+            .set_keys(vec!["key"])
+            .set_properties(vec![("key", "value")].into_iter().collect())
             .set_message_group("message_group".to_string())
             .build()
             .unwrap()];
@@ -285,12 +281,12 @@ mod tests {
 
         let messages = vec![
             MessageImpl::builder()
-                .set_topic("DefaultCluster".to_string())
+                .set_topic("DefaultCluster")
                 .set_body("hello world".as_bytes().to_vec())
                 .build()
                 .unwrap(),
             MessageImpl::builder()
-                .set_topic("DefaultCluster_dup".to_string())
+                .set_topic("DefaultCluster_dup")
                 .set_body("hello world".as_bytes().to_vec())
                 .build()
                 .unwrap(),
@@ -303,15 +299,15 @@ mod tests {
 
         let messages = vec![
             MessageImpl::builder()
-                .set_topic("DefaultCluster".to_string())
+                .set_topic("DefaultCluster")
                 .set_body("hello world".as_bytes().to_vec())
-                .set_message_group("message_group".to_string())
+                .set_message_group("message_group")
                 .build()
                 .unwrap(),
             MessageImpl::builder()
-                .set_topic("DefaultCluster".to_string())
+                .set_topic("DefaultCluster")
                 .set_body("hello world".as_bytes().to_vec())
-                .set_message_group("message_group_dup".to_string())
+                .set_message_group("message_group_dup")
                 .build()
                 .unwrap(),
         ];

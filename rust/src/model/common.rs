@@ -190,10 +190,10 @@ pub struct FilterExpression {
 }
 
 impl FilterExpression {
-    pub fn new(filter_type: FilterType, expression: String) -> Self {
+    pub fn new(filter_type: FilterType, expression: impl Into<String>) -> Self {
         FilterExpression {
             filter_type,
-            expression,
+            expression: expression.into(),
         }
     }
 }

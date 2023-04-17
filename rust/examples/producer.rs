@@ -23,12 +23,12 @@ async fn main() {
     // recommend to specify which topic(s) you would like to send message to
     // producer will prefetch topic route when start and failed fast if topic not exist
     let mut producer_option = ProducerOption::default();
-    producer_option.set_topics(vec!["test_topic".to_string()]);
-    producer_option.set_producer_group("ProducerGroup".to_string());
+    producer_option.set_topics(vec!["test_topic"]);
+    producer_option.set_producer_group("ProducerGroup");
 
     // set which rocketmq proxy to connect
     let mut client_option = ClientOption::default();
-    client_option.set_access_url("localhost:8081".to_string());
+    client_option.set_access_url("localhost:8081");
 
     // build and start producer
     let producer = Producer::new(producer_option, client_option).unwrap();
@@ -36,8 +36,8 @@ async fn main() {
 
     // build message
     let message = MessageImpl::builder()
-        .set_topic("test_topic".to_string())
-        .set_tags("test_tag".to_string())
+        .set_topic("test_topic")
+        .set_tags("test_tag")
         .set_body("hello world".as_bytes().to_vec())
         .build()
         .unwrap();

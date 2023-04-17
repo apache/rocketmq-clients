@@ -135,8 +135,8 @@ pub struct MessageBuilder {
 impl MessageBuilder {
     const OPERATION_BUILD_MESSAGE: &'static str = "build_message";
 
-    pub fn set_topic(mut self, topic: String) -> Self {
-        self.message.topic = topic;
+    pub fn set_topic(mut self, topic: impl Into<String>) -> Self {
+        self.message.topic = topic.into();
         self
     }
 
@@ -145,23 +145,31 @@ impl MessageBuilder {
         self
     }
 
-    pub fn set_tags(mut self, tags: String) -> Self {
-        self.message.tags = Some(tags);
+    pub fn set_tags(mut self, tags: impl Into<String>) -> Self {
+        self.message.tags = Some(tags.into());
         self
     }
 
-    pub fn set_keys(mut self, keys: Vec<String>) -> Self {
-        self.message.keys = Some(keys);
+    pub fn set_keys(mut self, keys: Vec<impl Into<String>>) -> Self {
+        self.message.keys = Some(keys.into_iter().map(|k| k.into()).collect());
         self
     }
 
-    pub fn set_properties(mut self, properties: HashMap<String, String>) -> Self {
-        self.message.properties = Some(properties);
+    pub fn set_properties(
+        mut self,
+        properties: HashMap<impl Into<String>, impl Into<String>>,
+    ) -> Self {
+        self.message.properties = Some(
+            properties
+                .into_iter()
+                .map(|(k, v)| (k.into(), v.into()))
+                .collect(),
+        );
         self
     }
 
-    pub fn set_message_group(mut self, message_group: String) -> Self {
-        self.message.message_group = Some(message_group);
+    pub fn set_message_group(mut self, message_group: impl Into<String>) -> Self {
+        self.message.message_group = Some(message_group.into());
         self
     }
 
