@@ -170,7 +170,6 @@ impl Session {
             //     .with_context("peer", &peer_addr)
             // })?
             .connect_timeout(option.timeout)
-            .timeout(option.timeout)
             .tcp_nodelay(true);
         Ok(endpoint)
     }
@@ -333,7 +332,8 @@ impl RPCClient for Session {
         request: ReceiveMessageRequest,
     ) -> Result<Vec<ReceiveMessageResponse>, ClientError> {
         let batch_size = request.batch_size;
-        let request = self.sign(tonic::Request::new(request));
+        let mut request = self.sign(tonic::Request::new(request));
+        request.set_timeout(*self.option.long_polling_timeout());
         let mut stream = self
             .stub
             .receive_message(request)

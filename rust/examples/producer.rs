@@ -24,7 +24,6 @@ async fn main() {
     // producer will prefetch topic route when start and failed fast if topic not exist
     let mut producer_option = ProducerOption::default();
     producer_option.set_topics(vec!["test_topic"]);
-    producer_option.set_producer_group("ProducerGroup");
 
     // set which rocketmq proxy to connect
     let mut client_option = ClientOption::default();

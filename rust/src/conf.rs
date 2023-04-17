@@ -36,7 +36,7 @@ impl Default for ClientOption {
             namespace: "".to_string(),
             access_url: "localhost:8081".to_string(),
             enable_tls: false,
-            timeout: Duration::from_secs(10),
+            timeout: Duration::from_secs(3),
             long_polling_timeout: Duration::from_secs(40),
         }
     }
@@ -80,7 +80,6 @@ pub enum LoggingFormat {
 
 #[derive(Debug, Clone)]
 pub struct ProducerOption {
-    producer_group: String,
     logging_format: LoggingFormat,
     prefetch_route: bool,
     topics: Option<Vec<String>>,
@@ -91,7 +90,6 @@ pub struct ProducerOption {
 impl Default for ProducerOption {
     fn default() -> Self {
         ProducerOption {
-            producer_group: "".to_string(),
             logging_format: LoggingFormat::Terminal,
             prefetch_route: true,
             topics: None,
@@ -102,13 +100,6 @@ impl Default for ProducerOption {
 }
 
 impl ProducerOption {
-    pub fn producer_group(&self) -> &str {
-        &self.producer_group
-    }
-    pub fn set_producer_group(&mut self, producer_group: impl Into<String>) {
-        self.producer_group = producer_group.into();
-    }
-
     pub fn logging_format(&self) -> &LoggingFormat {
         &self.logging_format
     }
@@ -130,10 +121,11 @@ impl ProducerOption {
         self.topics = Some(topics.into_iter().map(|t| t.into()).collect());
     }
 
-    pub fn namespace(&self) -> &str {
+    // not expose to user for now
+    pub(crate) fn namespace(&self) -> &str {
         &self.namespace
     }
-    pub fn set_namespace(&mut self, name_space: impl Into<String>) {
+    pub(crate) fn set_namespace(&mut self, name_space: impl Into<String>) {
         self.namespace = name_space.into();
     }
 
@@ -152,7 +144,6 @@ pub struct SimpleConsumerOption {
     prefetch_route: bool,
     topics: Option<Vec<String>>,
     namespace: String,
-    await_duration: Duration,
 }
 
 impl Default for SimpleConsumerOption {
@@ -163,7 +154,6 @@ impl Default for SimpleConsumerOption {
             prefetch_route: true,
             topics: None,
             namespace: "".to_string(),
-            await_duration: Duration::from_secs(1),
         }
     }
 }
@@ -197,17 +187,11 @@ impl SimpleConsumerOption {
         self.topics = Some(topics.into_iter().map(|t| t.into()).collect());
     }
 
-    pub fn namespace(&self) -> &str {
+    // not expose to user for now
+    pub(crate) fn namespace(&self) -> &str {
         &self.namespace
     }
-    pub fn set_namespace(&mut self, name_space: impl Into<String>) {
+    pub(crate) fn set_namespace(&mut self, name_space: impl Into<String>) {
         self.namespace = name_space.into();
-    }
-
-    pub fn await_duration(&self) -> &Duration {
-        &self.await_duration
-    }
-    pub fn set_await_duration(&mut self, await_duration: Duration) {
-        self.await_duration = await_duration;
     }
 }

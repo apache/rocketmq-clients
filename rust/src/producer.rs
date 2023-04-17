@@ -53,7 +53,6 @@ impl Producer {
     pub fn new(option: ProducerOption, client_option: ClientOption) -> Result<Self, ClientError> {
         let client_option = ClientOption {
             client_type: ClientType::Producer,
-            group: option.producer_group().to_string(),
             namespace: option.namespace().to_string(),
             ..client_option
         };
