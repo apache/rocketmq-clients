@@ -58,6 +58,9 @@ siphasher = "0.3.10"
 
 [build-dependencies]
 tonic-build = "0.9.0"
+which = "4.4.0"
+version_check = "0.9.4"
+regex = "1.7.3"
 
 [dev-dependencies]
 wiremock-grpc = "0.0.3-alpha2"
