@@ -48,12 +48,12 @@ type FuncPushConsumerOption struct {
 	f1 func(*pushConsumerOptions)
 }
 
-func (fo *FuncPushConsumerOption) apply(do *consumerOptions) {
-	fo.f(do)
+func (funcPushConsumerOption *FuncPushConsumerOption) apply(do *consumerOptions) {
+	funcPushConsumerOption.f(do)
 }
 
-func (fo *FuncPushConsumerOption) apply0(do *pushConsumerOptions) {
-	fo.f1(do)
+func (funcPushConsumerOption *FuncPushConsumerOption) apply0(do *pushConsumerOptions) {
+	funcPushConsumerOption.f1(do)
 }
 
 func newFuncPushConsumerOption(f1 func(*pushConsumerOptions)) *FuncPushConsumerOption {

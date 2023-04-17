@@ -115,7 +115,7 @@ var NewPushConsumer = func(config *Config, opts ...PushConsumerOption) (PushCons
 	pc.scSettings = &pushConsumerSettings{
 		clientId:       pc.cli.GetClientID(),
 		endpoints:      endpoints,
-		clientType:     v2.ClientType_SIMPLE_CONSUMER,
+		clientType:     v2.ClientType_PUSH_CONSUMER,
 		requestTimeout: pc.cli.opts.timeout,
 
 		groupName: &v2.Resource{
@@ -156,7 +156,7 @@ func (pc *defaultPushConsumer) Subscribe(topic string, filterExpression *FilterE
 	callBackFunc func(context.Context, *MessageView) (ConsumeResult, error)) error {
 	_, err := pc.cli.getMessageQueues(context.Background(), topic)
 	if err != nil {
-		pc.cli.log.Errorf("subscribe error=%v with topic %s for simpleConsumer", err, topic)
+		pc.cli.log.Errorf("subscribe error=%v with topic %s for pushConsumer", err, topic)
 		return err
 	}
 	pc.subscriptionExpressionsLock.Lock()
@@ -177,7 +177,7 @@ func (pc *defaultPushConsumer) Unsubscribe(topic string) error {
 
 func (pc *defaultPushConsumer) Ack(ctx context.Context, messageView *MessageView) error {
 	if !pc.isOn() {
-		return fmt.Errorf("simple consumer is not running")
+		return fmt.Errorf("push consumer is not running")
 	}
 	endpoints := messageView.endpoints
 	watchTime := time.Now()
@@ -220,14 +220,14 @@ func (pc *defaultPushConsumer) wrapAckMessageRequest(messageView *MessageView) *
 
 func (pc *defaultPushConsumer) ChangeInvisibleDuration(messageView *MessageView, invisibleDuration time.Duration) error {
 	if !pc.isOn() {
-		return fmt.Errorf("simple consumer is not running")
+		return fmt.Errorf("push consumer is not running")
 	}
 	return pc.changeInvisibleDuration(messageView, invisibleDuration)
 }
 
 func (pc *defaultPushConsumer) ChangeInvisibleDurationAsync(messageView *MessageView, invisibleDuration time.Duration) {
 	if !pc.isOn() {
-		sugarBaseLogger.Errorf("simple consumer is not running")
+		sugarBaseLogger.Errorf("push consumer is not running")
 		return
 	}
 	go func() {
@@ -293,7 +293,7 @@ func (pc *defaultPushConsumer) isClient() {
 func (pc *defaultPushConsumer) wrapHeartbeatRequest() *v2.HeartbeatRequest {
 	return &v2.HeartbeatRequest{
 		Group:      pc.scSettings.groupName,
-		ClientType: v2.ClientType_SIMPLE_CONSUMER,
+		ClientType: v2.ClientType_PUSH_CONSUMER,
 	}
 }
 
@@ -307,7 +307,7 @@ func (pc *defaultPushConsumer) onVerifyMessageCommand(endpoints *v2.Endpoints, c
 
 func (pc *defaultPushConsumer) Receive(ctx context.Context, invisibleDuration time.Duration) error {
 	if !pc.isOn() {
-		return fmt.Errorf("simple consumer is not running")
+		return fmt.Errorf("push consumer is not running")
 	}
 
 	pc.subscriptionExpressionsLock.RLock()
@@ -387,7 +387,7 @@ func (pc *defaultPushConsumer) receiveMessage(ctx context.Context, request *v2.R
 				break
 			}
 			if err != nil {
-				pc.cli.log.Errorf("simpleConsumer recv msg err=%v, requestId=%s", err, utils.GetRequestID(ctx))
+				pc.cli.log.Errorf("pushConsumer recv msg err=%v, requestId=%s", err, utils.GetRequestID(ctx))
 				break
 			}
 			sugarBaseLogger.Debugf("receiveMessage response: %v", resp)
