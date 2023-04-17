@@ -14,7 +14,7 @@ Here are some preparations you may need to know (or refer to [here](https://rock
 
 1. rust and cargo
 2. protoc 3.15.0+
-3. Setup name server, broker, and [proxy](https://github.com/apache/rocketmq/tree/develop/proxy).
+3. setup name server, broker, and [proxy](https://github.com/apache/rocketmq/tree/develop/proxy).
 
 ### Run Example
 
