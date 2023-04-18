@@ -14,6 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod common;
-pub(crate) mod message;
+pub mod common;
+pub mod message;
 pub(crate) mod message_id;

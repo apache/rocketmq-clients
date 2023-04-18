@@ -14,7 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use regex::Regex;
+use std::path::PathBuf;
+use std::process::Command;
+use std::{env, str};
+use version_check::Version;
+
 fn main() {
+    check_protoc_version();
+
     tonic_build::configure()
         .build_client(true)
         .build_server(false)
@@ -27,4 +35,39 @@ fn main() {
             &["../protos"],
         )
         .unwrap_or_else(|e| panic!("Failed to compile protos {:?}", e));
+}
+
+fn check_protoc_version() {
+    let protoc = env::var_os("PROTOC")
+        .map(PathBuf::from)
+        .or_else(|| which::which("protoc").ok());
+
+    if protoc.is_none() {
+        panic!("protoc not found");
+    }
+
+    let mut cmd = Command::new(protoc.unwrap());
+    cmd.arg("--version");
+    let result = cmd.output();
+
+    if result.is_err() {
+        panic!("failed to invoke protoc: {:?}", result)
+    }
+
+    let output = result.unwrap();
+    if !output.status.success() {
+        panic!("protoc failed: {:?}", output)
+    }
+
+    let version_regex = Regex::new(r"(?:(\d+)\.)?(?:(\d+)\.)?(\*|\d+)").unwrap();
+    let protoc_version = version_regex.find(str::from_utf8(&output.stdout).unwrap());
+    if protoc_version.is_none() {
+        panic!("failed to parse protoc version");
+    }
+
+    let protoc_version = Version::parse(protoc_version.unwrap().as_str()).unwrap();
+    let min_version = Version::from_mmp(3, 15, 0);
+    if protoc_version.cmp(&min_version).is_le() {
+        panic!("protoc version must be >= 3.15.0");
+    }
 }
