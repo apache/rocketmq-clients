@@ -33,4 +33,3 @@ cargo run --example producer
 # consume message via simple consumer
 cargo run --example simple_consumer
 ```
-
