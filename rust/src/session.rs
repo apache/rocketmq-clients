@@ -27,6 +27,7 @@ use tonic::transport::{Channel, Endpoint};
 
 use crate::conf::ClientOption;
 use crate::error::ErrorKind;
+use crate::log::terminal_logger;
 use crate::model::common::Endpoints;
 use crate::pb::{
     AckMessageRequest, AckMessageResponse, HeartbeatRequest, HeartbeatResponse, QueryRouteRequest,
@@ -86,6 +87,20 @@ impl Session {
 
     const HTTP_SCHEMA: &'static str = "http";
     const HTTPS_SCHEMA: &'static str = "https";
+
+    #[cfg(test)]
+    pub(crate) fn mock() -> Self {
+        Session {
+            logger: terminal_logger(),
+            client_id: "fake_id".to_string(),
+            option: ClientOption::default(),
+            endpoints: Endpoints::from_url("http://localhost:8081").unwrap(),
+            stub: MessagingServiceClient::new(
+                Channel::from_static("http://localhost:8081").connect_lazy(),
+            ),
+            telemetry_tx: Box::new(None),
+        }
+    }
 
     async fn new(
         logger: &Logger,
@@ -277,6 +292,7 @@ impl Session {
     }
 }
 
+#[automock]
 #[async_trait]
 impl RPCClient for Session {
     async fn query_route(
@@ -388,6 +404,7 @@ pub(crate) struct SessionManager {
     session_map: Mutex<HashMap<String, Session>>,
 }
 
+#[automock]
 impl SessionManager {
     pub(crate) fn new(logger: &Logger, client_id: String, option: &ClientOption) -> Self {
         let logger = logger.new(o!("component" => "session"));

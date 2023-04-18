@@ -120,7 +120,7 @@ impl SimpleConsumer {
             .collect())
     }
 
-    pub async fn ack(&self, ack_entry: impl AckMessageEntry) -> Result<(), ClientError> {
+    pub async fn ack(&self, ack_entry: impl AckMessageEntry + 'static) -> Result<(), ClientError> {
         self.client.ack_message(ack_entry).await?;
         Ok(())
     }
