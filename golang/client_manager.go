@@ -29,7 +29,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// TODO: no global clientManager
 type ClientManager interface {
 	RegisterClient(client Client)
 	UnRegisterClient(client Client)
