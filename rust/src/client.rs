@@ -56,15 +56,15 @@ lazy_static::lazy_static! {
     static ref CLIENT_ID_SEQUENCE: AtomicUsize = AtomicUsize::new(0);
 }
 
+const OPERATION_CLIENT_NEW: &'static str = "client.new";
+const OPERATION_QUERY_ROUTE: &'static str = "client.query_route";
+const OPERATION_HEARTBEAT: &'static str = "client.heartbeat";
+const OPERATION_SEND_MESSAGE: &'static str = "client.send_message";
+const OPERATION_RECEIVE_MESSAGE: &'static str = "client.receive_message";
+const OPERATION_ACK_MESSAGE: &'static str = "client.ack_message";
+
 #[automock]
 impl Client {
-    const OPERATION_CLIENT_NEW: &'static str = "client.new";
-    const OPERATION_QUERY_ROUTE: &'static str = "client.query_route";
-    const OPERATION_HEARTBEAT: &'static str = "client.heartbeat";
-    const OPERATION_SEND_MESSAGE: &'static str = "client.send_message";
-    const OPERATION_RECEIVE_MESSAGE: &'static str = "client.receive_message";
-    const OPERATION_ACK_MESSAGE: &'static str = "client.ack_message";
-
     pub(crate) fn new(
         logger: &Logger,
         option: ClientOption,
@@ -72,7 +72,7 @@ impl Client {
     ) -> Result<Self, ClientError> {
         let id = Self::generate_client_id();
         let endpoints = Endpoints::from_url(option.access_url())
-            .map_err(|e| e.with_operation(Self::OPERATION_CLIENT_NEW))?;
+            .map_err(|e| e.with_operation(OPERATION_CLIENT_NEW))?;
         let session_manager = SessionManager::new(logger, id.clone(), &option);
         Ok(Client {
             logger: logger.new(o!("component" => "client")),
@@ -120,7 +120,7 @@ impl Client {
                                 continue;
                             }
                             let result =
-                                Self::handle_response_status(response.unwrap().status, Self::OPERATION_HEARTBEAT);
+                                Self::handle_response_status(response.unwrap().status, OPERATION_HEARTBEAT);
                             if result.is_err() {
                                 error!(
                                     logger,
@@ -137,6 +137,7 @@ impl Client {
         });
     }
 
+    #[allow(dead_code)]
     pub(crate) fn client_id(&self) -> &str {
         &self.id
     }
@@ -214,6 +215,7 @@ impl Client {
         })
     }
 
+    #[allow(dead_code)]
     pub(crate) async fn topic_route(
         &self,
         topic: &str,
@@ -242,7 +244,7 @@ impl Client {
         };
 
         let response = rpc_client.query_route(request).await?;
-        Self::handle_response_status(response.status, Self::OPERATION_QUERY_ROUTE)?;
+        Self::handle_response_status(response.status, OPERATION_QUERY_ROUTE)?;
 
         let route = Route {
             index: AtomicUsize::new(0),
@@ -288,7 +290,7 @@ impl Client {
                 Err(_e) => Err(ClientError::new(
                     ErrorKind::ChannelReceive,
                     "wait for inflight query topic route request failed",
-                    Self::OPERATION_QUERY_ROUTE,
+                    OPERATION_QUERY_ROUTE,
                 )),
             };
         }
@@ -327,7 +329,7 @@ impl Client {
                     let _ = item.send(Err(ClientError::new(
                         ErrorKind::Server,
                         "query topic route failed",
-                        Self::OPERATION_QUERY_ROUTE,
+                        OPERATION_QUERY_ROUTE,
                     )));
                 }
             };
@@ -352,6 +354,7 @@ impl Client {
         Ok(response)
     }
 
+    #[allow(dead_code)]
     pub(crate) async fn send_message(
         &self,
         endpoints: &Endpoints,
@@ -372,7 +375,7 @@ impl Client {
         let message_count = messages.len();
         let request = SendMessageRequest { messages };
         let response = rpc_client.send_message(request).await?;
-        Self::handle_response_status(response.status, Self::OPERATION_SEND_MESSAGE)?;
+        Self::handle_response_status(response.status, OPERATION_SEND_MESSAGE)?;
 
         if response.entries.len() != message_count {
             error!(self.logger, "server do not return illegal send result, this may be a bug. except result count: {}, found: {}", response.entries.len(), message_count);
@@ -381,6 +384,7 @@ impl Client {
         Ok(response.entries)
     }
 
+    #[allow(dead_code)]
     pub(crate) async fn receive_message(
         &self,
         endpoints: &Endpoints,
@@ -427,7 +431,7 @@ impl Client {
         for response in responses {
             match response.content.unwrap() {
                 Content::Status(status) => {
-                    Self::handle_response_status(Some(status), Self::OPERATION_RECEIVE_MESSAGE)?;
+                    Self::handle_response_status(Some(status), OPERATION_RECEIVE_MESSAGE)?;
                 }
                 Content::Message(message) => {
                     messages.push(message);
@@ -438,6 +442,7 @@ impl Client {
         Ok(messages)
     }
 
+    #[allow(dead_code)]
     pub(crate) async fn ack_message<T: AckMessageEntry + 'static>(
         &self,
         ack_entry: T,
@@ -475,7 +480,7 @@ impl Client {
             entries,
         };
         let response = rpc_client.ack_message(request).await?;
-        Self::handle_response_status(response.status, Self::OPERATION_ACK_MESSAGE)?;
+        Self::handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
         Ok(response.entries)
     }
 }
@@ -623,7 +628,7 @@ mod tests {
         assert!(result.is_ok(), "should not return error when status is Ok");
     }
 
-    fn new_topic_route_response() -> Result<QueryRouteResponse, ClientError> {
+    pub(crate) fn new_topic_route_response() -> Result<QueryRouteResponse, ClientError> {
         Ok(QueryRouteResponse {
             status: Some(Status {
                 code: Code::Ok as i32,

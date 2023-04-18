@@ -27,7 +27,6 @@ use tonic::transport::{Channel, Endpoint};
 
 use crate::conf::ClientOption;
 use crate::error::ErrorKind;
-use crate::log::terminal_logger;
 use crate::model::common::Endpoints;
 use crate::pb::{
     AckMessageRequest, AckMessageResponse, HeartbeatRequest, HeartbeatResponse, QueryRouteRequest,
@@ -90,6 +89,7 @@ impl Session {
 
     #[cfg(test)]
     pub(crate) fn mock() -> Self {
+        use crate::log::terminal_logger;
         Session {
             logger: terminal_logger(),
             client_id: "fake_id".to_string(),
@@ -440,6 +440,7 @@ impl SessionManager {
         };
     }
 
+    #[allow(dead_code)]
     pub(crate) async fn get_all_sessions(&self) -> Result<Vec<Session>, ClientError> {
         let session_map = self.session_map.lock().await;
         let mut sessions = Vec::new();
@@ -467,11 +468,13 @@ mod tests {
     async fn session_new() {
         let server = RocketMQMockServer::start_default().await;
         let logger = terminal_logger();
+        let mut client_option = ClientOption::default();
+        client_option.set_enable_tls(false);
         let session = Session::new(
             &logger,
             &Endpoints::from_url(&format!("localhost:{}", server.address().port())).unwrap(),
             "test_client".to_string(),
-            &ClientOption::default(),
+            &client_option,
         )
         .await;
         debug!(logger, "session: {:?}", session);
@@ -504,11 +507,13 @@ mod tests {
         );
 
         let logger = terminal_logger();
+        let mut client_option = ClientOption::default();
+        client_option.set_enable_tls(false);
         let session = Session::new(
             &logger,
             &Endpoints::from_url(&format!("localhost:{}", server.address().port())).unwrap(),
             "test_client".to_string(),
-            &ClientOption::default(),
+            &client_option,
         )
         .await;
         debug!(logger, "session: {:?}", session);
@@ -538,12 +543,14 @@ mod tests {
         );
 
         let logger = terminal_logger();
+        let mut client_option = ClientOption::default();
+        client_option.set_enable_tls(false);
         let session_manager =
-            SessionManager::new(&logger, "test_client".to_string(), &ClientOption::default());
+            SessionManager::new(&logger, "test_client".to_string(), &client_option);
         let session = session_manager
             .get_or_create_session(
                 &Endpoints::from_url(&format!("localhost:{}", server.address().port())).unwrap(),
-                build_producer_settings(&ProducerOption::default(), &ClientOption::default()),
+                build_producer_settings(&ProducerOption::default(), &client_option),
             )
             .await
             .unwrap();

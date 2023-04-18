@@ -35,7 +35,7 @@ impl Default for ClientOption {
             group: "".to_string(),
             namespace: "".to_string(),
             access_url: "localhost:8081".to_string(),
-            enable_tls: false,
+            enable_tls: true,
             timeout: Duration::from_secs(3),
             long_polling_timeout: Duration::from_secs(40),
         }
@@ -72,7 +72,7 @@ impl ClientOption {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum LoggingFormat {
     Terminal,
     Json,
@@ -193,5 +193,34 @@ impl SimpleConsumerOption {
     }
     pub(crate) fn set_namespace(&mut self, name_space: impl Into<String>) {
         self.namespace = name_space.into();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn conf_client_option() {
+        let option = ClientOption::default();
+        assert_eq!(option.access_url(), "localhost:8081");
+        assert!(option.enable_tls());
+        assert_eq!(option.timeout(), &Duration::from_secs(3));
+        assert_eq!(option.long_polling_timeout(), &Duration::from_secs(40));
+    }
+
+    #[test]
+    fn conf_producer_option() {
+        let option = ProducerOption::default();
+        assert_eq!(option.logging_format(), &LoggingFormat::Terminal);
+        assert!(option.prefetch_route());
+        assert!(option.validate_message_type());
+    }
+
+    #[test]
+    fn conf_simple_consumer_option() {
+        let option = SimpleConsumerOption::default();
+        assert_eq!(option.logging_format(), &LoggingFormat::Terminal);
+        assert!(option.prefetch_route());
     }
 }

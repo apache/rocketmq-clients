@@ -66,7 +66,8 @@ pub(crate) fn build_endpoints_by_message_queue(
             "message queue do not have a available endpoint",
             operation,
         )
-        .with_context("message_queue", format!("{:?}", message_queue)));
+        .with_context("topic", topic)
+        .with_context("queue_id", message_queue.id.to_string()));
     }
 
     let broker = message_queue.broker.clone().unwrap();
@@ -157,5 +158,126 @@ pub(crate) fn build_simple_consumer_settings(
             ..Settings::default()
         })),
         ..TelemetryCommand::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::model::common::Route;
+    use crate::pb;
+    use crate::pb::{Broker, MessageQueue};
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::Arc;
+
+    use super::*;
+
+    fn build_route() -> Arc<Route> {
+        let message_queue_1 = MessageQueue {
+            topic: None,
+            id: 1,
+            permission: 0,
+            broker: None,
+            accept_message_types: vec![],
+        };
+
+        let message_queue_2 = MessageQueue {
+            topic: None,
+            id: 2,
+            permission: 0,
+            broker: None,
+            accept_message_types: vec![],
+        };
+
+        Arc::new(Route {
+            index: AtomicUsize::new(0),
+            queue: vec![message_queue_1, message_queue_2],
+        })
+    }
+
+    #[test]
+    fn util_select_message_queue() {
+        let route = build_route();
+        let message_queue = select_message_queue(route.clone());
+        assert_eq!(message_queue.id, 1);
+        let message_queue = select_message_queue(route.clone());
+        assert_eq!(message_queue.id, 2);
+        let message_queue = select_message_queue(route);
+        assert_eq!(message_queue.id, 1);
+    }
+
+    #[test]
+    fn util_select_message_queue_by_message_group() {
+        let route = build_route();
+        let message_queue =
+            select_message_queue_by_message_group(route.clone(), "group1".to_string());
+        assert_eq!(message_queue.id, 1);
+        let message_queue =
+            select_message_queue_by_message_group(route.clone(), "group1".to_string());
+        assert_eq!(message_queue.id, 1);
+        let message_queue =
+            select_message_queue_by_message_group(route, "another_group".to_string());
+        assert_eq!(message_queue.id, 2);
+    }
+
+    #[test]
+    fn util_build_endpoints_by_message_queue() {
+        let mut message_queue = MessageQueue {
+            topic: Some(Resource {
+                name: "topic".to_string(),
+                resource_namespace: "".to_string(),
+            }),
+            id: 1,
+            permission: 0,
+            broker: Some(Broker {
+                name: "".to_string(),
+                id: 0,
+                endpoints: Some(pb::Endpoints {
+                    scheme: pb::AddressScheme::DomainName as i32,
+                    addresses: vec![],
+                }),
+            }),
+            accept_message_types: vec![],
+        };
+        let result = build_endpoints_by_message_queue(&message_queue, "test");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().scheme(), pb::AddressScheme::DomainName);
+
+        message_queue.broker = Some(Broker {
+            name: "".to_string(),
+            id: 0,
+            endpoints: None,
+        });
+        let result = build_endpoints_by_message_queue(&message_queue, "test");
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert_eq!(error.kind, ErrorKind::NoBrokerAvailable);
+        assert_eq!(error.operation, "test");
+        assert_eq!(
+            error.message,
+            "message queue do not have a available endpoint"
+        );
+        assert_eq!(error.context.len(), 3);
+
+        message_queue.broker.take();
+        let result = build_endpoints_by_message_queue(&message_queue, "test");
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert_eq!(error.kind, ErrorKind::NoBrokerAvailable);
+        assert_eq!(error.operation, "test");
+        assert_eq!(
+            error.message,
+            "message queue do not have a available endpoint"
+        );
+        assert_eq!(error.context.len(), 2);
+    }
+
+    #[test]
+    fn util_build_producer_settings() {
+        build_producer_settings(&ProducerOption::default(), &ClientOption::default());
+    }
+
+    #[test]
+    fn util_build_simple_consumer_settings() {
+        build_simple_consumer_settings(&SimpleConsumerOption::default(), &ClientOption::default());
     }
 }
