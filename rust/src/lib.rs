@@ -16,7 +16,6 @@
  */
 #[allow(dead_code)]
 pub mod conf;
-#[allow(dead_code)]
 mod error;
 #[allow(dead_code)]
 mod log;
@@ -28,7 +27,6 @@ mod client;
 mod pb;
 mod session;
 
-#[allow(dead_code)]
 pub mod model;
 mod util;
 

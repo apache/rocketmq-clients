@@ -16,6 +16,12 @@ Here are some preparations you may need to know (or refer to [here](https://rock
 2. protoc 3.15.0+
 3. setup name server, broker, and [proxy](https://github.com/apache/rocketmq/tree/develop/proxy).
 
+### Run Tests
+
+```sh
+cargo llvm-cov --ignore-filename-regex pb/ --open
+```
+
 ### Run Example
 
 Run the following command to start the example:
@@ -27,3 +33,4 @@ cargo run --example producer
 # consume message via simple consumer
 cargo run --example simple_consumer
 ```
+

@@ -209,7 +209,10 @@ impl Producer {
 mod tests {
     use crate::error::ErrorKind;
     use crate::log::terminal_logger;
+    use crate::model::common::Route;
     use crate::model::message::MessageImpl;
+    use crate::pb::{Broker, Code, MessageQueue, Status};
+    use std::sync::Arc;
 
     use super::*;
 
@@ -221,15 +224,30 @@ mod tests {
         }
     }
 
-    // #[tokio::test]
-    // async fn producer_start() {
-    //     let mut producer_option = ProducerOption::default();
-    //     producer_option.set_topics(vec!["DefaultCluster".to_string()]);
-    //     let producer = Producer::new(producer_option, ClientOption::default())
-    //         .await
-    //         .unwrap();
-    //     producer.start().await.unwrap();
-    // }
+    #[tokio::test]
+    async fn producer_start() -> Result<(), ClientError> {
+        let ctx = Client::new_context();
+        ctx.expect().return_once(|_, _, _| {
+            let mut client = Client::default();
+            client.expect_topic_route().returning(|_, _| {
+                Ok(Arc::new(Route {
+                    index: Default::default(),
+                    queue: vec![],
+                }))
+            });
+            client.expect_start().returning(|| ());
+            client
+                .expect_client_id()
+                .return_const("fake_id".to_string());
+            Ok(client)
+        });
+        let mut producer_option = ProducerOption::default();
+        producer_option.set_topics(vec!["DefaultCluster".to_string()]);
+        Producer::new(producer_option, ClientOption::default())?
+            .start()
+            .await?;
+        Ok(())
+    }
 
     #[tokio::test]
     async fn producer_transform_messages_to_protobuf() {
@@ -326,5 +344,53 @@ mod tests {
         let err = result.unwrap_err();
         assert_eq!(err.kind, ErrorKind::InvalidMessage);
         assert_eq!(err.message, "not all messages have the same message group");
+    }
+
+    #[tokio::test]
+    async fn producer_send_one() -> Result<(), ClientError> {
+        let mut producer = new_producer_for_test();
+        producer.client.expect_topic_route().returning(|_, _| {
+            Ok(Arc::new(Route {
+                index: Default::default(),
+                queue: vec![MessageQueue {
+                    topic: Some(Resource {
+                        name: "test_topic".to_string(),
+                        resource_namespace: "".to_string(),
+                    }),
+                    id: 0,
+                    permission: 0,
+                    broker: Some(Broker {
+                        name: "".to_string(),
+                        id: 0,
+                        endpoints: Some(pb::Endpoints {
+                            scheme: 0,
+                            addresses: vec![],
+                        }),
+                    }),
+                    accept_message_types: vec![],
+                }],
+            }))
+        });
+        producer.client.expect_send_message().returning(|_, _| {
+            Ok(vec![SendResultEntry {
+                status: Some(Status {
+                    code: Code::Ok as i32,
+                    message: "".to_string(),
+                }),
+                message_id: "".to_string(),
+                transaction_id: "".to_string(),
+                offset: 0,
+            }])
+        });
+        producer
+            .send_one(
+                MessageImpl::builder()
+                    .set_topic("test_topic")
+                    .set_body(vec![])
+                    .build()
+                    .unwrap(),
+            )
+            .await?;
+        Ok(())
     }
 }

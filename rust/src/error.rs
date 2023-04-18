@@ -158,3 +158,22 @@ impl Debug for ClientError {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn error_client_error() {
+        let err = ClientError::new(ErrorKind::Config, "fake_message", "error_client_error")
+            .with_operation("another_operation")
+            .with_context("context_key", "context_value")
+            .set_source(anyhow::anyhow!("fake_source_error"));
+        assert_eq!(
+            err.to_string(),
+            "Failed to parse config at another_operation, context: { called: error_client_error, context_key: context_value } => fake_message, source: fake_source_error"
+        );
+        assert_eq!(format!("{:?}", err), "Failed to parse config at another_operation => fake_message\n\nContext:\n    called: error_client_error\n    context_key: context_value\n\nSource: fake_source_error\n");
+        assert_eq!(format!("{:#?}", err), "Error {\n    kind: Config,\n    message: \"fake_message\",\n    operation: \"another_operation\",\n    context: [\n        (\n            \"called\",\n            \"error_client_error\",\n        ),\n        (\n            \"context_key\",\n            \"context_value\",\n        ),\n    ],\n    source: Some(\n        \"fake_source_error\",\n    ),\n}");
+    }
+}

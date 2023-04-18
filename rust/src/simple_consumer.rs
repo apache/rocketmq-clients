@@ -16,8 +16,10 @@
  */
 use std::time::Duration;
 
+use mockall_double::double;
 use slog::{info, Logger};
 
+#[double]
 use crate::client::Client;
 use crate::conf::{ClientOption, SimpleConsumerOption};
 use crate::error::{ClientError, ErrorKind};
@@ -122,6 +124,102 @@ impl SimpleConsumer {
 
     pub async fn ack(&self, ack_entry: impl AckMessageEntry + 'static) -> Result<(), ClientError> {
         self.client.ack_message(ack_entry).await?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::log::terminal_logger;
+    use std::sync::Arc;
+
+    use crate::model::common::{FilterType, Route};
+    use crate::pb::{
+        AckMessageResultEntry, Broker, Message, MessageQueue, Resource, SystemProperties,
+    };
+
+    use super::*;
+
+    #[tokio::test]
+    async fn simple_consumer_start() -> Result<(), ClientError> {
+        let ctx = Client::new_context();
+        ctx.expect().return_once(|_, _, _| {
+            let mut client = Client::default();
+            client.expect_topic_route().returning(|_, _| {
+                Ok(Arc::new(Route {
+                    index: Default::default(),
+                    queue: vec![],
+                }))
+            });
+            client.expect_start().returning(|| ());
+            client
+                .expect_client_id()
+                .return_const("fake_id".to_string());
+            Ok(client)
+        });
+        let mut option = SimpleConsumerOption::default();
+        option.set_consumer_group("test_group");
+        option.set_topics(vec!["test_topic"]);
+        SimpleConsumer::new(option, ClientOption::default())?
+            .start()
+            .await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn simple_consumer_consume_message() -> Result<(), ClientError> {
+        let mut client = Client::default();
+        client.expect_topic_route().returning(|_, _| {
+            Ok(Arc::new(Route {
+                index: Default::default(),
+                queue: vec![MessageQueue {
+                    topic: Some(Resource {
+                        name: "test_topic".to_string(),
+                        ..Default::default()
+                    }),
+                    id: 0,
+                    permission: 0,
+                    broker: Some(Broker {
+                        name: "".to_string(),
+                        id: 0,
+                        endpoints: Some(pb::Endpoints {
+                            scheme: 0,
+                            addresses: vec![],
+                        }),
+                    }),
+                    accept_message_types: vec![],
+                }],
+            }))
+        });
+        client.expect_receive_message().returning(|_, _, _, _, _| {
+            Ok(vec![Message {
+                topic: Some(Resource {
+                    name: "test_topic".to_string(),
+                    ..Default::default()
+                }),
+                system_properties: Some(SystemProperties::default()),
+                ..Default::default()
+            }])
+        });
+        client
+            .expect_ack_message()
+            .returning(|_: MessageView| Ok(AckMessageResultEntry::default()));
+        let simple_consumer = SimpleConsumer {
+            option: SimpleConsumerOption::default(),
+            logger: terminal_logger(),
+            client,
+        };
+
+        let messages = simple_consumer
+            .receive(
+                "test_topic",
+                &FilterExpression::new(FilterType::Tag, "test_tag".to_string()),
+            )
+            .await?;
+        assert_eq!(messages.len(), 1);
+        simple_consumer
+            .ack(messages.into_iter().next().unwrap())
+            .await?;
         Ok(())
     }
 }

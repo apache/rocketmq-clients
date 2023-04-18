@@ -94,29 +94,33 @@ impl MessageImpl {
     }
 
     pub fn fifo_message_builder(
-        topic: String,
+        topic: impl Into<String>,
         body: Vec<u8>,
-        message_group: String,
+        message_group: impl Into<String>,
     ) -> MessageBuilder {
         MessageBuilder {
             message: MessageImpl {
                 message_id: UNIQ_ID_GENERATOR.lock().next_id(),
-                topic,
+                topic: topic.into(),
                 body: Some(body),
                 tags: None,
                 keys: None,
                 properties: None,
-                message_group: Some(message_group),
+                message_group: Some(message_group.into()),
                 delivery_timestamp: None,
             },
         }
     }
 
-    pub fn delay_message_builder(topic: String, body: Vec<u8>, delay_time: i64) -> MessageBuilder {
+    pub fn delay_message_builder(
+        topic: impl Into<String>,
+        body: Vec<u8>,
+        delay_time: i64,
+    ) -> MessageBuilder {
         MessageBuilder {
             message: MessageImpl {
                 message_id: UNIQ_ID_GENERATOR.lock().next_id(),
-                topic,
+                topic: topic.into(),
                 body: Some(body),
                 tags: None,
                 keys: None,
@@ -313,14 +317,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_message() {
+    fn common_test_message() {
         let mut properties = HashMap::new();
-        properties.insert("key".to_string(), "value".to_string());
+        properties.insert("key", "value".to_string());
         let message = MessageImpl::builder()
-            .set_topic("test".to_string())
+            .set_topic("test")
             .set_body(vec![1, 2, 3])
-            .set_tags("tag".to_string())
-            .set_keys(vec!["key".to_string()])
+            .set_tags("tag")
+            .set_keys(vec!["key"])
             .set_properties(properties)
             .build();
         assert!(message.is_ok());
@@ -337,9 +341,9 @@ mod tests {
         });
 
         let message = MessageImpl::builder()
-            .set_topic("test".to_string())
+            .set_topic("test")
             .set_body(vec![1, 2, 3])
-            .set_message_group("message_group".to_string())
+            .set_message_group("message_group")
             .set_delivery_timestamp(123456789)
             .build();
         assert!(message.is_err());
@@ -350,23 +354,80 @@ mod tests {
             "message_group and delivery_timestamp can not be set at the same time."
         );
 
-        let message = MessageImpl::builder()
-            .set_topic("test".to_string())
-            .set_body(vec![1, 2, 3])
-            .set_message_group("message_group".to_string())
-            .build();
+        let message =
+            MessageImpl::fifo_message_builder("test", vec![1, 2, 3], "message_group").build();
         let mut message = message.unwrap();
         assert_eq!(
             message.take_message_group(),
             Some("message_group".to_string())
         );
 
-        let message = MessageImpl::builder()
-            .set_topic("test".to_string())
-            .set_body(vec![1, 2, 3])
-            .set_delivery_timestamp(123456789)
-            .build();
+        let message = MessageImpl::delay_message_builder("test", vec![1, 2, 3], 123456789).build();
         let mut message = message.unwrap();
         assert_eq!(message.take_delivery_timestamp(), Some(123456789));
+    }
+
+    #[test]
+    fn common_message() {
+        let message_view = MessageView::from_pb_message(
+            pb::Message {
+                topic: Some(pb::Resource {
+                    name: "test".to_string(),
+                    ..Default::default()
+                }),
+                body: vec![1, 2, 3],
+                user_properties: {
+                    let mut properties = HashMap::new();
+                    properties.insert("key".to_string(), "value".to_string());
+                    properties
+                },
+                system_properties: Some(pb::SystemProperties {
+                    message_id: "message_id".to_string(),
+                    receipt_handle: Some("receipt_handle".to_string()),
+                    tag: Some("tag".to_string()),
+                    keys: vec!["key".to_string()],
+                    message_group: Some("message_group".to_string()),
+                    delivery_timestamp: Some(prost_types::Timestamp {
+                        seconds: 123456789,
+                        ..Default::default()
+                    }),
+                    born_host: "born_host".to_string(),
+                    born_timestamp: Some(prost_types::Timestamp {
+                        seconds: 987654321,
+                        ..Default::default()
+                    }),
+                    delivery_attempt: Some(1),
+                    ..Default::default()
+                }),
+            },
+            Endpoints::from_url("localhost:8081").unwrap(),
+        );
+
+        assert_eq!(message_view.message_id(), "message_id");
+        assert_eq!(message_view.topic(), "test");
+        assert_eq!(message_view.body(), &[1, 2, 3]);
+        assert_eq!(message_view.tag(), Some("tag"));
+        assert_eq!(message_view.keys(), &["key"]);
+        assert_eq!(message_view.properties(), &{
+            let mut properties = HashMap::new();
+            properties.insert("key".to_string(), "value".to_string());
+            properties
+        });
+        assert_eq!(message_view.message_group(), Some("message_group"));
+        assert_eq!(message_view.delivery_timestamp(), Some(123456789));
+        assert_eq!(message_view.born_host(), "born_host");
+        assert_eq!(message_view.born_timestamp(), 987654321);
+        assert_eq!(message_view.delivery_attempt(), 1);
+
+        assert_eq!(AckMessageEntry::message_id(&message_view), "message_id");
+        assert_eq!(AckMessageEntry::topic(&message_view), "test");
+        assert_eq!(
+            AckMessageEntry::receipt_handle(&message_view),
+            "receipt_handle"
+        );
+        assert_eq!(
+            AckMessageEntry::endpoints(&message_view).endpoint_url(),
+            "localhost:8081"
+        );
     }
 }
