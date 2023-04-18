@@ -107,13 +107,6 @@ func (c *clientConn) Close() error {
 }
 
 func (c *clientConn) dialSetupOpts(dopts ...grpc.DialOption) (opts []grpc.DialOption, err error) {
-	if c.opts.DialKeepAliveTime > 0 {
-		opts = append(opts, grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:                c.opts.DialKeepAliveTime,
-			Timeout:             c.opts.DialKeepAliveTimeout,
-			PermitWithoutStream: c.opts.PermitWithoutStream,
-		}))
-	}
 	opts = append(opts, dopts...)
 	if c.creds != nil {
 		opts = append(opts, grpc.WithTransportCredentials(c.creds))
