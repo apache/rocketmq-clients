@@ -22,9 +22,11 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use mockall_double::double;
 use prost_types::Timestamp;
 use slog::{info, Logger};
 
+#[double]
 use crate::client::Client;
 use crate::conf::{ClientOption, ProducerOption};
 use crate::error::{ClientError, ErrorKind};
@@ -205,10 +207,19 @@ impl Producer {
 
 #[cfg(test)]
 mod tests {
-    use crate::conf::{ClientOption, ProducerOption};
     use crate::error::ErrorKind;
+    use crate::log::terminal_logger;
     use crate::model::message::MessageImpl;
-    use crate::producer::Producer;
+
+    use super::*;
+
+    fn new_producer_for_test() -> Producer {
+        Producer {
+            option: Default::default(),
+            logger: terminal_logger(),
+            client: Client::default(),
+        }
+    }
 
     // #[tokio::test]
     // async fn producer_start() {
@@ -222,7 +233,7 @@ mod tests {
 
     #[tokio::test]
     async fn producer_transform_messages_to_protobuf() {
-        let producer = Producer::new(ProducerOption::default(), ClientOption::default()).unwrap();
+        let producer = new_producer_for_test();
         let messages = vec![MessageImpl::builder()
             .set_topic("DefaultCluster")
             .set_body("hello world".as_bytes().to_vec())
@@ -253,7 +264,7 @@ mod tests {
 
     #[tokio::test]
     async fn producer_transform_messages_to_protobuf_failed() {
-        let producer = Producer::new(ProducerOption::default(), ClientOption::default()).unwrap();
+        let producer = new_producer_for_test();
 
         let messages: Vec<MessageImpl> = vec![];
         let result = producer.transform_messages_to_protobuf(messages);
