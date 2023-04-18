@@ -14,9 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! Configuration of RocketMQ rust client.
+
 use crate::model::common::ClientType;
 use std::time::Duration;
 
+/// `ClientOption` is the configuration of internal `Client`, which manages the connection and request with RocketMQ proxy.
 #[derive(Debug, Clone)]
 pub struct ClientOption {
     pub(crate) client_type: ClientType,
@@ -46,6 +50,7 @@ impl ClientOption {
     pub fn access_url(&self) -> &str {
         &self.access_url
     }
+    /// set the access url of RocketMQ proxy
     pub fn set_access_url(&mut self, access_url: impl Into<String>) {
         self.access_url = access_url.into();
     }
@@ -53,6 +58,7 @@ impl ClientOption {
     pub fn enable_tls(&self) -> bool {
         self.enable_tls
     }
+    /// set whether to enable tls, default is true
     pub fn set_enable_tls(&mut self, enable_tls: bool) {
         self.enable_tls = enable_tls;
     }
@@ -60,6 +66,7 @@ impl ClientOption {
     pub fn timeout(&self) -> &Duration {
         &self.timeout
     }
+    /// set the timeout of connection and generic request, default is 3 seconds
     pub fn set_timeout(&mut self, timeout: Duration) {
         self.timeout = timeout;
     }
@@ -67,6 +74,9 @@ impl ClientOption {
     pub fn long_polling_timeout(&self) -> &Duration {
         &self.long_polling_timeout
     }
+    /// set the await duration during long polling, default is 40 seconds
+    ///
+    /// this option only affects receive requests, it means timeout for a receive request will be `long_polling_timeout` + `timeout`
     pub fn set_long_polling_timeout(&mut self, long_polling_timeout: Duration) {
         self.long_polling_timeout = long_polling_timeout;
     }
@@ -78,6 +88,7 @@ pub enum LoggingFormat {
     Json,
 }
 
+/// The configuration of `Producer`.
 #[derive(Debug, Clone)]
 pub struct ProducerOption {
     logging_format: LoggingFormat,
@@ -103,6 +114,7 @@ impl ProducerOption {
     pub fn logging_format(&self) -> &LoggingFormat {
         &self.logging_format
     }
+    /// set the logging format for producer
     pub fn set_logging_format(&mut self, logging_format: LoggingFormat) {
         self.logging_format = logging_format;
     }
@@ -110,6 +122,7 @@ impl ProducerOption {
     pub fn prefetch_route(&self) -> &bool {
         &self.prefetch_route
     }
+    /// set whether to prefetch route info, default is true
     pub fn set_prefetch_route(&mut self, prefetch_route: bool) {
         self.prefetch_route = prefetch_route;
     }
@@ -117,6 +130,7 @@ impl ProducerOption {
     pub fn topics(&self) -> &Option<Vec<String>> {
         &self.topics
     }
+    /// set which topic(s) to messages to, it will prefetch route info for these topics when the producer starts
     pub fn set_topics(&mut self, topics: Vec<impl Into<String>>) {
         self.topics = Some(topics.into_iter().map(|t| t.into()).collect());
     }
@@ -132,11 +146,13 @@ impl ProducerOption {
     pub fn validate_message_type(&self) -> bool {
         self.validate_message_type
     }
+    /// set whether to validate message type, default is true
     pub fn set_validate_message_type(&mut self, validate_message_type: bool) {
         self.validate_message_type = validate_message_type;
     }
 }
 
+/// The configuration of `SimpleConsumer`.
 #[derive(Debug, Clone)]
 pub struct SimpleConsumerOption {
     logging_format: LoggingFormat,
@@ -162,6 +178,7 @@ impl SimpleConsumerOption {
     pub fn logging_format(&self) -> &LoggingFormat {
         &self.logging_format
     }
+    /// set the logging format for simple consumer
     pub fn set_logging_format(&mut self, logging_format: LoggingFormat) {
         self.logging_format = logging_format;
     }
@@ -169,6 +186,7 @@ impl SimpleConsumerOption {
     pub fn consumer_group(&self) -> &str {
         &self.consumer_group
     }
+    /// set the consumer group of simple consumer
     pub fn set_consumer_group(&mut self, consumer_group: impl Into<String>) {
         self.consumer_group = consumer_group.into();
     }
@@ -176,6 +194,7 @@ impl SimpleConsumerOption {
     pub fn prefetch_route(&self) -> &bool {
         &self.prefetch_route
     }
+    /// set whether to prefetch route info, default is true
     pub fn set_prefetch_route(&mut self, prefetch_route: bool) {
         self.prefetch_route = prefetch_route;
     }
@@ -183,6 +202,7 @@ impl SimpleConsumerOption {
     pub fn topics(&self) -> &Option<Vec<String>> {
         &self.topics
     }
+    /// set which topic(s) to receive messages, it will prefetch route info for these topics when the simple consumer starts
     pub fn set_topics(&mut self, topics: Vec<impl Into<String>>) {
         self.topics = Some(topics.into_iter().map(|t| t.into()).collect());
     }

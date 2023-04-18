@@ -36,7 +36,7 @@ async fn main() {
     // build message
     let message = MessageImpl::builder()
         .set_topic("test_topic")
-        .set_tags("test_tag")
+        .set_tag("test_tag")
         .set_body("hello world".as_bytes().to_vec())
         .build()
         .unwrap();

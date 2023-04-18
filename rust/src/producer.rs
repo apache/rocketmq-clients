@@ -15,11 +15,6 @@
  * limitations under the License.
  */
 
-//! Publish messages of various types to brokers.
-//!
-//! `Producer` is a thin wrapper of internal `Client` struct that shoulders the actual workloads.
-//! Most of its methods take shared reference so that application developers may use it at will.
-
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use mockall_double::double;
@@ -39,7 +34,10 @@ use crate::util::{
 };
 use crate::{log, pb};
 
-/// `Producer` is the core struct, to which application developers should turn, when publishing messages to brokers.
+/// `Producer` is the core struct, to which application developers should turn, when publishing messages to RocketMQ proxy.
+///
+/// `Producer` is a thin wrapper of internal `Client` struct that shoulders the actual workloads.
+/// Most of its methods take shared reference so that application developers may use it at will.
 ///
 /// `Producer` is `Send` and `Sync` by design, so that developers may get started easily.
 #[derive(Debug)]
@@ -52,6 +50,7 @@ pub struct Producer {
 impl Producer {
     const OPERATION_SEND_MESSAGE: &'static str = "producer.send_message";
 
+    /// create a new producer instance
     pub fn new(option: ProducerOption, client_option: ClientOption) -> Result<Self, ClientError> {
         let client_option = ClientOption {
             client_type: ClientType::Producer,
@@ -68,6 +67,7 @@ impl Producer {
         })
     }
 
+    /// start the producer
     pub async fn start(&self) -> Result<(), ClientError> {
         if let Some(topics) = self.option.topics() {
             for topic in topics {
@@ -172,6 +172,7 @@ impl Producer {
         Ok((topic, last_message_group.unwrap(), pb_messages))
     }
 
+    /// send a single message
     pub async fn send_one(
         &self,
         message: impl message::Message,
@@ -180,6 +181,7 @@ impl Producer {
         Ok(results[0].clone())
     }
 
+    /// send a batch of messages
     pub async fn send(
         &self,
         messages: Vec<impl message::Message>,
@@ -255,7 +257,7 @@ mod tests {
         let messages = vec![MessageImpl::builder()
             .set_topic("DefaultCluster")
             .set_body("hello world".as_bytes().to_vec())
-            .set_tags("tag")
+            .set_tag("tag")
             .set_keys(vec!["key"])
             .set_properties(vec![("key", "value")].into_iter().collect())
             .set_message_group("message_group".to_string())
@@ -295,7 +297,7 @@ mod tests {
             message_id: "".to_string(),
             topic: "".to_string(),
             body: None,
-            tags: None,
+            tag: None,
             keys: None,
             properties: None,
             message_group: None,

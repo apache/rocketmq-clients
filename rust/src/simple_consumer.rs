@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use std::time::Duration;
 
 use mockall_double::double;
@@ -30,6 +31,15 @@ use crate::util::{
 };
 use crate::{log, pb};
 
+/// `SimpleConsumer` is a lightweight consumer to consume messages from RocketMQ proxy.
+///
+/// If you want to fully control the message consumption operation by yourself,
+/// the simple consumer should be your first consideration.
+///
+/// `SimpleConsumer` is a thin wrapper of internal `Client` struct that shoulders the actual workloads.
+/// Most of its methods take shared reference so that application developers may use it at will.
+///
+/// `SimpleConsumer` is `Send` and `Sync` by design, so that developers may get started easily.
 #[derive(Debug)]
 pub struct SimpleConsumer {
     option: SimpleConsumerOption,
@@ -41,6 +51,7 @@ impl SimpleConsumer {
     const OPERATION_START_SIMPLE_CONSUMER: &'static str = "simple_consumer.start";
     const OPERATION_RECEIVE_MESSAGE: &'static str = "simple_consumer.receive_message";
 
+    /// create a new simple consumer instance
     pub fn new(
         option: SimpleConsumerOption,
         client_option: ClientOption,
@@ -61,6 +72,7 @@ impl SimpleConsumer {
         })
     }
 
+    /// start the simple consumer
     pub async fn start(&self) -> Result<(), ClientError> {
         if self.option.consumer_group().is_empty() {
             return Err(ClientError::new(
@@ -83,6 +95,7 @@ impl SimpleConsumer {
         Ok(())
     }
 
+    /// receive messages from the specified topic
     pub async fn receive(
         &self,
         topic: impl AsRef<str>,
@@ -92,6 +105,7 @@ impl SimpleConsumer {
             .await
     }
 
+    /// receive messages from the specified topic with batch size and invisible duration
     pub async fn receive_with_batch_size(
         &self,
         topic: &str,
@@ -122,6 +136,9 @@ impl SimpleConsumer {
             .collect())
     }
 
+    /// ack the specified message
+    ///
+    /// it is important to acknowledge every consumed message, otherwise, they will be received again after the invisible duration
     pub async fn ack(&self, ack_entry: impl AckMessageEntry + 'static) -> Result<(), ClientError> {
         self.client.ack_message(ack_entry).await?;
         Ok(())
