@@ -68,7 +68,6 @@ var defaultConnOptions = connOptions{
 		RootCAs:            x509.NewCertPool(),
 		InsecureSkipVerify: true,
 	},
-	DialKeepAliveTime: time.Second * 30,
 	Logger:            zaplog.New(),
 }
 
@@ -143,32 +142,6 @@ func WithDialOptions(dialOptions ...grpc.DialOption) ConnOption {
 func WithContext(ctx context.Context) ConnOption {
 	return newFuncConnOption(func(o *connOptions) {
 		o.Context = ctx
-	})
-}
-
-// WithDialKeepAliveTime returns a ConnOption that sets DialKeepAliveTime for grpc.DialContext.
-// DialKeepAliveTime is the time after which client pings the server to see if transport is alive.
-func WithDialKeepAliveTime(d time.Duration) ConnOption {
-	return newFuncConnOption(func(o *connOptions) {
-		o.DialKeepAliveTime = d
-	})
-}
-
-// WithDialKeepAliveTimeout returns a ConnOption that sets DialKeepAliveTimeout for grpc.DialContext.
-// DialKeepAliveTimeout is the time that the client waits for a response for the keep-alive probe.
-// If the response is not received in this time, the connection is closed.
-func WithDialKeepAliveTimeout(d time.Duration) ConnOption {
-	return newFuncConnOption(func(o *connOptions) {
-		o.DialKeepAliveTimeout = d
-	})
-}
-
-// WithPermitWithoutStream returns a ConnOption that sets PermitWithoutStream for grpc.DialContext.
-// PermitWithoutStream when set will allow client to send keepalive pings to server without any
-// active streams(RPCs).
-func WithPermitWithoutStream(permit bool) ConnOption {
-	return newFuncConnOption(func(o *connOptions) {
-		o.PermitWithoutStream = permit
 	})
 }
 
