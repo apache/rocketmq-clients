@@ -34,12 +34,12 @@ use crate::util::{
 };
 use crate::{log, pb};
 
-/// `Producer` is the core struct, to which application developers should turn, when publishing messages to RocketMQ proxy.
+/// [`Producer`] is the core struct, to which application developers should turn, when publishing messages to RocketMQ proxy.
 ///
-/// `Producer` is a thin wrapper of internal `Client` struct that shoulders the actual workloads.
+/// [`Producer`] is a thin wrapper of internal client struct that shoulders the actual workloads.
 /// Most of its methods take shared reference so that application developers may use it at will.
 ///
-/// `Producer` is `Send` and `Sync` by design, so that developers may get started easily.
+/// [`Producer`] is `Send` and `Sync` by design, so that developers may get started easily.
 #[derive(Debug)]
 pub struct Producer {
     option: ProducerOption,
@@ -50,7 +50,12 @@ pub struct Producer {
 impl Producer {
     const OPERATION_SEND_MESSAGE: &'static str = "producer.send_message";
 
-    /// create a new producer instance
+    /// Create a new producer instance
+    ///
+    /// # Arguments
+    ///
+    /// * `option` - producer option
+    /// * `client_option` - client option
     pub fn new(option: ProducerOption, client_option: ClientOption) -> Result<Self, ClientError> {
         let client_option = ClientOption {
             client_type: ClientType::Producer,
@@ -67,7 +72,7 @@ impl Producer {
         })
     }
 
-    /// start the producer
+    /// Start the producer
     pub async fn start(&self) -> Result<(), ClientError> {
         if let Some(topics) = self.option.topics() {
             for topic in topics {
@@ -172,7 +177,11 @@ impl Producer {
         Ok((topic, last_message_group.unwrap(), pb_messages))
     }
 
-    /// send a single message
+    /// Send a single message
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - the message to send
     pub async fn send_one(
         &self,
         message: impl message::Message,
@@ -181,7 +190,11 @@ impl Producer {
         Ok(results[0].clone())
     }
 
-    /// send a batch of messages
+    /// Send a batch of messages
+    ///
+    /// # Arguments
+    ///
+    /// * `messages` - A vector that holds the messages to send
     pub async fn send(
         &self,
         messages: Vec<impl message::Message>,
@@ -212,7 +225,7 @@ mod tests {
     use crate::error::ErrorKind;
     use crate::log::terminal_logger;
     use crate::model::common::Route;
-    use crate::model::message::MessageImpl;
+    use crate::model::message::{MessageBuilder, MessageImpl};
     use crate::pb::{Broker, Code, MessageQueue, Status};
     use std::sync::Arc;
 
@@ -228,6 +241,8 @@ mod tests {
 
     #[tokio::test]
     async fn producer_start() -> Result<(), ClientError> {
+        let _m = crate::client::tests::MTX.lock();
+
         let ctx = Client::new_context();
         ctx.expect().return_once(|_, _, _| {
             let mut client = Client::default();
@@ -254,7 +269,7 @@ mod tests {
     #[tokio::test]
     async fn producer_transform_messages_to_protobuf() {
         let producer = new_producer_for_test();
-        let messages = vec![MessageImpl::builder()
+        let messages = vec![MessageBuilder::builder()
             .set_topic("DefaultCluster")
             .set_body("hello world".as_bytes().to_vec())
             .set_tag("tag")
@@ -310,12 +325,12 @@ mod tests {
         assert_eq!(err.message, "message topic is empty");
 
         let messages = vec![
-            MessageImpl::builder()
+            MessageBuilder::builder()
                 .set_topic("DefaultCluster")
                 .set_body("hello world".as_bytes().to_vec())
                 .build()
                 .unwrap(),
-            MessageImpl::builder()
+            MessageBuilder::builder()
                 .set_topic("DefaultCluster_dup")
                 .set_body("hello world".as_bytes().to_vec())
                 .build()
@@ -328,13 +343,13 @@ mod tests {
         assert_eq!(err.message, "Not all messages have the same topic.");
 
         let messages = vec![
-            MessageImpl::builder()
+            MessageBuilder::builder()
                 .set_topic("DefaultCluster")
                 .set_body("hello world".as_bytes().to_vec())
                 .set_message_group("message_group")
                 .build()
                 .unwrap(),
-            MessageImpl::builder()
+            MessageBuilder::builder()
                 .set_topic("DefaultCluster")
                 .set_body("hello world".as_bytes().to_vec())
                 .set_message_group("message_group_dup")
@@ -386,7 +401,7 @@ mod tests {
         });
         producer
             .send_one(
-                MessageImpl::builder()
+                MessageBuilder::builder()
                     .set_topic("test_topic")
                     .set_body(vec![])
                     .build()

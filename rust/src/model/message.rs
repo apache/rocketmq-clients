@@ -23,7 +23,7 @@ use crate::model::message_id::UNIQ_ID_GENERATOR;
 use crate::pb;
 use std::collections::HashMap;
 
-/// `Message` is the data model for sending.
+/// [`Message`] is the data model for sending.
 pub trait Message {
     fn take_message_id(&mut self) -> String;
     fn take_topic(&mut self) -> String;
@@ -35,9 +35,7 @@ pub trait Message {
     fn take_delivery_timestamp(&mut self) -> Option<i64>;
 }
 
-/// `MessageImpl` is the default implementation of `Message` trait.
-#[derive(Debug)]
-pub struct MessageImpl {
+pub(crate) struct MessageImpl {
     pub(crate) message_id: String,
     pub(crate) topic: String,
     pub(crate) body: Option<Vec<u8>>,
@@ -82,8 +80,15 @@ impl Message for MessageImpl {
     }
 }
 
-impl MessageImpl {
-    /// Create a new `MessageBuilder` for building a message. [Read more](https://rocketmq.apache.org/docs/domainModel/04message/)
+/// [`MessageBuilder`] is the builder for [`Message`].
+pub struct MessageBuilder {
+    message: MessageImpl,
+}
+
+impl MessageBuilder {
+    const OPERATION_BUILD_MESSAGE: &'static str = "build_message";
+
+    /// Create a new [`MessageBuilder`] for building a message. [Read more](https://rocketmq.apache.org/docs/domainModel/04message/)
     pub fn builder() -> MessageBuilder {
         MessageBuilder {
             message: MessageImpl {
@@ -99,7 +104,13 @@ impl MessageImpl {
         }
     }
 
-    /// Create a new `MessageBuilder` for building a fifo message. [Read more](https://rocketmq.apache.org/docs/featureBehavior/03fifomessage)
+    /// Create a new [`MessageBuilder`] for building a fifo message. [Read more](https://rocketmq.apache.org/docs/featureBehavior/03fifomessage)
+    ///
+    /// # Arguments
+    ///
+    /// * `topic` - topic of the message
+    /// * `body` - message body
+    /// * `message_group` - message group, messages with same message group will be delivered in FIFO order
     pub fn fifo_message_builder(
         topic: impl Into<String>,
         body: Vec<u8>,
@@ -119,7 +130,13 @@ impl MessageImpl {
         }
     }
 
-    /// Create a new `MessageBuilder` for building a delay message. [Read more](https://rocketmq.apache.org/docs/featureBehavior/02delaymessage)
+    /// Create a new [`MessageBuilder`] for building a delay message. [Read more](https://rocketmq.apache.org/docs/featureBehavior/02delaymessage)
+    ///
+    /// # Arguments
+    ///
+    /// * `topic` - topic of the message
+    /// * `body` - message body
+    /// * `delay_time` - delivery timestamp of message, specify when to deliver the message
     pub fn delay_message_builder(
         topic: impl Into<String>,
         body: Vec<u8>,
@@ -138,41 +155,32 @@ impl MessageImpl {
             },
         }
     }
-}
 
-/// `MessageBuilder` is the builder for `MessageImpl`.
-pub struct MessageBuilder {
-    message: MessageImpl,
-}
-
-impl MessageBuilder {
-    const OPERATION_BUILD_MESSAGE: &'static str = "build_message";
-
-    /// set topic for message, which is required
+    /// Set topic for message, which is required
     pub fn set_topic(mut self, topic: impl Into<String>) -> Self {
         self.message.topic = topic.into();
         self
     }
 
-    /// set message body, which is required
+    /// Set message body, which is required
     pub fn set_body(mut self, body: Vec<u8>) -> Self {
         self.message.body = Some(body);
         self
     }
 
-    /// set message tag
+    /// Set message tag
     pub fn set_tag(mut self, tag: impl Into<String>) -> Self {
         self.message.tag = Some(tag.into());
         self
     }
 
-    /// set message keys
+    /// Set message keys
     pub fn set_keys(mut self, keys: Vec<impl Into<String>>) -> Self {
         self.message.keys = Some(keys.into_iter().map(|k| k.into()).collect());
         self
     }
 
-    /// set message properties
+    /// Set message properties
     pub fn set_properties(
         mut self,
         properties: HashMap<impl Into<String>, impl Into<String>>,
@@ -186,17 +194,17 @@ impl MessageBuilder {
         self
     }
 
-    /// set message group, which is required for fifo message. [Read more](https://rocketmq.apache.org/docs/featureBehavior/03fifomessage)
+    /// Set message group, which is required for fifo message. [Read more](https://rocketmq.apache.org/docs/featureBehavior/03fifomessage)
     ///
-    /// message group could not be set with delivery timestamp at the same time
+    /// The message group could not be set with delivery timestamp at the same time
     pub fn set_message_group(mut self, message_group: impl Into<String>) -> Self {
         self.message.message_group = Some(message_group.into());
         self
     }
 
-    /// set delivery timestamp, which is required for delay message. [Read more](https://rocketmq.apache.org/docs/featureBehavior/02delaymessage)
+    /// Set delivery timestamp, which is required for delay message. [Read more](https://rocketmq.apache.org/docs/featureBehavior/02delaymessage)
     ///
-    /// delivery timestamp could not be set with message group at the same time
+    /// The delivery timestamp could not be set with message group at the same time
     pub fn set_delivery_timestamp(mut self, delivery_timestamp: i64) -> Self {
         self.message.delivery_timestamp = Some(delivery_timestamp);
         self
@@ -217,8 +225,8 @@ impl MessageBuilder {
         Ok(())
     }
 
-    /// build message
-    pub fn build(self) -> Result<MessageImpl, ClientError> {
+    /// Build message
+    pub fn build(self) -> Result<impl Message, ClientError> {
         self.check_message().map_err(|e| {
             ClientError::new(ErrorKind::InvalidMessage, &e, Self::OPERATION_BUILD_MESSAGE)
         })?;
@@ -226,7 +234,7 @@ impl MessageBuilder {
     }
 }
 
-/// `AckMessageEntry` is the data model for ack message.
+/// [`AckMessageEntry`] is the data model for ack message.
 pub trait AckMessageEntry {
     fn topic(&self) -> String;
     fn message_id(&self) -> String;
@@ -234,9 +242,9 @@ pub trait AckMessageEntry {
     fn endpoints(&self) -> &Endpoints;
 }
 
-/// `MessageView` is the data model for receive message.
+/// [`MessageView`] is the data model for receive message.
 ///
-/// `MessageView` has implemented `AckMessageEntry` trait.
+/// [`MessageView`] has implemented [`AckMessageEntry`] trait.
 #[derive(Debug)]
 pub struct MessageView {
     pub(crate) message_id: String,
@@ -292,57 +300,57 @@ impl MessageView {
         }
     }
 
-    /// get message id
+    /// Get message id
     pub fn message_id(&self) -> &str {
         &self.message_id
     }
 
-    /// get topic of message
+    /// Get topic of message
     pub fn topic(&self) -> &str {
         &self.topic
     }
 
-    /// get message body
+    /// Get message body
     pub fn body(&self) -> &[u8] {
         &self.body
     }
 
-    /// get message tag
+    /// Get message tag
     pub fn tag(&self) -> Option<&str> {
         self.tag.as_deref()
     }
 
-    /// get message keys
+    /// Get message keys
     pub fn keys(&self) -> &[String] {
         &self.keys
     }
 
-    /// get message properties
+    /// Get message properties
     pub fn properties(&self) -> &HashMap<String, String> {
         &self.properties
     }
 
-    /// get message group of fifo message
+    /// Get message group of fifo message. [Read more](https://rocketmq.apache.org/docs/featureBehavior/03fifomessage)
     pub fn message_group(&self) -> Option<&str> {
         self.message_group.as_deref()
     }
 
-    /// get delivery timestamp of delay message
+    /// Get delivery timestamp of delay message. [Read more](https://rocketmq.apache.org/docs/featureBehavior/02delaymessage)
     pub fn delivery_timestamp(&self) -> Option<i64> {
         self.delivery_timestamp
     }
 
-    /// get born host of message
+    /// Get born host of message
     pub fn born_host(&self) -> &str {
         &self.born_host
     }
 
-    /// get born timestamp of message
+    /// Get born timestamp of message
     pub fn born_timestamp(&self) -> i64 {
         self.born_timestamp
     }
 
-    /// get delivery attempt of message
+    /// Get delivery attempt of message
     pub fn delivery_attempt(&self) -> i32 {
         self.delivery_attempt
     }
@@ -356,7 +364,7 @@ mod tests {
     fn common_test_message() {
         let mut properties = HashMap::new();
         properties.insert("key", "value".to_string());
-        let message = MessageImpl::builder()
+        let message = MessageBuilder::builder()
             .set_topic("test")
             .set_body(vec![1, 2, 3])
             .set_tag("tag")
@@ -376,14 +384,14 @@ mod tests {
             properties
         });
 
-        let message = MessageImpl::builder()
+        let message = MessageBuilder::builder()
             .set_topic("test")
             .set_body(vec![1, 2, 3])
             .set_message_group("message_group")
             .set_delivery_timestamp(123456789)
             .build();
         assert!(message.is_err());
-        let err = message.unwrap_err();
+        let err = message.err().unwrap();
         assert_eq!(err.kind, ErrorKind::InvalidMessage);
         assert_eq!(
             err.message,
@@ -391,14 +399,15 @@ mod tests {
         );
 
         let message =
-            MessageImpl::fifo_message_builder("test", vec![1, 2, 3], "message_group").build();
+            MessageBuilder::fifo_message_builder("test", vec![1, 2, 3], "message_group").build();
         let mut message = message.unwrap();
         assert_eq!(
             message.take_message_group(),
             Some("message_group".to_string())
         );
 
-        let message = MessageImpl::delay_message_builder("test", vec![1, 2, 3], 123456789).build();
+        let message =
+            MessageBuilder::delay_message_builder("test", vec![1, 2, 3], 123456789).build();
         let mut message = message.unwrap();
         assert_eq!(message.take_delivery_timestamp(), Some(123456789));
     }

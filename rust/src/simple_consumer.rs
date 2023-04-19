@@ -31,15 +31,15 @@ use crate::util::{
 };
 use crate::{log, pb};
 
-/// `SimpleConsumer` is a lightweight consumer to consume messages from RocketMQ proxy.
+/// [`SimpleConsumer`] is a lightweight consumer to consume messages from RocketMQ proxy.
 ///
 /// If you want to fully control the message consumption operation by yourself,
 /// the simple consumer should be your first consideration.
 ///
-/// `SimpleConsumer` is a thin wrapper of internal `Client` struct that shoulders the actual workloads.
+/// [`SimpleConsumer`] is a thin wrapper of internal client struct that shoulders the actual workloads.
 /// Most of its methods take shared reference so that application developers may use it at will.
 ///
-/// `SimpleConsumer` is `Send` and `Sync` by design, so that developers may get started easily.
+/// [`SimpleConsumer`] is `Send` and `Sync` by design, so that developers may get started easily.
 #[derive(Debug)]
 pub struct SimpleConsumer {
     option: SimpleConsumerOption,
@@ -51,7 +51,7 @@ impl SimpleConsumer {
     const OPERATION_START_SIMPLE_CONSUMER: &'static str = "simple_consumer.start";
     const OPERATION_RECEIVE_MESSAGE: &'static str = "simple_consumer.receive_message";
 
-    /// create a new simple consumer instance
+    /// Create a new simple consumer instance
     pub fn new(
         option: SimpleConsumerOption,
         client_option: ClientOption,
@@ -72,7 +72,7 @@ impl SimpleConsumer {
         })
     }
 
-    /// start the simple consumer
+    /// Start the simple consumer
     pub async fn start(&self) -> Result<(), ClientError> {
         if self.option.consumer_group().is_empty() {
             return Err(ClientError::new(
@@ -96,6 +96,11 @@ impl SimpleConsumer {
     }
 
     /// receive messages from the specified topic
+    ///
+    /// # Arguments
+    ///
+    /// * `topic` - the topic for receiving messages
+    /// * `expression` - the subscription for the topic
     pub async fn receive(
         &self,
         topic: impl AsRef<str>,
@@ -106,6 +111,13 @@ impl SimpleConsumer {
     }
 
     /// receive messages from the specified topic with batch size and invisible duration
+    ///
+    /// # Arguments
+    ///
+    /// * `topic` - the topic for receiving messages
+    /// * `expression` - the subscription for the topic
+    /// * `batch_size` - max message num of server returned
+    /// * `invisible_duration` - set the invisible duration of messages that return from the server, these messages will not be visible to other consumers unless timeout
     pub async fn receive_with_batch_size(
         &self,
         topic: &str,
@@ -136,9 +148,13 @@ impl SimpleConsumer {
             .collect())
     }
 
-    /// ack the specified message
+    /// Ack the specified message
     ///
-    /// it is important to acknowledge every consumed message, otherwise, they will be received again after the invisible duration
+    /// It is important to acknowledge every consumed message, otherwise, they will be received again after the invisible duration
+    ///
+    /// # Arguments
+    ///
+    /// * `ack_entry` - special message view with handle want to ack
     pub async fn ack(&self, ack_entry: impl AckMessageEntry + 'static) -> Result<(), ClientError> {
         self.client.ack_message(ack_entry).await?;
         Ok(())
@@ -159,6 +175,8 @@ mod tests {
 
     #[tokio::test]
     async fn simple_consumer_start() -> Result<(), ClientError> {
+        let _m = crate::client::tests::MTX.lock();
+
         let ctx = Client::new_context();
         ctx.expect().return_once(|_, _, _| {
             let mut client = Client::default();

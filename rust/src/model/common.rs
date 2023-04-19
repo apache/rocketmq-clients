@@ -165,12 +165,12 @@ impl Endpoints {
         }
     }
 
-    /// get endpoint url
+    /// Get endpoint url
     pub fn endpoint_url(&self) -> &str {
         &self.endpoint_url
     }
 
-    /// get address scheme of endpoint
+    /// Get address scheme of endpoint
     pub fn scheme(&self) -> AddressScheme {
         self.scheme
     }
@@ -179,6 +179,7 @@ impl Endpoints {
         &self.inner
     }
 
+    #[allow(dead_code)]
     pub(crate) fn into_inner(self) -> pb::Endpoints {
         self.inner
     }
@@ -190,9 +191,9 @@ impl Endpoints {
 #[derive(Clone, Copy)]
 #[repr(i32)]
 pub enum FilterType {
-    /// filter by tag
+    /// Filter by tag
     Tag = 1,
-    /// filter by SQL
+    /// Filter by SQL
     Sql = 2,
 }
 
@@ -203,7 +204,12 @@ pub struct FilterExpression {
 }
 
 impl FilterExpression {
-    /// create a new filter expression
+    /// Create a new filter expression
+    ///
+    /// # Arguments
+    ///
+    /// * `filter_type` - set filter type
+    /// * `expression` - set message tag or SQL query string
     pub fn new(filter_type: FilterType, expression: impl Into<String>) -> Self {
         FilterExpression {
             filter_type,
@@ -211,12 +217,12 @@ impl FilterExpression {
         }
     }
 
-    /// get filter type
+    /// Get filter type
     pub fn filter_type(&self) -> FilterType {
         self.filter_type
     }
 
-    /// get tag or SQL query string
+    /// Get message tag or SQL query string
     pub fn expression(&self) -> &str {
         &self.expression
     }

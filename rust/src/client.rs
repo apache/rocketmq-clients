@@ -486,7 +486,8 @@ impl Client {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
+    use lazy_static::lazy_static;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
     use std::thread::sleep;
@@ -506,6 +507,11 @@ mod tests {
     use crate::session;
 
     use super::*;
+
+    lazy_static! {
+        // The lock is used to prevent the mocking static function at same time during parallel testing.
+        pub(crate) static ref MTX: Mutex<()> = Mutex::new(());
+    }
 
     fn new_client_for_test() -> Client {
         Client {
