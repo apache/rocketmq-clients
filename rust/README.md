@@ -12,7 +12,7 @@ Here are some preparations you may need to know [Quick Start](https://rocketmq.a
 
 ### Requirements
 
-1. rust and cargo
+1. rust toolchain, rocketmq's MSRV is 1.61.
 2. protoc 3.15.0+
 3. setup name server, broker, and [proxy](https://github.com/apache/rocketmq/tree/develop/proxy).
 
