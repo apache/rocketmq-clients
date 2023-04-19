@@ -26,4 +26,4 @@ jobs:
 
       - name: Unit Test
         working-directory: ./rust
-        run: cargo test
+        run: cargo test -- --nocapture
