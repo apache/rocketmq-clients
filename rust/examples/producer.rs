@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use rocketmq::conf::{ClientOption, ProducerOption};
-use rocketmq::model::message::MessageImpl;
+use rocketmq::model::message::MessageBuilder;
 use rocketmq::Producer;
 
 #[tokio::main]
@@ -34,9 +34,9 @@ async fn main() {
     producer.start().await.unwrap();
 
     // build message
-    let message = MessageImpl::builder()
+    let message = MessageBuilder::builder()
         .set_topic("test_topic")
-        .set_tags("test_tag")
+        .set_tag("test_tag")
         .set_body("hello world".as_bytes().to_vec())
         .build()
         .unwrap();

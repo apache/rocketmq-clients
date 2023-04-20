@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! Common data model of RocketMQ rust client.
+
 use std::net::IpAddr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
@@ -45,6 +48,7 @@ pub(crate) enum RouteStatus {
     Found(Arc<Route>),
 }
 
+/// Access points for receive messages or querying topic routes.
 #[derive(Debug, Clone)]
 pub struct Endpoints {
     endpoint_url: String,
@@ -58,7 +62,7 @@ impl Endpoints {
     const ENDPOINT_SEPARATOR: &'static str = ",";
     const ADDRESS_SEPARATOR: &'static str = ":";
 
-    pub fn from_url(endpoint_url: &str) -> Result<Self, ClientError> {
+    pub(crate) fn from_url(endpoint_url: &str) -> Result<Self, ClientError> {
         if endpoint_url.is_empty() {
             return Err(ClientError::new(
                 ErrorKind::Config,
@@ -161,41 +165,66 @@ impl Endpoints {
         }
     }
 
+    /// Get endpoint url
     pub fn endpoint_url(&self) -> &str {
         &self.endpoint_url
     }
 
+    /// Get address scheme of endpoint
     pub fn scheme(&self) -> AddressScheme {
         self.scheme
     }
 
-    pub fn inner(&self) -> &pb::Endpoints {
+    pub(crate) fn inner(&self) -> &pb::Endpoints {
         &self.inner
     }
 
-    pub fn into_inner(self) -> pb::Endpoints {
+    #[allow(dead_code)]
+    pub(crate) fn into_inner(self) -> pb::Endpoints {
         self.inner
     }
 }
 
+/// Filter type for message filtering.
+///
+/// RocketMQ allows to filter messages by tag or SQL.
 #[derive(Clone, Copy)]
 #[repr(i32)]
 pub enum FilterType {
+    /// Filter by tag
     Tag = 1,
+    /// Filter by SQL
     Sql = 2,
 }
 
+/// Filter expression for message filtering.
 pub struct FilterExpression {
     pub(crate) filter_type: FilterType,
     pub(crate) expression: String,
 }
 
 impl FilterExpression {
+    /// Create a new filter expression
+    ///
+    /// # Arguments
+    ///
+    /// * `filter_type` - set filter type
+    /// * `expression` - set message tag or SQL query string
     pub fn new(filter_type: FilterType, expression: impl Into<String>) -> Self {
         FilterExpression {
             filter_type,
             expression: expression.into(),
         }
+    }
+
+    /// Get filter type
+    pub fn filter_type(&self) -> FilterType {
+        self.filter_type
+    }
+
+    /// Get message tag or SQL query string
+    pub fn expression(&self) -> &str {
+        &self.expression
     }
 }
 
