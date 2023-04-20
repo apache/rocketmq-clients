@@ -46,6 +46,6 @@ async fn main() {
     debug_assert!(result.is_ok(), "send message failed: {:?}", result);
     println!(
         "send message success, message_id={}",
-        result.unwrap().message_id
+        result.unwrap().message_id()
     );
 }

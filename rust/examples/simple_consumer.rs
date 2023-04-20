@@ -29,33 +29,42 @@ async fn main() {
     // set which rocketmq proxy to connect
     let mut client_option = ClientOption::default();
     client_option.set_access_url("localhost:8081");
+    client_option.set_enable_tls(false);
 
     // build and start simple consumer
     let consumer = SimpleConsumer::new(consumer_option, client_option).unwrap();
     consumer.start().await.unwrap();
 
-    // pop message from rocketmq proxy
-    let receive_result = consumer
-        .receive(
-            "test_topic".to_string(),
-            &FilterExpression::new(FilterType::Tag, "test_tag"),
-        )
-        .await;
-    debug_assert!(
-        receive_result.is_ok(),
-        "receive message failed: {:?}",
-        receive_result.unwrap_err()
-    );
-
-    let messages = receive_result.unwrap();
-    for message in messages {
-        println!("receive message: {:?}", message);
-        // ack message to rocketmq proxy
-        let ack_result = consumer.ack(message).await;
+    loop {
+        // pop message from rocketmq proxy
+        let receive_result = consumer
+            .receive(
+                "test_topic".to_string(),
+                &FilterExpression::new(FilterType::Tag, "test_tag"),
+            )
+            .await;
         debug_assert!(
-            ack_result.is_ok(),
-            "ack message failed: {:?}",
-            ack_result.unwrap_err()
+            receive_result.is_ok(),
+            "receive message failed: {:?}",
+            receive_result.unwrap_err()
         );
+
+        let messages = receive_result.unwrap();
+
+        if messages.is_empty() {
+            println!("no message received");
+            return;
+        }
+
+        for message in messages {
+            println!("receive message: {:?}", message);
+            // ack message to rocketmq proxy
+            let ack_result = consumer.ack(&message).await;
+            debug_assert!(
+                ack_result.is_ok(),
+                "ack message failed: {:?}",
+                ack_result.unwrap_err()
+            );
+        }
     }
 }

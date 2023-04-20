@@ -48,6 +48,7 @@ pub struct SimpleConsumer {
 }
 
 impl SimpleConsumer {
+    const OPERATION_NEW_SIMPLE_CONSUMER: &'static str = "simple_consumer.new";
     const OPERATION_START_SIMPLE_CONSUMER: &'static str = "simple_consumer.start";
     const OPERATION_RECEIVE_MESSAGE: &'static str = "simple_consumer.receive_message";
 
@@ -56,6 +57,14 @@ impl SimpleConsumer {
         option: SimpleConsumerOption,
         client_option: ClientOption,
     ) -> Result<Self, ClientError> {
+        if option.consumer_group().is_empty() {
+            return Err(ClientError::new(
+                ErrorKind::Config,
+                "required option is missing: consumer group is empty",
+                Self::OPERATION_NEW_SIMPLE_CONSUMER,
+            ));
+        }
+
         let client_option = ClientOption {
             client_type: ClientType::SimpleConsumer,
             group: option.consumer_group().to_string(),
@@ -120,12 +129,12 @@ impl SimpleConsumer {
     /// * `invisible_duration` - set the invisible duration of messages that return from the server, these messages will not be visible to other consumers unless timeout
     pub async fn receive_with_batch_size(
         &self,
-        topic: &str,
+        topic: impl AsRef<str>,
         expression: &FilterExpression,
         batch_size: i32,
         invisible_duration: Duration,
     ) -> Result<Vec<MessageView>, ClientError> {
-        let route = self.client.topic_route(topic, true).await?;
+        let route = self.client.topic_route(topic.as_ref(), true).await?;
         let message_queue = select_message_queue(route);
         let endpoints =
             build_endpoints_by_message_queue(&message_queue, Self::OPERATION_RECEIVE_MESSAGE)?;
@@ -155,7 +164,10 @@ impl SimpleConsumer {
     /// # Arguments
     ///
     /// * `ack_entry` - special message view with handle want to ack
-    pub async fn ack(&self, ack_entry: impl AckMessageEntry + 'static) -> Result<(), ClientError> {
+    pub async fn ack(
+        &self,
+        ack_entry: &(impl AckMessageEntry + 'static),
+    ) -> Result<(), ClientError> {
         self.client.ack_message(ack_entry).await?;
         Ok(())
     }
@@ -238,7 +250,7 @@ mod tests {
         });
         client
             .expect_ack_message()
-            .returning(|_: MessageView| Ok(AckMessageResultEntry::default()));
+            .returning(|_: &MessageView| Ok(AckMessageResultEntry::default()));
         let simple_consumer = SimpleConsumer {
             option: SimpleConsumerOption::default(),
             logger: terminal_logger(),
@@ -253,7 +265,7 @@ mod tests {
             .await?;
         assert_eq!(messages.len(), 1);
         simple_consumer
-            .ack(messages.into_iter().next().unwrap())
+            .ack(&messages.into_iter().next().unwrap())
             .await?;
         Ok(())
     }
