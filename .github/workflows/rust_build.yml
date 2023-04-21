@@ -31,7 +31,7 @@ jobs:
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features
+          args: --all-features --manifest-path rust/Cargo.toml
       - name: MSRV check
         run: cargo check
       - name: Build
