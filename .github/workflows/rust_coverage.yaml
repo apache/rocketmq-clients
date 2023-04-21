@@ -36,12 +36,13 @@ jobs:
           args: cargo-llvm-cov
 
       - name: Generate code coverage
+        working-directory: ./rust
         run: cargo llvm-cov --all-features --workspace --ignore-filename-regex pb/ --codecov --output-path codecov.json
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v3
         with:
-          files: codecov.json
+          files: ./rust/codecov.json
           flags: rust
           verbose: true
           fail_ci_if_error: true
