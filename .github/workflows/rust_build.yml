@@ -23,7 +23,6 @@ jobs:
       - name: Build
         working-directory: ./rust
         run: cargo build
-
       - name: Unit Test
         working-directory: ./rust
         run: cargo test -- --nocapture

@@ -390,12 +390,15 @@ mod tests {
             }))
         });
         producer.client.expect_send_message().returning(|_, _| {
-            Ok(vec![SendReceipt {
-                message_id: "".to_string(),
-                transaction_id: "".to_string(),
-            }])
+            Ok(vec![SendReceipt::from_pb_send_result(
+                &pb::SendResultEntry {
+                    message_id: "message_id".to_string(),
+                    transaction_id: "transaction_id".to_string(),
+                    ..pb::SendResultEntry::default()
+                },
+            )])
         });
-        producer
+        let result = producer
             .send_one(
                 MessageBuilder::builder()
                     .set_topic("test_topic")
@@ -404,6 +407,8 @@ mod tests {
                     .unwrap(),
             )
             .await?;
+        assert_eq!(result.message_id(), "message_id");
+        assert_eq!(result.transaction_id(), "transaction_id");
         Ok(())
     }
 }

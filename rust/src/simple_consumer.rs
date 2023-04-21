@@ -144,8 +144,8 @@ impl SimpleConsumer {
                 &endpoints,
                 message_queue,
                 pb::FilterExpression {
-                    r#type: expression.filter_type as i32,
-                    expression: expression.expression.clone(),
+                    r#type: expression.filter_type() as i32,
+                    expression: expression.expression().to_string(),
                 },
                 batch_size,
                 prost_types::Duration::try_from(invisible_duration).unwrap(),
