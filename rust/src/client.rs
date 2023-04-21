@@ -28,7 +28,7 @@ use tokio::sync::oneshot;
 
 use crate::conf::ClientOption;
 use crate::error::{ClientError, ErrorKind};
-use crate::model::common::{ClientType, Endpoints, Route, RouteStatus, SendResult};
+use crate::model::common::{ClientType, Endpoints, Route, RouteStatus, SendReceipt};
 use crate::model::message::AckMessageEntry;
 use crate::pb;
 use crate::pb::receive_message_response::Content;
@@ -359,7 +359,7 @@ impl Client {
         &self,
         endpoints: &Endpoints,
         messages: Vec<Message>,
-    ) -> Result<Vec<SendResult>, ClientError> {
+    ) -> Result<Vec<SendReceipt>, ClientError> {
         self.send_message_inner(
             self.get_session_with_endpoints(endpoints).await.unwrap(),
             messages,
@@ -371,7 +371,7 @@ impl Client {
         &self,
         mut rpc_client: T,
         messages: Vec<Message>,
-    ) -> Result<Vec<SendResult>, ClientError> {
+    ) -> Result<Vec<SendReceipt>, ClientError> {
         let message_count = messages.len();
         let request = SendMessageRequest { messages };
         let response = rpc_client.send_message(request).await?;
@@ -384,7 +384,7 @@ impl Client {
         Ok(response
             .entries
             .iter()
-            .map(SendResult::from_pb_send_result)
+            .map(SendReceipt::from_pb_send_result)
             .collect())
     }
 

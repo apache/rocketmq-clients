@@ -25,7 +25,7 @@ use slog::{info, Logger};
 use crate::client::Client;
 use crate::conf::{ClientOption, ProducerOption};
 use crate::error::{ClientError, ErrorKind};
-use crate::model::common::{ClientType, SendResult};
+use crate::model::common::{ClientType, SendReceipt};
 use crate::model::message;
 use crate::pb::{Encoding, Resource, SystemProperties};
 use crate::util::{
@@ -185,7 +185,7 @@ impl Producer {
     pub async fn send_one(
         &self,
         message: impl message::Message,
-    ) -> Result<SendResult, ClientError> {
+    ) -> Result<SendReceipt, ClientError> {
         let results = self.send(vec![message]).await?;
         Ok(results[0].clone())
     }
@@ -198,7 +198,7 @@ impl Producer {
     pub async fn send(
         &self,
         messages: Vec<impl message::Message>,
-    ) -> Result<Vec<SendResult>, ClientError> {
+    ) -> Result<Vec<SendReceipt>, ClientError> {
         let (topic, message_group, mut pb_messages) =
             self.transform_messages_to_protobuf(messages)?;
 
@@ -390,7 +390,7 @@ mod tests {
             }))
         });
         producer.client.expect_send_message().returning(|_, _| {
-            Ok(vec![SendResult {
+            Ok(vec![SendReceipt {
                 message_id: "".to_string(),
                 transaction_id: "".to_string(),
             }])

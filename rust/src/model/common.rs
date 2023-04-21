@@ -230,14 +230,14 @@ impl FilterExpression {
 
 /// Send result returned by producer.
 #[derive(Clone, Debug)]
-pub struct SendResult {
+pub struct SendReceipt {
     pub(crate) message_id: String,
     pub(crate) transaction_id: String,
 }
 
-impl SendResult {
+impl SendReceipt {
     pub(crate) fn from_pb_send_result(entry: &pb::SendResultEntry) -> Self {
-        SendResult {
+        SendReceipt {
             message_id: entry.message_id.clone(),
             transaction_id: entry.transaction_id.clone(),
         }
