@@ -199,8 +199,8 @@ pub enum FilterType {
 
 /// Filter expression for message filtering.
 pub struct FilterExpression {
-    pub(crate) filter_type: FilterType,
-    pub(crate) expression: String,
+    filter_type: FilterType,
+    expression: String,
 }
 
 impl FilterExpression {
@@ -231,8 +231,8 @@ impl FilterExpression {
 /// Send result returned by producer.
 #[derive(Clone, Debug)]
 pub struct SendReceipt {
-    pub(crate) message_id: String,
-    pub(crate) transaction_id: String,
+    message_id: String,
+    transaction_id: String,
 }
 
 impl SendReceipt {
