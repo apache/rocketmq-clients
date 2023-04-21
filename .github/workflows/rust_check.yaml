@@ -48,10 +48,12 @@ jobs:
           version: '3.x'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Clippy check
-        uses: actions-rs/clippy-check@v1
+        uses: giraffate/clippy-action@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features --manifest-path rust/Cargo.toml
+          reporter: 'github-pr-check'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workdir: ./rust
+          clippy_flags: --all-features
   doc:
     runs-on: ubuntu-latest
     name: doc
