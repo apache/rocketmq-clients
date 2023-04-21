@@ -64,7 +64,7 @@
 //!     debug_assert!(result.is_ok(), "send message failed: {:?}", result);
 //!     println!(
 //!         "send message success, message_id={}",
-//!         result.unwrap().message_id
+//!         result.unwrap().message_id()
 //!     );
 //! }
 //! ```
@@ -108,7 +108,7 @@
 //!     for message in messages {
 //!         println!("receive message: {:?}", message);
 //!         // ack message to rocketmq proxy
-//!         let ack_result = consumer.ack(message).await;
+//!         let ack_result = consumer.ack(&message).await;
 //!         debug_assert!(
 //!             ack_result.is_ok(),
 //!             "ack message failed: {:?}",
@@ -121,7 +121,7 @@
 
 #[allow(dead_code)]
 pub mod conf;
-mod error;
+pub mod error;
 #[allow(dead_code)]
 mod log;
 

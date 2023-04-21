@@ -14,10 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! Error data model of RocketMQ rust client.
+
 use std::error::Error;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 
+/// Error type using by [`ClientError`].
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
 pub enum ErrorKind {
     #[error("Failed to parse config")]
@@ -51,6 +55,7 @@ pub enum ErrorKind {
     Unknown,
 }
 
+/// Error returned by producer or consumer.
 pub struct ClientError {
     pub(crate) kind: ErrorKind,
     pub(crate) message: String,
@@ -62,7 +67,7 @@ pub struct ClientError {
 impl Error for ClientError {}
 
 impl ClientError {
-    pub fn new(kind: ErrorKind, message: &str, operation: &'static str) -> Self {
+    pub(crate) fn new(kind: ErrorKind, message: &str, operation: &'static str) -> Self {
         Self {
             kind,
             message: message.to_string(),
@@ -72,7 +77,32 @@ impl ClientError {
         }
     }
 
-    pub fn with_operation(mut self, operation: &'static str) -> Self {
+    /// Error type
+    pub fn kind(&self) -> &ErrorKind {
+        &self.kind
+    }
+
+    /// Error message
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+
+    /// Name of operation that produced this error
+    pub fn operation(&self) -> &str {
+        self.operation
+    }
+
+    /// Error context, formatted in key-value pairs
+    pub fn context(&self) -> &Vec<(&'static str, String)> {
+        &self.context
+    }
+
+    /// Source error
+    pub fn source(&self) -> Option<&anyhow::Error> {
+        self.source.as_ref()
+    }
+
+    pub(crate) fn with_operation(mut self, operation: &'static str) -> Self {
         if !self.operation.is_empty() {
             self.context.push(("called", self.operation.to_string()));
         }
@@ -81,12 +111,12 @@ impl ClientError {
         self
     }
 
-    pub fn with_context(mut self, key: &'static str, value: impl Into<String>) -> Self {
+    pub(crate) fn with_context(mut self, key: &'static str, value: impl Into<String>) -> Self {
         self.context.push((key, value.into()));
         self
     }
 
-    pub fn set_source(mut self, src: impl Into<anyhow::Error>) -> Self {
+    pub(crate) fn set_source(mut self, src: impl Into<anyhow::Error>) -> Self {
         debug_assert!(self.source.is_none(), "the source error has been set");
 
         self.source = Some(src.into());

@@ -228,6 +228,32 @@ impl FilterExpression {
     }
 }
 
+/// Send result returned by producer.
+#[derive(Clone, Debug)]
+pub struct SendReceipt {
+    pub(crate) message_id: String,
+    pub(crate) transaction_id: String,
+}
+
+impl SendReceipt {
+    pub(crate) fn from_pb_send_result(entry: &pb::SendResultEntry) -> Self {
+        SendReceipt {
+            message_id: entry.message_id.clone(),
+            transaction_id: entry.transaction_id.clone(),
+        }
+    }
+
+    /// Get message id
+    pub fn message_id(&self) -> &str {
+        &self.message_id
+    }
+
+    /// Get transaction id
+    pub fn transaction_id(&self) -> &str {
+        &self.transaction_id
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::error::ErrorKind;

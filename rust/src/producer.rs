@@ -25,9 +25,9 @@ use slog::{info, Logger};
 use crate::client::Client;
 use crate::conf::{ClientOption, ProducerOption};
 use crate::error::{ClientError, ErrorKind};
-use crate::model::common::ClientType;
+use crate::model::common::{ClientType, SendReceipt};
 use crate::model::message;
-use crate::pb::{Encoding, Resource, SendResultEntry, SystemProperties};
+use crate::pb::{Encoding, Resource, SystemProperties};
 use crate::util::{
     build_endpoints_by_message_queue, build_producer_settings, select_message_queue,
     select_message_queue_by_message_group, HOST_NAME,
@@ -185,7 +185,7 @@ impl Producer {
     pub async fn send_one(
         &self,
         message: impl message::Message,
-    ) -> Result<SendResultEntry, ClientError> {
+    ) -> Result<SendReceipt, ClientError> {
         let results = self.send(vec![message]).await?;
         Ok(results[0].clone())
     }
@@ -198,7 +198,7 @@ impl Producer {
     pub async fn send(
         &self,
         messages: Vec<impl message::Message>,
-    ) -> Result<Vec<SendResultEntry>, ClientError> {
+    ) -> Result<Vec<SendReceipt>, ClientError> {
         let (topic, message_group, mut pb_messages) =
             self.transform_messages_to_protobuf(messages)?;
 
@@ -222,12 +222,13 @@ impl Producer {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use crate::error::ErrorKind;
     use crate::log::terminal_logger;
     use crate::model::common::Route;
     use crate::model::message::{MessageBuilder, MessageImpl};
-    use crate::pb::{Broker, Code, MessageQueue, Status};
-    use std::sync::Arc;
+    use crate::pb::{Broker, MessageQueue};
 
     use super::*;
 
@@ -389,14 +390,9 @@ mod tests {
             }))
         });
         producer.client.expect_send_message().returning(|_, _| {
-            Ok(vec![SendResultEntry {
-                status: Some(Status {
-                    code: Code::Ok as i32,
-                    message: "".to_string(),
-                }),
+            Ok(vec![SendReceipt {
                 message_id: "".to_string(),
                 transaction_id: "".to_string(),
-                offset: 0,
             }])
         });
         producer

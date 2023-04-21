@@ -28,14 +28,14 @@ use tokio::sync::oneshot;
 
 use crate::conf::ClientOption;
 use crate::error::{ClientError, ErrorKind};
-use crate::model::common::{ClientType, Endpoints, Route, RouteStatus};
+use crate::model::common::{ClientType, Endpoints, Route, RouteStatus, SendReceipt};
 use crate::model::message::AckMessageEntry;
 use crate::pb;
 use crate::pb::receive_message_response::Content;
 use crate::pb::{
     AckMessageRequest, AckMessageResultEntry, Code, FilterExpression, HeartbeatRequest,
     HeartbeatResponse, Message, MessageQueue, QueryRouteRequest, ReceiveMessageRequest, Resource,
-    SendMessageRequest, SendResultEntry, Status, TelemetryCommand,
+    SendMessageRequest, Status, TelemetryCommand,
 };
 #[double]
 use crate::session::SessionManager;
@@ -207,7 +207,7 @@ impl Client {
     pub(crate) fn topic_route_from_cache(&self, topic: &str) -> Option<Arc<Route>> {
         self.route_table.lock().get(topic).and_then(|route_status| {
             if let RouteStatus::Found(route) = route_status {
-                debug!(self.logger, "get route for topic={} from cache", topic);
+                // debug!(self.logger, "get route for topic={} from cache", topic);
                 Some(Arc::clone(route))
             } else {
                 None
@@ -359,7 +359,7 @@ impl Client {
         &self,
         endpoints: &Endpoints,
         messages: Vec<Message>,
-    ) -> Result<Vec<SendResultEntry>, ClientError> {
+    ) -> Result<Vec<SendReceipt>, ClientError> {
         self.send_message_inner(
             self.get_session_with_endpoints(endpoints).await.unwrap(),
             messages,
@@ -371,7 +371,7 @@ impl Client {
         &self,
         mut rpc_client: T,
         messages: Vec<Message>,
-    ) -> Result<Vec<SendResultEntry>, ClientError> {
+    ) -> Result<Vec<SendReceipt>, ClientError> {
         let message_count = messages.len();
         let request = SendMessageRequest { messages };
         let response = rpc_client.send_message(request).await?;
@@ -381,7 +381,11 @@ impl Client {
             error!(self.logger, "server do not return illegal send result, this may be a bug. except result count: {}, found: {}", response.entries.len(), message_count);
         }
 
-        Ok(response.entries)
+        Ok(response
+            .entries
+            .iter()
+            .map(SendReceipt::from_pb_send_result)
+            .collect())
     }
 
     #[allow(dead_code)]
@@ -431,6 +435,9 @@ impl Client {
         for response in responses {
             match response.content.unwrap() {
                 Content::Status(status) => {
+                    if status.code() == Code::MessageNotFound {
+                        return Ok(vec![]);
+                    }
                     Self::handle_response_status(Some(status), OPERATION_RECEIVE_MESSAGE)?;
                 }
                 Content::Message(message) => {
@@ -445,7 +452,7 @@ impl Client {
     #[allow(dead_code)]
     pub(crate) async fn ack_message<T: AckMessageEntry + 'static>(
         &self,
-        ack_entry: T,
+        ack_entry: &T,
     ) -> Result<AckMessageResultEntry, ClientError> {
         let result = self
             .ack_message_inner(

@@ -22,7 +22,7 @@ use slog::{debug, error, info, o, Logger};
 use tokio::sync::{mpsc, Mutex};
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::StreamExt;
-use tonic::metadata::AsciiMetadataValue;
+use tonic::metadata::{AsciiMetadataValue, MetadataMap};
 use tonic::transport::{Channel, Endpoint};
 
 use crate::conf::ClientOption;
@@ -193,8 +193,15 @@ impl Session {
         self.endpoints.endpoint_url()
     }
 
-    fn sign<T>(&self, mut request: tonic::Request<T>) -> tonic::Request<T> {
+    fn sign<T>(&self, message: T) -> tonic::Request<T> {
+        let mut request = tonic::Request::new(message);
         let metadata = request.metadata_mut();
+        self.sign_without_timeout(metadata);
+        request.set_timeout(*self.option.timeout());
+        request
+    }
+
+    fn sign_without_timeout(&self, metadata: &mut MetadataMap) {
         let _ = AsciiMetadataValue::try_from(&self.client_id)
             .map(|v| metadata.insert("x-mq-client-id", v));
 
@@ -210,9 +217,6 @@ impl Session {
             "x-mq-protocol-version",
             AsciiMetadataValue::from_static(PROTOCOL_VERSION),
         );
-
-        request.set_timeout(*self.option.timeout());
-        request
     }
 
     pub(crate) async fn start(&mut self, settings: TelemetryCommand) -> Result<(), ClientError> {
@@ -226,7 +230,8 @@ impl Session {
             .set_source(e)
         })?;
 
-        let request = self.sign(tonic::Request::new(ReceiverStream::new(rx)));
+        let mut request = tonic::Request::new(ReceiverStream::new(rx));
+        self.sign_without_timeout(request.metadata_mut());
         let response = self.stub.telemetry(request).await.map_err(|e| {
             ClientError::new(
                 ErrorKind::ClientInternal,
@@ -299,7 +304,7 @@ impl RPCClient for Session {
         &mut self,
         request: QueryRouteRequest,
     ) -> Result<QueryRouteResponse, ClientError> {
-        let request = self.sign(tonic::Request::new(request));
+        let request = self.sign(request);
         let response = self.stub.query_route(request).await.map_err(|e| {
             ClientError::new(
                 ErrorKind::ClientInternal,
@@ -315,7 +320,7 @@ impl RPCClient for Session {
         &mut self,
         request: HeartbeatRequest,
     ) -> Result<HeartbeatResponse, ClientError> {
-        let request = self.sign(tonic::Request::new(request));
+        let request = self.sign(request);
         let response = self.stub.heartbeat(request).await.map_err(|e| {
             ClientError::new(
                 ErrorKind::ClientInternal,
@@ -331,7 +336,7 @@ impl RPCClient for Session {
         &mut self,
         request: SendMessageRequest,
     ) -> Result<SendMessageResponse, ClientError> {
-        let request = self.sign(tonic::Request::new(request));
+        let request = self.sign(request);
         let response = self.stub.send_message(request).await.map_err(|e| {
             ClientError::new(
                 ErrorKind::ClientInternal,
@@ -348,7 +353,7 @@ impl RPCClient for Session {
         request: ReceiveMessageRequest,
     ) -> Result<Vec<ReceiveMessageResponse>, ClientError> {
         let batch_size = request.batch_size;
-        let mut request = self.sign(tonic::Request::new(request));
+        let mut request = self.sign(request);
         request.set_timeout(*self.option.long_polling_timeout());
         let mut stream = self
             .stub
@@ -383,7 +388,7 @@ impl RPCClient for Session {
         &mut self,
         request: AckMessageRequest,
     ) -> Result<AckMessageResponse, ClientError> {
-        let request = self.sign(tonic::Request::new(request));
+        let request = self.sign(request);
         let response = self.stub.ack_message(request).await.map_err(|e| {
             ClientError::new(
                 ErrorKind::ClientInternal,
