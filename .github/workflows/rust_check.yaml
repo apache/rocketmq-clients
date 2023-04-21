@@ -10,6 +10,7 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
+permissions: write-all
 jobs:
   fmt:
     runs-on: ubuntu-latest
@@ -28,10 +29,8 @@ jobs:
         run: cargo fmt --check
   clippy:
     runs-on: ubuntu-latest
-    name: ${{ matrix.toolchain }} / clippy
-    permissions:
-      contents: read
-      checks: write
+    name: clippy
+    permissions: write-all
     strategy:
       fail-fast: false
     steps:
@@ -55,7 +54,7 @@ jobs:
           args: --all-features --manifest-path rust/Cargo.toml
   doc:
     runs-on: ubuntu-latest
-    name: nightly / doc
+    name: doc
     steps:
       - uses: actions/checkout@v3
         with:
@@ -79,7 +78,7 @@ jobs:
     strategy:
       matrix:
         msrv: [1.61]
-    name: ubuntu / ${{ matrix.msrv }}
+    name: msrv / ${{ matrix.msrv }}
     steps:
       - uses: actions/checkout@v3
         with:
