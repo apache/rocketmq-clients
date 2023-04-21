@@ -2,7 +2,7 @@ name: Rust Build
 on:
   workflow_call:
 jobs:
-  fmt:
+  fmt-check:
     runs-on: ubuntu-latest
     name: fmt
     steps:
@@ -17,7 +17,7 @@ jobs:
       - name: Code format check
         working-directory: ./rust
         run: cargo fmt --check
-  clippy:
+  clippy-check:
     runs-on: ubuntu-latest
     name: clippy
     permissions: write-all
@@ -42,7 +42,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all-features --manifest-path rust/Cargo.toml -- -D warnings
-  doc:
+  doc-check:
     runs-on: ubuntu-latest
     name: doc
     steps:
@@ -63,7 +63,7 @@ jobs:
         run: cargo doc --no-deps --all-features
         env:
           RUSTDOCFLAGS: --cfg docsrs
-  msrv:
+  msrv-check:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -82,9 +82,9 @@ jobs:
         with:
           version: '3.x'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Cargo +${{ matrix.msrv }} check
+      - name: Check MSRV ${{ matrix.msrv }}
         working-directory: ./rust
-        run: cargo check
+        run: cargo +${{ matrix.msrv }} check
   build:
     name: "${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
