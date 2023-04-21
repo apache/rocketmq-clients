@@ -20,20 +20,11 @@ jobs:
         with:
           toolchain: ${{ matrix.msrv }}
           components: clippy
-      - name: Install Protoc
+      - name: Install protoc
         uses: arduino/setup-protoc@v1
         with:
           version: '3.x'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Code format check
-        run: cargo fmt --check
-      - name: Clippy check
-        uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features --manifest-path rust/Cargo.toml
-      - name: MSRV check
-        run: cargo check
       - name: Build
         run: cargo build
       - name: Unit Test
