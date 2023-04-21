@@ -5,6 +5,9 @@ jobs:
   build:
     name: "${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: ./rust
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-11, windows-2022]
@@ -23,20 +26,15 @@ jobs:
           version: '3.x'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Code format check
-        working-directory: ./rust
         run: cargo fmt --check
       - name: Clippy check
-        working-directory: ./rust
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all-features
       - name: MSRV check
-        working-directory: ./rust
         run: cargo check
       - name: Build
-        working-directory: ./rust
         run: cargo build
       - name: Unit Test
-        working-directory: ./rust
         run: cargo test -- --nocapture
