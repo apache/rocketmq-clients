@@ -8,18 +8,32 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-11, windows-2022]
+        msrv: [1.61]
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: true
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: ${{ matrix.msrv }}
+          components: clippy
       - name: Install Protoc
         uses: arduino/setup-protoc@v1
         with:
           version: '3.x'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Code format check
+        working-directory: ./rust
+        run: cargo fmt --check
+      - name: Clippy check
+        working-directory: ./rust
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
+      - name: MSRV check
+        working-directory: ./rust
+        run: cargo check
       - name: Build
         working-directory: ./rust
         run: cargo build
