@@ -42,9 +42,11 @@ pub(crate) struct Route {
     pub queue: Vec<MessageQueue>,
 }
 
+type InflightRequest = Option<Vec<oneshot::Sender<Result<Arc<Route>, ClientError>>>>;
+
 #[derive(Debug)]
 pub(crate) enum RouteStatus {
-    Querying(Option<Vec<oneshot::Sender<Result<Arc<Route>, ClientError>>>>),
+    Querying(InflightRequest),
     Found(Arc<Route>),
 }
 
