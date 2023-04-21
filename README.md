@@ -1,15 +1,16 @@
 # RocketMQ Clients - Collection of Client Bindings for Apache RocketMQ
 
 [![License][license-image]][license-url]
-[![CPP][cpp-image]][cpp-url]
-[![C#][csharp-image]][csharp-url]
-[![Java][java-image]][java-url]
-[![Golang][golang-image]][golang-url]
-[![Codecov-cpp][codecov-cpp-image]][codecov-url]
-[![Codecov-java][codecov-java-image]][codecov-url]
-[![Codecov-golang][codecov-golang-image]][codecov-url]
-[![Maven Central][maven-image]][maven-url]
-[![NuGet Gallery][nuget-image]][nuget-url]
+
+[![CPP][cpp-image]][cpp-url] [![Codecov-cpp][codecov-cpp-image]][codecov-url]
+
+[![C#][csharp-image]][csharp-url] [![NuGet Gallery][nuget-image]][nuget-url]
+
+[![Java][java-image]][java-url] [![Codecov-java][codecov-java-image]][codecov-url] [![Maven Central][maven-image]][maven-url]
+
+[![Golang][golang-image]][golang-url] [![Codecov-golang][codecov-golang-image]][codecov-url]
+
+[![Rust][rust-image]][rust-url] [![Codecov-rust][codecov-rust-image]][codecov-url] [![Crates.io][crates-image]][crates-url] [![docs.rs][rust-doc-image]][rust-doc-url]
 
 English | [简体中文](README-CN.md) | [RocketMQ Website](https://rocketmq.apache.org/)
 
@@ -28,11 +29,11 @@ Provide cloud-native and robust solutions for Java, C++, C#, Golang, Rust and al
 
 | Feature                                        | Java  | C/C++ |  C#   | Golang | Rust  | Node.js | Python |
 | ---------------------------------------------- | :---: | :---: | :---: | :----: | :---: | :-----: | :----: |
-| Producer with standard messages                |   ✅   |   ✅   |   ✅   |   ✅    |   🚧   |    🚧    |   🚧    |
-| Producer with FIFO messages                    |   ✅   |   ✅   |   ✅   |   ✅    |   🚧   |    🚧    |   🚧    |
-| Producer with timed/delay messages             |   ✅   |   ✅   |   ✅   |   ✅    |   🚧   |    🚧    |   🚧    |
+| Producer with standard messages                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |    🚧    |   🚧    |
+| Producer with FIFO messages                    |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |    🚧    |   🚧    |
+| Producer with timed/delay messages             |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |    🚧    |   🚧    |
 | Producer with transactional messages           |   ✅   |   ✅   |   ✅   |   ✅    |   🚧   |    🚧    |   🚧    |
-| Simple consumer                                |   ✅   |   ✅   |   ✅   |   ✅    |   🚧   |    🚧    |   🚧    |
+| Simple consumer                                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |    🚧    |   🚧    |
 | Push consumer with concurrent message listener |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |    🚧    |   🚧    |
 | Push consumer with FIFO message listener       |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |    🚧    |   🚧    |
 
@@ -68,12 +69,19 @@ Similar to other projects of Apache RocketMQ, any attempt to make this project b
 [java-image]: https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml/badge.svg
 [java-url]: https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml
 [golang-image]: https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml/badge.svg
+[rust-image]: https://github.com/apache/rocketmq-clients/actions/workflows/rust_build.yml/badge.svg
 [golang-url]: https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml
+[rust-url]: https://github.com/apache/rocketmq-clients/actions/workflows/rust_build.yml
 [codecov-cpp-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=cpp&label=CPP%20Coverage&logo=codecov
 [codecov-java-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=java&label=Java%20Coverage&logo=codecov
 [codecov-golang-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=golang&label=Golang%20Coverage&logo=codecov
-[codecov-url]: https://codecov.io/gh/apache/rocketmq-clients/branch/master/
-[maven-image]: https://maven-badges.herokuapp.com/maven-central/org.apache.rocketmq/rocketmq-client-java/badge.svg
+[codecov-rust-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=rust&label=Rust%20Coverage&logo=codecov
+[codecov-url]: https://app.codecov.io/gh/apache/rocketmq-clients
+[maven-image]: https://img.shields.io/maven-central/v/org.apache.rocketmq/rocketmq-client-java
 [maven-url]: https://maven-badges.herokuapp.com/maven-central/org.apache.rocketmq/rocketmq-client-java
 [nuget-image]: https://img.shields.io/nuget/v/RocketMQ.Client.svg?label=nuget
 [nuget-url]: https://www.nuget.org/packages/RocketMQ.Client/
+[crates-image]: https://img.shields.io/crates/v/rocketmq.svg
+[crates-url]: https://crates.io/crates/rocketmq
+[rust-doc-image]: https://docs.rs/rocketmq/badge.svg
+[rust-doc-url]: https://img.shields.io/crates/v/rocketmq.svg
