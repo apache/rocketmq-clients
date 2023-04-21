@@ -84,7 +84,7 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Check MSRV ${{ matrix.msrv }}
         working-directory: ./rust
-        run: cp Cargo.minimal.lock Cargo.lock && cargo +${{ matrix.msrv }} check --frozen
+        run: cp Cargo.minimal.lock Cargo.lock && cargo +${{ matrix.msrv }} check --locked
   build:
     name: "${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
