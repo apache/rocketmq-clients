@@ -88,7 +88,7 @@ jobs:
   build:
     name: "${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
-    needs: [fmt, msrv]
+    needs: [fmt-check, msrv-check]
     defaults:
       run:
         working-directory: ./rust
