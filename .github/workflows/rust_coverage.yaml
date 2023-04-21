@@ -8,8 +8,7 @@ on:
     branches:
       - master
 jobs:
-  check:
-    name: Rust project
+  calculate-coverage:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
