@@ -50,5 +50,6 @@ header:
     - 'cpp/cmake'
     - 'php/grpc/**/*.php'
     - 'php/composer.json'
+    - 'rust/Cargo.minimal.lock'
 
   comment: on-failure

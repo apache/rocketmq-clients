@@ -56,12 +56,12 @@ lazy_static::lazy_static! {
     static ref CLIENT_ID_SEQUENCE: AtomicUsize = AtomicUsize::new(0);
 }
 
-const OPERATION_CLIENT_NEW: &'static str = "client.new";
-const OPERATION_QUERY_ROUTE: &'static str = "client.query_route";
-const OPERATION_HEARTBEAT: &'static str = "client.heartbeat";
-const OPERATION_SEND_MESSAGE: &'static str = "client.send_message";
-const OPERATION_RECEIVE_MESSAGE: &'static str = "client.receive_message";
-const OPERATION_ACK_MESSAGE: &'static str = "client.ack_message";
+const OPERATION_CLIENT_NEW: &str = "client.new";
+const OPERATION_QUERY_ROUTE: &str = "client.query_route";
+const OPERATION_HEARTBEAT: &str = "client.heartbeat";
+const OPERATION_SEND_MESSAGE: &str = "client.send_message";
+const OPERATION_RECEIVE_MESSAGE: &str = "client.receive_message";
+const OPERATION_ACK_MESSAGE: &str = "client.ack_message";
 
 #[automock]
 impl Client {

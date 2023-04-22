@@ -2,27 +2,114 @@ name: Rust Build
 on:
   workflow_call:
 jobs:
+  fmt-check:
+    runs-on: ubuntu-latest
+    name: fmt
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Install stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt
+      - name: Code format check
+        working-directory: ./rust
+        run: cargo fmt --check
+  clippy-check:
+    runs-on: ubuntu-latest
+    name: clippy
+    permissions: write-all
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Install stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Install protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          version: '3.x'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Clippy check
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features --manifest-path rust/Cargo.toml -- -D warnings
+  doc-check:
+    runs-on: ubuntu-latest
+    name: doc
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Install stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Install protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          version: '3.x'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build doc
+        working-directory: ./rust
+        run: cargo doc --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: --cfg docsrs
+  msrv-check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        msrv: [1.61]
+    name: msrv / ${{ matrix.msrv }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Install ${{ matrix.msrv }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.msrv }}
+      - name: Install protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          version: '3.x'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check MSRV ${{ matrix.msrv }}
+        working-directory: ./rust
+        run: cp Cargo.minimal.lock Cargo.lock && cargo +${{ matrix.msrv }} check --locked
   build:
     name: "${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
+    needs: [fmt-check, msrv-check]
+    defaults:
+      run:
+        working-directory: ./rust
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-11, windows-2022]
+        msrv: [1.61]
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: true
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
-      - name: Install Protoc
+          toolchain: ${{ matrix.msrv }}
+          components: clippy
+      - name: Install protoc
         uses: arduino/setup-protoc@v1
         with:
           version: '3.x'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build
-        working-directory: ./rust
         run: cargo build
       - name: Unit Test
-        working-directory: ./rust
         run: cargo test -- --nocapture
