@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::{env, str};
 use std::path::PathBuf;
 use std::process::Command;
+use std::{env, str};
 
 use regex::Regex;
 use version_check::Version;
