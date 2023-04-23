@@ -14,13 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use regex::Regex;
+use std::{env, str};
 use std::path::PathBuf;
 use std::process::Command;
-use std::{env, str};
+
+use regex::Regex;
 use version_check::Version;
 
 fn main() {
+    let build_proto = env::var("BUILD_PROTO");
+    if build_proto.is_err() {
+        return;
+    }
+
     check_protoc_version();
 
     tonic_build::configure()

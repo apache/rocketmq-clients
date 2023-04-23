@@ -36,7 +36,6 @@ csharp/rocketmq-client.sln.DotSettings.user
 # Rust
 rust/target
 rust/Cargo.lock
-rust/src/pb/*.rs
 
 # PHP
 composer.phar
