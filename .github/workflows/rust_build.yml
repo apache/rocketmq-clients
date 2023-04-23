@@ -95,6 +95,8 @@ jobs:
           version: '3.x'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build
-        run: rm src/pb/*.rs && BUILD_PROTO=true cargo build
+        env:
+          BUILD_PROTO: true
+        run: rm src/pb/*.rs && cargo build
       - name: Unit Test
         run: cargo test -- --nocapture
