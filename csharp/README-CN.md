@@ -2,7 +2,6 @@
 
 [![C#][csharp-image]][csharp-url] [![NuGet Gallery][nuget-image]][nuget-url]
 
-
 [English](README.md) | 简体中文 | [RocketMQ 官网](https://rocketmq.apache.org/)
 
 ## 最小版本支持
