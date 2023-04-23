@@ -2,9 +2,9 @@ name: Rust Build
 on:
   workflow_call:
 jobs:
-  fmt-check:
+  fmt:
     runs-on: ubuntu-latest
-    name: fmt
+    name: code style check
     steps:
       - uses: actions/checkout@v3
         with:
@@ -17,9 +17,9 @@ jobs:
       - name: Code format check
         working-directory: ./rust
         run: cargo fmt --check
-  clippy-check:
+  clippy:
     runs-on: ubuntu-latest
-    name: clippy
+    name: clippy check
     permissions: write-all
     strategy:
       fail-fast: false
@@ -32,19 +32,14 @@ jobs:
         with:
           toolchain: stable
           components: clippy
-      - name: Install protoc
-        uses: arduino/setup-protoc@v1
-        with:
-          version: '3.x'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Clippy check
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all-features --manifest-path rust/Cargo.toml -- -D warnings
-  doc-check:
+  doc:
     runs-on: ubuntu-latest
-    name: doc
+    name: doc check
     steps:
       - uses: actions/checkout@v3
         with:
@@ -53,22 +48,17 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - name: Install protoc
-        uses: arduino/setup-protoc@v1
-        with:
-          version: '3.x'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build doc
         working-directory: ./rust
         run: cargo doc --no-deps --all-features
         env:
           RUSTDOCFLAGS: --cfg docsrs
-  msrv-check:
+  msrv:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         msrv: [1.61]
-    name: msrv / ${{ matrix.msrv }}
+    name: msrv ${{ matrix.msrv }} check
     steps:
       - uses: actions/checkout@v3
         with:
@@ -77,18 +67,13 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.msrv }}
-      - name: Install protoc
-        uses: arduino/setup-protoc@v1
-        with:
-          version: '3.x'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Check MSRV ${{ matrix.msrv }}
         working-directory: ./rust
-        run: cp Cargo.minimal.lock Cargo.lock && cargo +${{ matrix.msrv }} check --locked
+        run: cp .cargo/Cargo.lock.min Cargo.lock && cargo fetch && cargo +${{ matrix.msrv }} check --locked --frozen
   build:
     name: "${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
-    needs: [fmt-check, msrv-check]
+    needs: [fmt, msrv]
     defaults:
       run:
         working-directory: ./rust
@@ -110,6 +95,8 @@ jobs:
           version: '3.x'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build
-        run: cargo build
+        env:
+          BUILD_PROTO: true
+        run: rm src/pb/*.rs && cargo build
       - name: Unit Test
         run: cargo test -- --nocapture
