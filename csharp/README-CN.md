@@ -1,5 +1,7 @@
 # .NET 客户端
 
+[![C#][csharp-image]][csharp-url] [![NuGet Gallery][nuget-image]][nuget-url]
+
 [English](README.md) | 简体中文 | [RocketMQ 官网](https://rocketmq.apache.org/)
 
 ## 最小版本支持
@@ -64,3 +66,8 @@ dotnet test -l "console;verbosity=detailed"
 2. 执行 `dotnet pack --configuration Release` 命令. 这会创建对应的 NuGet 包到 `bin/Release` 文件夹；
 3. 登录 NuGet Gallery 并登录，点击 `Upload` 按钮并将 nupkg 文件拖入提示框；
 4. 按照 NuGet Gallery 的提示，完成后续步骤。
+
+[csharp-image]: https://github.com/apache/rocketmq-clients/actions/workflows/csharp_build.yml/badge.svg
+[csharp-url]: https://github.com/apache/rocketmq-clients/actions/workflows/csharp_build.yml
+[nuget-image]: https://img.shields.io/nuget/v/RocketMQ.Client.svg?label=nuget
+[nuget-url]: https://www.nuget.org/packages/RocketMQ.Client/

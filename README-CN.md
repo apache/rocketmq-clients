@@ -1,14 +1,6 @@
 # Apache RocketMQ 客户端
 
-[![License][license-image]][license-url]
-[![CPP][cpp-image]][cpp-url]
-[![C#][csharp-image]][csharp-url]
-[![Java][java-image]][java-url]
-[![Golang][golang-image]][golang-url]
-[![Codecov-cpp][codecov-cpp-image]][codecov-url]
-[![Codecov-java][codecov-java-image]][codecov-url]
-[![Codecov-golang][codecov-golang-image]][codecov-url]
-[![Maven Central][maven-image]][maven-url]
+[![License][license-image]][license-url] [![CPP][cpp-image]][cpp-url] [![C#][csharp-image]][csharp-url] [![Java][java-image]][java-url] [![Golang][golang-image]][golang-url] [![Rust][rust-image]][rust-url]
 
 [English](README.md) | 简体中文 | [RocketMQ 官网](https://rocketmq.apache.org/)
 
@@ -27,11 +19,11 @@
 
 | 特性                                            | Java  | C/C++ |  C#   | Golang | Rust  | Node.js | Python |
 | ---------------------------------------------- | :---: | :---: | :---: | :----: | :---: | :-----: | :----: |
-| Producer with standard messages                |   ✅   |   ✅   |   ✅   |   ✅    |   🚧   |    🚧    |   🚧    |
-| Producer with FIFO messages                    |   ✅   |   ✅   |   ✅   |   ✅    |   🚧   |    🚧    |   🚧    |
-| Producer with timed/delay messages             |   ✅   |   ✅   |   ✅   |   ✅    |   🚧   |    🚧    |   🚧    |
+| Producer with standard messages                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |    🚧    |   🚧    |
+| Producer with FIFO messages                    |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |    🚧    |   🚧    |
+| Producer with timed/delay messages             |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |    🚧    |   🚧    |
 | Producer with transactional messages           |   ✅   |   ✅   |   ✅   |   ✅    |   🚧   |    🚧    |   🚧    |
-| Simple consumer                                |   ✅   |   ✅   |   ✅   |   ✅    |   🚧   |    🚧    |   🚧    |
+| Simple consumer                                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |    🚧    |   🚧    |
 | Push consumer with concurrent message listener |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |    🚧    |   🚧    |
 | Push consumer with FIFO message listener       |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |    🚧    |   🚧    |
 
@@ -68,9 +60,5 @@ git clone --recursive git@github.com:apache/rocketmq-clients.git
 [java-url]: https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml
 [golang-image]: https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml/badge.svg
 [golang-url]: https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml
-[codecov-cpp-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=cpp&label=CPP%20Coverage&logo=codecov
-[codecov-java-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=java&label=Java%20Coverage&logo=codecov
-[codecov-golang-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=golang&label=Golang%20Coverage&logo=codecov
-[codecov-url]: https://codecov.io/gh/apache/rocketmq-clients/branch/master/
-[maven-image]: https://maven-badges.herokuapp.com/maven-central/org.apache.rocketmq/rocketmq-client-java/badge.svg
-[maven-url]: https://maven-badges.herokuapp.com/maven-central/org.apache.rocketmq/rocketmq-client-java
+[rust-image]: https://github.com/apache/rocketmq-clients/actions/workflows/rust_build.yml/badge.svg
+[rust-url]: https://github.com/apache/rocketmq-clients/actions/workflows/rust_build.yml
