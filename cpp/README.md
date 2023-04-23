@@ -1,5 +1,7 @@
 # The C++ Implementation of Apache RocketMQ Client
 
+[![CPP][cpp-image]][cpp-url] [![Codecov-cpp][codecov-cpp-image]][codecov-url]
+
 ## Introduction
 
 Apache RocketMQ supports two styles of APIs to acknowledge messages once they are successfully processed.
@@ -245,3 +247,8 @@ if "com_google_googletest" not in native.existing_rules():
 2. CLion + Bazel Plugin
 
    Bazel also has a plugin for CLion.
+
+[cpp-image]: https://github.com/apache/rocketmq-clients/actions/workflows/cpp_build.yml/badge.svg
+[cpp-url]: https://github.com/apache/rocketmq-clients/actions/workflows/cpp_build.yml
+[codecov-cpp-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=cpp&label=CPP%20Coverage&logo=codecov
+[codecov-url]: https://app.codecov.io/gh/apache/rocketmq-clients

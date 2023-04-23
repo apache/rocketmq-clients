@@ -1,16 +1,6 @@
 # Apache RocketMQ 客户端
 
-[![License][license-image]][license-url]
-
-[![CPP][cpp-image]][cpp-url] [![Codecov-cpp][codecov-cpp-image]][codecov-url]
-
-[![C#][csharp-image]][csharp-url] [![NuGet Gallery][nuget-image]][nuget-url]
-
-[![Java][java-image]][java-url] [![Codecov-java][codecov-java-image]][codecov-url] [![Maven Central][maven-image]][maven-url]
-
-[![Golang][golang-image]][golang-url] [![Codecov-golang][codecov-golang-image]][codecov-url]
-
-[![Rust][rust-image]][rust-url] [![Codecov-rust][codecov-rust-image]][codecov-url] [![Crates.io][crates-image]][crates-url] [![docs.rs][rust-doc-image]][rust-doc-url]
+[![License][license-image]][license-url] [![CPP][cpp-image]][cpp-url] [![C#][csharp-image]][csharp-url] [![Java][java-image]][java-url] [![Golang][golang-image]][golang-url] [![Rust][rust-image]][rust-url]
 
 [English](README.md) | 简体中文 | [RocketMQ 官网](https://rocketmq.apache.org/)
 
@@ -69,19 +59,6 @@ git clone --recursive git@github.com:apache/rocketmq-clients.git
 [java-image]: https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml/badge.svg
 [java-url]: https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml
 [golang-image]: https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml/badge.svg
-[rust-image]: https://github.com/apache/rocketmq-clients/actions/workflows/rust_build.yml/badge.svg
 [golang-url]: https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml
+[rust-image]: https://github.com/apache/rocketmq-clients/actions/workflows/rust_build.yml/badge.svg
 [rust-url]: https://github.com/apache/rocketmq-clients/actions/workflows/rust_build.yml
-[codecov-cpp-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=cpp&label=CPP%20Coverage&logo=codecov
-[codecov-java-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=java&label=Java%20Coverage&logo=codecov
-[codecov-golang-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=golang&label=Golang%20Coverage&logo=codecov
-[codecov-rust-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=rust&label=Rust%20Coverage&logo=codecov
-[codecov-url]: https://app.codecov.io/gh/apache/rocketmq-clients
-[maven-image]: https://img.shields.io/maven-central/v/org.apache.rocketmq/rocketmq-client-java
-[maven-url]: https://maven-badges.herokuapp.com/maven-central/org.apache.rocketmq/rocketmq-client-java
-[nuget-image]: https://img.shields.io/nuget/v/RocketMQ.Client.svg?label=nuget
-[nuget-url]: https://www.nuget.org/packages/RocketMQ.Client/
-[crates-image]: https://img.shields.io/crates/v/rocketmq.svg
-[crates-url]: https://crates.io/crates/rocketmq
-[rust-doc-image]: https://docs.rs/rocketmq/badge.svg
-[rust-doc-url]: https://img.shields.io/crates/v/rocketmq.svg

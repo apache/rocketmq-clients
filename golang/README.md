@@ -1,5 +1,7 @@
 # The Golang Implementation of Apache RocketMQ Client
 
+[![Golang][golang-image]][golang-url] [![Codecov-golang][codecov-golang-image]][codecov-url]
+
 Here is the golang implementation of the client for [Apache RocketMQ](https://rocketmq.apache.org/).
 
 ## Architecture
@@ -21,3 +23,8 @@ Otherwise, to install the `golang` package, run the following command:
 ```sh
 go get -u github.com/apache/rocketmq-clients/golang/v5
 ```
+
+[golang-image]: https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml/badge.svg
+[golang-url]: https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml
+[codecov-golang-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=golang&label=Golang%20Coverage&logo=codecov
+[codecov-url]: https://app.codecov.io/gh/apache/rocketmq-clients

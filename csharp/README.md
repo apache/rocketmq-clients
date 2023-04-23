@@ -1,5 +1,7 @@
 # The .NET Implementation of Apache RocketMQ Client
 
+[![C#][csharp-image]][csharp-url] [![NuGet Gallery][nuget-image]][nuget-url]
+
 English | [简体中文](https://github.com/apache/rocketmq-clients/blob/master/csharp/README-CN.md)
 | [RocketMQ Website](https://rocketmq.apache.org/)
 
@@ -73,3 +75,8 @@ if you need debugging.
    package file from the `bin/Release` folder.
 4. Follow the instructions on the website to complete the upload process. Once the package is uploaded, it will be
    available for others to download and use.
+
+[csharp-image]: https://github.com/apache/rocketmq-clients/actions/workflows/csharp_build.yml/badge.svg
+[csharp-url]: https://github.com/apache/rocketmq-clients/actions/workflows/csharp_build.yml
+[nuget-image]: https://img.shields.io/nuget/v/RocketMQ.Client.svg?label=nuget
+[nuget-url]: https://www.nuget.org/packages/RocketMQ.Client/
