@@ -29,6 +29,7 @@ type pushConsumerOptions struct {
 	consumerOptions      *consumerOptions
 	messageViewCacheSize int
 	invisibleDuration    time.Duration
+	consumeFunctions     map[string]*PushConsumerCallback
 }
 
 var defaultPushConsumerOptions = pushConsumerOptions{
@@ -72,6 +73,13 @@ func WithInvisibleDuration(invisibleDuration time.Duration) *FuncPushConsumerOpt
 	return newFuncPushConsumerOption(func(o *pushConsumerOptions) {
 		o.invisibleDuration = invisibleDuration
 	})
+}
+
+func WithConsumeFunctions(consumeFunctions map[string]*PushConsumerCallback) *FuncPushConsumerOption {
+	return newFuncPushConsumerOption(func(o *pushConsumerOptions) {
+		o.consumeFunctions = consumeFunctions
+	})
+
 }
 
 var _ = ClientSettings(&pushConsumerSettings{})

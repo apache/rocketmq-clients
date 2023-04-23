@@ -67,7 +67,7 @@ type defaultPushConsumer struct {
 	subTopicRouteDataResultCache sync.Map
 	messageViewCacheSize         int
 	messageViewCache             *cache.Cache
-	consumeFuncs                 map[string]*PushConsumerCallback
+	consumeFunctions             map[string]*PushConsumerCallback
 }
 
 var NewPushConsumer = func(config *Config, opts ...PushConsumerOption) (PushConsumer, error) {
@@ -100,6 +100,7 @@ var NewPushConsumer = func(config *Config, opts ...PushConsumerOption) (PushCons
 		messageViewCacheSize:    pcOpts.messageViewCacheSize,
 		// This cache will never expire
 		messageViewCache: cache.New(0, 0),
+		consumeFunctions: make(map[string]*PushConsumerCallback),
 	}
 	if pc.subscriptionExpressions == nil {
 		pc.subscriptionExpressions = make(map[string]*FilterExpression)
@@ -163,7 +164,7 @@ func (pc *defaultPushConsumer) Subscribe(topic string, filterExpression *FilterE
 	defer pc.subscriptionExpressionsLock.Unlock()
 
 	pc.subscriptionExpressions[topic] = filterExpression
-	pc.consumeFuncs[topic] = &PushConsumerCallback{callBackFunc}
+	pc.consumeFunctions[topic] = &PushConsumerCallback{callBackFunc}
 	return nil
 }
 
@@ -368,6 +369,7 @@ func (pc *defaultPushConsumer) receiveMessage(ctx context.Context, request *v2.R
 	var err error
 	ctx = pc.cli.Sign(ctx)
 	ctx, cancel := context.WithTimeout(ctx, timeout)
+
 	defer cancel()
 	endpoints := messageQueue.GetBroker().GetEndpoints()
 	receiveMessageClient, err := pc.cli.clientManager.ReceiveMessage(ctx, endpoints, request)
@@ -416,7 +418,6 @@ func (pc *defaultPushConsumer) receiveMessage(ctx context.Context, request *v2.R
 				status = r.Status
 			case *v2.ReceiveMessageResponse_Message:
 				messageList = append(messageList, r.Message)
-
 			case *v2.ReceiveMessageResponse_DeliveryTimestamp:
 				deliveryTimestamp = r.DeliveryTimestamp
 			default:
@@ -439,14 +440,13 @@ func (pc *defaultPushConsumer) receiveMessage(ctx context.Context, request *v2.R
 }
 
 func (pc *defaultPushConsumer) consumeInner(ctx context.Context, mv *MessageView) (ConsumeResult, error) {
-	f, exist := pc.consumeFuncs[mv.topic]
+	f, exist := pc.consumeFunctions[mv.topic]
 
 	if !exist {
 		return FAILURE, fmt.Errorf("the consume callback missing for topic: %s", mv.topic)
 	}
 
 	return f.callBackFunc(ctx, mv)
-
 }
 
 func (pc *defaultPushConsumer) Start() error {
@@ -475,7 +475,6 @@ func (pc *defaultPushConsumer) Start() error {
 				fmt.Println(err)
 				break
 			}
-
 		}
 	}()
 
