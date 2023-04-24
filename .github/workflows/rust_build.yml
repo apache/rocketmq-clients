@@ -18,11 +18,8 @@ jobs:
         working-directory: ./rust
         run: cargo fmt --check
   clippy:
+    name: clippy
     runs-on: ubuntu-latest
-    name: clippy check
-    permissions: write-all
-    strategy:
-      fail-fast: false
     steps:
       - uses: actions/checkout@v3
         with:
@@ -32,11 +29,10 @@ jobs:
         with:
           toolchain: stable
           components: clippy
-      - name: Clippy check
-        uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features --manifest-path rust/Cargo.toml -- -D warnings
+      # Run clippy
+      - name: clippy check
+        working-directory: ./rust
+        run: cargo clippy --all-features -- -D warnings
   doc:
     runs-on: ubuntu-latest
     name: doc check
@@ -92,7 +88,7 @@ jobs:
       - name: Install protoc
         uses: arduino/setup-protoc@v1
         with:
-          version: '3.x'
+          version: "3.x"
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build
         env:
