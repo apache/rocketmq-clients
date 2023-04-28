@@ -21,12 +21,15 @@ import apache.rocketmq.v2.AckMessageRequest;
 import apache.rocketmq.v2.ChangeInvisibleDurationRequest;
 import apache.rocketmq.v2.EndTransactionRequest;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest;
+import apache.rocketmq.v2.GetOffsetRequest;
 import apache.rocketmq.v2.HeartbeatRequest;
 import apache.rocketmq.v2.NotifyClientTerminationRequest;
+import apache.rocketmq.v2.PullMessageRequest;
 import apache.rocketmq.v2.QueryAssignmentRequest;
 import apache.rocketmq.v2.QueryRouteRequest;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.SendMessageRequest;
+import apache.rocketmq.v2.UpdateOffsetRequest;
 import io.grpc.Metadata;
 import java.time.Duration;
 import org.apache.rocketmq.client.java.misc.ClientId;
@@ -117,6 +120,30 @@ public class ClientManagerImplTest extends TestBase {
         ForwardMessageToDeadLetterQueueRequest request = ForwardMessageToDeadLetterQueueRequest.newBuilder().build();
         CLIENT_MANAGER.forwardMessageToDeadLetterQueue(fakeEndpoints(), request, Duration.ofSeconds(1));
         CLIENT_MANAGER.forwardMessageToDeadLetterQueue(null, request, Duration.ofSeconds(1));
+        // Expect no exception thrown.
+    }
+
+    @Test
+    public void testPullMessage() {
+        PullMessageRequest request = PullMessageRequest.newBuilder().build();
+        CLIENT_MANAGER.pullMessage(fakeEndpoints(), request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.pullMessage(null, request, Duration.ofSeconds(1));
+        // Expect no exception thrown.
+    }
+
+    @Test
+    public void testUpdateOffset() {
+        UpdateOffsetRequest request = UpdateOffsetRequest.newBuilder().build();
+        CLIENT_MANAGER.updateOffset(fakeEndpoints(), request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.updateOffset(null, request, Duration.ofSeconds(1));
+        // Expect no exception thrown.
+    }
+
+    @Test
+    public void testGetOffset() {
+        GetOffsetRequest request = GetOffsetRequest.newBuilder().build();
+        CLIENT_MANAGER.getOffset(fakeEndpoints(), request, Duration.ofSeconds(1));
+        CLIENT_MANAGER.getOffset(null, request, Duration.ofSeconds(1));
         // Expect no exception thrown.
     }
 

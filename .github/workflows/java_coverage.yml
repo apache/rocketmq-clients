@@ -19,7 +19,8 @@ jobs:
           java-version: "11"
           distribution: "adopt"
       - name: Generate coverage report
-        run: mvn test --file ./java/pom.xml
+        working-directory: ./java
+        run: mvn test --file ./pom.xml
       - name: Test summary
         uses: test-summary/action@v1
         with:

@@ -24,12 +24,21 @@ import apache.rocketmq.v2.ChangeInvisibleDurationRequest;
 import apache.rocketmq.v2.ChangeInvisibleDurationResponse;
 import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.FilterType;
+import apache.rocketmq.v2.GetOffsetRequest;
+import apache.rocketmq.v2.GetOffsetResponse;
 import apache.rocketmq.v2.Message;
 import apache.rocketmq.v2.NotifyClientTerminationRequest;
+import apache.rocketmq.v2.PullMessageRequest;
+import apache.rocketmq.v2.PullMessageResponse;
+import apache.rocketmq.v2.QueryOffsetPolicy;
+import apache.rocketmq.v2.QueryOffsetRequest;
+import apache.rocketmq.v2.QueryOffsetResponse;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageResponse;
 import apache.rocketmq.v2.Resource;
 import apache.rocketmq.v2.Status;
+import apache.rocketmq.v2.UpdateOffsetRequest;
+import apache.rocketmq.v2.UpdateOffsetResponse;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -122,6 +131,58 @@ abstract class ConsumerImpl extends ClientImpl {
         }
     }
 
+    @SuppressWarnings("SameParameterValue")
+    protected ListenableFuture<PullMessageResult> pullMessage(PullMessageRequest request, MessageQueueImpl mq,
+        Duration awaitDuration) {
+        List<MessageViewImpl> messages = new ArrayList<>();
+        try {
+            final Endpoints endpoints = mq.getBroker().getEndpoints();
+            final Duration tolerance = clientConfiguration.getRequestTimeout();
+            final Duration timeout = awaitDuration.plus(tolerance);
+            final ClientManager clientManager = this.getClientManager();
+            final RpcFuture<PullMessageRequest, List<PullMessageResponse>> future =
+                clientManager.pullMessage(endpoints, request, timeout);
+            return Futures.transformAsync(future, responses -> {
+                Status status = Status.newBuilder().setCode(Code.INTERNAL_SERVER_ERROR)
+                    .setMessage("status was not set by server")
+                    .build();
+                List<Message> messageList = new ArrayList<>();
+                long nextOffset = 0;
+                for (PullMessageResponse response : responses) {
+                    switch (response.getContentCase()) {
+                        case STATUS:
+                            status = response.getStatus();
+                            break;
+                        case MESSAGE:
+                            messageList.add(response.getMessage());
+                            break;
+                        case NEXT_OFFSET:
+                            nextOffset = response.getNextOffset();
+                            break;
+                        default:
+                            log.warn("[Bug] Not recognized content for pull message response, mq={}, clientId={}," +
+                                " response={}", mq, clientId, response);
+                    }
+                }
+                for (Message message : messageList) {
+                    final MessageViewImpl view = MessageViewImpl.fromProtobuf(message, mq);
+                    messages.add(view);
+                }
+                StatusChecker.check(status, future);
+                if (Code.ILLEGAL_OFFSET.equals(status.getCode())) {
+                    log.warn("Offset is illegal, requested offset={}, next offset={}, mq={}, clientId={}",
+                        request.getOffset(), nextOffset, mq, clientId);
+                }
+                final PullMessageResult pullMessageResult = new PullMessageResult(endpoints, messages, nextOffset);
+                return Futures.immediateFuture(pullMessageResult);
+            }, MoreExecutors.directExecutor());
+        } catch (Throwable t) {
+            // Should never reach here.
+            log.error("[Bug] Exception raised during message pulling, mq={}, clientId={}", mq, clientId, t);
+            return Futures.immediateFailedFuture(t);
+        }
+    }
+
     private AckMessageRequest wrapAckMessageRequest(MessageViewImpl messageView) {
         final Resource topicResource = Resource.newBuilder().setName(messageView.getTopic()).build();
         final AckMessageEntry entry = AckMessageEntry.newBuilder()
@@ -210,8 +271,7 @@ abstract class ConsumerImpl extends ClientImpl {
                     MessageHookPointsStatus.ERROR);
                 doAfter(context0, generalMessages);
                 log.error("Exception raised while changing message invisible duration, messageId={}, endpoints={}, "
-                        + "clientId={}",
-                    messageId, endpoints, clientId, t);
+                        + "clientId={}", messageId, endpoints, clientId, t);
 
             }
         }, MoreExecutors.directExecutor());
@@ -240,6 +300,74 @@ abstract class ConsumerImpl extends ClientImpl {
                 expressionBuilder.setType(FilterType.TAG);
         }
         return expressionBuilder.build();
+    }
+
+    protected RpcFuture<QueryOffsetRequest, QueryOffsetResponse> queryOffset(MessageQueueImpl mq,
+        OffsetPolicy offsetPolicy) {
+        return queryOffset(mq, offsetPolicy, null);
+    }
+
+    protected RpcFuture<QueryOffsetRequest, QueryOffsetResponse> queryOffset(MessageQueueImpl mq,
+        Long timestampMillis) {
+        return queryOffset(mq, null, timestampMillis);
+    }
+
+    protected RpcFuture<GetOffsetRequest, GetOffsetResponse> getOffset(MessageQueueImpl mq) {
+        final GetOffsetRequest request = wrapGetOffsetRequest(mq);
+        final Duration requestTimeout = clientConfiguration.getRequestTimeout();
+        return this.getClientManager().getOffset(mq.getBroker().getEndpoints(), request, requestTimeout);
+    }
+
+    protected RpcFuture<UpdateOffsetRequest, UpdateOffsetResponse> updateOffset(MessageQueueImpl mq, long offset) {
+        final UpdateOffsetRequest request = wrapUpdateOffsetRequest(mq, offset);
+        final Duration requestTimeout = clientConfiguration.getRequestTimeout();
+        return this.getClientManager().updateOffset(mq.getBroker().getEndpoints(), request, requestTimeout);
+    }
+
+    private RpcFuture<QueryOffsetRequest, QueryOffsetResponse> queryOffset(MessageQueueImpl mq,
+        OffsetPolicy offsetPolicy, Long timestampMillis) {
+        QueryOffsetRequest request = null == offsetPolicy ? wrapQueryOffsetRequest(mq, timestampMillis) :
+            wrapQueryOffsetRequest(mq, offsetPolicy);
+        final Duration requestTimeout = clientConfiguration.getRequestTimeout();
+        return this.getClientManager().queryOffset(mq.getBroker().getEndpoints(), request, requestTimeout);
+    }
+
+    QueryOffsetRequest wrapQueryOffsetRequest(MessageQueueImpl mq, Long timestampInMillis) {
+        return QueryOffsetRequest.newBuilder().setMessageQueue(mq.toProtobuf())
+            .setQueryOffsetPolicy(QueryOffsetPolicy.TIMESTAMP).setTimestamp(Timestamps.fromMillis(timestampInMillis))
+            .build();
+    }
+
+    GetOffsetRequest wrapGetOffsetRequest(MessageQueueImpl mq) {
+        return GetOffsetRequest.newBuilder().setMessageQueue(mq.toProtobuf()).setGroup(getProtobufGroup()).build();
+    }
+
+    UpdateOffsetRequest wrapUpdateOffsetRequest(MessageQueueImpl mq, long offset) {
+        return UpdateOffsetRequest.newBuilder().setMessageQueue(mq.toProtobuf()).setGroup(getProtobufGroup())
+            .setOffset(offset).build();
+    }
+
+    QueryOffsetRequest wrapQueryOffsetRequest(MessageQueueImpl mq, OffsetPolicy offsetPolicy) {
+        final QueryOffsetRequest.Builder builder = QueryOffsetRequest.newBuilder().setMessageQueue(mq.toProtobuf());
+        switch (offsetPolicy) {
+            case BEGINNING:
+                builder.setQueryOffsetPolicy(QueryOffsetPolicy.BEGINNING);
+                break;
+            case END:
+                builder.setQueryOffsetPolicy(QueryOffsetPolicy.END);
+                break;
+            default:
+                log.error("Unrecognized offset policy={}", offsetPolicy);
+        }
+        return builder.build();
+    }
+
+    PullMessageRequest wrapPullMessageRequest(long offset, int batchSize, MessageQueueImpl mq,
+        FilterExpression filterExpression) {
+        return PullMessageRequest.newBuilder().setGroup(getProtobufGroup()).setMessageQueue(mq.toProtobuf())
+            .setLongPollingTimeout(Durations.fromNanos(PullProcessQueueImpl.LONG_POLLING_TIMEOUT.toNanos()))
+            .setBatchSize(batchSize).setOffset(offset).setFilterExpression(wrapFilterExpression(filterExpression))
+            .build();
     }
 
     ReceiveMessageRequest wrapReceiveMessageRequest(int batchSize, MessageQueueImpl mq,

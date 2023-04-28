@@ -94,12 +94,12 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     final AtomicLong consumptionOkQuantity;
     final AtomicLong consumptionErrorQuantity;
 
-    private final ClientConfiguration clientConfiguration;
+    Map<String /* topic */, FilterExpression> subscriptionExpressions;
+    MessageListener messageListener;
+
     private final PushSubscriptionSettings pushSubscriptionSettings;
     private final String consumerGroup;
-    private final Map<String /* topic */, FilterExpression> subscriptionExpressions;
     private final ConcurrentMap<String /* topic */, Assignments> cacheAssignments;
-    private final MessageListener messageListener;
     private final int maxCacheMessageCount;
     private final int maxCacheMessageSizeInBytes;
 
@@ -126,7 +126,6 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
         int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount) {
         super(clientConfiguration, consumerGroup, subscriptionExpressions.keySet());
-        this.clientConfiguration = clientConfiguration;
         Resource groupResource = new Resource(consumerGroup);
         this.pushSubscriptionSettings = new PushSubscriptionSettings(clientId, endpoints, groupResource,
             clientConfiguration.getRequestTimeout(), subscriptionExpressions);
@@ -285,7 +284,8 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     }
 
     /**
-     * Drop {@link ProcessQueue} by {@link MessageQueueImpl}, {@link ProcessQueue} must be removed before it is dropped.
+     * Drop {@link PushProcessQueue} by {@link MessageQueueImpl}, {@link PushProcessQueue} must be removed before
+     * it is dropped.
      *
      * @param mq message queue.
      */
@@ -308,8 +308,9 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
      * @param filterExpression filter expression of topic.
      * @return optional process queue.
      */
-    protected Optional<ProcessQueue> createProcessQueue(MessageQueueImpl mq, final FilterExpression filterExpression) {
-        final ProcessQueueImpl processQueue = new ProcessQueueImpl(this, mq, filterExpression);
+    protected Optional<PushProcessQueue> createProcessQueue(MessageQueueImpl mq,
+        final FilterExpression filterExpression) {
+        final PushProcessQueueImpl processQueue = new PushProcessQueueImpl(this, mq, filterExpression);
         final ProcessQueue previous = processQueueTable.putIfAbsent(mq, processQueue);
         if (null != previous) {
             return Optional.empty();
@@ -323,7 +324,6 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
             .setClientType(ClientType.PUSH_CONSUMER).build();
     }
 
-
     @VisibleForTesting
     void syncProcessQueue(String topic, Assignments assignments, FilterExpression filterExpression) {
         Set<MessageQueueImpl> latest = new HashSet<>();
@@ -334,7 +334,6 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         }
 
         Set<MessageQueueImpl> activeMqs = new HashSet<>();
-
         for (Map.Entry<MessageQueueImpl, ProcessQueue> entry : processQueueTable.entrySet()) {
             final MessageQueueImpl mq = entry.getKey();
             final ProcessQueue pq = entry.getValue();
@@ -343,8 +342,7 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
             }
 
             if (!latest.contains(mq)) {
-                log.info("Drop message queue according to the latest assignmentList, mq={}, clientId={}", mq,
-                    clientId);
+                log.info("Drop message queue according to the latest assignmentList, mq={}, clientId={}", mq, clientId);
                 dropProcessQueue(mq);
                 continue;
             }
@@ -361,10 +359,10 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
             if (activeMqs.contains(mq)) {
                 continue;
             }
-            final Optional<ProcessQueue> optionalProcessQueue = createProcessQueue(mq, filterExpression);
+            final Optional<PushProcessQueue> optionalProcessQueue = createProcessQueue(mq, filterExpression);
             if (optionalProcessQueue.isPresent()) {
-                log.info("Start to fetch message from remote, mq={}, clientId={}", mq, clientId);
-                optionalProcessQueue.get().fetchMessageImmediately();
+                log.info("Start to receive message from remote, mq={}, clientId={}", mq, clientId);
+                optionalProcessQueue.get().receiveMessageImmediately();
             }
         }
     }

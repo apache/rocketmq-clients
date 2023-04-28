@@ -25,12 +25,18 @@ import apache.rocketmq.v2.EndTransactionRequest;
 import apache.rocketmq.v2.EndTransactionResponse;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueResponse;
+import apache.rocketmq.v2.GetOffsetRequest;
+import apache.rocketmq.v2.GetOffsetResponse;
 import apache.rocketmq.v2.HeartbeatRequest;
 import apache.rocketmq.v2.HeartbeatResponse;
 import apache.rocketmq.v2.NotifyClientTerminationRequest;
 import apache.rocketmq.v2.NotifyClientTerminationResponse;
+import apache.rocketmq.v2.PullMessageRequest;
+import apache.rocketmq.v2.PullMessageResponse;
 import apache.rocketmq.v2.QueryAssignmentRequest;
 import apache.rocketmq.v2.QueryAssignmentResponse;
+import apache.rocketmq.v2.QueryOffsetRequest;
+import apache.rocketmq.v2.QueryOffsetResponse;
 import apache.rocketmq.v2.QueryRouteRequest;
 import apache.rocketmq.v2.QueryRouteResponse;
 import apache.rocketmq.v2.ReceiveMessageRequest;
@@ -38,6 +44,8 @@ import apache.rocketmq.v2.ReceiveMessageResponse;
 import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
 import apache.rocketmq.v2.TelemetryCommand;
+import apache.rocketmq.v2.UpdateOffsetRequest;
+import apache.rocketmq.v2.UpdateOffsetResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.grpc.Metadata;
@@ -283,8 +291,7 @@ public class ClientManagerImpl extends ClientManager {
 
     @Override
     public RpcFuture<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse>
-    changeInvisibleDuration(Endpoints endpoints, ChangeInvisibleDurationRequest request,
-        Duration duration) {
+    changeInvisibleDuration(Endpoints endpoints, ChangeInvisibleDurationRequest request, Duration duration) {
         try {
             final Metadata metadata = client.sign();
             final Context context = new Context(endpoints, metadata);
@@ -307,6 +314,66 @@ public class ClientManagerImpl extends ClientManager {
             final RpcClient rpcClient = getRpcClient(endpoints);
             final ListenableFuture<ForwardMessageToDeadLetterQueueResponse> future =
                 rpcClient.forwardMessageToDeadLetterQueue(metadata, request, asyncWorker, duration);
+            return new RpcFuture<>(context, request, future);
+        } catch (Throwable t) {
+            return new RpcFuture<>(t);
+        }
+    }
+
+    @Override
+    public RpcFuture<PullMessageRequest, List<PullMessageResponse>> pullMessage(Endpoints endpoints,
+        PullMessageRequest request, Duration duration) {
+        try {
+            final Metadata metadata = client.sign();
+            final Context context = new Context(endpoints, metadata);
+            final RpcClient rpcClient = getRpcClient(endpoints);
+            final ListenableFuture<List<PullMessageResponse>> future =
+                rpcClient.pullMessage(metadata, request, asyncWorker, duration);
+            return new RpcFuture<>(context, request, future);
+        } catch (Throwable t) {
+            return new RpcFuture<>(t);
+        }
+    }
+
+    @Override
+    public RpcFuture<UpdateOffsetRequest, UpdateOffsetResponse> updateOffset(Endpoints endpoints,
+        UpdateOffsetRequest request, Duration duration) {
+        try {
+            final Metadata metadata = client.sign();
+            final Context context = new Context(endpoints, metadata);
+            final RpcClient rpcClient = getRpcClient(endpoints);
+            final ListenableFuture<UpdateOffsetResponse> future =
+                rpcClient.updateOffset(metadata, request, asyncWorker, duration);
+            return new RpcFuture<>(context, request, future);
+        } catch (Throwable t) {
+            return new RpcFuture<>(t);
+        }
+    }
+
+    @Override
+    public RpcFuture<GetOffsetRequest, GetOffsetResponse> getOffset(Endpoints endpoints, GetOffsetRequest request,
+        Duration duration) {
+        try {
+            final Metadata metadata = client.sign();
+            final Context context = new Context(endpoints, metadata);
+            final RpcClient rpcClient = getRpcClient(endpoints);
+            final ListenableFuture<GetOffsetResponse> future =
+                rpcClient.getOffset(metadata, request, asyncWorker, duration);
+            return new RpcFuture<>(context, request, future);
+        } catch (Throwable t) {
+            return new RpcFuture<>(t);
+        }
+    }
+
+    @Override
+    public RpcFuture<QueryOffsetRequest, QueryOffsetResponse> queryOffset(Endpoints endpoints,
+        QueryOffsetRequest request, Duration duration) {
+        try {
+            final Metadata metadata = client.sign();
+            final Context context = new Context(endpoints, metadata);
+            final RpcClient rpcClient = getRpcClient(endpoints);
+            final ListenableFuture<QueryOffsetResponse> future =
+                rpcClient.queryOffset(metadata, request, asyncWorker, duration);
             return new RpcFuture<>(context, request, future);
         } catch (Throwable t) {
             return new RpcFuture<>(t);
@@ -395,9 +462,9 @@ public class ClientManagerImpl extends ClientManager {
             () -> {
                 try {
                     log.info("Start to log statistics, clientVersion={}, clientWrapperVersion={}, "
-                            + "clientEndpoints={}, os description=[{}], java description=[{}], clientId={}",
+                            + "clientEndpoints={}, os description=[{}], java environment=[{}], clientId={}",
                         MetadataUtils.getVersion(), MetadataUtils.getWrapperVersion(), client.getEndpoints(),
-                        Utilities.getOsDescription(), Utilities.getJavaDescription(), clientId);
+                        Utilities.getOsDescription(), Utilities.getJavaEnvironmentSummary(), clientId);
                     client.doStats();
                 } catch (Throwable t) {
                     log.error("Exception raised during statistics logging, clientId={}", clientId, t);

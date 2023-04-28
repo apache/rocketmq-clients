@@ -21,6 +21,7 @@ import apache.rocketmq.v2.FilterType;
 import apache.rocketmq.v2.RetryPolicy;
 import apache.rocketmq.v2.Subscription;
 import apache.rocketmq.v2.SubscriptionEntry;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.protobuf.util.Durations;
 import java.time.Duration;
@@ -44,9 +45,9 @@ import org.slf4j.LoggerFactory;
 public class PushSubscriptionSettings extends Settings {
     private static final Logger log = LoggerFactory.getLogger(PushSubscriptionSettings.class);
 
+    private volatile Boolean fifo = null;
     private final Resource group;
     private final Map<String, FilterExpression> subscriptionExpressions;
-    private volatile Boolean fifo = false;
     private volatile int receiveBatchSize = 32;
     private volatile Duration longPollingTimeout = Duration.ofSeconds(30);
 
@@ -55,6 +56,11 @@ public class PushSubscriptionSettings extends Settings {
         super(clientId, ClientType.PUSH_CONSUMER, endpoints, requestTimeout);
         this.group = group;
         this.subscriptionExpressions = subscriptionExpression;
+    }
+
+    @VisibleForTesting
+    public void setFifo(boolean fifo) {
+        this.fifo = fifo;
     }
 
     public boolean isFifo() {
@@ -93,11 +99,21 @@ public class PushSubscriptionSettings extends Settings {
                 SubscriptionEntry.newBuilder().setTopic(topic).setExpression(expressionBuilder.build()).build();
             subscriptionEntries.add(subscriptionEntry);
         }
-        Subscription subscription =
-            Subscription.newBuilder().setGroup(group.toProtobuf()).addAllSubscriptions(subscriptionEntries).build();
-        return apache.rocketmq.v2.Settings.newBuilder().setAccessPoint(accessPoint.toProtobuf())
-            .setClientType(clientType.toProtobuf()).setRequestTimeout(Durations.fromNanos(requestTimeout.toNanos()))
-            .setSubscription(subscription).setUserAgent(UserAgent.INSTANCE.toProtoBuf()).build();
+
+        final Subscription.Builder builder = Subscription.newBuilder().setGroup(group.toProtobuf())
+            .addAllSubscriptions(subscriptionEntries);
+        if (null != fifo) {
+            builder.setFifo(fifo);
+        }
+        final Subscription subscription = builder.build();
+        final apache.rocketmq.v2.Settings.Builder settingsBuilder = apache.rocketmq.v2.Settings.newBuilder()
+            .setAccessPoint(accessPoint.toProtobuf()).setClientType(clientType.toProtobuf())
+            .setRequestTimeout(Durations.fromNanos(requestTimeout.toNanos()))
+            .setSubscription(subscription).setUserAgent(UserAgent.INSTANCE.toProtoBuf());
+        if (null == retryPolicy) {
+            return settingsBuilder.build();
+        }
+        return settingsBuilder.setBackoffPolicy(retryPolicy.toProtobuf()).build();
     }
 
     @Override

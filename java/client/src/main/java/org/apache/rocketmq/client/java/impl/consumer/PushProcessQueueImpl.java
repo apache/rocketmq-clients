@@ -67,19 +67,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Default implementation of {@link ProcessQueue}.
+ * Default implementation of {@link PushProcessQueue}.
  *
- * <p>Apart from the basic part mentioned in {@link ProcessQueue}, this implementation
+ * <p>Apart from the basic part mentioned in {@link PushProcessQueue}, this implementation
  *
- * @see ProcessQueue
+ * @see PushProcessQueue
  */
 @SuppressWarnings({"NullableProblems", "UnstableApiUsage"})
-class ProcessQueueImpl implements ProcessQueue {
+class PushProcessQueueImpl implements PushProcessQueue {
     static final Duration FORWARD_FIFO_MESSAGE_TO_DLQ_FAILURE_BACKOFF_DELAY = Duration.ofSeconds(1);
     static final Duration ACK_MESSAGE_FAILURE_BACKOFF_DELAY = Duration.ofSeconds(1);
     static final Duration CHANGE_INVISIBLE_DURATION_FAILURE_BACKOFF_DELAY = Duration.ofSeconds(1);
 
-    private static final Logger log = LoggerFactory.getLogger(ProcessQueueImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(PushProcessQueueImpl.class);
 
     private static final Duration RECEIVING_FLOW_CONTROL_BACKOFF_DELAY = Duration.ofMillis(20);
     private static final Duration RECEIVING_FAILURE_BACKOFF_DELAY = Duration.ofSeconds(1);
@@ -88,7 +88,8 @@ class ProcessQueueImpl implements ProcessQueue {
     private final PushConsumerImpl consumer;
 
     /**
-     * Dropped means {@link ProcessQueue} is deprecated, which means no message would be fetched from remote anymore.
+     * Dropped means {@link PushProcessQueue} is deprecated, which means no message would be fetched from remote
+     * anymore.
      */
     private volatile boolean dropped;
     private final MessageQueueImpl mq;
@@ -109,7 +110,7 @@ class ProcessQueueImpl implements ProcessQueue {
     private volatile long activityNanoTime = System.nanoTime();
     private volatile long cacheFullNanoTime = Long.MIN_VALUE;
 
-    public ProcessQueueImpl(PushConsumerImpl consumer, MessageQueueImpl mq, FilterExpression filterExpression) {
+    public PushProcessQueueImpl(PushConsumerImpl consumer, MessageQueueImpl mq, FilterExpression filterExpression) {
         this.consumer = consumer;
         this.dropped = false;
         this.mq = mq;
@@ -149,7 +150,7 @@ class ProcessQueueImpl implements ProcessQueue {
         return true;
     }
 
-    void cacheMessages(List<MessageViewImpl> messageList) {
+    public void cacheMessages(List<MessageViewImpl> messageList) {
         cachedMessageLock.writeLock().lock();
         try {
             for (MessageViewImpl messageView : messageList) {
@@ -165,11 +166,6 @@ class ProcessQueueImpl implements ProcessQueue {
         int bufferSize = consumer.cacheMessageCountThresholdPerQueue() - this.cachedMessagesCount();
         bufferSize = Math.max(bufferSize, 1);
         return Math.min(bufferSize, consumer.getPushConsumerSettings().getReceiveBatchSize());
-    }
-
-    @Override
-    public void fetchMessageImmediately() {
-        receiveMessageImmediately();
     }
 
     /**
@@ -221,7 +217,7 @@ class ProcessQueueImpl implements ProcessQueue {
         receiveMessageImmediately(attemptId);
     }
 
-    private void receiveMessageImmediately() {
+    public void receiveMessageImmediately() {
         receiveMessageImmediately(this.generateAttemptId());
     }
 
@@ -495,7 +491,6 @@ class ProcessQueueImpl implements ProcessQueue {
         return future;
     }
 
-
     private ListenableFuture<Void> forwardToDeadLetterQueue(final MessageViewImpl messageView) {
         final SettableFuture<Void> future = SettableFuture.create();
         forwardToDeadLetterQueue(messageView, 1, future);
@@ -665,7 +660,7 @@ class ProcessQueueImpl implements ProcessQueue {
         final long receptionTimes = this.receptionTimes.getAndSet(0);
         final long receivedMessagesQuantity = this.receivedMessagesQuantity.getAndSet(0);
         log.info("Process queue stats: clientId={}, mq={}, receptionTimes={}, receivedMessageQuantity={}, "
-            + "cachedMessageCount={}, cachedMessageBytes={}", consumer.getClientId(), mq, receptionTimes,
+                + "cachedMessageCount={}, cachedMessageBytes={}", consumer.getClientId(), mq, receptionTimes,
             receivedMessagesQuantity, this.getCachedMessageCount(), this.getCachedMessageBytes());
     }
 }

@@ -25,13 +25,19 @@ import apache.rocketmq.v2.EndTransactionRequest;
 import apache.rocketmq.v2.EndTransactionResponse;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueResponse;
+import apache.rocketmq.v2.GetOffsetRequest;
+import apache.rocketmq.v2.GetOffsetResponse;
 import apache.rocketmq.v2.HeartbeatRequest;
 import apache.rocketmq.v2.HeartbeatResponse;
 import apache.rocketmq.v2.MessagingServiceGrpc;
 import apache.rocketmq.v2.NotifyClientTerminationRequest;
 import apache.rocketmq.v2.NotifyClientTerminationResponse;
+import apache.rocketmq.v2.PullMessageRequest;
+import apache.rocketmq.v2.PullMessageResponse;
 import apache.rocketmq.v2.QueryAssignmentRequest;
 import apache.rocketmq.v2.QueryAssignmentResponse;
+import apache.rocketmq.v2.QueryOffsetRequest;
+import apache.rocketmq.v2.QueryOffsetResponse;
 import apache.rocketmq.v2.QueryRouteRequest;
 import apache.rocketmq.v2.QueryRouteResponse;
 import apache.rocketmq.v2.ReceiveMessageRequest;
@@ -39,6 +45,8 @@ import apache.rocketmq.v2.ReceiveMessageResponse;
 import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
 import apache.rocketmq.v2.TelemetryCommand;
+import apache.rocketmq.v2.UpdateOffsetRequest;
+import apache.rocketmq.v2.UpdateOffsetResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.grpc.ClientInterceptor;
@@ -194,6 +202,57 @@ public class RpcClientImpl implements RpcClient {
         this.activityNanoTime = System.nanoTime();
         return futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
             .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).forwardMessageToDeadLetterQueue(request);
+    }
+
+    @Override
+    public ListenableFuture<List<PullMessageResponse>> pullMessage(Metadata metadata, PullMessageRequest request,
+        Executor executor, Duration duration) {
+        this.activityNanoTime = System.nanoTime();
+        final SettableFuture<List<PullMessageResponse>> future = SettableFuture.create();
+        List<PullMessageResponse> responses = new ArrayList<>();
+        stub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
+            .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS)
+            .pullMessage(request, new StreamObserver<PullMessageResponse>() {
+                @Override
+                public void onNext(PullMessageResponse response) {
+                    responses.add(response);
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    future.setException(t);
+                }
+
+                @Override
+                public void onCompleted() {
+                    future.set(responses);
+                }
+            });
+        return future;
+    }
+
+    @Override
+    public ListenableFuture<UpdateOffsetResponse> updateOffset(Metadata metadata, UpdateOffsetRequest request,
+        Executor executor, Duration duration) {
+        this.activityNanoTime = System.nanoTime();
+        return futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
+            .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).updateOffset(request);
+    }
+
+    @Override
+    public ListenableFuture<GetOffsetResponse> getOffset(Metadata metadata, GetOffsetRequest request, Executor executor,
+        Duration duration) {
+        this.activityNanoTime = System.nanoTime();
+        return futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
+            .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).getOffset(request);
+    }
+
+    @Override
+    public ListenableFuture<QueryOffsetResponse> queryOffset(Metadata metadata, QueryOffsetRequest request,
+        Executor executor, Duration duration) {
+        this.activityNanoTime = System.nanoTime();
+        return futureStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata)).withExecutor(executor)
+            .withDeadlineAfter(duration.toNanos(), TimeUnit.NANOSECONDS).queryOffset(request);
     }
 
     @Override

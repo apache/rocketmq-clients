@@ -30,17 +30,17 @@
     </Match>
 
     <Match>
-        <Class name="org.apache.rocketmq.client.java.impl.consumer.ProcessQueueImpl$2" />
+        <Class name="org.apache.rocketmq.client.java.impl.consumer.PushProcessQueueImpl$2" />
         <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
     </Match>
 
     <Match>
-        <Class name="org.apache.rocketmq.client.java.impl.consumer.ProcessQueueImpl$3" />
+        <Class name="org.apache.rocketmq.client.java.impl.consumer.PushProcessQueueImpl$3" />
         <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
     </Match>
 
     <Match>
-        <Class name="org.apache.rocketmq.client.java.impl.consumer.ProcessQueueImpl$4" />
+        <Class name="org.apache.rocketmq.client.java.impl.consumer.PushProcessQueueImpl$4" />
         <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
     </Match>
 
@@ -66,5 +66,15 @@
         <Class name="org.apache.rocketmq.client.java.impl.producer.PublishingSettings" />
         <Method name="applySettingsCommand" />
         <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+    </Match>
+
+    <Match>
+        <Class name="org.apache.rocketmq.client.java.misc.CustomLinkedBlockingQueue$Node" />
+    </Match>
+
+    <Match>
+        <Class name="org.apache.rocketmq.client.java.impl.consumer.PullConsumerImpl" />
+        <Method name="onTopicRouteDataUpdate0" />
+        <Bug pattern="JLM_JSR166_UTILCONCURRENT_MONITORENTER"/>
     </Match>
 </FindBugsFilter>

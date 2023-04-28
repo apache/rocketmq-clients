@@ -15,43 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.java.hook;
+package org.apache.rocketmq.client.apis.message;
 
-public enum MessageHookPoints {
+public interface MessageQueue {
     /**
-     * The hook point of message publishing.
+     * Topic of the current message queue.
      */
-    SEND,
-    /**
-     * The hook point of message reception.
-     */
-    RECEIVE,
-    /**
-     * The hook point of message pulling.
-     */
-    PULL,
-    /**
-     * The hook point of message consumption.
-     */
-    CONSUME,
-    /**
-     * The hook point of message ack acknowledgement.
-     */
-    ACK,
-    /**
-     * The hook point of message changing invisible duration.
-     */
-    CHANGE_INVISIBLE_DURATION,
-    /**
-     * The hook point of message transaction commit.
-     */
-    COMMIT_TRANSACTION,
-    /**
-     * The hook point of message transaction rollback.
-     */
-    ROLLBACK_TRANSACTION,
-    /**
-     * The hook point of forwarding message to DLQ.
-     */
-    FORWARD_TO_DLQ,
+    String getTopic();
 }

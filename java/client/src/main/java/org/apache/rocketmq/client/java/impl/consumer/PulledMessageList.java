@@ -15,27 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.java.impl;
+package org.apache.rocketmq.client.java.impl.consumer;
 
-public enum ClientType {
-    PRODUCER,
-    PUSH_CONSUMER,
-    SIMPLE_CONSUMER,
-    PULL_CONSUMER;
+import java.util.List;
+import org.apache.rocketmq.client.java.message.MessageViewImpl;
 
-    public apache.rocketmq.v2.ClientType toProtobuf() {
-        if (PRODUCER.equals(this)) {
-            return apache.rocketmq.v2.ClientType.PRODUCER;
-        }
-        if (PUSH_CONSUMER.equals(this)) {
-            return apache.rocketmq.v2.ClientType.PUSH_CONSUMER;
-        }
-        if (SIMPLE_CONSUMER.equals(this)) {
-            return apache.rocketmq.v2.ClientType.SIMPLE_CONSUMER;
-        }
-        if (PULL_CONSUMER.equals(this)) {
-            return apache.rocketmq.v2.ClientType.PULL_CONSUMER;
-        }
-        return apache.rocketmq.v2.ClientType.CLIENT_TYPE_UNSPECIFIED;
+public class PulledMessageList {
+    private final PullProcessQueueImpl processQueue;
+    private final List<MessageViewImpl> messageViews;
+
+    public PulledMessageList(PullProcessQueueImpl processQueue, List<MessageViewImpl> messageViews) {
+        this.processQueue = processQueue;
+        this.messageViews = messageViews;
+    }
+
+    public PullProcessQueueImpl getProcessQueue() {
+        return processQueue;
+    }
+
+    public List<MessageViewImpl> getMessageViews() {
+        return messageViews;
     }
 }

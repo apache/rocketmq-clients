@@ -31,11 +31,17 @@ import apache.rocketmq.v2.DigestType;
 import apache.rocketmq.v2.EndTransactionResponse;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueResponse;
+import apache.rocketmq.v2.GetOffsetRequest;
+import apache.rocketmq.v2.GetOffsetResponse;
 import apache.rocketmq.v2.MessageQueue;
 import apache.rocketmq.v2.MessageType;
 import apache.rocketmq.v2.Permission;
+import apache.rocketmq.v2.PullMessageRequest;
+import apache.rocketmq.v2.PullMessageResponse;
 import apache.rocketmq.v2.QueryAssignmentRequest;
 import apache.rocketmq.v2.QueryAssignmentResponse;
+import apache.rocketmq.v2.QueryOffsetRequest;
+import apache.rocketmq.v2.QueryOffsetResponse;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageResponse;
 import apache.rocketmq.v2.Resource;
@@ -44,6 +50,8 @@ import apache.rocketmq.v2.SendMessageResponse;
 import apache.rocketmq.v2.SendResultEntry;
 import apache.rocketmq.v2.Status;
 import apache.rocketmq.v2.SystemProperties;
+import apache.rocketmq.v2.UpdateOffsetRequest;
+import apache.rocketmq.v2.UpdateOffsetResponse;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -293,6 +301,11 @@ public class TestBase {
         return new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(response));
     }
 
+    protected RpcFuture<UpdateOffsetRequest, UpdateOffsetResponse> okUpdateOffsetResponseFuture() {
+        final Status status = Status.newBuilder().setCode(Code.OK).build();
+        final UpdateOffsetResponse response = UpdateOffsetResponse.newBuilder().setStatus(status).build();
+        return new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(response));
+    }
 
     protected RpcFuture<ForwardMessageToDeadLetterQueueRequest,
         ForwardMessageToDeadLetterQueueResponse> forwardMessageToDeadLetterQueueResponseFuture(Code code) {
@@ -358,6 +371,32 @@ public class TestBase {
             responses.add(messageResponse);
         }
         return new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(responses));
+    }
+
+    protected RpcFuture<PullMessageRequest, List<PullMessageResponse>> okPullMessageResponsesFuture(String topic,
+        int messageCount) {
+        final Status status = Status.newBuilder().setCode(Code.OK).build();
+        final apache.rocketmq.v2.Message message = fakePbMessage(topic);
+        List<PullMessageResponse> responses = new ArrayList<>();
+        PullMessageResponse statusResponse = PullMessageResponse.newBuilder().setStatus(status).build();
+        responses.add(statusResponse);
+        for (int i = 0; i < messageCount; i++) {
+            PullMessageResponse messageResponse = PullMessageResponse.newBuilder().setMessage(message).build();
+            responses.add(messageResponse);
+        }
+        return new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(responses));
+    }
+
+    protected RpcFuture<GetOffsetRequest, GetOffsetResponse> okGetOffsetResponseFuture() {
+        final Status status = Status.newBuilder().setCode(Code.OK).build();
+        GetOffsetResponse response = GetOffsetResponse.newBuilder().setOffset(0).setStatus(status).build();
+        return new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(response));
+    }
+
+    protected RpcFuture<QueryOffsetRequest, QueryOffsetResponse> okQueryOffsetResponseFuture() {
+        final Status status = Status.newBuilder().setCode(Code.OK).build();
+        QueryOffsetResponse response = QueryOffsetResponse.newBuilder().setOffset(0).setStatus(status).build();
+        return new RpcFuture<>(fakeRpcContext(), null, Futures.immediateFuture(response));
     }
 
     protected ListenableFuture<EndTransactionResponse> okEndTransactionResponseFuture() {

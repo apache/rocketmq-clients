@@ -298,9 +298,21 @@ public class Utilities {
         }
     }
 
+    public static String getJavaRuntimeName() {
+        return System.getProperty("java.runtime.name");
+    }
+
+    public static String getJavaRuntimeVersion() {
+        return System.getProperty("java.runtime.version");
+    }
+
     public static String getJavaDescription() {
         return System.getProperty("java.vm.vendor")
             + " " + System.getProperty("java.vm.name")
             + " " + System.getProperty("java.vm.version");
+    }
+
+    public static String getJavaEnvironmentSummary() {
+        return getJavaRuntimeName() + "/" + getJavaRuntimeVersion() + "/" + getJavaDescription();
     }
 }
