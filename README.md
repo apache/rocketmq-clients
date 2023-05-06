@@ -17,19 +17,19 @@ Provide cloud-native and robust solutions for Java, C++, C#, Golang, Rust and al
 * Ready - ✅
 * Work in progress - 🚧
 
-| Feature                                        | Java  | C/C++ |  C#   | Golang | Rust  | Node.js | Python |
-| ---------------------------------------------- | :---: | :---: | :---: | :----: | :---: | :-----: | :----: |
-| Producer with standard messages                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |    🚧    |   🚧    |
-| Producer with FIFO messages                    |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |    🚧    |   🚧    |
-| Producer with timed/delay messages             |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |    🚧    |   🚧    |
-| Producer with transactional messages           |   ✅   |   ✅   |   ✅   |   ✅    |   🚧   |    🚧    |   🚧    |
-| Simple consumer                                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |    🚧    |   🚧    |
-| Push consumer with concurrent message listener |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |    🚧    |   🚧    |
-| Push consumer with FIFO message listener       |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |    🚧    |   🚧    |
+| Feature                                        | Java  | C/C++ |  C#   | Golang | Rust  | Python | Node.js |  PHP  |
+| ---------------------------------------------- | :---: | :---: | :---: | :----: | :---: | :----: | :-----: | :---: |
+| Producer with standard messages                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   🚧    |    🚧    |   🚧   |
+| Producer with FIFO messages                    |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   🚧    |    🚧    |   🚧   |
+| Producer with timed/delay messages             |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   🚧    |    🚧    |   🚧   |
+| Producer with transactional messages           |   ✅   |   ✅   |   ✅   |   ✅    |   🚧   |   🚧    |    🚧    |   🚧   |
+| Simple consumer                                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   🚧    |    🚧    |   🚧   |
+| Push consumer with concurrent message listener |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |   🚧    |    🚧    |   🚧   |
+| Push consumer with FIFO message listener       |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |   🚧    |    🚧    |   🚧   |
 
 ## Prerequisite and Build
 
-As this project is structured as a monorepo, instructions on how to build it can be found in the subdirectories for each language's bindings. Since the [rocketmq-apis](https://github.com/apache/rocketmq-apis) submodule is included in this project and may be referenced by some bindings, we strongly recommend that you clone this repository using the following command:
+This project is organized as a monorepo, with each language's bindings containing specific instructions in their respective subdirectories for building the project. As the [rocketmq-apis](https://github.com/apache/rocketmq-apis) submodule is incorporated into the project and could be utilized by some bindings, we highly advise cloning the repository by executing the command below:
 
 ```sh
 git clone --recursive git@github.com:apache/rocketmq-clients.git
