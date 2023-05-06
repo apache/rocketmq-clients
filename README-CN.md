@@ -17,19 +17,19 @@
 * 可用 - ✅
 * 进行中 - 🚧
 
-| 特性                                            | Java  | C/C++ |  C#   | Golang | Rust  | Node.js | Python |
-| ---------------------------------------------- | :---: | :---: | :---: | :----: | :---: | :-----: | :----: |
-| Producer with standard messages                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |    🚧    |   🚧    |
-| Producer with FIFO messages                    |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |    🚧    |   🚧    |
-| Producer with timed/delay messages             |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |    🚧    |   🚧    |
-| Producer with transactional messages           |   ✅   |   ✅   |   ✅   |   ✅    |   🚧   |    🚧    |   🚧    |
-| Simple consumer                                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |    🚧    |   🚧    |
-| Push consumer with concurrent message listener |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |    🚧    |   🚧    |
-| Push consumer with FIFO message listener       |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |    🚧    |   🚧    |
+| 特性                                           | Java  | C/C++ |  C#   | Golang | Rust  | Python | Node.js |  PHP  |
+| ---------------------------------------------- | :---: | :---: | :---: | :----: | :---: | :----: | :-----: | :---: |
+| Producer with standard messages                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   🚧    |    🚧    |   🚧   |
+| Producer with FIFO messages                    |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   🚧    |    🚧    |   🚧   |
+| Producer with timed/delay messages             |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   🚧    |    🚧    |   🚧   |
+| Producer with transactional messages           |   ✅   |   ✅   |   ✅   |   ✅    |   🚧   |   🚧    |    🚧    |   🚧   |
+| Simple consumer                                |   ✅   |   ✅   |   ✅   |   ✅    |   ✅   |   🚧    |    🚧    |   🚧   |
+| Push consumer with concurrent message listener |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |   🚧    |    🚧    |   🚧   |
+| Push consumer with FIFO message listener       |   ✅   |   ✅   |   🚧   |   🚧    |   🚧   |   🚧    |    🚧    |   🚧   |
 
 ## 先决条件和构建
 
-由于本项目是以 monorepo 的形式组织的，因此如何构建它的说明可以在每种语言实现的子目录中找到。此外，由于 [rocketmq-apis](https://github.com/apache/rocketmq-apis) 作为一个子模块被包含在本项目中，可能会被一些语言的实现在构建时所引用，因此我们强烈建议使用以下命令克隆此存储库：
+本项目是以多语言 monorepo 的形式组织的，因此可以在每种语言的子目录中找到各自的构建命令。此外，由于 [rocketmq-apis](https://github.com/apache/rocketmq-apis) 作为一个子模块被包含在本项目中，可能会被一些语言的实现在构建时所引用，为了保证构建的顺利，我们强烈建议使用以下命令克隆此代码仓库：
 
 ```sh
 git clone --recursive git@github.com:apache/rocketmq-clients.git
