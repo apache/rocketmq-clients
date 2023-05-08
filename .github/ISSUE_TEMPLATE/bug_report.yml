@@ -1,0 +1,111 @@
+name: Bug Report
+title: "[Bug] Please Describe the Bug"
+description: Create a report to help us identify any unintended flaws/errors/faults.
+labels: [ "type/bug" ]
+body:
+  - type: checkboxes
+    attributes:
+      label: Before Creating the Bug Report
+      options:
+        - label: >
+            I found a bug, not just asking a question, which should be created in [GitHub Discussions](https://github.com/apache/rocketmq-clients/discussions).
+          required: true
+        - label: >
+            I have searched the [GitHub Issues](https://github.com/apache/rocketmq-clients/issues) and [GitHub Discussions](https://github.com/apache/rocketmq-clients/discussions)  of this repository and believe that this is not a duplicate.
+          required: true
+        - label: >
+            I have confirmed that this bug belongs to the current repository, not other repositories of RocketMQ.
+          required: true
+
+  - type: dropdown
+    attributes:
+      label: Programming Language of the Client
+      options:
+        - Java
+        - C++
+        - C#
+        - Go
+        - Rust
+        - Python
+        - Node.js
+        - PHP
+        - Not related to the specified programming language
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Runtime Platform Environment
+      description: Describe the runtime platform environment.
+      placeholder: >
+        OS: (e.g., "Ubuntu 20.04")
+        OS: (e.g., "Windows Server 2019")
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: RocketMQ Version of the Client/Server
+      description: Describe the RocketMQ version.
+      placeholder: >
+        version: (e.g. 5.1.0|5.0.4)
+        Git commit id: (e.g. c88b5cfa72e204962929eea105687647146112c6)
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Run or Compiler Version
+      description: Run or Compiler version.
+      placeholder: >
+        Compiler: (e.g., "Oracle JDK 11.0.17")
+        OS: (e.g., "Ubuntu 20.04")
+        Runtime (if different from JDK above): (e.g., "Oracle JRE 8u251")
+        OS (if different from OS compiled on): (e.g., "Windows Server 2019")
+    validations:
+      required: false
+
+  - type: textarea
+    attributes:
+      label: Describe the Bug
+      description: Describe what happened.
+      placeholder: >
+        A clear and concise description of what the bug is.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Steps to Reproduce
+      description: Describe the steps to reproduce the bug here.
+      placeholder: >
+        If possible, provide a recipe for reproducing the error.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: What Did You Expect to See?
+      description: You expect to see result.
+      placeholder: >
+        A clear and concise description of what you expected to see.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: What Did You See Instead?
+      description: You instead to see result.
+      placeholder: >
+        A clear and concise description of what you saw instead.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Additional Context
+      description: Additional context.
+      placeholder: >
+        Add any other context about the problem here.
+    validations:
+      required: false
