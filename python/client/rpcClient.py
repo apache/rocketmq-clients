@@ -1,3 +1,20 @@
+'''
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to You under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+'''
+
 from grpc import ssl_channel_credentials, insecure_channel
 from datetime import timedelta
 import time
@@ -58,22 +75,22 @@ class RpcClient:
     async def query_route(self, metadata, request, duration):
         self.activity_nano_time = time.monotonic_ns()
         stub = self.get_stub(self, metadata)
-        return await stub.QueryRoute(request, deadline=duration)
+        return await stub.QueryRoute(request, timeout=duration)
 
     async def heartbeat(self, metadata, request, duration):
         self.activity_nano_time = time.monotonic_ns()
         stub = self.get_stub(self, metadata)
-        return await stub.Heartbeat(request, deadline=duration)
+        return await stub.Heartbeat(request, timeout=duration)
 
     async def send_message(self, metadata, request, duration):
         self.activity_nano_time = time.monotonic_ns()
         stub = self.get_stub(self, metadata)
-        return await stub.SendMessage(request, deadline=duration)
+        return await stub.SendMessage(request, timeout=duration)
 
     async def query_assignment(self, metadata, request, duration):
         self.activity_nano_time = time.monotonic_ns()
         stub = self.get_stub(self, metadata)
-        return await stub.QueryAssignment(request, deadline=duration)
+        return await stub.QueryAssignment(request, timeout=duration)
 
     async def receive_message(self, metadata, request, duration):
         self.activity_nano_time = time.monotonic_ns()
@@ -84,29 +101,29 @@ class RpcClient:
     async def ack_message(self, metadata, request, duration):
         self.activity_nano_time = time.monotonic_ns()
         stub = self.get_stub(self, metadata)
-        return await stub.AckMessage(request, deadline=duration)
+        return await stub.AckMessage(request, timeout=duration)
 
     async def change_invisible_duration(self, metadata, request, duration):
         self.activity_nano_time = time.monotonic_ns()
         stub = self.get_stub(self, metadata)
-        return await stub.ChangeInvisibleDuration(request, deadline=duration)
+        return await stub.ChangeInvisibleDuration(request, timeout=duration)
 
     async def forward_message_to_dead_letter_queue(self, metadata, request, duration):
         self.activity_nano_time = time.monotonic_ns()
         stub = self.get_stub(self, metadata)
-        return await stub.ForwardMessageToDeadLetterQueue(request, deadline=duration)
+        return await stub.ForwardMessageToDeadLetterQueue(request, timeout=duration)
     
     async def endTransaction(self, metadata, request, duration):
         self.activity_nano_time = time.monotonic_ns()
         stub = self.get_stub(self, metadata)
-        return await stub.EndTransaction(request, deadline=duration)
+        return await stub.EndTransaction(request, timeout=duration)
     
 
     async def notifyClientTermination(self, metadata, request, duration):
         self.activity_nano_time = time.monotonic_ns()
         stub = self.get_stub(self, metadata)
-        return await stub.NotifyClientTermination(request, deadline=duration)
+        return await stub.NotifyClientTermination(request, timeout=duration)
 
     async def telemetry(self, metadata, duration, response_observer):
         stub = self.get_stub(self, metadata)
-        return await stub.Telemetry(response_observer, deadline=duration)
+        return await stub.Telemetry(response_observer, timeout=duration)
