@@ -48,4 +48,7 @@ golang/*.test
 golang/*.exe
 
 # Python
-python/protocol/pycache/*
+*.pyc
+*.pyo
+*.pyd
+python/__pycache__/
