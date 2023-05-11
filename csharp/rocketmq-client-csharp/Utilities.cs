@@ -32,6 +32,9 @@ namespace Org.Apache.Rocketmq
         private static long _instanceSequence = 0;
         private static readonly int ProcessId = Process.GetCurrentProcess().Id;
         private static readonly string HostName = System.Net.Dns.GetHostName();
+        private static readonly byte[] RandomMacAddressBytes =
+            Enumerable.Range(0, 6).Select(_ => (byte)new Random().Next(256)).ToArray();
+
         public const int MasterBrokerId = 0;
 
         public static int GetPositiveMod(int k, int n)
@@ -42,9 +45,16 @@ namespace Org.Apache.Rocketmq
 
         public static byte[] GetMacAddress()
         {
-            return NetworkInterface.GetAllNetworkInterfaces().FirstOrDefault(nic =>
-                nic.OperationalStatus == OperationalStatus.Up &&
-                nic.NetworkInterfaceType != NetworkInterfaceType.Loopback)?.GetPhysicalAddress().GetAddressBytes();
+            var nic = NetworkInterface.GetAllNetworkInterfaces().FirstOrDefault(
+                          x => x.OperationalStatus == OperationalStatus.Up &&
+                               x.NetworkInterfaceType != NetworkInterfaceType.Loopback) ??
+                      NetworkInterface.GetAllNetworkInterfaces().FirstOrDefault(
+                          x => x.OperationalStatus == OperationalStatus.Unknown &&
+                               x.NetworkInterfaceType != NetworkInterfaceType.Loopback) ??
+                      NetworkInterface.GetAllNetworkInterfaces().FirstOrDefault(
+                          x => x.NetworkInterfaceType != NetworkInterfaceType.Loopback);
+
+            return nic != null ? nic.GetPhysicalAddress().GetAddressBytes() : RandomMacAddressBytes;
         }
 
         public static int GetProcessId()
