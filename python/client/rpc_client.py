@@ -4,21 +4,23 @@
 # The ASF licenses this file to You under the Apache License, Version 2.0
 # (the "License"); you may not use this file except in compliance with
 # the License.  You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from grpc import ssl_channel_credentials, insecure_channel
-from datetime import timedelta
+
 import time
-from grpc_interceptor import ClientInterceptor,  ClientCallDetails
-import protocol.service_pb2 as pb2
+from datetime import timedelta
+
 import protocol.service_pb2_grpc as servicegrpc
+from grpc import insecure_channel, ssl_channel_credentials
+from grpc_interceptor import ClientCallDetails, ClientInterceptor
+
 
 class MetadataInterceptor(ClientInterceptor):
     def __init__(self, metadata):
@@ -40,6 +42,7 @@ class MetadataInterceptor(ClientInterceptor):
 class RpcClient:
     CONNECT_TIMEOUT_MILLIS = 3*1000
     GRPC_MAX_MESSAGE_SIZE = 2*31 - 1
+
     def __init__(self, endpoints, sslEnabled):
         channel_options = [
             ('grpc.max_send_message_length', -1),
