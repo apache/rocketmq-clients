@@ -44,54 +44,54 @@ class RpcClient:
     def idle_duration(self):
         return timedelta(microseconds=(time.monotonic_ns() - self.activity_nano_time) / 1000)
 
-    async def query_route(self, request, duration: timedelta):
+    async def query_route(self, request, timeout_seconds: int):
         self.activity_nano_time = time.monotonic_ns()
         stub = service.MessagingServiceStub(self.channel)
-        return await stub.QueryRoute(request, timeout=duration.total_seconds())
+        return await stub.QueryRoute(request, timeout=timeout_seconds)
 
-    async def heartbeat(self, request, duration: timedelta):
+    async def heartbeat(self, request, timeout_seconds: int):
         self.activity_nano_time = time.monotonic_ns()
         stub = service.MessagingServiceStub(self.channel)
-        return await stub.Heartbeat(request, timeout=duration.total_seconds())
+        return await stub.Heartbeat(request, timeout=timeout_seconds)
 
-    async def send_message(self, request, duration: timedelta):
+    async def send_message(self, request, timeout_seconds: int):
         self.activity_nano_time = time.monotonic_ns()
         stub = service.MessagingServiceStub(self.channel)
-        return await stub.SendMessage(request, timeout=duration.total_seconds())
+        return await stub.SendMessage(request, timeout=timeout_seconds)
 
-    async def query_assignment(self, request, duration: timedelta):
+    async def query_assignment(self, request, timeout_seconds: int):
         self.activity_nano_time = time.monotonic_ns()
         stub = service.MessagingServiceStub(self.channel)
-        return await stub.QueryAssignment(request, timeout=duration.total_seconds())
+        return await stub.QueryAssignment(request, timeout=timeout_seconds)
 
     # TODO: Not yet implemented
-    async def receive_message(self, metadata, request, duration: timedelta):
+    async def receive_message(self, metadata, request, timeout_seconds: int):
         pass
 
-    async def ack_message(self, request, duration: timedelta):
+    async def ack_message(self, request, timeout_seconds: int):
         self.activity_nano_time = time.monotonic_ns()
         stub = service.MessagingServiceStub(self.channel)
-        return await stub.AckMessage(request, timeout=duration.total_seconds())
+        return await stub.AckMessage(request, timeout=timeout_seconds)
 
-    async def change_invisible_duration(self, request, duration: timedelta):
+    async def change_invisible_duration(self, request, timeout_seconds: int):
         self.activity_nano_time = time.monotonic_ns()
         stub = service.MessagingServiceStub(self.channel)
-        return await stub.ChangeInvisibleDuration(request, timeout=duration.total_seconds())
+        return await stub.ChangeInvisibleDuration(request, timeout=timeout_seconds)
 
-    async def forward_message_to_dead_letter_queue(self, request, duration: timedelta):
+    async def forward_message_to_dead_letter_queue(self, request, timeout_seconds: int):
         self.activity_nano_time = time.monotonic_ns()
         stub = service.MessagingServiceStub(self.channel)
-        return await stub.ForwardMessageToDeadLetterQueue(request, timeout=duration.total_seconds())
+        return await stub.ForwardMessageToDeadLetterQueue(request, timeout=timeout_seconds)
 
-    async def end_transaction(self, request, duration: timedelta):
+    async def end_transaction(self, request, timeout_seconds: int):
         self.activity_nano_time = time.monotonic_ns()
         stub = service.MessagingServiceStub(self.channel)
-        return await stub.EndTransaction(request, timeout=duration.total_seconds())
+        return await stub.EndTransaction(request, timeout=timeout_seconds)
 
-    async def notify_client_termination(self, request, duration: timedelta):
+    async def notify_client_termination(self, request, timeout_seconds: int):
         self.activity_nano_time = time.monotonic_ns()
         stub = service.MessagingServiceStub(self.channel)
-        return await stub.NotifyClientTermination(request, timeout=duration.total_seconds())
+        return await stub.NotifyClientTermination(request, timeout=timeout_seconds)
 
     # TODO: Not yet implemented
     async def telemetry(self, metadata, duration, response_observer):
