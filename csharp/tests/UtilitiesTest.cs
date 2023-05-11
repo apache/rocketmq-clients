@@ -46,5 +46,12 @@ namespace tests
             var bytes = Encoding.UTF8.GetBytes("foobar");
             Assert.AreEqual(Utilities.ComputeSha1Hash(bytes), "8843D7F92416211DE9EBB963FF4CE28125932878");
         }
+
+        [TestMethod]
+        public void TestGetMacAddress()
+        {
+            var macAddress = Utilities.GetMacAddress();
+            Assert.IsNotNull(macAddress);
+        }
     }
 }
