@@ -16,5 +16,7 @@ Here are some preparations you may need to know (or refer to [here](https://rock
 To install the relevant dependency libraries, use the command "pip install -r requirements.txt" in the directory "rocketmq-clients/python".
 
 ## Current Progress
+
 * Protocol layer code generation is completed.
+
 * Partial completion of rpcClient.
