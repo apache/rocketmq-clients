@@ -13,116 +13,86 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import time
 from datetime import timedelta
 
-import protocol.service_pb2_grpc as servicegrpc
-from grpc import insecure_channel, ssl_channel_credentials
-from grpc_interceptor import ClientCallDetails, ClientInterceptor
-
-
-class MetadataInterceptor(ClientInterceptor):
-    def __init__(self, metadata):
-        self.metadata = metadata
-
-    def intercept(self, request, metadata, client_call_details, next):
-        metadata.update(self.metadata)
-        new_client_call_details = ClientCallDetails(
-            client_call_details.method,
-            client_call_details.timeout,
-            metadata,
-            client_call_details.credentials,
-            client_call_details.wait_for_ready,
-            client_call_details.compression,
-        )
-        return next(request, new_client_call_details)
+import protocol.service_pb2_grpc as service
+from grpc import aio, insecure_channel, ssl_channel_credentials
 
 
 class RpcClient:
-    CONNECT_TIMEOUT_MILLIS = 3*1000
-    GRPC_MAX_MESSAGE_SIZE = 2*31 - 1
+    CONNECT_TIMEOUT_MILLIS = 3 * 1000
+    GRPC_MAX_MESSAGE_SIZE = 2 * 31 - 1
 
-    def __init__(self, endpoints, sslEnabled):
+    def __init__(self, endpoints, ssl_enabled):
         channel_options = [
             ('grpc.max_send_message_length', -1),
             ('grpc.max_receive_message_length', -1),
-            ('grpc.keepalive_time_ms', 1000),
-            ('grpc.keepalive_timeout_ms', 5000),
-            ('grpc.keepalive_permit_without_calls', True),
             ('grpc.connect_timeout_ms', self.CONNECT_TIMEOUT_MILLIS),
         ]
-        if sslEnabled:
-            ssl_creds = ssl_channel_credentials()
-            self.channel = Channel(endpoints.getGrpcTarget(), ssl_creds, options=channel_options)
+        if ssl_enabled:
+            ssl_credentials = ssl_channel_credentials()
+            self.channel = aio.secure_channel(endpoints.getGrpcTarget(), ssl_credentials, options=channel_options)
         else:
             self.channel = insecure_channel(endpoints.getGrpcTarget(), options=channel_options)
 
-        self.activityNanoTime = time.monotonic_ns()
-
-    def get_stub(self, metadata):
-        interceptor = MetadataInterceptor(metadata)
-
-        interceptor_channel = grpc.intercept_channel(self.channel, interceptor)
-        stub = servicegrpc.MessagingServiceStub(interceptor_channel)
-        return stub
+        self.activity_nano_time = time.monotonic_ns()
 
     def __del__(self):
         self.channel.close()
-    
-    def idle_duration(activity_nano_time):
-        return timedelta(microseconds=(time.monotonic_ns() - activity_nano_time) / 1000)
-    
-    async def query_route(self, metadata, request, duration):
-        self.activity_nano_time = time.monotonic_ns()
-        stub = self.get_stub(self, metadata)
-        return await stub.QueryRoute(request, timeout=duration)
 
-    async def heartbeat(self, metadata, request, duration):
-        self.activity_nano_time = time.monotonic_ns()
-        stub = self.get_stub(self, metadata)
-        return await stub.Heartbeat(request, timeout=duration)
+    def idle_duration(self):
+        return timedelta(microseconds=(time.monotonic_ns() - self.activity_nano_time) / 1000)
 
-    async def send_message(self, metadata, request, duration):
+    async def query_route(self, request, duration: timedelta):
         self.activity_nano_time = time.monotonic_ns()
-        stub = self.get_stub(self, metadata)
-        return await stub.SendMessage(request, timeout=duration)
+        stub = service.MessagingServiceStub(self.channel)
+        return await stub.QueryRoute(request, timeout=duration.total_seconds())
 
-    async def query_assignment(self, metadata, request, duration):
+    async def heartbeat(self, request, duration: timedelta):
         self.activity_nano_time = time.monotonic_ns()
-        stub = self.get_stub(self, metadata)
-        return await stub.QueryAssignment(request, timeout=duration)
+        stub = service.MessagingServiceStub(self.channel)
+        return await stub.Heartbeat(request, timeout=duration.total_seconds())
 
-    # TODO: Not yet imeplemented
-    async def receive_message(self, metadata, request, duration):
+    async def send_message(self, request, duration: timedelta):
+        self.activity_nano_time = time.monotonic_ns()
+        stub = service.MessagingServiceStub(self.channel)
+        return await stub.SendMessage(request, timeout=duration.total_seconds())
+
+    async def query_assignment(self, request, duration: timedelta):
+        self.activity_nano_time = time.monotonic_ns()
+        stub = service.MessagingServiceStub(self.channel)
+        return await stub.QueryAssignment(request, timeout=duration.total_seconds())
+
+    # TODO: Not yet implemented
+    async def receive_message(self, metadata, request, duration: timedelta):
         pass
 
-    async def ack_message(self, metadata, request, duration):
+    async def ack_message(self, request, duration: timedelta):
         self.activity_nano_time = time.monotonic_ns()
-        stub = self.get_stub(self, metadata)
-        return await stub.AckMessage(request, timeout=duration)
+        stub = service.MessagingServiceStub(self.channel)
+        return await stub.AckMessage(request, timeout=duration.total_seconds())
 
-    async def change_invisible_duration(self, metadata, request, duration):
+    async def change_invisible_duration(self, request, duration: timedelta):
         self.activity_nano_time = time.monotonic_ns()
-        stub = self.get_stub(self, metadata)
-        return await stub.ChangeInvisibleDuration(request, timeout=duration)
+        stub = service.MessagingServiceStub(self.channel)
+        return await stub.ChangeInvisibleDuration(request, timeout=duration.total_seconds())
 
-    async def forward_message_to_dead_letter_queue(self, metadata, request, duration):
+    async def forward_message_to_dead_letter_queue(self, request, duration: timedelta):
         self.activity_nano_time = time.monotonic_ns()
-        stub = self.get_stub(self, metadata)
-        return await stub.ForwardMessageToDeadLetterQueue(request, timeout=duration)
-    
-    async def endTransaction(self, metadata, request, duration):
-        self.activity_nano_time = time.monotonic_ns()
-        stub = self.get_stub(self, metadata)
-        return await stub.EndTransaction(request, timeout=duration)
-    
+        stub = service.MessagingServiceStub(self.channel)
+        return await stub.ForwardMessageToDeadLetterQueue(request, timeout=duration.total_seconds())
 
-    async def notifyClientTermination(self, metadata, request, duration):
+    async def end_transaction(self, request, duration: timedelta):
         self.activity_nano_time = time.monotonic_ns()
-        stub = self.get_stub(self, metadata)
-        return await stub.NotifyClientTermination(request, timeout=duration)
+        stub = service.MessagingServiceStub(self.channel)
+        return await stub.EndTransaction(request, timeout=duration.total_seconds())
 
+    async def notify_client_termination(self, request, duration: timedelta):
+        self.activity_nano_time = time.monotonic_ns()
+        stub = service.MessagingServiceStub(self.channel)
+        return await stub.NotifyClientTermination(request, timeout=duration.total_seconds())
+
+    # TODO: Not yet implemented
     async def telemetry(self, metadata, duration, response_observer):
-        stub = self.get_stub(self, metadata)
-        return await stub.Telemetry(response_observer, timeout=duration)
+        pass
