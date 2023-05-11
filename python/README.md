@@ -8,7 +8,7 @@ Here is the python implementation of the client for [Apache RocketMQ](https://ro
 
 Here are some preparations you may need to know (or refer to [here](https://rocketmq.apache.org/docs/quickStart/02quickstart/https://rocketmq.apache.org/docs/quickStart/02quickstart/)).
 
-1. Python 3.5 is the minimum version required, Python 3.10 is the recommended version.
+1. Python 3.7 is the minimum version required, Python 3.10 is the recommended version.
 2. Setup namesrv, broker, and [proxy](https://github.com/apache/rocketmq/tree/develop/proxy).
 
 ## Getting Started

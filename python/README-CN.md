@@ -8,7 +8,7 @@
 
 在开始客户端的部分之前，所需的一些前期工作（或者参照[这里](https://rocketmq.apache.org/zh/docs/quickStart/02quickstart/)）：
 
-1. 准备 Python 环境。Python 3.5 是确保客户端运行的最小版本，Python 3.10 是推荐版本；
+1. 准备 Python 环境。Python 3.7 是确保客户端运行的最小版本，Python 3.10 是推荐版本；
 2. 部署 namesrv，broker 以及 [proxy](https://github.com/apache/rocketmq/tree/develop/proxy) 组件。
 
 ## 快速开始
