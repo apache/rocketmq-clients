@@ -90,10 +90,8 @@ class RpcClient:
         stub = self.get_stub(self, metadata)
         return await stub.QueryAssignment(request, timeout=duration)
 
+    # TODO: Not yet imeplemented
     async def receive_message(self, metadata, request, duration):
-        self.activity_nano_time = time.monotonic_ns()
-        responses = []
-        stub = self.get_stub(self, metadata)
         pass
 
     async def ack_message(self, metadata, request, duration):
