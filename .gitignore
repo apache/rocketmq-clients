@@ -46,3 +46,9 @@ vendor/
 golang/*.tests
 golang/*.test
 golang/*.exe
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+python/__pycache__/
