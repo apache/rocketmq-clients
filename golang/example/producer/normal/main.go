@@ -39,7 +39,7 @@ const (
 func main() {
 	os.Setenv("mq.consoleAppender.enabled", "true")
 	rmq_client.ResetLogger()
-	// In most case, you don't need to create many producers, singletion pattern is more recommended.
+	// In most case, you don't need to create many producers, singleton pattern is more recommended.
 	producer, err := rmq_client.NewProducer(&rmq_client.Config{
 		Endpoint: Endpoint,
 		Credentials: &credentials.SessionCredentials{

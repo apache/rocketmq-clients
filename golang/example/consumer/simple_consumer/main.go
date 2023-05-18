@@ -50,7 +50,7 @@ func main() {
 	// log to console
 	os.Setenv("mq.consoleAppender.enabled", "true")
 	rmq_client.ResetLogger()
-	// In most case, you don't need to create many consumers, singletion pattern is more recommended.
+	// In most case, you don't need to create many consumers, singleton pattern is more recommended.
 	simpleConsumer, err := rmq_client.NewSimpleConsumer(&rmq_client.Config{
 		Endpoint:      Endpoint,
 		ConsumerGroup: ConsumerGroup,
