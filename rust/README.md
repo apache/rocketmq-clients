@@ -1,6 +1,5 @@
 # The Rust Implementation of Apache RocketMQ Client
 
-[![Rust][rust-image]][rust-url]
 [![Codecov-rust][codecov-rust-image]][codecov-url]
 [![Crates.io][crates-image]][crates-url]
 [![docs.rs][rust-doc-image]][rust-doc-url]
@@ -39,8 +38,6 @@ cargo run --example producer
 cargo run --example simple_consumer
 ```
 
-[rust-image]: https://github.com/apache/rocketmq-clients/actions/workflows/rust_build.yml/badge.svg
-[rust-url]: https://github.com/apache/rocketmq-clients/actions/workflows/rust_build.yml
 [codecov-rust-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=rust&label=Rust%20Coverage&logo=codecov
 [codecov-url]: https://app.codecov.io/gh/apache/rocketmq-clients
 [crates-image]: https://img.shields.io/crates/v/rocketmq.svg

@@ -1,6 +1,6 @@
 # Java 客户端
 
-[![Java][java-image]][java-url] [![Codecov-java][codecov-java-image]][codecov-url] [![Maven Central][maven-image]][maven-url]
+[![Codecov-java][codecov-java-image]][codecov-url] [![Maven Central][maven-image]][maven-url]
 
 [English](README.md) | 简体中文 | [RocketMQ 官网](https://rocketmq.apache.org/)
 
@@ -73,8 +73,6 @@ implementation 'org.apache.rocketmq:rocketmq-client-java-noshade:${rocketmq.vers
 
 特别地，如果有调试的需求，可以通过把 `mq.consoleAppender.enabled` 设置成 `true` 将客户端的日志同时输出到控制台。
 
-[java-image]: https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml/badge.svg
-[java-url]: https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml
 [codecov-java-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=java&label=Java%20Coverage&logo=codecov
 [codecov-url]: https://app.codecov.io/gh/apache/rocketmq-clients
 [maven-image]: https://img.shields.io/maven-central/v/org.apache.rocketmq/rocketmq-client-java

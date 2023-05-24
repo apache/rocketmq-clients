@@ -1,6 +1,6 @@
 # RocketMQ Clients - Collection of Client Bindings for Apache RocketMQ
 
-[![License][license-image]][license-url] [![CPP][cpp-image]][cpp-url] [![C#][csharp-image]][csharp-url] [![Java][java-image]][java-url] [![Golang][golang-image]][golang-url] [![Rust][rust-image]][rust-url]
+[![License][license-image]][license-url] [![Build][build-image]][build-url]
 
 English | [简体中文](README-CN.md) | [RocketMQ Website](https://rocketmq.apache.org/)
 
@@ -52,13 +52,5 @@ Similar to other projects of Apache RocketMQ, any attempt to make this project b
 
 [license-image]: https://img.shields.io/badge/license-Apache%202-4EB1BA.svg
 [license-url]: https://www.apache.org/licenses/LICENSE-2.0.html
-[cpp-image]: https://github.com/apache/rocketmq-clients/actions/workflows/cpp_build.yml/badge.svg
-[cpp-url]: https://github.com/apache/rocketmq-clients/actions/workflows/cpp_build.yml
-[csharp-image]: https://github.com/apache/rocketmq-clients/actions/workflows/csharp_build.yml/badge.svg
-[csharp-url]: https://github.com/apache/rocketmq-clients/actions/workflows/csharp_build.yml
-[java-image]: https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml/badge.svg
-[java-url]: https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml
-[golang-image]: https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml/badge.svg
-[golang-url]: https://github.com/apache/rocketmq-clients/actions/workflows/golang_build.yml
-[rust-image]: https://github.com/apache/rocketmq-clients/actions/workflows/rust_build.yml/badge.svg
-[rust-url]: https://github.com/apache/rocketmq-clients/actions/workflows/rust_build.yml
+[build-image]: https://github.com/apache/rocketmq-clients/actions/workflows/build.yml/badge.svg
+[build-url]: https://github.com/apache/rocketmq-clients/actions/workflows/build.yml
