@@ -1,6 +1,6 @@
 # The Java Implementation of Apache RocketMQ Client
 
-[![Java][java-image]][java-url] [![Codecov-java][codecov-java-image]][codecov-url] [![Maven Central][maven-image]][maven-url]
+[![Codecov-java][codecov-java-image]][codecov-url] [![Maven Central][maven-image]][maven-url]
 
 English | [简体中文](README-CN.md) | [RocketMQ Website](https://rocketmq.apache.org/)
 
@@ -71,8 +71,6 @@ The following logging parameters are all supported for specification by JVM syst
 
 Specifically, by setting `mq.consoleAppender.enabled` to true, you can output client logs to the console simultaneously if you need debugging.
 
-[java-image]: https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml/badge.svg
-[java-url]: https://github.com/apache/rocketmq-clients/actions/workflows/java_build.yml
 [codecov-java-image]: https://img.shields.io/codecov/c/gh/apache/rocketmq-clients/master?flag=java&label=Java%20Coverage&logo=codecov
 [codecov-url]: https://app.codecov.io/gh/apache/rocketmq-clients
 [maven-image]: https://img.shields.io/maven-central/v/org.apache.rocketmq/rocketmq-client-java
