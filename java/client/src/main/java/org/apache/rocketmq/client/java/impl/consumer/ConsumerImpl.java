@@ -128,7 +128,7 @@ abstract class ConsumerImpl extends ClientImpl {
             .setReceiptHandle(messageView.getReceiptHandle())
             .build();
         return AckMessageRequest.newBuilder().setGroup(getProtobufGroup()).setTopic(topicResource)
-            .setGroup(getProtobufGroup()).addEntries(entry).build();
+            .addEntries(entry).build();
     }
 
     private ChangeInvisibleDurationRequest wrapChangeInvisibleDuration(MessageViewImpl messageView,
