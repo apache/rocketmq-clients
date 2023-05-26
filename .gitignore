@@ -51,4 +51,5 @@ golang/*.exe
 *.pyc
 *.pyo
 *.pyd
+python/myvenv/
 python/__pycache__/

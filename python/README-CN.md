@@ -13,7 +13,24 @@
 
 ## 快速开始
 
-在`rocketmq-clients/python`目录下使用命令：`pip install -r requirements.txt` 即可安装相关依赖库。
+推荐使用 Python 虚拟环境进行开发，可以按照以下步骤操作：
+
+首先切换到当前仓库的 `python` 子目录，然后执行以下命令创建一个新的虚拟环境：
+
+```sh
+python3 -m venv myvenv
+```
+
+其次开始激活虚拟环境。激活方法取决于具体的操作系统：
+
+* 对于Windows，执行：`myvenv\Scripts\activate.bat`
+* 对于macOS/Linux：执行：`source myvenv/bin/activate`
+
+执行以下命令以安装所需的依赖库：
+
+```sh
+pip install -r requirements.txt
+```
 
 ## 目前进展
 
