@@ -18,7 +18,10 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use mockall::automock;
+use ring::hmac;
 use slog::{debug, error, info, o, Logger};
+use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
 use tokio::sync::{mpsc, Mutex};
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::StreamExt;
@@ -217,6 +220,37 @@ impl Session {
             "x-mq-protocol-version",
             AsciiMetadataValue::from_static(PROTOCOL_VERSION),
         );
+
+        let date_time_result = OffsetDateTime::now_local();
+        let date_time = if let Ok(result) = date_time_result {
+            result
+        } else {
+            OffsetDateTime::now_utc()
+        };
+
+        let date_time = date_time.format(&Rfc3339).unwrap();
+
+        metadata.insert(
+            "x-mq-date-time",
+            AsciiMetadataValue::try_from(&date_time).unwrap(),
+        );
+
+        if !self.option.secret_key.is_empty() {
+            let key = hmac::Key::new(
+                hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY,
+                self.option.secret_key.as_bytes(),
+            );
+            let signature = hmac::sign(&key, date_time.as_bytes());
+            let signature = hex::encode(signature.as_ref());
+            let authorization = format!(
+                "MQv2-HMAC-SHA1 Credential={}, SignedHeaders=x-mq-date-time, Signature={}",
+                self.option.access_key, signature
+            );
+            metadata.insert(
+                "authorization",
+                AsciiMetadataValue::try_from(authorization).unwrap(),
+            );
+        }
     }
 
     pub(crate) async fn start(&mut self, settings: TelemetryCommand) -> Result<(), ClientError> {
@@ -458,10 +492,10 @@ impl SessionManager {
 
 #[cfg(test)]
 mod tests {
-    use crate::conf::ProducerOption;
     use slog::debug;
     use wiremock_grpc::generate;
 
+    use crate::conf::ProducerOption;
     use crate::log::terminal_logger;
     use crate::util::build_producer_settings;
 

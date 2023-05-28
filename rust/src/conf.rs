@@ -17,12 +17,13 @@
 
 //! Configuration of RocketMQ rust client.
 
+use std::time::Duration;
+
 use crate::model::common::ClientType;
 #[allow(unused_imports)]
 use crate::producer::Producer;
 #[allow(unused_imports)]
 use crate::simple_consumer::SimpleConsumer;
-use std::time::Duration;
 
 /// [`ClientOption`] is the configuration of internal client, which manages the connection and request with RocketMQ proxy.
 #[derive(Debug, Clone)]
@@ -34,6 +35,8 @@ pub struct ClientOption {
     pub(crate) enable_tls: bool,
     pub(crate) timeout: Duration,
     pub(crate) long_polling_timeout: Duration,
+    pub(crate) access_key: String,
+    pub(crate) secret_key: String,
 }
 
 impl Default for ClientOption {
@@ -46,6 +49,8 @@ impl Default for ClientOption {
             enable_tls: true,
             timeout: Duration::from_secs(3),
             long_polling_timeout: Duration::from_secs(40),
+            access_key: "".to_string(),
+            secret_key: "".to_string(),
         }
     }
 }
@@ -87,6 +92,24 @@ impl ClientOption {
     /// This option only affects receive requests, it means timeout for a receive request will be `long_polling_timeout` + `timeout`
     pub fn set_long_polling_timeout(&mut self, long_polling_timeout: Duration) {
         self.long_polling_timeout = long_polling_timeout;
+    }
+
+    /// Get the access key
+    pub fn access_key(&self) -> &str {
+        &self.access_key
+    }
+    /// Set the access key
+    pub fn set_access_key(&mut self, access_key: impl Into<String>) {
+        self.access_key = access_key.into();
+    }
+
+    /// Get the secret key
+    pub fn secret_key(&self) -> &str {
+        &self.secret_key
+    }
+    /// Set the secret key
+    pub fn set_secret_key(&mut self, secret_key: impl Into<String>) {
+        self.secret_key = secret_key.into();
     }
 }
 
