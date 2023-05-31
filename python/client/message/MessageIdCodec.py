@@ -56,20 +56,14 @@ class MessageIdCodec:
         return int((now - custom_epoch).total_seconds())
 
     def _delta_seconds(self):
-        return int(time.time()) - self.secondsStartTimestamp \
-                    + self.secondsSinceCustomEpoch
+        return int(time.time()) - self.secondsStartTimestamp + self.secondsSinceCustomEpoch
 
     def next_message_id(self):
         self.sequence += 1
         self.seconds = self._delta_seconds()
         seconds_bytes = self.seconds.to_bytes(4, 'big')
         sequence_bytes = self.sequence.to_bytes(4, 'big')
-        return (
-                self.MESSAGE_ID_VERSION_V1
-                + self.processFixedStringV1
-                + seconds_bytes.hex()
-                + sequence_bytes.hex()
-            )
+        return self.MESSAGE_ID_VERSION_V1 + self.processFixedStringV1 + seconds_bytes.hex() + sequence_bytes.hex()
 
     def decode(self, message_id):
         if len(message_id) != self.MESSAGE_ID_LENGTH_FOR_V1_OR_LATER:
@@ -81,4 +75,4 @@ if __name__ == "__main__":
     codec = MessageIdCodec()
     next_id = codec.next_message_id()
     print(next_id)
-    print(codec.decode(next_id+'123'))
+    print(codec.decode(next_id + '123'))
