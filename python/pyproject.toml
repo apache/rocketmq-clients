@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "rocketmq-client"
+version = "0.1.0rc1"
+description = "RocketMQ Python Client"
+authors = ["RocketMQ Authors"]
+readme = "README.md"
+packages = [{ include = "rocketmq_client" }]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+grpcio = "^1.50.0"
+grpcio-tools = "^1.50.0"
+certifi = "^2023.5.7"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.0.07"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -13,27 +13,20 @@ Here are some preparations you may need to know (or refer to [here](https://rock
 
 ## Getting Started
 
-Clone the current repository to your local machine and set up a virtual environment for development, which will help you manage dependencies more efficiently. Follow the steps below:
+We are using Poetry as the dependency management & publishing tool. You can find out more details about Poetry from its [website](https://python-poetry.org/). Here is the related command of Poetry you may use for development.
 
-Navigate to the `python` subdirectory and execute the command below to create a new virtual environment:
-
-```sh
-python3 -m venv myvenv
+```shell
+# Create a virtual environment and activate it.
+poetry env use python3
+# Installs the project dependencies.
+poetry install
+# Spawns a shell within the virtual environment.
+poetry shell
 ```
 
-Activate the virtual environment. The activation method depends on your operating system:
-
-* For Windows, execute: `myvenv\Scripts\activate.bat`
-* For macOS/Linux: execute: `source myvenv/bin/activate`
-
-Install the required dependency libraries by executing the following command:
-
-```sh
-pip install -r requirements.txt
-```
+We use pytest as the testing framework for the current project, and you can execute `pytest` directly to run all tests.
 
 ## Current Progress
 
 * Protocol layer code generation is completed.
-
-* Partial completion of rpcClient.
+* Partial completion of `rpc_client.py`.
