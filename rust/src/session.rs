@@ -235,26 +235,24 @@ impl Session {
             AsciiMetadataValue::try_from(&date_time).unwrap(),
         );
 
-        self.option
-            .access_key()
-            .zip(self.option.secret_key())
-            .and_then(|(access_key, access_secret)| {
-                let key = hmac::Key::new(
-                    hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY,
-                    access_secret.as_bytes(),
-                );
-                let signature = hmac::sign(&key, date_time.as_bytes());
-                let signature = hex::encode(signature.as_ref());
-                let authorization = format!(
-                    "MQv2-HMAC-SHA1 Credential={}, SignedHeaders=x-mq-date-time, Signature={}",
-                    access_key, signature
-                );
-                metadata.insert(
-                    "authorization",
-                    AsciiMetadataValue::try_from(authorization).unwrap(),
-                );
-                Some(())
-            });
+        if let Some((access_key, access_secret)) =
+            self.option.access_key().zip(self.option.secret_key())
+        {
+            let key = hmac::Key::new(
+                hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY,
+                access_secret.as_bytes(),
+            );
+            let signature = hmac::sign(&key, date_time.as_bytes());
+            let signature = hex::encode(signature.as_ref());
+            let authorization = format!(
+                "MQv2-HMAC-SHA1 Credential={}, SignedHeaders=x-mq-date-time, Signature={}",
+                access_key, signature
+            );
+            metadata.insert(
+                "authorization",
+                AsciiMetadataValue::try_from(authorization).unwrap(),
+            );
+        }
     }
 
     pub(crate) async fn start(&mut self, settings: TelemetryCommand) -> Result<(), ClientError> {
