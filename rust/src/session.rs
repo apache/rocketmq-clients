@@ -235,16 +235,17 @@ impl Session {
             AsciiMetadataValue::try_from(&date_time).unwrap(),
         );
 
-        if !self.option.secret_key.is_empty() {
+        if self.option.access_key().is_some() && self.option.secret_key().is_some() {
             let key = hmac::Key::new(
                 hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY,
-                self.option.secret_key.as_bytes(),
+                self.option.secret_key().unwrap().as_bytes(),
             );
             let signature = hmac::sign(&key, date_time.as_bytes());
             let signature = hex::encode(signature.as_ref());
             let authorization = format!(
                 "MQv2-HMAC-SHA1 Credential={}, SignedHeaders=x-mq-date-time, Signature={}",
-                self.option.access_key, signature
+                self.option.access_key().unwrap(),
+                signature
             );
             metadata.insert(
                 "authorization",

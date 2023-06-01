@@ -35,8 +35,8 @@ pub struct ClientOption {
     pub(crate) enable_tls: bool,
     pub(crate) timeout: Duration,
     pub(crate) long_polling_timeout: Duration,
-    pub(crate) access_key: String,
-    pub(crate) secret_key: String,
+    pub(crate) access_key: Option<String>,
+    pub(crate) secret_key: Option<String>,
 }
 
 impl Default for ClientOption {
@@ -49,8 +49,8 @@ impl Default for ClientOption {
             enable_tls: true,
             timeout: Duration::from_secs(3),
             long_polling_timeout: Duration::from_secs(40),
-            access_key: "".to_string(),
-            secret_key: "".to_string(),
+            access_key: None,
+            secret_key: None,
         }
     }
 }
@@ -95,21 +95,21 @@ impl ClientOption {
     }
 
     /// Get the access key
-    pub fn access_key(&self) -> &str {
-        &self.access_key
+    pub fn access_key(&self) -> Option<&String> {
+        self.access_key.as_ref()
     }
     /// Set the access key
     pub fn set_access_key(&mut self, access_key: impl Into<String>) {
-        self.access_key = access_key.into();
+        self.access_key = Some(access_key.into());
     }
 
     /// Get the secret key
-    pub fn secret_key(&self) -> &str {
-        &self.secret_key
+    pub fn secret_key(&self) -> Option<&String> {
+        self.secret_key.as_ref()
     }
     /// Set the secret key
     pub fn set_secret_key(&mut self, secret_key: impl Into<String>) {
-        self.secret_key = secret_key.into();
+        self.secret_key = Some(secret_key.into());
     }
 }
 
