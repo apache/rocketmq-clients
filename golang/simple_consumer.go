@@ -154,6 +154,16 @@ func (sc *defaultSimpleConsumer) Unsubscribe(topic string) error {
 }
 
 func (sc *defaultSimpleConsumer) wrapReceiveMessageRequest(batchSize int, messageQueue *v2.MessageQueue, filterExpression *FilterExpression, invisibleDuration time.Duration) *v2.ReceiveMessageRequest {
+	var filterType v2.FilterType
+	switch filterExpression.expressionType {
+	case SQL92:
+		filterType = v2.FilterType_SQL
+	case TAG:
+		filterType = v2.FilterType_TAG
+	default:
+		filterType = v2.FilterType_FILTER_TYPE_UNSPECIFIED
+	}
+
 	return &v2.ReceiveMessageRequest{
 		Group: &v2.Resource{
 			Name: sc.groupName,
@@ -161,6 +171,7 @@ func (sc *defaultSimpleConsumer) wrapReceiveMessageRequest(batchSize int, messag
 		MessageQueue: messageQueue,
 		FilterExpression: &v2.FilterExpression{
 			Expression: filterExpression.expression,
+			Type:       filterType,
 		},
 		BatchSize:         int32(batchSize),
 		InvisibleDuration: durationpb.New(invisibleDuration),
