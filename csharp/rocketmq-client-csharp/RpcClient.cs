@@ -18,13 +18,10 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
-using System.Net.Security;
-using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using Proto = Apache.Rocketmq.V2;
 using Grpc.Core;
 using Grpc.Core.Interceptors;
-using Grpc.Net.Client;
 using NLog;
 
 namespace Org.Apache.Rocketmq
@@ -33,18 +30,22 @@ namespace Org.Apache.Rocketmq
     {
         private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
         private readonly Proto::MessagingService.MessagingServiceClient _stub;
-        private readonly GrpcChannel _channel;
+        private readonly ChannelBase _channel;
         private readonly string _target;
 
         public RpcClient(Endpoints endpoints, bool sslEnabled)
         {
             _target = endpoints.GrpcTarget(sslEnabled);
-            _channel = GrpcChannel.ForAddress(_target, new GrpcChannelOptions
+#if NETFRAMEWORK
+            _channel = new Channel(_target, ChannelCredentials.Insecure);
+#else
+            _channel = Grpc.Net.Client.GrpcChannel.ForAddress(_target, new()
             {
                 HttpHandler = CreateHttpHandler(),
                 // Disable auto-retry.
                 MaxRetryAttempts = 0
             });
+#endif
             var invoker = _channel.Intercept(new ClientLoggerInterceptor());
             _stub = new Proto::MessagingService.MessagingServiceClient(invoker);
         }
@@ -57,18 +58,11 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        private static bool CertValidator(
-            object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
-        {
-            // Always return true to disable server certificate validation
-            return true;
-        }
-
         internal static HttpMessageHandler CreateHttpHandler()
         {
             var handler = new HttpClientHandler
             {
-                ServerCertificateCustomValidationCallback = CertValidator,
+                ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
             };
             return handler;
         }

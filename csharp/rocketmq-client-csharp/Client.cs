@@ -255,9 +255,13 @@ namespace Org.Apache.Rocketmq
             ThreadPool.GetAvailableThreads(out var availableWorker, out var availableIo);
             Logger.Info(
                 $"ClientId={ClientId}, ClientVersion={MetadataConstants.Instance.ClientVersion}, " +
-                $".NET Version={Environment.Version}, ThreadCount={ThreadPool.ThreadCount}, " +
+                $".NET Version={Environment.Version}, " +
+#if !NETFRAMEWORK
+                $"ThreadCount={ThreadPool.ThreadCount}, " +
                 $"CompletedWorkItemCount={ThreadPool.CompletedWorkItemCount}, " +
-                $"PendingWorkItemCount={ThreadPool.PendingWorkItemCount}, AvailableWorkerThreads={availableWorker}, " +
+                $"PendingWorkItemCount={ThreadPool.PendingWorkItemCount}, " +
+#endif
+                $"AvailableWorkerThreads={availableWorker}, " +
                 $"AvailableCompletionPortThreads={availableIo}");
         }
 
