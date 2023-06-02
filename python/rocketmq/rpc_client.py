@@ -1,6 +1,7 @@
 import time
 import asyncio
 import certifi
+from rocketmq import logger
 from datetime import timedelta
 from grpc import aio, ssl_channel_credentials
 from protocol import service_pb2
@@ -63,7 +64,7 @@ async def test():
     client = RpcClient("rmq-cn-72u353icd01.cn-hangzhou.rmq.aliyuncs.com:8080")
     request = service_pb2.QueryRouteRequest()
     response = await client.query_route(request, 3)
-    print(response)
+    logger.info(response)
 
 
 if __name__ == "__main__":
