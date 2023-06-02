@@ -26,6 +26,17 @@ poetry shell
 
 We use pytest as the testing framework for the current project, and you can execute `pytest` directly to run all tests.
 
+## Publishing Steps
+
+We utilize PyPI to help users easily introduce and use the Python client in their projects. To publish a package to PyPI, please register an account in advance, then execute the following command.
+
+```shell
+# Builds a package, as a tarball and a wheel by default.
+poetry build
+# Publishes a package to a remote repository.
+poetry publish -u username -p password
+```
+
 ## Current Progress
 
 * Protocol layer code generation is completed.

@@ -26,6 +26,17 @@ poetry shell
 
 我们使用 pytest 来作为当前项目的测试框架，你可以通过直接执行 `pytest` 命令来运行所有的测试。
 
+## 发布步骤
+
+我们使用 PyPi 来帮助用户更好地在自己的工程中引入并使用客户端。为了将客户端发布到 PyPi，可以执行以下命令：
+
+```shell
+# 构建包
+poetry build
+# 将包发布到远程仓库
+poetry publish -u username -p password
+```
+
 ## 目前进展
 
 * 协议层代码生成完毕。
