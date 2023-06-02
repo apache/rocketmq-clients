@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "rocketmq-client"
+name = "rocketmq"
 version = "0.1.0rc1"
 description = "RocketMQ Python Client"
 authors = ["RocketMQ Authors"]
 readme = "README.md"
-packages = [{ include = "rocketmq_client" }]
+packages = [{ include = "rocketmq" }]
 
 [tool.poetry.dependencies]
 python = "^3.7"

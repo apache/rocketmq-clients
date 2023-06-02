@@ -4,7 +4,7 @@ import certifi
 from datetime import timedelta
 from grpc import aio, ssl_channel_credentials
 from protocol import service_pb2
-from rocketmq_client.protocol import service_pb2_grpc
+from rocketmq.protocol import service_pb2_grpc
 
 
 class RpcClient:
