@@ -26,15 +26,19 @@ class RpcClient:
 
     def __init__(self, endpoints, ssl_enabled):
         channel_options = [
-            ('grpc.max_send_message_length', -1),
-            ('grpc.max_receive_message_length', -1),
-            ('grpc.connect_timeout_ms', self.CONNECT_TIMEOUT_MILLIS),
+            ("grpc.max_send_message_length", -1),
+            ("grpc.max_receive_message_length", -1),
+            ("grpc.connect_timeout_ms", self.CONNECT_TIMEOUT_MILLIS),
         ]
         if ssl_enabled:
             ssl_credentials = ssl_channel_credentials()
-            self.channel = aio.secure_channel(endpoints.getGrpcTarget(), ssl_credentials, options=channel_options)
+            self.channel = aio.secure_channel(
+                endpoints.getGrpcTarget(), ssl_credentials, options=channel_options
+            )
         else:
-            self.channel = insecure_channel(endpoints.getGrpcTarget(), options=channel_options)
+            self.channel = insecure_channel(
+                endpoints.getGrpcTarget(), options=channel_options
+            )
 
         self.activity_nano_time = time.monotonic_ns()
 
@@ -42,7 +46,9 @@ class RpcClient:
         self.channel.close()
 
     def idle_duration(self):
-        return timedelta(microseconds=(time.monotonic_ns() - self.activity_nano_time) / 1000)
+        return timedelta(
+            microseconds=(time.monotonic_ns() - self.activity_nano_time) / 1000
+        )
 
     async def query_route(self, request, timeout_seconds: int):
         self.activity_nano_time = time.monotonic_ns()
@@ -81,7 +87,9 @@ class RpcClient:
     async def forward_message_to_dead_letter_queue(self, request, timeout_seconds: int):
         self.activity_nano_time = time.monotonic_ns()
         stub = service.MessagingServiceStub(self.channel)
-        return await stub.ForwardMessageToDeadLetterQueue(request, timeout=timeout_seconds)
+        return await stub.ForwardMessageToDeadLetterQueue(
+            request, timeout=timeout_seconds
+        )
 
     async def end_transaction(self, request, timeout_seconds: int):
         self.activity_nano_time = time.monotonic_ns()

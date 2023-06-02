@@ -79,4 +79,3 @@ class MessageIdCodec:
             + seconds_bytes.hex().upper()
             + sequence_bytes.hex().upper()
         )
-
