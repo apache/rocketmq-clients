@@ -46,7 +46,7 @@ class MessageIdCodec:
         mac = uuid.getnode()
         mac = format(mac, '012x')
         mac_bytes = bytes.fromhex(mac[-12:])
-        pid = os.getpid()
+        pid = os.getpid() % 65536
         pid_bytes = pid.to_bytes(2, 'big')
         return mac_bytes.hex() + pid_bytes.hex()
 
