@@ -13,26 +13,31 @@
 
 ## 快速开始
 
-推荐使用 Python 虚拟环境进行开发，可以按照以下步骤操作：
+我们使用 Poetry 作为依赖管理和发布的工具。你可以在 Poetry 的[官方网站]((https://python-poetry.org/))了解到关于它的更多信息。这里是一些在开发阶段你会使用到的 Poetry 命令：
 
-首先切换到当前仓库的 `python` 子目录，然后执行以下命令创建一个新的虚拟环境：
-
-```sh
-python3 -m venv myvenv
+```shell
+# 创建并激活 python3 的虚拟环境
+poetry env use python3
+# 自动安装工程相关的依赖
+poetry install
+# 进入虚拟环境中的 shell
+poetry shell
 ```
 
-其次开始激活虚拟环境。激活方法取决于具体的操作系统：
+我们使用 pytest 来作为当前项目的测试框架，你可以通过直接执行 `pytest` 命令来运行所有的测试。
 
-* 对于Windows，执行：`myvenv\Scripts\activate.bat`
-* 对于macOS/Linux：执行：`source myvenv/bin/activate`
+## 发布步骤
 
-执行以下命令以安装所需的依赖库：
+我们使用 PyPi 来帮助用户更好地在自己的工程中引入并使用客户端。为了将客户端发布到 PyPi，可以执行以下命令：
 
-```sh
-pip install -r requirements.txt
+```shell
+# 构建包
+poetry build
+# 将包发布到远程仓库
+poetry publish -u username -p password
 ```
 
 ## 目前进展
 
-* 协议层代码生成完毕
-* rpcClient完成部分
+* 协议层代码生成完毕。
+* `rpc_client.py` 完成部分。

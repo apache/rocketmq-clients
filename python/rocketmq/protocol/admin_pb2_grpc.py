@@ -4,9 +4,9 @@
 # The ASF licenses this file to You under the Apache License, Version 2.0
 # (the "License"); you may not use this file except in compliance with
 # the License.  You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,7 +17,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-import admin_pb2 as admin__pb2
+from protocol import admin_pb2 as apache_dot_rocketmq_dot_v2_dot_admin__pb2
 
 
 class AdminStub(object):
@@ -31,8 +31,8 @@ class AdminStub(object):
         """
         self.ChangeLogLevel = channel.unary_unary(
                 '/apache.rocketmq.v2.Admin/ChangeLogLevel',
-                request_serializer=admin__pb2.ChangeLogLevelRequest.SerializeToString,
-                response_deserializer=admin__pb2.ChangeLogLevelResponse.FromString,
+                request_serializer=apache_dot_rocketmq_dot_v2_dot_admin__pb2.ChangeLogLevelRequest.SerializeToString,
+                response_deserializer=apache_dot_rocketmq_dot_v2_dot_admin__pb2.ChangeLogLevelResponse.FromString,
                 )
 
 
@@ -50,8 +50,8 @@ def add_AdminServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'ChangeLogLevel': grpc.unary_unary_rpc_method_handler(
                     servicer.ChangeLogLevel,
-                    request_deserializer=admin__pb2.ChangeLogLevelRequest.FromString,
-                    response_serializer=admin__pb2.ChangeLogLevelResponse.SerializeToString,
+                    request_deserializer=apache_dot_rocketmq_dot_v2_dot_admin__pb2.ChangeLogLevelRequest.FromString,
+                    response_serializer=apache_dot_rocketmq_dot_v2_dot_admin__pb2.ChangeLogLevelResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -75,7 +75,7 @@ class Admin(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/apache.rocketmq.v2.Admin/ChangeLogLevel',
-            admin__pb2.ChangeLogLevelRequest.SerializeToString,
-            admin__pb2.ChangeLogLevelResponse.FromString,
+            apache_dot_rocketmq_dot_v2_dot_admin__pb2.ChangeLogLevelRequest.SerializeToString,
+            apache_dot_rocketmq_dot_v2_dot_admin__pb2.ChangeLogLevelResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
