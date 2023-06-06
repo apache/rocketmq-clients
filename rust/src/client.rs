@@ -372,14 +372,9 @@ impl Client {
         mut rpc_client: T,
         messages: Vec<Message>,
     ) -> Result<Vec<SendReceipt>, ClientError> {
-        let message_count = messages.len();
         let request = SendMessageRequest { messages };
         let response = rpc_client.send_message(request).await?;
         Self::handle_response_status(response.status, OPERATION_SEND_MESSAGE)?;
-
-        if response.entries.len() != message_count {
-            error!(self.logger, "server do not return illegal send result, this may be a bug. except result count: {}, found: {}", response.entries.len(), message_count);
-        }
 
         Ok(response
             .entries

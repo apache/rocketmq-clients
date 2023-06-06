@@ -65,7 +65,7 @@ jobs:
           toolchain: ${{ matrix.msrv }}
       - name: Check MSRV ${{ matrix.msrv }}
         working-directory: ./rust
-        run: cp .cargo/Cargo.lock.min Cargo.lock && cargo fetch && cargo +${{ matrix.msrv }} check --locked --frozen
+        run: cp .cargo/Cargo.lock.min Cargo.lock && cargo +${{ matrix.msrv }} fetch && cargo +${{ matrix.msrv }} check --locked --frozen
   build:
     name: "${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
