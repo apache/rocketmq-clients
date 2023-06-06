@@ -67,6 +67,20 @@ class RpcClient:
     ):
         return await self.__stub.SendMessage(request, timeout=timeout_seconds)
 
+    async def receive_message(
+        self, request: service_pb2.ReceiveMessageRequest, timeout_seconds: int
+    ):
+        results = self.__stub.ReceiveMessage(request, timeout=timeout_seconds)
+        response = []
+        try:
+            async for result in results:
+                if result.HasField('message'):
+                    response.append(result.message)
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            # Handle error as appropriate for your use case
+        return response
+
     async def query_assignment(
         self, request: service_pb2.QueryAssignmentRequest, timeout_seconds: int
     ):
@@ -104,6 +118,26 @@ class RpcClient:
         return await self.__stub.ChangeInvisibleDuration(
             request, timeout=timeout_seconds
         )
+
+    async def send_requests(self, requests, stream):
+        for request in requests:
+            await stream.send_message(request)
+
+    async def telemetry(
+        self, timeout_seconds: int, requests
+    ):
+        responses = []
+        async with self.__stub.Telemetry() as stream:
+            # Create a task for sending requests
+            send_task = asyncio.create_task(self.send_requests(requests, stream))
+            # Receiving responses
+            async for response in stream:
+                responses.append(response)
+
+            # Await the send task to ensure all requests have been sent
+            await send_task
+
+        return responses
 
 
 async def test():
