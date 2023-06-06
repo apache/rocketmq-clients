@@ -43,7 +43,6 @@ prost-types = "0.11.8"
 thiserror = "1.0"
 anyhow = "1.0.70"
 parking_lot = "0.12"
-hmac = "0.12"
 hostname = "0.3.1"
 os_type = "2.6.0"
 
@@ -67,6 +66,7 @@ mockall = "0.11.4"
 mockall_double= "0.3.0"
 
 siphasher = "0.3.10"
+ring = "0.16.20"
 
 [build-dependencies]
 tonic-build = "0.9.0"
