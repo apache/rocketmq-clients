@@ -77,7 +77,7 @@ class RpcClient:
                 if result.HasField('message'):
                     response.append(result.message)
         except Exception as e:
-            print(f"An error occurred: {e}")
+            logger.info("An error occurred: %s", e)
             # Handle error as appropriate for your use case
         return response
 
