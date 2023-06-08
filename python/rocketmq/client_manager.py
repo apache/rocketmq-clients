@@ -13,10 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rocketmq.rpc_client import Endpoints, RpcClient
-from rocketmq.client import Client
-from protocol import service_pb2
 import threading
+
+from protocol import service_pb2
+from rocketmq.client import Client
+from rocketmq.rpc_client import Endpoints, RpcClient
 
 
 class ClientManager:

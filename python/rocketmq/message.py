@@ -117,10 +117,6 @@ class MessageView:
         return self.__tag
 
     @property
-    def keys(self):
-        return self.__keys
-
-    @property
     def message_group(self):
         return self.__message_group
 

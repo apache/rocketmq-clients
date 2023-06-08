@@ -13,16 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import hmac
 import hashlib
+import hmac
 
-from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
-from multiprocessing import cpu_count
-
-scheduler_executors = {
-    'default': ThreadPoolExecutor(2 * cpu_count()),
-    # 'processpool': ProcessPoolExecutor(5)
-}
 
 def number_to_base(number, base):
     alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"

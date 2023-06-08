@@ -13,10 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rocketmq.client_config import ClientConfig
-import uuid
 import datetime
 import importlib.metadata
+import uuid
+
+from rocketmq.client_config import ClientConfig
 from rocketmq.utils import sign
 
 
