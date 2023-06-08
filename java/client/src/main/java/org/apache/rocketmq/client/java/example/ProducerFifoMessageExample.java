@@ -19,11 +19,8 @@ package org.apache.rocketmq.client.java.example;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.ClientServiceProvider;
-import org.apache.rocketmq.client.apis.SessionCredentialsProvider;
-import org.apache.rocketmq.client.apis.StaticSessionCredentialsProvider;
 import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.producer.Producer;
 import org.apache.rocketmq.client.apis.producer.SendReceipt;
@@ -39,26 +36,8 @@ public class ProducerFifoMessageExample {
     public static void main(String[] args) throws ClientException, IOException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
 
-        // Credential provider is optional for client configuration.
-        String accessKey = "yourAccessKey";
-        String secretKey = "yourSecretKey";
-        SessionCredentialsProvider sessionCredentialsProvider =
-            new StaticSessionCredentialsProvider(accessKey, secretKey);
-
-        String endpoints = "foobar.com:8080";
-        ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
-            .setEndpoints(endpoints)
-            .setCredentialProvider(sessionCredentialsProvider)
-            .build();
         String topic = "yourFifoTopic";
-        // In most case, you don't need to create too many producers, singleton pattern is recommended.
-        final Producer producer = provider.newProducerBuilder()
-            .setClientConfiguration(clientConfiguration)
-            // Set the topic name(s), which is optional but recommended. It makes producer could prefetch the topic
-            // route before message publishing.
-            .setTopics(topic)
-            // May throw {@link ClientException} if the producer is not initialized.
-            .build();
+        final Producer producer = ProducerSingleton.getInstance(topic);
         // Define your message body.
         byte[] body = "This is a FIFO message for Apache RocketMQ".getBytes(StandardCharsets.UTF_8);
         String tag = "yourMessageTagA";
