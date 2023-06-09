@@ -28,7 +28,7 @@ import org.apache.rocketmq.client.apis.producer.ProducerBuilder;
 import org.apache.rocketmq.client.apis.producer.TransactionChecker;
 
 public class ProducerSingleton {
-    private volatile static Producer PRODUCER;
+    private static volatile Producer PRODUCER;
     private static final String ACCESS_KEY = "yourAccessKey";
     private static final String SECRET_KEY = "yourSecretKey";
     private static final String ENDPOINTS = "foobar.com:8080";
