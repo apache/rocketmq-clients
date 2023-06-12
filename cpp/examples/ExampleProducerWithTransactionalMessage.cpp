@@ -79,7 +79,7 @@ int main(int argc, char* argv[]) {
                       .withConfiguration(Configuration::newBuilder()
                                              .withEndpoints(FLAGS_access_point)
                                              .withCredentialsProvider(credentials_provider)
-                                             .enableSsl(false)
+                                             .withSsl(true)
                                              .build())
                       .withTopics({FLAGS_topic})
                       .withTransactionChecker(checker)

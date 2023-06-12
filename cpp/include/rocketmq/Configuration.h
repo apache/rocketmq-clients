@@ -43,8 +43,8 @@ public:
     return request_timeout_;
   }
 
-  bool enableSsl() const {
-    return enableSsl_;
+  bool withSsl() const {
+    return withSsl_;
   }
 
 protected:
@@ -56,7 +56,7 @@ private:
   std::string               endpoints_;
   CredentialsProviderPtr    credentials_provider_;
   std::chrono::milliseconds request_timeout_{ConfigurationDefaults::RequestTimeout};
-  bool enableSsl_ = true;
+  bool withSsl_ = true;
 };
 
 class ConfigurationBuilder {
@@ -67,7 +67,7 @@ public:
 
   ConfigurationBuilder& withRequestTimeout(std::chrono::milliseconds request_timeout);
 
-  ConfigurationBuilder& enableSsl(bool enable);
+  ConfigurationBuilder& withSsl(bool enable);
 
   Configuration build();
 

@@ -58,7 +58,7 @@ int main(int argc, char* argv[]) {
                                                   .withEndpoints(FLAGS_access_point)
                                                   .withRequestTimeout(std::chrono::seconds(3))
                                                   .withCredentialsProvider(credentials_provider)
-                                                  .enableSsl(false)
+                                                  .withSsl(true)
                                                   .build())
                            .withConsumeThreads(4)
                            .withListener(listener)

@@ -94,8 +94,8 @@ public:
     client_config_.request_timeout = absl::FromChrono(request_timeout);
   }
 
-  void withEnableSsl(bool enable) {
-    client_config_.enableSsl = enable;
+  void withSsl(bool enable) {
+    client_config_.withSsl = enable;
   }
 
   /**

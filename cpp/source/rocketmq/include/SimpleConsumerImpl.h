@@ -61,8 +61,8 @@ public:
     long_polling_duration_ = receive_timeout;
   }
 
-  void withEnableSsl(bool enable) {
-    client_config_.enableSsl = enable;
+  void withSsl(bool enable) {
+    client_config_.withSsl = enable;
   }
 
 protected:
