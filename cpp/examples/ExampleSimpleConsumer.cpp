@@ -50,13 +50,15 @@ int main(int argc, char* argv[]) {
                              .withGroup(FLAGS_group)
                              .withConfiguration(Configuration::newBuilder()
                                                     .withEndpoints(FLAGS_access_point)
+                                                    .withRequestTimeout(std::chrono::seconds(3))
                                                     .withCredentialsProvider(credentials_provider)
                                                     .build())
+                             .withAwaitDuration(std::chrono::seconds (3))
                              .subscribe(FLAGS_topic, tag)
                              .build();
   std::vector<MessageConstSharedPtr> messages;
   std::error_code ec;
-  simple_consumer.receive(4, std::chrono::seconds(3), ec, messages);
+  simple_consumer.receive(4, std::chrono::seconds(30), ec, messages);
 
   if (ec) {
     std::cerr << "Failed to receive messages. Cause: " << ec.message() << std::endl;

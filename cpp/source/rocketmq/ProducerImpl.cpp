@@ -572,7 +572,7 @@ void ProducerImpl::onOrphanedTransactionalMessage(MessageConstSharedPtr message)
   }
 }
 
-void ProducerImpl::topicsOfInterest(std::vector<std::string> topics) {
+void ProducerImpl::topicsOfInterest(std::vector<std::string>& topics) {
   absl::MutexLock lk(&topics_mtx_);
   topics_.swap(topics);
 }

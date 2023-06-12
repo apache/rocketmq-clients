@@ -107,7 +107,7 @@ public:
 
   void buildClientSettings(rmq::Settings& settings) override;
 
-  void topicsOfInterest(std::vector<std::string> topics) override LOCKS_EXCLUDED(topics_mtx_);
+  void topicsOfInterest(std::vector<std::string>& topics) override LOCKS_EXCLUDED(topics_mtx_);
 
   const PublishStats& stats() const {
     return stats_;

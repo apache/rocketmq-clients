@@ -52,7 +52,7 @@ public:
 
   void prepareHeartbeatData(HeartbeatRequest& request) override;
 
-  void topicsOfInterest(std::vector<std::string> topics) override LOCKS_EXCLUDED(topic_filter_expression_table_mtx_);
+  void topicsOfInterest(std::vector<std::string>& topics) override LOCKS_EXCLUDED(topic_filter_expression_table_mtx_);
 
   void start() override;
 

@@ -764,7 +764,7 @@ State ClientManagerImpl::state() const {
 }
 
 MessageConstSharedPtr ClientManagerImpl::wrapMessage(const rmq::Message& item) {
-  assert(item.topic().resource_namespace() == resource_namespace_);
+  // assert(item.topic().resource_namespace() == resource_namespace_);
   auto builder = Message::newBuilder();
 
   // base

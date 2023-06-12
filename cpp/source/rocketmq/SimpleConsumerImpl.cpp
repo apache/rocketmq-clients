@@ -67,7 +67,7 @@ void SimpleConsumerImpl::buildClientSettings(rmq::Settings& settings) {
   }
 }
 
-void SimpleConsumerImpl::topicsOfInterest(std::vector<std::string> topics) {
+void SimpleConsumerImpl::topicsOfInterest(std::vector<std::string>& topics) {
   absl::MutexLock lk(&subscriptions_mtx_);
   for (const auto& entry : subscriptions_) {
     if (std::find(topics.begin(), topics.end(), entry.first) == topics.end()) {

@@ -62,7 +62,7 @@ public:
   }
 
 protected:
-  void topicsOfInterest(std::vector<std::string> topics) override;
+  void topicsOfInterest(std::vector<std::string>& topics) override;
 
 private:
   absl::flat_hash_map<std::string, FilterExpression> subscriptions_ GUARDED_BY(subscriptions_mtx_);
