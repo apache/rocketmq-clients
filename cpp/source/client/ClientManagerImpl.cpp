@@ -47,10 +47,11 @@
 
 ROCKETMQ_NAMESPACE_BEGIN
 
-ClientManagerImpl::ClientManagerImpl(std::string resource_namespace)
+ClientManagerImpl::ClientManagerImpl(std::string resource_namespace, bool enableSsl)
     : scheduler_(std::make_shared<SchedulerImpl>()), resource_namespace_(std::move(resource_namespace)),
       state_(State::CREATED),
-      callback_thread_pool_(absl::make_unique<ThreadPoolImpl>(std::thread::hardware_concurrency())) {
+      callback_thread_pool_(absl::make_unique<ThreadPoolImpl>(std::thread::hardware_concurrency())),
+      enableSsl_(enableSsl){
   certificate_verifier_ = grpc::experimental::ExternalCertificateVerifier::Create<InsecureCertificateVerifier>();
   tls_channel_credential_options_.set_verify_server_certs(false);
   tls_channel_credential_options_.set_check_call_host(false);
@@ -469,7 +470,7 @@ std::shared_ptr<grpc::Channel> ClientManagerImpl::createChannel(const std::strin
   std::vector<std::unique_ptr<grpc::experimental::ClientInterceptorFactoryInterface>> interceptor_factories;
   interceptor_factories.emplace_back(absl::make_unique<LogInterceptorFactory>());
   auto channel = grpc::experimental::CreateCustomChannelWithInterceptors(
-      target_host, channel_credential_, channel_arguments_, std::move(interceptor_factories));
+      target_host, enableSsl_ ? channel_credential_ : grpc::InsecureChannelCredentials(), channel_arguments_, std::move(interceptor_factories));
   return channel;
 }
 

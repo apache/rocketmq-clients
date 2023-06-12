@@ -51,6 +51,7 @@ int main(int argc, char* argv[]) {
                              .withConfiguration(Configuration::newBuilder()
                                                     .withEndpoints(FLAGS_access_point)
                                                     .withCredentialsProvider(credentials_provider)
+                                                    .enableSsl(false)
                                                     .build())
                              .subscribe(FLAGS_topic, tag)
                              .build();

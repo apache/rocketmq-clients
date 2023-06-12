@@ -60,6 +60,7 @@ struct ClientConfig {
   PublisherConfig publisher;
   SubscriberConfig subscriber;
   Metric metric;
+  bool enableSsl;
   std::unique_ptr<opencensus::trace::Sampler> sampler_;
 };
 

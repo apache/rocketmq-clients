@@ -83,6 +83,7 @@ ProducerBuilder& ProducerBuilder::withConfiguration(Configuration configuration)
   impl_->withNameServerResolver(std::move(name_server_resolver));
   impl_->withCredentialsProvider(configuration.credentialsProvider());
   impl_->withRequestTimeout(configuration.requestTimeout());
+  impl_->withEnableSsl(configuration.enableSsl());
   return *this;
 }
 
