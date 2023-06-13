@@ -17,7 +17,6 @@
 
 package org.apache.rocketmq.client.java.example;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.ClientServiceProvider;
@@ -33,7 +32,7 @@ public class ProducerFifoMessageExample {
     private ProducerFifoMessageExample() {
     }
 
-    public static void main(String[] args) throws ClientException, IOException {
+    public static void main(String[] args) throws ClientException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
 
         String topic = "yourFifoTopic";
@@ -59,6 +58,7 @@ public class ProducerFifoMessageExample {
             log.error("Failed to send message", t);
         }
         // Close the producer when you don't need it anymore.
-        producer.close();
+        // You could close it manually or add this into the JVM shutdown hook.
+        // producer.shutdown();
     }
 }

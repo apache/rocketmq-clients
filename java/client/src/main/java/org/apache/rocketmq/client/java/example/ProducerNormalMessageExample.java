@@ -55,5 +55,8 @@ public class ProducerNormalMessageExample {
         } catch (Throwable t) {
             log.error("Failed to send message", t);
         }
+        // Close the producer when you don't need it anymore.
+        // You could close it manually or add this into the JVM shutdown hook.
+        // producer.shutdown();
     }
 }

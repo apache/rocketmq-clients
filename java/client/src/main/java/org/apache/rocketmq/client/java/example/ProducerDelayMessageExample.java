@@ -17,7 +17,6 @@
 
 package org.apache.rocketmq.client.java.example;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import org.apache.rocketmq.client.apis.ClientException;
@@ -34,7 +33,7 @@ public class ProducerDelayMessageExample {
     private ProducerDelayMessageExample() {
     }
 
-    public static void main(String[] args) throws ClientException, IOException {
+    public static void main(String[] args) throws ClientException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
 
         String topic = "yourDelayTopic";
@@ -61,6 +60,7 @@ public class ProducerDelayMessageExample {
             log.error("Failed to send message", t);
         }
         // Close the producer when you don't need it anymore.
-        producer.close();
+        // You could close it manually or add this into the JVM shutdown hook.
+        // producer.shutdown();
     }
 }

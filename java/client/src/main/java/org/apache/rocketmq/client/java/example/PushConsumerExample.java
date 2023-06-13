@@ -37,7 +37,7 @@ public class PushConsumerExample {
     private PushConsumerExample() {
     }
 
-    public static void main(String[] args) throws ClientException, IOException, InterruptedException {
+    public static void main(String[] args) throws ClientException, InterruptedException, IOException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
 
         // Credential provider is optional for client configuration.
@@ -71,6 +71,7 @@ public class PushConsumerExample {
         // Block the main thread, no need for production environment.
         Thread.sleep(Long.MAX_VALUE);
         // Close the push consumer when you don't need it anymore.
+        // You could close it manually or add this into the JVM shutdown hook.
         pushConsumer.close();
     }
 }

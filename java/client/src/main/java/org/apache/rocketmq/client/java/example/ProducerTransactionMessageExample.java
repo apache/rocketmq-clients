@@ -45,7 +45,7 @@ public class ProducerTransactionMessageExample {
             return TransactionResolution.COMMIT;
         };
         // Get producer using singleton pattern.
-        final Producer producer = ProducerSingleton.getInstance(checker, topic);
+        final Producer producer = ProducerSingleton.getTransactionalInstance(checker, topic);
         final Transaction transaction = producer.beginTransaction();
         // Define your message body.
         byte[] body = "This is a transaction message for Apache RocketMQ".getBytes(StandardCharsets.UTF_8);
@@ -70,5 +70,9 @@ public class ProducerTransactionMessageExample {
         transaction.commit();
         // Or rollback the transaction.
         // transaction.rollback();
+
+        // Close the producer when you don't need it anymore.
+        // You could close it manually or add this into the JVM shutdown hook.
+        // producer.shutdown();
     }
 }
