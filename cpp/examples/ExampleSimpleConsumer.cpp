@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
                                                     .withRequestTimeout(std::chrono::seconds(3))
                                                     .withCredentialsProvider(credentials_provider)
                                                     .build())
-                             .withAwaitDuration(std::chrono::seconds (3))
+                             .withAwaitDuration(std::chrono::seconds(3))
                              .subscribe(FLAGS_topic, tag)
                              .build();
   std::vector<MessageConstSharedPtr> messages;

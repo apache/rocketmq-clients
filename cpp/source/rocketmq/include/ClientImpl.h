@@ -77,7 +77,8 @@ public:
 
   void onRemoteEndpointRemoval(const std::vector<std::string>& hosts) override LOCKS_EXCLUDED(isolated_endpoints_mtx_);
 
-  void schedule(const std::string& task_name, const std::function<void(void)>& task,
+  void schedule(const std::string& task_name,
+                const std::function<void(void)>& task,
                 std::chrono::milliseconds delay) override;
 
   void createSession(const std::string& target, bool verify) override;
@@ -120,7 +121,7 @@ public:
   virtual void buildClientSettings(rmq::Settings& settings) {
   }
 
-  void registerTracingSampler(TracingSamplerProvider *provider) {
+  void registerTracingSampler(TracingSamplerProvider* provider) {
     if (provider) {
       client_config_.sampler_ = provider->tracingSampler();
     }
@@ -138,11 +139,12 @@ protected:
   std::atomic<State> state_;
 
   absl::flat_hash_map<std::string, TopicRouteDataPtr> topic_route_table_ GUARDED_BY(topic_route_table_mtx_);
-  absl::Mutex topic_route_table_mtx_ ACQUIRED_AFTER(inflight_route_requests_mtx_); // protects topic_route_table_
+  absl::Mutex topic_route_table_mtx_ ACQUIRED_AFTER(inflight_route_requests_mtx_);  // protects topic_route_table_
 
   absl::flat_hash_map<std::string, std::vector<std::function<void(const std::error_code&, const TopicRouteDataPtr&)>>>
       inflight_route_requests_ GUARDED_BY(inflight_route_requests_mtx_);
-  absl::Mutex inflight_route_requests_mtx_ ACQUIRED_BEFORE(topic_route_table_mtx_); // Protects inflight_route_requests_
+  absl::Mutex inflight_route_requests_mtx_
+      ACQUIRED_BEFORE(topic_route_table_mtx_);  // Protects inflight_route_requests_
   static const char* UPDATE_ROUTE_TASK_NAME;
   std::uint32_t route_update_handle_{0};
 

@@ -26,6 +26,7 @@
 #include "ClientManagerImpl.h"
 #include "MixAll.h"
 #include "PublishInfoCallback.h"
+#include "PublishStats.h"
 #include "SendContext.h"
 #include "TopicPublishInfo.h"
 #include "TransactionImpl.h"
@@ -37,7 +38,6 @@
 #include "rocketmq/SendReceipt.h"
 #include "rocketmq/State.h"
 #include "rocketmq/TransactionChecker.h"
-#include "PublishStats.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 

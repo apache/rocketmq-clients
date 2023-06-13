@@ -114,7 +114,8 @@ void ProducerImpl::validate(const Message& message, std::error_code& ec) {
   }
 }
 
-void ProducerImpl::wrapSendMessageRequest(const Message& message, SendMessageRequest& request,
+void ProducerImpl::wrapSendMessageRequest(const Message& message,
+                                          SendMessageRequest& request,
                                           const rmq::MessageQueue& message_queue) {
   auto msg = new rmq::Message();
 
@@ -216,8 +217,8 @@ SendReceipt ProducerImpl::send(MessageConstPtr message, std::error_code& ec) noe
 
   auto mtx = std::make_shared<absl::Mutex>();
   auto cv = std::make_shared<absl::CondVar>();
-  bool          completed = false;
-  SendReceipt   send_receipt;
+  bool completed = false;
+  SendReceipt send_receipt;
 
   // Define callback
   auto callback = [&, mtx, cv](const std::error_code& code, const SendReceipt& receipt) {
@@ -266,7 +267,7 @@ void ProducerImpl::send(MessageConstPtr message, SendCallback cb) {
 
     if (!publish_info) {
       std::error_code ec = ErrorCode::NotFound;
-      SendReceipt     send_receipt;
+      SendReceipt send_receipt;
       cb(ec, send_receipt);
       return;
     }
@@ -275,7 +276,7 @@ void ProducerImpl::send(MessageConstPtr message, SendCallback cb) {
     std::vector<rmq::MessageQueue> message_queue_list;
     if (!publish_info->selectMessageQueues(ptr->group(), message_queue_list)) {
       std::error_code ec = ErrorCode::NotFound;
-      SendReceipt     send_receipt;
+      SendReceipt send_receipt;
       cb(ec, send_receipt);
       return;
     }
@@ -397,7 +398,8 @@ bool ProducerImpl::endTransaction0(const MiniTransaction& transaction, Transacti
                                            : MixAll::SPAN_ATTRIBUTE_VALUE_ROCKETMQ_ROLLBACK_OPERATION;
     std::string span_name = resourceNamespace() + "/" + transaction.topic + " " + trace_operation_name;
     if (span_context.IsValid()) {
-      span = opencensus::trace::Span::StartSpanWithRemoteParent(span_name, span_context, {client_config_.sampler_.get()});
+      span =
+          opencensus::trace::Span::StartSpanWithRemoteParent(span_name, span_context, {client_config_.sampler_.get()});
     } else {
       span = opencensus::trace::Span::StartSpan(span_name, nullptr, {client_config_.sampler_.get()});
     }
@@ -511,7 +513,7 @@ void ProducerImpl::getPublishInfoAsync(const std::string& topic, const PublishIn
       return;
     }
     auto publish_info = std::make_shared<TopicPublishInfo>(producer, topic, route);
-    auto impl         = producer.lock();
+    auto impl = producer.lock();
     if (impl) {
       impl->cachePublishInfo(topic, publish_info);
     }

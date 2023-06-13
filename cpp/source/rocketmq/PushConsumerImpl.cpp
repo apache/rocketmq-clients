@@ -140,7 +140,8 @@ void PushConsumerImpl::shutdown() {
   }
 }
 
-void PushConsumerImpl::subscribe(const std::string& topic, const std::string& expression,
+void PushConsumerImpl::subscribe(const std::string& topic,
+                                 const std::string& expression,
                                  ExpressionType expression_type) {
   absl::MutexLock lock(&topic_filter_expression_table_mtx_);
   FilterExpression filter_expression{expression, expression_type};
@@ -185,7 +186,7 @@ void PushConsumerImpl::scanAssignments() {
         }
       };
       queryAssignment(topic, callback);
-    } // end of for-loop
+    }  // end of for-loop
   }
   SPDLOG_DEBUG("End of assignment scanning.");
 }
@@ -205,9 +206,9 @@ bool PushConsumerImpl::selectBroker(const TopicRouteDataPtr& topic_route_data, s
   return false;
 }
 
-void PushConsumerImpl::wrapQueryAssignmentRequest(const std::string&      topic,
-                                                  const std::string&      consumer_group,
-                                                  const std::string&      strategy_name,
+void PushConsumerImpl::wrapQueryAssignmentRequest(const std::string& topic,
+                                                  const std::string& consumer_group,
+                                                  const std::string& strategy_name,
                                                   QueryAssignmentRequest& request) {
   request.mutable_endpoints()->CopyFrom(accessPoint());
   request.mutable_topic()->set_name(topic);
@@ -233,7 +234,7 @@ void PushConsumerImpl::queryAssignment(
     absl::flat_hash_map<std::string, std::string> metadata;
     Signature::sign(client_config_, metadata);
     auto assignment_callback = [this, cb, topic, broker_host](const std::error_code& ec,
-                                                        const QueryAssignmentResponse& response) {
+                                                              const QueryAssignmentResponse& response) {
       if (ec) {
         SPDLOG_WARN("Failed to acquire queue assignment of topic={} from brokerAddress={}", topic, broker_host);
         cb(ec, nullptr);
@@ -279,9 +280,10 @@ void PushConsumerImpl::syncProcessQueue(const std::string& topic,
       if (std::none_of(
               message_queue_list.cbegin(), message_queue_list.cend(),
               [&](const rmq::MessageQueue& message_queue) { return it->second->messageQueue() == message_queue; })) {
-        SPDLOG_INFO("Stop receiving messages from {} as it is not assigned to current client according to latest "
-                    "assignment result from load balancer",
-                    simpleNameOf(it->second->messageQueue()));
+        SPDLOG_INFO(
+            "Stop receiving messages from {} as it is not assigned to current client according to latest "
+            "assignment result from load balancer",
+            simpleNameOf(it->second->messageQueue()));
         process_queue_table_.erase(it++);
       } else {
         if (!it->second || it->second->expired()) {

@@ -21,15 +21,15 @@
 #include <system_error>
 #include <utility>
 
-#include "rocketmq/Logger.h"
-#include "spdlog/spdlog.h"
 #include "MixAll.h"
 #include "ProducerImpl.h"
 #include "StaticNameServerResolver.h"
 #include "absl/strings/str_split.h"
 #include "rocketmq/ErrorCode.h"
+#include "rocketmq/Logger.h"
 #include "rocketmq/SendReceipt.h"
 #include "rocketmq/Transaction.h"
+#include "spdlog/spdlog.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -55,7 +55,7 @@ void Producer::send(MessageConstPtr message, const SendCallback& callback) noexc
   }
 
   if (!message->group().empty()) {
-    SendReceipt     empty;
+    SendReceipt empty;
     std::error_code ec = ErrorCode::BadRequestAsyncPubFifoMessage;
     callback(ec, empty);
     return;
