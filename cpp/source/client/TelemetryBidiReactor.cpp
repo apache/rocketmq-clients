@@ -295,10 +295,10 @@ void TelemetryBidiReactor::fireWrite() {
 
 void TelemetryBidiReactor::fireClose() {
   SPDLOG_INFO("{}#fireClose", peer_address_);
+  absl::MutexLock lk(&stream_state_mtx_);
   if (StreamState::Active == stream_state_) {
     StartWritesDone();
     {
-      absl::MutexLock lk(&stream_state_mtx_);
       if (StreamState::Active == stream_state_) {
         stream_state_cv_.Wait(&stream_state_mtx_);
       }
