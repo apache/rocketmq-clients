@@ -17,13 +17,9 @@
 
 package org.apache.rocketmq.client.java.example;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
 import org.apache.rocketmq.client.apis.ClientServiceProvider;
-import org.apache.rocketmq.client.apis.SessionCredentialsProvider;
-import org.apache.rocketmq.client.apis.StaticSessionCredentialsProvider;
 import org.apache.rocketmq.client.apis.message.Message;
 import org.apache.rocketmq.client.apis.producer.Producer;
 import org.apache.rocketmq.client.apis.producer.SendReceipt;
@@ -36,29 +32,11 @@ public class ProducerNormalMessageExample {
     private ProducerNormalMessageExample() {
     }
 
-    public static void main(String[] args) throws ClientException, IOException {
+    public static void main(String[] args) throws ClientException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
 
-        // Credential provider is optional for client configuration.
-        String accessKey = "yourAccessKey";
-        String secretKey = "yourSecretKey";
-        SessionCredentialsProvider sessionCredentialsProvider =
-            new StaticSessionCredentialsProvider(accessKey, secretKey);
-
-        String endpoints = "foobar.com:8080";
-        ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
-            .setEndpoints(endpoints)
-            .setCredentialProvider(sessionCredentialsProvider)
-            .build();
         String topic = "yourNormalTopic";
-        // In most case, you don't need to create too many producers, singleton pattern is recommended.
-        final Producer producer = provider.newProducerBuilder()
-            .setClientConfiguration(clientConfiguration)
-            // Set the topic name(s), which is optional but recommended. It makes producer could prefetch the topic
-            // route before message publishing.
-            .setTopics(topic)
-            // May throw {@link ClientException} if the producer is not initialized.
-            .build();
+        final Producer producer = ProducerSingleton.getInstance(topic);
         // Define your message body.
         byte[] body = "This is a normal message for Apache RocketMQ".getBytes(StandardCharsets.UTF_8);
         String tag = "yourMessageTagA";
@@ -78,6 +56,7 @@ public class ProducerNormalMessageExample {
             log.error("Failed to send message", t);
         }
         // Close the producer when you don't need it anymore.
-        producer.close();
+        // You could close it manually or add this into the JVM shutdown hook.
+        // producer.shutdown();
     }
 }
