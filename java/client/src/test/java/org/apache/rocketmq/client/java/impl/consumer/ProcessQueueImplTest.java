@@ -22,6 +22,7 @@ import static org.junit.Assert.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -134,7 +135,7 @@ public class ProcessQueueImplTest extends TestBase {
         when(pushSubscriptionSettings.getReceiveBatchSize()).thenReturn(32);
         ReceiveMessageRequest request = ReceiveMessageRequest.newBuilder().build();
         when(pushConsumer.wrapReceiveMessageRequest(anyInt(), any(MessageQueueImpl.class),
-            any(FilterExpression.class), any(Duration.class))).thenReturn(request);
+            any(FilterExpression.class), any(Duration.class), nullable(String.class))).thenReturn(request);
         processQueue.fetchMessageImmediately();
         await().atMost(Duration.ofSeconds(3))
             .untilAsserted(() -> verify(pushConsumer, times(cachedMessagesCountThresholdPerQueue))
