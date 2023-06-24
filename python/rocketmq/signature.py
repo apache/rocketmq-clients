@@ -41,34 +41,37 @@ class Signature:
 
     @staticmethod
     def sign(client_config: ClientConfig, client_id: str):
-        date_time = datetime.datetime.now().strftime(Signature.__DATE_TIME_FORMAT)
+        date_time = datetime.datetime.now().strftime(
+            Signature.__DATE_TIME_FORMAT)
         metadata = [
             (Signature.__LANGUAGE_KEY, "PYTHON"),
             (Signature.__PROTOCOL_VERSION, "v2"),
-            (Signature.__CLIENT_VERSION_KEY, importlib.metadata.version("rocketmq")),
+            (Signature.__CLIENT_VERSION_KEY,
+             importlib.metadata.version("rocketmq")),
             (
                 Signature.__DATE_TIME_KEY,
                 date_time,
             ),
-            (Signature.__REQUEST_ID_KEY, uuid.uuid4()),
+            (Signature.__REQUEST_ID_KEY, str(uuid.uuid4())),
             (Signature.__CLIENT_ID_KEY, client_id),
         ]
         if not client_config.session_credentials_provider:
             return metadata
         session_credentials = (
-            client_config.session_credentials_provider.session_credentials()
+            client_config.session_credentials_provider.get_credentials()
         )
         if not session_credentials:
             return metadata
         if session_credentials.security_token:
             metadata.append(
-                (Signature.__SESSION_TOKEN_KEY, session_credentials.security_token)
+                (Signature.__SESSION_TOKEN_KEY,
+                 session_credentials.security_token)
             )
         if (not session_credentials.access_key) or (
             not session_credentials.access_secret
         ):
             return metadata
-        signature = sign(session_credentials.access_key, date_time)
+        signature = sign(session_credentials.access_secret, date_time)
         authorization = (
             Signature.__ALGORITHM
             + " "

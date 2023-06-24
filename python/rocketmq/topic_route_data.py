@@ -13,26 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rocketmq.rpc_client import Endpoints
-from rocketmq.session_credentials import SessionCredentialsProvider
+from rocketmq.message_queue import MessageQueue
 
 
-class ClientConfig:
-    def __init__(self, endpoints: Endpoints, session_credentials_provider:
-                 SessionCredentialsProvider, ssl_enabled: bool):
-        self.__endpoints = endpoints
-        self.__session_credentials_provider = session_credentials_provider
-        self.__ssl_enabled = ssl_enabled
-        self.request_timeout = 10
+class TopicRouteData:
+    def __init__(self, message_queues):
+        self.message_queues = [MessageQueue(mq) for mq in message_queues]
 
-    @property
-    def session_credentials_provider(self):
-        return self.__session_credentials_provider
+    def __eq__(self, other):
+        if other is None:
+            return False
+        if self is other:
+            return True
+        return self.message_queues == other.message_queues
 
-    @property
-    def endpoints(self):
-        return self.__endpoints
+    def __hash__(self):
+        return hash(tuple(self.message_queues))
 
-    @property
-    def ssl_enabled(self):
-        return self.__ssl_enabled
+    def __str__(self):
+        mqs = ', '.join(str(mq) for mq in self.message_queues)
+        return f"[{mqs}]"

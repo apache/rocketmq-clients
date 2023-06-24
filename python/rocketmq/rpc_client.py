@@ -14,14 +14,146 @@
 # limitations under the License.
 
 import asyncio
+import operator
+import socket
 import time
 from datetime import timedelta
+from enum import Enum
+from functools import reduce
 
 import certifi
 from grpc import aio, ssl_channel_credentials
 from protocol import service_pb2
+
 from rocketmq import logger
 from rocketmq.protocol import service_pb2_grpc
+from rocketmq.protocol.definition_pb2 import Address as ProtoAddress
+from rocketmq.protocol.definition_pb2 import \
+    AddressScheme as ProtoAddressScheme
+from rocketmq.protocol.definition_pb2 import Endpoints as ProtoEndpoints
+
+
+class AddressScheme(Enum):
+    Unspecified = 0
+    Ipv4 = 1
+    Ipv6 = 2
+    DomainName = 3
+
+    @staticmethod
+    def to_protobuf(scheme):
+        if scheme == AddressScheme.Ipv4:
+            return ProtoAddressScheme.IPV4
+        elif scheme == AddressScheme.Ipv6:
+            return ProtoAddressScheme.IPV6
+        elif scheme == AddressScheme.DomainName:
+            return ProtoAddressScheme.DOMAIN_NAME
+        else:  # Unspecified or other cases
+            return ProtoAddressScheme.ADDRESS_SCHEME_UNSPECIFIED
+
+
+class Address:
+    def __init__(self, host, port):
+        self.host = host
+        self.port = port
+
+    def to_protobuf(self):
+        proto_address = ProtoAddress()
+        proto_address.host = self.host
+        proto_address.port = self.port
+        return proto_address
+
+
+class Endpoints:
+    HttpPrefix = "http://"
+    HttpsPrefix = "https://"
+    DefaultPort = 80
+    EndpointSeparator = ":"
+
+    def __init__(self, endpoints):
+        self.Addresses = []
+
+        self.scheme = AddressScheme.Unspecified
+        self._hash = None
+
+        if type(endpoints) == str:
+            if endpoints.startswith(self.HttpPrefix):
+                endpoints = endpoints[len(self.HttpPrefix):]
+            if endpoints.startswith(self.HttpsPrefix):
+                endpoints = endpoints[len(self.HttpsPrefix):]
+
+            index = endpoints.find(self.EndpointSeparator)
+            port = int(endpoints[index+1:]) if index > 0 else self.DefaultPort
+            host = endpoints[:index] if index > 0 else endpoints
+            address = Address(host, port)
+            self.Addresses.append(address)
+            try:
+                socket.inet_pton(socket.AF_INET, host)
+                self.scheme = AddressScheme.IPv4
+            except socket.error:
+                try:
+                    socket.inet_pton(socket.AF_INET6, host)
+                    self.scheme = AddressScheme.IPv6
+                except socket.error:
+                    self.scheme = AddressScheme.DomainName
+            self.Addresses.append(address)
+
+            # Assuming AddressListEqualityComparer exists
+            self._hash = 17
+            self._hash = (self._hash * 31) + reduce(operator.xor,
+                                                    (hash(address) for address
+                                                     in self.Addresses))
+            self._hash = (self._hash * 31) + hash(self.scheme)
+        else:
+            self.Addresses = [Address(addr.host, addr.port) for addr in
+                              endpoints.addresses]
+            if not self.Addresses:
+                raise Exception("No available address")
+
+            if endpoints.scheme == 'Ipv4':
+                self.scheme = AddressScheme.Ipv4
+            elif endpoints.scheme == 'Ipv6':
+                self.scheme = AddressScheme.Ipv6
+            else:
+                self.scheme = AddressScheme.DomainName
+                if len(self.Addresses) > 1:
+                    raise Exception("Multiple addresses are\
+                                    not allowed in domain scheme")
+
+            self._hash = self._calculate_hash()
+
+    def _calculate_hash(self):
+        hash_value = 17
+        for address in self.Addresses:
+            hash_value = (hash_value * 31) + hash(address)
+        hash_value = (hash_value * 31) + hash(self.scheme)
+        return hash_value
+
+    def __str__(self):
+        for address in self.Addresses:
+            return None
+
+    def grpc_target(self, sslEnabled):
+        for address in self.Addresses:
+            return address.host + ":" + str(address.port)
+        raise ValueError("No available address")
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+        if self is other:
+            return True
+        res = self.Addresses == other.Addresses and self.Scheme == other.Scheme
+        return res
+
+    def __hash__(self):
+        return self._hash
+
+    def to_protobuf(self):
+        proto_endpoints = ProtoEndpoints()
+        proto_endpoints.scheme = self.scheme.to_protobuf(self.scheme)
+        proto_endpoints.addresses.extend(
+            [i.to_protobuf() for i in self.Addresses])
+        return proto_endpoints
 
 
 class RpcClient:
@@ -53,24 +185,33 @@ class RpcClient:
         )
 
     async def query_route(
-        self, request: service_pb2.QueryRouteRequest, timeout_seconds: int
+        self, request: service_pb2.QueryRouteRequest, metadata,
+        timeout_seconds: int
     ):
-        return await self.__stub.QueryRoute(request, timeout=timeout_seconds)
+        # metadata = [('x-mq-client-id', 'value1')]
+        return await self.__stub.QueryRoute(request, timeout=timeout_seconds,
+                                            metadata=metadata)
 
     async def heartbeat(
-        self, request: service_pb2.HeartbeatRequest, timeout_seconds: int
+        self, request: service_pb2.HeartbeatRequest, metadata,
+        timeout_seconds: int
     ):
-        return await self.__stub.Heartbeat(request, timeout=timeout_seconds)
+        return await self.__stub.Heartbeat(request, metadata=metadata,
+                                           timeout=timeout_seconds)
 
     async def send_message(
-        self, request: service_pb2.SendMessageRequest, timeout_seconds: int
+        self, request: service_pb2.SendMessageRequest, metadata,
+        timeout_seconds: int
     ):
-        return await self.__stub.SendMessage(request, timeout=timeout_seconds)
+        return await self.__stub.SendMessage(request, metadata=metadata,
+                                             timeout=timeout_seconds)
 
     async def receive_message(
-        self, request: service_pb2.ReceiveMessageRequest, timeout_seconds: int
+        self, request: service_pb2.ReceiveMessageRequest, metadata,
+        timeout_seconds: int
     ):
-        results = self.__stub.ReceiveMessage(request, timeout=timeout_seconds)
+        results = self.__stub.ReceiveMessage(request, metadata=metadata,
+                                             timeout=timeout_seconds)
         response = []
         try:
             async for result in results:
@@ -82,68 +223,68 @@ class RpcClient:
         return response
 
     async def query_assignment(
-        self, request: service_pb2.QueryAssignmentRequest, timeout_seconds: int
+        self, request: service_pb2.QueryAssignmentRequest, metadata,
+        timeout_seconds: int
     ):
-        return await self.__stub.QueryAssignment(request, timeout=timeout_seconds)
+        return await self.__stub.QueryAssignment(request, metadata=metadata,
+                                                 timeout=timeout_seconds)
 
     async def ack_message(
-        self, request: service_pb2.AckMessageRequest, timeout_seconds: int
+        self, request: service_pb2.AckMessageRequest, metadata,
+        timeout_seconds: int
     ):
-        return await self.__stub.AckMessage(request, timeout=timeout_seconds)
+        return await self.__stub.AckMessage(request, metadata=metadata,
+                                            timeout=timeout_seconds)
 
     async def forward_message_to_dead_letter_queue(
         self,
         request: service_pb2.ForwardMessageToDeadLetterQueueRequest,
+        metadata,
         timeout_seconds: int,
     ):
         return await self.__stub.ForwardMessageToDeadLetterQueue(
-            request, timeout=timeout_seconds
+            request, metadata=metadata, timeout=timeout_seconds
         )
 
     async def end_transaction(
-        self, request: service_pb2.EndTransactionRequest, timeout_seconds: int
+        self, request: service_pb2.EndTransactionRequest, metadata,
+        timeout_seconds: int
     ):
-        return await self.__stub.EndTransaction(request, timeout=timeout_seconds)
+        return await self.__stub.EndTransaction(request, metadata=metadata,
+                                                timeout=timeout_seconds)
 
     async def notify_client_termination(
-        self, request: service_pb2.NotifyClientTerminationRequest, timeout_seconds: int
+        self, request: service_pb2.NotifyClientTerminationRequest, metadata,
+        timeout_seconds: int
     ):
         return await self.__stub.NotifyClientTermination(
-            request, timeout=timeout_seconds
+            request, metadata=metadata, timeout=timeout_seconds
         )
 
     async def change_invisible_duration(
-        self, request: service_pb2.ChangeInvisibleDurationRequest, timeout_seconds: int
+        self, request: service_pb2.ChangeInvisibleDurationRequest, metadata,
+        timeout_seconds: int
     ):
         return await self.__stub.ChangeInvisibleDuration(
-            request, timeout=timeout_seconds
+            request, metadata=metadata, timeout=timeout_seconds
         )
 
     async def send_requests(self, requests, stream):
         for request in requests:
             await stream.send_message(request)
 
-    async def telemetry(
-        self, timeout_seconds: int, requests
+    def telemetry(
+        self, metadata, timeout_seconds: int
     ):
-        responses = []
-        async with self.__stub.Telemetry() as stream:
-            # Create a task for sending requests
-            send_task = asyncio.create_task(self.send_requests(requests, stream))
-            # Receiving responses
-            async for response in stream:
-                responses.append(response)
-
-            # Await the send task to ensure all requests have been sent
-            await send_task
-
-        return responses
+        stream = self.__stub.Telemetry(metadata=metadata,
+                                       timeout=timeout_seconds)
+        return stream
 
 
 async def test():
-    client = RpcClient("rmq-cn-72u353icd01.cn-hangzhou.rmq.aliyuncs.com:8080")
-    request = service_pb2.QueryRouteRequest()
-    response = await client.query_route(request, 3)
+    client = RpcClient("rmq-cn-jaj390gga04.cn-hangzhou.rmq.aliyuncs.com:8081")
+    request = service_pb2.SendMessageRequest()
+    response = await client.send_message(request, 3)
     logger.info(response)
 
 

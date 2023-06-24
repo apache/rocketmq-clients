@@ -69,7 +69,8 @@ class MessageIdCodec:
     @staticmethod
     def next_message_id():
         seconds = MessageIdCodec.__delta_seconds()
-        seconds_bytes = MessageIdCodec.__int_to_bytes_with_big_endian(seconds, 4)[-4:]
+        seconds_bytes = MessageIdCodec.__int_to_bytes_with_big_endian(seconds,
+                                                                      4)[-4:]
         sequence_bytes = MessageIdCodec.__int_to_bytes_with_big_endian(
             MessageIdCodec.__get_and_increment_sequence(), 4
         )[-4:]

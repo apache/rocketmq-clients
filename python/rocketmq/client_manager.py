@@ -16,6 +16,7 @@
 import threading
 
 from protocol import service_pb2
+
 from rocketmq.client import Client
 from rocketmq.rpc_client import Endpoints, RpcClient
 
@@ -26,12 +27,12 @@ class ClientManager:
         self.__rpc_clients = {}
         self.__rpc_clients_lock = threading.Lock()
 
-    def __get_rpc_client(self, endpoints: Endpoints, ssl_enabled: bool) -> RpcClient:
+    def __get_rpc_client(self, endpoints: Endpoints, ssl_enabled: bool):
         with self.__rpc_clients_lock:
             rpc_client = self.__rpc_clients.get(endpoints)
             if rpc_client:
                 return rpc_client
-            rpc_client = RpcClient(endpoints.get_target(), ssl_enabled)
+            rpc_client = RpcClient(endpoints, ssl_enabled)
             self.__rpc_clients[endpoints] = rpc_client
             return rpc_client
 
@@ -123,7 +124,8 @@ class ClientManager:
         rpc_client = self.__get_rpc_client(
             endpoints, self.__client.client_config.ssl_enabled
         )
-        return await rpc_client.notify_client_termination(request, timeout_seconds)
+        return await rpc_client.notify_client_termination(request,
+                                                          timeout_seconds)
 
     async def change_invisible_duration(
         self,
@@ -134,4 +136,16 @@ class ClientManager:
         rpc_client = self.__get_rpc_client(
             endpoints, self.__client.client_config.ssl_enabled
         )
-        return await rpc_client.change_invisible_duration(request, timeout_seconds)
+        return await rpc_client.change_invisible_duration(request,
+                                                          timeout_seconds)
+
+    async def telemetry(
+        self,
+        endpoints: Endpoints,
+        request: service_pb2.TelemetryCommand,
+        timeout_seconds: int
+    ):
+        rpc_client = self.__get_rpc_client(
+            endpoints, self.__client.client_config.ssl_enabled
+        )
+        return await rpc_client.telemetry()
