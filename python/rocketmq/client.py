@@ -18,7 +18,6 @@ from typing import Set
 
 from protocol import service_pb2
 from protocol.service_pb2 import QueryRouteRequest
-
 from rocketmq.client_config import ClientConfig
 from rocketmq.client_id_encoder import ClientIdEncoder
 from rocketmq.rpc_client import Endpoints, RpcClient

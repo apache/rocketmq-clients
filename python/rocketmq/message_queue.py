@@ -20,7 +20,6 @@ from protocol.definition_pb2 import MessageQueue as ProtoMessageQueue
 from protocol.definition_pb2 import MessageType as ProtoMessageType
 from protocol.definition_pb2 import Permission as ProtoPermission
 from protocol.definition_pb2 import Resource as ProtoResource
-
 from rocketmq.rpc_client import Endpoints
 
 

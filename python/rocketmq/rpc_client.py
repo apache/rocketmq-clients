@@ -24,7 +24,6 @@ from functools import reduce
 import certifi
 from grpc import aio, ssl_channel_credentials
 from protocol import service_pb2
-
 from rocketmq import logger
 from rocketmq.protocol import service_pb2_grpc
 from rocketmq.protocol.definition_pb2 import Address as ProtoAddress
@@ -82,7 +81,7 @@ class Endpoints:
                 endpoints = endpoints[len(self.HttpsPrefix):]
 
             index = endpoints.find(self.EndpointSeparator)
-            port = int(endpoints[index+1:]) if index > 0 else self.DefaultPort
+            port = int(endpoints[index + 1:]) if index > 0 else 80
             host = endpoints[:index] if index > 0 else endpoints
             address = Address(host, port)
             self.Addresses.append(address)

@@ -84,7 +84,7 @@ class PublishingSettings(Settings):
         )
         return ProtoSettings(publishing=publishing,
                              access_point=self.Endpoints.to_protobuf(),
-                             client_type=ClientTypeHelper.to_protobuf(
-                                                        self.ClientType),
+                             client_type=ClientTypeHelper.to_protobuf
+                             (self.ClientType),
                              user_agent=UserAgent().to_protobuf(),
                              )

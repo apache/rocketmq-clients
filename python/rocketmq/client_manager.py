@@ -16,7 +16,6 @@
 import threading
 
 from protocol import service_pb2
-
 from rocketmq.client import Client
 from rocketmq.rpc_client import Endpoints, RpcClient
 
