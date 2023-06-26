@@ -27,8 +27,7 @@ from protocol import service_pb2
 from rocketmq import logger
 from rocketmq.protocol import service_pb2_grpc
 from rocketmq.protocol.definition_pb2 import Address as ProtoAddress
-from rocketmq.protocol.definition_pb2 import \
-    AddressScheme as ProtoAddressScheme
+from rocketmq.protocol.definition_pb2 import AddressScheme as ProtoAddressScheme
 from rocketmq.protocol.definition_pb2 import Endpoints as ProtoEndpoints
 
 
@@ -76,12 +75,12 @@ class Endpoints:
 
         if type(endpoints) == str:
             if endpoints.startswith(self.HttpPrefix):
-                endpoints = endpoints[len(self.HttpPrefix):]
+                endpoints = endpoints[len(self.HttpPrefix) :]
             if endpoints.startswith(self.HttpsPrefix):
-                endpoints = endpoints[len(self.HttpsPrefix):]
+                endpoints = endpoints[len(self.HttpsPrefix) :]
 
             index = endpoints.find(self.EndpointSeparator)
-            port = int(endpoints[index + 1:]) if index > 0 else 80
+            port = int(endpoints[index + 1 :]) if index > 0 else 80
             host = endpoints[:index] if index > 0 else endpoints
             address = Address(host, port)
             self.Addresses.append(address)
@@ -98,25 +97,28 @@ class Endpoints:
 
             # Assuming AddressListEqualityComparer exists
             self._hash = 17
-            self._hash = (self._hash * 31) + reduce(operator.xor,
-                                                    (hash(address) for address
-                                                     in self.Addresses))
+            self._hash = (self._hash * 31) + reduce(
+                operator.xor, (hash(address) for address in self.Addresses)
+            )
             self._hash = (self._hash * 31) + hash(self.scheme)
         else:
-            self.Addresses = [Address(addr.host, addr.port) for addr in
-                              endpoints.addresses]
+            self.Addresses = [
+                Address(addr.host, addr.port) for addr in endpoints.addresses
+            ]
             if not self.Addresses:
                 raise Exception("No available address")
 
-            if endpoints.scheme == 'Ipv4':
+            if endpoints.scheme == "Ipv4":
                 self.scheme = AddressScheme.Ipv4
-            elif endpoints.scheme == 'Ipv6':
+            elif endpoints.scheme == "Ipv6":
                 self.scheme = AddressScheme.Ipv6
             else:
                 self.scheme = AddressScheme.DomainName
                 if len(self.Addresses) > 1:
-                    raise Exception("Multiple addresses are\
-                                    not allowed in domain scheme")
+                    raise Exception(
+                        "Multiple addresses are\
+                                    not allowed in domain scheme"
+                    )
 
             self._hash = self._calculate_hash()
 
@@ -150,8 +152,7 @@ class Endpoints:
     def to_protobuf(self):
         proto_endpoints = ProtoEndpoints()
         proto_endpoints.scheme = self.scheme.to_protobuf(self.scheme)
-        proto_endpoints.addresses.extend(
-            [i.to_protobuf() for i in self.Addresses])
+        proto_endpoints.addresses.extend([i.to_protobuf() for i in self.Addresses])
         return proto_endpoints
 
 
@@ -184,37 +185,37 @@ class RpcClient:
         )
 
     async def query_route(
-        self, request: service_pb2.QueryRouteRequest, metadata,
-        timeout_seconds: int
+        self, request: service_pb2.QueryRouteRequest, metadata, timeout_seconds: int
     ):
         # metadata = [('x-mq-client-id', 'value1')]
-        return await self.__stub.QueryRoute(request, timeout=timeout_seconds,
-                                            metadata=metadata)
+        return await self.__stub.QueryRoute(
+            request, timeout=timeout_seconds, metadata=metadata
+        )
 
     async def heartbeat(
-        self, request: service_pb2.HeartbeatRequest, metadata,
-        timeout_seconds: int
+        self, request: service_pb2.HeartbeatRequest, metadata, timeout_seconds: int
     ):
-        return await self.__stub.Heartbeat(request, metadata=metadata,
-                                           timeout=timeout_seconds)
+        return await self.__stub.Heartbeat(
+            request, metadata=metadata, timeout=timeout_seconds
+        )
 
     async def send_message(
-        self, request: service_pb2.SendMessageRequest, metadata,
-        timeout_seconds: int
+        self, request: service_pb2.SendMessageRequest, metadata, timeout_seconds: int
     ):
-        return await self.__stub.SendMessage(request, metadata=metadata,
-                                             timeout=timeout_seconds)
+        return await self.__stub.SendMessage(
+            request, metadata=metadata, timeout=timeout_seconds
+        )
 
     async def receive_message(
-        self, request: service_pb2.ReceiveMessageRequest, metadata,
-        timeout_seconds: int
+        self, request: service_pb2.ReceiveMessageRequest, metadata, timeout_seconds: int
     ):
-        results = self.__stub.ReceiveMessage(request, metadata=metadata,
-                                             timeout=timeout_seconds)
+        results = self.__stub.ReceiveMessage(
+            request, metadata=metadata, timeout=timeout_seconds
+        )
         response = []
         try:
             async for result in results:
-                if result.HasField('message'):
+                if result.HasField("message"):
                     response.append(result.message)
         except Exception as e:
             logger.info("An error occurred: %s", e)
@@ -222,18 +223,21 @@ class RpcClient:
         return response
 
     async def query_assignment(
-        self, request: service_pb2.QueryAssignmentRequest, metadata,
-        timeout_seconds: int
+        self,
+        request: service_pb2.QueryAssignmentRequest,
+        metadata,
+        timeout_seconds: int,
     ):
-        return await self.__stub.QueryAssignment(request, metadata=metadata,
-                                                 timeout=timeout_seconds)
+        return await self.__stub.QueryAssignment(
+            request, metadata=metadata, timeout=timeout_seconds
+        )
 
     async def ack_message(
-        self, request: service_pb2.AckMessageRequest, metadata,
-        timeout_seconds: int
+        self, request: service_pb2.AckMessageRequest, metadata, timeout_seconds: int
     ):
-        return await self.__stub.AckMessage(request, metadata=metadata,
-                                            timeout=timeout_seconds)
+        return await self.__stub.AckMessage(
+            request, metadata=metadata, timeout=timeout_seconds
+        )
 
     async def forward_message_to_dead_letter_queue(
         self,
@@ -246,23 +250,27 @@ class RpcClient:
         )
 
     async def end_transaction(
-        self, request: service_pb2.EndTransactionRequest, metadata,
-        timeout_seconds: int
+        self, request: service_pb2.EndTransactionRequest, metadata, timeout_seconds: int
     ):
-        return await self.__stub.EndTransaction(request, metadata=metadata,
-                                                timeout=timeout_seconds)
+        return await self.__stub.EndTransaction(
+            request, metadata=metadata, timeout=timeout_seconds
+        )
 
     async def notify_client_termination(
-        self, request: service_pb2.NotifyClientTerminationRequest, metadata,
-        timeout_seconds: int
+        self,
+        request: service_pb2.NotifyClientTerminationRequest,
+        metadata,
+        timeout_seconds: int,
     ):
         return await self.__stub.NotifyClientTermination(
             request, metadata=metadata, timeout=timeout_seconds
         )
 
     async def change_invisible_duration(
-        self, request: service_pb2.ChangeInvisibleDurationRequest, metadata,
-        timeout_seconds: int
+        self,
+        request: service_pb2.ChangeInvisibleDurationRequest,
+        metadata,
+        timeout_seconds: int,
     ):
         return await self.__stub.ChangeInvisibleDuration(
             request, metadata=metadata, timeout=timeout_seconds
@@ -272,11 +280,8 @@ class RpcClient:
         for request in requests:
             await stream.send_message(request)
 
-    def telemetry(
-        self, metadata, timeout_seconds: int
-    ):
-        stream = self.__stub.Telemetry(metadata=metadata,
-                                       timeout=timeout_seconds)
+    def telemetry(self, metadata, timeout_seconds: int):
+        stream = self.__stub.Telemetry(metadata=metadata, timeout=timeout_seconds)
         return stream
 
 

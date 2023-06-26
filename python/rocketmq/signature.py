@@ -41,13 +41,11 @@ class Signature:
 
     @staticmethod
     def sign(client_config: ClientConfig, client_id: str):
-        date_time = datetime.datetime.now().strftime(
-            Signature.__DATE_TIME_FORMAT)
+        date_time = datetime.datetime.now().strftime(Signature.__DATE_TIME_FORMAT)
         metadata = [
             (Signature.__LANGUAGE_KEY, "PYTHON"),
             (Signature.__PROTOCOL_VERSION, "v2"),
-            (Signature.__CLIENT_VERSION_KEY,
-             importlib.metadata.version("rocketmq")),
+            (Signature.__CLIENT_VERSION_KEY, importlib.metadata.version("rocketmq")),
             (
                 Signature.__DATE_TIME_KEY,
                 date_time,
@@ -64,8 +62,7 @@ class Signature:
             return metadata
         if session_credentials.security_token:
             metadata.append(
-                (Signature.__SESSION_TOKEN_KEY,
-                 session_credentials.security_token)
+                (Signature.__SESSION_TOKEN_KEY, session_credentials.security_token)
             )
         if (not session_credentials.access_key) or (
             not session_credentials.access_secret

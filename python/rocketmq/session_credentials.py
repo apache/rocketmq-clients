@@ -15,8 +15,7 @@
 
 
 class SessionCredentials:
-    def __init__(self, access_key=None, access_secret=None,
-                 security_token=None):
+    def __init__(self, access_key=None, access_secret=None, security_token=None):
         if access_key is None:
             raise ValueError("accessKey should not be None")
         if access_secret is None:
@@ -30,8 +29,7 @@ class SessionCredentials:
 class SessionCredentialsProvider:
     def __init__(self, credentials):
         if not isinstance(credentials, SessionCredentials):
-            raise ValueError(
-                "credentials should be an instance of SessionCredentials")
+            raise ValueError("credentials should be an instance of SessionCredentials")
         self.credentials = credentials
 
     def get_credentials(self):

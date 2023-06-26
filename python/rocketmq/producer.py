@@ -23,8 +23,7 @@ from rocketmq.protocol.definition_pb2 import Resource, SystemProperties
 from rocketmq.protocol.service_pb2 import SendMessageRequest
 from rocketmq.publish_settings import PublishingSettings
 from rocketmq.rpc_client import Endpoints
-from rocketmq.session_credentials import (SessionCredentials,
-                                          SessionCredentialsProvider)
+from rocketmq.session_credentials import SessionCredentials, SessionCredentialsProvider
 
 
 class Producer(Client):
@@ -40,7 +39,7 @@ class Producer(Client):
     async def send_message(self, message):
         req = SendMessageRequest()
         req.messages.extend([message])
-        topic_data = self.topic_route_cache['normal_topic']
+        topic_data = self.topic_route_cache["normal_topic"]
         endpoints = topic_data.message_queues[2].broker.endpoints
         return await self.client_manager.send_message(endpoints, req, 10)
 
@@ -52,9 +51,7 @@ async def test():
     creds = SessionCredentials("uU5kBDYnmBf1hVPl", "6TtqkYNNC677PWXX")
     creds_provider = SessionCredentialsProvider(creds)
     client_config = ClientConfig(
-        endpoints=Endpoints(
-            "rmq-cn-jaj390gga04.cn-hangzhou.rmq.aliyuncs.com:8080"
-        ),
+        endpoints=Endpoints("rmq-cn-jaj390gga04.cn-hangzhou.rmq.aliyuncs.com:8080"),
         session_credentials_provider=creds_provider,
         ssl_enabled=True,
     )

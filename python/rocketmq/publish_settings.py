@@ -22,8 +22,7 @@ from rocketmq.protocol.definition_pb2 import Publishing as ProtoPublishing
 from rocketmq.protocol.definition_pb2 import Resource as ProtoResource
 from rocketmq.protocol.definition_pb2 import Settings as ProtoSettings
 from rocketmq.rpc_client import Endpoints
-from rocketmq.settings import (ClientType, ClientTypeHelper, IRetryPolicy,
-                               Settings)
+from rocketmq.settings import ClientType, ClientTypeHelper, IRetryPolicy, Settings
 from rocketmq.signature import Signature
 
 
@@ -35,9 +34,7 @@ class UserAgent:
 
     def to_protobuf(self) -> UA:
         return UA(
-            version=self._version,
-            hostname=self._hostname,
-            platform=self._platform
+            version=self._version, hostname=self._hostname, platform=self._platform
         )
 
 
@@ -48,10 +45,11 @@ class PublishingSettings(Settings):
         endpoints: Endpoints,
         retry_policy: IRetryPolicy,
         request_timeout: int,
-        topics: Dict[str, bool]
+        topics: Dict[str, bool],
     ):
-        super().__init__(client_id, ClientType.Producer, endpoints,
-                         retry_policy, request_timeout)
+        super().__init__(
+            client_id, ClientType.Producer, endpoints, retry_policy, request_timeout
+        )
         self._max_body_size_bytes = 4 * 1024 * 1024
         self._validate_message_type = True
         self._topics = topics
@@ -66,25 +64,21 @@ class PublishingSettings(Settings):
         if settings.pub_sub_case != ProtoSettings.PubSubOneofCase.PUBLISHING:
             return
 
-        self.retry_policy = self.retry_policy.inherit_backoff(
-            settings.backoff_policy)
+        self.retry_policy = self.retry_policy.inherit_backoff(settings.backoff_policy)
         self._validate_message_type = settings.publishing.validate_message_type
         self._max_body_size_bytes = settings.publishing.max_body_size
 
     def to_protobuf(self):
-        topics = [
-            ProtoResource(name=topic_name)
-            for topic_name in self._topics
-        ]
+        topics = [ProtoResource(name=topic_name) for topic_name in self._topics]
 
         publishing = ProtoPublishing(
             topics=topics,
             validate_message_type=self._validate_message_type,
-            max_body_size=self._max_body_size_bytes
+            max_body_size=self._max_body_size_bytes,
         )
-        return ProtoSettings(publishing=publishing,
-                             access_point=self.Endpoints.to_protobuf(),
-                             client_type=ClientTypeHelper.to_protobuf
-                             (self.ClientType),
-                             user_agent=UserAgent().to_protobuf(),
-                             )
+        return ProtoSettings(
+            publishing=publishing,
+            access_point=self.Endpoints.to_protobuf(),
+            client_type=ClientTypeHelper.to_protobuf(self.ClientType),
+            user_agent=UserAgent().to_protobuf(),
+        )

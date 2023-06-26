@@ -56,7 +56,7 @@ class ClientTypeHelper:
         return {
             ClientType.Producer: ProtoClientType.PRODUCER,
             ClientType.SimpleConsumer: ProtoClientType.SIMPLE_CONSUMER,
-            ClientType.PushConsumer: ProtoClientType.PUSH_CONSUMER
+            ClientType.PushConsumer: ProtoClientType.PUSH_CONSUMER,
         }.get(clientType, ProtoClientType.CLIENT_TYPE_UNSPECIFIED)
 
 

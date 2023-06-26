@@ -31,5 +31,5 @@ class TopicRouteData:
         return hash(tuple(self.message_queues))
 
     def __str__(self):
-        mqs = ', '.join(str(mq) for mq in self.message_queues)
+        mqs = ", ".join(str(mq) for mq in self.message_queues)
         return f"[{mqs}]"

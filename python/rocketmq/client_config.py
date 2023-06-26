@@ -18,8 +18,12 @@ from rocketmq.session_credentials import SessionCredentialsProvider
 
 
 class ClientConfig:
-    def __init__(self, endpoints: Endpoints, session_credentials_provider:
-                 SessionCredentialsProvider, ssl_enabled: bool):
+    def __init__(
+        self,
+        endpoints: Endpoints,
+        session_credentials_provider: SessionCredentialsProvider,
+        ssl_enabled: bool,
+    ):
         self.__endpoints = endpoints
         self.__session_credentials_provider = session_credentials_provider
         self.__ssl_enabled = ssl_enabled

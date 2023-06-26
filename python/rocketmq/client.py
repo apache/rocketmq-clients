@@ -47,8 +47,7 @@ class Client:
     def GetTotalRouteEndpoints(self):
         endpoints = set()
         for item in self.topic_route_cache.items():
-            for endpoint in [mq.broker.endpoints for mq in
-                             item[1].message_queues]:
+            for endpoint in [mq.broker.endpoints for mq in item[1].message_queues]:
                 endpoints.add(endpoint)
         return endpoints
 
@@ -79,10 +78,8 @@ class Client:
         address = req.endpoints.addresses.add()
         address.host = self.endpoints.Addresses[0].host
         address.port = self.endpoints.Addresses[0].port
-        req.endpoints.scheme = self.endpoints.scheme.to_protobuf(
-            self.endpoints.scheme)
-        response = await self.client_manager.query_route(
-            self.endpoints, req, 10)
+        req.endpoints.scheme = self.endpoints.scheme.to_protobuf(self.endpoints.scheme)
+        response = await self.client_manager.query_route(self.endpoints, req, 10)
 
         message_queues = response.message_queues
         return TopicRouteData(message_queues)
@@ -141,8 +138,7 @@ class ClientManager:
             endpoints, self.__client.client_config.ssl_enabled
         )
 
-        metadata = Signature.sign(self.__client.client_config,
-                                  self.__client.client_id)
+        metadata = Signature.sign(self.__client.client_config, self.__client.client_id)
         return await rpc_client.query_route(request, metadata, timeout_seconds)
 
     async def heartbeat(
@@ -154,8 +150,7 @@ class ClientManager:
         rpc_client = self.__get_rpc_client(
             endpoints, self.__client.client_config.ssl_enabled
         )
-        metadata = Signature.sign(self.__client.client_config,
-                                  self.__client.client_id)
+        metadata = Signature.sign(self.__client.client_config, self.__client.client_id)
         return await rpc_client.heartbeat(request, metadata, timeout_seconds)
 
     async def send_message(
@@ -167,10 +162,8 @@ class ClientManager:
         rpc_client = self.__get_rpc_client(
             endpoints, self.__client.client_config.ssl_enabled
         )
-        metadata = Signature.sign(self.__client.client_config,
-                                  self.__client.client_id)
-        return await rpc_client.send_message(request, metadata,
-                                             timeout_seconds)
+        metadata = Signature.sign(self.__client.client_config, self.__client.client_id)
+        return await rpc_client.send_message(request, metadata, timeout_seconds)
 
     async def query_assignment(
         self,
@@ -181,10 +174,8 @@ class ClientManager:
         rpc_client = self.__get_rpc_client(
             endpoints, self.__client.client_config.ssl_enabled
         )
-        metadata = Signature.sign(self.__client.client_config,
-                                  self.__client.client_id)
-        return await rpc_client.query_assignment(request, metadata,
-                                                 timeout_seconds)
+        metadata = Signature.sign(self.__client.client_config, self.__client.client_id)
+        return await rpc_client.query_assignment(request, metadata, timeout_seconds)
 
     async def ack_message(
         self,
@@ -195,8 +186,7 @@ class ClientManager:
         rpc_client = self.__get_rpc_client(
             endpoints, self.__client.client_config.ssl_enabled
         )
-        metadata = Signature.sign(self.__client.client_config,
-                                  self.__client.client_id)
+        metadata = Signature.sign(self.__client.client_config, self.__client.client_id)
         return await rpc_client.ack_message(request, metadata, timeout_seconds)
 
     async def forward_message_to_dead_letter_queue(
@@ -208,8 +198,7 @@ class ClientManager:
         rpc_client = self.__get_rpc_client(
             endpoints, self.__client.client_config.ssl_enabled
         )
-        metadata = Signature.sign(self.__client.client_config,
-                                  self.__client.client_id)
+        metadata = Signature.sign(self.__client.client_config, self.__client.client_id)
         return await rpc_client.forward_message_to_dead_letter_queue(
             request, metadata, timeout_seconds
         )
@@ -223,10 +212,8 @@ class ClientManager:
         rpc_client = self.__get_rpc_client(
             endpoints, self.__client.client_config.ssl_enabled
         )
-        metadata = Signature.sign(self.__client.client_config,
-                                  self.__client.client_id)
-        return await rpc_client.end_transaction(request, metadata,
-                                                timeout_seconds)
+        metadata = Signature.sign(self.__client.client_config, self.__client.client_id)
+        return await rpc_client.end_transaction(request, metadata, timeout_seconds)
 
     async def notify_client_termination(
         self,
@@ -237,8 +224,7 @@ class ClientManager:
         rpc_client = self.__get_rpc_client(
             endpoints, self.__client.client_config.ssl_enabled
         )
-        metadata = Signature.sign(self.__client.client_config,
-                                  self.__client.client_id)
+        metadata = Signature.sign(self.__client.client_config, self.__client.client_id)
         return await rpc_client.notify_client_termination(
             request, metadata, timeout_seconds
         )
@@ -252,8 +238,7 @@ class ClientManager:
         rpc_client = self.__get_rpc_client(
             endpoints, self.__client.client_config.ssl_enabled
         )
-        metadata = Signature.sign(self.__client.client_config,
-                                  self.__client.client_id)
+        metadata = Signature.sign(self.__client.client_config, self.__client.client_id)
         return await rpc_client.change_invisible_duration(
             request, metadata, timeout_seconds
         )
@@ -266,6 +251,5 @@ class ClientManager:
         rpc_client = self.__get_rpc_client(
             endpoints, self.__client.client_config.ssl_enabled
         )
-        metadata = Signature.sign(self.__client.client_config,
-                                  self.__client.client_id)
+        metadata = Signature.sign(self.__client.client_config, self.__client.client_id)
         return rpc_client.telemetry(metadata, timeout_seconds)

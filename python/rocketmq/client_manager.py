@@ -123,8 +123,7 @@ class ClientManager:
         rpc_client = self.__get_rpc_client(
             endpoints, self.__client.client_config.ssl_enabled
         )
-        return await rpc_client.notify_client_termination(request,
-                                                          timeout_seconds)
+        return await rpc_client.notify_client_termination(request, timeout_seconds)
 
     async def change_invisible_duration(
         self,
@@ -135,14 +134,13 @@ class ClientManager:
         rpc_client = self.__get_rpc_client(
             endpoints, self.__client.client_config.ssl_enabled
         )
-        return await rpc_client.change_invisible_duration(request,
-                                                          timeout_seconds)
+        return await rpc_client.change_invisible_duration(request, timeout_seconds)
 
     async def telemetry(
         self,
         endpoints: Endpoints,
         request: service_pb2.TelemetryCommand,
-        timeout_seconds: int
+        timeout_seconds: int,
     ):
         rpc_client = self.__get_rpc_client(
             endpoints, self.__client.client_config.ssl_enabled

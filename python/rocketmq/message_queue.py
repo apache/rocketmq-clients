@@ -31,9 +31,7 @@ class Broker:
 
     def to_protobuf(self):
         return ProtoBroker(
-            Name=self.name,
-            Id=self.id,
-            Endpoints=self.endpoints.to_protobuf()
+            Name=self.name, Id=self.id, Endpoints=self.endpoints.to_protobuf()
         )
 
 
@@ -47,10 +45,7 @@ class Resource:
             self.name = name
 
     def to_protobuf(self):
-        return ProtoResource(
-            ResourceNamespace=self.namespace,
-            Name=self.name
-        )
+        return ProtoResource(ResourceNamespace=self.namespace, Name=self.name)
 
     def __str__(self):
         return f"{self.namespace}.{self.name}" if self.namespace else self.name
@@ -142,10 +137,11 @@ class MessageQueue:
     def __init__(self, message_queue):
         self._topic_resource = Resource(message_queue.topic)
         self.queue_id = message_queue.id
-        self.permission = PermissionHelper.from_protobuf(
-            message_queue.permission)
-        self.accept_message_types = [MessageTypeHelper.from_protobuf(mt) for
-                                     mt in message_queue.accept_message_types]
+        self.permission = PermissionHelper.from_protobuf(message_queue.permission)
+        self.accept_message_types = [
+            MessageTypeHelper.from_protobuf(mt)
+            for mt in message_queue.accept_message_types
+        ]
         self.broker = Broker(message_queue.broker)
 
     @property
@@ -156,8 +152,9 @@ class MessageQueue:
         return f"{self.broker.name}.{self._topic_resource}.{self.queue_id}"
 
     def to_protobuf(self):
-        message_types = [MessageTypeHelper.to_protobuf(mt) for mt in
-                         self.accept_message_types]
+        message_types = [
+            MessageTypeHelper.to_protobuf(mt) for mt in self.accept_message_types
+        ]
         return ProtoMessageQueue(
             topic=self._topic_resource.to_protobuf(),
             id=self.queue_id,
