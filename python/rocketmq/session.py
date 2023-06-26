@@ -16,7 +16,8 @@
 import asyncio
 from threading import Event
 
-from rocketmq.protocol.service_pb2 import TelemetryCommand as ProtoTelemetryCommand
+from rocketmq.protocol.service_pb2 import \
+    TelemetryCommand as ProtoTelemetryCommand
 
 
 class Session:

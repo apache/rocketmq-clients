@@ -16,6 +16,8 @@
 import hashlib
 import hmac
 
+master_broker_id = 0
+
 
 def number_to_base(number, base):
     alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"

@@ -27,7 +27,8 @@ from protocol import service_pb2
 from rocketmq import logger
 from rocketmq.protocol import service_pb2_grpc
 from rocketmq.protocol.definition_pb2 import Address as ProtoAddress
-from rocketmq.protocol.definition_pb2 import AddressScheme as ProtoAddressScheme
+from rocketmq.protocol.definition_pb2 import \
+    AddressScheme as ProtoAddressScheme
 from rocketmq.protocol.definition_pb2 import Endpoints as ProtoEndpoints
 
 
@@ -75,12 +76,12 @@ class Endpoints:
 
         if type(endpoints) == str:
             if endpoints.startswith(self.HttpPrefix):
-                endpoints = endpoints[len(self.HttpPrefix) :]
+                endpoints = endpoints[len(self.HttpPrefix):]
             if endpoints.startswith(self.HttpsPrefix):
-                endpoints = endpoints[len(self.HttpsPrefix) :]
+                endpoints = endpoints[len(self.HttpsPrefix):]
 
             index = endpoints.find(self.EndpointSeparator)
-            port = int(endpoints[index + 1 :]) if index > 0 else 80
+            port = int(endpoints[index + 1:]) if index > 0 else 80
             host = endpoints[:index] if index > 0 else endpoints
             address = Address(host, port)
             self.Addresses.append(address)

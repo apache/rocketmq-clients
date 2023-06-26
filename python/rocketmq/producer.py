@@ -14,16 +14,75 @@
 # limitations under the License.
 
 import asyncio
+import threading
 from typing import Set
 
+import rocketmq
 from rocketmq.client import Client
 from rocketmq.client_config import ClientConfig
+from rocketmq.definition import TopicRouteData
 from rocketmq.protocol.definition_pb2 import Message as ProtoMessage
 from rocketmq.protocol.definition_pb2 import Resource, SystemProperties
 from rocketmq.protocol.service_pb2 import SendMessageRequest
 from rocketmq.publish_settings import PublishingSettings
 from rocketmq.rpc_client import Endpoints
-from rocketmq.session_credentials import SessionCredentials, SessionCredentialsProvider
+from rocketmq.message_id_codec import MessageIdCodec
+from rocketmq.session_credentials import (SessionCredentials,
+                                          SessionCredentialsProvider)
+
+
+class PublishingLoadBalancer:
+    def __init__(self, topic_route_data: TopicRouteData, index: int = 0):
+        self.__index = index
+        self.__index_lock = threading.Lock()
+        message_queues = []
+        for mq in topic_route_data.message_queues:
+            if (
+                not mq.permission.is_writable()
+                or mq.broker.id is not rocketmq.utils.master_broker_id
+            ):
+                continue
+            message_queues.append(mq)
+        self.__message_queues = message_queues
+
+    @property
+    def index(self):
+        return self.__index
+
+    def get_and_increment_index(self):
+        with self.__index_lock:
+            temp = self.__index
+            self.__index += 1
+            return temp
+
+    def take_message_queues(self, excluded: Set[Endpoints], count: int):
+        next_index = self.get_and_increment_index()
+        candidates = []
+        candidate_broker_name = set()
+
+        queue_num = len(self.__message_queues)
+        for i in range(queue_num):
+            mq = self.__message_queues[next_index % queue_num]
+            next_index = next_index + 1
+            if (
+                mq.broker.endpoints not in excluded
+                and mq.broker.name not in candidate_broker_name
+            ):
+                candidate_broker_name.add(mq.broker.name)
+                candidates.append(mq)
+            if len(candidates) >= count:
+                return candidates
+        # if all endpoints are isolated
+        if candidates:
+            return candidates
+        for i in range(queue_num):
+            mq = self.__message_queues[next_index % queue_num]
+            if mq.broker.name not in candidate_broker_name:
+                candidate_broker_name.add(mq.broker.name)
+                candidates.append(mq)
+            if len(candidates) >= count:
+                return candidates
+        return candidates
 
 
 class Producer(Client):
@@ -48,7 +107,7 @@ class Producer(Client):
 
 
 async def test():
-    creds = SessionCredentials("uU5kBDYnmBf1hVPl", "6TtqkYNNC677PWXX")
+    creds = SessionCredentials("username", "password")
     creds_provider = SessionCredentialsProvider(creds)
     client_config = ClientConfig(
         endpoints=Endpoints("rmq-cn-jaj390gga04.cn-hangzhou.rmq.aliyuncs.com:8080"),
@@ -62,7 +121,7 @@ async def test():
     msg.topic.CopyFrom(topic)
     msg.body = b"My Message Body"
     sysperf = SystemProperties()
-    sysperf.message_id = "this is"
+    sysperf.message_id = MessageIdCodec.next_message_id()
     msg.system_properties.CopyFrom(sysperf)
     print(msg)
     await producer.start_up()
