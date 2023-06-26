@@ -51,6 +51,9 @@ public class ProducerSingleton {
             new StaticSessionCredentialsProvider(ACCESS_KEY, SECRET_KEY);
         ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
             .setEndpoints(ENDPOINTS)
+            // On some Windows platforms, you may encounter SSL compatibility issues. Try turning off the SSL option in
+            // client configuration to solve the problem please if SSL is not essential.
+            // .enableSsl(false)
             .setCredentialProvider(sessionCredentialsProvider)
             .build();
         final ProducerBuilder builder = provider.newProducerBuilder()
