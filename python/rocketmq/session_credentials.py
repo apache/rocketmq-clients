@@ -13,30 +13,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rocketmq.rpc_client import Endpoints
-from rocketmq.session_credentials import SessionCredentialsProvider
+
+class SessionCredentials:
+    def __init__(self, access_key=None, access_secret=None, security_token=None):
+        if access_key is None:
+            raise ValueError("accessKey should not be None")
+        if access_secret is None:
+            raise ValueError("accessSecret should not be None")
+
+        self.access_key = access_key
+        self.access_secret = access_secret
+        self.security_token = security_token
 
 
-class ClientConfig:
-    def __init__(
-        self,
-        endpoints: Endpoints,
-        session_credentials_provider: SessionCredentialsProvider,
-        ssl_enabled: bool,
-    ):
-        self.__endpoints = endpoints
-        self.__session_credentials_provider = session_credentials_provider
-        self.__ssl_enabled = ssl_enabled
-        self.request_timeout = 10
+class SessionCredentialsProvider:
+    def __init__(self, credentials):
+        if not isinstance(credentials, SessionCredentials):
+            raise ValueError("credentials should be an instance of SessionCredentials")
+        self.credentials = credentials
 
-    @property
-    def session_credentials_provider(self):
-        return self.__session_credentials_provider
-
-    @property
-    def endpoints(self):
-        return self.__endpoints
-
-    @property
-    def ssl_enabled(self):
-        return self.__ssl_enabled
+    def get_credentials(self):
+        return self.credentials
