@@ -21,12 +21,12 @@ import rocketmq
 from rocketmq.client import Client
 from rocketmq.client_config import ClientConfig
 from rocketmq.definition import TopicRouteData
+from rocketmq.message_id_codec import MessageIdCodec
 from rocketmq.protocol.definition_pb2 import Message as ProtoMessage
 from rocketmq.protocol.definition_pb2 import Resource, SystemProperties
 from rocketmq.protocol.service_pb2 import SendMessageRequest
 from rocketmq.publish_settings import PublishingSettings
 from rocketmq.rpc_client import Endpoints
-from rocketmq.message_id_codec import MessageIdCodec
 from rocketmq.session_credentials import (SessionCredentials,
                                           SessionCredentialsProvider)
 
