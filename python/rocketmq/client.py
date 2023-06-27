@@ -39,7 +39,7 @@ class Client:
         self.sessionsLock = threading.Lock()
         self.client_manager = ClientManager(self)
 
-    async def start_up(self):
+    async def start(self):
         # get topic route
         for topic in self.topics:
             self.topic_route_cache[topic] = await self.fetch_topic_route(topic)

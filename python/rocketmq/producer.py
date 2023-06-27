@@ -21,6 +21,7 @@ import rocketmq
 from rocketmq.client import Client
 from rocketmq.client_config import ClientConfig
 from rocketmq.definition import TopicRouteData
+from rocketmq.log import logger
 from rocketmq.message_id_codec import MessageIdCodec
 from rocketmq.protocol.definition_pb2 import Message as ProtoMessage
 from rocketmq.protocol.definition_pb2 import Resource, SystemProperties
@@ -92,8 +93,20 @@ class Producer(Client):
             self.client_id, self.endpoints, None, 10, topics
         )
 
-    async def start_up(self):
-        await super().start_up()
+    async def __aenter__(self):
+        await self.start()
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.shutdown()
+
+    async def start(self):
+        logger.info(f"Begin to start the rocketmq producer, client_id={self.client_id}")
+        await super().start()
+        logger.info(f"The rocketmq producer starts successfully, client_id={self.client_id}")
+
+    async def shutdown(self):
+        logger.info(f"Begin to shutdown the rocketmq producer, client_id={self.client_id}")
+        logger.info(f"Shutdown the rocketmq producer successfully, client_id={self.client_id}")
 
     async def send_message(self, message):
         req = SendMessageRequest()
@@ -107,14 +120,13 @@ class Producer(Client):
 
 
 async def test():
-    creds = SessionCredentials("username", "password")
-    creds_provider = SessionCredentialsProvider(creds)
+    credentials = SessionCredentials("username", "password")
+    credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
         endpoints=Endpoints("rmq-cn-jaj390gga04.cn-hangzhou.rmq.aliyuncs.com:8080"),
-        session_credentials_provider=creds_provider,
+        session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
-    producer = Producer(client_config, topics={"normal_topic"})
     topic = Resource()
     topic.name = "normal_topic"
     msg = ProtoMessage()
@@ -123,8 +135,9 @@ async def test():
     sysperf = SystemProperties()
     sysperf.message_id = MessageIdCodec.next_message_id()
     msg.system_properties.CopyFrom(sysperf)
-    print(msg)
-    await producer.start_up()
+    logger.info(f"{msg}")
+    producer = Producer(client_config, topics={"normal_topic"})
+    await producer.start()
     result = await producer.send_message(msg)
     print(result)
 
