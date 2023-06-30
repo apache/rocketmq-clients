@@ -30,7 +30,7 @@ async fn main() {
     client_option.set_access_url("localhost:8081");
 
     // build and start producer
-    let producer = Producer::new(producer_option, client_option).unwrap();
+    let mut producer = Producer::new(producer_option, client_option).unwrap();
     producer.start().await.unwrap();
 
     // build message

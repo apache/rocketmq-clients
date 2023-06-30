@@ -48,7 +48,7 @@
 //!     client_option.set_access_url("localhost:8081");
 //!
 //!     // build and start producer
-//!     let producer = Producer::new(producer_option, client_option).unwrap();
+//!     let mut  producer = Producer::new(producer_option, client_option).unwrap();
 //!     producer.start().await.unwrap();
 //!
 //!     // build message
@@ -88,7 +88,7 @@
 //!     client_option.set_access_url("localhost:8081");
 //!
 //!     // build and start simple consumer
-//!     let consumer = SimpleConsumer::new(consumer_option, client_option).unwrap();
+//!     let mut  consumer = SimpleConsumer::new(consumer_option, client_option).unwrap();
 //!     consumer.start().await.unwrap();
 //!
 //!     // pop message from rocketmq proxy
@@ -119,6 +119,10 @@
 //! ```
 //!
 
+// Export structs that are part of crate API.
+pub use producer::Producer;
+pub use simple_consumer::SimpleConsumer;
+
 #[allow(dead_code)]
 pub mod conf;
 pub mod error;
@@ -139,6 +143,3 @@ mod util;
 mod producer;
 mod simple_consumer;
 
-// Export structs that are part of crate API.
-pub use producer::Producer;
-pub use simple_consumer::SimpleConsumer;

@@ -31,10 +31,12 @@ use tonic::transport::{Channel, Endpoint};
 use crate::conf::ClientOption;
 use crate::error::ErrorKind;
 use crate::model::common::Endpoints;
+use crate::pb::telemetry_command::Command;
 use crate::pb::{
-    AckMessageRequest, AckMessageResponse, HeartbeatRequest, HeartbeatResponse, QueryRouteRequest,
-    QueryRouteResponse, ReceiveMessageRequest, ReceiveMessageResponse, SendMessageRequest,
-    SendMessageResponse, TelemetryCommand,
+    AckMessageRequest, AckMessageResponse, EndTransactionRequest, EndTransactionResponse,
+    HeartbeatRequest, HeartbeatResponse, QueryRouteRequest, QueryRouteResponse,
+    ReceiveMessageRequest, ReceiveMessageResponse, SendMessageRequest, SendMessageResponse,
+    TelemetryCommand,
 };
 use crate::util::{PROTOCOL_VERSION, SDK_LANGUAGE, SDK_VERSION};
 use crate::{error::ClientError, pb::messaging_service_client::MessagingServiceClient};
@@ -50,6 +52,7 @@ pub(crate) trait RPCClient {
     const OPERATION_SEND_MESSAGE: &'static str = "rpc.send_message";
     const OPERATION_RECEIVE_MESSAGE: &'static str = "rpc.receive_message";
     const OPERATION_ACK_MESSAGE: &'static str = "rpc.ack_message";
+    const OPERATION_END_TRANSACTION: &'static str = "rpc.end_transaction";
 
     async fn query_route(
         &mut self,
@@ -71,6 +74,10 @@ pub(crate) trait RPCClient {
         &mut self,
         request: AckMessageRequest,
     ) -> Result<AckMessageResponse, ClientError>;
+    async fn end_transaction(
+        &mut self,
+        request: EndTransactionRequest,
+    ) -> Result<EndTransactionResponse, ClientError>;
 }
 
 #[allow(dead_code)]
@@ -255,7 +262,11 @@ impl Session {
         }
     }
 
-    pub(crate) async fn start(&mut self, settings: TelemetryCommand) -> Result<(), ClientError> {
+    pub(crate) async fn start(
+        &mut self,
+        settings: TelemetryCommand,
+        telemetry_command_tx: mpsc::Sender<Command>,
+    ) -> Result<(), ClientError> {
         let (tx, rx) = mpsc::channel(16);
         tx.send(settings).await.map_err(|e| {
             ClientError::new(
@@ -281,10 +292,12 @@ impl Session {
         tokio::spawn(async move {
             let mut stream = response.into_inner();
             loop {
-                // TODO handle server stream
                 match stream.message().await {
                     Ok(Some(item)) => {
                         debug!(logger, "telemetry command: {:?}", item);
+                        if let Some(command) = item.command {
+                            _ = telemetry_command_tx.send(command).await;
+                        }
                     }
                     Ok(None) => {
                         debug!(logger, "request stream closed");
@@ -435,6 +448,22 @@ impl RPCClient for Session {
         })?;
         Ok(response.into_inner())
     }
+
+    async fn end_transaction(
+        &mut self,
+        request: EndTransactionRequest,
+    ) -> Result<EndTransactionResponse, ClientError> {
+        let request = self.sign(request);
+        let response = self.stub.end_transaction(request).await.map_err(|e| {
+            ClientError::new(
+                ErrorKind::ClientInternal,
+                "send rpc end_transaction failed",
+                Self::OPERATION_END_TRANSACTION,
+            )
+            .set_source(e)
+        })?;
+        Ok(response.into_inner())
+    }
 }
 
 #[derive(Debug)]
@@ -462,6 +491,7 @@ impl SessionManager {
         &self,
         endpoints: &Endpoints,
         settings: TelemetryCommand,
+        telemetry_command_tx: mpsc::Sender<Command>,
     ) -> Result<Session, ClientError> {
         let mut session_map = self.session_map.lock().await;
         let endpoint_url = endpoints.endpoint_url().to_string();
@@ -475,7 +505,7 @@ impl SessionManager {
                 &self.option,
             )
             .await?;
-            session.start(settings).await?;
+            session.start(settings, telemetry_command_tx).await?;
             session_map.insert(endpoint_url.clone(), session.clone());
             Ok(session)
         };
@@ -562,11 +592,12 @@ mod tests {
 
         let mut session = session.unwrap();
 
+        let (tx, _) = mpsc::channel(16);
         let result = session
-            .start(build_producer_settings(
-                &ProducerOption::default(),
-                &ClientOption::default(),
-            ))
+            .start(
+                build_producer_settings(&ProducerOption::default(), &ClientOption::default()),
+                tx,
+            )
             .await;
         assert!(result.is_ok());
         assert!(session.is_started());
@@ -577,7 +608,6 @@ mod tests {
         let mut server = RocketMQMockServer::start_default().await;
         server.setup(
             MockBuilder::when()
-                //    👇 RPC prefix
                 .path("/apache.rocketmq.v2.MessagingService/Telemetry")
                 .then()
                 .return_status(Code::Ok),
@@ -588,10 +618,12 @@ mod tests {
         client_option.set_enable_tls(false);
         let session_manager =
             SessionManager::new(&logger, "test_client".to_string(), &client_option);
+        let (tx, _) = mpsc::channel(16);
         let session = session_manager
             .get_or_create_session(
                 &Endpoints::from_url(&format!("localhost:{}", server.address().port())).unwrap(),
                 build_producer_settings(&ProducerOption::default(), &client_option),
+                tx,
             )
             .await
             .unwrap();

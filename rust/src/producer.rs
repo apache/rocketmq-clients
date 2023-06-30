@@ -21,18 +21,18 @@ use mockall_double::double;
 use prost_types::Timestamp;
 use slog::{info, Logger};
 
+use crate::{log, pb};
 #[double]
 use crate::client::Client;
 use crate::conf::{ClientOption, ProducerOption};
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::{ClientType, SendReceipt};
 use crate::model::message;
-use crate::pb::{Encoding, Resource, SystemProperties};
+use crate::pb::{Encoding, MessageType, Resource, SystemProperties};
 use crate::util::{
-    build_endpoints_by_message_queue, build_producer_settings, select_message_queue,
-    select_message_queue_by_message_group, HOST_NAME,
+    build_endpoints_by_message_queue, build_producer_settings, HOST_NAME,
+    select_message_queue, select_message_queue_by_message_group,
 };
-use crate::{log, pb};
 
 /// [`Producer`] is the core struct, to which application developers should turn, when publishing messages to RocketMQ proxy.
 ///
@@ -73,13 +73,13 @@ impl Producer {
     }
 
     /// Start the producer
-    pub async fn start(&self) -> Result<(), ClientError> {
+    pub async fn start(&mut self) -> Result<(), ClientError> {
         if let Some(topics) = self.option.topics() {
             for topic in topics {
                 self.client.topic_route(topic, true).await?;
             }
         }
-        self.client.start();
+        self.client.start().await;
         info!(
             self.logger,
             "start producer success, client_id: {}",
@@ -125,7 +125,7 @@ impl Producer {
                 last_topic = Some(message.take_topic());
             }
 
-            let message_group = message.take_message_group();
+            let mut message_group = message.take_message_group();
             if let Some(last_message_group) = last_message_group.clone() {
                 if last_message_group.ne(&message_group) {
                     return Err(ClientError::new(
@@ -138,9 +138,23 @@ impl Producer {
                 last_message_group = Some(message_group.clone());
             }
 
-            let delivery_timestamp = message
+            let mut delivery_timestamp = message
                 .take_delivery_timestamp()
                 .map(|seconds| Timestamp { seconds, nanos: 0 });
+
+            let message_type = if message.transaction_enabled() {
+                message_group = None;
+                delivery_timestamp = None;
+                MessageType::Transaction as i32
+            } else if delivery_timestamp.is_some() {
+                message_group = None;
+                MessageType::Delay as i32
+            } else if message_group.is_some() {
+                delivery_timestamp = None;
+                MessageType::Fifo as i32
+            } else {
+                MessageType::Normal as i32
+            };
 
             let pb_message = pb::Message {
                 topic: Some(Resource {
@@ -154,6 +168,7 @@ impl Producer {
                     message_id: message.take_message_id(),
                     message_group,
                     delivery_timestamp,
+                    message_type,
                     born_host: HOST_NAME.clone(),
                     born_timestamp: born_timestamp.clone(),
                     body_digest: None,
@@ -318,6 +333,7 @@ mod tests {
             properties: None,
             message_group: None,
             delivery_timestamp: None,
+            transaction_enabled: false,
         }];
         let result = producer.transform_messages_to_protobuf(messages);
         assert!(result.is_err());
