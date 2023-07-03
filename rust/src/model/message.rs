@@ -17,11 +17,12 @@
 
 //! Message data model of RocketMQ rust client.
 
+use std::collections::HashMap;
+
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::Endpoints;
 use crate::model::message_id::UNIQ_ID_GENERATOR;
 use crate::pb;
-use std::collections::HashMap;
 
 /// [`Message`] is the data model for sending.
 pub trait Message {
@@ -33,6 +34,7 @@ pub trait Message {
     fn take_properties(&mut self) -> HashMap<String, String>;
     fn take_message_group(&mut self) -> Option<String>;
     fn take_delivery_timestamp(&mut self) -> Option<i64>;
+    fn transaction_enabled(&mut self) -> bool;
 }
 
 pub(crate) struct MessageImpl {
@@ -44,6 +46,7 @@ pub(crate) struct MessageImpl {
     pub(crate) properties: Option<HashMap<String, String>>,
     pub(crate) message_group: Option<String>,
     pub(crate) delivery_timestamp: Option<i64>,
+    pub(crate) transaction_enabled: bool,
 }
 
 impl Message for MessageImpl {
@@ -78,6 +81,10 @@ impl Message for MessageImpl {
     fn take_delivery_timestamp(&mut self) -> Option<i64> {
         self.delivery_timestamp.take()
     }
+
+    fn transaction_enabled(&mut self) -> bool {
+        self.transaction_enabled
+    }
 }
 
 /// [`MessageBuilder`] is the builder for [`Message`].
@@ -100,6 +107,7 @@ impl MessageBuilder {
                 properties: None,
                 message_group: None,
                 delivery_timestamp: None,
+                transaction_enabled: false,
             },
         }
     }
@@ -126,6 +134,7 @@ impl MessageBuilder {
                 properties: None,
                 message_group: Some(message_group.into()),
                 delivery_timestamp: None,
+                transaction_enabled: false,
             },
         }
     }
@@ -152,6 +161,29 @@ impl MessageBuilder {
                 properties: None,
                 message_group: None,
                 delivery_timestamp: Some(delay_time),
+                transaction_enabled: false,
+            },
+        }
+    }
+
+    /// Create a new [`MessageBuilder`] for building a transaction message. [Read more](https://rocketmq.apache.org/docs/featureBehavior/04transactionmessage)
+    ///
+    /// # Arguments
+    ///
+    /// * `topic` - topic of the message
+    /// * `body` - message body
+    pub fn transaction_message_builder(topic: impl Into<String>, body: Vec<u8>) -> MessageBuilder {
+        MessageBuilder {
+            message: MessageImpl {
+                message_id: UNIQ_ID_GENERATOR.lock().next_id(),
+                topic: topic.into(),
+                body: Some(body),
+                tag: None,
+                keys: None,
+                properties: None,
+                message_group: None,
+                delivery_timestamp: None,
+                transaction_enabled: true,
             },
         }
     }
@@ -210,6 +242,14 @@ impl MessageBuilder {
         self
     }
 
+    /// Mark this message as the beginning transaction, which is required for the transaction message. [Read more](https://rocketmq.apache.org/docs/featureBehavior/04transactionmessage)
+    ///
+    /// The transaction message could not have message group and delivery timestamp
+    pub fn enable_transaction(mut self) -> Self {
+        self.message.transaction_enabled = true;
+        self
+    }
+
     fn check_message(&self) -> Result<(), String> {
         if self.message.topic.is_empty() {
             return Err("Topic is empty.".to_string());
@@ -220,6 +260,14 @@ impl MessageBuilder {
         if self.message.message_group.is_some() && self.message.delivery_timestamp.is_some() {
             return Err(
                 "message_group and delivery_timestamp can not be set at the same time.".to_string(),
+            );
+        }
+        if self.message.transaction_enabled
+            && (self.message.message_group.is_some() || self.message.delivery_timestamp.is_some())
+        {
+            return Err(
+                "message_group and delivery_timestamp can not be set for transaction message."
+                    .to_string(),
             );
         }
         Ok(())
@@ -249,6 +297,7 @@ pub trait AckMessageEntry {
 pub struct MessageView {
     pub(crate) message_id: String,
     pub(crate) receipt_handle: Option<String>,
+    pub(crate) namespace: String,
     pub(crate) topic: String,
     pub(crate) body: Vec<u8>,
     pub(crate) tag: Option<String>,
@@ -283,10 +332,12 @@ impl AckMessageEntry for MessageView {
 impl MessageView {
     pub(crate) fn from_pb_message(message: pb::Message, endpoints: Endpoints) -> Self {
         let system_properties = message.system_properties.unwrap();
+        let topic = message.topic.unwrap();
         MessageView {
             message_id: system_properties.message_id,
             receipt_handle: system_properties.receipt_handle,
-            topic: message.topic.unwrap().name,
+            namespace: topic.resource_namespace,
+            topic: topic.name,
             body: message.body,
             tag: system_properties.tag,
             keys: system_properties.keys,
@@ -305,7 +356,12 @@ impl MessageView {
         &self.message_id
     }
 
-    /// Get topic of message
+    /// Get topic namespace of message
+    pub fn namespace(&self) -> &str {
+        &self.namespace
+    }
+
+    /// Get topic name of message
     pub fn topic(&self) -> &str {
         &self.topic
     }
@@ -410,6 +466,10 @@ mod tests {
             MessageBuilder::delay_message_builder("test", vec![1, 2, 3], 123456789).build();
         let mut message = message.unwrap();
         assert_eq!(message.take_delivery_timestamp(), Some(123456789));
+
+        let message = MessageBuilder::transaction_message_builder("test", vec![1, 2, 3]).build();
+        let mut message = message.unwrap();
+        assert!(message.transaction_enabled());
     }
 
     #[test]

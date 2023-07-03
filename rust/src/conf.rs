@@ -46,7 +46,7 @@ impl Default for ClientOption {
             group: "".to_string(),
             namespace: "".to_string(),
             access_url: "localhost:8081".to_string(),
-            enable_tls: true,
+            enable_tls: false,
             timeout: Duration::from_secs(3),
             long_polling_timeout: Duration::from_secs(40),
             access_key: None,
@@ -266,7 +266,7 @@ mod tests {
     fn conf_client_option() {
         let option = ClientOption::default();
         assert_eq!(option.access_url(), "localhost:8081");
-        assert!(option.enable_tls());
+        assert!(!option.enable_tls());
         assert_eq!(option.timeout(), &Duration::from_secs(3));
         assert_eq!(option.long_polling_timeout(), &Duration::from_secs(40));
     }

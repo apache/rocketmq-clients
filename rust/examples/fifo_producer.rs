@@ -23,7 +23,7 @@ async fn main() {
     // recommend to specify which topic(s) you would like to send message to
     // producer will prefetch topic route when start and failed fast if topic not exist
     let mut producer_option = ProducerOption::default();
-    producer_option.set_topics(vec!["test_topic"]);
+    producer_option.set_topics(vec!["fifo_test"]);
 
     // set which rocketmq proxy to connect
     let mut client_option = ClientOption::default();
@@ -34,12 +34,14 @@ async fn main() {
     producer.start().await.unwrap();
 
     // build message
-    let message = MessageBuilder::builder()
-        .set_topic("test_topic")
-        .set_tag("test_tag")
-        .set_body("hello world".as_bytes().to_vec())
-        .build()
-        .unwrap();
+    let message = MessageBuilder::fifo_message_builder(
+        "fifo_test",
+        "hello world".as_bytes().to_vec(),
+        // message partition
+        "message_group",
+    )
+    .build()
+    .unwrap();
 
     // send message to rocketmq proxy
     let result = producer.send(message).await;

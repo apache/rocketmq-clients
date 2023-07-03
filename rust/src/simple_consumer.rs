@@ -82,7 +82,7 @@ impl SimpleConsumer {
     }
 
     /// Start the simple consumer
-    pub async fn start(&self) -> Result<(), ClientError> {
+    pub async fn start(&mut self) -> Result<(), ClientError> {
         if self.option.consumer_group().is_empty() {
             return Err(ClientError::new(
                 ErrorKind::Config,
@@ -90,12 +90,12 @@ impl SimpleConsumer {
                 Self::OPERATION_START_SIMPLE_CONSUMER,
             ));
         }
+        self.client.start().await;
         if let Some(topics) = self.option.topics() {
             for topic in topics {
                 self.client.topic_route(topic, true).await?;
             }
         }
-        self.client.start();
         info!(
             self.logger,
             "start simple consumer success, client_id: {}",
@@ -175,9 +175,9 @@ impl SimpleConsumer {
 
 #[cfg(test)]
 mod tests {
-    use crate::log::terminal_logger;
     use std::sync::Arc;
 
+    use crate::log::terminal_logger;
     use crate::model::common::{FilterType, Route};
     use crate::pb::{
         AckMessageResultEntry, Broker, Message, MessageQueue, Resource, SystemProperties,
