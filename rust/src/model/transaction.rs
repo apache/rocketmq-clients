@@ -125,12 +125,18 @@ pub enum TransactionResolution {
     COMMIT = 1,
     /// Notify server that current transaction should be roll-backed.
     ROLLBACK = 2,
-    /// Notify the server that the state of this transaction is not sure. You should be cautious before return unknown
+    /// Notify server that the state of this transaction is not sure. You should be cautious before return unknown
     /// because the examination from the server will be performed periodically.
     UNKNOWN = 0,
 }
 
 /// A closure to check the state of transaction.
+/// RocketMQ Server will call producer periodically to check the state of uncommitted transaction.
+///
+/// # Arguments
+///
+/// * transaction id
+/// * message
 pub type TransactionChecker = dyn Fn(String, MessageView) -> TransactionResolution + Send + Sync;
 
 #[cfg(test)]

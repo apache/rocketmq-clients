@@ -14,10 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::HashSet;
+use std::sync::Mutex;
+
 use rocketmq::conf::{ClientOption, ProducerOption};
 use rocketmq::model::message::MessageBuilder;
 use rocketmq::model::transaction::{Transaction, TransactionResolution};
 use rocketmq::Producer;
+
+lazy_static::lazy_static! {
+    static  ref MESSAGE_ID_SET: Mutex<HashSet<String>> = Mutex::new(HashSet::new());
+}
 
 #[tokio::main]
 async fn main() {
@@ -30,16 +37,28 @@ async fn main() {
     let mut client_option = ClientOption::default();
     client_option.set_access_url("localhost:8081");
 
-    // build and start producer
+    // build and start transaction producer, which has TransactionChecker
     let mut producer = Producer::new_transaction_producer(
         producer_option,
         client_option,
         Box::new(|transaction_id, message| {
-            println!(
-                "receive transaction check request: transaction_id: {}, message: {:?}",
-                transaction_id, message
-            );
-            TransactionResolution::COMMIT
+            if MESSAGE_ID_SET
+                .lock()
+                .unwrap()
+                .contains(message.message_id())
+            {
+                println!(
+                    "commit transaction: transaction_id: {}, message_id: {}",
+                    transaction_id, message.message_id()
+                );
+                TransactionResolution::COMMIT
+            } else {
+                println!(
+                    "rollback transaction due to unknown message: transaction_id: {}, message_id: {}",
+                    transaction_id, message.message_id()
+                );
+                TransactionResolution::ROLLBACK
+            }
         }),
     )
     .unwrap();
@@ -65,6 +84,14 @@ async fn main() {
         transaction.message_id(),
         transaction.transaction_id()
     );
+
+    MESSAGE_ID_SET
+        .lock()
+        .unwrap()
+        .insert(transaction.message_id().to_string());
+
+    // commit transaction manually
+    // delete following two lines so that RocketMQ server will check transaction status periodically
     let result = transaction.commit().await;
     debug_assert!(result.is_ok(), "commit transaction failed: {:?}", result);
 }

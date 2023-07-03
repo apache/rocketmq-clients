@@ -50,6 +50,7 @@ pub struct Producer {
 
 impl Producer {
     const OPERATION_SEND_MESSAGE: &'static str = "producer.send_message";
+    const OPERATION_SEND_TRANSACTION_MESSAGE: &'static str = "producer.send_transaction_message";
 
     /// Create a new producer instance
     ///
@@ -79,7 +80,7 @@ impl Producer {
     ///
     /// * `option` - producer option
     /// * `client_option` - client option
-    /// * `transaction_checker` - A closure to check the state of transaction.
+    /// * `transaction_checker` - handle server query for uncommitted transaction status
     pub fn new_transaction_producer(
         option: ProducerOption,
         client_option: ClientOption,
@@ -265,6 +266,13 @@ impl Producer {
         &self,
         mut message: impl message::Message,
     ) -> Result<impl Transaction, ClientError> {
+        if !self.client.has_transaction_checker() {
+            return Err(ClientError::new(
+                ErrorKind::InvalidMessage,
+                "this producer can not send transaction message, please create a transaction producer using producer::new_transaction_producer",
+                Self::OPERATION_SEND_TRANSACTION_MESSAGE,
+            ));
+        }
         let topic = message.take_topic();
         let receipt = self.send(message).await?;
         Ok(TransactionImpl::new(
