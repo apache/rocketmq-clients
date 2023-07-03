@@ -99,7 +99,7 @@ pub(crate) fn build_producer_settings(
             resource_namespace: option.namespace().to_string(),
         })
         .collect();
-    let platform = os_type::current_platform();
+    let platform = os_info::get();
     TelemetryCommand {
         command: Some(Command::Settings(Settings {
             client_type: Some(client_options.client_type.clone() as i32),
@@ -115,7 +115,7 @@ pub(crate) fn build_producer_settings(
             user_agent: Some(Ua {
                 language: SDK_LANGUAGE as i32,
                 version: SDK_VERSION.to_string(),
-                platform: format!("{:?} {}", platform.os_type, platform.version),
+                platform: format!("{} {}", platform.os_type(), platform.version()),
                 hostname: HOST_NAME.clone(),
             }),
             ..Settings::default()
@@ -128,7 +128,7 @@ pub(crate) fn build_simple_consumer_settings(
     option: &SimpleConsumerOption,
     client_option: &ClientOption,
 ) -> TelemetryCommand {
-    let platform = os_type::current_platform();
+    let platform = os_info::get();
     TelemetryCommand {
         command: Some(Command::Settings(Settings {
             client_type: Some(client_option.client_type.clone() as i32),
@@ -152,7 +152,7 @@ pub(crate) fn build_simple_consumer_settings(
             user_agent: Some(Ua {
                 language: SDK_LANGUAGE as i32,
                 version: SDK_VERSION.to_string(),
-                platform: format!("{:?} {}", platform.os_type, platform.version),
+                platform: format!("{} {}", platform.os_type(), platform.version()),
                 hostname: HOST_NAME.clone(),
             }),
             ..Settings::default()
