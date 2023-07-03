@@ -65,4 +65,6 @@ async fn main() {
         transaction.message_id(),
         transaction.transaction_id()
     );
+    let result = transaction.commit().await;
+    debug_assert!(result.is_ok(), "commit transaction failed: {:?}", result);
 }
