@@ -14,16 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::{collections::HashMap, sync::Arc, sync::atomic::AtomicUsize};
 use std::clone::Clone;
 use std::fmt::Debug;
 use std::string::ToString;
+use std::{collections::HashMap, sync::atomic::AtomicUsize, sync::Arc};
 
 use mockall::automock;
 use mockall_double::double;
 use parking_lot::Mutex;
 use prost_types::Duration;
-use slog::{debug, error, info, Logger, o, warn};
+use slog::{debug, error, info, o, warn, Logger};
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
@@ -33,17 +33,17 @@ use crate::model::common::{ClientType, Endpoints, Route, RouteStatus, SendReceip
 use crate::model::message::{AckMessageEntry, MessageView};
 use crate::model::transaction::TransactionChecker;
 use crate::pb;
+use crate::pb::receive_message_response::Content;
+use crate::pb::telemetry_command::Command::RecoverOrphanedTransactionCommand;
 use crate::pb::{
     AckMessageRequest, AckMessageResultEntry, Code, EndTransactionRequest, FilterExpression,
     HeartbeatRequest, HeartbeatResponse, Message, MessageQueue, QueryRouteRequest,
     ReceiveMessageRequest, Resource, SendMessageRequest, Status, TelemetryCommand,
     TransactionSource,
 };
-use crate::pb::receive_message_response::Content;
-use crate::pb::telemetry_command::Command::RecoverOrphanedTransactionCommand;
-use crate::session::{RPCClient, Session};
 #[double]
 use crate::session::SessionManager;
+use crate::session::{RPCClient, Session};
 
 pub(crate) struct Client {
     logger: Logger,
@@ -62,12 +62,14 @@ lazy_static::lazy_static! {
 }
 
 const OPERATION_CLIENT_NEW: &str = "client.new";
+const OPERATION_GET_SESSION: &str = "client.get_session";
 const OPERATION_QUERY_ROUTE: &str = "client.query_route";
 const OPERATION_HEARTBEAT: &str = "client.heartbeat";
 const OPERATION_SEND_MESSAGE: &str = "client.send_message";
 const OPERATION_RECEIVE_MESSAGE: &str = "client.receive_message";
 const OPERATION_ACK_MESSAGE: &str = "client.ack_message";
 const OPERATION_END_TRANSACTION: &str = "client.end_transaction";
+const OPERATION_HANDLE_TELEMETRY_COMMAND: &str = "client.handle_telemetry_command";
 
 impl Debug for Client {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -101,6 +103,17 @@ impl Client {
             transaction_checker: None,
             telemetry_command_tx: None,
         })
+    }
+
+    pub(crate) fn is_started(&self) -> bool {
+        self.telemetry_command_tx.is_some()
+    }
+
+    pub(crate) fn set_transaction_checker(&mut self, transaction_checker: Box<TransactionChecker>) {
+        if self.is_started() {
+            panic!("client {} is started, can not be modified", self.id)
+        }
+        self.transaction_checker = Some(transaction_checker);
     }
 
     pub(crate) async fn start(&mut self) {
@@ -159,7 +172,10 @@ impl Client {
                     },
                     command = rx.recv() => {
                         if let Some(command) = command {
-                            Self::handle_telemetry_command(&logger, rpc_client.clone(), &transaction_checker, endpoints.clone(), command).await
+                            let result = Self::handle_telemetry_command(rpc_client.clone(), &transaction_checker, endpoints.clone(), command).await;
+                            if let Err(error) = result {
+                                error!(logger, "handle telemetry command failed: {:?}", error)
+                            }
                         }
                     },
                 }
@@ -168,13 +184,12 @@ impl Client {
     }
 
     async fn handle_telemetry_command<T: RPCClient + 'static>(
-        logger: &Logger,
         mut rpc_client: T,
         transaction_checker: &Option<Box<TransactionChecker>>,
         endpoints: Endpoints,
         command: pb::telemetry_command::Command,
-    ) {
-        match command {
+    ) -> Result<(), ClientError> {
+        return match command {
             RecoverOrphanedTransactionCommand(command) => {
                 let transaction_id = command.transaction_id;
                 let message = command.message.unwrap();
@@ -185,7 +200,6 @@ impl Client {
                     .message_id
                     .clone();
                 let topic = message.topic.as_ref().unwrap().clone();
-                debug!(logger, "receive recover orphaned transaction command: transaction_id: {}, topic: {:?}, message_id: {}", transaction_id, topic, message_id);
                 if let Some(transaction_checker) = transaction_checker {
                     let resolution = transaction_checker(
                         transaction_id.clone(),
@@ -201,32 +215,23 @@ impl Client {
                             source: TransactionSource::SourceServerCheck as i32,
                             trace_context: "".to_string(),
                         })
-                        .await;
-                    match response {
-                        Ok(response) => {
-                            Self::handle_response_status(
-                                response.status,
-                                OPERATION_END_TRANSACTION,
-                            )
-                            .unwrap_or_else(|err| {
-                                error!(logger, "failed to end transaction: {}", err);
-                            });
-                        }
-                        Err(err) => {
-                            error!(logger, "failed to end transaction: {}", err);
-                        }
-                    }
+                        .await?;
+                    Self::handle_response_status(response.status, OPERATION_END_TRANSACTION)
                 } else {
-                    warn!(logger, "transaction checker is not set");
+                    Err(ClientError::new(
+                        ErrorKind::Config,
+                        "failed to get transaction checker",
+                        OPERATION_END_TRANSACTION,
+                    ))
                 }
             }
-            _ => {
-                warn!(
-                    logger,
-                    "receive telemetry command but there is no handler: command: {:?}", command
-                );
-            }
-        }
+            _ => Err(ClientError::new(
+                ErrorKind::Config,
+                "receive telemetry command but there is no handler",
+                OPERATION_HANDLE_TELEMETRY_COMMAND,
+            )
+            .with_context("command", format!("{:?}", command))),
+        };
     }
 
     #[allow(dead_code)]
@@ -253,7 +258,15 @@ impl Client {
         )
     }
 
-    async fn get_session(&self) -> Result<Session, ClientError> {
+    pub(crate) async fn get_session(&self) -> Result<Session, ClientError> {
+        if !self.is_started() {
+            return Err(ClientError::new(
+                ErrorKind::ClientIsNotRunning,
+                "client is not started",
+                OPERATION_GET_SESSION,
+            )
+            .with_context("client_id", self.id.clone()));
+        }
         let session = self
             .session_manager
             .get_or_create_session(
@@ -280,7 +293,7 @@ impl Client {
         Ok(session)
     }
 
-    fn handle_response_status(
+    pub(crate) fn handle_response_status(
         status: Option<Status>,
         operation: &'static str,
     ) -> Result<(), ClientError> {
@@ -589,8 +602,8 @@ impl Client {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
     use std::thread::sleep;
     use std::time::Duration;
 
@@ -601,12 +614,13 @@ pub(crate) mod tests {
     use crate::error::{ClientError, ErrorKind};
     use crate::log::terminal_logger;
     use crate::model::common::{ClientType, Route};
-    use crate::pb::{
-        AckMessageEntry, AckMessageResponse, Code, FilterExpression, HeartbeatResponse, Message,
-        MessageQueue, QueryRouteResponse, ReceiveMessageResponse, Resource, SendMessageResponse,
-        Status, TelemetryCommand,
-    };
+    use crate::model::transaction::TransactionResolution;
     use crate::pb::receive_message_response::Content;
+    use crate::pb::{
+        AckMessageEntry, AckMessageResponse, Code, EndTransactionResponse, FilterExpression,
+        HeartbeatResponse, Message, MessageQueue, QueryRouteResponse, ReceiveMessageResponse,
+        Resource, SendMessageResponse, Status, SystemProperties, TelemetryCommand,
+    };
     use crate::session;
 
     use super::*;
@@ -995,5 +1009,34 @@ pub(crate) mod tests {
         assert_eq!(error.kind, ErrorKind::Server);
         assert_eq!(error.message, "server return an error");
         assert_eq!(error.operation, "client.ack_message");
+    }
+
+    #[tokio::test]
+    async fn client_handle_telemetry_command() {
+        let response = Ok(EndTransactionResponse {
+            status: Some(Status {
+                code: Code::Ok as i32,
+                message: "".to_string(),
+            }),
+        });
+        let mut mock = session::MockRPCClient::new();
+        mock.expect_end_transaction()
+            .return_once(|_| Box::pin(futures::future::ready(response)));
+        let result = Client::handle_telemetry_command(
+            mock,
+            &Some(Box::new(|_, _| TransactionResolution::COMMIT)),
+            Endpoints::from_url("localhopst:8081").unwrap(),
+            RecoverOrphanedTransactionCommand(pb::RecoverOrphanedTransactionCommand {
+                message: Some(Message {
+                    topic: Some(Resource::default()),
+                    user_properties: Default::default(),
+                    system_properties: Some(SystemProperties::default()),
+                    body: vec![],
+                }),
+                transaction_id: "".to_string(),
+            }),
+        )
+        .await;
+        assert!(result.is_ok())
     }
 }

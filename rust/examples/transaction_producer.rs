@@ -16,6 +16,7 @@
  */
 use rocketmq::conf::{ClientOption, ProducerOption};
 use rocketmq::model::message::MessageBuilder;
+use rocketmq::model::transaction::{Transaction, TransactionResolution};
 use rocketmq::Producer;
 
 #[tokio::main]
@@ -23,29 +24,45 @@ async fn main() {
     // recommend to specify which topic(s) you would like to send message to
     // producer will prefetch topic route when start and failed fast if topic not exist
     let mut producer_option = ProducerOption::default();
-    producer_option.set_topics(vec!["test_topic"]);
+    producer_option.set_topics(vec!["transaction_test"]);
 
     // set which rocketmq proxy to connect
     let mut client_option = ClientOption::default();
     client_option.set_access_url("localhost:8081");
 
     // build and start producer
-    let mut producer = Producer::new(producer_option, client_option).unwrap();
+    let mut producer = Producer::new_transaction_producer(
+        producer_option,
+        client_option,
+        Box::new(|transaction_id, message| {
+            println!(
+                "receive transaction check request: transaction_id: {}, message: {:?}",
+                transaction_id, message
+            );
+            TransactionResolution::COMMIT
+        }),
+    )
+    .unwrap();
     producer.start().await.unwrap();
 
     // build message
-    let message = MessageBuilder::builder()
-        .set_topic("test_topic")
-        .set_tag("test_tag")
-        .set_body("hello world".as_bytes().to_vec())
-        .build()
-        .unwrap();
+    let message = MessageBuilder::transaction_message_builder(
+        "transaction_test",
+        "hello world".as_bytes().to_vec(),
+    )
+    .build()
+    .unwrap();
 
     // send message to rocketmq proxy
-    let result = producer.send(message).await;
-    debug_assert!(result.is_ok(), "send message failed: {:?}", result);
+    let result = producer.send_transaction_message(message).await;
+    if let Err(error) = result {
+        eprintln!("send message failed: {:?}", error);
+        return;
+    }
+    let transaction = result.unwrap();
     println!(
-        "send message success, message_id={}",
-        result.unwrap().message_id()
+        "send message success, message_id={}, transaction_id={}",
+        transaction.message_id(),
+        transaction.transaction_id()
     );
 }

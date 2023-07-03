@@ -60,7 +60,7 @@
 //!         .unwrap();
 //!
 //!     // send message to rocketmq proxy
-//!     let result = producer.send_one(message).await;
+//!     let result = producer.send(message).await;
 //!     debug_assert!(result.is_ok(), "send message failed: {:?}", result);
 //!     println!(
 //!         "send message success, message_id={}",
@@ -142,4 +142,3 @@ mod util;
 
 mod producer;
 mod simple_consumer;
-

@@ -297,6 +297,7 @@ pub trait AckMessageEntry {
 pub struct MessageView {
     pub(crate) message_id: String,
     pub(crate) receipt_handle: Option<String>,
+    pub(crate) namespace: String,
     pub(crate) topic: String,
     pub(crate) body: Vec<u8>,
     pub(crate) tag: Option<String>,
@@ -331,10 +332,12 @@ impl AckMessageEntry for MessageView {
 impl MessageView {
     pub(crate) fn from_pb_message(message: pb::Message, endpoints: Endpoints) -> Self {
         let system_properties = message.system_properties.unwrap();
+        let topic = message.topic.unwrap();
         MessageView {
             message_id: system_properties.message_id,
             receipt_handle: system_properties.receipt_handle,
-            topic: message.topic.unwrap().name,
+            namespace: topic.resource_namespace,
+            topic: topic.name,
             body: message.body,
             tag: system_properties.tag,
             keys: system_properties.keys,
@@ -353,7 +356,12 @@ impl MessageView {
         &self.message_id
     }
 
-    /// Get topic of message
+    /// Get topic namespace of message
+    pub fn namespace(&self) -> &str {
+        &self.namespace
+    }
+
+    /// Get topic name of message
     pub fn topic(&self) -> &str {
         &self.topic
     }

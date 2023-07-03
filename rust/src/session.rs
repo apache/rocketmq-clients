@@ -41,19 +41,19 @@ use crate::pb::{
 use crate::util::{PROTOCOL_VERSION, SDK_LANGUAGE, SDK_VERSION};
 use crate::{error::ClientError, pb::messaging_service_client::MessagingServiceClient};
 
+const OPERATION_START: &str = "session.start";
+const OPERATION_UPDATE_SETTINGS: &str = "session.update_settings";
+
+const OPERATION_QUERY_ROUTE: &str = "rpc.query_route";
+const OPERATION_HEARTBEAT: &str = "rpc.heartbeat";
+const OPERATION_SEND_MESSAGE: &str = "rpc.send_message";
+const OPERATION_RECEIVE_MESSAGE: &str = "rpc.receive_message";
+const OPERATION_ACK_MESSAGE: &str = "rpc.ack_message";
+const OPERATION_END_TRANSACTION: &str = "rpc.end_transaction";
+
 #[async_trait]
 #[automock]
 pub(crate) trait RPCClient {
-    const OPERATION_START: &'static str = "session.start";
-    const OPERATION_UPDATE_SETTINGS: &'static str = "session.update_settings";
-
-    const OPERATION_QUERY_ROUTE: &'static str = "rpc.query_route";
-    const OPERATION_HEARTBEAT: &'static str = "rpc.heartbeat";
-    const OPERATION_SEND_MESSAGE: &'static str = "rpc.send_message";
-    const OPERATION_RECEIVE_MESSAGE: &'static str = "rpc.receive_message";
-    const OPERATION_ACK_MESSAGE: &'static str = "rpc.ack_message";
-    const OPERATION_END_TRANSACTION: &'static str = "rpc.end_transaction";
-
     async fn query_route(
         &mut self,
         request: QueryRouteRequest,
@@ -272,7 +272,7 @@ impl Session {
             ClientError::new(
                 ErrorKind::ChannelSend,
                 "failed to send telemetry command",
-                Self::OPERATION_START,
+                OPERATION_START,
             )
             .set_source(e)
         })?;
@@ -283,7 +283,7 @@ impl Session {
             ClientError::new(
                 ErrorKind::ClientInternal,
                 "send rpc telemetry failed",
-                Self::OPERATION_START,
+                OPERATION_START,
             )
             .set_source(e)
         })?;
@@ -294,7 +294,7 @@ impl Session {
             loop {
                 match stream.message().await {
                     Ok(Some(item)) => {
-                        debug!(logger, "telemetry command: {:?}", item);
+                        debug!(logger, "receive telemetry command: {:?}", item);
                         if let Some(command) = item.command {
                             _ = telemetry_command_tx.send(command).await;
                         }
@@ -328,8 +328,9 @@ impl Session {
             return Err(ClientError::new(
                 ErrorKind::ClientIsNotRunning,
                 "session is not started",
-                Self::OPERATION_UPDATE_SETTINGS,
-            ));
+                OPERATION_UPDATE_SETTINGS,
+            )
+            .with_context("url", self.endpoints.endpoint_url()));
         }
 
         if let Some(tx) = self.telemetry_tx.as_ref() {
@@ -337,7 +338,7 @@ impl Session {
                 ClientError::new(
                     ErrorKind::ChannelSend,
                     "failed to send telemetry command",
-                    Self::OPERATION_UPDATE_SETTINGS,
+                    OPERATION_UPDATE_SETTINGS,
                 )
                 .set_source(e)
             })?;
@@ -358,7 +359,7 @@ impl RPCClient for Session {
             ClientError::new(
                 ErrorKind::ClientInternal,
                 "send rpc query_route failed",
-                Self::OPERATION_QUERY_ROUTE,
+                OPERATION_QUERY_ROUTE,
             )
             .set_source(e)
         })?;
@@ -374,7 +375,7 @@ impl RPCClient for Session {
             ClientError::new(
                 ErrorKind::ClientInternal,
                 "send rpc heartbeat failed",
-                Self::OPERATION_HEARTBEAT,
+                OPERATION_HEARTBEAT,
             )
             .set_source(e)
         })?;
@@ -390,7 +391,7 @@ impl RPCClient for Session {
             ClientError::new(
                 ErrorKind::ClientInternal,
                 "send rpc send_message failed",
-                Self::OPERATION_SEND_MESSAGE,
+                OPERATION_SEND_MESSAGE,
             )
             .set_source(e)
         })?;
@@ -412,7 +413,7 @@ impl RPCClient for Session {
                 ClientError::new(
                     ErrorKind::ClientInternal,
                     "send rpc receive_message failed",
-                    Self::OPERATION_RECEIVE_MESSAGE,
+                    OPERATION_RECEIVE_MESSAGE,
                 )
                 .set_source(e)
             })?
@@ -424,7 +425,7 @@ impl RPCClient for Session {
                 ClientError::new(
                     ErrorKind::ClientInternal,
                     "receive message failed: error in reading stream",
-                    Self::OPERATION_RECEIVE_MESSAGE,
+                    OPERATION_RECEIVE_MESSAGE,
                 )
                 .set_source(e)
             })?;
@@ -442,7 +443,7 @@ impl RPCClient for Session {
             ClientError::new(
                 ErrorKind::ClientInternal,
                 "send rpc ack_message failed",
-                Self::OPERATION_ACK_MESSAGE,
+                OPERATION_ACK_MESSAGE,
             )
             .set_source(e)
         })?;
@@ -458,7 +459,7 @@ impl RPCClient for Session {
             ClientError::new(
                 ErrorKind::ClientInternal,
                 "send rpc end_transaction failed",
-                Self::OPERATION_END_TRANSACTION,
+                OPERATION_END_TRANSACTION,
             )
             .set_source(e)
         })?;

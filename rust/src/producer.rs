@@ -21,18 +21,19 @@ use mockall_double::double;
 use prost_types::Timestamp;
 use slog::{info, Logger};
 
-use crate::{log, pb};
 #[double]
 use crate::client::Client;
 use crate::conf::{ClientOption, ProducerOption};
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::{ClientType, SendReceipt};
 use crate::model::message;
+use crate::model::transaction::{Transaction, TransactionChecker, TransactionImpl};
 use crate::pb::{Encoding, MessageType, Resource, SystemProperties};
 use crate::util::{
-    build_endpoints_by_message_queue, build_producer_settings, HOST_NAME,
-    select_message_queue, select_message_queue_by_message_group,
+    build_endpoints_by_message_queue, build_producer_settings, select_message_queue,
+    select_message_queue_by_message_group, HOST_NAME,
 };
+use crate::{log, pb};
 
 /// [`Producer`] is the core struct, to which application developers should turn, when publishing messages to RocketMQ proxy.
 ///
@@ -72,14 +73,42 @@ impl Producer {
         })
     }
 
+    /// Create a new transaction producer instance
+    ///
+    /// # Arguments
+    ///
+    /// * `option` - producer option
+    /// * `client_option` - client option
+    /// * `transaction_checker` - A closure to check the state of transaction.
+    pub fn new_transaction_producer(
+        option: ProducerOption,
+        client_option: ClientOption,
+        transaction_checker: Box<TransactionChecker>,
+    ) -> Result<Self, ClientError> {
+        let client_option = ClientOption {
+            client_type: ClientType::Producer,
+            namespace: option.namespace().to_string(),
+            ..client_option
+        };
+        let logger = log::logger(option.logging_format());
+        let settings = build_producer_settings(&option, &client_option);
+        let mut client = Client::new(&logger, client_option, settings)?;
+        client.set_transaction_checker(transaction_checker);
+        Ok(Producer {
+            option,
+            logger,
+            client,
+        })
+    }
+
     /// Start the producer
     pub async fn start(&mut self) -> Result<(), ClientError> {
+        self.client.start().await;
         if let Some(topics) = self.option.topics() {
             for topic in topics {
                 self.client.topic_route(topic, true).await?;
             }
         }
-        self.client.start().await;
         info!(
             self.logger,
             "start producer success, client_id: {}",
@@ -197,11 +226,8 @@ impl Producer {
     /// # Arguments
     ///
     /// * `message` - the message to send
-    pub async fn send_one(
-        &self,
-        message: impl message::Message,
-    ) -> Result<SendReceipt, ClientError> {
-        let results = self.send(vec![message]).await?;
+    pub async fn send(&self, message: impl message::Message) -> Result<SendReceipt, ClientError> {
+        let results = self.batch_send(vec![message]).await?;
         Ok(results[0].clone())
     }
 
@@ -210,7 +236,7 @@ impl Producer {
     /// # Arguments
     ///
     /// * `messages` - A vector that holds the messages to send
-    pub async fn send(
+    pub async fn batch_send(
         &self,
         messages: Vec<impl message::Message>,
     ) -> Result<Vec<SendReceipt>, ClientError> {
@@ -233,6 +259,23 @@ impl Producer {
 
         self.client.send_message(&endpoints, pb_messages).await
     }
+
+    /// Send message in a transaction
+    pub async fn send_transaction_message(
+        &self,
+        mut message: impl message::Message,
+    ) -> Result<impl Transaction, ClientError> {
+        let topic = message.take_topic();
+        let receipt = self.send(message).await?;
+        Ok(TransactionImpl::new(
+            Box::new(self.client.get_session().await.unwrap()),
+            Resource {
+                resource_namespace: self.option.namespace().to_string(),
+                name: topic,
+            },
+            receipt,
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -243,7 +286,9 @@ mod tests {
     use crate::log::terminal_logger;
     use crate::model::common::Route;
     use crate::model::message::{MessageBuilder, MessageImpl};
+    use crate::model::transaction::TransactionResolution;
     use crate::pb::{Broker, MessageQueue};
+    use crate::session::Session;
 
     use super::*;
 
@@ -279,6 +324,38 @@ mod tests {
         Producer::new(producer_option, ClientOption::default())?
             .start()
             .await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn transaction_producer_start() -> Result<(), ClientError> {
+        let _m = crate::client::tests::MTX.lock();
+
+        let ctx = Client::new_context();
+        ctx.expect().return_once(|_, _, _| {
+            let mut client = Client::default();
+            client.expect_topic_route().returning(|_, _| {
+                Ok(Arc::new(Route {
+                    index: Default::default(),
+                    queue: vec![],
+                }))
+            });
+            client.expect_start().returning(|| ());
+            client.expect_set_transaction_checker().returning(|_| ());
+            client
+                .expect_client_id()
+                .return_const("fake_id".to_string());
+            Ok(client)
+        });
+        let mut producer_option = ProducerOption::default();
+        producer_option.set_topics(vec!["DefaultCluster".to_string()]);
+        Producer::new_transaction_producer(
+            producer_option,
+            ClientOption::default(),
+            Box::new(|_, _| TransactionResolution::COMMIT),
+        )?
+        .start()
+        .await?;
         Ok(())
     }
 
@@ -381,7 +458,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn producer_send_one() -> Result<(), ClientError> {
+    async fn producer_send() -> Result<(), ClientError> {
         let mut producer = new_producer_for_test();
         producer.client.expect_topic_route().returning(|_, _| {
             Ok(Arc::new(Route {
@@ -415,7 +492,7 @@ mod tests {
             )])
         });
         let result = producer
-            .send_one(
+            .send(
                 MessageBuilder::builder()
                     .set_topic("test_topic")
                     .set_body(vec![])
@@ -425,6 +502,57 @@ mod tests {
             .await?;
         assert_eq!(result.message_id(), "message_id");
         assert_eq!(result.transaction_id(), "transaction_id");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn producer_send_transaction_message() -> Result<(), ClientError> {
+        let mut producer = new_producer_for_test();
+        producer.client.expect_topic_route().returning(|_, _| {
+            Ok(Arc::new(Route {
+                index: Default::default(),
+                queue: vec![MessageQueue {
+                    topic: Some(Resource {
+                        name: "test_topic".to_string(),
+                        resource_namespace: "".to_string(),
+                    }),
+                    id: 0,
+                    permission: 0,
+                    broker: Some(Broker {
+                        name: "".to_string(),
+                        id: 0,
+                        endpoints: Some(pb::Endpoints {
+                            scheme: 0,
+                            addresses: vec![],
+                        }),
+                    }),
+                    accept_message_types: vec![],
+                }],
+            }))
+        });
+        producer.client.expect_send_message().returning(|_, _| {
+            Ok(vec![SendReceipt::from_pb_send_result(
+                &pb::SendResultEntry {
+                    message_id: "message_id".to_string(),
+                    transaction_id: "transaction_id".to_string(),
+                    ..pb::SendResultEntry::default()
+                },
+            )])
+        });
+        producer
+            .client
+            .expect_get_session()
+            .return_once(|| Ok(Session::mock()));
+
+        let _ = producer
+            .send_transaction_message(
+                MessageBuilder::builder()
+                    .set_topic("test_topic")
+                    .set_body(vec![])
+                    .build()
+                    .unwrap(),
+            )
+            .await?;
         Ok(())
     }
 }
