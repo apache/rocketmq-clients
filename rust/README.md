@@ -42,5 +42,5 @@ cargo run --example simple_consumer
 [codecov-url]: https://app.codecov.io/gh/apache/rocketmq-clients
 [crates-image]: https://img.shields.io/crates/v/rocketmq.svg
 [crates-url]: https://crates.io/crates/rocketmq
-[rust-doc-image]: https://img.shields.io/crates/v/rocketmq.svg
+[rust-doc-image]: https://img.shields.io/docsrs/rocketmq
 [rust-doc-url]: https://docs.rs/rocketmq
