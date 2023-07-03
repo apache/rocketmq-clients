@@ -31,7 +31,7 @@ class Session:
     async def write_async(self, telemetry_command: ProtoTelemetryCommand):
         await self._streaming_call.write(telemetry_command)
         response = await self._streaming_call.read()
-        print(response)
+        # print(response)
 
     async def sync_settings(self, await_resp):
         await self._semaphore.acquire()

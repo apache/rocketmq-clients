@@ -14,16 +14,44 @@
 # limitations under the License.
 
 import threading
+import asyncio
 from typing import Set
 
-from protocol import service_pb2
-from protocol.service_pb2 import QueryRouteRequest
+from protocol import service_pb2, definition_pb2
+from protocol.service_pb2 import QueryRouteRequest, HeartbeatRequest
 from rocketmq.client_config import ClientConfig
+from rocketmq.log import logger
 from rocketmq.client_id_encoder import ClientIdEncoder
-from rocketmq.definition import TopicRouteData
+from rocketmq.definition import TopicRouteData, Resource
 from rocketmq.rpc_client import Endpoints, RpcClient
 from rocketmq.session import Session
 from rocketmq.signature import Signature
+
+
+class ScheduleWithFixedDelay:
+    def __init__(self, action, delay, period):
+        self.action = action
+        self.delay = delay
+        self.period = period
+        self.task = None
+
+    async def start(self):
+        # print("tes")
+        # await asyncio.sleep(self.delay)
+        while True:
+            try:
+                await self.action()
+            except Exception as e:
+                logger.info(f"Failed to execute scheduled task, Exception: {str(e)}")
+            finally:
+                await asyncio.sleep(self.period)
+
+    def schedule(self):
+        self.task = asyncio.create_task(self.start())
+
+    def cancel(self):
+        if self.task:
+            self.task.cancel()
 
 
 class Client:
@@ -43,6 +71,28 @@ class Client:
         # get topic route
         for topic in self.topics:
             self.topic_route_cache[topic] = await self.fetch_topic_route(topic)
+        scheduler = ScheduleWithFixedDelay(self.heartbeat, 3, 12)
+        scheduler.schedule()
+
+    async def heartbeat(self):
+        try:
+            endpoints = self.GetTotalRouteEndpoints()
+            request = HeartbeatRequest()
+            request.client_type = definition_pb2.PRODUCER
+            topic = Resource()
+            topic.name = "normal_topic"
+            invocations = {}
+            print(len(endpoints))
+            # Collect task into a map.
+            for item in endpoints:
+                # print(item.grpc_target(True))
+                task = await self.client_manager.heartbeat(item, request, self.client_config.request_timeout)
+                invocations[item] = task
+                print(task)
+                print("finish")
+                break
+        except Exception as e:
+            logger.error(f"[Bug] unexpected exception raised during heartbeat, clientId={self.client_id}, Exception: {str(e)}")
 
     def GetTotalRouteEndpoints(self):
         endpoints = set()

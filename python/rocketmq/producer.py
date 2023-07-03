@@ -16,7 +16,7 @@
 import asyncio
 import threading
 from typing import Set
-
+import time
 import rocketmq
 from rocketmq.client import Client
 from rocketmq.client_config import ClientConfig
@@ -27,6 +27,7 @@ from rocketmq.protocol.definition_pb2 import Message as ProtoMessage
 from rocketmq.protocol.definition_pb2 import Resource, SystemProperties
 from rocketmq.protocol.service_pb2 import SendMessageRequest
 from rocketmq.publish_settings import PublishingSettings
+from rocketmq.exponential_backoff_retry_policy import ExponentialBackoffRetryPolicy
 from rocketmq.rpc_client import Endpoints
 from rocketmq.session_credentials import (SessionCredentials,
                                           SessionCredentialsProvider)
@@ -89,8 +90,9 @@ class PublishingLoadBalancer:
 class Producer(Client):
     def __init__(self, client_config: ClientConfig, topics: Set[str]):
         super().__init__(client_config, topics)
+        retry_policy = ExponentialBackoffRetryPolicy.immediately_retry_policy(10)
         self.publish_settings = PublishingSettings(
-            self.client_id, self.endpoints, None, 10, topics
+            self.client_id, self.endpoints, retry_policy, 10, topics
         )
 
     async def __aenter__(self):
@@ -108,19 +110,84 @@ class Producer(Client):
         logger.info(f"Begin to shutdown the rocketmq producer, client_id={self.client_id}")
         logger.info(f"Shutdown the rocketmq producer successfully, client_id={self.client_id}")
 
+
     async def send_message(self, message):
-        req = SendMessageRequest()
-        req.messages.extend([message])
-        topic_data = self.topic_route_cache["normal_topic"]
-        endpoints = topic_data.message_queues[2].broker.endpoints
-        return await self.client_manager.send_message(endpoints, req, 10)
+        retry_policy = self.get_retry_policy()
+        maxAttempts = retry_policy.get_max_attempts()
+        exception = None
+
+        candidates = []
+        for attempt in range(1, maxAttempts + 1):
+            stopwatch_start = time.time()
+
+            candidateIndex = (attempt - 1) % len(candidates)
+            mq = candidates[candidateIndex]
+
+            if self.publish_settings.is_validate_message_type() and message.message_type not in mq.accept_message_types:
+                raise ValueError(
+                    "Current message type does not match with the accept message types," +
+                    f" topic={message.topic}, actualMessageType={message.message_type}" +
+                    f" acceptMessageType={','.join(mq.accept_message_types)}")
+
+            sendMessageRequest = self.wrap_send_message_request(message, mq)
+            topic_data = self.topic_route_cache["normal_topic"]
+            endpoints = topic_data.message_queues[2].broker.endpoints
+            try:
+                invocation = await self.client_manager.send_message(endpoints, sendMessageRequest, self.client_config.request_timeout)
+                sendReceipts = SendReceipt.process_send_message_response(mq, invocation)
+            
+                sendReceipt = sendReceipts[0]
+                if attempt > 1:
+                    logger.info(
+                        f"Re-send message successfully, topic={message.topic}, messageId={sendReceipt.messageId}," +
+                        f" maxAttempts={maxAttempts}, endpoints={endpoints}, clientId={self.client_id}")
+            
+                return sendReceipt
+            except Exception as e:
+                exception = e
+                self.isolated[endpoints] = True
+                if attempt >= maxAttempts:
+                    logger.error(f"Failed to send message finally, run out of attempt times, " +
+                                    f"topic={message.topic}, maxAttempt={maxAttempts}, attempt={attempt}, " +
+                                    f"endpoints={endpoints}, messageId={message.message_id}, clientId={self.client_id}")
+                    raise
+
+                if message.message_type == "Transaction":
+                    logger.info(f"Failed to send transaction message, run out of attempt times, " +
+                                    f"topic={message.topic}, maxAttempt=1, attempt={attempt}, " +
+                                    f"endpoints={endpoints}, messageId={message.message_id}, clientId={self.client_id}")
+                    raise
+            
+                if not isinstance(exception, TooManyRequestsException):
+                    logger.info(f"Failed to send message, topic={message.topic}, maxAttempts={maxAttempts}, " +
+                                    f"attempt={attempt}, endpoints={endpoints}, messageId={message.message_id}," +
+                                    f" clientId={self.client_id}")
+                    continue
+
+                nextAttempt = 1 + attempt
+                delay = retry_policy.get_next_attempt_delay(nextAttempt)
+                await asyncio.sleep(delay.total_seconds())
+
+
+    # async def send_message(self, message):
+    #     retry_policy = self.get_retry_policy()
+    #     maxAttempts = retry_policy.GetMaxAttempts()
+    #     for attempt in range(maxAttempts):
+            
+    #     req = SendMessageRequest()
+    #     req.messages.extend([message])
+    #     topic_data = self.topic_route_cache["normal_topic"]
+    #     endpoints = topic_data.message_queues[2].broker.endpoints
+    #     return await self.client_manager.send_message(endpoints, req, 10)
 
     def get_settings(self):
         return self.publish_settings
 
+    def get_retry_policy(self):
+        return self.publish_settings.GetRetryPolicy()
 
 async def test():
-    credentials = SessionCredentials("username", "password")
+    credentials = SessionCredentials("uU5kBDYnmBf1hVPl", "6TtqkYNNC677PWXX")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
         endpoints=Endpoints("rmq-cn-jaj390gga04.cn-hangzhou.rmq.aliyuncs.com:8080"),
@@ -139,7 +206,7 @@ async def test():
     producer = Producer(client_config, topics={"normal_topic"})
     await producer.start()
     result = await producer.send_message(msg)
-    print(result)
+    # print(result)
 
 
 if __name__ == "__main__":

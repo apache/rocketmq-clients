@@ -22,6 +22,7 @@ from rocketmq.protocol.definition_pb2 import Publishing as ProtoPublishing
 from rocketmq.protocol.definition_pb2 import Resource as ProtoResource
 from rocketmq.protocol.definition_pb2 import Settings as ProtoSettings
 from rocketmq.rpc_client import Endpoints
+from rocketmq.exponential_backoff_retry_policy import ExponentialBackoffRetryPolicy
 from rocketmq.settings import (ClientType, ClientTypeHelper, IRetryPolicy,
                                Settings)
 from rocketmq.signature import Signature
@@ -44,7 +45,7 @@ class PublishingSettings(Settings):
         self,
         client_id: str,
         endpoints: Endpoints,
-        retry_policy: IRetryPolicy,
+        retry_policy: ExponentialBackoffRetryPolicy,
         request_timeout: int,
         topics: Dict[str, bool],
     ):
