@@ -21,9 +21,21 @@ from protocol.definition_pb2 import MessageQueue as ProtoMessageQueue
 from protocol.definition_pb2 import MessageType as ProtoMessageType
 from protocol.definition_pb2 import Permission as ProtoPermission
 from protocol.definition_pb2 import Resource as ProtoResource
+from protocol.definition_pb2 import Encoding as ProtoEncoding
 from rocketmq.protocol import definition_pb2
 from rocketmq.rpc_client import Endpoints
 
+class Encoding(Enum):
+    IDENTITY=0
+    GZIP=1
+
+class EncodingHelper:
+    @staticmethod
+    def to_protobuf(mq_encoding):
+        if mq_encoding == Encoding.IDENTITY:
+            return ProtoEncoding.IDENTITY
+        elif mq_encoding == Encoding.GZIP:
+            return ProtoEncoding.GZIP
 
 class Broker:
     def __init__(self, broker):

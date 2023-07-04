@@ -67,6 +67,8 @@ class Client:
         self.sessionsLock = threading.Lock()
         self.client_manager = ClientManager(self)
 
+        self.isolated = dict()
+
     async def start(self):
         # get topic route
         for topic in self.topics:
@@ -100,6 +102,12 @@ class Client:
             for endpoint in [mq.broker.endpoints for mq in item[1].message_queues]:
                 endpoints.add(endpoint)
         return endpoints
+
+    async def get_route_data(self, topic):
+        if topic in self.topic_route_cache:
+            return self.topic_route_cache[topic]
+        topic_route_data = await self.fetch_topic_route(topic=topic)
+        return topic_route_data
 
     def get_client_config(self):
         return self.client_config

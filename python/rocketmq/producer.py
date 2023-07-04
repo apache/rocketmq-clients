@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import datetime
 import asyncio
 import threading
 from typing import Set
@@ -31,8 +31,9 @@ from rocketmq.exponential_backoff_retry_policy import ExponentialBackoffRetryPol
 from rocketmq.rpc_client import Endpoints
 from rocketmq.session_credentials import (SessionCredentials,
                                           SessionCredentialsProvider)
-
-
+from rocketmq.definition import PermissionHelper
+from rocketmq.publishing_message import PublishingMessage
+from rocketmq.message import Message
 class PublishingLoadBalancer:
     def __init__(self, topic_route_data: TopicRouteData, index: int = 0):
         self.__index = index
@@ -40,7 +41,7 @@ class PublishingLoadBalancer:
         message_queues = []
         for mq in topic_route_data.message_queues:
             if (
-                not mq.permission.is_writable()
+                not PermissionHelper().is_writable(mq.permission)
                 or mq.broker.id is not rocketmq.utils.master_broker_id
             ):
                 continue
@@ -94,6 +95,8 @@ class Producer(Client):
         self.publish_settings = PublishingSettings(
             self.client_id, self.endpoints, retry_policy, 10, topics
         )
+        self.publish_routedata_cache = {}
+
 
     async def __aenter__(self):
         await self.start()
@@ -110,43 +113,60 @@ class Producer(Client):
         logger.info(f"Begin to shutdown the rocketmq producer, client_id={self.client_id}")
         logger.info(f"Shutdown the rocketmq producer successfully, client_id={self.client_id}")
 
+    @staticmethod
+    def wrap_send_message_request(message, message_queue):
+        req = SendMessageRequest()
+        req.messages.extend([message.to_protobuf(message_queue.queue_id)])
+        return req
+
     async def send_message(self, message):
+        # get load balancer
+        publish_load_balancer = await self.get_publish_load_balancer(message.topic)
+        publishing_message = PublishingMessage(message, self.publish_settings)
         retry_policy = self.get_retry_policy()
         maxAttempts = retry_policy.get_max_attempts()
+
         exception = None
 
-        candidates = []
+        candidates = (
+            publish_load_balancer.take_message_queues(set(self.isolated.keys()), maxAttempts)
+            if publishing_message.message.message_group is None else 
+            [publish_load_balancer.take_message_queue_by_message_group(publishing_message.message.message_group)]
+            )
+        print(candidates)
         for attempt in range(1, maxAttempts + 1):
             stopwatch_start = time.time()
 
             candidateIndex = (attempt - 1) % len(candidates)
             mq = candidates[candidateIndex]
-
-            if self.publish_settings.is_validate_message_type() and message.message_type not in mq.accept_message_types:
+            # print(mq.accept_message_types[0] == publishing_message.message_type)
+            # print((mq.accept_message_types[0].value))
+            # print((publishing_message.message_type)) TODO check why it's wrong using not in
+            if self.publish_settings.is_validate_message_type() and publishing_message.message_type.value != mq.accept_message_types[0].value:
                 raise ValueError(
                     "Current message type does not match with the accept message types," +
-                    f" topic={message.topic}, actualMessageType={message.message_type}" +
-                    f" acceptMessageType={','.join(mq.accept_message_types)}")
+                    f" topic={message.topic}, actualMessageType={publishing_message.message_type}" +
+                    f" acceptMessageType={','}")
 
-            sendMessageRequest = self.wrap_send_message_request(message, mq)
+            sendMessageRequest = self.wrap_send_message_request(publishing_message, mq)
             topic_data = self.topic_route_cache["normal_topic"]
             endpoints = topic_data.message_queues[2].broker.endpoints
             try:
                 invocation = await self.client_manager.send_message(endpoints, sendMessageRequest, self.client_config.request_timeout)
-                sendReceipts = SendReceipt.process_send_message_response(mq, invocation)
-            
-                sendReceipt = sendReceipts[0]
+                # sendReceipts = SendReceipt.process_send_message_response(mq, invocation)
+                print(invocation)
+                # sendReceipt = sendReceipts[0]
                 if attempt > 1:
                     logger.info(
-                        f"Re-send message successfully, topic={message.topic}, messageId={sendReceipt.messageId}," +
-                        f" maxAttempts={maxAttempts}, endpoints={endpoints}, clientId={self.client_id}")
+                        f"Re-send message successfully, topic={message.topic}," +
+                        f" maxAttempts={maxAttempts}, endpoints=, clientId={self.client_id}")
             
-                return sendReceipt
+                # return sendReceipt
             except Exception as e:
                 exception = e
                 self.isolated[endpoints] = True
                 if attempt >= maxAttempts:
-                    logger.error(f"Failed to send message finally, run out of attempt times, " +
+                    logger.info(f"Failed to send message finally, run out of attempt times, " +
                                     f"topic={message.topic}, maxAttempt={maxAttempts}, attempt={attempt}, " +
                                     f"endpoints={endpoints}, messageId={message.message_id}, clientId={self.client_id}")
                     raise
@@ -168,16 +188,20 @@ class Producer(Client):
                 await asyncio.sleep(delay.total_seconds())
 
 
-    # async def send_message(self, message):
-    #     retry_policy = self.get_retry_policy()
-    #     maxAttempts = retry_policy.GetMaxAttempts()
-    #     for attempt in range(maxAttempts):
-            
-    #     req = SendMessageRequest()
-    #     req.messages.extend([message])
-    #     topic_data = self.topic_route_cache["normal_topic"]
-    #     endpoints = topic_data.message_queues[2].broker.endpoints
-    #     return await self.client_manager.send_message(endpoints, req, 10)
+    def update_publish_load_balancer(self, topic, topic_route_data):
+        publishing_load_balancer = None
+        if topic in self.publish_routedata_cache:
+            publishing_load_balancer = self.publish_routedata_cache[topic]
+        else:
+            publishing_load_balancer = PublishingLoadBalancer(topic_route_data)
+        self.publish_routedata_cache[topic] = publishing_load_balancer
+        return publishing_load_balancer
+
+    async def get_publish_load_balancer(self, topic):
+        if topic in self.publish_routedata_cache:
+            return self.publish_routedata_cache[topic]
+        topic_route_data = await self.get_route_data(topic)
+        return self.update_publish_load_balancer(topic, topic_route_data)
 
     def get_settings(self):
         return self.publish_settings
@@ -186,13 +210,14 @@ class Producer(Client):
         return self.publish_settings.GetRetryPolicy()
 
 async def test():
-    credentials = SessionCredentials("username", "password")
+    credentials = SessionCredentials("user", "password")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
         endpoints=Endpoints("rmq-cn-jaj390gga04.cn-hangzhou.rmq.aliyuncs.com:8080"),
         session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
+    print(datetime.datetime.utcnow())
     topic = Resource()
     topic.name = "normal_topic"
     msg = ProtoMessage()
@@ -203,9 +228,9 @@ async def test():
     msg.system_properties.CopyFrom(sysperf)
     logger.info(f"{msg}")
     producer = Producer(client_config, topics={"normal_topic"})
+    message = Message(topic.name, msg.body)
     await producer.start()
-    result = await producer.send_message(msg)
-    # print(result)
+    await producer.send_message(message)
 
 
 if __name__ == "__main__":
