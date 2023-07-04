@@ -110,7 +110,6 @@ class Producer(Client):
         logger.info(f"Begin to shutdown the rocketmq producer, client_id={self.client_id}")
         logger.info(f"Shutdown the rocketmq producer successfully, client_id={self.client_id}")
 
-
     async def send_message(self, message):
         retry_policy = self.get_retry_policy()
         maxAttempts = retry_policy.get_max_attempts()
@@ -187,7 +186,7 @@ class Producer(Client):
         return self.publish_settings.GetRetryPolicy()
 
 async def test():
-    credentials = SessionCredentials("uU5kBDYnmBf1hVPl", "6TtqkYNNC677PWXX")
+    credentials = SessionCredentials("username", "password")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
         endpoints=Endpoints("rmq-cn-jaj390gga04.cn-hangzhou.rmq.aliyuncs.com:8080"),
