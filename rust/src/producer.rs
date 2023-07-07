@@ -104,7 +104,7 @@ impl Producer {
 
     /// Start the producer
     pub async fn start(&mut self) -> Result<(), ClientError> {
-        self.client.start().await;
+        self.client.start().await?;
         if let Some(topics) = self.option.topics() {
             for topic in topics {
                 self.client.topic_route(topic, true).await?;
@@ -321,7 +321,7 @@ mod tests {
                     queue: vec![],
                 }))
             });
-            client.expect_start().returning(|| ());
+            client.expect_start().returning(|| Ok(()));
             client
                 .expect_client_id()
                 .return_const("fake_id".to_string());
@@ -348,7 +348,7 @@ mod tests {
                     queue: vec![],
                 }))
             });
-            client.expect_start().returning(|| ());
+            client.expect_start().returning(|| Ok(()));
             client.expect_set_transaction_checker().returning(|_| ());
             client
                 .expect_client_id()
@@ -551,6 +551,10 @@ mod tests {
             .client
             .expect_get_session()
             .return_once(|| Ok(Session::mock()));
+        producer
+            .client
+            .expect_has_transaction_checker()
+            .return_once(|| true);
 
         let _ = producer
             .send_transaction_message(

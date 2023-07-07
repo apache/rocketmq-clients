@@ -120,7 +120,7 @@ impl Client {
         self.transaction_checker = Some(transaction_checker);
     }
 
-    pub(crate) async fn start(&mut self) {
+    pub(crate) async fn start(&mut self) -> Result<(), ClientError> {
         let logger = self.logger.clone();
         let session_manager = self.session_manager.clone();
 
@@ -131,7 +131,7 @@ impl Client {
         // send heartbeat and handle telemetry command
         let (tx, mut rx) = mpsc::channel(16);
         self.telemetry_command_tx = Some(tx);
-        let rpc_client = self.get_session().await.unwrap();
+        let rpc_client = self.get_session().await?;
         let endpoints = self.access_endpoints.clone();
         let transaction_checker = self.transaction_checker.take();
         // give a placeholder
@@ -189,6 +189,7 @@ impl Client {
                 }
             }
         });
+        Ok(())
     }
 
     async fn handle_telemetry_command<T: RPCClient + 'static>(
@@ -698,7 +699,7 @@ pub(crate) mod tests {
             .returning(|_, _, _| Ok(Session::mock()));
 
         let mut client = new_client_with_session_manager(session_manager);
-        client.start().await;
+        client.start().await?;
 
         // TODO use countdown latch instead sleeping
         // wait for run
