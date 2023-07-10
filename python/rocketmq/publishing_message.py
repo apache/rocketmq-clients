@@ -1,12 +1,12 @@
-# Import necessary modules
-import datetime
-from google.protobuf.timestamp_pb2 import Timestamp
-from protocol.definition_pb2 import Message as ProtoMessage, SystemProperties, Resource
-from definition import Encoding, EncodingHelper
-from definition import MessageType, MessageTypeHelper
-from message_id_codec import MessageIdCodec
-from message import Message
 import socket
+
+from definition import Encoding, EncodingHelper, MessageType, MessageTypeHelper
+from google.protobuf.timestamp_pb2 import Timestamp
+from message import Message
+from message_id_codec import MessageIdCodec
+from protocol.definition_pb2 import Message as ProtoMessage
+from protocol.definition_pb2 import Resource, SystemProperties
+
 
 class PublishingMessage(Message):
     def __init__(self, message, publishing_settings, tx_enabled=False):
@@ -58,7 +58,7 @@ class PublishingMessage(Message):
             system_properties.message_group = self.message.message_group
 
         topic_resource = Resource(name=self.message.topic)
-        
+
         return ProtoMessage(
             topic=topic_resource,
             body=self.message.body,

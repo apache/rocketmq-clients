@@ -132,7 +132,7 @@ class Endpoints:
 
     def __str__(self):
         for address in self.Addresses:
-            return None
+            return str(address.host) + str(address.port)
 
     def grpc_target(self, sslEnabled):
         for address in self.Addresses:

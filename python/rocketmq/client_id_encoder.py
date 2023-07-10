@@ -22,12 +22,25 @@ import rocketmq.utils
 
 
 class ClientIdEncoder:
+    """This class generates a unique client ID for each client based on
+    hostname, process id, index and the monotonic clock time.
+    """
+
+    #: The current index for client id generation.
     __INDEX = 0
+
+    #: The lock used for thread-safe incrementing of the index.
     __INDEX_LOCK = threading.Lock()
+
+    #: The separator used in the client id string.
     __CLIENT_ID_SEPARATOR = "@"
 
     @staticmethod
-    def __get_and_increment_sequence():
+    def __get_and_increment_sequence() -> int:
+        """Increment and return the current index in a thread-safe manner.
+
+        :return: the current index after incrementing it.
+        """
         with ClientIdEncoder.__INDEX_LOCK:
             temp = ClientIdEncoder.__INDEX
             ClientIdEncoder.__INDEX += 1
@@ -35,6 +48,10 @@ class ClientIdEncoder:
 
     @staticmethod
     def generate() -> str:
+        """Generate a unique client ID.
+
+        :return: the generated client id
+        """
         index = ClientIdEncoder.__get_and_increment_sequence()
         return (
             socket.gethostname()
