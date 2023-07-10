@@ -22,7 +22,7 @@ use ring::hmac;
 use slog::{debug, error, info, o, Logger};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{mpsc, oneshot, Mutex};
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::StreamExt;
 use tonic::metadata::{AsciiMetadataValue, MetadataMap};
@@ -34,9 +34,9 @@ use crate::model::common::Endpoints;
 use crate::pb::telemetry_command::Command;
 use crate::pb::{
     AckMessageRequest, AckMessageResponse, EndTransactionRequest, EndTransactionResponse,
-    HeartbeatRequest, HeartbeatResponse, QueryRouteRequest, QueryRouteResponse,
-    ReceiveMessageRequest, ReceiveMessageResponse, SendMessageRequest, SendMessageResponse,
-    TelemetryCommand,
+    HeartbeatRequest, HeartbeatResponse, NotifyClientTerminationRequest,
+    NotifyClientTerminationResponse, QueryRouteRequest, QueryRouteResponse, ReceiveMessageRequest,
+    ReceiveMessageResponse, SendMessageRequest, SendMessageResponse, TelemetryCommand,
 };
 use crate::util::{PROTOCOL_VERSION, SDK_LANGUAGE, SDK_VERSION};
 use crate::{error::ClientError, pb::messaging_service_client::MessagingServiceClient};
@@ -50,6 +50,7 @@ const OPERATION_SEND_MESSAGE: &str = "rpc.send_message";
 const OPERATION_RECEIVE_MESSAGE: &str = "rpc.receive_message";
 const OPERATION_ACK_MESSAGE: &str = "rpc.ack_message";
 const OPERATION_END_TRANSACTION: &str = "rpc.end_transaction";
+const OPERATION_NOTIFY_CLIENT_TERMINATION: &str = "rpc.notify_client_termination";
 
 #[async_trait]
 #[automock]
@@ -78,17 +79,36 @@ pub(crate) trait RPCClient {
         &mut self,
         request: EndTransactionRequest,
     ) -> Result<EndTransactionResponse, ClientError>;
+    async fn notify_shutdown(
+        &mut self,
+        request: NotifyClientTerminationRequest,
+    ) -> Result<NotifyClientTerminationResponse, ClientError>;
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) struct Session {
     logger: Logger,
     client_id: String,
     option: ClientOption,
     endpoints: Endpoints,
     stub: MessagingServiceClient<Channel>,
-    telemetry_tx: Box<Option<mpsc::Sender<TelemetryCommand>>>,
+    telemetry_tx: Option<mpsc::Sender<TelemetryCommand>>,
+    shutdown_tx: Option<oneshot::Sender<()>>,
+}
+
+impl Clone for Session {
+    fn clone(&self) -> Self {
+        Session {
+            logger: self.logger.clone(),
+            client_id: self.client_id.clone(),
+            option: self.option.clone(),
+            endpoints: self.endpoints.clone(),
+            stub: self.stub.clone(),
+            telemetry_tx: None,
+            shutdown_tx: None,
+        }
+    }
 }
 
 impl Session {
@@ -108,7 +128,8 @@ impl Session {
             stub: MessagingServiceClient::new(
                 Channel::from_static("http://localhost:8081").connect_lazy(),
             ),
-            telemetry_tx: Box::new(None),
+            telemetry_tx: None,
+            shutdown_tx: None,
         }
     }
 
@@ -159,7 +180,8 @@ impl Session {
             endpoints: endpoints.clone(),
             client_id,
             stub,
-            telemetry_tx: Box::new(None),
+            telemetry_tx: None,
+            shutdown_tx: None,
         })
     }
 
@@ -288,23 +310,34 @@ impl Session {
             .set_source(e)
         })?;
 
+        let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
+        self.shutdown_tx = Some(shutdown_tx);
+
         let logger = self.logger.clone();
         tokio::spawn(async move {
             let mut stream = response.into_inner();
             loop {
-                match stream.message().await {
-                    Ok(Some(item)) => {
-                        debug!(logger, "receive telemetry command: {:?}", item);
-                        if let Some(command) = item.command {
-                            _ = telemetry_command_tx.send(command).await;
+                tokio::select! {
+                    message = stream.message() => {
+                        match message {
+                            Ok(Some(item)) => {
+                                debug!(logger, "receive telemetry command: {:?}", item);
+                                if let Some(command) = item.command {
+                                    _ = telemetry_command_tx.send(command).await;
+                                }
+                            }
+                            Ok(None) => {
+                                info!(logger, "telemetry command stream closed by server");
+                                break;
+                            }
+                            Err(e) => {
+                                error!(logger, "telemetry response error: {:?}", e);
+                            }
                         }
                     }
-                    Ok(None) => {
-                        debug!(logger, "request stream closed");
+                    _ = &mut shutdown_rx => {
+                        info!(logger, "receive shutdown signal, stop dealing with telemetry command");
                         break;
-                    }
-                    Err(e) => {
-                        error!(logger, "telemetry response error: {:?}", e);
                     }
                 }
             }
@@ -314,9 +347,15 @@ impl Session {
         Ok(())
     }
 
+    pub(crate) fn shutdown(&mut self) {
+        if let Some(tx) = self.shutdown_tx.take() {
+            let _ = tx.send(());
+        }
+    }
+
     #[allow(dead_code)]
     pub(crate) fn is_started(&self) -> bool {
-        self.telemetry_tx.is_some()
+        self.shutdown_tx.is_some()
     }
 
     #[allow(dead_code)]
@@ -465,6 +504,26 @@ impl RPCClient for Session {
         })?;
         Ok(response.into_inner())
     }
+
+    async fn notify_shutdown(
+        &mut self,
+        request: NotifyClientTerminationRequest,
+    ) -> Result<NotifyClientTerminationResponse, ClientError> {
+        let request = self.sign(request);
+        let response = self
+            .stub
+            .notify_client_termination(request)
+            .await
+            .map_err(|e| {
+                ClientError::new(
+                    ErrorKind::ClientInternal,
+                    "send rpc notify_client_termination failed",
+                    OPERATION_NOTIFY_CLIENT_TERMINATION,
+                )
+                .set_source(e)
+            })?;
+        Ok(response.into_inner())
+    }
 }
 
 #[derive(Debug)]
@@ -520,6 +579,14 @@ impl SessionManager {
             sessions.push(session.clone());
         }
         Ok(sessions)
+    }
+
+    pub(crate) async fn shutdown(&self) {
+        let mut session_map = self.session_map.lock().await;
+        for (_, session) in session_map.iter_mut() {
+            session.shutdown();
+        }
+        session_map.clear();
     }
 }
 

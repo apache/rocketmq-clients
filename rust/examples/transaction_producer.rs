@@ -28,8 +28,8 @@ lazy_static::lazy_static! {
 
 #[tokio::main]
 async fn main() {
-    // recommend to specify which topic(s) you would like to send message to
-    // producer will prefetch topic route when start and failed fast if topic not exist
+    // recommend specifying which topic(s) you would like to send message to
+    // producer will prefetch topic route when starting and failed fast if topic does not exist
     let mut producer_option = ProducerOption::default();
     producer_option.set_topics(vec!["transaction_test"]);
 
@@ -94,4 +94,13 @@ async fn main() {
     // delete following two lines so that RocketMQ server will check transaction status periodically
     let result = transaction.commit().await;
     debug_assert!(result.is_ok(), "commit transaction failed: {:?}", result);
+
+    // shutdown the producer when you don't need it anymore.
+    // you should shutdown it manually to gracefully stop and unregister from server
+    let shutdown_result = producer.shutdown().await;
+    debug_assert!(
+        shutdown_result.is_ok(),
+        "transaction producer shutdown failed: {:?}",
+        shutdown_result
+    );
 }

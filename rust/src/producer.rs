@@ -275,14 +275,19 @@ impl Producer {
         }
         let topic = message.take_topic();
         let receipt = self.send(message).await?;
+        let rpc_client = self.client.get_session().await?;
         Ok(TransactionImpl::new(
-            Box::new(self.client.get_session().await.unwrap()),
+            Box::new(rpc_client),
             Resource {
                 resource_namespace: self.option.namespace().to_string(),
                 name: topic,
             },
             receipt,
         ))
+    }
+
+    pub async fn shutdown(self) -> Result<(), ClientError> {
+        self.client.shutdown().await
     }
 }
 

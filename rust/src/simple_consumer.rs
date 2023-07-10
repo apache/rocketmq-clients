@@ -20,6 +20,7 @@ use std::time::Duration;
 use mockall_double::double;
 use slog::{info, Logger};
 
+use crate::{log, pb};
 #[double]
 use crate::client::Client;
 use crate::conf::{ClientOption, SimpleConsumerOption};
@@ -29,7 +30,6 @@ use crate::model::message::{AckMessageEntry, MessageView};
 use crate::util::{
     build_endpoints_by_message_queue, build_simple_consumer_settings, select_message_queue,
 };
-use crate::{log, pb};
 
 /// [`SimpleConsumer`] is a lightweight consumer to consume messages from RocketMQ proxy.
 ///
@@ -67,7 +67,7 @@ impl SimpleConsumer {
 
         let client_option = ClientOption {
             client_type: ClientType::SimpleConsumer,
-            group: option.consumer_group().to_string(),
+            group: Some(option.consumer_group().to_string()),
             namespace: option.namespace().to_string(),
             ..client_option
         };
@@ -102,6 +102,10 @@ impl SimpleConsumer {
             self.client.client_id()
         );
         Ok(())
+    }
+
+    pub async fn shutdown(self) -> Result<(), ClientError> {
+        self.client.shutdown().await
     }
 
     /// receive messages from the specified topic
