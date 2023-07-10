@@ -31,7 +31,7 @@ use crate::conf::ClientOption;
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::{ClientType, Endpoints, Route, RouteStatus, SendReceipt};
 use crate::model::message::{AckMessageEntry, MessageView};
-use crate::model::transaction::TransactionChecker;
+use crate::model::transaction::{TransactionChecker, TransactionResolution};
 use crate::pb;
 use crate::pb::receive_message_response::Content;
 use crate::pb::telemetry_command::Command::RecoverOrphanedTransactionCommand;
@@ -109,6 +109,10 @@ impl Client {
         self.telemetry_command_tx.is_some()
     }
 
+    pub(crate) fn has_transaction_checker(&self) -> bool {
+        self.transaction_checker.is_some()
+    }
+
     pub(crate) fn set_transaction_checker(&mut self, transaction_checker: Box<TransactionChecker>) {
         if self.is_started() {
             panic!("client {} is started, can not be modified", self.id)
@@ -116,7 +120,7 @@ impl Client {
         self.transaction_checker = Some(transaction_checker);
     }
 
-    pub(crate) async fn start(&mut self) {
+    pub(crate) async fn start(&mut self) -> Result<(), ClientError> {
         let logger = self.logger.clone();
         let session_manager = self.session_manager.clone();
 
@@ -127,9 +131,13 @@ impl Client {
         // send heartbeat and handle telemetry command
         let (tx, mut rx) = mpsc::channel(16);
         self.telemetry_command_tx = Some(tx);
-        let rpc_client = self.get_session().await.unwrap();
+        let rpc_client = self.get_session().await?;
         let endpoints = self.access_endpoints.clone();
         let transaction_checker = self.transaction_checker.take();
+        // give a placeholder
+        if transaction_checker.is_some() {
+            self.transaction_checker = Some(Box::new(|_, _| TransactionResolution::UNKNOWN));
+        }
         tokio::spawn(async move {
             rpc_client.is_started();
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
@@ -181,6 +189,7 @@ impl Client {
                 }
             }
         });
+        Ok(())
     }
 
     async fn handle_telemetry_command<T: RPCClient + 'static>(
@@ -690,7 +699,7 @@ pub(crate) mod tests {
             .returning(|_, _, _| Ok(Session::mock()));
 
         let mut client = new_client_with_session_manager(session_manager);
-        client.start().await;
+        client.start().await?;
 
         // TODO use countdown latch instead sleeping
         // wait for run

@@ -90,7 +90,7 @@ impl SimpleConsumer {
                 Self::OPERATION_START_SIMPLE_CONSUMER,
             ));
         }
-        self.client.start().await;
+        self.client.start().await?;
         if let Some(topics) = self.option.topics() {
             for topic in topics {
                 self.client.topic_route(topic, true).await?;
@@ -198,7 +198,7 @@ mod tests {
                     queue: vec![],
                 }))
             });
-            client.expect_start().returning(|| ());
+            client.expect_start().returning(|| Ok(()));
             client
                 .expect_client_id()
                 .return_const("fake_id".to_string());

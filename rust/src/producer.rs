@@ -50,6 +50,7 @@ pub struct Producer {
 
 impl Producer {
     const OPERATION_SEND_MESSAGE: &'static str = "producer.send_message";
+    const OPERATION_SEND_TRANSACTION_MESSAGE: &'static str = "producer.send_transaction_message";
 
     /// Create a new producer instance
     ///
@@ -79,7 +80,7 @@ impl Producer {
     ///
     /// * `option` - producer option
     /// * `client_option` - client option
-    /// * `transaction_checker` - A closure to check the state of transaction.
+    /// * `transaction_checker` - handle server query for uncommitted transaction status
     pub fn new_transaction_producer(
         option: ProducerOption,
         client_option: ClientOption,
@@ -103,7 +104,7 @@ impl Producer {
 
     /// Start the producer
     pub async fn start(&mut self) -> Result<(), ClientError> {
-        self.client.start().await;
+        self.client.start().await?;
         if let Some(topics) = self.option.topics() {
             for topic in topics {
                 self.client.topic_route(topic, true).await?;
@@ -265,6 +266,13 @@ impl Producer {
         &self,
         mut message: impl message::Message,
     ) -> Result<impl Transaction, ClientError> {
+        if !self.client.has_transaction_checker() {
+            return Err(ClientError::new(
+                ErrorKind::InvalidMessage,
+                "this producer can not send transaction message, please create a transaction producer using producer::new_transaction_producer",
+                Self::OPERATION_SEND_TRANSACTION_MESSAGE,
+            ));
+        }
         let topic = message.take_topic();
         let receipt = self.send(message).await?;
         Ok(TransactionImpl::new(
@@ -313,7 +321,7 @@ mod tests {
                     queue: vec![],
                 }))
             });
-            client.expect_start().returning(|| ());
+            client.expect_start().returning(|| Ok(()));
             client
                 .expect_client_id()
                 .return_const("fake_id".to_string());
@@ -340,7 +348,7 @@ mod tests {
                     queue: vec![],
                 }))
             });
-            client.expect_start().returning(|| ());
+            client.expect_start().returning(|| Ok(()));
             client.expect_set_transaction_checker().returning(|_| ());
             client
                 .expect_client_id()
@@ -543,6 +551,10 @@ mod tests {
             .client
             .expect_get_session()
             .return_once(|| Ok(Session::mock()));
+        producer
+            .client
+            .expect_has_transaction_checker()
+            .return_once(|| true);
 
         let _ = producer
             .send_transaction_message(
