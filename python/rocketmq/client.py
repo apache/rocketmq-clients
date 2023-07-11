@@ -36,7 +36,7 @@ class ScheduleWithFixedDelay:
         self.task = None
 
     async def start(self):
-        # await asyncio.sleep(self.delay)
+        await asyncio.sleep(self.delay)
         while True:
             await self.action()
             await asyncio.sleep(self.period)
@@ -137,28 +137,28 @@ class Client:
         """
         return self.client_config
 
-    async def OnTopicRouteDataFetched(self, topic, topicRouteData):
+    async def on_topic_route_data_fetched(self, topic, topic_route_data):
         """
         Asynchronous method that handles the process once the topic route data is fetched.
 
         :param topic: The topic for which the route data is fetched.
-        :param topicRouteData: The fetched topic route data.
+        :param topic_route_data: The fetched topic route data.
         """
         route_endpoints = set()
-        for mq in topicRouteData.message_queues:
+        for mq in topic_route_data.message_queues:
             route_endpoints.add(mq.broker.endpoints)
 
         existed_route_endpoints = self.get_total_route_endpoints()
         new_endpoints = route_endpoints.difference(existed_route_endpoints)
 
         for endpoints in new_endpoints:
-            created, session = await self.GetSession(endpoints)
+            created, session = await self.get_session(endpoints)
             if not created:
                 continue
 
             await session.sync_settings(True)
 
-        self.topic_route_cache[topic] = topicRouteData
+        self.topic_route_cache[topic] = topic_route_data
 
     async def fetch_topic_route0(self, topic):
         """
@@ -184,10 +184,10 @@ class Client:
         :param topic: The topic to fetch the route for.
         """
         topic_route_data = await self.fetch_topic_route0(topic)
-        await self.OnTopicRouteDataFetched(topic, topic_route_data)
+        await self.on_topic_route_data_fetched(topic, topic_route_data)
         return topic_route_data
 
-    async def GetSession(self, endpoints):
+    async def get_session(self, endpoints):
         """
         Asynchronous method that gets the session for a given endpoint.
 
@@ -214,6 +214,8 @@ class Client:
         finally:
             self.sessionsLock.release()
 
+    def get_client_id(self):
+        return self.client_id
 
 class ClientManager:
     """Manager class for RPC Clients in a thread-safe manner.

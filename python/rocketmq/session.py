@@ -15,6 +15,7 @@
 
 import asyncio
 from threading import Event
+from rocketmq.log import logger
 
 from rocketmq.protocol.service_pb2 import \
     TelemetryCommand as ProtoTelemetryCommand
@@ -26,11 +27,25 @@ class Session:
         self._semaphore = asyncio.Semaphore(1)
         self._streaming_call = streaming_call
         self._client = client
-        self._event = Event()
+        asyncio.create_task(self.loop())
+
+    async def loop(self):
+        try:
+            while True:
+                response = await self._streaming_call.read()
+        except asyncio.exceptions.InvalidStateError as e:
+            logger.error('Error:', e)
 
     async def write_async(self, telemetry_command: ProtoTelemetryCommand):
-        await self._streaming_call.write(telemetry_command)
-        await self._streaming_call.read()
+        await asyncio.sleep(1)
+        try:
+            await self._streaming_call.write(telemetry_command)
+            # TODO handle read operation exceed the time limit
+            # await asyncio.wait_for(self._streaming_call.read(), timeout=5)
+        except asyncio.exceptions.InvalidStateError as e:
+            self.on_error(e)
+        except asyncio.TimeoutError:
+            logger.error('Timeout: The read operation exceeded the time limit')
 
     async def sync_settings(self, await_resp):
         await self._semaphore.acquire()
@@ -41,3 +56,20 @@ class Session:
             await self.write_async(telemetry_command)
         finally:
             self._semaphore.release()
+
+    def rebuild_telemetry(self):
+        logger.info("Try to rebuild telemetry")
+        stream = self._client.client_manager.telemetry(self._endpoints, 10)
+        self._streaming_call = stream
+
+    def on_error(self, exception):
+        client_id = self._client.get_client_id()
+        logger.error("Caught InvalidStateError: RPC already finished.")
+        logger.error(f"Exception raised from stream, clientId={client_id}, endpoints={self._endpoints}", exception)
+        max_retry = 3
+        for i in range(max_retry):
+            try:
+                self.rebuild_telemetry()
+                break
+            except Exception as e:
+                logger.error(f"An error occurred during rebuilding telemetry: {e}, attempt {i + 1} of {max_retry}")
