@@ -132,10 +132,10 @@ mod test {
     #[test]
     fn text_generate_uniq_id() {
         use super::UNIQ_ID_GENERATOR;
-        for i in 0..10 {
+        for i in 1..17 {
             let uid = UNIQ_ID_GENERATOR.lock().next_id();
             assert_eq!(uid.len(), 34);
-            println!("i: {}, uid: {}", i, uid);
+            assert_eq!(uid.get(26..).unwrap(), hex::encode(vec![0, 0, 0, i as u8]));
         }
     }
 }
