@@ -93,7 +93,7 @@ class Client:
         Asynchronous method that sends a heartbeat to the server.
         """
         try:
-            endpoints = self.GetTotalRouteEndpoints()
+            endpoints = self.get_total_route_endpoints()
             request = HeartbeatRequest()
             request.client_type = definition_pb2.PRODUCER
             topic = Resource()
@@ -110,7 +110,7 @@ class Client:
         except Exception as e:
             logger.error(f"[Bug] unexpected exception raised during heartbeat, clientId={self.client_id}, Exception: {str(e)}")
 
-    def GetTotalRouteEndpoints(self):
+    def get_total_route_endpoints(self):
         """
         Method that returns all route endpoints.
         """
@@ -148,7 +148,7 @@ class Client:
         for mq in topicRouteData.message_queues:
             route_endpoints.add(mq.broker.endpoints)
 
-        existed_route_endpoints = self.GetTotalRouteEndpoints()
+        existed_route_endpoints = self.get_total_route_endpoints()
         new_endpoints = route_endpoints.difference(existed_route_endpoints)
 
         for endpoints in new_endpoints:
