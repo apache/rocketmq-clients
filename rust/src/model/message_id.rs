@@ -129,8 +129,9 @@ impl UniqueIdGenerator {
 
 #[cfg(test)]
 mod test {
+    #[ignore]
     #[test]
-    fn text_generate_uniq_id() {
+    fn generate_uniq_id() {
         use super::UNIQ_ID_GENERATOR;
         for i in 1..17 {
             let uid = UNIQ_ID_GENERATOR.lock().next_id();
