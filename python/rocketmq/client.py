@@ -217,6 +217,7 @@ class Client:
     def get_client_id(self):
         return self.client_id
 
+
 class ClientManager:
     """Manager class for RPC Clients in a thread-safe manner.
     Each instance is created by a specific client and can manage

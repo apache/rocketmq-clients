@@ -14,9 +14,8 @@
 # limitations under the License.
 
 import asyncio
-from threading import Event
-from rocketmq.log import logger
 
+from rocketmq.log import logger
 from rocketmq.protocol.service_pb2 import \
     TelemetryCommand as ProtoTelemetryCommand
 
@@ -32,7 +31,7 @@ class Session:
     async def loop(self):
         try:
             while True:
-                response = await self._streaming_call.read()
+                await self._streaming_call.read()
         except asyncio.exceptions.InvalidStateError as e:
             logger.error('Error:', e)
 
