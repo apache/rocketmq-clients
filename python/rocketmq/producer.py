@@ -15,6 +15,7 @@
 import asyncio
 import threading
 from typing import Set
+from unittest.mock import MagicMock, patch
 
 import rocketmq
 from publishing_message import MessageType
@@ -165,17 +166,17 @@ class Producer(Client):
         publish_load_balancer = await self.get_publish_load_balancer(message.topic)
         publishing_message = PublishingMessage(message, self.publish_settings)
         retry_policy = self.get_retry_policy()
-        maxAttempts = retry_policy.get_max_attempts()
+        max_attempts = retry_policy.get_max_attempts()
 
         exception = None
 
         candidates = (
-            publish_load_balancer.take_message_queues(set(self.isolated.keys()), maxAttempts)
+            publish_load_balancer.take_message_queues(set(self.isolated.keys()), max_attempts)
             if publishing_message.message.message_group is None else
             [publish_load_balancer.take_message_queue_by_message_group(publishing_message.message.message_group)])
-        for attempt in range(1, maxAttempts + 1):
-            candidateIndex = (attempt - 1) % len(candidates)
-            mq = candidates[candidateIndex]
+        for attempt in range(1, max_attempts + 1):
+            candidate_index = (attempt - 1) % len(candidates)
+            mq = candidates[candidate_index]
 
             if self.publish_settings.is_validate_message_type() and publishing_message.message_type.value != mq.accept_message_types[0].value:
                 raise ValueError(
@@ -183,39 +184,43 @@ class Producer(Client):
                     + f" topic={message.topic}, actualMessageType={publishing_message.message_type}"
                     + f" acceptMessageType={','}")
 
-            sendMessageRequest = self.wrap_send_message_request(publishing_message, mq)
-            topic_data = self.topic_route_cache["normal_topic"]
-            endpoints = topic_data.message_queues[2].broker.endpoints
+            send_message_request = self.wrap_send_message_request(publishing_message, mq)
+            # topic_data = self.topic_route_cache["normal_topic"]
+            endpoints = mq.broker.endpoints
 
             try:
-                invocation = await self.client_manager.send_message(endpoints, sendMessageRequest, self.client_config.request_timeout)
+                invocation = await self.client_manager.send_message(endpoints, send_message_request, self.client_config.request_timeout)
                 logger.info(invocation)
                 if attempt > 1:
                     logger.info(
                         f"Re-send message successfully, topic={message.topic},"
-                        + f" maxAttempts={maxAttempts}, endpoints={str(endpoints)}, clientId={self.client_id}")
+                        + f" max_attempts={max_attempts}, endpoints={str(endpoints)}, clientId={self.client_id}")
+                break
             except Exception as e:
                 exception = e
                 self.isolated[endpoints] = True
-                if attempt >= maxAttempts:
+                if attempt >= max_attempts:
                     logger.error("Failed to send message finally, run out of attempt times, "
-                                 + f"topic={message.topic}, maxAttempt={maxAttempts}, attempt={attempt}, "
-                                 + f"endpoints={endpoints}, messageId={message.message_id}, clientId={self.client_id}")
+                                 + f"topic={message.topic}, maxAttempt={max_attempts}, attempt={attempt}, "
+                                 + f"endpoints={endpoints}, messageId={publishing_message.message_id}, clientId={self.client_id}")
                     raise
                 if publishing_message.message_type == MessageType.TRANSACTION:
                     logger.error("Failed to send transaction message, run out of attempt times, "
                                  + f"topic={message.topic}, maxAttempt=1, attempt={attempt}, "
-                                 + f"endpoints={endpoints}, messageId={message.message_id}, clientId={self.client_id}")
+                                 + f"endpoints={endpoints}, messageId={publishing_message.message_id}, clientId={self.client_id}")
                     raise
                 if not isinstance(exception, TooManyRequestsException):
-                    logger.error(f"Failed to send message, topic={message.topic}, maxAttempts={maxAttempts}, "
-                                 + f"attempt={attempt}, endpoints={endpoints}, messageId={message.message_id},"
+                    logger.error(f"Failed to send message, topic={message.topic}, max_attempts={max_attempts}, "
+                                 + f"attempt={attempt}, endpoints={endpoints}, messageId={publishing_message.message_id},"
                                  + f" clientId={self.client_id}")
                     continue
 
                 nextAttempt = 1 + attempt
                 delay = retry_policy.get_next_attempt_delay(nextAttempt)
                 await asyncio.sleep(delay.total_seconds())
+            finally:
+                # TODO caculate time
+                pass
 
     def update_publish_load_balancer(self, topic, topic_route_data):
         """Update the load balancer used for publishing messages to a topic.
@@ -259,7 +264,7 @@ class Producer(Client):
 
 
 async def test():
-    credentials = SessionCredentials("username", "password")
+    credentials = SessionCredentials("uU5kBDYnmBf1hVPl", "6TtqkYNNC677PWXX")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
         endpoints=Endpoints("rmq-cn-jaj390gga04.cn-hangzhou.rmq.aliyuncs.com:8080"),
@@ -281,5 +286,40 @@ async def test():
     await producer.send_message(message)
 
 
+async def test_retry_and_isolation():
+    credentials = SessionCredentials("username", "password")
+    credentials_provider = SessionCredentialsProvider(credentials)
+    client_config = ClientConfig(
+        endpoints=Endpoints("rmq-cn-jaj390gga04.cn-hangzhou.rmq.aliyuncs.com:8080"),
+        session_credentials_provider=credentials_provider,
+        ssl_enabled=True,
+    )
+    topic = Resource()
+    topic.name = "normal_topic"
+    msg = ProtoMessage()
+    msg.topic.CopyFrom(topic)
+    msg.body = b"My Message Body"
+    sysperf = SystemProperties()
+    sysperf.message_id = MessageIdCodec.next_message_id()
+    msg.system_properties.CopyFrom(sysperf)
+    logger.info(f"{msg}")
+    producer = Producer(client_config, topics={"normal_topic"})
+    message = Message(topic.name, msg.body)
+
+    with patch.object(producer.client_manager, 'send_message', new_callable=MagicMock) as mock_send:
+        mock_send.side_effect = Exception("Forced Exception for Testing")
+
+        await producer.start()
+        try:
+            await producer.send_message(message)
+        except Exception as e:
+            logger.info("Exception occurred as expected:", e)
+
+        assert mock_send.call_count == producer.get_retry_policy().get_max_attempts(), "Number of attempts should equal max_attempts."
+        logger.debug(producer.isolated)
+        assert producer.isolated, "Endpoint should be marked as isolated after an error."
+
+    logger.info("Test completed successfully.")
+
 if __name__ == "__main__":
-    asyncio.run(test())
+    asyncio.run(test_retry_and_isolation())

@@ -13,7 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rocketmq import foo, logger
+from rocketmq import foo
+from rocketmq.log import logger
 
 
 def test_passing():
