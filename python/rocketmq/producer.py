@@ -12,8 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import asyncio
 import threading
+import time
 from typing import Set
 from unittest.mock import MagicMock, patch
 
@@ -105,6 +107,10 @@ class PublishingLoadBalancer:
                 return candidates
         return candidates
 
+    def take_message_queue_by_message_group(message_group):
+        # TODO use sipHash24
+        pass
+
 
 class Producer(Client):
     """The Producer class extends the Client class and is used to publish
@@ -175,6 +181,7 @@ class Producer(Client):
             if publishing_message.message.message_group is None else
             [publish_load_balancer.take_message_queue_by_message_group(publishing_message.message.message_group)])
         for attempt in range(1, max_attempts + 1):
+            start_time = time.time()
             candidate_index = (attempt - 1) % len(candidates)
             mq = candidates[candidate_index]
 
@@ -219,8 +226,8 @@ class Producer(Client):
                 delay = retry_policy.get_next_attempt_delay(nextAttempt)
                 await asyncio.sleep(delay.total_seconds())
             finally:
-                # TODO caculate time
-                pass
+                elapsed_time = time.time() - start_time
+                logger.info(f"send time: {elapsed_time}")
 
     def update_publish_load_balancer(self, topic, topic_route_data):
         """Update the load balancer used for publishing messages to a topic.
@@ -264,7 +271,7 @@ class Producer(Client):
 
 
 async def test():
-    credentials = SessionCredentials("uU5kBDYnmBf1hVPl", "6TtqkYNNC677PWXX")
+    credentials = SessionCredentials("username", "password")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
         endpoints=Endpoints("rmq-cn-jaj390gga04.cn-hangzhou.rmq.aliyuncs.com:8080"),
@@ -282,6 +289,52 @@ async def test():
     logger.info(f"{msg}")
     producer = Producer(client_config, topics={"normal_topic"})
     message = Message(topic.name, msg.body)
+    await producer.start()
+    await producer.send_message(message)
+
+
+async def test_delay_message():
+    credentials = SessionCredentials("username", "password")
+    credentials_provider = SessionCredentialsProvider(credentials)
+    client_config = ClientConfig(
+        endpoints=Endpoints("rmq-cn-jaj390gga04.cn-hangzhou.rmq.aliyuncs.com:8080"),
+        session_credentials_provider=credentials_provider,
+        ssl_enabled=True,
+    )
+    topic = Resource()
+    topic.name = "normal_topic"
+    msg = ProtoMessage()
+    msg.topic.CopyFrom(topic)
+    msg.body = b"My Message Body"
+    sysperf = SystemProperties()
+    sysperf.message_id = MessageIdCodec.next_message_id()
+    msg.system_properties.CopyFrom(sysperf)
+    logger.info(f"{msg}")
+    producer = Producer(client_config, topics={"normal_topic"})
+    message = Message(topic.name, msg.body, delivery_timestamp=10)
+    await producer.start()
+    await producer.send_message(message)
+
+
+async def test_fifo_message():
+    credentials = SessionCredentials("username", "password")
+    credentials_provider = SessionCredentialsProvider(credentials)
+    client_config = ClientConfig(
+        endpoints=Endpoints("rmq-cn-jaj390gga04.cn-hangzhou.rmq.aliyuncs.com:8080"),
+        session_credentials_provider=credentials_provider,
+        ssl_enabled=True,
+    )
+    topic = Resource()
+    topic.name = "normal_topic"
+    msg = ProtoMessage()
+    msg.topic.CopyFrom(topic)
+    msg.body = b"My Message Body"
+    sysperf = SystemProperties()
+    sysperf.message_id = MessageIdCodec.next_message_id()
+    msg.system_properties.CopyFrom(sysperf)
+    logger.info(f"{msg}")
+    producer = Producer(client_config, topics={"normal_topic"})
+    message = Message(topic.name, msg.body, message_group="yourMessageGroup")
     await producer.start()
     await producer.send_message(message)
 
