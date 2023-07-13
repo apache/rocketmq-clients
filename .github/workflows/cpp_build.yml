@@ -7,7 +7,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, ubuntu-22.04, macos-11, macos-12, windows-2019, windows-2022]
+        # switch back to VS 2019 when https://github.com/bazelbuild/bazel/issues/18592 issue is solved
+        # os: [ubuntu-20.04, ubuntu-22.04, macos-11, macos-12, windows-2019, windows-2022]
+        os: [ubuntu-20.04, ubuntu-22.04, macos-11, macos-12, windows-2019]
     steps:
       - uses: actions/checkout@v2
       - name: Compile On Linux
