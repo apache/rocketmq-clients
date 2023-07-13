@@ -18,6 +18,7 @@ import threading
 from typing import Set
 
 from protocol import definition_pb2, service_pb2
+from protocol.definition_pb2 import Code as ProtoCode
 from protocol.service_pb2 import HeartbeatRequest, QueryRouteRequest
 from rocketmq.client_config import ClientConfig
 from rocketmq.client_id_encoder import ClientIdEncoder
@@ -38,8 +39,12 @@ class ScheduleWithFixedDelay:
     async def start(self):
         await asyncio.sleep(self.delay)
         while True:
-            await self.action()
-            await asyncio.sleep(self.period)
+            try:
+                await self.action()
+            except Exception as e:
+                logger.error(e, "Failed to execute scheduled task")
+            finally:
+                await asyncio.sleep(self.period)
 
     def schedule(self):
         loop1 = asyncio.new_event_loop()
@@ -83,10 +88,19 @@ class Client:
         Start method which initiates fetching of topic routes and schedules heartbeats.
         """
         # get topic route
+        logger.debug(f"Begin to start the rocketmq client, client_id={self.client_id}")
         for topic in self.topics:
             self.topic_route_cache[topic] = await self.fetch_topic_route(topic)
         scheduler = ScheduleWithFixedDelay(self.heartbeat, 3, 12)
+        scheduler_sync_settings = ScheduleWithFixedDelay(self.sync_settings, 3, 12)
         scheduler.schedule()
+        scheduler_sync_settings.schedule()
+        logger.debug(f"Start the rocketmq client successfully, client_id={self.client_id}")
+
+    async def shutdown(self):
+        logger.debug(f"Begin to shutdown rocketmq client, client_id={self.client_id}")
+
+        logger.debug(f"Shutdown the rocketmq client successfully, client_id={self.client_id}")
 
     async def heartbeat(self):
         """
@@ -98,17 +112,27 @@ class Client:
             request.client_type = definition_pb2.PRODUCER
             topic = Resource()
             topic.name = "normal_topic"
-            invocations = {}
-            logger.info(len(endpoints))
             # Collect task into a map.
             for item in endpoints:
-                task = await self.client_manager.heartbeat(item, request, self.client_config.request_timeout)
-                invocations[item] = task
-                logger.info(task)
-                logger.info("finish")
-                break
+                try:
+
+                    task = await self.client_manager.heartbeat(item, request, self.client_config.request_timeout)
+                    code = task.status.code
+                    if code == ProtoCode.OK:
+                        logger.info(f"Send heartbeat successfully, endpoints={item}, client_id={self.client_id}")
+
+                        if item in self.isolated:
+                            self.isolated.pop(item)
+                            logger.info(f"Rejoin endpoints which was isolated before, endpoints={item}, "
+                                        + f"client_id={self.client_id}")
+                        return
+                    status_message = task.status.message
+                    logger.info(f"Failed to send heartbeat, endpoints={item}, code={code}, "
+                                + f"status_message={status_message}, client_id={self.client_id}")
+                except Exception:
+                    logger.error(f"Failed to send heartbeat, endpoints={item}")
         except Exception as e:
-            logger.error(f"[Bug] unexpected exception raised during heartbeat, clientId={self.client_id}, Exception: {str(e)}")
+            logger.error(f"[Bug] unexpected exception raised during heartbeat, client_id={self.client_id}, Exception: {str(e)}")
 
     def get_total_route_endpoints(self):
         """
@@ -137,6 +161,35 @@ class Client:
         """
         return self.client_config
 
+    async def sync_settings(self):
+        total_route_endpoints = self.get_total_route_endpoints()
+
+        for endpoints in total_route_endpoints:
+            created, session = await self.get_session(endpoints)
+            await session.sync_settings(True)
+            logger.info(f"Sync settings to remote, endpoints={endpoints}")
+
+    def stats(self):
+        # TODO: stats implement
+        pass
+
+    async def notify_client_termination(self):
+        pass
+
+    async def on_recover_orphaned_transaction_command(self, endpoints, command):
+        pass
+
+    async def on_verify_message_command(self, endpoints, command):
+        logger.warn(f"Ignore verify message command from remote, which is not expected, clientId={self.client_id}, "
+                    + f"endpoints={endpoints}, command={command}")
+        pass
+
+    async def on_print_thread_stack_trace_command(self, endpoints, command):
+        pass
+
+    async def on_settings_command(self, endpoints, settings):
+        pass
+
     async def on_topic_route_data_fetched(self, topic, topic_route_data):
         """
         Asynchronous method that handles the process once the topic route data is fetched.
@@ -155,8 +208,9 @@ class Client:
             created, session = await self.get_session(endpoints)
             if not created:
                 continue
-
+            logger.info(f"Begin to establish session for endpoints={endpoints}, client_id={self.client_id}")
             await session.sync_settings(True)
+            logger.info(f"Establish session for endpoints={endpoints} successfully, client_id={self.client_id}")
 
         self.topic_route_cache[topic] = topic_route_data
 
@@ -166,16 +220,23 @@ class Client:
 
         :param topic: The topic to fetch the route for.
         """
-        req = QueryRouteRequest()
-        req.topic.name = topic
-        address = req.endpoints.addresses.add()
-        address.host = self.endpoints.Addresses[0].host
-        address.port = self.endpoints.Addresses[0].port
-        req.endpoints.scheme = self.endpoints.scheme.to_protobuf(self.endpoints.scheme)
-        response = await self.client_manager.query_route(self.endpoints, req, 10)
-
-        message_queues = response.message_queues
-        return TopicRouteData(message_queues)
+        try:
+            req = QueryRouteRequest()
+            req.topic.name = topic
+            address = req.endpoints.addresses.add()
+            address.host = self.endpoints.Addresses[0].host
+            address.port = self.endpoints.Addresses[0].port
+            req.endpoints.scheme = self.endpoints.scheme.to_protobuf(self.endpoints.scheme)
+            response = await self.client_manager.query_route(self.endpoints, req, 10)
+            code = response.status.code
+            if code != ProtoCode.OK:
+                logger.error(f"Failed to fetch topic route, client_id={self.client_id}, topic={topic}, code={code}, "
+                             + f"statusMessage={response.status.message}")
+            message_queues = response.message_queues
+            return TopicRouteData(message_queues)
+        except Exception as e:
+            logger.error(e, f"Failed to fetch topic route, client_id={self.client_id}, topic={topic}")
+            raise
 
     async def fetch_topic_route(self, topic):
         """
@@ -185,6 +246,7 @@ class Client:
         """
         topic_route_data = await self.fetch_topic_route0(topic)
         await self.on_topic_route_data_fetched(topic, topic_route_data)
+        logger.info(f"Fetch topic route successfully, client_id={self.client_id}, topic={topic}, topicRouteData={topic_route_data}")
         return topic_route_data
 
     async def get_session(self, endpoints):
@@ -207,7 +269,7 @@ class Client:
             if endpoints in self.sessions_table:
                 return (False, self.sessions_table[endpoints])
 
-            stream = self.client_manager.telemetry(endpoints, 10)
+            stream = self.client_manager.telemetry(endpoints, 10000000)
             created = Session(endpoints, stream, self)
             self.sessions_table[endpoints] = created
             return (True, created)

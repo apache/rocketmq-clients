@@ -21,6 +21,7 @@ from message import Message
 from message_id_codec import MessageIdCodec
 from protocol.definition_pb2 import Message as ProtoMessage
 from protocol.definition_pb2 import Resource, SystemProperties
+from rocketmq.log import logger
 
 
 class PublishingMessage(Message):
@@ -52,6 +53,7 @@ class PublishingMessage(Message):
             pass
 
         self.message_type = MessageType.TRANSACTION
+        logger.debug(self.message_type)
 
     def to_protobuf(self, queue_id):
         system_properties = SystemProperties(
@@ -67,7 +69,9 @@ class PublishingMessage(Message):
             system_properties.tag = self.message.tag
 
         if self.message.delivery_timestamp:
-            system_properties.delivery_timestamp = Timestamp.FromDatetime(self.message.delivery_timestamp)
+            timestamp = Timestamp()
+            timestamp.FromDatetime(self.message.delivery_timestamp)
+            system_properties.delivery_timestamp.CopyFrom(timestamp)
 
         if self.message.message_group:
             system_properties.message_group = self.message.message_group

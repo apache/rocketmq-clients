@@ -16,6 +16,9 @@
 import asyncio
 import threading
 import time
+# from status_checker import StatusChecker
+from datetime import datetime, timedelta
+from threading import RLock
 from typing import Set
 from unittest.mock import MagicMock, patch
 
@@ -30,14 +33,67 @@ from rocketmq.log import logger
 from rocketmq.message import Message
 from rocketmq.message_id_codec import MessageIdCodec
 from rocketmq.protocol.definition_pb2 import Message as ProtoMessage
-from rocketmq.protocol.definition_pb2 import Resource, SystemProperties
-from rocketmq.protocol.service_pb2 import SendMessageRequest
+from rocketmq.protocol.definition_pb2 import Resource
+from rocketmq.protocol.definition_pb2 import Resource as ProtoResource
+from rocketmq.protocol.definition_pb2 import SystemProperties
+from rocketmq.protocol.definition_pb2 import \
+    TransactionResolution as ProtoTransactionResolution
+from rocketmq.protocol.service_pb2 import (EndTransactionRequest,
+                                           SendMessageRequest)
 from rocketmq.publish_settings import PublishingSettings
 from rocketmq.publishing_message import PublishingMessage
 from rocketmq.rpc_client import Endpoints
+from rocketmq.send_receipt import SendReceipt
 from rocketmq.session_credentials import (SessionCredentials,
                                           SessionCredentialsProvider)
 from status_checker import TooManyRequestsException
+from utils import get_positive_mod
+
+
+class Transaction:
+    MAX_MESSAGE_NUM = 1
+
+    def __init__(self, producer):
+        self.producer = producer
+        self.messages = set()
+        self.messages_lock = RLock()
+        self.message_send_receipt_dict = {}
+
+    def try_add_message(self, message):
+        with self.messages_lock:
+            if len(self.messages) > self.MAX_MESSAGE_NUM:
+                raise ValueError(f"Message in transaction has exceed the threshold: {self.MAX_MESSAGE_NUM}")
+
+            publishing_message = PublishingMessage(message, self.producer.publish_settings, True)
+            self.messages.add(publishing_message)
+            return publishing_message
+
+    def try_add_receipt(self, publishing_message, send_receipt):
+        with self.messages_lock:
+            if publishing_message not in self.messages:
+                raise ValueError("Message is not in the transaction")
+
+            self.message_send_receipt_dict[publishing_message] = send_receipt
+
+    async def commit(self):
+        # if self.producer.state != "Running":
+        #     raise Exception("Producer is not running")
+
+        if not self.message_send_receipt_dict:
+            raise ValueError("Transactional message has not been sent yet")
+
+        for publishing_message, send_receipt in self.message_send_receipt_dict.items():
+            await self.producer.end_transaction(send_receipt.endpoints, publishing_message.message.topic, send_receipt.message_id, send_receipt.transaction_id, "Commit")
+
+    async def rollback(self):
+        # if self.producer.state != "Running":
+        #     raise Exception("Producer is not running")
+
+        if not self.message_send_receipt_dict:
+            raise ValueError("Transactional message has not been sent yet")
+
+        for publishing_message, send_receipt in self.message_send_receipt_dict.items():
+            await self.producer.end_transaction(send_receipt.endpoints, publishing_message.message.topic, send_receipt.message_id, send_receipt.transaction_id, "Rollback")
 
 
 class PublishingLoadBalancer:
@@ -107,9 +163,9 @@ class PublishingLoadBalancer:
                 return candidates
         return candidates
 
-    def take_message_queue_by_message_group(message_group):
-        # TODO use sipHash24
-        pass
+    def take_message_queue_by_message_group(self, message_group):
+        index = get_positive_mod(hash(message_group), len(self.__message_queues))
+        return self.__message_queues[index]
 
 
 class Producer(Client):
@@ -164,18 +220,31 @@ class Producer(Client):
         req.messages.extend([message.to_protobuf(message_queue.queue_id)])
         return req
 
-    async def send_message(self, message):
+    async def send(self, message, transaction: Transaction = None):
+        tx_enabled = True
+        if transaction is None:
+            tx_enabled = False
+        if tx_enabled:
+            logger.debug("Transaction send")
+            publishing_message = transaction.try_add_message(message)
+            send_receipt = await self.send_message(message, tx_enabled)
+            transaction.try_add_receipt(publishing_message, send_receipt)
+            return send_receipt
+        else:
+            return await self.send_message(message)
+
+    async def send_message(self, message, tx_enabled=False):
         """Send a message using a load balancer, retrying as needed according to the retry policy.
 
         :param message: The message to be sent.
         """
         publish_load_balancer = await self.get_publish_load_balancer(message.topic)
-        publishing_message = PublishingMessage(message, self.publish_settings)
+        publishing_message = PublishingMessage(message, self.publish_settings, tx_enabled)
         retry_policy = self.get_retry_policy()
         max_attempts = retry_policy.get_max_attempts()
 
         exception = None
-
+        logger.debug(publishing_message.message.message_group)
         candidates = (
             publish_load_balancer.take_message_queues(set(self.isolated.keys()), max_attempts)
             if publishing_message.message.message_group is None else
@@ -184,7 +253,7 @@ class Producer(Client):
             start_time = time.time()
             candidate_index = (attempt - 1) % len(candidates)
             mq = candidates[candidate_index]
-
+            logger.debug(mq.accept_message_types)
             if self.publish_settings.is_validate_message_type() and publishing_message.message_type.value != mq.accept_message_types[0].value:
                 raise ValueError(
                     "Current message type does not match with the accept message types,"
@@ -197,12 +266,14 @@ class Producer(Client):
 
             try:
                 invocation = await self.client_manager.send_message(endpoints, send_message_request, self.client_config.request_timeout)
-                logger.info(invocation)
+                logger.debug(invocation)
+                send_recepits = SendReceipt.process_send_message_response(mq, invocation)
+                send_recepit = send_recepits[0]
                 if attempt > 1:
                     logger.info(
                         f"Re-send message successfully, topic={message.topic},"
                         + f" max_attempts={max_attempts}, endpoints={str(endpoints)}, clientId={self.client_id}")
-                break
+                return send_recepit
             except Exception as e:
                 exception = e
                 self.isolated[endpoints] = True
@@ -225,6 +296,9 @@ class Producer(Client):
                 nextAttempt = 1 + attempt
                 delay = retry_policy.get_next_attempt_delay(nextAttempt)
                 await asyncio.sleep(delay.total_seconds())
+                logger.warning(f"Failed to send message due to too many requests, would attempt to resend after {delay},\
+                                 topic={message.topic}, max_attempts={max_attempts}, attempt={attempt}, endpoints={endpoints},\
+                                 message_id={publishing_message.message_id}, client_id={self.client_id}")
             finally:
                 elapsed_time = time.time() - start_time
                 logger.info(f"send time: {elapsed_time}")
@@ -269,6 +343,22 @@ class Producer(Client):
         """
         return self.publish_settings.GetRetryPolicy()
 
+    def begin_transaction(self):
+        """Start a new transaction."""
+        return Transaction(self)
+
+    async def end_transaction(self, endpoints, topic, message_id, transaction_id, resolution):
+        """End a transaction based on its resolution (commit or rollback)."""
+        topic_resource = ProtoResource(name=topic)
+        request = EndTransactionRequest(
+            transaction_id=transaction_id,
+            message_id=message_id,
+            topic=topic_resource,
+            resolution=ProtoTransactionResolution.COMMIT if resolution == "Commit" else ProtoTransactionResolution.ROLLBACK
+        )
+        await self.client_manager.end_transaction(endpoints, request, self.client_config.request_timeout)
+        # StatusChecker.check(invocation.response.status, request, invocation.request_id)
+
 
 async def test():
     credentials = SessionCredentials("username", "password")
@@ -282,15 +372,16 @@ async def test():
     topic.name = "normal_topic"
     msg = ProtoMessage()
     msg.topic.CopyFrom(topic)
-    msg.body = b"My Message Body"
+    msg.body = b"My Normal Message Body"
     sysperf = SystemProperties()
     sysperf.message_id = MessageIdCodec.next_message_id()
     msg.system_properties.CopyFrom(sysperf)
-    logger.info(f"{msg}")
     producer = Producer(client_config, topics={"normal_topic"})
     message = Message(topic.name, msg.body)
     await producer.start()
-    await producer.send_message(message)
+    await asyncio.sleep(10)
+    send_receipt = await producer.send(message)
+    logger.info(f"Send message successfully, {send_receipt}")
 
 
 async def test_delay_message():
@@ -302,18 +393,24 @@ async def test_delay_message():
         ssl_enabled=True,
     )
     topic = Resource()
-    topic.name = "normal_topic"
+    topic.name = "delay_topic"
     msg = ProtoMessage()
     msg.topic.CopyFrom(topic)
-    msg.body = b"My Message Body"
+    msg.body = b"My Delay Message Body"
     sysperf = SystemProperties()
     sysperf.message_id = MessageIdCodec.next_message_id()
     msg.system_properties.CopyFrom(sysperf)
-    logger.info(f"{msg}")
-    producer = Producer(client_config, topics={"normal_topic"})
-    message = Message(topic.name, msg.body, delivery_timestamp=10)
+    logger.debug(f"{msg}")
+    producer = Producer(client_config, topics={"delay_topic"})
+    current_time_millis = int(round(time.time() * 1000))
+    message_delay_time = timedelta(seconds=10)
+    result_time_millis = current_time_millis + int(message_delay_time.total_seconds() * 1000)
+    result_time_datetime = datetime.fromtimestamp(result_time_millis / 1000.0)
+    message = Message(topic.name, msg.body, delivery_timestamp=result_time_datetime)
     await producer.start()
-    await producer.send_message(message)
+    await asyncio.sleep(10)
+    send_receipt = await producer.send(message)
+    logger.info(f"Send message successfully, {send_receipt}")
 
 
 async def test_fifo_message():
@@ -325,18 +422,47 @@ async def test_fifo_message():
         ssl_enabled=True,
     )
     topic = Resource()
-    topic.name = "normal_topic"
+    topic.name = "fifo_topic"
     msg = ProtoMessage()
     msg.topic.CopyFrom(topic)
-    msg.body = b"My Message Body"
+    msg.body = b"My FIFO Message Body"
     sysperf = SystemProperties()
     sysperf.message_id = MessageIdCodec.next_message_id()
     msg.system_properties.CopyFrom(sysperf)
-    logger.info(f"{msg}")
-    producer = Producer(client_config, topics={"normal_topic"})
+    logger.debug(f"{msg}")
+    producer = Producer(client_config, topics={"fifo_topic"})
     message = Message(topic.name, msg.body, message_group="yourMessageGroup")
     await producer.start()
-    await producer.send_message(message)
+    await asyncio.sleep(10)
+    send_receipt = await producer.send(message)
+    logger.info(f"Send message successfully, {send_receipt}")
+
+
+async def test_transaction_message():
+    credentials = SessionCredentials("username", "password")
+    credentials_provider = SessionCredentialsProvider(credentials)
+    client_config = ClientConfig(
+        endpoints=Endpoints("rmq-cn-jaj390gga04.cn-hangzhou.rmq.aliyuncs.com:8080"),
+        session_credentials_provider=credentials_provider,
+        ssl_enabled=True,
+    )
+    topic = Resource()
+    topic.name = "transaction_topic"
+    msg = ProtoMessage()
+    msg.topic.CopyFrom(topic)
+    msg.body = b"My Transaction Message Body"
+    sysperf = SystemProperties()
+    sysperf.message_id = MessageIdCodec.next_message_id()
+    msg.system_properties.CopyFrom(sysperf)
+    logger.debug(f"{msg}")
+    producer = Producer(client_config, topics={"transaction_topic"})
+    message = Message(topic.name, msg.body)
+    await producer.start()
+    # await asyncio.sleep(10)
+    transaction = producer.begin_transaction()
+    send_receipt = await producer.send(message, transaction)
+    logger.info(f"Send message successfully, {send_receipt}")
+    await transaction.commit()
 
 
 async def test_retry_and_isolation():
@@ -358,15 +484,14 @@ async def test_retry_and_isolation():
     logger.info(f"{msg}")
     producer = Producer(client_config, topics={"normal_topic"})
     message = Message(topic.name, msg.body)
-
     with patch.object(producer.client_manager, 'send_message', new_callable=MagicMock) as mock_send:
         mock_send.side_effect = Exception("Forced Exception for Testing")
-
         await producer.start()
+
         try:
-            await producer.send_message(message)
-        except Exception as e:
-            logger.info("Exception occurred as expected:", e)
+            await producer.send(message)
+        except Exception:
+            logger.info("Exception occurred as expected")
 
         assert mock_send.call_count == producer.get_retry_policy().get_max_attempts(), "Number of attempts should equal max_attempts."
         logger.debug(producer.isolated)
@@ -375,4 +500,8 @@ async def test_retry_and_isolation():
     logger.info("Test completed successfully.")
 
 if __name__ == "__main__":
+    asyncio.run(test())
+    asyncio.run(test_delay_message())
+    asyncio.run(test_fifo_message())
+    asyncio.run(test_transaction_message())
     asyncio.run(test_retry_and_isolation())
