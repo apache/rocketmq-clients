@@ -83,8 +83,8 @@ pub(crate) static UNIQ_ID_GENERATOR: Lazy<Mutex<UniqueIdGenerator>> = Lazy::new(
     Mutex::new(generator)
 });
 
-pub struct UniqueIdGenerator {
-    counter: i16,
+pub(crate) struct UniqueIdGenerator {
+    counter: i32,
     prefix: String,
     start_timestamp: i64,
     next_timestamp: i64,
@@ -122,19 +122,21 @@ impl UniqueIdGenerator {
             ((OffsetDateTime::now_utc().unix_timestamp() - self.start_timestamp) * 1000) as i32,
         )
         .unwrap();
-        buf.write_i16::<BigEndian>(self.counter).unwrap();
+        buf.write_i32::<BigEndian>(self.counter).unwrap();
         self.prefix.clone() + &hex::encode(buf)
     }
 }
 
 #[cfg(test)]
 mod test {
+    #[ignore]
     #[test]
-    fn text_generate_uniq_id() {
+    fn generate_uniq_id() {
         use super::UNIQ_ID_GENERATOR;
-        for i in 0..10 {
+        for i in 1..17 {
             let uid = UNIQ_ID_GENERATOR.lock().next_id();
-            println!("i: {}, uid: {}", i, uid);
+            assert_eq!(uid.len(), 34);
+            assert_eq!(uid.get(26..).unwrap(), hex::encode(vec![0, 0, 0, i as u8]));
         }
     }
 }

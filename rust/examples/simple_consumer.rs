@@ -32,7 +32,7 @@ async fn main() {
     client_option.set_enable_tls(false);
 
     // build and start simple consumer
-    let consumer = SimpleConsumer::new(consumer_option, client_option).unwrap();
+    let mut consumer = SimpleConsumer::new(consumer_option, client_option).unwrap();
     consumer.start().await.unwrap();
 
     loop {

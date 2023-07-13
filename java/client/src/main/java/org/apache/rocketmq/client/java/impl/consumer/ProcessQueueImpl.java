@@ -32,10 +32,12 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.grpc.StatusRuntimeException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -175,29 +177,37 @@ class ProcessQueueImpl implements ProcessQueue {
      *
      * <p> Make sure that no exception will be thrown.
      */
-    public void onReceiveMessageException(Throwable t) {
+    public void onReceiveMessageException(Throwable t, String attemptId) {
         Duration delay = t instanceof TooManyRequestsException ? RECEIVING_FLOW_CONTROL_BACKOFF_DELAY :
             RECEIVING_FAILURE_BACKOFF_DELAY;
-        receiveMessageLater(delay);
+        receiveMessageLater(delay, attemptId);
     }
 
-    private void receiveMessageLater(Duration delay) {
+    private void receiveMessageLater(Duration delay, String attemptId) {
         final ClientId clientId = consumer.getClientId();
         final ScheduledExecutorService scheduler = consumer.getScheduler();
         try {
             log.info("Try to receive message later, mq={}, delay={}, clientId={}", mq, delay, clientId);
-            scheduler.schedule(this::receiveMessage, delay.toNanos(), TimeUnit.NANOSECONDS);
+            scheduler.schedule(() -> receiveMessage(attemptId), delay.toNanos(), TimeUnit.NANOSECONDS);
         } catch (Throwable t) {
             if (scheduler.isShutdown()) {
                 return;
             }
             // Should never reach here.
             log.error("[Bug] Failed to schedule message receiving request, mq={}, clientId={}", mq, clientId, t);
-            onReceiveMessageException(t);
+            onReceiveMessageException(t, attemptId);
         }
     }
 
+    private String generateAttemptId() {
+        return UUID.randomUUID().toString();
+    }
+
     public void receiveMessage() {
+        receiveMessage(this.generateAttemptId());
+    }
+
+    public void receiveMessage(String attemptId) {
         final ClientId clientId = consumer.getClientId();
         if (dropped) {
             log.info("Process queue has been dropped, no longer receive message, mq={}, clientId={}", mq, clientId);
@@ -205,13 +215,17 @@ class ProcessQueueImpl implements ProcessQueue {
         }
         if (this.isCacheFull()) {
             log.warn("Process queue cache is full, would receive message later, mq={}, clientId={}", mq, clientId);
-            receiveMessageLater(RECEIVING_BACKOFF_DELAY_WHEN_CACHE_IS_FULL);
+            receiveMessageLater(RECEIVING_BACKOFF_DELAY_WHEN_CACHE_IS_FULL, attemptId);
             return;
         }
-        receiveMessageImmediately();
+        receiveMessageImmediately(attemptId);
     }
 
     private void receiveMessageImmediately() {
+        receiveMessageImmediately(this.generateAttemptId());
+    }
+
+    private void receiveMessageImmediately(String attemptId) {
         final ClientId clientId = consumer.getClientId();
         if (!consumer.isRunning()) {
             log.info("Stop to receive message because consumer is not running, mq={}, clientId={}", mq, clientId);
@@ -222,7 +236,7 @@ class ProcessQueueImpl implements ProcessQueue {
             final int batchSize = this.getReceptionBatchSize();
             final Duration longPollingTimeout = consumer.getPushConsumerSettings().getLongPollingTimeout();
             final ReceiveMessageRequest request = consumer.wrapReceiveMessageRequest(batchSize, mq, filterExpression,
-                longPollingTimeout);
+                longPollingTimeout, attemptId);
             activityNanoTime = System.nanoTime();
 
             // Intercept before message reception.
@@ -248,27 +262,35 @@ class ProcessQueueImpl implements ProcessQueue {
                         // Should never reach here.
                         log.error("[Bug] Exception raised while handling receive result, mq={}, endpoints={}, "
                             + "clientId={}", mq, endpoints, clientId, t);
-                        onReceiveMessageException(t);
+                        onReceiveMessageException(t, attemptId);
                     }
                 }
 
                 @Override
                 public void onFailure(Throwable t) {
+                    String nextAttemptId = null;
+                    if (t instanceof StatusRuntimeException) {
+                        StatusRuntimeException exception = (StatusRuntimeException) t;
+                        if (io.grpc.Status.DEADLINE_EXCEEDED.equals(exception.getStatus())) {
+                            nextAttemptId = request.getAttemptId();
+                        }
+                    }
                     // Intercept after message reception.
                     final MessageInterceptorContextImpl context0 =
                         new MessageInterceptorContextImpl(context, MessageHookPointsStatus.ERROR);
                     consumer.doAfter(context0, Collections.emptyList());
 
-                    log.error("Exception raised during message reception, mq={}, endpoints={}, clientId={}", mq,
-                        endpoints, clientId, t);
-                    onReceiveMessageException(t);
+                    log.error("Exception raised during message reception, mq={}, endpoints={}, attemptId={}, " +
+                            "nextAttemptId={}, clientId={}", mq, endpoints, request.getAttemptId(), nextAttemptId,
+                        clientId, t);
+                    onReceiveMessageException(t, nextAttemptId);
                 }
             }, MoreExecutors.directExecutor());
             receptionTimes.getAndIncrement();
             consumer.getReceptionTimes().getAndIncrement();
         } catch (Throwable t) {
             log.error("Exception raised during message reception, mq={}, clientId={}", mq, clientId, t);
-            onReceiveMessageException(t);
+            onReceiveMessageException(t, attemptId);
         }
     }
 

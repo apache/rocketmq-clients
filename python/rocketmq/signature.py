@@ -50,13 +50,13 @@ class Signature:
                 Signature.__DATE_TIME_KEY,
                 date_time,
             ),
-            (Signature.__REQUEST_ID_KEY, uuid.uuid4()),
+            (Signature.__REQUEST_ID_KEY, str(uuid.uuid4())),
             (Signature.__CLIENT_ID_KEY, client_id),
         ]
         if not client_config.session_credentials_provider:
             return metadata
         session_credentials = (
-            client_config.session_credentials_provider.session_credentials()
+            client_config.session_credentials_provider.get_credentials()
         )
         if not session_credentials:
             return metadata
@@ -68,7 +68,7 @@ class Signature:
             not session_credentials.access_secret
         ):
             return metadata
-        signature = sign(session_credentials.access_key, date_time)
+        signature = sign(session_credentials.access_secret, date_time)
         authorization = (
             Signature.__ALGORITHM
             + " "

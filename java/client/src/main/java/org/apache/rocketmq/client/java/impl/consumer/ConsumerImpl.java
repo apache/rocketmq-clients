@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Pattern;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
@@ -242,11 +243,12 @@ abstract class ConsumerImpl extends ClientImpl {
     }
 
     ReceiveMessageRequest wrapReceiveMessageRequest(int batchSize, MessageQueueImpl mq,
-        FilterExpression filterExpression, Duration longPollingTimeout) {
+        FilterExpression filterExpression, Duration longPollingTimeout, String attemptId) {
+        attemptId = null == attemptId ? UUID.randomUUID().toString() : attemptId;
         return ReceiveMessageRequest.newBuilder().setGroup(getProtobufGroup())
             .setMessageQueue(mq.toProtobuf()).setFilterExpression(wrapFilterExpression(filterExpression))
             .setLongPollingTimeout(Durations.fromNanos(longPollingTimeout.toNanos()))
-            .setBatchSize(batchSize).setAutoRenew(true).build();
+            .setBatchSize(batchSize).setAutoRenew(true).setAttemptId(attemptId).build();
     }
 
     ReceiveMessageRequest wrapReceiveMessageRequest(int batchSize, MessageQueueImpl mq,

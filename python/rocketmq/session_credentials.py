@@ -13,26 +13,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-import os
 
-logger = logging.getLogger("rocketmqlogger")
-logger.setLevel(logging.DEBUG)
+class SessionCredentials:
+    def __init__(self, access_key=None, access_secret=None, security_token=None):
+        if access_key is None:
+            raise ValueError("accessKey should not be None")
+        if access_secret is None:
+            raise ValueError("accessSecret should not be None")
 
-log_path = os.path.join(
-    os.path.expanduser("~"), "logs", "rocketmq", "rocketmq-client.log"
-)
-file_handler = logging.FileHandler(log_path)
-file_handler.setLevel(logging.DEBUG)
+        self.access_key = access_key
+        self.access_secret = access_secret
+        self.security_token = security_token
 
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.DEBUG)
 
-formatter = logging.Formatter(
-    "%(asctime)s [%(levelname)s] [%(process)d] [%(filename)s#%(funcName)s:%(lineno)d] %(message)s"
-)
-file_handler.setFormatter(formatter)
-console_handler.setFormatter(formatter)
+class SessionCredentialsProvider:
+    def __init__(self, credentials):
+        if not isinstance(credentials, SessionCredentials):
+            raise ValueError("credentials should be an instance of SessionCredentials")
+        self.credentials = credentials
 
-logger.addHandler(file_handler)
-logger.addHandler(console_handler)
+    def get_credentials(self):
+        return self.credentials

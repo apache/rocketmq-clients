@@ -37,7 +37,7 @@ public class PushConsumerExample {
     private PushConsumerExample() {
     }
 
-    public static void main(String[] args) throws ClientException, IOException, InterruptedException {
+    public static void main(String[] args) throws ClientException, InterruptedException, IOException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
 
         // Credential provider is optional for client configuration.
@@ -49,6 +49,9 @@ public class PushConsumerExample {
         String endpoints = "foobar.com:8080";
         ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
             .setEndpoints(endpoints)
+            // On some Windows platforms, you may encounter SSL compatibility issues. Try turning off the SSL option in
+            // client configuration to solve the problem please if SSL is not essential.
+            // .enableSsl(false)
             .setCredentialProvider(sessionCredentialsProvider)
             .build();
         String tag = "yourMessageTagA";
@@ -71,6 +74,7 @@ public class PushConsumerExample {
         // Block the main thread, no need for production environment.
         Thread.sleep(Long.MAX_VALUE);
         // Close the push consumer when you don't need it anymore.
+        // You could close it manually or add this into the JVM shutdown hook.
         pushConsumer.close();
     }
 }

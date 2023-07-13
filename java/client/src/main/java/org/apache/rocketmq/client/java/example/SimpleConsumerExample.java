@@ -52,6 +52,9 @@ public class SimpleConsumerExample {
         String endpoints = "foobar.com:8080";
         ClientConfiguration clientConfiguration = ClientConfiguration.newBuilder()
             .setEndpoints(endpoints)
+            // On some Windows platforms, you may encounter SSL compatibility issues. Try turning off the SSL option in
+            // client configuration to solve the problem please if SSL is not essential.
+            // .enableSsl(false)
             .setCredentialProvider(sessionCredentialsProvider)
             .build();
         String consumerGroup = "yourConsumerGroup";
@@ -88,6 +91,7 @@ public class SimpleConsumerExample {
             }
         } while (true);
         // Close the simple consumer when you don't need it anymore.
+        // You could close it manually or add this into the JVM shutdown hook.
         // consumer.close();
     }
 }

@@ -929,12 +929,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "os_type"
-version = "2.6.0"
+name = "os_info"
+version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e24d44c0eea30167516ed8f6daca4b5e3eebcde1bde1e4e6e08b809fb02c7ba5"
+checksum = "006e42d5b888366f1880eda20371fedde764ed2213dc8496f49622fa0c99cd5e"
 dependencies = [
- "regex",
+ "log",
+ "serde",
+ "winapi",
 ]
 
 [[package]]
@@ -1266,7 +1268,7 @@ dependencies = [
 
 [[package]]
 name = "rocketmq"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1283,7 +1285,7 @@ dependencies = [
  "once_cell",
  "opentelemetry",
  "opentelemetry-otlp",
- "os_type",
+ "os_info",
  "parking_lot",
  "prost 0.11.9",
  "prost-types",

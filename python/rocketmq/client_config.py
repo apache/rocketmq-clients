@@ -13,12 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from rocketmq.rpc_client import Endpoints
+from rocketmq.session_credentials import SessionCredentialsProvider
+
 
 class ClientConfig:
-    def __init__(self, endpoints: str, session_credentials_provider, ssl_enabled: bool):
+    def __init__(
+        self,
+        endpoints: Endpoints,
+        session_credentials_provider: SessionCredentialsProvider,
+        ssl_enabled: bool,
+    ):
         self.__endpoints = endpoints
         self.__session_credentials_provider = session_credentials_provider
         self.__ssl_enabled = ssl_enabled
+        self.request_timeout = 10
 
     @property
     def session_credentials_provider(self):

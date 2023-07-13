@@ -29,6 +29,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
@@ -71,7 +72,7 @@ public class ConsumerImplTest extends TestBase {
             any(ReceiveMessageRequest.class), any(Duration.class));
         final MessageQueueImpl mq = fakeMessageQueueImpl(FAKE_TOPIC_0);
         final ReceiveMessageRequest request = pushConsumer.wrapReceiveMessageRequest(1,
-            mq, new FilterExpression(), Duration.ofSeconds(15));
+            mq, new FilterExpression(), Duration.ofSeconds(15), UUID.randomUUID().toString());
         final ListenableFuture<ReceiveMessageResult> future0 =
             pushConsumer.receiveMessage(request, mq, Duration.ofSeconds(15));
         final ReceiveMessageResult receiveMessageResult = future0.get();

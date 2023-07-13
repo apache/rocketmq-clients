@@ -16,7 +16,7 @@
 #
 [package]
 name = "rocketmq"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 rust-version = "1.61"
 authors = [
@@ -34,6 +34,7 @@ keywords = ["rocketmq", "api", "client", "sdk", "grpc"]
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 tokio-rustls = {version = "0.24.0", features = ["default", "dangerous_configuration"] }
+tokio-stream="0.1.12"
 async-trait = "0.1.68"
 lazy_static = "1.4"
 tonic = {version = "0.9.0", features = ["tls", "default", "channel", "tls-roots"]}
@@ -44,7 +45,7 @@ thiserror = "1.0"
 anyhow = "1.0.70"
 parking_lot = "0.12"
 hostname = "0.3.1"
-os_type = "2.6.0"
+os_info = "3"
 
 slog = {version = "2.7.0", features=["max_level_trace", "release_max_level_info"]}
 slog-term = "2.9.0"
@@ -60,7 +61,6 @@ mac_address = "1.1.4"
 hex = "0.4.3"
 time = "0.3"
 once_cell = "1.9.0"
-tokio-stream="0.1.12"
 
 mockall = "0.11.4"
 mockall_double= "0.3.0"
