@@ -74,6 +74,7 @@ jobs:
       run:
         working-directory: ./rust
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-20.04, macos-11, windows-2022]
         msrv: [1.61]
