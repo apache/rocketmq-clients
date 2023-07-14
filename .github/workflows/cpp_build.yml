@@ -6,8 +6,9 @@ jobs:
     name: "${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        # switch back to VS 2019 when https://github.com/bazelbuild/bazel/issues/18592 issue is solved
+        # Disable VS 2022 before https://github.com/bazelbuild/bazel/issues/18592 issue is solved
         # os: [ubuntu-20.04, ubuntu-22.04, macos-11, macos-12, windows-2019, windows-2022]
         os: [ubuntu-20.04, ubuntu-22.04, macos-11, macos-12, windows-2019]
     steps:

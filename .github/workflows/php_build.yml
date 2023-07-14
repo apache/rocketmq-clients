@@ -6,6 +6,7 @@ jobs:
     name: "${{ matrix.os }}, PHP-${{ matrix.php-version }}"
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         php-version: ["7.4", "8.0", "8.1"]
         os: [ubuntu-20.04, macos-11, windows-2022]
