@@ -61,6 +61,10 @@ public:
     long_polling_duration_ = receive_timeout;
   }
 
+  void withSsl(bool enable) {
+    client_config_.withSsl = enable;
+  }
+
 protected:
   void topicsOfInterest(std::vector<std::string> topics) override;
 

@@ -54,7 +54,7 @@ public:
    * effectively.
    * @param resource_namespace Abstract resource namespace, in which this client manager lives.
    */
-  explicit ClientManagerImpl(std::string resource_namespace);
+  explicit ClientManagerImpl(std::string resource_namespace, bool withSsl = true);
 
   ~ClientManagerImpl() override;
 
@@ -242,6 +242,7 @@ private:
   grpc::ChannelArguments channel_arguments_;
 
   bool trace_{false};
+  bool withSsl_;
 };
 
 ROCKETMQ_NAMESPACE_END

@@ -38,6 +38,11 @@ ConfigurationBuilder& ConfigurationBuilder::withRequestTimeout(std::chrono::mill
   return *this;
 }
 
+ConfigurationBuilder& ConfigurationBuilder::withSsl(bool enable) {
+  configuration_.withSsl_ = enable;
+  return *this;
+}
+
 Configuration ConfigurationBuilder::build() {
   return std::move(configuration_);
 }

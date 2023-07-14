@@ -113,7 +113,7 @@ void ClientImpl::start() {
   client_config_.client_id = clientId();
 
   if (!client_manager_) {
-    client_manager_ = std::make_shared<ClientManagerImpl>(client_config_.resource_namespace);
+    client_manager_ = std::make_shared<ClientManagerImpl>(client_config_.resource_namespace, client_config_.withSsl);
   }
   client_manager_->start();
 
