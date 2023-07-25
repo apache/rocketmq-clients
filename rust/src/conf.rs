@@ -29,7 +29,7 @@ use crate::simple_consumer::SimpleConsumer;
 #[derive(Debug, Clone)]
 pub struct ClientOption {
     pub(crate) client_type: ClientType,
-    pub(crate) group: String,
+    pub(crate) group: Option<String>,
     pub(crate) namespace: String,
     pub(crate) access_url: String,
     pub(crate) enable_tls: bool,
@@ -43,7 +43,7 @@ impl Default for ClientOption {
     fn default() -> Self {
         ClientOption {
             client_type: ClientType::Producer,
-            group: "".to_string(),
+            group: None,
             namespace: "".to_string(),
             access_url: "localhost:8081".to_string(),
             enable_tls: false,

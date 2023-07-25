@@ -20,8 +20,8 @@ use rocketmq::Producer;
 
 #[tokio::main]
 async fn main() {
-    // recommend to specify which topic(s) you would like to send message to
-    // producer will prefetch topic route when start and failed fast if topic not exist
+    // It's recommended to specify the topics that applications will publish messages to
+    // because the producer will prefetch topic routes for them on start and fail fast in case they do not exist
     let mut producer_option = ProducerOption::default();
     producer_option.set_topics(vec!["fifo_test"]);
 
@@ -31,7 +31,11 @@ async fn main() {
 
     // build and start producer
     let mut producer = Producer::new(producer_option, client_option).unwrap();
-    producer.start().await.unwrap();
+    let start_result = producer.start().await;
+    if start_result.is_err() {
+        eprintln!("producer start failed: {:?}", start_result.unwrap_err());
+        return;
+    }
 
     // build message
     let message = MessageBuilder::fifo_message_builder(
@@ -44,10 +48,23 @@ async fn main() {
     .unwrap();
 
     // send message to rocketmq proxy
-    let result = producer.send(message).await;
-    debug_assert!(result.is_ok(), "send message failed: {:?}", result);
+    let send_result = producer.send(message).await;
+    if send_result.is_err() {
+        eprintln!("send message failed: {:?}", send_result.unwrap_err());
+        return;
+    }
     println!(
         "send message success, message_id={}",
-        result.unwrap().message_id()
+        send_result.unwrap().message_id()
     );
+
+    // shutdown the producer when you don't need it anymore.
+    // you should shutdown it manually to gracefully stop and unregister from server
+    let shutdown_result = producer.shutdown().await;
+    if shutdown_result.is_err() {
+        eprintln!(
+            "producer shutdown failed: {:?}",
+            shutdown_result.unwrap_err()
+        );
+    }
 }

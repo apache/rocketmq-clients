@@ -20,8 +20,8 @@ use rocketmq::SimpleConsumer;
 
 #[tokio::main]
 async fn main() {
-    // recommend to specify which topic(s) you would like to send message to
-    // simple consumer will prefetch topic route when start and failed fast if topic not exist
+    // It's recommended to specify the topics that applications will publish messages to
+    // because the simple consumer will prefetch topic routes for them on start and fail fast in case they do not exist
     let mut consumer_option = SimpleConsumerOption::default();
     consumer_option.set_topics(vec!["test_topic"]);
     consumer_option.set_consumer_group("SimpleConsumerGroup");
@@ -33,38 +33,54 @@ async fn main() {
 
     // build and start simple consumer
     let mut consumer = SimpleConsumer::new(consumer_option, client_option).unwrap();
-    consumer.start().await.unwrap();
-
-    loop {
-        // pop message from rocketmq proxy
-        let receive_result = consumer
-            .receive(
-                "test_topic".to_string(),
-                &FilterExpression::new(FilterType::Tag, "test_tag"),
-            )
-            .await;
-        debug_assert!(
-            receive_result.is_ok(),
-            "receive message failed: {:?}",
-            receive_result.unwrap_err()
+    let start_result = consumer.start().await;
+    if start_result.is_err() {
+        eprintln!(
+            "simple consumer start failed: {:?}",
+            start_result.unwrap_err()
         );
+        return;
+    }
 
-        let messages = receive_result.unwrap();
+    // pop message from rocketmq proxy
+    let receive_result = consumer
+        .receive(
+            "test_topic".to_string(),
+            &FilterExpression::new(FilterType::Tag, "test_tag"),
+        )
+        .await;
+    if receive_result.is_err() {
+        eprintln!("receive message failed: {:?}", receive_result.unwrap_err());
+        return;
+    }
 
-        if messages.is_empty() {
-            println!("no message received");
-            return;
-        }
+    let messages = receive_result.unwrap();
 
-        for message in messages {
-            println!("receive message: {:?}", message);
-            // ack message to rocketmq proxy
-            let ack_result = consumer.ack(&message).await;
-            debug_assert!(
-                ack_result.is_ok(),
-                "ack message failed: {:?}",
+    if messages.is_empty() {
+        println!("no message received");
+        return;
+    }
+
+    for message in messages {
+        println!("receive message: {:?}", message);
+        // ack message to rocketmq proxy
+        let ack_result = consumer.ack(&message).await;
+        if ack_result.is_err() {
+            eprintln!(
+                "ack message {} failed: {:?}",
+                message.message_id(),
                 ack_result.unwrap_err()
             );
         }
+    }
+
+    // shutdown the simple consumer when you don't need it anymore.
+    // you should shutdown it manually to gracefully stop and unregister from server
+    let shutdown_result = consumer.shutdown().await;
+    if shutdown_result.is_err() {
+        eprintln!(
+            "simple consumer shutdown failed: {:?}",
+            shutdown_result.unwrap_err()
+        );
     }
 }
