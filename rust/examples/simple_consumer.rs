@@ -20,8 +20,8 @@ use rocketmq::SimpleConsumer;
 
 #[tokio::main]
 async fn main() {
-    // recommend specifying which topic(s) you would like to send message to
-    // simple consumer will prefetch topic route when starting and failed fast if topic does not exist
+    // It's recommended to specify the topics that applications will publish messages to
+    // because the simple consumer will prefetch topic routes for them on start and fail fast in case they do not exist
     let mut consumer_option = SimpleConsumerOption::default();
     consumer_option.set_topics(vec!["test_topic"]);
     consumer_option.set_consumer_group("SimpleConsumerGroup");
@@ -33,7 +33,14 @@ async fn main() {
 
     // build and start simple consumer
     let mut consumer = SimpleConsumer::new(consumer_option, client_option).unwrap();
-    consumer.start().await.unwrap();
+    let start_result = consumer.start().await;
+    if start_result.is_err() {
+        eprintln!(
+            "simple consumer start failed: {:?}",
+            start_result.unwrap_err()
+        );
+        return;
+    }
 
     // pop message from rocketmq proxy
     let receive_result = consumer
@@ -42,11 +49,10 @@ async fn main() {
             &FilterExpression::new(FilterType::Tag, "test_tag"),
         )
         .await;
-    debug_assert!(
-        receive_result.is_ok(),
-        "receive message failed: {:?}",
-        receive_result.unwrap_err()
-    );
+    if receive_result.is_err() {
+        eprintln!("receive message failed: {:?}", receive_result.unwrap_err());
+        return;
+    }
 
     let messages = receive_result.unwrap();
 
@@ -59,19 +65,22 @@ async fn main() {
         println!("receive message: {:?}", message);
         // ack message to rocketmq proxy
         let ack_result = consumer.ack(&message).await;
-        debug_assert!(
-            ack_result.is_ok(),
-            "ack message failed: {:?}",
-            ack_result.unwrap_err()
-        );
+        if ack_result.is_err() {
+            eprintln!(
+                "ack message {} failed: {:?}",
+                message.message_id(),
+                ack_result.unwrap_err()
+            );
+        }
     }
 
     // shutdown the simple consumer when you don't need it anymore.
     // you should shutdown it manually to gracefully stop and unregister from server
     let shutdown_result = consumer.shutdown().await;
-    debug_assert!(
-        shutdown_result.is_ok(),
-        "simple consumer shutdown failed: {:?}",
-        shutdown_result
-    );
+    if shutdown_result.is_err() {
+        eprintln!(
+            "simple consumer shutdown failed: {:?}",
+            shutdown_result.unwrap_err()
+        );
+    }
 }

@@ -28,8 +28,8 @@ lazy_static::lazy_static! {
 
 #[tokio::main]
 async fn main() {
-    // recommend specifying which topic(s) you would like to send message to
-    // producer will prefetch topic route when starting and failed fast if topic does not exist
+    // It's recommended to specify the topics that applications will publish messages to
+    // because the producer will prefetch topic routes for them on start and fail fast in case they do not exist
     let mut producer_option = ProducerOption::default();
     producer_option.set_topics(vec!["transaction_test"]);
 
@@ -62,7 +62,11 @@ async fn main() {
         }),
     )
     .unwrap();
-    producer.start().await.unwrap();
+    let start_result = producer.start().await;
+    if start_result.is_err() {
+        eprintln!("producer start failed: {:?}", start_result.unwrap_err());
+        return;
+    }
 
     // build message
     let message = MessageBuilder::transaction_message_builder(
@@ -93,14 +97,18 @@ async fn main() {
     // commit transaction manually
     // delete following two lines so that RocketMQ server will check transaction status periodically
     let result = transaction.commit().await;
-    debug_assert!(result.is_ok(), "commit transaction failed: {:?}", result);
+    if result.is_err() {
+        eprintln!("commit transaction failed: {:?}", result.unwrap_err());
+        return;
+    }
 
     // shutdown the producer when you don't need it anymore.
     // you should shutdown it manually to gracefully stop and unregister from server
     let shutdown_result = producer.shutdown().await;
-    debug_assert!(
-        shutdown_result.is_ok(),
-        "transaction producer shutdown failed: {:?}",
-        shutdown_result
-    );
+    if shutdown_result.is_err() {
+        eprintln!(
+            "transaction producer shutdown failed: {:?}",
+            shutdown_result.unwrap_err()
+        );
+    }
 }
