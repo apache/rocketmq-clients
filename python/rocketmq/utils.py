@@ -39,3 +39,8 @@ def sign(access_secret: str, datetime: str) -> str:
         hashlib.sha1,
     )
     return digester.hexdigest().upper()
+
+
+def get_positive_mod(k: int, n: int):
+    result = k % n
+    return result + n if result < 0 else result
