@@ -14,16 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::{collections::HashMap, sync::Arc, sync::atomic::AtomicUsize};
 use std::clone::Clone;
 use std::fmt::Debug;
 use std::string::ToString;
+use std::{collections::HashMap, sync::atomic::AtomicUsize, sync::Arc};
 
 use mockall::automock;
 use mockall_double::double;
 use parking_lot::Mutex;
 use prost_types::Duration;
-use slog::{debug, error, info, Logger, o, warn};
+use slog::{debug, error, info, o, warn, Logger};
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
@@ -33,17 +33,17 @@ use crate::model::common::{ClientType, Endpoints, Route, RouteStatus, SendReceip
 use crate::model::message::{AckMessageEntry, MessageView};
 use crate::model::transaction::{TransactionChecker, TransactionResolution};
 use crate::pb;
+use crate::pb::receive_message_response::Content;
+use crate::pb::telemetry_command::Command::RecoverOrphanedTransactionCommand;
 use crate::pb::{
     AckMessageRequest, AckMessageResultEntry, Code, EndTransactionRequest, FilterExpression,
     HeartbeatRequest, HeartbeatResponse, Message, MessageQueue, NotifyClientTerminationRequest,
     QueryRouteRequest, ReceiveMessageRequest, Resource, SendMessageRequest, Status,
     TelemetryCommand, TransactionSource,
 };
-use crate::pb::receive_message_response::Content;
-use crate::pb::telemetry_command::Command::RecoverOrphanedTransactionCommand;
-use crate::session::{RPCClient, Session};
 #[double]
 use crate::session::SessionManager;
+use crate::session::{RPCClient, Session};
 
 pub(crate) struct Client {
     logger: Logger,
@@ -653,8 +653,8 @@ impl Client {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
     use std::thread::sleep;
     use std::time::Duration;
 
@@ -666,12 +666,12 @@ pub(crate) mod tests {
     use crate::log::terminal_logger;
     use crate::model::common::{ClientType, Route};
     use crate::model::transaction::TransactionResolution;
+    use crate::pb::receive_message_response::Content;
     use crate::pb::{
         AckMessageEntry, AckMessageResponse, Code, EndTransactionResponse, FilterExpression,
         HeartbeatResponse, Message, MessageQueue, QueryRouteResponse, ReceiveMessageResponse,
         Resource, SendMessageResponse, Status, SystemProperties, TelemetryCommand,
     };
-    use crate::pb::receive_message_response::Content;
     use crate::session;
 
     use super::*;
@@ -761,7 +761,8 @@ pub(crate) mod tests {
             .expect_get_or_create_session()
             .returning(|_, _, _| Ok(Session::mock()));
 
-        let client = new_client_with_session_manager(session_manager);
+        let mut client = new_client_with_session_manager(session_manager);
+        let _ = client.start().await;
         let result = client.get_session().await;
         assert!(result.is_ok());
         let result = client

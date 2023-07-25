@@ -20,7 +20,6 @@ use std::time::Duration;
 use mockall_double::double;
 use slog::{info, Logger};
 
-use crate::{log, pb};
 #[double]
 use crate::client::Client;
 use crate::conf::{ClientOption, SimpleConsumerOption};
@@ -30,6 +29,7 @@ use crate::model::message::{AckMessageEntry, MessageView};
 use crate::util::{
     build_endpoints_by_message_queue, build_simple_consumer_settings, select_message_queue,
 };
+use crate::{log, pb};
 
 /// [`SimpleConsumer`] is a lightweight consumer to consume messages from RocketMQ proxy.
 ///
@@ -119,7 +119,7 @@ impl SimpleConsumer {
         topic: impl AsRef<str>,
         expression: &FilterExpression,
     ) -> Result<Vec<MessageView>, ClientError> {
-        self.receive_with_batch_size(topic.as_ref(), expression, 32, Duration::from_secs(15))
+        self.receive_with(topic.as_ref(), expression, 32, Duration::from_secs(15))
             .await
     }
 
@@ -131,7 +131,7 @@ impl SimpleConsumer {
     /// * `expression` - the subscription for the topic
     /// * `batch_size` - max message num of server returned
     /// * `invisible_duration` - set the invisible duration of messages that return from the server, these messages will not be visible to other consumers unless timeout
-    pub async fn receive_with_batch_size(
+    pub async fn receive_with(
         &self,
         topic: impl AsRef<str>,
         expression: &FilterExpression,
