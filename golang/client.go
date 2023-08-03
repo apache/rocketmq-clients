@@ -363,6 +363,7 @@ func (cli *defaultClient) queryRoute(ctx context.Context, topic string, duration
 	}
 
 	if len(response.GetMessageQueues()) == 0 {
+		cli.log.Errorf("queryRoute result has no messageQueue, requestId=%s", utils.GetRequestID(ctx))
 		return nil, errors.New("rocketmq: no available brokers")
 	}
 	return response.GetMessageQueues(), nil
