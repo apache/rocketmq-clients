@@ -60,7 +60,7 @@ namespace Org.Apache.Rocketmq
             var secretData = Encoding.ASCII.GetBytes(credentials.AccessSecret);
             var data = Encoding.ASCII.GetBytes(time);
             using (var signer = new HMACSHA1(secretData))
-            { 
+            {
                 var digest = signer.ComputeHash(data);
                 var hmac = BitConverter.ToString(digest).Replace("-", "");
                 var authorization = $"{MetadataConstants.AlgorithmKey} " +
