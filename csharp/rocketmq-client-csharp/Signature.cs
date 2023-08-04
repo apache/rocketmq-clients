@@ -59,15 +59,17 @@ namespace Org.Apache.Rocketmq
 
             var secretData = Encoding.ASCII.GetBytes(credentials.AccessSecret);
             var data = Encoding.ASCII.GetBytes(time);
-            var signer = new HMACSHA1(secretData);
-            var digest = signer.ComputeHash(data);
-            var hmac = BitConverter.ToString(digest).Replace("-", "");
-            var authorization = $"{MetadataConstants.AlgorithmKey} " +
-                                $"{MetadataConstants.CredentialKey}={credentials.AccessKey}, " +
-                                $"{MetadataConstants.SignedHeadersKey}={MetadataConstants.DateTimeKey}, " +
-                                $"{MetadataConstants.SignatureKey}={hmac}";
-            dictionary.Add(MetadataConstants.Authorization, authorization);
-            return dictionary;
+            using (var signer = new HMACSHA1(secretData))
+            { 
+                var digest = signer.ComputeHash(data);
+                var hmac = BitConverter.ToString(digest).Replace("-", "");
+                var authorization = $"{MetadataConstants.AlgorithmKey} " +
+                                    $"{MetadataConstants.CredentialKey}={credentials.AccessKey}, " +
+                                    $"{MetadataConstants.SignedHeadersKey}={MetadataConstants.DateTimeKey}, " +
+                                    $"{MetadataConstants.SignatureKey}={hmac}";
+                dictionary.Add(MetadataConstants.Authorization, authorization);
+                return dictionary;
+            }
         }
     }
 }
