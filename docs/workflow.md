@@ -75,7 +75,7 @@ The receiving procedure is as follows:
 1. Fetch the latest queue assignment from server.
 2. If flow control occurs during message receiving, consumer will retry after 20 milliseconds, otherwise go to step3.
 3. Cache message and trigger the consumption(Once the lifecycle of message is over, it will removed from cache immediately).
-4. Check if the cache is full. If the cache is full, the consumer will attempt to receive a message after 1 second, otherwise, it will retry immediately.
+4. Check if the cache is full. If the cache is full, the consumer will attempt to receive the message after 1 second; otherwise, it will retry immediately.
 
 ### Message Consumption in Push Consumer(Non-FIFO)
 

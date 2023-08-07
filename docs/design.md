@@ -55,7 +55,7 @@ Client identifier provides identity information for each client event within the
 
 * `macbook-pro`: hostname of device;
 * `90009`: process identifier;
-* `2`: client index within current process;
+* `0`: client index within current process;
 * `2dyeb8lep`: the unique string within process.
 
 >**Note**: Implementations of client identifier by different languages may vary slightly, but the uniqueness is the first principle that must be followed.
