@@ -83,6 +83,10 @@ The receiving procedure is as follows:
 <img src="./artwork/message_consumption_in_push_consumer_non_FIFO.png" width="50%">
 </div>
 
+In PushConsumer, we provide retry policies for Ack/ChangeInvisibleTime to ensure the reliability of message processing. 
+
+When calling ackMessage or changeInvisibleDuration methods, if receiving a non-OK response code, we will log the error and retry later. We will retry the method with an increasing attempt value until it succeeds. If receiving an INVALID_RECEIPT_HANDLE response code, we will not retry and directly return the exception to the caller. 
+
 ### Message Consumption in Push Consumer(FIFO)
 
 <div align="center">
