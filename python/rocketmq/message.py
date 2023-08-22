@@ -14,7 +14,12 @@
 # limitations under the License.
 
 
-from rocketmq.message_id import MessageId
+from rocketmq.protocol.definition_pb2 import DigestType as ProtoDigestType, Encoding as ProtoEncoding
+import binascii
+import hashlib
+import gzip
+from typing import Dict, List
+from rocketmq.definition import MessageQueue
 
 
 class Message:
@@ -70,16 +75,21 @@ class Message:
 class MessageView:
     def __init__(
         self,
-        message_id: MessageId,
+        message_id: str,
         topic: str,
         body: bytes,
-        properties: map,
         tag: str,
-        keys: str,
         message_group: str,
         delivery_timestamp: int,
+        keys: List[str],
+        properties: Dict[str, str],
         born_host: str,
+        born_time: int,
         delivery_attempt: int,
+        message_queue: MessageQueue,
+        receipt_handle: str,
+        offset: int,
+        corrupted: bool
     ):
         self.__message_id = message_id
         self.__topic = topic
@@ -91,10 +101,27 @@ class MessageView:
         self.__delivery_timestamp = delivery_timestamp
         self.__born_host = born_host
         self.__delivery_attempt = delivery_attempt
+        self.__receipt_handle = receipt_handle
+        self.__born_time = born_time
+        self.__message_queue = message_queue
+        self.__offset = offset
+        self.__corrupted = corrupted
+
+    @property
+    def message_queue(self):
+        return self.__message_queue
+
+    @property
+    def receipt_handle(self):
+        return self.__receipt_handle
 
     @property
     def topic(self):
         return self.__topic
+
+    @property
+    def body(self):
+        return self.__body
 
     @property
     def message_id(self):
@@ -123,3 +150,55 @@ class MessageView:
     @property
     def delivery_timestamp(self):
         return self.__delivery_timestamp
+
+    @classmethod
+    def from_protobuf(cls, message, message_queue=None):
+        topic = message.topic.name
+        system_properties = message.system_properties
+        message_id = system_properties.message_id
+        body_digest = system_properties.body_digest
+        check_sum = body_digest.checksum
+        raw = message.body
+        corrupted = False
+        digest_type = body_digest.type
+
+        # Digest Type check
+        if digest_type == ProtoDigestType.CRC32:
+            expected_check_sum = format(binascii.crc32(raw) & 0xFFFFFFFF, '08X')
+            if not expected_check_sum == check_sum:
+                corrupted = True
+        elif digest_type == ProtoDigestType.MD5:
+            expected_check_sum = hashlib.md5(raw).hexdigest()
+            if not expected_check_sum == check_sum:
+                corrupted = True
+        elif digest_type == ProtoDigestType.SHA1:
+            expected_check_sum = hashlib.sha1(raw).hexdigest()
+            if not expected_check_sum == check_sum:
+                corrupted = True
+        elif digest_type in [ProtoDigestType.unspecified, None]:
+            print(f"Unsupported message body digest algorithm, digestType={digest_type}, topic={topic}, messageId={message_id}")
+
+        # Body Encoding check
+        body_encoding = system_properties.body_encoding
+        body = raw
+        if body_encoding == ProtoEncoding.GZIP:
+            body = gzip.decompress(message.body)
+        elif body_encoding in [ProtoEncoding.IDENTITY, None]:
+            pass
+        else:
+            print(f"Unsupported message encoding algorithm, topic={topic}, messageId={message_id}, bodyEncoding={body_encoding}")
+
+        tag = system_properties.tag
+        message_group = system_properties.message_group
+        delivery_time = system_properties.delivery_timestamp
+        keys = list(system_properties.keys)
+
+        born_host = system_properties.born_host
+        born_time = system_properties.born_timestamp
+        delivery_attempt = system_properties.delivery_attempt
+        queue_offset = system_properties.queue_offset
+        properties = {key: value for key, value in message.user_properties.items()}
+        receipt_handle = system_properties.receipt_handle
+
+        return cls(message_id, topic, body, tag, message_group, delivery_time, keys, properties, born_host,
+                   born_time, delivery_attempt, message_queue, receipt_handle, queue_offset, corrupted)

@@ -179,7 +179,8 @@ class Producer(Client):
         :param client_config: The configuration for the client.
         :param topics: The set of topics to which the producer can send messages.
         """
-        super().__init__(client_config, topics)
+        super().__init__(client_config)
+        self.publish_topics = topics
         retry_policy = ExponentialBackoffRetryPolicy.immediately_retry_policy(10)
         #: Set up the publishing settings with the given parameters.
         self.publish_settings = PublishingSettings(
@@ -195,6 +196,9 @@ class Producer(Client):
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Provide an asynchronous context manager for the producer."""
         await self.shutdown()
+
+    def get_topics(self):
+        return self.publish_topics
 
     async def start(self):
         """Start the RocketMQ producer and log the operation."""
@@ -361,10 +365,10 @@ class Producer(Client):
 
 
 async def test():
-    credentials = SessionCredentials("username", "password")
+    credentials = SessionCredentials("Q1Pgiv1e4X75o4HJ", "cHp2FXvzS18JPQ89")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
-        endpoints=Endpoints("rmq-cn-jaj390gga04.cn-hangzhou.rmq.aliyuncs.com:8080"),
+        endpoints=Endpoints("rmq-cn-pe33cys050g.cn-qingdao.rmq.aliyuncs.com:8080"),
         session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
@@ -385,10 +389,10 @@ async def test():
 
 
 async def test_delay_message():
-    credentials = SessionCredentials("username", "password")
+    credentials = SessionCredentials("Q1Pgiv1e4X75o4HJ", "cHp2FXvzS18JPQ89")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
-        endpoints=Endpoints("rmq-cn-jaj390gga04.cn-hangzhou.rmq.aliyuncs.com:8080"),
+        endpoints=Endpoints("rmq-cn-pe33cys050g.cn-qingdao.rmq.aliyuncs.com:8080"),
         session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
@@ -414,10 +418,10 @@ async def test_delay_message():
 
 
 async def test_fifo_message():
-    credentials = SessionCredentials("username", "password")
+    credentials = SessionCredentials("Q1Pgiv1e4X75o4HJ", "cHp2FXvzS18JPQ89")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
-        endpoints=Endpoints("rmq-cn-jaj390gga04.cn-hangzhou.rmq.aliyuncs.com:8080"),
+        endpoints=Endpoints("rmq-cn-pe33cys050g.cn-qingdao.rmq.aliyuncs.com:8080"),
         session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
@@ -439,10 +443,10 @@ async def test_fifo_message():
 
 
 async def test_transaction_message():
-    credentials = SessionCredentials("username", "password")
+    credentials = SessionCredentials("Q1Pgiv1e4X75o4HJ", "cHp2FXvzS18JPQ89")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
-        endpoints=Endpoints("rmq-cn-jaj390gga04.cn-hangzhou.rmq.aliyuncs.com:8080"),
+        endpoints=Endpoints("rmq-cn-pe33cys050g.cn-qingdao.rmq.aliyuncs.com:8080"),
         session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
@@ -466,10 +470,10 @@ async def test_transaction_message():
 
 
 async def test_retry_and_isolation():
-    credentials = SessionCredentials("username", "password")
+    credentials = SessionCredentials("Q1Pgiv1e4X75o4HJ", "cHp2FXvzS18JPQ89")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
-        endpoints=Endpoints("rmq-cn-jaj390gga04.cn-hangzhou.rmq.aliyuncs.com:8080"),
+        endpoints=Endpoints("rmq-cn-pe33cys050g.cn-qingdao.rmq.aliyuncs.com:8080"),
         session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
@@ -501,7 +505,7 @@ async def test_retry_and_isolation():
 
 if __name__ == "__main__":
     asyncio.run(test())
-    asyncio.run(test_delay_message())
-    asyncio.run(test_fifo_message())
-    asyncio.run(test_transaction_message())
-    asyncio.run(test_retry_and_isolation())
+    # asyncio.run(test_delay_message())
+    # asyncio.run(test_fifo_message())
+    # asyncio.run(test_transaction_message())
+    # asyncio.run(test_retry_and_isolation())
