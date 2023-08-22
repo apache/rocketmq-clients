@@ -365,10 +365,10 @@ class Producer(Client):
 
 
 async def test():
-    credentials = SessionCredentials("Q1Pgiv1e4X75o4HJ", "cHp2FXvzS18JPQ89")
+    credentials = SessionCredentials("username", "password")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
-        endpoints=Endpoints("rmq-cn-pe33cys050g.cn-qingdao.rmq.aliyuncs.com:8080"),
+        endpoints=Endpoints("endpoint"),
         session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
@@ -389,10 +389,10 @@ async def test():
 
 
 async def test_delay_message():
-    credentials = SessionCredentials("Q1Pgiv1e4X75o4HJ", "cHp2FXvzS18JPQ89")
+    credentials = SessionCredentials("username", "password")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
-        endpoints=Endpoints("rmq-cn-pe33cys050g.cn-qingdao.rmq.aliyuncs.com:8080"),
+        endpoints=Endpoints("endpoint"),
         session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
@@ -418,10 +418,10 @@ async def test_delay_message():
 
 
 async def test_fifo_message():
-    credentials = SessionCredentials("Q1Pgiv1e4X75o4HJ", "cHp2FXvzS18JPQ89")
+    credentials = SessionCredentials("username", "password")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
-        endpoints=Endpoints("rmq-cn-pe33cys050g.cn-qingdao.rmq.aliyuncs.com:8080"),
+        endpoints=Endpoints("endpoint"),
         session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
@@ -443,10 +443,10 @@ async def test_fifo_message():
 
 
 async def test_transaction_message():
-    credentials = SessionCredentials("Q1Pgiv1e4X75o4HJ", "cHp2FXvzS18JPQ89")
+    credentials = SessionCredentials("username", "password")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
-        endpoints=Endpoints("rmq-cn-pe33cys050g.cn-qingdao.rmq.aliyuncs.com:8080"),
+        endpoints=Endpoints("endpoint"),
         session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
@@ -470,10 +470,10 @@ async def test_transaction_message():
 
 
 async def test_retry_and_isolation():
-    credentials = SessionCredentials("Q1Pgiv1e4X75o4HJ", "cHp2FXvzS18JPQ89")
+    credentials = SessionCredentials("username", "password")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
-        endpoints=Endpoints("rmq-cn-pe33cys050g.cn-qingdao.rmq.aliyuncs.com:8080"),
+        endpoints=Endpoints("endpoint"),
         session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
