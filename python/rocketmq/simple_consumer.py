@@ -14,30 +14,31 @@
 # limitations under the License.
 
 import asyncio
-import threading
+import random
 import re
-# from status_checker import StatusChecker
+import threading
 from datetime import timedelta
+from threading import Lock
 from typing import Dict
-from rocketmq.consumer import Consumer
+
 import rocketmq
-from rocketmq.filter_expression import FilterExpression
 from rocketmq.client_config import ClientConfig
+from rocketmq.consumer import Consumer
 from rocketmq.definition import PermissionHelper
+from rocketmq.filter_expression import FilterExpression
 from rocketmq.log import logger
+from rocketmq.message import MessageView
 from rocketmq.protocol.definition_pb2 import Resource
 from rocketmq.protocol.definition_pb2 import Resource as ProtoResource
-from rocketmq.protocol.service_pb2 import AckMessageEntry as ProtoAckMessageEntry, AckMessageRequest as ProtoAckMessageRequest
-
+from rocketmq.protocol.service_pb2 import \
+    AckMessageEntry as ProtoAckMessageEntry
+from rocketmq.protocol.service_pb2 import \
+    AckMessageRequest as ProtoAckMessageRequest
 from rocketmq.rpc_client import Endpoints
 from rocketmq.session_credentials import (SessionCredentials,
                                           SessionCredentialsProvider)
-from utils import get_positive_mod
-
-from threading import Lock
 from rocketmq.simple_subscription_settings import SimpleSubscriptionSettings
-from rocketmq.message import MessageView
-import random
+from utils import get_positive_mod
 
 
 class SubscriptionLoadBalancer:
@@ -271,9 +272,9 @@ async def test():
     logger.info(message_views)
     for message in message_views:
         logger.info(message.body)
+        logger.info(f"Received a message, topic={message.topic}, message-id={message.message_id}, body-size={len(message.body)}")
         await simple_consumer.ack(message)
-        # for message in message_views:
-        #     await simple_consumer.ack()
+        logger.info(f"Message is acknowledged successfully, message-id={message.message_id}")
 
 if __name__ == "__main__":
     asyncio.run(test())

@@ -14,12 +14,14 @@
 # limitations under the License.
 
 
-from rocketmq.protocol.definition_pb2 import DigestType as ProtoDigestType, Encoding as ProtoEncoding
 import binascii
-import hashlib
 import gzip
+import hashlib
 from typing import Dict, List
+
 from rocketmq.definition import MessageQueue
+from rocketmq.protocol.definition_pb2 import DigestType as ProtoDigestType
+from rocketmq.protocol.definition_pb2 import Encoding as ProtoEncoding
 
 
 class Message:
