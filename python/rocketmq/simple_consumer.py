@@ -132,27 +132,27 @@ class SimpleConsumer(Consumer):
         logger.info(f"Shutdown the rocketmq consumer successfully, client_id={self.client_id}")
 
     def update_subscription_load_balancer(self, topic, topic_route_data):
-        # 如果订阅路由数据缓存中已经存在该主题的负载均衡器，就更新它
+        # if a load balancer for this topic already exists in the subscription routing data cache, update it
         subscription_load_balancer = self._subscription_route_data_cache.get(topic)
         if subscription_load_balancer:
             subscription_load_balancer.update(topic_route_data)
-        # 否则，新建一个订阅负载均衡器
+        # otherwise, create a new subscription load balancer
         else:
             subscription_load_balancer = SubscriptionLoadBalancer(topic_route_data)
 
-        # 将新的或更新后的订阅负载均衡器存入订阅路由数据缓存
+        # store new or updated subscription load balancers in the subscription routing data cache
         self._subscription_route_data_cache[topic] = subscription_load_balancer
         return subscription_load_balancer
 
     async def get_subscription_load_balancer(self, topic):
-        # 如果订阅路由数据缓存中已经存在该主题的负载均衡器，就返回它
+        # if a load balancer for this topic already exists in the subscription routing data cache, return it
         subscription_load_balancer = self._subscription_route_data_cache.get(topic)
         if subscription_load_balancer:
             return subscription_load_balancer
 
-        # 否则，获取主题的路由数据
+        # otherwise, obtain the routing data for the topic
         topic_route_data = await self.get_route_data(topic)
-        # 更新订阅负载均衡器
+        # update subscription load balancer
         return self.update_subscription_load_balancer(topic, topic_route_data)
 
     async def receive(self, max_message_num, invisible_duration):
