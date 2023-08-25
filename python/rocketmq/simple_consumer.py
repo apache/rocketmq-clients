@@ -20,6 +20,9 @@ import threading
 from datetime import timedelta
 from threading import Lock
 from typing import Dict
+from rocketmq.state import State
+
+from google.protobuf.duration_pb2 import Duration
 
 import rocketmq
 from rocketmq.client_config import ClientConfig
@@ -34,6 +37,7 @@ from rocketmq.protocol.service_pb2 import \
     AckMessageEntry as ProtoAckMessageEntry
 from rocketmq.protocol.service_pb2 import \
     AckMessageRequest as ProtoAckMessageRequest
+from rocketmq.protocol.service_pb2 import ChangeInvisibleDurationRequest as ProtoChangeInvisibleDurationRequest
 from rocketmq.rpc_client import Endpoints
 from rocketmq.session_credentials import (SessionCredentials,
                                           SessionCredentialsProvider)
@@ -100,7 +104,7 @@ class SimpleConsumer(Consumer):
         self._subscription_route_data_cache = {}
         self._topic_round_robin_index = 0
         self._state_lock = Lock()
-        self._state = "INIT"
+        self._state = State.New
         self._subscription_load_balancer = {}  # A dictionary to keep subscription load balancers
 
     def get_topics(self):
@@ -113,21 +117,21 @@ class SimpleConsumer(Consumer):
         """Start the RocketMQ consumer and log the operation."""
         logger.info(f"Begin to start the rocketmq consumer, client_id={self.client_id}")
         with self._state_lock:
-            if self._state != "INIT":
+            if self._state != State.New:
                 raise Exception("Consumer already started")
             await super().start()
             # Start all necessary operations
-            self._state = "RUNNING"
+            self._state = State.Running
         logger.info(f"The rocketmq consumer starts successfully, client_id={self.client_id}")
 
     async def shutdown(self):
         """Shutdown the RocketMQ consumer and log the operation."""
         logger.info(f"Begin to shutdown the rocketmq consumer, client_id={self.client_id}")
         with self._state_lock:
-            if self._state != "RUNNING":
+            if self._state != State.Running:
                 raise Exception("Consumer is not running")
             # Shutdown all necessary operations
-            self._state = "SHUTDOWN"
+            self._state = State.Terminated
         await super().shutdown()
         logger.info(f"Shutdown the rocketmq consumer successfully, client_id={self.client_id}")
 
@@ -156,7 +160,7 @@ class SimpleConsumer(Consumer):
         return self.update_subscription_load_balancer(topic, topic_route_data)
 
     async def receive(self, max_message_num, invisible_duration):
-        if self._state != "RUNNING":
+        if self._state != State.Running:
             raise Exception("Simple consumer is not running")
         if max_message_num <= 0:
             raise Exception("maxMessageNum must be greater than 0")
@@ -175,12 +179,33 @@ class SimpleConsumer(Consumer):
         result = await self.receive_message(request, mq, self._await_duration)
         return result.messages
 
-    async def change_invisible_duration(self, message_view, invisible_duration):
-        if self._state != "RUNNING":
+    def wrap_change_invisible_duration(self, message_view: MessageView, invisible_duration):
+        topic_resource = ProtoResource()
+        topic_resource.name = message_view.topic
+        
+        request = ProtoChangeInvisibleDurationRequest()
+        request.topic.CopyFrom(topic_resource)
+        request.group = message_view.message_group
+        request.receipt_handle = message_view.receipt_handle
+        request.invisible_duration = Duration(seconds=invisible_duration)
+        request.message_id = message_view.message_id
+        
+        return request
+
+    async def change_invisible_duration(self, message_view: MessageView, invisible_duration):
+        if self._state != State.Running:
             raise Exception("Simple consumer is not running")
+        
+        request = self.wrap_change_invisible_duration(message_view, invisible_duration)
+        await self.client_manager.change_invisible_duration(
+            message_view.message_queue.broker.endpoints,
+            request, 
+            self.client_config.request_timeout
+        )
+
 
     async def ack(self, message_view: MessageView):
-        if self._state != "RUNNING":
+        if self._state != State.Running:
             raise Exception("Simple consumer is not running")
         request = self.wrap_ack_message_request(message_view)
         result = await self.client_manager.ack_message(message_view.message_queue.broker.endpoints, request=request, timeout_seconds=self.client_config.request_timeout)
