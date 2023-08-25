@@ -273,10 +273,10 @@ class SimpleConsumer(Consumer):
 
 
 async def test():
-    credentials = SessionCredentials("username", "password")
+    credentials = SessionCredentials("L6q45E5d3uK1FYOK", "d3Rw8jl2f06yiaLY")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
-        endpoints=Endpoints("endpoint"),
+        endpoints=Endpoints("rmq-cn-lbj3d4d2w0g.cn-qingdao.rmq.aliyuncs.com:8080"),
         session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
