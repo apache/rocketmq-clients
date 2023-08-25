@@ -379,6 +379,7 @@ async def test():
     msg.body = b"My Normal Message Body"
     sysperf = SystemProperties()
     sysperf.message_id = MessageIdCodec.next_message_id()
+    sysperf.message_group = "yourConsumerGroup"
     msg.system_properties.CopyFrom(sysperf)
     producer = Producer(client_config, topics={"normal_topic"})
     message = Message(topic.name, msg.body)
@@ -392,7 +393,7 @@ async def test_delay_message():
     credentials = SessionCredentials("L6q45E5d3uK1FYOK", "d3Rw8jl2f06yiaLY")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
-        endpoints=Endpoints("endpoint"),
+        endpoints=Endpoints("rmq-cn-lbj3d4d2w0g.cn-qingdao.rmq.aliyuncs.com:8080"),
         session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
@@ -421,7 +422,7 @@ async def test_fifo_message():
     credentials = SessionCredentials("L6q45E5d3uK1FYOK", "d3Rw8jl2f06yiaLY")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
-        endpoints=Endpoints("endpoint"),
+        endpoints=Endpoints("rmq-cn-lbj3d4d2w0g.cn-qingdao.rmq.aliyuncs.com:8080"),
         session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
@@ -435,7 +436,7 @@ async def test_fifo_message():
     msg.system_properties.CopyFrom(sysperf)
     logger.debug(f"{msg}")
     producer = Producer(client_config, topics={"fifo_topic"})
-    message = Message(topic.name, msg.body, message_group="yourMessageGroup")
+    message = Message(topic.name, msg.body, message_group="yourConsumerGroup")
     await producer.start()
     await asyncio.sleep(10)
     send_receipt = await producer.send(message)
@@ -446,7 +447,7 @@ async def test_transaction_message():
     credentials = SessionCredentials("L6q45E5d3uK1FYOK", "d3Rw8jl2f06yiaLY")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
-        endpoints=Endpoints("endpoint"),
+        endpoints=Endpoints("rmq-cn-lbj3d4d2w0g.cn-qingdao.rmq.aliyuncs.com:8080"),
         session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
@@ -506,6 +507,6 @@ async def test_retry_and_isolation():
 if __name__ == "__main__":
     asyncio.run(test())
     # asyncio.run(test_delay_message())
-    # asyncio.run(test_fifo_message())
+    asyncio.run(test_fifo_message())
     # asyncio.run(test_transaction_message())
     # asyncio.run(test_retry_and_isolation())

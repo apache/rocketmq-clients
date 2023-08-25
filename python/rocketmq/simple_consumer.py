@@ -113,6 +113,21 @@ class SimpleConsumer(Consumer):
     def get_settings(self):
         return self._simple_subscription_settings
 
+    async def subscribe(self, topic: str, filter_expression: FilterExpression):
+        if self._state != State.Running:
+            raise Exception("Simple consumer is not running")
+
+        await self.get_subscription_load_balancer(topic)
+        self._subscription_expressions[topic] = filter_expression
+
+    def unsubscribe(self, topic: str):
+        if self._state != State.Running:
+            raise Exception("Simple consumer is not running")
+        try:
+            self._subscription_expressions.pop(topic)
+        except KeyError:
+            pass
+
     async def start(self):
         """Start the RocketMQ consumer and log the operation."""
         logger.info(f"Begin to start the rocketmq consumer, client_id={self.client_id}")
@@ -185,9 +200,12 @@ class SimpleConsumer(Consumer):
         
         request = ProtoChangeInvisibleDurationRequest()
         request.topic.CopyFrom(topic_resource)
-        request.group = message_view.message_group
+        group = ProtoResource()
+        group.name =message_view.message_group
+        logger.debug(message_view.message_group)
+        request.group.CopyFrom(group)
         request.receipt_handle = message_view.receipt_handle
-        request.invisible_duration = Duration(seconds=invisible_duration)
+        request.invisible_duration.CopyFrom(Duration(seconds=invisible_duration))
         request.message_id = message_view.message_id
         
         return request
@@ -197,12 +215,12 @@ class SimpleConsumer(Consumer):
             raise Exception("Simple consumer is not running")
         
         request = self.wrap_change_invisible_duration(message_view, invisible_duration)
-        await self.client_manager.change_invisible_duration(
+        result = await self.client_manager.change_invisible_duration(
             message_view.message_queue.broker.endpoints,
             request, 
             self.client_config.request_timeout
         )
-
+        logger.debug(result)
 
     async def ack(self, message_view: MessageView):
         if self._state != State.Running:
@@ -301,5 +319,102 @@ async def test():
         await simple_consumer.ack(message)
         logger.info(f"Message is acknowledged successfully, message-id={message.message_id}")
 
+async def test_fifo_message():
+    credentials = SessionCredentials("L6q45E5d3uK1FYOK", "d3Rw8jl2f06yiaLY")
+    credentials_provider = SessionCredentialsProvider(credentials)
+    client_config = ClientConfig(
+        endpoints=Endpoints("rmq-cn-lbj3d4d2w0g.cn-qingdao.rmq.aliyuncs.com:8080"),
+        session_credentials_provider=credentials_provider,
+        ssl_enabled=True,
+    )
+    topic = Resource()
+    topic.name = "fifo_topic"
+
+    consumer_group = "yourConsumerGroup"
+    subscription = {topic.name: FilterExpression("*")}
+    simple_consumer = (await SimpleConsumer.Builder()
+                       .set_client_config(client_config)
+                       .set_consumer_group(consumer_group)
+                       .set_await_duration(15)
+                       .set_subscription_expression(subscription)
+                       .build())
+    logger.info(simple_consumer)
+    # while True:
+    message_views = await simple_consumer.receive(16, 15)
+    # logger.info(message_views)
+    for message in message_views:
+        logger.info(message.body)
+        logger.info(f"Received a message, topic={message.topic}, message-id={message.message_id}, body-size={len(message.body)}")
+        await simple_consumer.ack(message)
+        logger.info(f"Message is acknowledged successfully, message-id={message.message_id}")
+
+async def test_change_invisible_duration():
+    credentials = SessionCredentials("L6q45E5d3uK1FYOK", "d3Rw8jl2f06yiaLY")
+    credentials_provider = SessionCredentialsProvider(credentials)
+    client_config = ClientConfig(
+        endpoints=Endpoints("rmq-cn-lbj3d4d2w0g.cn-qingdao.rmq.aliyuncs.com:8080"),
+        session_credentials_provider=credentials_provider,
+        ssl_enabled=True,
+    )
+    topic = Resource()
+    topic.name = "fifo_topic"
+
+    consumer_group = "yourConsumerGroup"
+    subscription = {topic.name: FilterExpression("*")}
+    simple_consumer = (await SimpleConsumer.Builder()
+                       .set_client_config(client_config)
+                       .set_consumer_group(consumer_group)
+                       .set_await_duration(15)
+                       .set_subscription_expression(subscription)
+                       .build())
+    logger.info(simple_consumer)
+    # while True:
+    message_views = await simple_consumer.receive(16, 15)
+    # logger.info(message_views)
+    for message in message_views:
+        await simple_consumer.change_invisible_duration(message_view=message, invisible_duration=3)
+        logger.info(message.body)
+        logger.info(f"Received a message, topic={message.topic}, message-id={message.message_id}, body-size={len(message.body)}")
+        await simple_consumer.ack(message)
+        logger.info(f"Message is acknowledged successfully, message-id={message.message_id}")
+
+async def test_subscribe_unsubscribe():
+    credentials = SessionCredentials("L6q45E5d3uK1FYOK", "d3Rw8jl2f06yiaLY")
+    credentials_provider = SessionCredentialsProvider(credentials)
+    client_config = ClientConfig(
+        endpoints=Endpoints("rmq-cn-lbj3d4d2w0g.cn-qingdao.rmq.aliyuncs.com:8080"),
+        session_credentials_provider=credentials_provider,
+        ssl_enabled=True,
+    )
+    topic = Resource()
+    topic.name = "normal_topic"
+
+    consumer_group = "yourConsumerGroup"
+    subscription = {topic.name: FilterExpression("*")}
+    simple_consumer = (await SimpleConsumer.Builder()
+                       .set_client_config(client_config)
+                       .set_consumer_group(consumer_group)
+                       .set_await_duration(15)
+                       .set_subscription_expression(subscription)
+                       .build())
+    logger.info(simple_consumer)
+    # while True:
+    message_views = await simple_consumer.receive(16, 15)
+    logger.info(message_views)
+    for message in message_views:
+        logger.info(message.body)
+        logger.info(f"Received a message, topic={message.topic}, message-id={message.message_id}, body-size={len(message.body)}")
+        await simple_consumer.ack(message)
+        logger.info(f"Message is acknowledged successfully, message-id={message.message_id}")
+    simple_consumer.unsubscribe('normal_topic')
+    await simple_consumer.subscribe('fifo_topic', FilterExpression("*"))
+    message_views = await simple_consumer.receive(16, 15)
+    logger.info(message_views)
+    for message in message_views:
+        logger.info(message.body)
+        logger.info(f"Received a message, topic={message.topic}, message-id={message.message_id}, body-size={len(message.body)}")
+        await simple_consumer.ack(message)
+        logger.info(f"Message is acknowledged successfully, message-id={message.message_id}")
+
 if __name__ == "__main__":
-    asyncio.run(test())
+    asyncio.run(test_subscribe_unsubscribe())
