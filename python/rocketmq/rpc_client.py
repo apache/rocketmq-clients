@@ -23,9 +23,8 @@ from functools import reduce
 
 import certifi
 from grpc import aio, ssl_channel_credentials
-from rocketmq.protocol import service_pb2
 from rocketmq.log import logger
-from rocketmq.protocol import service_pb2_grpc
+from rocketmq.protocol import service_pb2, service_pb2_grpc
 from rocketmq.protocol.definition_pb2 import Address as ProtoAddress
 from rocketmq.protocol.definition_pb2 import \
     AddressScheme as ProtoAddressScheme

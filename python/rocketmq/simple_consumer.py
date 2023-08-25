@@ -20,11 +20,9 @@ import threading
 from datetime import timedelta
 from threading import Lock
 from typing import Dict
-from rocketmq.state import State
-
-from google.protobuf.duration_pb2 import Duration
 
 import rocketmq
+from google.protobuf.duration_pb2 import Duration
 from rocketmq.client_config import ClientConfig
 from rocketmq.consumer import Consumer
 from rocketmq.definition import PermissionHelper
@@ -37,11 +35,13 @@ from rocketmq.protocol.service_pb2 import \
     AckMessageEntry as ProtoAckMessageEntry
 from rocketmq.protocol.service_pb2 import \
     AckMessageRequest as ProtoAckMessageRequest
-from rocketmq.protocol.service_pb2 import ChangeInvisibleDurationRequest as ProtoChangeInvisibleDurationRequest
+from rocketmq.protocol.service_pb2 import \
+    ChangeInvisibleDurationRequest as ProtoChangeInvisibleDurationRequest
 from rocketmq.rpc_client import Endpoints
 from rocketmq.session_credentials import (SessionCredentials,
                                           SessionCredentialsProvider)
 from rocketmq.simple_subscription_settings import SimpleSubscriptionSettings
+from rocketmq.state import State
 from utils import get_positive_mod
 
 
@@ -197,27 +197,27 @@ class SimpleConsumer(Consumer):
     def wrap_change_invisible_duration(self, message_view: MessageView, invisible_duration):
         topic_resource = ProtoResource()
         topic_resource.name = message_view.topic
-        
+
         request = ProtoChangeInvisibleDurationRequest()
         request.topic.CopyFrom(topic_resource)
         group = ProtoResource()
-        group.name =message_view.message_group
+        group.name = message_view.message_group
         logger.debug(message_view.message_group)
         request.group.CopyFrom(group)
         request.receipt_handle = message_view.receipt_handle
         request.invisible_duration.CopyFrom(Duration(seconds=invisible_duration))
         request.message_id = message_view.message_id
-        
+
         return request
 
     async def change_invisible_duration(self, message_view: MessageView, invisible_duration):
         if self._state != State.Running:
             raise Exception("Simple consumer is not running")
-        
+
         request = self.wrap_change_invisible_duration(message_view, invisible_duration)
         result = await self.client_manager.change_invisible_duration(
             message_view.message_queue.broker.endpoints,
-            request, 
+            request,
             self.client_config.request_timeout
         )
         logger.debug(result)
@@ -291,10 +291,10 @@ class SimpleConsumer(Consumer):
 
 
 async def test():
-    credentials = SessionCredentials("L6q45E5d3uK1FYOK", "d3Rw8jl2f06yiaLY")
+    credentials = SessionCredentials("username", "password")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
-        endpoints=Endpoints("rmq-cn-lbj3d4d2w0g.cn-qingdao.rmq.aliyuncs.com:8080"),
+        endpoints=Endpoints("endpoint"),
         session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
@@ -319,11 +319,12 @@ async def test():
         await simple_consumer.ack(message)
         logger.info(f"Message is acknowledged successfully, message-id={message.message_id}")
 
+
 async def test_fifo_message():
-    credentials = SessionCredentials("L6q45E5d3uK1FYOK", "d3Rw8jl2f06yiaLY")
+    credentials = SessionCredentials("username", "password")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
-        endpoints=Endpoints("rmq-cn-lbj3d4d2w0g.cn-qingdao.rmq.aliyuncs.com:8080"),
+        endpoints=Endpoints("endpoint"),
         session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
@@ -348,11 +349,12 @@ async def test_fifo_message():
         await simple_consumer.ack(message)
         logger.info(f"Message is acknowledged successfully, message-id={message.message_id}")
 
+
 async def test_change_invisible_duration():
-    credentials = SessionCredentials("L6q45E5d3uK1FYOK", "d3Rw8jl2f06yiaLY")
+    credentials = SessionCredentials("username", "password")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
-        endpoints=Endpoints("rmq-cn-lbj3d4d2w0g.cn-qingdao.rmq.aliyuncs.com:8080"),
+        endpoints=Endpoints("endpoint"),
         session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
@@ -378,11 +380,12 @@ async def test_change_invisible_duration():
         await simple_consumer.ack(message)
         logger.info(f"Message is acknowledged successfully, message-id={message.message_id}")
 
+
 async def test_subscribe_unsubscribe():
-    credentials = SessionCredentials("L6q45E5d3uK1FYOK", "d3Rw8jl2f06yiaLY")
+    credentials = SessionCredentials("username", "password")
     credentials_provider = SessionCredentialsProvider(credentials)
     client_config = ClientConfig(
-        endpoints=Endpoints("rmq-cn-lbj3d4d2w0g.cn-qingdao.rmq.aliyuncs.com:8080"),
+        endpoints=Endpoints("endpoint"),
         session_credentials_provider=credentials_provider,
         ssl_enabled=True,
     )
