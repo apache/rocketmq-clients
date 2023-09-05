@@ -17,20 +17,20 @@
 
 using System.Text;
 using System.Threading.Tasks;
-using NLog;
+using Microsoft.Extensions.Logging;
 using Org.Apache.Rocketmq;
 
 namespace examples
 {
     internal static class ProducerTransactionMessageExample
     {
-        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+        private static readonly ILogger Logger = MqLogManager.CreateLogger(typeof(ProducerTransactionMessageExample).FullName);
 
         private class TransactionChecker : ITransactionChecker
         {
             public TransactionResolution Check(MessageView messageView)
             {
-                Logger.Info("Receive transaction check, messageId={}", messageView.MessageId);
+                Logger.LogInformation("Receive transaction check, messageId={}", messageView.MessageId);
                 return TransactionResolution.Commit;
             }
         }
@@ -74,7 +74,7 @@ namespace examples
                 .Build();
 
             var sendReceipt = await producer.Send(message, transaction);
-            Logger.Info("Send transaction message successfully, messageId={}", sendReceipt.MessageId);
+            Logger.LogInformation("Send transaction message successfully, messageId={}", sendReceipt.MessageId);
             // Commit the transaction.
             transaction.Commit();
             // Or rollback the transaction.

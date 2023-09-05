@@ -20,14 +20,14 @@ using System.Collections.Concurrent;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using NLog;
+using Microsoft.Extensions.Logging;
 using Org.Apache.Rocketmq;
 
 namespace examples
 {
     public static class ProducerBenchmark
     {
-        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+        private static readonly ILogger Logger = MqLogManager.CreateLogger(typeof(ProducerBenchmark).FullName);
 
         private static readonly SemaphoreSlim Semaphore = new SemaphoreSlim(0);
         private const int TpsLimit = 1024;
@@ -52,7 +52,7 @@ namespace examples
             {
                 while (true)
                 {
-                    Logger.Info($"{Interlocked.Exchange(ref _successCounter, 0)} success, " +
+                    Logger.LogInformation($"{Interlocked.Exchange(ref _successCounter, 0)} success, " +
                                 $"{Interlocked.Exchange(ref _failureCounter, 0)} failure.");
                     await Task.Delay(TimeSpan.FromSeconds(1));
                 }

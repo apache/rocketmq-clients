@@ -54,17 +54,19 @@ dotnet test -l "console;verbosity=detailed"
 
 ## Logging System
 
-We use [NLog](https://nlog-project.org/) as our logging implementation. Similar to the Java binding, we allow the use of
-environment variables to customize the related configuration:
+We use [Microsoft.Extensions.Logging](https://learn.microsoft.com/en-us/dotnet/core/extensions/logging?tabs=command-line#non-host-console-app) as our logging implementation. 
 
-* `rocketmq_log_level`: Log output level, default is INFO.
-* `rocketmq_log_root`: The root directory of the log output. The default path is `$HOME/logs/rocketmq`, so the full path
-  is `$HOME/logs/rocketmq/rocketmq-client.log`.
-* `rocketmq_log_file_maxIndex`: The maximum number of log files to keep. The default is 10, and the size of a single log
-  file is limited to 64 MB. Adjustment is not supported yet.
+By default, no log output. If you need to output logs, you need to create a custom logger factory and pass it to `MqLogManager.UseLoggerFactory`.
 
-Specifically, by setting `mq_consoleAppender_enabled` to true, you can output client logs to the console simultaneously
-if you need debugging.
+Add a filter with the category `Org.Apache.Rocketmq` to control the log level.
+
+```csharp
+var loggerFactory = LoggerFactory.Create(
+      builder => builder
+         .AddFilter("Org.Apache.Rocketmq", LogLevel.Information)
+         .AddConsole());
+MqLogManager.UseLoggerFactory(loggerFactory);
+```
 
 ## Publishing Steps
 

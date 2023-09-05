@@ -19,14 +19,14 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Google.Protobuf.WellKnownTypes;
-using NLog;
+using Microsoft.Extensions.Logging;
 using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
     public class SimpleSubscriptionSettings : Settings
     {
-        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+        private static readonly ILogger Logger = MqLogManager.CreateLogger<SimpleSubscriptionSettings>();
 
         private readonly Resource _group;
         private readonly TimeSpan _longPollingTimeout;
@@ -46,7 +46,7 @@ namespace Org.Apache.Rocketmq
         {
             if (Proto.Settings.PubSubOneofCase.Subscription != settings.PubSubCase)
             {
-                Logger.Error($"[Bug] Issued settings doesn't match with the client type, clientId={ClientId}, " +
+                Logger.LogError($"[Bug] Issued settings doesn't match with the client type, clientId={ClientId}, " +
                              $"pubSubCase={settings.PubSubCase}, clientType={ClientType}");
             }
         }
@@ -71,7 +71,7 @@ namespace Org.Apache.Rocketmq
                         filterExpression.Type = Proto.FilterType.Sql;
                         break;
                     default:
-                        Logger.Warn($"[Bug] Unrecognized filter type={value.Type} for simple consumer");
+                        Logger.LogWarning($"[Bug] Unrecognized filter type={value.Type} for simple consumer");
                         break;
                 }
 

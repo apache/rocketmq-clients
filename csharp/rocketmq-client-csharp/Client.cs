@@ -21,15 +21,15 @@ using System.Threading.Tasks;
 using System.Threading;
 using System;
 using System.Linq;
+using Microsoft.Extensions.Logging;
 using Proto = Apache.Rocketmq.V2;
 using grpc = Grpc.Core;
-using NLog;
 
 namespace Org.Apache.Rocketmq
 {
     public abstract class Client
     {
-        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+        private static readonly ILogger Logger = MqLogManager.CreateLogger<Client>();
 
         private static readonly TimeSpan HeartbeatScheduleDelay = TimeSpan.FromSeconds(1);
         private static readonly TimeSpan HeartbeatSchedulePeriod = TimeSpan.FromSeconds(10);
@@ -85,7 +85,7 @@ namespace Org.Apache.Rocketmq
 
         protected virtual async Task Start()
         {
-            Logger.Debug($"Begin to start the rocketmq client, clientId={ClientId}");
+            Logger.LogDebug($"Begin to start the rocketmq client, clientId={ClientId}");
             foreach (var topic in GetTopics())
             {
                 await FetchTopicRoute(topic);
@@ -97,12 +97,12 @@ namespace Org.Apache.Rocketmq
             ScheduleWithFixedDelay(SyncSettings, SettingsSyncScheduleDelay, SettingsSyncSchedulePeriod,
                 _settingsSyncCts.Token);
             ScheduleWithFixedDelay(Stats, StatsScheduleDelay, StatsSchedulePeriod, _statsCts.Token);
-            Logger.Debug($"Start the rocketmq client successfully, clientId={ClientId}");
+            Logger.LogDebug($"Start the rocketmq client successfully, clientId={ClientId}");
         }
 
         protected virtual async Task Shutdown()
         {
-            Logger.Debug($"Begin to shutdown rocketmq client, clientId={ClientId}");
+            Logger.LogDebug($"Begin to shutdown rocketmq client, clientId={ClientId}");
             _heartbeatCts.Cancel();
             _topicRouteUpdateCts.Cancel();
             _settingsSyncCts.Cancel();
@@ -110,7 +110,7 @@ namespace Org.Apache.Rocketmq
             NotifyClientTermination();
             await ClientManager.Shutdown();
             ClientMeterManager.Shutdown();
-            Logger.Debug($"Shutdown the rocketmq client successfully, clientId={ClientId}");
+            Logger.LogDebug($"Shutdown the rocketmq client successfully, clientId={ClientId}");
         }
 
         private (bool, Session) GetSession(Endpoints endpoints)
@@ -174,9 +174,9 @@ namespace Org.Apache.Rocketmq
                     continue;
                 }
 
-                Logger.Info($"Begin to establish session for endpoints={endpoints}, clientId={ClientId}");
+                Logger.LogInformation($"Begin to establish session for endpoints={endpoints}, clientId={ClientId}");
                 await session.SyncSettings(true);
-                Logger.Info($"Establish session for endpoints={endpoints} successfully, clientId={ClientId}");
+                Logger.LogInformation($"Establish session for endpoints={endpoints} successfully, clientId={ClientId}");
             }
 
             _topicRouteCache[topic] = topicRouteData;
@@ -204,7 +204,7 @@ namespace Org.Apache.Rocketmq
         {
             try
             {
-                Logger.Info($"Start to update topic route cache for a new round, clientId={ClientId}");
+                Logger.LogInformation($"Start to update topic route cache for a new round, clientId={ClientId}");
                 Dictionary<string, Task<TopicRouteData>> responses = new Dictionary<string, Task<TopicRouteData>>();
 
                 foreach (var topic in GetTopics())
@@ -221,13 +221,13 @@ namespace Org.Apache.Rocketmq
                     }
                     catch (Exception e)
                     {
-                        Logger.Error(e, $"Failed to update topic route cache, topic={item}");
+                        Logger.LogError(e, $"Failed to update topic route cache, topic={item}");
                     }
                 }
             }
             catch (Exception e)
             {
-                Logger.Error(e, $"[Bug] unexpected exception raised during topic route cache update, " +
+                Logger.LogError(e, $"[Bug] unexpected exception raised during topic route cache update, " +
                                 $"clientId={ClientId}");
             }
         }
@@ -241,19 +241,19 @@ namespace Org.Apache.Rocketmq
                 {
                     var (_, session) = GetSession(endpoints);
                     await session.SyncSettings(false);
-                    Logger.Info($"Sync settings to remote, endpoints={endpoints}");
+                    Logger.LogInformation($"Sync settings to remote, endpoints={endpoints}");
                 }
             }
             catch (Exception e)
             {
-                Logger.Error(e, $"[Bug] unexpected exception raised during setting sync, clientId={ClientId}");
+                Logger.LogError(e, $"[Bug] unexpected exception raised during setting sync, clientId={ClientId}");
             }
         }
 
         private void Stats()
         {
             ThreadPool.GetAvailableThreads(out var availableWorker, out var availableIo);
-            Logger.Info(
+            Logger.LogInformation(
                 $"ClientId={ClientId}, ClientVersion={MetadataConstants.Instance.ClientVersion}, " +
                 $".NET Version={Environment.Version}, ThreadCount={ThreadPool.ThreadCount}, " +
                 $"CompletedWorkItemCount={ThreadPool.CompletedWorkItemCount}, " +
@@ -274,7 +274,7 @@ namespace Org.Apache.Rocketmq
                     }
                     catch (Exception e)
                     {
-                        Logger.Error(e, $"Failed to execute scheduled task, ClientId={ClientId}");
+                        Logger.LogError(e, $"Failed to execute scheduled task, ClientId={ClientId}");
                     }
                     finally
                     {
@@ -299,7 +299,7 @@ namespace Org.Apache.Rocketmq
         {
             var topicRouteData = await FetchTopicRoute0(topic);
             await OnTopicRouteDataFetched(topic, topicRouteData);
-            Logger.Info(
+            Logger.LogInformation(
                 $"Fetch topic route successfully, clientId={ClientId}, topic={topic}, topicRouteData={topicRouteData}");
             return topicRouteData;
         }
@@ -323,7 +323,7 @@ namespace Org.Apache.Rocketmq
                 var code = invocation.Response.Status.Code;
                 if (!Proto.Code.Ok.Equals(code))
                 {
-                    Logger.Error($"Failed to fetch topic route, clientId={ClientId}, topic={topic}, code={code}, " +
+                    Logger.LogError($"Failed to fetch topic route, clientId={ClientId}, topic={topic}, code={code}, " +
                                  $"statusMessage={invocation.Response.Status.Message}");
                 }
 
@@ -334,7 +334,7 @@ namespace Org.Apache.Rocketmq
             }
             catch (Exception e)
             {
-                Logger.Error(e, $"Failed to fetch topic route, clientId={ClientId}, topic={topic}");
+                Logger.LogError(e, $"Failed to fetch topic route, clientId={ClientId}, topic={topic}");
                 throw;
             }
         }
@@ -364,10 +364,10 @@ namespace Org.Apache.Rocketmq
 
                         if (code.Equals(Proto.Code.Ok))
                         {
-                            Logger.Info($"Send heartbeat successfully, endpoints={item}, clientId={ClientId}");
+                            Logger.LogInformation($"Send heartbeat successfully, endpoints={item}, clientId={ClientId}");
                             if (Isolated.TryRemove(item, out _))
                             {
-                                Logger.Info($"Rejoin endpoints which was isolated before, endpoints={item}, " +
+                                Logger.LogInformation($"Rejoin endpoints which was isolated before, endpoints={item}, " +
                                             $"clientId={ClientId}");
                             }
 
@@ -375,18 +375,18 @@ namespace Org.Apache.Rocketmq
                         }
 
                         var statusMessage = invocation.Response.Status.Message;
-                        Logger.Info($"Failed to send heartbeat, endpoints={item}, code={code}, " +
+                        Logger.LogInformation($"Failed to send heartbeat, endpoints={item}, code={code}, " +
                                     $"statusMessage={statusMessage}, clientId={ClientId}");
                     }
                     catch (Exception e)
                     {
-                        Logger.Error(e, $"Failed to send heartbeat, endpoints={item}");
+                        Logger.LogError(e, $"Failed to send heartbeat, endpoints={item}");
                     }
                 }
             }
             catch (Exception e)
             {
-                Logger.Error(e, $"[Bug] unexpected exception raised during heartbeat, clientId={ClientId}");
+                Logger.LogError(e, $"[Bug] unexpected exception raised during heartbeat, clientId={ClientId}");
             }
         }
 
@@ -401,7 +401,7 @@ namespace Org.Apache.Rocketmq
 
         private async void NotifyClientTermination()
         {
-            Logger.Info($"Notify remote endpoints that current client is terminated, clientId={ClientId}");
+            Logger.LogInformation($"Notify remote endpoints that current client is terminated, clientId={ClientId}");
             var endpoints = GetTotalRouteEndpoints();
             var request = WrapNotifyClientTerminationRequest();
             foreach (var item in endpoints)
@@ -414,7 +414,7 @@ namespace Org.Apache.Rocketmq
                 }
                 catch (Exception e)
                 {
-                    Logger.Error(e, $"Failed to notify client's termination, clientId=${ClientId}, " +
+                    Logger.LogError(e, $"Failed to notify client's termination, clientId=${ClientId}, " +
                                     $"endpoints=${item}");
                 }
             }
@@ -435,14 +435,14 @@ namespace Org.Apache.Rocketmq
         internal virtual void OnRecoverOrphanedTransactionCommand(Endpoints endpoints,
             Proto.RecoverOrphanedTransactionCommand command)
         {
-            Logger.Warn($"Ignore orphaned transaction recovery command from remote, which is not expected, " +
-                        $"clientId={ClientId}, endpoints={endpoints}");
+            Logger.LogWarning($"Ignore orphaned transaction recovery command from remote, which is not expected, " +
+                              $"clientId={ClientId}, endpoints={endpoints}");
         }
 
         internal async void OnVerifyMessageCommand(Endpoints endpoints, Proto.VerifyMessageCommand command)
         {
             // Only push consumer support message consumption verification.
-            Logger.Warn($"Ignore verify message command from remote, which is not expected, clientId={ClientId}, " +
+            Logger.LogWarning($"Ignore verify message command from remote, which is not expected, clientId={ClientId}, " +
                         $"endpoints={endpoints}, command={command}");
             var status = new Proto.Status
             {
@@ -466,8 +466,8 @@ namespace Org.Apache.Rocketmq
         internal async void OnPrintThreadStackTraceCommand(Endpoints endpoints,
             Proto.PrintThreadStackTraceCommand command)
         {
-            Logger.Warn("Ignore thread stack trace printing command from remote because it is still not supported, " +
-                        $"clientId={ClientId}, endpoints={endpoints}");
+            Logger.LogWarning("Ignore thread stack trace printing command from remote because it is still not supported, " +
+                              $"clientId={ClientId}, endpoints={endpoints}");
             var status = new Proto.Status
             {
                 Code = Proto.Code.Unsupported,

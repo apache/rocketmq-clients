@@ -22,15 +22,15 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Proto = Apache.Rocketmq.V2;
-using NLog;
 using Org.Apache.Rocketmq.Error;
 
 namespace Org.Apache.Rocketmq
 {
     public class Producer : Client, IAsyncDisposable, IDisposable
     {
-        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+        private static readonly ILogger Logger = MqLogManager.CreateLogger<Producer>();
         private readonly ConcurrentDictionary<string /* topic */, PublishingLoadBalancer> _publishingRouteDataCache;
         internal readonly PublishingSettings PublishingSettings;
         private readonly ConcurrentDictionary<string, bool> _publishingTopics;
@@ -61,9 +61,9 @@ namespace Org.Apache.Rocketmq
             try
             {
                 State = State.Starting;
-                Logger.Info($"Begin to start the rocketmq producer, clientId={ClientId}");
+                Logger.LogInformation($"Begin to start the rocketmq producer, clientId={ClientId}");
                 await base.Start();
-                Logger.Info($"The rocketmq producer starts successfully, clientId={ClientId}");
+                Logger.LogInformation($"The rocketmq producer starts successfully, clientId={ClientId}");
                 State = State.Running;
             }
             catch (Exception)
@@ -90,9 +90,9 @@ namespace Org.Apache.Rocketmq
             try
             {
                 State = State.Stopping;
-                Logger.Info($"Begin to shutdown the rocketmq producer, clientId={ClientId}");
+                Logger.LogInformation($"Begin to shutdown the rocketmq producer, clientId={ClientId}");
                 await base.Shutdown();
-                Logger.Info($"Shutdown the rocketmq producer successfully, clientId={ClientId}");
+                Logger.LogInformation($"Shutdown the rocketmq producer successfully, clientId={ClientId}");
                 State = State.Terminated;
             }
             catch (Exception)
@@ -230,7 +230,7 @@ namespace Org.Apache.Rocketmq
                     var sendReceipt = sendReceipts.First();
                     if (attempt > 1)
                     {
-                        Logger.Info(
+                        Logger.LogInformation(
                             $"Re-send message successfully, topic={message.Topic}, messageId={sendReceipt.MessageId}," +
                             $" maxAttempts={maxAttempts}, endpoints={endpoints}, clientId={ClientId}");
                     }
@@ -245,35 +245,35 @@ namespace Org.Apache.Rocketmq
                     Isolated[endpoints] = true;
                     if (attempt >= maxAttempts)
                     {
-                        Logger.Error(e, "Failed to send message finally, run out of attempt times, " +
-                                        $"topic={message.Topic}, maxAttempt={maxAttempts}, attempt={attempt}, " +
-                                        $"endpoints={endpoints}, messageId={message.MessageId}, clientId={ClientId}");
+                        Logger.LogError(e, "Failed to send message finally, run out of attempt times, " +
+                                                  $"topic={message.Topic}, maxAttempt={maxAttempts}, attempt={attempt}, " +
+                                                  $"endpoints={endpoints}, messageId={message.MessageId}, clientId={ClientId}");
                         throw;
                     }
 
                     if (MessageType.Transaction == message.MessageType)
                     {
-                        Logger.Error(e, "Failed to send transaction message, run out of attempt times, " +
-                                        $"topic={message.Topic}, maxAttempt=1, attempt={attempt}, " +
-                                        $"endpoints={endpoints}, messageId={message.MessageId}, clientId={ClientId}");
+                        Logger.LogError(e, "Failed to send transaction message, run out of attempt times, " +
+                                                  $"topic={message.Topic}, maxAttempt=1, attempt={attempt}, " +
+                                                  $"endpoints={endpoints}, messageId={message.MessageId}, clientId={ClientId}");
                         throw;
                     }
 
                     if (!(exception is TooManyRequestsException))
                     {
                         // Retry immediately if the request is not throttled.
-                        Logger.Warn(e, $"Failed to send message, topic={message.Topic}, maxAttempts={maxAttempts}, " +
-                                       $"attempt={attempt}, endpoints={endpoints}, messageId={message.MessageId}," +
-                                       $" clientId={ClientId}");
+                        Logger.LogWarning(e, $"Failed to send message, topic={message.Topic}, maxAttempts={maxAttempts}, " +
+                                              $"attempt={attempt}, endpoints={endpoints}, messageId={message.MessageId}," +
+                                              $" clientId={ClientId}");
                         continue;
                     }
 
                     var nextAttempt = 1 + attempt;
                     var delay = retryPolicy.GetNextAttemptDelay(nextAttempt);
                     await Task.Delay(delay);
-                    Logger.Warn(e, "Failed to send message due to too many request, would attempt to resend " +
-                                   $"after {delay}, topic={message.Topic}, maxAttempts={maxAttempts}, attempt={attempt}, " +
-                                   $"endpoints={endpoints}, messageId={message.MessageId}, clientId={ClientId}");
+                    Logger.LogWarning(e, "Failed to send message due to too many request, would attempt to resend " +
+                                                $"after {delay}, topic={message.Topic}, maxAttempts={maxAttempts}, attempt={attempt}, " +
+                                                $"endpoints={endpoints}, messageId={message.MessageId}, clientId={ClientId}");
                 }
                 finally
                 {
@@ -301,8 +301,8 @@ namespace Org.Apache.Rocketmq
             var messageId = command.Message.SystemProperties.MessageId;
             if (null == _checker)
             {
-                Logger.Error($"No transaction checker registered, ignore it, messageId={messageId}, " +
-                             $"transactionId={command.TransactionId}, endpoints={endpoints}, clientId={ClientId}");
+                Logger.LogError($"No transaction checker registered, ignore it, messageId={messageId}, " +
+                                       $"transactionId={command.TransactionId}, endpoints={endpoints}, clientId={ClientId}");
                 return;
             }
 

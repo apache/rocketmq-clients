@@ -18,7 +18,7 @@
 using System;
 using System.Diagnostics.Metrics;
 using System.Net.Http;
-using NLog;
+using Microsoft.Extensions.Logging;
 using OpenTelemetry;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Metrics;
@@ -28,7 +28,7 @@ namespace Org.Apache.Rocketmq
 {
     public class ClientMeterManager
     {
-        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+        private static readonly ILogger Logger = MqLogManager.CreateLogger<ClientMeterManager>();
         private const string MeterName = "Apache.RocketMQ.Client";
         private const string Version = "1.0";
         private const int MetricExportPeriodInMillis = 60 * 1000;
@@ -59,14 +59,14 @@ namespace Org.Apache.Rocketmq
                 var clientId = _client.GetClientId();
                 if (_clientMeter.Satisfy(metric))
                 {
-                    Logger.Info(
+                    Logger.LogInformation(
                         $"Metric settings is satisfied by the current message meter, metric={metric}, clientId={clientId}");
                     return;
                 }
 
                 if (!metric.On)
                 {
-                    Logger.Info($"Metric is off, clientId={clientId}");
+                    Logger.LogInformation($"Metric is off, clientId={clientId}");
                     _clientMeter.Shutdown();
                     _clientMeter = ClientMeter.DisabledInstance(clientId);
                     return;
@@ -105,7 +105,7 @@ namespace Org.Apache.Rocketmq
                 var exist = _clientMeter;
                 _clientMeter = new ClientMeter(metric.Endpoints, meterProvider, clientId);
                 exist.Shutdown();
-                Logger.Info($"Metric is on, endpoints={metric.Endpoints}, clientId={clientId}");
+                Logger.LogInformation($"Metric is on, endpoints={metric.Endpoints}, clientId={clientId}");
             }
         }
 

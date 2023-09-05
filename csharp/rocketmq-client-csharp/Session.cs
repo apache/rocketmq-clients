@@ -19,8 +19,8 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Grpc.Core;
+using Microsoft.Extensions.Logging;
 using grpc = Grpc.Core;
-using NLog;
 using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
@@ -28,7 +28,7 @@ namespace Org.Apache.Rocketmq
     // refer to  https://learn.microsoft.com/en-us/aspnet/core/grpc/client?view=aspnetcore-7.0#bi-directional-streaming-call.
     public class Session
     {
-        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+        private static readonly ILogger Logger = MqLogManager.CreateLogger<Session>();
 
         private static readonly TimeSpan SettingsInitializationTimeout = TimeSpan.FromSeconds(3);
         private readonly ManualResetEventSlim _event = new ManualResetEventSlim(false);
@@ -92,7 +92,7 @@ namespace Org.Apache.Rocketmq
                     {
                         case Proto.TelemetryCommand.CommandOneofCase.Settings:
                             {
-                                Logger.Info(
+                                Logger.LogInformation(
                                     $"Receive setting from remote, endpoints={_endpoints}, clientId={_client.GetClientId()}");
                                 _client.OnSettingsCommand(_endpoints, response.Settings);
                                 _event.Set();
@@ -100,7 +100,7 @@ namespace Org.Apache.Rocketmq
                             }
                         case Proto.TelemetryCommand.CommandOneofCase.RecoverOrphanedTransactionCommand:
                             {
-                                Logger.Info(
+                                Logger.LogInformation(
                                     $"Receive orphaned transaction recovery command from remote, endpoints={_endpoints}, clientId={_client.GetClientId()}");
                                 _client.OnRecoverOrphanedTransactionCommand(_endpoints,
                                     response.RecoverOrphanedTransactionCommand);
@@ -108,21 +108,21 @@ namespace Org.Apache.Rocketmq
                             }
                         case Proto.TelemetryCommand.CommandOneofCase.VerifyMessageCommand:
                             {
-                                Logger.Info(
+                                Logger.LogInformation(
                                     $"Receive message verification command from remote, endpoints={_endpoints}, clientId={_client.GetClientId()}");
                                 _client.OnVerifyMessageCommand(_endpoints, response.VerifyMessageCommand);
                                 break;
                             }
                         case Proto.TelemetryCommand.CommandOneofCase.PrintThreadStackTraceCommand:
                             {
-                                Logger.Info(
+                                Logger.LogInformation(
                                     $"Receive thread stack print command from remote, endpoints={_endpoints}, clientId={_client.GetClientId()}");
                                 _client.OnPrintThreadStackTraceCommand(_endpoints, response.PrintThreadStackTraceCommand);
                                 break;
                             }
                         default:
                             {
-                                Logger.Warn(
+                                Logger.LogWarning(
                                     $"Receive unrecognized command from remote, endpoints={_endpoints}, command={response}, clientId={_client.GetClientId()}");
                                 break;
                             }

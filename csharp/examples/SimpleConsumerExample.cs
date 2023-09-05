@@ -18,14 +18,14 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using NLog;
+using Microsoft.Extensions.Logging;
 using Org.Apache.Rocketmq;
 
 namespace examples
 {
     internal static class SimpleConsumerExample
     {
-        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+        private static readonly ILogger Logger = MqLogManager.CreateLogger(typeof(SimpleConsumerExample).FullName);
 
         internal static async Task QuickStart()
         {
@@ -60,12 +60,12 @@ namespace examples
                 var messageViews = await simpleConsumer.Receive(16, TimeSpan.FromSeconds(15));
                 foreach (var message in messageViews)
                 {
-                    Logger.Info(
+                    Logger.LogInformation(
                         $"Received a message, topic={message.Topic}, message-id={message.MessageId}, body-size={message.Body.Length}");
                     await simpleConsumer.Ack(message);
-                    Logger.Info($"Message is acknowledged successfully, message-id={message.MessageId}");
+                    Logger.LogInformation($"Message is acknowledged successfully, message-id={message.MessageId}");
                     // await simpleConsumer.ChangeInvisibleDuration(message, TimeSpan.FromSeconds(15));
-                    // Logger.Info($"Changing message invisible duration successfully, message=id={message.MessageId}");
+                    // Logger.LogInformation($"Changing message invisible duration successfully, message=id={message.MessageId}");
                 }
             }
             // Close the simple consumer if you don't need it anymore.
