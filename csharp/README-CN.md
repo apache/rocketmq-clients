@@ -50,6 +50,7 @@ dotnet test -l "console;verbosity=detailed"
 ```
 
 ## 日志系统
+
 我们使用 [Microsoft.Extensions.Logging](https://learn.microsoft.com/en-us/dotnet/core/extensions/logging?tabs=command-line#non-host-console-app) 作为日志实现。
 
 默认无日志输出，如果需要输出日志，需要创建一个自定义的 logger factory 并将其传递给 `MqLogManager.UseLoggerFactory`。
@@ -64,7 +65,6 @@ var loggerFactory = LoggerFactory.Create(builder =>
 });
 MqLogManager.UseLoggerFactory(loggerFactory);
 ```
-
 
 ## NuGet 包发布步骤
 

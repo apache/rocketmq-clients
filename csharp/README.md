@@ -54,7 +54,7 @@ dotnet test -l "console;verbosity=detailed"
 
 ## Logging System
 
-We use [Microsoft.Extensions.Logging](https://learn.microsoft.com/en-us/dotnet/core/extensions/logging?tabs=command-line#non-host-console-app) as our logging implementation. 
+We use [Microsoft.Extensions.Logging](https://learn.microsoft.com/en-us/dotnet/core/extensions/logging?tabs=command-line#non-host-console-app) as our logging implementation.
 
 By default, no log output. If you need to output logs, you need to create a custom logger factory and pass it to `MqLogManager.UseLoggerFactory`.
 
