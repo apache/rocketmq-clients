@@ -34,7 +34,6 @@ async function main() {
     await simpleConsumer.ack(message);
   }
   await simpleConsumer.shutdown();
-  process.exit(0);
 }
 
 main();

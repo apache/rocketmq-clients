@@ -35,8 +35,8 @@ export class TelemetrySession {
   }
 
   release() {
-    this.#logger.info('[TelemetrySession] Begin to release client session, endpoints=%s, clientId=%s',
-      this.#endpoints, this.#baseClient.clientId);
+    this.#logger.info('[Client=%s] Begin to release client session, endpoints=%s',
+      this.#baseClient.clientId, this.#endpoints);
     this.#stream.end();
     this.#stream.removeAllListeners();
   }

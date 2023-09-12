@@ -86,6 +86,7 @@ export abstract class BaseClient {
   readonly #telemetrySessions = new Map<string, TelemetrySession>();
   #startupResolve?: () => void;
   // #startupReject?: (err: Error) => void;
+  #timers: NodeJS.Timeout[] = [];
 
   constructor(options: BaseClientOptions) {
     this.logger = options.logger || getDefaultLogger();
@@ -122,19 +123,19 @@ export abstract class BaseClient {
     // fetch topic route
     await this.updateRoutes();
     // update topic route every 30s
-    setInterval(async () => {
+    this.#timers.push(setInterval(async () => {
       this.updateRoutes();
-    }, 30000);
+    }, 30000));
 
     // sync settings every 5m
-    setInterval(async () => {
+    this.#timers.push(setInterval(async () => {
       this.#syncSettings();
-    }, 5 * 60000);
+    }, 5 * 60000));
 
     // heartbeat every 10s
-    setInterval(async () => {
+    this.#timers.push(setInterval(async () => {
       this.#doHeartbeat();
-    }, 5 * 60000);
+    }, 5 * 60000));
 
     // doStats every 60s
     // doStats()
@@ -153,22 +154,18 @@ export abstract class BaseClient {
 
   async shutdown() {
     this.logger.info('[Client=%s] Begin to shutdown the rocketmq client', this.clientId);
+    while (this.#timers.length > 0) {
+      const timer = this.#timers.pop();
+      clearInterval(timer);
+    }
+
     await this.#notifyClientTermination();
-    // telemetryCommandExecutor.shutdown();
-    // if (!ExecutorServices.awaitTerminated(telemetryCommandExecutor)) {
-    //   log.error('[Bug] Timeout to shutdown the telemetry command executor, clientId={}', clientId);
-    // } else {
-    //   log.info('Shutdown the telemetry command executor successfully, clientId={}', clientId);
-    // }
-    // log.info('Begin to release all telemetry sessions, clientId={}', clientId);
-    // releaseClientSessions();
-    // log.info('Release all telemetry sessions successfully, clientId={}', clientId);
-    // clientManager.stopAsync().awaitTerminated();
-    // clientCallbackExecutor.shutdown();
-    // if (!ExecutorServices.awaitTerminated(clientCallbackExecutor)) {
-    //   log.error('[Bug] Timeout to shutdown the client callback executor, clientId={}', clientId);
-    // }
-    // clientMeterManager.shutdown();
+
+    this.logger.info('[Client=%s] Begin to release all telemetry sessions', this.clientId);
+    this.#releaseTelemetrySessions();
+    this.logger.info('[Client=%s] Release all telemetry sessions successfully', this.clientId);
+
+    this.rpcClientManager.close();
     this.logger.info('[Client=%s] Shutdown the rocketmq client successfully', this.clientId);
     this.logger.close && this.logger.close();
   }
@@ -302,6 +299,13 @@ export abstract class BaseClient {
    * Wrap notify client termination request.
    */
   protected abstract wrapNotifyClientTerminationRequest(): NotifyClientTerminationRequest;
+
+  #releaseTelemetrySessions() {
+    for (const session of this.#telemetrySessions.values()) {
+      session.release();
+    }
+    this.#telemetrySessions.clear();
+  }
 
   /**
    * Notify remote that current client is prepared to be terminated.

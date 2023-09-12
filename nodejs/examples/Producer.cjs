@@ -36,7 +36,7 @@ async function main() {
   console.log(receipt);
 
   await producer.shutdown();
-  process.exit(0);
+  // process.exit(0);
 }
 
 main();
