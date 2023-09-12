@@ -39,7 +39,7 @@ import { TopicRouteData, Endpoints } from '../route';
 import { StatusChecker } from '../exception';
 import { Settings } from './Settings';
 import { UserAgent } from './UserAgent';
-import { Logger } from './Logger';
+import { ILogger, getDefaultLogger } from './Logger';
 import { SessionCredentials } from './SessionCredentials';
 import { RpcClientManager } from './RpcClientManager';
 import { TelemetrySession } from './TelemetrySession';
@@ -59,7 +59,7 @@ export interface BaseClientOptions {
   endpoints: string;
   sessionCredentials?: SessionCredentials;
   requestTimeout?: number;
-  logger?: Logger;
+  logger?: ILogger;
   topics?: string[];
 }
 
@@ -81,14 +81,14 @@ export abstract class BaseClient {
   protected readonly requestTimeout: number;
   protected readonly topics = new Set<string>();
   protected readonly topicRouteCache = new Map<string, TopicRouteData>();
-  protected readonly logger: Logger;
+  protected readonly logger: ILogger;
   protected readonly rpcClientManager: RpcClientManager;
   readonly #telemetrySessions = new Map<string, TelemetrySession>();
   #startupResolve?: () => void;
   // #startupReject?: (err: Error) => void;
 
   constructor(options: BaseClientOptions) {
-    this.logger = options.logger || console;
+    this.logger = options.logger || getDefaultLogger();
     this.sslEnabled = options.sslEnabled === true;
     this.endpoints = new Endpoints(options.endpoints);
     this.sessionCredentials = options.sessionCredentials;
@@ -170,6 +170,7 @@ export abstract class BaseClient {
     // }
     // clientMeterManager.shutdown();
     this.logger.info('[Client=%s] Shutdown the rocketmq client successfully', this.clientId);
+    this.logger.close && this.logger.close();
   }
 
   async #doHeartbeat() {

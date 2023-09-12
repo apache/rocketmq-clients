@@ -27,7 +27,7 @@ import {
   ReceiveMessageRequest, SendMessageRequest, UpdateOffsetRequest,
 } from '../../proto/apache/rocketmq/v2/service_pb';
 import { Endpoints } from '../route';
-import { Logger } from './Logger';
+import { ILogger } from './Logger';
 import { RpcClient } from './RpcClient';
 import type { BaseClient } from './BaseClient';
 
@@ -37,10 +37,10 @@ const RPC_CLIENT_IDLE_CHECK_PERIOD = 60000;
 export class RpcClientManager {
   #rpcClients = new Map<Endpoints, RpcClient>();
   #baseClient: BaseClient;
-  #logger: Logger;
+  #logger: ILogger;
   #clearIdleRpcClientsTimer: NodeJS.Timeout;
 
-  constructor(baseClient: BaseClient, logger: Logger) {
+  constructor(baseClient: BaseClient, logger: ILogger) {
     this.#baseClient = baseClient;
     this.#logger = logger;
     this.#startUp();

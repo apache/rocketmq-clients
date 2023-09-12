@@ -21,6 +21,7 @@ const { Producer } = require('..');
 async function main() {
   const producer = new Producer({
     endpoints: '127.0.0.1:8081',
+    logger: console,
   });
   await producer.startup();
 

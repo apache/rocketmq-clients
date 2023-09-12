@@ -19,15 +19,15 @@ import { ClientDuplexStream } from '@grpc/grpc-js';
 import { TelemetryCommand } from '../../proto/apache/rocketmq/v2/service_pb';
 import { Endpoints } from '../route';
 import type { BaseClient } from './BaseClient';
-import { Logger } from './Logger';
+import { ILogger } from './Logger';
 
 export class TelemetrySession {
   #endpoints: Endpoints;
   #baseClient: BaseClient;
-  #logger: Logger;
+  #logger: ILogger;
   #stream: ClientDuplexStream<TelemetryCommand, TelemetryCommand>;
 
-  constructor(baseClient: BaseClient, endpoints: Endpoints, logger: Logger) {
+  constructor(baseClient: BaseClient, endpoints: Endpoints, logger: ILogger) {
     this.#endpoints = endpoints;
     this.#baseClient = baseClient;
     this.#logger = logger;
