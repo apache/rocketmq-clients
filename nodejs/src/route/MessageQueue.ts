@@ -22,7 +22,7 @@ import {
 import { createResource } from '../util';
 import { Broker } from './Broker';
 
-export class MessageQueue implements MessageQueuePB.AsObject {
+export class MessageQueue {
   topic: Resource.AsObject;
   queueId: number;
   broker: Broker;

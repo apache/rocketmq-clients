@@ -31,27 +31,27 @@ PROTO_FILES=(
 )
 
 generateGrpc() {
-    PATH_PROTO=$1
-    PATH_FILE=$2
+  PATH_PROTO=$1
+  PATH_FILE=$2
 
-    echo "[protoc] Generating RPC for $PATH_PROTO/$PATH_FILE"
+  echo "[protoc] Generating RPC for $PATH_PROTO/$PATH_FILE"
 
-    # Tools to be installed by npm (see package.json)
-    # npm install grpc-tools --save-dev
-    # npm install grpc_tools_node_protoc_ts --save-dev
-    PROTOC_GEN_TS_PATH="${PWD}/node_modules/.bin/protoc-gen-ts"
-    PROTOC_GEN_GRPC_PATH="${PWD}/node_modules/.bin/grpc_tools_node_protoc_plugin"
+  # Tools to be installed by npm (see package.json)
+  # npm install grpc-tools --save-dev
+  # npm install grpc_tools_node_protoc_ts --save-dev
+  PROTOC_GEN_TS_PATH="${PWD}/node_modules/.bin/protoc-gen-ts"
+  PROTOC_GEN_GRPC_PATH="${PWD}/node_modules/.bin/grpc_tools_node_protoc_plugin"
 
-    # commonjs
-    grpc_tools_node_protoc \
-        --proto_path="${PATH_PROTO}" \
-        --plugin="protoc-gen-ts=${PROTOC_GEN_TS_PATH}" \
-        --plugin=protoc-gen-grpc=${PROTOC_GEN_GRPC_PATH} \
-        --js_out="import_style=commonjs,binary:$PATH_PROTO_OUTPUT" \
-        --ts_out="grpc_js:$PATH_PROTO_OUTPUT" \
-        --grpc_out="grpc_js:$PATH_PROTO_OUTPUT" \
-        "$PATH_PROTO/$PATH_FILE"
-    cp "$PATH_PROTO/$PATH_FILE" "${PATH_PROTO_OUTPUT_ROCKETMQ_V2}/"
+  # commonjs
+  grpc_tools_node_protoc \
+    --proto_path="${PATH_PROTO}" \
+    --plugin="protoc-gen-ts=${PROTOC_GEN_TS_PATH}" \
+    --plugin=protoc-gen-grpc=${PROTOC_GEN_GRPC_PATH} \
+    --js_out="import_style=commonjs,binary:$PATH_PROTO_OUTPUT" \
+    --ts_out="grpc_js:$PATH_PROTO_OUTPUT" \
+    --grpc_out="grpc_js:$PATH_PROTO_OUTPUT" \
+    "$PATH_PROTO/$PATH_FILE"
+  cp "$PATH_PROTO/$PATH_FILE" "${PATH_PROTO_OUTPUT_ROCKETMQ_V2}/"
 }
 
 echo ""
