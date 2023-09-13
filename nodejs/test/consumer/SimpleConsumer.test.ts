@@ -21,6 +21,7 @@ import {
   SimpleConsumer, FilterExpression,
   Producer,
 } from '../../src';
+import { topics, endpoints, sessionCredentials } from '../helper';
 
 describe('test/consumer/SimpleConsumer.test.ts', () => {
   let producer: Producer | null = null;
@@ -36,12 +37,58 @@ describe('test/consumer/SimpleConsumer.test.ts', () => {
     }
   });
 
+  describe('start with sessionCredentials', () => {
+    it('should work', async () => {
+      if (!sessionCredentials) return;
+      simpleConsumer = new SimpleConsumer({
+        endpoints,
+        sessionCredentials,
+        consumerGroup: 'nodejs-unittest-group',
+        subscriptions: new Map().set(topics.delay, FilterExpression.SUB_ALL),
+      });
+      await simpleConsumer.startup();
+    });
+
+    it('should fail when accessKey invalid', async () => {
+      if (!sessionCredentials) return;
+      simpleConsumer = new SimpleConsumer({
+        endpoints,
+        sessionCredentials: {
+          ...sessionCredentials,
+          accessKey: 'wrong',
+        },
+        consumerGroup: 'nodejs-unittest-group',
+        subscriptions: new Map().set(topics.delay, FilterExpression.SUB_ALL),
+      });
+      await assert.rejects(async () => {
+        await simpleConsumer!.startup();
+      }, /Startup the rocketmq client failed, .+? error=ForbiddenException: .+? Username is not matched/);
+    });
+
+    it('should fail when accessSecret invalid', async () => {
+      if (!sessionCredentials) return;
+      simpleConsumer = new SimpleConsumer({
+        endpoints,
+        sessionCredentials: {
+          ...sessionCredentials,
+          accessSecret: 'wrong',
+        },
+        consumerGroup: 'nodejs-unittest-group',
+        subscriptions: new Map().set(topics.delay, FilterExpression.SUB_ALL),
+      });
+      await assert.rejects(async () => {
+        await simpleConsumer!.startup();
+      }, /Startup the rocketmq client failed, .+? error=ForbiddenException: .+? Check signature failed for accessKey/);
+    });
+  });
+
   describe('receive() and ack()', () => {
     it('should receive success', async () => {
-      const topic = 'TopicTest';
+      const topic = topics.normal;
       const tag = `nodejs-unittest-tag-${randomUUID()}`;
       producer = new Producer({
-        endpoints: '127.0.0.1:8081',
+        endpoints,
+        sessionCredentials,
       });
       await producer.startup();
       const max = 101;
@@ -55,8 +102,9 @@ describe('test/consumer/SimpleConsumer.test.ts', () => {
       }
 
       simpleConsumer = new SimpleConsumer({
+        endpoints,
+        sessionCredentials,
         consumerGroup: 'nodejs-unittest-group',
-        endpoints: '127.0.0.1:8081',
         subscriptions: new Map().set(topic, new FilterExpression(tag)),
       });
       await simpleConsumer.startup();

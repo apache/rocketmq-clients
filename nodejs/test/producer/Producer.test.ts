@@ -19,6 +19,7 @@ import { strict as assert } from 'node:assert';
 import { randomUUID } from 'node:crypto';
 import { NotFoundException, Producer, SimpleConsumer } from '../../src';
 import { TransactionResolution } from '../../proto/apache/rocketmq/v2/definition_pb';
+import { topics, endpoints, sessionCredentials, consumerGroup } from '../helper';
 
 describe('test/producer/Producer.test.ts', () => {
   let producer: Producer | null = null;
@@ -37,12 +38,13 @@ describe('test/producer/Producer.test.ts', () => {
   describe('startup()', () => {
     it('should startup success', async () => {
       producer = new Producer({
-        endpoints: '127.0.0.1:8081',
+        endpoints,
+        sessionCredentials,
         maxAttempts: 2,
       });
       await producer.startup();
       const sendReceipt = await producer.send({
-        topic: 'TopicTest',
+        topic: topics.normal,
         tag: 'nodejs-unittest',
         keys: [
           `foo-key-${Date.now()}`,
@@ -63,7 +65,8 @@ describe('test/producer/Producer.test.ts', () => {
       await assert.rejects(async () => {
         producer = new Producer({
           topic: 'TopicTest-not-exists',
-          endpoints: '127.0.0.1:8081',
+          endpoints,
+          sessionCredentials,
           maxAttempts: 2,
         });
         await producer.startup();
@@ -80,10 +83,11 @@ describe('test/producer/Producer.test.ts', () => {
 
   describe('send()', () => {
     it('should send normal message', async () => {
-      const topic = 'TopicTest';
+      const topic = topics.normal;
       const tag = `nodejs-unittest-tag-${randomUUID()}`;
       producer = new Producer({
-        endpoints: '127.0.0.1:8081',
+        endpoints,
+        sessionCredentials,
         maxAttempts: 2,
       });
       await producer.startup();
@@ -102,8 +106,9 @@ describe('test/producer/Producer.test.ts', () => {
       assert(receipt.messageId);
 
       simpleConsumer = new SimpleConsumer({
-        consumerGroup: 'nodejs-unittest-group',
-        endpoints: '127.0.0.1:8081',
+        consumerGroup,
+        endpoints,
+        sessionCredentials,
         subscriptions: new Map().set(topic, tag),
         awaitDuration: 3000,
       });
@@ -113,11 +118,12 @@ describe('test/producer/Producer.test.ts', () => {
       assert.equal(messages[0].messageId, receipt.messageId);
     });
 
-    it.skip('should send delay message', async () => {
-      const topic = 'TestDelayTopic';
+    it('should send delay message', async () => {
+      const topic = topics.delay;
       const tag = `nodejs-unittest-tag-${randomUUID()}`;
       producer = new Producer({
-        endpoints: '127.0.0.1:8081',
+        endpoints,
+        sessionCredentials,
         maxAttempts: 2,
       });
       await producer.startup();
@@ -137,8 +143,9 @@ describe('test/producer/Producer.test.ts', () => {
       assert(receipt.messageId);
 
       simpleConsumer = new SimpleConsumer({
-        consumerGroup: 'nodejs-unittest-group',
-        endpoints: '127.0.0.1:8081',
+        consumerGroup,
+        endpoints,
+        sessionCredentials,
         subscriptions: new Map().set(topic, tag),
         awaitDuration: 3000,
       });
@@ -149,11 +156,12 @@ describe('test/producer/Producer.test.ts', () => {
       console.log(messages);
     });
 
-    it.skip('should send transaction message', async () => {
-      const topic = 'TopicTest';
+    it('should send transaction message', async () => {
+      const topic = topics.transaction;
       const tag = `nodejs-unittest-tag-${randomUUID()}`;
       producer = new Producer({
-        endpoints: '127.0.0.1:8081',
+        endpoints,
+        sessionCredentials,
         maxAttempts: 2,
         checker: {
           async check(messageView) {
@@ -179,16 +187,19 @@ describe('test/producer/Producer.test.ts', () => {
       await transaction.commit();
 
       simpleConsumer = new SimpleConsumer({
-        consumerGroup: 'nodejs-unittest-group',
-        endpoints: '127.0.0.1:8081',
+        consumerGroup,
+        endpoints,
+        sessionCredentials,
         subscriptions: new Map().set(topic, tag),
         awaitDuration: 3000,
       });
       await simpleConsumer.startup();
       const messages = await simpleConsumer.receive(2, 10000);
       assert.equal(messages.length, 1);
-      assert.equal(messages[0].messageId, receipt.messageId);
-      console.log(messages);
+      const message = messages[0];
+      assert.equal(message.messageId, receipt.messageId);
+      // console.log(message);
+      assert.equal(message.properties.get('__transactionId__'), receipt.transactionId);
     });
   });
 });

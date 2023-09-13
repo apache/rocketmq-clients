@@ -16,7 +16,7 @@
  */
 
 import { performance } from 'node:perf_hooks';
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import { crc32 } from '@node-rs/crc32';
 import siphash24 from 'siphash24';
@@ -29,6 +29,19 @@ export function getTimestamp() {
   const seconds = Math.floor(timestamp / 1000);
   const nanos = Math.floor((timestamp % 1000) * 1e6);
   return { seconds, nanos, timestamp };
+}
+
+// DATE_TIME_FORMAT = "yyyyMMdd'T'HHmmss'Z'"
+export function getRequestDateTime() {
+  // 2023-09-13T06:30:59.399Z => 20230913T063059Z
+  const now = new Date().toISOString().split('.')[0].replace(/[\-\:]/g, '');
+  return `${now}Z`;
+}
+
+export function sign(accessSecret: string, dateTime: string) {
+  const hmacSha1 = createHmac('sha1', accessSecret);
+  hmacSha1.update(dateTime);
+  return hmacSha1.digest('hex').toUpperCase();
 }
 
 export function createDuration(ms: number) {

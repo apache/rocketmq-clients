@@ -34,9 +34,9 @@ import {
   HeartbeatRequest,
   NotifyClientTerminationRequest,
 } from '../../proto/apache/rocketmq/v2/service_pb';
-import { createResource } from '../util';
+import { createResource, getRequestDateTime, sign } from '../util';
 import { TopicRouteData, Endpoints } from '../route';
-import { StatusChecker } from '../exception';
+import { ClientException, StatusChecker } from '../exception';
 import { Settings } from './Settings';
 import { UserAgent } from './UserAgent';
 import { ILogger, getDefaultLogger } from './Logger';
@@ -75,7 +75,7 @@ export abstract class BaseClient {
   readonly clientId = ClientId.create();
   readonly clientType = ClientType.CLIENT_TYPE_UNSPECIFIED;
   readonly sslEnabled: boolean;
-  protected readonly sessionCredentials?: SessionCredentials;
+  readonly #sessionCredentials?: SessionCredentials;
   protected readonly endpoints: Endpoints;
   protected readonly isolated = new Map<string, Endpoints>();
   protected readonly requestTimeout: number;
@@ -85,14 +85,14 @@ export abstract class BaseClient {
   protected readonly rpcClientManager: RpcClientManager;
   readonly #telemetrySessions = new Map<string, TelemetrySession>();
   #startupResolve?: () => void;
-  // #startupReject?: (err: Error) => void;
+  #startupReject?: (err: Error) => void;
   #timers: NodeJS.Timeout[] = [];
 
   constructor(options: BaseClientOptions) {
     this.logger = options.logger || getDefaultLogger();
     this.sslEnabled = options.sslEnabled === true;
     this.endpoints = new Endpoints(options.endpoints);
-    this.sessionCredentials = options.sessionCredentials;
+    this.#sessionCredentials = options.sessionCredentials;
     this.requestTimeout = options.requestTimeout || 3000;
     this.rpcClientManager = new RpcClientManager(this, this.logger);
     if (options.topics) {
@@ -143,11 +143,11 @@ export abstract class BaseClient {
     if (this.topics.size > 0) {
       // wait for this first onSettingsCommand call
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      await new Promise<void>((resolve, _reject) => {
-        // this.#startupReject = reject;
+      await new Promise<void>((resolve, reject) => {
+        this.#startupReject = reject;
         this.#startupResolve = resolve;
       });
-      // this.#startupReject = undefined;
+      this.#startupReject = undefined;
       this.#startupResolve = undefined;
     }
   }
@@ -275,8 +275,9 @@ export abstract class BaseClient {
     metadata.set('x-mq-protocol', 'v2');
     // client unique identifier: mbp@78774@2@3549a8wsr
     metadata.set('x-mq-client-id', this.clientId);
-    // current timestamp: 20210309T195445Z
-    // metadata.set('x-mq-date-time', '20230905T021525Z');
+    // current timestamp: 20210309T195445Z, DATE_TIME_FORMAT = "yyyyMMdd'T'HHmmss'Z'"
+    const dateTime = getRequestDateTime();
+    metadata.set('x-mq-date-time', dateTime);
     // request id for each gRPC header: f122a1e0-dbcf-4ca4-9db7-221903354be7
     metadata.set('x-mq-request-id', randomUUID());
     // language of client
@@ -285,6 +286,14 @@ export abstract class BaseClient {
     metadata.set('x-mq-language', 'HTTP');
     // version of client
     metadata.set('x-mq-client-version', UserAgent.INSTANCE.version);
+    if (this.#sessionCredentials) {
+      if (this.#sessionCredentials.securityToken) {
+        metadata.set('x-mq-session-token', this.#sessionCredentials.securityToken);
+      }
+      const signature = sign(this.#sessionCredentials.accessSecret, dateTime);
+      const authorization = `MQv2-HMAC-SHA1 Credential=${this.#sessionCredentials.accessKey}, SignedHeaders=x-mq-date-time, Signature=${signature}`;
+      metadata.set('authorization', authorization);
+    }
     return metadata;
   }
 
@@ -321,6 +330,16 @@ export abstract class BaseClient {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected onTopicRouteDataUpdate(_topic: string, _topicRouteData: TopicRouteData) {
     // sub class can monitor topic route data change here
+  }
+
+  onUnknownCommand(endpoints: Endpoints, status: Status.AsObject) {
+    try {
+      StatusChecker.check(status);
+    } catch (err) {
+      this.logger.error('Get error status from telemetry session, status=%j, endpoints=%j, clientId=%s',
+        status, endpoints, this.clientId);
+      this.#startupReject && this.#startupReject(err as ClientException);
+    }
   }
 
   onSettingsCommand(_endpoints: Endpoints, settings: SettingsPB) {

@@ -35,7 +35,7 @@ export class TelemetrySession {
   }
 
   release() {
-    this.#logger.info('Begin to release client session, endpoints=%s, clientId=%s',
+    this.#logger.info('Begin to release telemetry session, endpoints=%s, clientId=%s',
       this.#endpoints, this.#baseClient.clientId);
     this.#stream.end();
     this.#stream.removeAllListeners();
@@ -63,7 +63,8 @@ export class TelemetrySession {
   #onData(command: TelemetryCommand) {
     const endpoints = this.#endpoints;
     const clientId = this.#baseClient.clientId;
-    switch (command.getCommandCase()) {
+    const commandCase = command.getCommandCase();
+    switch (commandCase) {
       case TelemetryCommand.CommandCase.SETTINGS:
         this.#logger.info('Receive settings from remote, endpoints=%s, clientId=%s',
           endpoints, clientId);
@@ -87,9 +88,13 @@ export class TelemetrySession {
         this.#baseClient.onPrintThreadStackTraceCommand(endpoints, command.getPrintThreadStackTraceCommand()!);
         break;
       }
-      default:
-        this.#logger.warn('Receive unrecognized command from remote, endpoints=%s, command=%j, clientId=%s',
-          endpoints, command.toObject(), clientId);
+      default: {
+        const commandObj = command.toObject();
+        this.#logger.warn('Receive unrecognized command from remote, endpoints=%s, commandCase=%j, command=%j, clientId=%s',
+          endpoints, commandCase, commandObj, clientId);
+        // should telemetry session start fail
+        this.#baseClient.onUnknownCommand(endpoints, commandObj.status!);
+      }
     }
   }
 

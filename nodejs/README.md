@@ -88,9 +88,9 @@ for (const message of messages) {
 ### Message Type
 
 - [x] NORMAL
-- [ ] FIFO
-- [ ] DELAY
-- [ ] TRANSACTION
+- [x] FIFO
+- [x] DELAY
+- [x] TRANSACTION
 
 ### Client Type
 

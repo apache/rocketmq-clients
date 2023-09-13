@@ -113,6 +113,8 @@ export class Producer extends BaseClient {
         return;
       }
       await this.endTransaction(endpoints, messageView, messageId, transactionId, resolution);
+      this.logger.info('Recover orphaned transaction message success, transactionId=%s, resolution=%s, messageId=%s, clientId=%s',
+        transactionId, resolution, messageId, this.clientId);
     } catch (err) {
       this.logger.error('Exception raised while checking the transaction, messageId=%s, transactionId=%s, endpoints=%s, clientId=%s, error=%s',
         messageId, transactionId, endpoints, this.clientId, err);
