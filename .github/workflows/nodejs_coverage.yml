@@ -40,7 +40,7 @@ jobs:
       - name: Code Coverage
         uses: codecov/codecov-action@v3
         with:
+          files: ./nodejs/coverage/coverage-final.json
           flags: nodejs
           fail_ci_if_error: true
           verbose: true
-          working-directory: ./nodejs
