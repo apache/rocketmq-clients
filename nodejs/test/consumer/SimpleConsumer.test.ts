@@ -91,6 +91,23 @@ describe('test/consumer/SimpleConsumer.test.ts', () => {
         sessionCredentials,
       });
       await producer.startup();
+      simpleConsumer = new SimpleConsumer({
+        endpoints,
+        sessionCredentials,
+        consumerGroup: `nodejs-unittest-group-${randomUUID()}`,
+        subscriptions: new Map().set(topic, new FilterExpression(tag)),
+      });
+      await simpleConsumer.startup();
+      const receipt = await producer.send({
+        topic,
+        tag,
+        body: Buffer.from(JSON.stringify({ hello: 'world' })),
+      });
+      assert(receipt.messageId);
+      const messages = await simpleConsumer.receive(20, 10000);
+      assert.equal(messages.length, 1);
+      assert.equal(messages[0].messageId, receipt.messageId);
+
       const max = 102;
       for (let i = 0; i < max; i++) {
         const receipt = await producer.send({
@@ -101,13 +118,6 @@ describe('test/consumer/SimpleConsumer.test.ts', () => {
         assert(receipt.messageId);
       }
 
-      simpleConsumer = new SimpleConsumer({
-        endpoints,
-        sessionCredentials,
-        consumerGroup: 'nodejs-unittest-group',
-        subscriptions: new Map().set(topic, new FilterExpression(tag)),
-      });
-      await simpleConsumer.startup();
       let count = 0;
       while (count < max) {
         const messages = await simpleConsumer.receive(20, 10000);
