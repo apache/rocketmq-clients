@@ -35,8 +35,8 @@ export class TelemetrySession {
   }
 
   release() {
-    this.#logger.info('[Client=%s] Begin to release client session, endpoints=%s',
-      this.#baseClient.clientId, this.#endpoints);
+    this.#logger.info('Begin to release client session, endpoints=%s, clientId=%s',
+      this.#endpoints, this.#baseClient.clientId);
     this.#stream.end();
     this.#stream.removeAllListeners();
   }
@@ -65,37 +65,37 @@ export class TelemetrySession {
     const clientId = this.#baseClient.clientId;
     switch (command.getCommandCase()) {
       case TelemetryCommand.CommandCase.SETTINGS:
-        this.#logger.info('[Client=%s] Receive settings from remote, endpoints=%s',
-          clientId, endpoints);
+        this.#logger.info('Receive settings from remote, endpoints=%s, clientId=%s',
+          endpoints, clientId);
         this.#baseClient.onSettingsCommand(endpoints, command.getSettings()!);
         break;
       case TelemetryCommand.CommandCase.RECOVER_ORPHANED_TRANSACTION_COMMAND: {
-        this.#logger.info('[Client=%s] Receive orphaned transaction recovery command from remote, endpoints=%s',
-          clientId, endpoints);
+        this.#logger.info('Receive orphaned transaction recovery command from remote, endpoints=%s, clientId=%s',
+          endpoints, clientId);
         this.#baseClient.onRecoverOrphanedTransactionCommand(endpoints, command.getRecoverOrphanedTransactionCommand()!);
         break;
       }
       case TelemetryCommand.CommandCase.VERIFY_MESSAGE_COMMAND: {
-        this.#logger.info('[Client=%s] Receive message verification command from remote, endpoints=%s',
-          clientId, endpoints);
+        this.#logger.info('Receive message verification command from remote, endpoints=%s, clientId=%s',
+          endpoints, clientId);
         this.#baseClient.onVerifyMessageCommand(endpoints, command.getVerifyMessageCommand()!);
         break;
       }
       case TelemetryCommand.CommandCase.PRINT_THREAD_STACK_TRACE_COMMAND: {
-        this.#logger.info('[Client=%s] Receive thread stack print command from remote, endpoints=%s',
-          clientId, endpoints);
+        this.#logger.info('Receive thread stack print command from remote, endpoints=%s, clientId=%s',
+          endpoints, clientId);
         this.#baseClient.onPrintThreadStackTraceCommand(endpoints, command.getPrintThreadStackTraceCommand()!);
         break;
       }
       default:
-        this.#logger.warn('[Client=%s] Receive unrecognized command from remote, endpoints=%s, command=%j',
-          clientId, endpoints, command.toObject());
+        this.#logger.warn('Receive unrecognized command from remote, endpoints=%s, command=%j, clientId=%s',
+          endpoints, command.toObject(), clientId);
     }
   }
 
   #onError(err: Error) {
-    this.#logger.error('[Client=%s] Exception raised from stream response observer, endpoints=%s, error: %s',
-      this.#baseClient.clientId, this.#endpoints, err);
+    this.#logger.error('Exception raised from stream response observer, endpoints=%s, clientId=%s, error=%s',
+      this.#endpoints, this.#baseClient.clientId, err);
     this.release();
     setTimeout(() => {
       this.#renewStream(false);
@@ -103,8 +103,8 @@ export class TelemetrySession {
   }
 
   #onEnd() {
-    this.#logger.info('[Client=%s] Receive completion for stream response observer, endpoints=%s',
-      this.#baseClient.clientId, this.#endpoints);
+    this.#logger.info('Receive completion for stream response observer, endpoints=%s, clientId=%s',
+      this.#endpoints, this.#baseClient.clientId);
     this.release();
     setTimeout(() => {
       this.#renewStream(false);

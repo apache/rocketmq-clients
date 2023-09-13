@@ -68,7 +68,7 @@ describe('test/producer/Producer.test.ts', () => {
         });
         await producer.startup();
       }, (err: any) => {
-        assert.match(err.message, /Startup the rocketmq client failed, error=NotFoundException/);
+        assert.match(err.message, /Startup the rocketmq client failed, clientId=[^,]+, error=NotFoundException/);
         assert.equal(err.cause instanceof NotFoundException, true);
         assert.equal(err.cause.name, 'NotFoundException');
         assert.equal(err.cause.code, 40402);

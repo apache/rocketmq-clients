@@ -94,16 +94,16 @@ export class Producer extends BaseClient {
     const messagePB = command.getMessage()!;
     const messageId = messagePB.getSystemProperties()!.getMessageId();
     if (!this.#checker) {
-      this.logger.error('[Client=%s] No transaction checker registered, ignore it, messageId=%s, transactionId=%s, endpoints=%s',
-        this.clientId, messageId, transactionId, endpoints);
+      this.logger.error('No transaction checker registered, ignore it, messageId=%s, transactionId=%s, endpoints=%s, clientId=%s',
+        messageId, transactionId, endpoints, this.clientId);
       return;
     }
     let messageView: MessageView;
     try {
       messageView = new MessageView(messagePB);
     } catch (err) {
-      this.logger.error('[Client=%s][Bug] Failed to decode message during orphaned transaction message recovery, messageId=%s, transactionId=%s, endpoints=%s, error=%s',
-        this.clientId, messageId, transactionId, endpoints, err);
+      this.logger.error('[Bug] Failed to decode message during orphaned transaction message recovery, messageId=%s, transactionId=%s, endpoints=%s, clientId=%s, error=%s',
+        messageId, transactionId, endpoints, this.clientId, err);
       return;
     }
 
@@ -114,8 +114,8 @@ export class Producer extends BaseClient {
       }
       await this.endTransaction(endpoints, messageView, messageId, transactionId, resolution);
     } catch (err) {
-      this.logger.error('[Client=%s] Exception raised while checking the transaction, messageId=%s, transactionId=%s, endpoints=%s, error=%s',
-        this.clientId, messageId, transactionId, endpoints, err);
+      this.logger.error('Exception raised while checking the transaction, messageId=%s, transactionId=%s, endpoints=%s, clientId=%s, error=%s',
+        messageId, transactionId, endpoints, this.clientId, err);
       return;
     }
   }
@@ -219,27 +219,27 @@ export class Producer extends BaseClient {
       this.#isolate(endpoints);
       if (attempt >= maxAttempts) {
         // No need more attempts.
-        this.logger.error('[Client=%s] Failed to send message(s) finally, run out of attempt times, maxAttempts=%s,  attempt=%s, topic=%s, messageId(s)=%s, endpoints=%s, error=%s',
-          this.clientId, maxAttempts, attempt, topic, messageIds, endpoints, err);
+        this.logger.error('Failed to send message(s) finally, run out of attempt times, maxAttempts=%s, attempt=%s, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
+          maxAttempts, attempt, topic, messageIds, endpoints, this.clientId, err);
         throw err;
       }
       // No need more attempts for transactional message.
       if (messageType === MessageType.TRANSACTION) {
-        this.logger.error('[Client=%s] Failed to send transactional message finally, maxAttempts=%s, attempt=%s, topic=%s, messageId(s)=%s, endpoints=%s, error=%s',
-          this.clientId, maxAttempts, attempt, topic, messageIds, endpoints, err);
+        this.logger.error('Failed to send transactional message finally, maxAttempts=%s, attempt=%s, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
+          maxAttempts, attempt, topic, messageIds, endpoints, this.clientId, err);
         throw err;
       }
       // Try to do more attempts.
       const nextAttempt = 1 + attempt;
       // Retry immediately if the request is not throttled.
       if (!(err instanceof TooManyRequestsException)) {
-        this.logger.warn('[Client=%s] Failed to send message, would attempt to resend right now, maxAttempts=%s, attempt=%s, topic=%s, messageId(s)=%s, endpoints=%s, error=%s',
-          this.clientId, maxAttempts, attempt, topic, messageIds, endpoints, err);
+        this.logger.warn('Failed to send message, would attempt to resend right now, maxAttempts=%s, attempt=%s, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
+          maxAttempts, attempt, topic, messageIds, endpoints, this.clientId, err);
         return this.#send0(topic, messageType, candidates, messages, nextAttempt);
       }
       const delay = this.#getRetryPolicy().getNextAttemptDelay(nextAttempt);
-      this.logger.warn('[Client=%s] Failed to send message due to too many requests, would attempt to resend after %sms, maxAttempts=%s, attempt=%s, topic=%s, messageId(s)=%s, endpoints=%s, error=%s',
-        this.clientId, delay, maxAttempts, attempt, topic, messageIds, endpoints, err);
+      this.logger.warn('Failed to send message due to too many requests, would attempt to resend after %sms, maxAttempts=%s, attempt=%s, topic=%s, messageId(s)=%s, endpoints=%s, clientId=%s, error=%s',
+        delay, maxAttempts, attempt, topic, messageIds, endpoints, this.clientId, err);
       await setTimeout(delay);
       return this.#send0(topic, messageType, candidates, messages, nextAttempt);
     }
@@ -247,8 +247,8 @@ export class Producer extends BaseClient {
     // Resend message(s) successfully.
     if (attempt > 1) {
       const messageIds = sendReceipts.map(r => r.messageId);
-      this.logger.info('[Client=%s] Resend message successfully, topic=%s, messageId(s)=%j, maxAttempts=%s, attempt=%s, endpoints=%s',
-        this.clientId, topic, messageIds, maxAttempts, attempt, endpoints);
+      this.logger.info('Resend message successfully, topic=%s, messageId(s)=%j, maxAttempts=%s, attempt=%s, endpoints=%s, clientId=%s',
+        topic, messageIds, maxAttempts, attempt, endpoints, this.clientId);
     }
     // Send message(s) successfully on first attempt, return directly.
     return sendReceipts;

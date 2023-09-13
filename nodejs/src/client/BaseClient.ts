@@ -107,16 +107,16 @@ export abstract class BaseClient {
    * https://github.com/apache/rocketmq-clients/blob/master/docs/workflow.md#startup
    */
   async startup() {
-    this.logger.info('[Client=%s] Begin to startup the rocketmq client', this.clientId);
+    this.logger.info('Begin to startup the rocketmq client, clientId=%s', this.clientId);
     try {
       await this.#startup();
     } catch (e) {
-      const err = new Error(`[Client=${this.clientId}] Startup the rocketmq client failed, error=${e}`);
-      this.logger.error(err.message);
+      const err = new Error(`Startup the rocketmq client failed, clientId=${this.clientId}, error=${e}`);
+      this.logger.error(err);
       err.cause = e;
       throw err;
     }
-    this.logger.info('[Client=%s] Startup the rocketmq client successfully', this.clientId);
+    this.logger.info('Startup the rocketmq client successfully, clientId=%s', this.clientId);
   }
 
   async #startup() {
@@ -153,7 +153,7 @@ export abstract class BaseClient {
   }
 
   async shutdown() {
-    this.logger.info('[Client=%s] Begin to shutdown the rocketmq client', this.clientId);
+    this.logger.info('Begin to shutdown the rocketmq client, clientId=%s', this.clientId);
     while (this.#timers.length > 0) {
       const timer = this.#timers.pop();
       clearInterval(timer);
@@ -161,12 +161,12 @@ export abstract class BaseClient {
 
     await this.#notifyClientTermination();
 
-    this.logger.info('[Client=%s] Begin to release all telemetry sessions', this.clientId);
+    this.logger.info('Begin to release all telemetry sessions, clientId=%s', this.clientId);
     this.#releaseTelemetrySessions();
-    this.logger.info('[Client=%s] Release all telemetry sessions successfully', this.clientId);
+    this.logger.info('Release all telemetry sessions successfully, clientId=%s', this.clientId);
 
     this.rpcClientManager.close();
-    this.logger.info('[Client=%s] Shutdown the rocketmq client successfully', this.clientId);
+    this.logger.info('Shutdown the rocketmq client successfully, clientId=%s', this.clientId);
     this.logger.close && this.logger.close();
   }
 
@@ -311,7 +311,7 @@ export abstract class BaseClient {
    * Notify remote that current client is prepared to be terminated.
    */
   async #notifyClientTermination() {
-    this.logger.info('[Client=%s] Notify remote that client is terminated', this.clientId);
+    this.logger.info('Notify remote that client is terminated, clientId=%s', this.clientId);
     const request = this.wrapNotifyClientTerminationRequest();
     for (const endpoints of this.getTotalRouteEndpoints()) {
       await this.rpcClientManager.notifyClientTermination(endpoints, request, this.requestTimeout);
@@ -327,12 +327,12 @@ export abstract class BaseClient {
     // final Metric metric = new Metric(settings.getMetric());
     // clientMeterManager.reset(metric);
     this.getSettings().sync(settings);
-    this.logger.info('[Client=%s] Sync settings=%j', this.clientId, this.getSettings());
+    this.logger.info('Sync settings=%j, clientId=%s', this.getSettings(), this.clientId);
     this.#startupResolve && this.#startupResolve();
   }
 
   onRecoverOrphanedTransactionCommand(_endpoints: Endpoints, command: RecoverOrphanedTransactionCommand) {
-    this.logger.warn('[BaseClient] Ignore orphaned transaction recovery command from remote, which is not expected, clientId=%s, command=%j',
+    this.logger.warn('Ignore orphaned transaction recovery command from remote, which is not expected, clientId=%s, command=%j',
       this.clientId, command.toObject());
     // const telemetryCommand = new TelemetryCommand();
     // telemetryCommand.setStatus(new Status().setCode(Code.NOT_IMPLEMENTED));
@@ -342,7 +342,7 @@ export abstract class BaseClient {
 
   onVerifyMessageCommand(endpoints: Endpoints, command: VerifyMessageCommand) {
     const obj = command.toObject();
-    this.logger.warn('[BaseClient] Ignore verify message command from remote, which is not expected, clientId=%s, command=%j',
+    this.logger.warn('Ignore verify message command from remote, which is not expected, clientId=%s, command=%j',
       this.clientId, obj);
     const telemetryCommand = new TelemetryCommand();
     telemetryCommand.setStatus(new Status().setCode(Code.NOT_IMPLEMENTED));
@@ -352,7 +352,7 @@ export abstract class BaseClient {
 
   onPrintThreadStackTraceCommand(endpoints: Endpoints, command: PrintThreadStackTraceCommand) {
     const obj = command.toObject();
-    this.logger.warn('[BaseClient] Ignore orphaned transaction recovery command from remote, which is not expected, clientId=%s, command=%j',
+    this.logger.warn('Ignore orphaned transaction recovery command from remote, which is not expected, clientId=%s, command=%j',
       this.clientId, obj);
     const nonce = obj.nonce;
     const telemetryCommand = new TelemetryCommand();
