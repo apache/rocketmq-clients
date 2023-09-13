@@ -504,6 +504,7 @@ func (cli *defaultClient) startUp() error {
 			if err != nil {
 				cli.log.Errorf("scheduled queryRoute err=%v", err)
 			}
+			clearOldRouteSizeCache(oldRoute.([]*v2.MessageQueue))
 			if newRoute == nil && oldRoute != nil {
 				cli.log.Info("newRoute is nil, but oldRoute is not. do not update")
 				return true
@@ -528,6 +529,12 @@ func (cli *defaultClient) startUp() error {
 	}
 	ticker.Tick(f, time.Second*30, cli.done)
 	return nil
+}
+
+func clearOldRouteSizeCache(oldRoutes []*v2.MessageQueue) {
+	for _, route := range oldRoutes {
+		route.ClearSizeCache()
+	}
 }
 func (cli *defaultClient) notifyClientTermination() {
 	cli.log.Info("start notifyClientTermination")
