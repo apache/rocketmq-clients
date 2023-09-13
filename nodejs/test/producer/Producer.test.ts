@@ -116,6 +116,7 @@ describe('test/producer/Producer.test.ts', () => {
       const messages = await simpleConsumer.receive(1, 10000);
       assert.equal(messages.length, 1);
       assert.equal(messages[0].messageId, receipt.messageId);
+      await simpleConsumer.ack(messages[0]);
     });
 
     it('should send delay message', async () => {
@@ -127,6 +128,7 @@ describe('test/producer/Producer.test.ts', () => {
         maxAttempts: 2,
       });
       await producer.startup();
+      const startTime = Date.now();
       const receipt = await producer.send({
         topic,
         tag,
@@ -152,7 +154,68 @@ describe('test/producer/Producer.test.ts', () => {
       await simpleConsumer.startup();
       const messages = await simpleConsumer.receive(1, 10000);
       assert.equal(messages.length, 1);
-      assert.equal(messages[0].messageId, receipt.messageId);
+      const message = messages[0];
+      assert.equal(message.messageId, receipt.messageId);
+      assert(message.transportDeliveryTimestamp);
+      assert(message.transportDeliveryTimestamp.getTime() - startTime >= 1000);
+      await simpleConsumer.ack(message);
+    });
+
+    it('should send fifo message', async () => {
+      const topic = topics.fifo;
+      const tag = `nodejs-unittest-tag-${randomUUID()}`;
+      producer = new Producer({
+        endpoints,
+        sessionCredentials,
+        maxAttempts: 2,
+      });
+      await producer.startup();
+      const receipt1 = await producer.send({
+        topic,
+        tag,
+        body: Buffer.from(JSON.stringify({
+          hello: 'rocketmq-client-nodejs world 😄',
+          now: Date(),
+        })),
+        messageGroup: 'fifoMessageGroup',
+      });
+      assert(receipt1.messageId);
+      const receipt2 = await producer.send({
+        topic,
+        tag,
+        body: Buffer.from(JSON.stringify({
+          hello: 'rocketmq-client-nodejs world 😄',
+          now: Date(),
+        })),
+        messageGroup: 'fifoMessageGroup',
+      });
+      assert(receipt2.messageId);
+
+      simpleConsumer = new SimpleConsumer({
+        consumerGroup,
+        endpoints,
+        sessionCredentials,
+        subscriptions: new Map().set(topic, tag),
+        awaitDuration: 3000,
+      });
+      await simpleConsumer.startup();
+      let messages = await simpleConsumer.receive(1, 10000);
+      assert.equal(messages.length, 1);
+      let message = messages[0];
+      assert.equal(message.messageId, receipt1.messageId);
+      assert(message.messageGroup);
+      assert.equal(message.messageGroup, 'fifoMessageGroup');
+      assert.equal(message.properties.get('__SHARDINGKEY'), 'fifoMessageGroup');
+      await simpleConsumer.ack(message);
+
+      messages = await simpleConsumer.receive(1, 10000);
+      assert.equal(messages.length, 1);
+      message = messages[0];
+      assert.equal(message.messageId, receipt2.messageId);
+      assert(message.messageGroup);
+      assert.equal(message.messageGroup, 'fifoMessageGroup');
+      assert.equal(message.properties.get('__SHARDINGKEY'), 'fifoMessageGroup');
+      await simpleConsumer.ack(message);
     });
 
     it('should send transaction message', async () => {
@@ -199,6 +262,7 @@ describe('test/producer/Producer.test.ts', () => {
       assert.equal(message.messageId, receipt.messageId);
       // console.log(message);
       assert.equal(message.properties.get('__transactionId__'), receipt.transactionId);
+      await simpleConsumer.ack(message);
     });
   });
 });

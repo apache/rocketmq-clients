@@ -18,7 +18,7 @@
 import { strict as assert } from 'node:assert';
 import { MessageIdFactory } from '../../src';
 
-describe('test/model/MessageId.test.ts', () => {
+describe('test/message/MessageId.test.ts', () => {
   describe('MessageIdFactory()', () => {
     it('should decode success', async () => {
       const messageId = MessageIdFactory.decode('0156F7E71C361B21BC024CCDBE00000000');
