@@ -4,3 +4,4 @@ node_modules/
 rocketmq-all-*/
 nohup.out
 dist/
+coverage/

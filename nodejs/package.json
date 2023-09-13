@@ -13,7 +13,7 @@
     "init": "npm run build:grpc",
     "test": "egg-bin test",
     "cov": "egg-bin cov",
-    "lint": "eslint src test demo",
+    "lint": "eslint src test",
     "build:grpc": "scripts/build-grpc.sh",
     "clean": "rm -rf dist *.d.ts",
     "tsc": "tsc -p tsconfig.prod.json",

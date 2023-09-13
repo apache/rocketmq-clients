@@ -9,10 +9,32 @@ on:
       - master
 
 jobs:
-  Job:
-    name: Node.js
-    uses: node-modules/github-actions/.github/workflows/node-test.yml@master
-    with:
-      os: 'ubuntu-latest'
-      version: '16.19.0, 16, 18, 20'
-      install: 'npm i && npm run init-rocketmq'
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [16.19.0, 16.x, 18.x, 20.x]
+    steps:
+      - name: Checkout Git Source
+        uses: actions/checkout@v3
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        working-directory: ./nodejs
+        run: npm i && npm run init-rocketmq
+
+      - name: Run test
+        working-directory: ./nodejs
+        run: npm run ci
+
+      - name: Code Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          flags: nodejs
+          fail_ci_if_error: true
+          verbose: true
+          working-directory: ./nodejs
