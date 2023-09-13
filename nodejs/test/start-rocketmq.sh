@@ -20,14 +20,16 @@ unzip rocketmq-all-5.1.3-bin-release.zip
 cd rocketmq-all-5.1.3-bin-release
 
 nohup sh bin/mqnamesrv &
-sleep 5
+sleep 10
 tail -n 5 ~/logs/rocketmqlogs/namesrv.log
 
 nohup sh bin/mqbroker -n localhost:9876 --enable-proxy &
-sleep 5
+sleep 10
 tail -n 5 ~/logs/rocketmqlogs/proxy.log 
 
 # Create Topics
+sh bin/mqadmin statsAll -n localhost:9876
+sh bin/mqadmin topicList -n localhost:9876 -c DefaultCluster
 # Normal Message
 sh bin/mqadmin updatetopic -n localhost:9876 -t TopicTestForNormal -c DefaultCluster
 # FIFO Message
