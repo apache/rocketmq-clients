@@ -12,12 +12,14 @@
   "scripts": {
     "init": "npm run build:grpc",
     "test": "egg-bin test",
+    "cov": "egg-bin cov",
     "lint": "eslint src test demo",
     "build:grpc": "scripts/build-grpc.sh",
     "clean": "rm -rf dist *.d.ts",
     "tsc": "tsc -p tsconfig.prod.json",
     "build": "npm run clean && npm run build:grpc && npm run tsc",
-    "ci": "npm run lint && npm run build && npm run test:unit",
+    "init-rocketmq": "sh test/init-rocketmq.sh",
+    "ci": "npm run lint && npm run build && npm run cov",
     "prepublishOnly": "npm run build"
   },
   "repository": {

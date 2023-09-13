@@ -1,6 +1,6 @@
 node_modules/
 *.d.ts
 *.js
-rocketmq-all-*-bin-release/
+rocketmq-all-*/
 nohup.out
 dist/

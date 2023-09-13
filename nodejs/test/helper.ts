@@ -17,7 +17,7 @@
 
 import { SessionCredentials } from '../src/client';
 
-export const endpoints = process.env.ROCKETMQ_NODEJS_CLIENT_ENDPOINTS ?? '127.0.0.1:8081';
+export const endpoints = process.env.ROCKETMQ_NODEJS_CLIENT_ENDPOINTS ?? 'localhost:8081';
 export const topics = {
   normal: 'TopicTestForNormal',
   fifo: 'TopicTestForFifo',
