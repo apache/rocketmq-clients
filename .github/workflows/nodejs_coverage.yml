@@ -27,7 +27,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./nodejs
-        run: npm i && npm run init && npm run start-rocketmq
+        run: npm i && npm run init
 
       - name: Start RocketMQ Server
         working-directory: ./nodejs

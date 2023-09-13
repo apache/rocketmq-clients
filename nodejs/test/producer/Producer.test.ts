@@ -153,7 +153,6 @@ describe('test/producer/Producer.test.ts', () => {
       const messages = await simpleConsumer.receive(1, 10000);
       assert.equal(messages.length, 1);
       assert.equal(messages[0].messageId, receipt.messageId);
-      console.log(messages);
     });
 
     it('should send transaction message', async () => {

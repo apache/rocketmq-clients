@@ -91,7 +91,7 @@ describe('test/consumer/SimpleConsumer.test.ts', () => {
         sessionCredentials,
       });
       await producer.startup();
-      const max = 101;
+      const max = 102;
       for (let i = 0; i < max; i++) {
         const receipt = await producer.send({
           topic,
@@ -109,8 +109,9 @@ describe('test/consumer/SimpleConsumer.test.ts', () => {
       });
       await simpleConsumer.startup();
       let count = 0;
-      let messages = await simpleConsumer.receive(20, 10000);
-      while (messages.length > 0) {
+      while (count < max) {
+        const messages = await simpleConsumer.receive(20, 10000);
+        console.log('#%s: receive %d new messages', count, messages.length);
         for (const message of messages) {
           assert.equal(message.topic, topic);
           // console.log('#%s: %o, %o', count, message, message.body.toString());
@@ -120,8 +121,6 @@ describe('test/consumer/SimpleConsumer.test.ts', () => {
           count++;
           await simpleConsumer.ack(message);
         }
-        if (count === max) break;
-        messages = await simpleConsumer.receive(20, 10000);
       }
       assert.equal(count, max);
     });
