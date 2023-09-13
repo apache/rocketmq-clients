@@ -88,7 +88,7 @@ describe('test/producer/Producer.test.ts', () => {
       });
       await producer.startup();
       const receipt = await producer.send({
-        topic: 'TopicTest',
+        topic,
         tag,
         keys: [
           `foo-key-${Date.now()}`,
@@ -113,6 +113,42 @@ describe('test/producer/Producer.test.ts', () => {
       assert.equal(messages[0].messageId, receipt.messageId);
     });
 
+    it.skip('should send delay message', async () => {
+      const topic = 'TestDelayTopic';
+      const tag = `nodejs-unittest-tag-${randomUUID()}`;
+      producer = new Producer({
+        endpoints: '127.0.0.1:8081',
+        maxAttempts: 2,
+      });
+      await producer.startup();
+      const receipt = await producer.send({
+        topic,
+        tag,
+        delay: 1000,
+        keys: [
+          `foo-key-${Date.now()}`,
+          `bar-key-${Date.now()}`,
+        ],
+        body: Buffer.from(JSON.stringify({
+          hello: 'rocketmq-client-nodejs world 😄',
+          now: Date(),
+        })),
+      });
+      assert(receipt.messageId);
+
+      simpleConsumer = new SimpleConsumer({
+        consumerGroup: 'nodejs-unittest-group',
+        endpoints: '127.0.0.1:8081',
+        subscriptions: new Map().set(topic, tag),
+        awaitDuration: 3000,
+      });
+      await simpleConsumer.startup();
+      const messages = await simpleConsumer.receive(1, 10000);
+      assert.equal(messages.length, 1);
+      assert.equal(messages[0].messageId, receipt.messageId);
+      console.log(messages);
+    });
+
     it.skip('should send transaction message', async () => {
       const topic = 'TopicTest';
       const tag = `nodejs-unittest-tag-${randomUUID()}`;
@@ -129,7 +165,7 @@ describe('test/producer/Producer.test.ts', () => {
       await producer.startup();
       const transaction = producer.beginTransaction();
       const receipt = await producer.send({
-        topic: 'TopicTest',
+        topic,
         tag,
         keys: [
           `foo-key-${Date.now()}`,

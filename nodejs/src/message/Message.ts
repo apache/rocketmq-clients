@@ -22,6 +22,7 @@ export interface MessageOptions {
   messageGroup?: string;
   keys?: string[];
   properties?: Map<string, string>;
+  delay?: number;
   deliveryTimestamp?: Date;
 }
 
@@ -41,6 +42,10 @@ export class Message {
     this.messageGroup = options.messageGroup;
     this.keys = options.keys ?? [];
     this.properties = options.properties;
-    this.deliveryTimestamp = options.deliveryTimestamp;
+    let deliveryTimestamp = options.deliveryTimestamp;
+    if (options.delay && !deliveryTimestamp) {
+      deliveryTimestamp = new Date(Date.now() + options.delay);
+    }
+    this.deliveryTimestamp = deliveryTimestamp;
   }
 }
