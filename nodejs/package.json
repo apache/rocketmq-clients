@@ -18,7 +18,7 @@
     "clean": "rm -rf dist *.d.ts",
     "tsc": "tsc -p tsconfig.prod.json",
     "build": "npm run clean && npm run build:grpc && npm run tsc",
-    "init-rocketmq": "sh test/init-rocketmq.sh",
+    "start-rocketmq": "sh test/start-rocketmq.sh",
     "ci": "npm run lint && npm run build && npm run cov",
     "prepublishOnly": "npm run build"
   },

@@ -25,7 +25,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./nodejs
-        run: npm i && npm run init-rocketmq
+        run: npm i && npm run init && npm run start-rocketmq
 
       - name: Run test
         working-directory: ./nodejs

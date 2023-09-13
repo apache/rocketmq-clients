@@ -19,4 +19,4 @@ jobs:
           node-version: ${{ matrix.nodejs }}
       - name: Build
         working-directory: ./nodejs
-        run: npm install && npm pack
+        run: npm i && npm run init && npm run build && npm pack
