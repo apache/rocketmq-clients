@@ -170,11 +170,32 @@ describe('test/producer/Producer.test.ts', () => {
         maxAttempts: 2,
       });
       await producer.startup();
+      simpleConsumer = new SimpleConsumer({
+        consumerGroup,
+        endpoints,
+        sessionCredentials,
+        subscriptions: new Map().set(topic, tag),
+        awaitDuration: 3000,
+      });
+      await simpleConsumer.startup();
+
+      // skip the first message
+      await producer.send({
+        topic,
+        tag,
+        body: Buffer.from(JSON.stringify({
+          hello: 'rocketmq-client-nodejs world 😄, first',
+          now: Date(),
+        })),
+        messageGroup: 'fifoMessageGroup',
+      });
+      await simpleConsumer.receive(1, 10000);
+
       const receipt1 = await producer.send({
         topic,
         tag,
         body: Buffer.from(JSON.stringify({
-          hello: 'rocketmq-client-nodejs world 😄',
+          hello: 'rocketmq-client-nodejs world 😄, first',
           now: Date(),
         })),
         messageGroup: 'fifoMessageGroup',
@@ -184,24 +205,17 @@ describe('test/producer/Producer.test.ts', () => {
         topic,
         tag,
         body: Buffer.from(JSON.stringify({
-          hello: 'rocketmq-client-nodejs world 😄',
+          hello: 'rocketmq-client-nodejs world 😄, second',
           now: Date(),
         })),
         messageGroup: 'fifoMessageGroup',
       });
       assert(receipt2.messageId);
 
-      simpleConsumer = new SimpleConsumer({
-        consumerGroup,
-        endpoints,
-        sessionCredentials,
-        subscriptions: new Map().set(topic, tag),
-        awaitDuration: 3000,
-      });
-      await simpleConsumer.startup();
       let messages = await simpleConsumer.receive(1, 10000);
       assert.equal(messages.length, 1);
       let message = messages[0];
+      assert.equal(JSON.parse(message.body.toString()).hello, 'rocketmq-client-nodejs world 😄, first');
       assert.equal(message.messageId, receipt1.messageId);
       assert(message.messageGroup);
       assert.equal(message.messageGroup, 'fifoMessageGroup');
@@ -211,6 +225,7 @@ describe('test/producer/Producer.test.ts', () => {
       messages = await simpleConsumer.receive(1, 10000);
       assert.equal(messages.length, 1);
       message = messages[0];
+      assert.equal(JSON.parse(message.body.toString()).hello, 'rocketmq-client-nodejs world 😄, second');
       assert.equal(message.messageId, receipt2.messageId);
       assert(message.messageGroup);
       assert.equal(message.messageGroup, 'fifoMessageGroup');
