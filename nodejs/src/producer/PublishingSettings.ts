@@ -29,6 +29,8 @@ export class PublishingSettings extends Settings {
   readonly #topics: Set<string>;
   /**
    * If message body size exceeds the threshold, it would be compressed for convenience of transport.
+   * https://rocketmq.apache.org/docs/introduction/03limits/
+   * Default max message size is 4 MB
    */
   #maxBodySizeBytes = 4 * 1024 * 1024;
   #validateMessageType = true;

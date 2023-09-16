@@ -89,11 +89,13 @@ export abstract class BaseClient {
   #timers: NodeJS.Timeout[] = [];
 
   constructor(options: BaseClientOptions) {
-    this.logger = options.logger || getDefaultLogger();
+    this.logger = options.logger ?? getDefaultLogger();
     this.sslEnabled = options.sslEnabled === true;
     this.endpoints = new Endpoints(options.endpoints);
     this.#sessionCredentials = options.sessionCredentials;
-    this.requestTimeout = options.requestTimeout || 3000;
+    // https://rocketmq.apache.org/docs/introduction/03limits/
+    // Default request timeout is 3000ms
+    this.requestTimeout = options.requestTimeout ?? 3000;
     this.rpcClientManager = new RpcClientManager(this, this.logger);
     if (options.topics) {
       for (const topic of options.topics) {

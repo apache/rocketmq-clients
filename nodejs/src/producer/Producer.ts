@@ -63,7 +63,9 @@ export class Producer extends BaseClient {
       options.topics = Array.isArray(options.topic) ? options.topic : [ options.topic ];
     }
     super(options);
-    const retryPolicy = ExponentialBackoffRetryPolicy.immediatelyRetryPolicy(options.maxAttempts ?? 1);
+    // https://rocketmq.apache.org/docs/introduction/03limits/
+    // Default max number of message sending retries is 3
+    const retryPolicy = ExponentialBackoffRetryPolicy.immediatelyRetryPolicy(options.maxAttempts ?? 3);
     this.#publishingSettings = new PublishingSettings(this.clientId, this.endpoints, retryPolicy,
       this.requestTimeout, this.topics);
     this.#checker = options.checker;
