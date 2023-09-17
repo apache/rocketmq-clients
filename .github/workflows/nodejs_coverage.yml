@@ -1,0 +1,46 @@
+name: Node.js Coverage
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - 'nodejs/**'
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [16.19.0, 16.x, 18.x, 20.x]
+    steps:
+      - name: Checkout Git Source
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        working-directory: ./nodejs
+        run: npm i && npm run init
+
+      - name: Start RocketMQ Server
+        working-directory: ./nodejs
+        run: npm run start-rocketmq
+
+      - name: Run test
+        working-directory: ./nodejs
+        run: npm run ci
+
+      - name: Code Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./nodejs/coverage/coverage-final.json
+          flags: nodejs
+          fail_ci_if_error: true
+          verbose: true

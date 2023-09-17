@@ -52,5 +52,7 @@ header:
     - 'php/composer.json'
     - 'rust/.cargo/Cargo.lock.min'
     - 'rust/src/pb/*.rs'
+    - 'nodejs/**/*.json'
+    - 'nodejs/.eslintrc'
 
   comment: on-failure
