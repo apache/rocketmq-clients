@@ -26,7 +26,8 @@ namespace examples
         {
             var loggerFactory = LoggerFactory.Create(
                 builder => builder
-                    .AddFilter("Org.Apache.Rocketmq", LogLevel.Information)
+                    .AddFilter("Org.Apache.Rocketmq", LogLevel.Warning)
+                    .AddFilter("examples", LogLevel.Information)
                     .AddConsole());
             MqLogManager.UseLoggerFactory(loggerFactory);
             // ProducerNormalMessageExample.QuickStart().Wait();

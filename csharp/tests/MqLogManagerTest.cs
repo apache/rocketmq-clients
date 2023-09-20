@@ -25,42 +25,45 @@ namespace tests
     [TestClass]
     public class MqLogManagerTest
     {
-        private static readonly ILogger Logger1;
-        private static readonly ILogger Logger2;
-        
+        private static readonly ILogger DefaultLogger1;
+        private static readonly ILogger DefaultLogger2;
+        private static readonly ILogger ConsoleLogger1;
+        private static readonly ILogger ConsoleLogger2;
+
         static MqLogManagerTest()
         {
+            DefaultLogger1 = MqLogManager.CreateLogger<MqLogManagerTest>();
+            DefaultLogger2 = MqLogManager.CreateLogger("MqLogManagerTest2");
+
             var loggerFactory = LoggerFactory.Create(
                 builder => builder
                     .AddFilter("tests", LogLevel.Information)
                     .AddConsole());
             MqLogManager.UseLoggerFactory(loggerFactory);
-            Logger1 = MqLogManager.CreateLogger<MqLogManagerTest>();
-            Logger2 = MqLogManager.CreateLogger("MqLogManagerTest2");
+            ConsoleLogger1 = MqLogManager.CreateLogger<MqLogManagerTest>();
+            ConsoleLogger2 = MqLogManager.CreateLogger("MqLogManagerTest2");
         }
 
         [TestMethod]
         public void TestLog()
         {
-            Logger1.LogTrace("This is a trace message.");
-            Logger1.LogDebug("This is a debug message.");
-            Logger1.LogInformation("This is an info message.");
-            Logger1.LogWarning("This is a warn message.");
-            Logger1.LogError("This is an error message.");
-            Logger1.LogCritical("This is a critical message.");
+            TestLog(DefaultLogger1);
+            TestLog(DefaultLogger2);
+            TestLog(ConsoleLogger1);
+            TestLog(ConsoleLogger2);
+        }
 
-            Logger1.LogError(new Exception("foobar"), "this is an error message with exception.");
-            Logger1.LogCritical(new Exception("foobar"), "this is a critical message with exception.");
-            
-            Logger2.LogTrace("This is a trace message.");
-            Logger2.LogDebug("This is a debug message.");
-            Logger2.LogInformation("This is an info message.");
-            Logger2.LogWarning("This is a warn message.");
-            Logger2.LogError("This is an error message.");
-            Logger2.LogCritical("This is a critical message.");
-            
-            Logger2.LogError(new Exception("foobar"), "this is an error message with exception.");
-            Logger2.LogCritical(new Exception("foobar"), "this is a critical message with exception.");
+        private void TestLog(ILogger logger)
+        {
+            logger.LogTrace("This is a trace message.");
+            logger.LogDebug("This is a debug message.");
+            logger.LogInformation("This is an info message.");
+            logger.LogWarning("This is a warn message.");
+            logger.LogError("This is an error message.");
+            logger.LogCritical("This is a critical message.");
+
+            logger.LogError(new Exception("foobar"), "this is an error message with exception.");
+            logger.LogCritical(new Exception("foobar"), "this is a critical message with exception.");
         }
     }
 }

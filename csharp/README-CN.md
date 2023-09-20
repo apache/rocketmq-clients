@@ -53,14 +53,20 @@ dotnet test -l "console;verbosity=detailed"
 
 我们使用 [Microsoft.Extensions.Logging](https://learn.microsoft.com/en-us/dotnet/core/extensions/logging?tabs=command-line#non-host-console-app) 作为日志实现。
 
-默认无日志输出，如果需要输出日志，需要创建一个自定义的 logger factory 并将其传递给 `MqLogManager.UseLoggerFactory`。
-通过添加一个 category 为 `Org.Apache.Rocketmq` 的过滤器可以控制日志的输出级别。
+默认的 `LoggerFactory` 是 [NLog](https://nlog-project.org/)。与 Java 客户端类似，我们允许使用环境变量来自定义日志相关的配置：
+
+* `rocketmq_log_level`：日志输出级别，默认为 INFO。
+* `rocketmq_log_root`
+  ：日志输出的根目录。默认路径为 `$HOME/logs/rocketmq`，因此完整路径为 `$HOME/logs/rocketmq/rocketmq-client.log`。
+* `rocketmq_log_file_maxIndex`：要保留的日志文件的最大数量。默认值为 10，单个日志文件的大小限制为 64 MB。暂不支持调整。
+
+如果你想使用自定义的 `LoggerFactory`，可以使用 `MqLogManager.UseLoggerFactory` 方法来配置。
 
 ```csharp
 var loggerFactory = LoggerFactory.Create(builder =>
 {
     builder
-        .AddFilter("Org.Apache.Rocketmq", LogLevel.Debug)
+        .AddFilter("Org.Apache.Rocketmq", LogLevel.Warning)
         .AddConsole();
 });
 MqLogManager.UseLoggerFactory(loggerFactory);
