@@ -63,7 +63,8 @@ public class ConsumeTask implements Callable<ConsumeResult> {
         try {
             consumeResult = messageListener.consume(messageView);
         } catch (Throwable t) {
-            log.error("Message listener raised an exception while consuming messages, clientId={}", clientId, t);
+            log.error("Message listener raised an exception while consuming messages, clientId={}, mq={}, " +
+                "messageId={}", clientId, messageView.getMessageQueue(), messageView.getMessageId(), t);
             // If exception was thrown during the period of message consumption, mark it as failure.
             consumeResult = ConsumeResult.FAILURE;
         }
