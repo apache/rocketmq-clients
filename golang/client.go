@@ -657,3 +657,6 @@ func (cli *defaultClient) onPrintThreadStackTraceCommand(endpoints *v2.Endpoints
 		}
 	}(nonce)
 }
+func PrtVersion() string {
+	return "xxx"
+}
