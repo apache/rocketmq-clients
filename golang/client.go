@@ -102,6 +102,11 @@ func (cs *defaultClientSession) startUp() {
 	cs.cli.log.Infof("defaultClientSession is startUp! endpoints=%v", cs.endpoints)
 	go func() {
 		for {
+			select {
+			case <-cs.cli.done:
+				return
+			default:
+			}
 			// ensure that observer is present, if not wait for it to be regenerated on publish.
 			observer, acquired_observer := cs._acquire_observer()
 			if !acquired_observer {
