@@ -92,7 +92,7 @@ class StatsManager final {
   void AddMeasure(Measure<MeasureT> measure) ABSL_LOCKS_EXCLUDED(mu_);
 
   // Returns a handle that can be used to retrieve data for 'descriptor' (which
-  // may point to a new or re-used ViewInformation).
+  // may point to a new or reused ViewInformation).
   ViewInformation* AddConsumer(const ViewDescriptor& descriptor)
       ABSL_LOCKS_EXCLUDED(mu_);
 
