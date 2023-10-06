@@ -207,7 +207,7 @@ message Publishing {
   int32 max_body_size = 2;
 
   // When `validate_message_type` flag set `false`, no need to validate message's type
-  // with messageQueue's `accept_message_types` before publising.
+  // with messageQueue's `accept_message_types` before publishing.
   bool validate_message_type = 3;
 }
 
