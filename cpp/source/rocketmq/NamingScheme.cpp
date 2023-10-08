@@ -83,7 +83,23 @@ std::string NamingScheme::buildAddress(const std::vector<std::string>& list) {
   if (!ipv6.empty()) {
     return "ipv6:" + absl::StrJoin(ipv4, ",", absl::PairFormatter(":"));
   }
-  return std::string();
+  return {};
+}
+
+bool NamingScheme::accept(absl::string_view endpoint) {
+  if (absl::StartsWith(endpoint, DnsPrefix)) {
+    return true;
+  }
+
+  if (absl::StartsWith(endpoint, IPv4Prefix)) {
+    return true;
+  }
+  
+  if (absl::StartsWith(endpoint, IPv6Prefix)) {
+    return true;
+  }
+
+  return false;
 }
 
 ROCKETMQ_NAMESPACE_END
