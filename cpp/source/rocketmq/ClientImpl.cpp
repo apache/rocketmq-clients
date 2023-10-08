@@ -70,7 +70,7 @@ rmq::Endpoints ClientImpl::accessPoint() {
     host_port = absl::StripPrefix(endpoints, NamingScheme::DnsPrefix);
   }
 
-  std::vector<std::string> pairs = absl::StrSplit(host_port, ';', absl::SkipWhitespace());
+  std::vector<std::string> pairs = absl::StrSplit(host_port, absl::ByAnyChar(";,"), absl::SkipWhitespace());
   // Now endpoint is in form of host:port
   for (auto& endpoint : pairs) {
     std::reverse(endpoint.begin(), endpoint.end());
