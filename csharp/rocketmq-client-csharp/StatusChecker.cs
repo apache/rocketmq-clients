@@ -16,7 +16,7 @@
  */
 
 using Google.Protobuf;
-using NLog;
+using Microsoft.Extensions.Logging;
 using Org.Apache.Rocketmq.Error;
 using Proto = Apache.Rocketmq.V2;
 
@@ -24,7 +24,7 @@ namespace Org.Apache.Rocketmq
 {
     public static class StatusChecker
     {
-        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+        private static readonly ILogger Logger = MqLogManager.CreateLogger(typeof(StatusChecker).FullName);
 
         public static void Check(Proto.Status status, IMessage request, string requestId)
         {
@@ -101,7 +101,7 @@ namespace Org.Apache.Rocketmq
                 case Proto.Code.FailedToConsumeMessage:
                 case Proto.Code.Unspecified:
                 default:
-                    Logger.Warn($"Unrecognized status code={statusCode}, requestId={requestId}, statusMessage={statusMessage}");
+                    Logger.LogWarning($"Unrecognized status code={statusCode}, requestId={requestId}, statusMessage={statusMessage}");
                     throw new UnsupportedException((int)statusCode, requestId, statusMessage);
             }
         }

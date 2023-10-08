@@ -16,8 +16,8 @@
  */
 
 using System;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using NLog;
 using Org.Apache.Rocketmq;
 
 namespace tests
@@ -25,20 +25,45 @@ namespace tests
     [TestClass]
     public class MqLogManagerTest
     {
-        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+        private static readonly ILogger DefaultLogger1;
+        private static readonly ILogger DefaultLogger2;
+        private static readonly ILogger ConsoleLogger1;
+        private static readonly ILogger ConsoleLogger2;
+
+        static MqLogManagerTest()
+        {
+            DefaultLogger1 = MqLogManager.CreateLogger<MqLogManagerTest>();
+            DefaultLogger2 = MqLogManager.CreateLogger("MqLogManagerTest2");
+
+            var loggerFactory = LoggerFactory.Create(
+                builder => builder
+                    .AddFilter("tests", LogLevel.Information)
+                    .AddConsole());
+            MqLogManager.UseLoggerFactory(loggerFactory);
+            ConsoleLogger1 = MqLogManager.CreateLogger<MqLogManagerTest>();
+            ConsoleLogger2 = MqLogManager.CreateLogger("MqLogManagerTest2");
+        }
 
         [TestMethod]
         public void TestLog()
         {
-            Logger.Trace("This is a trace message.");
-            Logger.Debug("This is a debug message.");
-            Logger.Info("This is an info message.");
-            Logger.Warn("This is a warn message.");
-            Logger.Error("This is an error message.");
-            Logger.Fatal("This is a fatal message.");
+            TestLog(DefaultLogger1);
+            TestLog(DefaultLogger2);
+            TestLog(ConsoleLogger1);
+            TestLog(ConsoleLogger2);
+        }
 
-            Logger.Error(new Exception("foobar"), "this is an error message with exception.");
-            Logger.Fatal(new Exception("foobar"), "this is a fatal message with exception.");
+        private void TestLog(ILogger logger)
+        {
+            logger.LogTrace("This is a trace message.");
+            logger.LogDebug("This is a debug message.");
+            logger.LogInformation("This is an info message.");
+            logger.LogWarning("This is a warn message.");
+            logger.LogError("This is an error message.");
+            logger.LogCritical("This is a critical message.");
+
+            logger.LogError(new Exception("foobar"), "this is an error message with exception.");
+            logger.LogCritical(new Exception("foobar"), "this is a critical message with exception.");
         }
     }
 }

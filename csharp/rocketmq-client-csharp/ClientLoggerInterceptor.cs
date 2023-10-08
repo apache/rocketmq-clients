@@ -19,14 +19,14 @@ using System;
 using System.Threading.Tasks;
 using Grpc.Core;
 using Grpc.Core.Interceptors;
-using NLog;
+using Microsoft.Extensions.Logging;
 
 namespace Org.Apache.Rocketmq
 {
     public class ClientLoggerInterceptor : Interceptor
     {
 
-        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+        private static readonly ILogger Logger = MqLogManager.CreateLogger<ClientLoggerInterceptor>();
 
         public override TResponse BlockingUnaryCall<TRequest, TResponse>(
             TRequest request,
@@ -55,7 +55,7 @@ namespace Org.Apache.Rocketmq
         private async Task<TResponse> HandleResponse<TResponse>(Task<TResponse> t)
         {
             var response = await t;
-            Logger.Trace($"Response received: {response}");
+            Logger.LogTrace($"Response received: {response}");
             return response;
         }
 
@@ -94,7 +94,7 @@ namespace Org.Apache.Rocketmq
             where TRequest : class
             where TResponse : class
         {
-            Logger.Trace($"Starting call. Type: {method.Type}. Request: {typeof(TRequest)}. Response: {typeof(TResponse)}");
+            Logger.LogTrace($"Starting call. Type: {method.Type}. Request: {typeof(TRequest)}. Response: {typeof(TResponse)}");
         }
 
         private void AddCallerMetadata<TRequest, TResponse>(ref ClientInterceptorContext<TRequest, TResponse> context)

@@ -19,14 +19,14 @@ using System;
 using System.Collections.Concurrent;
 using System.Linq;
 using Google.Protobuf.WellKnownTypes;
-using NLog;
+using Microsoft.Extensions.Logging;
 using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
     public class PublishingSettings : Settings
     {
-        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+        private static readonly ILogger Logger = MqLogManager.CreateLogger<PublishingSettings>();
 
         private volatile int _maxBodySizeBytes = 4 * 1024 * 1024;
         private volatile bool _validateMessageType = true;
@@ -54,7 +54,7 @@ namespace Org.Apache.Rocketmq
         {
             if (Proto.Settings.PubSubOneofCase.Publishing != settings.PubSubCase)
             {
-                Logger.Error($"[Bug] Issued settings does not match with the client type, clientId={ClientId}, " +
+                Logger.LogError($"[Bug] Issued settings does not match with the client type, clientId={ClientId}, " +
                              $"pubSubCase={settings.PubSubCase}, clientType={ClientType}");
                 return;
             }

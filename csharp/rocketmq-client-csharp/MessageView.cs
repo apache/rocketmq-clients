@@ -19,8 +19,7 @@ using Proto = Apache.Rocketmq.V2;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
-using NLog;
+using Microsoft.Extensions.Logging;
 
 namespace Org.Apache.Rocketmq
 {
@@ -29,7 +28,7 @@ namespace Org.Apache.Rocketmq
     /// </summary>
     public class MessageView
     {
-        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+        private static readonly ILogger Logger = MqLogManager.CreateLogger<MessageView>();
 
         internal readonly MessageQueue MessageQueue;
         internal readonly string ReceiptHandle;
@@ -125,7 +124,7 @@ namespace Org.Apache.Rocketmq
                 case Proto.DigestType.Unspecified:
                 default:
                     {
-                        Logger.Error(
+                        Logger.LogError(
                             $"Unsupported message body digest algorithm," +
                             $"digestType={type}, topic={topic}, messageId={messageId}");
                         break;
@@ -148,7 +147,7 @@ namespace Org.Apache.Rocketmq
                 case Proto.Encoding.Unspecified:
                 default:
                     {
-                        Logger.Error($"Unsupported message encoding algorithm," +
+                        Logger.LogError($"Unsupported message encoding algorithm," +
                                      $" topic={topic}, messageId={messageId}, bodyEncoding={bodyEncoding}");
                         break;
                     }

@@ -16,16 +16,15 @@
  */
 
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
-using NLog;
+using Microsoft.Extensions.Logging;
 using Org.Apache.Rocketmq;
 
 namespace examples
 {
     internal static class ProducerFifoMessageExample
     {
-        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+        private static readonly ILogger Logger = MqLogManager.CreateLogger(typeof(ProducerFifoMessageExample).FullName);
 
         internal static async Task QuickStart()
         {
@@ -67,7 +66,7 @@ namespace examples
                 .Build();
 
             var sendReceipt = await producer.Send(message);
-            Logger.Info($"Send message successfully, sendReceipt={sendReceipt}");
+            Logger.LogInformation($"Send message successfully, sendReceipt={sendReceipt}");
 
             // Close the producer if you don't need it anymore.
             await producer.DisposeAsync();

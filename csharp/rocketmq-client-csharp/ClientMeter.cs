@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-using NLog;
+using Microsoft.Extensions.Logging;
 using OpenTelemetry.Metrics;
 
 namespace Org.Apache.Rocketmq
 {
     public class ClientMeter
     {
-        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+        private static readonly ILogger Logger = MqLogManager.CreateLogger<ClientMeter>();
 
         public ClientMeter(Endpoints endpoints, MeterProvider meterProvider, string clientId)
         {
@@ -58,9 +58,9 @@ namespace Org.Apache.Rocketmq
                 return;
             }
 
-            Logger.Info($"Begin to shutdown the client meter, clientId={ClientId}, endpoints={Endpoints}");
+            Logger.LogInformation($"Begin to shutdown the client meter, clientId={ClientId}, endpoints={Endpoints}");
             MeterProvider.Shutdown();
-            Logger.Info($"Shutdown the client meter successfully, clientId={ClientId}, endpoints={Endpoints}");
+            Logger.LogInformation($"Shutdown the client meter successfully, clientId={ClientId}, endpoints={Endpoints}");
         }
 
         public bool Satisfy(Metric metric)
