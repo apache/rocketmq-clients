@@ -52,3 +52,11 @@ cc_test(
     ],
     deps = base_deps,
 )
+
+cc_test(
+    name = "consume_message_service_test",
+    srcs = [
+        "ConsumeMessageServiceTest.cpp",
+    ],
+    deps = base_deps,
+)
