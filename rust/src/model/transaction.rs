@@ -102,11 +102,11 @@ impl TransactionImpl {
 #[async_trait]
 impl Transaction for TransactionImpl {
     async fn commit(mut self) -> Result<(), ClientError> {
-        return self.end_transaction(TransactionResolution::COMMIT).await;
+        self.end_transaction(TransactionResolution::COMMIT).await
     }
 
     async fn rollback(mut self) -> Result<(), ClientError> {
-        return self.end_transaction(TransactionResolution::ROLLBACK).await;
+        self.end_transaction(TransactionResolution::ROLLBACK).await
     }
 
     fn message_id(&self) -> &str {

@@ -175,6 +175,19 @@ impl SimpleConsumer {
         self.client.ack_message(ack_entry).await?;
         Ok(())
     }
+
+    pub async fn change_invisible_duration(
+        &self,
+        ack_entry: &(impl AckMessageEntry + 'static),
+        invisible_duration: Duration,
+    ) -> Result<String, ClientError> {
+        self.client
+            .change_invisible_duration(
+                ack_entry,
+                prost_types::Duration::try_from(invisible_duration).unwrap(),
+            )
+            .await
+    }
 }
 
 #[cfg(test)]

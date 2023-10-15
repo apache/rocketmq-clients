@@ -63,7 +63,9 @@ async fn main() {
 
     for message in messages {
         println!("receive message: {:?}", message);
-        // ack message to rocketmq proxy
+
+        // Do your business logic here
+        // And then acknowledge the message to the RocketMQ proxy if everything is okay
         let ack_result = consumer.ack(&message).await;
         if ack_result.is_err() {
             eprintln!(
@@ -72,6 +74,19 @@ async fn main() {
                 ack_result.unwrap_err()
             );
         }
+
+        // Otherwise, you can retry this message later by changing the invisible duration
+        //
+        // let change_invisible_duration_result = consumer
+        //     .change_invisible_duration(&message, Duration::from_secs(10))
+        //     .await;
+        // if change_invisible_duration_result.is_err() {
+        //     eprintln!(
+        //         "ack message {} failed: {:?}",
+        //         message.message_id(),
+        //         change_invisible_duration_result.unwrap_err()
+        //     );
+        // }
     }
 
     // shutdown the simple consumer when you don't need it anymore.

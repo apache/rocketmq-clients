@@ -33,7 +33,8 @@ use crate::error::ErrorKind;
 use crate::model::common::Endpoints;
 use crate::pb::telemetry_command::Command;
 use crate::pb::{
-    AckMessageRequest, AckMessageResponse, EndTransactionRequest, EndTransactionResponse,
+    AckMessageRequest, AckMessageResponse, ChangeInvisibleDurationRequest,
+    ChangeInvisibleDurationResponse, EndTransactionRequest, EndTransactionResponse,
     HeartbeatRequest, HeartbeatResponse, NotifyClientTerminationRequest,
     NotifyClientTerminationResponse, QueryRouteRequest, QueryRouteResponse, ReceiveMessageRequest,
     ReceiveMessageResponse, SendMessageRequest, SendMessageResponse, TelemetryCommand,
@@ -49,6 +50,7 @@ const OPERATION_HEARTBEAT: &str = "rpc.heartbeat";
 const OPERATION_SEND_MESSAGE: &str = "rpc.send_message";
 const OPERATION_RECEIVE_MESSAGE: &str = "rpc.receive_message";
 const OPERATION_ACK_MESSAGE: &str = "rpc.ack_message";
+const OPERATION_CHANGE_INVISIBLE_DURATION: &str = "rpc.change_invisible_duration";
 const OPERATION_END_TRANSACTION: &str = "rpc.end_transaction";
 const OPERATION_NOTIFY_CLIENT_TERMINATION: &str = "rpc.notify_client_termination";
 
@@ -75,6 +77,10 @@ pub(crate) trait RPCClient {
         &mut self,
         request: AckMessageRequest,
     ) -> Result<AckMessageResponse, ClientError>;
+    async fn change_invisible_duration(
+        &mut self,
+        request: ChangeInvisibleDurationRequest,
+    ) -> Result<ChangeInvisibleDurationResponse, ClientError>;
     async fn end_transaction(
         &mut self,
         request: EndTransactionRequest,
@@ -85,7 +91,6 @@ pub(crate) trait RPCClient {
     ) -> Result<NotifyClientTerminationResponse, ClientError>;
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct Session {
     logger: Logger,
@@ -353,7 +358,6 @@ impl Session {
         }
     }
 
-    #[allow(dead_code)]
     pub(crate) fn is_started(&self) -> bool {
         self.shutdown_tx.is_some()
     }
@@ -489,6 +493,26 @@ impl RPCClient for Session {
         Ok(response.into_inner())
     }
 
+    async fn change_invisible_duration(
+        &mut self,
+        request: ChangeInvisibleDurationRequest,
+    ) -> Result<ChangeInvisibleDurationResponse, ClientError> {
+        let request = self.sign(request);
+        let response = self
+            .stub
+            .change_invisible_duration(request)
+            .await
+            .map_err(|e| {
+                ClientError::new(
+                    ErrorKind::ClientInternal,
+                    "send rpc change_invisible_duration failed",
+                    OPERATION_CHANGE_INVISIBLE_DURATION,
+                )
+                .set_source(e)
+            })?;
+        Ok(response.into_inner())
+    }
+
     async fn end_transaction(
         &mut self,
         request: EndTransactionRequest,
@@ -571,7 +595,6 @@ impl SessionManager {
         };
     }
 
-    #[allow(dead_code)]
     pub(crate) async fn get_all_sessions(&self) -> Result<Vec<Session>, ClientError> {
         let session_map = self.session_map.lock().await;
         let mut sessions = Vec::new();
