@@ -34,12 +34,12 @@ use crate::model::message::{AckMessageEntry, MessageView};
 use crate::model::transaction::{TransactionChecker, TransactionResolution};
 use crate::pb;
 use crate::pb::receive_message_response::Content;
-use crate::pb::telemetry_command::Command::RecoverOrphanedTransactionCommand;
+use crate::pb::telemetry_command::Command::{RecoverOrphanedTransactionCommand, Settings};
 use crate::pb::{
-    AckMessageRequest, AckMessageResultEntry, Code, EndTransactionRequest, FilterExpression,
-    HeartbeatRequest, HeartbeatResponse, Message, MessageQueue, NotifyClientTerminationRequest,
-    QueryRouteRequest, ReceiveMessageRequest, Resource, SendMessageRequest, Status,
-    TelemetryCommand, TransactionSource,
+    AckMessageRequest, AckMessageResultEntry, ChangeInvisibleDurationRequest, Code,
+    EndTransactionRequest, FilterExpression, HeartbeatRequest, HeartbeatResponse, Message,
+    MessageQueue, NotifyClientTerminationRequest, QueryRouteRequest, ReceiveMessageRequest,
+    Resource, SendMessageRequest, Status, TelemetryCommand, TransactionSource,
 };
 #[double]
 use crate::session::SessionManager;
@@ -282,6 +282,7 @@ impl Client {
                     ))
                 }
             }
+            Settings(_) => Ok(()),
             _ => Err(ClientError::new(
                 ErrorKind::Config,
                 "receive telemetry command but there is no handler",
@@ -291,7 +292,6 @@ impl Client {
         };
     }
 
-    #[allow(dead_code)]
     pub(crate) fn client_id(&self) -> &str {
         &self.id
     }
@@ -378,7 +378,6 @@ impl Client {
         })
     }
 
-    #[allow(dead_code)]
     pub(crate) async fn topic_route(
         &self,
         topic: &str,
@@ -461,8 +460,7 @@ impl Client {
         let result = self.query_topic_route(rpc_client, topic).await;
 
         // send result to all waiters
-        if result.is_ok() {
-            let route = result.unwrap();
+        if let Ok(route) = result {
             debug!(
                 self.logger,
                 "query route for topic={} success: route={:?}", topic, route
@@ -518,7 +516,6 @@ impl Client {
         Ok(response)
     }
 
-    #[allow(dead_code)]
     pub(crate) async fn send_message(
         &self,
         endpoints: &Endpoints,
@@ -547,7 +544,6 @@ impl Client {
             .collect())
     }
 
-    #[allow(dead_code)]
     pub(crate) async fn receive_message(
         &self,
         endpoints: &Endpoints,
@@ -608,7 +604,6 @@ impl Client {
         Ok(messages)
     }
 
-    #[allow(dead_code)]
     pub(crate) async fn ack_message<T: AckMessageEntry + 'static>(
         &self,
         ack_entry: &T,
@@ -649,6 +644,51 @@ impl Client {
         Self::handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
         Ok(response.entries)
     }
+
+    pub(crate) async fn change_invisible_duration<T: AckMessageEntry + 'static>(
+        &self,
+        ack_entry: &T,
+        invisible_duration: Duration,
+    ) -> Result<String, ClientError> {
+        let result = self
+            .change_invisible_duration_inner(
+                self.get_session_with_endpoints(ack_entry.endpoints())
+                    .await
+                    .unwrap(),
+                ack_entry.topic(),
+                ack_entry.receipt_handle(),
+                invisible_duration,
+                ack_entry.message_id(),
+            )
+            .await?;
+        Ok(result)
+    }
+
+    pub(crate) async fn change_invisible_duration_inner<T: RPCClient + 'static>(
+        &self,
+        mut rpc_client: T,
+        topic: String,
+        receipt_handle: String,
+        invisible_duration: Duration,
+        message_id: String,
+    ) -> Result<String, ClientError> {
+        let request = ChangeInvisibleDurationRequest {
+            group: Some(Resource {
+                name: self.option.group.as_ref().unwrap().to_string(),
+                resource_namespace: self.option.namespace.to_string(),
+            }),
+            topic: Some(Resource {
+                name: topic,
+                resource_namespace: self.option.namespace.to_string(),
+            }),
+            receipt_handle,
+            invisible_duration: Some(invisible_duration),
+            message_id,
+        };
+        let response = rpc_client.change_invisible_duration(request).await?;
+        Self::handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
+        Ok(response.receipt_handle)
+    }
 }
 
 #[cfg(test)]
@@ -668,9 +708,10 @@ pub(crate) mod tests {
     use crate::model::transaction::TransactionResolution;
     use crate::pb::receive_message_response::Content;
     use crate::pb::{
-        AckMessageEntry, AckMessageResponse, Code, EndTransactionResponse, FilterExpression,
-        HeartbeatResponse, Message, MessageQueue, QueryRouteResponse, ReceiveMessageResponse,
-        Resource, SendMessageResponse, Status, SystemProperties, TelemetryCommand,
+        AckMessageEntry, AckMessageResponse, ChangeInvisibleDurationResponse, Code,
+        EndTransactionResponse, FilterExpression, HeartbeatResponse, Message, MessageQueue,
+        QueryRouteResponse, ReceiveMessageResponse, Resource, SendMessageResponse, Status,
+        SystemProperties, TelemetryCommand,
     };
     use crate::session;
 
@@ -1043,6 +1084,33 @@ pub(crate) mod tests {
             .await;
         assert!(ack_result.is_ok());
         assert_eq!(ack_result.unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn client_change_invisible_duration() {
+        let response = Ok(ChangeInvisibleDurationResponse {
+            status: Some(Status {
+                code: Code::Ok as i32,
+                message: "Success".to_string(),
+            }),
+            receipt_handle: "receipt_handle".to_string(),
+        });
+        let mut mock = session::MockRPCClient::new();
+        mock.expect_change_invisible_duration()
+            .return_once(|_| Box::pin(futures::future::ready(response)));
+
+        let client = new_client_for_test();
+        let change_invisible_duration_result = client
+            .change_invisible_duration_inner(
+                mock,
+                "test_topic".to_string(),
+                "receipt_handle".to_string(),
+                prost_types::Duration::default(),
+                "message_id".to_string(),
+            )
+            .await;
+        assert!(change_invisible_duration_result.is_ok());
+        assert_eq!(change_invisible_duration_result.unwrap(), "receipt_handle");
     }
 
     #[tokio::test]

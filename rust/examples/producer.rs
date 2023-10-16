@@ -59,7 +59,7 @@ async fn main() {
     // shutdown the producer when you don't need it anymore.
     // you should shutdown it manually to gracefully stop and unregister from server
     let shutdown_result = producer.shutdown().await;
-    if shutdown_result.is_ok() {
+    if shutdown_result.is_err() {
         eprintln!(
             "producer shutdown failed: {:?}",
             shutdown_result.unwrap_err()
