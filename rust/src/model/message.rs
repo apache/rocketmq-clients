@@ -71,7 +71,7 @@ impl Message for MessageImpl {
     }
 
     fn take_properties(&mut self) -> HashMap<String, String> {
-        self.properties.take().unwrap_or(HashMap::new())
+        self.properties.take().unwrap_or_default()
     }
 
     fn take_message_group(&mut self) -> Option<String> {
