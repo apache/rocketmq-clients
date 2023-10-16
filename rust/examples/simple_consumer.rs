@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#[cfg(feature = "example_change_invisible_duration")]
+use std::time::Duration;
+
 use rocketmq::conf::{ClientOption, SimpleConsumerOption};
 use rocketmq::model::common::{FilterExpression, FilterType};
 use rocketmq::SimpleConsumer;
@@ -66,27 +69,37 @@ async fn main() {
 
         // Do your business logic here
         // And then acknowledge the message to the RocketMQ proxy if everything is okay
-        let ack_result = consumer.ack(&message).await;
-        if ack_result.is_err() {
-            eprintln!(
-                "ack message {} failed: {:?}",
-                message.message_id(),
-                ack_result.unwrap_err()
-            );
+        #[cfg(feature = "example_ack")]
+        {
+            println!("ack message {}", message.message_id());
+            let ack_result = consumer.ack(&message).await;
+            if ack_result.is_err() {
+                eprintln!(
+                    "ack message {} failed: {:?}",
+                    message.message_id(),
+                    ack_result.unwrap_err()
+                );
+            }
         }
 
         // Otherwise, you can retry this message later by changing the invisible duration
-        //
-        // let change_invisible_duration_result = consumer
-        //     .change_invisible_duration(&message, Duration::from_secs(10))
-        //     .await;
-        // if change_invisible_duration_result.is_err() {
-        //     eprintln!(
-        //         "change message {} invisible duration failed: {:?}",
-        //         message.message_id(),
-        //         change_invisible_duration_result.unwrap_err()
-        //     );
-        // }
+        #[cfg(feature = "example_change_invisible_duration")]
+        {
+            println!(
+                "Delay next visible time of message {} by 10s",
+                message.message_id()
+            );
+            let change_invisible_duration_result = consumer
+                .change_invisible_duration(&message, Duration::from_secs(10))
+                .await;
+            if change_invisible_duration_result.is_err() {
+                eprintln!(
+                    "change message {} invisible duration failed: {:?}",
+                    message.message_id(),
+                    change_invisible_duration_result.unwrap_err()
+                );
+            }
+        }
     }
 
     // shutdown the simple consumer when you don't need it anymore.
