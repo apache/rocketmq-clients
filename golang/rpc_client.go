@@ -100,8 +100,8 @@ func (rc *rpcClient) Close() {}
 
 func (rc *rpcClient) GracefulStop() error {
 	rc.mux.Lock()
-	sugarBaseLogger.Warnf("close rpc client, target=%s", rc.target)
 	closeResult := rc.conn.Close()
+	sugarBaseLogger.Warnf("close rpc client, target=%s", rc.target)
 	rc.mux.Unlock()
 	return closeResult
 }
