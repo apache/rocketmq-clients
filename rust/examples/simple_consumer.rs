@@ -82,7 +82,7 @@ async fn main() {
         //     .await;
         // if change_invisible_duration_result.is_err() {
         //     eprintln!(
-        //         "ack message {} failed: {:?}",
+        //         "change message {} invisible duration failed: {:?}",
         //         message.message_id(),
         //         change_invisible_duration_result.unwrap_err()
         //     );

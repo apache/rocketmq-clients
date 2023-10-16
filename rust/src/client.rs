@@ -460,8 +460,7 @@ impl Client {
         let result = self.query_topic_route(rpc_client, topic).await;
 
         // send result to all waiters
-        if result.is_ok() {
-            let route = result.unwrap();
+        if let Ok(route) = result {
             debug!(
                 self.logger,
                 "query route for topic={} success: route={:?}", topic, route

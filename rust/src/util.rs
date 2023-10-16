@@ -92,7 +92,7 @@ pub(crate) fn build_producer_settings(
     let topics = option
         .topics()
         .clone()
-        .unwrap_or(vec![])
+        .unwrap_or_default()
         .iter()
         .map(|topic| Resource {
             name: topic.to_string(),
