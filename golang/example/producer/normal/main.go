@@ -39,16 +39,20 @@ const (
 func main() {
 	os.Setenv("mq.consoleAppender.enabled", "true")
 	rmq_client.ResetLogger()
+
 	// In most case, you don't need to create many producers, singleton pattern is more recommended.
-	producer, err := rmq_client.NewProducer(&rmq_client.Config{
-		Endpoint: Endpoint,
-		Credentials: &credentials.SessionCredentials{
-			AccessKey:    AccessKey,
-			AccessSecret: SecretKey,
+	producer, err := rmq_client.NewProducer(
+		&rmq_client.Config{
+			Endpoint: Endpoint,
+			Credentials: &credentials.SessionCredentials{
+				AccessKey:    AccessKey,
+				AccessSecret: SecretKey,
+			},
 		},
-	},
 		rmq_client.WithTopics(Topic),
+		rmq_client.WithEnableTls(false),
 	)
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -60,7 +64,7 @@ func main() {
 	// graceful stop producer
 	defer producer.GracefulStop()
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 1; i++ {
 		// new a message
 		msg := &rmq_client.Message{
 			Topic: Topic,

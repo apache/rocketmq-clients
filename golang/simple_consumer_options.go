@@ -58,10 +58,12 @@ type simpleConsumerOptions struct {
 	subscriptionExpressions map[string]*FilterExpression
 	awaitDuration           time.Duration
 	clientFunc              NewClientFunc
+	enableTls               bool
 }
 
 var defaultSimpleConsumerOptions = simpleConsumerOptions{
 	clientFunc: NewClient,
+	enableTls:  false,
 }
 
 // A ConsumerOption sets options such as tag, etc.
@@ -96,6 +98,12 @@ func WithSubscriptionExpressions(subscriptionExpressions map[string]*FilterExpre
 func WithAwaitDuration(awaitDuration time.Duration) SimpleConsumerOption {
 	return newFuncSimpleConsumerOption(func(o *simpleConsumerOptions) {
 		o.awaitDuration = awaitDuration
+	})
+}
+
+func WithConsumerEnableTls(enableTls bool) SimpleConsumerOption {
+	return newFuncSimpleConsumerOption(func(o *simpleConsumerOptions) {
+		o.enableTls = enableTls
 	})
 }
 

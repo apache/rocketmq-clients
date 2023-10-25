@@ -121,7 +121,13 @@ var NewProducer = func(config *Config, opts ...ProducerOption) (Producer, error)
 	for _, opt := range opts {
 		opt.apply(po)
 	}
-	cli, err := po.clientFunc(config)
+	rpcOps := []RpcClientOption{}
+	if po.enableTls {
+	} else {
+		rpcOps = append(rpcOps, WithRpcClientConnOption(WithTLSConfig(nil)))
+	}
+	cli, err := po.clientFunc(config, WithRpcClientOptions(rpcOps...))
+
 	if err != nil {
 		return nil, err
 	}

@@ -33,6 +33,7 @@ type producerOptions struct {
 	maxAttempts int32
 	topics      []string
 	checker     *TransactionChecker
+	enableTls   bool
 }
 
 var defaultProducerOptions = producerOptions{
@@ -72,6 +73,12 @@ func WithClientFunc(f NewClientFunc) ProducerOption {
 func WithMaxAttempts(m int32) ProducerOption {
 	return newFuncProducerOption(func(o *producerOptions) {
 		o.maxAttempts = m
+	})
+}
+
+func WithEnableTls(enableTLs bool) ProducerOption {
+	return newFuncProducerOption(func(o *producerOptions) {
+		o.enableTls = enableTLs
 	})
 }
 

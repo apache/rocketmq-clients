@@ -21,11 +21,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/grpc/middleware/zaplog"
 	validator "github.com/go-playground/validator/v10"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var (
@@ -56,6 +56,7 @@ var NewClientConn = func(endpoint string, opts ...ConnOption) (ClientConn, error
 		opts:     defaultConnOptions,
 		validate: validator.New(),
 	}
+
 	if len(endpoint) == 0 {
 		return nil, ErrNoAvailableEndpoints
 	}
@@ -72,8 +73,11 @@ var NewClientConn = func(endpoint string, opts ...ConnOption) (ClientConn, error
 
 	client.ctx = ctx
 	client.cancel = cancel
-	client.creds = credentials.NewTLS(client.opts.TLS)
-
+	if client.opts.TLS == nil {
+		client.creds = insecure.NewCredentials()
+	} else {
+		client.creds = credentials.NewTLS(client.opts.TLS)
+	}
 	if client.opts.MaxCallSendMsgSize > 0 || client.opts.MaxCallRecvMsgSize > 0 {
 		if client.opts.MaxCallRecvMsgSize > 0 && client.opts.MaxCallSendMsgSize > client.opts.MaxCallRecvMsgSize {
 			return nil, fmt.Errorf("gRPC message recv limit (%d bytes) must be greater than send limit (%d bytes)", client.opts.MaxCallRecvMsgSize, client.opts.MaxCallSendMsgSize)

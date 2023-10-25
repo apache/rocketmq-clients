@@ -339,7 +339,12 @@ var NewSimpleConsumer = func(config *Config, opts ...SimpleConsumerOption) (Simp
 	if len(config.ConsumerGroup) == 0 {
 		return nil, fmt.Errorf("consumerGroup could not be nil")
 	}
-	cli, err := scOpts.clientFunc(config)
+	rpcOps := []RpcClientOption{}
+	if scOpts.enableTls {
+	} else {
+		rpcOps = append(rpcOps, WithRpcClientConnOption(WithTLSConfig(nil)))
+	}
+	cli, err := scOpts.clientFunc(config, WithRpcClientOptions(rpcOps...))
 	if err != nil {
 		return nil, err
 	}

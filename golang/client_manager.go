@@ -57,6 +57,8 @@ type clientManagerOptions struct {
 
 	SYNC_SETTINGS_DELAY  time.Duration
 	SYNC_SETTINGS_PERIOD time.Duration
+
+	RpcOpts []RpcClientOption
 }
 
 var defaultClientManagerOptions = clientManagerOptions{
@@ -73,6 +75,9 @@ var defaultClientManagerOptions = clientManagerOptions{
 
 	SYNC_SETTINGS_DELAY:  time.Second * 1,
 	SYNC_SETTINGS_PERIOD: time.Minute * 5,
+	RpcOpts: []RpcClientOption{
+		WithRpcClientConnOption(WithTLSConfig(nil)),
+	},
 }
 
 type defaultClientManager struct {
@@ -85,12 +90,14 @@ type defaultClientManager struct {
 
 var _ = ClientManager(&defaultClientManager{})
 
-var NewDefaultClientManager = func() *defaultClientManager {
-	return &defaultClientManager{
+var NewDefaultClientManager = func(rpcOpts ...RpcClientOption) *defaultClientManager {
+	cm := &defaultClientManager{
 		rpcClientTable: make(map[string]RpcClient),
 		done:           make(chan struct{}),
 		opts:           defaultClientManagerOptions,
 	}
+	cm.opts.RpcOpts = rpcOpts
+	return cm
 }
 
 func (cm *defaultClientManager) RegisterClient(client Client) {
@@ -202,7 +209,8 @@ func (cm *defaultClientManager) getRpcClient(endpoints *v2.Endpoints) (RpcClient
 			return ret, nil
 		}
 	}
-	rpcClient, err := NewRpcClient(target)
+
+	rpcClient, err := NewRpcClient(target, cm.opts.RpcOpts...)
 	if err != nil {
 		return nil, err
 	}

@@ -51,18 +51,20 @@ func main() {
 	os.Setenv("mq.consoleAppender.enabled", "true")
 	rmq_client.ResetLogger()
 	// In most case, you don't need to create many consumers, singleton pattern is more recommended.
-	simpleConsumer, err := rmq_client.NewSimpleConsumer(&rmq_client.Config{
-		Endpoint:      Endpoint,
-		ConsumerGroup: ConsumerGroup,
-		Credentials: &credentials.SessionCredentials{
-			AccessKey:    AccessKey,
-			AccessSecret: SecretKey,
+	simpleConsumer, err := rmq_client.NewSimpleConsumer(
+		&rmq_client.Config{
+			Endpoint:      Endpoint,
+			ConsumerGroup: ConsumerGroup,
+			Credentials: &credentials.SessionCredentials{
+				AccessKey:    AccessKey,
+				AccessSecret: SecretKey,
+			},
 		},
-	},
 		rmq_client.WithAwaitDuration(awaitDuration),
 		rmq_client.WithSubscriptionExpressions(map[string]*rmq_client.FilterExpression{
 			Topic: rmq_client.SUB_ALL,
 		}),
+		rmq_client.WithConsumerEnableTls(false),
 	)
 	if err != nil {
 		log.Fatal(err)
