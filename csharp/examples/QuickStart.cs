@@ -15,12 +15,21 @@
  * limitations under the License.
  */
 
+using Microsoft.Extensions.Logging;
+using Org.Apache.Rocketmq;
+
 namespace examples
 {
     internal static class QuickStart
     {
         public static void Main()
         {
+            var loggerFactory = LoggerFactory.Create(
+                builder => builder
+                    .AddFilter("Org.Apache.Rocketmq", LogLevel.Warning)
+                    .AddFilter("examples", LogLevel.Information)
+                    .AddConsole());
+            MqLogManager.UseLoggerFactory(loggerFactory);
             // ProducerNormalMessageExample.QuickStart().Wait();
             // ProducerFifoMessageExample.QuickStart().Wait();
             // ProducerDelayMessageExample.QuickStart().Wait();

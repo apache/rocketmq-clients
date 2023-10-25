@@ -30,48 +30,57 @@ ROCKETMQ_NAMESPACE_BEGIN
 
 class PushConsumerImpl;
 
-class ConsumeMessageServiceImpl : public ConsumeMessageService,
-                                  public std::enable_shared_from_this<ConsumeMessageServiceImpl> {
+class ConsumeMessageServiceImpl
+    : public ConsumeMessageService,
+      public std::enable_shared_from_this<ConsumeMessageServiceImpl> {
 public:
   ConsumeMessageServiceImpl(std::weak_ptr<PushConsumerImpl> consumer,
-                            int thread_count,
-                            MessageListener message_listener);
+                            int thread_count, MessageListener message_listener);
 
   ~ConsumeMessageServiceImpl() override = default;
 
   /**
    * Make it noncopyable.
    */
-  ConsumeMessageServiceImpl(const ConsumeMessageServiceImpl& other) = delete;
-  ConsumeMessageServiceImpl& operator=(const ConsumeMessageServiceImpl& other) = delete;
+  ConsumeMessageServiceImpl(const ConsumeMessageServiceImpl &other) = delete;
+  ConsumeMessageServiceImpl &
+  operator=(const ConsumeMessageServiceImpl &other) = delete;
 
   void start() override;
 
   void shutdown() override;
 
-  MessageListener& listener() override {
-    return message_listener_;
-  }
+  MessageListener &listener() override { return message_listener_; }
 
-  bool preHandle(const Message& message) override;
+  bool preHandle(const Message &message) override;
 
-  bool postHandle(const Message& message, ConsumeResult result) override;
+  bool postHandle(const Message &message, ConsumeResult result) override;
 
   void submit(std::shared_ptr<ConsumeTask> task) override;
 
-  void dispatch(std::shared_ptr<ProcessQueue> process_queue, std::vector<MessageConstSharedPtr> messages) override;
+  void dispatch(std::shared_ptr<ProcessQueue> process_queue,
+                std::vector<MessageConstSharedPtr> messages) override;
 
-  void ack(const Message& message, std::function<void(const std::error_code&)> cb) override;
+  void ack(const Message &message,
+           std::function<void(const std::error_code &)> cb) override;
 
-  void nack(const Message& message, std::function<void(const std::error_code&)> cb) override;
+  void nack(const Message &message,
+            std::function<void(const std::error_code &)> cb) override;
 
-  void forward(const Message& message, std::function<void(const std::error_code&)> cb) override;
+  void forward(const Message &message,
+               std::function<void(const std::error_code &)> cb) override;
 
-  void schedule(std::shared_ptr<ConsumeTask> task, std::chrono::milliseconds delay) override;
+  void schedule(std::shared_ptr<ConsumeTask> task,
+                std::chrono::milliseconds delay) override;
 
   std::size_t maxDeliveryAttempt() override;
 
   std::weak_ptr<PushConsumerImpl> consumer() override;
+
+  /**
+   * Current state of the consume message service.
+   */
+  State state() const;
 
 protected:
   std::atomic<State> state_;

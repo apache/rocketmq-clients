@@ -27,12 +27,13 @@ use crate::error::{ClientError, ErrorKind};
 use crate::pb;
 use crate::pb::{Address, AddressScheme, MessageQueue};
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) enum ClientType {
     Producer = 1,
+    #[allow(dead_code)]
     PushConsumer = 2,
     SimpleConsumer = 3,
+    #[allow(dead_code)]
     PullConsumer = 4,
 }
 

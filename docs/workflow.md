@@ -42,7 +42,7 @@ The publishing procedure is as follows:
 1. Check if topic route is cached before or not.
 2. If topic route is not cached, then try to fetch it from server, otherwise go to step 4.
 3. Return failure and end the current process if topic route is failed to fetch, otherwise cache the topic route and go to the next step.
-4. Select writable candicate message queues from topic route to publish meessage.
+4. Select writable candicate message queues from topic route to publish message.
 5. Return failure and end the current process if the type of message queue is not matched with message type.
 6. Attempt to publish message.
 7. Return success and end the current process if message is published successfully.
@@ -75,13 +75,17 @@ The receiving procedure is as follows:
 1. Fetch the latest queue assignment from server.
 2. If flow control occurs during message receiving, consumer will retry after 20 milliseconds, otherwise go to step3.
 3. Cache message and trigger the consumption(Once the lifecycle of message is over, it will removed from cache immediately).
-4. Check the cache is full, consumer will try to receive message immediately, otherwise retry after 1 seconds.
+4. Check if the cache is full. If the cache is full, the consumer will attempt to receive the message after 1 second; otherwise, it will retry immediately.
 
 ### Message Consumption in Push Consumer(Non-FIFO)
 
 <div align="center">
 <img src="./artwork/message_consumption_in_push_consumer_non_FIFO.png" width="50%">
 </div>
+
+In push consumer, we provide retry policies for acknowledging messages and changing the invisible time to ensure the reliability of message processing.
+
+When calling `ackMessage` or `changeInvisibleDuration` methods, if receiving a non-OK response code, we will log the error and retry later. We will retry the method with an increasing attempt value until it succeeds. If receiving an `INVALID_RECEIPT_HANDLE` response code, we will not retry and directly return the exception to the caller.
 
 ### Message Consumption in Push Consumer(FIFO)
 

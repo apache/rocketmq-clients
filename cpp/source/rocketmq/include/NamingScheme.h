@@ -31,6 +31,8 @@ public:
 
   std::string buildAddress(const std::vector<std::string>& list);
 
+  bool accept(absl::string_view endpoint);
+
   static const char* DnsPrefix;
   static const char* IPv4Prefix;
   static const char* IPv6Prefix;

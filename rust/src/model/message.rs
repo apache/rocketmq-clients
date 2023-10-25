@@ -59,7 +59,7 @@ impl Message for MessageImpl {
     }
 
     fn take_body(&mut self) -> Vec<u8> {
-        self.body.take().unwrap_or(vec![])
+        self.body.take().unwrap_or_default()
     }
 
     fn take_tag(&mut self) -> Option<String> {
@@ -67,11 +67,11 @@ impl Message for MessageImpl {
     }
 
     fn take_keys(&mut self) -> Vec<String> {
-        self.keys.take().unwrap_or(vec![])
+        self.keys.take().unwrap_or_default()
     }
 
     fn take_properties(&mut self) -> HashMap<String, String> {
-        self.properties.take().unwrap_or(HashMap::new())
+        self.properties.take().unwrap_or_default()
     }
 
     fn take_message_group(&mut self) -> Option<String> {

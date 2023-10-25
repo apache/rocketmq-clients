@@ -25,13 +25,13 @@ using Proto = Apache.Rocketmq.V2;
 using Grpc.Core;
 using Grpc.Core.Interceptors;
 using Grpc.Net.Client;
-using NLog;
+using Microsoft.Extensions.Logging;
 
 namespace Org.Apache.Rocketmq
 {
     public class RpcClient : IRpcClient
     {
-        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+        private static readonly ILogger Logger = MqLogManager.CreateLogger<RpcClient>();
         private readonly Proto::MessagingService.MessagingServiceClient _stub;
         private readonly GrpcChannel _channel;
         private readonly string _target;
@@ -126,17 +126,17 @@ namespace Org.Apache.Rocketmq
             var deadline = DateTime.UtcNow.Add(timeout);
             var callOptions = new CallOptions(metadata, deadline);
             var call = _stub.ReceiveMessage(request, callOptions);
-            Logger.Debug($"ReceiveMessageRequest has been written to {_target}");
+            Logger.LogDebug($"ReceiveMessageRequest has been written to {_target}");
             var result = new List<Proto::ReceiveMessageResponse>();
             var stream = call.ResponseStream;
             while (await stream.MoveNext())
             {
                 var entry = stream.Current;
-                Logger.Debug($"Got ReceiveMessageResponse {entry} from {_target}");
+                Logger.LogDebug($"Got ReceiveMessageResponse {entry} from {_target}");
                 result.Add(entry);
             }
 
-            Logger.Debug($"Receiving messages from {_target} completed");
+            Logger.LogDebug($"Receiving messages from {_target} completed");
             return result;
         }
 

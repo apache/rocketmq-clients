@@ -24,7 +24,14 @@
 ROCKETMQ_NAMESPACE_BEGIN
 
 StaticNameServerResolver::StaticNameServerResolver(absl::string_view name_server_list) {
-  std::vector<std::string> segments = absl::StrSplit(name_server_list, ';');
+  // If the given endpoint already follows gRPC naming scheme, https://github.com/grpc/grpc/blob/master/doc/naming.md,
+  // We should use it directly.
+  if (naming_scheme_.accept(name_server_list)) {
+    name_server_address_ = std::string(name_server_list.data(), name_server_list.size());
+    return;
+  }
+
+  std::vector<std::string> segments = absl::StrSplit(name_server_list, absl::ByAnyChar(",;"));
   name_server_address_ = naming_scheme_.buildAddress(segments);
   if (name_server_address_.empty()) {
     SPDLOG_WARN("Failed to create gRPC naming scheme compliant address from {}",

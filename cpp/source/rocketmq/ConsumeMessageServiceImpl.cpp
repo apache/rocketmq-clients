@@ -16,14 +16,16 @@
  */
 #include "ConsumeMessageServiceImpl.h"
 
+#include <atomic>
+
 #include "ConsumeStats.h"
 #include "ConsumeTask.h"
-#include "rocketmq/Logger.h"
-#include "spdlog/spdlog.h"
 #include "PushConsumerImpl.h"
 #include "Tag.h"
 #include "ThreadPoolImpl.h"
 #include "rocketmq/ErrorCode.h"
+#include "rocketmq/Logger.h"
+#include "spdlog/spdlog.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -41,14 +43,20 @@ void ConsumeMessageServiceImpl::start() {
   State expected = State::CREATED;
   if (state_.compare_exchange_strong(expected, State::STARTING, std::memory_order_relaxed)) {
     pool_->start();
+    state_.store(State::STARTED, std::memory_order_relaxed);
   }
 }
 
 void ConsumeMessageServiceImpl::shutdown() {
-  State expected = State::STOPPING;
-  if (state_.compare_exchange_strong(expected, State::STOPPED, std::memory_order_relaxed)) {
+  State expected = State::STARTED;
+  if (state_.compare_exchange_strong(expected, State::STOPPING, std::memory_order_relaxed)) {
     pool_->shutdown();
+    state_.store(State::STOPPED, std::memory_order_relaxed);
   }
+}
+
+State ConsumeMessageServiceImpl::state() const {
+  return state_.load(std::memory_order_relaxed);
 }
 
 void ConsumeMessageServiceImpl::dispatch(std::shared_ptr<ProcessQueue> process_queue,

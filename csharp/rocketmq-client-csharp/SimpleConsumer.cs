@@ -21,15 +21,15 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf.WellKnownTypes;
+using Microsoft.Extensions.Logging;
 using Proto = Apache.Rocketmq.V2;
-using NLog;
 using Org.Apache.Rocketmq.Error;
 
 namespace Org.Apache.Rocketmq
 {
     public class SimpleConsumer : Consumer, IAsyncDisposable, IDisposable
     {
-        private static readonly Logger Logger = MqLogManager.Instance.GetCurrentClassLogger();
+        private static readonly ILogger Logger = MqLogManager.CreateLogger<SimpleConsumer>();
         private readonly ConcurrentDictionary<string /* topic */, SubscriptionLoadBalancer> _subscriptionRouteDataCache;
         private readonly ConcurrentDictionary<string /* topic */, FilterExpression> _subscriptionExpressions;
         private readonly TimeSpan _awaitDuration;
@@ -79,9 +79,9 @@ namespace Org.Apache.Rocketmq
             try
             {
                 State = State.Starting;
-                Logger.Info($"Begin to start the rocketmq simple consumer, clientId={ClientId}");
+                Logger.LogInformation($"Begin to start the rocketmq simple consumer, clientId={ClientId}");
                 await base.Start();
-                Logger.Info($"The rocketmq simple consumer starts successfully, clientId={ClientId}");
+                Logger.LogInformation($"The rocketmq simple consumer starts successfully, clientId={ClientId}");
                 State = State.Running;
             }
             catch (Exception)
@@ -108,9 +108,9 @@ namespace Org.Apache.Rocketmq
             try
             {
                 State = State.Stopping;
-                Logger.Info($"Begin to shutdown the rocketmq simple consumer, clientId={ClientId}");
+                Logger.LogInformation($"Begin to shutdown the rocketmq simple consumer, clientId={ClientId}");
                 await base.Shutdown();
-                Logger.Info($"Shutdown the rocketmq simple consumer successfully, clientId={ClientId}");
+                Logger.LogInformation($"Shutdown the rocketmq simple consumer successfully, clientId={ClientId}");
                 State = State.Terminated;
             }
             catch (Exception)

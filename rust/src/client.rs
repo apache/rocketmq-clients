@@ -34,12 +34,12 @@ use crate::model::message::{AckMessageEntry, MessageView};
 use crate::model::transaction::{TransactionChecker, TransactionResolution};
 use crate::pb;
 use crate::pb::receive_message_response::Content;
-use crate::pb::telemetry_command::Command::RecoverOrphanedTransactionCommand;
+use crate::pb::telemetry_command::Command::{RecoverOrphanedTransactionCommand, Settings};
 use crate::pb::{
-    AckMessageRequest, AckMessageResultEntry, Code, EndTransactionRequest, FilterExpression,
-    HeartbeatRequest, HeartbeatResponse, Message, MessageQueue, QueryRouteRequest,
-    ReceiveMessageRequest, Resource, SendMessageRequest, Status, TelemetryCommand,
-    TransactionSource,
+    AckMessageRequest, AckMessageResultEntry, ChangeInvisibleDurationRequest, Code,
+    EndTransactionRequest, FilterExpression, HeartbeatRequest, HeartbeatResponse, Message,
+    MessageQueue, NotifyClientTerminationRequest, QueryRouteRequest, ReceiveMessageRequest,
+    Resource, SendMessageRequest, Status, TelemetryCommand, TransactionSource,
 };
 #[double]
 use crate::session::SessionManager;
@@ -55,6 +55,7 @@ pub(crate) struct Client {
     settings: TelemetryCommand,
     transaction_checker: Option<Box<TransactionChecker>>,
     telemetry_command_tx: Option<mpsc::Sender<pb::telemetry_command::Command>>,
+    shutdown_tx: Option<oneshot::Sender<()>>,
 }
 
 lazy_static::lazy_static! {
@@ -62,6 +63,8 @@ lazy_static::lazy_static! {
 }
 
 const OPERATION_CLIENT_NEW: &str = "client.new";
+const OPERATION_CLIENT_START: &str = "client.start";
+const OPERATION_CLIENT_SHUTDOWN: &str = "client.shutdown";
 const OPERATION_GET_SESSION: &str = "client.get_session";
 const OPERATION_QUERY_ROUTE: &str = "client.query_route";
 const OPERATION_HEARTBEAT: &str = "client.heartbeat";
@@ -102,11 +105,12 @@ impl Client {
             settings,
             transaction_checker: None,
             telemetry_command_tx: None,
+            shutdown_tx: None,
         })
     }
 
     pub(crate) fn is_started(&self) -> bool {
-        self.telemetry_command_tx.is_some()
+        self.shutdown_tx.is_some()
     }
 
     pub(crate) fn has_transaction_checker(&self) -> bool {
@@ -124,20 +128,27 @@ impl Client {
         let logger = self.logger.clone();
         let session_manager = self.session_manager.clone();
 
-        let group = self.option.group.to_string();
+        let group = self.option.group.clone();
         let namespace = self.option.namespace.to_string();
         let client_type = self.option.client_type.clone();
 
+        let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
+        self.shutdown_tx = Some(shutdown_tx);
+
         // send heartbeat and handle telemetry command
-        let (tx, mut rx) = mpsc::channel(16);
-        self.telemetry_command_tx = Some(tx);
-        let rpc_client = self.get_session().await?;
+        let (telemetry_command_tx, mut telemetry_command_rx) = mpsc::channel(16);
+        self.telemetry_command_tx = Some(telemetry_command_tx);
+        let rpc_client = self
+            .get_session()
+            .await
+            .map_err(|error| error.with_operation(OPERATION_CLIENT_START))?;
         let endpoints = self.access_endpoints.clone();
         let transaction_checker = self.transaction_checker.take();
         // give a placeholder
         if transaction_checker.is_some() {
             self.transaction_checker = Some(Box::new(|_, _| TransactionResolution::UNKNOWN));
         }
+
         tokio::spawn(async move {
             rpc_client.is_started();
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
@@ -178,17 +189,54 @@ impl Client {
                             debug!(logger,"send heartbeat to server success, peer={}",peer);
                         }
                     },
-                    command = rx.recv() => {
+                    command = telemetry_command_rx.recv() => {
                         if let Some(command) = command {
                             let result = Self::handle_telemetry_command(rpc_client.clone(), &transaction_checker, endpoints.clone(), command).await;
                             if let Err(error) = result {
-                                error!(logger, "handle telemetry command failed: {:?}", error)
+                                error!(logger, "handle telemetry command failed: {:?}", error);
                             }
                         }
                     },
+                    _ = &mut shutdown_rx => {
+                        debug!(logger, "receive shutdown signal, stop heartbeat task and telemetry command handler");
+                        break;
+                    }
                 }
             }
+            info!(
+                logger,
+                "heartbeat task and telemetry command handler are stopped"
+            );
         });
+        Ok(())
+    }
+
+    fn check_started(&self, operation: &'static str) -> Result<(), ClientError> {
+        if !self.is_started() {
+            return Err(ClientError::new(
+                ErrorKind::ClientIsNotRunning,
+                "client is not started",
+                operation,
+            )
+            .with_context("client_id", self.id.clone()));
+        }
+        Ok(())
+    }
+
+    pub(crate) async fn shutdown(mut self) -> Result<(), ClientError> {
+        self.check_started(OPERATION_CLIENT_SHUTDOWN)?;
+        let mut rpc_client = self.get_session().await?;
+        self.telemetry_command_tx = None;
+        if let Some(tx) = self.shutdown_tx.take() {
+            let _ = tx.send(());
+        }
+        let group = self.option.group.as_ref().map(|group| Resource {
+            name: group.to_string(),
+            resource_namespace: self.option.namespace.to_string(),
+        });
+        let response = rpc_client.notify_shutdown(NotifyClientTerminationRequest { group });
+        Self::handle_response_status(response.await?.status, OPERATION_CLIENT_SHUTDOWN)?;
+        self.session_manager.shutdown().await;
         Ok(())
     }
 
@@ -234,6 +282,7 @@ impl Client {
                     ))
                 }
             }
+            Settings(_) => Ok(()),
             _ => Err(ClientError::new(
                 ErrorKind::Config,
                 "receive telemetry command but there is no handler",
@@ -243,7 +292,6 @@ impl Client {
         };
     }
 
-    #[allow(dead_code)]
     pub(crate) fn client_id(&self) -> &str {
         &self.id
     }
@@ -268,14 +316,7 @@ impl Client {
     }
 
     pub(crate) async fn get_session(&self) -> Result<Session, ClientError> {
-        if !self.is_started() {
-            return Err(ClientError::new(
-                ErrorKind::ClientIsNotRunning,
-                "client is not started",
-                OPERATION_GET_SESSION,
-            )
-            .with_context("client_id", self.id.clone()));
-        }
+        self.check_started(OPERATION_GET_SESSION)?;
         let session = self
             .session_manager
             .get_or_create_session(
@@ -337,7 +378,6 @@ impl Client {
         })
     }
 
-    #[allow(dead_code)]
     pub(crate) async fn topic_route(
         &self,
         topic: &str,
@@ -348,8 +388,8 @@ impl Client {
                 return Ok(route);
             }
         }
-        self.topic_route_inner(self.get_session().await.unwrap(), topic)
-            .await
+        let rpc_client = self.get_session().await?;
+        self.topic_route_inner(rpc_client, topic).await
     }
 
     async fn query_topic_route<T: RPCClient + 'static>(
@@ -420,8 +460,7 @@ impl Client {
         let result = self.query_topic_route(rpc_client, topic).await;
 
         // send result to all waiters
-        if result.is_ok() {
-            let route = result.unwrap();
+        if let Ok(route) = result {
             debug!(
                 self.logger,
                 "query route for topic={} success: route={:?}", topic, route
@@ -461,22 +500,22 @@ impl Client {
 
     async fn heart_beat_inner<T: RPCClient + 'static>(
         mut rpc_client: T,
-        group: &str,
+        group: &Option<String>,
         namespace: &str,
         client_type: &ClientType,
     ) -> Result<HeartbeatResponse, ClientError> {
+        let group = group.as_ref().map(|group| Resource {
+            name: group.to_string(),
+            resource_namespace: namespace.to_string(),
+        });
         let request = HeartbeatRequest {
-            group: Some(Resource {
-                name: group.to_string(),
-                resource_namespace: namespace.to_string(),
-            }),
+            group,
             client_type: client_type.clone() as i32,
         };
         let response = rpc_client.heartbeat(request).await?;
         Ok(response)
     }
 
-    #[allow(dead_code)]
     pub(crate) async fn send_message(
         &self,
         endpoints: &Endpoints,
@@ -505,7 +544,6 @@ impl Client {
             .collect())
     }
 
-    #[allow(dead_code)]
     pub(crate) async fn receive_message(
         &self,
         endpoints: &Endpoints,
@@ -534,7 +572,7 @@ impl Client {
     ) -> Result<Vec<Message>, ClientError> {
         let request = ReceiveMessageRequest {
             group: Some(Resource {
-                name: self.option.group.to_string(),
+                name: self.option.group.as_ref().unwrap().to_string(),
                 resource_namespace: self.option.namespace.to_string(),
             }),
             message_queue: Some(message_queue),
@@ -566,7 +604,6 @@ impl Client {
         Ok(messages)
     }
 
-    #[allow(dead_code)]
     pub(crate) async fn ack_message<T: AckMessageEntry + 'static>(
         &self,
         ack_entry: &T,
@@ -594,7 +631,7 @@ impl Client {
     ) -> Result<Vec<AckMessageResultEntry>, ClientError> {
         let request = AckMessageRequest {
             group: Some(Resource {
-                name: self.option.group.to_string(),
+                name: self.option.group.as_ref().unwrap().to_string(),
                 resource_namespace: self.option.namespace.to_string(),
             }),
             topic: Some(Resource {
@@ -606,6 +643,51 @@ impl Client {
         let response = rpc_client.ack_message(request).await?;
         Self::handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
         Ok(response.entries)
+    }
+
+    pub(crate) async fn change_invisible_duration<T: AckMessageEntry + 'static>(
+        &self,
+        ack_entry: &T,
+        invisible_duration: Duration,
+    ) -> Result<String, ClientError> {
+        let result = self
+            .change_invisible_duration_inner(
+                self.get_session_with_endpoints(ack_entry.endpoints())
+                    .await
+                    .unwrap(),
+                ack_entry.topic(),
+                ack_entry.receipt_handle(),
+                invisible_duration,
+                ack_entry.message_id(),
+            )
+            .await?;
+        Ok(result)
+    }
+
+    pub(crate) async fn change_invisible_duration_inner<T: RPCClient + 'static>(
+        &self,
+        mut rpc_client: T,
+        topic: String,
+        receipt_handle: String,
+        invisible_duration: Duration,
+        message_id: String,
+    ) -> Result<String, ClientError> {
+        let request = ChangeInvisibleDurationRequest {
+            group: Some(Resource {
+                name: self.option.group.as_ref().unwrap().to_string(),
+                resource_namespace: self.option.namespace.to_string(),
+            }),
+            topic: Some(Resource {
+                name: topic,
+                resource_namespace: self.option.namespace.to_string(),
+            }),
+            receipt_handle,
+            invisible_duration: Some(invisible_duration),
+            message_id,
+        };
+        let response = rpc_client.change_invisible_duration(request).await?;
+        Self::handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
+        Ok(response.receipt_handle)
     }
 }
 
@@ -626,9 +708,10 @@ pub(crate) mod tests {
     use crate::model::transaction::TransactionResolution;
     use crate::pb::receive_message_response::Content;
     use crate::pb::{
-        AckMessageEntry, AckMessageResponse, Code, EndTransactionResponse, FilterExpression,
-        HeartbeatResponse, Message, MessageQueue, QueryRouteResponse, ReceiveMessageResponse,
-        Resource, SendMessageResponse, Status, SystemProperties, TelemetryCommand,
+        AckMessageEntry, AckMessageResponse, ChangeInvisibleDurationResponse, Code,
+        EndTransactionResponse, FilterExpression, HeartbeatResponse, Message, MessageQueue,
+        QueryRouteResponse, ReceiveMessageResponse, Resource, SendMessageResponse, Status,
+        SystemProperties, TelemetryCommand,
     };
     use crate::session;
 
@@ -642,7 +725,10 @@ pub(crate) mod tests {
     fn new_client_for_test() -> Client {
         Client {
             logger: terminal_logger(),
-            option: ClientOption::default(),
+            option: ClientOption {
+                group: Some("group".to_string()),
+                ..Default::default()
+            },
             session_manager: Arc::new(SessionManager::default()),
             route_table: Mutex::new(HashMap::new()),
             id: Client::generate_client_id(),
@@ -650,6 +736,7 @@ pub(crate) mod tests {
             settings: TelemetryCommand::default(),
             transaction_checker: None,
             telemetry_command_tx: None,
+            shutdown_tx: None,
         }
     }
 
@@ -665,6 +752,7 @@ pub(crate) mod tests {
             settings: TelemetryCommand::default(),
             transaction_checker: None,
             telemetry_command_tx: Some(tx),
+            shutdown_tx: None,
         }
     }
 
@@ -714,7 +802,8 @@ pub(crate) mod tests {
             .expect_get_or_create_session()
             .returning(|_, _, _| Ok(Session::mock()));
 
-        let client = new_client_with_session_manager(session_manager);
+        let mut client = new_client_with_session_manager(session_manager);
+        let _ = client.start().await;
         let result = client.get_session().await;
         assert!(result.is_ok());
         let result = client
@@ -893,7 +982,9 @@ pub(crate) mod tests {
         mock.expect_heartbeat()
             .return_once(|_| Box::pin(futures::future::ready(response)));
 
-        let send_result = Client::heart_beat_inner(mock, "", "", &ClientType::Producer).await;
+        let send_result =
+            Client::heart_beat_inner(mock, &Some("group".to_string()), "", &ClientType::Producer)
+                .await;
         assert!(send_result.is_ok());
     }
 
@@ -996,6 +1087,33 @@ pub(crate) mod tests {
     }
 
     #[tokio::test]
+    async fn client_change_invisible_duration() {
+        let response = Ok(ChangeInvisibleDurationResponse {
+            status: Some(Status {
+                code: Code::Ok as i32,
+                message: "Success".to_string(),
+            }),
+            receipt_handle: "receipt_handle".to_string(),
+        });
+        let mut mock = session::MockRPCClient::new();
+        mock.expect_change_invisible_duration()
+            .return_once(|_| Box::pin(futures::future::ready(response)));
+
+        let client = new_client_for_test();
+        let change_invisible_duration_result = client
+            .change_invisible_duration_inner(
+                mock,
+                "test_topic".to_string(),
+                "receipt_handle".to_string(),
+                prost_types::Duration::default(),
+                "message_id".to_string(),
+            )
+            .await;
+        assert!(change_invisible_duration_result.is_ok());
+        assert_eq!(change_invisible_duration_result.unwrap(), "receipt_handle");
+    }
+
+    #[tokio::test]
     async fn client_ack_message_failed() {
         let response = Ok(AckMessageResponse {
             status: Some(Status {
@@ -1034,7 +1152,7 @@ pub(crate) mod tests {
         let result = Client::handle_telemetry_command(
             mock,
             &Some(Box::new(|_, _| TransactionResolution::COMMIT)),
-            Endpoints::from_url("localhopst:8081").unwrap(),
+            Endpoints::from_url("localhost:8081").unwrap(),
             RecoverOrphanedTransactionCommand(pb::RecoverOrphanedTransactionCommand {
                 message: Some(Message {
                     topic: Some(Resource::default()),

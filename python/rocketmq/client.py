@@ -15,7 +15,6 @@
 
 import asyncio
 import threading
-from typing import Set
 
 from protocol import definition_pb2, service_pb2
 from protocol.definition_pb2 import Code as ProtoCode
@@ -60,7 +59,7 @@ class Client:
     """
     Main client class which handles interaction with the server.
     """
-    def __init__(self, client_config: ClientConfig, topics: Set[str]):
+    def __init__(self, client_config: ClientConfig):
         """
         Initialization method for the Client class.
 
@@ -70,7 +69,6 @@ class Client:
         self.client_config = client_config
         self.client_id = ClientIdEncoder.generate()
         self.endpoints = client_config.endpoints
-        self.topics = topics
 
         #: A cache to store topic routes.
         self.topic_route_cache = {}
@@ -83,13 +81,16 @@ class Client:
         #: A dictionary to store isolated items.
         self.isolated = dict()
 
+    def get_topics(self):
+        raise NotImplementedError("This method should be implemented by the subclass.")
+
     async def start(self):
         """
         Start method which initiates fetching of topic routes and schedules heartbeats.
         """
         # get topic route
         logger.debug(f"Begin to start the rocketmq client, client_id={self.client_id}")
-        for topic in self.topics:
+        for topic in self.get_topics():
             self.topic_route_cache[topic] = await self.fetch_topic_route(topic)
         scheduler = ScheduleWithFixedDelay(self.heartbeat, 3, 12)
         scheduler_sync_settings = ScheduleWithFixedDelay(self.sync_settings, 3, 12)
@@ -488,6 +489,22 @@ class ClientManager:
         return await rpc_client.change_invisible_duration(
             request, metadata, timeout_seconds
         )
+
+    async def receive_message(
+        self,
+        endpoints: Endpoints,
+        request: service_pb2.ReceiveMessageRequest,
+        timeout_seconds: int,
+    ):
+        rpc_client = self.__get_rpc_client(
+            endpoints, self.__client.client_config.ssl_enabled
+        )
+        metadata = Signature.sign(self.__client.client_config, self.__client.client_id)
+
+        response = await rpc_client.receive_message(
+            request, metadata, timeout_seconds
+        )
+        return response
 
     def telemetry(
         self,

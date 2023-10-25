@@ -16,49 +16,62 @@
  */
 
 using System;
-using NLog;
+using Microsoft.Extensions.Logging;
 using NLog.Config;
+using NLog.Extensions.Logging;
 using NLog.Layouts;
 using NLog.Targets;
 using NLog.Targets.Wrappers;
+using LogLevel = NLog.LogLevel;
 
 namespace Org.Apache.Rocketmq
 {
-    /**
-     * RocketMQ Log Manager.
-     *
-     * Configure component logging, please refer to https://github.com/NLog/NLog/wiki/Configure-component-logging
-     */
+    /// <summary>
+    /// RocketMQ Log Manager.
+    /// Use NLog as the default logger and support custom logger factory by using <see cref="UseLoggerFactory"/>.
+    /// To configure the logger factory, please refer to https://learn.microsoft.com/en-us/dotnet/core/extensions/logging.
+    /// </summary>
     public static class MqLogManager
     {
-        public static LogFactory Instance => LazyInstance.Value;
-
-        private static readonly Lazy<LogFactory> LazyInstance = new Lazy<LogFactory>(BuildLogFactory);
+        private static ILoggerFactory _loggerFactory;
 
         private const string FileLogLevelKey = "rocketmq_log_level";
         private const string FileLogLevel = "Info";
-
-        private const string ConsoleAppenderEnabledKey = "mq_consoleAppender_enabled";
-        private const string ConsoleAppenderEnabled = "false";
-        private const string ConsoleAppenderLogLevel = "Off";
-
 
         private const string FileLogRootKey = "rocketmq_log_root";
 
         private const string FileMaxIndexKey = "rocketmq_log_file_maxIndex";
         private const string FileMaxIndex = "10";
 
-        private static LogFactory BuildLogFactory()
+        static MqLogManager()
+        {
+            _loggerFactory = BuildDefaultLoggerFactory();
+        }
+
+        public static ILogger<T> CreateLogger<T>()
+        {
+            return _loggerFactory.CreateLogger<T>();
+        }
+
+        public static ILogger CreateLogger(string categoryName)
+        {
+            return _loggerFactory.CreateLogger(categoryName);
+        }
+
+        public static void UseLoggerFactory(ILoggerFactory loggerFactory)
+        {
+            _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
+        }
+
+        // Build default logger factory with NLog.
+        // Configure component logging, please refer to https://github.com/NLog/NLog/wiki/Configure-component-logging
+        private static ILoggerFactory BuildDefaultLoggerFactory()
         {
             var fileLogLevel = Environment.GetEnvironmentVariable(FileLogLevelKey) ?? FileLogLevel;
-            var consoleAppenderEnabled =
-                Environment.GetEnvironmentVariable(ConsoleAppenderEnabledKey) ?? ConsoleAppenderEnabled;
-            var consoleLogLevel = bool.Parse(consoleAppenderEnabled) ? fileLogLevel : ConsoleAppenderLogLevel;
             var fileLogRoot = Environment.GetEnvironmentVariable(FileLogRootKey) ??
                               Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             var fileMaxIndexStr = Environment.GetEnvironmentVariable(FileMaxIndexKey) ?? FileMaxIndex;
             var fileMaxIndex = int.Parse(fileMaxIndexStr);
-
 
             var config = new LoggingConfiguration();
             var fileTarget = new FileTarget();
@@ -92,12 +105,9 @@ namespace Org.Apache.Rocketmq
             var asyncFileRule = new LoggingRule("*", LogLevel.FromString(fileLogLevel), asyncTargetWrapper);
             config.LoggingRules.Add(asyncFileRule);
 
-            var consoleRule = new LoggingRule("*", LogLevel.FromString(consoleLogLevel), consoleTarget);
-            config.LoggingRules.Add(consoleRule);
+            var loggerFactory = LoggerFactory.Create(builder => builder.AddNLog(config));
 
-            var logFactory = new LogFactory();
-            logFactory.Configuration = config;
-            return logFactory;
+            return loggerFactory;
         }
     }
 }

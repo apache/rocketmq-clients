@@ -148,6 +148,9 @@ void ProducerImpl::wrapSendMessageRequest(const Message& message, SendMessageReq
     if (delivery_timestamp.time_since_epoch().count()) {
       auto duration = delivery_timestamp.time_since_epoch();
       system_properties->set_delivery_attempt(std::chrono::duration_cast<std::chrono::milliseconds>(duration).count());
+      auto mutable_delivery_timestamp = system_properties->mutable_delivery_timestamp();
+      mutable_delivery_timestamp->set_seconds(std::chrono::duration_cast<std::chrono::seconds>(duration).count());
+      mutable_delivery_timestamp->set_nanos(std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count() % 1000000000);
     }
   }
 

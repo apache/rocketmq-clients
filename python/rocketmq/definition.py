@@ -62,7 +62,7 @@ class Broker:
         :return: The protobuf representation of the broker.
         """
         return ProtoBroker(
-            Name=self.name, Id=self.id, Endpoints=self.endpoints.to_protobuf()
+            name=self.name, id=self.id, endpoints=self.endpoints.to_protobuf()
         )
 
 
@@ -76,8 +76,8 @@ class Resource:
         :param resource: The resource object.
         """
         if resource is not None:
-            self.namespace = resource.ResourceNamespace
-            self.name = resource.Name
+            self.namespace = resource.resource_namespace
+            self.name = resource.name
         else:
             self.namespace = ""
             self.name = name
@@ -87,7 +87,10 @@ class Resource:
 
         :return: The protobuf representation of the resource.
         """
-        return ProtoResource(ResourceNamespace=self.namespace, Name=self.name)
+        resource = ProtoResource()
+        resource.name = self.name
+        resource.resource_namespace = self.namespace
+        return resource
 
     def __str__(self):
         return f"{self.namespace}.{self.name}" if self.namespace else self.name
@@ -219,7 +222,7 @@ class MessageQueue:
 
         :param message_queue: The initial message queue to be encapsulated.
         """
-        self._topic_resource = Resource(message_queue.topic)
+        self._topic_resource = Resource(message_queue.topic.name, message_queue.topic)
         self.queue_id = message_queue.id
         self.permission = PermissionHelper.from_protobuf(message_queue.permission)
         self.accept_message_types = [

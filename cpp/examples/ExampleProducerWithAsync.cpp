@@ -118,6 +118,7 @@ int main(int argc, char* argv[]) {
                                              .withCredentialsProvider(credentials_provider)
                                              .withSsl(true)
                                              .build())
+                      .withTopics({FLAGS_topic})
                       .build();
 
   std::atomic_bool stopped;

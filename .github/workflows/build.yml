@@ -17,6 +17,7 @@ jobs:
       php: ${{ steps.filter.outputs.php }}
       rust: ${{ steps.filter.outputs.rust }}
       python: ${{ steps.filter.outputs.python }}
+      nodejs: ${{ steps.filter.outputs.nodejs }}
     steps:
       - uses: actions/checkout@v2
       - uses: dorny/paths-filter@v2
@@ -37,6 +38,8 @@ jobs:
               - 'rust/**'
             python:
               - 'python/**'
+            nodejs:
+              - 'nodejs/**'
   java-build:
     needs: [paths-filter]
     if: ${{ needs.paths-filter.outputs.java == 'true' }}
@@ -66,9 +69,13 @@ jobs:
     needs: [paths-filter]
     if: ${{ needs.paths-filter.outputs.python == 'true' }}
     uses: ./.github/workflows/python_build.yml
+  nodejs-build:
+    needs: [paths-filter]
+    if: ${{ needs.paths-filter.outputs.nodejs == 'true' }}
+    uses: ./.github/workflows/nodejs_build.yml
   build-result:
     runs-on: ubuntu-latest
-    needs: [java-build, cpp-build, csharp-build, golang-build, php-build, rust-build, python-build]
+    needs: [java-build, cpp-build, csharp-build, golang-build, php-build, rust-build, python-build, nodejs-build]
     if: ${{ always() }}
     steps:
       - uses: actions/checkout@v2
@@ -80,6 +87,7 @@ jobs:
           golang-${{ needs.golang-build.result }},\
           php-${{ needs.php-build.result }},\
           rust-${{ needs.rust-build.result }},\
+          nodejs-${{ needs.nodejs-build.result }},\
           python-${{ needs.python-build.result }} | grep -E 'cancelled|failure' -o > null
           then
             echo "There are failed/cancelled builds"

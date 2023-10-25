@@ -67,7 +67,7 @@ impl SimpleConsumer {
 
         let client_option = ClientOption {
             client_type: ClientType::SimpleConsumer,
-            group: option.consumer_group().to_string(),
+            group: Some(option.consumer_group().to_string()),
             namespace: option.namespace().to_string(),
             ..client_option
         };
@@ -104,6 +104,10 @@ impl SimpleConsumer {
         Ok(())
     }
 
+    pub async fn shutdown(self) -> Result<(), ClientError> {
+        self.client.shutdown().await
+    }
+
     /// receive messages from the specified topic
     ///
     /// # Arguments
@@ -115,7 +119,7 @@ impl SimpleConsumer {
         topic: impl AsRef<str>,
         expression: &FilterExpression,
     ) -> Result<Vec<MessageView>, ClientError> {
-        self.receive_with_batch_size(topic.as_ref(), expression, 32, Duration::from_secs(15))
+        self.receive_with(topic.as_ref(), expression, 32, Duration::from_secs(15))
             .await
     }
 
@@ -127,7 +131,7 @@ impl SimpleConsumer {
     /// * `expression` - the subscription for the topic
     /// * `batch_size` - max message num of server returned
     /// * `invisible_duration` - set the invisible duration of messages that return from the server, these messages will not be visible to other consumers unless timeout
-    pub async fn receive_with_batch_size(
+    pub async fn receive_with(
         &self,
         topic: impl AsRef<str>,
         expression: &FilterExpression,
@@ -170,6 +174,19 @@ impl SimpleConsumer {
     ) -> Result<(), ClientError> {
         self.client.ack_message(ack_entry).await?;
         Ok(())
+    }
+
+    pub async fn change_invisible_duration(
+        &self,
+        ack_entry: &(impl AckMessageEntry + 'static),
+        invisible_duration: Duration,
+    ) -> Result<String, ClientError> {
+        self.client
+            .change_invisible_duration(
+                ack_entry,
+                prost_types::Duration::try_from(invisible_duration).unwrap(),
+            )
+            .await
     }
 }
 
