@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
 import org.apache.rocketmq.client.apis.ClientConfiguration;
 import org.apache.rocketmq.client.apis.ClientException;
@@ -46,7 +45,7 @@ public class AsyncSimpleConsumerExample {
     }
 
     @SuppressWarnings({"resource", "InfiniteLoopStatement"})
-    public static void main(String[] args) throws ClientException, InterruptedException {
+    public static void main(String[] args) throws ClientException {
         final ClientServiceProvider provider = ClientServiceProvider.loadService();
 
         // Credential provider is optional for client configuration.
@@ -78,9 +77,6 @@ public class AsyncSimpleConsumerExample {
             // Set the subscription for the consumer.
             .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
             .build();
-        // Max polling request size
-        int maxPollingSize = 32;
-        Semaphore semaphore = new Semaphore(maxPollingSize);
         // Max message num for each long polling.
         int maxMessageNum = 16;
         // Set message invisible duration after it is received.
@@ -91,11 +87,9 @@ public class AsyncSimpleConsumerExample {
         ExecutorService ackCallbackExecutor = Executors.newCachedThreadPool();
         // Receive message.
         do {
-            semaphore.acquire();
             final CompletableFuture<List<MessageView>> future0 = consumer.receiveAsync(maxMessageNum,
                 invisibleDuration);
             future0.whenCompleteAsync(((messages, throwable) -> {
-                semaphore.release();
                 if (null != throwable) {
                     log.error("Failed to receive message from remote", throwable);
                     // Return early.
