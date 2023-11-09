@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use once_cell::sync::Lazy;
 use std::hash::Hasher;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -33,12 +34,10 @@ pub(crate) static SDK_LANGUAGE: Language = Language::Rust;
 pub(crate) static SDK_VERSION: &str = "5.0.0";
 pub(crate) static PROTOCOL_VERSION: &str = "2.0.0";
 
-lazy_static::lazy_static! {
-    pub(crate) static ref HOST_NAME: String = match hostname::get() {
-        Ok(name) => name.to_str().unwrap_or("localhost").to_string(),
-        Err(_) => "localhost".to_string(),
-    };
-}
+pub(crate) static HOST_NAME: Lazy<String> = Lazy::new(|| match hostname::get() {
+    Ok(name) => name.to_str().unwrap_or("localhost").to_string(),
+    Err(_) => "localhost".to_string(),
+});
 
 pub(crate) fn select_message_queue(route: Arc<Route>) -> MessageQueue {
     let i = route.index.fetch_add(1, Ordering::Relaxed);

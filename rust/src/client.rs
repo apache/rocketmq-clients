@@ -21,6 +21,7 @@ use std::{collections::HashMap, sync::atomic::AtomicUsize, sync::Arc};
 
 use mockall::automock;
 use mockall_double::double;
+use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use prost_types::Duration;
 use slog::{debug, error, info, o, warn, Logger};
@@ -58,9 +59,7 @@ pub(crate) struct Client {
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
 
-lazy_static::lazy_static! {
-    static ref CLIENT_ID_SEQUENCE: AtomicUsize = AtomicUsize::new(0);
-}
+static CLIENT_ID_SEQUENCE: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
 
 const OPERATION_CLIENT_NEW: &str = "client.new";
 const OPERATION_CLIENT_START: &str = "client.start";
@@ -698,7 +697,7 @@ pub(crate) mod tests {
     use std::thread::sleep;
     use std::time::Duration;
 
-    use lazy_static::lazy_static;
+    use once_cell::sync::Lazy;
 
     use crate::client::Client;
     use crate::conf::ClientOption;
@@ -717,10 +716,8 @@ pub(crate) mod tests {
 
     use super::*;
 
-    lazy_static! {
-        // The lock is used to prevent the mocking static function at same time during parallel testing.
-        pub(crate) static ref MTX: Mutex<()> = Mutex::new(());
-    }
+    // The lock is used to prevent the mocking static function at same time during parallel testing.
+    pub(crate) static MTX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
     fn new_client_for_test() -> Client {
         Client {
