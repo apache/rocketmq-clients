@@ -17,14 +17,13 @@
 use std::collections::HashSet;
 use std::sync::Mutex;
 
+use once_cell::sync::Lazy;
 use rocketmq::conf::{ClientOption, ProducerOption};
 use rocketmq::model::message::MessageBuilder;
 use rocketmq::model::transaction::{Transaction, TransactionResolution};
 use rocketmq::Producer;
 
-lazy_static::lazy_static! {
-    static  ref MESSAGE_ID_SET: Mutex<HashSet<String>> = Mutex::new(HashSet::new());
-}
+static MESSAGE_ID_SET: Lazy<Mutex<HashSet<String>>> = Lazy::new(|| Mutex::new(HashSet::new()));
 
 #[tokio::main]
 async fn main() {
