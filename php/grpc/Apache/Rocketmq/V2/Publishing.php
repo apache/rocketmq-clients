@@ -31,7 +31,7 @@ class Publishing extends \Google\Protobuf\Internal\Message
     protected $max_body_size = 0;
     /**
      * When `validate_message_type` flag set `false`, no need to validate message's type
-     * with messageQueue's `accept_message_types` before publising.
+     * with messageQueue's `accept_message_types` before publishing.
      *
      * Generated from protobuf field <code>bool validate_message_type = 3;</code>
      */
@@ -53,7 +53,7 @@ class Publishing extends \Google\Protobuf\Internal\Message
      *           client-side check validation.
      *     @type bool $validate_message_type
      *           When `validate_message_type` flag set `false`, no need to validate message's type
-     *           with messageQueue's `accept_message_types` before publising.
+     *           with messageQueue's `accept_message_types` before publishing.
      * }
      */
     public function __construct($data = NULL) {
@@ -123,7 +123,7 @@ class Publishing extends \Google\Protobuf\Internal\Message
 
     /**
      * When `validate_message_type` flag set `false`, no need to validate message's type
-     * with messageQueue's `accept_message_types` before publising.
+     * with messageQueue's `accept_message_types` before publishing.
      *
      * Generated from protobuf field <code>bool validate_message_type = 3;</code>
      * @return bool
@@ -135,7 +135,7 @@ class Publishing extends \Google\Protobuf\Internal\Message
 
     /**
      * When `validate_message_type` flag set `false`, no need to validate message's type
-     * with messageQueue's `accept_message_types` before publising.
+     * with messageQueue's `accept_message_types` before publishing.
      *
      * Generated from protobuf field <code>bool validate_message_type = 3;</code>
      * @param bool $var

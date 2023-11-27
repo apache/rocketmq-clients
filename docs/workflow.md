@@ -42,7 +42,7 @@ The publishing procedure is as follows:
 1. Check if topic route is cached before or not.
 2. If topic route is not cached, then try to fetch it from server, otherwise go to step 4.
 3. Return failure and end the current process if topic route is failed to fetch, otherwise cache the topic route and go to the next step.
-4. Select writable candicate message queues from topic route to publish meessage.
+4. Select writable candicate message queues from topic route to publish message.
 5. Return failure and end the current process if the type of message queue is not matched with message type.
 6. Attempt to publish message.
 7. Return success and end the current process if message is published successfully.
