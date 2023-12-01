@@ -167,7 +167,7 @@ protected:
   absl::flat_hash_map<std::string, std::unique_ptr<Session>> session_map_ GUARDED_BY(session_map_mtx_);
   absl::Mutex session_map_mtx_;
 
-  virtual void topicsOfInterest(std::vector<std::string> topics) {
+  virtual void topicsOfInterest(std::vector<std::string> &topics) {
   }
 
   void updateRouteInfo() LOCKS_EXCLUDED(topic_route_table_mtx_);
