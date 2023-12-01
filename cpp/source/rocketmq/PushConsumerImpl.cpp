@@ -47,7 +47,7 @@ PushConsumerImpl::~PushConsumerImpl() {
   shutdown();
 }
 
-void PushConsumerImpl::topicsOfInterest(std::vector<std::string> topics) {
+void PushConsumerImpl::topicsOfInterest(std::vector<std::string> &topics) {
   absl::MutexLock lk(&topic_filter_expression_table_mtx_);
   for (const auto& entry : topic_filter_expression_table_) {
     topics.push_back(entry.first);

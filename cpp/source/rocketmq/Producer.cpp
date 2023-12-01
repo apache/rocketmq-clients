@@ -88,7 +88,7 @@ ProducerBuilder& ProducerBuilder::withConfiguration(Configuration configuration)
 }
 
 ProducerBuilder& ProducerBuilder::withTopics(const std::vector<std::string>& topics) {
-  impl_->topicsOfInterest(topics);
+  impl_->withTopics(topics);
   return *this;
 }
 

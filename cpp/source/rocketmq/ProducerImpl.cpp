@@ -16,6 +16,7 @@
  */
 #include "ProducerImpl.h"
 
+#include <algorithm>
 #include <apache/rocketmq/v2/definition.pb.h>
 
 #include <atomic>
@@ -575,9 +576,22 @@ void ProducerImpl::onOrphanedTransactionalMessage(MessageConstSharedPtr message)
   }
 }
 
-void ProducerImpl::topicsOfInterest(std::vector<std::string> topics) {
+void ProducerImpl::topicsOfInterest(std::vector<std::string> &topics) {
   absl::MutexLock lk(&topics_mtx_);
-  topics_.swap(topics);
+  for (auto& topic : topics_) {
+    if (std::find(topics.begin(), topics.end(), topic) == topics.end()) {
+      topics.push_back(topic);
+    }
+  }
+}
+
+void ProducerImpl::withTopics(const std::vector<std::string> &topics) {
+  absl::MutexLock lk(&topics_mtx_);
+  for (auto &topic: topics) {
+    if (std::find(topics_.begin(), topics_.end(), topic) == topics_.end()) {
+      topics_.push_back(topic);
+    }
+  }
 }
 
 void ProducerImpl::buildClientSettings(rmq::Settings& settings) {
