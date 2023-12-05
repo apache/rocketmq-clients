@@ -198,7 +198,7 @@ impl Client {
                         }
                     },
                     _ = &mut shutdown_rx => {
-                        debug!(logger, "receive shutdown signal, stop heartbeat task and telemetry command handler");
+                        info!(logger, "receive shutdown signal, stop heartbeat task and telemetry command handler");
                         break;
                     }
                 }

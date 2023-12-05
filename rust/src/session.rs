@@ -566,8 +566,9 @@ impl SessionManager {
             )
             .await?;
             session.start(settings, telemetry_command_tx).await?;
-            session_map.insert(endpoint_url.clone(), session.clone());
-            Ok(session)
+            let cloned_session = session.clone();
+            session_map.insert(endpoint_url.clone(), session);
+            Ok(cloned_session)
         };
     }
 
