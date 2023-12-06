@@ -191,7 +191,7 @@ impl Client {
                     },
                     command = telemetry_command_rx.recv() => {
                         if let Some(command) = command {
-                            let result = Self::handle_telemetry_command(rpc_client.clone(), &transaction_checker, endpoints.clone(), command).await;
+                            let result = Self::handle_telemetry_command(rpc_client.shadow_session(), &transaction_checker, endpoints.clone(), command).await;
                             if let Err(error) = result {
                                 error!(logger, "handle telemetry command failed: {:?}", error);
                             }
