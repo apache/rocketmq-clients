@@ -102,8 +102,8 @@ pub(crate) struct Session {
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
 
-impl Clone for Session {
-    fn clone(&self) -> Self {
+impl Session {
+    pub(crate) fn shadow_session(&self) -> Self {
         Session {
             logger: self.logger.clone(),
             client_id: self.client_id.clone(),
@@ -580,7 +580,7 @@ impl SessionManager {
         let mut session_map = self.session_map.lock().await;
         let endpoint_url = endpoints.endpoint_url().to_string();
         return if session_map.contains_key(&endpoint_url) {
-            Ok(session_map.get(&endpoint_url).unwrap().clone())
+            Ok(session_map.get(&endpoint_url).unwrap().shadow_session())
         } else {
             let mut session = Session::new(
                 &self.logger,
@@ -590,8 +590,9 @@ impl SessionManager {
             )
             .await?;
             session.start(settings, telemetry_command_tx).await?;
-            session_map.insert(endpoint_url.clone(), session.clone());
-            Ok(session)
+            let shadow_session = session.shadow_session();
+            session_map.insert(endpoint_url.clone(), session);
+            Ok(shadow_session)
         };
     }
 
@@ -599,7 +600,7 @@ impl SessionManager {
         let session_map = self.session_map.lock().await;
         let mut sessions = Vec::new();
         for (_, session) in session_map.iter() {
-            sessions.push(session.clone());
+            sessions.push(session.shadow_session());
         }
         Ok(sessions)
     }
