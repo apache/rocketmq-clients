@@ -15,27 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.java.impl;
+package org.apache.rocketmq.client.java.impl.consumer;
 
-public enum ClientType {
-    PRODUCER,
-    PUSH_CONSUMER,
-    SIMPLE_CONSUMER,
-    PULL_CONSUMER;
+import java.util.List;
+import org.apache.rocketmq.client.java.message.MessageViewImpl;
 
-    public apache.rocketmq.v2.ClientType toProtobuf() {
-        if (PRODUCER.equals(this)) {
-            return apache.rocketmq.v2.ClientType.PRODUCER;
-        }
-        if (PUSH_CONSUMER.equals(this)) {
-            return apache.rocketmq.v2.ClientType.PUSH_CONSUMER;
-        }
-        if (SIMPLE_CONSUMER.equals(this)) {
-            return apache.rocketmq.v2.ClientType.SIMPLE_CONSUMER;
-        }
-        if (PULL_CONSUMER.equals(this)) {
-            return apache.rocketmq.v2.ClientType.PULL_CONSUMER;
-        }
-        return apache.rocketmq.v2.ClientType.CLIENT_TYPE_UNSPECIFIED;
+public class BatchMessageViews {
+    private final List<MessageViewImpl> messageViewList;
+    private final PullProcessQueueImpl processQueue;
+
+    public BatchMessageViews(List<MessageViewImpl> messageViewList, PullProcessQueueImpl processQueue) {
+        this.messageViewList = messageViewList;
+        this.processQueue = processQueue;
+    }
+
+    public List<MessageViewImpl> getMessageViewList() {
+        return messageViewList;
+    }
+
+    public long getOffset() {
+        return messageViewList.get(messageViewList.size() - 1).getOffset();
+    }
+
+    public PullProcessQueueImpl getProcessQueue() {
+        return processQueue;
     }
 }

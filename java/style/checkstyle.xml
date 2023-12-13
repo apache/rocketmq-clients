@@ -24,6 +24,7 @@
     found at https://google.github.io/styleguide/javaguide.html. Deviations have been made where desired.
  -->
 <module name="Checker">
+
     <property name="charset" value="UTF-8"/>
     <property name="severity" value="error"/>
     <property name="fileExtensions" value="java"/>
@@ -39,11 +40,9 @@
         <property name="fileExtensions" value="java"/>
     </module>
 
-    <!--    <module name="SuppressionFilter">-->
-    <!--        <property name="file"-->
-    <!--                  value="${checkstyle.suppressions.file}"-->
-    <!--                  default="checkstyle-suppressions.xml"/>-->
-    <!--    </module>-->
+    <module name="SuppressionFilter">
+        <property name="file" value="./style/checkstyle-suppressions.xml" />
+    </module>
 
     <module name="TreeWalker">
 

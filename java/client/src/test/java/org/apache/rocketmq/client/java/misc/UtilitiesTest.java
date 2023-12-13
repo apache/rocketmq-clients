@@ -63,8 +63,26 @@ public class UtilitiesTest {
     }
 
     @Test
+    public void testGetJavaRuntimeName() {
+        final String javaRuntimeName = Utilities.getJavaRuntimeName();
+        assertNotNull(javaRuntimeName);
+    }
+
+    @Test
+    public void testGetJavaRuntimeVersion() {
+        final String javaRuntimeVersion = Utilities.getJavaRuntimeVersion();
+        assertNotNull(javaRuntimeVersion);
+    }
+
+    @Test
     public void testGetJavaDescription() {
         final String javaDescription = Utilities.getJavaDescription();
         assertNotNull(javaDescription);
+    }
+
+    @Test
+    public void testGetJavaEnvironmentSummary() {
+        final String javaSummary = Utilities.getJavaEnvironmentSummary();
+        assertNotNull(javaSummary);
     }
 }

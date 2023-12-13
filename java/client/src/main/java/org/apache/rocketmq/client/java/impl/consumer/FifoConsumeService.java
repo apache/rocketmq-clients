@@ -43,11 +43,11 @@ class FifoConsumeService extends ConsumeService {
     }
 
     @Override
-    public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
+    public void consume(PushProcessQueue pq, List<MessageViewImpl> messageViews) {
         consumeIteratively(pq, messageViews.iterator());
     }
 
-    public void consumeIteratively(ProcessQueue pq, Iterator<MessageViewImpl> iterator) {
+    public void consumeIteratively(PushProcessQueue pq, Iterator<MessageViewImpl> iterator) {
         if (!iterator.hasNext()) {
             return;
         }

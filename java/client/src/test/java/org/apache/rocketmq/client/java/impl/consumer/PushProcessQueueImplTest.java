@@ -61,7 +61,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
-public class ProcessQueueImplTest extends TestBase {
+public class PushProcessQueueImplTest extends TestBase {
     @Mock
     private PushConsumerImpl pushConsumer;
     @Mock
@@ -75,11 +75,11 @@ public class ProcessQueueImplTest extends TestBase {
 
     private final FilterExpression filterExpression = FilterExpression.SUB_ALL;
 
-    private ProcessQueueImpl processQueue;
+    private PushProcessQueueImpl processQueue;
 
     @Before
     public void setup() throws IllegalAccessException, NoSuchFieldException {
-        this.processQueue = new ProcessQueueImpl(pushConsumer, fakeMessageQueueImpl0(), filterExpression);
+        this.processQueue = new PushProcessQueueImpl(pushConsumer, fakeMessageQueueImpl0(), filterExpression);
         when(pushConsumer.isRunning()).thenReturn(true);
 
         this.consumptionOkQuantity = new AtomicLong(0);
@@ -136,7 +136,7 @@ public class ProcessQueueImplTest extends TestBase {
         ReceiveMessageRequest request = ReceiveMessageRequest.newBuilder().build();
         when(pushConsumer.wrapReceiveMessageRequest(anyInt(), any(MessageQueueImpl.class),
             any(FilterExpression.class), any(Duration.class), nullable(String.class))).thenReturn(request);
-        processQueue.fetchMessageImmediately();
+        processQueue.receiveMessageImmediately();
         await().atMost(Duration.ofSeconds(3))
             .untilAsserted(() -> verify(pushConsumer, times(cachedMessagesCountThresholdPerQueue))
                 .receiveMessage(any(ReceiveMessageRequest.class), any(MessageQueueImpl.class), any(Duration.class)));
@@ -166,7 +166,7 @@ public class ProcessQueueImplTest extends TestBase {
         processQueue.eraseMessage(messageView, ConsumeResult.SUCCESS);
         int ackTimes = 3;
         final Duration tolerance = Duration.ofMillis(500);
-        await().atMost(ProcessQueueImpl.ACK_MESSAGE_FAILURE_BACKOFF_DELAY.multipliedBy(ackTimes)
+        await().atMost(PushProcessQueueImpl.ACK_MESSAGE_FAILURE_BACKOFF_DELAY.multipliedBy(ackTimes)
             .plus(tolerance)).untilAsserted(() -> verify(pushConsumer, times(ackTimes))
             .ackMessage(eq(messageView)));
     }
@@ -185,7 +185,7 @@ public class ProcessQueueImplTest extends TestBase {
         processQueue.eraseMessage(messageView, ConsumeResult.FAILURE);
         int ackTimes = 3;
         final Duration tolerance = Duration.ofMillis(500);
-        await().atMost(ProcessQueueImpl.CHANGE_INVISIBLE_DURATION_FAILURE_BACKOFF_DELAY.multipliedBy(ackTimes)
+        await().atMost(PushProcessQueueImpl.CHANGE_INVISIBLE_DURATION_FAILURE_BACKOFF_DELAY.multipliedBy(ackTimes)
             .plus(tolerance)).untilAsserted(() -> verify(pushConsumer, times(ackTimes))
             .changeInvisibleDuration(any(MessageViewImpl.class), any(Duration.class)));
     }
@@ -258,7 +258,7 @@ public class ProcessQueueImplTest extends TestBase {
         processQueue.eraseFifoMessage(messageView, ConsumeResult.FAILURE);
         int forwardingToDeadLetterQueueTimes = 3;
         final Duration tolerance = Duration.ofMillis(500);
-        await().atMost(ProcessQueueImpl.FORWARD_FIFO_MESSAGE_TO_DLQ_FAILURE_BACKOFF_DELAY
+        await().atMost(PushProcessQueueImpl.FORWARD_FIFO_MESSAGE_TO_DLQ_FAILURE_BACKOFF_DELAY
                 .multipliedBy(forwardingToDeadLetterQueueTimes).plus(tolerance))
             .untilAsserted(() -> verify(pushConsumer, times(forwardingToDeadLetterQueueTimes))
                 .forwardMessageToDeadLetterQueue(any(MessageViewImpl.class)));
@@ -279,7 +279,7 @@ public class ProcessQueueImplTest extends TestBase {
         processQueue.eraseFifoMessage(messageView, ConsumeResult.FAILURE);
         int forwardingToDeadLetterQueueTimes = 3;
         final Duration tolerance = Duration.ofMillis(500);
-        await().atMost(ProcessQueueImpl.FORWARD_FIFO_MESSAGE_TO_DLQ_FAILURE_BACKOFF_DELAY
+        await().atMost(PushProcessQueueImpl.FORWARD_FIFO_MESSAGE_TO_DLQ_FAILURE_BACKOFF_DELAY
                 .multipliedBy(forwardingToDeadLetterQueueTimes).plus(tolerance))
             .untilAsserted(() -> verify(pushConsumer, times(forwardingToDeadLetterQueueTimes))
                 .forwardMessageToDeadLetterQueue(any(MessageViewImpl.class)));

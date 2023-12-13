@@ -48,7 +48,7 @@ public interface ProducerBuilder {
      * ArrayList<String> topicList = new ArrayList<>();
      * topicList.add("topicA");
      * topicList.add("topicB");
-     * producerBuilder.setTopics(topicList);
+     * producerBuilder.setTopics(topicList.toArray(new String[0]));
      * }</pre>
      *
      * @param topics topics to send/prepare.

@@ -17,45 +17,32 @@
 
 package org.apache.rocketmq.client.java.impl.consumer;
 
-import org.apache.rocketmq.client.java.route.MessageQueueImpl;
+/**
+ * The PullProcessQueue interface is used for pull-consumer to control the message consuming process.
+ */
+public interface PullProcessQueue extends ProcessQueue {
 
-public interface ProcessQueue {
     /**
-     * Get the mapped message queue.
+     * Resume message pulling, if it has been paused.
+     */
+    void resume();
+
+    /**
+     * Pause message pulling.
+     */
+    void pause();
+
+    /**
+     * Pull all available messages immediately.
+     */
+    void pullMessageImmediately();
+
+    void updateConsumedOffset(long offset);
+
+    /**
+     * Get the offset of the consumed message.
      *
-     * @return mapped message queue.
+     * @return The offset of the consumed message.
      */
-    MessageQueueImpl getMessageQueue();
-
-    /**
-     * Drop the current process queue, which means the process queue's lifecycle is over,
-     * thus it would not fetch messages from the remote anymore if dropped.
-     */
-    void drop();
-
-    /**
-     * {@link PushProcessQueue} would be regarded as expired if no fetch message for a long time.
-     *
-     * @return if it is expired.
-     */
-    boolean expired();
-
-    /**
-     * Get the count of cached messages.
-     *
-     * @return count of pending messages.
-     */
-    long getCachedMessageCount();
-
-    /**
-     * Get the bytes of cached message memory footprint.
-     *
-     * @return bytes of cached message memory footprint.
-     */
-    long getCachedMessageBytes();
-
-    /**
-     * Do some stats work.
-     */
-    void doStats();
+    long getConsumedOffset();
 }

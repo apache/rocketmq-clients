@@ -54,7 +54,7 @@ public class ConsumeServiceTest extends TestBase {
         final ConsumeService consumeService = new ConsumeService(clientId, messageListener,
             consumptionExecutor, interceptor, scheduler) {
             @Override
-            public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
+            public void consume(PushProcessQueue pq, List<MessageViewImpl> messageViews) {
             }
         };
         final MessageViewImpl messageView = fakeMessageViewImpl();
@@ -69,7 +69,7 @@ public class ConsumeServiceTest extends TestBase {
         final ConsumeService consumeService = new ConsumeService(clientId, messageListener,
             consumptionExecutor, interceptor, scheduler) {
             @Override
-            public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
+            public void consume(PushProcessQueue pq, List<MessageViewImpl> messageViews) {
             }
         };
         final MessageViewImpl messageView = fakeMessageViewImpl();
@@ -86,7 +86,7 @@ public class ConsumeServiceTest extends TestBase {
         final ConsumeService consumeService = new ConsumeService(clientId, messageListener,
             consumptionExecutor, interceptor, scheduler) {
             @Override
-            public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
+            public void consume(PushProcessQueue pq, List<MessageViewImpl> messageViews) {
 
             }
         };
@@ -103,7 +103,7 @@ public class ConsumeServiceTest extends TestBase {
             consumptionExecutor, interceptor, scheduler) {
 
             @Override
-            public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
+            public void consume(PushProcessQueue pq, List<MessageViewImpl> messageViews) {
 
             }
         };

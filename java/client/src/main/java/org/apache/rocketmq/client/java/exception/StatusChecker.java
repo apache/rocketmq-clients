@@ -18,6 +18,8 @@
 package org.apache.rocketmq.client.java.exception;
 
 import apache.rocketmq.v2.Code;
+import apache.rocketmq.v2.GetOffsetRequest;
+import apache.rocketmq.v2.PullMessageRequest;
 import apache.rocketmq.v2.ReceiveMessageRequest;
 import apache.rocketmq.v2.Status;
 import org.apache.rocketmq.client.apis.ClientException;
@@ -61,6 +63,11 @@ public class StatusChecker {
             case CLIENT_ID_REQUIRED:
             case ILLEGAL_POLLING_TIME:
                 throw new BadRequestException(codeNumber, requestId, statusMessage);
+            case ILLEGAL_OFFSET:
+                if (future.getRequest() instanceof PullMessageRequest) {
+                    return;
+                }
+                // fall through on purpose.
             case UNAUTHORIZED:
                 throw new UnauthorizedException(codeNumber, requestId, statusMessage);
             case PAYMENT_REQUIRED:
@@ -71,11 +78,19 @@ public class StatusChecker {
                 if (future.getRequest() instanceof ReceiveMessageRequest) {
                     return;
                 }
+                if (future.getRequest() instanceof PullMessageRequest) {
+                    return;
+                }
                 // fall through on purpose.
             case NOT_FOUND:
             case TOPIC_NOT_FOUND:
             case CONSUMER_GROUP_NOT_FOUND:
                 throw new NotFoundException(codeNumber, requestId, statusMessage);
+            case OFFSET_NOT_FOUND:
+                if (future.getRequest() instanceof GetOffsetRequest) {
+                    return;
+                }
+                // fall through on purpose.
             case PAYLOAD_TOO_LARGE:
             case MESSAGE_BODY_TOO_LARGE:
                 throw new PayloadTooLargeException(codeNumber, requestId, statusMessage);

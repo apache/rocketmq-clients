@@ -21,10 +21,11 @@ import com.google.common.base.Objects;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.rocketmq.client.apis.message.MessageQueue;
 import org.apache.rocketmq.client.java.message.MessageType;
 import org.apache.rocketmq.client.java.message.protocol.Resource;
 
-public class MessageQueueImpl {
+public class MessageQueueImpl implements MessageQueue {
     private final Resource topicResource;
     private final Broker broker;
     private final int queueId;

@@ -30,6 +30,6 @@ import java.lang.annotation.Target;
  * set to METHOD, indicating that it can only be applied to methods.
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.METHOD)
+@Target({ElementType.METHOD, ElementType.TYPE})
 public @interface ExcludeFromJacocoGeneratedReport {
 }

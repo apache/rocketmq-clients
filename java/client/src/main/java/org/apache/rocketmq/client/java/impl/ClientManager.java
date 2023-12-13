@@ -25,12 +25,18 @@ import apache.rocketmq.v2.EndTransactionRequest;
 import apache.rocketmq.v2.EndTransactionResponse;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueRequest;
 import apache.rocketmq.v2.ForwardMessageToDeadLetterQueueResponse;
+import apache.rocketmq.v2.GetOffsetRequest;
+import apache.rocketmq.v2.GetOffsetResponse;
 import apache.rocketmq.v2.HeartbeatRequest;
 import apache.rocketmq.v2.HeartbeatResponse;
 import apache.rocketmq.v2.NotifyClientTerminationRequest;
 import apache.rocketmq.v2.NotifyClientTerminationResponse;
+import apache.rocketmq.v2.PullMessageRequest;
+import apache.rocketmq.v2.PullMessageResponse;
 import apache.rocketmq.v2.QueryAssignmentRequest;
 import apache.rocketmq.v2.QueryAssignmentResponse;
+import apache.rocketmq.v2.QueryOffsetRequest;
+import apache.rocketmq.v2.QueryOffsetResponse;
 import apache.rocketmq.v2.QueryRouteRequest;
 import apache.rocketmq.v2.QueryRouteResponse;
 import apache.rocketmq.v2.ReceiveMessageRequest;
@@ -38,6 +44,8 @@ import apache.rocketmq.v2.ReceiveMessageResponse;
 import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
 import apache.rocketmq.v2.TelemetryCommand;
+import apache.rocketmq.v2.UpdateOffsetRequest;
+import apache.rocketmq.v2.UpdateOffsetResponse;
 import com.google.common.util.concurrent.AbstractIdleService;
 import io.grpc.stub.StreamObserver;
 import java.time.Duration;
@@ -146,6 +154,18 @@ public abstract class ClientManager extends AbstractIdleService {
     public abstract RpcFuture<ForwardMessageToDeadLetterQueueRequest,
         ForwardMessageToDeadLetterQueueResponse> forwardMessageToDeadLetterQueue(Endpoints endpoints,
         ForwardMessageToDeadLetterQueueRequest request, Duration duration);
+
+    public abstract RpcFuture<PullMessageRequest, List<PullMessageResponse>> pullMessage(Endpoints endpoints,
+        PullMessageRequest request, Duration duration);
+
+    public abstract RpcFuture<UpdateOffsetRequest, UpdateOffsetResponse> updateOffset(Endpoints endpoints,
+        UpdateOffsetRequest request, Duration duration);
+
+    public abstract RpcFuture<GetOffsetRequest, GetOffsetResponse> getOffset(Endpoints endpoints,
+        GetOffsetRequest request, Duration duration);
+
+    public abstract RpcFuture<QueryOffsetRequest, QueryOffsetResponse> queryOffset(Endpoints endpoints,
+        QueryOffsetRequest request, Duration duration);
 
     /**
      * Submit transaction resolution asynchronously, the method ensures no throwable.

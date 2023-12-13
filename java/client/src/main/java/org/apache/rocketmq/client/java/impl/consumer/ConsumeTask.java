@@ -62,6 +62,9 @@ public class ConsumeTask implements Callable<ConsumeResult> {
         messageInterceptor.doBefore(context, generalMessages);
         try {
             consumeResult = messageListener.consume(messageView);
+            if (null == consumeResult) {
+                consumeResult = ConsumeResult.FAILURE;
+            }
         } catch (Throwable t) {
             log.error("Message listener raised an exception while consuming messages, clientId={}, mq={}, " +
                 "messageId={}", clientId, messageView.getMessageQueue(), messageView.getMessageId(), t);

@@ -588,7 +588,7 @@ public abstract class ClientImpl extends AbstractIdleService implements Client, 
     public void doStats() {
     }
 
-    private ListenableFuture<TopicRouteData> fetchTopicRoute(final String topic) {
+     protected ListenableFuture<TopicRouteData> fetchTopicRoute(final String topic) {
         final ListenableFuture<TopicRouteData> future0 = fetchTopicRoute0(topic);
         final ListenableFuture<TopicRouteData> future = Futures.transformAsync(future0,
             topicRouteData -> onTopicRouteDataFetched(topic, topicRouteData), MoreExecutors.directExecutor());

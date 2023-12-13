@@ -55,7 +55,7 @@ public abstract class ConsumeService {
         this.scheduler = scheduler;
     }
 
-    public abstract void consume(ProcessQueue pq, List<MessageViewImpl> messageViews);
+    public abstract void consume(PushProcessQueue pq, List<MessageViewImpl> messageViews);
 
     public ListenableFuture<ConsumeResult> consume(MessageViewImpl messageView) {
         return consume(messageView, Duration.ZERO);

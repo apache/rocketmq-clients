@@ -43,7 +43,7 @@ public class StandardConsumeService extends ConsumeService {
     }
 
     @Override
-    public void consume(ProcessQueue pq, List<MessageViewImpl> messageViews) {
+    public void consume(PushProcessQueue pq, List<MessageViewImpl> messageViews) {
         for (MessageViewImpl messageView : messageViews) {
             // Discard corrupted message.
             if (messageView.isCorrupted()) {

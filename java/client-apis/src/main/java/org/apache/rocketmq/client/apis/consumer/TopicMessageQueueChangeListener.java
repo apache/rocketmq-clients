@@ -15,27 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.rocketmq.client.java.impl;
+package org.apache.rocketmq.client.apis.consumer;
 
-public enum ClientType {
-    PRODUCER,
-    PUSH_CONSUMER,
-    SIMPLE_CONSUMER,
-    PULL_CONSUMER;
+import java.util.Set;
+import org.apache.rocketmq.client.apis.message.MessageQueue;
 
-    public apache.rocketmq.v2.ClientType toProtobuf() {
-        if (PRODUCER.equals(this)) {
-            return apache.rocketmq.v2.ClientType.PRODUCER;
-        }
-        if (PUSH_CONSUMER.equals(this)) {
-            return apache.rocketmq.v2.ClientType.PUSH_CONSUMER;
-        }
-        if (SIMPLE_CONSUMER.equals(this)) {
-            return apache.rocketmq.v2.ClientType.SIMPLE_CONSUMER;
-        }
-        if (PULL_CONSUMER.equals(this)) {
-            return apache.rocketmq.v2.ClientType.PULL_CONSUMER;
-        }
-        return apache.rocketmq.v2.ClientType.CLIENT_TYPE_UNSPECIFIED;
-    }
+public interface TopicMessageQueueChangeListener {
+    /**
+     * This method will be invoked in the condition of queue numbers changed, These scenarios occur when the topic is
+     * expanded or shrunk.
+     *
+     * @param topic         the topic to listen.
+     * @param messageQueues latest message queues of the topic.
+     */
+    void onChanged(String topic, Set<MessageQueue> messageQueues);
 }
