@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"math/rand"
 
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
@@ -134,6 +135,7 @@ var _ = SubscriptionLoadBalancer(&subscriptionLoadBalancer{})
 var NewSubscriptionLoadBalancer = func(messageQueues []*v2.MessageQueue) (SubscriptionLoadBalancer, error) {
 	slb := &subscriptionLoadBalancer{
 		messageQueues: messageQueues,
+		index: rand.Int31(),
 	}
 	return slb, nil
 }
