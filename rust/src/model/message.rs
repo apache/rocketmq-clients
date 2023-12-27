@@ -21,8 +21,26 @@ use std::collections::HashMap;
 
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::Endpoints;
+use crate::model::message::MessageType::{DELAY, FIFO, NORMAL, TRANSACTION};
 use crate::model::message_id::UNIQ_ID_GENERATOR;
 use crate::pb;
+
+pub enum MessageType {
+    NORMAL = 1,
+    FIFO = 2,
+    DELAY = 3,
+    TRANSACTION = 4,
+}
+
+fn transform_to_pb_message_type(message_type: &MessageType) -> i32 {
+    let pb_message_type = match message_type {
+        NORMAL => pb::MessageType::Normal as i32,
+        FIFO => pb::MessageType::Fifo as i32,
+        DELAY => pb::MessageType::Delay as i32,
+        TRANSACTION => pb::MessageType::Transaction as i32,
+    };
+    pb_message_type
+}
 
 /// [`Message`] is the data model for sending.
 pub trait Message {
@@ -35,6 +53,7 @@ pub trait Message {
     fn take_message_group(&mut self) -> Option<String>;
     fn take_delivery_timestamp(&mut self) -> Option<i64>;
     fn transaction_enabled(&mut self) -> bool;
+    fn get_message_type(&self) -> i32;
 }
 
 pub(crate) struct MessageImpl {
@@ -47,6 +66,7 @@ pub(crate) struct MessageImpl {
     pub(crate) message_group: Option<String>,
     pub(crate) delivery_timestamp: Option<i64>,
     pub(crate) transaction_enabled: bool,
+    pub(crate) message_type: MessageType,
 }
 
 impl Message for MessageImpl {
@@ -85,6 +105,10 @@ impl Message for MessageImpl {
     fn transaction_enabled(&mut self) -> bool {
         self.transaction_enabled
     }
+
+    fn get_message_type(&self) -> i32 {
+        transform_to_pb_message_type(&self.message_type)
+    }
 }
 
 /// [`MessageBuilder`] is the builder for [`Message`].
@@ -108,6 +132,7 @@ impl MessageBuilder {
                 message_group: None,
                 delivery_timestamp: None,
                 transaction_enabled: false,
+                message_type: NORMAL,
             },
         }
     }
@@ -135,6 +160,7 @@ impl MessageBuilder {
                 message_group: Some(message_group.into()),
                 delivery_timestamp: None,
                 transaction_enabled: false,
+                message_type: FIFO,
             },
         }
     }
@@ -162,6 +188,7 @@ impl MessageBuilder {
                 message_group: None,
                 delivery_timestamp: Some(delay_time),
                 transaction_enabled: false,
+                message_type: DELAY,
             },
         }
     }
@@ -184,6 +211,7 @@ impl MessageBuilder {
                 message_group: None,
                 delivery_timestamp: None,
                 transaction_enabled: true,
+                message_type: TRANSACTION,
             },
         }
     }
