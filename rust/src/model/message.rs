@@ -33,16 +33,6 @@ pub enum MessageType {
     TRANSACTION = 4,
 }
 
-fn transform_to_pb_message_type(message_type: &MessageType) -> i32 {
-    let pb_message_type = match message_type {
-        NORMAL => pb::MessageType::Normal as i32,
-        FIFO => pb::MessageType::Fifo as i32,
-        DELAY => pb::MessageType::Delay as i32,
-        TRANSACTION => pb::MessageType::Transaction as i32,
-    };
-    pb_message_type
-}
-
 /// [`Message`] is the data model for sending.
 pub trait Message {
     fn take_message_id(&mut self) -> String;
