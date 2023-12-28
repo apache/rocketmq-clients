@@ -25,6 +25,7 @@ use crate::model::message::MessageType::{DELAY, FIFO, NORMAL, TRANSACTION};
 use crate::model::message_id::UNIQ_ID_GENERATOR;
 use crate::pb;
 
+#[derive(Clone)]
 pub enum MessageType {
     NORMAL = 1,
     FIFO = 2,
@@ -107,7 +108,7 @@ impl Message for MessageImpl {
     }
 
     fn get_message_type(&self) -> i32 {
-        transform_to_pb_message_type(&self.message_type)
+        self.message_type.clone() as i32
     }
 }
 
