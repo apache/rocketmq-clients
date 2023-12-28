@@ -504,7 +504,7 @@ mod tests {
                             addresses: vec![],
                         }),
                     }),
-                    accept_message_types: vec![1],
+                    accept_message_types: vec![MessageType::NORMAL as i32],
                 }],
             }))
         });
@@ -552,7 +552,7 @@ mod tests {
                             addresses: vec![],
                         }),
                     }),
-                    accept_message_types: vec![4],
+                    accept_message_types: vec![MessageType::TRANSACTION as i32],
                 }],
             }))
         });
