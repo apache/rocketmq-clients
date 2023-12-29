@@ -26,7 +26,7 @@ use slog::{info, Logger};
 use crate::client::Client;
 use crate::conf::{ClientOption, SimpleConsumerOption};
 use crate::error::{ClientError, ErrorKind};
-use crate::model::common::{ClientType, FilterExpression};
+use crate::model::common::{ClientType, FilterExpression, Settings};
 use crate::model::message::{AckMessageEntry, MessageView};
 use crate::util::{build_endpoints_by_message_queue, select_message_queue};
 use crate::{log, pb};
@@ -73,8 +73,7 @@ impl SimpleConsumer {
         };
         let logger = log::logger(option.logging_format());
         let consumer_option = Arc::new(RwLock::new(option));
-        let o1 = Arc::clone(&consumer_option);
-        let client = Client::new(&logger, client_option, o1)?;
+        let client = Client::new(&logger, client_option, Arc::clone(&consumer_option) as Arc<RwLock<dyn Settings>>)?;
         Ok(SimpleConsumer {
             option: consumer_option,
             logger,
