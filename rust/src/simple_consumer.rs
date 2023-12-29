@@ -73,7 +73,11 @@ impl SimpleConsumer {
         };
         let logger = log::logger(option.logging_format());
         let consumer_option = Arc::new(RwLock::new(option));
-        let client = Client::new(&logger, client_option, Arc::clone(&consumer_option) as Arc<RwLock<dyn Settings>>)?;
+        let client = Client::new(
+            &logger,
+            client_option,
+            Arc::clone(&consumer_option) as Arc<RwLock<dyn Settings>>,
+        )?;
         Ok(SimpleConsumer {
             option: consumer_option,
             logger,
