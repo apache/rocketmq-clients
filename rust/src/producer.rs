@@ -256,10 +256,14 @@ impl Producer {
         if self.option.validate_message_type() {
             for message_type in message_type_check_vec {
                 if !message_queue.accept_message_types.contains(&message_type) {
-                    return Err(ClientError::new(ErrorKind::MessageTypeNotMatch,
-                                                format!("Current message type {} not match with accepted types {:?}.",
-                                                        message_type, message_queue.accept_message_types).as_str(),
-                                                Self::OPERATION_SEND_MESSAGE));
+                    return Err(ClientError::new(
+                        ErrorKind::MessageTypeNotMatch,
+                        format!(
+                            "Current message type {} not match with accepted types {:?}.",
+                            message_type, message_queue.accept_message_types
+                        )
+                        .as_str(),
+                        Self::OPERATION_SEND_MESSAGE));
                 }
             }
         }
