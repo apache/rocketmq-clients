@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use mockall_double::double;
+use parking_lot::RwLock;
 use prost_types::Timestamp;
 use slog::{info, Logger};
 
@@ -25,13 +27,13 @@ use slog::{info, Logger};
 use crate::client::Client;
 use crate::conf::{ClientOption, ProducerOption};
 use crate::error::{ClientError, ErrorKind};
-use crate::model::common::{ClientType, SendReceipt};
+use crate::model::common::{ClientType, SendReceipt, Settings};
 use crate::model::message;
 use crate::model::transaction::{Transaction, TransactionChecker, TransactionImpl};
 use crate::pb::{Encoding, MessageType, Resource, SystemProperties};
 use crate::util::{
-    build_endpoints_by_message_queue, build_producer_settings, select_message_queue,
-    select_message_queue_by_message_group, HOST_NAME,
+    build_endpoints_by_message_queue, select_message_queue, select_message_queue_by_message_group,
+    HOST_NAME,
 };
 use crate::{log, pb};
 
@@ -43,7 +45,7 @@ use crate::{log, pb};
 /// [`Producer`] is `Send` and `Sync` by design, so that developers may get started easily.
 #[derive(Debug)]
 pub struct Producer {
-    option: ProducerOption,
+    option: Arc<RwLock<ProducerOption>>,
     logger: Logger,
     client: Client,
 }
@@ -65,10 +67,14 @@ impl Producer {
             ..client_option
         };
         let logger = log::logger(option.logging_format());
-        let settings = build_producer_settings(&option, &client_option);
-        let client = Client::new(&logger, client_option, settings)?;
+        let producer_option = Arc::new(RwLock::new(option));
+        let client = Client::new(
+            &logger,
+            client_option,
+            Arc::clone(&producer_option) as Arc<RwLock<dyn Settings>>,
+        )?;
         Ok(Producer {
-            option,
+            option: producer_option,
             logger,
             client,
         })
@@ -92,11 +98,11 @@ impl Producer {
             ..client_option
         };
         let logger = log::logger(option.logging_format());
-        let settings = build_producer_settings(&option, &client_option);
-        let mut client = Client::new(&logger, client_option, settings)?;
+        let producer_option = Arc::new(RwLock::new(option));
+        let mut client = Client::new(&logger, client_option, producer_option.clone())?;
         client.set_transaction_checker(transaction_checker);
         Ok(Producer {
-            option,
+            option: producer_option,
             logger,
             client,
         })
@@ -105,7 +111,7 @@ impl Producer {
     /// Start the producer
     pub async fn start(&mut self) -> Result<(), ClientError> {
         self.client.start().await?;
-        if let Some(topics) = self.option.topics() {
+        if let Some(topics) = self.option.read().topics() {
             for topic in topics {
                 self.client.topic_route(topic, true).await?;
             }
@@ -189,7 +195,7 @@ impl Producer {
             let pb_message = pb::Message {
                 topic: Some(Resource {
                     name: message.take_topic(),
-                    resource_namespace: self.option.namespace().to_string(),
+                    resource_namespace: self.option.read().namespace().to_string(),
                 }),
                 user_properties: message.take_properties(),
                 system_properties: Some(SystemProperties {
@@ -279,7 +285,7 @@ impl Producer {
         Ok(TransactionImpl::new(
             Box::new(rpc_client),
             Resource {
-                resource_namespace: self.option.namespace().to_string(),
+                resource_namespace: self.option.read().namespace().to_string(),
                 name: topic,
             },
             receipt,

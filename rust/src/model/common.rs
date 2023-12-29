@@ -17,15 +17,17 @@
 
 //! Common data model of RocketMQ rust client.
 
+use mockall::automock;
 use std::net::IpAddr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 
+use crate::conf::ClientOption;
 use tokio::sync::oneshot;
 
 use crate::error::{ClientError, ErrorKind};
 use crate::pb;
-use crate::pb::{Address, AddressScheme, MessageQueue};
+use crate::pb::{Address, AddressScheme, MessageQueue, TelemetryCommand};
 
 #[derive(Debug, Clone)]
 pub(crate) enum ClientType {
@@ -255,6 +257,13 @@ impl SendReceipt {
     pub fn transaction_id(&self) -> &str {
         &self.transaction_id
     }
+}
+
+#[automock]
+pub(crate) trait Settings: Send + Sync {
+    fn to_telemetry_command(&self, client_option: &ClientOption) -> TelemetryCommand;
+
+    fn sync(&mut self, settings_command: pb::Settings);
 }
 
 #[cfg(test)]

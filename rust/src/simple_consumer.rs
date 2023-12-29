@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use parking_lot::RwLock;
+use std::sync::Arc;
 use std::time::Duration;
 
 use mockall_double::double;
@@ -26,9 +28,7 @@ use crate::conf::{ClientOption, SimpleConsumerOption};
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::{ClientType, FilterExpression};
 use crate::model::message::{AckMessageEntry, MessageView};
-use crate::util::{
-    build_endpoints_by_message_queue, build_simple_consumer_settings, select_message_queue,
-};
+use crate::util::{build_endpoints_by_message_queue, select_message_queue};
 use crate::{log, pb};
 
 /// [`SimpleConsumer`] is a lightweight consumer to consume messages from RocketMQ proxy.
@@ -42,7 +42,7 @@ use crate::{log, pb};
 /// [`SimpleConsumer`] is `Send` and `Sync` by design, so that developers may get started easily.
 #[derive(Debug)]
 pub struct SimpleConsumer {
-    option: SimpleConsumerOption,
+    option: Arc<RwLock<SimpleConsumerOption>>,
     logger: Logger,
     client: Client,
 }
@@ -72,10 +72,11 @@ impl SimpleConsumer {
             ..client_option
         };
         let logger = log::logger(option.logging_format());
-        let settings = build_simple_consumer_settings(&option, &client_option);
-        let client = Client::new(&logger, client_option, settings)?;
+        let consumer_option = Arc::new(RwLock::new(option));
+        let o1 = Arc::clone(&consumer_option);
+        let client = Client::new(&logger, client_option, o1)?;
         Ok(SimpleConsumer {
-            option,
+            option: consumer_option,
             logger,
             client,
         })
@@ -83,7 +84,7 @@ impl SimpleConsumer {
 
     /// Start the simple consumer
     pub async fn start(&mut self) -> Result<(), ClientError> {
-        if self.option.consumer_group().is_empty() {
+        if self.option.read().consumer_group().is_empty() {
             return Err(ClientError::new(
                 ErrorKind::Config,
                 "required option is missing: consumer group is empty",
@@ -91,7 +92,7 @@ impl SimpleConsumer {
             ));
         }
         self.client.start().await?;
-        if let Some(topics) = self.option.topics() {
+        if let Some(topics) = self.option.read().topics() {
             for topic in topics {
                 self.client.topic_route(topic, true).await?;
             }
@@ -269,7 +270,7 @@ mod tests {
             .expect_ack_message()
             .returning(|_: &MessageView| Ok(AckMessageResultEntry::default()));
         let simple_consumer = SimpleConsumer {
-            option: SimpleConsumerOption::default(),
+            option: Arc::new(RwLock::new(SimpleConsumerOption::default())),
             logger: terminal_logger(),
             client,
         };

@@ -19,11 +19,14 @@
 
 use std::time::Duration;
 
-use crate::model::common::ClientType;
+use crate::model::common::{ClientType, Settings};
+use crate::pb;
+use crate::pb::TelemetryCommand;
 #[allow(unused_imports)]
 use crate::producer::Producer;
 #[allow(unused_imports)]
 use crate::simple_consumer::SimpleConsumer;
+use crate::util::{build_producer_settings, build_simple_consumer_settings};
 
 /// [`ClientOption`] is the configuration of internal client, which manages the connection and request with RocketMQ proxy.
 #[derive(Debug, Clone)]
@@ -190,6 +193,18 @@ impl ProducerOption {
     }
 }
 
+impl Settings for ProducerOption {
+    fn to_telemetry_command(&self, client_option: &ClientOption) -> TelemetryCommand {
+        build_producer_settings(self, client_option)
+    }
+
+    fn sync(&mut self, settings_command: crate::pb::Settings) {
+        if let Some(pb::settings::PubSub::Publishing(pub_setting)) = settings_command.pub_sub {
+            self.validate_message_type = pub_setting.validate_message_type;
+        }
+    }
+}
+
 /// The configuration of [`SimpleConsumer`].
 #[derive(Debug, Clone)]
 pub struct SimpleConsumerOption {
@@ -255,6 +270,16 @@ impl SimpleConsumerOption {
     }
     pub(crate) fn set_namespace(&mut self, name_space: impl Into<String>) {
         self.namespace = name_space.into();
+    }
+}
+
+impl Settings for SimpleConsumerOption {
+    fn to_telemetry_command(&self, client_option: &ClientOption) -> TelemetryCommand {
+        build_simple_consumer_settings(&self, client_option)
+    }
+
+    fn sync(&mut self, _settings_command: crate::pb::Settings) {
+        todo!()
     }
 }
 

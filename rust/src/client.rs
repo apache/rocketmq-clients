@@ -23,6 +23,7 @@ use mockall::automock;
 use mockall_double::double;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
+use parking_lot::RwLock;
 use prost_types::Duration;
 use slog::{debug, error, info, o, warn, Logger};
 use tokio::select;
@@ -30,6 +31,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::conf::ClientOption;
 use crate::error::{ClientError, ErrorKind};
+use crate::model::common;
 use crate::model::common::{ClientType, Endpoints, Route, RouteStatus, SendReceipt};
 use crate::model::message::{AckMessageEntry, MessageView};
 use crate::model::transaction::{TransactionChecker, TransactionResolution};
@@ -40,7 +42,7 @@ use crate::pb::{
     AckMessageRequest, AckMessageResultEntry, ChangeInvisibleDurationRequest, Code,
     EndTransactionRequest, FilterExpression, HeartbeatRequest, HeartbeatResponse, Message,
     MessageQueue, NotifyClientTerminationRequest, QueryRouteRequest, ReceiveMessageRequest,
-    Resource, SendMessageRequest, Status, TelemetryCommand, TransactionSource,
+    Resource, SendMessageRequest, Status, TransactionSource,
 };
 #[double]
 use crate::session::SessionManager;
@@ -53,7 +55,7 @@ pub(crate) struct Client {
     route_table: Mutex<HashMap<String /* topic */, RouteStatus>>,
     id: String,
     access_endpoints: Endpoints,
-    settings: TelemetryCommand,
+    settings: Arc<RwLock<dyn common::Settings>>,
     transaction_checker: Option<Box<TransactionChecker>>,
     telemetry_command_tx: Option<mpsc::Sender<pb::telemetry_command::Command>>,
     shutdown_tx: Option<oneshot::Sender<()>>,
@@ -88,7 +90,7 @@ impl Client {
     pub(crate) fn new(
         logger: &Logger,
         option: ClientOption,
-        settings: TelemetryCommand,
+        settings: Arc<parking_lot::RwLock<dyn common::Settings>>,
     ) -> Result<Self, ClientError> {
         let id = Self::generate_client_id();
         let endpoints = Endpoints::from_url(option.access_url())
@@ -147,6 +149,7 @@ impl Client {
         if transaction_checker.is_some() {
             self.transaction_checker = Some(Box::new(|_, _| TransactionResolution::UNKNOWN));
         }
+        let settings = Arc::clone(&self.settings);
 
         tokio::spawn(async move {
             rpc_client.is_started();
@@ -190,7 +193,7 @@ impl Client {
                     },
                     command = telemetry_command_rx.recv() => {
                         if let Some(command) = command {
-                            let result = Self::handle_telemetry_command(rpc_client.shadow_session(), &transaction_checker, endpoints.clone(), command).await;
+                            let result = Self::handle_telemetry_command(rpc_client.shadow_session(), &transaction_checker, endpoints.clone(), command, settings.clone()).await;
                             if let Err(error) = result {
                                 error!(logger, "handle telemetry command failed: {:?}", error);
                             }
@@ -244,6 +247,7 @@ impl Client {
         transaction_checker: &Option<Box<TransactionChecker>>,
         endpoints: Endpoints,
         command: pb::telemetry_command::Command,
+        settings: Arc<parking_lot::RwLock<dyn common::Settings>>,
     ) -> Result<(), ClientError> {
         return match command {
             RecoverOrphanedTransactionCommand(command) => {
@@ -281,7 +285,11 @@ impl Client {
                     ))
                 }
             }
-            Settings(_) => Ok(()),
+            Settings(settings_command) => {
+                let mut settings = settings.write();
+                settings.sync(settings_command);
+                Ok(())
+            }
             _ => Err(ClientError::new(
                 ErrorKind::Config,
                 "receive telemetry command but there is no handler",
@@ -320,7 +328,7 @@ impl Client {
             .session_manager
             .get_or_create_session(
                 &self.access_endpoints,
-                self.settings.clone(),
+                self.settings.read().to_telemetry_command(&self.option),
                 self.telemetry_command_tx.clone().unwrap(),
             )
             .await?;
@@ -335,7 +343,7 @@ impl Client {
             .session_manager
             .get_or_create_session(
                 endpoints,
-                self.settings.clone(),
+                self.settings.read().to_telemetry_command(&self.option),
                 self.telemetry_command_tx.clone().unwrap(),
             )
             .await?;
@@ -698,11 +706,13 @@ pub(crate) mod tests {
     use std::time::Duration;
 
     use once_cell::sync::Lazy;
+    use parking_lot::Mutex;
 
     use crate::client::Client;
-    use crate::conf::ClientOption;
+    use crate::conf::{ClientOption, ProducerOption};
     use crate::error::{ClientError, ErrorKind};
     use crate::log::terminal_logger;
+    use crate::model::common;
     use crate::model::common::{ClientType, Route};
     use crate::model::transaction::TransactionResolution;
     use crate::pb::receive_message_response::Content;
@@ -710,9 +720,9 @@ pub(crate) mod tests {
         AckMessageEntry, AckMessageResponse, ChangeInvisibleDurationResponse, Code,
         EndTransactionResponse, FilterExpression, HeartbeatResponse, Message, MessageQueue,
         QueryRouteResponse, ReceiveMessageResponse, Resource, SendMessageResponse, Status,
-        SystemProperties, TelemetryCommand,
+        SystemProperties,
     };
-    use crate::session;
+    use crate::{session, util};
 
     use super::*;
 
@@ -730,7 +740,7 @@ pub(crate) mod tests {
             route_table: Mutex::new(HashMap::new()),
             id: Client::generate_client_id(),
             access_endpoints: Endpoints::from_url("http://localhost:8081").unwrap(),
-            settings: TelemetryCommand::default(),
+            settings: Arc::new(RwLock::new(common::MockSettings::new())),
             transaction_checker: None,
             telemetry_command_tx: None,
             shutdown_tx: None,
@@ -746,7 +756,7 @@ pub(crate) mod tests {
             route_table: Mutex::new(HashMap::new()),
             id: Client::generate_client_id(),
             access_endpoints: Endpoints::from_url("http://localhost:8081").unwrap(),
-            settings: TelemetryCommand::default(),
+            settings: Arc::new(RwLock::new(ProducerOption::default())),
             transaction_checker: None,
             telemetry_command_tx: Some(tx),
             shutdown_tx: None,
@@ -768,7 +778,7 @@ pub(crate) mod tests {
         Client::new(
             &terminal_logger(),
             ClientOption::default(),
-            TelemetryCommand::default(),
+            Arc::new(RwLock::new(ProducerOption::default())),
         )?;
         Ok(())
     }
@@ -1159,8 +1169,30 @@ pub(crate) mod tests {
                 }),
                 transaction_id: "".to_string(),
             }),
+            Arc::new(RwLock::new(common::MockSettings::new())),
         )
         .await;
         assert!(result.is_ok())
+    }
+
+    #[tokio::test]
+    async fn client_handle_settings_command() {
+        let mock = session::MockRPCClient::new();
+        let producer_option = Arc::new(RwLock::new(ProducerOption::default()));
+        let mut remote_producer_option = ProducerOption::default();
+        remote_producer_option.set_validate_message_type(false);
+        let client_option = ClientOption::default();
+        let result = Client::handle_telemetry_command(
+            mock,
+            &None,
+            Endpoints::from_url("localhost:8081").unwrap(),
+            util::build_producer_settings(&remote_producer_option, &client_option)
+                .command
+                .unwrap(),
+            Arc::clone(&producer_option) as Arc<RwLock<ProducerOption>>,
+        )
+        .await;
+        assert!(result.is_ok());
+        assert!(!producer_option.read().validate_message_type())
     }
 }
