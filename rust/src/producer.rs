@@ -263,7 +263,8 @@ impl Producer {
                             message_type, message_queue.accept_message_types
                         )
                         .as_str(),
-                        Self::OPERATION_SEND_MESSAGE));
+                        Self::OPERATION_SEND_MESSAGE,
+                    ));
                 }
             }
         }
