@@ -19,9 +19,9 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use mockall_double::double;
-use tokio::sync::RwLock;
 use prost_types::Timestamp;
 use slog::{info, Logger};
+use tokio::sync::RwLock;
 
 #[double]
 use crate::client::Client;
@@ -68,12 +68,8 @@ impl Producer {
         };
         let logger = log::logger(option.logging_format());
         let producer_option = Arc::new(RwLock::new(option));
-        let settings= Arc::clone(&producer_option) ;
-        let client = Client::new(
-            &logger,
-            client_option,
-            settings,
-        )?;
+        let settings = Arc::clone(&producer_option);
+        let client = Client::new(&logger, client_option, settings)?;
         Ok(Producer {
             option: producer_option,
             logger,

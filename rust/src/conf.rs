@@ -275,7 +275,7 @@ impl SimpleConsumerOption {
 
 impl Settings for SimpleConsumerOption {
     fn to_telemetry_command(&self, client_option: &ClientOption) -> TelemetryCommand {
-        build_simple_consumer_settings(&self, client_option)
+        build_simple_consumer_settings(self, client_option)
     }
 
     fn sync(&mut self, _settings_command: crate::pb::Settings) {

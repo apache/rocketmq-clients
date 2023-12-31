@@ -26,8 +26,8 @@ use parking_lot::Mutex;
 use prost_types::Duration;
 use slog::{debug, error, info, o, warn, Logger};
 use tokio::select;
-use tokio::sync::{mpsc, oneshot};
 use tokio::sync::RwLock as TokioRwLock;
+use tokio::sync::{mpsc, oneshot};
 
 use crate::conf::ClientOption;
 use crate::error::{ClientError, ErrorKind};
@@ -327,7 +327,10 @@ impl Client {
             .session_manager
             .get_or_create_session(
                 &self.access_endpoints,
-                self.settings.read().await.to_telemetry_command(&self.option),
+                self.settings
+                    .read()
+                    .await
+                    .to_telemetry_command(&self.option),
                 self.telemetry_command_tx.clone().unwrap(),
             )
             .await?;
@@ -342,7 +345,10 @@ impl Client {
             .session_manager
             .get_or_create_session(
                 endpoints,
-                self.settings.read().await.to_telemetry_command(&self.option),
+                self.settings
+                    .read()
+                    .await
+                    .to_telemetry_command(&self.option),
                 self.telemetry_command_tx.clone().unwrap(),
             )
             .await?;

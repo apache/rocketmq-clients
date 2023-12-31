@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-use tokio::sync::RwLock;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::RwLock;
 
 use mockall_double::double;
 use slog::{info, Logger};
