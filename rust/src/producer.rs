@@ -19,7 +19,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use mockall_double::double;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 use prost_types::Timestamp;
 use slog::{info, Logger};
 
@@ -45,7 +45,7 @@ use crate::{log, pb};
 /// [`Producer`] is `Send` and `Sync` by design, so that developers may get started easily.
 #[derive(Debug)]
 pub struct Producer {
-    option: Arc<Mutex<ProducerOption>>,
+    option: Arc<RwLock<ProducerOption>>,
     logger: Logger,
     client: Client,
 }
@@ -67,7 +67,7 @@ impl Producer {
             ..client_option
         };
         let logger = log::logger(option.logging_format());
-        let producer_option = Arc::new(Mutex::new(option));
+        let producer_option = Arc::new(RwLock::new(option));
         let settings= Arc::clone(&producer_option) ;
         let client = Client::new(
             &logger,
@@ -99,7 +99,7 @@ impl Producer {
             ..client_option
         };
         let logger = log::logger(option.logging_format());
-        let producer_option = Arc::new(Mutex::new(option));
+        let producer_option = Arc::new(RwLock::new(option));
         let mut client = Client::new(&logger, client_option, producer_option.clone())?;
         client.set_transaction_checker(transaction_checker);
         Ok(Producer {
@@ -112,7 +112,7 @@ impl Producer {
     /// Start the producer
     pub async fn start(&mut self) -> Result<(), ClientError> {
         self.client.start().await?;
-        if let Some(topics) = self.option.lock().await.topics() {
+        if let Some(topics) = self.option.read().await.topics() {
             for topic in topics {
                 self.client.topic_route(topic, true).await?;
             }
@@ -196,7 +196,7 @@ impl Producer {
             let pb_message = pb::Message {
                 topic: Some(Resource {
                     name: message.take_topic(),
-                    resource_namespace: self.option.lock().await.namespace().to_string(),
+                    resource_namespace: self.option.read().await.namespace().to_string(),
                 }),
                 user_properties: message.take_properties(),
                 system_properties: Some(SystemProperties {
@@ -286,7 +286,7 @@ impl Producer {
         Ok(TransactionImpl::new(
             Box::new(rpc_client),
             Resource {
-                resource_namespace: self.option.lock().await.namespace().to_string(),
+                resource_namespace: self.option.read().await.namespace().to_string(),
                 name: topic,
             },
             receipt,

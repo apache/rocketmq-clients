@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -42,7 +42,7 @@ use crate::{log, pb};
 /// [`SimpleConsumer`] is `Send` and `Sync` by design, so that developers may get started easily.
 #[derive(Debug)]
 pub struct SimpleConsumer {
-    option: Arc<Mutex<SimpleConsumerOption>>,
+    option: Arc<RwLock<SimpleConsumerOption>>,
     logger: Logger,
     client: Client,
 }
@@ -72,11 +72,11 @@ impl SimpleConsumer {
             ..client_option
         };
         let logger = log::logger(option.logging_format());
-        let consumer_option = Arc::new(Mutex::new(option));
+        let consumer_option = Arc::new(RwLock::new(option));
         let client = Client::new(
             &logger,
             client_option,
-            Arc::clone(&consumer_option) as Arc<Mutex<dyn Settings>>,
+            Arc::clone(&consumer_option) as Arc<RwLock<dyn Settings>>,
         )?;
         Ok(SimpleConsumer {
             option: consumer_option,
@@ -87,7 +87,7 @@ impl SimpleConsumer {
 
     /// Start the simple consumer
     pub async fn start(&mut self) -> Result<(), ClientError> {
-        if self.option.lock().await.consumer_group().is_empty() {
+        if self.option.read().await.consumer_group().is_empty() {
             return Err(ClientError::new(
                 ErrorKind::Config,
                 "required option is missing: consumer group is empty",
@@ -95,7 +95,7 @@ impl SimpleConsumer {
             ));
         }
         self.client.start().await?;
-        if let Some(topics) = self.option.lock().await.topics() {
+        if let Some(topics) = self.option.read().await.topics() {
             for topic in topics {
                 self.client.topic_route(topic, true).await?;
             }
@@ -273,7 +273,7 @@ mod tests {
             .expect_ack_message()
             .returning(|_: &MessageView| Ok(AckMessageResultEntry::default()));
         let simple_consumer = SimpleConsumer {
-            option: Arc::new(Mutex::new(SimpleConsumerOption::default())),
+            option: Arc::new(RwLock::new(SimpleConsumerOption::default())),
             logger: terminal_logger(),
             client,
         };
