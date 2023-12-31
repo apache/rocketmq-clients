@@ -19,7 +19,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use mockall_double::double;
-use parking_lot::RwLock;
+use tokio::sync::Mutex;
 use prost_types::Timestamp;
 use slog::{info, Logger};
 
@@ -27,7 +27,7 @@ use slog::{info, Logger};
 use crate::client::Client;
 use crate::conf::{ClientOption, ProducerOption};
 use crate::error::{ClientError, ErrorKind};
-use crate::model::common::{ClientType, SendReceipt, Settings};
+use crate::model::common::{ClientType, SendReceipt};
 use crate::model::message;
 use crate::model::transaction::{Transaction, TransactionChecker, TransactionImpl};
 use crate::pb::{Encoding, MessageType, Resource, SystemProperties};
@@ -45,7 +45,7 @@ use crate::{log, pb};
 /// [`Producer`] is `Send` and `Sync` by design, so that developers may get started easily.
 #[derive(Debug)]
 pub struct Producer {
-    option: Arc<RwLock<ProducerOption>>,
+    option: Arc<Mutex<ProducerOption>>,
     logger: Logger,
     client: Client,
 }
@@ -67,11 +67,12 @@ impl Producer {
             ..client_option
         };
         let logger = log::logger(option.logging_format());
-        let producer_option = Arc::new(RwLock::new(option));
+        let producer_option = Arc::new(Mutex::new(option));
+        let settings= Arc::clone(&producer_option) ;
         let client = Client::new(
             &logger,
             client_option,
-            Arc::clone(&producer_option) as Arc<RwLock<dyn Settings>>,
+            settings,
         )?;
         Ok(Producer {
             option: producer_option,
@@ -98,7 +99,7 @@ impl Producer {
             ..client_option
         };
         let logger = log::logger(option.logging_format());
-        let producer_option = Arc::new(RwLock::new(option));
+        let producer_option = Arc::new(Mutex::new(option));
         let mut client = Client::new(&logger, client_option, producer_option.clone())?;
         client.set_transaction_checker(transaction_checker);
         Ok(Producer {
@@ -111,7 +112,7 @@ impl Producer {
     /// Start the producer
     pub async fn start(&mut self) -> Result<(), ClientError> {
         self.client.start().await?;
-        if let Some(topics) = self.option.read().topics() {
+        if let Some(topics) = self.option.lock().await.topics() {
             for topic in topics {
                 self.client.topic_route(topic, true).await?;
             }
@@ -124,7 +125,7 @@ impl Producer {
         Ok(())
     }
 
-    fn transform_messages_to_protobuf(
+    async fn transform_messages_to_protobuf(
         &self,
         messages: Vec<impl message::Message>,
     ) -> Result<(String, Option<String>, Vec<pb::Message>), ClientError> {
@@ -195,7 +196,7 @@ impl Producer {
             let pb_message = pb::Message {
                 topic: Some(Resource {
                     name: message.take_topic(),
-                    resource_namespace: self.option.read().namespace().to_string(),
+                    resource_namespace: self.option.lock().await.namespace().to_string(),
                 }),
                 user_properties: message.take_properties(),
                 system_properties: Some(SystemProperties {
@@ -248,7 +249,7 @@ impl Producer {
         messages: Vec<impl message::Message>,
     ) -> Result<Vec<SendReceipt>, ClientError> {
         let (topic, message_group, mut pb_messages) =
-            self.transform_messages_to_protobuf(messages)?;
+            self.transform_messages_to_protobuf(messages).await?;
 
         let route = self.client.topic_route(&topic, true).await?;
 
@@ -285,7 +286,7 @@ impl Producer {
         Ok(TransactionImpl::new(
             Box::new(rpc_client),
             Resource {
-                resource_namespace: self.option.read().namespace().to_string(),
+                resource_namespace: self.option.lock().await.namespace().to_string(),
                 name: topic,
             },
             receipt,
@@ -390,7 +391,7 @@ mod tests {
             .set_message_group("message_group".to_string())
             .build()
             .unwrap()];
-        let result = producer.transform_messages_to_protobuf(messages);
+        let result = producer.transform_messages_to_protobuf(messages).await;
         assert!(result.is_ok());
 
         let (topic, message_group, pb_messages) = result.unwrap();
@@ -414,7 +415,7 @@ mod tests {
         let producer = new_producer_for_test();
 
         let messages: Vec<MessageImpl> = vec![];
-        let result = producer.transform_messages_to_protobuf(messages);
+        let result = producer.transform_messages_to_protobuf(messages).await;
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.kind, ErrorKind::InvalidMessage);
@@ -431,7 +432,7 @@ mod tests {
             delivery_timestamp: None,
             transaction_enabled: false,
         }];
-        let result = producer.transform_messages_to_protobuf(messages);
+        let result = producer.transform_messages_to_protobuf(messages).await;
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.kind, ErrorKind::InvalidMessage);
@@ -449,7 +450,7 @@ mod tests {
                 .build()
                 .unwrap(),
         ];
-        let result = producer.transform_messages_to_protobuf(messages);
+        let result = producer.transform_messages_to_protobuf(messages).await;
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.kind, ErrorKind::InvalidMessage);
@@ -469,7 +470,7 @@ mod tests {
                 .build()
                 .unwrap(),
         ];
-        let result = producer.transform_messages_to_protobuf(messages);
+        let result = producer.transform_messages_to_protobuf(messages).await;
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.kind, ErrorKind::InvalidMessage);
