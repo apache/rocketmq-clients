@@ -26,7 +26,7 @@ use parking_lot::Mutex;
 use prost_types::Duration;
 use slog::{debug, error, info, o, warn, Logger};
 use tokio::select;
-use tokio::sync::RwLock as TokioRwLock;
+use tokio::sync::RwLock;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::conf::ClientOption;
@@ -55,7 +55,7 @@ pub(crate) struct Client {
     route_table: Mutex<HashMap<String /* topic */, RouteStatus>>,
     id: String,
     access_endpoints: Endpoints,
-    settings: Arc<TokioRwLock<dyn common::Settings>>,
+    settings: Arc<RwLock<dyn common::Settings>>,
     transaction_checker: Option<Box<TransactionChecker>>,
     telemetry_command_tx: Option<mpsc::Sender<pb::telemetry_command::Command>>,
     shutdown_tx: Option<oneshot::Sender<()>>,
@@ -90,7 +90,7 @@ impl Client {
     pub(crate) fn new(
         logger: &Logger,
         option: ClientOption,
-        settings: Arc<TokioRwLock<dyn common::Settings>>,
+        settings: Arc<RwLock<dyn common::Settings>>,
     ) -> Result<Self, ClientError> {
         let id = Self::generate_client_id();
         let endpoints = Endpoints::from_url(option.access_url())
@@ -247,7 +247,7 @@ impl Client {
         transaction_checker: &Option<Box<TransactionChecker>>,
         endpoints: Endpoints,
         command: pb::telemetry_command::Command,
-        settings: Arc<TokioRwLock<dyn common::Settings>>,
+        settings: Arc<RwLock<dyn common::Settings>>,
     ) -> Result<(), ClientError> {
         return match command {
             RecoverOrphanedTransactionCommand(command) => {
@@ -712,7 +712,7 @@ pub(crate) mod tests {
 
     use once_cell::sync::Lazy;
     use parking_lot::Mutex;
-    use tokio::sync::RwLock as TokioRwLock;
+    use tokio::sync::RwLock;
 
     use crate::client::Client;
     use crate::conf::{ClientOption, ProducerOption};
@@ -746,7 +746,7 @@ pub(crate) mod tests {
             route_table: Mutex::new(HashMap::new()),
             id: Client::generate_client_id(),
             access_endpoints: Endpoints::from_url("http://localhost:8081").unwrap(),
-            settings: Arc::new(TokioRwLock::new(common::MockSettings::new())),
+            settings: Arc::new(RwLock::new(common::MockSettings::new())),
             transaction_checker: None,
             telemetry_command_tx: None,
             shutdown_tx: None,
@@ -762,7 +762,7 @@ pub(crate) mod tests {
             route_table: Mutex::new(HashMap::new()),
             id: Client::generate_client_id(),
             access_endpoints: Endpoints::from_url("http://localhost:8081").unwrap(),
-            settings: Arc::new(TokioRwLock::new(ProducerOption::default())),
+            settings: Arc::new(RwLock::new(ProducerOption::default())),
             transaction_checker: None,
             telemetry_command_tx: Some(tx),
             shutdown_tx: None,
@@ -784,7 +784,7 @@ pub(crate) mod tests {
         Client::new(
             &terminal_logger(),
             ClientOption::default(),
-            Arc::new(TokioRwLock::new(ProducerOption::default())),
+            Arc::new(RwLock::new(ProducerOption::default())),
         )?;
         Ok(())
     }
@@ -1175,7 +1175,7 @@ pub(crate) mod tests {
                 }),
                 transaction_id: "".to_string(),
             }),
-            Arc::new(TokioRwLock::new(common::MockSettings::new())),
+            Arc::new(RwLock::new(common::MockSettings::new())),
         )
         .await;
         assert!(result.is_ok())
@@ -1184,7 +1184,7 @@ pub(crate) mod tests {
     #[tokio::test]
     async fn client_handle_settings_command() {
         let mock = session::MockRPCClient::new();
-        let producer_option = Arc::new(TokioRwLock::new(ProducerOption::default()));
+        let producer_option = Arc::new(RwLock::new(ProducerOption::default()));
         let mut remote_producer_option = ProducerOption::default();
         remote_producer_option.set_validate_message_type(false);
         let client_option = ClientOption::default();
@@ -1195,7 +1195,7 @@ pub(crate) mod tests {
             util::build_producer_settings(&remote_producer_option, &client_option)
                 .command
                 .unwrap(),
-            Arc::clone(&producer_option) as Arc<TokioRwLock<ProducerOption>>,
+            Arc::clone(&producer_option) as Arc<RwLock<ProducerOption>>,
         )
         .await;
         assert!(result.is_ok());
