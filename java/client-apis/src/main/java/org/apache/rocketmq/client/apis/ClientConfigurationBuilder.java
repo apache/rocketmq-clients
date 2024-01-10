@@ -89,7 +89,7 @@ public class ClientConfigurationBuilder {
      * @return The {@link ClientConfigurationBuilder} instance, to allow for method chaining.
      */
     public ClientConfigurationBuilder setNamespace(String namespace) {
-        this.namespace = namespace;
+        this.namespace = checkNotNull(namespace, "namespace should not be null");
         return this;
     }
 
