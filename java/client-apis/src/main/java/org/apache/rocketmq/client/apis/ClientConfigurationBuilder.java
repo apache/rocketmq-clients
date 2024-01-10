@@ -31,6 +31,7 @@ public class ClientConfigurationBuilder {
     private SessionCredentialsProvider sessionCredentialsProvider = null;
     private Duration requestTimeout = Duration.ofSeconds(3);
     private boolean sslEnabled = true;
+    private String namespace = "";
 
     /**
      * Configure the access point with which the SDK should communicate.
@@ -83,6 +84,16 @@ public class ClientConfigurationBuilder {
     }
 
     /**
+     * Configure namespace for client
+     * @param namespace namespace
+     * @return The {@link ClientConfigurationBuilder} instance, to allow for method chaining.
+     */
+    public ClientConfigurationBuilder setNamespace(String namespace) {
+        this.namespace = namespace;
+        return this;
+    }
+
+    /**
      * Finalize the build of {@link ClientConfiguration}.
      *
      * @return the client configuration builder instance.
@@ -90,6 +101,6 @@ public class ClientConfigurationBuilder {
     public ClientConfiguration build() {
         checkNotNull(endpoints, "endpoints should not be null");
         checkNotNull(requestTimeout, "requestTimeout should not be null");
-        return new ClientConfiguration(endpoints, sessionCredentialsProvider, requestTimeout, sslEnabled);
+        return new ClientConfiguration(endpoints, sessionCredentialsProvider, requestTimeout, sslEnabled, namespace);
     }
 }

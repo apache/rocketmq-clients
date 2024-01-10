@@ -123,7 +123,10 @@ abstract class ConsumerImpl extends ClientImpl {
     }
 
     private AckMessageRequest wrapAckMessageRequest(MessageViewImpl messageView) {
-        final Resource topicResource = Resource.newBuilder().setName(messageView.getTopic()).build();
+        final Resource topicResource = Resource.newBuilder()
+            .setResourceNamespace(clientConfiguration.getNamespace())
+            .setName(messageView.getTopic())
+            .build();
         final AckMessageEntry entry = AckMessageEntry.newBuilder()
             .setMessageId(messageView.getMessageId().toString())
             .setReceiptHandle(messageView.getReceiptHandle())
@@ -134,7 +137,9 @@ abstract class ConsumerImpl extends ClientImpl {
 
     private ChangeInvisibleDurationRequest wrapChangeInvisibleDuration(MessageViewImpl messageView,
         Duration invisibleDuration) {
-        final Resource topicResource = Resource.newBuilder().setName(messageView.getTopic()).build();
+        final Resource topicResource = Resource.newBuilder()
+            .setResourceNamespace(clientConfiguration.getNamespace())
+            .setName(messageView.getTopic()).build();
         return ChangeInvisibleDurationRequest.newBuilder().setGroup(getProtobufGroup()).setTopic(topicResource)
             .setReceiptHandle(messageView.getReceiptHandle())
             .setInvisibleDuration(Durations.fromNanos(invisibleDuration.toNanos()))
@@ -219,7 +224,10 @@ abstract class ConsumerImpl extends ClientImpl {
     }
 
     protected Resource getProtobufGroup() {
-        return Resource.newBuilder().setName(consumerGroup).build();
+        return Resource.newBuilder()
+            .setResourceNamespace(clientConfiguration.getNamespace())
+            .setName(consumerGroup)
+            .build();
     }
 
     @Override

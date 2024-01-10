@@ -39,21 +39,24 @@ public class SimpleSubscriptionSettingsTest extends TestBase {
 
     @Test
     public void testToProtobuf() {
-        Resource groupResource = new Resource(FAKE_CONSUMER_GROUP_0);
+        Resource groupResource = new Resource(FAKE_NAMESPACE, FAKE_CONSUMER_GROUP_0);
         ClientId clientId = new ClientId();
         Map<String, FilterExpression> subscriptionExpression = new HashMap<>();
         subscriptionExpression.put(FAKE_TOPIC_0, new FilterExpression());
         final Duration requestTimeout = Duration.ofSeconds(3);
         final Duration longPollingTimeout = Duration.ofSeconds(15);
-        final SimpleSubscriptionSettings simpleSubscriptionSettings = new SimpleSubscriptionSettings(clientId,
-            fakeEndpoints(), groupResource, requestTimeout, longPollingTimeout, subscriptionExpression);
+        final SimpleSubscriptionSettings simpleSubscriptionSettings = new SimpleSubscriptionSettings(FAKE_NAMESPACE,
+            clientId, fakeEndpoints(), groupResource, requestTimeout, longPollingTimeout, subscriptionExpression);
         final Settings settings = simpleSubscriptionSettings.toProtobuf();
         Assert.assertEquals(settings.getClientType(), ClientType.SIMPLE_CONSUMER);
         Assert.assertEquals(settings.getRequestTimeout(), Durations.fromNanos(requestTimeout.toNanos()));
         Assert.assertTrue(settings.hasSubscription());
         final Subscription subscription = settings.getSubscription();
         Assert.assertEquals(subscription.getGroup(),
-            apache.rocketmq.v2.Resource.newBuilder().setName(FAKE_CONSUMER_GROUP_0).build());
+            apache.rocketmq.v2.Resource.newBuilder()
+                .setResourceNamespace(FAKE_NAMESPACE)
+                .setName(FAKE_CONSUMER_GROUP_0)
+                .build());
         Assert.assertFalse(subscription.getFifo());
         Assert.assertEquals(subscription.getLongPollingTimeout(), Durations.fromNanos(longPollingTimeout.toNanos()));
         final List<SubscriptionEntry> subscriptionsList = subscription.getSubscriptionsList();
@@ -61,27 +64,33 @@ public class SimpleSubscriptionSettingsTest extends TestBase {
         final SubscriptionEntry subscriptionEntry = subscriptionsList.get(0);
         Assert.assertEquals(subscriptionEntry.getExpression().getType(), FilterType.TAG);
         Assert.assertEquals(subscriptionEntry.getTopic(),
-            apache.rocketmq.v2.Resource.newBuilder().setName(FAKE_TOPIC_0).build());
+            apache.rocketmq.v2.Resource.newBuilder()
+                .setResourceNamespace(FAKE_NAMESPACE)
+                .setName(FAKE_TOPIC_0)
+                .build());
     }
 
     @Test
     public void testToProtobufWithSqlExpression() {
-        Resource groupResource = new Resource(FAKE_CONSUMER_GROUP_0);
+        Resource groupResource = new Resource(FAKE_NAMESPACE, FAKE_CONSUMER_GROUP_0);
         ClientId clientId = new ClientId();
         Map<String, FilterExpression> subscriptionExpression = new HashMap<>();
         subscriptionExpression.put(FAKE_TOPIC_0, new FilterExpression("(a > 10 AND a < 100) OR (b IS NOT NULL AND "
             + "b=TRUE)", FilterExpressionType.SQL92));
         final Duration requestTimeout = Duration.ofSeconds(3);
         final Duration longPollingTimeout = Duration.ofSeconds(15);
-        final SimpleSubscriptionSettings simpleSubscriptionSettings = new SimpleSubscriptionSettings(clientId,
-            fakeEndpoints(), groupResource, requestTimeout, longPollingTimeout, subscriptionExpression);
+        final SimpleSubscriptionSettings simpleSubscriptionSettings = new SimpleSubscriptionSettings(FAKE_NAMESPACE,
+            clientId, fakeEndpoints(), groupResource, requestTimeout, longPollingTimeout, subscriptionExpression);
         final Settings settings = simpleSubscriptionSettings.toProtobuf();
         Assert.assertEquals(settings.getClientType(), ClientType.SIMPLE_CONSUMER);
         Assert.assertEquals(settings.getRequestTimeout(), Durations.fromNanos(requestTimeout.toNanos()));
         Assert.assertTrue(settings.hasSubscription());
         final Subscription subscription = settings.getSubscription();
         Assert.assertEquals(subscription.getGroup(),
-            apache.rocketmq.v2.Resource.newBuilder().setName(FAKE_CONSUMER_GROUP_0).build());
+            apache.rocketmq.v2.Resource.newBuilder()
+                .setResourceNamespace(FAKE_NAMESPACE)
+                .setName(FAKE_CONSUMER_GROUP_0)
+                .build());
         Assert.assertFalse(subscription.getFifo());
         Assert.assertEquals(subscription.getLongPollingTimeout(), Durations.fromNanos(longPollingTimeout.toNanos()));
         final List<SubscriptionEntry> subscriptionsList = subscription.getSubscriptionsList();
@@ -89,7 +98,10 @@ public class SimpleSubscriptionSettingsTest extends TestBase {
         final SubscriptionEntry subscriptionEntry = subscriptionsList.get(0);
         Assert.assertEquals(subscriptionEntry.getExpression().getType(), FilterType.SQL);
         Assert.assertEquals(subscriptionEntry.getTopic(),
-            apache.rocketmq.v2.Resource.newBuilder().setName(FAKE_TOPIC_0).build());
+            apache.rocketmq.v2.Resource.newBuilder()
+                .setResourceNamespace(FAKE_NAMESPACE)
+                .setName(FAKE_TOPIC_0)
+                .build());
     }
 
 }

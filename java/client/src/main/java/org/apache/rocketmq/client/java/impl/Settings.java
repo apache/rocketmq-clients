@@ -25,14 +25,16 @@ import org.apache.rocketmq.client.java.retry.RetryPolicy;
 import org.apache.rocketmq.client.java.route.Endpoints;
 
 public abstract class Settings {
+    protected final String namespace;
     protected final ClientId clientId;
     protected final ClientType clientType;
     protected final Endpoints accessPoint;
     protected volatile RetryPolicy retryPolicy;
     protected final Duration requestTimeout;
 
-    public Settings(ClientId clientId, ClientType clientType, Endpoints accessPoint, RetryPolicy retryPolicy,
-        Duration requestTimeout) {
+    public Settings(String namespace, ClientId clientId, ClientType clientType, Endpoints accessPoint,
+        RetryPolicy retryPolicy, Duration requestTimeout) {
+        this.namespace = namespace;
         this.clientId = clientId;
         this.clientType = clientType;
         this.accessPoint = accessPoint;
@@ -40,8 +42,9 @@ public abstract class Settings {
         this.requestTimeout = requestTimeout;
     }
 
-    public Settings(ClientId clientId, ClientType clientType, Endpoints accessPoint, Duration requestTimeout) {
-        this(clientId, clientType, accessPoint, null, requestTimeout);
+    public Settings(String namespace, ClientId clientId, ClientType clientType, Endpoints accessPoint,
+        Duration requestTimeout) {
+        this(namespace, clientId, clientType, accessPoint, null, requestTimeout);
     }
 
     public abstract apache.rocketmq.v2.Settings toProtobuf();

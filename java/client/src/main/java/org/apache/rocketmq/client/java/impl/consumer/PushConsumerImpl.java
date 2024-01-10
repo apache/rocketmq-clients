@@ -127,9 +127,9 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
         int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount) {
         super(clientConfiguration, consumerGroup, subscriptionExpressions.keySet());
         this.clientConfiguration = clientConfiguration;
-        Resource groupResource = new Resource(consumerGroup);
-        this.pushSubscriptionSettings = new PushSubscriptionSettings(clientId, endpoints, groupResource,
-            clientConfiguration.getRequestTimeout(), subscriptionExpressions);
+        Resource groupResource = new Resource(clientConfiguration.getNamespace(), consumerGroup);
+        this.pushSubscriptionSettings = new PushSubscriptionSettings(clientConfiguration.getNamespace(), clientId,
+            endpoints, groupResource, clientConfiguration.getRequestTimeout(), subscriptionExpressions);
         this.consumerGroup = consumerGroup;
         this.subscriptionExpressions = subscriptionExpressions;
         this.cacheAssignments = new ConcurrentHashMap<>();
@@ -261,7 +261,10 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     }
 
     private QueryAssignmentRequest wrapQueryAssignmentRequest(String topic) {
-        apache.rocketmq.v2.Resource topicResource = apache.rocketmq.v2.Resource.newBuilder().setName(topic).build();
+        apache.rocketmq.v2.Resource topicResource = apache.rocketmq.v2.Resource.newBuilder()
+            .setResourceNamespace(clientConfiguration.getNamespace())
+            .setName(topic)
+            .build();
         return QueryAssignmentRequest.newBuilder().setTopic(topicResource)
             .setEndpoints(endpoints.toProtobuf()).setGroup(getProtobufGroup()).build();
     }
@@ -500,7 +503,10 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
     private ForwardMessageToDeadLetterQueueRequest wrapForwardMessageToDeadLetterQueueRequest(
         MessageViewImpl messageView) {
         final apache.rocketmq.v2.Resource topicResource =
-            apache.rocketmq.v2.Resource.newBuilder().setName(messageView.getTopic()).build();
+            apache.rocketmq.v2.Resource.newBuilder()
+                .setResourceNamespace(clientConfiguration.getNamespace())
+                .setName(messageView.getTopic())
+                .build();
         return ForwardMessageToDeadLetterQueueRequest.newBuilder().setGroup(getProtobufGroup()).setTopic(topicResource)
             .setReceiptHandle(messageView.getReceiptHandle())
             .setMessageId(messageView.getMessageId().toString())

@@ -74,9 +74,9 @@ class SimpleConsumerImpl extends ConsumerImpl implements SimpleConsumer {
     public SimpleConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup, Duration awaitDuration,
         Map<String, FilterExpression> subscriptionExpressions) {
         super(clientConfiguration, consumerGroup, subscriptionExpressions.keySet());
-        Resource groupResource = new Resource(consumerGroup);
-        this.simpleSubscriptionSettings = new SimpleSubscriptionSettings(clientId, endpoints,
-            groupResource, clientConfiguration.getRequestTimeout(), awaitDuration, subscriptionExpressions);
+        Resource groupResource = new Resource(clientConfiguration.getNamespace(), consumerGroup);
+        this.simpleSubscriptionSettings = new SimpleSubscriptionSettings(clientConfiguration.getNamespace(), clientId,
+            endpoints, groupResource, clientConfiguration.getRequestTimeout(), awaitDuration, subscriptionExpressions);
         this.consumerGroup = consumerGroup;
         this.awaitDuration = awaitDuration;
 
