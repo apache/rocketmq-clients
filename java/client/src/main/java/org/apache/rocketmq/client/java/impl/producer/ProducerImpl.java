@@ -101,8 +101,8 @@ class ProducerImpl extends ClientImpl implements Producer {
         TransactionChecker checker) {
         super(clientConfiguration, topics);
         ExponentialBackoffRetryPolicy retryPolicy = ExponentialBackoffRetryPolicy.immediatelyRetryPolicy(maxAttempts);
-        this.publishingSettings = new PublishingSettings(clientId, endpoints, retryPolicy,
-            clientConfiguration.getRequestTimeout(), topics);
+        this.publishingSettings = new PublishingSettings(clientConfiguration.getNamespace(), clientId, endpoints,
+            retryPolicy, clientConfiguration.getRequestTimeout(), topics);
         this.checker = checker;
         this.publishingRouteDataCache = new ConcurrentHashMap<>();
     }
@@ -259,7 +259,10 @@ class ProducerImpl extends ClientImpl implements Producer {
         String transactionId, final TransactionResolution resolution) throws ClientException {
         final EndTransactionRequest.Builder builder = EndTransactionRequest.newBuilder()
             .setMessageId(messageId.toString()).setTransactionId(transactionId)
-            .setTopic(apache.rocketmq.v2.Resource.newBuilder().setName(generalMessage.getTopic()).build());
+            .setTopic(apache.rocketmq.v2.Resource.newBuilder()
+                .setResourceNamespace(clientConfiguration.getNamespace())
+                .setName(generalMessage.getTopic())
+                .build());
         switch (resolution) {
             case COMMIT:
                 builder.setResolution(apache.rocketmq.v2.TransactionResolution.COMMIT);
@@ -415,7 +418,8 @@ class ProducerImpl extends ClientImpl implements Producer {
      */
     private SendMessageRequest wrapSendMessageRequest(List<PublishingMessageImpl> pubMessages, MessageQueueImpl mq) {
         final List<apache.rocketmq.v2.Message> messages = pubMessages.stream()
-            .map(publishingMessage -> publishingMessage.toProtobuf(mq)).collect(Collectors.toList());
+            .map(publishingMessage -> publishingMessage.toProtobuf(clientConfiguration.getNamespace(), mq))
+            .collect(Collectors.toList());
         return SendMessageRequest.newBuilder().addAllMessages(messages).build();
     }
 

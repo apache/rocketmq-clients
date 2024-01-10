@@ -50,9 +50,9 @@ public class PushSubscriptionSettings extends Settings {
     private volatile int receiveBatchSize = 32;
     private volatile Duration longPollingTimeout = Duration.ofSeconds(30);
 
-    public PushSubscriptionSettings(ClientId clientId, Endpoints endpoints, Resource group,
+    public PushSubscriptionSettings(String namespace, ClientId clientId, Endpoints endpoints, Resource group,
         Duration requestTimeout, Map<String, FilterExpression> subscriptionExpression) {
-        super(clientId, ClientType.PUSH_CONSUMER, endpoints, requestTimeout);
+        super(namespace, clientId, ClientType.PUSH_CONSUMER, endpoints, requestTimeout);
         this.group = group;
         this.subscriptionExpressions = subscriptionExpression;
     }
@@ -75,7 +75,10 @@ public class PushSubscriptionSettings extends Settings {
         for (Map.Entry<String, FilterExpression> entry : subscriptionExpressions.entrySet()) {
             final FilterExpression filterExpression = entry.getValue();
             apache.rocketmq.v2.Resource topic =
-                apache.rocketmq.v2.Resource.newBuilder().setName(entry.getKey()).build();
+                apache.rocketmq.v2.Resource.newBuilder()
+                    .setResourceNamespace(namespace)
+                    .setName(entry.getKey())
+                    .build();
             final apache.rocketmq.v2.FilterExpression.Builder expressionBuilder =
                 apache.rocketmq.v2.FilterExpression.newBuilder().setExpression(filterExpression.getExpression());
             final FilterExpressionType type = filterExpression.getFilterExpressionType();
