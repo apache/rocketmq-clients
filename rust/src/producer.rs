@@ -26,9 +26,9 @@ use crate::client::Client;
 use crate::conf::{ClientOption, ProducerOption};
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::{ClientType, SendReceipt};
-use crate::model::message;
+use crate::model::message::{self, MessageTypeAware};
 use crate::model::transaction::{Transaction, TransactionChecker, TransactionImpl};
-use crate::pb::{Encoding, MessageType, Resource, SystemProperties};
+use crate::pb::{Encoding, Resource, SystemProperties};
 use crate::util::{
     build_endpoints_by_message_queue, build_producer_settings, select_message_queue,
     select_message_queue_by_message_group, HOST_NAME,
@@ -172,20 +172,16 @@ impl Producer {
                 .take_delivery_timestamp()
                 .map(|seconds| Timestamp { seconds, nanos: 0 });
 
-            let message_type = if message.transaction_enabled() {
+            if message.transaction_enabled() {
                 message_group = None;
                 delivery_timestamp = None;
-                MessageType::Transaction as i32
             } else if delivery_timestamp.is_some() {
                 message_group = None;
-                MessageType::Delay as i32
             } else if message_group.is_some() {
                 delivery_timestamp = None;
-                MessageType::Fifo as i32
-            } else {
-                MessageType::Normal as i32
             };
 
+            // TODO: use a converter trait From or TryFrom
             let pb_message = pb::Message {
                 topic: Some(Resource {
                     name: message.take_topic(),
@@ -198,7 +194,7 @@ impl Producer {
                     message_id: message.take_message_id(),
                     message_group,
                     delivery_timestamp,
-                    message_type,
+                    message_type: message.get_message_type() as i32,
                     born_host: HOST_NAME.clone(),
                     born_timestamp: born_timestamp.clone(),
                     body_digest: None,
@@ -241,6 +237,11 @@ impl Producer {
         &self,
         messages: Vec<impl message::Message>,
     ) -> Result<Vec<SendReceipt>, ClientError> {
+        let message_types = messages
+            .iter()
+            .map(|message| message.get_message_type())
+            .collect::<Vec<_>>();
+
         let (topic, message_group, mut pb_messages) =
             self.transform_messages_to_protobuf(messages)?;
 
@@ -251,6 +252,22 @@ impl Producer {
         } else {
             select_message_queue(route)
         };
+
+        if self.option.validate_message_type() {
+            for message_type in message_types {
+                if !message_queue.accept_type(message_type) {
+                    return Err(ClientError::new(
+                        ErrorKind::MessageTypeNotMatch,
+                        format!(
+                            "Current message type {:?} not match with accepted types {:?}.",
+                            message_type, message_queue.accept_message_types
+                        )
+                        .as_str(),
+                        Self::OPERATION_SEND_MESSAGE,
+                    ));
+                }
+            }
+        }
 
         let endpoints =
             build_endpoints_by_message_queue(&message_queue, Self::OPERATION_SEND_MESSAGE)?;
@@ -298,7 +315,7 @@ mod tests {
     use crate::error::ErrorKind;
     use crate::log::terminal_logger;
     use crate::model::common::Route;
-    use crate::model::message::{MessageBuilder, MessageImpl};
+    use crate::model::message::{MessageBuilder, MessageImpl, MessageType};
     use crate::model::transaction::TransactionResolution;
     use crate::pb::{Broker, MessageQueue};
     use crate::session::Session;
@@ -424,6 +441,7 @@ mod tests {
             message_group: None,
             delivery_timestamp: None,
             transaction_enabled: false,
+            message_type: MessageType::TRANSACTION,
         }];
         let result = producer.transform_messages_to_protobuf(messages);
         assert!(result.is_err());
@@ -491,7 +509,7 @@ mod tests {
                             addresses: vec![],
                         }),
                     }),
-                    accept_message_types: vec![],
+                    accept_message_types: vec![MessageType::NORMAL as i32],
                 }],
             }))
         });
@@ -539,7 +557,7 @@ mod tests {
                             addresses: vec![],
                         }),
                     }),
-                    accept_message_types: vec![],
+                    accept_message_types: vec![MessageType::TRANSACTION as i32],
                 }],
             }))
         });
@@ -563,9 +581,7 @@ mod tests {
 
         let _ = producer
             .send_transaction_message(
-                MessageBuilder::builder()
-                    .set_topic("test_topic")
-                    .set_body(vec![])
+                MessageBuilder::transaction_message_builder("test_topic", vec![])
                     .build()
                     .unwrap(),
             )

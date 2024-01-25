@@ -33,6 +33,9 @@ pub enum ErrorKind {
     #[error("Message is invalid")]
     InvalidMessage,
 
+    #[error("Message type not match with topic accept message type")]
+    MessageTypeNotMatch,
+
     #[error("Server error")]
     Server,
 
