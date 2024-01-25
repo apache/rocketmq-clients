@@ -25,7 +25,7 @@ use crate::model::message::MessageType::{DELAY, FIFO, NORMAL, TRANSACTION};
 use crate::model::message_id::UNIQ_ID_GENERATOR;
 use crate::pb;
 
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug)]
 pub enum MessageType {
     NORMAL = 1,
     FIFO = 2,
@@ -44,7 +44,17 @@ pub trait Message {
     fn take_message_group(&mut self) -> Option<String>;
     fn take_delivery_timestamp(&mut self) -> Option<i64>;
     fn transaction_enabled(&mut self) -> bool;
-    fn get_message_type(&self) -> i32;
+    fn get_message_type(&self) -> MessageType;
+}
+
+pub trait MessageTypeAware {
+    fn accept_type(&self, message_type: MessageType) -> bool;
+}
+
+impl MessageTypeAware for pb::MessageQueue {
+    fn accept_type(&self, message_type: MessageType) -> bool {
+        self.accept_message_types.contains(&(message_type as i32))
+    }
 }
 
 pub(crate) struct MessageImpl {
@@ -97,8 +107,8 @@ impl Message for MessageImpl {
         self.transaction_enabled
     }
 
-    fn get_message_type(&self) -> i32 {
-        self.message_type.clone() as i32
+    fn get_message_type(&self) -> MessageType {
+        self.message_type
     }
 }
 

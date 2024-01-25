@@ -26,7 +26,7 @@ use crate::client::Client;
 use crate::conf::{ClientOption, ProducerOption};
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::{ClientType, SendReceipt};
-use crate::model::message;
+use crate::model::message::{self, MessageTypeAware};
 use crate::model::transaction::{Transaction, TransactionChecker, TransactionImpl};
 use crate::pb::{Encoding, Resource, SystemProperties};
 use crate::util::{
@@ -181,8 +181,7 @@ impl Producer {
                 delivery_timestamp = None;
             };
 
-            let message_type = message.get_message_type();
-
+            // TODO: use a converter trait From or TryFrom
             let pb_message = pb::Message {
                 topic: Some(Resource {
                     name: message.take_topic(),
@@ -195,7 +194,7 @@ impl Producer {
                     message_id: message.take_message_id(),
                     message_group,
                     delivery_timestamp,
-                    message_type,
+                    message_type: message.get_message_type() as i32,
                     born_host: HOST_NAME.clone(),
                     born_timestamp: born_timestamp.clone(),
                     body_digest: None,
@@ -238,10 +237,11 @@ impl Producer {
         &self,
         messages: Vec<impl message::Message>,
     ) -> Result<Vec<SendReceipt>, ClientError> {
-        let mut message_type_check_vec = vec![];
-        for message in messages.iter() {
-            message_type_check_vec.push(message.get_message_type());
-        }
+        let message_types = messages
+            .iter()
+            .map(|message| message.get_message_type())
+            .collect::<Vec<_>>();
+
         let (topic, message_group, mut pb_messages) =
             self.transform_messages_to_protobuf(messages)?;
 
@@ -254,12 +254,12 @@ impl Producer {
         };
 
         if self.option.validate_message_type() {
-            for message_type in message_type_check_vec {
-                if !message_queue.accept_message_types.contains(&message_type) {
+            for message_type in message_types {
+                if !message_queue.accept_type(message_type) {
                     return Err(ClientError::new(
                         ErrorKind::MessageTypeNotMatch,
                         format!(
-                            "Current message type {} not match with accepted types {:?}.",
+                            "Current message type {:?} not match with accepted types {:?}.",
                             message_type, message_queue.accept_message_types
                         )
                         .as_str(),
