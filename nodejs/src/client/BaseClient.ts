@@ -137,7 +137,7 @@ export abstract class BaseClient {
     // heartbeat every 10s
     this.#timers.push(setInterval(async () => {
       this.#doHeartbeat();
-    }, 5 * 60000));
+    }, 10000));
 
     // doStats every 60s
     // doStats()
