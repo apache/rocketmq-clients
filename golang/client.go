@@ -24,7 +24,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"reflect"
 	"sync"
 	"time"
 
@@ -32,6 +31,7 @@ import (
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/ticker"
 	"github.com/apache/rocketmq-clients/golang/v5/pkg/utils"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -513,18 +513,39 @@ func (cli *defaultClient) startUp() error {
 				cli.log.Info("newRoute is nil, but oldRoute is not. do not update")
 				return true
 			}
-			if !reflect.DeepEqual(newRoute, oldRoute) {
+			routeEqual := func(old, new []*v2.MessageQueue) bool {
+				if len(old) != len(new) {
+					return false
+				}
+				for i := 0; i < len(old); i++ {
+					if !proto.Equal(old[i], new[i]) {
+						return false
+					}
+				}
+				return true
+			}
+			if oldRoute == nil && len(newRoute) > 0 || oldRoute != nil && !routeEqual(oldRoute.([]*v2.MessageQueue), newRoute) {
 				cli.router.Store(k, newRoute)
 				switch impl := cli.clientImpl.(type) {
 				case *defaultProducer:
-					plb, err := NewPublishingLoadBalancer(newRoute)
-					if err == nil {
-						impl.publishingRouteDataResultCache.Store(topic, plb)
+					existing, ok := impl.publishingRouteDataResultCache.Load(topic)
+					if !ok {
+						plb, err := NewPublishingLoadBalancer(newRoute)
+						if err == nil {
+							impl.publishingRouteDataResultCache.Store(topic, plb)
+						}
+					} else {
+						impl.publishingRouteDataResultCache.Store(topic, existing.(PublishingLoadBalancer).CopyAndUpdate(newRoute))
 					}
 				case *defaultSimpleConsumer:
-					slb, err := NewSubscriptionLoadBalancer(newRoute)
-					if err == nil {
-						impl.subTopicRouteDataResultCache.Store(topic, slb)
+					existing, ok := impl.subTopicRouteDataResultCache.Load(topic)
+					if !ok {
+						slb, err := NewSubscriptionLoadBalancer(newRoute)
+						if err == nil {
+							impl.subTopicRouteDataResultCache.Store(topic, slb)
+						}
+					} else {
+						impl.subTopicRouteDataResultCache.Store(topic, existing.(SubscriptionLoadBalancer).CopyAndUpdate(newRoute))
 					}
 				}
 			}
