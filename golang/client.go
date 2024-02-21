@@ -513,17 +513,6 @@ func (cli *defaultClient) startUp() error {
 				cli.log.Info("newRoute is nil, but oldRoute is not. do not update")
 				return true
 			}
-			routeEqual := func(old, new []*v2.MessageQueue) bool {
-				if len(old) != len(new) {
-					return false
-				}
-				for i := 0; i < len(old); i++ {
-					if !proto.Equal(old[i], new[i]) {
-						return false
-					}
-				}
-				return true
-			}
 			if oldRoute == nil && len(newRoute) > 0 || oldRoute != nil && !routeEqual(oldRoute.([]*v2.MessageQueue), newRoute) {
 				cli.router.Store(k, newRoute)
 				switch impl := cli.clientImpl.(type) {
@@ -555,6 +544,19 @@ func (cli *defaultClient) startUp() error {
 	ticker.Tick(f, time.Second*30, cli.done)
 	return nil
 }
+
+func routeEqual(old, new []*v2.MessageQueue) bool {
+	if len(old) != len(new) {
+		return false
+	}
+	for i := 0; i < len(old); i++ {
+		if !proto.Equal(old[i], new[i]) {
+			return false
+		}
+	}
+	return true
+}
+
 func (cli *defaultClient) notifyClientTermination() {
 	cli.log.Info("start notifyClientTermination")
 	ctx := cli.Sign(context.Background())
