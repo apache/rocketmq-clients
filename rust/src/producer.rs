@@ -205,33 +205,31 @@ impl Producer {
         endpoints: Endpoints,
     ) -> Result<(), ClientError> {
         let transaction_id = command.transaction_id;
-        let message = if let Some(message) = command.message {
-            message
-        } else {
-            return Err(ClientError::new(
+        let message = command.message.clone().ok_or_else(|| {
+            ClientError::new(
                 ErrorKind::InvalidMessage,
                 "no message in command",
                 Self::OPERATION_END_TRANSACTION,
-            ));
-        };
-        let message_id = if let Some(system_properties) = message.system_properties.as_ref() {
-            system_properties.message_id.clone()
-        } else {
-            return Err(ClientError::new(
-                ErrorKind::InvalidMessage,
-                "no message id exists",
-                Self::OPERATION_END_TRANSACTION,
-            ));
-        };
-        let topic = if let Some(topic) = message.topic.as_ref() {
-            topic.clone()
-        } else {
-            return Err(ClientError::new(
+            )
+        })?;
+        let message_id = message
+            .system_properties
+            .as_ref()
+            .map(|props| props.message_id.clone())
+            .ok_or_else(|| {
+                ClientError::new(
+                    ErrorKind::InvalidMessage,
+                    "no message id exists",
+                    Self::OPERATION_END_TRANSACTION,
+                )
+            })?;
+        let topic = message.topic.clone().ok_or_else(|| {
+            ClientError::new(
                 ErrorKind::InvalidMessage,
                 "no topic exists in message",
                 Self::OPERATION_END_TRANSACTION,
-            ));
-        };
+            )
+        })?;
         if let Some(transaction_checker) = transaction_checker {
             let resolution = transaction_checker(
                 transaction_id.clone(),
