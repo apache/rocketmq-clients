@@ -334,4 +334,8 @@ func Test_routeEqual(t *testing.T) {
 
 	assert.Equal(t, false, reflect.DeepEqual(oldRoute, newRoute))
 	assert.Equal(t, true, routeEqual(oldRoute, newRoute))
+	assert.Equal(t, true, routeEqual(nil, nil))
+	assert.Equal(t, false, routeEqual(nil, newRoute))
+	assert.Equal(t, false, routeEqual(oldRoute, nil))
+	assert.Equal(t, true, routeEqual(nil, []*v2.MessageQueue{}))
 }

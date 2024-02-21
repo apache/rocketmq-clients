@@ -504,16 +504,19 @@ func (cli *defaultClient) startUp() error {
 	f := func() {
 		cli.router.Range(func(k, v interface{}) bool {
 			topic := k.(string)
-			oldRoute := v
 			newRoute, err := cli.queryRoute(context.TODO(), topic, cli.opts.timeout)
 			if err != nil {
 				cli.log.Errorf("scheduled queryRoute err=%v", err)
 			}
-			if newRoute == nil && oldRoute != nil {
+			if newRoute == nil && v != nil {
 				cli.log.Info("newRoute is nil, but oldRoute is not. do not update")
 				return true
 			}
-			if oldRoute == nil && len(newRoute) > 0 || oldRoute != nil && !routeEqual(oldRoute.([]*v2.MessageQueue), newRoute) {
+			var oldRoute []*v2.MessageQueue
+			if v != nil {
+				oldRoute = v.([]*v2.MessageQueue)
+			}
+			if !routeEqual(oldRoute, newRoute) {
 				cli.router.Store(k, newRoute)
 				switch impl := cli.clientImpl.(type) {
 				case *defaultProducer:
