@@ -18,7 +18,9 @@
 use std::time::Duration;
 
 use mockall_double::double;
-use slog::{info, Logger};
+use slog::{info, warn, Logger};
+use tokio::select;
+use tokio::sync::{mpsc, oneshot};
 
 #[double]
 use crate::client::Client;
@@ -45,6 +47,7 @@ pub struct SimpleConsumer {
     option: SimpleConsumerOption,
     logger: Logger,
     client: Client,
+    shutdown_tx: Option<oneshot::Sender<()>>,
 }
 
 impl SimpleConsumer {
@@ -78,6 +81,7 @@ impl SimpleConsumer {
             option,
             logger,
             client,
+            shutdown_tx: None,
         })
     }
 
@@ -90,12 +94,29 @@ impl SimpleConsumer {
                 Self::OPERATION_START_SIMPLE_CONSUMER,
             ));
         }
-        self.client.start().await?;
+        let (telemetry_command_tx, mut telemetry_command_rx) = mpsc::channel(16);
+        self.client.start(telemetry_command_tx).await?;
         if let Some(topics) = self.option.topics() {
             for topic in topics {
                 self.client.topic_route(topic, true).await?;
             }
         }
+        let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
+        self.shutdown_tx = Some(shutdown_tx);
+        let logger = self.logger.clone();
+        tokio::spawn(async move {
+            loop {
+                select! {
+                    command = telemetry_command_rx.recv() => {
+                        warn!(logger, "command {:?} cannot be handled in simple consumer.", command);
+                    }
+
+                    _ = &mut shutdown_rx => {
+                       break;
+                    }
+                }
+            }
+        });
         info!(
             self.logger,
             "start simple consumer success, client_id: {}",
@@ -105,6 +126,9 @@ impl SimpleConsumer {
     }
 
     pub async fn shutdown(self) -> Result<(), ClientError> {
+        if let Some(shutdown_tx) = self.shutdown_tx {
+            let _ = shutdown_tx.send(());
+        };
         self.client.shutdown().await
     }
 
@@ -215,7 +239,7 @@ mod tests {
                     queue: vec![],
                 }))
             });
-            client.expect_start().returning(|| Ok(()));
+            client.expect_start().returning(|_| Ok(()));
             client
                 .expect_client_id()
                 .return_const("fake_id".to_string());
@@ -272,6 +296,7 @@ mod tests {
             option: SimpleConsumerOption::default(),
             logger: terminal_logger(),
             client,
+            shutdown_tx: None,
         };
 
         let messages = simple_consumer
