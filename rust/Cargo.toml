@@ -59,7 +59,7 @@ minitrace = "0.4"
 byteorder = "1"
 mac_address = "1.1.4"
 hex = "0.4.3"
-time = "0.3"
+time = {version   = "0.3", features = ["local-offset"]}
 once_cell = "1.9.0"
 
 mockall = "0.11.4"
