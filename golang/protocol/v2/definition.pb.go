@@ -1389,6 +1389,13 @@ type MessageQueue struct {
 	AcceptMessageTypes []MessageType `protobuf:"varint,5,rep,packed,name=accept_message_types,json=acceptMessageTypes,proto3,enum=apache.rocketmq.v2.MessageType" json:"accept_message_types,omitempty"`
 }
 
+func (x *MessageQueue) ClearSizeCache() {
+	x.sizeCache = 0
+	x.Topic.sizeCache = 0
+	x.Broker.sizeCache = 0
+	x.Broker.Endpoints.sizeCache = 0
+}
+
 func (x *MessageQueue) Reset() {
 	*x = MessageQueue{}
 	if protoimpl.UnsafeEnabled {
