@@ -33,7 +33,7 @@ github:
     # Enable squash button
     squash: true
     # Disable merge button
-    merge: false
+    merge: true
     # Disable rebase button
     rebase: false
   protected_branches:
