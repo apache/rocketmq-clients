@@ -17,8 +17,6 @@
 
 package org.apache.rocketmq.client.java.impl.producer;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import apache.rocketmq.v2.ClientType;
 import apache.rocketmq.v2.Code;
 import apache.rocketmq.v2.EndTransactionRequest;
@@ -29,6 +27,8 @@ import apache.rocketmq.v2.RecoverOrphanedTransactionCommand;
 import apache.rocketmq.v2.SendMessageRequest;
 import apache.rocketmq.v2.SendMessageResponse;
 import apache.rocketmq.v2.Status;
+import apache.rocketmq.v2.TransactionSource;
+import com.google.common.base.Preconditions;
 import com.google.common.math.IntMath;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -163,7 +163,7 @@ class ProducerImpl extends ClientImpl implements Producer {
                     }
                     final GeneralMessage generalMessage = new GeneralMessageImpl(messageView);
                     endTransaction(endpoints, generalMessage, messageView.getMessageId(),
-                        transactionId, resolution);
+                        transactionId, resolution, TransactionSource.SOURCE_SERVER_CHECK);
                 } catch (Throwable t) {
                     log.error("Exception raised while ending the transaction, messageId={}, transactionId={}, "
                         + "endpoints={}, clientId={}", messageId, transactionId, endpoints, clientId, t);
@@ -241,7 +241,7 @@ class ProducerImpl extends ClientImpl implements Producer {
      */
     @Override
     public Transaction beginTransaction() {
-        checkNotNull(checker, "Transaction checker should not be null");
+        Preconditions.checkNotNull(checker, "Transaction checker should not be null");
         if (!this.isRunning()) {
             log.error("Unable to begin a transaction because producer is not running, state={}, clientId={}",
                 this.state(), clientId);
@@ -256,9 +256,11 @@ class ProducerImpl extends ClientImpl implements Producer {
     }
 
     public void endTransaction(Endpoints endpoints, GeneralMessage generalMessage, MessageId messageId,
-        String transactionId, final TransactionResolution resolution) throws ClientException {
+        String transactionId, final TransactionResolution resolution, final TransactionSource transactionSource)
+        throws ClientException {
         final EndTransactionRequest.Builder builder = EndTransactionRequest.newBuilder()
             .setMessageId(messageId.toString()).setTransactionId(transactionId)
+            .setSource(transactionSource)
             .setTopic(apache.rocketmq.v2.Resource.newBuilder()
                 .setResourceNamespace(clientConfiguration.getNamespace())
                 .setName(generalMessage.getTopic())

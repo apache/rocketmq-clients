@@ -20,6 +20,7 @@ package org.apache.rocketmq.client.java.impl.producer;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 
+import apache.rocketmq.v2.TransactionSource;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
@@ -115,7 +116,7 @@ public class TransactionImplTest extends TestBase {
         final SendReceiptImpl sendReceipt = fakeSendReceiptImpl(fakeMessageQueueImpl(FAKE_TOPIC_0));
         transaction.tryAddReceipt(publishingMessage, sendReceipt);
         Mockito.doNothing().when(producer).endTransaction(any(Endpoints.class), any(GeneralMessage.class),
-            any(MessageId.class), anyString(), any(TransactionResolution.class));
+            any(MessageId.class), anyString(), any(TransactionResolution.class), any(TransactionSource.class));
         transaction.commit();
     }
 
@@ -130,7 +131,7 @@ public class TransactionImplTest extends TestBase {
         final SendReceiptImpl sendReceipt = fakeSendReceiptImpl(fakeMessageQueueImpl(FAKE_TOPIC_0));
         transaction.tryAddReceipt(publishingMessage, sendReceipt);
         Mockito.doNothing().when(producer).endTransaction(any(Endpoints.class), any(GeneralMessage.class),
-            any(MessageId.class), anyString(), any(TransactionResolution.class));
+            any(MessageId.class), anyString(), any(TransactionResolution.class), any(TransactionSource.class));
         transaction.rollback();
     }
 }
