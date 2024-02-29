@@ -34,6 +34,8 @@ namespace Org.Apache.Rocketmq
         private static readonly string HostName = System.Net.Dns.GetHostName();
         private static readonly byte[] RandomMacAddressBytes =
             Enumerable.Range(0, 6).Select(_ => (byte)new Random().Next(256)).ToArray();
+        private static readonly ThreadLocal<MD5> Md5 = new ThreadLocal<MD5>(MD5.Create);
+        private static readonly ThreadLocal<SHA1> Sha1 = new ThreadLocal<SHA1>(SHA1.Create);
 
         public const int MasterBrokerId = 0;
 
@@ -77,24 +79,31 @@ namespace Org.Apache.Rocketmq
             return $"{hostName}@{pid}@{index}@{no}";
         }
 
+#if NET5_0_OR_GREATER
         public static string ComputeMd5Hash(byte[] data)
         {
-            using (var md5 = MD5.Create())
-            {
-                var hashBytes = md5.ComputeHash(data);
-                return BitConverter.ToString(hashBytes).Replace("-", "");
-            }
+            var hashBytes = Md5.Value.ComputeHash(data);
+            return Convert.ToHexString(hashBytes);
         }
 
         public static string ComputeSha1Hash(byte[] data)
         {
-            using (var sha1 = SHA1.Create())
-            {
-                var hashBytes = sha1.ComputeHash(data);
-                return BitConverter.ToString(hashBytes).Replace("-", "");
-            }
+            var hashBytes = Sha1.Value.ComputeHash(data);
+            return Convert.ToHexString(hashBytes);
+        }
+#else
+        public static string ComputeMd5Hash(byte[] data)
+        {
+            var hashBytes = Md5.Value.ComputeHash(data);
+            return BitConverter.ToString(hashBytes).Replace("-", "");
         }
 
+        public static string ComputeSha1Hash(byte[] data)
+        {
+            var hashBytes = Sha1.Value.ComputeHash(data);
+            return BitConverter.ToString(hashBytes).Replace("-", "");
+        }
+#endif
 
         private static string DecimalToBase36(long decimalNumber)
         {
