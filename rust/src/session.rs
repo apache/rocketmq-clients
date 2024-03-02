@@ -33,7 +33,7 @@ use crate::error::ErrorKind;
 use crate::model::common::Endpoints;
 use crate::pb::telemetry_command::Command;
 use crate::pb::{
-    AckMessageRequest, AckMessageResponse, ChangeInvisibleDurationRequest,
+    self, AckMessageRequest, AckMessageResponse, ChangeInvisibleDurationRequest,
     ChangeInvisibleDurationResponse, EndTransactionRequest, EndTransactionResponse,
     HeartbeatRequest, HeartbeatResponse, NotifyClientTerminationRequest,
     NotifyClientTerminationResponse, QueryRouteRequest, QueryRouteResponse, ReceiveMessageRequest,
@@ -89,6 +89,10 @@ pub(crate) trait RPCClient {
         &mut self,
         request: NotifyClientTerminationRequest,
     ) -> Result<NotifyClientTerminationResponse, ClientError>;
+    async fn write_telemetry_command(
+        &mut self,
+        request: pb::TelemetryCommand,
+    ) -> Result<(), ClientError>;
 }
 
 #[derive(Debug)]
@@ -110,7 +114,7 @@ impl Session {
             option: self.option.clone(),
             endpoints: self.endpoints.clone(),
             stub: self.stub.clone(),
-            telemetry_tx: None,
+            telemetry_tx: self.telemetry_tx.clone(),
             shutdown_tx: None,
         }
     }
@@ -548,6 +552,29 @@ impl RPCClient for Session {
             })?;
         Ok(response.into_inner())
     }
+
+    async fn write_telemetry_command(
+        &mut self,
+        request: pb::TelemetryCommand,
+    ) -> Result<(), ClientError> {
+        if let Some(telemetry_tx) = self.telemetry_tx.as_ref() {
+            telemetry_tx.send(request).await.map_err(|e| {
+                ClientError::new(
+                    ErrorKind::ChannelSend,
+                    "failed to send telemetry command",
+                    OPERATION_START,
+                )
+                .set_source(e)
+            })?;
+        } else {
+            return Err(ClientError::new(
+                ErrorKind::ChannelSend,
+                "failed to send telemetry command",
+                OPERATION_START,
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -686,10 +713,7 @@ mod tests {
 
         let (tx, _) = mpsc::channel(16);
         let result = session
-            .start(
-                build_producer_settings(&ProducerOption::default(), &ClientOption::default()),
-                tx,
-            )
+            .start(build_producer_settings(&ProducerOption::default()), tx)
             .await;
         assert!(result.is_ok());
         assert!(session.is_started());
@@ -714,7 +738,7 @@ mod tests {
         let session = session_manager
             .get_or_create_session(
                 &Endpoints::from_url(&format!("localhost:{}", server.address().port())).unwrap(),
-                build_producer_settings(&ProducerOption::default(), &client_option),
+                build_producer_settings(&ProducerOption::default()),
                 tx,
             )
             .await
