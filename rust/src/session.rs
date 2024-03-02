@@ -33,7 +33,7 @@ use crate::error::ErrorKind;
 use crate::model::common::Endpoints;
 use crate::pb::telemetry_command::Command;
 use crate::pb::{
-    self, AckMessageRequest, AckMessageResponse, ChangeInvisibleDurationRequest,
+    AckMessageRequest, AckMessageResponse, ChangeInvisibleDurationRequest,
     ChangeInvisibleDurationResponse, EndTransactionRequest, EndTransactionResponse,
     HeartbeatRequest, HeartbeatResponse, NotifyClientTerminationRequest,
     NotifyClientTerminationResponse, QueryRouteRequest, QueryRouteResponse, ReceiveMessageRequest,
@@ -91,7 +91,7 @@ pub(crate) trait RPCClient {
     ) -> Result<NotifyClientTerminationResponse, ClientError>;
     async fn write_telemetry_command(
         &mut self,
-        request: pb::TelemetryCommand,
+        request: TelemetryCommand,
     ) -> Result<(), ClientError>;
 }
 
@@ -555,7 +555,7 @@ impl RPCClient for Session {
 
     async fn write_telemetry_command(
         &mut self,
-        request: pb::TelemetryCommand,
+        request: TelemetryCommand,
     ) -> Result<(), ClientError> {
         if let Some(telemetry_tx) = self.telemetry_tx.as_ref() {
             telemetry_tx.send(request).await.map_err(|e| {
