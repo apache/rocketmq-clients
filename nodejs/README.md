@@ -20,6 +20,8 @@ npm install
 npm run init
 # Run the unit tests.
 npm test
+# Installs rocketmq nodejs client
+npm i rocketmq-client-nodejs
 ```
 
 Enable trace debug log for grpc-js:
