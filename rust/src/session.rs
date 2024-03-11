@@ -89,10 +89,6 @@ pub(crate) trait RPCClient {
         &mut self,
         request: NotifyClientTerminationRequest,
     ) -> Result<NotifyClientTerminationResponse, ClientError>;
-    async fn write_telemetry_command(
-        &mut self,
-        request: TelemetryCommand,
-    ) -> Result<(), ClientError>;
 }
 
 #[derive(Debug)]
@@ -551,29 +547,6 @@ impl RPCClient for Session {
                 .set_source(e)
             })?;
         Ok(response.into_inner())
-    }
-
-    async fn write_telemetry_command(
-        &mut self,
-        request: TelemetryCommand,
-    ) -> Result<(), ClientError> {
-        if let Some(telemetry_tx) = self.telemetry_tx.as_ref() {
-            telemetry_tx.send(request).await.map_err(|e| {
-                ClientError::new(
-                    ErrorKind::ChannelSend,
-                    "failed to send telemetry command",
-                    OPERATION_START,
-                )
-                .set_source(e)
-            })?;
-        } else {
-            return Err(ClientError::new(
-                ErrorKind::ChannelSend,
-                "failed to send telemetry command",
-                OPERATION_START,
-            ));
-        }
-        Ok(())
     }
 }
 

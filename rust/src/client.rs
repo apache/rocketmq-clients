@@ -447,11 +447,11 @@ where
         Ok(response)
     }
 
-    async fn sync_setting<T: RPCClient + 'static>(
-        mut rpc_client: T,
+    async fn sync_setting(
+        mut session: Session,
         command: TelemetryCommand,
     ) -> Result<(), ClientError> {
-        rpc_client.write_telemetry_command(command).await
+        session.update_settings(command).await
     }
 
     pub(crate) async fn send_message(
