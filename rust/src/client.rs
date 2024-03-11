@@ -188,13 +188,13 @@ where
                             error!(logger, "sync settings failed: failed to get sessions: {}", sessions.unwrap_err());
                             continue;
                         }
-                        for session in sessions.unwrap() {
+                        for mut session in sessions.unwrap() {
                             let command;
                             {
                                 command = settings.read().await.build_telemetry_command();
                             }
                             let peer = session.peer().to_string();
-                            let result = Self::sync_setting(session, command).await;
+                            let result = session.update_settings(command).await;
                             if result.is_err() {
                                 error!(logger, "sync settings failed: failed to call rpc: {}", result.unwrap_err());
                                 continue;
@@ -445,13 +445,6 @@ where
         };
         let response = rpc_client.heartbeat(request).await?;
         Ok(response)
-    }
-
-    async fn sync_setting(
-        mut session: Session,
-        command: TelemetryCommand,
-    ) -> Result<(), ClientError> {
-        session.update_settings(command).await
     }
 
     pub(crate) async fn send_message(
