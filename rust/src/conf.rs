@@ -20,10 +20,12 @@
 use std::time::Duration;
 
 use crate::model::common::ClientType;
+use crate::pb::TelemetryCommand;
 #[allow(unused_imports)]
 use crate::producer::Producer;
 #[allow(unused_imports)]
 use crate::simple_consumer::SimpleConsumer;
+use crate::util::{build_producer_settings, build_simple_consumer_settings};
 
 /// [`ClientOption`] is the configuration of internal client, which manages the connection and request with RocketMQ proxy.
 #[derive(Debug, Clone)]
@@ -130,6 +132,7 @@ pub struct ProducerOption {
     topics: Option<Vec<String>>,
     namespace: String,
     validate_message_type: bool,
+    timeout: Duration,
 }
 
 impl Default for ProducerOption {
@@ -140,6 +143,7 @@ impl Default for ProducerOption {
             topics: None,
             namespace: "".to_string(),
             validate_message_type: true,
+            timeout: Duration::from_secs(3),
         }
     }
 }
@@ -188,6 +192,10 @@ impl ProducerOption {
     pub fn set_validate_message_type(&mut self, validate_message_type: bool) {
         self.validate_message_type = validate_message_type;
     }
+
+    pub fn timeout(&self) -> &Duration {
+        &self.timeout
+    }
 }
 
 /// The configuration of [`SimpleConsumer`].
@@ -198,6 +206,8 @@ pub struct SimpleConsumerOption {
     prefetch_route: bool,
     topics: Option<Vec<String>>,
     namespace: String,
+    timeout: Duration,
+    long_polling_timeout: Duration,
 }
 
 impl Default for SimpleConsumerOption {
@@ -208,6 +218,8 @@ impl Default for SimpleConsumerOption {
             prefetch_route: true,
             topics: None,
             namespace: "".to_string(),
+            timeout: Duration::from_secs(3),
+            long_polling_timeout: Duration::from_secs(40),
         }
     }
 }
@@ -255,6 +267,30 @@ impl SimpleConsumerOption {
     }
     pub(crate) fn set_namespace(&mut self, name_space: impl Into<String>) {
         self.namespace = name_space.into();
+    }
+
+    pub fn timeout(&self) -> &Duration {
+        &self.timeout
+    }
+
+    pub fn long_polling_timeout(&self) -> &Duration {
+        &self.long_polling_timeout
+    }
+}
+
+pub trait SettingsAware {
+    fn build_telemetry_command(&self) -> TelemetryCommand;
+}
+
+impl SettingsAware for ProducerOption {
+    fn build_telemetry_command(&self) -> TelemetryCommand {
+        build_producer_settings(self)
+    }
+}
+
+impl SettingsAware for SimpleConsumerOption {
+    fn build_telemetry_command(&self) -> TelemetryCommand {
+        build_simple_consumer_settings(self)
     }
 }
 

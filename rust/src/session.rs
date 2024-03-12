@@ -110,7 +110,7 @@ impl Session {
             option: self.option.clone(),
             endpoints: self.endpoints.clone(),
             stub: self.stub.clone(),
-            telemetry_tx: None,
+            telemetry_tx: self.telemetry_tx.clone(),
             shutdown_tx: None,
         }
     }
@@ -686,10 +686,7 @@ mod tests {
 
         let (tx, _) = mpsc::channel(16);
         let result = session
-            .start(
-                build_producer_settings(&ProducerOption::default(), &ClientOption::default()),
-                tx,
-            )
+            .start(build_producer_settings(&ProducerOption::default()), tx)
             .await;
         assert!(result.is_ok());
         assert!(session.is_started());
@@ -714,7 +711,7 @@ mod tests {
         let session = session_manager
             .get_or_create_session(
                 &Endpoints::from_url(&format!("localhost:{}", server.address().port())).unwrap(),
-                build_producer_settings(&ProducerOption::default(), &client_option),
+                build_producer_settings(&ProducerOption::default()),
                 tx,
             )
             .await
