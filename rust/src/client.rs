@@ -797,7 +797,7 @@ pub(crate) mod tests {
         assert_eq!(
             result.context,
             vec![
-                ("code", "BAD_REQUEST".to_string()),
+                ("code", format!("{}", Code::BadRequest as i32)),
                 ("message", "test failed".to_string()),
             ]
         );
