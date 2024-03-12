@@ -626,20 +626,16 @@ pub fn handle_response_status(
     status: Option<Status>,
     operation: &'static str,
 ) -> Result<(), ClientError> {
-    if status.is_none() {
-        return Err(ClientError::new(
-            ErrorKind::Server,
-            "server do not return status, this may be a bug",
-            operation,
-        ));
-    }
+    let status = status.ok_or(ClientError::new(
+        ErrorKind::Server,
+        "server do not return status, this may be a bug",
+        operation,
+    ))?;
 
-    let status = status.unwrap();
-    let status_code = Code::from_i32(status.code).unwrap();
-    if !status_code.eq(&Code::Ok) {
+    if status.code != Code::Ok as i32 {
         return Err(
             ClientError::new(ErrorKind::Server, "server return an error", operation)
-                .with_context("code", status_code.as_str_name())
+                .with_context("code", format!("{}", status.code))
                 .with_context("message", status.message),
         );
     }
