@@ -51,7 +51,7 @@ namespace tests
         public void TestGetMacAddress()
         {
             var macAddress = Utilities.GetMacAddress();
-            Assert.IsTrue(macAddress != null && macAddress.Length >=6);
+            Assert.IsTrue(macAddress != null && macAddress.Length >= 6);
         }
     }
 }
