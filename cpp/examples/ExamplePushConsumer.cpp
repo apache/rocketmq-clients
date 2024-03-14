@@ -30,6 +30,7 @@ DEFINE_string(access_point, "121.196.167.124:8081", "Service access URL, provide
 DEFINE_string(group, "CID_standard_topic_sample", "GroupId, created through your instance management console");
 DEFINE_string(access_key, "", "Your access key ID");
 DEFINE_string(access_secret, "", "Your access secret");
+DEFINE_bool(tls, false, "Use HTTP2 with TLS/SSL");
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -58,7 +59,7 @@ int main(int argc, char* argv[]) {
                                                   .withEndpoints(FLAGS_access_point)
                                                   .withRequestTimeout(std::chrono::seconds(3))
                                                   .withCredentialsProvider(credentials_provider)
-                                                  .withSsl(true)
+                                                  .withSsl(FLAGS_tls)
                                                   .build())
                            .withConsumeThreads(4)
                            .withListener(listener)

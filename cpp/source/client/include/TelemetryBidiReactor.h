@@ -75,6 +75,8 @@ private:
 
   /**
    * @brief Buffered commands to write to server
+   *
+   * TODO: move buffered commands to a shared container, which may survive multiple TelemetryBidiReactor lifecycles.
    */
   std::vector<TelemetryCommand> writes_ GUARDED_BY(writes_mtx_);
   absl::Mutex writes_mtx_;

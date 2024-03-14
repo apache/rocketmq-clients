@@ -29,6 +29,7 @@ DEFINE_string(access_point, "121.196.167.124:8081", "Service access URL, provide
 DEFINE_string(group, "CID_standard_topic_sample", "GroupId, created through your instance management console");
 DEFINE_string(access_key, "", "Your access key ID");
 DEFINE_string(access_secret, "", "Your access secret");
+DEFINE_bool(tls, false, "Use HTTP2 with TLS/SSL");
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -51,7 +52,7 @@ int main(int argc, char* argv[]) {
                              .withConfiguration(Configuration::newBuilder()
                                                     .withEndpoints(FLAGS_access_point)
                                                     .withCredentialsProvider(credentials_provider)
-                                                    .withSsl(true)
+                                                    .withSsl(FLAGS_tls)
                                                     .build())
                              .subscribe(FLAGS_topic, tag)
                              .build();
