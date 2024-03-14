@@ -25,7 +25,7 @@
 using namespace std::chrono;
 ROCKETMQ_NAMESPACE_BEGIN
 
-class SimpleConsumerImpl : public ClientImpl, public std::enable_shared_from_this<SimpleConsumerImpl> {
+class SimpleConsumerImpl : virtual public ClientImpl, public std::enable_shared_from_this<SimpleConsumerImpl> {
 public:
   SimpleConsumerImpl(std::string group);
 

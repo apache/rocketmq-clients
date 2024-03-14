@@ -97,6 +97,7 @@ DEFINE_uint32(total, 256, "Number of sample messages to publish");
 DEFINE_uint32(concurrency, 128, "Concurrency of async send");
 DEFINE_string(access_key, "", "Your access key ID");
 DEFINE_string(access_secret, "", "Your access secret");
+DEFINE_bool(tls, false, "Use HTTP2 with TLS/SSL");
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -116,7 +117,7 @@ int main(int argc, char* argv[]) {
                       .withConfiguration(Configuration::newBuilder()
                                              .withEndpoints(FLAGS_access_point)
                                              .withCredentialsProvider(credentials_provider)
-                                             .withSsl(true)
+                                             .withSsl(FLAGS_tls)
                                              .build())
                       .withTopics({FLAGS_topic})
                       .build();
