@@ -45,16 +45,19 @@ namespace Org.Apache.Rocketmq
 
         public static byte[] GetMacAddress()
         {
-            var nic = NetworkInterface.GetAllNetworkInterfaces().FirstOrDefault(
-                          x => x.OperationalStatus == OperationalStatus.Up &&
-                               x.NetworkInterfaceType != NetworkInterfaceType.Loopback) ??
-                      NetworkInterface.GetAllNetworkInterfaces().FirstOrDefault(
-                          x => x.OperationalStatus == OperationalStatus.Unknown &&
-                               x.NetworkInterfaceType != NetworkInterfaceType.Loopback) ??
-                      NetworkInterface.GetAllNetworkInterfaces().FirstOrDefault(
-                          x => x.NetworkInterfaceType != NetworkInterfaceType.Loopback);
+            var nics = NetworkInterface.GetAllNetworkInterfaces().Where(
+                x => x.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
+                     (int)x.NetworkInterfaceType != 53);
 
-            return nic != null ? nic.GetPhysicalAddress().GetAddressBytes() : RandomMacAddressBytes;
+            var nic = nics.FirstOrDefault(x => x.OperationalStatus == OperationalStatus.Up) ??
+                      nics.FirstOrDefault(x => x.OperationalStatus == OperationalStatus.Unknown) ??
+                      nics.FirstOrDefault();
+
+            if (nic == null) { return RandomMacAddressBytes; }
+
+            var mac = nic.GetPhysicalAddress().GetAddressBytes();
+
+            return mac.Length < 6 ? mac : RandomMacAddressBytes;
         }
 
         public static int GetProcessId()
