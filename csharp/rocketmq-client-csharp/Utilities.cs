@@ -53,7 +53,7 @@ namespace Org.Apache.Rocketmq
                       nics.FirstOrDefault(x => x.OperationalStatus == OperationalStatus.Unknown) ??
                       nics.FirstOrDefault();
 
-            if(nic == null) { return RandomMacAddressBytes; }
+            if (nic == null) { return RandomMacAddressBytes; }
 
             var mac = nic.GetPhysicalAddress().GetAddressBytes();
 
