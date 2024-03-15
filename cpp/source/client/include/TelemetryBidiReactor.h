@@ -33,11 +33,13 @@ ROCKETMQ_NAMESPACE_BEGIN
 
 enum class StreamState : std::uint8_t
 {
-  Created = 0,
-  Active = 1,
-  ReadDone = 2,
-  WriteDone = 3,
-  Closed = 4,
+  Active = 0,
+
+  // Once stream state reaches one of the following, Start* should not be called.
+  Closed = 1,
+  ReadInitialMetadataFailure = 2,
+  ReadFailure = 3,
+  WriteFailure = 4,
 };
 
 class TelemetryBidiReactor : public grpc::ClientBidiReactor<TelemetryCommand, TelemetryCommand>,
@@ -47,13 +49,46 @@ public:
 
   ~TelemetryBidiReactor();
 
-  void OnWriteDone(bool ok) override;
+  /// Notifies the application that all operations associated with this RPC
+  /// have completed and all Holds have been removed. OnDone provides the RPC
+  /// status outcome for both successful and failed RPCs and will be called in
+  /// all cases. If it is not called, it indicates an application-level problem
+  /// (like failure to remove a hold).
+  ///
+  /// \param[in] s The status outcome of this RPC
+  void OnDone(const grpc::Status& status) override;
 
-  void OnWritesDoneDone(bool ok) override;
+  /// Notifies the application that a read of initial metadata from the
+  /// server is done. If the application chooses not to implement this method,
+  /// it can assume that the initial metadata has been read before the first
+  /// call of OnReadDone or OnDone.
+  ///
+  /// \param[in] ok Was the initial metadata read successfully? If false, no
+  ///               new read/write operation will succeed, and any further
+  ///               Start* operations should not be called.
+  void OnReadInitialMetadataDone(bool /*ok*/) override;
 
+  /// Notifies the application that a StartRead operation completed.
+  ///
+  /// \param[in] ok Was it successful? If false, no new read/write operation
+  ///               will succeed, and any further Start* should not be called.
   void OnReadDone(bool ok) override;
 
-  void OnDone(const grpc::Status& status) override;
+  /// Notifies the application that a StartWrite or StartWriteLast operation
+  /// completed.
+  ///
+  /// \param[in] ok Was it successful? If false, no new read/write operation
+  ///               will succeed, and any further Start* should not be called.
+  void OnWriteDone(bool ok) override;
+
+  /// Notifies the application that a StartWritesDone operation completed. Note
+  /// that this is only used on explicit StartWritesDone operations and not for
+  /// those that are implicitly invoked as part of a StartWriteLast.
+  ///
+  /// \param[in] ok Was it successful? If false, the application will later see
+  ///               the failure reflected as a bad status in OnDone and no
+  ///               further Start* should be called.
+  void OnWritesDoneDone(bool ok) override;
 
   void fireRead();
 
@@ -87,7 +122,7 @@ private:
   TelemetryCommand write_;
 
   /**
-   * @brief Each TelemetryBidiReactor belongs to a specific client as its owner. 
+   * @brief Each TelemetryBidiReactor belongs to a specific client as its owner.
    */
   std::weak_ptr<Client> client_;
 
@@ -118,6 +153,11 @@ private:
   void applyPublishingConfig(const rmq::Settings& settings, std::shared_ptr<Client> client);
 
   void applySubscriptionConfig(const rmq::Settings& settings, std::shared_ptr<Client> client);
+
+  /**
+   * Indicate if the underlying gRPC bidirectional stream is good enough to fire further Start* calls.
+   */
+  bool streamStateGood() ABSL_EXCLUSIVE_LOCKS_REQUIRED(stream_state_mtx_);
 };
 
 ROCKETMQ_NAMESPACE_END
