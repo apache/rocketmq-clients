@@ -35,8 +35,8 @@ ROCKETMQ_NAMESPACE_BEGIN
 TelemetryBidiReactor::TelemetryBidiReactor(std::weak_ptr<Client> client,
                                            rmq::MessagingService::Stub* stub,
                                            std::string peer_address)
-    : client_(client), peer_address_(std::move(peer_address)), stream_state_(StreamState::Created) {
-  auto ptr = client.lock();
+    : client_(client), peer_address_(std::move(peer_address)), stream_state_(StreamState::Active) {
+  auto ptr = client_.lock();
   auto deadline = std::chrono::system_clock::now() + std::chrono::hours(1);
   context_.set_deadline(deadline);
   Metadata metadata;
@@ -45,6 +45,7 @@ TelemetryBidiReactor::TelemetryBidiReactor(std::weak_ptr<Client> client,
     context_.AddMetadata(entry.first, entry.second);
   }
   stub->async()->Telemetry(&context_, this);
+  fireRead();
   StartCall();
 }
 
@@ -64,8 +65,6 @@ bool TelemetryBidiReactor::await() {
 }
 
 void TelemetryBidiReactor::OnWriteDone(bool ok) {
-  SPDLOG_DEBUG("OnWriteDone: {}", ok);
-
   {
     bool expect = true;
     if (!command_inflight_.compare_exchange_strong(expect, false, std::memory_order_relaxed)) {
@@ -77,36 +76,28 @@ void TelemetryBidiReactor::OnWriteDone(bool ok) {
     SPDLOG_WARN("Failed to write telemetry command {} to {}", write_.DebugString(), peer_address_);
     {
       absl::MutexLock lk(&stream_state_mtx_);
-      stream_state_ = StreamState::WriteDone;
+      if (streamStateGood()) {
+        stream_state_ = StreamState::WriteFailure;
+      }
     }
-
-    fireClose();
     return;
-  }
-
-  {
-    absl::MutexLock lk(&stream_state_mtx_);
-    if (StreamState::Created == stream_state_) {
-      stream_state_ = StreamState::Active;
-      fireRead();
-    }
   }
 
   fireWrite();
 }
 
 void TelemetryBidiReactor::OnReadDone(bool ok) {
-  SPDLOG_DEBUG("OnReadDone: ok={}", ok);
   if (!ok) {
-    if (client_.lock()) {
-      SPDLOG_WARN("Failed to read telemetry command from {}", peer_address_);
-    }
-
     {
       absl::MutexLock lk(&stream_state_mtx_);
-      stream_state_ = StreamState::ReadDone;
+      if (!ok) {
+        if (streamStateGood()) {
+          stream_state_ = StreamState::ReadFailure;
+          SPDLOG_WARN("Faild to read from telemetry stream from {}", peer_address_);
+        }
+        return;
+      }
     }
-    fireClose();
     return;
   }
 
@@ -283,6 +274,16 @@ void TelemetryBidiReactor::applySubscriptionConfig(const rmq::Settings& settings
 
 void TelemetryBidiReactor::fireRead() {
   SPDLOG_DEBUG("{}#fireRead", peer_address_);
+
+  {
+    absl::MutexLock lk(&stream_state_mtx_);
+    if (!streamStateGood()) {
+      SPDLOG_WARN("Further read from {} is not allowded due to stream-state={}", peer_address_,
+                  static_cast<std::uint8_t>(stream_state_));
+      return;
+    }
+  }
+
   StartRead(&read_);
 }
 
@@ -295,13 +296,11 @@ void TelemetryBidiReactor::write(TelemetryCommand command) {
 }
 
 void TelemetryBidiReactor::fireWrite() {
-  SPDLOG_DEBUG("{}#fireWrite", peer_address_);
-
   {
     absl::MutexLock lk(&stream_state_mtx_);
-    if (stream_state_ != StreamState::Active && stream_state_ != StreamState::Created) {
-      SPDLOG_WARN("TelemetryBidiReactor to {} is closed or half-closed, ignoring fireWrite event. stream-state={}",
-                  peer_address_, static_cast<std::uint8_t>(stream_state_));
+    if (!streamStateGood()) {
+      SPDLOG_WARN("Further write to {} is not allowded due to stream-state={}", peer_address_,
+                  static_cast<std::uint8_t>(stream_state_));
       return;
     }
   }
@@ -328,18 +327,33 @@ void TelemetryBidiReactor::fireWrite() {
 
 void TelemetryBidiReactor::fireClose() {
   SPDLOG_INFO("{}#fireClose", peer_address_);
-  if (StreamState::Active == stream_state_) {
-    StartWritesDone();
-    {
-      absl::MutexLock lk(&stream_state_mtx_);
-      if (StreamState::Active == stream_state_) {
-        stream_state_cv_.Wait(&stream_state_mtx_);
-      }
+
+  {
+    absl::MutexLock lk(&stream_state_mtx_);
+    if (!streamStateGood()) {
+      SPDLOG_WARN("No futher Read/Write call to {} is allowed due to stream-state={}", peer_address_,
+                  static_cast<std::uint8_t>(stream_state_));
+      return;
     }
+  }
+
+  StartWritesDone();
+  {
+    absl::MutexLock lk(&stream_state_mtx_);
+    stream_state_cv_.Wait(&stream_state_mtx_);
   }
 }
 
 void TelemetryBidiReactor::OnWritesDoneDone(bool ok) {
+  if (!ok) {
+    absl::MutexLock lk(&stream_state_mtx_);
+    if (streamStateGood()) {
+      stream_state_ = StreamState::WriteFailure;
+    }
+    SPDLOG_WARN("Previous telemetry write to {} failed", peer_address_);
+    return;
+  }
+
   SPDLOG_DEBUG("{}#OnWritesDoneDone", peer_address_);
 }
 
@@ -368,7 +382,10 @@ void TelemetryBidiReactor::OnDone(const grpc::Status& status) {
   {
     SPDLOG_DEBUG("{} notifies awaiting close call", peer_address_);
     absl::MutexLock lk(&stream_state_mtx_);
-    stream_state_ = StreamState::Closed;
+    if (streamStateGood()) {
+      stream_state_ = StreamState::Closed;
+    }
+
     stream_state_cv_.SignalAll();
   }
 
@@ -380,6 +397,23 @@ void TelemetryBidiReactor::OnDone(const grpc::Status& status) {
   if (client->active()) {
     client->createSession(peer_address_, true);
   }
+}
+
+void TelemetryBidiReactor::OnReadInitialMetadataDone(bool ok) {
+  if (!ok) {
+    absl::MutexLock lk(&stream_state_mtx_);
+    if (streamStateGood()) {
+      stream_state_ = StreamState::ReadInitialMetadataFailure;
+    }
+    SPDLOG_WARN("Read of initial-metadata failed from {}", peer_address_);
+    return;
+  }
+
+  SPDLOG_DEBUG("Received initial metadata from {}", peer_address_);
+}
+
+bool TelemetryBidiReactor::streamStateGood() {
+  return StreamState::Active == stream_state_;
 }
 
 ROCKETMQ_NAMESPACE_END
