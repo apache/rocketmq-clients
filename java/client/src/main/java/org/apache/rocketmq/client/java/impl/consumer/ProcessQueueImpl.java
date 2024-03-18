@@ -271,7 +271,7 @@ class ProcessQueueImpl implements ProcessQueue {
                     String nextAttemptId = null;
                     if (t instanceof StatusRuntimeException) {
                         StatusRuntimeException exception = (StatusRuntimeException) t;
-                        if (io.grpc.Status.DEADLINE_EXCEEDED.equals(exception.getStatus())) {
+                        if (io.grpc.Status.DEADLINE_EXCEEDED.getCode() == exception.getStatus().getCode()) {
                             nextAttemptId = request.getAttemptId();
                         }
                     }
