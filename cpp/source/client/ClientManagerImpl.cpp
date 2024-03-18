@@ -82,7 +82,11 @@ ClientManagerImpl::ClientManagerImpl(std::string resource_namespace, bool withSs
    */
   channel_arguments_.SetInt(GRPC_ARG_ENABLE_RETRIES, 0);
 
-  channel_arguments_.SetSslTargetNameOverride("localhost");
+  /**
+   * Fix SSL negotiation error when client enables SSL.
+   * For details, see: https://github.com/apache/rocketmq-clients/issues/698
+   */
+  // channel_arguments_.SetSslTargetNameOverride("localhost");
 
   SPDLOG_INFO("ClientManager[ResourceNamespace={}] created", resource_namespace_);
 }
