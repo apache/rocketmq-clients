@@ -367,15 +367,6 @@ impl Session {
         &mut self,
         settings: TelemetryCommand,
     ) -> Result<(), ClientError> {
-        if !self.is_started() {
-            return Err(ClientError::new(
-                ErrorKind::ClientIsNotRunning,
-                "session is not started",
-                OPERATION_UPDATE_SETTINGS,
-            )
-            .with_context("url", self.endpoints.endpoint_url()));
-        }
-
         if let Some(tx) = self.telemetry_tx.as_ref() {
             tx.send(settings).await.map_err(|e| {
                 ClientError::new(
