@@ -35,9 +35,8 @@ enum class StreamState : std::uint8_t
 {
   Created = 0,
   Active = 1,
-  ReadDone = 2,
-  WriteDone = 3,
-  Closed = 4,
+  WriteNotOK = 2,
+  Closed = 3,
 };
 
 class TelemetryBidiReactor : public grpc::ClientBidiReactor<TelemetryCommand, TelemetryCommand>,

@@ -43,10 +43,13 @@ MetricBidiReactor::MetricBidiReactor(std::weak_ptr<Client> client, std::weak_ptr
     return;
   }
   exporter_ptr->stub()->async()->Export(&context_, this);
+  AddHold();
   StartCall();
 }
 
 void MetricBidiReactor::OnReadDone(bool ok) {
+  // match the AddHold() call in MetricBidiReactor::fireRead
+  RemoveHold();
   if (!ok) {
     SPDLOG_WARN("Failed to read response");
     return;
@@ -58,6 +61,8 @@ void MetricBidiReactor::OnReadDone(bool ok) {
 void MetricBidiReactor::OnWriteDone(bool ok) {
   if (!ok) {
     SPDLOG_WARN("Failed to report metrics");
+    // match AddHold() call in MetricBidiReactor::MetricBidiReactor
+    RemoveHold();
     return;
   }
   SPDLOG_DEBUG("OnWriteDone OK");
@@ -117,6 +122,7 @@ void MetricBidiReactor::fireWrite() {
 void MetricBidiReactor::fireRead() {
   bool expected = false;
   if (read_.compare_exchange_strong(expected, true, std::memory_order_relaxed)) {
+    AddHold();
     StartRead(&response_);
   }
 }

@@ -45,6 +45,7 @@ TelemetryBidiReactor::TelemetryBidiReactor(std::weak_ptr<Client> client,
     context_.AddMetadata(entry.first, entry.second);
   }
   stub->async()->Telemetry(&context_, this);
+  AddHold();
   StartCall();
 }
 
@@ -75,9 +76,11 @@ void TelemetryBidiReactor::OnWriteDone(bool ok) {
 
   if (!ok) {
     SPDLOG_WARN("Failed to write telemetry command {} to {}", write_.DebugString(), peer_address_);
+    // match AddHold() call in TelemetryBidiReactor::TelemetryBidiReactor
+    RemoveHold();
     {
       absl::MutexLock lk(&stream_state_mtx_);
-      stream_state_ = StreamState::WriteDone;
+      stream_state_ = StreamState::WriteNotOK;
     }
 
     fireClose();
@@ -88,6 +91,7 @@ void TelemetryBidiReactor::OnWriteDone(bool ok) {
     absl::MutexLock lk(&stream_state_mtx_);
     if (StreamState::Created == stream_state_) {
       stream_state_ = StreamState::Active;
+      AddHold();
       fireRead();
     }
   }
@@ -98,14 +102,12 @@ void TelemetryBidiReactor::OnWriteDone(bool ok) {
 void TelemetryBidiReactor::OnReadDone(bool ok) {
   SPDLOG_DEBUG("OnReadDone: ok={}", ok);
   if (!ok) {
+    // match AddHold() call in TelemetryBidiReactor::OnWriteDone
+    RemoveHold();
     if (client_.lock()) {
       SPDLOG_WARN("Failed to read telemetry command from {}", peer_address_);
     }
 
-    {
-      absl::MutexLock lk(&stream_state_mtx_);
-      stream_state_ = StreamState::ReadDone;
-    }
     fireClose();
     return;
   }
@@ -295,19 +297,20 @@ void TelemetryBidiReactor::fireWrite() {
 
 void TelemetryBidiReactor::fireClose() {
   SPDLOG_INFO("{}#fireClose", peer_address_);
+  absl::MutexLock lk(&stream_state_mtx_);
   if (StreamState::Active == stream_state_) {
+    AddHold();
     StartWritesDone();
-    {
-      absl::MutexLock lk(&stream_state_mtx_);
-      if (StreamState::Active == stream_state_) {
-        stream_state_cv_.Wait(&stream_state_mtx_);
-      }
-    }
+  }
+  if (StreamState::Closed != stream_state_) {
+    stream_state_cv_.Wait(&stream_state_mtx_);
   }
 }
 
 void TelemetryBidiReactor::OnWritesDoneDone(bool ok) {
   SPDLOG_DEBUG("{}#OnWritesDoneDone", peer_address_);
+  // match AddHold() call in TelemetryBidiReactor::fireClose
+  RemoveHold();
 }
 
 void TelemetryBidiReactor::onVerifyMessageResult(TelemetryCommand command) {
