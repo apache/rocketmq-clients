@@ -48,10 +48,10 @@ MetricBidiReactor::MetricBidiReactor(std::weak_ptr<Client> client, std::weak_ptr
 }
 
 void MetricBidiReactor::OnReadDone(bool ok) {
-  // match the AddHold() call in MetricBidiReactor::fireRead
-  RemoveHold();
   if (!ok) {
     SPDLOG_WARN("Failed to read response");
+    // match the AddHold() call in MetricBidiReactor::fireRead
+    RemoveHold();
     return;
   }
   SPDLOG_DEBUG("OnReadDone OK");
