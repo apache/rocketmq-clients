@@ -19,6 +19,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <list>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -31,21 +32,29 @@
 
 ROCKETMQ_NAMESPACE_BEGIN
 
-enum class StreamState : std::uint8_t
-{
+enum class StreamState : std::uint8_t {
   Active = 0,
 
-  // Once stream state reaches one of the following, Start* should not be called.
-  Closed = 1,
-  ReadInitialMetadataFailure = 2,
-  ReadFailure = 3,
-  WriteFailure = 4,
+  /// Once the stream enters this state, new write requests shall be rejected
+  /// and once currently pending requests are written, write stream should be
+  /// closed as soon as possible.
+  Closing = 1,
+
+  // Once stream state reaches one of the following, Start* should not be
+  // called.
+  Closed = 2,
+  ReadInitialMetadataFailure = 3,
+  ReadFailure = 4,
+  WriteFailure = 5,
 };
 
-class TelemetryBidiReactor : public grpc::ClientBidiReactor<TelemetryCommand, TelemetryCommand>,
-                             public std::enable_shared_from_this<TelemetryBidiReactor> {
+class TelemetryBidiReactor
+    : public grpc::ClientBidiReactor<TelemetryCommand, TelemetryCommand>,
+      public std::enable_shared_from_this<TelemetryBidiReactor> {
 public:
-  TelemetryBidiReactor(std::weak_ptr<Client> client, rmq::MessagingService::Stub* stub, std::string peer_address);
+  TelemetryBidiReactor(std::weak_ptr<Client> client,
+                       rmq::MessagingService::Stub *stub,
+                       std::string peer_address);
 
   ~TelemetryBidiReactor();
 
@@ -56,7 +65,7 @@ public:
   /// (like failure to remove a hold).
   ///
   /// \param[in] s The status outcome of this RPC
-  void OnDone(const grpc::Status& status) override;
+  void OnDone(const grpc::Status &status) override;
 
   /// Notifies the application that a read of initial metadata from the
   /// server is done. If the application chooses not to implement this method,
@@ -90,15 +99,14 @@ public:
   ///               further Start* should be called.
   void OnWritesDoneDone(bool ok) override;
 
-  void fireRead();
+  
 
-  void fireWrite();
-
-  void fireClose();
-
+  /// Core API method to initiate this bidirectional stream.
   void write(TelemetryCommand command);
 
   bool await();
+
+  void fireClose();
 
 private:
   grpc::ClientContext context_;
@@ -111,15 +119,11 @@ private:
   /**
    * @brief Buffered commands to write to server
    *
-   * TODO: move buffered commands to a shared container, which may survive multiple TelemetryBidiReactor lifecycles.
+   * TODO: move buffered commands to a shared container, which may survive
+   * multiple TelemetryBidiReactor lifecycles.
    */
-  std::vector<TelemetryCommand> writes_ GUARDED_BY(writes_mtx_);
+  std::list<TelemetryCommand> writes_ GUARDED_BY(writes_mtx_);
   absl::Mutex writes_mtx_;
-
-  /**
-   * @brief The command that is currently being written back to server.
-   */
-  TelemetryCommand write_;
 
   /**
    * @brief Each TelemetryBidiReactor belongs to a specific client as its owner.
@@ -136,6 +140,8 @@ private:
    */
   std::atomic_bool command_inflight_{false};
 
+  std::atomic_bool read_stream_started_{false};
+
   StreamState stream_state_ GUARDED_BY(stream_state_mtx_);
   absl::Mutex stream_state_mtx_;
   absl::CondVar stream_state_cv_;
@@ -146,18 +152,30 @@ private:
 
   void onVerifyMessageResult(TelemetryCommand command);
 
-  void applySettings(const rmq::Settings& settings);
+  void applySettings(const rmq::Settings &settings);
 
-  void applyBackoffPolicy(const rmq::Settings& settings, std::shared_ptr<Client>& client);
+  void applyBackoffPolicy(const rmq::Settings &settings,
+                          std::shared_ptr<Client> &client);
 
-  void applyPublishingConfig(const rmq::Settings& settings, std::shared_ptr<Client> client);
+  void applyPublishingConfig(const rmq::Settings &settings,
+                             std::shared_ptr<Client> client);
 
-  void applySubscriptionConfig(const rmq::Settings& settings, std::shared_ptr<Client> client);
+  void applySubscriptionConfig(const rmq::Settings &settings,
+                               std::shared_ptr<Client> client);
 
   /**
-   * Indicate if the underlying gRPC bidirectional stream is good enough to fire further Start* calls.
+   * Indicate if the underlying gRPC bidirectional stream is good enough to fire
+   * further Start* calls.
    */
   bool streamStateGood() ABSL_EXCLUSIVE_LOCKS_REQUIRED(stream_state_mtx_);
+
+  /// Start the read stream.
+  ///
+  /// Once got the OnReadDone and status is OK, call StartRead immediately.
+  void fireRead();
+
+  /// Attempt to write pending telemetry command to server.
+  void tryWriteNext();
 };
 
 ROCKETMQ_NAMESPACE_END

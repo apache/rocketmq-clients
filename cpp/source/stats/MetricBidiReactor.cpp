@@ -18,10 +18,10 @@
 
 #include <chrono>
 
-#include "rocketmq/Logger.h"
-#include "spdlog/spdlog.h"
 #include "OpencensusExporter.h"
 #include "Signature.h"
+#include "rocketmq/Logger.h"
+#include "spdlog/spdlog.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -43,12 +43,15 @@ MetricBidiReactor::MetricBidiReactor(std::weak_ptr<Client> client, std::weak_ptr
     return;
   }
   exporter_ptr->stub()->async()->Export(&context_, this);
+  AddHold();
   StartCall();
 }
 
 void MetricBidiReactor::OnReadDone(bool ok) {
   if (!ok) {
     SPDLOG_WARN("Failed to read response");
+    // match the AddHold() call in MetricBidiReactor::fireRead
+    RemoveHold();
     return;
   }
   SPDLOG_DEBUG("OnReadDone OK");
@@ -56,16 +59,32 @@ void MetricBidiReactor::OnReadDone(bool ok) {
 }
 
 void MetricBidiReactor::OnWriteDone(bool ok) {
+  {
+    bool expected = true;
+    if (!inflight_.compare_exchange_strong(expected, false, std::memory_order_relaxed)) {
+      SPDLOG_WARN("Illegal command-inflight state");
+      return;
+    }
+  }
+
   if (!ok) {
     SPDLOG_WARN("Failed to report metrics");
+    // match AddHold() call in MetricBidiReactor::MetricBidiReactor
+    RemoveHold();
     return;
   }
   SPDLOG_DEBUG("OnWriteDone OK");
+
+  // If the read stream has not started yet, start it now.
   fireRead();
-  bool expected = true;
-  if (inflight_.compare_exchange_strong(expected, false, std::memory_order_relaxed)) {
-    fireWrite();
+
+  // Remove the one that been written.
+  {
+    absl::MutexLock lk(&requests_mtx_);
+    requests_.pop_front();
   }
+
+  tryWriteNext();
 }
 
 void MetricBidiReactor::OnDone(const grpc::Status& s) {
@@ -89,13 +108,13 @@ void MetricBidiReactor::write(ExportMetricsServiceRequest request) {
   SPDLOG_DEBUG("Append ExportMetricsServiceRequest to buffer");
   {
     absl::MutexLock lk(&requests_mtx_);
-    requests_.emplace_back(std::move(request));
+    requests_.push_back(std::move(request));
   }
 
-  fireWrite();
+  tryWriteNext();
 }
 
-void MetricBidiReactor::fireWrite() {
+void MetricBidiReactor::tryWriteNext() {
   {
     absl::MutexLock lk(&requests_mtx_);
     if (requests_.empty()) {
@@ -107,16 +126,15 @@ void MetricBidiReactor::fireWrite() {
   bool expected = false;
   if (inflight_.compare_exchange_strong(expected, true, std::memory_order_relaxed)) {
     absl::MutexLock lk(&requests_mtx_);
-    request_ = std::move(*requests_.begin());
-    requests_.erase(requests_.begin());
     SPDLOG_DEBUG("MetricBidiReactor#StartWrite");
-    StartWrite(&request_);
+    StartWrite(&(requests_.front()));
   }
 }
 
 void MetricBidiReactor::fireRead() {
   bool expected = false;
   if (read_.compare_exchange_strong(expected, true, std::memory_order_relaxed)) {
+    AddHold();
     StartRead(&response_);
   }
 }
