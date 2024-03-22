@@ -1,0 +1,6 @@
+{
+    global:
+        *rocketmq*;
+    local:
+        *;
+};
