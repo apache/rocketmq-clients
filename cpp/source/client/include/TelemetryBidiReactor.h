@@ -32,7 +32,8 @@
 
 ROCKETMQ_NAMESPACE_BEGIN
 
-enum class StreamState : std::uint8_t {
+enum class StreamState : std::uint8_t
+{
   Active = 0,
 
   /// Once the stream enters this state, new write requests shall be rejected
@@ -48,13 +49,10 @@ enum class StreamState : std::uint8_t {
   WriteFailure = 5,
 };
 
-class TelemetryBidiReactor
-    : public grpc::ClientBidiReactor<TelemetryCommand, TelemetryCommand>,
-      public std::enable_shared_from_this<TelemetryBidiReactor> {
+class TelemetryBidiReactor : public grpc::ClientBidiReactor<TelemetryCommand, TelemetryCommand>,
+                             public std::enable_shared_from_this<TelemetryBidiReactor> {
 public:
-  TelemetryBidiReactor(std::weak_ptr<Client> client,
-                       rmq::MessagingService::Stub *stub,
-                       std::string peer_address);
+  TelemetryBidiReactor(std::weak_ptr<Client> client, rmq::MessagingService::Stub* stub, std::string peer_address);
 
   ~TelemetryBidiReactor();
 
@@ -65,7 +63,7 @@ public:
   /// (like failure to remove a hold).
   ///
   /// \param[in] s The status outcome of this RPC
-  void OnDone(const grpc::Status &status) override;
+  void OnDone(const grpc::Status& status) override;
 
   /// Notifies the application that a read of initial metadata from the
   /// server is done. If the application chooses not to implement this method,
@@ -98,8 +96,6 @@ public:
   ///               the failure reflected as a bad status in OnDone and no
   ///               further Start* should be called.
   void OnWritesDoneDone(bool ok) override;
-
-  
 
   /// Core API method to initiate this bidirectional stream.
   void write(TelemetryCommand command);
@@ -150,18 +146,17 @@ private:
   absl::Mutex server_setting_received_mtx_;
   absl::CondVar server_setting_received_cv_;
 
+  void changeStreamStateThenNotify(StreamState state);
+
   void onVerifyMessageResult(TelemetryCommand command);
 
-  void applySettings(const rmq::Settings &settings);
+  void applySettings(const rmq::Settings& settings);
 
-  void applyBackoffPolicy(const rmq::Settings &settings,
-                          std::shared_ptr<Client> &client);
+  void applyBackoffPolicy(const rmq::Settings& settings, std::shared_ptr<Client>& client);
 
-  void applyPublishingConfig(const rmq::Settings &settings,
-                             std::shared_ptr<Client> client);
+  void applyPublishingConfig(const rmq::Settings& settings, std::shared_ptr<Client> client);
 
-  void applySubscriptionConfig(const rmq::Settings &settings,
-                               std::shared_ptr<Client> client);
+  void applySubscriptionConfig(const rmq::Settings& settings, std::shared_ptr<Client> client);
 
   /**
    * Indicate if the underlying gRPC bidirectional stream is good enough to fire

@@ -65,7 +65,17 @@ bool TelemetryBidiReactor::await() {
   return server_setting_received_;
 }
 
+void TelemetryBidiReactor::changeStreamStateThenNotify(StreamState state) {
+  absl::MutexLock lk(&stream_state_mtx_);
+  if (state == stream_state_) {
+    return;
+  }
+  stream_state_ = state;
+  stream_state_cv_.SignalAll();
+}
+
 void TelemetryBidiReactor::OnWriteDone(bool ok) {
+  SPDLOG_DEBUG("{}#OnWriteDone", peer_address_);
   {
     bool expected = true;
     if (!command_inflight_.compare_exchange_strong(expected, false, std::memory_order_relaxed)) {
@@ -103,16 +113,20 @@ void TelemetryBidiReactor::OnWriteDone(bool ok) {
 }
 
 void TelemetryBidiReactor::OnReadDone(bool ok) {
+  SPDLOG_DEBUG("{}#OnReadDone", peer_address_);
   if (!ok) {
     RemoveHold();
     {
       absl::MutexLock lk(&stream_state_mtx_);
-      if (!ok) {
-        if (streamStateGood()) {
-          stream_state_ = StreamState::ReadFailure;
-          SPDLOG_WARN("Faild to read from telemetry stream from {}", peer_address_);
-        }
-        return;
+      if (streamStateGood() && stream_state_ != StreamState::Closing) {
+        stream_state_ = StreamState::ReadFailure;
+        SPDLOG_WARN("Faild to read from telemetry stream from {}", peer_address_);
+      }
+
+      bool expected = false;
+      if (command_inflight_.compare_exchange_strong(expected, true, std::memory_order_relaxed)) {
+        // There is no inflight write request, remove write hold on its behalf.
+        RemoveHold();
       }
     }
     return;
@@ -296,7 +310,7 @@ void TelemetryBidiReactor::fireRead() {
   }
 
   bool expected = false;
-  if (read_stream_started_.compare_exchange_weak(expected, true, std::memory_order_relaxed)) {
+  if (read_stream_started_.compare_exchange_strong(expected, true, std::memory_order_relaxed)) {
     // Hold for the read stream.
     AddHold();
     StartRead(&read_);
@@ -304,6 +318,7 @@ void TelemetryBidiReactor::fireRead() {
 }
 
 void TelemetryBidiReactor::write(TelemetryCommand command) {
+  SPDLOG_DEBUG("{}#write", peer_address_);
   {
     absl::MutexLock lk(&stream_state_mtx_);
     // Reject incoming write commands if the stream state is closing or has witnessed some error.
@@ -320,6 +335,7 @@ void TelemetryBidiReactor::write(TelemetryCommand command) {
 }
 
 void TelemetryBidiReactor::tryWriteNext() {
+  SPDLOG_DEBUG("{}#tryWriteNext", peer_address_);
   {
     absl::MutexLock lk(&stream_state_mtx_);
     if (!streamStateGood()) {
@@ -362,7 +378,6 @@ void TelemetryBidiReactor::tryWriteNext() {
 
 void TelemetryBidiReactor::fireClose() {
   SPDLOG_INFO("{}#fireClose", peer_address_);
-
   {
     absl::MutexLock lk(&stream_state_mtx_);
     if (!streamStateGood()) {
@@ -377,9 +392,16 @@ void TelemetryBidiReactor::fireClose() {
     stream_state_ = StreamState::Closing;
   }
   tryWriteNext();
+  {
+    absl::MutexLock lk(&stream_state_mtx_);
+    if (stream_state_cv_.WaitWithTimeout(&stream_state_mtx_, absl::Seconds(3))) {
+      SPDLOG_WARN("StreamState CondVar timed out before getting signalled");
+    }
+  }
 }
 
 void TelemetryBidiReactor::OnWritesDoneDone(bool ok) {
+  SPDLOG_DEBUG("{}#OnWritesDoneDone", peer_address_);
   // Remove the hold for the write stream.
   RemoveHold();
 
@@ -419,12 +441,7 @@ void TelemetryBidiReactor::OnDone(const grpc::Status& status) {
 
   {
     SPDLOG_DEBUG("{} notifies awaiting close call", peer_address_);
-    absl::MutexLock lk(&stream_state_mtx_);
-    if (streamStateGood()) {
-      stream_state_ = StreamState::Closed;
-    }
-
-    stream_state_cv_.SignalAll();
+    changeStreamStateThenNotify(StreamState::Closed);
   }
 
   auto client = client_.lock();
@@ -438,6 +455,7 @@ void TelemetryBidiReactor::OnDone(const grpc::Status& status) {
 }
 
 void TelemetryBidiReactor::OnReadInitialMetadataDone(bool ok) {
+  SPDLOG_DEBUG("{}#OnReadInitialMetadataDone", peer_address_);
   if (!ok) {
     absl::MutexLock lk(&stream_state_mtx_);
     if (streamStateGood()) {
