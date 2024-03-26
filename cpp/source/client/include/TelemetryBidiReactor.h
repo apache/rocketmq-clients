@@ -34,21 +34,30 @@ ROCKETMQ_NAMESPACE_BEGIN
 
 enum class StreamState : std::uint8_t
 {
-  Active = 0,
-
-  /// Once the stream enters this state, new write requests shall be rejected
-  /// and once currently pending requests are written, write stream should be
-  /// closed as soon as possible.
-  Closing = 1,
-
-  // Once stream state reaches one of the following, Start* should not be
-  // called.
-  Closed = 2,
-  ReadInitialMetadataFailure = 3,
-  ReadFailure = 4,
-  WriteFailure = 5,
+  Created = 0,
+  Ready = 1,
+  Inflight = 2,
+  Closing = 3,
+  Closed = 4,
+  Error = 5,
 };
 
+/// write-stream-state: created --> ready --> inflight --> ready --> ...
+///                                                    --> error
+///                                                    --> closing --> closed
+///                                       --> closing  --> closed
+///                                                    --> error
+///
+///
+/// read-stream-state: created --> ready --> inflight --> inflight
+///                                                   --> closing --> closed
+///                                                   --> error
+///                                      --> closed
+/// requirement:
+///    1, fireClose --> blocking await till bidireactor is closed;
+///    2, when session is closed and client is still active, recreate a new session to accept incoming commands from
+///    server 3, after writing the first Setttings telemetry command, launch the read directional stream
+///
 class TelemetryBidiReactor : public grpc::ClientBidiReactor<TelemetryCommand, TelemetryCommand>,
                              public std::enable_shared_from_this<TelemetryBidiReactor> {
 public:
@@ -131,20 +140,10 @@ private:
    */
   std::string peer_address_;
 
-  /**
-   * @brief Indicate if there is a command being written to network.
-   */
-  std::atomic_bool command_inflight_{false};
-
-  std::atomic_bool read_stream_started_{false};
-
-  StreamState stream_state_ GUARDED_BY(stream_state_mtx_);
-  absl::Mutex stream_state_mtx_;
-  absl::CondVar stream_state_cv_;
-
-  bool server_setting_received_ GUARDED_BY(server_setting_received_mtx_){false};
-  absl::Mutex server_setting_received_mtx_;
-  absl::CondVar server_setting_received_cv_;
+  StreamState read_state_ GUARDED_BY(state_mtx_);
+  StreamState write_state_ GUARDED_BY(state_mtx_);
+  absl::Mutex state_mtx_;
+  absl::CondVar state_cv_;
 
   void changeStreamStateThenNotify(StreamState state);
 
@@ -158,19 +157,13 @@ private:
 
   void applySubscriptionConfig(const rmq::Settings& settings, std::shared_ptr<Client> client);
 
-  /**
-   * Indicate if the underlying gRPC bidirectional stream is good enough to fire
-   * further Start* calls.
-   */
-  bool streamStateGood() ABSL_EXCLUSIVE_LOCKS_REQUIRED(stream_state_mtx_);
-
   /// Start the read stream.
   ///
   /// Once got the OnReadDone and status is OK, call StartRead immediately.
   void fireRead();
 
   /// Attempt to write pending telemetry command to server.
-  void tryWriteNext();
+  void tryWriteNext() LOCKS_EXCLUDED(state_mtx_, writes_mtx_);
 };
 
 ROCKETMQ_NAMESPACE_END
