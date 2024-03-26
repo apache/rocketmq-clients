@@ -16,12 +16,14 @@
  */
 
 #include "SessionImpl.h"
+
 #include "rocketmq/Logger.h"
 #include "spdlog/spdlog.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
-SessionImpl::SessionImpl(std::weak_ptr<Client> client, std::shared_ptr<RpcClient> rpc_client) : client_(client), rpc_client_(rpc_client) {
+SessionImpl::SessionImpl(std::weak_ptr<Client> client, std::shared_ptr<RpcClient> rpc_client)
+    : client_(client), rpc_client_(rpc_client) {
   telemetry_ = rpc_client->asyncTelemetry(client_);
   syncSettings();
 }
@@ -39,8 +41,8 @@ void SessionImpl::syncSettings() {
 }
 
 SessionImpl::~SessionImpl() {
-  SPDLOG_DEBUG("Session for {} destructed", rpc_client_->remoteAddress());
   telemetry_->fireClose();
+  SPDLOG_DEBUG("Session for {} destructed", rpc_client_->remoteAddress());
 }
 
 ROCKETMQ_NAMESPACE_END
