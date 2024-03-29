@@ -92,8 +92,8 @@ int main(int argc, char* argv[]) {
   auto stats_lambda = [&] {
     while (!stopped.load(std::memory_order_relaxed)) {
       long cnt = count.load(std::memory_order_relaxed);
-      while (count.compare_exchange_weak(cnt, 0)) {
-        break;
+      while (!count.compare_exchange_weak(cnt, 0)) {
+        cnt = count.load(std::memory_order_relaxed);
       }
       std::this_thread::sleep_for(std::chrono::seconds(1));
       std::cout << "QPS: " << cnt << std::endl;

@@ -84,10 +84,11 @@ int main(int argc, char* argv[]) {
   std::atomic_long count(0);
 
   auto stats_lambda = [&] {
+    std::cout << "Stats thread starts" << std::endl;
     while (!stopped.load(std::memory_order_relaxed)) {
       long cnt = count.load(std::memory_order_relaxed);
-      while (count.compare_exchange_weak(cnt, 0)) {
-        break;
+      while (!count.compare_exchange_weak(cnt, 0)) {
+        cnt = count.load(std::memory_order_relaxed);
       }
       std::this_thread::sleep_for(std::chrono::seconds(1));
       std::cout << "QPS: " << cnt << std::endl;
@@ -110,7 +111,7 @@ int main(int argc, char* argv[]) {
                          .build();
       std::error_code ec;
       SendReceipt send_receipt = producer.send(std::move(message), ec);
-      std::cout << "Message-ID: " << send_receipt.message_id << std::endl;
+      // std::cout << "Message-ID: " << send_receipt.message_id << std::endl;
       count++;
     }
   } catch (...) {
