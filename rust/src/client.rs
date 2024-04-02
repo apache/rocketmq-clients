@@ -212,14 +212,14 @@ where
                         {
                             topics = route_table.lock().keys().cloned().collect();
                         }
-                        info!(logger, "update topic route of topics {:?}", topics);
+                        debug!(logger, "update topic route of topics {:?}", topics);
                         for topic in topics {
                             let result = Self::topic_route_inner(
                                 logger.clone(),
                                 rpc_client.shadow_session(),
                                 Arc::clone(&route_table),
-                                &namespace,
-                                &endpoints,
+                                namespace.clone(),
+                                endpoints.clone(),
                                 topic.as_str(),
                             )
                             .await;
@@ -356,8 +356,8 @@ where
             logger,
             rpc_client,
             route_table,
-            &self.option.namespace,
-            &self.access_endpoints,
+            self.option.namespace.clone(),
+            self.access_endpoints.clone(),
             topic,
         )
         .await
@@ -365,8 +365,8 @@ where
 
     async fn query_topic_route<T: RPCClient + 'static>(
         mut rpc_client: T,
-        namespace: &str,
-        access_endpoints: &Endpoints,
+        namespace: String,
+        access_endpoints: Endpoints,
         topic: &str,
     ) -> Result<Route, ClientError> {
         let request = QueryRouteRequest {
@@ -391,8 +391,8 @@ where
         logger: Logger,
         rpc_client: T,
         route_table: Arc<parking_lot::Mutex<HashMap<String, RouteStatus>>>,
-        namespace: &str,
-        endpoints: &Endpoints,
+        namespace: String,
+        endpoints: Endpoints,
         topic: &str,
     ) -> Result<Arc<Route>, ClientError> {
         debug!(logger, "query route for topic={}", topic);
@@ -913,8 +913,8 @@ pub(crate) mod tests {
             logger,
             mock,
             Arc::clone(&client.route_table),
-            &client.option.namespace,
-            &client.access_endpoints,
+            client.option.namespace.clone(),
+            client.access_endpoints.clone(),
             "DefaultCluster",
         )
         .await;
@@ -948,8 +948,8 @@ pub(crate) mod tests {
                 client_clone.logger.clone(),
                 mock,
                 Arc::clone(&client_clone.route_table),
-                &client_clone.option.namespace,
-                &client_clone.access_endpoints,
+                client_clone.option.namespace.clone(),
+                client_clone.access_endpoints.clone(),
                 "DefaultCluster",
             )
             .await;
@@ -963,8 +963,8 @@ pub(crate) mod tests {
                 client.logger.clone(),
                 mock,
                 Arc::clone(&client.route_table),
-                &client.option.namespace,
-                &client.access_endpoints,
+                client.option.namespace.clone(),
+                client.access_endpoints.clone(),
                 "DefaultCluster",
             )
             .await;
@@ -995,8 +995,8 @@ pub(crate) mod tests {
                 client_clone.logger.clone(),
                 mock,
                 Arc::clone(&client_clone.route_table),
-                &client_clone.option.namespace,
-                &client_clone.access_endpoints,
+                client_clone.option.namespace.clone(),
+                client_clone.access_endpoints.clone(),
                 "DefaultCluster",
             )
             .await;
@@ -1010,8 +1010,8 @@ pub(crate) mod tests {
                 client.logger.clone(),
                 mock,
                 Arc::clone(&client.route_table),
-                &client.option.namespace,
-                &client.access_endpoints,
+                client.option.namespace.clone(),
+                client.access_endpoints.clone(),
                 "DefaultCluster",
             )
             .await;
@@ -1055,8 +1055,8 @@ pub(crate) mod tests {
             client.logger.clone(),
             mock,
             Arc::clone(&client.route_table),
-            &client.option.namespace,
-            &client.access_endpoints,
+            client.option.namespace.clone(),
+            client.access_endpoints.clone(),
             "DefaultCluster",
         )
         .await;
@@ -1075,8 +1075,8 @@ pub(crate) mod tests {
             client.logger.clone(),
             mock,
             Arc::clone(&client.route_table),
-            &client.option.namespace,
-            &client.access_endpoints,
+            client.option.namespace.clone(),
+            client.access_endpoints.clone(),
             "DefaultCluster",
         )
         .await;
@@ -1101,8 +1101,8 @@ pub(crate) mod tests {
             client.logger.clone(),
             mock,
             Arc::clone(&client.route_table),
-            &client.option.namespace,
-            &client.access_endpoints,
+            client.option.namespace.clone(),
+            client.access_endpoints.clone(),
             "DefaultCluster",
         )
         .await;
