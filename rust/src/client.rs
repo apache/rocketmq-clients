@@ -372,9 +372,9 @@ where
         let request = QueryRouteRequest {
             topic: Some(Resource {
                 name: topic.to_owned(),
-                resource_namespace: namespace.to_string(),
+                resource_namespace: namespace,
             }),
-            endpoints: Some(access_endpoints.inner().clone()),
+            endpoints: Some(access_endpoints.into_inner()),
         };
 
         let response = rpc_client.query_route(request).await?;
