@@ -133,7 +133,7 @@ where
 
         self.telemetry_command_tx = Some(telemetry_command_tx);
 
-        let mut rpc_client = self
+        let rpc_client = self
             .get_session()
             .await
             .map_err(|error| error.with_operation(OPERATION_CLIENT_START))?;
@@ -208,8 +208,31 @@ where
 
                     },
                     _ = sync_route_timer.tick() => {
-                        Self::sync_route(logger.clone(), &mut rpc_client, Arc::clone(&route_table), &namespace, &endpoints).await;
-                    },
+                        let topics: Vec<String>;
+                        {
+                            topics = route_table.lock().keys().cloned().collect();
+                        }
+                        info!(logger, "update topic route of topics {:?}", topics);
+                        for topic in topics {
+                            let result = Self::topic_route_inner(
+                                logger.clone(),
+                                rpc_client.shadow_session(),
+                                Arc::clone(&route_table),
+                                &namespace,
+                                &endpoints,
+                                topic.as_str(),
+                            )
+                            .await;
+                            if result.is_err() {
+                                warn!(
+                                    logger,
+                                    "sync route of topic = {:?} failed, reason = {:?}",
+                                    topic,
+                                    result.err()
+                                );
+                            }
+                        }
+                },
                     _ = &mut shutdown_rx => {
                         info!(logger, "receive shutdown signal, stop heartbeat and telemetry tasks.");
                         break;
@@ -326,12 +349,12 @@ where
                 return Ok(route);
             }
         }
-        let mut rpc_client = self.get_session().await?;
+        let rpc_client = self.get_session().await?;
         let logger = self.logger.clone();
         let route_table = Arc::clone(&self.route_table);
         Self::topic_route_inner(
             logger,
-            &mut rpc_client,
+            rpc_client,
             route_table,
             &self.option.namespace,
             &self.access_endpoints,
@@ -340,41 +363,8 @@ where
         .await
     }
 
-    async fn sync_route<T: RPCClient + 'static>(
-        logger: Logger,
-        rpc_client: &mut T,
-        route_table: Arc<parking_lot::Mutex<HashMap<String /* topic */, RouteStatus>>>,
-        namespace: &str,
-        endpoints: &Endpoints,
-    ) {
-        let topics: Vec<String>;
-        {
-            topics = route_table.lock().keys().cloned().collect();
-        }
-        info!(logger, "update topic route of topics {:?}", topics);
-        for topic in topics {
-            let result = Self::topic_route_inner(
-                logger.clone(),
-                rpc_client,
-                Arc::clone(&route_table),
-                namespace,
-                endpoints,
-                topic.as_str(),
-            )
-            .await;
-            if result.is_err() {
-                warn!(
-                    logger,
-                    "sync route of topic = {:?} failed, reason = {:?}",
-                    topic,
-                    result.err()
-                );
-            }
-        }
-    }
-
     async fn query_topic_route<T: RPCClient + 'static>(
-        rpc_client: &mut T,
+        mut rpc_client: T,
         namespace: &str,
         access_endpoints: &Endpoints,
         topic: &str,
@@ -399,7 +389,7 @@ where
 
     async fn topic_route_inner<T: RPCClient + 'static>(
         logger: Logger,
-        rpc_client: &mut T,
+        rpc_client: T,
         route_table: Arc<parking_lot::Mutex<HashMap<String, RouteStatus>>>,
         namespace: &str,
         endpoints: &Endpoints,
@@ -921,7 +911,7 @@ pub(crate) mod tests {
         let logger = client.logger.clone();
         let result = Client::<MockSettings>::topic_route_inner(
             logger,
-            &mut mock,
+            mock,
             Arc::clone(&client.route_table),
             &client.option.namespace,
             &client.access_endpoints,
@@ -956,7 +946,7 @@ pub(crate) mod tests {
 
             let result = Client::<MockSettings>::topic_route_inner(
                 client_clone.logger.clone(),
-                &mut mock,
+                mock,
                 Arc::clone(&client_clone.route_table),
                 &client_clone.option.namespace,
                 &client_clone.access_endpoints,
@@ -971,7 +961,7 @@ pub(crate) mod tests {
             let mut mock = session::MockRPCClient::new();
             let result = Client::<MockSettings>::topic_route_inner(
                 client.logger.clone(),
-                &mut mock,
+                mock,
                 Arc::clone(&client.route_table),
                 &client.option.namespace,
                 &client.access_endpoints,
@@ -1003,7 +993,7 @@ pub(crate) mod tests {
 
             let result = Client::<MockSettings>::topic_route_inner(
                 client_clone.logger.clone(),
-                &mut mock,
+                mock,
                 Arc::clone(&client_clone.route_table),
                 &client_clone.option.namespace,
                 &client_clone.access_endpoints,
@@ -1018,7 +1008,7 @@ pub(crate) mod tests {
             let mut mock = session::MockRPCClient::new();
             let result = Client::<MockSettings>::topic_route_inner(
                 client.logger.clone(),
-                &mut mock,
+                mock,
                 Arc::clone(&client.route_table),
                 &client.option.namespace,
                 &client.access_endpoints,
@@ -1063,7 +1053,7 @@ pub(crate) mod tests {
 
         let result = Client::<MockSettings>::topic_route_inner(
             client.logger.clone(),
-            &mut mock,
+            mock,
             Arc::clone(&client.route_table),
             &client.option.namespace,
             &client.access_endpoints,
@@ -1083,7 +1073,7 @@ pub(crate) mod tests {
 
         let result = Client::<MockSettings>::topic_route_inner(
             client.logger.clone(),
-            &mut mock,
+            mock,
             Arc::clone(&client.route_table),
             &client.option.namespace,
             &client.access_endpoints,
@@ -1109,7 +1099,7 @@ pub(crate) mod tests {
 
         let result2 = Client::<MockSettings>::topic_route_inner(
             client.logger.clone(),
-            &mut mock,
+            mock,
             Arc::clone(&client.route_table),
             &client.option.namespace,
             &client.access_endpoints,
