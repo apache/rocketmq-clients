@@ -232,7 +232,7 @@ where
                                 );
                             }
                         }
-                },
+                    },
                     _ = &mut shutdown_rx => {
                         info!(logger, "receive shutdown signal, stop heartbeat and telemetry tasks.");
                         break;
