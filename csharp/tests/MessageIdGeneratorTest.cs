@@ -42,7 +42,7 @@ namespace tests
         }
 
         [TestMethod]
-        public void TestNextSuffix()
+        public void TestNextId()
         {
             var fakeTimeProvider = new FakeTimeProvider();
             fakeTimeProvider.SetUtcNow(new DateTime(2023, 1, 1, 0, 0, 1, DateTimeKind.Utc));

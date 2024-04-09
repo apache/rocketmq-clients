@@ -47,7 +47,7 @@ namespace Org.Apache.Rocketmq
             utilities.GetMacAddress().AsSpan().CopyTo(buffer);
 
             var processId = utilities.GetProcessId();
-            BinaryPrimitives.WriteInt16BigEndian(buffer.Slice(6, 2), (short)processId);
+            BinaryPrimitives.WriteInt16BigEndian(buffer[6..], (short)processId);
 
             _prefix = Version + utilities.ByteArrayToHexString(buffer);
 
@@ -68,7 +68,7 @@ namespace Org.Apache.Rocketmq
             BinaryPrimitives.WriteInt32BigEndian(buffer[..4], (int)deltaSeconds);
 
             var no = Interlocked.Increment(ref _sequence);
-            BinaryPrimitives.WriteInt32BigEndian(buffer[4..4], no);
+            BinaryPrimitives.WriteInt32BigEndian(buffer[4..], no);
 
             return $"{_prefix}{_utilities.ByteArrayToHexString(buffer)}";
         }
