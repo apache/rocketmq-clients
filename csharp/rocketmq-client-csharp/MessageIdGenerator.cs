@@ -16,8 +16,7 @@
  */
 
 using System;
-using System.Diagnostics;
-using System.IO;
+using System.Buffers.Binary;
 using System.Threading;
 
 namespace Org.Apache.Rocketmq
@@ -27,74 +26,52 @@ namespace Org.Apache.Rocketmq
      */
     public class MessageIdGenerator
     {
+        private readonly TimeProvider _timeProvider;
+        private readonly IUtilities _utilities;
         public const string Version = "01";
-        private static readonly MessageIdGenerator Instance = new MessageIdGenerator();
+        private static readonly MessageIdGenerator Instance = new MessageIdGenerator(TimeProvider.System, DefaultUtilities.Instance);
 
         private readonly string _prefix;
 
         private readonly long _secondsSinceCustomEpoch;
-        private readonly Stopwatch _stopwatch;
+        private readonly long _startTimestamp;
 
         private int _sequence;
 
-        private MessageIdGenerator()
+        internal MessageIdGenerator(TimeProvider timeProvider, IUtilities utilities)
         {
-            var stream = new MemoryStream();
-            var writer = new BinaryWriter(stream);
+            _timeProvider = timeProvider;
+            _utilities = utilities;
 
-            var macAddress = Utilities.GetMacAddress();
-            writer.Write(macAddress, 0, 6);
+            Span<byte> buffer = stackalloc byte[8]; // 6 bytes for MAC + 2 bytes for ProcessID
+            utilities.GetMacAddress().AsSpan().CopyTo(buffer);
 
-            var processId = Utilities.GetProcessId();
+            var processId = utilities.GetProcessId();
+            BinaryPrimitives.WriteInt16BigEndian(buffer.Slice(6, 2), (short)processId);
 
-            var processIdBytes = BitConverter.GetBytes(processId);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(processIdBytes);
-            }
+            _prefix = Version + utilities.ByteArrayToHexString(buffer);
 
-            writer.Write(processIdBytes, 2, 2);
-            var array = stream.ToArray();
-            _prefix = Version + Utilities.ByteArrayToHexString(array);
-
-            var epoch = new DateTime(2021, 1, 1,
-                0, 0, 0, 0, DateTimeKind.Utc);
-
-            var now = DateTime.Now;
-            _secondsSinceCustomEpoch = Convert.ToInt64(now.ToUniversalTime().Subtract(epoch).TotalSeconds);
-            _stopwatch = Stopwatch.StartNew();
+            var epoch = new DateTime(2021, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
+            var now = timeProvider.GetUtcNow();
+            _secondsSinceCustomEpoch = Convert.ToInt64(now.Subtract(epoch).TotalSeconds);
+            _startTimestamp = timeProvider.GetTimestamp();
 
             _sequence = 0;
         }
 
         public string Next()
         {
-            var deltaSeconds = _secondsSinceCustomEpoch + _stopwatch.ElapsedMilliseconds / 1_000;
+            var deltaSeconds = _secondsSinceCustomEpoch + (long)_timeProvider.GetElapsedTime(_startTimestamp).TotalSeconds;
 
-            var stream = new MemoryStream();
-            var writer = new BinaryWriter(stream);
+            Span<byte> buffer = stackalloc byte[8];
 
-            byte[] deltaSecondsBytes = BitConverter.GetBytes(deltaSeconds);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(deltaSecondsBytes);
-            }
-
-            writer.Write(deltaSecondsBytes, 4, 4);
+            BinaryPrimitives.WriteInt32BigEndian(buffer[..4], (int)deltaSeconds);
 
             var no = Interlocked.Increment(ref _sequence);
-            var noBytes = BitConverter.GetBytes(no);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(noBytes);
-            }
+            BinaryPrimitives.WriteInt32BigEndian(buffer[4..4], no);
 
-            writer.Write(noBytes);
-            var suffixBytes = stream.ToArray();
-
-            return _prefix + Utilities.ByteArrayToHexString(suffixBytes);
+            return $"{_prefix}{_utilities.ByteArrayToHexString(buffer)}";
         }
-
 
         public static MessageIdGenerator GetInstance()
         {

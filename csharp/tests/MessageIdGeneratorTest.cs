@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+using System;
+using Microsoft.Extensions.Time.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Org.Apache.Rocketmq;
 
@@ -37,6 +39,39 @@ namespace tests
 
             Assert.AreNotEqual(firstMessageId, secondMessageId);
             Assert.AreEqual(firstMessageId.Substring(0, 24), secondMessageId.Substring(0, 24));
+        }
+
+        [TestMethod]
+        public void TestNextSuffix()
+        {
+            var fakeTimeProvider = new FakeTimeProvider();
+            fakeTimeProvider.SetUtcNow(new DateTime(2023, 1, 1, 0, 0, 1, DateTimeKind.Utc));
+
+            var instance = new MessageIdGenerator(fakeTimeProvider, new FakeUtilities());
+            var firstMessageId = instance.Next();
+            Assert.AreEqual("01000102030405002A03C2670100000001", firstMessageId);
+
+            fakeTimeProvider.SetUtcNow(new DateTime(2023, 1, 1, 0, 0, 2, DateTimeKind.Utc));
+            var secondMessageId = instance.Next();
+            Assert.AreEqual("01000102030405002A03C2670200000002", secondMessageId);
+        }
+
+        private class FakeUtilities : IUtilities
+        {
+            public byte[] GetMacAddress()
+            {
+                return new byte[] { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
+            }
+
+            public int GetProcessId()
+            {
+                return 42;
+            }
+
+            public string ByteArrayToHexString(ReadOnlySpan<byte> bytes)
+            {
+                return Utilities.ByteArrayToHexString(bytes);
+            }
         }
     }
 }

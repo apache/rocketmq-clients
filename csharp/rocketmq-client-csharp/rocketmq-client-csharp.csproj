@@ -29,6 +29,7 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>
         </PackageReference>
+        <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="8.0.1" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="3.1.32" />
         <PackageReference Include="NLog.Extensions.Logging" Version="5.3.4" />
         <PackageReference Include="OpenTelemetry" Version="1.3.1" />
@@ -39,4 +40,11 @@
         <Protobuf Include="..\..\protos\apache\rocketmq\v2\service.proto" ProtoRoot="..\..\protos" GrpcServices="Client" />
         <None Include="logo.png" Pack="true" PackagePath="" />
     </ItemGroup>
+
+    <ItemGroup>
+        <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+            <_Parameter1>tests</_Parameter1>
+        </AssemblyAttribute>
+    </ItemGroup>
+
 </Project>

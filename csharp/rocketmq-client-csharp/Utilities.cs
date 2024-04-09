@@ -94,6 +94,11 @@ namespace Org.Apache.Rocketmq
             var hashBytes = Sha1.Value.ComputeHash(data);
             return Convert.ToHexString(hashBytes);
         }
+
+        public static string ByteArrayToHexString(ReadOnlySpan<byte> bytes)
+        {
+            return Convert.ToHexString(bytes);
+        }
 #else
         public static string ComputeMd5Hash(byte[] data)
         {
@@ -105,6 +110,20 @@ namespace Org.Apache.Rocketmq
         {
             var hashBytes = Sha1.Value.ComputeHash(data);
             return BitConverter.ToString(hashBytes).Replace("-", "");
+        }
+        
+        public static string ByteArrayToHexString(ReadOnlySpan<byte> bytes)
+        {
+            var result = new StringBuilder(bytes.Length * 2);
+            const string hexAlphabet = "0123456789ABCDEF";
+
+            foreach (var b in bytes)
+            {
+                result.Append(hexAlphabet[(int)(b >> 4)]);
+                result.Append(hexAlphabet[(int)(b & 0xF)]);
+            }
+
+            return result.ToString();
         }
 #endif
 
@@ -120,20 +139,6 @@ namespace Org.Apache.Rocketmq
             }
 
             return result;
-        }
-
-        public static string ByteArrayToHexString(byte[] bytes)
-        {
-            var result = new StringBuilder(bytes.Length * 2);
-            const string hexAlphabet = "0123456789ABCDEF";
-
-            foreach (var b in bytes)
-            {
-                result.Append(hexAlphabet[(int)(b >> 4)]);
-                result.Append(hexAlphabet[(int)(b & 0xF)]);
-            }
-
-            return result.ToString();
         }
 
         public static byte[] CompressBytesGzip(byte[] src, CompressionLevel level)
