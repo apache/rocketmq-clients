@@ -26,6 +26,7 @@ use tokio::select;
 use tokio::sync::RwLock;
 use tokio::sync::{mpsc, oneshot};
 
+use crate::client::handle_response_status;
 #[double]
 use crate::client::Client;
 use crate::conf::{ClientOption, ProducerOption};
@@ -40,8 +41,8 @@ use crate::pb::telemetry_command::Command::{RecoverOrphanedTransactionCommand, S
 use crate::pb::{Encoding, EndTransactionRequest, Resource, SystemProperties, TransactionSource};
 use crate::session::RPCClient;
 use crate::util::{
-    build_endpoints_by_message_queue, build_producer_settings, select_message_queue,
-    select_message_queue_by_message_group, HOST_NAME,
+    build_endpoints_by_message_queue, select_message_queue, select_message_queue_by_message_group,
+    HOST_NAME,
 };
 use crate::{log, pb};
 
@@ -54,7 +55,7 @@ use crate::{log, pb};
 pub struct Producer {
     option: Arc<RwLock<ProducerOption>>,
     logger: Logger,
-    client: Client,
+    client: Client<ProducerOption>,
     transaction_checker: Option<Box<TransactionChecker>>,
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
@@ -85,9 +86,8 @@ impl Producer {
             ..client_option
         };
         let logger = log::logger(option.logging_format());
-        let settings = build_producer_settings(&option, &client_option);
-        let client = Client::new(&logger, client_option, settings)?;
         let option = Arc::new(RwLock::new(option));
+        let client = Client::new(&logger, client_option, Arc::clone(&option))?;
         Ok(Producer {
             option,
             logger,
@@ -115,9 +115,8 @@ impl Producer {
             ..client_option
         };
         let logger = log::logger(option.logging_format());
-        let settings = build_producer_settings(&option, &client_option);
-        let client = Client::new(&logger, client_option, settings)?;
         let option = Arc::new(RwLock::new(option));
+        let client = Client::<ProducerOption>::new(&logger, client_option, Arc::clone(&option))?;
         Ok(Producer {
             option,
             logger,
@@ -128,9 +127,7 @@ impl Producer {
     }
 
     async fn get_resource_namespace(&self) -> String {
-        let option_guard = self.option.read();
-        let resource_namespace = option_guard.await.namespace().to_string();
-        resource_namespace
+        self.option.read().await.namespace().to_string()
     }
 
     /// Start the producer
@@ -139,14 +136,15 @@ impl Producer {
         let telemetry_command_tx: mpsc::Sender<pb::telemetry_command::Command> =
             telemetry_command_tx;
         self.client.start(telemetry_command_tx).await?;
-        let option_guard = self.option.read().await;
-        let topics = option_guard.topics();
-        if let Some(topics) = topics {
-            for topic in topics {
-                self.client.topic_route(topic, true).await?;
+        {
+            let option_guard = self.option.read().await;
+            let topics = option_guard.topics();
+            if let Some(topics) = topics {
+                for topic in topics {
+                    self.client.topic_route(topic, true).await?;
+                }
             }
         }
-        drop(option_guard);
         let transaction_checker = self.transaction_checker.take();
         if transaction_checker.is_some() {
             self.transaction_checker = Some(Box::new(|_, _| TransactionResolution::UNKNOWN));
@@ -245,7 +243,7 @@ impl Producer {
                     trace_context: "".to_string(),
                 })
                 .await?;
-            Client::handle_response_status(response.status, Self::OPERATION_END_TRANSACTION)
+            handle_response_status(response.status, Self::OPERATION_END_TRANSACTION)
         } else {
             Err(ClientError::new(
                 ErrorKind::Config,
@@ -396,9 +394,7 @@ impl Producer {
             select_message_queue(route)
         };
 
-        let option_guard = self.option.read().await;
-        let validate_message_type = option_guard.validate_message_type();
-        drop(option_guard);
+        let validate_message_type = self.validate_message_type().await;
         if validate_message_type {
             for message_type in message_types {
                 if !message_queue.accept_type(message_type) {
@@ -422,6 +418,10 @@ impl Producer {
         }
 
         self.client.send_message(&endpoints, pb_messages).await
+    }
+
+    async fn validate_message_type(&self) -> bool {
+        self.option.read().await.validate_message_type()
     }
 
     pub fn has_transaction_checker(&self) -> bool {
@@ -500,7 +500,7 @@ mod tests {
     async fn producer_start() -> Result<(), ClientError> {
         let _m = crate::client::tests::MTX.lock();
 
-        let ctx = Client::new_context();
+        let ctx = Client::<ProducerOption>::new_context();
         ctx.expect().return_once(|_, _, _| {
             let mut client = Client::default();
             client.expect_topic_route().returning(|_, _| {
@@ -533,7 +533,7 @@ mod tests {
     async fn transaction_producer_start() -> Result<(), ClientError> {
         let _m = crate::client::tests::MTX.lock();
 
-        let ctx = Client::new_context();
+        let ctx = Client::<ProducerOption>::new_context();
         ctx.expect().return_once(|_, _, _| {
             let mut client = Client::default();
             client.expect_topic_route().returning(|_, _| {
@@ -774,8 +774,6 @@ mod tests {
         mock.expect_end_transaction()
             .return_once(|_| Box::pin(futures::future::ready(response)));
 
-        let context = MockClient::handle_response_status_context();
-        context.expect().return_once(|_, _| Result::Ok(()));
         let result = Producer::handle_recover_orphaned_transaction_command(
             mock,
             pb::RecoverOrphanedTransactionCommand {

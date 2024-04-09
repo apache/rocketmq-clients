@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use mockall_double::double;
 use slog::{info, warn, Logger};
 use tokio::select;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot, RwLock};
 
 #[double]
 use crate::client::Client;
@@ -28,9 +29,7 @@ use crate::conf::{ClientOption, SimpleConsumerOption};
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::{ClientType, FilterExpression};
 use crate::model::message::{AckMessageEntry, MessageView};
-use crate::util::{
-    build_endpoints_by_message_queue, build_simple_consumer_settings, select_message_queue,
-};
+use crate::util::{build_endpoints_by_message_queue, select_message_queue};
 use crate::{log, pb};
 
 /// [`SimpleConsumer`] is a lightweight consumer to consume messages from RocketMQ proxy.
@@ -46,7 +45,7 @@ use crate::{log, pb};
 pub struct SimpleConsumer {
     option: SimpleConsumerOption,
     logger: Logger,
-    client: Client,
+    client: Client<SimpleConsumerOption>,
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
 
@@ -75,8 +74,8 @@ impl SimpleConsumer {
             ..client_option
         };
         let logger = log::logger(option.logging_format());
-        let settings = build_simple_consumer_settings(&option, &client_option);
-        let client = Client::new(&logger, client_option, settings)?;
+        let settings = Arc::new(RwLock::new(option.clone()));
+        let client = Client::<SimpleConsumerOption>::new(&logger, client_option, settings)?;
         Ok(SimpleConsumer {
             option,
             logger,
@@ -230,7 +229,7 @@ mod tests {
     async fn simple_consumer_start() -> Result<(), ClientError> {
         let _m = crate::client::tests::MTX.lock();
 
-        let ctx = Client::new_context();
+        let ctx = Client::<SimpleConsumerOption>::new_context();
         ctx.expect().return_once(|_, _, _| {
             let mut client = Client::default();
             client.expect_topic_route().returning(|_, _| {

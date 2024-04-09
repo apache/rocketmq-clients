@@ -21,6 +21,8 @@ npm install
 npm run init
 # 运行单元测试
 npm test
+# 安装rocketmq nodejs 客户端
+npm i rocketmq-client-nodejs
 ```
 
 开启 grpc-js 的调试日志：

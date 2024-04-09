@@ -14,16 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use once_cell::sync::Lazy;
 use std::hash::Hasher;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
-use crate::conf::{ClientOption, ProducerOption, SimpleConsumerOption};
+use once_cell::sync::Lazy;
 use siphasher::sip::SipHasher24;
 
+use crate::conf::{ProducerOption, SimpleConsumerOption};
 use crate::error::{ClientError, ErrorKind};
-use crate::model::common::{Endpoints, Route};
+use crate::model::common::{ClientType, Endpoints, Route};
 use crate::pb::settings::PubSub;
 use crate::pb::telemetry_command::Command;
 use crate::pb::{
@@ -84,10 +84,7 @@ pub(crate) fn build_endpoints_by_message_queue(
     Ok(Endpoints::from_pb_endpoints(broker.endpoints.unwrap()))
 }
 
-pub(crate) fn build_producer_settings(
-    option: &ProducerOption,
-    client_options: &ClientOption,
-) -> TelemetryCommand {
+pub(crate) fn build_producer_settings(option: &ProducerOption) -> TelemetryCommand {
     let topics = option
         .topics()
         .clone()
@@ -101,10 +98,10 @@ pub(crate) fn build_producer_settings(
     let platform = os_info::get();
     TelemetryCommand {
         command: Some(Command::Settings(Settings {
-            client_type: Some(client_options.client_type.clone() as i32),
+            client_type: Some(ClientType::Producer as i32),
             request_timeout: Some(prost_types::Duration {
-                seconds: client_options.timeout().as_secs() as i64,
-                nanos: client_options.timeout().subsec_nanos() as i32,
+                seconds: option.timeout().as_secs() as i64,
+                nanos: option.timeout().subsec_nanos() as i32,
             }),
             pub_sub: Some(PubSub::Publishing(Publishing {
                 topics,
@@ -123,17 +120,14 @@ pub(crate) fn build_producer_settings(
     }
 }
 
-pub(crate) fn build_simple_consumer_settings(
-    option: &SimpleConsumerOption,
-    client_option: &ClientOption,
-) -> TelemetryCommand {
+pub(crate) fn build_simple_consumer_settings(option: &SimpleConsumerOption) -> TelemetryCommand {
     let platform = os_info::get();
     TelemetryCommand {
         command: Some(Command::Settings(Settings {
-            client_type: Some(client_option.client_type.clone() as i32),
+            client_type: Some(ClientType::SimpleConsumer as i32),
             request_timeout: Some(prost_types::Duration {
-                seconds: client_option.timeout().as_secs() as i64,
-                nanos: client_option.timeout().subsec_nanos() as i32,
+                seconds: option.timeout().as_secs() as i64,
+                nanos: option.timeout().subsec_nanos() as i32,
             }),
             pub_sub: Some(PubSub::Subscription(Subscription {
                 group: Some(Resource {
@@ -144,8 +138,8 @@ pub(crate) fn build_simple_consumer_settings(
                 fifo: Some(false),
                 receive_batch_size: None,
                 long_polling_timeout: Some(prost_types::Duration {
-                    seconds: client_option.long_polling_timeout().as_secs() as i64,
-                    nanos: client_option.long_polling_timeout().subsec_nanos() as i32,
+                    seconds: option.long_polling_timeout().as_secs() as i64,
+                    nanos: option.long_polling_timeout().subsec_nanos() as i32,
                 }),
             })),
             user_agent: Some(Ua {
@@ -162,11 +156,12 @@ pub(crate) fn build_simple_consumer_settings(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::Arc;
+
     use crate::model::common::Route;
     use crate::pb;
     use crate::pb::{Broker, MessageQueue};
-    use std::sync::atomic::AtomicUsize;
-    use std::sync::Arc;
 
     use super::*;
 
@@ -272,11 +267,11 @@ mod tests {
 
     #[test]
     fn util_build_producer_settings() {
-        build_producer_settings(&ProducerOption::default(), &ClientOption::default());
+        build_producer_settings(&ProducerOption::default());
     }
 
     #[test]
     fn util_build_simple_consumer_settings() {
-        build_simple_consumer_settings(&SimpleConsumerOption::default(), &ClientOption::default());
+        build_simple_consumer_settings(&SimpleConsumerOption::default());
     }
 }
