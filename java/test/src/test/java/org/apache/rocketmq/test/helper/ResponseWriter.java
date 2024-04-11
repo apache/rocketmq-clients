@@ -1,4 +1,4 @@
-package org.apache.rocketmq.test.server;
+package org.apache.rocketmq.test.helper;
 
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
