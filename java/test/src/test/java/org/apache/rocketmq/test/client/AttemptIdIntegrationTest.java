@@ -55,9 +55,9 @@ import org.apache.rocketmq.client.apis.consumer.ConsumeResult;
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.FilterExpressionType;
 import org.apache.rocketmq.client.apis.consumer.PushConsumer;
+import org.apache.rocketmq.test.helper.ResponseWriter;
 import org.apache.rocketmq.test.server.GrpcServerIntegrationTest;
 import org.apache.rocketmq.test.server.MockServer;
-import org.apache.rocketmq.test.helper.ResponseWriter;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -107,7 +107,8 @@ public class AttemptIdIntegrationTest extends GrpcServerIntegrationTest {
             }
 
             @Override
-            public void queryAssignment(QueryAssignmentRequest request, StreamObserver<QueryAssignmentResponse> responseObserver) {
+            public void queryAssignment(QueryAssignmentRequest request,
+                StreamObserver<QueryAssignmentResponse> responseObserver) {
                 responseWriter.write(responseObserver, QueryAssignmentResponse.newBuilder().setStatus(mockStatus)
                         .addAssignments(Assignment.newBuilder()
                             .setMessageQueue(MessageQueue.newBuilder()
@@ -132,12 +133,14 @@ public class AttemptIdIntegrationTest extends GrpcServerIntegrationTest {
             }
 
             @Override
-            public void receiveMessage(ReceiveMessageRequest request, StreamObserver<ReceiveMessageResponse> responseObserver) {
+            public void receiveMessage(ReceiveMessageRequest request,
+                StreamObserver<ReceiveMessageResponse> responseObserver) {
                 // prevent too much request
                 if (attemptIdList.size() >= 3) {
                     try {
                         Thread.sleep(100);
-                    } catch (Exception ignored) {
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
                     }
                 }
                 attemptIdList.add(request.getAttemptId());

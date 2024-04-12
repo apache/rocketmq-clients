@@ -26,20 +26,20 @@ import io.grpc.netty.shaded.io.netty.handler.ssl.util.SelfSignedCertificate;
 import io.grpc.testing.GrpcCleanupRule;
 import java.io.IOException;
 import java.security.cert.CertificateException;
-import java.util.List;
 import org.junit.Rule;
 
 public class GrpcServerIntegrationTest {
-    /**
-     * Let OS pick up an available port.
-     */
-    protected int port = 0;
-
     /**
      * This rule manages automatic graceful shutdown for the registered servers and channels at the end of test.
      */
     @Rule
     public final GrpcCleanupRule grpcCleanup = new GrpcCleanupRule();
+
+    /**
+     * Let OS pick up an available port.
+     */
+    protected int port = 0;
+
 
     protected void setUpServer(MessagingServiceGrpc.MessagingServiceImplBase serverImpl,
         int port, ServerInterceptor... interceptors) throws IOException, CertificateException {
