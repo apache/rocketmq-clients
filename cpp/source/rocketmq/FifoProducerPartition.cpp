@@ -18,7 +18,7 @@ ROCKETMQ_NAMESPACE_BEGIN
 void FifoProducerPartition::add(FifoContext&& context) {
   {
     absl::MutexLock lk(&messages_mtx_);
-    messages_.emplace_back(context);
+    messages_.emplace_back(std::move(context));
   }
 
   trySend();
@@ -56,13 +56,11 @@ void FifoProducerPartition::onComplete(const std::error_code& ec, const SendRece
   }
 
   // Put the message back to the front of the list
-  FifoContext retry_context{};
   SendReceipt& receipt_mut = const_cast<SendReceipt&>(receipt);
-  retry_context.message = std::move(receipt_mut.message);
-  retry_context.callback = callback;
+  FifoContext retry_context(std::move(receipt_mut.message), callback);
   {
     absl::MutexLock lk(&messages_mtx_);
-    messages_.emplace_front(retry_context);
+    messages_.emplace_front(std::move(retry_context));
   }
 
   // Update inflight status

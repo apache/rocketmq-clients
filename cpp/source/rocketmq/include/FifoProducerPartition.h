@@ -18,6 +18,9 @@ ROCKETMQ_NAMESPACE_BEGIN
 
 class FifoProducerPartition : public std::enable_shared_from_this<FifoProducerPartition> {
 public:
+  FifoProducerPartition(std::shared_ptr<ProducerImpl> producer) : producer_(producer) {
+  }
+
   void add(FifoContext&& context) LOCKS_EXCLUDED(messages_mtx_);
 
   void trySend() LOCKS_EXCLUDED(messages_mtx_);

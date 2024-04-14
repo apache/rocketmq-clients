@@ -9,6 +9,10 @@ ROCKETMQ_NAMESPACE_BEGIN
 struct FifoContext {
   MessageConstPtr message;
   SendCallback callback;
+
+  FifoContext(MessageConstPtr message, SendCallback callback);
+
+  FifoContext(FifoContext&& rhs) noexcept;
 };
 
 ROCKETMQ_NAMESPACE_END
