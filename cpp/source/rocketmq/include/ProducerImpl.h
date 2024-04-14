@@ -77,10 +77,8 @@ public:
    * Note we requrie application to transfer ownership of the message to send to avoid concurrent modification during
    * sent.
    *
-   * Regardless of the send result, SendReceipt would have the std::unique_ptr<const Message>, facilliating
-   * application to conduct customized retry policy.
-   *
-   * TODO: Refine this API.
+   * TODO: Refine this API. Current API is not good enough as it cannot handle the message back to its caller on publish
+   * failure.
    */
   void send(MessageConstPtr message, std::error_code& ec, Transaction& transaction);
 
