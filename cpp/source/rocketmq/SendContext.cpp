@@ -21,11 +21,10 @@
 #include "ProducerImpl.h"
 #include "PublishStats.h"
 #include "Tag.h"
-#include "TransactionImpl.h"
 #include "opencensus/trace/span.h"
+#include "rocketmq/ErrorCode.h"
 #include "rocketmq/SendReceipt.h"
 #include "spdlog/spdlog.h"
-#include "rocketmq/ErrorCode.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -36,18 +35,19 @@ void SendContext::onSuccess(const SendResult& send_result) noexcept {
     span_.End();
   }
 
-  auto publisher = producer_.lock();
-  if (!publisher) {
+  auto producer = producer_.lock();
+  if (!producer) {
+    SPDLOG_WARN("Producer has been destructed");
     return;
   }
 
   // Collect metrics
   {
     auto duration = std::chrono::steady_clock::now() - request_time_;
-    opencensus::stats::Record({{publisher->stats().latency(), MixAll::millisecondsOf(duration)}},
+    opencensus::stats::Record({{producer->stats().latency(), MixAll::millisecondsOf(duration)}},
                               {
                                   {Tag::topicTag(), message_->topic()},
-                                  {Tag::clientIdTag(), publisher->config().client_id},
+                                  {Tag::clientIdTag(), producer->config().client_id},
                                   {Tag::invocationStatusTag(), "success"},
                               });
   }
@@ -57,7 +57,7 @@ void SendContext::onSuccess(const SendResult& send_result) noexcept {
   send_receipt.target = send_result.target;
   send_receipt.message_id = send_result.message_id;
   send_receipt.transaction_id = send_result.transaction_id;
-
+  send_receipt.message = std::move(message_);
   callback_(send_result.ec, send_receipt);
 }
 
@@ -68,38 +68,36 @@ void SendContext::onFailure(const std::error_code& ec) noexcept {
     span_.End();
   }
 
-  auto publisher = producer_.lock();
-  if (!publisher) {
+  auto producer = producer_.lock();
+  if (!producer) {
+    SPDLOG_WARN("Producer has been destructed");
     return;
   }
 
   // Collect metrics
   {
     auto duration = std::chrono::steady_clock::now() - request_time_;
-    opencensus::stats::Record({{publisher->stats().latency(), MixAll::millisecondsOf(duration)}},
+    opencensus::stats::Record({{producer->stats().latency(), MixAll::millisecondsOf(duration)}},
                               {
                                   {Tag::topicTag(), message_->topic()},
-                                  {Tag::clientIdTag(), publisher->config().client_id},
+                                  {Tag::clientIdTag(), producer->config().client_id},
                                   {Tag::invocationStatusTag(), "failure"},
                               });
   }
 
-  if (++attempt_times_ >= publisher->maxAttemptTimes()) {
-    SPDLOG_WARN("Retried {} times, which exceeds the limit: {}", attempt_times_, publisher->maxAttemptTimes());
-    callback_(ec, {});
-    return;
-  }
-
-  std::shared_ptr<ProducerImpl> producer = producer_.lock();
-  if (!producer) {
-    SPDLOG_WARN("Producer has been destructed");
-    callback_(ec, {});
+  if (++attempt_times_ >= producer->maxAttemptTimes()) {
+    SPDLOG_WARN("Retried {} times, which exceeds the limit: {}", attempt_times_, producer->maxAttemptTimes());
+    SendReceipt receipt{};
+    receipt.message = std::move(message_);
+    callback_(ec, receipt);
     return;
   }
 
   if (candidates_.empty()) {
     SPDLOG_WARN("No alternative hosts to perform additional retries");
-    callback_(ec, {});
+    SendReceipt receipt{};
+    receipt.message = std::move(message_);
+    callback_(ec, receipt);
     return;
   }
 
@@ -109,7 +107,7 @@ void SendContext::onFailure(const std::error_code& ec) noexcept {
   auto ctx = shared_from_this();
   // If publish message requests are throttled, retry after backoff
   if (ErrorCode::TooManyRequests == ec) {
-    auto&& backoff = publisher->backoff(attempt_times_);
+    auto&& backoff = producer->backoff(attempt_times_);
     SPDLOG_DEBUG("Publish message[topic={}, message-id={}] is throttled. Retry after {}ms", message_->topic(),
                  message_->id(), MixAll::millisecondsOf(backoff));
     auto retry_cb = [=]() { producer->sendImpl(ctx); };

@@ -19,6 +19,7 @@
 #include <string>
 
 #include "RocketMQ.h"
+#include "rocketmq/Message.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -28,6 +29,8 @@ struct SendReceipt {
   std::string message_id;
 
   std::string transaction_id;
+
+  MessageConstPtr message;
 };
 
 ROCKETMQ_NAMESPACE_END

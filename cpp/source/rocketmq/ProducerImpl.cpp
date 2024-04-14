@@ -192,19 +192,28 @@ void ProducerImpl::wrapSendMessageRequest(const Message& message, SendMessageReq
 SendReceipt ProducerImpl::send(MessageConstPtr message, std::error_code& ec) noexcept {
   ensureRunning(ec);
   if (ec) {
-    return {};
+    SPDLOG_WARN("Producer is not running");
+    SendReceipt send_receipt{};
+    send_receipt.message = std::move(message);
+    return send_receipt;
   }
 
   auto topic_publish_info = getPublishInfo(message->topic());
   if (!topic_publish_info) {
+    SPDLOG_WARN("Route of topic[{}] is not found", message->topic());
     ec = ErrorCode::NotFound;
-    return {};
+    SendReceipt send_receipt{};
+    send_receipt.message = std::move(message);
+    return send_receipt;
   }
 
   std::vector<rmq::MessageQueue> message_queue_list;
   if (!topic_publish_info->selectMessageQueues(absl::make_optional<std::string>(), message_queue_list)) {
+    SPDLOG_WARN("Failed to select an addressable message queue for topic[{}]", message->topic());
     ec = ErrorCode::NotFound;
-    return {};
+    SendReceipt send_receipt{};
+    send_receipt.message = std::move(message);
+    return send_receipt;
   }
 
   auto mtx = std::make_shared<absl::Mutex>();
@@ -213,9 +222,10 @@ SendReceipt ProducerImpl::send(MessageConstPtr message, std::error_code& ec) noe
   SendReceipt   send_receipt;
 
   // Define callback
-  auto callback = [&, mtx, cv](const std::error_code& code, const SendReceipt& receipt) {
+  auto callback = [&, mtx, cv](const std::error_code& code, const SendReceipt& receipt) mutable {
     ec = code;
-    send_receipt = receipt;
+    SendReceipt& receipt_mut = const_cast<SendReceipt&>(receipt);
+    send_receipt.message = std::move(receipt_mut.message);
     {
       absl::MutexLock lk(mtx.get());
       completed = true;
@@ -343,12 +353,14 @@ void ProducerImpl::send0(MessageConstPtr message, SendCallback callback, std::ve
   std::error_code ec;
   validate(*message, ec);
   if (ec) {
+    send_receipt.message = std::move(message);
     callback(ec, send_receipt);
     return;
   }
 
   if (list.empty()) {
     ec = ErrorCode::NotFound;
+    send_receipt.message = std::move(message);
     callback(ec, send_receipt);
     return;
   }
