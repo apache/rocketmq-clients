@@ -20,7 +20,6 @@
 #include <chrono>
 #include <cstdint>
 #include <functional>
-#include <future>
 #include <memory>
 #include <string>
 #include <system_error>
@@ -29,18 +28,13 @@
 #include "Client.h"
 #include "ClientManager.h"
 #include "InsecureCertificateVerifier.h"
-#include "InvocationContext.h"
 #include "ReceiveMessageCallback.h"
 #include "RpcClientImpl.h"
-#include "SchedulerImpl.h"
-#include "SendMessageContext.h"
-#include "TelemetryBidiReactor.h"
 #include "ThreadPoolImpl.h"
 #include "TopicRouteData.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "rocketmq/State.h"
 
@@ -54,7 +48,7 @@ public:
    * effectively.
    * @param resource_namespace Abstract resource namespace, in which this client manager lives.
    */
-  explicit ClientManagerImpl(std::string resource_namespace, bool withSsl = true);
+  explicit ClientManagerImpl(std::string resource_namespace, bool with_ssl = true);
 
   ~ClientManagerImpl() override;
 
@@ -89,7 +83,7 @@ public:
   bool send(const std::string& target_host,
             const Metadata& metadata,
             SendMessageRequest& request,
-            SendCallback cb) override LOCKS_EXCLUDED(rpc_clients_mtx_);
+            SendResultCallback cb) override LOCKS_EXCLUDED(rpc_clients_mtx_);
 
   /**
    * Get a RpcClient according to the given target hosts, which follows scheme specified
@@ -105,7 +99,7 @@ public:
   RpcClientSharedPtr getRpcClient(const std::string& target_host, bool need_heartbeat = true) override
       LOCKS_EXCLUDED(rpc_clients_mtx_);
 
-  static SendReceipt processSendResponse(const rmq::MessageQueue& message_queue,
+  static SendResult processSendResponse(const rmq::MessageQueue& message_queue,
                                          const SendMessageResponse& response,
                                          std::error_code& ec);
 
@@ -242,7 +236,7 @@ private:
   grpc::ChannelArguments channel_arguments_;
 
   bool trace_{false};
-  bool withSsl_;
+  bool with_ssl_;
 };
 
 ROCKETMQ_NAMESPACE_END

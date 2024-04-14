@@ -17,38 +17,27 @@
 #include "ProducerImpl.h"
 
 #include <algorithm>
-#include <apache/rocketmq/v2/definition.pb.h>
-
 #include <atomic>
 #include <cassert>
 #include <chrono>
-#include <limits>
 #include <memory>
 #include <system_error>
 #include <utility>
 
-#include "Client.h"
-#include "MessageGroupQueueSelector.h"
-#include "MetadataConstants.h"
+#include "apache/rocketmq/v2/definition.pb.h"
 #include "MixAll.h"
 #include "Protocol.h"
 #include "PublishInfoCallback.h"
-#include "RpcClient.h"
 #include "SendContext.h"
-#include "SendMessageContext.h"
 #include "Signature.h"
-#include "Tag.h"
 #include "TracingUtility.h"
 #include "TransactionImpl.h"
-#include "UniqueIdGenerator.h"
 #include "UtilAll.h"
-#include "absl/strings/str_join.h"
 #include "opencensus/trace/propagation/trace_context.h"
 #include "opencensus/trace/span.h"
 #include "rocketmq/ErrorCode.h"
 #include "rocketmq/Message.h"
 #include "rocketmq/SendReceipt.h"
-#include "rocketmq/Tracing.h"
 #include "rocketmq/Transaction.h"
 #include "rocketmq/TransactionChecker.h"
 
@@ -338,12 +327,12 @@ void ProducerImpl::sendImpl(std::shared_ptr<SendContext> context) {
   Metadata metadata;
   Signature::sign(client_config_, metadata);
 
-  auto callback = [context](const std::error_code& ec, const SendReceipt& send_receipt) {
-    if (ec) {
-      context->onFailure(ec);
+  auto callback = [context](const SendResult& send_result) {
+    if (send_result.ec) {
+      context->onFailure(send_result.ec);
       return;
     }
-    context->onSuccess(send_receipt);
+    context->onSuccess(send_result);
   };
 
   client_manager_->send(target, metadata, request, callback);

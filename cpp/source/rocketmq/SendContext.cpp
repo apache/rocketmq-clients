@@ -22,15 +22,14 @@
 #include "PublishStats.h"
 #include "Tag.h"
 #include "TransactionImpl.h"
-#include "opencensus/trace/propagation/trace_context.h"
 #include "opencensus/trace/span.h"
-#include "rocketmq/Logger.h"
 #include "rocketmq/SendReceipt.h"
 #include "spdlog/spdlog.h"
+#include "rocketmq/ErrorCode.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
-void SendContext::onSuccess(const SendReceipt& send_receipt) noexcept {
+void SendContext::onSuccess(const SendResult& send_result) noexcept {
   {
     // Mark end of send-message span.
     span_.SetStatus(opencensus::trace::StatusCode::OK);
@@ -54,8 +53,12 @@ void SendContext::onSuccess(const SendReceipt& send_receipt) noexcept {
   }
 
   // send_receipt.traceContext(opencensus::trace::propagation::ToTraceParentHeader(span_.context()));
-  std::error_code ec;
-  callback_(ec, send_receipt);
+  SendReceipt send_receipt = {};
+  send_receipt.target = send_result.target;
+  send_receipt.message_id = send_result.message_id;
+  send_receipt.transaction_id = send_result.transaction_id;
+
+  callback_(send_result.ec, send_receipt);
 }
 
 void SendContext::onFailure(const std::error_code& ec) noexcept {
