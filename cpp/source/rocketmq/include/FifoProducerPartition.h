@@ -18,7 +18,8 @@ ROCKETMQ_NAMESPACE_BEGIN
 
 class FifoProducerPartition : public std::enable_shared_from_this<FifoProducerPartition> {
 public:
-  FifoProducerPartition(std::shared_ptr<ProducerImpl> producer) : producer_(producer) {
+  FifoProducerPartition(std::shared_ptr<ProducerImpl> producer, std::string&& name)
+      : producer_(producer), name_(std::move(name)) {
   }
 
   void add(FifoContext&& context) LOCKS_EXCLUDED(messages_mtx_);
@@ -32,6 +33,7 @@ private:
   std::list<FifoContext> messages_ GUARDED_BY(messages_mtx_);
   absl::Mutex messages_mtx_;
   std::atomic_bool inflight_{false};
+  std::string name_;
 };
 
 ROCKETMQ_NAMESPACE_END

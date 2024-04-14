@@ -6,6 +6,7 @@
 
 #include "FifoProducerPartition.h"
 #include "ProducerImpl.h"
+#include "fmt/format.h"
 #include "rocketmq/Message.h"
 #include "rocketmq/SendCallback.h"
 
@@ -16,7 +17,7 @@ public:
   FifoProducerImpl(std::shared_ptr<ProducerImpl> producer, std::size_t concurrency)
       : producer_(producer), concurrency_(concurrency), partitions_(concurrency) {
     for (auto i = 0; i < concurrency; i++) {
-      partitions_[i] = std::make_shared<FifoProducerPartition>(producer_);
+      partitions_[i] = std::make_shared<FifoProducerPartition>(producer_, fmt::format("slot-{}", i));
     }
   };
 
