@@ -17,7 +17,6 @@
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
-#include <cstdint>
 #include <iostream>
 #include <mutex>
 #include <random>

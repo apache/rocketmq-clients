@@ -250,6 +250,7 @@ void ProducerImpl::send(MessageConstPtr message, SendCallback cb) {
   ensureRunning(ec);
   if (ec) {
     SendReceipt send_receipt;
+    send_receipt.message = std::move(message);
     cb(ec, send_receipt);
   }
 
@@ -263,6 +264,7 @@ void ProducerImpl::send(MessageConstPtr message, SendCallback cb) {
     // No route entries of the given topic is available
     if (ec) {
       SendReceipt send_receipt;
+      send_receipt.message = std::move(ptr);
       cb(ec, send_receipt);
       return;
     }
@@ -270,6 +272,7 @@ void ProducerImpl::send(MessageConstPtr message, SendCallback cb) {
     if (!publish_info) {
       std::error_code ec = ErrorCode::NotFound;
       SendReceipt     send_receipt;
+      send_receipt.message = std::move(ptr);
       cb(ec, send_receipt);
       return;
     }
@@ -279,6 +282,7 @@ void ProducerImpl::send(MessageConstPtr message, SendCallback cb) {
     if (!publish_info->selectMessageQueues(ptr->group(), message_queue_list)) {
       std::error_code ec = ErrorCode::NotFound;
       SendReceipt     send_receipt;
+      send_receipt.message = std::move(ptr);
       cb(ec, send_receipt);
       return;
     }

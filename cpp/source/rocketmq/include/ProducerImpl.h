@@ -48,8 +48,22 @@ public:
 
   void shutdown() override;
 
+  /**
+   * Note we requrie application to transfer ownership of the message to send to avoid concurrent modification during
+   * sent.
+   *
+   * Regardless of the send result, SendReceipt would have the std::unique_ptr<const Message>, facilliating
+   * application to conduct customized retry policy.
+   */
   SendReceipt send(MessageConstPtr message, std::error_code& ec) noexcept;
 
+  /**
+   * Note we requrie application to transfer ownership of the message to send to avoid concurrent modification during
+   * sent.
+   *
+   * Regardless of the send result, SendReceipt would have the std::unique_ptr<const Message>, facilliating
+   * application to conduct customized retry policy.
+   */
   void send(MessageConstPtr message, SendCallback callback);
 
   void setTransactionChecker(TransactionChecker checker);
@@ -59,6 +73,15 @@ public:
     return absl::make_unique<TransactionImpl>(producer);
   }
 
+  /**
+   * Note we requrie application to transfer ownership of the message to send to avoid concurrent modification during
+   * sent.
+   *
+   * Regardless of the send result, SendReceipt would have the std::unique_ptr<const Message>, facilliating
+   * application to conduct customized retry policy.
+   *
+   * TODO: Refine this API.
+   */
   void send(MessageConstPtr message, std::error_code& ec, Transaction& transaction);
 
   /**
