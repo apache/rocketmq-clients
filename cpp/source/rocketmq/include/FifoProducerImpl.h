@@ -22,6 +22,10 @@ public:
 
   void send(MessageConstPtr message, SendCallback callback);
 
+  std::shared_ptr<ProducerImpl>& internalProducer() {
+    return producer_;
+  }
+
 private:
   std::shared_ptr<ProducerImpl> producer_;
   std::vector<std::shared_ptr<FifoProducerPartition>> partitions_;
