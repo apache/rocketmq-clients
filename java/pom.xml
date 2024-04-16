@@ -31,6 +31,7 @@
         <module>client-apis</module>
         <module>client</module>
         <module>client-shade</module>
+        <module>test</module>
     </modules>
 
     <properties>
@@ -62,6 +63,7 @@
         <assertj-core.version>2.6.0</assertj-core.version>
         <mockito-core.version>3.10.0</mockito-core.version>
         <awaitility.version>4.1.0</awaitility.version>
+        <bcpkix.version>1.77</bcpkix.version>
 
         <!-- plugin -->
         <maven-compiler-plugin.version>3.8.0</maven-compiler-plugin.version>
@@ -167,6 +169,12 @@
                 <version>${grpc.version}</version>
             </dependency>
             <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-testing</artifactId>
+                <scope>test</scope>
+                <version>${grpc.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>
                 <version>${guava.version}</version>
@@ -245,6 +253,13 @@
                 <groupId>org.awaitility</groupId>
                 <artifactId>awaitility</artifactId>
                 <version>${awaitility.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <!-- https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-jdk18on -->
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcpkix-jdk18on</artifactId>
+                <version>${bcpkix.version}</version>
                 <scope>test</scope>
             </dependency>
         </dependencies>
