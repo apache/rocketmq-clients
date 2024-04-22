@@ -16,28 +16,23 @@
  */
 #pragma once
 
-#include <chrono>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <system_error>
 
 #include "ClientImpl.h"
-#include "ClientManagerImpl.h"
 #include "MixAll.h"
 #include "PublishInfoCallback.h"
+#include "PublishStats.h"
 #include "SendContext.h"
 #include "TopicPublishInfo.h"
 #include "TransactionImpl.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/strings/string_view.h"
 #include "rocketmq/Message.h"
 #include "rocketmq/SendCallback.h"
 #include "rocketmq/SendReceipt.h"
-#include "rocketmq/State.h"
 #include "rocketmq/TransactionChecker.h"
-#include "PublishStats.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -53,8 +48,22 @@ public:
 
   void shutdown() override;
 
+  /**
+   * Note we requrie application to transfer ownership of the message to send to avoid concurrent modification during
+   * sent.
+   *
+   * Regardless of the send result, SendReceipt would have the std::unique_ptr<const Message>, facilliating
+   * application to conduct customized retry policy.
+   */
   SendReceipt send(MessageConstPtr message, std::error_code& ec) noexcept;
 
+  /**
+   * Note we requrie application to transfer ownership of the message to send to avoid concurrent modification during
+   * sent.
+   *
+   * Regardless of the send result, SendReceipt would have the std::unique_ptr<const Message>, facilliating
+   * application to conduct customized retry policy.
+   */
   void send(MessageConstPtr message, SendCallback callback);
 
   void setTransactionChecker(TransactionChecker checker);
@@ -64,6 +73,13 @@ public:
     return absl::make_unique<TransactionImpl>(producer);
   }
 
+  /**
+   * Note we requrie application to transfer ownership of the message to send to avoid concurrent modification during
+   * sent.
+   *
+   * TODO: Refine this API. Current API is not good enough as it cannot handle the message back to its caller on publish
+   * failure.
+   */
   void send(MessageConstPtr message, std::error_code& ec, Transaction& transaction);
 
   /**

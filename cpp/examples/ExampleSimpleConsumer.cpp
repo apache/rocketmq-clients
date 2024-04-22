@@ -16,7 +16,6 @@
  */
 #include <chrono>
 #include <iostream>
-#include <thread>
 
 #include "gflags/gflags.h"
 #include "rocketmq/Logger.h"

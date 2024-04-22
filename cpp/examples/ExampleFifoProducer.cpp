@@ -18,14 +18,18 @@
 #include <atomic>
 #include <condition_variable>
 #include <iostream>
-#include <mutex>
+#include <memory>
 #include <random>
 #include <string>
 #include <system_error>
 
 #include "gflags/gflags.h"
+#include "rocketmq/CredentialsProvider.h"
+#include "rocketmq/FifoProducer.h"
+#include "rocketmq/Logger.h"
 #include "rocketmq/Message.h"
 #include "rocketmq/Producer.h"
+#include "rocketmq/SendReceipt.h"
 
 using namespace ROCKETMQ_NAMESPACE;
 
@@ -93,31 +97,33 @@ DEFINE_string(topic, "standard_topic_sample", "Topic to which messages are publi
 DEFINE_string(access_point, "121.196.167.124:8081", "Service access URL, provided by your service provider");
 DEFINE_int32(message_body_size, 4096, "Message body size");
 DEFINE_uint32(total, 256, "Number of sample messages to publish");
-DEFINE_uint32(concurrency, 128, "Concurrency of async send");
 DEFINE_string(access_key, "", "Your access key ID");
 DEFINE_string(access_secret, "", "Your access secret");
 DEFINE_bool(tls, false, "Use HTTP2 with TLS/SSL");
+DEFINE_uint32(concurrency, 16, "Concurrency of FIFO producer");
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   auto& logger = getLogger();
-  logger.setConsoleLevel(Level::Info);
-  logger.setLevel(Level::Info);
+  logger.setConsoleLevel(Level::Debug);
+  logger.setLevel(Level::Debug);
   logger.init();
 
+  // Access Key/Secret pair may be acquired from management console
   CredentialsProviderPtr credentials_provider;
   if (!FLAGS_access_key.empty() && !FLAGS_access_secret.empty()) {
     credentials_provider = std::make_shared<StaticCredentialsProvider>(FLAGS_access_key, FLAGS_access_secret);
   }
 
-  // In most case, you don't need to create too many producers, singletion pattern is recommended.
-  auto producer = Producer::newBuilder()
+  // In most case, you don't need to create too many producers, singleton pattern is recommended.
+  auto producer = FifoProducer::newBuilder()
                       .withConfiguration(Configuration::newBuilder()
                                              .withEndpoints(FLAGS_access_point)
                                              .withCredentialsProvider(credentials_provider)
                                              .withSsl(FLAGS_tls)
                                              .build())
+                      .withConcurrency(FLAGS_concurrency)
                       .withTopics({FLAGS_topic})
                       .build();
 
@@ -145,25 +151,32 @@ int main(int argc, char* argv[]) {
 
   std::unique_ptr<Semaphore> semaphore(new Semaphore(FLAGS_concurrency));
 
-  auto send_callback = [&](const std::error_code& ec, const SendReceipt& receipt) {
-    std::unique_lock<std::mutex> lk(mtx);
-    semaphore->release();
-    completed++;
-    count++;
-    if (completed >= FLAGS_total) {
-      cv.notify_all();
-    }
-  };
+  try {
+    for (std::size_t i = 0; i < FLAGS_total; ++i) {
+      auto message = Message::newBuilder()
+                         .withTopic(FLAGS_topic)
+                         .withTag("TagA")
+                         .withKeys({"Key-" + std::to_string(i)})
+                         .withGroup("message-group" + std::to_string(i % FLAGS_concurrency))
+                         .withBody(body)
+                         .build();
+      std::error_code ec;
+      auto callback = [&](const std::error_code& ec, const SendReceipt& receipt) mutable {
+        completed++;
+        count++;
+        semaphore->release();
 
-  for (std::size_t i = 0; i < FLAGS_total; ++i) {
-    auto message = Message::newBuilder()
-                       .withTopic(FLAGS_topic)
-                       .withTag("TagA")
-                       .withKeys({"Key-" + std::to_string(i)})
-                       .withBody(body)
-                       .build();
-    semaphore->acquire();
-    producer.send(std::move(message), send_callback);
+        if (completed >= FLAGS_total) {
+          cv.notify_all();
+        }
+      };
+
+      semaphore->acquire();
+      producer.send(std::move(message), callback);
+      std::cout << "Cached No." << i << " message" << std::endl;
+    }
+  } catch (...) {
+    std::cerr << "Ah...No!!!" << std::endl;
   }
 
   {

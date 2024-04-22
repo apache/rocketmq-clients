@@ -17,38 +17,27 @@
 #include "ProducerImpl.h"
 
 #include <algorithm>
-#include <apache/rocketmq/v2/definition.pb.h>
-
 #include <atomic>
 #include <cassert>
 #include <chrono>
-#include <limits>
 #include <memory>
 #include <system_error>
 #include <utility>
 
-#include "Client.h"
-#include "MessageGroupQueueSelector.h"
-#include "MetadataConstants.h"
+#include "apache/rocketmq/v2/definition.pb.h"
 #include "MixAll.h"
 #include "Protocol.h"
 #include "PublishInfoCallback.h"
-#include "RpcClient.h"
 #include "SendContext.h"
-#include "SendMessageContext.h"
 #include "Signature.h"
-#include "Tag.h"
 #include "TracingUtility.h"
 #include "TransactionImpl.h"
-#include "UniqueIdGenerator.h"
 #include "UtilAll.h"
-#include "absl/strings/str_join.h"
 #include "opencensus/trace/propagation/trace_context.h"
 #include "opencensus/trace/span.h"
 #include "rocketmq/ErrorCode.h"
 #include "rocketmq/Message.h"
 #include "rocketmq/SendReceipt.h"
-#include "rocketmq/Tracing.h"
 #include "rocketmq/Transaction.h"
 #include "rocketmq/TransactionChecker.h"
 
@@ -203,19 +192,28 @@ void ProducerImpl::wrapSendMessageRequest(const Message& message, SendMessageReq
 SendReceipt ProducerImpl::send(MessageConstPtr message, std::error_code& ec) noexcept {
   ensureRunning(ec);
   if (ec) {
-    return {};
+    SPDLOG_WARN("Producer is not running");
+    SendReceipt send_receipt{};
+    send_receipt.message = std::move(message);
+    return send_receipt;
   }
 
   auto topic_publish_info = getPublishInfo(message->topic());
   if (!topic_publish_info) {
+    SPDLOG_WARN("Route of topic[{}] is not found", message->topic());
     ec = ErrorCode::NotFound;
-    return {};
+    SendReceipt send_receipt{};
+    send_receipt.message = std::move(message);
+    return send_receipt;
   }
 
   std::vector<rmq::MessageQueue> message_queue_list;
   if (!topic_publish_info->selectMessageQueues(absl::make_optional<std::string>(), message_queue_list)) {
+    SPDLOG_WARN("Failed to select an addressable message queue for topic[{}]", message->topic());
     ec = ErrorCode::NotFound;
-    return {};
+    SendReceipt send_receipt{};
+    send_receipt.message = std::move(message);
+    return send_receipt;
   }
 
   auto mtx = std::make_shared<absl::Mutex>();
@@ -224,9 +222,10 @@ SendReceipt ProducerImpl::send(MessageConstPtr message, std::error_code& ec) noe
   SendReceipt   send_receipt;
 
   // Define callback
-  auto callback = [&, mtx, cv](const std::error_code& code, const SendReceipt& receipt) {
+  auto callback = [&, mtx, cv](const std::error_code& code, const SendReceipt& receipt) mutable {
     ec = code;
-    send_receipt = receipt;
+    SendReceipt& receipt_mut = const_cast<SendReceipt&>(receipt);
+    send_receipt.message = std::move(receipt_mut.message);
     {
       absl::MutexLock lk(mtx.get());
       completed = true;
@@ -251,6 +250,7 @@ void ProducerImpl::send(MessageConstPtr message, SendCallback cb) {
   ensureRunning(ec);
   if (ec) {
     SendReceipt send_receipt;
+    send_receipt.message = std::move(message);
     cb(ec, send_receipt);
   }
 
@@ -264,6 +264,7 @@ void ProducerImpl::send(MessageConstPtr message, SendCallback cb) {
     // No route entries of the given topic is available
     if (ec) {
       SendReceipt send_receipt;
+      send_receipt.message = std::move(ptr);
       cb(ec, send_receipt);
       return;
     }
@@ -271,6 +272,7 @@ void ProducerImpl::send(MessageConstPtr message, SendCallback cb) {
     if (!publish_info) {
       std::error_code ec = ErrorCode::NotFound;
       SendReceipt     send_receipt;
+      send_receipt.message = std::move(ptr);
       cb(ec, send_receipt);
       return;
     }
@@ -280,6 +282,7 @@ void ProducerImpl::send(MessageConstPtr message, SendCallback cb) {
     if (!publish_info->selectMessageQueues(ptr->group(), message_queue_list)) {
       std::error_code ec = ErrorCode::NotFound;
       SendReceipt     send_receipt;
+      send_receipt.message = std::move(ptr);
       cb(ec, send_receipt);
       return;
     }
@@ -338,12 +341,12 @@ void ProducerImpl::sendImpl(std::shared_ptr<SendContext> context) {
   Metadata metadata;
   Signature::sign(client_config_, metadata);
 
-  auto callback = [context](const std::error_code& ec, const SendReceipt& send_receipt) {
-    if (ec) {
-      context->onFailure(ec);
+  auto callback = [context](const SendResult& send_result) {
+    if (send_result.ec) {
+      context->onFailure(send_result.ec);
       return;
     }
-    context->onSuccess(send_receipt);
+    context->onSuccess(send_result);
   };
 
   client_manager_->send(target, metadata, request, callback);
@@ -354,12 +357,14 @@ void ProducerImpl::send0(MessageConstPtr message, SendCallback callback, std::ve
   std::error_code ec;
   validate(*message, ec);
   if (ec) {
+    send_receipt.message = std::move(message);
     callback(ec, send_receipt);
     return;
   }
 
   if (list.empty()) {
     ec = ErrorCode::NotFound;
+    send_receipt.message = std::move(message);
     callback(ec, send_receipt);
     return;
   }
