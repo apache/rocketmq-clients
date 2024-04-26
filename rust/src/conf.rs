@@ -121,7 +121,7 @@ pub enum LoggingFormat {
     /// Print log in terminal
     Terminal,
     /// Print log in json file
-    Json,
+    Json(Option<String>),
 }
 
 /// The configuration of [`Producer`].
