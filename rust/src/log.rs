@@ -36,7 +36,17 @@ pub(crate) fn terminal_logger() -> Logger {
         .fuse();
     Logger::root(drain, o!())
 }
-
+fn create_file(fp:&PathBuf) -> Option<File> {
+    match OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .append(true)
+        .open(fp) {
+        Ok(f) => Some(f),
+        Err(_) => None
+    }
+}
 fn json_logger(filepath: &Option<String>) -> Logger {
     // 设置默认值和解析传入的参数
     let fp = match filepath {
@@ -49,16 +59,6 @@ fn json_logger(filepath: &Option<String>) -> Logger {
     };
     // first check the director or file is existing?
     let file = if !fp.exists() {
-        let create_file = |fp: &PathBuf| -> Option<File> {
-            match OpenOptions::new()
-                .create(true)
-                .write(true)
-                .append(true)
-                .open(fp) {
-                Ok(f) => Some(f),
-                Err(_) => None
-            }
-        };
         // have the parent dir
         match fp.parent() {
             // or no have
@@ -75,14 +75,7 @@ fn json_logger(filepath: &Option<String>) -> Logger {
         }
     } else {
         // log file is existed created it.
-        match OpenOptions::new()
-            .create(true)
-            .write(true)
-            .append(true)
-            .open(fp) {
-            Ok(f) => Some(f),
-            Err(_) => None
-        }
+       create_file(&fp)
     };
 
     match file {
