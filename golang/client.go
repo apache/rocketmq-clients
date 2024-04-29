@@ -436,7 +436,6 @@ func (cli *defaultClient) doHeartbeat(target string, request *v2.HeartbeatReques
 			Message: resp.GetStatus().GetMessage(),
 		}
 	}
-	cli.log.Infof("send heartbeat successfully, endpoints=%v", endpoints)
 	switch p := cli.clientImpl.(type) {
 	case *defaultProducer:
 		if _, ok := p.isolated.LoadAndDelete(target); ok {
