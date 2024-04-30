@@ -147,7 +147,7 @@ func (cm *defaultClientManager) clearIdleRpcClients() {
 	}
 }
 func (cm *defaultClientManager) doHeartbeat() {
-	sugarBaseLogger.Info("clientManager start doHeartbeat")
+	sugarBaseLogger.Debug("clientManager start doHeartbeat")
 	cm.clientTable.Range(func(_, v interface{}) bool {
 		client := v.(*defaultClient)
 		client.Heartbeat()
