@@ -20,10 +20,10 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use mockall_double::double;
+use parking_lot::RwLock;
 use prost_types::Timestamp;
 use slog::{error, info, warn, Logger};
 use tokio::select;
-use tokio::sync::RwLock;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::client::handle_response_status;
@@ -126,8 +126,17 @@ impl Producer {
         })
     }
 
-    async fn get_resource_namespace(&self) -> String {
-        self.option.read().await.namespace().to_string()
+    fn get_resource_namespace(&self) -> String {
+        self.option.read().namespace().to_string()
+    }
+
+    fn get_topics(&self) -> Option<Vec<String>> {
+        let binding = self.option.read();
+        let topics = binding.topics();
+        if let Some(topics) = topics {
+            return Some(topics.iter().map(|topic| topic.to_string()).collect());
+        }
+        None
     }
 
     /// Start the producer
@@ -136,13 +145,10 @@ impl Producer {
         let telemetry_command_tx: mpsc::Sender<pb::telemetry_command::Command> =
             telemetry_command_tx;
         self.client.start(telemetry_command_tx).await?;
-        {
-            let option_guard = self.option.read().await;
-            let topics = option_guard.topics();
-            if let Some(topics) = topics {
-                for topic in topics {
-                    self.client.topic_route(topic, true).await?;
-                }
+        let topics = self.get_topics();
+        if let Some(topics) = topics {
+            for topic in topics {
+                self.client.topic_route(topic.as_str(), true).await?;
             }
         }
         let transaction_checker = self.transaction_checker.take();
@@ -172,7 +178,7 @@ impl Producer {
                                     };
                                 }
                                 Settings(command) => {
-                                    let option = &mut producer_option.write().await;
+                                    let option = &mut producer_option.write();
                                     Self::handle_settings_command(command, option);
                                     info!(logger, "handle setting command success.");
                                 }
@@ -326,7 +332,7 @@ impl Producer {
             let pb_message = pb::Message {
                 topic: Some(Resource {
                     name: message.take_topic(),
-                    resource_namespace: self.get_resource_namespace().await,
+                    resource_namespace: self.get_resource_namespace(),
                 }),
                 user_properties: message.take_properties(),
                 system_properties: Some(SystemProperties {
@@ -421,7 +427,7 @@ impl Producer {
     }
 
     async fn validate_message_type(&self) -> bool {
-        self.option.read().await.validate_message_type()
+        self.option.read().validate_message_type()
     }
 
     pub fn has_transaction_checker(&self) -> bool {
@@ -446,7 +452,7 @@ impl Producer {
         Ok(TransactionImpl::new(
             Box::new(rpc_client),
             Resource {
-                resource_namespace: self.get_resource_namespace().await,
+                resource_namespace: self.get_resource_namespace(),
                 name: topic,
             },
             receipt,

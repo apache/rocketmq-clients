@@ -19,9 +19,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use mockall_double::double;
+use parking_lot::RwLock;
 use slog::{info, warn, Logger};
 use tokio::select;
-use tokio::sync::{mpsc, oneshot, RwLock};
+use tokio::sync::RwLock as TokioRwLock;
+use tokio::sync::{mpsc, oneshot};
 
 #[double]
 use crate::client::Client;
@@ -45,7 +47,7 @@ use crate::{log, pb};
 pub struct SimpleConsumer {
     option: SimpleConsumerOption,
     logger: Logger,
-    client: Client<SimpleConsumerOption>,
+    client: Arc<TokioRwLock<Client<SimpleConsumerOption>>>,
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
 
@@ -79,7 +81,7 @@ impl SimpleConsumer {
         Ok(SimpleConsumer {
             option,
             logger,
-            client,
+            client: Arc::new(TokioRwLock::new(client)),
             shutdown_tx: None,
         })
     }

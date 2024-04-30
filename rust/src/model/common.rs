@@ -191,7 +191,7 @@ impl Endpoints {
 /// Filter type for message filtering.
 ///
 /// RocketMQ allows to filter messages by tag or SQL.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(i32)]
 pub enum FilterType {
     /// Filter by tag
@@ -201,6 +201,7 @@ pub enum FilterType {
 }
 
 /// Filter expression for message filtering.
+#[derive(Clone, Debug)]
 pub struct FilterExpression {
     filter_type: FilterType,
     expression: String,
@@ -255,6 +256,11 @@ impl SendReceipt {
     pub fn transaction_id(&self) -> &str {
         &self.transaction_id
     }
+}
+
+pub enum ConsumeResult {
+    SUCCESS,
+    FAILURE,
 }
 
 #[cfg(test)]

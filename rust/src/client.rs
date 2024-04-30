@@ -23,10 +23,11 @@ use mockall::automock;
 use mockall_double::double;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
+use parking_lot::RwLock;
 use prost_types::Duration;
 use slog::{debug, error, info, o, warn, Logger};
 use tokio::select;
-use tokio::sync::{mpsc, oneshot, RwLock};
+use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
 
 use crate::conf::{ClientOption, SettingsAware};
@@ -195,7 +196,7 @@ where
                         for mut session in sessions.unwrap() {
                             let command;
                             {
-                                command = settings.read().await.build_telemetry_command();
+                                command = settings.read().build_telemetry_command();
                             }
                             let peer = session.peer().to_string();
                             let result = session.update_settings(command).await;
@@ -256,7 +257,7 @@ where
         Ok(())
     }
 
-    pub(crate) async fn shutdown(mut self) -> Result<(), ClientError> {
+    pub(crate) async fn shutdown(&mut self) -> Result<(), ClientError> {
         self.check_started(OPERATION_CLIENT_SHUTDOWN)?;
         let mut rpc_client = self.get_session().await?;
         self.telemetry_command_tx = None;
@@ -296,8 +297,8 @@ where
         )
     }
 
-    async fn build_telemetry_command(&self) -> TelemetryCommand {
-        self.settings.read().await.build_telemetry_command()
+    fn build_telemetry_command(&self) -> TelemetryCommand {
+        self.settings.read().build_telemetry_command()
     }
 
     pub(crate) async fn get_session(&self) -> Result<Session, ClientError> {
@@ -306,7 +307,7 @@ where
             .session_manager
             .get_or_create_session(
                 &self.access_endpoints,
-                self.build_telemetry_command().await,
+                self.build_telemetry_command(),
                 self.telemetry_command_tx.clone().unwrap(),
             )
             .await?;
@@ -321,7 +322,7 @@ where
             .session_manager
             .get_or_create_session(
                 endpoints,
-                self.build_telemetry_command().await,
+                self.build_telemetry_command(),
                 self.telemetry_command_tx.clone().unwrap(),
             )
             .await?;
