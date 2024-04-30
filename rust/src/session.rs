@@ -36,8 +36,9 @@ use crate::pb::{
     AckMessageRequest, AckMessageResponse, ChangeInvisibleDurationRequest,
     ChangeInvisibleDurationResponse, EndTransactionRequest, EndTransactionResponse,
     HeartbeatRequest, HeartbeatResponse, NotifyClientTerminationRequest,
-    NotifyClientTerminationResponse, QueryRouteRequest, QueryRouteResponse, ReceiveMessageRequest,
-    ReceiveMessageResponse, SendMessageRequest, SendMessageResponse, TelemetryCommand,
+    NotifyClientTerminationResponse, QueryAssignmentRequest, QueryAssignmentResponse,
+    QueryRouteRequest, QueryRouteResponse, ReceiveMessageRequest, ReceiveMessageResponse,
+    SendMessageRequest, SendMessageResponse, TelemetryCommand,
 };
 use crate::util::{PROTOCOL_VERSION, SDK_LANGUAGE, SDK_VERSION};
 use crate::{error::ClientError, pb::messaging_service_client::MessagingServiceClient};
@@ -53,6 +54,7 @@ const OPERATION_ACK_MESSAGE: &str = "rpc.ack_message";
 const OPERATION_CHANGE_INVISIBLE_DURATION: &str = "rpc.change_invisible_duration";
 const OPERATION_END_TRANSACTION: &str = "rpc.end_transaction";
 const OPERATION_NOTIFY_CLIENT_TERMINATION: &str = "rpc.notify_client_termination";
+const OPERATION_QUERY_ASSIGNMENT: &str = "rpc.query_assignment";
 
 #[async_trait]
 #[automock]
@@ -89,6 +91,10 @@ pub(crate) trait RPCClient {
         &mut self,
         request: NotifyClientTerminationRequest,
     ) -> Result<NotifyClientTerminationResponse, ClientError>;
+    async fn query_assignment(
+        &mut self,
+        request: QueryAssignmentRequest,
+    ) -> Result<QueryAssignmentResponse, ClientError>;
 }
 
 #[derive(Debug)]
@@ -537,6 +543,22 @@ impl RPCClient for Session {
                 )
                 .set_source(e)
             })?;
+        Ok(response.into_inner())
+    }
+
+    async fn query_assignment(
+        &mut self,
+        request: QueryAssignmentRequest,
+    ) -> Result<QueryAssignmentResponse, ClientError> {
+        let request = self.sign(request);
+        let response = self.stub.query_assignment(request).await.map_err(|e| {
+            ClientError::new(
+                ErrorKind::ClientInternal,
+                "send rpc query_assignment failed",
+                OPERATION_QUERY_ASSIGNMENT,
+            )
+            .set_source(e)
+        })?;
         Ok(response.into_inner())
     }
 }

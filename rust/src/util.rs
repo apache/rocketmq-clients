@@ -21,13 +21,14 @@ use std::sync::Arc;
 use once_cell::sync::Lazy;
 use siphasher::sip::SipHasher24;
 
-use crate::conf::{ProducerOption, SimpleConsumerOption};
+use crate::conf::{ProducerOption, PushConsumerOption, SimpleConsumerOption};
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::{ClientType, Endpoints, Route};
 use crate::pb::settings::PubSub;
 use crate::pb::telemetry_command::Command;
 use crate::pb::{
-    Language, MessageQueue, Publishing, Resource, Settings, Subscription, TelemetryCommand, Ua,
+    FilterExpression, Language, MessageQueue, Publishing, Resource, Settings, Subscription,
+    SubscriptionEntry, TelemetryCommand, Ua,
 };
 
 pub(crate) static SDK_LANGUAGE: Language = Language::Rust;
@@ -136,6 +137,54 @@ pub(crate) fn build_simple_consumer_settings(option: &SimpleConsumerOption) -> T
                 }),
                 subscriptions: vec![],
                 fifo: Some(false),
+                receive_batch_size: None,
+                long_polling_timeout: Some(prost_types::Duration {
+                    seconds: option.long_polling_timeout().as_secs() as i64,
+                    nanos: option.long_polling_timeout().subsec_nanos() as i32,
+                }),
+            })),
+            user_agent: Some(Ua {
+                language: SDK_LANGUAGE as i32,
+                version: SDK_VERSION.to_string(),
+                platform: format!("{} {}", platform.os_type(), platform.version()),
+                hostname: HOST_NAME.clone(),
+            }),
+            ..Settings::default()
+        })),
+        ..TelemetryCommand::default()
+    }
+}
+
+pub(crate) fn build_push_consumer_settings(option: &PushConsumerOption) -> TelemetryCommand {
+    let subscriptions: Vec<SubscriptionEntry> = option
+        .subscription_expressions()
+        .iter()
+        .map(|(topic, filter_expression)| SubscriptionEntry {
+            topic: Some(Resource {
+                name: topic.to_string(),
+                resource_namespace: option.namespace().to_string(),
+            }),
+            expression: Some(FilterExpression {
+                expression: filter_expression.expression().to_string(),
+                r#type: filter_expression.filter_type() as i32,
+            }),
+        })
+        .collect();
+    let platform = os_info::get();
+    TelemetryCommand {
+        command: Some(Command::Settings(Settings {
+            client_type: Some(ClientType::PushConsumer as i32),
+            request_timeout: Some(prost_types::Duration {
+                seconds: option.timeout().as_secs() as i64,
+                nanos: option.timeout().subsec_nanos() as i32,
+            }),
+            pub_sub: Some(PubSub::Subscription(Subscription {
+                group: Some(Resource {
+                    name: option.consumer_group().to_string(),
+                    resource_namespace: option.namespace().to_string(),
+                }),
+                subscriptions,
+                fifo: Some(option.fifo()),
                 receive_batch_size: None,
                 long_polling_timeout: Some(prost_types::Duration {
                     seconds: option.long_polling_timeout().as_secs() as i64,

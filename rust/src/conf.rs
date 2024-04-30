@@ -17,15 +17,18 @@
 
 //! Configuration of RocketMQ rust client.
 
+use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::model::common::ClientType;
+use crate::model::common::{ClientType, FilterExpression};
 use crate::pb::TelemetryCommand;
 #[allow(unused_imports)]
 use crate::producer::Producer;
 #[allow(unused_imports)]
 use crate::simple_consumer::SimpleConsumer;
-use crate::util::{build_producer_settings, build_simple_consumer_settings};
+use crate::util::{
+    build_producer_settings, build_push_consumer_settings, build_simple_consumer_settings,
+};
 
 /// [`ClientOption`] is the configuration of internal client, which manages the connection and request with RocketMQ proxy.
 #[derive(Debug, Clone)]
@@ -278,6 +281,47 @@ impl SimpleConsumerOption {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct PushConsumerOption {
+    logging_format: LoggingFormat,
+    consumer_group: String,
+    namespace: String,
+    timeout: Duration,
+    long_polling_timeout: Duration,
+    subscription_expressions: HashMap<String, FilterExpression>,
+    fifo: bool,
+}
+
+impl PushConsumerOption {
+    pub fn timeout(&self) -> &Duration {
+        &self.timeout
+    }
+
+    pub fn consumer_group(&self) -> &str {
+        &self.consumer_group
+    }
+
+    pub fn namespace(&self) -> &str {
+        &self.namespace
+    }
+
+    pub fn long_polling_timeout(&self) -> &Duration {
+        &self.long_polling_timeout
+    }
+
+    pub fn subscription_expressions(&self) -> &HashMap<String, FilterExpression> {
+        &self.subscription_expressions
+    }
+
+    pub fn fifo(&self) -> bool {
+        self.fifo
+    }
+
+    pub fn logging_format(&self) -> &LoggingFormat {
+        &self.logging_format
+    }
+}
+
 pub trait SettingsAware {
     fn build_telemetry_command(&self) -> TelemetryCommand;
 }
@@ -291,6 +335,12 @@ impl SettingsAware for ProducerOption {
 impl SettingsAware for SimpleConsumerOption {
     fn build_telemetry_command(&self) -> TelemetryCommand {
         build_simple_consumer_settings(self)
+    }
+}
+
+impl SettingsAware for PushConsumerOption {
+    fn build_telemetry_command(&self) -> TelemetryCommand {
+        build_push_consumer_settings(self)
     }
 }
 

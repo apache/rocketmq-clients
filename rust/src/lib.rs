@@ -141,4 +141,5 @@ pub mod model;
 mod util;
 
 mod producer;
+mod push_consumer;
 mod simple_consumer;
