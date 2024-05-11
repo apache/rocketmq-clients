@@ -87,10 +87,16 @@ export class Producer extends BaseClient {
 
   async endTransaction(endpoints: Endpoints, message: Message, messageId: string,
     transactionId: string, resolution: TransactionResolution) {
+    let resourceNamespace;
+    if (this.namespace) {
+      resourceNamespace = createResource(message.topic).setResourceNamespace(this.namespace);
+    } else {
+      resourceNamespace = createResource(message.topic).setResourceNamespace("");
+    }
     const request = new EndTransactionRequest()
       .setMessageId(messageId)
       .setTransactionId(transactionId)
-      .setTopic(createResource(message.topic).setResourceNamespace(this.namespace))
+      .setTopic(resourceNamespace)
         .setResolution(resolution);
     const response = await this.rpcClientManager.endTransaction(endpoints, request, this.requestTimeout);
     StatusChecker.check(response.getStatus()?.toObject());
