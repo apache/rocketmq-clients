@@ -1,6 +1,6 @@
 {
   "name": "rocketmq-client-nodejs",
-  "version": "1.0.0",
+  "version": "0.0.1-beta.2",
   "description": "RocketMQ Node.js Client",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
