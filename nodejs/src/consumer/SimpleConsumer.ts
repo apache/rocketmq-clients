@@ -60,8 +60,13 @@ export class SimpleConsumer extends Consumer {
       }
     }
     this.#awaitDuration = options.awaitDuration ?? 30000;
-    this.#simpleSubscriptionSettings = new SimpleSubscriptionSettings(this.clientId, this.endpoints,
-      this.consumerGroup, this.requestTimeout, this.#awaitDuration, this.#subscriptionExpressions);
+    if (options.namespace) {
+      this.#simpleSubscriptionSettings = new SimpleSubscriptionSettings(options.namespace, this.clientId, this.endpoints,
+          this.consumerGroup, this.requestTimeout, this.#awaitDuration, this.#subscriptionExpressions);
+    } else {
+      this.#simpleSubscriptionSettings = new SimpleSubscriptionSettings("", this.clientId, this.endpoints,
+          this.consumerGroup, this.requestTimeout, this.#awaitDuration, this.#subscriptionExpressions);
+    }
   }
 
   protected getSettings() {
