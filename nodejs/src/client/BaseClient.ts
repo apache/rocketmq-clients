@@ -77,7 +77,7 @@ export abstract class BaseClient {
   readonly clientType = ClientType.CLIENT_TYPE_UNSPECIFIED;
   readonly sslEnabled: boolean;
   readonly #sessionCredentials?: SessionCredentials;
-  readonly namespace?: string = "";
+  readonly namespace?: string;
   protected readonly endpoints: Endpoints;
   protected readonly isolated = new Map<string, Endpoints>();
   protected readonly requestTimeout: number;

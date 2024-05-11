@@ -20,7 +20,7 @@ import { Endpoints } from '../route/Endpoints';
 import { RetryPolicy } from '../retry';
 
 export abstract class Settings {
-  protected readonly namespace: string | "";
+  protected readonly namespace: string;
   protected readonly clientId: string;
   protected readonly clientType: ClientType;
   protected readonly accessPoint: Endpoints;
