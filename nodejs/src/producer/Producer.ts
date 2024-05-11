@@ -193,7 +193,11 @@ export class Producer extends BaseClient {
   #wrapSendMessageRequest(pubMessages: PublishingMessage[], mq: MessageQueue) {
     const request = new SendMessageRequest();
     for (const pubMessage of pubMessages) {
-      request.addMessages(pubMessage.toProtobuf(this.namespace, mq));
+      if (this.namespace) {
+        request.addMessages(pubMessage.toProtobuf(this.namespace, mq));
+      } else {
+        request.addMessages(pubMessage.toProtobuf("", mq));
+      }
     }
     return request;
   }
