@@ -122,7 +122,7 @@ public class ClientManagerImpl extends ClientManager {
             Runtime.getRuntime().availableProcessors(),
             60,
             TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(),
+            new LinkedBlockingQueue<>(50000),
             new ThreadFactoryImpl("ClientAsyncWorker", clientIndex));
     }
 
