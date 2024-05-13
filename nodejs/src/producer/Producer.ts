@@ -67,11 +67,9 @@ export class Producer extends BaseClient {
     // Default max number of message sending retries is 3
     const retryPolicy = ExponentialBackoffRetryPolicy.immediatelyRetryPolicy(options.maxAttempts ?? 3);
     if (options.namespace) {
-      this.#publishingSettings = new PublishingSettings(options.namespace, this.clientId, this.endpoints, retryPolicy,
-          this.requestTimeout, this.topics);
+      this.#publishingSettings = new PublishingSettings(options.namespace, this.clientId, this.endpoints, retryPolicy, this.requestTimeout, this.topics);
     } else {
-      this.#publishingSettings = new PublishingSettings("", this.clientId, this.endpoints, retryPolicy,
-          this.requestTimeout, this.topics);
+      this.#publishingSettings = new PublishingSettings('', this.clientId, this.endpoints, retryPolicy, this.requestTimeout, this.topics);
     }
     this.#checker = options.checker;
   }
@@ -91,13 +89,12 @@ export class Producer extends BaseClient {
     if (this.namespace) {
       resourceNamespace = createResource(message.topic).setResourceNamespace(this.namespace);
     } else {
-      resourceNamespace = createResource(message.topic).setResourceNamespace("");
+      resourceNamespace = createResource(message.topic).setResourceNamespace('');
     }
     const request = new EndTransactionRequest()
       .setMessageId(messageId)
       .setTransactionId(transactionId)
-      .setTopic(resourceNamespace)
-        .setResolution(resolution);
+      .setTopic(resourceNamespace).setResolution(resolution);
     const response = await this.rpcClientManager.endTransaction(endpoints, request, this.requestTimeout);
     StatusChecker.check(response.getStatus()?.toObject());
   }
@@ -201,7 +198,7 @@ export class Producer extends BaseClient {
       if (this.namespace) {
         request.addMessages(pubMessage.toProtobuf(this.namespace, mq));
       } else {
-        request.addMessages(pubMessage.toProtobuf("", mq));
+        request.addMessages(pubMessage.toProtobuf('', mq));
       }
     }
     return request;

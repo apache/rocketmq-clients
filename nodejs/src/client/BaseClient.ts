@@ -291,7 +291,7 @@ export abstract class BaseClient {
     // version of client
     metadata.set('x-mq-client-version', UserAgent.INSTANCE.version);
     if (this.namespace) {
-      metadata.set('x-mq-namespace', this.namespace)
+      metadata.set('x-mq-namespace', this.namespace);
     }
     if (this.#sessionCredentials) {
       if (this.#sessionCredentials.securityToken) {

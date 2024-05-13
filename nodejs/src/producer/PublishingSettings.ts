@@ -35,8 +35,7 @@ export class PublishingSettings extends Settings {
   #maxBodySizeBytes = 4 * 1024 * 1024;
   #validateMessageType = true;
 
-  constructor(namespace: string | "", clientId: string, accessPoint: Endpoints, retryPolicy: ExponentialBackoffRetryPolicy,
-              requestTimeout: number, topics: Set<string>) {
+  constructor(namespace: string | '', clientId: string, accessPoint: Endpoints, retryPolicy: ExponentialBackoffRetryPolicy, requestTimeout: number, topics: Set<string>) {
     super(namespace, clientId, ClientType.PRODUCER, accessPoint, requestTimeout, retryPolicy);
     this.#topics = topics;
   }
