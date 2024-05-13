@@ -94,7 +94,8 @@ export class Producer extends BaseClient {
     const request = new EndTransactionRequest()
       .setMessageId(messageId)
       .setTransactionId(transactionId)
-      .setTopic(resourceNamespace).setResolution(resolution);
+      .setTopic(resourceNamespace)
+      .setResolution(resolution);
     const response = await this.rpcClientManager.endTransaction(endpoints, request, this.requestTimeout);
     StatusChecker.check(response.getStatus()?.toObject());
   }

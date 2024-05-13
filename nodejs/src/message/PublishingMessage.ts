@@ -87,7 +87,7 @@ export class PublishingMessage extends Message {
       systemProperties.setMessageGroup(this.messageGroup);
     }
 
-    let resource = createResource(this.topic);
+    const resource = createResource(this.topic);
     resource.setResourceNamespace(namespace);
     const message = new MessagePB()
       .setTopic(resource)
