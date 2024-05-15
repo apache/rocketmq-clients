@@ -377,7 +377,8 @@ func (cli *defaultClient) queryRoute(ctx context.Context, topic string, duration
 func (cli *defaultClient) getQueryRouteRequest(topic string) *v2.QueryRouteRequest {
 	return &v2.QueryRouteRequest{
 		Topic: &v2.Resource{
-			Name: topic,
+			Name:              topic,
+			ResourceNamespace: cli.config.NameSpace,
 		},
 		Endpoints: cli.accessPoint,
 	}
@@ -599,6 +600,8 @@ func (cli *defaultClient) Sign(ctx context.Context) context.Context {
 		innerMD.VersionValue,
 		innerMD.ClintID,
 		cli.clientID,
+		innerMD.NameSpace,
+		cli.config.NameSpace,
 		innerMD.DateTime,
 		now,
 		innerMD.Authorization,
