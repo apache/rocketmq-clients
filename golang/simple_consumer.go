@@ -75,10 +75,12 @@ func (sc *defaultSimpleConsumer) changeInvisibleDuration0(messageView *MessageVi
 	ctx := sc.cli.Sign(context.Background())
 	request := &v2.ChangeInvisibleDurationRequest{
 		Topic: &v2.Resource{
-			Name: messageView.GetTopic(),
+			Name:              messageView.GetTopic(),
+			ResourceNamespace: sc.cli.config.NameSpace,
 		},
 		Group: &v2.Resource{
-			Name: sc.groupName,
+			Name:              sc.groupName,
+			ResourceNamespace: sc.cli.config.NameSpace,
 		},
 		ReceiptHandle:     messageView.GetReceiptHandle(),
 		InvisibleDuration: durationpb.New(invisibleDuration),
@@ -166,7 +168,8 @@ func (sc *defaultSimpleConsumer) wrapReceiveMessageRequest(batchSize int, messag
 
 	return &v2.ReceiveMessageRequest{
 		Group: &v2.Resource{
-			Name: sc.groupName,
+			Name:              sc.groupName,
+			ResourceNamespace: sc.cli.config.NameSpace,
 		},
 		MessageQueue: messageQueue,
 		FilterExpression: &v2.FilterExpression{
@@ -183,7 +186,8 @@ func (sc *defaultSimpleConsumer) wrapAckMessageRequest(messageView *MessageView)
 	return &v2.AckMessageRequest{
 		Group: sc.scSettings.groupName,
 		Topic: &v2.Resource{
-			Name: messageView.GetTopic(),
+			Name:              messageView.GetTopic(),
+			ResourceNamespace: sc.cli.config.NameSpace,
 		},
 		Entries: []*v2.AckMessageEntry{
 			{
@@ -369,7 +373,8 @@ var NewSimpleConsumer = func(config *Config, opts ...SimpleConsumerOption) (Simp
 		requestTimeout: sc.cli.opts.timeout,
 
 		groupName: &v2.Resource{
-			Name: sc.groupName,
+			Name:              sc.groupName,
+			ResourceNamespace: config.NameSpace,
 		},
 		longPollingTimeout:      scOpts.awaitDuration,
 		subscriptionExpressions: scOpts.subscriptionExpressions,

@@ -15,29 +15,23 @@
  * limitations under the License.
  */
 
-package metadata
+package golang
 
-const (
-	LanguageKey   = "x-mq-language"
-	ProtocolKey   = "x-mq-protocol"
-	RequestID     = "x-mq-request-id"
-	VersionKey    = "x-mq-client-version"
-	NameSpace     = "x-mq-namespace"
-	DateTime      = "x-mq-date-time"
-	ClintID       = "x-mq-client-id"
-	Authorization = "authorization"
-)
+import "testing"
 
-const (
-	LanguageValue = "GO"
-	ProtocolValue = "v2"
-	VersionValue  = "5.0.1-rc1"
-)
-
-const (
-	EncryptHeader = "MQv2-HMAC-SHA1"
-	Rocketmq      = "Rocketmq"
-	Credential    = "Credential"
-	Signature     = "Signature"
-	SignedHeaders = "SignedHeaders"
-)
+func TestNewPublishingMessage(t *testing.T) {
+	namespace := "ns-test"
+	pSetting := &producerSettings{}
+	msg := &Message{}
+	pMsg, err := NewPublishingMessage(msg, namespace, pSetting, false)
+	if err != nil {
+		t.Error(err)
+	}
+	v2Msg, err := pMsg.toProtobuf()
+	if err != nil {
+		t.Error(err)
+	}
+	if v2Msg.GetTopic().GetResourceNamespace() != namespace {
+		t.Error("namespace not equal")
+	}
+}
