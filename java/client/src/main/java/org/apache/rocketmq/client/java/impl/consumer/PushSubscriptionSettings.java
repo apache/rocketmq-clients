@@ -23,10 +23,12 @@ import apache.rocketmq.v2.Subscription;
 import apache.rocketmq.v2.SubscriptionEntry;
 import com.google.common.base.MoreObjects;
 import com.google.protobuf.util.Durations;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
 import org.apache.rocketmq.client.apis.consumer.FilterExpression;
 import org.apache.rocketmq.client.apis.consumer.FilterExpressionType;
 import org.apache.rocketmq.client.java.impl.ClientType;
@@ -46,15 +48,17 @@ public class PushSubscriptionSettings extends Settings {
 
     private final Resource group;
     private final Map<String, FilterExpression> subscriptionExpressions;
-    private volatile Boolean fifo = false;
+    private volatile Boolean fifo;
     private volatile int receiveBatchSize = 32;
     private volatile Duration longPollingTimeout = Duration.ofSeconds(30);
 
     public PushSubscriptionSettings(String namespace, ClientId clientId, Endpoints endpoints, Resource group,
-        Duration requestTimeout, Map<String, FilterExpression> subscriptionExpression) {
+                                    Duration requestTimeout, Map<String, FilterExpression> subscriptionExpression, boolean fifo) {
         super(namespace, clientId, ClientType.PUSH_CONSUMER, endpoints, requestTimeout);
         this.group = group;
         this.subscriptionExpressions = subscriptionExpression;
+        // Set the FIFO flag.
+        this.fifo = fifo;
     }
 
     public boolean isFifo() {
@@ -75,12 +79,12 @@ public class PushSubscriptionSettings extends Settings {
         for (Map.Entry<String, FilterExpression> entry : subscriptionExpressions.entrySet()) {
             final FilterExpression filterExpression = entry.getValue();
             apache.rocketmq.v2.Resource topic =
-                apache.rocketmq.v2.Resource.newBuilder()
-                    .setResourceNamespace(namespace)
-                    .setName(entry.getKey())
-                    .build();
+                    apache.rocketmq.v2.Resource.newBuilder()
+                            .setResourceNamespace(namespace)
+                            .setName(entry.getKey())
+                            .build();
             final apache.rocketmq.v2.FilterExpression.Builder expressionBuilder =
-                apache.rocketmq.v2.FilterExpression.newBuilder().setExpression(filterExpression.getExpression());
+                    apache.rocketmq.v2.FilterExpression.newBuilder().setExpression(filterExpression.getExpression());
             final FilterExpressionType type = filterExpression.getFilterExpressionType();
             switch (type) {
                 case TAG:
@@ -93,14 +97,14 @@ public class PushSubscriptionSettings extends Settings {
                     log.warn("[Bug] Unrecognized filter type, type={}", type);
             }
             SubscriptionEntry subscriptionEntry =
-                SubscriptionEntry.newBuilder().setTopic(topic).setExpression(expressionBuilder.build()).build();
+                    SubscriptionEntry.newBuilder().setTopic(topic).setExpression(expressionBuilder.build()).build();
             subscriptionEntries.add(subscriptionEntry);
         }
         Subscription subscription =
-            Subscription.newBuilder().setGroup(group.toProtobuf()).addAllSubscriptions(subscriptionEntries).build();
+                Subscription.newBuilder().setGroup(group.toProtobuf()).addAllSubscriptions(subscriptionEntries).build();
         return apache.rocketmq.v2.Settings.newBuilder().setAccessPoint(accessPoint.toProtobuf())
-            .setClientType(clientType.toProtobuf()).setRequestTimeout(Durations.fromNanos(requestTimeout.toNanos()))
-            .setSubscription(subscription).setUserAgent(UserAgent.INSTANCE.toProtoBuf()).build();
+                .setClientType(clientType.toProtobuf()).setRequestTimeout(Durations.fromNanos(requestTimeout.toNanos()))
+                .setSubscription(subscription).setUserAgent(UserAgent.INSTANCE.toProtoBuf()).build();
     }
 
     @Override
@@ -108,7 +112,7 @@ public class PushSubscriptionSettings extends Settings {
         final apache.rocketmq.v2.Settings.PubSubCase pubSubCase = settings.getPubSubCase();
         if (!apache.rocketmq.v2.Settings.PubSubCase.SUBSCRIPTION.equals(pubSubCase)) {
             log.error("[Bug] Issued settings not match with the client type, clientId={}, pubSubCase={}, "
-                + "clientType={}", clientId, pubSubCase, clientType);
+                    + "clientType={}", clientId, pubSubCase, clientType);
             return;
         }
         final Subscription subscription = settings.getSubscription();
@@ -132,16 +136,16 @@ public class PushSubscriptionSettings extends Settings {
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
-            .add("clientId", clientId)
-            .add("clientType", clientType)
-            .add("accessPoint", accessPoint)
-            .add("retryPolicy", retryPolicy)
-            .add("requestTimeout", requestTimeout)
-            .add("group", group)
-            .add("subscriptionExpressions", subscriptionExpressions)
-            .add("fifo", fifo)
-            .add("receiveBatchSize", receiveBatchSize)
-            .add("longPollingTimeout", longPollingTimeout)
-            .toString();
+                .add("clientId", clientId)
+                .add("clientType", clientType)
+                .add("accessPoint", accessPoint)
+                .add("retryPolicy", retryPolicy)
+                .add("requestTimeout", requestTimeout)
+                .add("group", group)
+                .add("subscriptionExpressions", subscriptionExpressions)
+                .add("fifo", fifo)
+                .add("receiveBatchSize", receiveBatchSize)
+                .add("longPollingTimeout", longPollingTimeout)
+                .toString();
     }
 }

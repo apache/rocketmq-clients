@@ -123,13 +123,13 @@ class PushConsumerImpl extends ConsumerImpl implements PushConsumer {
      * logging warnings already, so we avoid repeating args check here.
      */
     public PushConsumerImpl(ClientConfiguration clientConfiguration, String consumerGroup,
-        Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener,
+        Map<String, FilterExpression> subscriptionExpressions, MessageListener messageListener, boolean fifo,
         int maxCacheMessageCount, int maxCacheMessageSizeInBytes, int consumptionThreadCount) {
         super(clientConfiguration, consumerGroup, subscriptionExpressions.keySet());
         this.clientConfiguration = clientConfiguration;
         Resource groupResource = new Resource(clientConfiguration.getNamespace(), consumerGroup);
         this.pushSubscriptionSettings = new PushSubscriptionSettings(clientConfiguration.getNamespace(), clientId,
-            endpoints, groupResource, clientConfiguration.getRequestTimeout(), subscriptionExpressions);
+            endpoints, groupResource, clientConfiguration.getRequestTimeout(), subscriptionExpressions, fifo);
         this.consumerGroup = consumerGroup;
         this.subscriptionExpressions = subscriptionExpressions;
         this.cacheAssignments = new ConcurrentHashMap<>();

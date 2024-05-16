@@ -63,6 +63,8 @@ public class PushConsumerExample {
             .setClientConfiguration(clientConfiguration)
             // Set the consumer group name.
             .setConsumerGroup(consumerGroup)
+            // Set the message FIFO mode.
+            .setFifo(true)
             // Set the subscription for the consumer.
             .setSubscriptionExpressions(Collections.singletonMap(topic, filterExpression))
             .setMessageListener(messageView -> {

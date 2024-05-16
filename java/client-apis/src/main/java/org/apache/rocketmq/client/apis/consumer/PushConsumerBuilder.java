@@ -82,6 +82,14 @@ public interface PushConsumerBuilder {
     PushConsumerBuilder setConsumptionThreadCount(int count);
 
     /**
+     * Set the FIFO mode for the consumer.
+     *
+     * @param fifo true if FIFO mode is enabled.
+     * @return the consumer builder instance.
+     */
+    PushConsumerBuilder setFifo(boolean fifo);
+
+    /**
      * Finalize the build of {@link PushConsumer} and start.
      *
      * <p>This method will block until the push consumer starts successfully.

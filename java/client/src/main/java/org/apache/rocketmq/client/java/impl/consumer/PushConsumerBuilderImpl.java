@@ -41,6 +41,7 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
     private int maxCacheMessageCount = 1024;
     private int maxCacheMessageSizeInBytes = 64 * 1024 * 1024;
     private int consumptionThreadCount = 20;
+    private boolean fifo = false;
 
     /**
      * @see PushConsumerBuilder#setClientConfiguration(ClientConfiguration)
@@ -114,6 +115,15 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
     }
 
     /**
+     * @see PushConsumerBuilder#setFifo
+     */
+    @Override
+    public PushConsumerBuilder setFifo(boolean fifo) {
+        this.fifo = fifo;
+        return this;
+    }
+
+    /**
      * @see PushConsumerBuilder#build()
      */
     @Override
@@ -123,7 +133,7 @@ public class PushConsumerBuilderImpl implements PushConsumerBuilder {
         checkNotNull(messageListener, "messageListener has not been set yet");
         checkArgument(!subscriptionExpressions.isEmpty(), "subscriptionExpressions have not been set yet");
         final PushConsumerImpl pushConsumer = new PushConsumerImpl(clientConfiguration, consumerGroup,
-            subscriptionExpressions, messageListener, maxCacheMessageCount, maxCacheMessageSizeInBytes,
+            subscriptionExpressions, messageListener, fifo, maxCacheMessageCount, maxCacheMessageSizeInBytes,
             consumptionThreadCount);
         pushConsumer.startAsync().awaitRunning();
         return pushConsumer;
