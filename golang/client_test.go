@@ -298,7 +298,8 @@ func TestRestoreDefaultClientSessionTwoErrors(t *testing.T) {
 func Test_routeEqual(t *testing.T) {
 	oldMq := &v2.MessageQueue{
 		Topic: &v2.Resource{
-			Name: "topic-test",
+			Name:              "topic-test",
+			ResourceNamespace: "ns-test",
 		},
 		Id:         0,
 		Permission: v2.Permission_READ_WRITE,
@@ -313,7 +314,8 @@ func Test_routeEqual(t *testing.T) {
 	}
 	newMq := &v2.MessageQueue{
 		Topic: &v2.Resource{
-			Name: "topic-test",
+			Name:              "topic-test",
+			ResourceNamespace: "ns-test",
 		},
 		Id:         0,
 		Permission: v2.Permission_READ_WRITE,

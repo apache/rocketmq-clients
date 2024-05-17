@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,23 +15,23 @@
  * limitations under the License.
  */
 
-import { SessionCredentials } from '../src/client';
+package golang
 
-export const endpoints = process.env.ROCKETMQ_NODEJS_CLIENT_ENDPOINTS ?? 'localhost:8081';
-export const namespace = process.env.ROCKETMQ_NODEJS_CLIENT_NAMESPACE ?? '';
-export const topics = {
-  normal: 'TopicTestForNormal',
-  fifo: 'TopicTestForFifo',
-  delay: 'TopicTestForDelay',
-  transaction: 'TopicTestForTransaction',
-};
+import "testing"
 
-export const consumerGroup = process.env.ROCKETMQ_NODEJS_CLIENT_GROUP ?? 'nodejs-unittest-group';
-
-export let sessionCredentials: SessionCredentials | undefined;
-if (process.env.ROCKETMQ_NODEJS_CLIENT_KEY && process.env.ROCKETMQ_NODEJS_CLIENT_SECRET) {
-  sessionCredentials = {
-    accessKey: process.env.ROCKETMQ_NODEJS_CLIENT_KEY,
-    accessSecret: process.env.ROCKETMQ_NODEJS_CLIENT_SECRET,
-  };
+func TestNewPublishingMessage(t *testing.T) {
+	namespace := "ns-test"
+	pSetting := &producerSettings{}
+	msg := &Message{}
+	pMsg, err := NewPublishingMessage(msg, namespace, pSetting, false)
+	if err != nil {
+		t.Error(err)
+	}
+	v2Msg, err := pMsg.toProtobuf()
+	if err != nil {
+		t.Error(err)
+	}
+	if v2Msg.GetTopic().GetResourceNamespace() != namespace {
+		t.Error("namespace not equal")
+	}
 }

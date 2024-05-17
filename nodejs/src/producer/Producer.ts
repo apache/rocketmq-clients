@@ -66,7 +66,7 @@ export class Producer extends BaseClient {
     // https://rocketmq.apache.org/docs/introduction/03limits/
     // Default max number of message sending retries is 3
     const retryPolicy = ExponentialBackoffRetryPolicy.immediatelyRetryPolicy(options.maxAttempts ?? 3);
-    this.#publishingSettings = new PublishingSettings(this.clientId, this.endpoints, retryPolicy,
+    this.#publishingSettings = new PublishingSettings(options.namespace, this.clientId, this.endpoints, retryPolicy,
       this.requestTimeout, this.topics);
     this.#checker = options.checker;
   }
@@ -85,7 +85,7 @@ export class Producer extends BaseClient {
     const request = new EndTransactionRequest()
       .setMessageId(messageId)
       .setTransactionId(transactionId)
-      .setTopic(createResource(message.topic))
+      .setTopic(createResource(message.topic).setResourceNamespace(this.namespace))
       .setResolution(resolution);
     const response = await this.rpcClientManager.endTransaction(endpoints, request, this.requestTimeout);
     StatusChecker.check(response.getStatus()?.toObject());
@@ -187,7 +187,11 @@ export class Producer extends BaseClient {
   #wrapSendMessageRequest(pubMessages: PublishingMessage[], mq: MessageQueue) {
     const request = new SendMessageRequest();
     for (const pubMessage of pubMessages) {
-      request.addMessages(pubMessage.toProtobuf(mq));
+      if (this.namespace) {
+        request.addMessages(pubMessage.toProtobuf(this.namespace, mq));
+      } else {
+        request.addMessages(pubMessage.toProtobuf('', mq));
+      }
     }
     return request;
   }

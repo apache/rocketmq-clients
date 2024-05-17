@@ -19,6 +19,7 @@ import { Producer } from '..';
 
 const producer = new Producer({
   endpoints: '127.0.0.1:8081',
+  namespace: ''
 });
 await producer.startup();
 

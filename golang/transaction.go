@@ -88,7 +88,7 @@ func (t *transactionImpl) RollBack() error {
 	return nil
 }
 
-func (t *transactionImpl) tryAddMessage(message *Message) (*PublishingMessage, error) {
+func (t *transactionImpl) tryAddMessage(message *Message, namespace string) (*PublishingMessage, error) {
 	t.messagesLock.RLock()
 	if len(t.messages) > MAX_MESSAGE_NUM {
 		return nil, fmt.Errorf("message in transaction has exceeded the threshold: %d", MAX_MESSAGE_NUM)
@@ -100,7 +100,7 @@ func (t *transactionImpl) tryAddMessage(message *Message) (*PublishingMessage, e
 	if len(t.messages) > MAX_MESSAGE_NUM {
 		return nil, fmt.Errorf("message in transaction has exceeded the threshold: %d", MAX_MESSAGE_NUM)
 	}
-	pubMessage, err := NewPublishingMessage(message, t.producerImpl.(*defaultProducer).pSetting, true)
+	pubMessage, err := NewPublishingMessage(message, namespace, t.producerImpl.(*defaultProducer).pSetting, true)
 	if err != nil {
 		return nil, err
 	}
