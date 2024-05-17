@@ -27,7 +27,7 @@ export abstract class Settings {
   protected retryPolicy?: RetryPolicy;
   protected readonly requestTimeout: number;
 
-  constructor(namespace: string | '', clientId: string, clientType: ClientType, accessPoint: Endpoints, requestTimeout: number, retryPolicy?: RetryPolicy) {
+  constructor(namespace: string, clientId: string, clientType: ClientType, accessPoint: Endpoints, requestTimeout: number, retryPolicy?: RetryPolicy) {
     this.clientId = clientId;
     this.namespace = namespace;
     this.clientType = clientType;

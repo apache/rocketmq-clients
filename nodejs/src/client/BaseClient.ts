@@ -57,7 +57,7 @@ export interface BaseClientOptions {
    * - example.com:8443
    */
   endpoints: string;
-  namespace?: string;
+  namespace: string;
   sessionCredentials?: SessionCredentials;
   requestTimeout?: number;
   logger?: ILogger;

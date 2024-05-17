@@ -51,7 +51,7 @@ export function createDuration(ms: number) {
     .setNanos(nanos);
 }
 
-export function createResource(name: string | '') {
+export function createResource(name: string) {
   return new Resource().setName(name);
 }
 

@@ -39,6 +39,7 @@ describe('test/producer/Producer.test.ts', () => {
     it('should startup success', async () => {
       producer = new Producer({
         endpoints,
+        namespace: '',
         sessionCredentials,
         maxAttempts: 2,
       });
@@ -66,6 +67,7 @@ describe('test/producer/Producer.test.ts', () => {
         producer = new Producer({
           topic: 'TopicTest-not-exists',
           endpoints,
+          namespace: '',
           sessionCredentials,
           maxAttempts: 2,
         });
@@ -87,6 +89,7 @@ describe('test/producer/Producer.test.ts', () => {
       const tag = `nodejs-unittest-tag-${randomUUID()}`;
       producer = new Producer({
         endpoints,
+        namespace: '',
         sessionCredentials,
         maxAttempts: 2,
       });
@@ -108,6 +111,7 @@ describe('test/producer/Producer.test.ts', () => {
       simpleConsumer = new SimpleConsumer({
         consumerGroup,
         endpoints,
+        namespace: '',
         sessionCredentials,
         subscriptions: new Map().set(topic, tag),
         awaitDuration: 3000,
@@ -124,6 +128,7 @@ describe('test/producer/Producer.test.ts', () => {
       const tag = `nodejs-unittest-tag-${randomUUID()}`;
       producer = new Producer({
         endpoints,
+        namespace: '',
         sessionCredentials,
         maxAttempts: 2,
       });
@@ -147,6 +152,7 @@ describe('test/producer/Producer.test.ts', () => {
       simpleConsumer = new SimpleConsumer({
         consumerGroup,
         endpoints,
+        namespace: '',
         sessionCredentials,
         subscriptions: new Map().set(topic, tag),
         awaitDuration: 3000,
@@ -166,6 +172,7 @@ describe('test/producer/Producer.test.ts', () => {
       const tag = `nodejs-unittest-tag-${randomUUID()}`;
       producer = new Producer({
         endpoints,
+        namespace: '',
         sessionCredentials,
         maxAttempts: 2,
       });
@@ -173,6 +180,7 @@ describe('test/producer/Producer.test.ts', () => {
       simpleConsumer = new SimpleConsumer({
         consumerGroup,
         endpoints,
+        namespace: '',
         sessionCredentials,
         subscriptions: new Map().set(topic, tag),
         awaitDuration: 3000,
@@ -238,6 +246,7 @@ describe('test/producer/Producer.test.ts', () => {
       const tag = `nodejs-unittest-tag-${randomUUID()}`;
       producer = new Producer({
         endpoints,
+        namespace: '',
         sessionCredentials,
         maxAttempts: 2,
         checker: {
@@ -266,6 +275,7 @@ describe('test/producer/Producer.test.ts', () => {
       simpleConsumer = new SimpleConsumer({
         consumerGroup,
         endpoints,
+        namespace: '',
         sessionCredentials,
         subscriptions: new Map().set(topic, tag),
         awaitDuration: 3000,

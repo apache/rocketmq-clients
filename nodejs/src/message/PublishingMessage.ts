@@ -68,7 +68,7 @@ export class PublishingMessage extends Message {
    * This method should be invoked before each message sending, because the born time is reset before each
    * invocation, which means that it should not be invoked ahead of time.
    */
-  toProtobuf(namespace: string | '', mq: MessageQueue) {
+  toProtobuf(namespace: string, mq: MessageQueue) {
     const systemProperties = new SystemProperties()
       .setKeysList(this.keys)
       .setMessageId(this.messageId)

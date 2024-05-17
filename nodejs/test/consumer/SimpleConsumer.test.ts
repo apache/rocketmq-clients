@@ -42,6 +42,7 @@ describe('test/consumer/SimpleConsumer.test.ts', () => {
       if (!sessionCredentials) return;
       simpleConsumer = new SimpleConsumer({
         endpoints,
+        namespace: '',
         sessionCredentials,
         consumerGroup: 'nodejs-unittest-group',
         subscriptions: new Map().set(topics.delay, FilterExpression.SUB_ALL),
@@ -53,6 +54,7 @@ describe('test/consumer/SimpleConsumer.test.ts', () => {
       if (!sessionCredentials) return;
       simpleConsumer = new SimpleConsumer({
         endpoints,
+        namespace: '',
         sessionCredentials: {
           ...sessionCredentials,
           accessKey: 'wrong',
@@ -69,6 +71,7 @@ describe('test/consumer/SimpleConsumer.test.ts', () => {
       if (!sessionCredentials) return;
       simpleConsumer = new SimpleConsumer({
         endpoints,
+        namespace: '',
         sessionCredentials: {
           ...sessionCredentials,
           accessSecret: 'wrong',
@@ -88,11 +91,13 @@ describe('test/consumer/SimpleConsumer.test.ts', () => {
       const tag = `nodejs-unittest-tag-${randomUUID()}`;
       producer = new Producer({
         endpoints,
-        sessionCredentials,
+        namespace: '',
+        sessionCredentials
       });
       await producer.startup();
       simpleConsumer = new SimpleConsumer({
         endpoints,
+        namespace: '',
         sessionCredentials,
         consumerGroup: `nodejs-unittest-group-${randomUUID()}`,
         subscriptions: new Map().set(topic, new FilterExpression(tag)),
