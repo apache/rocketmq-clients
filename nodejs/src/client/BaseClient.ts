@@ -57,6 +57,7 @@ export interface BaseClientOptions {
    * - example.com:8443
    */
   endpoints: string;
+  namespace: string;
   sessionCredentials?: SessionCredentials;
   requestTimeout?: number;
   logger?: ILogger;
@@ -76,6 +77,7 @@ export abstract class BaseClient {
   readonly clientType = ClientType.CLIENT_TYPE_UNSPECIFIED;
   readonly sslEnabled: boolean;
   readonly #sessionCredentials?: SessionCredentials;
+  readonly namespace: string;
   protected readonly endpoints: Endpoints;
   protected readonly isolated = new Map<string, Endpoints>();
   protected readonly requestTimeout: number;
@@ -92,6 +94,7 @@ export abstract class BaseClient {
     this.logger = options.logger ?? getDefaultLogger();
     this.sslEnabled = options.sslEnabled === true;
     this.endpoints = new Endpoints(options.endpoints);
+    this.namespace = options.namespace;
     this.#sessionCredentials = options.sessionCredentials;
     // https://rocketmq.apache.org/docs/introduction/03limits/
     // Default request timeout is 3000ms
@@ -288,6 +291,9 @@ export abstract class BaseClient {
     metadata.set('x-mq-language', 'HTTP');
     // version of client
     metadata.set('x-mq-client-version', UserAgent.INSTANCE.version);
+    if (this.namespace) {
+      metadata.set('x-mq-namespace', this.namespace);
+    }
     if (this.#sessionCredentials) {
       if (this.#sessionCredentials.securityToken) {
         metadata.set('x-mq-session-token', this.#sessionCredentials.securityToken);

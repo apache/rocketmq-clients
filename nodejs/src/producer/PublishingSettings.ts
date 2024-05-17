@@ -35,9 +35,8 @@ export class PublishingSettings extends Settings {
   #maxBodySizeBytes = 4 * 1024 * 1024;
   #validateMessageType = true;
 
-  constructor(clientId: string, accessPoint: Endpoints, retryPolicy: ExponentialBackoffRetryPolicy,
-    requestTimeout: number, topics: Set<string>) {
-    super(clientId, ClientType.PRODUCER, accessPoint, requestTimeout, retryPolicy);
+  constructor(namespace: string, clientId: string, accessPoint: Endpoints, retryPolicy: ExponentialBackoffRetryPolicy, requestTimeout: number, topics: Set<string>) {
+    super(namespace, clientId, ClientType.PRODUCER, accessPoint, requestTimeout, retryPolicy);
     this.#topics = topics;
   }
 
@@ -54,6 +53,7 @@ export class PublishingSettings extends Settings {
       .setValidateMessageType(this.#validateMessageType);
     for (const topic of this.#topics) {
       publishing.addTopics().setName(topic);
+      publishing.addTopics().setResourceNamespace(this.namespace);
     }
     return new SettingsPB()
       .setClientType(this.clientType)
