@@ -69,7 +69,6 @@ export class Producer extends BaseClient {
     this.#publishingSettings = new PublishingSettings(options.namespace, this.clientId, this.endpoints, retryPolicy,
       this.requestTimeout, this.topics);
     this.#checker = options.checker;
-    this.namespace = options.namespace;
   }
 
   get publishingSettings() {
