@@ -4,7 +4,7 @@ This document elaborates the unified workflow of client. The specific implementa
 
 ## Startup
 
-Different from previous clients, the new version adds some preparations during the startup. One benefit of this change is to catch more obvious errors or exceptions earlier. These perparations include:
+Different from previous clients, the new version adds some preparations during the startup. One benefit of this change is to catch more obvious errors or exceptions earlier. These preparations include:
 
 1. Try to fetch route data of topics.
 2. Try to get settings from the server, which could do hot-update about these settings. we call this process **server-client telemetry**.
