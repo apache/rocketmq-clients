@@ -220,6 +220,12 @@ namespace Org.Apache.Rocketmq
             var invocation = await ClientManager.ChangeInvisibleDuration(messageView.MessageQueue.Broker.Endpoints,
                 request, ClientConfig.RequestTimeout);
             StatusChecker.Check(invocation.Response.Status, request, invocation.RequestId);
+            
+            // ReceiptHandle might have been updated after its invisible duration is changed.
+            if (invocation.Response.Status.Code == Proto.Code.Ok)
+            {
+                messageView.ReceiptHandle = invocation.Response.ReceiptHandle;
+            }
         }
 
 

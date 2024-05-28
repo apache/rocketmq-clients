@@ -31,7 +31,7 @@ namespace Org.Apache.Rocketmq
         private static readonly ILogger Logger = MqLogManager.CreateLogger<MessageView>();
 
         internal readonly MessageQueue MessageQueue;
-        internal readonly string ReceiptHandle;
+        internal string ReceiptHandle;
         private readonly long _offset;
         private readonly bool _corrupted;
 
