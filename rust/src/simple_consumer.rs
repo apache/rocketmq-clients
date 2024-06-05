@@ -22,7 +22,6 @@ use mockall_double::double;
 use parking_lot::RwLock;
 use slog::{info, warn, Logger};
 use tokio::select;
-use tokio::sync::RwLock as TokioRwLock;
 use tokio::sync::{mpsc, oneshot};
 
 #[double]
@@ -47,7 +46,7 @@ use crate::{log, pb};
 pub struct SimpleConsumer {
     option: SimpleConsumerOption,
     logger: Logger,
-    client: Arc<TokioRwLock<Client<SimpleConsumerOption>>>,
+    client: Client<SimpleConsumerOption>,
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
 
@@ -81,7 +80,7 @@ impl SimpleConsumer {
         Ok(SimpleConsumer {
             option,
             logger,
-            client: Arc::new(TokioRwLock::new(client)),
+            client,
             shutdown_tx: None,
         })
     }

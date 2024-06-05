@@ -21,6 +21,7 @@ use std::error::Error;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 
+
 /// Error type using by [`ClientError`].
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
 pub enum ErrorKind {
@@ -35,6 +36,9 @@ pub enum ErrorKind {
 
     #[error("Message type not match with topic accept message type")]
     MessageTypeNotMatch,
+
+    #[error("Message queue is invalid")]
+    InvalidMessageQueue,
 
     #[error("Server error")]
     Server,
