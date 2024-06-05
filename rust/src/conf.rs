@@ -393,10 +393,10 @@ impl SettingsAware for PushConsumerOption {
     }
 }
 
-pub(crate) trait RetryPolicy: Send {
-    fn get_max_attempts(&self) -> i32;
-    fn get_next_attempt_delay(&self, attempts: i32) -> Duration;
-    fn clone_self(&self) -> Box<dyn RetryPolicy + Sync>;
+#[derive(Debug, Clone)]
+pub enum BackOffRetryPolicy {
+    Exponential(ExponentialBackOffRetryPolicy),
+    Customized(CustomizedBackOffRetryPolicy),
 }
 
 #[derive(Clone, Debug)]
@@ -426,21 +426,11 @@ impl ExponentialBackOffRetryPolicy {
             multiplier,
         }
     }
-}
 
-impl RetryPolicy for ExponentialBackOffRetryPolicy {
-    fn get_max_attempts(&self) -> i32 {
-        self.max_attempts
-    }
-
-    fn get_next_attempt_delay(&self, attempts: i32) -> Duration {
+    pub(crate) fn get_next_attempt_delay(&self, attempts: i32) -> Duration {
         let delay_nanos = (self.initial.as_nanos() * self.multiplier.powi(attempts - 1) as u128)
             .min(self.max.as_nanos());
         Duration::from_nanos(delay_nanos as u64)
-    }
-
-    fn clone_self(&self) -> Box<dyn RetryPolicy + Sync> {
-        Box::new(self.clone())
     }
 }
 
@@ -461,20 +451,10 @@ impl CustomizedBackOffRetryPolicy {
                 .collect(),
         }
     }
-}
 
-impl RetryPolicy for CustomizedBackOffRetryPolicy {
-    fn get_max_attempts(&self) -> i32 {
-        self.max_attempts
-    }
-
-    fn get_next_attempt_delay(&self, attempts: i32) -> Duration {
+    pub(crate) fn get_next_attempt_delay(&self, attempts: i32) -> Duration {
         let index = attempts.min(self.next_list.len() as i32) - 1;
         self.next_list[index as usize]
-    }
-
-    fn clone_self(&self) -> Box<dyn RetryPolicy + Sync> {
-        Box::new(self.clone())
     }
 }
 

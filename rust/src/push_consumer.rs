@@ -1,7 +1,7 @@
 use crate::client::Client;
 use crate::conf::{
-    ClientOption, CustomizedBackOffRetryPolicy, ExponentialBackOffRetryPolicy, PushConsumerOption,
-    RetryPolicy,
+    BackOffRetryPolicy, ClientOption, CustomizedBackOffRetryPolicy, ExponentialBackOffRetryPolicy,
+    PushConsumerOption,
 };
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::{ClientType, ConsumeResult, FilterExpression, MessageQueue};
@@ -10,8 +10,8 @@ use crate::pb::receive_message_response::Content;
 use crate::pb::settings::PubSub;
 use crate::pb::telemetry_command::Command;
 use crate::pb::{
-    AckMessageRequest, Assignment, ChangeInvisibleDurationRequest, Code, 
-    QueryAssignmentRequest, ReceiveMessageRequest, Resource, 
+    AckMessageRequest, Assignment, ChangeInvisibleDurationRequest, Code, QueryAssignmentRequest,
+    ReceiveMessageRequest, Resource,
 };
 use crate::session::{RPCClient, Session};
 use crate::util::build_endpoints_by_message_queue;
@@ -53,7 +53,7 @@ struct MessageQueueActor {
     option: PushConsumerOption,
     message_listener: Arc<Box<MessageListener>>,
     max_cache_message_count: usize,
-    retry_policy: Box<dyn RetryPolicy>,
+    retry_policy: BackOffRetryPolicy,
 }
 
 impl PushConsumer {
@@ -94,7 +94,7 @@ impl PushConsumer {
         })
     }
 
-    fn get_backoff_policy(command: Command) -> Option<Box<dyn RetryPolicy + Sync>> {
+    fn get_backoff_policy(command: Command) -> Option<BackOffRetryPolicy> {
         if let pb::telemetry_command::Command::Settings(settings) = command {
             let pubsub = settings.pub_sub.or(None)?;
             if let PubSub::Subscription(_) = pubsub {
@@ -102,19 +102,19 @@ impl PushConsumer {
                 let strategy = retry_policy.strategy.or(None)?;
                 return match strategy {
                     pb::retry_policy::Strategy::ExponentialBackoff(strategy) => {
-                        Some(Box::new(
+                        Some(BackOffRetryPolicy::Exponential(
                             ExponentialBackOffRetryPolicy::new(strategy, retry_policy.max_attempts),
                         ))
                     }
                     pb::retry_policy::Strategy::CustomizedBackoff(strategy) => {
-                        Some(Box::new(
+                        Some(BackOffRetryPolicy::Customized(
                             CustomizedBackOffRetryPolicy::new(strategy, retry_policy.max_attempts),
                         ))
                     }
                 };
             }
         }
-        None        
+        None
     }
 
     pub async fn start(&mut self) -> Result<(), ClientError> {
@@ -127,12 +127,19 @@ impl PushConsumer {
         let route_manager = self.client.get_route_manager();
         let topics;
         {
-            topics = option.read().subscription_expressions().keys().cloned().collect();
+            topics = option
+                .read()
+                .subscription_expressions()
+                .keys()
+                .cloned()
+                .collect();
         }
-        route_manager.sync_topic_routes(rpc_client.shadow_session(), topics).await?;
+        route_manager
+            .sync_topic_routes(rpc_client.shadow_session(), topics)
+            .await?;
         let logger = self.logger.clone();
         let mut actor_table: HashMap<MessageQueue, MessageQueueActor> = HashMap::new();
-        
+
         let message_listener = Arc::clone(&self.message_listener);
         // must retrieve settings from server first.
         let command = telemetry_command_rx.recv().await.ok_or(ClientError::new(
@@ -140,11 +147,13 @@ impl PushConsumer {
             "telemtry command channel closed.",
             OPERATION_START_PUSH_CONSUMER,
         ))?;
-        let backoff_policy = Arc::new(Mutex::new(Self::get_backoff_policy(command).ok_or(ClientError::new(
-            ErrorKind::Connect,
-            "backoff policy is required.",
-            OPERATION_NEW_PUSH_CONSUMER,
-        ))?));
+        let backoff_policy = Arc::new(Mutex::new(Self::get_backoff_policy(command).ok_or(
+            ClientError::new(
+                ErrorKind::Connect,
+                "backoff policy is required.",
+                OPERATION_START_PUSH_CONSUMER,
+            ),
+        )?));
 
         tokio::spawn(async move {
             let mut scan_assignments_timer =
@@ -184,7 +193,7 @@ impl PushConsumer {
                                 };
                                 let retry_policy_inner;
                                 {
-                                    retry_policy_inner = retry_policy.lock().clone_self();
+                                    retry_policy_inner = retry_policy.lock().clone();
                                 }
                                 let result = client.query_assignment(request).await;
                                 if let Ok(response) = result {
@@ -231,7 +240,7 @@ impl PushConsumer {
         message_listener: Arc<Box<MessageListener>>,
         actor_table: &mut HashMap<MessageQueue, MessageQueueActor>,
         mut assignments: Vec<Assignment>,
-        retry_policy: Box<dyn RetryPolicy>,
+        retry_policy: BackOffRetryPolicy,
     ) {
         let message_queues: Vec<MessageQueue> = assignments
             .iter_mut()
@@ -261,7 +270,7 @@ impl PushConsumer {
         for mut actor in actors {
             actor.set_max_cache_message_count(max_cache_messages_per_queue);
             actor.set_option(option.clone());
-            actor.set_retry_policy(retry_policy.clone_self());
+            actor.set_retry_policy(retry_policy.clone());
             actor_table.insert(actor.message_queue.clone(), actor);
         }
 
@@ -277,7 +286,7 @@ impl PushConsumer {
                 option.clone(),
                 Arc::clone(&message_listener),
                 max_cache_messages_per_queue,
-                retry_policy.clone_self(),
+                retry_policy.clone(),
             );
             let result = actor.start().await;
             if result.is_ok() {
@@ -309,7 +318,7 @@ impl MessageQueueActor {
         option: PushConsumerOption,
         message_listener: Arc<Box<MessageListener>>,
         max_cache_message_count: usize,
-        retry_policy: Box<dyn RetryPolicy>,
+        retry_policy: BackOffRetryPolicy,
     ) -> Self {
         Self {
             logger,
@@ -332,7 +341,7 @@ impl MessageQueueActor {
         self.option = option;
     }
 
-    pub(crate) fn set_retry_policy(&mut self, retry_policy: Box<dyn RetryPolicy>) {
+    pub(crate) fn set_retry_policy(&mut self, retry_policy: BackOffRetryPolicy) {
         self.retry_policy = retry_policy;
     }
 
@@ -345,7 +354,7 @@ impl MessageQueueActor {
             option: self.option.clone(),
             message_listener: Arc::clone(&self.message_listener),
             max_cache_message_count: self.max_cache_message_count,
-            retry_policy: self.retry_policy.clone_self(),
+            retry_policy: self.retry_policy.clone(),
         }
     }
 
@@ -363,7 +372,10 @@ impl MessageQueueActor {
     }
 
     pub(crate) async fn start(&mut self) -> Result<(), ClientError> {
-        debug!(self.logger, "start a new queue actor {:?}", self.message_queue);
+        debug!(
+            self.logger,
+            "start a new queue actor {:?}", self.message_queue
+        );
         let (tx, mut shutdown_rx) = oneshot::channel();
         self.shutdown_tx = Some(tx);
         let (tx, mut poll_rx) = mpsc::channel(8);
@@ -536,9 +548,14 @@ impl MessageQueueActor {
         &mut self,
         ack_entry: &MessageView,
     ) -> Result<(), ClientError> {
-        let invisible_duration = self
-            .retry_policy
-            .get_next_attempt_delay(ack_entry.delivery_attempt());
+        let invisible_duration = match &self.retry_policy {
+            BackOffRetryPolicy::Customized(policy) => {
+                policy.get_next_attempt_delay(ack_entry.delivery_attempt())
+            }
+            BackOffRetryPolicy::Exponential(policy) => {
+                policy.get_next_attempt_delay(ack_entry.delivery_attempt())
+            }
+        };
         let request = ChangeInvisibleDurationRequest {
             group: Some(self.get_consumer_group()),
             topic: Some(self.message_queue.topic.clone()),
@@ -576,7 +593,5 @@ impl MessageQueueActor {
     }
 }
 
-
 #[cfg(test)]
-mod tests {
-}
+mod tests {}
