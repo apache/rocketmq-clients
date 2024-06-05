@@ -21,7 +21,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::model::common::{ClientType, FilterExpression};
-use crate::pb::TelemetryCommand;
+use crate::pb::{self, TelemetryCommand};
 #[allow(unused_imports)]
 use crate::producer::Producer;
 #[allow(unused_imports)]
@@ -115,6 +115,14 @@ impl ClientOption {
     /// Set the secret key
     pub fn set_secret_key(&mut self, secret_key: impl Into<String>) {
         self.secret_key = Some(secret_key.into());
+    }
+
+    pub fn get_namespace(&self) -> &str {
+        &self.namespace
+    }
+    /// Set the namespace
+    pub fn set_namespace(&mut self, namespace: impl Into<String>) {
+        self.namespace = namespace.into();
     }
 }
 
@@ -290,6 +298,24 @@ pub struct PushConsumerOption {
     long_polling_timeout: Duration,
     subscription_expressions: HashMap<String, FilterExpression>,
     fifo: bool,
+    batch_size: i32,
+    max_cache_message_count: i32,
+}
+
+impl Default for PushConsumerOption {
+    fn default() -> Self {
+        Self {
+            logging_format: LoggingFormat::Terminal,
+            consumer_group: "".to_string(),
+            namespace: "".to_string(),
+            timeout: Duration::from_secs(3),
+            long_polling_timeout: Duration::from_secs(40),
+            subscription_expressions: HashMap::new(),
+            fifo: false,
+            batch_size: 32,
+            max_cache_message_count: 1024,
+        }
+    }
 }
 
 impl PushConsumerOption {
@@ -299,6 +325,10 @@ impl PushConsumerOption {
 
     pub fn consumer_group(&self) -> &str {
         &self.consumer_group
+    }
+
+    pub fn set_consumer_group(&mut self, consumer_group: impl Into<String>) {
+        self.consumer_group = consumer_group.into();
     }
 
     pub fn namespace(&self) -> &str {
@@ -313,12 +343,31 @@ impl PushConsumerOption {
         &self.subscription_expressions
     }
 
+    pub fn set_subscription_expressions(
+        &mut self,
+        subscription_expressions: HashMap<String, FilterExpression>,
+    ) {
+        self.subscription_expressions = subscription_expressions;
+    }
+
     pub fn fifo(&self) -> bool {
         self.fifo
     }
 
     pub fn logging_format(&self) -> &LoggingFormat {
         &self.logging_format
+    }
+
+    pub fn set_logging_format(&mut self, logging_format: LoggingFormat) {
+        self.logging_format = logging_format;
+    }
+
+    pub fn batch_size(&self) -> i32 {
+        self.batch_size
+    }
+
+    pub fn max_cache_message_count(&self) -> i32 {
+        self.max_cache_message_count
     }
 }
 
@@ -341,6 +390,91 @@ impl SettingsAware for SimpleConsumerOption {
 impl SettingsAware for PushConsumerOption {
     fn build_telemetry_command(&self) -> TelemetryCommand {
         build_push_consumer_settings(self)
+    }
+}
+
+pub(crate) trait RetryPolicy: Send {
+    fn get_max_attempts(&self) -> i32;
+    fn get_next_attempt_delay(&self, attempts: i32) -> Duration;
+    fn clone_self(&self) -> Box<dyn RetryPolicy + Sync>;
+}
+
+#[derive(Clone, Debug)]
+pub struct ExponentialBackOffRetryPolicy {
+    initial: Duration,
+    max: Duration,
+    multiplier: f32,
+    max_attempts: i32,
+}
+
+impl ExponentialBackOffRetryPolicy {
+    pub fn new(
+        strategy: pb::ExponentialBackoff,
+        max_attempts: i32,
+    ) -> ExponentialBackOffRetryPolicy {
+        let initial = strategy.initial.map_or(Duration::ZERO, |d| {
+            Duration::new(d.seconds as u64, d.nanos as u32)
+        });
+        let max = strategy.max.map_or(Duration::ZERO, |d| {
+            Duration::new(d.seconds as u64, d.nanos as u32)
+        });
+        let multiplier = strategy.multiplier;
+        ExponentialBackOffRetryPolicy {
+            initial,
+            max,
+            max_attempts,
+            multiplier,
+        }
+    }
+}
+
+impl RetryPolicy for ExponentialBackOffRetryPolicy {
+    fn get_max_attempts(&self) -> i32 {
+        self.max_attempts
+    }
+
+    fn get_next_attempt_delay(&self, attempts: i32) -> Duration {
+        let delay_nanos = (self.initial.as_nanos() * self.multiplier.powi(attempts - 1) as u128)
+            .min(self.max.as_nanos());
+        Duration::from_nanos(delay_nanos as u64)
+    }
+
+    fn clone_self(&self) -> Box<dyn RetryPolicy + Sync> {
+        Box::new(self.clone())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct CustomizedBackOffRetryPolicy {
+    max_attempts: i32,
+    next_list: Vec<Duration>,
+}
+
+impl CustomizedBackOffRetryPolicy {
+    pub fn new(strategy: pb::CustomizedBackoff, max_attempts: i32) -> CustomizedBackOffRetryPolicy {
+        CustomizedBackOffRetryPolicy {
+            max_attempts,
+            next_list: strategy
+                .next
+                .iter()
+                .map(|d| Duration::new(d.seconds as u64, d.nanos as u32))
+                .collect(),
+        }
+    }
+}
+
+impl RetryPolicy for CustomizedBackOffRetryPolicy {
+    fn get_max_attempts(&self) -> i32 {
+        self.max_attempts
+    }
+
+    fn get_next_attempt_delay(&self, attempts: i32) -> Duration {
+        let index = attempts.min(self.next_list.len() as i32) - 1;
+        self.next_list[index as usize]
+    }
+
+    fn clone_self(&self) -> Box<dyn RetryPolicy + Sync> {
+        Box::new(self.clone())
     }
 }
 

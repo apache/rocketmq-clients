@@ -17,6 +17,7 @@
 
 //! Common data model of RocketMQ rust client.
 
+use std::hash::Hash;
 use std::net::IpAddr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
@@ -24,8 +25,8 @@ use std::sync::Arc;
 use tokio::sync::oneshot;
 
 use crate::error::{ClientError, ErrorKind};
-use crate::pb;
-use crate::pb::{Address, AddressScheme, MessageQueue};
+use crate::pb::{self, Broker, Resource};
+use crate::pb::{Address, AddressScheme};
 
 #[derive(Debug, Clone)]
 pub(crate) enum ClientType {
@@ -40,7 +41,7 @@ pub(crate) enum ClientType {
 #[derive(Debug)]
 pub(crate) struct Route {
     pub(crate) index: AtomicUsize,
-    pub queue: Vec<MessageQueue>,
+    pub queue: Vec<pb::MessageQueue>,
 }
 
 type InflightRequest = Option<Vec<oneshot::Sender<Result<Arc<Route>, ClientError>>>>;
@@ -261,6 +262,65 @@ impl SendReceipt {
 pub enum ConsumeResult {
     SUCCESS,
     FAILURE,
+}
+
+impl Eq for Resource {}
+
+impl Hash for Resource {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.resource_namespace.hash(state);
+    }
+}
+
+impl Eq for Broker {}
+
+impl Hash for Broker {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct MessageQueue {
+    pub(crate) id: i32,
+    pub(crate) topic: Resource,
+    pub(crate) broker: Broker,
+    pub(crate) accept_message_types: Vec<i32>,
+    pub(crate) permission: i32,
+}
+
+impl MessageQueue {
+    pub(crate) fn from_pb_message_queue(
+        message_queue: pb::MessageQueue,
+    ) -> Result<Self, ClientError> {
+        if let Some(broker) = message_queue.broker {
+            if let Some(topic) = message_queue.topic {
+                return Ok(Self {
+                    id: message_queue.id,
+                    topic,
+                    broker,
+                    accept_message_types: message_queue.accept_message_types,
+                    permission: message_queue.permission,
+                });
+            }
+        }
+        Err(ClientError::new(
+            ErrorKind::InvalidMessageQueue,
+            "message queue is not valid.",
+            "",
+        ))
+    }
+
+    pub(crate) fn to_pb_message_queue(&self) -> pb::MessageQueue {
+        pb::MessageQueue {
+            id: self.id,
+            topic: Some(self.topic.clone()),
+            broker: Some(self.broker.clone()),
+            accept_message_types: self.accept_message_types.clone(),
+            permission: self.permission,
+        }
+    }
 }
 
 #[cfg(test)]
