@@ -21,14 +21,11 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::model::common::{ClientType, FilterExpression};
-use crate::pb::{self, TelemetryCommand};
+use crate::pb::{self};
 #[allow(unused_imports)]
 use crate::producer::Producer;
 #[allow(unused_imports)]
 use crate::simple_consumer::SimpleConsumer;
-use crate::util::{
-    build_producer_settings, build_push_consumer_settings, build_simple_consumer_settings,
-};
 
 /// [`ClientOption`] is the configuration of internal client, which manages the connection and request with RocketMQ proxy.
 #[derive(Debug, Clone)]
@@ -368,28 +365,6 @@ impl PushConsumerOption {
 
     pub fn max_cache_message_count(&self) -> i32 {
         self.max_cache_message_count
-    }
-}
-
-pub trait SettingsAware {
-    fn build_telemetry_command(&self) -> TelemetryCommand;
-}
-
-impl SettingsAware for ProducerOption {
-    fn build_telemetry_command(&self) -> TelemetryCommand {
-        build_producer_settings(self)
-    }
-}
-
-impl SettingsAware for SimpleConsumerOption {
-    fn build_telemetry_command(&self) -> TelemetryCommand {
-        build_simple_consumer_settings(self)
-    }
-}
-
-impl SettingsAware for PushConsumerOption {
-    fn build_telemetry_command(&self) -> TelemetryCommand {
-        build_push_consumer_settings(self)
     }
 }
 

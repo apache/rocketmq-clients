@@ -10,11 +10,11 @@ use crate::pb::receive_message_response::Content;
 use crate::pb::settings::PubSub;
 use crate::pb::telemetry_command::Command;
 use crate::pb::{
-    AckMessageRequest, Assignment, ChangeInvisibleDurationRequest, Code, QueryAssignmentRequest,
+    AckMessageRequest, Assignment, ChangeInvisibleDurationRequest, QueryAssignmentRequest,
     ReceiveMessageRequest, Resource,
 };
 use crate::session::{RPCClient, Session};
-use crate::util::build_endpoints_by_message_queue;
+use crate::util::{build_endpoints_by_message_queue, build_push_consumer_settings};
 use crate::{log, pb};
 use parking_lot::{Mutex, RwLock};
 use prost_types::Duration;
@@ -35,7 +35,7 @@ pub type MessageListener = dyn Fn(&MessageView) -> ConsumeResult + Send + Sync;
 
 pub struct PushConsumer {
     logger: Logger,
-    client: Client<PushConsumerOption>,
+    client: Client,
     message_listener: Arc<Box<MessageListener>>,
     option: Arc<RwLock<PushConsumerOption>>,
     shutdown_tx: Option<oneshot::Sender<()>>,
@@ -82,14 +82,16 @@ impl PushConsumer {
             ..client_option
         };
         let logger = log::logger(option.logging_format());
-        let option = Arc::new(RwLock::new(option));
-        let client =
-            Client::<PushConsumerOption>::new(&logger, client_option, Arc::clone(&option))?;
+        let client = Client::new(
+            &logger,
+            client_option,
+            build_push_consumer_settings(&option),
+        )?;
         Ok(Self {
             logger,
             client,
             message_listener: Arc::new(message_listener),
-            option,
+            option: Arc::new(RwLock::new(option)),
             shutdown_tx: None,
         })
     }
@@ -197,8 +199,7 @@ impl PushConsumer {
                                 }
                                 let result = client.query_assignment(request).await;
                                 if let Ok(response) = result {
-                                    if let Some(status) = response.status {
-                                        if status.code == Code::Ok as i32 {
+                                    if Client::handle_response_status(response.status, OPERATION_START_PUSH_CONSUMER).is_ok() {
                                             Self::process_assignments(logger.clone(),
                                                 rpc_client.shadow_session(),
                                                 &consumer_option,
@@ -207,9 +208,6 @@ impl PushConsumer {
                                                 response.assignments,
                                                 retry_policy_inner,
                                             ).await;
-                                        } else {
-                                            error!(logger, "query assignment failed: error status {:?}", status);
-                                        }
                                     } else {
                                         error!(logger, "query assignment failed, no status in response.");
                                     }
@@ -526,22 +524,7 @@ impl MessageQueueActor {
             }],
         };
         let response = self.rpc_client.ack_message(request).await?;
-        let status = response.status.ok_or(ClientError::new(
-            ErrorKind::Server,
-            "no status in response.",
-            OPERATION_ACK_MESSAGE,
-        ))?;
-        if status.code != Code::Ok as i32 {
-            return Err(ClientError::new(
-                ErrorKind::Server,
-                "server return an error",
-                OPERATION_ACK_MESSAGE,
-            )
-            .with_context("code", format!("{}", status.code))
-            .with_context("message", status.message));
-        }
-
-        Ok(())
+        Client::handle_response_status(response.status, OPERATION_ACK_MESSAGE)
     }
 
     async fn change_invisible_duration(
@@ -567,21 +550,7 @@ impl MessageQueueActor {
             }),
         };
         let response = self.rpc_client.change_invisible_duration(request).await?;
-        let status = response.status.ok_or(ClientError::new(
-            ErrorKind::Server,
-            "no status in response.",
-            OPERATION_CHANGE_INVISIBLE_DURATION,
-        ))?;
-        if status.code != Code::Ok as i32 {
-            return Err(ClientError::new(
-                ErrorKind::Server,
-                "server return an error",
-                OPERATION_CHANGE_INVISIBLE_DURATION,
-            )
-            .with_context("code", format!("{}", status.code))
-            .with_context("message", status.message));
-        }
-        Ok(())
+        Client::handle_response_status(response.status, OPERATION_CHANGE_INVISIBLE_DURATION)
     }
 
     pub(crate) async fn shutdown(mut self) -> Result<(), ClientError> {

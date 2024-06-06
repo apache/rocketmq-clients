@@ -23,14 +23,13 @@ use mockall::automock;
 use mockall_double::double;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
-use parking_lot::RwLock;
 use prost_types::Duration;
 use slog::{debug, error, info, o, warn, Logger};
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
 
-use crate::conf::{ClientOption, SettingsAware};
+use crate::conf::ClientOption;
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::{ClientType, Endpoints, Route, RouteStatus, SendReceipt};
 use crate::model::message::AckMessageEntry;
@@ -47,14 +46,15 @@ use crate::session::SessionManager;
 use crate::session::{RPCClient, Session};
 use crate::util::select_message_queue;
 
-pub(crate) struct Client<S> {
+#[derive(Debug)]
+pub(crate) struct Client {
     logger: Logger,
     option: ClientOption,
     session_manager: Arc<SessionManager>,
     route_manager: TopicRouteManager,
     id: String,
     access_endpoints: Endpoints,
-    settings: Arc<RwLock<S>>,
+    settings: TelemetryCommand,
     telemetry_command_tx: Option<mpsc::Sender<pb::telemetry_command::Command>>,
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
@@ -79,28 +79,12 @@ const OPERATION_SEND_MESSAGE: &str = "client.send_message";
 const OPERATION_RECEIVE_MESSAGE: &str = "client.receive_message";
 const OPERATION_ACK_MESSAGE: &str = "client.ack_message";
 
-impl<S> Debug for Client<S>
-where
-    S: SettingsAware + 'static,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Client")
-            .field("id", &self.id)
-            .field("access_endpoints", &self.access_endpoints)
-            .field("option", &self.option)
-            .finish()
-    }
-}
-
 #[automock]
-impl<S> Client<S>
-where
-    S: SettingsAware + 'static + Send + Sync,
-{
+impl Client {
     pub(crate) fn new(
         logger: &Logger,
         option: ClientOption,
-        settings: Arc<RwLock<S>>,
+        settings: TelemetryCommand,
     ) -> Result<Self, ClientError> {
         let id = Self::generate_client_id();
         let endpoints = Endpoints::from_url(option.access_url())
@@ -160,7 +144,7 @@ where
 
         let route_manager = self.route_manager.clone();
 
-        let settings = Arc::clone(&self.settings);
+        let settings = self.settings.clone();
         tokio::spawn(async move {
             rpc_client.is_started();
             let seconds_30 = std::time::Duration::from_secs(30);
@@ -193,7 +177,7 @@ where
                                 continue;
                             }
                             let result =
-                                handle_response_status(response.unwrap().status, OPERATION_HEARTBEAT);
+                                Self::handle_response_status(response.unwrap().status, OPERATION_HEARTBEAT);
                             if result.is_err() {
                                 error!(
                                     logger,
@@ -212,12 +196,8 @@ where
                             continue;
                         }
                         for mut session in sessions.unwrap() {
-                            let command;
-                            {
-                                command = settings.read().build_telemetry_command();
-                            }
                             let peer = session.peer().to_string();
-                            let result = session.update_settings(command).await;
+                            let result = session.update_settings(settings.clone()).await;
                             if result.is_err() {
                                 error!(logger, "sync settings failed: failed to call rpc: {}", result.unwrap_err());
                                 continue;
@@ -267,7 +247,7 @@ where
             resource_namespace: self.option.namespace.to_string(),
         });
         let response = rpc_client.notify_shutdown(NotifyClientTerminationRequest { group });
-        handle_response_status(response.await?.status, OPERATION_CLIENT_SHUTDOWN)?;
+        Self::handle_response_status(response.await?.status, OPERATION_CLIENT_SHUTDOWN)?;
         self.session_manager.shutdown().await;
         Ok(())
     }
@@ -295,17 +275,13 @@ where
         )
     }
 
-    fn build_telemetry_command(&self) -> TelemetryCommand {
-        self.settings.read().build_telemetry_command()
-    }
-
     pub(crate) async fn get_session(&self) -> Result<Session, ClientError> {
         self.check_started(OPERATION_GET_SESSION)?;
         let session = self
             .session_manager
             .get_or_create_session(
                 &self.access_endpoints,
-                self.build_telemetry_command(),
+                self.settings.clone(),
                 self.telemetry_command_tx.clone().unwrap(),
             )
             .await?;
@@ -320,7 +296,7 @@ where
             .session_manager
             .get_or_create_session(
                 endpoints,
-                self.build_telemetry_command(),
+                self.settings.clone(),
                 self.telemetry_command_tx.clone().unwrap(),
             )
             .await?;
@@ -384,7 +360,7 @@ where
     ) -> Result<Vec<SendReceipt>, ClientError> {
         let request = SendMessageRequest { messages };
         let response = rpc_client.send_message(request).await?;
-        handle_response_status(response.status, OPERATION_SEND_MESSAGE)?;
+        Self::handle_response_status(response.status, OPERATION_SEND_MESSAGE)?;
 
         Ok(response
             .entries
@@ -442,7 +418,7 @@ where
                     if status.code() == Code::MessageNotFound {
                         return Ok(vec![]);
                     }
-                    handle_response_status(Some(status), OPERATION_RECEIVE_MESSAGE)?;
+                    Self::handle_response_status(Some(status), OPERATION_RECEIVE_MESSAGE)?;
                 }
                 Content::Message(message) => {
                     messages.push(message);
@@ -490,7 +466,7 @@ where
             entries,
         };
         let response = rpc_client.ack_message(request).await?;
-        handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
+        Self::handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
         Ok(response.entries)
     }
 
@@ -535,8 +511,28 @@ where
             message_id,
         };
         let response = rpc_client.change_invisible_duration(request).await?;
-        handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
+        Self::handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
         Ok(response.receipt_handle)
+    }
+
+    pub fn handle_response_status(
+        status: Option<Status>,
+        operation: &'static str,
+    ) -> Result<(), ClientError> {
+        let status = status.ok_or(ClientError::new(
+            ErrorKind::Server,
+            "server do not return status, this may be a bug",
+            operation,
+        ))?;
+
+        if status.code != Code::Ok as i32 {
+            return Err(
+                ClientError::new(ErrorKind::Server, "server return an error", operation)
+                    .with_context("code", format!("{}", status.code))
+                    .with_context("message", status.message),
+            );
+        }
+        Ok(())
     }
 }
 
@@ -554,10 +550,15 @@ impl TopicRouteManager {
         Ok(())
     }
 
-    pub(crate) async fn sync_topic_routes(&self, rpc_client: Session, topics: Vec<String>) -> Result<(), ClientError> {
+    pub(crate) async fn sync_topic_routes(
+        &self,
+        rpc_client: Session,
+        topics: Vec<String>,
+    ) -> Result<(), ClientError> {
         debug!(self.logger, "sync topic route of topics {:?}.", topics);
         for topic in topics {
-            self.topic_route_inner(rpc_client.shadow_session(), topic.as_str()).await?;
+            self.topic_route_inner(rpc_client.shadow_session(), topic.as_str())
+                .await?;
         }
         Ok(())
     }
@@ -678,7 +679,7 @@ impl TopicRouteManager {
         };
 
         let response = rpc_client.query_route(request).await?;
-        handle_response_status(response.status, OPERATION_QUERY_ROUTE)?;
+        Client::handle_response_status(response.status, OPERATION_QUERY_ROUTE)?;
 
         let route = Route {
             index: AtomicUsize::new(0),
@@ -712,26 +713,6 @@ impl TopicRouteManager {
     }
 }
 
-pub fn handle_response_status(
-    status: Option<Status>,
-    operation: &'static str,
-) -> Result<(), ClientError> {
-    let status = status.ok_or(ClientError::new(
-        ErrorKind::Server,
-        "server do not return status, this may be a bug",
-        operation,
-    ))?;
-
-    if status.code != Code::Ok as i32 {
-        return Err(
-            ClientError::new(ErrorKind::Server, "server return an error", operation)
-                .with_context("code", format!("{}", status.code))
-                .with_context("message", status.message),
-        );
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 pub(crate) mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -758,15 +739,6 @@ pub(crate) mod tests {
     // The lock is used to prevent the mocking static function at same time during parallel testing.
     pub(crate) static MTX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
-    #[derive(Default)]
-    struct MockSettings {}
-
-    impl SettingsAware for MockSettings {
-        fn build_telemetry_command(&self) -> TelemetryCommand {
-            TelemetryCommand::default()
-        }
-    }
-
     fn new_route_manager_for_test() -> TopicRouteManager {
         TopicRouteManager {
             logger: terminal_logger(),
@@ -776,7 +748,7 @@ pub(crate) mod tests {
         }
     }
 
-    fn new_client_for_test() -> Client<MockSettings> {
+    fn new_client_for_test() -> Client {
         Client {
             logger: terminal_logger(),
             option: ClientOption {
@@ -785,24 +757,24 @@ pub(crate) mod tests {
             },
             session_manager: Arc::new(SessionManager::default()),
             route_manager: new_route_manager_for_test(),
-            id: Client::<MockSettings>::generate_client_id(),
+            id: Client::generate_client_id(),
             access_endpoints: Endpoints::from_url("http://localhost:8081").unwrap(),
-            settings: Arc::new(RwLock::new(MockSettings::default())),
+            settings: TelemetryCommand::default(),
             telemetry_command_tx: None,
             shutdown_tx: None,
         }
     }
 
-    fn new_client_with_session_manager(session_manager: SessionManager) -> Client<MockSettings> {
+    fn new_client_with_session_manager(session_manager: SessionManager) -> Client {
         let (tx, _) = mpsc::channel(16);
         Client {
             logger: terminal_logger(),
             option: ClientOption::default(),
             session_manager: Arc::new(session_manager),
             route_manager: new_route_manager_for_test(),
-            id: Client::<MockSettings>::generate_client_id(),
+            id: Client::generate_client_id(),
             access_endpoints: Endpoints::from_url("http://localhost:8081").unwrap(),
-            settings: Arc::new(RwLock::new(MockSettings::default())),
+            settings: TelemetryCommand::default(),
             telemetry_command_tx: Some(tx),
             shutdown_tx: None,
         }
@@ -823,7 +795,7 @@ pub(crate) mod tests {
         Client::new(
             &terminal_logger(),
             ClientOption::default(),
-            Arc::new(RwLock::new(MockSettings::default())),
+            TelemetryCommand::default(),
         )?;
         Ok(())
     }
@@ -868,7 +840,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_handle_response_status() {
-        let result = handle_response_status(None, "test");
+        let result = Client::handle_response_status(None, "test");
         assert!(result.is_err(), "should return error when status is None");
         let result = result.unwrap_err();
         assert_eq!(result.kind, ErrorKind::Server);
@@ -878,7 +850,7 @@ pub(crate) mod tests {
         );
         assert_eq!(result.operation, "test");
 
-        let result = handle_response_status(
+        let result = Client::handle_response_status(
             Some(Status {
                 code: Code::BadRequest as i32,
                 message: "test failed".to_string(),
@@ -901,7 +873,7 @@ pub(crate) mod tests {
             ]
         );
 
-        let result = handle_response_status(
+        let result = Client::handle_response_status(
             Some(Status {
                 code: Code::Ok as i32,
                 message: "test success".to_string(),
@@ -1127,13 +1099,9 @@ pub(crate) mod tests {
         mock.expect_heartbeat()
             .return_once(|_| Box::pin(futures::future::ready(response)));
 
-        let send_result = Client::<MockSettings>::heart_beat_inner(
-            mock,
-            &Some("group".to_string()),
-            "",
-            &ClientType::Producer,
-        )
-        .await;
+        let send_result =
+            Client::heart_beat_inner(mock, &Some("group".to_string()), "", &ClientType::Producer)
+                .await;
         assert!(send_result.is_ok());
     }
 
