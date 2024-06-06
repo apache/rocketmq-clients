@@ -26,7 +26,6 @@ use slog::{error, info, warn, Logger};
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
-use crate::client::handle_response_status;
 #[double]
 use crate::client::Client;
 use crate::conf::{ClientOption, ProducerOption};
@@ -41,8 +40,8 @@ use crate::pb::telemetry_command::Command::{RecoverOrphanedTransactionCommand, S
 use crate::pb::{Encoding, EndTransactionRequest, Resource, SystemProperties, TransactionSource};
 use crate::session::RPCClient;
 use crate::util::{
-    build_endpoints_by_message_queue, select_message_queue, select_message_queue_by_message_group,
-    HOST_NAME,
+    build_endpoints_by_message_queue, build_producer_settings, select_message_queue,
+    select_message_queue_by_message_group, HOST_NAME,
 };
 use crate::{log, pb};
 
@@ -55,7 +54,7 @@ use crate::{log, pb};
 pub struct Producer {
     option: Arc<RwLock<ProducerOption>>,
     logger: Logger,
-    client: Client<ProducerOption>,
+    client: Client,
     transaction_checker: Option<Box<TransactionChecker>>,
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
@@ -86,10 +85,9 @@ impl Producer {
             ..client_option
         };
         let logger = log::logger(option.logging_format());
-        let option = Arc::new(RwLock::new(option));
-        let client = Client::new(&logger, client_option, Arc::clone(&option))?;
+        let client = Client::new(&logger, client_option, build_producer_settings(&option))?;
         Ok(Producer {
-            option,
+            option: Arc::new(RwLock::new(option)),
             logger,
             client,
             transaction_checker: None,
@@ -115,10 +113,9 @@ impl Producer {
             ..client_option
         };
         let logger = log::logger(option.logging_format());
-        let option = Arc::new(RwLock::new(option));
-        let client = Client::<ProducerOption>::new(&logger, client_option, Arc::clone(&option))?;
+        let client = Client::new(&logger, client_option, build_producer_settings(&option))?;
         Ok(Producer {
-            option,
+            option: Arc::new(RwLock::new(option)),
             logger,
             client,
             transaction_checker: Some(transaction_checker),
@@ -249,7 +246,7 @@ impl Producer {
                     trace_context: "".to_string(),
                 })
                 .await?;
-            handle_response_status(response.status, Self::OPERATION_END_TRANSACTION)
+            Client::handle_response_status(response.status, Self::OPERATION_END_TRANSACTION)
         } else {
             Err(ClientError::new(
                 ErrorKind::Config,
@@ -471,7 +468,6 @@ impl Producer {
 mod tests {
     use std::sync::Arc;
 
-    use crate::client::MockClient;
     use crate::error::ErrorKind;
     use crate::log::terminal_logger;
     use crate::model::common::Route;
@@ -479,6 +475,7 @@ mod tests {
     use crate::model::transaction::TransactionResolution;
     use crate::pb::{Broker, Code, EndTransactionResponse, MessageQueue, Status};
     use crate::session::{self, Session};
+    use crate::client::MockClient;
 
     use super::*;
 
@@ -506,7 +503,7 @@ mod tests {
     async fn producer_start() -> Result<(), ClientError> {
         let _m = crate::client::tests::MTX.lock();
 
-        let ctx = Client::<ProducerOption>::new_context();
+        let ctx = Client::new_context();
         ctx.expect().return_once(|_, _, _| {
             let mut client = Client::default();
             client.expect_topic_route().returning(|_, _| {
@@ -539,7 +536,7 @@ mod tests {
     async fn transaction_producer_start() -> Result<(), ClientError> {
         let _m = crate::client::tests::MTX.lock();
 
-        let ctx = Client::<ProducerOption>::new_context();
+        let ctx = Client::new_context();
         ctx.expect().return_once(|_, _, _| {
             let mut client = Client::default();
             client.expect_topic_route().returning(|_, _| {
@@ -779,6 +776,8 @@ mod tests {
         let mut mock = session::MockRPCClient::new();
         mock.expect_end_transaction()
             .return_once(|_| Box::pin(futures::future::ready(response)));
+        let context = MockClient::handle_response_status_context();
+        context.expect().return_once(|_, _| Result::Ok(()));
 
         let result = Producer::handle_recover_orphaned_transaction_command(
             mock,
