@@ -21,7 +21,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::model::common::{ClientType, FilterExpression};
-use crate::pb::{self};
+use crate::pb;
 #[allow(unused_imports)]
 use crate::producer::Producer;
 #[allow(unused_imports)]
@@ -296,7 +296,7 @@ pub struct PushConsumerOption {
     subscription_expressions: HashMap<String, FilterExpression>,
     fifo: bool,
     batch_size: i32,
-    max_cache_message_count: i32,
+    max_cache_message_count: usize,
 }
 
 impl Default for PushConsumerOption {
@@ -340,11 +340,9 @@ impl PushConsumerOption {
         &self.subscription_expressions
     }
 
-    pub fn set_subscription_expressions(
-        &mut self,
-        subscription_expressions: HashMap<String, FilterExpression>,
-    ) {
-        self.subscription_expressions = subscription_expressions;
+    pub fn subscribe(&mut self, topic: impl Into<String>, filter_expression: FilterExpression) {
+        self.subscription_expressions
+            .insert(topic.into(), filter_expression);
     }
 
     pub fn fifo(&self) -> bool {
@@ -363,7 +361,11 @@ impl PushConsumerOption {
         self.batch_size
     }
 
-    pub fn max_cache_message_count(&self) -> i32 {
+    pub fn set_max_cache_message_count(&mut self, max_cache_message_count: usize) {
+        self.max_cache_message_count = max_cache_message_count;
+    }
+
+    pub fn max_cache_message_count(&self) -> usize {
         self.max_cache_message_count
     }
 }
@@ -379,14 +381,10 @@ pub struct ExponentialBackOffRetryPolicy {
     initial: Duration,
     max: Duration,
     multiplier: f32,
-    max_attempts: i32,
 }
 
 impl ExponentialBackOffRetryPolicy {
-    pub fn new(
-        strategy: pb::ExponentialBackoff,
-        max_attempts: i32,
-    ) -> ExponentialBackOffRetryPolicy {
+    pub fn new(strategy: pb::ExponentialBackoff) -> ExponentialBackOffRetryPolicy {
         let initial = strategy.initial.map_or(Duration::ZERO, |d| {
             Duration::new(d.seconds as u64, d.nanos as u32)
         });
@@ -397,7 +395,6 @@ impl ExponentialBackOffRetryPolicy {
         ExponentialBackOffRetryPolicy {
             initial,
             max,
-            max_attempts,
             multiplier,
         }
     }
@@ -409,16 +406,24 @@ impl ExponentialBackOffRetryPolicy {
     }
 }
 
+impl Default for ExponentialBackOffRetryPolicy {
+    fn default() -> Self {
+        Self {
+            initial: Duration::ZERO,
+            max: Duration::ZERO,
+            multiplier: 1.0,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct CustomizedBackOffRetryPolicy {
-    max_attempts: i32,
     next_list: Vec<Duration>,
 }
 
 impl CustomizedBackOffRetryPolicy {
-    pub fn new(strategy: pb::CustomizedBackoff, max_attempts: i32) -> CustomizedBackOffRetryPolicy {
+    pub fn new(strategy: pb::CustomizedBackoff) -> CustomizedBackOffRetryPolicy {
         CustomizedBackOffRetryPolicy {
-            max_attempts,
             next_list: strategy
                 .next
                 .iter()
@@ -435,6 +440,10 @@ impl CustomizedBackOffRetryPolicy {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
+    use crate::model::common::FilterType;
+
     use super::*;
 
     #[test]
@@ -459,5 +468,45 @@ mod tests {
         let option = SimpleConsumerOption::default();
         assert_eq!(option.logging_format(), &LoggingFormat::Terminal);
         assert!(option.prefetch_route());
+    }
+
+    #[test]
+    fn conf_push_consumer_option() {
+        let mut option = PushConsumerOption::default();
+        option.subscribe("topic", FilterExpression::new(FilterType::Tag, "*"));
+        assert!(option.subscription_expressions().contains_key("topic"));
+    }
+
+    #[test]
+    fn test_exponential_backoff() {
+        let policy = ExponentialBackOffRetryPolicy::new(pb::ExponentialBackoff {
+            initial: Some(prost_types::Duration::from_str("1s").unwrap()),
+            max: Some(prost_types::Duration::from_str("60s").unwrap()),
+            multiplier: 2.0,
+        });
+        assert_eq!(Duration::from_secs(1), policy.get_next_attempt_delay(1));
+        assert_eq!(Duration::from_secs(2), policy.get_next_attempt_delay(2));
+        assert_eq!(Duration::from_secs(4), policy.get_next_attempt_delay(3));
+        assert_eq!(Duration::from_secs(8), policy.get_next_attempt_delay(4));
+        assert_eq!(Duration::from_secs(16), policy.get_next_attempt_delay(5));
+        assert_eq!(Duration::from_secs(32), policy.get_next_attempt_delay(6));
+        assert_eq!(Duration::from_secs(60), policy.get_next_attempt_delay(7));
+        assert_eq!(Duration::from_secs(60), policy.get_next_attempt_delay(8));
+    }
+
+    #[test]
+    fn test_customized_backoff() {
+        let next: Vec<prost_types::Duration> = vec![
+            prost_types::Duration::from_str("1s").unwrap(),
+            prost_types::Duration::from_str("10s").unwrap(),
+            prost_types::Duration::from_str("20s").unwrap(),
+            prost_types::Duration::from_str("30s").unwrap(),
+        ];
+        let policy = CustomizedBackOffRetryPolicy::new(pb::CustomizedBackoff { next });
+        assert_eq!(Duration::from_secs(1), policy.get_next_attempt_delay(1));
+        assert_eq!(Duration::from_secs(10), policy.get_next_attempt_delay(2));
+        assert_eq!(Duration::from_secs(20), policy.get_next_attempt_delay(3));
+        assert_eq!(Duration::from_secs(30), policy.get_next_attempt_delay(4));
+        assert_eq!(Duration::from_secs(30), policy.get_next_attempt_delay(5));
     }
 }

@@ -109,6 +109,11 @@ pub(crate) struct Session {
 }
 
 impl Session {
+    const OPERATION_CREATE: &'static str = "session.create_session";
+
+    const HTTP_SCHEMA: &'static str = "http";
+    const HTTPS_SCHEMA: &'static str = "https";
+
     pub(crate) fn shadow_session(&self) -> Self {
         Session {
             logger: self.logger.clone(),
@@ -120,14 +125,6 @@ impl Session {
             shutdown_tx: None,
         }
     }
-}
-
-impl Session {
-    const OPERATION_CREATE: &'static str = "session.create_session";
-
-    const HTTP_SCHEMA: &'static str = "http";
-    const HTTPS_SCHEMA: &'static str = "https";
-
     #[cfg(test)]
     pub(crate) fn mock() -> Self {
         use crate::log::terminal_logger;
@@ -236,7 +233,7 @@ impl Session {
         self.endpoints.endpoint_url()
     }
 
-    fn sign<T>(&self, message: T) -> tonic::Request<T> {
+    fn sign<T: 'static>(&self, message: T) -> tonic::Request<T> {
         let mut request = tonic::Request::new(message);
         let metadata = request.metadata_mut();
         self.sign_without_timeout(metadata);
@@ -368,7 +365,6 @@ impl Session {
         self.shutdown_tx.is_some()
     }
 
-    #[allow(dead_code)]
     pub(crate) async fn update_settings(
         &mut self,
         settings: TelemetryCommand,
@@ -387,7 +383,6 @@ impl Session {
     }
 }
 
-#[automock]
 #[async_trait]
 impl RPCClient for Session {
     async fn query_route(
