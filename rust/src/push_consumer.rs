@@ -1,3 +1,32 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+use mockall::automock;
+use mockall_double::double;
+use parking_lot::{Mutex, RwLock};
+use prost_types::Duration;
+use slog::Logger;
+use slog::{debug, error, info, warn};
+use std::collections::{HashMap, VecDeque};
+use std::sync::Arc;
+use tokio::select;
+use tokio::sync::{mpsc, oneshot};
+
+#[double]
 use crate::client::Client;
 use crate::conf::{
     BackOffRetryPolicy, ClientOption, CustomizedBackOffRetryPolicy, ExponentialBackOffRetryPolicy,
@@ -16,14 +45,6 @@ use crate::pb::{
 use crate::session::{RPCClient, Session};
 use crate::util::{build_endpoints_by_message_queue, build_push_consumer_settings};
 use crate::{log, pb};
-use parking_lot::{Mutex, RwLock};
-use prost_types::Duration;
-use slog::Logger;
-use slog::{debug, error, info, warn};
-use std::collections::{HashMap, VecDeque};
-use std::sync::Arc;
-use tokio::select;
-use tokio::sync::{mpsc, oneshot};
 
 const OPERATION_NEW_PUSH_CONSUMER: &str = "push_consumer.new";
 const OPERATION_RECEIVE_MESSAGE: &str = "push_consumer.receive_message";
@@ -52,7 +73,6 @@ struct MessageQueueActor {
     shutdown_tx: Option<oneshot::Sender<()>>,
     option: PushConsumerOption,
     message_listener: Arc<Box<MessageListener>>,
-    max_cache_message_count: usize,
     retry_policy: BackOffRetryPolicy,
 }
 
@@ -105,14 +125,12 @@ impl PushConsumer {
                 return match strategy {
                     pb::retry_policy::Strategy::ExponentialBackoff(strategy) => {
                         Some(BackOffRetryPolicy::Exponential(
-                            ExponentialBackOffRetryPolicy::new(strategy, retry_policy.max_attempts),
+                            ExponentialBackOffRetryPolicy::new(strategy),
                         ))
                     }
-                    pb::retry_policy::Strategy::CustomizedBackoff(strategy) => {
-                        Some(BackOffRetryPolicy::Customized(
-                            CustomizedBackOffRetryPolicy::new(strategy, retry_policy.max_attempts),
-                        ))
-                    }
+                    pb::retry_policy::Strategy::CustomizedBackoff(strategy) => Some(
+                        BackOffRetryPolicy::Customized(CustomizedBackOffRetryPolicy::new(strategy)),
+                    ),
                 };
             }
         }
@@ -200,7 +218,7 @@ impl PushConsumer {
                                 let result = client.query_assignment(request).await;
                                 if let Ok(response) = result {
                                     if Client::handle_response_status(response.status, OPERATION_START_PUSH_CONSUMER).is_ok() {
-                                            Self::process_assignments(logger.clone(),
+                                            let _ = Self::process_assignments(logger.clone(),
                                                 rpc_client.shadow_session(),
                                                 &consumer_option,
                                                 Arc::clone(&message_listener),
@@ -239,12 +257,14 @@ impl PushConsumer {
         actor_table: &mut HashMap<MessageQueue, MessageQueueActor>,
         mut assignments: Vec<Assignment>,
         retry_policy: BackOffRetryPolicy,
-    ) {
+    ) -> Result<(), ClientError> {
         let message_queues: Vec<MessageQueue> = assignments
             .iter_mut()
-            .filter(|assignment| assignment.message_queue.is_some())
-            .flat_map(|assignment| {
-                MessageQueue::from_pb_message_queue(assignment.message_queue.take().unwrap())
+            .filter_map(|assignment| {
+                if let Some(message_queue) = assignment.message_queue.take() {
+                    return MessageQueue::from_pb_message_queue(message_queue).ok();
+                }
+                None
             })
             .collect();
         // remove existing actors from map, the remaining ones will be shutdown.
@@ -260,14 +280,14 @@ impl PushConsumer {
         for (_, actor) in shutdown_entries {
             let _ = actor.shutdown().await;
         }
-        let mut max_cache_messages_per_queue =
-            option.max_cache_message_count() as usize / message_queues.len();
-        if max_cache_messages_per_queue < 1 {
-            max_cache_messages_per_queue = 1;
+        let mut max_cache_messages_per_queue = option.max_cache_message_count();
+        if !message_queues.is_empty() {
+            max_cache_messages_per_queue = option.max_cache_message_count() / message_queues.len();
         }
         for mut actor in actors {
-            actor.set_max_cache_message_count(max_cache_messages_per_queue);
-            actor.set_option(option.clone());
+            let mut option = option.clone();
+            option.set_max_cache_message_count(max_cache_messages_per_queue);
+            actor.set_option(option);
             actor.set_retry_policy(retry_policy.clone());
             actor_table.insert(actor.message_queue.clone(), actor);
         }
@@ -277,13 +297,14 @@ impl PushConsumer {
             if actor_table.contains_key(&message_queue) {
                 continue;
             }
+            let mut option = option.clone();
+            option.set_max_cache_message_count(max_cache_messages_per_queue);
             let mut actor = MessageQueueActor::new(
                 logger.clone(),
                 rpc_client.shadow_session(),
                 message_queue.clone(),
-                option.clone(),
+                option,
                 Arc::clone(&message_listener),
-                max_cache_messages_per_queue,
                 retry_policy.clone(),
             );
             let result = actor.start().await;
@@ -291,6 +312,7 @@ impl PushConsumer {
                 actor_table.insert(message_queue, actor);
             }
         }
+        Ok(())
     }
 
     pub async fn shutdown(mut self) -> Result<(), ClientError> {
@@ -308,6 +330,7 @@ struct MessageHandler {
     attempt: usize,
 }
 
+#[automock]
 impl MessageQueueActor {
     pub(crate) fn new(
         logger: Logger,
@@ -315,7 +338,6 @@ impl MessageQueueActor {
         message_queue: MessageQueue,
         option: PushConsumerOption,
         message_listener: Arc<Box<MessageListener>>,
-        max_cache_message_count: usize,
         retry_policy: BackOffRetryPolicy,
     ) -> Self {
         Self {
@@ -325,16 +347,11 @@ impl MessageQueueActor {
             shutdown_tx: None,
             option,
             message_listener: Arc::clone(&message_listener),
-            max_cache_message_count,
             retry_policy,
         }
     }
 
     // The following two methods won't affect the running actor in fact.
-    pub(crate) fn set_max_cache_message_count(&mut self, max_cache_message_count: usize) {
-        self.max_cache_message_count = max_cache_message_count;
-    }
-
     pub(crate) fn set_option(&mut self, option: PushConsumerOption) {
         self.option = option;
     }
@@ -351,7 +368,6 @@ impl MessageQueueActor {
             shutdown_tx: None,
             option: self.option.clone(),
             message_listener: Arc::clone(&self.message_listener),
-            max_cache_message_count: self.max_cache_message_count,
             retry_policy: self.retry_policy.clone(),
         }
     }
@@ -363,7 +379,8 @@ impl MessageQueueActor {
         }
     }
 
-    pub(crate) fn get_filter_expression(&self) -> Option<&FilterExpression> {
+    #[allow(clippy::needless_lifetimes)]
+    pub(crate) fn get_filter_expression<'a>(&'a self) -> Option<&'a FilterExpression> {
         self.option
             .subscription_expressions()
             .get(self.message_queue.topic.name.as_str())
@@ -388,74 +405,16 @@ impl MessageQueueActor {
             loop {
                 select! {
                     _ = poll_rx.recv() => {
-                        let poll_result = actor.poll_messages().await;
-                        if let Ok(messages) = poll_result {
-                            for message in messages {
-                                let consume_result = (actor.message_listener)(&message);
-                                match consume_result {
-                                    ConsumeResult::SUCCESS => {
-                                        let result = actor.ack_message(&message).await;
-                                        if result.is_err() {
-                                            info!(logger, "Ack message failed, put it back to queue, result: {:?}", result.unwrap_err());
-                                            // put it back to queue
-                                            message_handler_queue.push_back(MessageHandler {
-                                                message,
-                                                status: ConsumeResult::SUCCESS,
-                                                attempt: 0,
-                                            });
-                                        }
-                                    }
-                                    ConsumeResult::FAILURE => {
-                                        let result = actor.change_invisible_duration(&message).await;
-                                        if result.is_err() {
-                                            info!(logger, "Change invisible duration failed, put it back to queue, result: {:?}", result.unwrap_err());
-                                            message_handler_queue.push_back(MessageHandler {
-                                                message,
-                                                status: ConsumeResult::FAILURE,
-                                                attempt: 0,
-                                            });
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if message_handler_queue.len() < actor.max_cache_message_count {
-                            let _ = poll_tx.try_send(());
-                        } else {
-                            error!(logger, "message queue has reached its limit {:?}, stop for a while.", actor.max_cache_message_count);
-                        }
+                        actor.receive_messages(&mut message_handler_queue, poll_tx.clone()).await;
                     }
                     _ = ack_rx.recv() => {
-                        if let Some(mut handler) = message_handler_queue.pop_front() {
-                            match handler.status {
-                                ConsumeResult::SUCCESS => {
-                                    let result = actor.ack_message(&handler.message).await;
-                                    if result.is_err() {
-                                        handler.attempt += 1;
-                                        warn!(logger, "{:?} attempt to ack message failed, result: {:?}", handler.attempt, result.unwrap_err());
-                                        message_handler_queue.push_front(handler);
-                                    } else if !message_handler_queue.is_empty() {
-                                        let _ = ack_tx.try_send(());
-                                    }
-                                }
-                                ConsumeResult::FAILURE => {
-                                    let result = actor.change_invisible_duration(&handler.message).await;
-                                    if result.is_err() {
-                                        handler.attempt += 1;
-                                        warn!(logger, "{:?} attempt to change invisible duration failed, result: {:?}", handler.attempt, result.unwrap_err());
-                                        message_handler_queue.push_front(handler);
-                                    } else if !message_handler_queue.is_empty() {
-                                        let _ = ack_tx.try_send(());
-                                    }
-                                }
-                            }
-                        }
+                        actor.ack_message_in_waiting_queue(&mut message_handler_queue, ack_tx.clone()).await;
                     }
                     _ = queue_check_ticker.tick() => {
                         if !message_handler_queue.is_empty() {
                             let _ = ack_tx.try_send(());
                         }
-                        if message_handler_queue.len() < actor.max_cache_message_count {
+                        if message_handler_queue.len() < actor.option.max_cache_message_count() {
                             let _ = poll_tx.try_send(());
                         }
                     }
@@ -467,6 +426,57 @@ impl MessageQueueActor {
             }
         });
         Ok(())
+    }
+
+    async fn receive_messages(
+        &mut self,
+        message_handler_queue: &mut VecDeque<MessageHandler>,
+        poll_tx: mpsc::Sender<()>,
+    ) {
+        let poll_result = self.poll_messages().await;
+        if let Ok(messages) = poll_result {
+            for message in messages {
+                let consume_result = (self.message_listener)(&message);
+                match consume_result {
+                    ConsumeResult::SUCCESS => {
+                        let result = self.ack_message(&message).await;
+                        if result.is_err() {
+                            info!(
+                                self.logger,
+                                "Ack message failed, put it back to queue, result: {:?}",
+                                result.unwrap_err()
+                            );
+                            // put it back to queue
+                            message_handler_queue.push_back(MessageHandler {
+                                message,
+                                status: ConsumeResult::SUCCESS,
+                                attempt: 0,
+                            });
+                        }
+                    }
+                    ConsumeResult::FAILURE => {
+                        let result = self.change_invisible_duration(&message).await;
+                        if result.is_err() {
+                            info!(self.logger, "Change invisible duration failed, put it back to queue, result: {:?}", result.unwrap_err());
+                            message_handler_queue.push_back(MessageHandler {
+                                message,
+                                status: ConsumeResult::FAILURE,
+                                attempt: 0,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        if message_handler_queue.len() < self.option.max_cache_message_count() {
+            let _ = poll_tx.try_send(());
+        } else {
+            error!(
+                self.logger,
+                "message queue has reached its limit {:?}, stop for a while.",
+                self.option.max_cache_message_count()
+            );
+        }
     }
 
     async fn poll_messages(&mut self) -> Result<Vec<MessageView>, ClientError> {
@@ -514,7 +524,48 @@ impl MessageQueueActor {
         Ok(messages)
     }
 
-    async fn ack_message(&mut self, ack_entry: &impl AckMessageEntry) -> Result<(), ClientError> {
+    async fn ack_message_in_waiting_queue(
+        &mut self,
+        message_handler_queue: &mut VecDeque<MessageHandler>,
+        ack_tx: mpsc::Sender<()>,
+    ) {
+        if let Some(mut handler) = message_handler_queue.pop_front() {
+            match handler.status {
+                ConsumeResult::SUCCESS => {
+                    let result = self.ack_message(&handler.message).await;
+                    if result.is_err() {
+                        handler.attempt += 1;
+                        warn!(
+                            self.logger,
+                            "{:?} attempt to ack message failed, result: {:?}",
+                            handler.attempt,
+                            result.unwrap_err()
+                        );
+                        message_handler_queue.push_front(handler);
+                    } else if !message_handler_queue.is_empty() {
+                        let _ = ack_tx.try_send(());
+                    }
+                }
+                ConsumeResult::FAILURE => {
+                    let result = self.change_invisible_duration(&handler.message).await;
+                    if result.is_err() {
+                        handler.attempt += 1;
+                        warn!(
+                            self.logger,
+                            "{:?} attempt to change invisible duration failed, result: {:?}",
+                            handler.attempt,
+                            result.unwrap_err()
+                        );
+                        message_handler_queue.push_front(handler);
+                    } else if !message_handler_queue.is_empty() {
+                        let _ = ack_tx.try_send(());
+                    }
+                }
+            }
+        }
+    }
+
+    async fn ack_message(&mut self, ack_entry: &MessageView) -> Result<(), ClientError> {
         let request = AckMessageRequest {
             group: Some(self.get_consumer_group()),
             topic: Some(self.message_queue.topic.clone()),
@@ -563,4 +614,383 @@ impl MessageQueueActor {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use std::{
+        str::FromStr,
+        sync::atomic::{AtomicUsize, Ordering},
+    };
+
+    use log::terminal_logger;
+    use pb::{
+        Address, Broker, CustomizedBackoff, Endpoints, ExponentialBackoff, RetryPolicy, Settings,
+        Subscription, VerifyMessageCommand,
+    };
+
+    use crate::{model::common::FilterType, };
+
+    use super::*;
+
+    #[test]
+    fn test_new_push_consumer() {
+        let _m = crate::client::tests::MTX.lock();
+        let result = PushConsumer::new(
+            ClientOption::default(),
+            PushConsumerOption::default(),
+            Box::new(|_| ConsumeResult::SUCCESS),
+        );
+        assert!(result.is_err());
+
+        let mut option = PushConsumerOption::default();
+        option.set_consumer_group("test");
+        let result2 = PushConsumer::new(
+            ClientOption::default(),
+            option,
+            Box::new(|_| ConsumeResult::SUCCESS),
+        );
+        assert!(result2.is_err());
+
+        let mut option2 = PushConsumerOption::default();
+        option2.set_consumer_group("test");
+        option2.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+        let context = Client::new_context();
+        context.expect().returning(|_, _, _| Ok(Client::default()));
+        let result3 = PushConsumer::new(
+            ClientOption::default(),
+            option2,
+            Box::new(|_| ConsumeResult::SUCCESS),
+        );
+        assert!(result3.is_ok());
+    }
+
+    #[test]
+    fn test_get_back_policy() -> Result<(), String> {
+        let command =
+            pb::telemetry_command::Command::VerifyMessageCommand(VerifyMessageCommand::default());
+        let result = PushConsumer::get_backoff_policy(command);
+        assert!(result.is_none());
+
+        let command2 = pb::telemetry_command::Command::Settings(Settings::default());
+        let result2 = PushConsumer::get_backoff_policy(command2);
+        assert!(result2.is_none());
+
+        let exponential_backoff_settings = Settings {
+            pub_sub: Some(PubSub::Subscription(Subscription::default())),
+            client_type: Some(ClientType::PushConsumer as i32),
+            backoff_policy: Some(RetryPolicy {
+                max_attempts: 0,
+                strategy: Some(pb::retry_policy::Strategy::ExponentialBackoff(
+                    ExponentialBackoff {
+                        initial: Some(prost_types::Duration::from_str("1s").unwrap()),
+                        max: Some(prost_types::Duration::from_str("60s").unwrap()),
+                        multiplier: 2.0,
+                    },
+                )),
+            }),
+            ..Settings::default()
+        };
+        let command3 = pb::telemetry_command::Command::Settings(exponential_backoff_settings);
+        let result3 = PushConsumer::get_backoff_policy(command3);
+        if let Some(BackOffRetryPolicy::Exponential(_)) = result3 {
+        } else {
+            return Err("get_backoff_policy failed, expected ExponentialBackoff.".to_string());
+        }
+
+        let customized_backoff_settings = Settings {
+            pub_sub: Some(PubSub::Subscription(Subscription::default())),
+            client_type: Some(ClientType::PushConsumer as i32),
+            backoff_policy: Some(RetryPolicy {
+                max_attempts: 0,
+                strategy: Some(pb::retry_policy::Strategy::CustomizedBackoff(
+                    CustomizedBackoff {
+                        next: vec![prost_types::Duration::from_str("1s").unwrap()],
+                    },
+                )),
+            }),
+            ..Settings::default()
+        };
+        let command4 = pb::telemetry_command::Command::Settings(customized_backoff_settings);
+        let result4 = PushConsumer::get_backoff_policy(command4);
+        if let Some(BackOffRetryPolicy::Customized(_)) = result4 {
+        } else {
+            return Err("get_backoff_policy failed, expected CustomizedBackoff.".to_string());
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_process_assignments_invalid_assignment() -> Result<(), ClientError> {
+        let rpc_client = Session::mock();
+        let logger = terminal_logger();
+        let option = &PushConsumerOption::default();
+        let message_listener: Arc<Box<MessageListener>> =
+            Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+        let mut actor_table: HashMap<MessageQueue, MessageQueueActor> = HashMap::new();
+        let retry_policy =
+            BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default());
+        let assignments = vec![Assignment {
+            message_queue: Some(pb::MessageQueue {
+                topic: None,
+                id: 0,
+                permission: 0,
+                broker: None,
+                accept_message_types: vec![],
+            }),
+        }];
+        let context = MockMessageQueueActor::new_context();
+        context.expect().returning(|_, _, _, _, _, _| {
+            let mut actor = MockMessageQueueActor::default();
+            actor.expect_start().returning(|| Ok(()));
+            return actor;
+        });
+        PushConsumer::process_assignments(
+            logger,
+            rpc_client,
+            option,
+            message_listener,
+            &mut actor_table,
+            assignments,
+            retry_policy,
+        )
+        .await?;
+        assert!(actor_table.is_empty());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_process_assignments() -> Result<(), ClientError> {
+        let rpc_client = Session::mock();
+        let logger = terminal_logger();
+        let option = &PushConsumerOption::default();
+        let message_listener: Arc<Box<MessageListener>> =
+            Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+        let mut actor_table: HashMap<MessageQueue, MessageQueueActor> = HashMap::new();
+        let retry_policy =
+            BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default());
+        let assignments = vec![Assignment {
+            message_queue: Some(pb::MessageQueue {
+                topic: Some(Resource {
+                    name: "test_topic".to_string(),
+                    resource_namespace: "".to_string(),
+                }),
+                id: 0,
+                permission: 0,
+                broker: Some(Broker {
+                    name: "".to_string(),
+                    id: 0,
+                    endpoints: Some(pb::Endpoints {
+                        scheme: 0,
+                        addresses: vec![Address {
+                            host: "localhost".to_string(),
+                            port: 8081,
+                        }],
+                    }),
+                }),
+                accept_message_types: vec![],
+            }),
+        }];
+        let context = MockMessageQueueActor::new_context();
+        context.expect().returning(|_, _, _, _, _, _| {
+            let mut actor = MockMessageQueueActor::default();
+            actor.expect_start().returning(|| Ok(()));
+            return actor;
+        });
+        PushConsumer::process_assignments(
+            logger,
+            rpc_client,
+            option,
+            message_listener,
+            &mut actor_table,
+            assignments,
+            retry_policy,
+        )
+        .await?;
+        assert_eq!(1, actor_table.len());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_process_assignments_two_queues() -> Result<(), ClientError> {
+        let logger = terminal_logger();
+        let option = &PushConsumerOption::default();
+        let message_listener: Arc<Box<MessageListener>> =
+            Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+        let mut actor_table: HashMap<MessageQueue, MessageQueueActor> = HashMap::new();
+        let retry_policy =
+            BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default());
+        let assignments = vec![
+            Assignment {
+                message_queue: Some(pb::MessageQueue {
+                    topic: Some(Resource {
+                        name: "test_topic".to_string(),
+                        resource_namespace: "".to_string(),
+                    }),
+                    id: 0,
+                    permission: 0,
+                    broker: Some(Broker {
+                        name: "".to_string(),
+                        id: 0,
+                        endpoints: Some(pb::Endpoints {
+                            scheme: 0,
+                            addresses: vec![Address {
+                                host: "localhost".to_string(),
+                                port: 8081,
+                            }],
+                        }),
+                    }),
+                    accept_message_types: vec![],
+                }),
+            },
+            Assignment {
+                message_queue: Some(pb::MessageQueue {
+                    topic: Some(Resource {
+                        name: "test_topic".to_string(),
+                        resource_namespace: "".to_string(),
+                    }),
+                    id: 1,
+                    permission: 0,
+                    broker: Some(Broker {
+                        name: "".to_string(),
+                        id: 0,
+                        endpoints: Some(pb::Endpoints {
+                            scheme: 0,
+                            addresses: vec![Address {
+                                host: "localhost".to_string(),
+                                port: 8081,
+                            }],
+                        }),
+                    }),
+                    accept_message_types: vec![],
+                }),
+            },
+        ];
+        let context = MockMessageQueueActor::new_context();
+        context.expect().returning(|_, _, _, _, _, _| {
+            let mut actor = MockMessageQueueActor::default();
+            actor.expect_start().returning(|| Ok(()));
+            return actor;
+        });
+        PushConsumer::process_assignments(
+            logger.clone(),
+            Session::mock(),
+            option,
+            message_listener,
+            &mut actor_table,
+            assignments.clone(),
+            retry_policy.clone(),
+        )
+        .await?;
+        let assignments2 = vec![Assignment {
+            message_queue: Some(pb::MessageQueue {
+                topic: Some(Resource {
+                    name: "test_topic".to_string(),
+                    resource_namespace: "".to_string(),
+                }),
+                id: 0,
+                permission: 0,
+                broker: Some(Broker {
+                    name: "".to_string(),
+                    id: 0,
+                    endpoints: Some(pb::Endpoints {
+                        scheme: 0,
+                        addresses: vec![Address {
+                            host: "localhost".to_string(),
+                            port: 8081,
+                        }],
+                    }),
+                }),
+                accept_message_types: vec![],
+            }),
+        }];
+        PushConsumer::process_assignments(
+            logger,
+            Session::mock(),
+            option,
+            Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
+            &mut actor_table,
+            assignments2,
+            retry_policy,
+        )
+        .await?;
+        assert_eq!(1, actor_table.len());
+        assert!(actor_table.contains_key(&MessageQueue {
+            id: 0,
+            permission: 0,
+            topic: Resource {
+                name: "test_topic".to_string(),
+                resource_namespace: "".to_string(),
+            },
+            broker: Broker {
+                name: "".to_string(),
+                id: 0,
+                endpoints: Some(pb::Endpoints {
+                    scheme: 0,
+                    addresses: vec![Address {
+                        host: "localhost".to_string(),
+                        port: 8081,
+                    }],
+                }),
+            },
+            accept_message_types: vec![],
+        }));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_actor_receive_messages() {
+        let message_queue = MessageQueue {
+            id: 0,
+            topic: Resource {
+                name: "test_topic".to_string(),
+                resource_namespace: "".to_string(),
+            },
+            broker: Broker {
+                name: "broker-0".to_string(),
+                id: 0,
+                endpoints: Some(Endpoints {
+                    scheme: 0,
+                    addresses: vec![Address {
+                        host: "localhost".to_string(),
+                        port: 8081,
+                    }],
+                }),
+            },
+            accept_message_types: vec![],
+            permission: 0,
+        };
+
+        let receive_count = Arc::new(AtomicUsize::new(0));
+        let option = PushConsumerOption::default();
+        let receive_count_2 = Arc::clone(&receive_count);
+        let message_listener: Arc<Box<MessageListener>> = Arc::new(Box::new(move |_| {
+            receive_count.fetch_add(1, Ordering::Relaxed);
+            ConsumeResult::SUCCESS
+        }));
+        let retry_policy = BackOffRetryPolicy::Customized(CustomizedBackOffRetryPolicy::new(
+            pb::CustomizedBackoff {
+                next: vec![prost_types::Duration::from_str("1s").unwrap()],
+            },
+        ));
+        let session = Session::mock();
+
+        let mut actor = MessageQueueActor::new(
+            terminal_logger(),
+            session,
+            message_queue,
+            option,
+            message_listener,
+            retry_policy,
+        );
+        let mut message_handler_queue = VecDeque::new();
+        let (tx, mut rx) = mpsc::channel(16);
+        let poll_tx: mpsc::Sender<()> = tx;
+        actor
+            .receive_messages(&mut message_handler_queue, poll_tx)
+            .await;
+        let signal = rx.recv().await;
+        assert!(signal.is_some());
+        assert_eq!(1, receive_count_2.load(Ordering::Relaxed));
+    }
+
+    #[tokio::test]
+    async fn test_actor_ack_message_in_waiting_queue() {}
+}
