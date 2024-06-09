@@ -184,7 +184,7 @@ impl SimpleConsumer {
             .await?;
         Ok(messages
             .into_iter()
-            .map(|message| MessageView::from_pb_message(message, endpoints.clone()))
+            .filter_map(|message| MessageView::from_pb_message(message, endpoints.clone()).ok())
             .collect())
     }
 

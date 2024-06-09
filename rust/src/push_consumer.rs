@@ -143,7 +143,7 @@ impl PushConsumer {
         let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
         self.shutdown_tx = Some(shutdown_tx);
         let option = Arc::clone(&self.option);
-        let rpc_client = self.client.get_session().await?;
+        let mut rpc_client = self.client.get_session().await?;
         let route_manager = self.client.get_route_manager();
         let topics;
         {
@@ -155,7 +155,7 @@ impl PushConsumer {
                 .collect();
         }
         route_manager
-            .sync_topic_routes(rpc_client.shadow_session(), topics)
+            .sync_topic_routes(&mut rpc_client, topics)
             .await?;
         let logger = self.logger.clone();
         let mut actor_table: HashMap<MessageQueue, MessageQueueActor> = HashMap::new();
@@ -405,10 +405,10 @@ impl MessageQueueActor {
             loop {
                 select! {
                     _ = poll_rx.recv() => {
-                        actor.receive_messages(&mut message_handler_queue, poll_tx.clone()).await;
+                        actor.receive_messages(&mut actor.rpc_client.shadow_session(), &mut message_handler_queue, poll_tx.clone()).await;
                     }
                     _ = ack_rx.recv() => {
-                        actor.ack_message_in_waiting_queue(&mut message_handler_queue, ack_tx.clone()).await;
+                        actor.ack_message_in_waiting_queue(&mut actor.rpc_client.shadow_session(), &mut message_handler_queue, ack_tx.clone()).await;
                     }
                     _ = queue_check_ticker.tick() => {
                         if !message_handler_queue.is_empty() {
@@ -428,18 +428,19 @@ impl MessageQueueActor {
         Ok(())
     }
 
-    async fn receive_messages(
+    async fn receive_messages<T: RPCClient + 'static>(
         &mut self,
+        rpc_client: &mut T,
         message_handler_queue: &mut VecDeque<MessageHandler>,
         poll_tx: mpsc::Sender<()>,
     ) {
-        let poll_result = self.poll_messages().await;
+        let poll_result = self.poll_messages(rpc_client).await;
         if let Ok(messages) = poll_result {
             for message in messages {
                 let consume_result = (self.message_listener)(&message);
                 match consume_result {
                     ConsumeResult::SUCCESS => {
-                        let result = self.ack_message(&message).await;
+                        let result = self.ack_message(rpc_client, &message).await;
                         if result.is_err() {
                             info!(
                                 self.logger,
@@ -455,7 +456,7 @@ impl MessageQueueActor {
                         }
                     }
                     ConsumeResult::FAILURE => {
-                        let result = self.change_invisible_duration(&message).await;
+                        let result = self.change_invisible_duration(rpc_client, &message).await;
                         if result.is_err() {
                             info!(self.logger, "Change invisible duration failed, put it back to queue, result: {:?}", result.unwrap_err());
                             message_handler_queue.push_back(MessageHandler {
@@ -479,7 +480,10 @@ impl MessageQueueActor {
         }
     }
 
-    async fn poll_messages(&mut self) -> Result<Vec<MessageView>, ClientError> {
+    async fn poll_messages<T: RPCClient + 'static>(
+        &mut self,
+        rpc_client: &mut T,
+    ) -> Result<Vec<MessageView>, ClientError> {
         let filter_expression = self.get_filter_expression().ok_or(ClientError::new(
             ErrorKind::Unknown,
             "no filter expression presents",
@@ -499,7 +503,7 @@ impl MessageQueueActor {
                 Duration::try_from(*self.option.long_polling_timeout()).unwrap(),
             ),
         };
-        let responses = self.rpc_client.receive_message(request).await?;
+        let responses = rpc_client.receive_message(request).await?;
         let mut messages: Vec<MessageView> = Vec::with_capacity(self.option.batch_size() as usize);
         let endpoints = build_endpoints_by_message_queue(
             &self.message_queue.to_pb_message_queue(),
@@ -516,7 +520,7 @@ impl MessageQueueActor {
                         warn!(self.logger, "unhandled delivery timestamp message");
                     }
                     Content::Message(message) => {
-                        messages.push(MessageView::from_pb_message(message, endpoints.clone()));
+                        messages.push(MessageView::from_pb_message(message, endpoints.clone())?);
                     }
                 }
             }
@@ -524,15 +528,16 @@ impl MessageQueueActor {
         Ok(messages)
     }
 
-    async fn ack_message_in_waiting_queue(
+    async fn ack_message_in_waiting_queue<T: RPCClient + 'static>(
         &mut self,
+        rpc_client: &mut T,
         message_handler_queue: &mut VecDeque<MessageHandler>,
         ack_tx: mpsc::Sender<()>,
     ) {
         if let Some(mut handler) = message_handler_queue.pop_front() {
             match handler.status {
                 ConsumeResult::SUCCESS => {
-                    let result = self.ack_message(&handler.message).await;
+                    let result = self.ack_message(rpc_client, &handler.message).await;
                     if result.is_err() {
                         handler.attempt += 1;
                         warn!(
@@ -547,7 +552,9 @@ impl MessageQueueActor {
                     }
                 }
                 ConsumeResult::FAILURE => {
-                    let result = self.change_invisible_duration(&handler.message).await;
+                    let result = self
+                        .change_invisible_duration(rpc_client, &handler.message)
+                        .await;
                     if result.is_err() {
                         handler.attempt += 1;
                         warn!(
@@ -565,7 +572,11 @@ impl MessageQueueActor {
         }
     }
 
-    async fn ack_message(&mut self, ack_entry: &MessageView) -> Result<(), ClientError> {
+    async fn ack_message<T: RPCClient + 'static>(
+        &mut self,
+        rpc_client: &mut T,
+        ack_entry: &MessageView,
+    ) -> Result<(), ClientError> {
         let request = AckMessageRequest {
             group: Some(self.get_consumer_group()),
             topic: Some(self.message_queue.topic.clone()),
@@ -574,12 +585,13 @@ impl MessageQueueActor {
                 receipt_handle: ack_entry.receipt_handle().to_string(),
             }],
         };
-        let response = self.rpc_client.ack_message(request).await?;
+        let response = rpc_client.ack_message(request).await?;
         Client::handle_response_status(response.status, OPERATION_ACK_MESSAGE)
     }
 
-    async fn change_invisible_duration(
+    async fn change_invisible_duration<T: RPCClient + 'static>(
         &mut self,
+        rpc_client: &mut T,
         ack_entry: &MessageView,
     ) -> Result<(), ClientError> {
         let invisible_duration = match &self.retry_policy {
@@ -600,7 +612,7 @@ impl MessageQueueActor {
                 nanos: invisible_duration.subsec_nanos() as i32,
             }),
         };
-        let response = self.rpc_client.change_invisible_duration(request).await?;
+        let response = rpc_client.change_invisible_duration(request).await?;
         Client::handle_response_status(response.status, OPERATION_CHANGE_INVISIBLE_DURATION)
     }
 
@@ -618,15 +630,18 @@ mod tests {
     use std::{
         str::FromStr,
         sync::atomic::{AtomicUsize, Ordering},
+        vec,
     };
 
     use log::terminal_logger;
     use pb::{
-        Address, Broker, CustomizedBackoff, Endpoints, ExponentialBackoff, RetryPolicy, Settings,
-        Subscription, VerifyMessageCommand,
+        AckMessageResponse, Address, Broker, ChangeInvisibleDurationResponse, Code,
+        CustomizedBackoff, Endpoints, ExponentialBackoff, ReceiveMessageResponse, RetryPolicy,
+        Settings, Status, Subscription, SystemProperties, VerifyMessageCommand,
     };
 
-    use crate::{model::common::FilterType, };
+    use crate::{client::MockClient, model::common};
+    use crate::{model::common::FilterType, session::MockRPCClient};
 
     use super::*;
 
@@ -935,9 +950,8 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn test_actor_receive_messages() {
-        let message_queue = MessageQueue {
+    fn new_message_queue() -> MessageQueue {
+        MessageQueue {
             id: 0,
             topic: Resource {
                 name: "test_topic".to_string(),
@@ -956,41 +970,373 @@ mod tests {
             },
             accept_message_types: vec![],
             permission: 0,
-        };
+        }
+    }
 
-        let receive_count = Arc::new(AtomicUsize::new(0));
-        let option = PushConsumerOption::default();
-        let receive_count_2 = Arc::clone(&receive_count);
-        let message_listener: Arc<Box<MessageListener>> = Arc::new(Box::new(move |_| {
-            receive_count.fetch_add(1, Ordering::Relaxed);
-            ConsumeResult::SUCCESS
-        }));
+    fn new_actor_for_test(message_listener: Arc<Box<MessageListener>>) -> MessageQueueActor {
+        let message_queue = new_message_queue();
+        let mut option = PushConsumerOption::default();
+        option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
         let retry_policy = BackOffRetryPolicy::Customized(CustomizedBackOffRetryPolicy::new(
             pb::CustomizedBackoff {
                 next: vec![prost_types::Duration::from_str("1s").unwrap()],
             },
         ));
         let session = Session::mock();
-
-        let mut actor = MessageQueueActor::new(
+        MessageQueueActor::new(
             terminal_logger(),
             session,
             message_queue,
             option,
             message_listener,
             retry_policy,
-        );
+        )
+    }
+
+    fn new_message() -> pb::Message {
+        pb::Message {
+            topic: Some(Resource {
+                name: "test_topic".to_string(),
+                resource_namespace: "".to_string(),
+            }),
+            user_properties: HashMap::new(),
+            system_properties: Some(SystemProperties {
+                receipt_handle: Some("receipt".to_string()),
+                ..SystemProperties::default()
+            }),
+            body: vec![],
+        }
+    }
+
+    #[tokio::test]
+    async fn test_actor_consume_messages_success() {
+        let _m = crate::client::tests::MTX.lock();
+        let receive_count = Arc::new(AtomicUsize::new(0));
+        let receive_count_2 = Arc::clone(&receive_count);
+        let message_listener: Arc<Box<MessageListener>> = Arc::new(Box::new(move |_| {
+            receive_count.fetch_add(1, Ordering::Relaxed);
+            ConsumeResult::SUCCESS
+        }));
+
+        let response = Ok(vec![ReceiveMessageResponse {
+            content: Some(Content::Message(new_message())),
+        }]);
+        let mut mock = MockRPCClient::new();
+        mock.expect_receive_message()
+            .return_once(|_| Box::pin(futures::future::ready(response)));
+        let ack_response = Ok(AckMessageResponse {
+            status: Some(Status {
+                code: Code::Ok as i32,
+                message: "ok".to_string(),
+            }),
+            entries: vec![],
+        });
+        mock.expect_ack_message()
+            .return_once(|_| Box::pin(futures::future::ready(ack_response)));
+
+        let context = MockClient::handle_response_status_context();
+        context.expect().returning(|_, _| Ok(()));
+
+        let mut actor = new_actor_for_test(message_listener);
         let mut message_handler_queue = VecDeque::new();
         let (tx, mut rx) = mpsc::channel(16);
         let poll_tx: mpsc::Sender<()> = tx;
         actor
-            .receive_messages(&mut message_handler_queue, poll_tx)
+            .receive_messages(&mut mock, &mut message_handler_queue, poll_tx)
             .await;
         let signal = rx.recv().await;
         assert!(signal.is_some());
         assert_eq!(1, receive_count_2.load(Ordering::Relaxed));
+        assert!(message_handler_queue.is_empty());
     }
 
     #[tokio::test]
-    async fn test_actor_ack_message_in_waiting_queue() {}
+    async fn test_actor_consume_messages_failure() {
+        let _m = crate::client::tests::MTX.lock();
+        let receive_count = Arc::new(AtomicUsize::new(0));
+        let receive_count_2 = Arc::clone(&receive_count);
+        let message_listener: Arc<Box<MessageListener>> = Arc::new(Box::new(move |_| {
+            receive_count.fetch_add(1, Ordering::Relaxed);
+            ConsumeResult::FAILURE
+        }));
+
+        let response = Ok(vec![ReceiveMessageResponse {
+            content: Some(Content::Message(new_message())),
+        }]);
+        let mut mock = MockRPCClient::new();
+        mock.expect_receive_message()
+            .return_once(|_| Box::pin(futures::future::ready(response)));
+        let ack_response = Ok(ChangeInvisibleDurationResponse {
+            status: Some(Status {
+                code: Code::Ok as i32,
+                message: "ok".to_string(),
+            }),
+            receipt_handle: "test".to_string(),
+        });
+        mock.expect_change_invisible_duration()
+            .return_once(|_| Box::pin(futures::future::ready(ack_response)));
+
+        let context = MockClient::handle_response_status_context();
+        context.expect().returning(|_, _| Ok(()));
+
+        let mut actor = new_actor_for_test(message_listener);
+        let mut message_handler_queue = VecDeque::new();
+        let (tx, mut rx) = mpsc::channel(16);
+        let poll_tx: mpsc::Sender<()> = tx;
+        actor
+            .receive_messages(&mut mock, &mut message_handler_queue, poll_tx)
+            .await;
+        let signal = rx.recv().await;
+        assert!(signal.is_some());
+        assert_eq!(1, receive_count_2.load(Ordering::Relaxed));
+        assert!(message_handler_queue.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_actor_consume_messages_ack_failure() {
+        let _m = crate::client::tests::MTX.lock();
+        let receive_count = Arc::new(AtomicUsize::new(0));
+        let receive_count_2 = Arc::clone(&receive_count);
+        let message_listener: Arc<Box<MessageListener>> = Arc::new(Box::new(move |_| {
+            receive_count.fetch_add(1, Ordering::Relaxed);
+            ConsumeResult::SUCCESS
+        }));
+
+        let response = Ok(vec![ReceiveMessageResponse {
+            content: Some(Content::Message(new_message())),
+        }]);
+        let mut mock = MockRPCClient::new();
+        mock.expect_receive_message()
+            .return_once(|_| Box::pin(futures::future::ready(response)));
+        let ack_response = Ok(AckMessageResponse {
+            status: Some(Status {
+                code: Code::BadRequest as i32,
+                message: "ok".to_string(),
+            }),
+            entries: vec![],
+        });
+        mock.expect_ack_message()
+            .return_once(|_| Box::pin(futures::future::ready(ack_response)));
+
+        let context = MockClient::handle_response_status_context();
+        context
+            .expect()
+            .returning(|_, _| Err(ClientError::new(ErrorKind::Server, "test", "test")));
+
+        let mut actor = new_actor_for_test(message_listener);
+        let mut message_handler_queue = VecDeque::new();
+        let (tx, mut rx) = mpsc::channel(16);
+        let poll_tx: mpsc::Sender<()> = tx;
+        actor
+            .receive_messages(&mut mock, &mut message_handler_queue, poll_tx)
+            .await;
+        let signal = rx.recv().await;
+        assert!(signal.is_some());
+        assert_eq!(1, receive_count_2.load(Ordering::Relaxed));
+        let handler = message_handler_queue.pop_front().unwrap();
+        assert!(matches!(handler.status, ConsumeResult::SUCCESS));
+    }
+
+    #[tokio::test]
+    async fn test_actor_consume_messages_nack_failure() {
+        let _m = crate::client::tests::MTX.lock();
+        let receive_count = Arc::new(AtomicUsize::new(0));
+        let receive_count_2 = Arc::clone(&receive_count);
+        let message_listener: Arc<Box<MessageListener>> = Arc::new(Box::new(move |_| {
+            receive_count.fetch_add(1, Ordering::Relaxed);
+            ConsumeResult::FAILURE
+        }));
+
+        let response = Ok(vec![ReceiveMessageResponse {
+            content: Some(Content::Message(new_message())),
+        }]);
+        let mut mock = MockRPCClient::new();
+        mock.expect_receive_message()
+            .return_once(|_| Box::pin(futures::future::ready(response)));
+        let ack_response = Ok(ChangeInvisibleDurationResponse {
+            status: Some(Status {
+                code: Code::BadRequest as i32,
+                message: "ok".to_string(),
+            }),
+            receipt_handle: "test".to_string(),
+        });
+        mock.expect_change_invisible_duration()
+            .return_once(|_| Box::pin(futures::future::ready(ack_response)));
+
+        let context = MockClient::handle_response_status_context();
+        context
+            .expect()
+            .returning(|_, _| Err(ClientError::new(ErrorKind::Server, "test", "test")));
+
+        let mut actor = new_actor_for_test(message_listener);
+        let mut message_handler_queue = VecDeque::new();
+        let (tx, mut rx) = mpsc::channel(16);
+        let poll_tx: mpsc::Sender<()> = tx;
+        actor
+            .receive_messages(&mut mock, &mut message_handler_queue, poll_tx)
+            .await;
+        let signal = rx.recv().await;
+        assert!(signal.is_some());
+        assert_eq!(1, receive_count_2.load(Ordering::Relaxed));
+        let handler = message_handler_queue.pop_front().unwrap();
+        assert!(matches!(handler.status, ConsumeResult::FAILURE));
+    }
+
+    #[tokio::test]
+    async fn test_actor_ack_message_in_waiting_queue_success() {
+        let _m = crate::client::tests::MTX.lock();
+        let message_listener: Arc<Box<MessageListener>> =
+            Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+        let mut actor = new_actor_for_test(message_listener);
+        let mut mock = MockRPCClient::new();
+        let ack_response = Ok(AckMessageResponse {
+            status: Some(Status {
+                code: Code::Ok as i32,
+                message: "ok".to_string(),
+            }),
+            entries: vec![],
+        });
+        mock.expect_ack_message()
+            .return_once(|_| Box::pin(futures::future::ready(ack_response)));
+
+        let context = MockClient::handle_response_status_context();
+        context.expect().returning(|_, _| Ok(()));
+        let mut message_handler_queue: VecDeque<MessageHandler> = VecDeque::new();
+        let handle = MessageHandler {
+            message: MessageView::from_pb_message(
+                new_message(),
+                common::Endpoints::from_url("localhost:8081").unwrap(),
+            )
+            .unwrap(),
+            status: ConsumeResult::SUCCESS,
+            attempt: 0,
+        };
+        message_handler_queue.push_back(handle);
+        let (tx, _) = mpsc::channel(16);
+        let ack_tx = tx;
+        actor
+            .ack_message_in_waiting_queue(&mut mock, &mut message_handler_queue, ack_tx)
+            .await;
+        assert!(message_handler_queue.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_actor_ack_message_in_waiting_queue_failure() {
+        let _m = crate::client::tests::MTX.lock();
+        let message_listener: Arc<Box<MessageListener>> =
+            Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+        let mut actor = new_actor_for_test(message_listener);
+        let mut mock = MockRPCClient::new();
+        let ack_response = Ok(AckMessageResponse {
+            status: Some(Status {
+                code: Code::BadRequest as i32,
+                message: "ok".to_string(),
+            }),
+            entries: vec![],
+        });
+        mock.expect_ack_message()
+            .return_once(|_| Box::pin(futures::future::ready(ack_response)));
+
+        let context = MockClient::handle_response_status_context();
+        context
+            .expect()
+            .returning(|_, _| Err(ClientError::new(ErrorKind::Server, "test", "test")));
+        let mut message_handler_queue: VecDeque<MessageHandler> = VecDeque::new();
+        let handle = MessageHandler {
+            message: MessageView::from_pb_message(
+                new_message(),
+                common::Endpoints::from_url("localhost:8081").unwrap(),
+            )
+            .unwrap(),
+            status: ConsumeResult::SUCCESS,
+            attempt: 0,
+        };
+        message_handler_queue.push_back(handle);
+        let (tx, _) = mpsc::channel(16);
+        let ack_tx = tx;
+        actor
+            .ack_message_in_waiting_queue(&mut mock, &mut message_handler_queue, ack_tx)
+            .await;
+        let handler2 = message_handler_queue.pop_front().unwrap();
+        assert_eq!(1, handler2.attempt);
+    }
+
+    #[tokio::test]
+    async fn test_actor_nack_message_in_waiting_queue_success() {
+        let _m = crate::client::tests::MTX.lock();
+        let message_listener: Arc<Box<MessageListener>> =
+            Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+        let mut actor = new_actor_for_test(message_listener);
+        let mut mock = MockRPCClient::new();
+        let ack_response = Ok(ChangeInvisibleDurationResponse {
+            status: Some(Status {
+                code: Code::Ok as i32,
+                message: "ok".to_string(),
+            }),
+            receipt_handle: "test".to_string(),
+        });
+        mock.expect_change_invisible_duration()
+            .return_once(|_| Box::pin(futures::future::ready(ack_response)));
+
+        let context = MockClient::handle_response_status_context();
+        context.expect().returning(|_, _| Ok(()));
+        let mut message_handler_queue: VecDeque<MessageHandler> = VecDeque::new();
+        let handle = MessageHandler {
+            message: MessageView::from_pb_message(
+                new_message(),
+                common::Endpoints::from_url("localhost:8081").unwrap(),
+            )
+            .unwrap(),
+            status: ConsumeResult::FAILURE,
+            attempt: 0,
+        };
+        message_handler_queue.push_back(handle);
+        let (tx, _) = mpsc::channel(16);
+        let ack_tx = tx;
+        actor
+            .ack_message_in_waiting_queue(&mut mock, &mut message_handler_queue, ack_tx)
+            .await;
+        assert!(message_handler_queue.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_actor_nack_message_in_waiting_queue_failure() {
+        let _m = crate::client::tests::MTX.lock();
+        let message_listener: Arc<Box<MessageListener>> =
+            Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+        let mut actor = new_actor_for_test(message_listener);
+        let mut mock = MockRPCClient::new();
+        let ack_response = Ok(ChangeInvisibleDurationResponse {
+            status: Some(Status {
+                code: Code::BadRequest as i32,
+                message: "ok".to_string(),
+            }),
+            receipt_handle: "test".to_string(),
+        });
+        mock.expect_change_invisible_duration()
+            .return_once(|_| Box::pin(futures::future::ready(ack_response)));
+
+        let context = MockClient::handle_response_status_context();
+        context
+            .expect()
+            .returning(|_, _| Err(ClientError::new(ErrorKind::Server, "test", "test")));
+        let mut message_handler_queue: VecDeque<MessageHandler> = VecDeque::new();
+        let handle = MessageHandler {
+            message: MessageView::from_pb_message(
+                new_message(),
+                common::Endpoints::from_url("localhost:8081").unwrap(),
+            )
+            .unwrap(),
+            status: ConsumeResult::FAILURE,
+            attempt: 0,
+        };
+        message_handler_queue.push_back(handle);
+        let (tx, _) = mpsc::channel(16);
+        let ack_tx = tx;
+        actor
+            .ack_message_in_waiting_queue(&mut mock, &mut message_handler_queue, ack_tx)
+            .await;
+        let handler2 = message_handler_queue.pop_front().unwrap();
+        assert_eq!(1, handler2.attempt);
+    }
 }
