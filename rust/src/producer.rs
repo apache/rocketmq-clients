@@ -468,6 +468,7 @@ impl Producer {
 mod tests {
     use std::sync::Arc;
 
+    use crate::client::MockClient;
     use crate::error::ErrorKind;
     use crate::log::terminal_logger;
     use crate::model::common::Route;
@@ -475,7 +476,6 @@ mod tests {
     use crate::model::transaction::TransactionResolution;
     use crate::pb::{Broker, Code, EndTransactionResponse, MessageQueue, Status};
     use crate::session::{self, Session};
-    use crate::client::MockClient;
 
     use super::*;
 

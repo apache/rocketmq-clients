@@ -24,7 +24,10 @@ async fn main() {
     let mut push_consumer = PushConsumer::new(client_option, option, callback).unwrap();
     let start_result = push_consumer.start().await;
     if start_result.is_err() {
-        eprintln!("push consumer start failed: {:?}", start_result.unwrap_err());
+        eprintln!(
+            "push consumer start failed: {:?}",
+            start_result.unwrap_err()
+        );
         return;
     }
 
