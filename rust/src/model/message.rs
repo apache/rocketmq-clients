@@ -513,7 +513,7 @@ mod tests {
     }
 
     #[test]
-    fn common_message() -> Result<(), ClientError>{
+    fn common_message() -> Result<(), ClientError> {
         let message_view = MessageView::from_pb_message(
             pb::Message {
                 topic: Some(pb::Resource {
