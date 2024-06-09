@@ -164,7 +164,7 @@ impl PushConsumer {
         // must retrieve settings from server first.
         let command = telemetry_command_rx.recv().await.ok_or(ClientError::new(
             ErrorKind::Connect,
-            "telemtry command channel closed.",
+            "telemetry command channel closed.",
             OPERATION_START_PUSH_CONSUMER,
         ))?;
         let backoff_policy = Arc::new(Mutex::new(Self::get_backoff_policy(command).ok_or(
