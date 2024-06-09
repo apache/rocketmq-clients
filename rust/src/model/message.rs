@@ -359,10 +359,21 @@ impl AckMessageEntry for MessageView {
 }
 
 impl MessageView {
-    pub(crate) fn from_pb_message(message: pb::Message, endpoints: Endpoints) -> Self {
-        let system_properties = message.system_properties.unwrap();
-        let topic = message.topic.unwrap();
-        MessageView {
+    pub(crate) fn from_pb_message(
+        message: pb::Message,
+        endpoints: Endpoints,
+    ) -> Result<Self, ClientError> {
+        let system_properties = message.system_properties.ok_or(ClientError::new(
+            ErrorKind::InvalidMessage,
+            "invalid system properties",
+            "TODO",
+        ))?;
+        let topic = message.topic.ok_or(ClientError::new(
+            ErrorKind::InvalidMessage,
+            "invalid topic",
+            "TODO",
+        ))?;
+        Ok(MessageView {
             message_id: system_properties.message_id,
             receipt_handle: system_properties.receipt_handle,
             namespace: topic.resource_namespace,
@@ -377,7 +388,7 @@ impl MessageView {
             born_timestamp: system_properties.born_timestamp.map_or(0, |t| t.seconds),
             delivery_attempt: system_properties.delivery_attempt.unwrap_or(0),
             endpoints,
-        }
+        })
     }
 
     /// Get message id
@@ -502,7 +513,7 @@ mod tests {
     }
 
     #[test]
-    fn common_message() {
+    fn common_message() -> Result<(), ClientError>{
         let message_view = MessageView::from_pb_message(
             pb::Message {
                 topic: Some(pb::Resource {
@@ -535,7 +546,7 @@ mod tests {
                 }),
             },
             Endpoints::from_url("localhost:8081").unwrap(),
-        );
+        )?;
 
         assert_eq!(message_view.message_id(), "message_id");
         assert_eq!(message_view.topic(), "test");
@@ -563,5 +574,6 @@ mod tests {
             AckMessageEntry::endpoints(&message_view).endpoint_url(),
             "localhost:8081"
         );
+        Ok(())
     }
 }

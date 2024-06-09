@@ -137,7 +137,7 @@ impl Client {
 
         self.telemetry_command_tx = Some(telemetry_command_tx);
 
-        let rpc_client = self
+        let mut rpc_client = self
             .get_session()
             .await
             .map_err(|error| error.with_operation(OPERATION_CLIENT_START))?;
@@ -207,7 +207,7 @@ impl Client {
 
                     },
                     _ = sync_route_timer.tick() => {
-                        let result = route_manager.sync_route_data(rpc_client.shadow_session()).await;
+                        let result = route_manager.sync_route_data(&mut rpc_client).await;
                         if result.is_err() {
                             error!(logger, "sync route failed: {}", result.unwrap_err());
                         }
@@ -317,9 +317,9 @@ impl Client {
                 return Ok(route);
             }
         }
-        let rpc_client = self.get_session().await?;
+        let mut rpc_client = self.get_session().await?;
         self.route_manager
-            .topic_route_inner(rpc_client, topic)
+            .topic_route_inner(&mut rpc_client, topic)
             .await
     }
 
@@ -537,35 +537,36 @@ impl Client {
 }
 
 impl TopicRouteManager {
-    pub(crate) async fn sync_route_data(&self, rpc_client: Session) -> Result<(), ClientError> {
+    pub(crate) async fn sync_route_data<T: RPCClient>(
+        &self,
+        rpc_client: &mut T,
+    ) -> Result<(), ClientError> {
         let topics: Vec<String>;
         {
             topics = self.route_table.lock().keys().cloned().collect();
         }
         debug!(self.logger, "sync topic route of topics {:?}", topics);
         for topic in topics {
-            self.topic_route_inner(rpc_client.shadow_session(), &topic)
-                .await?;
+            self.topic_route_inner(rpc_client, &topic).await?;
         }
         Ok(())
     }
 
-    pub(crate) async fn sync_topic_routes(
+    pub(crate) async fn sync_topic_routes<T: RPCClient>(
         &self,
-        rpc_client: Session,
+        rpc_client: &mut T,
         topics: Vec<String>,
     ) -> Result<(), ClientError> {
         debug!(self.logger, "sync topic route of topics {:?}.", topics);
         for topic in topics {
-            self.topic_route_inner(rpc_client.shadow_session(), topic.as_str())
-                .await?;
+            self.topic_route_inner(rpc_client, topic.as_str()).await?;
         }
         Ok(())
     }
 
-    pub(crate) async fn topic_route_inner(
+    pub(crate) async fn topic_route_inner<T: RPCClient>(
         &self,
-        rpc_client: impl RPCClient,
+        rpc_client: &mut T,
         topic: &str,
     ) -> Result<Arc<Route>, ClientError> {
         debug!(self.logger, "query route for topic={}", topic);
@@ -664,8 +665,8 @@ impl TopicRouteManager {
         }
     }
 
-    async fn query_topic_route(
-        mut rpc_client: impl RPCClient,
+    async fn query_topic_route<T: RPCClient>(
+        rpc_client: &mut T,
         namespace: String,
         access_endpoints: Endpoints,
         topic: &str,
@@ -927,7 +928,7 @@ pub(crate) mod tests {
         let logger = client.logger.clone();
         let result = client
             .route_manager
-            .topic_route_inner(mock, "DefaultCluster")
+            .topic_route_inner(&mut mock, "DefaultCluster")
             .await;
         assert!(result.is_ok());
 
@@ -957,7 +958,7 @@ pub(crate) mod tests {
 
             let result = client_clone
                 .route_manager
-                .topic_route_inner(mock, "DefaultCluster")
+                .topic_route_inner(&mut mock, "DefaultCluster")
                 .await;
             assert!(result.is_ok());
         });
@@ -967,7 +968,7 @@ pub(crate) mod tests {
             let mut mock = session::MockRPCClient::new();
             let result = client
                 .route_manager
-                .topic_route_inner(mock, "DefaultCluster")
+                .topic_route_inner(&mut mock, "DefaultCluster")
                 .await;
             assert!(result.is_ok());
         });
@@ -994,7 +995,7 @@ pub(crate) mod tests {
 
             let result = client_clone
                 .route_manager
-                .topic_route_inner(mock, "DefaultCluster")
+                .topic_route_inner(&mut mock, "DefaultCluster")
                 .await;
             assert!(result.is_err());
         });
@@ -1004,7 +1005,7 @@ pub(crate) mod tests {
             let mut mock = session::MockRPCClient::new();
             let result = client
                 .route_manager
-                .topic_route_inner(mock, "DefaultCluster")
+                .topic_route_inner(&mut mock, "DefaultCluster")
                 .await;
             assert!(result.is_err());
         });
@@ -1044,7 +1045,7 @@ pub(crate) mod tests {
 
         let result = client
             .route_manager
-            .topic_route_inner(mock, "DefaultCluster")
+            .topic_route_inner(&mut mock, "DefaultCluster")
             .await;
         assert!(result.is_ok());
     }
@@ -1059,7 +1060,7 @@ pub(crate) mod tests {
 
         let result = client
             .route_manager
-            .topic_route_inner(mock, "DefaultCluster")
+            .topic_route_inner(&mut mock, "DefaultCluster")
             .await;
         assert!(result.is_ok());
 
@@ -1080,7 +1081,7 @@ pub(crate) mod tests {
 
         let result2 = client
             .route_manager
-            .topic_route_inner(mock, "DefaultCluster")
+            .topic_route_inner(&mut mock, "DefaultCluster")
             .await;
         assert!(result2.is_ok());
 

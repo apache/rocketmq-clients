@@ -234,7 +234,7 @@ impl Producer {
         if let Some(transaction_checker) = transaction_checker {
             let resolution = transaction_checker(
                 transaction_id.clone(),
-                MessageView::from_pb_message(message, endpoints),
+                MessageView::from_pb_message(message, endpoints)?,
             );
             let response = rpc_client
                 .end_transaction(EndTransactionRequest {

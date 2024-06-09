@@ -433,7 +433,10 @@ impl CustomizedBackOffRetryPolicy {
     }
 
     pub(crate) fn get_next_attempt_delay(&self, attempts: i32) -> Duration {
-        let index = attempts.min(self.next_list.len() as i32) - 1;
+        let mut index = attempts.min(self.next_list.len() as i32) - 1;
+        if index < 0 {
+            index = 0;
+        }
         self.next_list[index as usize]
     }
 }
