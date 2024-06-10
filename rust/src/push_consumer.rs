@@ -401,14 +401,15 @@ impl MessageQueueActor {
         let (tx, mut ack_rx) = mpsc::channel(8);
         let ack_tx: mpsc::Sender<()> = tx;
         let mut queue_check_ticker = tokio::time::interval(std::time::Duration::from_secs(1));
+        let mut rpc_client = actor.rpc_client.shadow_session();
         tokio::spawn(async move {
             loop {
                 select! {
                     _ = poll_rx.recv() => {
-                        actor.receive_messages(&mut actor.rpc_client.shadow_session(), &mut message_handler_queue, poll_tx.clone()).await;
+                        actor.receive_messages(&mut rpc_client, &mut message_handler_queue, poll_tx.clone()).await;
                     }
                     _ = ack_rx.recv() => {
-                        actor.ack_message_in_waiting_queue(&mut actor.rpc_client.shadow_session(), &mut message_handler_queue, ack_tx.clone()).await;
+                        actor.ack_message_in_waiting_queue(&mut rpc_client, &mut message_handler_queue, ack_tx.clone()).await;
                     }
                     _ = queue_check_ticker.tick() => {
                         if !message_handler_queue.is_empty() {
