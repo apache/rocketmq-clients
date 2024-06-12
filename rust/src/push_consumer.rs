@@ -421,6 +421,7 @@ impl MessageQueueActor {
                     }
                     _ = &mut shutdown_rx => {
                         info!(logger, "message queue actor shutdown");
+                        actor.flush_waiting_queue(&mut rpc_client, &mut message_handler_queue).await;
                         break;
                     }
                 }
@@ -567,6 +568,39 @@ impl MessageQueueActor {
                         message_handler_queue.push_front(handler);
                     } else if !message_handler_queue.is_empty() {
                         let _ = ack_tx.try_send(());
+                    }
+                }
+            }
+        }
+    }
+
+    async fn flush_waiting_queue<T: RPCClient + 'static>(
+        &mut self,
+        rpc_client: &mut T,
+        message_handler_queue: &mut VecDeque<MessageHandler>,
+    ) {
+        for message_handler in message_handler_queue {
+            match message_handler.status {
+                ConsumeResult::SUCCESS => {
+                    let result = self.ack_message(rpc_client, &message_handler.message).await;
+                    if result.is_err() {
+                        warn!(
+                            self.logger,
+                            "ack message failed, result: {:?}",
+                            result.unwrap_err()
+                        );
+                    }
+                }
+                ConsumeResult::FAILURE => {
+                    let result = self
+                        .change_invisible_duration(rpc_client, &message_handler.message)
+                        .await;
+                    if result.is_err() {
+                        warn!(
+                            self.logger,
+                            "change invisible duration failed, result: {:?}",
+                            result.unwrap_err()
+                        );
                     }
                 }
             }
