@@ -234,7 +234,13 @@ impl Producer {
         if let Some(transaction_checker) = transaction_checker {
             let resolution = transaction_checker(
                 transaction_id.clone(),
-                MessageView::from_pb_message(message, endpoints)?,
+                MessageView::from_pb_message(message, endpoints).map_err(|_| {
+                    ClientError::new(
+                        ErrorKind::InvalidMessage,
+                        "error parsing from pb",
+                        Self::OPERATION_END_TRANSACTION,
+                    )
+                })?,
             );
             let response = rpc_client
                 .end_transaction(EndTransactionRequest {

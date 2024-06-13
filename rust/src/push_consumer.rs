@@ -498,7 +498,17 @@ impl MessageQueueActor {
                         warn!(self.logger, "unhandled delivery timestamp message");
                     }
                     Content::Message(message) => {
-                        messages.push(MessageView::from_pb_message(message, endpoints.clone())?);
+                        messages.push(
+                            MessageView::from_pb_message(message, endpoints.clone()).map_err(
+                                |_| {
+                                    ClientError::new(
+                                        ErrorKind::InvalidMessage,
+                                        "error parsing from pb",
+                                        OPERATION_RECEIVE_MESSAGE,
+                                    )
+                                },
+                            )?,
+                        );
                     }
                 }
             }
@@ -651,7 +661,11 @@ mod tests {
         Settings, Status, Subscription, SystemProperties, VerifyMessageCommand,
     };
 
-    use crate::{client::MockClient, conf::{CustomizedBackOffRetryPolicy, ExponentialBackOffRetryPolicy}, model::common};
+    use crate::{
+        client::MockClient,
+        conf::{CustomizedBackOffRetryPolicy, ExponentialBackOffRetryPolicy},
+        model::common,
+    };
     use crate::{model::common::FilterType, session::MockRPCClient};
 
     use super::*;
