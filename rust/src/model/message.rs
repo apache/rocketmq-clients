@@ -359,10 +359,7 @@ impl AckMessageEntry for MessageView {
 }
 
 impl MessageView {
-    pub(crate) fn from_pb_message(
-        message: pb::Message,
-        endpoints: Endpoints,
-    ) -> Option<Self> {
+    pub(crate) fn from_pb_message(message: pb::Message, endpoints: Endpoints) -> Option<Self> {
         let system_properties = message.system_properties?;
         let topic = message.topic?;
         Some(MessageView {
@@ -538,7 +535,8 @@ mod tests {
                 }),
             },
             Endpoints::from_url("localhost:8081").unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(message_view.message_id(), "message_id");
         assert_eq!(message_view.topic(), "test");
