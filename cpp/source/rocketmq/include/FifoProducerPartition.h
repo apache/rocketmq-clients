@@ -16,7 +16,7 @@
  */
 #pragma once
 
-#include <absl/base/internal/thread_annotations.h>
+#include "absl/base/internal/thread_annotations.h"
 
 #include <atomic>
 #include <list>
