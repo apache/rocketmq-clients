@@ -218,9 +218,11 @@ if "com_google_googletest" not in native.existing_rules():
 
    [Clangd](https://clangd.llvm.org/) is a really nice code completion tool. Clangd requires compile_commands.json to work properly.
    To generate the file, run the following command:
+
    ```sh
     ./tools/gen_compile_commands.sh
    ```
+
    Once the script completes, you should have compile_commands.json file in the workspace directory, aka, ${repository}/cpp.
 
    LLVM project has an extension for [clangd](https://marketplace.visualstudio.com/items?itemName=llvm-vs-code-extensions.vscode-clangd). Please install it from the extension market.
