@@ -362,17 +362,9 @@ impl MessageView {
     pub(crate) fn from_pb_message(
         message: pb::Message,
         endpoints: Endpoints,
-    ) -> Result<Self, ClientError> {
-        let system_properties = message.system_properties.ok_or(ClientError::new(
-            ErrorKind::InvalidMessage,
-            "invalid system properties",
-            "TODO",
-        ))?;
-        let topic = message.topic.ok_or(ClientError::new(
-            ErrorKind::InvalidMessage,
-            "invalid topic",
-            "TODO",
-        ))?;
+    ) -> Result<Self, ()> {
+        let system_properties = message.system_properties.ok_or(())?;
+        let topic = message.topic.ok_or(())?;
         Ok(MessageView {
             message_id: system_properties.message_id,
             receipt_handle: system_properties.receipt_handle,
@@ -513,7 +505,7 @@ mod tests {
     }
 
     #[test]
-    fn common_message() -> Result<(), ClientError> {
+    fn common_message() -> Result<(), ()> {
         let message_view = MessageView::from_pb_message(
             pb::Message {
                 topic: Some(pb::Resource {
