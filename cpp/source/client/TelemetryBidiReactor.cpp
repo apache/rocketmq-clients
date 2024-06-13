@@ -134,7 +134,7 @@ void TelemetryBidiReactor::OnReadDone(bool ok) {
         SPDLOG_DEBUG("Change read-state {} --> {}", static_cast<std::uint8_t>(read_state_),
                      static_cast<std::uint8_t>(StreamState::Error));
         read_state_ = StreamState::Error;
-        SPDLOG_WARN("Faild to read from telemetry stream from {}", peer_address_);
+        SPDLOG_WARN("Failed to read from telemetry stream from {}", peer_address_);
 
         // Sync write state
         switch (write_state_) {

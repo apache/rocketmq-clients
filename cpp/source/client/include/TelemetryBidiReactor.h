@@ -56,7 +56,7 @@ enum class StreamState : std::uint8_t
 /// requirement:
 ///    1, fireClose --> blocking await till bidireactor is closed;
 ///    2, when session is closed and client is still active, recreate a new session to accept incoming commands from
-///    server 3, after writing the first Setttings telemetry command, launch the read directional stream
+///    server 3, after writing the first Settings telemetry command, launch the read directional stream
 ///
 class TelemetryBidiReactor : public grpc::ClientBidiReactor<TelemetryCommand, TelemetryCommand>,
                              public std::enable_shared_from_this<TelemetryBidiReactor> {
