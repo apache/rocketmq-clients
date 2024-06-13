@@ -499,14 +499,12 @@ impl MessageQueueActor {
                     }
                     Content::Message(message) => {
                         messages.push(
-                            MessageView::from_pb_message(message, endpoints.clone()).map_err(
-                                |_| {
-                                    ClientError::new(
-                                        ErrorKind::InvalidMessage,
-                                        "error parsing from pb",
-                                        OPERATION_RECEIVE_MESSAGE,
-                                    )
-                                },
+                            MessageView::from_pb_message(message, endpoints.clone()).ok_or(
+                                ClientError::new(
+                                    ErrorKind::InvalidMessage,
+                                    "error parsing from pb",
+                                    OPERATION_RECEIVE_MESSAGE,
+                                ),
                             )?,
                         );
                     }

@@ -362,10 +362,10 @@ impl MessageView {
     pub(crate) fn from_pb_message(
         message: pb::Message,
         endpoints: Endpoints,
-    ) -> Result<Self, ()> {
-        let system_properties = message.system_properties.ok_or(())?;
-        let topic = message.topic.ok_or(())?;
-        Ok(MessageView {
+    ) -> Option<Self> {
+        let system_properties = message.system_properties?;
+        let topic = message.topic?;
+        Some(MessageView {
             message_id: system_properties.message_id,
             receipt_handle: system_properties.receipt_handle,
             namespace: topic.resource_namespace,
@@ -505,7 +505,7 @@ mod tests {
     }
 
     #[test]
-    fn common_message() -> Result<(), ()> {
+    fn common_message() {
         let message_view = MessageView::from_pb_message(
             pb::Message {
                 topic: Some(pb::Resource {
@@ -538,7 +538,7 @@ mod tests {
                 }),
             },
             Endpoints::from_url("localhost:8081").unwrap(),
-        )?;
+        ).unwrap();
 
         assert_eq!(message_view.message_id(), "message_id");
         assert_eq!(message_view.topic(), "test");
@@ -566,6 +566,5 @@ mod tests {
             AckMessageEntry::endpoints(&message_view).endpoint_url(),
             "localhost:8081"
         );
-        Ok(())
     }
 }
