@@ -28,16 +28,11 @@ use tokio::sync::{mpsc, oneshot};
 
 #[double]
 use crate::client::Client;
-use crate::conf::{
-    BackOffRetryPolicy, ClientOption, CustomizedBackOffRetryPolicy, ExponentialBackOffRetryPolicy,
-    PushConsumerOption,
-};
+use crate::conf::{BackOffRetryPolicy, ClientOption, PushConsumerOption};
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::{ClientType, ConsumeResult, FilterExpression, MessageQueue};
 use crate::model::message::{AckMessageEntry, MessageView};
 use crate::pb::receive_message_response::Content;
-use crate::pb::settings::PubSub;
-use crate::pb::telemetry_command::Command;
 use crate::pb::{
     AckMessageRequest, Assignment, ChangeInvisibleDurationRequest, QueryAssignmentRequest,
     ReceiveMessageRequest, Resource,
@@ -116,27 +111,6 @@ impl PushConsumer {
         })
     }
 
-    fn get_backoff_policy(command: Command) -> Option<BackOffRetryPolicy> {
-        if let pb::telemetry_command::Command::Settings(settings) = command {
-            let pubsub = settings.pub_sub.or(None)?;
-            if let PubSub::Subscription(_) = pubsub {
-                let retry_policy = settings.backoff_policy.or(None)?;
-                let strategy = retry_policy.strategy.or(None)?;
-                return match strategy {
-                    pb::retry_policy::Strategy::ExponentialBackoff(strategy) => {
-                        Some(BackOffRetryPolicy::Exponential(
-                            ExponentialBackOffRetryPolicy::new(strategy),
-                        ))
-                    }
-                    pb::retry_policy::Strategy::CustomizedBackoff(strategy) => Some(
-                        BackOffRetryPolicy::Customized(CustomizedBackOffRetryPolicy::new(strategy)),
-                    ),
-                };
-            }
-        }
-        None
-    }
-
     pub async fn start(&mut self) -> Result<(), ClientError> {
         let (telemetry_command_tx, mut telemetry_command_rx) = mpsc::channel(16);
         self.client.start(telemetry_command_tx).await?;
@@ -167,12 +141,14 @@ impl PushConsumer {
             "telemetry command channel closed.",
             OPERATION_START_PUSH_CONSUMER,
         ))?;
-        let backoff_policy = Arc::new(Mutex::new(Self::get_backoff_policy(command).ok_or(
-            ClientError::new(
-                ErrorKind::Connect,
-                "backoff policy is required.",
-                OPERATION_START_PUSH_CONSUMER,
-            ),
+        let backoff_policy = Arc::new(Mutex::new(BackOffRetryPolicy::try_from(command).map_err(
+            |_| {
+                ClientError::new(
+                    ErrorKind::Connect,
+                    "backoff policy is required.",
+                    OPERATION_START_PUSH_CONSUMER,
+                )
+            },
         )?));
 
         tokio::spawn(async move {
@@ -182,8 +158,8 @@ impl PushConsumer {
                 select! {
                     command = telemetry_command_rx.recv() => {
                         if let Some(command) = command {
-                            let remote_backoff_policy = Self::get_backoff_policy(command);
-                            if let Some(remote_backoff_policy) = remote_backoff_policy {
+                            let remote_backoff_policy = BackOffRetryPolicy::try_from(command);
+                            if let Ok(remote_backoff_policy) = remote_backoff_policy {
                                 let mut guard = backoff_policy.lock();
                                 *guard = remote_backoff_policy;
                             }
@@ -675,7 +651,7 @@ mod tests {
         Settings, Status, Subscription, SystemProperties, VerifyMessageCommand,
     };
 
-    use crate::{client::MockClient, model::common};
+    use crate::{client::MockClient, conf::{CustomizedBackOffRetryPolicy, ExponentialBackOffRetryPolicy}, model::common};
     use crate::{model::common::FilterType, session::MockRPCClient};
 
     use super::*;
@@ -710,61 +686,6 @@ mod tests {
             Box::new(|_| ConsumeResult::SUCCESS),
         );
         assert!(result3.is_ok());
-    }
-
-    #[test]
-    fn test_get_back_policy() -> Result<(), String> {
-        let command =
-            pb::telemetry_command::Command::VerifyMessageCommand(VerifyMessageCommand::default());
-        let result = PushConsumer::get_backoff_policy(command);
-        assert!(result.is_none());
-
-        let command2 = pb::telemetry_command::Command::Settings(Settings::default());
-        let result2 = PushConsumer::get_backoff_policy(command2);
-        assert!(result2.is_none());
-
-        let exponential_backoff_settings = Settings {
-            pub_sub: Some(PubSub::Subscription(Subscription::default())),
-            client_type: Some(ClientType::PushConsumer as i32),
-            backoff_policy: Some(RetryPolicy {
-                max_attempts: 0,
-                strategy: Some(pb::retry_policy::Strategy::ExponentialBackoff(
-                    ExponentialBackoff {
-                        initial: Some(prost_types::Duration::from_str("1s").unwrap()),
-                        max: Some(prost_types::Duration::from_str("60s").unwrap()),
-                        multiplier: 2.0,
-                    },
-                )),
-            }),
-            ..Settings::default()
-        };
-        let command3 = pb::telemetry_command::Command::Settings(exponential_backoff_settings);
-        let result3 = PushConsumer::get_backoff_policy(command3);
-        if let Some(BackOffRetryPolicy::Exponential(_)) = result3 {
-        } else {
-            return Err("get_backoff_policy failed, expected ExponentialBackoff.".to_string());
-        }
-
-        let customized_backoff_settings = Settings {
-            pub_sub: Some(PubSub::Subscription(Subscription::default())),
-            client_type: Some(ClientType::PushConsumer as i32),
-            backoff_policy: Some(RetryPolicy {
-                max_attempts: 0,
-                strategy: Some(pb::retry_policy::Strategy::CustomizedBackoff(
-                    CustomizedBackoff {
-                        next: vec![prost_types::Duration::from_str("1s").unwrap()],
-                    },
-                )),
-            }),
-            ..Settings::default()
-        };
-        let command4 = pb::telemetry_command::Command::Settings(customized_backoff_settings);
-        let result4 = PushConsumer::get_backoff_policy(command4);
-        if let Some(BackOffRetryPolicy::Customized(_)) = result4 {
-        } else {
-            return Err("get_backoff_policy failed, expected CustomizedBackoff.".to_string());
-        }
-        Ok(())
     }
 
     #[tokio::test]
