@@ -376,6 +376,33 @@ pub enum BackOffRetryPolicy {
     Customized(CustomizedBackOffRetryPolicy),
 }
 
+const INVALID_COMMAND: &str = "invalid command";
+
+impl TryFrom<pb::telemetry_command::Command> for BackOffRetryPolicy {
+    type Error = &'static str;
+
+    fn try_from(value: pb::telemetry_command::Command) -> Result<Self, Self::Error> {
+        if let pb::telemetry_command::Command::Settings(settings) = value {
+            let pubsub = settings.pub_sub.ok_or(INVALID_COMMAND)?;
+            if let pb::settings::PubSub::Subscription(_) = pubsub {
+                let retry_policy = settings.backoff_policy.ok_or(INVALID_COMMAND)?;
+                let strategy = retry_policy.strategy.ok_or(INVALID_COMMAND)?;
+                return match strategy {
+                    pb::retry_policy::Strategy::ExponentialBackoff(strategy) => {
+                        Ok(BackOffRetryPolicy::Exponential(
+                            ExponentialBackOffRetryPolicy::new(strategy),
+                        ))
+                    }
+                    pb::retry_policy::Strategy::CustomizedBackoff(strategy) => Ok(
+                        BackOffRetryPolicy::Customized(CustomizedBackOffRetryPolicy::new(strategy)),
+                    ),
+                };
+            }
+        }
+        Err(INVALID_COMMAND)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ExponentialBackOffRetryPolicy {
     initial: Duration,
@@ -511,5 +538,68 @@ mod tests {
         assert_eq!(Duration::from_secs(20), policy.get_next_attempt_delay(3));
         assert_eq!(Duration::from_secs(30), policy.get_next_attempt_delay(4));
         assert_eq!(Duration::from_secs(30), policy.get_next_attempt_delay(5));
+    }
+
+    use pb::settings::PubSub;
+    use pb::CustomizedBackoff;
+    use pb::ExponentialBackoff;
+    use pb::RetryPolicy;
+    use pb::Settings;
+    use pb::Subscription;
+
+    #[test]
+    fn test_parse_back_policy() -> Result<(), String> {
+        let command = pb::telemetry_command::Command::VerifyMessageCommand(
+            pb::VerifyMessageCommand::default(),
+        );
+        let result = BackOffRetryPolicy::try_from(command);
+        assert!(result.is_err());
+
+        let command2 = pb::telemetry_command::Command::Settings(pb::Settings::default());
+        let result2 = BackOffRetryPolicy::try_from(command2);
+        assert!(result2.is_err());
+
+        let exponential_backoff_settings = pb::Settings {
+            pub_sub: Some(PubSub::Subscription(Subscription::default())),
+            client_type: Some(ClientType::PushConsumer as i32),
+            backoff_policy: Some(RetryPolicy {
+                max_attempts: 0,
+                strategy: Some(pb::retry_policy::Strategy::ExponentialBackoff(
+                    ExponentialBackoff {
+                        initial: Some(prost_types::Duration::from_str("1s").unwrap()),
+                        max: Some(prost_types::Duration::from_str("60s").unwrap()),
+                        multiplier: 2.0,
+                    },
+                )),
+            }),
+            ..Settings::default()
+        };
+        let command3 = pb::telemetry_command::Command::Settings(exponential_backoff_settings);
+        let result3 = BackOffRetryPolicy::try_from(command3);
+        if let Ok(BackOffRetryPolicy::Exponential(_)) = result3 {
+        } else {
+            return Err("get_backoff_policy failed, expected ExponentialBackoff.".to_string());
+        }
+
+        let customized_backoff_settings = Settings {
+            pub_sub: Some(PubSub::Subscription(Subscription::default())),
+            client_type: Some(ClientType::PushConsumer as i32),
+            backoff_policy: Some(RetryPolicy {
+                max_attempts: 0,
+                strategy: Some(pb::retry_policy::Strategy::CustomizedBackoff(
+                    CustomizedBackoff {
+                        next: vec![prost_types::Duration::from_str("1s").unwrap()],
+                    },
+                )),
+            }),
+            ..Settings::default()
+        };
+        let command4 = pb::telemetry_command::Command::Settings(customized_backoff_settings);
+        let result4 = BackOffRetryPolicy::try_from(command4);
+        if let Ok(BackOffRetryPolicy::Customized(_)) = result4 {
+        } else {
+            return Err("get_backoff_policy failed, expected CustomizedBackoff.".to_string());
+        }
+        Ok(())
     }
 }
