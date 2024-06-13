@@ -50,9 +50,9 @@
          -->
         <rocketmq-proto.version>2.0.3</rocketmq-proto.version>
         <annotations-api.version>6.0.53</annotations-api.version>
-        <protobuf.version>3.21.7</protobuf.version>
+        <protobuf.version>3.24.4</protobuf.version>
         <grpc.version>1.50.0</grpc.version>
-        <guava.version>31.1-jre</guava.version>
+        <guava.version>32.0.0-jre</guava.version>
         <slf4j.version>1.7.30</slf4j.version>
         <logback.version>1.2.9</logback.version>
         <commons-lang3.version>3.4</commons-lang3.version>
