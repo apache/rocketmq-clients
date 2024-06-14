@@ -208,7 +208,9 @@ SendReceipt ProducerImpl::send(MessageConstPtr message, std::error_code& ec) noe
   }
 
   std::vector<rmq::MessageQueue> message_queue_list;
-  if (!topic_publish_info->selectMessageQueues(absl::make_optional<std::string>(), message_queue_list)) {
+  // null_opt_t
+  absl::optional<std::string> message_group{};
+  if (!topic_publish_info->selectMessageQueues(message_group, message_queue_list)) {
     SPDLOG_WARN("Failed to select an addressable message queue for topic[{}]", message->topic());
     ec = ErrorCode::NotFound;
     SendReceipt send_receipt{};
