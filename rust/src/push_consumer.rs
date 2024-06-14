@@ -47,12 +47,12 @@ const OPERATION_ACK_MESSAGE: &str = "push_consumer.ack_message";
 const OPERATION_START_PUSH_CONSUMER: &str = "push_consumer.start";
 const OPERATION_CHANGE_INVISIBLE_DURATION: &str = "push_consumer.change_invisible_duration";
 
-pub type MessageListener = dyn Fn(&MessageView) -> ConsumeResult + Send + Sync;
+pub type MessageListener = Box<dyn Fn(&MessageView) -> ConsumeResult + Send + Sync>;
 
 pub struct PushConsumer {
     logger: Logger,
     client: Client,
-    message_listener: Arc<Box<MessageListener>>,
+    message_listener: Arc<MessageListener>,
     option: Arc<RwLock<PushConsumerOption>>,
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
@@ -67,7 +67,7 @@ struct MessageQueueActor {
     message_queue: MessageQueue,
     shutdown_tx: Option<oneshot::Sender<()>>,
     option: PushConsumerOption,
-    message_listener: Arc<Box<MessageListener>>,
+    message_listener: Arc<MessageListener>,
     retry_policy: BackOffRetryPolicy,
 }
 
@@ -75,7 +75,7 @@ impl PushConsumer {
     pub fn new(
         client_option: ClientOption,
         option: PushConsumerOption,
-        message_listener: Box<MessageListener>,
+        message_listener: MessageListener,
     ) -> Result<Self, ClientError> {
         if option.consumer_group().is_empty() {
             return Err(ClientError::new(
@@ -229,7 +229,7 @@ impl PushConsumer {
         logger: Logger,
         rpc_client: Session,
         option: &PushConsumerOption,
-        message_listener: Arc<Box<MessageListener>>,
+        message_listener: Arc<MessageListener>,
         actor_table: &mut HashMap<MessageQueue, MessageQueueActor>,
         mut assignments: Vec<Assignment>,
         retry_policy: BackOffRetryPolicy,
@@ -313,7 +313,7 @@ impl MessageQueueActor {
         rpc_client: Session,
         message_queue: MessageQueue,
         option: PushConsumerOption,
-        message_listener: Arc<Box<MessageListener>>,
+        message_listener: Arc<MessageListener>,
         retry_policy: BackOffRetryPolicy,
     ) -> Self {
         Self {
@@ -705,8 +705,7 @@ mod tests {
         let rpc_client = Session::mock();
         let logger = terminal_logger();
         let option = &PushConsumerOption::default();
-        let message_listener: Arc<Box<MessageListener>> =
-            Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+        let message_listener: Arc<MessageListener> = Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
         let mut actor_table: HashMap<MessageQueue, MessageQueueActor> = HashMap::new();
         let retry_policy =
             BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default());
@@ -744,8 +743,7 @@ mod tests {
         let rpc_client = Session::mock();
         let logger = terminal_logger();
         let option = &PushConsumerOption::default();
-        let message_listener: Arc<Box<MessageListener>> =
-            Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+        let message_listener: Arc<MessageListener> = Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
         let mut actor_table: HashMap<MessageQueue, MessageQueueActor> = HashMap::new();
         let retry_policy =
             BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default());
@@ -795,8 +793,7 @@ mod tests {
     async fn test_process_assignments_two_queues() -> Result<(), ClientError> {
         let logger = terminal_logger();
         let option = &PushConsumerOption::default();
-        let message_listener: Arc<Box<MessageListener>> =
-            Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+        let message_listener: Arc<MessageListener> = Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
         let mut actor_table: HashMap<MessageQueue, MessageQueueActor> = HashMap::new();
         let retry_policy =
             BackOffRetryPolicy::Exponential(ExponentialBackOffRetryPolicy::default());
@@ -941,7 +938,7 @@ mod tests {
         }
     }
 
-    fn new_actor_for_test(message_listener: Arc<Box<MessageListener>>) -> MessageQueueActor {
+    fn new_actor_for_test(message_listener: Arc<MessageListener>) -> MessageQueueActor {
         let message_queue = new_message_queue();
         let mut option = PushConsumerOption::default();
         option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
@@ -981,7 +978,7 @@ mod tests {
         let _m = crate::client::tests::MTX.lock();
         let receive_count = Arc::new(AtomicUsize::new(0));
         let receive_count_2 = Arc::clone(&receive_count);
-        let message_listener: Arc<Box<MessageListener>> = Arc::new(Box::new(move |_| {
+        let message_listener: Arc<MessageListener> = Arc::new(Box::new(move |_| {
             receive_count.fetch_add(1, Ordering::Relaxed);
             ConsumeResult::SUCCESS
         }));
@@ -1023,7 +1020,7 @@ mod tests {
         let _m = crate::client::tests::MTX.lock();
         let receive_count = Arc::new(AtomicUsize::new(0));
         let receive_count_2 = Arc::clone(&receive_count);
-        let message_listener: Arc<Box<MessageListener>> = Arc::new(Box::new(move |_| {
+        let message_listener: Arc<MessageListener> = Arc::new(Box::new(move |_| {
             receive_count.fetch_add(1, Ordering::Relaxed);
             ConsumeResult::FAILURE
         }));
@@ -1065,7 +1062,7 @@ mod tests {
         let _m = crate::client::tests::MTX.lock();
         let receive_count = Arc::new(AtomicUsize::new(0));
         let receive_count_2 = Arc::clone(&receive_count);
-        let message_listener: Arc<Box<MessageListener>> = Arc::new(Box::new(move |_| {
+        let message_listener: Arc<MessageListener> = Arc::new(Box::new(move |_| {
             receive_count.fetch_add(1, Ordering::Relaxed);
             ConsumeResult::SUCCESS
         }));
@@ -1110,7 +1107,7 @@ mod tests {
         let _m = crate::client::tests::MTX.lock();
         let receive_count = Arc::new(AtomicUsize::new(0));
         let receive_count_2 = Arc::clone(&receive_count);
-        let message_listener: Arc<Box<MessageListener>> = Arc::new(Box::new(move |_| {
+        let message_listener: Arc<MessageListener> = Arc::new(Box::new(move |_| {
             receive_count.fetch_add(1, Ordering::Relaxed);
             ConsumeResult::FAILURE
         }));
@@ -1153,8 +1150,7 @@ mod tests {
     #[tokio::test]
     async fn test_actor_ack_message_in_waiting_queue_success() {
         let _m = crate::client::tests::MTX.lock();
-        let message_listener: Arc<Box<MessageListener>> =
-            Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+        let message_listener: Arc<MessageListener> = Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
         let mut actor = new_actor_for_test(message_listener);
         let mut mock = MockRPCClient::new();
         let ack_response = Ok(AckMessageResponse {
@@ -1191,8 +1187,7 @@ mod tests {
     #[tokio::test]
     async fn test_actor_ack_message_in_waiting_queue_failure() {
         let _m = crate::client::tests::MTX.lock();
-        let message_listener: Arc<Box<MessageListener>> =
-            Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+        let message_listener: Arc<MessageListener> = Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
         let mut actor = new_actor_for_test(message_listener);
         let mut mock = MockRPCClient::new();
         let ack_response = Ok(AckMessageResponse {
@@ -1232,8 +1227,7 @@ mod tests {
     #[tokio::test]
     async fn test_actor_nack_message_in_waiting_queue_success() {
         let _m = crate::client::tests::MTX.lock();
-        let message_listener: Arc<Box<MessageListener>> =
-            Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+        let message_listener: Arc<MessageListener> = Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
         let mut actor = new_actor_for_test(message_listener);
         let mut mock = MockRPCClient::new();
         let ack_response = Ok(ChangeInvisibleDurationResponse {
@@ -1270,8 +1264,7 @@ mod tests {
     #[tokio::test]
     async fn test_actor_nack_message_in_waiting_queue_failure() {
         let _m = crate::client::tests::MTX.lock();
-        let message_listener: Arc<Box<MessageListener>> =
-            Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
+        let message_listener: Arc<MessageListener> = Arc::new(Box::new(|_| ConsumeResult::SUCCESS));
         let mut actor = new_actor_for_test(message_listener);
         let mut mock = MockRPCClient::new();
         let ack_response = Ok(ChangeInvisibleDurationResponse {
