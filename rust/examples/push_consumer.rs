@@ -32,7 +32,7 @@ async fn main() {
     option.set_consumer_group("test");
     option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
 
-    let callback: Box<MessageListener> = Box::new(|message| {
+    let callback: MessageListener = Box::new(|message| {
         println!("Receive message: {:?}", message);
         ConsumeResult::SUCCESS
     });
