@@ -233,7 +233,7 @@ impl Session {
         self.endpoints.endpoint_url()
     }
 
-    fn sign<T: 'static>(&self, message: T) -> tonic::Request<T> {
+    fn sign<T>(&self, message: T) -> tonic::Request<T> {
         let mut request = tonic::Request::new(message);
         let metadata = request.metadata_mut();
         self.sign_without_timeout(metadata);
