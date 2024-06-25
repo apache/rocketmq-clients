@@ -113,7 +113,7 @@ namespace Org.Apache.Rocketmq
             Logger.LogDebug($"Shutdown the rocketmq client successfully, clientId={ClientId}");
         }
 
-        private (bool, Session) GetSession(Endpoints endpoints)
+        private protected (bool, Session) GetSession(Endpoints endpoints)
         {
             _sessionLock.EnterReadLock();
             try
@@ -261,7 +261,7 @@ namespace Org.Apache.Rocketmq
                 $"AvailableCompletionPortThreads={availableIo}");
         }
 
-        private void ScheduleWithFixedDelay(Action action, TimeSpan delay, TimeSpan period, CancellationToken token)
+        private protected void ScheduleWithFixedDelay(Action action, TimeSpan delay, TimeSpan period, CancellationToken token)
         {
             Task.Run(async () =>
             {
@@ -432,6 +432,11 @@ namespace Org.Apache.Rocketmq
             return ClientConfig;
         }
 
+        internal IClientManager GetClientManager()
+        {
+            return ClientManager;
+        }
+
         internal virtual void OnRecoverOrphanedTransactionCommand(Endpoints endpoints,
             Proto.RecoverOrphanedTransactionCommand command)
         {
@@ -439,7 +444,7 @@ namespace Org.Apache.Rocketmq
                               $"clientId={ClientId}, endpoints={endpoints}");
         }
 
-        internal async void OnVerifyMessageCommand(Endpoints endpoints, Proto.VerifyMessageCommand command)
+        internal virtual async void OnVerifyMessageCommand(Endpoints endpoints, Proto.VerifyMessageCommand command)
         {
             // Only push consumer support message consumption verification.
             Logger.LogWarning($"Ignore verify message command from remote, which is not expected, clientId={ClientId}, " +

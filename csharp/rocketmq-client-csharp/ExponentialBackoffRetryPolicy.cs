@@ -25,7 +25,7 @@ namespace Org.Apache.Rocketmq
     {
         private readonly int _maxAttempts;
 
-        private ExponentialBackoffRetryPolicy(int maxAttempts, TimeSpan initialBackoff, TimeSpan maxBackoff,
+        public ExponentialBackoffRetryPolicy(int maxAttempts, TimeSpan initialBackoff, TimeSpan maxBackoff,
             double backoffMultiplier)
         {
             _maxAttempts = maxAttempts;
@@ -39,11 +39,11 @@ namespace Org.Apache.Rocketmq
             return _maxAttempts;
         }
 
-        private TimeSpan InitialBackoff { get; }
+        public TimeSpan InitialBackoff { get; }
 
-        private TimeSpan MaxBackoff { get; }
+        public TimeSpan MaxBackoff { get; }
 
-        private double BackoffMultiplier { get; }
+        public double BackoffMultiplier { get; }
 
         public IRetryPolicy InheritBackoff(Proto.RetryPolicy retryPolicy)
         {
@@ -63,6 +63,10 @@ namespace Org.Apache.Rocketmq
 
         public TimeSpan GetNextAttemptDelay(int attempt)
         {
+            if (attempt <= 0)
+            {
+                throw new ArgumentException("attempt must be positive", nameof(attempt));
+            }
             var delayMillis = Math.Min(
                 InitialBackoff.TotalMilliseconds * Math.Pow(BackoffMultiplier, 1.0 * (attempt - 1)),
                 MaxBackoff.TotalMilliseconds);
@@ -87,6 +91,19 @@ namespace Org.Apache.Rocketmq
                 MaxAttempts = _maxAttempts,
                 ExponentialBackoff = exponentialBackoff
             };
+        }
+
+        public static ExponentialBackoffRetryPolicy FromProtobuf(Proto.RetryPolicy retryPolicy)
+        {
+            if (!retryPolicy.StrategyCase.Equals(Proto.RetryPolicy.StrategyOneofCase.ExponentialBackoff))
+            {
+                throw new ArgumentException("Illegal retry policy");
+            }
+            var exponentialBackoff = retryPolicy.ExponentialBackoff;
+            return new ExponentialBackoffRetryPolicy(retryPolicy.MaxAttempts,
+                exponentialBackoff.Initial.ToTimeSpan(),
+                exponentialBackoff.Max.ToTimeSpan(),
+                exponentialBackoff.Multiplier);
         }
     }
 }
