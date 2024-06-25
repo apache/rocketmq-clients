@@ -79,6 +79,11 @@ namespace Org.Apache.Rocketmq
 
         public int DeliveryAttempt { get; }
 
+        public bool IsCorrupted()
+        {
+            return _corrupted;
+        }
+
         public static MessageView FromProtobuf(Proto.Message message, MessageQueue messageQueue = null)
         {
             var topic = message.Topic.Name;
