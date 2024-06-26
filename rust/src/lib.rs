@@ -121,6 +121,8 @@
 
 // Export structs that are part of crate API.
 pub use producer::Producer;
+pub use push_consumer::MessageListener;
+pub use push_consumer::PushConsumer;
 pub use simple_consumer::SimpleConsumer;
 
 #[allow(dead_code)]
@@ -141,4 +143,5 @@ pub mod model;
 mod util;
 
 mod producer;
+mod push_consumer;
 mod simple_consumer;

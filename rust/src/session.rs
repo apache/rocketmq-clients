@@ -36,8 +36,9 @@ use crate::pb::{
     AckMessageRequest, AckMessageResponse, ChangeInvisibleDurationRequest,
     ChangeInvisibleDurationResponse, EndTransactionRequest, EndTransactionResponse,
     HeartbeatRequest, HeartbeatResponse, NotifyClientTerminationRequest,
-    NotifyClientTerminationResponse, QueryRouteRequest, QueryRouteResponse, ReceiveMessageRequest,
-    ReceiveMessageResponse, SendMessageRequest, SendMessageResponse, TelemetryCommand,
+    NotifyClientTerminationResponse, QueryAssignmentRequest, QueryAssignmentResponse,
+    QueryRouteRequest, QueryRouteResponse, ReceiveMessageRequest, ReceiveMessageResponse,
+    SendMessageRequest, SendMessageResponse, TelemetryCommand,
 };
 use crate::util::{PROTOCOL_VERSION, SDK_LANGUAGE, SDK_VERSION};
 use crate::{error::ClientError, pb::messaging_service_client::MessagingServiceClient};
@@ -53,6 +54,7 @@ const OPERATION_ACK_MESSAGE: &str = "rpc.ack_message";
 const OPERATION_CHANGE_INVISIBLE_DURATION: &str = "rpc.change_invisible_duration";
 const OPERATION_END_TRANSACTION: &str = "rpc.end_transaction";
 const OPERATION_NOTIFY_CLIENT_TERMINATION: &str = "rpc.notify_client_termination";
+const OPERATION_QUERY_ASSIGNMENT: &str = "rpc.query_assignment";
 
 #[async_trait]
 #[automock]
@@ -89,6 +91,10 @@ pub(crate) trait RPCClient {
         &mut self,
         request: NotifyClientTerminationRequest,
     ) -> Result<NotifyClientTerminationResponse, ClientError>;
+    async fn query_assignment(
+        &mut self,
+        request: QueryAssignmentRequest,
+    ) -> Result<QueryAssignmentResponse, ClientError>;
 }
 
 #[derive(Debug)]
@@ -103,6 +109,11 @@ pub(crate) struct Session {
 }
 
 impl Session {
+    const OPERATION_CREATE: &'static str = "session.create_session";
+
+    const HTTP_SCHEMA: &'static str = "http";
+    const HTTPS_SCHEMA: &'static str = "https";
+
     pub(crate) fn shadow_session(&self) -> Self {
         Session {
             logger: self.logger.clone(),
@@ -114,14 +125,6 @@ impl Session {
             shutdown_tx: None,
         }
     }
-}
-
-impl Session {
-    const OPERATION_CREATE: &'static str = "session.create_session";
-
-    const HTTP_SCHEMA: &'static str = "http";
-    const HTTPS_SCHEMA: &'static str = "https";
-
     #[cfg(test)]
     pub(crate) fn mock() -> Self {
         use crate::log::terminal_logger;
@@ -362,7 +365,6 @@ impl Session {
         self.shutdown_tx.is_some()
     }
 
-    #[allow(dead_code)]
     pub(crate) async fn update_settings(
         &mut self,
         settings: TelemetryCommand,
@@ -381,7 +383,6 @@ impl Session {
     }
 }
 
-#[automock]
 #[async_trait]
 impl RPCClient for Session {
     async fn query_route(
@@ -537,6 +538,22 @@ impl RPCClient for Session {
                 )
                 .set_source(e)
             })?;
+        Ok(response.into_inner())
+    }
+
+    async fn query_assignment(
+        &mut self,
+        request: QueryAssignmentRequest,
+    ) -> Result<QueryAssignmentResponse, ClientError> {
+        let request = self.sign(request);
+        let response = self.stub.query_assignment(request).await.map_err(|e| {
+            ClientError::new(
+                ErrorKind::ClientInternal,
+                "send rpc query_assignment failed",
+                OPERATION_QUERY_ASSIGNMENT,
+            )
+            .set_source(e)
+        })?;
         Ok(response.into_inner())
     }
 }

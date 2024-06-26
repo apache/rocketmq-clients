@@ -26,10 +26,10 @@ use parking_lot::Mutex;
 use prost_types::Duration;
 use slog::{debug, error, info, o, warn, Logger};
 use tokio::select;
-use tokio::sync::{mpsc, oneshot, RwLock};
+use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
 
-use crate::conf::{ClientOption, SettingsAware};
+use crate::conf::ClientOption;
 use crate::error::{ClientError, ErrorKind};
 use crate::model::common::{ClientType, Endpoints, Route, RouteStatus, SendReceipt};
 use crate::model::message::AckMessageEntry;
@@ -44,17 +44,27 @@ use crate::pb::{
 #[double]
 use crate::session::SessionManager;
 use crate::session::{RPCClient, Session};
+use crate::util::select_message_queue;
 
-pub(crate) struct Client<S> {
+#[derive(Debug)]
+pub(crate) struct Client {
     logger: Logger,
     option: ClientOption,
     session_manager: Arc<SessionManager>,
-    route_table: Arc<Mutex<HashMap<String /* topic */, RouteStatus>>>,
+    route_manager: TopicRouteManager,
     id: String,
     access_endpoints: Endpoints,
-    settings: Arc<RwLock<S>>,
+    settings: TelemetryCommand,
     telemetry_command_tx: Option<mpsc::Sender<pb::telemetry_command::Command>>,
     shutdown_tx: Option<oneshot::Sender<()>>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct TopicRouteManager {
+    route_table: Arc<Mutex<HashMap<String /* topic */, RouteStatus>>>,
+    logger: Logger,
+    access_endpoints: Endpoints,
+    namespace: String,
 }
 
 static CLIENT_ID_SEQUENCE: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
@@ -69,38 +79,28 @@ const OPERATION_SEND_MESSAGE: &str = "client.send_message";
 const OPERATION_RECEIVE_MESSAGE: &str = "client.receive_message";
 const OPERATION_ACK_MESSAGE: &str = "client.ack_message";
 
-impl<S> Debug for Client<S>
-where
-    S: SettingsAware + 'static,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Client")
-            .field("id", &self.id)
-            .field("access_endpoints", &self.access_endpoints)
-            .field("option", &self.option)
-            .finish()
-    }
-}
-
 #[automock]
-impl<S> Client<S>
-where
-    S: SettingsAware + 'static + Send + Sync,
-{
+impl Client {
     pub(crate) fn new(
         logger: &Logger,
         option: ClientOption,
-        settings: Arc<RwLock<S>>,
+        settings: TelemetryCommand,
     ) -> Result<Self, ClientError> {
         let id = Self::generate_client_id();
         let endpoints = Endpoints::from_url(option.access_url())
             .map_err(|e| e.with_operation(OPERATION_CLIENT_NEW))?;
         let session_manager = SessionManager::new(logger, id.clone(), &option);
+        let route_manager = TopicRouteManager {
+            logger: logger.clone(),
+            route_table: Arc::new(Mutex::new(HashMap::new())),
+            access_endpoints: endpoints.clone(),
+            namespace: option.get_namespace().to_string(),
+        };
         Ok(Client {
             logger: logger.new(o!("component" => "client")),
             option,
             session_manager: Arc::new(session_manager),
-            route_table: Arc::new(Mutex::new(HashMap::new())),
+            route_manager,
             id,
             access_endpoints: endpoints,
             settings,
@@ -115,6 +115,10 @@ where
 
     pub(crate) fn is_started(&self) -> bool {
         self.shutdown_tx.is_some()
+    }
+
+    pub(crate) fn get_route_manager(&self) -> TopicRouteManager {
+        self.route_manager.clone()
     }
 
     pub(crate) async fn start(
@@ -133,15 +137,14 @@ where
 
         self.telemetry_command_tx = Some(telemetry_command_tx);
 
-        let rpc_client = self
+        let mut rpc_client = self
             .get_session()
             .await
             .map_err(|error| error.with_operation(OPERATION_CLIENT_START))?;
 
-        let route_table = Arc::clone(&self.route_table);
-        let endpoints = self.access_endpoints.clone();
+        let route_manager = self.route_manager.clone();
 
-        let settings = Arc::clone(&self.settings);
+        let settings = self.settings.clone();
         tokio::spawn(async move {
             rpc_client.is_started();
             let seconds_30 = std::time::Duration::from_secs(30);
@@ -174,7 +177,7 @@ where
                                 continue;
                             }
                             let result =
-                                handle_response_status(response.unwrap().status, OPERATION_HEARTBEAT);
+                                Self::handle_response_status(response.unwrap().status, OPERATION_HEARTBEAT);
                             if result.is_err() {
                                 error!(
                                     logger,
@@ -193,12 +196,8 @@ where
                             continue;
                         }
                         for mut session in sessions.unwrap() {
-                            let command;
-                            {
-                                command = settings.read().await.build_telemetry_command();
-                            }
                             let peer = session.peer().to_string();
-                            let result = session.update_settings(command).await;
+                            let result = session.update_settings(settings.clone()).await;
                             if result.is_err() {
                                 error!(logger, "sync settings failed: failed to call rpc: {}", result.unwrap_err());
                                 continue;
@@ -208,29 +207,9 @@ where
 
                     },
                     _ = sync_route_timer.tick() => {
-                        let topics: Vec<String>;
-                        {
-                            topics = route_table.lock().keys().cloned().collect();
-                        }
-                        debug!(logger, "update topic route of topics {:?}", topics);
-                        for topic in topics {
-                            let result = Self::topic_route_inner(
-                                logger.clone(),
-                                rpc_client.shadow_session(),
-                                Arc::clone(&route_table),
-                                namespace.clone(),
-                                endpoints.clone(),
-                                topic.as_str(),
-                            )
-                            .await;
-                            if result.is_err() {
-                                warn!(
-                                    logger,
-                                    "sync route of topic = {:?} failed, reason = {:?}",
-                                    topic,
-                                    result.err()
-                                );
-                            }
+                        let result = route_manager.sync_route_data(&mut rpc_client).await;
+                        if result.is_err() {
+                            error!(logger, "sync route failed: {}", result.unwrap_err());
                         }
                     },
                     _ = &mut shutdown_rx => {
@@ -268,7 +247,7 @@ where
             resource_namespace: self.option.namespace.to_string(),
         });
         let response = rpc_client.notify_shutdown(NotifyClientTerminationRequest { group });
-        handle_response_status(response.await?.status, OPERATION_CLIENT_SHUTDOWN)?;
+        Self::handle_response_status(response.await?.status, OPERATION_CLIENT_SHUTDOWN)?;
         self.session_manager.shutdown().await;
         Ok(())
     }
@@ -296,17 +275,13 @@ where
         )
     }
 
-    async fn build_telemetry_command(&self) -> TelemetryCommand {
-        self.settings.read().await.build_telemetry_command()
-    }
-
     pub(crate) async fn get_session(&self) -> Result<Session, ClientError> {
         self.check_started(OPERATION_GET_SESSION)?;
         let session = self
             .session_manager
             .get_or_create_session(
                 &self.access_endpoints,
-                self.build_telemetry_command().await,
+                self.settings.clone(),
                 self.telemetry_command_tx.clone().unwrap(),
             )
             .await?;
@@ -321,7 +296,7 @@ where
             .session_manager
             .get_or_create_session(
                 endpoints,
-                self.build_telemetry_command().await,
+                self.settings.clone(),
                 self.telemetry_command_tx.clone().unwrap(),
             )
             .await?;
@@ -329,14 +304,7 @@ where
     }
 
     pub(crate) fn topic_route_from_cache(&self, topic: &str) -> Option<Arc<Route>> {
-        self.route_table.lock().get(topic).and_then(|route_status| {
-            if let RouteStatus::Found(route) = route_status {
-                // debug!(self.logger, "get route for topic={} from cache", topic);
-                Some(Arc::clone(route))
-            } else {
-                None
-            }
-        })
+        self.route_manager.find_topic_route(topic)
     }
 
     pub(crate) async fn topic_route(
@@ -349,139 +317,10 @@ where
                 return Ok(route);
             }
         }
-        let rpc_client = self.get_session().await?;
-        let logger = self.logger.clone();
-        let route_table = Arc::clone(&self.route_table);
-        Self::topic_route_inner(
-            logger,
-            rpc_client,
-            route_table,
-            self.option.namespace.clone(),
-            self.access_endpoints.clone(),
-            topic,
-        )
-        .await
-    }
-
-    async fn query_topic_route<T: RPCClient + 'static>(
-        mut rpc_client: T,
-        namespace: String,
-        access_endpoints: Endpoints,
-        topic: &str,
-    ) -> Result<Route, ClientError> {
-        let request = QueryRouteRequest {
-            topic: Some(Resource {
-                name: topic.to_owned(),
-                resource_namespace: namespace,
-            }),
-            endpoints: Some(access_endpoints.into_inner()),
-        };
-
-        let response = rpc_client.query_route(request).await?;
-        handle_response_status(response.status, OPERATION_QUERY_ROUTE)?;
-
-        let route = Route {
-            index: AtomicUsize::new(0),
-            queue: response.message_queues,
-        };
-        Ok(route)
-    }
-
-    async fn topic_route_inner<T: RPCClient + 'static>(
-        logger: Logger,
-        rpc_client: T,
-        route_table: Arc<parking_lot::Mutex<HashMap<String, RouteStatus>>>,
-        namespace: String,
-        endpoints: Endpoints,
-        topic: &str,
-    ) -> Result<Arc<Route>, ClientError> {
-        debug!(logger, "query route for topic={}", topic);
-        let rx = match route_table
-            .lock()
-            .entry(topic.to_owned())
-            .or_insert_with(|| RouteStatus::Querying(None))
-        {
-            RouteStatus::Found(_route) => None,
-            RouteStatus::Querying(ref mut option) => {
-                match option {
-                    Some(vec) => {
-                        // add self to waiting list
-                        let (tx, rx) = oneshot::channel();
-                        vec.push(tx);
-                        Some(rx)
-                    }
-                    None => {
-                        // there is no ongoing request, so we need to send a new request
-                        let _ = option.insert(Vec::new());
-                        None
-                    }
-                }
-            }
-        };
-
-        // wait for inflight request
-        if let Some(rx) = rx {
-            return match rx.await {
-                Ok(route) => route,
-                Err(_e) => Err(ClientError::new(
-                    ErrorKind::ChannelReceive,
-                    "wait for inflight query topic route request failed",
-                    OPERATION_QUERY_ROUTE,
-                )),
-            };
-        }
-
-        let result = Self::query_topic_route(rpc_client, namespace, endpoints, topic).await;
-
-        // send result to all waiters
-        if let Ok(route) = result {
-            debug!(
-                logger,
-                "query route for topic={} success: route={:?}", topic, route
-            );
-            let route = Arc::new(route);
-            let mut route_table_lock = route_table.lock();
-
-            // if message queues in previous and new route are the same, just keep the previous.
-            if let Some(RouteStatus::Found(prev)) = route_table_lock.get(topic) {
-                if prev.queue == route.queue {
-                    return Ok(Arc::clone(prev));
-                }
-            }
-
-            let prev =
-                route_table_lock.insert(topic.to_owned(), RouteStatus::Found(Arc::clone(&route)));
-            info!(logger, "update route for topic={}", topic);
-
-            if let Some(RouteStatus::Querying(Some(mut v))) = prev {
-                for item in v.drain(..) {
-                    let _ = item.send(Ok(Arc::clone(&route)));
-                }
-            };
-            Ok(route)
-        } else {
-            let err = result.unwrap_err();
-            warn!(
-                logger,
-                "query route for topic={} failed: error={}", topic, err
-            );
-            let mut route_table_lock = route_table.lock();
-            // keep the existing route if error occurs.
-            if let Some(RouteStatus::Found(prev)) = route_table_lock.get(topic) {
-                return Ok(Arc::clone(prev));
-            }
-            let prev = route_table_lock.remove(topic);
-            if let Some(RouteStatus::Querying(Some(mut v))) = prev {
-                for item in v.drain(..) {
-                    let _ = item.send(Err(ClientError::new(
-                        ErrorKind::Server,
-                        "query topic route failed",
-                        OPERATION_QUERY_ROUTE,
-                    )));
-                }
-            };
-            Err(err)
-        }
+        let mut rpc_client = self.get_session().await?;
+        self.route_manager
+            .topic_route_inner(&mut rpc_client, topic)
+            .await
     }
 
     async fn heart_beat_inner<T: RPCClient + 'static>(
@@ -521,7 +360,7 @@ where
     ) -> Result<Vec<SendReceipt>, ClientError> {
         let request = SendMessageRequest { messages };
         let response = rpc_client.send_message(request).await?;
-        handle_response_status(response.status, OPERATION_SEND_MESSAGE)?;
+        Self::handle_response_status(response.status, OPERATION_SEND_MESSAGE)?;
 
         Ok(response
             .entries
@@ -579,7 +418,7 @@ where
                     if status.code() == Code::MessageNotFound {
                         return Ok(vec![]);
                     }
-                    handle_response_status(Some(status), OPERATION_RECEIVE_MESSAGE)?;
+                    Self::handle_response_status(Some(status), OPERATION_RECEIVE_MESSAGE)?;
                 }
                 Content::Message(message) => {
                     messages.push(message);
@@ -627,7 +466,7 @@ where
             entries,
         };
         let response = rpc_client.ack_message(request).await?;
-        handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
+        Self::handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
         Ok(response.entries)
     }
 
@@ -672,29 +511,207 @@ where
             message_id,
         };
         let response = rpc_client.change_invisible_duration(request).await?;
-        handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
+        Self::handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
         Ok(response.receipt_handle)
+    }
+
+    pub fn handle_response_status(
+        status: Option<Status>,
+        operation: &'static str,
+    ) -> Result<(), ClientError> {
+        let status = status.ok_or(ClientError::new(
+            ErrorKind::Server,
+            "server do not return status, this may be a bug",
+            operation,
+        ))?;
+
+        if status.code != Code::Ok as i32 {
+            return Err(
+                ClientError::new(ErrorKind::Server, "server return an error", operation)
+                    .with_context("code", format!("{}", status.code))
+                    .with_context("message", status.message),
+            );
+        }
+        Ok(())
     }
 }
 
-pub fn handle_response_status(
-    status: Option<Status>,
-    operation: &'static str,
-) -> Result<(), ClientError> {
-    let status = status.ok_or(ClientError::new(
-        ErrorKind::Server,
-        "server do not return status, this may be a bug",
-        operation,
-    ))?;
-
-    if status.code != Code::Ok as i32 {
-        return Err(
-            ClientError::new(ErrorKind::Server, "server return an error", operation)
-                .with_context("code", format!("{}", status.code))
-                .with_context("message", status.message),
-        );
+impl TopicRouteManager {
+    pub(crate) async fn sync_route_data<T: RPCClient>(
+        &self,
+        rpc_client: &mut T,
+    ) -> Result<(), ClientError> {
+        let topics: Vec<String>;
+        {
+            topics = self.route_table.lock().keys().cloned().collect();
+        }
+        debug!(self.logger, "sync topic route of topics {:?}", topics);
+        for topic in topics {
+            self.topic_route_inner(rpc_client, &topic).await?;
+        }
+        Ok(())
     }
-    Ok(())
+
+    pub(crate) async fn sync_topic_routes<T: RPCClient>(
+        &self,
+        rpc_client: &mut T,
+        topics: Vec<String>,
+    ) -> Result<(), ClientError> {
+        debug!(self.logger, "sync topic route of topics {:?}.", topics);
+        for topic in topics {
+            self.topic_route_inner(rpc_client, topic.as_str()).await?;
+        }
+        Ok(())
+    }
+
+    pub(crate) async fn topic_route_inner<T: RPCClient>(
+        &self,
+        rpc_client: &mut T,
+        topic: &str,
+    ) -> Result<Arc<Route>, ClientError> {
+        debug!(self.logger, "query route for topic={}", topic);
+        let rx = match self
+            .route_table
+            .lock()
+            .entry(topic.to_owned())
+            .or_insert_with(|| RouteStatus::Querying(None))
+        {
+            RouteStatus::Found(_route) => None,
+            RouteStatus::Querying(ref mut option) => {
+                match option {
+                    Some(vec) => {
+                        // add self to waiting list
+                        let (tx, rx) = oneshot::channel();
+                        vec.push(tx);
+                        Some(rx)
+                    }
+                    None => {
+                        // there is no ongoing request, so we need to send a new request
+                        let _ = option.insert(Vec::new());
+                        None
+                    }
+                }
+            }
+        };
+
+        // wait for inflight request
+        if let Some(rx) = rx {
+            return match rx.await {
+                Ok(route) => route,
+                Err(_e) => Err(ClientError::new(
+                    ErrorKind::ChannelReceive,
+                    "wait for inflight query topic route request failed",
+                    OPERATION_QUERY_ROUTE,
+                )),
+            };
+        }
+
+        let result = Self::query_topic_route(
+            rpc_client,
+            self.namespace.clone(),
+            self.access_endpoints.clone(),
+            topic,
+        )
+        .await;
+
+        // send result to all waiters
+        if let Ok(route) = result {
+            debug!(
+                self.logger,
+                "query route for topic={} success: route={:?}", topic, route
+            );
+            let route = Arc::new(route);
+            let mut route_table_lock = self.route_table.lock();
+
+            // if message queues in previous and new route are the same, just keep the previous.
+            if let Some(RouteStatus::Found(prev)) = route_table_lock.get(topic) {
+                if prev.queue == route.queue {
+                    return Ok(Arc::clone(prev));
+                }
+            }
+
+            let prev =
+                route_table_lock.insert(topic.to_owned(), RouteStatus::Found(Arc::clone(&route)));
+            info!(self.logger, "update route for topic={}", topic);
+
+            if let Some(RouteStatus::Querying(Some(mut v))) = prev {
+                for item in v.drain(..) {
+                    let _ = item.send(Ok(Arc::clone(&route)));
+                }
+            };
+            Ok(route)
+        } else {
+            let err = result.unwrap_err();
+            warn!(
+                self.logger,
+                "query route for topic={} failed: error={}", topic, err
+            );
+            let mut route_table_lock = self.route_table.lock();
+            // keep the existing route if error occurs.
+            if let Some(RouteStatus::Found(prev)) = route_table_lock.get(topic) {
+                return Ok(Arc::clone(prev));
+            }
+            let prev = route_table_lock.remove(topic);
+            if let Some(RouteStatus::Querying(Some(mut v))) = prev {
+                for item in v.drain(..) {
+                    let _ = item.send(Err(ClientError::new(
+                        ErrorKind::Server,
+                        "query topic route failed",
+                        OPERATION_QUERY_ROUTE,
+                    )));
+                }
+            };
+            Err(err)
+        }
+    }
+
+    async fn query_topic_route<T: RPCClient>(
+        rpc_client: &mut T,
+        namespace: String,
+        access_endpoints: Endpoints,
+        topic: &str,
+    ) -> Result<Route, ClientError> {
+        let request = QueryRouteRequest {
+            topic: Some(Resource {
+                name: topic.to_owned(),
+                resource_namespace: namespace,
+            }),
+            endpoints: Some(access_endpoints.into_inner()),
+        };
+
+        let response = rpc_client.query_route(request).await?;
+        Client::handle_response_status(response.status, OPERATION_QUERY_ROUTE)?;
+
+        let route = Route {
+            index: AtomicUsize::new(0),
+            queue: response.message_queues,
+        };
+        Ok(route)
+    }
+
+    pub(crate) fn find_topic_route(&self, topic: &str) -> Option<Arc<Route>> {
+        self.route_table.lock().get(topic).and_then(|route_status| {
+            if let RouteStatus::Found(route) = route_status {
+                // debug!(self.logger, "get route for topic={} from cache", topic);
+                Some(Arc::clone(route))
+            } else {
+                None
+            }
+        })
+    }
+
+    pub(crate) fn pick_endpoints(&self, topic: &str) -> Option<Endpoints> {
+        self.route_table.lock().get(topic).and_then(|route_status| {
+            if let RouteStatus::Found(route) = route_status {
+                if let Some(broker) = select_message_queue(Arc::clone(route)).broker {
+                    if let Some(endpoints) = broker.endpoints {
+                        return Some(Endpoints::from_pb_endpoints(endpoints));
+                    }
+                }
+            }
+            None
+        })
+    }
 }
 
 #[cfg(test)]
@@ -723,16 +740,16 @@ pub(crate) mod tests {
     // The lock is used to prevent the mocking static function at same time during parallel testing.
     pub(crate) static MTX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
-    #[derive(Default)]
-    struct MockSettings {}
-
-    impl SettingsAware for MockSettings {
-        fn build_telemetry_command(&self) -> TelemetryCommand {
-            TelemetryCommand::default()
+    fn new_route_manager_for_test() -> TopicRouteManager {
+        TopicRouteManager {
+            logger: terminal_logger(),
+            route_table: Arc::new(Mutex::new(HashMap::new())),
+            access_endpoints: Endpoints::from_url("http://localhost:8081").unwrap(),
+            namespace: "".to_string(),
         }
     }
 
-    fn new_client_for_test() -> Client<MockSettings> {
+    fn new_client_for_test() -> Client {
         Client {
             logger: terminal_logger(),
             option: ClientOption {
@@ -740,25 +757,25 @@ pub(crate) mod tests {
                 ..Default::default()
             },
             session_manager: Arc::new(SessionManager::default()),
-            route_table: Arc::new(Mutex::new(HashMap::new())),
-            id: Client::<MockSettings>::generate_client_id(),
+            route_manager: new_route_manager_for_test(),
+            id: Client::generate_client_id(),
             access_endpoints: Endpoints::from_url("http://localhost:8081").unwrap(),
-            settings: Arc::new(RwLock::new(MockSettings::default())),
+            settings: TelemetryCommand::default(),
             telemetry_command_tx: None,
             shutdown_tx: None,
         }
     }
 
-    fn new_client_with_session_manager(session_manager: SessionManager) -> Client<MockSettings> {
+    fn new_client_with_session_manager(session_manager: SessionManager) -> Client {
         let (tx, _) = mpsc::channel(16);
         Client {
             logger: terminal_logger(),
             option: ClientOption::default(),
             session_manager: Arc::new(session_manager),
-            route_table: Arc::new(Mutex::new(HashMap::new())),
-            id: Client::<MockSettings>::generate_client_id(),
+            route_manager: new_route_manager_for_test(),
+            id: Client::generate_client_id(),
             access_endpoints: Endpoints::from_url("http://localhost:8081").unwrap(),
-            settings: Arc::new(RwLock::new(MockSettings::default())),
+            settings: TelemetryCommand::default(),
             telemetry_command_tx: Some(tx),
             shutdown_tx: None,
         }
@@ -779,7 +796,7 @@ pub(crate) mod tests {
         Client::new(
             &terminal_logger(),
             ClientOption::default(),
-            Arc::new(RwLock::new(MockSettings::default())),
+            TelemetryCommand::default(),
         )?;
         Ok(())
     }
@@ -824,7 +841,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_handle_response_status() {
-        let result = handle_response_status(None, "test");
+        let result = Client::handle_response_status(None, "test");
         assert!(result.is_err(), "should return error when status is None");
         let result = result.unwrap_err();
         assert_eq!(result.kind, ErrorKind::Server);
@@ -834,7 +851,7 @@ pub(crate) mod tests {
         );
         assert_eq!(result.operation, "test");
 
-        let result = handle_response_status(
+        let result = Client::handle_response_status(
             Some(Status {
                 code: Code::BadRequest as i32,
                 message: "test failed".to_string(),
@@ -857,7 +874,7 @@ pub(crate) mod tests {
             ]
         );
 
-        let result = handle_response_status(
+        let result = Client::handle_response_status(
             Some(Status {
                 code: Code::Ok as i32,
                 message: "test success".to_string(),
@@ -889,7 +906,7 @@ pub(crate) mod tests {
     #[tokio::test]
     async fn client_query_route_from_cache() {
         let client = new_client_for_test();
-        client.route_table.lock().insert(
+        client.route_manager.route_table.lock().insert(
             "DefaultCluster".to_string(),
             RouteStatus::Found(Arc::new(Route {
                 index: AtomicUsize::new(0),
@@ -909,15 +926,10 @@ pub(crate) mod tests {
             .return_once(|_| Box::pin(futures::future::ready(new_topic_route_response())));
 
         let logger = client.logger.clone();
-        let result = Client::<MockSettings>::topic_route_inner(
-            logger,
-            mock,
-            Arc::clone(&client.route_table),
-            client.option.namespace.clone(),
-            client.access_endpoints.clone(),
-            "DefaultCluster",
-        )
-        .await;
+        let result = client
+            .route_manager
+            .topic_route_inner(&mut mock, "DefaultCluster")
+            .await;
         assert!(result.is_ok());
 
         let route = result.unwrap();
@@ -944,30 +956,20 @@ pub(crate) mod tests {
                 Box::pin(futures::future::ready(new_topic_route_response()))
             });
 
-            let result = Client::<MockSettings>::topic_route_inner(
-                client_clone.logger.clone(),
-                mock,
-                Arc::clone(&client_clone.route_table),
-                client_clone.option.namespace.clone(),
-                client_clone.access_endpoints.clone(),
-                "DefaultCluster",
-            )
-            .await;
+            let result = client_clone
+                .route_manager
+                .topic_route_inner(&mut mock, "DefaultCluster")
+                .await;
             assert!(result.is_ok());
         });
 
         let handle = tokio::spawn(async move {
             sleep(Duration::from_millis(100));
             let mut mock = session::MockRPCClient::new();
-            let result = Client::<MockSettings>::topic_route_inner(
-                client.logger.clone(),
-                mock,
-                Arc::clone(&client.route_table),
-                client.option.namespace.clone(),
-                client.access_endpoints.clone(),
-                "DefaultCluster",
-            )
-            .await;
+            let result = client
+                .route_manager
+                .topic_route_inner(&mut mock, "DefaultCluster")
+                .await;
             assert!(result.is_ok());
         });
 
@@ -991,30 +993,20 @@ pub(crate) mod tests {
                 ))))
             });
 
-            let result = Client::<MockSettings>::topic_route_inner(
-                client_clone.logger.clone(),
-                mock,
-                Arc::clone(&client_clone.route_table),
-                client_clone.option.namespace.clone(),
-                client_clone.access_endpoints.clone(),
-                "DefaultCluster",
-            )
-            .await;
+            let result = client_clone
+                .route_manager
+                .topic_route_inner(&mut mock, "DefaultCluster")
+                .await;
             assert!(result.is_err());
         });
 
         let handle = tokio::spawn(async move {
             sleep(Duration::from_millis(100));
             let mut mock = session::MockRPCClient::new();
-            let result = Client::<MockSettings>::topic_route_inner(
-                client.logger.clone(),
-                mock,
-                Arc::clone(&client.route_table),
-                client.option.namespace.clone(),
-                client.access_endpoints.clone(),
-                "DefaultCluster",
-            )
-            .await;
+            let result = client
+                .route_manager
+                .topic_route_inner(&mut mock, "DefaultCluster")
+                .await;
             assert!(result.is_err());
         });
 
@@ -1033,7 +1025,7 @@ pub(crate) mod tests {
         } else {
             vec![]
         };
-        client.route_table.lock().insert(
+        client.route_manager.route_table.lock().insert(
             "DefaultCluster".to_string(),
             RouteStatus::Found(Arc::new(Route {
                 index: AtomicUsize::new(0),
@@ -1051,15 +1043,10 @@ pub(crate) mod tests {
             ))))
         });
 
-        let result = Client::<MockSettings>::topic_route_inner(
-            client.logger.clone(),
-            mock,
-            Arc::clone(&client.route_table),
-            client.option.namespace.clone(),
-            client.access_endpoints.clone(),
-            "DefaultCluster",
-        )
-        .await;
+        let result = client
+            .route_manager
+            .topic_route_inner(&mut mock, "DefaultCluster")
+            .await;
         assert!(result.is_ok());
     }
 
@@ -1071,15 +1058,10 @@ pub(crate) mod tests {
         mock.expect_query_route()
             .return_once(|_| Box::pin(futures::future::ready(new_topic_route_response())));
 
-        let result = Client::<MockSettings>::topic_route_inner(
-            client.logger.clone(),
-            mock,
-            Arc::clone(&client.route_table),
-            client.option.namespace.clone(),
-            client.access_endpoints.clone(),
-            "DefaultCluster",
-        )
-        .await;
+        let result = client
+            .route_manager
+            .topic_route_inner(&mut mock, "DefaultCluster")
+            .await;
         assert!(result.is_ok());
 
         let route = result.unwrap();
@@ -1097,15 +1079,10 @@ pub(crate) mod tests {
         mock.expect_query_route()
             .return_once(|_| Box::pin(futures::future::ready(new_topic_route_response())));
 
-        let result2 = Client::<MockSettings>::topic_route_inner(
-            client.logger.clone(),
-            mock,
-            Arc::clone(&client.route_table),
-            client.option.namespace.clone(),
-            client.access_endpoints.clone(),
-            "DefaultCluster",
-        )
-        .await;
+        let result2 = client
+            .route_manager
+            .topic_route_inner(&mut mock, "DefaultCluster")
+            .await;
         assert!(result2.is_ok());
 
         let route2 = result2.unwrap();
@@ -1123,13 +1100,9 @@ pub(crate) mod tests {
         mock.expect_heartbeat()
             .return_once(|_| Box::pin(futures::future::ready(response)));
 
-        let send_result = Client::<MockSettings>::heart_beat_inner(
-            mock,
-            &Some("group".to_string()),
-            "",
-            &ClientType::Producer,
-        )
-        .await;
+        let send_result =
+            Client::heart_beat_inner(mock, &Some("group".to_string()), "", &ClientType::Producer)
+                .await;
         assert!(send_result.is_ok());
     }
 
