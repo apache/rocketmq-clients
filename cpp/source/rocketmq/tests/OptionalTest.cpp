@@ -14,35 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "gtest/gtest.h"
+#include "absl/types/optional.h"
+#include "rocketmq/RocketMQ.h"
 
-#include "SessionImpl.h"
-
-#include "rocketmq/Logger.h"
-#include "spdlog/spdlog.h"
+#include <string>
 
 ROCKETMQ_NAMESPACE_BEGIN
 
-SessionImpl::SessionImpl(std::weak_ptr<Client> client, std::shared_ptr<RpcClient> rpc_client)
-    : client_(client), rpc_client_(rpc_client) {
-  telemetry_ = rpc_client->asyncTelemetry(client_);
-  syncSettings();
-}
+TEST(OptionalTest, test_optional) {
+    absl::optional<std::string> opt{};
+    ASSERT_EQ(false, opt.has_value());
 
-bool SessionImpl::await() {
-  return telemetry_->await();
-}
-
-void SessionImpl::syncSettings() {
-  auto ptr = client_.lock();
-  SPDLOG_INFO("Sync client settings to {}", rpc_client_->remoteAddress());
-  TelemetryCommand command;
-  command.mutable_settings()->CopyFrom(ptr->clientSettings());
-  telemetry_->write(command);
-}
-
-SessionImpl::~SessionImpl() {
-  telemetry_->fireClose();
-  SPDLOG_DEBUG("Session for {} destructed", rpc_client_->remoteAddress());
+    auto opt2 = absl::make_optional<std::string>();
+    ASSERT_EQ(true, opt2.has_value());
 }
 
 ROCKETMQ_NAMESPACE_END
+

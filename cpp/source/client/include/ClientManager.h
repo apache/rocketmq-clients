@@ -22,14 +22,12 @@
 #include <system_error>
 
 #include "Client.h"
-#include "MessageExt.h"
 #include "Metadata.h"
 #include "ReceiveMessageCallback.h"
 #include "RpcClient.h"
 #include "Scheduler.h"
-#include "TelemetryBidiReactor.h"
+#include "SendResultCallback.h"
 #include "TopicRouteData.h"
-#include "rocketmq/SendCallback.h"
 #include "rocketmq/State.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
@@ -93,8 +91,10 @@ public:
   virtual void receiveMessage(const std::string& target, const Metadata& metadata, const ReceiveMessageRequest& request,
                               std::chrono::milliseconds timeout, ReceiveMessageCallback callback) = 0;
 
-  virtual bool send(const std::string& target_host, const Metadata& metadata, SendMessageRequest& request,
-                    SendCallback cb) = 0;
+  virtual bool send(const std::string& target_host,
+                    const Metadata& metadata,
+                    SendMessageRequest& request,
+                    SendResultCallback cb) = 0;
 
   virtual std::error_code notifyClientTermination(const std::string& target_host, const Metadata& metadata,
                                                   const NotifyClientTerminationRequest& request,

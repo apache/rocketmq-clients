@@ -21,12 +21,8 @@
 #include <system_error>
 #include <utility>
 
-#include "rocketmq/Logger.h"
-#include "spdlog/spdlog.h"
-#include "MixAll.h"
 #include "ProducerImpl.h"
 #include "StaticNameServerResolver.h"
-#include "absl/strings/str_split.h"
 #include "rocketmq/ErrorCode.h"
 #include "rocketmq/SendReceipt.h"
 #include "rocketmq/Transaction.h"

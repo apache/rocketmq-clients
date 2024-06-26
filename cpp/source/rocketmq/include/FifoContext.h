@@ -14,35 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
-#include "SessionImpl.h"
-
-#include "rocketmq/Logger.h"
-#include "spdlog/spdlog.h"
+#include "rocketmq/Message.h"
+#include "rocketmq/RocketMQ.h"
+#include "rocketmq/SendCallback.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
-SessionImpl::SessionImpl(std::weak_ptr<Client> client, std::shared_ptr<RpcClient> rpc_client)
-    : client_(client), rpc_client_(rpc_client) {
-  telemetry_ = rpc_client->asyncTelemetry(client_);
-  syncSettings();
-}
+struct FifoContext {
+  MessageConstPtr message;
+  SendCallback callback;
 
-bool SessionImpl::await() {
-  return telemetry_->await();
-}
+  FifoContext(MessageConstPtr message, SendCallback callback);
 
-void SessionImpl::syncSettings() {
-  auto ptr = client_.lock();
-  SPDLOG_INFO("Sync client settings to {}", rpc_client_->remoteAddress());
-  TelemetryCommand command;
-  command.mutable_settings()->CopyFrom(ptr->clientSettings());
-  telemetry_->write(command);
-}
-
-SessionImpl::~SessionImpl() {
-  telemetry_->fireClose();
-  SPDLOG_DEBUG("Session for {} destructed", rpc_client_->remoteAddress());
-}
+  FifoContext(FifoContext&& rhs) noexcept;
+};
 
 ROCKETMQ_NAMESPACE_END

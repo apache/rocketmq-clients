@@ -54,6 +54,7 @@ DEFINE_int32(message_body_size, 4096, "Message body size");
 DEFINE_uint32(total, 256, "Number of sample messages to publish");
 DEFINE_string(access_key, "", "Your access key ID");
 DEFINE_string(access_secret, "", "Your access secret");
+DEFINE_bool(tls, false, "Use HTTP2 with TLS/SSL");
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -79,7 +80,7 @@ int main(int argc, char* argv[]) {
                       .withConfiguration(Configuration::newBuilder()
                                              .withEndpoints(FLAGS_access_point)
                                              .withCredentialsProvider(credentials_provider)
-                                             .withSsl(true)
+                                             .withSsl(FLAGS_tls)
                                              .build())
                       .withTopics({FLAGS_topic})
                       .withTransactionChecker(checker)
@@ -91,8 +92,8 @@ int main(int argc, char* argv[]) {
   auto stats_lambda = [&] {
     while (!stopped.load(std::memory_order_relaxed)) {
       long cnt = count.load(std::memory_order_relaxed);
-      while (count.compare_exchange_weak(cnt, 0)) {
-        break;
+      while (!count.compare_exchange_weak(cnt, 0)) {
+        cnt = count.load(std::memory_order_relaxed);
       }
       std::this_thread::sleep_for(std::chrono::seconds(1));
       std::cout << "QPS: " << cnt << std::endl;
