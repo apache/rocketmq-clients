@@ -66,7 +66,7 @@ mockall_double = "0.3.0"
 
 siphasher = "0.3.10"
 ring = "0.16.20"
-
+proc-macro2 = "=1.0.79" # resolve https://users.rust-lang.org/t/cannot-compile-simple-tokio-example/109956
 [build-dependencies]
 tonic-build = "0.9.0"
 which = "4.4.0"
