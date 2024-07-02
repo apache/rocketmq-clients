@@ -88,5 +88,18 @@ namespace Org.Apache.Rocketmq
                 ExponentialBackoff = exponentialBackoff
             };
         }
+
+        public static ExponentialBackoffRetryPolicy FromProtobuf(Proto.RetryPolicy retryPolicy)
+        {
+            if (!retryPolicy.StrategyCase.Equals(Proto.RetryPolicy.StrategyOneofCase.ExponentialBackoff))
+            {
+                throw new ArgumentException("Illegal retry policy");
+            }
+            var exponentialBackoff = retryPolicy.ExponentialBackoff;
+            return new ExponentialBackoffRetryPolicy(retryPolicy.MaxAttempts,
+                exponentialBackoff.Initial.ToTimeSpan(),
+                exponentialBackoff.Max.ToTimeSpan(),
+                exponentialBackoff.Multiplier);
+        }
     }
 }

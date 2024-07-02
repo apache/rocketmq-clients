@@ -34,6 +34,7 @@ namespace examples
             // ProducerFifoMessageExample.QuickStart().Wait();
             // ProducerDelayMessageExample.QuickStart().Wait();
             // ProducerTransactionMessageExample.QuickStart().Wait();
+            // PushConsumerExample.QuickStart().Wait();
             // SimpleConsumerExample.QuickStart().Wait();
             // ProducerBenchmark.QuickStart().Wait();
         }

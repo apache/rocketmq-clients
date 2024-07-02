@@ -18,12 +18,16 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using Org.Apache.Rocketmq.Error;
 using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
 {
     public class TopicRouteData : IEquatable<TopicRouteData>
     {
+        private int _index = 0;
+        
         public TopicRouteData(IEnumerable<Proto.MessageQueue> messageQueues)
         {
             var messageQueuesList = messageQueues.Select(mq => new MessageQueue(mq)).ToList();
@@ -33,6 +37,36 @@ namespace Org.Apache.Rocketmq
 
         public List<MessageQueue> MessageQueues { get; }
 
+        public Endpoints PickEndpointsToQueryAssignments()
+        {
+            var nextIndex = Interlocked.Increment(ref _index) - 1;
+            foreach (var mq in MessageQueues)
+            {
+                var modIndex = Mod(nextIndex++, MessageQueues.Count);
+                var curMessageQueue = MessageQueues[modIndex];
+
+                if (Utilities.MasterBrokerId != curMessageQueue.Broker.Id)
+                {
+                    continue;
+                }
+                if (Permission.None.Equals(curMessageQueue.Permission))
+                {
+                    continue;
+                }
+                return curMessageQueue.Broker.Endpoints;
+            }
+            throw new NotFoundException("Failed to pick endpoints to query assignment");
+        }
+        
+        private int Mod(int x, int m)
+        {
+            if (m <= 0)
+            {
+                throw new ArgumentException("Modulus must be positive", nameof(m));
+            }
+            int result = x % m;
+            return result >= 0 ? result : result + m;
+        }
 
         public bool Equals(TopicRouteData other)
         {
