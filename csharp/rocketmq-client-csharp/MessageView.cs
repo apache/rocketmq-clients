@@ -77,7 +77,17 @@ namespace Org.Apache.Rocketmq
 
         public DateTime BornTime { get; }
 
-        public int DeliveryAttempt { get; }
+        public int DeliveryAttempt { get; set; }
+
+        public int IncrementAndGetDeliveryAttempt()
+        {
+            return ++DeliveryAttempt;
+        }
+
+        public bool IsCorrupted()
+        {
+            return _corrupted;
+        }
 
         public static MessageView FromProtobuf(Proto.Message message, MessageQueue messageQueue = null)
         {
