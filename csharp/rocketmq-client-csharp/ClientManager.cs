@@ -165,6 +165,16 @@ namespace Org.Apache.Rocketmq
             return new RpcInvocation<Proto.ChangeInvisibleDurationRequest, Proto.ChangeInvisibleDurationResponse>(
                 request, response, metadata);
         }
+        
+        public async Task<RpcInvocation<Proto.ForwardMessageToDeadLetterQueueRequest, Proto.ForwardMessageToDeadLetterQueueResponse>>
+            ForwardMessageToDeadLetterQueue(Endpoints endpoints,
+                Proto.ForwardMessageToDeadLetterQueueRequest request, TimeSpan timeout)
+        {
+            var metadata = _client.Sign();
+            var response = await GetRpcClient(endpoints).ForwardMessageToDeadLetterQueue(metadata, request, timeout);
+            return new RpcInvocation<Proto.ForwardMessageToDeadLetterQueueRequest, Proto.ForwardMessageToDeadLetterQueueResponse>(
+                    request, response, metadata);
+        }
 
         public async Task<RpcInvocation<Proto.EndTransactionRequest, Proto.EndTransactionResponse>> EndTransaction(
             Endpoints endpoints, Proto.EndTransactionRequest request, TimeSpan timeout)

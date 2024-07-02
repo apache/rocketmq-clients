@@ -111,6 +111,16 @@ namespace Org.Apache.Rocketmq
         /// <returns></returns>
         Task<RpcInvocation<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse>> ChangeInvisibleDuration(
             Endpoints endpoints, ChangeInvisibleDurationRequest request, TimeSpan timeout);
+        
+        /// <summary>
+        /// Send a message to the dead letter queue asynchronously, the method ensures no throwable.
+        /// </summary>
+        /// <param name="endpoints">Requested endpoints.</param>
+        /// <param name="request">Request of sending a message to DLQ.</param>
+        /// <param name="timeout">Request max duration.</param>
+        /// <returns></returns>
+        Task<RpcInvocation<ForwardMessageToDeadLetterQueueRequest, ForwardMessageToDeadLetterQueueResponse>> ForwardMessageToDeadLetterQueue(
+            Endpoints endpoints, ForwardMessageToDeadLetterQueueRequest request, TimeSpan timeout);
 
         /// <summary>
         /// Transaction ending request.
