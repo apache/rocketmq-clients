@@ -55,6 +55,7 @@ namespace Org.Apache.Rocketmq
         private readonly CancellationTokenSource _receiveMsgCts;
         private readonly CancellationTokenSource _ackMsgCts;
         private readonly CancellationTokenSource _changeInvisibleDurationCts;
+        private readonly CancellationTokenSource _forwardMsgToDeadLetterQueueCts;
 
         /// <summary>
         /// The caller is supposed to have validated the arguments and handled throwing exception or
@@ -84,6 +85,7 @@ namespace Org.Apache.Rocketmq
             _receiveMsgCts = new CancellationTokenSource();
             _ackMsgCts = new CancellationTokenSource();
             _changeInvisibleDurationCts = new CancellationTokenSource();
+            _forwardMsgToDeadLetterQueueCts = new CancellationTokenSource();
         }
         
         protected override async Task Start()
@@ -127,6 +129,7 @@ namespace Org.Apache.Rocketmq
                 _receiveMsgCts.Cancel();
                 _ackMsgCts.Cancel();
                 _changeInvisibleDurationCts.Cancel();
+                _forwardMsgToDeadLetterQueueCts.Cancel();
                 _scanAssignmentCts.Cancel();
                 await base.Shutdown();
                 _consumptionCts.Cancel();
@@ -142,6 +145,12 @@ namespace Org.Apache.Rocketmq
         
         private ConsumeService CreateConsumerService()
         {
+            if (_pushSubscriptionSettings.IsFifo())
+            {
+                Logger.LogInformation(
+                    $"Create FIFO consume service, consumerGroup={_consumerGroup}, clientId={ClientId}");
+                return new FifoConsumeService(ClientId, _messageListener, _consumptionTaskScheduler, _consumptionCts.Token);
+            }
             Logger.LogInformation(
                 $"Create standard consume service, consumerGroup={_consumerGroup}, clientId={ClientId}");
             return new StandardConsumeService(ClientId, _messageListener, _consumptionTaskScheduler, _consumptionCts.Token);
@@ -349,7 +358,7 @@ namespace Org.Apache.Rocketmq
         protected ProcessQueue CreateProcessQueue(MessageQueue mq, FilterExpression filterExpression)
         {
             var processQueue = new ProcessQueue(this, mq, filterExpression, _receiveMsgCts, _ackMsgCts,
-                _changeInvisibleDurationCts);
+                _changeInvisibleDurationCts, _forwardMsgToDeadLetterQueueCts);
             if (_processQueueTable.TryGetValue(mq, out var previous))
             {
                 return null;
@@ -357,7 +366,7 @@ namespace Org.Apache.Rocketmq
             _processQueueTable.TryAdd(mq, processQueue);
             return processQueue;
         }
-        
+
         public async Task AckMessage(MessageView messageView)
         {
             if (State.Running != State)
@@ -418,6 +427,24 @@ namespace Org.Apache.Rocketmq
                 Group = GetProtobufGroup(),
                 Topic = topicResource,
                 Entries = { entry }
+            };
+        }
+        
+        protected internal ForwardMessageToDeadLetterQueueRequest WrapForwardMessageToDeadLetterQueueRequest(MessageView messageView)
+        {
+            var topicResource = new Proto.Resource
+            {
+                Name = messageView.Topic
+            };
+        
+            return new ForwardMessageToDeadLetterQueueRequest
+            {
+                Group = GetProtobufGroup(),
+                Topic = topicResource,
+                ReceiptHandle = messageView.ReceiptHandle,
+                MessageId = messageView.MessageId,
+                DeliveryAttempt = messageView.DeliveryAttempt,
+                MaxDeliveryAttempts = GetRetryPolicy().GetMaxAttempts()
             };
         }
 

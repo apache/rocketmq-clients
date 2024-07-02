@@ -38,6 +38,7 @@ namespace Org.Apache.Rocketmq
         
         private static readonly TimeSpan AckMessageFailureBackoffDelay = TimeSpan.FromSeconds(1);
         private static readonly TimeSpan ChangeInvisibleDurationFailureBackoffDelay = TimeSpan.FromSeconds(1);
+        private static readonly TimeSpan ForwardMessageToDeadLetterQueueFailureBackoffDelay = TimeSpan.FromSeconds(1);
         
         private static readonly TimeSpan ReceivingFlowControlBackoffDelay = TimeSpan.FromMilliseconds(20);
         private static readonly TimeSpan ReceivingFailureBackoffDelay = TimeSpan.FromSeconds(1);
@@ -65,9 +66,11 @@ namespace Org.Apache.Rocketmq
         private readonly CancellationTokenSource _receiveMsgCts;
         private readonly CancellationTokenSource _ackMsgCts;
         private readonly CancellationTokenSource _changeInvisibleDurationCts;
+        private readonly CancellationTokenSource _forwardMessageToDeadLetterQueueCts;
         
         public ProcessQueue(PushConsumer consumer, MessageQueue mq, FilterExpression filterExpression,
-            CancellationTokenSource receiveMsgCts, CancellationTokenSource ackMsgCts, CancellationTokenSource changeInvisibleDurationCts)
+            CancellationTokenSource receiveMsgCts, CancellationTokenSource ackMsgCts,
+            CancellationTokenSource changeInvisibleDurationCts, CancellationTokenSource forwardMessageToDeadLetterQueueCts)
         {
             _consumer = consumer;
             _dropped = false;
@@ -79,6 +82,7 @@ namespace Org.Apache.Rocketmq
             _receiveMsgCts = receiveMsgCts;
             _ackMsgCts = ackMsgCts;
             _changeInvisibleDurationCts = changeInvisibleDurationCts;
+            _forwardMessageToDeadLetterQueueCts = forwardMessageToDeadLetterQueueCts;
         }
 
         /// <summary>
@@ -445,6 +449,113 @@ namespace Org.Apache.Rocketmq
                 await ChangeInvisibleDurationLater(messageView, duration, attempt + 1);
             }
         }
+        
+        public async Task EraseFifoMessage(MessageView messageView, ConsumeResult consumeResult)
+        {
+            var retryPolicy = _consumer.GetRetryPolicy();
+            var maxAttempts = retryPolicy.GetMaxAttempts();
+            var attempt = messageView.DeliveryAttempt;
+            var messageId = messageView.MessageId;
+            var service = _consumer.GetConsumeService();
+            var clientId = _consumer.GetClientId();
+
+            if (consumeResult == ConsumeResult.FAILURE && attempt < maxAttempts)
+            {
+                var nextAttemptDelay = retryPolicy.GetNextAttemptDelay(attempt);
+                attempt = messageView.IncrementAndGetDeliveryAttempt();
+                Logger.LogDebug($"Prepare to redeliver the fifo message because of the consumption failure," +
+                                $" maxAttempt={maxAttempts}, attempt={attempt}, mq={messageView.MessageQueue}," +
+                                $" messageId={messageId}, nextAttemptDelay={nextAttemptDelay}, clientId={clientId}");
+                var redeliverResult = await service.Consume(messageView, nextAttemptDelay);
+                await EraseFifoMessage(messageView, redeliverResult);
+                return;
+            }
+            
+            var success = consumeResult == ConsumeResult.SUCCESS;
+            if (!success)
+            {
+                Logger.LogInformation($"Failed to consume fifo message finally, run out of attempt times," +
+                                      $" maxAttempts={maxAttempts}, attempt={attempt}, mq={messageView.MessageQueue}," +
+                                      $" messageId={messageId}, clientId={clientId}");
+            }
+
+            await (ConsumeResult.SUCCESS.Equals(consumeResult) ? AckMessage(messageView) : ForwardToDeadLetterQueue(messageView));
+            
+            EvictCache(messageView);
+        }
+        
+        private async Task ForwardToDeadLetterQueue(MessageView messageView)
+        {
+            await ForwardToDeadLetterQueue(messageView, 1);
+        }
+        
+        private async Task ForwardToDeadLetterQueue(MessageView messageView, int attempt)
+        {
+            try
+            {
+                var clientId = _consumer.GetClientId();
+                var consumerGroup = _consumer.GetConsumerGroup();
+                var messageId = messageView.MessageId;
+                var endpoints = messageView.MessageQueue.Broker.Endpoints;
+                
+                var request = _consumer.WrapForwardMessageToDeadLetterQueueRequest(messageView);
+                var invocation = await _consumer.GetClientManager().ForwardMessageToDeadLetterQueue(endpoints, request,
+                    _consumer.GetClientConfig().RequestTimeout);
+                var requestId = invocation.RequestId;
+                var status = invocation.Response.Status;
+                var statusCode = status.Code;
+                
+                // Log failure and retry later.
+                if (statusCode != Code.Ok)
+                {
+                    Logger.LogError($"Failed to forward message to dead letter queue, would attempt to re-forward later, " +
+                              $"clientId={clientId}, consumerGroup={consumerGroup}, messageId={messageId}, attempt={attempt}, " +
+                              $"mq={_mq}, endpoints={endpoints}, requestId={requestId}, code={statusCode}, status message={status.Message}");
+                    await ForwardToDeadLetterQueueLater(messageView, attempt);
+                    return;
+                }
+
+                // Log success.
+                if (attempt > 1)
+                {
+                    Logger.LogInformation($"Re-forward message to dead letter queue successfully, " +
+                                   $"clientId={clientId}, consumerGroup={consumerGroup}, attempt={attempt}, messageId={messageId}, " +
+                                   $"mq={_mq}, endpoints={endpoints}, requestId={requestId}");
+                }
+                else
+                {
+                    Logger.LogInformation($"Forward message to dead letter queue successfully, " +
+                                          $"clientId={clientId}, consumerGroup={consumerGroup}, messageId={messageId}, mq={_mq}, " +
+                                          $"endpoints={endpoints}, requestId={requestId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log failure and retry later.
+                Logger.LogError($"Exception raised while forward message to DLQ, would attempt to re-forward later, " +
+                          $"clientId={_consumer.GetClientId()}, consumerGroup={_consumer.GetConsumerGroup()}," +
+                          $" messageId={messageView.MessageId}, mq={_mq}", ex);
+
+                await ForwardToDeadLetterQueueLater(messageView, attempt);
+            }
+        }
+
+        private async Task ForwardToDeadLetterQueueLater(MessageView messageView, int attempt)
+        {
+            try
+            {
+                await Task.Delay(ForwardMessageToDeadLetterQueueFailureBackoffDelay, _forwardMessageToDeadLetterQueueCts.Token);
+                await ForwardToDeadLetterQueue(messageView, attempt);
+            }
+            catch (Exception ex)
+            {
+                // Should never reach here.
+                Logger.LogError($"[Bug] Failed to schedule DLQ message request, " +
+                          $"mq={_mq}, messageId={messageView.MessageId}, clientId={_consumer.GetClientId()}", ex);
+
+                await ForwardToDeadLetterQueueLater(messageView, attempt + 1);
+            }
+        }
 
         /// <summary>
         /// Discard the message(Non-FIFO-consume-mode) which could not be consumed properly.
@@ -454,6 +565,17 @@ namespace Org.Apache.Rocketmq
         {
             Logger.LogInformation($"Discard message, mq={_mq}, messageId={messageView.MessageId}, clientId={_consumer.GetClientId()}");
             await NackMessage(messageView);
+            EvictCache(messageView);
+        }
+        
+        /// <summary>
+        /// Discard the message(FIFO-consume-mode) which could not consumed properly.
+        /// </summary>
+        /// <param name="messageView">the FIFO message to discard.</param>
+        public async Task DiscardFifoMessage(MessageView messageView)
+        {
+            Logger.LogInformation($"Discard fifo message, mq={_mq}, messageId={messageView.MessageId}, clientId={_consumer.GetClientId()}");
+            await ForwardToDeadLetterQueue(messageView);
             EvictCache(messageView);
         }
 
