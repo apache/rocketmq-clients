@@ -313,6 +313,7 @@ namespace Org.Apache.Rocketmq
                 {
                     Topic = new Proto::Resource
                     {
+                        ResourceNamespace = ClientConfig.Namespace,
                         Name = topic
                     },
                     Endpoints = Endpoints.ToProtobuf()

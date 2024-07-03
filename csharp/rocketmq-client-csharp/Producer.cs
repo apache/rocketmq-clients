@@ -42,7 +42,7 @@ namespace Org.Apache.Rocketmq
             int maxAttempts, ITransactionChecker checker) : base(clientConfig)
         {
             var retryPolicy = ExponentialBackoffRetryPolicy.ImmediatelyRetryPolicy(maxAttempts);
-            PublishingSettings = new PublishingSettings(ClientId, Endpoints, retryPolicy,
+            PublishingSettings = new PublishingSettings(ClientConfig.Namespace, ClientId, Endpoints, retryPolicy,
                 clientConfig.RequestTimeout, publishingTopics);
             _publishingRouteDataCache = new ConcurrentDictionary<string, PublishingLoadBalancer>();
             _publishingTopics = publishingTopics;
@@ -192,11 +192,11 @@ namespace Org.Apache.Rocketmq
             return sendReceipt;
         }
 
-        private static Proto.SendMessageRequest WrapSendMessageRequest(PublishingMessage message, MessageQueue mq)
+        private Proto.SendMessageRequest WrapSendMessageRequest(PublishingMessage message, MessageQueue mq)
         {
             return new Proto.SendMessageRequest
             {
-                Messages = { message.ToProtobuf(mq.QueueId) }
+                Messages = { message.ToProtobuf(ClientConfig.Namespace, mq.QueueId) }
             };
         }
 
@@ -331,6 +331,7 @@ namespace Org.Apache.Rocketmq
         {
             var topicResource = new Proto.Resource
             {
+                ResourceNamespace = ClientConfig.Namespace,
                 Name = topic
             };
             var request = new Proto.EndTransactionRequest

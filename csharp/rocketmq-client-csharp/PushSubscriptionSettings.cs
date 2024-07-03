@@ -34,11 +34,11 @@ namespace Org.Apache.Rocketmq
         private volatile int _receiveBatchSize = 32;
         private TimeSpan _longPollingTimeout = TimeSpan.FromSeconds(30);
         
-        public PushSubscriptionSettings(string clientId, Endpoints endpoints, string consumerGroup,
+        public PushSubscriptionSettings(string namespaceName, string clientId, Endpoints endpoints, string consumerGroup,
             TimeSpan requestTimeout, ConcurrentDictionary<string, FilterExpression> subscriptionExpressions)
-            : base(clientId, ClientType.PushConsumer, endpoints, requestTimeout)
+            : base(namespaceName, clientId, ClientType.PushConsumer, endpoints, requestTimeout)
         {
-            _group = new Resource(consumerGroup);
+            _group = new Resource(namespaceName, consumerGroup);
             _subscriptionExpressions = subscriptionExpressions;
         }
         
@@ -64,6 +64,7 @@ namespace Org.Apache.Rocketmq
             {
                 var topic = new Proto.Resource()
                 {
+                    ResourceNamespace = Namespace,
                     Name = key
                 };
                 var filterExpression = new Proto.FilterExpression()

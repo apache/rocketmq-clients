@@ -90,6 +90,7 @@ namespace Org.Apache.Rocketmq
         {
             var group = new Proto.Resource
             {
+                ResourceNamespace = ClientConfig.Namespace,
                 Name = ConsumerGroup
             };
             return new Proto.ReceiveMessageRequest
@@ -109,6 +110,7 @@ namespace Org.Apache.Rocketmq
         {
             var group = new Proto.Resource
             {
+                ResourceNamespace = ClientConfig.Namespace,
                 Name = ConsumerGroup
             };
             return new Proto.ReceiveMessageRequest
