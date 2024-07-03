@@ -69,7 +69,7 @@ namespace Org.Apache.Rocketmq
             _clientConfig = clientConfig;
             _consumerGroup = consumerGroup;
             _subscriptionExpressions = subscriptionExpressions;
-            _pushSubscriptionSettings = new PushSubscriptionSettings(ClientId, Endpoints, consumerGroup,
+            _pushSubscriptionSettings = new PushSubscriptionSettings(_clientConfig.Namespace, ClientId, Endpoints, consumerGroup,
                 clientConfig.RequestTimeout, subscriptionExpressions);
             _cacheAssignments = new ConcurrentDictionary<string, Assignments>();
             _messageListener = messageListener;
@@ -320,6 +320,7 @@ namespace Org.Apache.Rocketmq
         {
             var topicResource = new Proto.Resource
             {
+                ResourceNamespace = _clientConfig.Namespace,
                 Name = topic
             };
             return new QueryAssignmentRequest
@@ -399,6 +400,7 @@ namespace Org.Apache.Rocketmq
         {
             var topicResource = new Proto.Resource
             {
+                ResourceNamespace = _clientConfig.Namespace,
                 Name = messageView.Topic
             };
             return new Proto.ChangeInvisibleDurationRequest
@@ -415,6 +417,7 @@ namespace Org.Apache.Rocketmq
         {
             var topicResource = new Proto.Resource
             {
+                ResourceNamespace = _clientConfig.Namespace,
                 Name = messageView.Topic
             };
             var entry = new Proto.AckMessageEntry
@@ -434,6 +437,7 @@ namespace Org.Apache.Rocketmq
         {
             var topicResource = new Proto.Resource
             {
+                ResourceNamespace = _clientConfig.Namespace,
                 Name = messageView.Topic
             };
         
@@ -560,6 +564,7 @@ namespace Org.Apache.Rocketmq
         {
             return new Proto.Resource()
             {
+                ResourceNamespace = _clientConfig.Namespace,
                 Name = ConsumerGroup
             };
         }
