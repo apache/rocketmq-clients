@@ -105,9 +105,10 @@ namespace Org.Apache.Rocketmq
             };
         }
         
-        internal Proto.ReceiveMessageRequest WrapReceiveMessageRequest(int batchSize, MessageQueue mq,
-            FilterExpression filterExpression, TimeSpan awaitDuration)
+        protected internal Proto.ReceiveMessageRequest WrapReceiveMessageRequest(int batchSize, MessageQueue mq,
+            FilterExpression filterExpression, TimeSpan awaitDuration, string attemptId)
         {
+            attemptId ??= Guid.NewGuid().ToString();
             var group = new Proto.Resource
             {
                 ResourceNamespace = ClientConfig.Namespace,
@@ -120,7 +121,8 @@ namespace Org.Apache.Rocketmq
                 FilterExpression = WrapFilterExpression(filterExpression),
                 LongPollingTimeout = Duration.FromTimeSpan(awaitDuration),
                 BatchSize = batchSize,
-                AutoRenew = true
+                AutoRenew = true,
+                AttemptId = attemptId
             };
         }
     }
