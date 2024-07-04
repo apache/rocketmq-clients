@@ -60,12 +60,12 @@ class SimpleSubscriptionSettings(Settings):
             subscriptionEntry = ProtoSubscriptionEntry()
             filterExpression = ProtoFilterExpression()
 
-            if value.type == ExpressionType.Tag:
+            if value.type.value == ExpressionType.Tag.value:
                 filterExpression.type = ProtoFilterType.TAG
-            elif value.type == ExpressionType.Sql92:
+            elif value.type.value == ExpressionType.Sql92.value:
                 filterExpression.type = ProtoFilterType.SQL
             else:
-                logger.warn(f"[Bug] Unrecognized filter type={value.Type} for simple consumer")
+                logger.warn(f"[Bug] Unrecognized filter type={value.type} for simple consumer")
 
             filterExpression.expression = value.expression
             subscriptionEntry.topic.CopyFrom(topic)
