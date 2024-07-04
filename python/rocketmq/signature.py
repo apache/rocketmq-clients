@@ -40,7 +40,7 @@ class Signature:
     __SIGNATURE = "Signature"
     try:
         __CLIENT_VERSION = importlib.metadata.version("rocketmq")
-    except Exception as e:
+    except Exception:
         __CLIENT_VERSION = "0.1.0"
 
     @staticmethod

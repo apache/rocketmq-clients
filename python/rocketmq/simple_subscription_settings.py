@@ -16,8 +16,7 @@
 from typing import Dict
 
 from google.protobuf.duration_pb2 import Duration
-from rocketmq.filter_expression import ExpressionType
-from rocketmq.filter_expression import FilterExpression
+from rocketmq.filter_expression import ExpressionType, FilterExpression
 from rocketmq.log import logger
 from rocketmq.protocol.definition_pb2 import \
     FilterExpression as ProtoFilterExpression
