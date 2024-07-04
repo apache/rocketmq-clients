@@ -17,6 +17,7 @@ from typing import Dict
 
 from google.protobuf.duration_pb2 import Duration
 from rocketmq.filter_expression import ExpressionType
+from rocketmq.filter_expression import FilterExpression
 from rocketmq.log import logger
 from rocketmq.protocol.definition_pb2 import \
     FilterExpression as ProtoFilterExpression
@@ -28,13 +29,6 @@ from rocketmq.protocol.definition_pb2 import \
     SubscriptionEntry as ProtoSubscriptionEntry
 
 from .settings import ClientType, ClientTypeHelper, Settings
-
-
-# Assuming a simple representation of FilterExpression for the purpose of this example
-class FilterExpression:
-    def __init__(self, type, expression):
-        self.type = type
-        self.Expression = expression
 
 
 class SimpleSubscriptionSettings(Settings):
