@@ -33,7 +33,7 @@ from .settings import ClientType, ClientTypeHelper, Settings
 # Assuming a simple representation of FilterExpression for the purpose of this example
 class FilterExpression:
     def __init__(self, type, expression):
-        self.Type = type
+        self.type = type
         self.Expression = expression
 
 
