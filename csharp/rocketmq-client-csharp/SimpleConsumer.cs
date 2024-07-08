@@ -128,7 +128,7 @@ namespace Org.Apache.Rocketmq
             return _subscriptionExpressions.Keys;
         }
 
-        protected override Proto.NotifyClientTerminationRequest WrapNotifyClientTerminationRequest()
+        internal override Proto.NotifyClientTerminationRequest WrapNotifyClientTerminationRequest()
         {
             return new Proto.NotifyClientTerminationRequest()
             {
@@ -136,7 +136,7 @@ namespace Org.Apache.Rocketmq
             };
         }
 
-        protected override Proto.HeartbeatRequest WrapHeartbeatRequest()
+        internal override Proto.HeartbeatRequest WrapHeartbeatRequest()
         {
             return new Proto::HeartbeatRequest
             {
@@ -212,7 +212,7 @@ namespace Org.Apache.Rocketmq
             return receiveMessageResult.Messages;
         }
 
-        public async void ChangeInvisibleDuration(MessageView messageView, TimeSpan invisibleDuration)
+        public async Task ChangeInvisibleDuration(MessageView messageView, TimeSpan invisibleDuration)
         {
             if (State.Running != State)
             {

@@ -19,6 +19,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Schedulers;
@@ -27,6 +28,8 @@ using Google.Protobuf.WellKnownTypes;
 using Proto = Apache.Rocketmq.V2;
 using Microsoft.Extensions.Logging;
 
+[assembly:InternalsVisibleTo("tests")]
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 namespace Org.Apache.Rocketmq
 {
     public class PushConsumer : Consumer, IAsyncDisposable, IDisposable
@@ -195,7 +198,7 @@ namespace Org.Apache.Rocketmq
             _subscriptionExpressions.TryRemove(topic, out _);
         }
 
-        private async void ScanAssignments()
+        internal async void ScanAssignments()
         {
             try
             {
@@ -296,7 +299,7 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        private async Task<Assignments> QueryAssignment(string topic)
+        internal async Task<Assignments> QueryAssignment(string topic)
         {
             var endpoints = await PickEndpointsToQueryAssignments(topic);
             var request = WrapQueryAssignmentRequest(topic);
@@ -386,7 +389,7 @@ namespace Org.Apache.Rocketmq
             return _subscriptionExpressions.Keys;
         }
 
-        protected override Proto.HeartbeatRequest WrapHeartbeatRequest()
+        internal override Proto.HeartbeatRequest WrapHeartbeatRequest()
         {
             return new Proto::HeartbeatRequest
             {
@@ -490,7 +493,7 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        protected override NotifyClientTerminationRequest WrapNotifyClientTerminationRequest()
+        internal override NotifyClientTerminationRequest WrapNotifyClientTerminationRequest()
         {
             return new NotifyClientTerminationRequest()
             {

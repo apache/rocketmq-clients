@@ -21,24 +21,27 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Proto = Apache.Rocketmq.V2;
 using Org.Apache.Rocketmq.Error;
 
+[assembly:InternalsVisibleTo("tests")]
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 namespace Org.Apache.Rocketmq
 {
     public class Producer : Client, IAsyncDisposable, IDisposable
     {
         private static readonly ILogger Logger = MqLogManager.CreateLogger<Producer>();
-        private readonly ConcurrentDictionary<string /* topic */, PublishingLoadBalancer> _publishingRouteDataCache;
+        internal readonly ConcurrentDictionary<string /* topic */, PublishingLoadBalancer> _publishingRouteDataCache;
         internal readonly PublishingSettings PublishingSettings;
         private readonly ConcurrentDictionary<string, bool> _publishingTopics;
         private readonly ITransactionChecker _checker;
 
         private readonly Histogram<double> _sendCostTimeHistogram;
 
-        private Producer(ClientConfig clientConfig, ConcurrentDictionary<string, bool> publishingTopics,
+        internal Producer(ClientConfig clientConfig, ConcurrentDictionary<string, bool> publishingTopics,
             int maxAttempts, ITransactionChecker checker) : base(clientConfig)
         {
             var retryPolicy = ExponentialBackoffRetryPolicy.ImmediatelyRetryPolicy(maxAttempts);
@@ -102,7 +105,7 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        protected override Proto::HeartbeatRequest WrapHeartbeatRequest()
+        internal override Proto::HeartbeatRequest WrapHeartbeatRequest()
         {
             return new Proto::HeartbeatRequest
             {
@@ -110,7 +113,7 @@ namespace Org.Apache.Rocketmq
             };
         }
 
-        protected override Proto::NotifyClientTerminationRequest WrapNotifyClientTerminationRequest()
+        internal override Proto::NotifyClientTerminationRequest WrapNotifyClientTerminationRequest()
         {
             return new Proto::NotifyClientTerminationRequest();
         }

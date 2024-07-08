@@ -37,9 +37,9 @@ namespace Org.Apache.Rocketmq
     {
         private static readonly ILogger Logger = MqLogManager.CreateLogger<ProcessQueue>();
         
-        private static readonly TimeSpan AckMessageFailureBackoffDelay = TimeSpan.FromSeconds(1);
-        private static readonly TimeSpan ChangeInvisibleDurationFailureBackoffDelay = TimeSpan.FromSeconds(1);
-        private static readonly TimeSpan ForwardMessageToDeadLetterQueueFailureBackoffDelay = TimeSpan.FromSeconds(1);
+        internal static readonly TimeSpan AckMessageFailureBackoffDelay = TimeSpan.FromSeconds(1);
+        internal static readonly TimeSpan ChangeInvisibleDurationFailureBackoffDelay = TimeSpan.FromSeconds(1);
+        internal static readonly TimeSpan ForwardMessageToDeadLetterQueueFailureBackoffDelay = TimeSpan.FromSeconds(1);
         
         private static readonly TimeSpan ReceivingFlowControlBackoffDelay = TimeSpan.FromMilliseconds(20);
         private static readonly TimeSpan ReceivingFailureBackoffDelay = TimeSpan.FromSeconds(1);
