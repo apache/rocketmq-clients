@@ -21,10 +21,13 @@ using System.Threading.Tasks;
 using System.Threading;
 using System;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using Proto = Apache.Rocketmq.V2;
 using grpc = Grpc.Core;
 
+[assembly:InternalsVisibleTo("tests")]
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 namespace Org.Apache.Rocketmq
 {
     public abstract class Client
@@ -49,7 +52,7 @@ namespace Org.Apache.Rocketmq
 
         protected readonly ClientConfig ClientConfig;
         protected readonly Endpoints Endpoints;
-        protected readonly IClientManager ClientManager;
+        protected IClientManager ClientManager;
         protected readonly string ClientId;
         protected readonly ClientMeterManager ClientMeterManager;
 
@@ -151,11 +154,11 @@ namespace Org.Apache.Rocketmq
 
         protected abstract IEnumerable<string> GetTopics();
 
-        protected abstract Proto::HeartbeatRequest WrapHeartbeatRequest();
+        internal abstract Proto::HeartbeatRequest WrapHeartbeatRequest();
 
         protected abstract void OnTopicRouteDataUpdated0(string topic, TopicRouteData topicRouteData);
 
-        private async Task OnTopicRouteDataFetched(string topic, TopicRouteData topicRouteData)
+        internal async Task OnTopicRouteDataFetched(string topic, TopicRouteData topicRouteData)
         {
             var routeEndpoints = new HashSet<Endpoints>();
             foreach (var mq in topicRouteData.MessageQueues)
@@ -398,7 +401,7 @@ namespace Org.Apache.Rocketmq
             return metadata;
         }
 
-        protected abstract Proto::NotifyClientTerminationRequest WrapNotifyClientTerminationRequest();
+        internal abstract Proto::NotifyClientTerminationRequest WrapNotifyClientTerminationRequest();
 
         private async void NotifyClientTermination()
         {
@@ -436,6 +439,12 @@ namespace Org.Apache.Rocketmq
         internal IClientManager GetClientManager()
         {
             return ClientManager;
+        }
+
+        // Only for testing
+        internal void SetClientManager(IClientManager clientManager)
+        {
+            ClientManager = clientManager;
         }
 
         internal virtual void OnRecoverOrphanedTransactionCommand(Endpoints endpoints,

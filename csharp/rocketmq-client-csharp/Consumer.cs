@@ -18,11 +18,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Google.Protobuf.WellKnownTypes;
 using Proto = Apache.Rocketmq.V2;
 
+[assembly:InternalsVisibleTo("tests")]
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 namespace Org.Apache.Rocketmq
 {
     public abstract class Consumer : Client
@@ -85,7 +88,7 @@ namespace Org.Apache.Rocketmq
             };
         }
 
-        protected Proto.ReceiveMessageRequest WrapReceiveMessageRequest(int batchSize, MessageQueue mq,
+        internal Proto.ReceiveMessageRequest WrapReceiveMessageRequest(int batchSize, MessageQueue mq,
             FilterExpression filterExpression, TimeSpan awaitDuration, TimeSpan invisibleDuration)
         {
             var group = new Proto.Resource

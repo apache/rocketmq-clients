@@ -76,9 +76,9 @@ namespace examples
             var sendReceipt = await producer.Send(message, transaction);
             Logger.LogInformation("Send transaction message successfully, messageId={}", sendReceipt.MessageId);
             // Commit the transaction.
-            transaction.Commit();
+            await transaction.Commit();
             // Or rollback the transaction.
-            // transaction.Rollback();
+            // await transaction.Rollback();
 
             // Close the producer if you don't need it anymore.
             await producer.DisposeAsync();

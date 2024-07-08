@@ -78,6 +78,7 @@ namespace Org.Apache.Rocketmq
 
                 filterExpression.Expression = value.Expression;
                 subscriptionEntry.Topic = topic;
+                subscriptionEntry.Expression = filterExpression;
                 subscriptionEntries.Add(subscriptionEntry);
             }
 

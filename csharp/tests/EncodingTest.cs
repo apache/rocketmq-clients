@@ -15,14 +15,20 @@
  * limitations under the License.
  */
 
-using System.Threading.Tasks;
+using System;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Org.Apache.Rocketmq;
 
-namespace Org.Apache.Rocketmq
+namespace tests
 {
-    public interface ITransaction
+    [TestClass]
+    public class EncodingTest
     {
-        Task Commit();
-
-        Task Rollback();
+        [TestMethod]
+        public void TestToProtobuf()
+        {
+            Assert.AreEqual(EncodingHelper.ToProtobuf(MqEncoding.Identity), Apache.Rocketmq.V2.Encoding.Identity);
+            Assert.AreEqual(EncodingHelper.ToProtobuf(MqEncoding.Gzip), Apache.Rocketmq.V2.Encoding.Gzip);
+        }
     }
 }
