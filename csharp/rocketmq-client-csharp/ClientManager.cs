@@ -19,7 +19,7 @@ using Proto = Apache.Rocketmq.V2;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using grpc = Grpc.Core;
+using grpcLib = Grpc.Core;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -89,7 +89,7 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        public grpc::AsyncDuplexStreamingCall<Proto::TelemetryCommand, Proto::TelemetryCommand> Telemetry(
+        public grpcLib::AsyncDuplexStreamingCall<Proto::TelemetryCommand, Proto::TelemetryCommand> Telemetry(
             Endpoints endpoints)
         {
             return GetRpcClient(endpoints).Telemetry(_client.Sign());

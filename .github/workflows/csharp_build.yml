@@ -18,11 +18,8 @@ jobs:
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: |
-            5.0.x
             6.0.x
-            7.0.x
             8.0.x
-            3.1.x
       - name: Build artifacts
         working-directory: ./csharp
         run: |
