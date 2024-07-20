@@ -829,8 +829,8 @@ impl AckEntryProcessor {
             delivery_attempt,
             max_delivery_attempts,
         };
-        let repsonse = self.rpc_client.forward_to_deadletter_queue(request).await?;
-        handle_response_status(repsonse.status, OPERATION_FORWARD_TO_DEADLETTER_QUEUE)
+        let response = self.rpc_client.forward_to_deadletter_queue(request).await?;
+        handle_response_status(response.status, OPERATION_FORWARD_TO_DEADLETTER_QUEUE)
     }
 
     async fn change_invisible_duration_inner(
