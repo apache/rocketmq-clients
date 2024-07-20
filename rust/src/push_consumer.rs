@@ -254,7 +254,7 @@ impl PushConsumer {
         for (_, actor) in shutdown_entries {
             let _ = actor.shutdown().await;
         }
-        
+
         for mut actor in actors {
             let option = option.clone();
             actor.set_option(option);

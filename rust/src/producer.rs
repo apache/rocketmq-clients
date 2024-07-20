@@ -40,7 +40,8 @@ use crate::pb::telemetry_command::Command::{RecoverOrphanedTransactionCommand, S
 use crate::pb::{Encoding, EndTransactionRequest, Resource, SystemProperties, TransactionSource};
 use crate::session::RPCClient;
 use crate::util::{
-    build_endpoints_by_message_queue, build_producer_settings, handle_response_status, select_message_queue, select_message_queue_by_message_group, HOST_NAME
+    build_endpoints_by_message_queue, build_producer_settings, handle_response_status,
+    select_message_queue, select_message_queue_by_message_group, HOST_NAME,
 };
 use crate::{log, pb};
 

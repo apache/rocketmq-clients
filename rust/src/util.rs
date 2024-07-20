@@ -27,7 +27,8 @@ use crate::model::common::{ClientType, Endpoints, Route};
 use crate::pb::settings::PubSub;
 use crate::pb::telemetry_command::Command;
 use crate::pb::{
-    Code, FilterExpression, Language, MessageQueue, Publishing, Resource, Settings, Status, Subscription, SubscriptionEntry, TelemetryCommand, Ua
+    Code, FilterExpression, Language, MessageQueue, Publishing, Resource, Settings, Status,
+    Subscription, SubscriptionEntry, TelemetryCommand, Ua,
 };
 
 pub(crate) static SDK_LANGUAGE: Language = Language::Rust;
