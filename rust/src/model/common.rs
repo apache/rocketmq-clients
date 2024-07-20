@@ -259,6 +259,7 @@ impl SendReceipt {
     }
 }
 
+#[derive(Debug)]
 pub enum ConsumeResult {
     SUCCESS,
     FAILURE,

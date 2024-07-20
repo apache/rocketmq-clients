@@ -40,8 +40,7 @@ use crate::pb::telemetry_command::Command::{RecoverOrphanedTransactionCommand, S
 use crate::pb::{Encoding, EndTransactionRequest, Resource, SystemProperties, TransactionSource};
 use crate::session::RPCClient;
 use crate::util::{
-    build_endpoints_by_message_queue, build_producer_settings, select_message_queue,
-    select_message_queue_by_message_group, HOST_NAME,
+    build_endpoints_by_message_queue, build_producer_settings, handle_response_status, select_message_queue, select_message_queue_by_message_group, HOST_NAME
 };
 use crate::{log, pb};
 
@@ -250,7 +249,7 @@ impl Producer {
                     trace_context: "".to_string(),
                 })
                 .await?;
-            Client::handle_response_status(response.status, Self::OPERATION_END_TRANSACTION)
+            handle_response_status(response.status, Self::OPERATION_END_TRANSACTION)
         } else {
             Err(ClientError::new(
                 ErrorKind::Config,
@@ -472,14 +471,15 @@ impl Producer {
 mod tests {
     use std::sync::Arc;
 
-    use crate::client::MockClient;
     use crate::error::ErrorKind;
     use crate::log::terminal_logger;
     use crate::model::common::Route;
     use crate::model::message::{MessageBuilder, MessageImpl, MessageType};
     use crate::model::transaction::TransactionResolution;
     use crate::pb::{Broker, Code, EndTransactionResponse, MessageQueue, Status};
-    use crate::session::{self, Session};
+    use crate::session::MockRPCClient;
+    #[double]
+    use crate::session::Session;
 
     use super::*;
 
@@ -522,7 +522,7 @@ mod tests {
                 .return_const("fake_id".to_string());
             client
                 .expect_get_session()
-                .return_once(|| Ok(Session::mock()));
+                .return_once(|| Ok(Session::default()));
             client
                 .expect_get_endpoints()
                 .return_once(|| Endpoints::from_url("foobar.com:8080").unwrap());
@@ -555,7 +555,7 @@ mod tests {
                 .return_const("fake_id".to_string());
             client
                 .expect_get_session()
-                .return_once(|| Ok(Session::mock()));
+                .return_once(|| Ok(Session::default()));
             client
                 .expect_get_endpoints()
                 .return_once(|| Endpoints::from_url("foobar.com:8080").unwrap());
@@ -757,7 +757,7 @@ mod tests {
         producer
             .client
             .expect_get_session()
-            .return_once(|| Ok(Session::mock()));
+            .return_once(|| Ok(Session::default()));
 
         let _ = producer
             .send_transaction_message(
@@ -777,11 +777,9 @@ mod tests {
                 message: "".to_string(),
             }),
         });
-        let mut mock = session::MockRPCClient::new();
+        let mut mock = MockRPCClient::new();
         mock.expect_end_transaction()
             .return_once(|_| Box::pin(futures::future::ready(response)));
-        let context = MockClient::handle_response_status_context();
-        context.expect().return_once(|_, _| Result::Ok(()));
 
         let result = Producer::handle_recover_orphaned_transaction_command(
             mock,

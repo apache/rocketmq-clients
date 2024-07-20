@@ -27,8 +27,7 @@ use crate::model::common::{ClientType, Endpoints, Route};
 use crate::pb::settings::PubSub;
 use crate::pb::telemetry_command::Command;
 use crate::pb::{
-    FilterExpression, Language, MessageQueue, Publishing, Resource, Settings, Subscription,
-    SubscriptionEntry, TelemetryCommand, Ua,
+    Code, FilterExpression, Language, MessageQueue, Publishing, Resource, Settings, Status, Subscription, SubscriptionEntry, TelemetryCommand, Ua
 };
 
 pub(crate) static SDK_LANGUAGE: Language = Language::Rust;
@@ -203,6 +202,26 @@ pub(crate) fn build_push_consumer_settings(option: &PushConsumerOption) -> Telem
     }
 }
 
+pub fn handle_response_status(
+    status: Option<Status>,
+    operation: &'static str,
+) -> Result<(), ClientError> {
+    let status = status.ok_or(ClientError::new(
+        ErrorKind::Server,
+        "server do not return status, this may be a bug",
+        operation,
+    ))?;
+
+    if status.code != Code::Ok as i32 {
+        return Err(
+            ClientError::new(ErrorKind::Server, "server return an error", operation)
+                .with_context("code", format!("{}", status.code))
+                .with_context("message", status.message),
+        );
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::AtomicUsize;
@@ -322,5 +341,50 @@ mod tests {
     #[test]
     fn util_build_simple_consumer_settings() {
         build_simple_consumer_settings(&SimpleConsumerOption::default());
+    }
+
+    #[test]
+    fn test_handle_response_status() {
+        let result = handle_response_status(None, "test");
+        assert!(result.is_err(), "should return error when status is None");
+        let result = result.unwrap_err();
+        assert_eq!(result.kind, ErrorKind::Server);
+        assert_eq!(
+            result.message,
+            "server do not return status, this may be a bug"
+        );
+        assert_eq!(result.operation, "test");
+
+        let result = handle_response_status(
+            Some(Status {
+                code: Code::BadRequest as i32,
+                message: "test failed".to_string(),
+            }),
+            "test failed",
+        );
+        assert!(
+            result.is_err(),
+            "should return error when status is BadRequest"
+        );
+        let result = result.unwrap_err();
+        assert_eq!(result.kind, ErrorKind::Server);
+        assert_eq!(result.message, "server return an error");
+        assert_eq!(result.operation, "test failed");
+        assert_eq!(
+            result.context,
+            vec![
+                ("code", format!("{}", Code::BadRequest as i32)),
+                ("message", "test failed".to_string()),
+            ]
+        );
+
+        let result = handle_response_status(
+            Some(Status {
+                code: Code::Ok as i32,
+                message: "test success".to_string(),
+            }),
+            "test success",
+        );
+        assert!(result.is_ok(), "should not return error when status is Ok");
     }
 }

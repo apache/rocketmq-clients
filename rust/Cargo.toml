@@ -66,6 +66,7 @@ mockall_double = "0.3.0"
 
 siphasher = "0.3.10"
 ring = "0.16.20"
+tokio-util = { version = "0.7.11", features = ["rt"] }
 
 [build-dependencies]
 tonic-build = "0.9.0"

@@ -39,12 +39,12 @@ use crate::pb::{
     AckMessageRequest, AckMessageResultEntry, ChangeInvisibleDurationRequest, Code,
     FilterExpression, HeartbeatRequest, HeartbeatResponse, Message, MessageQueue,
     NotifyClientTerminationRequest, QueryRouteRequest, ReceiveMessageRequest, Resource,
-    SendMessageRequest, Status, TelemetryCommand,
+    SendMessageRequest, TelemetryCommand,
 };
+use crate::session::RPCClient;
 #[double]
-use crate::session::SessionManager;
-use crate::session::{RPCClient, Session};
-use crate::util::select_message_queue;
+use crate::session::Session;
+use crate::util::{handle_response_status, select_message_queue};
 
 #[derive(Debug)]
 pub(crate) struct Client {
@@ -177,7 +177,7 @@ impl Client {
                                 continue;
                             }
                             let result =
-                                Self::handle_response_status(response.unwrap().status, OPERATION_HEARTBEAT);
+                                handle_response_status(response.unwrap().status, OPERATION_HEARTBEAT);
                             if result.is_err() {
                                 error!(
                                     logger,
@@ -247,7 +247,7 @@ impl Client {
             resource_namespace: self.option.namespace.to_string(),
         });
         let response = rpc_client.notify_shutdown(NotifyClientTerminationRequest { group });
-        Self::handle_response_status(response.await?.status, OPERATION_CLIENT_SHUTDOWN)?;
+        handle_response_status(response.await?.status, OPERATION_CLIENT_SHUTDOWN)?;
         self.session_manager.shutdown().await;
         Ok(())
     }
@@ -360,7 +360,7 @@ impl Client {
     ) -> Result<Vec<SendReceipt>, ClientError> {
         let request = SendMessageRequest { messages };
         let response = rpc_client.send_message(request).await?;
-        Self::handle_response_status(response.status, OPERATION_SEND_MESSAGE)?;
+        handle_response_status(response.status, OPERATION_SEND_MESSAGE)?;
 
         Ok(response
             .entries
@@ -418,7 +418,7 @@ impl Client {
                     if status.code() == Code::MessageNotFound {
                         return Ok(vec![]);
                     }
-                    Self::handle_response_status(Some(status), OPERATION_RECEIVE_MESSAGE)?;
+                    handle_response_status(Some(status), OPERATION_RECEIVE_MESSAGE)?;
                 }
                 Content::Message(message) => {
                     messages.push(message);
@@ -466,7 +466,7 @@ impl Client {
             entries,
         };
         let response = rpc_client.ack_message(request).await?;
-        Self::handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
+        handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
         Ok(response.entries)
     }
 
@@ -511,28 +511,8 @@ impl Client {
             message_id,
         };
         let response = rpc_client.change_invisible_duration(request).await?;
-        Self::handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
+        handle_response_status(response.status, OPERATION_ACK_MESSAGE)?;
         Ok(response.receipt_handle)
-    }
-
-    pub fn handle_response_status(
-        status: Option<Status>,
-        operation: &'static str,
-    ) -> Result<(), ClientError> {
-        let status = status.ok_or(ClientError::new(
-            ErrorKind::Server,
-            "server do not return status, this may be a bug",
-            operation,
-        ))?;
-
-        if status.code != Code::Ok as i32 {
-            return Err(
-                ClientError::new(ErrorKind::Server, "server return an error", operation)
-                    .with_context("code", format!("{}", status.code))
-                    .with_context("message", status.message),
-            );
-        }
-        Ok(())
     }
 }
 
@@ -680,7 +660,7 @@ impl TopicRouteManager {
         };
 
         let response = rpc_client.query_route(request).await?;
-        Client::handle_response_status(response.status, OPERATION_QUERY_ROUTE)?;
+        handle_response_status(response.status, OPERATION_QUERY_ROUTE)?;
 
         let route = Route {
             index: AtomicUsize::new(0),
@@ -714,6 +694,70 @@ impl TopicRouteManager {
     }
 }
 
+#[derive(Debug)]
+pub(crate) struct SessionManager {
+    logger: Logger,
+    client_id: String,
+    option: ClientOption,
+    session_map: tokio::sync::Mutex<HashMap<String, Session>>,
+}
+
+#[automock]
+impl SessionManager {
+    pub(crate) fn new(logger: &Logger, client_id: String, option: &ClientOption) -> Self {
+        let logger = logger.new(o!("component" => "session"));
+        let session_map = tokio::sync::Mutex::new(HashMap::new());
+        SessionManager {
+            logger,
+            client_id,
+            option: option.clone(),
+            session_map,
+        }
+    }
+
+    pub(crate) async fn get_or_create_session(
+        &self,
+        endpoints: &Endpoints,
+        settings: TelemetryCommand,
+        telemetry_command_tx: mpsc::Sender<pb::telemetry_command::Command>,
+    ) -> Result<Session, ClientError> {
+        let mut session_map = self.session_map.lock().await;
+        let endpoint_url = endpoints.endpoint_url().to_string();
+        return if session_map.contains_key(&endpoint_url) {
+            Ok(session_map.get(&endpoint_url).unwrap().shadow_session())
+        } else {
+            let mut session = Session::new(
+                &self.logger,
+                endpoints,
+                self.client_id.clone(),
+                &self.option,
+            )
+            .await?;
+            session.start(settings, telemetry_command_tx).await?;
+            let shadow_session = session.shadow_session();
+            session_map.insert(endpoint_url.clone(), session);
+            Ok(shadow_session)
+        };
+    }
+
+    pub(crate) async fn get_all_sessions(&self) -> Result<Vec<Session>, ClientError> {
+        let session_map = self.session_map.lock().await;
+        let mut sessions = Vec::new();
+        for (_, session) in session_map.iter() {
+            sessions.push(session.shadow_session());
+        }
+        Ok(sessions)
+    }
+
+    pub(crate) async fn shutdown(&self) {
+        let mut session_map = self.session_map.lock().await;
+        for (_, session) in session_map.iter_mut() {
+            session.shutdown();
+        }
+        session_map.clear();
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -734,6 +778,7 @@ pub(crate) mod tests {
         ReceiveMessageResponse, Resource, SendMessageResponse, Status, TelemetryCommand,
     };
     use crate::session;
+    use crate::session::MockSession;
 
     use super::*;
 
@@ -749,6 +794,17 @@ pub(crate) mod tests {
         }
     }
 
+    fn new_session_manager() -> SessionManager {
+        SessionManager::new(
+            &terminal_logger(),
+            Client::generate_client_id(),
+            &ClientOption {
+                group: Some("group".to_string()),
+                ..Default::default()
+            },
+        )
+    }
+
     fn new_client_for_test() -> Client {
         Client {
             logger: terminal_logger(),
@@ -756,7 +812,7 @@ pub(crate) mod tests {
                 group: Some("group".to_string()),
                 ..Default::default()
             },
-            session_manager: Arc::new(SessionManager::default()),
+            session_manager: Arc::new(new_session_manager()),
             route_manager: new_route_manager_for_test(),
             id: Client::generate_client_id(),
             access_endpoints: Endpoints::from_url("http://localhost:8081").unwrap(),
@@ -790,9 +846,6 @@ pub(crate) mod tests {
 
     #[test]
     fn client_new() -> Result<(), ClientError> {
-        let ctx = crate::session::MockSessionManager::new_context();
-        ctx.expect()
-            .return_once(|_, _, _| SessionManager::default());
         Client::new(
             &terminal_logger(),
             ClientOption::default(),
@@ -803,14 +856,16 @@ pub(crate) mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn client_start() -> Result<(), ClientError> {
-        let mut session_manager = SessionManager::default();
-        session_manager
-            .expect_get_all_sessions()
-            .returning(|| Ok(vec![]));
-        session_manager
-            .expect_get_or_create_session()
-            .returning(|_, _, _| Ok(Session::mock()));
-
+        let context = MockSession::new_context();
+        context.expect().returning(|_, _, _, _| {
+            let mut session = MockSession::default();
+            session.expect_start().returning(|_, _| Ok(()));
+            session
+                .expect_shadow_session()
+                .returning(|| MockSession::default());
+            Ok(session)
+        });
+        let session_manager = new_session_manager();
         let mut client = new_client_with_session_manager(session_manager);
         let (tx, _) = mpsc::channel(16);
         client.start(tx).await?;
@@ -823,11 +878,16 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn client_get_session() {
-        let mut session_manager = SessionManager::default();
-        session_manager
-            .expect_get_or_create_session()
-            .returning(|_, _, _| Ok(Session::mock()));
-
+        let context = MockSession::new_context();
+        context.expect().returning(|_, _, _, _| {
+            let mut session = MockSession::default();
+            session.expect_start().returning(|_, _| Ok(()));
+            session
+                .expect_shadow_session()
+                .returning(|| MockSession::default());
+            Ok(session)
+        });
+        let session_manager = new_session_manager();
         let mut client = new_client_with_session_manager(session_manager);
         let (tx, _rx) = mpsc::channel(16);
         let _ = client.start(tx).await;
@@ -837,51 +897,6 @@ pub(crate) mod tests {
             .get_session_with_endpoints(&Endpoints::from_url("localhost:8081").unwrap())
             .await;
         assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_handle_response_status() {
-        let result = Client::handle_response_status(None, "test");
-        assert!(result.is_err(), "should return error when status is None");
-        let result = result.unwrap_err();
-        assert_eq!(result.kind, ErrorKind::Server);
-        assert_eq!(
-            result.message,
-            "server do not return status, this may be a bug"
-        );
-        assert_eq!(result.operation, "test");
-
-        let result = Client::handle_response_status(
-            Some(Status {
-                code: Code::BadRequest as i32,
-                message: "test failed".to_string(),
-            }),
-            "test failed",
-        );
-        assert!(
-            result.is_err(),
-            "should return error when status is BadRequest"
-        );
-        let result = result.unwrap_err();
-        assert_eq!(result.kind, ErrorKind::Server);
-        assert_eq!(result.message, "server return an error");
-        assert_eq!(result.operation, "test failed");
-        assert_eq!(
-            result.context,
-            vec![
-                ("code", format!("{}", Code::BadRequest as i32)),
-                ("message", "test failed".to_string()),
-            ]
-        );
-
-        let result = Client::handle_response_status(
-            Some(Status {
-                code: Code::Ok as i32,
-                message: "test success".to_string(),
-            }),
-            "test success",
-        );
-        assert!(result.is_ok(), "should not return error when status is Ok");
     }
 
     pub(crate) fn new_topic_route_response() -> Result<QueryRouteResponse, ClientError> {
@@ -925,7 +940,6 @@ pub(crate) mod tests {
         mock.expect_query_route()
             .return_once(|_| Box::pin(futures::future::ready(new_topic_route_response())));
 
-        let logger = client.logger.clone();
         let result = client
             .route_manager
             .topic_route_inner(&mut mock, "DefaultCluster")
