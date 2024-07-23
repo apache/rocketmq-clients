@@ -360,6 +360,7 @@ impl PushConsumer {
     }
 }
 
+#[derive(Debug)]
 enum AckEntryItem {
     Ack(AckEntry),
     Nack(NackEntry),
@@ -382,6 +383,7 @@ impl AckEntryItem {
     }
 }
 
+#[derive(Debug)]
 struct AckEntry {
     message: MessageView,
     attempt: usize,
@@ -396,6 +398,7 @@ impl AckEntry {
     }
 }
 
+#[derive(Debug)]
 struct NackEntry {
     message: MessageView,
     attempt: usize,
@@ -412,6 +415,7 @@ impl NackEntry {
     }
 }
 
+#[derive(Debug)]
 struct DlqEntry {
     message: MessageView,
     attempt: usize,
