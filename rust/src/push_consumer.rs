@@ -192,7 +192,7 @@ impl PushConsumer {
                                 let result = rpc_client.query_assignment(request).await;
                                 if let Ok(response) = result {
                                     if handle_response_status(response.status, OPERATION_START_PUSH_CONSUMER).is_ok() {
-                                            let _ = Self::process_assignments(logger.clone(),
+                                            let result = Self::process_assignments(logger.clone(),
                                                 &rpc_client,
                                                 &consumer_option,
                                                 Arc::clone(&message_listener),
@@ -200,6 +200,9 @@ impl PushConsumer {
                                                 response.assignments,
                                                 retry_policy_inner,
                                             ).await;
+                                            if result.is_err() {
+                                                error!(logger, "process assignments failed: {:?}", result.unwrap_err());
+                                            }
                                     } else {
                                         error!(logger, "query assignment failed, no status in response.");
                                     }
