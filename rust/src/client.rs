@@ -90,12 +90,11 @@ impl Client {
         let endpoints = Endpoints::from_url(option.access_url())
             .map_err(|e| e.with_operation(OPERATION_CLIENT_NEW))?;
         let session_manager = SessionManager::new(logger, id.clone(), &option);
-        let route_manager = TopicRouteManager {
-            logger: logger.clone(),
-            route_table: Arc::new(Mutex::new(HashMap::new())),
-            access_endpoints: endpoints.clone(),
-            namespace: option.get_namespace().to_string(),
-        };
+        let route_manager = TopicRouteManager::new(
+            logger.clone(),
+            option.get_namespace().to_string(),
+            endpoints.clone(),
+        );
         Ok(Client {
             logger: logger.new(o!("component" => "client")),
             option,
@@ -517,7 +516,16 @@ impl Client {
 }
 
 impl TopicRouteManager {
-    pub(crate) async fn sync_route_data<T: RPCClient>(
+    pub(crate) fn new(logger: Logger, namespace: String, access_endpoints: Endpoints) -> Self {
+        Self {
+            logger,
+            namespace,
+            access_endpoints,
+            route_table: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    pub(crate) async fn sync_route_data<T: RPCClient + 'static>(
         &self,
         rpc_client: &mut T,
     ) -> Result<(), ClientError> {
@@ -532,7 +540,7 @@ impl TopicRouteManager {
         Ok(())
     }
 
-    pub(crate) async fn sync_topic_routes<T: RPCClient>(
+    pub(crate) async fn sync_topic_routes<T: RPCClient + 'static>(
         &self,
         rpc_client: &mut T,
         topics: Vec<String>,
@@ -544,7 +552,7 @@ impl TopicRouteManager {
         Ok(())
     }
 
-    pub(crate) async fn topic_route_inner<T: RPCClient>(
+    pub(crate) async fn topic_route_inner<T: RPCClient + 'static>(
         &self,
         rpc_client: &mut T,
         topic: &str,
@@ -645,7 +653,7 @@ impl TopicRouteManager {
         }
     }
 
-    async fn query_topic_route<T: RPCClient>(
+    async fn query_topic_route<T: RPCClient + 'static>(
         rpc_client: &mut T,
         namespace: String,
         access_endpoints: Endpoints,

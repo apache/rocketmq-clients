@@ -129,21 +129,7 @@ impl PushConsumer {
         let mut actor_table: HashMap<MessageQueue, MessageQueueActor> = HashMap::new();
 
         let message_listener = Arc::clone(&self.message_listener);
-        // must retrieve settings from server first.
-        let command = telemetry_command_rx.recv().await.ok_or(ClientError::new(
-            ErrorKind::Connect,
-            "telemetry command channel closed.",
-            OPERATION_START_PUSH_CONSUMER,
-        ))?;
-        let backoff_policy = Arc::new(Mutex::new(BackOffRetryPolicy::try_from(command).map_err(
-            |_| {
-                ClientError::new(
-                    ErrorKind::Connect,
-                    "backoff policy is required.",
-                    OPERATION_START_PUSH_CONSUMER,
-                )
-            },
-        )?));
+        let retry_policy: Arc<Mutex<Option<BackOffRetryPolicy>>> = Arc::new(Mutex::new(None));
 
         let shutdown_token = CancellationToken::new();
         self.shutdown_token = Some(shutdown_token.clone());
@@ -159,19 +145,26 @@ impl PushConsumer {
                         if let Some(command) = command {
                             let remote_backoff_policy = BackOffRetryPolicy::try_from(command);
                             if let Ok(remote_backoff_policy) = remote_backoff_policy {
-                                let mut guard = backoff_policy.lock();
-                                *guard = remote_backoff_policy;
+                                retry_policy.lock().replace(remote_backoff_policy);
                             }
                         }
                     }
                     _ = scan_assignments_timer.tick() => {
+                        let option_retry_policy;
+                        {
+                            option_retry_policy = retry_policy.lock().clone();
+                        }
+                        if option_retry_policy.is_none() {
+                            warn!(logger, "retry policy is not set. skip scanning.");
+                            continue;
+                        }
+                        let retry_policy_inner = option_retry_policy.unwrap();
                         let consumer_option;
                         {
                             consumer_option = option.read().clone();
                         }
                         let subscription_table = consumer_option.subscription_expressions();
                         // query endpoints from topic route
-                        let retry_policy = Arc::clone(&backoff_policy);
                         for topic in subscription_table.keys() {
                             if let Some(endpoints) = route_manager.pick_endpoints(topic.as_str()) {
                                 let request = QueryAssignmentRequest {
@@ -185,10 +178,6 @@ impl PushConsumer {
                                     }),
                                     endpoints: Some(endpoints.into_inner()),
                                 };
-                                let retry_policy_inner;
-                                {
-                                    retry_policy_inner = retry_policy.lock().clone();
-                                }
                                 let result = rpc_client.query_assignment(request).await;
                                 if let Ok(response) = result {
                                     if handle_response_status(response.status, OPERATION_START_PUSH_CONSUMER).is_ok() {
@@ -198,7 +187,7 @@ impl PushConsumer {
                                                 Arc::clone(&message_listener),
                                                 &mut actor_table,
                                                 response.assignments,
-                                                retry_policy_inner,
+                                                retry_policy_inner.clone(),
                                             ).await;
                                             if result.is_err() {
                                                 error!(logger, "process assignments failed: {:?}", result.unwrap_err());
@@ -963,9 +952,11 @@ mod tests {
     use log::terminal_logger;
     use pb::{
         AckMessageResponse, Address, Broker, ChangeInvisibleDurationResponse, Code,
-        ForwardMessageToDeadLetterQueueResponse, ReceiveMessageResponse, Status, SystemProperties,
+        ForwardMessageToDeadLetterQueueResponse, QueryRouteResponse, ReceiveMessageResponse,
+        Status, SystemProperties,
     };
 
+    use crate::client::TopicRouteManager;
     use crate::model::common::{Endpoints, FilterType};
     use crate::{
         conf::{CustomizedBackOffRetryPolicy, ExponentialBackOffRetryPolicy},
@@ -1004,6 +995,57 @@ mod tests {
             Box::new(|_| ConsumeResult::SUCCESS),
         );
         assert!(result3.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_push_consumer_start_shutdown() -> Result<(), ClientError> {
+        let _m = crate::client::tests::MTX.lock();
+        let context = Client::new_context();
+        let mut client = Client::default();
+        client.expect_start().return_once(|_| Ok(()));
+        client.expect_shutdown().return_once(|| Ok(()));
+        client.expect_get_session().returning(|| {
+            let mut session = Session::default();
+            session.expect_query_route().returning(|_| {
+                Ok(QueryRouteResponse {
+                    status: Some(Status {
+                        code: Code::Ok as i32,
+                        message: "Success".to_string(),
+                    }),
+                    message_queues: vec![pb::MessageQueue {
+                        topic: Some(Resource {
+                            name: "DefaultCluster".to_string(),
+                            resource_namespace: "default".to_string(),
+                        }),
+                        id: 0,
+                        permission: 0,
+                        broker: None,
+                        accept_message_types: vec![],
+                    }],
+                })
+            });
+            Ok(session)
+        });
+        client.expect_get_route_manager().returning(|| {
+            TopicRouteManager::new(
+                terminal_logger(),
+                "".to_string(),
+                Endpoints::from_url("http://localhost:8081").unwrap(),
+            )
+        });
+        context.expect().return_once(|_, _, _| Ok(client));
+        let mut push_consumer_option = PushConsumerOption::default();
+        push_consumer_option.set_consumer_group("test_group");
+        push_consumer_option.subscribe("test_topic", FilterExpression::new(FilterType::Tag, "*"));
+        let mut push_consumer = PushConsumer::new(
+            ClientOption::default(),
+            push_consumer_option,
+            Box::new(|_| ConsumeResult::SUCCESS),
+        )?;
+        push_consumer.start().await?;
+        push_consumer.shutdown().await?;
+
+        Ok(())
     }
 
     #[tokio::test]
@@ -1646,7 +1688,7 @@ mod tests {
                 content: Some(Content::Message(new_message())),
             }])
         });
-        let mut consumer_worker = StandardConsumerWorker::new(
+        let consumer_worker = StandardConsumerWorker::new(
             terminal_logger(),
             rpc_client,
             Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
@@ -1686,7 +1728,7 @@ mod tests {
             AckEntryProcessor::new(terminal_logger(), session, consumer_group, topic);
         let is_start_ok = ack_processor.start().await;
         assert!(is_start_ok.is_ok());
-        let result = consumer_worker
+        let result = ConsumerWorker::Standard(consumer_worker)
             .receive_messages(
                 &new_message_queue(),
                 &option,
@@ -1705,7 +1747,7 @@ mod tests {
                 content: Some(Content::Message(new_message())),
             }])
         });
-        let mut consumer_worker = StandardConsumerWorker::new(
+        let consumer_worker = StandardConsumerWorker::new(
             terminal_logger(),
             rpc_client,
             Arc::new(Box::new(|_| ConsumeResult::FAILURE)),
@@ -1749,7 +1791,7 @@ mod tests {
             AckEntryProcessor::new(terminal_logger(), session, consumer_group, topic);
         let is_start_ok = ack_processor.start().await;
         assert!(is_start_ok.is_ok());
-        let result = consumer_worker
+        let result = ConsumerWorker::Standard(consumer_worker)
             .receive_messages(
                 &new_message_queue(),
                 &option,
@@ -1768,7 +1810,7 @@ mod tests {
                 content: Some(Content::Message(new_message())),
             }])
         });
-        let mut consumer_worker = FifoConsumerWorker::new(
+        let consumer_worker = FifoConsumerWorker::new(
             terminal_logger(),
             rpc_client,
             Arc::new(Box::new(|_| ConsumeResult::SUCCESS)),
@@ -1804,7 +1846,7 @@ mod tests {
         });
         let mut ack_processor =
             AckEntryProcessor::new(terminal_logger(), session, consumer_group, topic);
-        let result = consumer_worker
+        let result = ConsumerWorker::Fifo(consumer_worker)
             .receive_messages(
                 &new_message_queue(),
                 &option,
@@ -1825,7 +1867,7 @@ mod tests {
         });
         let receive_call_count = Arc::new(AtomicUsize::new(0));
         let outer_call_counter = Arc::clone(&receive_call_count);
-        let mut consumer_worker = FifoConsumerWorker::new(
+        let consumer_worker = FifoConsumerWorker::new(
             terminal_logger(),
             rpc_client,
             Arc::new(Box::new(move |_| {
@@ -1867,7 +1909,7 @@ mod tests {
             });
         let mut ack_processor =
             AckEntryProcessor::new(terminal_logger(), session, consumer_group, topic);
-        let result = consumer_worker
+        let result = ConsumerWorker::Fifo(consumer_worker)
             .receive_messages(
                 &new_message_queue(),
                 &option,
