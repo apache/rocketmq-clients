@@ -431,15 +431,18 @@ func (sc *defaultSimpleConsumer) Ack(ctx context.Context, messageView *MessageVi
 	request := sc.wrapAckMessageRequest(messageView)
 	ctx = sc.cli.Sign(ctx)
 	resp, err := sc.cli.clientManager.AckMessage(ctx, endpoints, request, sc.cli.opts.timeout)
-	messageHookPointsStatus := MessageHookPointsStatus_ERROR
 	duration := time.Since(watchTime)
+	messageHookPointsStatus := MessageHookPointsStatus_OK
+	if err == nil && resp.GetStatus().GetCode() != v2.Code_OK {
+		err = &ErrRpcStatus{
+			Code:    int32(resp.Status.GetCode()),
+			Message: resp.GetStatus().GetMessage(),
+		}
+	}
 	if err != nil {
-		sc.cli.doAfter(MessageHookPoints_ACK, messageCommons, duration, messageHookPointsStatus)
-		return err
+		messageHookPointsStatus = MessageHookPointsStatus_ERROR
 	}
-	if resp.GetStatus().GetCode() != v2.Code_OK {
-		messageHookPointsStatus = MessageHookPointsStatus_OK
-	}
+
 	sc.cli.doAfter(MessageHookPoints_ACK, messageCommons, duration, messageHookPointsStatus)
-	return nil
+	return err
 }
