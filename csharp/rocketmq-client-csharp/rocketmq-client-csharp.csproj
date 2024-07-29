@@ -37,7 +37,7 @@
         <PackageReference Include="ParallelExtensionsExtras" Version="1.2.0" />
 
         <Protobuf Include="..\..\protos\apache\rocketmq\v2\definition.proto" ProtoRoot="..\..\protos" GrpcServices="Client" />
-        <Protobuf Include="..\..\protos\apache\rocketmq\v2\service.proto" ProtoRoot="..\..\protos" GrpcServices="Client" />
+        <Protobuf Include="..\..\protos\apache\rocketmq\v2\service.proto" ProtoRoot="..\..\protos" GrpcServices="Both" />
         <None Include="logo.png" Pack="true" PackagePath="" />
     </ItemGroup>
 </Project>
