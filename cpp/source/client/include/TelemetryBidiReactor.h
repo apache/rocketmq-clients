@@ -19,6 +19,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <future>
 #include <list>
 #include <memory>
 #include <utility>
@@ -34,29 +35,17 @@ ROCKETMQ_NAMESPACE_BEGIN
 
 enum class StreamState : std::uint8_t
 {
-  Created = 0,
-  Ready = 1,
-  Inflight = 2,
-  Closing = 3,
-  Closed = 4,
-  Error = 5,
+  Ready = 0,
+  Closing = 1,
+  Closed = 2,
 };
 
-/// write-stream-state: created --> ready --> inflight --> ready --> ...
-///                                                    --> error
-///                                                    --> closing --> closed
-///                                       --> closing  --> closed
-///                                                    --> error
+/// stream-state: ready --> closing --> closed
 ///
-///
-/// read-stream-state: created --> ready --> inflight --> inflight
-///                                                   --> closing --> closed
-///                                                   --> error
-///                                      --> closed
 /// requirement:
-///    1, fireClose --> blocking await till bidireactor is closed;
+///    1, close --> blocking wait till bidireactor is closed;
 ///    2, when session is closed and client is still active, recreate a new session to accept incoming commands from
-///    server 3, after writing the first Settings telemetry command, launch the read directional stream
+///    server
 ///
 class TelemetryBidiReactor : public grpc::ClientBidiReactor<TelemetryCommand, TelemetryCommand>,
                              public std::enable_shared_from_this<TelemetryBidiReactor> {
@@ -97,21 +86,21 @@ public:
   ///               will succeed, and any further Start* should not be called.
   void OnWriteDone(bool ok) override;
 
-  /// Notifies the application that a StartWritesDone operation completed. Note
-  /// that this is only used on explicit StartWritesDone operations and not for
-  /// those that are implicitly invoked as part of a StartWriteLast.
-  ///
-  /// \param[in] ok Was it successful? If false, the application will later see
-  ///               the failure reflected as a bad status in OnDone and no
-  ///               further Start* should be called.
-  void OnWritesDoneDone(bool ok) override;
+//  /// Notifies the application that a StartWritesDone operation completed. Note
+//  /// that this is only used on explicit StartWritesDone operations and not for
+//  /// those that are implicitly invoked as part of a StartWriteLast.
+//  ///
+//  /// \param[in] ok Was it successful? If false, the application will later see
+//  ///               the failure reflected as a bad status in OnDone and no
+//  ///               further Start* should be called.
+//  void OnWritesDoneDone(bool ok) override;
 
   /// Core API method to initiate this bidirectional stream.
   void write(TelemetryCommand command);
 
-  bool await();
+  bool awaitApplyingSettings();
 
-  void fireClose();
+  void close();
 
 private:
   grpc::ClientContext context_;
@@ -122,7 +111,7 @@ private:
   TelemetryCommand read_;
 
   /**
-   * @brief Buffered commands to write to server
+   * @brief Buffered commands to write to serverd
    *
    * TODO: move buffered commands to a shared container, which may survive
    * multiple TelemetryBidiReactor lifecycles.
@@ -140,14 +129,12 @@ private:
    */
   std::string peer_address_;
 
-  StreamState read_state_ GUARDED_BY(state_mtx_);
-  StreamState write_state_ GUARDED_BY(state_mtx_);
+  StreamState state_ GUARDED_BY(state_mtx_);
   absl::Mutex state_mtx_;
   absl::CondVar state_cv_;
 
-  void changeStreamStateThenNotify(StreamState state);
-
-  void onVerifyMessageResult(TelemetryCommand command);
+  std::promise<bool> sync_settings_promise_;
+  std::future<bool> sync_settings_future_;
 
   void applySettings(const rmq::Settings& settings);
 
@@ -157,13 +144,9 @@ private:
 
   void applySubscriptionConfig(const rmq::Settings& settings, std::shared_ptr<Client> client);
 
-  /// Start the read stream.
-  ///
-  /// Once got the OnReadDone and status is OK, call StartRead immediately.
-  void fireRead();
-
   /// Attempt to write pending telemetry command to server.
   void tryWriteNext() LOCKS_EXCLUDED(state_mtx_, writes_mtx_);
+  void signalClose();
 };
 
 ROCKETMQ_NAMESPACE_END

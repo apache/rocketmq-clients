@@ -36,8 +36,8 @@ class MetricBidiReactor
     : public grpc::ClientBidiReactor<ExportMetricsServiceRequest,
                                      ExportMetricsServiceResponse> {
 public:
-  MetricBidiReactor(std::weak_ptr<Client> client,
-                    std::weak_ptr<OpencensusExporter> exporter);
+  MetricBidiReactor(std::shared_ptr<Client> client,
+                    std::shared_ptr<OpencensusExporter> exporter);
 
   /// Notifies the application that a StartRead operation completed.
   ///

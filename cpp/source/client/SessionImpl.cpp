@@ -29,7 +29,7 @@ SessionImpl::SessionImpl(std::weak_ptr<Client> client, std::shared_ptr<RpcClient
 }
 
 bool SessionImpl::await() {
-  return telemetry_->await();
+  return telemetry_->awaitApplyingSettings();
 }
 
 void SessionImpl::syncSettings() {
@@ -41,7 +41,7 @@ void SessionImpl::syncSettings() {
 }
 
 SessionImpl::~SessionImpl() {
-  telemetry_->fireClose();
+  telemetry_->close();
   SPDLOG_DEBUG("Session for {} destructed", rpc_client_->remoteAddress());
 }
 

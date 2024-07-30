@@ -25,12 +25,10 @@
 
 ROCKETMQ_NAMESPACE_BEGIN
 
-MetricBidiReactor::MetricBidiReactor(std::weak_ptr<Client> client, std::weak_ptr<OpencensusExporter> exporter)
+MetricBidiReactor::MetricBidiReactor(std::shared_ptr<Client> client, std::shared_ptr<OpencensusExporter> exporter)
     : client_(client), exporter_(exporter) {
-  auto ptr = client_.lock();
-
   Metadata metadata;
-  Signature::sign(ptr->config(), metadata);
+  Signature::sign(client->config(), metadata);
 
   for (const auto& entry : metadata) {
     context_.AddMetadata(entry.first, entry.second);
