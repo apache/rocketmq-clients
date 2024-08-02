@@ -305,10 +305,6 @@ void TelemetryBidiReactor::signalClose() {
 void TelemetryBidiReactor::close() {
   SPDLOG_INFO("{}#fireClose", peer_address_);
 
-  if (peer_address_.rfind(":8080") != std::string::npos) {
-    SPDLOG_INFO("{}#TelemetryBidiReactor::close", peer_address_);
-  }
-
   {
     absl::MutexLock lk(&state_mtx_);
     if (state_ == StreamState::Ready) {
