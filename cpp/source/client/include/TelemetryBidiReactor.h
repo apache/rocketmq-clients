@@ -86,15 +86,6 @@ public:
   ///               will succeed, and any further Start* should not be called.
   void OnWriteDone(bool ok) override;
 
-//  /// Notifies the application that a StartWritesDone operation completed. Note
-//  /// that this is only used on explicit StartWritesDone operations and not for
-//  /// those that are implicitly invoked as part of a StartWriteLast.
-//  ///
-//  /// \param[in] ok Was it successful? If false, the application will later see
-//  ///               the failure reflected as a bad status in OnDone and no
-//  ///               further Start* should be called.
-//  void OnWritesDoneDone(bool ok) override;
-
   /// Core API method to initiate this bidirectional stream.
   void write(TelemetryCommand command);
 
@@ -111,7 +102,7 @@ private:
   TelemetryCommand read_;
 
   /**
-   * @brief Buffered commands to write to serverd
+   * @brief Buffered commands to write to server
    *
    * TODO: move buffered commands to a shared container, which may survive
    * multiple TelemetryBidiReactor lifecycles.
