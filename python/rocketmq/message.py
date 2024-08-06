@@ -188,7 +188,7 @@ class MessageView:
             if message.body and message.body[:2] == b'\x1f\x8b':  # Standard Gzip format
                 body = gzip.decompress(message.body)
             else:  # deflate zip
-                body = zlib.decompress(message.body)            
+                body = zlib.decompress(message.body)
         elif body_encoding in [ProtoEncoding.IDENTITY, None]:
             pass
         else:
