@@ -167,12 +167,16 @@ void OpencensusExporter::ExportViewData(
     const std::vector<std::pair<opencensus::stats::ViewDescriptor, opencensus::stats::ViewData>>& data) {
   opencensus::proto::agent::metrics::v1::ExportMetricsServiceRequest request;
   wrap(data, request);
-  std::weak_ptr<OpencensusExporter> exporter{shared_from_this()};
   if (!bidi_reactor_) {
-    bidi_reactor_ = absl::make_unique<MetricBidiReactor>(client_, exporter);
+    auto ptr = client_.lock();
+    if (ptr) {
+      bidi_reactor_ = absl::make_unique<MetricBidiReactor>(ptr, shared_from_this());
+    } else {
+      SPDLOG_INFO("did not create stream since the client is no longer available.");
+    }
   }
 
-  if (request.metrics_size()) {
+  if (request.metrics_size() && bidi_reactor_) {
     SPDLOG_DEBUG("ExportMetricRequest: {}", request.DebugString());
     bidi_reactor_->write(request);
   } else {
@@ -181,8 +185,12 @@ void OpencensusExporter::ExportViewData(
 }
 
 void OpencensusExporter::resetStream() {
-  std::weak_ptr<OpencensusExporter> exporter{shared_from_this()};
-  bidi_reactor_.reset(new MetricBidiReactor(client_, exporter));
+  auto ptr = client_.lock();
+  if (ptr) {
+    bidi_reactor_.reset(new MetricBidiReactor(ptr, shared_from_this()));
+  } else {
+    SPDLOG_INFO("did not reset stream since the client is no longer available.");
+  }
 }
 
 ROCKETMQ_NAMESPACE_END
