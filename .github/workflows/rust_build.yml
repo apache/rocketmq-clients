@@ -53,19 +53,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        msrv: [1.70]
-    name: msrv ${{ matrix.msrv }} check
+        msrv: [1.70.0]
+    name: MSRV ${{ matrix.msrv }} check
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: true
-      - name: Install ${{ matrix.msrv }}
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.msrv }}
-      - name: Check MSRV ${{ matrix.msrv }}
-        working-directory: ./rust
-        run: cp .cargo/Cargo.lock.min Cargo.lock && cargo +${{ matrix.msrv }} fetch && cargo +${{ matrix.msrv }} check --locked --frozen
+      - name: Install cargo-msrv
+        run: |
+          cargo install cargo-msrv
+          cargo msrv --min ${{ matrix.msrv }}
   build:
     name: "${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
@@ -77,7 +74,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-20.04, macos-12, windows-2022]
-        msrv: [1.61]
+        msrv: [1.70]
     steps:
       - uses: actions/checkout@v2
         with:
