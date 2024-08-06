@@ -53,6 +53,7 @@ namespace tests
                 Permission = Proto.Permission.ReadWrite,
                 Topic = new Proto.Resource
                 {
+                    ResourceNamespace = "foo-bar-namespace",
                     Name = "TestTopic",
                 }
             };
@@ -78,6 +79,7 @@ namespace tests
                 Permission = Proto.Permission.ReadWrite,
                 Topic = new Proto.Resource
                 {
+                    ResourceNamespace = "foo-bar-namespace",
                     Name = "TestTopic",
                 }
             };

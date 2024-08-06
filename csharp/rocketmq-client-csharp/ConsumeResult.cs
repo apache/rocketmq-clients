@@ -15,14 +15,20 @@
  * limitations under the License.
  */
 
-using System.Threading.Tasks;
-
 namespace Org.Apache.Rocketmq
 {
-    public interface ITransaction
+    /// <summary>
+    /// Designed for push consumer specifically.
+    /// </summary>
+    public enum ConsumeResult
     {
-        Task Commit();
-
-        Task Rollback();
+        /// <summary>
+        /// Consume message successfully.
+        /// </summary>
+        SUCCESS,
+        /// <summary>
+        /// Failed to consume message.
+        /// </summary>
+        FAILURE
     }
 }

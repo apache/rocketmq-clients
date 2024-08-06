@@ -15,14 +15,26 @@
  * limitations under the License.
  */
 
-using System.Threading.Tasks;
+using System.Linq;
+using Apache.Rocketmq.V2;
+using Grpc.Core;
 
-namespace Org.Apache.Rocketmq
+namespace tests
 {
-    public interface ITransaction
+    public abstract class GrpcServerIntegrationTest
     {
-        Task Commit();
-
-        Task Rollback();
+        protected int Port;
+        
+        protected Server SetUpServer(MessagingService.MessagingServiceBase mockServer, int port)
+        {
+            var server = new Server
+            {
+                Ports = { new ServerPort("127.0.0.1", Port, ServerCredentials.Insecure) },
+                Services = { MessagingService.BindService(mockServer) }
+            };
+            server.Start();
+            Port = server.Ports.First().BoundPort;
+            return server;
+        }
     }
 }

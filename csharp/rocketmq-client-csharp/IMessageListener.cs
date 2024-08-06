@@ -15,14 +15,18 @@
  * limitations under the License.
  */
 
-using System.Threading.Tasks;
-
 namespace Org.Apache.Rocketmq
 {
-    public interface ITransaction
+    public interface IMessageListener
     {
-        Task Commit();
-
-        Task Rollback();
+        /// <summary>
+        /// The callback interface to consume the message.
+        /// </summary>
+        /// <remarks>
+        /// You should process the <see cref="MessageView"/> and return the corresponding <see cref="ConsumeResult"/>.
+        /// The consumption is successful only when <see cref="ConsumeResult.SUCCESS"/> is returned, null pointer is returned
+        /// or exception is thrown would cause message consumption failure too.
+        /// </remarks>
+        ConsumeResult Consume(MessageView messageView);
     }
 }
