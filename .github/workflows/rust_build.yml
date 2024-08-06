@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        msrv: [1.61]
+        msrv: [1.70]
     name: msrv ${{ matrix.msrv }} check
     steps:
       - uses: actions/checkout@v3
