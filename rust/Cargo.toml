@@ -18,7 +18,7 @@
 name = "rocketmq"
 version = "5.0.0"
 edition = "2021"
-rust-version = "1.61"
+rust-version = "1.70"
 authors = [
     "SSpirits <admin@lv5.moe>",
     "Zhanhui Li <lizhanhui@gmail.com>",
