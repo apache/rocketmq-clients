@@ -3,8 +3,11 @@ on:
   workflow_call:
 jobs:
   fmt:
+    name: code style check    
     runs-on: ubuntu-latest
-    name: code style check
+    defaults:
+      run:
+        working-directory: ./rust
     steps:
       - uses: actions/checkout@v3
         with:
@@ -15,11 +18,13 @@ jobs:
           toolchain: stable
           components: rustfmt
       - name: Code format check
-        working-directory: ./rust
         run: cargo fmt --check
   clippy:
     name: clippy
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./rust    
     steps:
       - uses: actions/checkout@v3
         with:
@@ -31,11 +36,13 @@ jobs:
           components: clippy
       # Run clippy
       - name: clippy check
-        working-directory: ./rust
         run: cargo clippy --all-features -- -D warnings
   doc:
+    name: doc check    
     runs-on: ubuntu-latest
-    name: doc check
+    defaults:
+      run:
+        working-directory: ./rust    
     steps:
       - uses: actions/checkout@v3
         with:
@@ -45,12 +52,14 @@ jobs:
         with:
           toolchain: stable
       - name: Build doc
-        working-directory: ./rust
         run: cargo doc --no-deps --all-features
         env:
           RUSTDOCFLAGS: --cfg docsrs
   msrv:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./rust
     strategy:
       matrix:
         msrv: [1.70.0]
