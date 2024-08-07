@@ -18,14 +18,14 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using grpc = Grpc.Core;
+using grpcLib = Grpc.Core;
 using System.Security.Cryptography;
 
 namespace Org.Apache.Rocketmq
 {
     public static class Signature
     {
-        public static void Sign(Client client, grpc::Metadata metadata)
+        public static void Sign(Client client, grpcLib::Metadata metadata)
         {
             var headers = Sign(client);
             foreach (var (key, value) in headers)

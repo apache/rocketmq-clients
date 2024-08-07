@@ -20,7 +20,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
-using grpc = Grpc.Core;
 using Proto = Apache.Rocketmq.V2;
 
 namespace Org.Apache.Rocketmq
