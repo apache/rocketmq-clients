@@ -19,6 +19,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Org.Apache.Rocketmq
 {
@@ -44,7 +45,7 @@ namespace Org.Apache.Rocketmq
             _messagesLock.EnterReadLock();
             try
             {
-                if (_messages.Count > MaxMessageNum)
+                if (_messages.Count >= MaxMessageNum)
                 {
                     throw new ArgumentException($"Message in transaction has exceed the threshold: {MaxMessageNum}");
                 }
@@ -57,7 +58,7 @@ namespace Org.Apache.Rocketmq
             _messagesLock.EnterWriteLock();
             try
             {
-                if (_messages.Count > MaxMessageNum)
+                if (_messages.Count >= MaxMessageNum)
                 {
                     throw new ArgumentException($"Message in transaction has exceed the threshold: {MaxMessageNum}");
                 }
@@ -90,7 +91,7 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        public async void Commit()
+        public async Task Commit()
         {
             if (State.Running != _producer.State)
             {
@@ -109,7 +110,7 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        public async void Rollback()
+        public async Task Rollback()
         {
             if (State.Running != _producer.State)
             {

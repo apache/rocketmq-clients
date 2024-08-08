@@ -32,12 +32,12 @@ namespace Org.Apache.Rocketmq
         private readonly TimeSpan _longPollingTimeout;
         private readonly ConcurrentDictionary<string /* topic */, FilterExpression> _subscriptionExpressions;
 
-        public SimpleSubscriptionSettings(string clientId, Endpoints endpoints, string consumerGroup,
+        public SimpleSubscriptionSettings(string namespaceName, string clientId, Endpoints endpoints, string consumerGroup,
             TimeSpan requestTimeout, TimeSpan longPollingTimeout,
             ConcurrentDictionary<string, FilterExpression> subscriptionExpressions) : base(
-            clientId, ClientType.SimpleConsumer, endpoints, requestTimeout)
+            namespaceName, clientId, ClientType.SimpleConsumer, endpoints, requestTimeout)
         {
-            _group = new Resource(consumerGroup);
+            _group = new Resource(namespaceName, consumerGroup);
             _longPollingTimeout = longPollingTimeout;
             _subscriptionExpressions = subscriptionExpressions;
         }
@@ -58,6 +58,7 @@ namespace Org.Apache.Rocketmq
             {
                 var topic = new Proto.Resource()
                 {
+                    ResourceNamespace = Namespace,
                     Name = key,
                 };
                 var subscriptionEntry = new Proto.SubscriptionEntry();
@@ -77,6 +78,7 @@ namespace Org.Apache.Rocketmq
 
                 filterExpression.Expression = value.Expression;
                 subscriptionEntry.Topic = topic;
+                subscriptionEntry.Expression = filterExpression;
                 subscriptionEntries.Add(subscriptionEntry);
             }
 

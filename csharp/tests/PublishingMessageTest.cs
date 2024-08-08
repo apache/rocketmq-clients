@@ -28,6 +28,7 @@ namespace tests
     {
         private const string ClientId = "fakeClientId";
         private static readonly Endpoints Endpoints = new Endpoints("127.0.0.1:8081");
+        private const string Namespace = "fakeNamespace";
 
 
         [TestMethod]
@@ -39,7 +40,7 @@ namespace tests
             {
                 [topic] = true
             };
-            var settings = new PublishingSettings(ClientId, Endpoints,
+            var settings = new PublishingSettings(Namespace, ClientId, Endpoints,
                 ExponentialBackoffRetryPolicy.ImmediatelyRetryPolicy(3), TimeSpan.FromSeconds(3), topics);
             var publishingMessage = new PublishingMessage(message, settings, false);
             Assert.AreEqual(publishingMessage.MessageType, MessageType.Normal);
@@ -57,7 +58,7 @@ namespace tests
             {
                 [topic] = true
             };
-            var settings = new PublishingSettings(ClientId, Endpoints,
+            var settings = new PublishingSettings(Namespace, ClientId, Endpoints,
                 ExponentialBackoffRetryPolicy.ImmediatelyRetryPolicy(3), TimeSpan.FromSeconds(3), topics);
             var publishingMessage = new PublishingMessage(message, settings, false);
             Assert.AreEqual(publishingMessage.MessageType, MessageType.Fifo);
@@ -75,7 +76,7 @@ namespace tests
             {
                 [topic] = true
             };
-            var settings = new PublishingSettings(ClientId, Endpoints,
+            var settings = new PublishingSettings(Namespace, ClientId, Endpoints,
                 ExponentialBackoffRetryPolicy.ImmediatelyRetryPolicy(3),
                 TimeSpan.FromSeconds(3), topics);
             var publishingMessage = new PublishingMessage(message, settings, false);
@@ -93,7 +94,7 @@ namespace tests
             {
                 [topic] = true
             };
-            var settings = new PublishingSettings(ClientId, Endpoints,
+            var settings = new PublishingSettings(Namespace, ClientId, Endpoints,
                 ExponentialBackoffRetryPolicy.ImmediatelyRetryPolicy(3),
                 TimeSpan.FromSeconds(3), topics);
             var publishingMessage = new PublishingMessage(message, settings, true);
