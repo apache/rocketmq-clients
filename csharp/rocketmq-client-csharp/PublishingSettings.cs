@@ -31,8 +31,8 @@ namespace Org.Apache.Rocketmq
         private volatile int _maxBodySizeBytes = 4 * 1024 * 1024;
         private volatile bool _validateMessageType = true;
 
-        public PublishingSettings(string clientId, Endpoints endpoints, IRetryPolicy retryPolicy,
-            TimeSpan requestTimeout, ConcurrentDictionary<string, bool> topics) : base(clientId, ClientType.Producer,
+        public PublishingSettings(string namespaceName, string clientId, Endpoints endpoints, IRetryPolicy retryPolicy,
+            TimeSpan requestTimeout, ConcurrentDictionary<string, bool> topics) : base(namespaceName, clientId, ClientType.Producer,
             endpoints, retryPolicy, requestTimeout)
         {
             Topics = topics;
@@ -66,7 +66,8 @@ namespace Org.Apache.Rocketmq
 
         public override Proto.Settings ToProtobuf()
         {
-            var topics = Topics.Select(topic => new Proto.Resource { Name = topic.Key }).ToList();
+            var topics = Topics.Select(topic =>
+                new Proto.Resource { ResourceNamespace = Namespace, Name = topic.Key }).ToList();
 
             var publishing = new Proto.Publishing();
             publishing.Topics.Add(topics);

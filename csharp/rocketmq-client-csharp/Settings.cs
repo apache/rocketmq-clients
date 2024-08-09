@@ -22,15 +22,17 @@ namespace Org.Apache.Rocketmq
 {
     public abstract class Settings
     {
+        protected readonly string Namespace;
         protected readonly string ClientId;
         protected readonly ClientType ClientType;
         protected readonly Endpoints Endpoints;
         protected volatile IRetryPolicy RetryPolicy;
         protected readonly TimeSpan RequestTimeout;
 
-        protected Settings(string clientId, ClientType clientType, Endpoints endpoints, IRetryPolicy retryPolicy,
+        protected Settings(string namespaceName, string clientId, ClientType clientType, Endpoints endpoints, IRetryPolicy retryPolicy,
             TimeSpan requestTimeout)
         {
+            Namespace = namespaceName;
             ClientId = clientId;
             ClientType = clientType;
             Endpoints = endpoints;
@@ -38,8 +40,9 @@ namespace Org.Apache.Rocketmq
             RequestTimeout = requestTimeout;
         }
 
-        protected Settings(string clientId, ClientType clientType, Endpoints endpoints, TimeSpan requestTimeout)
+        protected Settings(string namespaceName, string clientId, ClientType clientType, Endpoints endpoints, TimeSpan requestTimeout)
         {
+            Namespace = namespaceName;
             ClientId = clientId;
             ClientType = clientType;
             Endpoints = endpoints;
