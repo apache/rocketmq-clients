@@ -35,6 +35,8 @@ namespace Org.Apache.Rocketmq
         private readonly TimeSpan _awaitDuration;
         private readonly SimpleSubscriptionSettings _simpleSubscriptionSettings;
         private int _topicRoundRobinIndex;
+        
+        private readonly ClientConfig _clientConfig;
 
         public SimpleConsumer(ClientConfig clientConfig, string consumerGroup, TimeSpan awaitDuration,
             Dictionary<string, FilterExpression> subscriptionExpressions) : this(clientConfig, consumerGroup,
@@ -48,9 +50,10 @@ namespace Org.Apache.Rocketmq
             _awaitDuration = awaitDuration;
             _subscriptionRouteDataCache = new ConcurrentDictionary<string, SubscriptionLoadBalancer>();
             _subscriptionExpressions = subscriptionExpressions;
-            _simpleSubscriptionSettings = new SimpleSubscriptionSettings(ClientId, Endpoints,
+            _simpleSubscriptionSettings = new SimpleSubscriptionSettings(clientConfig.Namespace, ClientId, Endpoints,
                 ConsumerGroup, clientConfig.RequestTimeout, awaitDuration, subscriptionExpressions);
             _topicRoundRobinIndex = 0;
+            _clientConfig = clientConfig;
         }
 
         public async Task Subscribe(string topic, FilterExpression filterExpression)
@@ -240,6 +243,7 @@ namespace Org.Apache.Rocketmq
         {
             var topicResource = new Proto.Resource
             {
+                ResourceNamespace = _clientConfig.Namespace,
                 Name = messageView.Topic
             };
             var entry = new Proto.AckMessageEntry
@@ -260,6 +264,7 @@ namespace Org.Apache.Rocketmq
         {
             var topicResource = new Proto.Resource
             {
+                ResourceNamespace = _clientConfig.Namespace,
                 Name = messageView.Topic
             };
             return new Proto.ChangeInvisibleDurationRequest
@@ -276,6 +281,7 @@ namespace Org.Apache.Rocketmq
         {
             return new Proto.Resource()
             {
+                ResourceNamespace = _clientConfig.Namespace,
                 Name = ConsumerGroup
             };
         }

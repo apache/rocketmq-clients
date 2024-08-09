@@ -36,7 +36,7 @@ namespace Org.Apache.Rocketmq
             ConsumerGroup = consumerGroup;
         }
 
-        protected async Task<ReceiveMessageResult> ReceiveMessage(Proto.ReceiveMessageRequest request, MessageQueue mq,
+        internal async Task<ReceiveMessageResult> ReceiveMessage(Proto.ReceiveMessageRequest request, MessageQueue mq,
             TimeSpan awaitDuration)
         {
             var tolerance = ClientConfig.RequestTimeout;
@@ -90,6 +90,7 @@ namespace Org.Apache.Rocketmq
         {
             var group = new Proto.Resource
             {
+                ResourceNamespace = ClientConfig.Namespace,
                 Name = ConsumerGroup
             };
             return new Proto.ReceiveMessageRequest
@@ -101,6 +102,27 @@ namespace Org.Apache.Rocketmq
                 BatchSize = batchSize,
                 AutoRenew = false,
                 InvisibleDuration = Duration.FromTimeSpan(invisibleDuration)
+            };
+        }
+        
+        protected internal Proto.ReceiveMessageRequest WrapReceiveMessageRequest(int batchSize, MessageQueue mq,
+            FilterExpression filterExpression, TimeSpan awaitDuration, string attemptId)
+        {
+            attemptId ??= Guid.NewGuid().ToString();
+            var group = new Proto.Resource
+            {
+                ResourceNamespace = ClientConfig.Namespace,
+                Name = ConsumerGroup
+            };
+            return new Proto.ReceiveMessageRequest
+            {
+                Group = group,
+                MessageQueue = mq.ToProtobuf(),
+                FilterExpression = WrapFilterExpression(filterExpression),
+                LongPollingTimeout = Duration.FromTimeSpan(awaitDuration),
+                BatchSize = batchSize,
+                AutoRenew = true,
+                AttemptId = attemptId
             };
         }
     }
