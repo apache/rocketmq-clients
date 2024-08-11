@@ -25,7 +25,7 @@ namespace tests
     {
         protected int Port;
         
-        protected Server SetUpServer(MessagingService.MessagingServiceBase mockServer, int port)
+        protected Server SetUpServer(MessagingService.MessagingServiceBase mockServer)
         {
             var server = new Server
             {

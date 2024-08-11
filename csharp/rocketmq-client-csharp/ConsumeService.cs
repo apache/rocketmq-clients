@@ -41,30 +41,31 @@ namespace Org.Apache.Rocketmq
             _consumptionCtsToken = consumptionCtsToken;
         }
         
-        public abstract Task Consume(ProcessQueue pq, List<MessageView> messageViews);
+        public abstract void Consume(ProcessQueue pq, List<MessageView> messageViews);
 
-        public async Task<ConsumeResult> Consume(MessageView messageView)
+        public Task<ConsumeResult> Consume(MessageView messageView)
         {
-            return await Consume(messageView, TimeSpan.Zero);
+            return Consume(messageView, TimeSpan.Zero);
         }
 
-        public async Task<ConsumeResult> Consume(MessageView messageView, TimeSpan delay)
+        public Task<ConsumeResult> Consume(MessageView messageView, TimeSpan delay)
         {
             var task = new ConsumeTask(ClientId, _messageListener, messageView);
             var delayMilliseconds = (int) delay.TotalMilliseconds;
 
             if (delayMilliseconds <= 0)
             {
-                return await Task.Factory.StartNew(() => task.Call(), _consumptionCtsToken, TaskCreationOptions.None,
+                return Task.Factory.StartNew(() => task.Call(), _consumptionCtsToken, TaskCreationOptions.None,
                     _consumptionTaskScheduler);
             }
 
             var tcs = new TaskCompletionSource<ConsumeResult>();
-
-            await Task.Delay(delay, _consumptionCtsToken).ContinueWith(async _ =>
+            
+            Task.Run(async () =>
             {
                 try
                 {
+                    await Task.Delay(delay, _consumptionCtsToken);
                     var result = await Task.Factory.StartNew(() => task.Call(), _consumptionCtsToken,
                         TaskCreationOptions.None, _consumptionTaskScheduler);
                     tcs.SetResult(result);
@@ -74,9 +75,9 @@ namespace Org.Apache.Rocketmq
                     Logger.LogError(e, $"Error while consuming message, clientId={ClientId}");
                     tcs.SetException(e);
                 }
-            }, TaskScheduler.Default);
-
-            return await tcs.Task;
+            }, _consumptionCtsToken);
+            
+            return tcs.Task;
         }
     }
 }

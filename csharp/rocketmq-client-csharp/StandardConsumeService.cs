@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,28 +32,33 @@ namespace Org.Apache.Rocketmq
         {
         }
 
-        public override async Task Consume(ProcessQueue pq, List<MessageView> messageViews)
+        public override void Consume(ProcessQueue pq, List<MessageView> messageViews)
         {
             foreach (var messageView in messageViews)
             {
-                // Discard corrupted message.
                 if (messageView.IsCorrupted())
                 {
                     Logger.LogError("Message is corrupted for standard consumption, prepare to discard it," +
                                     $" mq={pq.GetMessageQueue()}, messageId={messageView.MessageId}, clientId={ClientId}");
-                    await pq.DiscardMessage(messageView);
+                    pq.DiscardMessage(messageView);
                     continue;
                 }
-            
-                try
+        
+                var consumeTask = Consume(messageView);
+        
+                consumeTask.ContinueWith(task =>
                 {
-                    var consumeResult = await Consume(messageView);
-                    await pq.EraseMessage(messageView, consumeResult);
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogError(ex, $"[Bug] Exception raised in consumption callback, clientId={ClientId}");
-                }
+                    if (!task.IsFaulted)
+                    {
+                        pq.EraseMessage(messageView, task.Result);
+                    }
+                    else
+                    {
+                        // Should never reach here.
+                        Logger.LogError(task.Exception,
+                            $"[Bug] Exception raised in consumption callback, clientId={ClientId}");
+                    }
+                }, TaskContinuationOptions.ExecuteSynchronously);
             }
         }
     }

@@ -32,26 +32,37 @@ namespace Org.Apache.Rocketmq
         {
         }
 
-        public override async Task Consume(ProcessQueue pq, List<MessageView> messageViews)
+        public override void Consume(ProcessQueue pq, List<MessageView> messageViews)
         {
-            await ConsumeIteratively(pq, messageViews.GetEnumerator());
+            ConsumeIteratively(pq, messageViews.GetEnumerator());
         }
 
-        public async Task ConsumeIteratively(ProcessQueue pq, IEnumerator<MessageView> iterator)
+        public void ConsumeIteratively(ProcessQueue pq, IEnumerator<MessageView> iterator)
         {
-            while (iterator.MoveNext())
+            if (!iterator.MoveNext())
             {
-                var messageView = iterator.Current;
-                if (messageView != null && messageView.IsCorrupted())
-                {
-                    Logger.LogError($"Message is corrupted for FIFO consumption, prepare to discard it," +
-                                    $" mq={pq.GetMessageQueue()}, messageId={messageView.MessageId}, clientId={ClientId}");
-                    await pq.DiscardFifoMessage(messageView);
-                    continue;
-                }
-                var consumeResult = await Consume(messageView);
-                await pq.EraseFifoMessage(messageView, consumeResult);
+                return;
             }
+    
+            var messageView = iterator.Current;
+    
+            if (messageView != null && messageView.IsCorrupted())
+            {
+                // Discard corrupted message.
+                Logger.LogError($"Message is corrupted for FIFO consumption, prepare to discard it," +
+                                $" mq={pq.GetMessageQueue()}, messageId={messageView.MessageId}, clientId={ClientId}");
+                pq.DiscardFifoMessage(messageView);
+                ConsumeIteratively(pq, iterator); // Recursively consume the next message
+                return;
+            }
+    
+            var consumeTask = Consume(messageView);
+            consumeTask.ContinueWith(async t =>
+            {
+                var result = await t;
+                await pq.EraseFifoMessage(messageView, result);
+            }, TaskContinuationOptions.ExecuteSynchronously).ContinueWith(_ => ConsumeIteratively(pq, iterator),
+                TaskContinuationOptions.ExecuteSynchronously);
         }
     }
 }

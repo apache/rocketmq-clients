@@ -40,14 +40,14 @@ namespace tests
         public void SetUp()
         {
             var mockServer = new MockServer(Topic, Broker, _attemptIdList);
-            _server = SetUpServer(mockServer, Port);
+            _server = SetUpServer(mockServer);
             mockServer.Port = Port;
         }
         
         [TestCleanup]
-        public async Task TearDown()
+        public void TearDown()
         {
-            await _server.ShutdownAsync();
+            _server.ShutdownAsync();
         }
 
         [TestMethod]
@@ -59,6 +59,7 @@ namespace tests
                 .SetEndpoints(endpoint)
                 .SetCredentialsProvider(credentialsProvider)
                 .EnableSsl(false)
+                .SetRequestTimeout(TimeSpan.FromMilliseconds(1000))
                 .Build();
             
             const string consumerGroup = "yourConsumerGroup";

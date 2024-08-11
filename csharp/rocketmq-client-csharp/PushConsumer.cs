@@ -198,7 +198,7 @@ namespace Org.Apache.Rocketmq
             _subscriptionExpressions.TryRemove(topic, out _);
         }
 
-        internal async void ScanAssignments()
+        internal void ScanAssignments()
         {
             try
             {
@@ -206,40 +206,46 @@ namespace Org.Apache.Rocketmq
                 foreach (var (topic, filterExpression) in _subscriptionExpressions)
                 {
                     var existed = _cacheAssignments.GetValueOrDefault(topic);
-                    
-                    try
+
+                    var queryAssignmentTask = QueryAssignment(topic);
+                    queryAssignmentTask.ContinueWith(task =>
                     {
-                        var latest = await QueryAssignment(topic);
-                        if (!latest.GetAssignmentList().Any())
+                        if (task.IsFaulted)
                         {
-                            if (existed == null || !existed.GetAssignmentList().Any())
+                            Logger.LogError(task.Exception, "Exception raised while scanning the assignments," +
+                                                            $" topic={topic}, clientId={ClientId}");
+                            return;
+                        }
+
+                        var latest = task.Result;
+                        if (latest.GetAssignmentList().Count == 0)
+                        {
+                            if (existed == null || existed.GetAssignmentList().Count == 0)
                             {
-                                Logger.LogInformation($"Acquired empty assignments from remote, would scan later," +
+                                Logger.LogInformation("Acquired empty assignments from remote, would scan later," +
                                                       $" topic={topic}, clientId={ClientId}");
                                 return;
                             }
-                            Logger.LogInformation($"Attention!!! acquired empty assignments from remote, but" +
-                                                  $" existed assignments are not empty, topic={topic}, clientId={ClientId}");
+
+                            Logger.LogInformation("Attention!!! acquired empty assignments from remote, but" +
+                                                  $" existed assignments are not empty, topic={topic}," +
+                                                  $" clientId={ClientId}");
                         }
 
                         if (!latest.Equals(existed))
                         {
                             Logger.LogInformation($"Assignments of topic={topic} has changed, {existed} =>" +
                                                   $" {latest}, clientId={ClientId}");
-                            await SyncProcessQueue(topic, latest, filterExpression);
+                            SyncProcessQueue(topic, latest, filterExpression);
                             _cacheAssignments[topic] = latest;
                             return;
                         }
-                        Logger.LogDebug($"Assignments of topic={topic} remain the same," + 
+
+                        Logger.LogDebug($"Assignments of topic={topic} remain the same," +
                                         $" assignments={existed}, clientId={ClientId}");
                         // Process queue may be dropped, need to be synchronized anyway.
-                        await SyncProcessQueue(topic, latest, filterExpression);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogError(ex, $"Exception raised while querying the assignment," +
-                                            $" topic={topic}, clientId={ClientId}");
-                    }
+                        SyncProcessQueue(topic, latest, filterExpression);
+                    }, TaskContinuationOptions.ExecuteSynchronously);
                 }
             }
             catch (Exception ex)
@@ -248,8 +254,7 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        private async Task SyncProcessQueue(string topic, Assignments assignments,
-            FilterExpression filterExpression)
+        private void SyncProcessQueue(string topic, Assignments assignments, FilterExpression filterExpression)
         {
             var latest = new HashSet<MessageQueue>();
             var assignmentList = assignments.GetAssignmentList();
@@ -294,29 +299,57 @@ namespace Org.Apache.Rocketmq
                 if (processQueue != null)
                 {
                     Logger.LogInformation($"Start to fetch message from remote, mq={mq}, clientId={ClientId}");
-                    await processQueue.FetchMessageImmediately();
+                    processQueue.FetchMessageImmediately();
                 }
             }
         }
 
-        internal async Task<Assignments> QueryAssignment(string topic)
+        internal Task<Assignments> QueryAssignment(string topic)
         {
-            var endpoints = await PickEndpointsToQueryAssignments(topic);
-            var request = WrapQueryAssignmentRequest(topic);
-            var requestTimeout = _clientConfig.RequestTimeout;
-            var invocation = await ClientManager.QueryAssignment(endpoints, request, requestTimeout);
-            StatusChecker.Check(invocation.Response.Status, request, invocation.RequestId);
-            var assignmentList = invocation.Response.Assignments.Select(assignment =>
-                new Assignment(new MessageQueue(assignment.MessageQueue))).ToList();
-            var assignments = new Assignments(assignmentList);
-            return assignments;
+            var pickEndpointsTask = PickEndpointsToQueryAssignments(topic);
+            return pickEndpointsTask.ContinueWith(task0 =>
+            {
+                if (task0 is { IsFaulted: true, Exception: { } }) 
+                {
+                    throw task0.Exception;
+                }
+
+                var endpoints = task0.Result;
+                var request = WrapQueryAssignmentRequest(topic);
+                var requestTimeout = _clientConfig.RequestTimeout;
+                var queryAssignmentTask = ClientManager.QueryAssignment(endpoints, request, requestTimeout);
+
+                return queryAssignmentTask.ContinueWith(task1 =>
+                {
+                    if (task1 is { IsFaulted: true, Exception: { } }) 
+                    {
+                        throw task1.Exception;
+                    }
+
+                    var response = task1.Result.Response;
+                    var status = response.Status;
+                    StatusChecker.Check(status, request, task1.Result.RequestId);
+                    var assignmentList = response.Assignments
+                        .Select(assignment => new Assignment(new MessageQueue(assignment.MessageQueue)))
+                        .ToList();
+                    return Task.FromResult(new Assignments(assignmentList));
+                }, TaskContinuationOptions.ExecuteSynchronously).Unwrap();
+            }, TaskContinuationOptions.ExecuteSynchronously).Unwrap();
         }
 
-        private async Task<Endpoints> PickEndpointsToQueryAssignments(string topic)
+        private Task<Endpoints> PickEndpointsToQueryAssignments(string topic)
         {
-            var topicRouteData = await GetRouteData(topic);
-            var endpoints = topicRouteData.PickEndpointsToQueryAssignments();
-            return endpoints;
+            var getRouteDataTask = GetRouteData(topic);
+            return getRouteDataTask.ContinueWith(task =>
+            {
+                if (task is { IsFaulted: true, Exception: { } })
+                {
+                    throw task.Exception;
+                }
+
+                var topicRouteData = task.Result;
+                return topicRouteData.PickEndpointsToQueryAssignments();
+            }, TaskContinuationOptions.ExecuteSynchronously);
         }
         
         private QueryAssignmentRequest WrapQueryAssignmentRequest(string topic)

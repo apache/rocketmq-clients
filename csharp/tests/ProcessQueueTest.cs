@@ -102,7 +102,8 @@ namespace tests
 
             MockReceiveMessage(mockClientManager, pushConsumer, receiveMessageResponses);
 
-            await Task.WhenAny(processQueue.FetchMessageImmediately(), Task.Delay(3000));
+            await Task.Delay(3000);
+            processQueue.FetchMessageImmediately();
 
             Assert.AreEqual(processQueue.GetCachedMessageCount(), 1);
         }
@@ -119,7 +120,7 @@ namespace tests
 
             processQueue.CacheMessages(new List<MessageView> { messageView });
 
-            await processQueue.EraseMessage(messageView, ConsumeResult.SUCCESS);
+            processQueue.EraseMessage(messageView, ConsumeResult.SUCCESS);
 
             mockClientManager.Verify(cm => cm.AckMessage(It.IsAny<Endpoints>(), It.IsAny<Proto.AckMessageRequest>(), It.IsAny<TimeSpan>()), Times.Once);
         }
@@ -138,9 +139,9 @@ namespace tests
 
             var ackTimes = 3;
             var tolerance = TimeSpan.FromMilliseconds(500);
-
-            await Task.WhenAny(processQueue.EraseMessage(messageView, ConsumeResult.SUCCESS),
-                Task.Delay(ProcessQueue.AckMessageFailureBackoffDelay * ackTimes + tolerance));
+            
+            processQueue.EraseMessage(messageView, ConsumeResult.SUCCESS);
+            await Task.Delay(ProcessQueue.AckMessageFailureBackoffDelay * ackTimes + tolerance);
 
             mockClientManager.Verify(cm => cm.AckMessage(It.IsAny<Endpoints>(), It.IsAny<Proto.AckMessageRequest>(), It.IsAny<TimeSpan>()), Times.AtLeast(ackTimes));
         }

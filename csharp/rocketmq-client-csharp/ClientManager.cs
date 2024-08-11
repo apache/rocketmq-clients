@@ -143,6 +143,7 @@ namespace Org.Apache.Rocketmq
         {
             var metadata = _client.Sign();
             var response = await GetRpcClient(endpoints).ReceiveMessage(metadata, request, timeout);
+            
             return new RpcInvocation<Proto.ReceiveMessageRequest, List<Proto.ReceiveMessageResponse>>(
                 request, response, metadata);
         }

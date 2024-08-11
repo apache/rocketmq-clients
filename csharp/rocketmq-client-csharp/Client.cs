@@ -504,7 +504,7 @@ namespace Org.Apache.Rocketmq
 
         internal void OnSettingsCommand(Endpoints endpoints, Proto.Settings settings)
         {
-            var metric = new Metric(settings.Metric);
+            var metric = new Metric(settings.Metric ?? new Proto.Metric());
             ClientMeterManager.Reset(metric);
             GetSettings().Sync(settings);
         }

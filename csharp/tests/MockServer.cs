@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -134,6 +135,7 @@ namespace tests
             if (CompareAndSetServerDeadlineFlag(true, false))
             {
                 // timeout
+                await Task.Delay(TimeSpan.FromSeconds(3));
             }
             else
             {
@@ -149,12 +151,18 @@ namespace tests
             {
                 var response = command.Clone();
                 response.Status = _mockStatus;
-                response.Settings.BackoffPolicy.MaxAttempts = 16;
-                response.Settings.BackoffPolicy.ExponentialBackoff = new Proto.ExponentialBackoff
+                response.Settings = new Proto.Settings
                 {
-                    Initial = new Duration { Seconds = 1 },
-                    Max = new Duration { Seconds = 10 },
-                    Multiplier = 1.5f
+                    BackoffPolicy = new Proto.RetryPolicy
+                    {
+                        MaxAttempts = 16,
+                        ExponentialBackoff = new Proto.ExponentialBackoff
+                        {
+                            Initial = new Duration { Seconds = 1 },
+                            Max = new Duration { Seconds = 10 },
+                            Multiplier = 1.5f
+                        }
+                    }
                 };
 
                 await responseStream.WriteAsync(response);

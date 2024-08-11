@@ -121,7 +121,7 @@ namespace tests
                 TaskScheduler consumptionTaskScheduler, CancellationToken consumptionCtsToken) 
                 : base(clientId, messageListener, consumptionTaskScheduler, consumptionCtsToken) {}
 
-            public override Task Consume(ProcessQueue pq, List<MessageView> messageViews) => Task.FromResult(0);
+            public override void Consume(ProcessQueue pq, List<MessageView> messageViews) => Task.FromResult(0);
         }
     }
 

@@ -50,7 +50,7 @@ public class PushSubscriptionSettingsTest
 
         Assert.AreEqual(Proto.ClientType.PushConsumer, settings.ClientType);
         Assert.AreEqual(Duration.FromTimeSpan(RequestTimeout), settings.RequestTimeout);
-        Assert.IsFalse(settings.Subscription.Subscriptions.IsNullOrEmpty());
+        Assert.IsFalse(settings.Subscription.Subscriptions.Count == 0);
 
         var subscription = settings.Subscription;
         Assert.AreEqual(subscription.Group, new Proto.Resource

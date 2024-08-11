@@ -156,9 +156,9 @@ namespace Org.Apache.Rocketmq
         /// <summary>
         /// Start to fetch messages from remote immediately.
         /// </summary>
-        public async Task FetchMessageImmediately()
+        public void FetchMessageImmediately()
         {
-            await ReceiveMessageImmediately();
+            ReceiveMessageImmediately();
         }
         
         /// <summary>
@@ -167,30 +167,33 @@ namespace Org.Apache.Rocketmq
         /// <remarks>
         /// Make sure that no exception will be thrown.
         /// </remarks>
-        public async Task OnReceiveMessageException(Exception t, string attemptId)
+        public void OnReceiveMessageException(Exception t, string attemptId)
         {
             var delay = t is TooManyRequestsException ? ReceivingFlowControlBackoffDelay : ReceivingFailureBackoffDelay;
-            await ReceiveMessageLater(delay, attemptId);
+            ReceiveMessageLater(delay, attemptId);
         }
         
-        private async Task ReceiveMessageLater(TimeSpan delay, string attemptId)
+        private void ReceiveMessageLater(TimeSpan delay, string attemptId)
         {
             var clientId = _consumer.GetClientId();
-            try
+            Logger.LogInformation($"Try to receive message later, mq={_mq}, delay={delay}, clientId={clientId}");
+            Task.Run(async () =>
             {
-                Logger.LogInformation($"Try to receive message later, mq={_mq}, delay={delay}, clientId={clientId}");
-                await Task.Delay(delay, _receiveMsgCts.Token);
-                await ReceiveMessage(attemptId);
-            }
-            catch (Exception ex)
-            {
-                if (_receiveMsgCts.IsCancellationRequested)
+                try
                 {
-                    return;
+                    await Task.Delay(delay, _receiveMsgCts.Token);
+                    ReceiveMessage(attemptId);
                 }
-                Logger.LogError(ex, $"[Bug] Failed to schedule message receiving request, mq={_mq}, clientId={clientId}");
-                await OnReceiveMessageException(ex, attemptId);
-            }
+                catch (Exception ex)
+                {
+                    if (_receiveMsgCts.IsCancellationRequested)
+                    {
+                        return;
+                    }
+                    Logger.LogError(ex, $"[Bug] Failed to schedule message receiving request, mq={_mq}, clientId={clientId}");
+                    OnReceiveMessageException(ex, attemptId);
+                }
+            });
         }
         
         private string GenerateAttemptId()
@@ -198,12 +201,12 @@ namespace Org.Apache.Rocketmq
             return Guid.NewGuid().ToString();
         }
         
-        public async Task ReceiveMessage()
+        public void ReceiveMessage()
         {
-            await ReceiveMessage(GenerateAttemptId());
+            ReceiveMessage(GenerateAttemptId());
         }
         
-        public async Task ReceiveMessage(string attemptId)
+        public void ReceiveMessage(string attemptId)
         {
             var clientId = _consumer.GetClientId();
             if (_dropped)
@@ -214,18 +217,18 @@ namespace Org.Apache.Rocketmq
             if (IsCacheFull())
             {
                 Logger.LogWarning($"Process queue cache is full, would receive message later, mq={_mq}, clientId={clientId}");
-                await ReceiveMessageLater(ReceivingBackoffDelayWhenCacheIsFull, attemptId);
+                ReceiveMessageLater(ReceivingBackoffDelayWhenCacheIsFull, attemptId);
                 return;
             }
-            await ReceiveMessageImmediately(attemptId);
+            ReceiveMessageImmediately(attemptId);
         }
 
-        private async Task ReceiveMessageImmediately()
+        private void ReceiveMessageImmediately()
         {
-            await ReceiveMessageImmediately(GenerateAttemptId());
+            ReceiveMessageImmediately(GenerateAttemptId());
         }
 
-        private async Task ReceiveMessageImmediately(string attemptId)
+        private void ReceiveMessageImmediately(string attemptId)
         {
             var clientId = _consumer.GetClientId();
             if (_consumer.State != State.Running)
@@ -233,43 +236,66 @@ namespace Org.Apache.Rocketmq
                 Logger.LogInformation($"Stop to receive message because consumer is not running, mq={_mq}, clientId={clientId}");
                 return;
             }
-            
-            var endpoints = _mq.Broker.Endpoints;
-            var batchSize = GetReceptionBatchSize();
-            var longPollingTimeout = _consumer.GetPushConsumerSettings().GetLongPollingTimeout();
-            var request = _consumer.WrapReceiveMessageRequest(batchSize, _mq, _filterExpression, longPollingTimeout, attemptId);
 
-            Interlocked.Exchange(ref _activityTime, DateTime.UtcNow.Ticks);
-            
             try
             {
-                var result = await _consumer.ReceiveMessage(request, _mq, longPollingTimeout);
-                await OnReceiveMessageResult(result);
+                var endpoints = _mq.Broker.Endpoints;
+                var batchSize = GetReceptionBatchSize();
+                var longPollingTimeout = _consumer.GetPushConsumerSettings().GetLongPollingTimeout();
+                var request = _consumer.WrapReceiveMessageRequest(batchSize, _mq, _filterExpression, longPollingTimeout,
+                    attemptId);
+
+                Interlocked.Exchange(ref _activityTime, DateTime.UtcNow.Ticks);
+
+                var task = _consumer.ReceiveMessage(request, _mq, longPollingTimeout);
+                task.ContinueWith(t =>
+                {
+                    if (t.IsFaulted)
+                    {
+                        string nextAttemptId = null;
+                        if (t.Exception is { InnerException: RpcException { StatusCode: StatusCode.DeadlineExceeded } })
+                        {
+                            nextAttemptId = request.AttemptId;
+                        }
+
+                        Logger.LogError(t.Exception, $"Exception raised during message reception, mq={_mq}," +
+                                                     $" attemptId={request.AttemptId}, nextAttemptId={nextAttemptId}," +
+                                                     $" clientId={clientId}");
+                        OnReceiveMessageException(t.Exception, nextAttemptId);
+                    }
+                    else
+                    {
+                        try
+                        {
+                            var result = t.Result;
+                            OnReceiveMessageResult(result);
+                        }
+                        catch (Exception ex)
+                        {
+                            // Should never reach here.
+                            Logger.LogError($"[Bug] Exception raised while handling receive result, mq={_mq}," +
+                                            $" endpoints={endpoints}, clientId={clientId}, exception={ex}");
+                            OnReceiveMessageException(ex, attemptId);
+                        }
+                    }
+                }, TaskContinuationOptions.ExecuteSynchronously);
             }
             catch (Exception ex)
             {
-                string nextAttemptId = null;
-                if (ex is RpcException rpcException &&
-                    StatusCode.DeadlineExceeded.Equals(rpcException.Status.StatusCode))
-                {
-                    nextAttemptId = request.AttemptId;
-                }
-                Logger.LogError(ex, $"Exception raised during message reception, mq={_mq}," +
-                                    $" attemptId={request.AttemptId}, nextAttemptId={nextAttemptId}," +
-                                    $" clientId={clientId}");
-                await OnReceiveMessageException(ex, attemptId);
+                Logger.LogError(ex, $"Exception raised during message reception, mq={_mq}, clientId={clientId}");
+                OnReceiveMessageException(ex, attemptId);
             }
         }
         
-        private async Task OnReceiveMessageResult(ReceiveMessageResult result)
+        private void OnReceiveMessageResult(ReceiveMessageResult result)
         {
             var messages = result.Messages;
             if (messages.Count > 0)
             {
                 CacheMessages(messages);
-                await _consumer.GetConsumeService().Consume(this, messages);
+                _consumer.GetConsumeService().Consume(this, messages);
             }
-            await ReceiveMessage();
+            ReceiveMessage();
         }
         
         private bool IsCacheFull()
@@ -305,177 +331,211 @@ namespace Org.Apache.Rocketmq
         /// </summary>
         /// <param name="messageView">the message to erase.</param>
         /// <param name="consumeResult">consume result.</param>
-        public async Task EraseMessage(MessageView messageView, ConsumeResult consumeResult)
+        public void EraseMessage(MessageView messageView, ConsumeResult consumeResult)
         {
-            await (ConsumeResult.SUCCESS.Equals(consumeResult) ? AckMessage(messageView) : NackMessage(messageView));
-            EvictCache(messageView);
+            var task = ConsumeResult.SUCCESS.Equals(consumeResult) ? AckMessage(messageView) : NackMessage(messageView);
+            _ = task.ContinueWith(_ =>
+            {
+                EvictCache(messageView);
+            }, TaskContinuationOptions.ExecuteSynchronously);
         }
 
-        private async Task AckMessage(MessageView messageView)
+        private Task AckMessage(MessageView messageView)
         {
-            await AckMessage(messageView, 1);
+            var tcs = new TaskCompletionSource<bool>();
+            AckMessage(messageView, 1, tcs);
+            return tcs.Task;
         }
         
-        private async Task AckMessage(MessageView messageView, int attempt)
+        private void AckMessage(MessageView messageView, int attempt, TaskCompletionSource<bool> tcs)
         {
             var clientId = _consumer.GetClientId();
             var consumerGroup = _consumer.GetConsumerGroup();
             var messageId = messageView.MessageId;
             var endpoints = messageView.MessageQueue.Broker.Endpoints;
+            
+            var request = _consumer.WrapAckMessageRequest(messageView);
+            var task = _consumer.GetClientManager().AckMessage(messageView.MessageQueue.Broker.Endpoints, request,
+                _consumer.GetClientConfig().RequestTimeout);
 
-            try
+            task.ContinueWith(responseTask =>
             {
-                var request = _consumer.WrapAckMessageRequest(messageView);
-                var response = await _consumer.GetClientManager().AckMessage(messageView.MessageQueue.Broker.Endpoints, request,
-                    _consumer.GetClientConfig().RequestTimeout);
-                var requestId = response.RequestId;
-                var status = response.Response.Status;
-                var statusCode = status.Code;
-                
-                if (statusCode == Code.InvalidReceiptHandle)
+                if (responseTask.IsFaulted)
                 {
-                    Logger.LogError($"Failed to ack message due to the invalid receipt handle, forgive to retry," +
-                                    $" clientId={clientId}, consumerGroup={consumerGroup}, messageId={messageId}," +
-                                    $" attempt={attempt}, mq={_mq}, endpoints={endpoints}, requestId={requestId}," +
-                                    $" status message={status.Message}");
-                    throw new BadRequestException((int) statusCode, requestId, status.Message);
-                }
-
-                if (statusCode != Code.Ok)
-                {
-                    Logger.LogError($"Failed to change invisible duration, would retry later, clientId={clientId}," +
-                                    $" consumerGroup={consumerGroup}, messageId={messageId}, attempt={attempt}, mq={_mq}," +
-                                    $" endpoints={endpoints}, requestId={requestId}, status message={status.Message}");
-                    await AckMessageLater(messageView, attempt + 1);
-                    return;
-                }
-
-                if (attempt > 1)
-                {
-                    Logger.LogInformation($"Successfully acked message finally, clientId={clientId}," +
-                                          $" consumerGroup={consumerGroup}, messageId={messageId}," +
-                                          $" attempt={attempt}, mq={_mq}, endpoints={endpoints}," +
-                                          $" requestId={requestId}");
+                    Logger.LogError(responseTask.Exception, $"Exception raised while acknowledging message," +
+                                                            $" would retry later, clientId={clientId}," +
+                                                            $" consumerGroup={consumerGroup}," +
+                                                            $" messageId={messageId}," +
+                                                            $" mq={_mq}, endpoints={endpoints}");
+                    AckMessageLater(messageView, attempt + 1, tcs);
                 }
                 else
                 {
-                    Logger.LogDebug($"Successfully acked message, clientId={clientId}," +
-                                    $" consumerGroup={consumerGroup}, messageId={messageId}, mq={_mq}," +
-                                    $" endpoints={endpoints}, requestId={requestId}");
+                    var invocation = responseTask.Result;
+                    var requestId = invocation.RequestId;
+                    var status = invocation.Response.Status;
+                    var statusCode = status.Code;
+
+                    if (statusCode == Code.InvalidReceiptHandle)
+                    {
+                        Logger.LogError($"Failed to ack message due to the invalid receipt handle, forgive to retry," +
+                                        $" clientId={clientId}, consumerGroup={consumerGroup}, messageId={messageId}," +
+                                        $" attempt={attempt}, mq={_mq}, endpoints={endpoints}, requestId={requestId}," +
+                                        $" status message={status.Message}");
+                        tcs.SetException(new BadRequestException((int)statusCode, requestId, status.Message));
+                    }
+
+                    if (statusCode != Code.Ok)
+                    {
+                        Logger.LogError(
+                            $"Failed to change invisible duration, would retry later, clientId={clientId}," +
+                            $" consumerGroup={consumerGroup}, messageId={messageId}, attempt={attempt}, mq={_mq}," +
+                            $" endpoints={endpoints}, requestId={requestId}, status message={status.Message}");
+                        AckMessageLater(messageView, attempt + 1, tcs);
+                        return;
+                    }
+
+                    tcs.SetResult(true);
+
+                    if (attempt > 1)
+                    {
+                        Logger.LogInformation($"Successfully acked message finally, clientId={clientId}," +
+                                              $" consumerGroup={consumerGroup}, messageId={messageId}," +
+                                              $" attempt={attempt}, mq={_mq}, endpoints={endpoints}," +
+                                              $" requestId={requestId}");
+                    }
+                    else
+                    {
+                        Logger.LogDebug($"Successfully acked message, clientId={clientId}," +
+                                        $" consumerGroup={consumerGroup}, messageId={messageId}, mq={_mq}," +
+                                        $" endpoints={endpoints}, requestId={requestId}");
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, $"Exception raised while acknowledging message, would retry later," +
-                                    $" clientId={clientId}, consumerGroup={consumerGroup}, messageId={messageId}," +
-                                    $" mq={_mq}, endpoints={endpoints}");
-                await AckMessageLater(messageView, attempt + 1);
-            }
+            }, TaskContinuationOptions.ExecuteSynchronously);
         }
         
-        private async Task AckMessageLater(MessageView messageView, int attempt)
+        private void AckMessageLater(MessageView messageView, int attempt, TaskCompletionSource<bool> tcs)
         {
-            try
+            Task.Run(async () =>
             {
-                await Task.Delay(AckMessageFailureBackoffDelay, _ackMsgCts.Token);
-                await AckMessage(messageView, attempt + 1);
-            }
-            catch (Exception ex)
-            {
-                if (_ackMsgCts.IsCancellationRequested)
+                try
                 {
-                    return;
+                    await Task.Delay(AckMessageFailureBackoffDelay, _ackMsgCts.Token);
+                    AckMessage(messageView, attempt + 1, tcs);
                 }
-                Logger.LogError(ex, $"[Bug] Failed to schedule message ack request, mq={_mq}," +
-                                    $" messageId={messageView.MessageId}, clientId={_consumer.GetClientId()}");
-                await AckMessageLater(messageView, attempt + 1);
-            }
+                catch (Exception ex)
+                {
+                    if (_ackMsgCts.IsCancellationRequested)
+                    {
+                        return;
+                    }
+                    Logger.LogError(ex, $"[Bug] Failed to schedule message ack request, mq={_mq}," +
+                                        $" messageId={messageView.MessageId}, clientId={_consumer.GetClientId()}");
+                    AckMessageLater(messageView, attempt + 1, tcs);
+                }
+            });
         }
         
-        private async Task NackMessage(MessageView messageView)
+        private Task NackMessage(MessageView messageView)
         {
             var deliveryAttempt = messageView.DeliveryAttempt;
             var duration = _consumer.GetRetryPolicy().GetNextAttemptDelay(deliveryAttempt);
-            await ChangeInvisibleDuration(messageView, duration, 1);
+            var tcs = new TaskCompletionSource<bool>();
+            ChangeInvisibleDuration(messageView, duration, 1, tcs);
+            return tcs.Task;
         }
         
-        private async Task ChangeInvisibleDuration(MessageView messageView, TimeSpan duration, int attempt)
+        private void ChangeInvisibleDuration(MessageView messageView, TimeSpan duration, int attempt,
+            TaskCompletionSource<bool> tcs)
         {
             var clientId = _consumer.GetClientId();
             var consumerGroup = _consumer.GetConsumerGroup();
             var messageId = messageView.MessageId;
             var endpoints = messageView.MessageQueue.Broker.Endpoints;
 
-            try
+            var request = _consumer.WrapChangeInvisibleDuration(messageView, duration);
+            var task = _consumer.GetClientManager().ChangeInvisibleDuration(endpoints,
+                request, _consumer.GetClientConfig().RequestTimeout);
+            task.ContinueWith(responseTask =>
             {
-                var request = _consumer.WrapChangeInvisibleDuration(messageView, duration);
-                var response = await _consumer.GetClientManager().ChangeInvisibleDuration(endpoints,
-                    request, _consumer.GetClientConfig().RequestTimeout);
-                var requestId = response.RequestId;
-                var status = response.Response.Status;
-                var statusCode = status.Code;
-
-                if (statusCode == Code.InvalidReceiptHandle)
+                if (responseTask.IsFaulted)
                 {
-                    Logger.LogError($"Failed to change invisible duration due to the invalid receipt handle," +
-                                    $" forgive to retry, clientId={clientId}, consumerGroup={consumerGroup}," +
-                                    $" messageId={messageId}, attempt={attempt}, mq={_mq}, endpoints={endpoints}," +
-                                    $" requestId={requestId}, status message={status.Message}");
-                    throw new BadRequestException((int) statusCode, requestId, status.Message);
-                }
-
-                if (statusCode != Code.Ok)
-                {
-                    Logger.LogError($"Failed to change invisible duration, would retry later," +
-                                    $" clientId={clientId}, consumerGroup={consumerGroup}, messageId={messageId}," +
-                                    $" attempt={attempt}, mq={_mq}, endpoints={endpoints}, requestId={requestId}," +
-                                    $" status message={status.Message}");
-                    await ChangeInvisibleDurationLater(messageView, duration, attempt + 1);
-                    return;
-                }
-
-                if (attempt > 1)
-                {
-                    Logger.LogInformation($"Finally, changed invisible duration successfully," +
-                                          $" clientId={clientId}, consumerGroup={consumerGroup}, messageId={messageId}," +
-                                          $" attempt={attempt}, mq={_mq}, endpoints={endpoints}, requestId={requestId}");
+                    Logger.LogError(responseTask.Exception, $"Exception raised while changing invisible" +
+                                                            $" duration, would retry later, clientId={clientId}," +
+                                                            $" consumerGroup={consumerGroup}," +
+                                                            $" messageId={messageId}, mq={_mq}," +
+                                                            $" endpoints={endpoints}");
+                    ChangeInvisibleDurationLater(messageView, duration, attempt + 1, tcs);
                 }
                 else
                 {
-                    Logger.LogDebug($"Changed invisible duration successfully, clientId={clientId}," +
-                                    $" consumerGroup={consumerGroup}, messageId={messageId}, mq={_mq}," +
-                                    $" endpoints={endpoints}, requestId={requestId}");
+                    var invocation = responseTask.Result;
+                    var requestId = invocation.RequestId;
+                    var status = invocation.Response.Status;
+                    var statusCode = status.Code;
+
+                    if (statusCode == Code.InvalidReceiptHandle)
+                    {
+                        Logger.LogError($"Failed to change invisible duration due to the invalid receipt handle," +
+                                        $" forgive to retry, clientId={clientId}, consumerGroup={consumerGroup}," +
+                                        $" messageId={messageId}, attempt={attempt}, mq={_mq}, endpoints={endpoints}," +
+                                        $" requestId={requestId}, status message={status.Message}");
+                        tcs.SetException(new BadRequestException((int)statusCode, requestId, status.Message));
+                    }
+
+                    if (statusCode != Code.Ok)
+                    {
+                        Logger.LogError($"Failed to change invisible duration, would retry later," +
+                                        $" clientId={clientId}, consumerGroup={consumerGroup}, messageId={messageId}," +
+                                        $" attempt={attempt}, mq={_mq}, endpoints={endpoints}, requestId={requestId}," +
+                                        $" status message={status.Message}");
+                        ChangeInvisibleDurationLater(messageView, duration, attempt + 1, tcs);
+                        return;
+                    }
+
+                    tcs.SetResult(true);
+
+                    if (attempt > 1)
+                    {
+                        Logger.LogInformation($"Finally, changed invisible duration successfully," +
+                                              $" clientId={clientId}, consumerGroup={consumerGroup}," +
+                                              $" messageId={messageId}, attempt={attempt}, mq={_mq}," +
+                                              $" endpoints={endpoints}, requestId={requestId}");
+                    }
+                    else
+                    {
+                        Logger.LogDebug($"Changed invisible duration successfully, clientId={clientId}," +
+                                        $" consumerGroup={consumerGroup}, messageId={messageId}, mq={_mq}," +
+                                        $" endpoints={endpoints}, requestId={requestId}");
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, $"Exception raised while changing invisible duration, would retry later," +
-                                    $" clientId={clientId}, consumerGroup={consumerGroup}, messageId={messageId}," +
-                                    $" mq={_mq}, endpoints={endpoints}");
-                await ChangeInvisibleDurationLater(messageView, duration, attempt + 1);
-            }
+            });
         }
         
-        private async Task ChangeInvisibleDurationLater(MessageView messageView, TimeSpan duration, int attempt)
+        private void ChangeInvisibleDurationLater(MessageView messageView, TimeSpan duration, int attempt,
+            TaskCompletionSource<bool> tcs)
         {
-            try
+            Task.Run(async () =>
             {
-                await Task.Delay(ChangeInvisibleDurationFailureBackoffDelay, _changeInvisibleDurationCts.Token);
-                await ChangeInvisibleDuration(messageView, duration, attempt);
-            }
-            catch (Exception ex)
-            {
-                if (_changeInvisibleDurationCts.IsCancellationRequested)
+                try
                 {
-                    return;
+                    await Task.Delay(ChangeInvisibleDurationFailureBackoffDelay, _changeInvisibleDurationCts.Token);
+                    ChangeInvisibleDuration(messageView, duration, attempt, tcs);
                 }
-                Logger.LogError(ex, $"[Bug] Failed to schedule message change invisible duration request," +
-                                    $" mq={_mq}, messageId={messageView.MessageId}, clientId={_consumer.GetClientId()}");
-                await ChangeInvisibleDurationLater(messageView, duration, attempt + 1);
-            }
+                catch (Exception ex)
+                {
+                    if (_changeInvisibleDurationCts.IsCancellationRequested)
+                    {
+                        return;
+                    }
+                    Logger.LogError(ex, $"[Bug] Failed to schedule message change invisible duration request," +
+                                        $" mq={_mq}, messageId={messageView.MessageId}, clientId={_consumer.GetClientId()}");
+                    ChangeInvisibleDurationLater(messageView, duration, attempt + 1, tcs);
+                } 
+            });
         }
         
-        public async Task EraseFifoMessage(MessageView messageView, ConsumeResult consumeResult)
+        public Task EraseFifoMessage(MessageView messageView, ConsumeResult consumeResult)
         {
             var retryPolicy = _consumer.GetRetryPolicy();
             var maxAttempts = retryPolicy.GetMaxAttempts();
@@ -491,117 +551,154 @@ namespace Org.Apache.Rocketmq
                 Logger.LogDebug($"Prepare to redeliver the fifo message because of the consumption failure," +
                                 $" maxAttempt={maxAttempts}, attempt={attempt}, mq={messageView.MessageQueue}," +
                                 $" messageId={messageId}, nextAttemptDelay={nextAttemptDelay}, clientId={clientId}");
-                var redeliverResult = await service.Consume(messageView, nextAttemptDelay);
-                await EraseFifoMessage(messageView, redeliverResult);
-                return;
+                var redeliverTask = service.Consume(messageView, nextAttemptDelay);
+                _ = redeliverTask.ContinueWith(async t =>
+                {
+                    var result = await t;
+                    await EraseFifoMessage(messageView, result);
+                }, TaskContinuationOptions.ExecuteSynchronously);
             }
-            
-            var success = consumeResult == ConsumeResult.SUCCESS;
-            if (!success)
+            else
             {
-                Logger.LogInformation($"Failed to consume fifo message finally, run out of attempt times," +
-                                      $" maxAttempts={maxAttempts}, attempt={attempt}, mq={messageView.MessageQueue}," +
-                                      $" messageId={messageId}, clientId={clientId}");
+                var success = consumeResult == ConsumeResult.SUCCESS;
+                if (!success)
+                {
+                    Logger.LogInformation($"Failed to consume fifo message finally, run out of attempt times," +
+                                          $" maxAttempts={maxAttempts}, attempt={attempt}, mq={messageView.MessageQueue}," +
+                                          $" messageId={messageId}, clientId={clientId}");
+                }
+
+                var task = ConsumeResult.SUCCESS.Equals(consumeResult)
+                    ? AckMessage(messageView)
+                    : ForwardToDeadLetterQueue(messageView);
+
+                _ = task.ContinueWith(_ => { EvictCache(messageView); },
+                    TaskContinuationOptions.ExecuteSynchronously);
             }
 
-            await (ConsumeResult.SUCCESS.Equals(consumeResult) ? AckMessage(messageView) : ForwardToDeadLetterQueue(messageView));
-            
-            EvictCache(messageView);
+            return Task.CompletedTask;
         }
         
-        private async Task ForwardToDeadLetterQueue(MessageView messageView)
+        private Task ForwardToDeadLetterQueue(MessageView messageView)
         {
-            await ForwardToDeadLetterQueue(messageView, 1);
+            var tcs = new TaskCompletionSource<bool>();
+            ForwardToDeadLetterQueue(messageView, 1, tcs);
+            return tcs.Task;
         }
         
-        private async Task ForwardToDeadLetterQueue(MessageView messageView, int attempt)
+        private void ForwardToDeadLetterQueue(MessageView messageView, int attempt, TaskCompletionSource<bool> tcs)
         {
-            try
-            {
                 var clientId = _consumer.GetClientId();
                 var consumerGroup = _consumer.GetConsumerGroup();
                 var messageId = messageView.MessageId;
                 var endpoints = messageView.MessageQueue.Broker.Endpoints;
                 
                 var request = _consumer.WrapForwardMessageToDeadLetterQueueRequest(messageView);
-                var invocation = await _consumer.GetClientManager().ForwardMessageToDeadLetterQueue(endpoints, request,
+                var task = _consumer.GetClientManager().ForwardMessageToDeadLetterQueue(endpoints, request,
                     _consumer.GetClientConfig().RequestTimeout);
-                var requestId = invocation.RequestId;
-                var status = invocation.Response.Status;
-                var statusCode = status.Code;
-                
-                // Log failure and retry later.
-                if (statusCode != Code.Ok)
-                {
-                    Logger.LogError($"Failed to forward message to dead letter queue, would attempt to re-forward later, " +
-                              $"clientId={clientId}, consumerGroup={consumerGroup}, messageId={messageId}, attempt={attempt}, " +
-                              $"mq={_mq}, endpoints={endpoints}, requestId={requestId}, code={statusCode}, status message={status.Message}");
-                    await ForwardToDeadLetterQueueLater(messageView, attempt);
-                    return;
-                }
 
-                // Log success.
-                if (attempt > 1)
+                task.ContinueWith(responseTask =>
                 {
-                    Logger.LogInformation($"Re-forward message to dead letter queue successfully, " +
-                                   $"clientId={clientId}, consumerGroup={consumerGroup}, attempt={attempt}, messageId={messageId}, " +
-                                   $"mq={_mq}, endpoints={endpoints}, requestId={requestId}");
-                }
-                else
-                {
-                    Logger.LogInformation($"Forward message to dead letter queue successfully, " +
-                                          $"clientId={clientId}, consumerGroup={consumerGroup}, messageId={messageId}, mq={_mq}, " +
-                                          $"endpoints={endpoints}, requestId={requestId}");
-                }
-            }
-            catch (Exception ex)
-            {
-                // Log failure and retry later.
-                Logger.LogError($"Exception raised while forward message to DLQ, would attempt to re-forward later, " +
-                          $"clientId={_consumer.GetClientId()}, consumerGroup={_consumer.GetConsumerGroup()}," +
-                          $" messageId={messageView.MessageId}, mq={_mq}", ex);
+                    if (responseTask.IsFaulted)
+                    {
+                        // Log failure and retry later.
+                        Logger.LogError($"Exception raised while forward message to DLQ, would attempt to re-forward later, " +
+                                        $"clientId={_consumer.GetClientId()}," +
+                                        $" consumerGroup={_consumer.GetConsumerGroup()}," +
+                                        $" messageId={messageView.MessageId}, mq={_mq}", responseTask.Exception);
 
-                await ForwardToDeadLetterQueueLater(messageView, attempt);
-            }
+                        ForwardToDeadLetterQueueLater(messageView, attempt, tcs);
+                    }
+                    else
+                    {
+                        var invocation = responseTask.Result;
+                        var requestId = invocation.RequestId;
+                        var status = invocation.Response.Status;
+                        var statusCode = status.Code;
+                        
+                        // Log failure and retry later.
+                        if (statusCode != Code.Ok)
+                        {
+                            Logger.LogError($"Failed to forward message to dead letter queue," +
+                                            $" would attempt to re-forward later, clientId={clientId}," +
+                                            $" consumerGroup={consumerGroup}, messageId={messageId}," +
+                                            $" attempt={attempt}, mq={_mq}, endpoints={endpoints}," +
+                                            $" requestId={requestId}, code={statusCode}," +
+                                            $" status message={status.Message}");
+                            ForwardToDeadLetterQueueLater(messageView, attempt, tcs);
+                            return;
+                        }
+                        
+                        tcs.SetResult(true);
+                        
+                        // Log success.
+                        if (attempt > 1)
+                        {
+                            Logger.LogInformation($"Re-forward message to dead letter queue successfully, " +
+                                                  $"clientId={clientId}, consumerGroup={consumerGroup}," +
+                                                  $" attempt={attempt}, messageId={messageId}, mq={_mq}," +
+                                                  $" endpoints={endpoints}, requestId={requestId}");
+                        }
+                        else
+                        {
+                            Logger.LogInformation($"Forward message to dead letter queue successfully, " +
+                                                  $"clientId={clientId}, consumerGroup={consumerGroup}," +
+                                                  $" messageId={messageId}, mq={_mq}, endpoints={endpoints}," +
+                                                  $" requestId={requestId}");
+                        }
+                    }
+                });
         }
 
-        private async Task ForwardToDeadLetterQueueLater(MessageView messageView, int attempt)
+        private void ForwardToDeadLetterQueueLater(MessageView messageView, int attempt, TaskCompletionSource<bool> tcs)
         {
-            try
+            Task.Run(async () =>
             {
-                await Task.Delay(ForwardMessageToDeadLetterQueueFailureBackoffDelay, _forwardMessageToDeadLetterQueueCts.Token);
-                await ForwardToDeadLetterQueue(messageView, attempt);
-            }
-            catch (Exception ex)
-            {
-                // Should never reach here.
-                Logger.LogError($"[Bug] Failed to schedule DLQ message request, " +
-                          $"mq={_mq}, messageId={messageView.MessageId}, clientId={_consumer.GetClientId()}", ex);
+                try
+                {
+                    await Task.Delay(ForwardMessageToDeadLetterQueueFailureBackoffDelay,
+                        _forwardMessageToDeadLetterQueueCts.Token);
+                    ForwardToDeadLetterQueue(messageView, attempt, tcs);
+                }
+                catch (Exception ex)
+                {
+                    // Should never reach here.
+                    Logger.LogError($"[Bug] Failed to schedule DLQ message request, " +
+                                    $"mq={_mq}, messageId={messageView.MessageId}, clientId={_consumer.GetClientId()}", ex);
 
-                await ForwardToDeadLetterQueueLater(messageView, attempt + 1);
-            }
+                    ForwardToDeadLetterQueueLater(messageView, attempt + 1, tcs);
+                }
+            });
         }
 
         /// <summary>
         /// Discard the message(Non-FIFO-consume-mode) which could not be consumed properly.
         /// </summary>
         /// <param name="messageView">the message to discard.</param>
-        public async Task DiscardMessage(MessageView messageView)
+        public void DiscardMessage(MessageView messageView)
         {
-            Logger.LogInformation($"Discard message, mq={_mq}, messageId={messageView.MessageId}, clientId={_consumer.GetClientId()}");
-            await NackMessage(messageView);
-            EvictCache(messageView);
+            Logger.LogInformation($"Discard message, mq={_mq}, messageId={messageView.MessageId}," +
+                                  $" clientId={_consumer.GetClientId()}");
+            var task = NackMessage(messageView);
+            _ = task.ContinueWith(_ =>
+            {
+                EvictCache(messageView);
+            }, TaskContinuationOptions.ExecuteSynchronously);
         }
         
         /// <summary>
         /// Discard the message(FIFO-consume-mode) which could not consumed properly.
         /// </summary>
         /// <param name="messageView">the FIFO message to discard.</param>
-        public async Task DiscardFifoMessage(MessageView messageView)
+        public void DiscardFifoMessage(MessageView messageView)
         {
-            Logger.LogInformation($"Discard fifo message, mq={_mq}, messageId={messageView.MessageId}, clientId={_consumer.GetClientId()}");
-            await ForwardToDeadLetterQueue(messageView);
-            EvictCache(messageView);
+            Logger.LogInformation($"Discard fifo message, mq={_mq}, messageId={messageView.MessageId}," +
+                                  $" clientId={_consumer.GetClientId()}");
+            var task = ForwardToDeadLetterQueue(messageView);
+            _ = task.ContinueWith(_ =>
+            {
+                EvictCache(messageView);
+            }, TaskContinuationOptions.ExecuteSynchronously);
         }
 
         private void EvictCache(MessageView messageView)

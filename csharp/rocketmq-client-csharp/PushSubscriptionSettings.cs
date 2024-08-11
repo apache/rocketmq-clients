@@ -117,11 +117,11 @@ namespace Org.Apache.Rocketmq
                                 $"pubSubCase={settings.PubSubCase}, clientType={ClientType}");
             }
 
-            var subscription = settings.Subscription;
+            var subscription = settings.Subscription ?? new Proto.Subscription();
             _fifo = subscription.Fifo;
             _receiveBatchSize = subscription.ReceiveBatchSize;
-            _longPollingTimeout = subscription.LongPollingTimeout.ToTimeSpan();
-            var backoffPolicy = settings.BackoffPolicy;
+            _longPollingTimeout = subscription.LongPollingTimeout?.ToTimeSpan() ?? TimeSpan.Zero;
+            var backoffPolicy = settings.BackoffPolicy ?? new Proto.RetryPolicy();
             switch (backoffPolicy.StrategyCase)
             {
                 case Proto.RetryPolicy.StrategyOneofCase.ExponentialBackoff:

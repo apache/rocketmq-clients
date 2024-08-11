@@ -44,8 +44,8 @@ namespace examples
                 .Build();
             
             // Add your subscriptions.
-            const string consumerGroup = "yourConsumerGroup";
-            const string topic = "yourTopic";
+            const string consumerGroup = "normal-consumer-group";
+            const string topic = "normal-message-topic";
             var subscription = new Dictionary<string, FilterExpression>
                 { { topic, new FilterExpression("*") } };
             

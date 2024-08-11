@@ -63,7 +63,7 @@ namespace tests
 
             Assert.AreEqual(Proto.ClientType.SimpleConsumer, settings.ClientType);
             Assert.AreEqual(Duration.FromTimeSpan(RequestTimeout), settings.RequestTimeout);
-            Assert.IsFalse(settings.Subscription.Subscriptions.IsNullOrEmpty());
+            Assert.IsFalse(settings.Subscription.Subscriptions.Count == 0);
 
             var subscription = settings.Subscription;
 
