@@ -158,7 +158,7 @@ namespace Org.Apache.Rocketmq
 
         protected abstract void OnTopicRouteDataUpdated0(string topic, TopicRouteData topicRouteData);
 
-        internal async Task OnTopicRouteDataFetched(string topic, TopicRouteData topicRouteData)
+        internal async ValueTask OnTopicRouteDataFetched(string topic, TopicRouteData topicRouteData)
         {
             var routeEndpoints = new HashSet<Endpoints>();
             foreach (var mq in topicRouteData.MessageQueues)
@@ -287,7 +287,7 @@ namespace Org.Apache.Rocketmq
             }, token);
         }
 
-        protected async Task<TopicRouteData> GetRouteData(string topic)
+        protected async ValueTask<TopicRouteData> GetRouteData(string topic)
         {
             if (_topicRouteCache.TryGetValue(topic, out var topicRouteData))
             {

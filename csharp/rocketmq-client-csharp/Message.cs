@@ -24,7 +24,7 @@ namespace Org.Apache.Rocketmq
 {
     public class Message
     {
-        internal static readonly Regex TopicRegex = new Regex("^[%a-zA-Z0-9_-]+$");
+        internal static readonly Regex TopicRegex = new Regex("^[%a-zA-Z0-9_-]+$", RegexOptions.Compiled);
 
         private Message(string topic, byte[] body, string tag, List<string> keys,
             Dictionary<string, string> properties, DateTime? deliveryTimestamp, string messageGroup)
@@ -99,7 +99,7 @@ namespace Org.Apache.Rocketmq
             public Builder SetTag(string tag)
             {
                 Preconditions.CheckArgument(!string.IsNullOrWhiteSpace(tag), "tag should not be null or white space");
-                Preconditions.CheckArgument(tag != null && !tag.Contains("|"), "tag should not contain \"|\"");
+                Preconditions.CheckArgument(tag != null && !tag.Contains('|'), "tag should not contain \"|\"");
                 _tag = tag;
                 return this;
             }

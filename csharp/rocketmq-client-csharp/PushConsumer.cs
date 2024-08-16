@@ -304,52 +304,25 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        internal Task<Assignments> QueryAssignment(string topic)
+        internal async Task<Assignments> QueryAssignment(string topic)
         {
-            var pickEndpointsTask = PickEndpointsToQueryAssignments(topic);
-            return pickEndpointsTask.ContinueWith(task0 =>
-            {
-                if (task0 is { IsFaulted: true, Exception: { } })
-                {
-                    throw task0.Exception;
-                }
-
-                var endpoints = task0.Result;
-                var request = WrapQueryAssignmentRequest(topic);
-                var requestTimeout = _clientConfig.RequestTimeout;
-                var queryAssignmentTask = ClientManager.QueryAssignment(endpoints, request, requestTimeout);
-
-                return queryAssignmentTask.ContinueWith(task1 =>
-                {
-                    if (task1 is { IsFaulted: true, Exception: { } })
-                    {
-                        throw task1.Exception;
-                    }
-
-                    var response = task1.Result.Response;
-                    var status = response.Status;
-                    StatusChecker.Check(status, request, task1.Result.RequestId);
-                    var assignmentList = response.Assignments
-                        .Select(assignment => new Assignment(new MessageQueue(assignment.MessageQueue)))
-                        .ToList();
-                    return Task.FromResult(new Assignments(assignmentList));
-                }, TaskContinuationOptions.ExecuteSynchronously).Unwrap();
-            }, TaskContinuationOptions.ExecuteSynchronously).Unwrap();
+            var endpoints = await PickEndpointsToQueryAssignments(topic);
+            var request = WrapQueryAssignmentRequest(topic);
+            var requestTimeout = _clientConfig.RequestTimeout;
+            var assignment = await ClientManager.QueryAssignment(endpoints, request, requestTimeout);
+            var response = assignment.Response;
+            var status = response.Status;
+            StatusChecker.Check(status, request, assignment.RequestId);
+            var assignmentList = response.Assignments
+                .Select(assignment => new Assignment(new MessageQueue(assignment.MessageQueue)))
+                .ToList();
+            return new Assignments(assignmentList);
         }
 
-        private Task<Endpoints> PickEndpointsToQueryAssignments(string topic)
+        private async ValueTask<Endpoints> PickEndpointsToQueryAssignments(string topic)
         {
-            var getRouteDataTask = GetRouteData(topic);
-            return getRouteDataTask.ContinueWith(task =>
-            {
-                if (task is { IsFaulted: true, Exception: { } })
-                {
-                    throw task.Exception;
-                }
-
-                var topicRouteData = task.Result;
-                return topicRouteData.PickEndpointsToQueryAssignments();
-            }, TaskContinuationOptions.ExecuteSynchronously);
+            var topicRouteData = await GetRouteData(topic);
+            return topicRouteData.PickEndpointsToQueryAssignments();
         }
 
         private QueryAssignmentRequest WrapQueryAssignmentRequest(string topic)

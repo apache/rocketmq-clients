@@ -50,10 +50,10 @@ namespace Org.Apache.Rocketmq
             Loop();
         }
 
-        public async Task WriteAsync(Proto.TelemetryCommand telemetryCommand)
+        public Task WriteAsync(Proto.TelemetryCommand telemetryCommand)
         {
             var writer = _streamingCall.RequestStream;
-            await writer.WriteAsync(telemetryCommand);
+            return writer.WriteAsync(telemetryCommand);
         }
 
         // TODO: Test concurrency.
