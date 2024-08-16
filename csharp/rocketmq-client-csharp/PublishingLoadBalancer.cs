@@ -24,12 +24,10 @@ namespace Org.Apache.Rocketmq
 {
     public class PublishingLoadBalancer
     {
-        private static readonly Random Random = new Random();
-
         private readonly List<MessageQueue> _messageQueues;
         private int _index;
 
-        public PublishingLoadBalancer(TopicRouteData topicRouteData) : this(Random.Next(), topicRouteData)
+        public PublishingLoadBalancer(TopicRouteData topicRouteData) : this(Random.Shared.Next(), topicRouteData)
         {
         }
 

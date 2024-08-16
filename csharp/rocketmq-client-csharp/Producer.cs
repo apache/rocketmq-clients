@@ -130,7 +130,7 @@ namespace Org.Apache.Rocketmq
             return publishingLoadBalancer;
         }
 
-        private async Task<PublishingLoadBalancer> GetPublishingLoadBalancer(string topic)
+        private async ValueTask<PublishingLoadBalancer> GetPublishingLoadBalancer(string topic)
         {
             if (_publishingRouteDataCache.TryGetValue(topic, out var publishingLoadBalancer))
             {

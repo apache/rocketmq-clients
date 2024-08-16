@@ -33,7 +33,7 @@ namespace Org.Apache.Rocketmq
         private static readonly int ProcessId = Process.GetCurrentProcess().Id;
         private static readonly string HostName = System.Net.Dns.GetHostName();
         private static readonly byte[] RandomMacAddressBytes =
-            Enumerable.Range(0, 6).Select(_ => (byte)new Random().Next(256)).ToArray();
+            Enumerable.Range(0, 6).Select(_ => (byte)Random.Shared.Next(256)).ToArray();
 
         public const int MasterBrokerId = 0;
 
