@@ -24,6 +24,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Threading;
+using System.Runtime.InteropServices;
 
 namespace Org.Apache.Rocketmq
 {
@@ -124,22 +125,27 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        public static byte[] DecompressBytesGzip(byte[] src)
+        public static byte[] DecompressBytesGzip(ReadOnlyMemory<byte> src)
         {
-            var inputStream = new MemoryStream(src);
+            using var inputStream = MemoryMarshal.TryGetArray(src, out var segment)
+                ? new MemoryStream(segment.Array, segment.Offset, segment.Count)
+                : new MemoryStream(src.ToArray());
+
             using var gzipStream = new GZipStream(inputStream, CompressionMode.Decompress);
             using var outputStream = new MemoryStream();
             gzipStream.CopyTo(outputStream);
             return outputStream.ToArray();
         }
 
-        public static byte[] DecompressBytesZlib(byte[] src)
+        public static byte[] DecompressBytesZlib(ReadOnlyMemory<byte> src)
         {
-            if (src == null || src.Length == 0)
+            if (src.Length == 0)
             {
                 throw new ArgumentException("Input cannot be null or empty.", nameof(src));
             }
-            using var inputStream = new MemoryStream(src);
+            using var inputStream = MemoryMarshal.TryGetArray(src, out var segment)
+                ? new MemoryStream(segment.Array, segment.Offset, segment.Count)
+                : new MemoryStream(src.ToArray());
             using var zLibStream = new ZLibStream(inputStream, CompressionMode.Decompress);
             using var outputStream = new MemoryStream();
             zLibStream.CopyTo(outputStream);

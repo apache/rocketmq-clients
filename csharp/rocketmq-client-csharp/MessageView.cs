@@ -36,14 +36,17 @@ namespace Org.Apache.Rocketmq
         private readonly long _offset;
         private readonly bool _corrupted;
 
-        private MessageView(string messageId, string topic, byte[] body, string tag, string messageGroup,
+        private readonly ReadOnlyMemory<byte> _bodyMemory;
+        private readonly byte[] _bodyArray;
+        private byte[] _bodyMemoryCopy;
+
+        private MessageView(string messageId, string topic, ReadOnlyMemory<byte> bodyMemory, byte[] bodyArray, string tag, string messageGroup,
             DateTime? deliveryTimestamp, List<string> keys, Dictionary<string, string> properties, string bornHost,
             DateTime bornTime, int deliveryAttempt, MessageQueue messageQueue, string receiptHandle, long offset,
             bool corrupted)
         {
             MessageId = messageId;
             Topic = topic;
-            Body = body;
             Tag = tag;
             MessageGroup = messageGroup;
             DeliveryTimestamp = deliveryTimestamp;
@@ -54,6 +57,8 @@ namespace Org.Apache.Rocketmq
             DeliveryAttempt = deliveryAttempt;
             MessageQueue = messageQueue;
             ReceiptHandle = receiptHandle;
+            _bodyMemory = bodyMemory;
+            _bodyArray = bodyArray;
             _offset = offset;
             _corrupted = corrupted;
         }
@@ -62,7 +67,10 @@ namespace Org.Apache.Rocketmq
 
         public string Topic { get; }
 
-        public byte[] Body { get; }
+        [Obsolete("This property is obsolete and will be removed in the future version. Use BodyMemory instead.")]
+        public byte[] Body => _bodyArray ?? (_bodyMemoryCopy ??=_bodyMemory.ToArray());
+
+        public ReadOnlyMemory<byte> BodyMemory => _bodyArray?.AsMemory() ?? _bodyMemory;
 
         public string Tag { get; }
 
@@ -142,21 +150,21 @@ namespace Org.Apache.Rocketmq
             }
 
             var bodyEncoding = systemProperties.BodyEncoding;
-            var raw = message.Body.ToByteArray();
-            var body = raw;
+            byte[] bodyArray = null;
             switch (bodyEncoding)
             {
                 case Proto.Encoding.Gzip:
                     {
+                        var body = message.Body;
                         // Gzip
                         if (body[0] == 0x1f && body[1] == 0x8b)
                         {
-                            body = Utilities.DecompressBytesGzip(raw);
+                            bodyArray = Utilities.DecompressBytesGzip(message.Body.Memory);
                         }
                         // Zlib
                         else if (body[0] == 0x78 || body[0] == 0x79)
                         {
-                            body = Utilities.DecompressBytesZlib(raw);
+                            bodyArray = Utilities.DecompressBytesZlib(message.Body.Memory);
                         }
                         break;
                     }
@@ -193,7 +201,7 @@ namespace Org.Apache.Rocketmq
 
 
             var receiptHandle = systemProperties.ReceiptHandle;
-            return new MessageView(messageId, topic, body, tag, messageGroup, deliveryTime, keys, properties, bornHost,
+            return new MessageView(messageId, topic, message.Body.Memory, bodyArray, tag, messageGroup, deliveryTime, keys, properties, bornHost,
                 bornTime, deliveryAttempt, messageQueue, receiptHandle, queueOffset, corrupted);
         }
 

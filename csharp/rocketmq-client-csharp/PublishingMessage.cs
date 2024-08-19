@@ -111,7 +111,7 @@ namespace Org.Apache.Rocketmq
             return new Proto.Message
             {
                 Topic = topicResource,
-                Body = ByteString.CopyFrom(Body),
+                Body = UnsafeByteOperations.UnsafeWrap(Body),
                 SystemProperties = systemProperties,
                 UserProperties = { Properties }
             };
