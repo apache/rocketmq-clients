@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Logging;
+using System.IO.Hashing;
 
 namespace Org.Apache.Rocketmq
 {
@@ -35,14 +36,17 @@ namespace Org.Apache.Rocketmq
         private readonly long _offset;
         private readonly bool _corrupted;
 
-        private MessageView(string messageId, string topic, byte[] body, string tag, string messageGroup,
+        private readonly ReadOnlyMemory<byte> _bodyMemory;
+        private readonly byte[] _bodyArray;
+        private byte[] _bodyMemoryCopy;
+
+        private MessageView(string messageId, string topic, ReadOnlyMemory<byte> bodyMemory, byte[] bodyArray, string tag, string messageGroup,
             DateTime? deliveryTimestamp, List<string> keys, Dictionary<string, string> properties, string bornHost,
             DateTime bornTime, int deliveryAttempt, MessageQueue messageQueue, string receiptHandle, long offset,
             bool corrupted)
         {
             MessageId = messageId;
             Topic = topic;
-            Body = body;
             Tag = tag;
             MessageGroup = messageGroup;
             DeliveryTimestamp = deliveryTimestamp;
@@ -53,6 +57,8 @@ namespace Org.Apache.Rocketmq
             DeliveryAttempt = deliveryAttempt;
             MessageQueue = messageQueue;
             ReceiptHandle = receiptHandle;
+            _bodyMemory = bodyMemory;
+            _bodyArray = bodyArray;
             _offset = offset;
             _corrupted = corrupted;
         }
@@ -61,7 +67,10 @@ namespace Org.Apache.Rocketmq
 
         public string Topic { get; }
 
-        public byte[] Body { get; }
+        [Obsolete("This property is obsolete and will be removed in the future version. Use BodyMemory instead.")]
+        public byte[] Body => _bodyArray ?? (_bodyMemoryCopy ??=_bodyMemory.ToArray());
+
+        public ReadOnlyMemory<byte> BodyMemory => _bodyArray?.AsMemory() ?? _bodyMemory;
 
         public string Tag { get; }
 
@@ -86,14 +95,13 @@ namespace Org.Apache.Rocketmq
             var messageId = systemProperties.MessageId;
             var bodyDigest = systemProperties.BodyDigest;
             var checkSum = bodyDigest.Checksum;
-            var raw = message.Body.ToByteArray();
             var corrupted = false;
             var type = bodyDigest.Type;
             switch (type)
             {
                 case Proto.DigestType.Crc32:
                     {
-                        var expectedCheckSum = Force.Crc32.Crc32Algorithm.Compute(raw, 0, raw.Length).ToString("X");
+                        var expectedCheckSum = Crc32.HashToUInt32(message.Body.Span).ToString("X");
                         if (!expectedCheckSum.Equals(checkSum))
                         {
                             corrupted = true;
@@ -103,7 +111,7 @@ namespace Org.Apache.Rocketmq
                     }
                 case Proto.DigestType.Md5:
                     {
-                        var expectedCheckSum = Utilities.ComputeMd5Hash(raw);
+                        var expectedCheckSum = Utilities.ComputeMd5Hash(message.Body.Span);
                         if (!expectedCheckSum.Equals(checkSum))
                         {
                             corrupted = true;
@@ -113,7 +121,7 @@ namespace Org.Apache.Rocketmq
                     }
                 case Proto.DigestType.Sha1:
                     {
-                        var expectedCheckSum = Utilities.ComputeSha1Hash(raw);
+                        var expectedCheckSum = Utilities.ComputeSha1Hash(message.Body.Span);
                         if (!expectedCheckSum.Equals(checkSum))
                         {
                             corrupted = true;
@@ -132,12 +140,12 @@ namespace Org.Apache.Rocketmq
             }
 
             var bodyEncoding = systemProperties.BodyEncoding;
-            var body = raw;
+            byte[] bodyArray = null;
             switch (bodyEncoding)
             {
                 case Proto.Encoding.Gzip:
                     {
-                        body = Utilities.DecompressBytesGzip(raw);
+                        bodyArray = Utilities.DecompressBytesGzip(message.Body.Memory);
                         break;
                     }
                 case Proto.Encoding.Identity:
@@ -173,7 +181,7 @@ namespace Org.Apache.Rocketmq
 
 
             var receiptHandle = systemProperties.ReceiptHandle;
-            return new MessageView(messageId, topic, body, tag, messageGroup, deliveryTime, keys, properties, bornHost,
+            return new MessageView(messageId, topic, message.Body.Memory, bodyArray, tag, messageGroup, deliveryTime, keys, properties, bornHost,
                 bornTime, deliveryAttempt, messageQueue, receiptHandle, queueOffset, corrupted);
         }
 

@@ -24,6 +24,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Threading;
+using System.Runtime.InteropServices;
 
 namespace Org.Apache.Rocketmq
 {
@@ -80,14 +81,13 @@ namespace Org.Apache.Rocketmq
             return $"{hostName}@{pid}@{index}@{no}";
         }
 
-#if NET5_0_OR_GREATER
-        public static string ComputeMd5Hash(byte[] data)
+        public static string ComputeMd5Hash(ReadOnlySpan<byte> data)
         {
             var hashBytes = MD5.HashData(data);
             return Convert.ToHexString(hashBytes);
         }
 
-        public static string ComputeSha1Hash(byte[] data)
+        public static string ComputeSha1Hash(ReadOnlySpan<byte> data)
         {
             var hashBytes = SHA1.HashData(data);
             return Convert.ToHexString(hashBytes);
@@ -97,27 +97,6 @@ namespace Org.Apache.Rocketmq
         {
             return Convert.ToHexString(bytes);
         }
-#else
-        private static readonly ThreadLocal<MD5> Md5 = new ThreadLocal<MD5>(MD5.Create);
-        private static readonly ThreadLocal<SHA1> Sha1 = new ThreadLocal<SHA1>(SHA1.Create);
-
-        public static string ComputeMd5Hash(byte[] data)
-        {
-            var hashBytes = Md5.Value.ComputeHash(data);
-            return BitConverter.ToString(hashBytes).Replace("-", "");
-        }
-
-        public static string ComputeSha1Hash(byte[] data)
-        {
-            var hashBytes = Sha1.Value.ComputeHash(data);
-            return BitConverter.ToString(hashBytes).Replace("-", "");
-        }
-
-        public static string ByteArrayToHexString(byte[] bytes)
-        {
-            return BitConverter.ToString(bytes).Replace("-", "");
-        }
-#endif
 
         private static string DecimalToBase36(long decimalNumber)
         {
@@ -146,9 +125,12 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        public static byte[] DecompressBytesGzip(byte[] src)
+        public static byte[] DecompressBytesGzip(ReadOnlyMemory<byte> src)
         {
-            var inputStream = new MemoryStream(src);
+            var inputStream = MemoryMarshal.TryGetArray(src, out var segment)
+                ? new MemoryStream(segment.Array, segment.Offset, segment.Count)
+                : new MemoryStream(src.ToArray());
+
             using var gzipStream = new GZipStream(inputStream, CompressionMode.Decompress);
             using var outputStream = new MemoryStream();
             gzipStream.CopyTo(outputStream);
