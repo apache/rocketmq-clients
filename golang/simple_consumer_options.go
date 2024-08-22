@@ -156,7 +156,8 @@ func (sc *simpleConsumerSettings) toProtobuf() *v2.Settings {
 	subscriptions := make([]*v2.SubscriptionEntry, 0)
 	for k, v := range sc.subscriptionExpressions {
 		topic := &v2.Resource{
-			Name: k,
+			Name:              k,
+			ResourceNamespace: sc.groupName.GetResourceNamespace(),
 		}
 		filterExpression := &v2.FilterExpression{
 			Expression: v.expression,

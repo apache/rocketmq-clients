@@ -48,6 +48,7 @@ header:
     - 'cpp/.gitignore'
     - 'cpp/third_party'
     - 'cpp/cmake'
+    - 'cpp/source/exports.map'
     - 'php/grpc/**/*.php'
     - 'php/composer.json'
     - 'rust/.cargo/Cargo.lock.min'

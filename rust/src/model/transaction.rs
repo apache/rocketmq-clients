@@ -21,12 +21,12 @@ use std::fmt::{Debug, Formatter};
 
 use async_trait::async_trait;
 
-use crate::client::handle_response_status;
 use crate::error::ClientError;
 use crate::model::common::SendReceipt;
 use crate::model::message::MessageView;
 use crate::pb::{EndTransactionRequest, Resource, TransactionSource};
 use crate::session::RPCClient;
+use crate::util::handle_response_status;
 
 /// An entity to describe an independent transaction.
 ///

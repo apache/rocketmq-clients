@@ -3,8 +3,11 @@ on:
   workflow_call:
 jobs:
   fmt:
+    name: code style check    
     runs-on: ubuntu-latest
-    name: code style check
+    defaults:
+      run:
+        working-directory: ./rust
     steps:
       - uses: actions/checkout@v3
         with:
@@ -15,11 +18,13 @@ jobs:
           toolchain: stable
           components: rustfmt
       - name: Code format check
-        working-directory: ./rust
         run: cargo fmt --check
   clippy:
     name: clippy
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./rust    
     steps:
       - uses: actions/checkout@v3
         with:
@@ -31,11 +36,13 @@ jobs:
           components: clippy
       # Run clippy
       - name: clippy check
-        working-directory: ./rust
         run: cargo clippy --all-features -- -D warnings
   doc:
+    name: doc check    
     runs-on: ubuntu-latest
-    name: doc check
+    defaults:
+      run:
+        working-directory: ./rust    
     steps:
       - uses: actions/checkout@v3
         with:
@@ -45,27 +52,26 @@ jobs:
         with:
           toolchain: stable
       - name: Build doc
-        working-directory: ./rust
         run: cargo doc --no-deps --all-features
         env:
           RUSTDOCFLAGS: --cfg docsrs
   msrv:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./rust
     strategy:
       matrix:
-        msrv: [1.61]
-    name: msrv ${{ matrix.msrv }} check
+        msrv: [1.70.0]
+    name: MSRV ${{ matrix.msrv }} check
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: true
-      - name: Install ${{ matrix.msrv }}
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.msrv }}
-      - name: Check MSRV ${{ matrix.msrv }}
-        working-directory: ./rust
-        run: cp .cargo/Cargo.lock.min Cargo.lock && cargo +${{ matrix.msrv }} fetch && cargo +${{ matrix.msrv }} check --locked --frozen
+      - name: Install cargo-msrv
+        run: |
+          cargo install cargo-msrv
+          cargo msrv --min ${{ matrix.msrv }}
   build:
     name: "${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
@@ -76,8 +82,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, macos-11, windows-2022]
-        msrv: [1.61]
+        os: [ubuntu-20.04, macos-12, windows-2022]
+        msrv: [1.70]
     steps:
       - uses: actions/checkout@v2
         with:

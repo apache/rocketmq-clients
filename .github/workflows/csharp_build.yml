@@ -8,7 +8,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, macos-11, windows-2022]
+        os: [ubuntu-20.04, macos-12, windows-2022]
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -18,11 +18,8 @@ jobs:
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: |
-            5.0.x
             6.0.x
-            7.0.x
             8.0.x
-            3.1.x
       - name: Build artifacts
         working-directory: ./csharp
         run: |

@@ -155,7 +155,8 @@ var NewProducer = func(config *Config, opts ...ProducerOption) (Producer, error)
 	}
 	for _, topic := range po.topics {
 		topicResource := &v2.Resource{
-			Name: topic,
+			Name:              topic,
+			ResourceNamespace: config.NameSpace,
 		}
 		p.pSetting.topics.Store(topic, topicResource)
 	}
@@ -287,7 +288,7 @@ func (p *defaultProducer) send0(ctx context.Context, msgs []*UnifiedMessage, txE
 		var err error
 		pubMessage = uMsg.pubMsg
 		if uMsg.pubMsg == nil {
-			pubMessage, err = NewPublishingMessage(msg, p.pSetting, txEnabled)
+			pubMessage, err = NewPublishingMessage(msg, p.cli.config.NameSpace, p.pSetting, txEnabled)
 			if err != nil {
 				return nil, err
 			}
@@ -315,7 +316,8 @@ func (p *defaultProducer) send0(ctx context.Context, msgs []*UnifiedMessage, txE
 	}
 	if _, ok := p.pSetting.topics.Load(topicName); !ok {
 		p.pSetting.topics.Store(topicName, &v2.Resource{
-			Name: topicName,
+			Name:              topicName,
+			ResourceNamespace: p.cli.config.NameSpace,
 		})
 	}
 	pubLoadBalancer, err := p.getPublishingTopicRouteResult(ctx, topicName)
@@ -362,7 +364,7 @@ func (p *defaultProducer) SendWithTransaction(ctx context.Context, msg *Message,
 		return nil, fmt.Errorf("producer is not running")
 	}
 	t := transaction.(*transactionImpl)
-	pubMessage, err := t.tryAddMessage(msg)
+	pubMessage, err := t.tryAddMessage(msg, p.cli.config.NameSpace)
 	if err != nil {
 		return nil, err
 	}
@@ -394,7 +396,8 @@ func (p *defaultProducer) endTransaction(ctx context.Context, endpoints *v2.Endp
 	ctx = p.cli.Sign(ctx)
 	request := &v2.EndTransactionRequest{
 		Topic: &v2.Resource{
-			Name: messageCommon.topic,
+			Name:              messageCommon.topic,
+			ResourceNamespace: p.cli.config.NameSpace,
 		},
 		MessageId:     messageId,
 		TransactionId: transactionId,

@@ -16,20 +16,21 @@
  */
 #pragma once
 
-#include <cstdint>
 #include <string>
-#include <utility>
 
 #include "RocketMQ.h"
+#include "rocketmq/Message.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
 struct SendReceipt {
+  std::string target;
+
   std::string message_id;
 
   std::string transaction_id;
 
-  std::string target;
+  MessageConstPtr message;
 };
 
 ROCKETMQ_NAMESPACE_END

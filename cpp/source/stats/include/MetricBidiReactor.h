@@ -16,6 +16,8 @@
  */
 #pragma once
 
+#include <list>
+
 #include "Client.h"
 #include "grpcpp/grpcpp.h"
 #include "grpcpp/impl/codegen/client_callback.h"
@@ -25,12 +27,17 @@ ROCKETMQ_NAMESPACE_BEGIN
 
 class OpencensusExporter;
 
-using ExportMetricsServiceRequest = opencensus::proto::agent::metrics::v1::ExportMetricsServiceRequest;
-using ExportMetricsServiceResponse = opencensus::proto::agent::metrics::v1::ExportMetricsServiceResponse;
+using ExportMetricsServiceRequest =
+    opencensus::proto::agent::metrics::v1::ExportMetricsServiceRequest;
+using ExportMetricsServiceResponse =
+    opencensus::proto::agent::metrics::v1::ExportMetricsServiceResponse;
 
-class MetricBidiReactor : public grpc::ClientBidiReactor<ExportMetricsServiceRequest, ExportMetricsServiceResponse> {
+class MetricBidiReactor
+    : public grpc::ClientBidiReactor<ExportMetricsServiceRequest,
+                                     ExportMetricsServiceResponse> {
 public:
-  MetricBidiReactor(std::weak_ptr<Client> client, std::weak_ptr<OpencensusExporter> exporter);
+  MetricBidiReactor(std::shared_ptr<Client> client,
+                    std::shared_ptr<OpencensusExporter> exporter);
 
   /// Notifies the application that a StartRead operation completed.
   ///
@@ -52,7 +59,7 @@ public:
   /// (like failure to remove a hold).
   ///
   /// \param[in] s The status outcome of this RPC
-  void OnDone(const grpc::Status& /*s*/) override;
+  void OnDone(const grpc::Status & /*s*/) override;
 
   void write(ExportMetricsServiceRequest request) LOCKS_EXCLUDED(requests_mtx_);
 
@@ -61,9 +68,8 @@ private:
   std::weak_ptr<OpencensusExporter> exporter_;
   grpc::ClientContext context_;
 
-  ExportMetricsServiceRequest request_;
-
-  std::vector<ExportMetricsServiceRequest> requests_ GUARDED_BY(requests_mtx_);
+  /// Pending ExportMetricsServiceRequest items to write to server
+  std::list<ExportMetricsServiceRequest> requests_ GUARDED_BY(requests_mtx_);
   absl::Mutex requests_mtx_;
 
   std::atomic_bool inflight_{false};
@@ -71,7 +77,7 @@ private:
 
   ExportMetricsServiceResponse response_;
 
-  void fireWrite();
+  void tryWriteNext();
 
   void fireRead();
 };

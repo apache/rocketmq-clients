@@ -359,10 +359,10 @@ impl AckMessageEntry for MessageView {
 }
 
 impl MessageView {
-    pub(crate) fn from_pb_message(message: pb::Message, endpoints: Endpoints) -> Self {
-        let system_properties = message.system_properties.unwrap();
-        let topic = message.topic.unwrap();
-        MessageView {
+    pub(crate) fn from_pb_message(message: pb::Message, endpoints: Endpoints) -> Option<Self> {
+        let system_properties = message.system_properties?;
+        let topic = message.topic?;
+        Some(MessageView {
             message_id: system_properties.message_id,
             receipt_handle: system_properties.receipt_handle,
             namespace: topic.resource_namespace,
@@ -377,7 +377,7 @@ impl MessageView {
             born_timestamp: system_properties.born_timestamp.map_or(0, |t| t.seconds),
             delivery_attempt: system_properties.delivery_attempt.unwrap_or(0),
             endpoints,
-        }
+        })
     }
 
     /// Get message id
@@ -535,7 +535,8 @@ mod tests {
                 }),
             },
             Endpoints::from_url("localhost:8081").unwrap(),
-        );
+        )
+        .unwrap();
 
         assert_eq!(message_view.message_id(), "message_id");
         assert_eq!(message_view.topic(), "test");

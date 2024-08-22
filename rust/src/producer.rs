@@ -20,13 +20,12 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use mockall_double::double;
+use parking_lot::RwLock;
 use prost_types::Timestamp;
 use slog::{error, info, warn, Logger};
 use tokio::select;
-use tokio::sync::RwLock;
 use tokio::sync::{mpsc, oneshot};
 
-use crate::client::handle_response_status;
 #[double]
 use crate::client::Client;
 use crate::conf::{ClientOption, ProducerOption};
@@ -41,8 +40,8 @@ use crate::pb::telemetry_command::Command::{RecoverOrphanedTransactionCommand, S
 use crate::pb::{Encoding, EndTransactionRequest, Resource, SystemProperties, TransactionSource};
 use crate::session::RPCClient;
 use crate::util::{
-    build_endpoints_by_message_queue, select_message_queue, select_message_queue_by_message_group,
-    HOST_NAME,
+    build_endpoints_by_message_queue, build_producer_settings, handle_response_status,
+    select_message_queue, select_message_queue_by_message_group, HOST_NAME,
 };
 use crate::{log, pb};
 
@@ -55,7 +54,7 @@ use crate::{log, pb};
 pub struct Producer {
     option: Arc<RwLock<ProducerOption>>,
     logger: Logger,
-    client: Client<ProducerOption>,
+    client: Client,
     transaction_checker: Option<Box<TransactionChecker>>,
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
@@ -86,10 +85,9 @@ impl Producer {
             ..client_option
         };
         let logger = log::logger(option.logging_format());
-        let option = Arc::new(RwLock::new(option));
-        let client = Client::new(&logger, client_option, Arc::clone(&option))?;
+        let client = Client::new(&logger, client_option, build_producer_settings(&option))?;
         Ok(Producer {
-            option,
+            option: Arc::new(RwLock::new(option)),
             logger,
             client,
             transaction_checker: None,
@@ -115,10 +113,9 @@ impl Producer {
             ..client_option
         };
         let logger = log::logger(option.logging_format());
-        let option = Arc::new(RwLock::new(option));
-        let client = Client::<ProducerOption>::new(&logger, client_option, Arc::clone(&option))?;
+        let client = Client::new(&logger, client_option, build_producer_settings(&option))?;
         Ok(Producer {
-            option,
+            option: Arc::new(RwLock::new(option)),
             logger,
             client,
             transaction_checker: Some(transaction_checker),
@@ -126,8 +123,17 @@ impl Producer {
         })
     }
 
-    async fn get_resource_namespace(&self) -> String {
-        self.option.read().await.namespace().to_string()
+    fn get_resource_namespace(&self) -> String {
+        self.option.read().namespace().to_string()
+    }
+
+    fn get_topics(&self) -> Option<Vec<String>> {
+        let binding = self.option.read();
+        let topics = binding.topics();
+        if let Some(topics) = topics {
+            return Some(topics.iter().map(|topic| topic.to_string()).collect());
+        }
+        None
     }
 
     /// Start the producer
@@ -136,13 +142,10 @@ impl Producer {
         let telemetry_command_tx: mpsc::Sender<pb::telemetry_command::Command> =
             telemetry_command_tx;
         self.client.start(telemetry_command_tx).await?;
-        {
-            let option_guard = self.option.read().await;
-            let topics = option_guard.topics();
-            if let Some(topics) = topics {
-                for topic in topics {
-                    self.client.topic_route(topic, true).await?;
-                }
+        let topics = self.get_topics();
+        if let Some(topics) = topics {
+            for topic in topics {
+                self.client.topic_route(topic.as_str(), true).await?;
             }
         }
         let transaction_checker = self.transaction_checker.take();
@@ -172,7 +175,7 @@ impl Producer {
                                     };
                                 }
                                 Settings(command) => {
-                                    let option = &mut producer_option.write().await;
+                                    let option = &mut producer_option.write();
                                     Self::handle_settings_command(command, option);
                                     info!(logger, "handle setting command success.");
                                 }
@@ -231,7 +234,11 @@ impl Producer {
         if let Some(transaction_checker) = transaction_checker {
             let resolution = transaction_checker(
                 transaction_id.clone(),
-                MessageView::from_pb_message(message, endpoints),
+                MessageView::from_pb_message(message, endpoints).ok_or(ClientError::new(
+                    ErrorKind::InvalidMessage,
+                    "error parsing from pb",
+                    Self::OPERATION_END_TRANSACTION,
+                ))?,
             );
             let response = rpc_client
                 .end_transaction(EndTransactionRequest {
@@ -326,7 +333,7 @@ impl Producer {
             let pb_message = pb::Message {
                 topic: Some(Resource {
                     name: message.take_topic(),
-                    resource_namespace: self.get_resource_namespace().await,
+                    resource_namespace: self.get_resource_namespace(),
                 }),
                 user_properties: message.take_properties(),
                 system_properties: Some(SystemProperties {
@@ -421,7 +428,7 @@ impl Producer {
     }
 
     async fn validate_message_type(&self) -> bool {
-        self.option.read().await.validate_message_type()
+        self.option.read().validate_message_type()
     }
 
     pub fn has_transaction_checker(&self) -> bool {
@@ -446,7 +453,7 @@ impl Producer {
         Ok(TransactionImpl::new(
             Box::new(rpc_client),
             Resource {
-                resource_namespace: self.get_resource_namespace().await,
+                resource_namespace: self.get_resource_namespace(),
                 name: topic,
             },
             receipt,
@@ -465,14 +472,15 @@ impl Producer {
 mod tests {
     use std::sync::Arc;
 
-    use crate::client::MockClient;
     use crate::error::ErrorKind;
     use crate::log::terminal_logger;
     use crate::model::common::Route;
     use crate::model::message::{MessageBuilder, MessageImpl, MessageType};
     use crate::model::transaction::TransactionResolution;
     use crate::pb::{Broker, Code, EndTransactionResponse, MessageQueue, Status};
-    use crate::session::{self, Session};
+    use crate::session::MockRPCClient;
+    #[double]
+    use crate::session::Session;
 
     use super::*;
 
@@ -500,7 +508,7 @@ mod tests {
     async fn producer_start() -> Result<(), ClientError> {
         let _m = crate::client::tests::MTX.lock();
 
-        let ctx = Client::<ProducerOption>::new_context();
+        let ctx = Client::new_context();
         ctx.expect().return_once(|_, _, _| {
             let mut client = Client::default();
             client.expect_topic_route().returning(|_, _| {
@@ -515,7 +523,7 @@ mod tests {
                 .return_const("fake_id".to_string());
             client
                 .expect_get_session()
-                .return_once(|| Ok(Session::mock()));
+                .return_once(|| Ok(Session::default()));
             client
                 .expect_get_endpoints()
                 .return_once(|| Endpoints::from_url("foobar.com:8080").unwrap());
@@ -533,7 +541,7 @@ mod tests {
     async fn transaction_producer_start() -> Result<(), ClientError> {
         let _m = crate::client::tests::MTX.lock();
 
-        let ctx = Client::<ProducerOption>::new_context();
+        let ctx = Client::new_context();
         ctx.expect().return_once(|_, _, _| {
             let mut client = Client::default();
             client.expect_topic_route().returning(|_, _| {
@@ -548,7 +556,7 @@ mod tests {
                 .return_const("fake_id".to_string());
             client
                 .expect_get_session()
-                .return_once(|| Ok(Session::mock()));
+                .return_once(|| Ok(Session::default()));
             client
                 .expect_get_endpoints()
                 .return_once(|| Endpoints::from_url("foobar.com:8080").unwrap());
@@ -750,7 +758,7 @@ mod tests {
         producer
             .client
             .expect_get_session()
-            .return_once(|| Ok(Session::mock()));
+            .return_once(|| Ok(Session::default()));
 
         let _ = producer
             .send_transaction_message(
@@ -770,7 +778,7 @@ mod tests {
                 message: "".to_string(),
             }),
         });
-        let mut mock = session::MockRPCClient::new();
+        let mut mock = MockRPCClient::new();
         mock.expect_end_transaction()
             .return_once(|_| Box::pin(futures::future::ready(response)));
 

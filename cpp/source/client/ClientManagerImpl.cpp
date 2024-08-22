@@ -24,34 +24,30 @@
 #include <utility>
 #include <vector>
 
-#include "apache/rocketmq/v2/definition.pb.h"
 #include "InvocationContext.h"
 #include "LogInterceptor.h"
 #include "LogInterceptorFactory.h"
-#include "rocketmq/Logger.h"
-#include "spdlog/spdlog.h"
-#include "MessageExt.h"
-#include "MetadataConstants.h"
 #include "MixAll.h"
 #include "Protocol.h"
 #include "ReceiveMessageContext.h"
 #include "RpcClient.h"
 #include "RpcClientImpl.h"
 #include "Scheduler.h"
-#include "TlsHelper.h"
+#include "SchedulerImpl.h"
 #include "UtilAll.h"
 #include "google/protobuf/util/time_util.h"
 #include "grpcpp/create_channel.h"
 #include "rocketmq/ErrorCode.h"
-#include "rocketmq/SendReceipt.h"
+#include "spdlog/spdlog.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
-ClientManagerImpl::ClientManagerImpl(std::string resource_namespace, bool withSsl)
-    : scheduler_(std::make_shared<SchedulerImpl>()), resource_namespace_(std::move(resource_namespace)),
+ClientManagerImpl::ClientManagerImpl(std::string resource_namespace, bool with_ssl)
+    : scheduler_(std::make_shared<SchedulerImpl>()),
+      resource_namespace_(std::move(resource_namespace)),
       state_(State::CREATED),
       callback_thread_pool_(absl::make_unique<ThreadPoolImpl>(std::thread::hardware_concurrency())),
-      withSsl_(withSsl){
+      with_ssl_(with_ssl) {
   certificate_verifier_ = grpc::experimental::ExternalCertificateVerifier::Create<InsecureCertificateVerifier>();
   tls_channel_credential_options_.set_verify_server_certs(false);
   tls_channel_credential_options_.set_check_call_host(false);
@@ -175,8 +171,10 @@ std::vector<std::string> ClientManagerImpl::cleanOfflineRpcClients() {
   return removed;
 }
 
-void ClientManagerImpl::heartbeat(const std::string& target_host, const Metadata& metadata,
-                                  const HeartbeatRequest& request, std::chrono::milliseconds timeout,
+void ClientManagerImpl::heartbeat(const std::string& target_host,
+                                  const Metadata& metadata,
+                                  const HeartbeatRequest& request,
+                                  std::chrono::milliseconds timeout,
                                   const std::function<void(const std::error_code&, const HeartbeatResponse&)>& cb) {
   SPDLOG_DEBUG("Prepare to send heartbeat to {}. Request: {}", target_host, request.DebugString());
   auto client = getRpcClient(target_host, true);
@@ -279,8 +277,10 @@ void ClientManagerImpl::doHeartbeat() {
   }
 }
 
-bool ClientManagerImpl::send(const std::string& target_host, const Metadata& metadata, SendMessageRequest& request,
-                             SendCallback cb) {
+bool ClientManagerImpl::send(const std::string& target_host,
+                             const Metadata& metadata,
+                             SendMessageRequest& request,
+                             SendResultCallback cb) {
   assert(cb);
   SPDLOG_DEBUG("Prepare to send message to {} asynchronously. Request: {}", target_host, request.DebugString());
   RpcClientSharedPtr client = getRpcClient(target_host);
@@ -306,15 +306,14 @@ bool ClientManagerImpl::send(const std::string& target_host, const Metadata& met
       return;
     }
 
-    SendReceipt send_receipt = {};
-    send_receipt.target = target_host;
-    std::error_code ec;
+    SendResult send_result = {};
+    send_result.target = target_host;
     if (!invocation_context->status.ok()) {
       SPDLOG_WARN("Failed to send message to {} due to gRPC error. gRPC code: {}, gRPC error message: {}",
                   invocation_context->remote_address, invocation_context->status.error_code(),
                   invocation_context->status.error_message());
-      ec = ErrorCode::RequestTimeout;
-      cb(ec, send_receipt);
+      send_result.ec = ErrorCode::RequestTimeout;
+      cb(send_result);
       return;
     }
 
@@ -323,8 +322,8 @@ bool ClientManagerImpl::send(const std::string& target_host, const Metadata& met
       case rmq::Code::OK: {
         if (!invocation_context->response.entries().empty()) {
           auto first = invocation_context->response.entries().begin();
-          send_receipt.message_id = first->message_id();
-          send_receipt.transaction_id = first->transaction_id();
+          send_result.message_id = first->message_id();
+          send_result.transaction_id = first->transaction_id();
         } else {
           SPDLOG_ERROR("Unexpected send-message-response: {}", invocation_context->response.DebugString());
         }
@@ -333,126 +332,127 @@ bool ClientManagerImpl::send(const std::string& target_host, const Metadata& met
 
       case rmq::Code::ILLEGAL_TOPIC: {
         SPDLOG_ERROR("IllegalTopic: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::IllegalTopic;
+        send_result.ec = ErrorCode::IllegalTopic;
         break;
       }
 
       case rmq::Code::ILLEGAL_MESSAGE_TAG: {
         SPDLOG_ERROR("IllegalMessageTag: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::IllegalMessageTag;
+        send_result.ec = ErrorCode::IllegalMessageTag;
         break;
       }
 
       case rmq::Code::ILLEGAL_MESSAGE_KEY: {
         SPDLOG_ERROR("IllegalMessageKey: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::IllegalMessageKey;
+        send_result.ec = ErrorCode::IllegalMessageKey;
         break;
       }
 
       case rmq::Code::ILLEGAL_MESSAGE_GROUP: {
         SPDLOG_ERROR("IllegalMessageGroup: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::IllegalMessageGroup;
+        send_result.ec = ErrorCode::IllegalMessageGroup;
         break;
       }
 
       case rmq::Code::ILLEGAL_MESSAGE_PROPERTY_KEY: {
         SPDLOG_ERROR("IllegalMessageProperty: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::IllegalMessageProperty;
+        send_result.ec = ErrorCode::IllegalMessageProperty;
         break;
       }
 
       case rmq::Code::MESSAGE_PROPERTIES_TOO_LARGE: {
         SPDLOG_ERROR("MessagePropertiesTooLarge: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::MessagePropertiesTooLarge;
+        send_result.ec = ErrorCode::MessagePropertiesTooLarge;
         break;
       }
 
       case rmq::Code::MESSAGE_BODY_TOO_LARGE: {
         SPDLOG_ERROR("MessageBodyTooLarge: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::MessageBodyTooLarge;
+        send_result.ec = ErrorCode::MessageBodyTooLarge;
         break;
       }
 
       case rmq::Code::TOPIC_NOT_FOUND: {
         SPDLOG_WARN("TopicNotFound: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::TopicNotFound;
+        send_result.ec = ErrorCode::TopicNotFound;
         break;
       }
 
       case rmq::Code::NOT_FOUND: {
         SPDLOG_WARN("NotFound: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::NotFound;
+        send_result.ec = ErrorCode::NotFound;
         break;
       }
 
       case rmq::Code::UNAUTHORIZED: {
         SPDLOG_WARN("Unauthenticated: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::Unauthorized;
+        send_result.ec = ErrorCode::Unauthorized;
         break;
       }
-        
+
       case rmq::Code::FORBIDDEN: {
         SPDLOG_WARN("Forbidden: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::Forbidden;
+        send_result.ec = ErrorCode::Forbidden;
         break;
       }
 
       case rmq::Code::MESSAGE_CORRUPTED: {
         SPDLOG_WARN("MessageCorrupted: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::MessageCorrupted;
+        send_result.ec = ErrorCode::MessageCorrupted;
         break;
       }
 
       case rmq::Code::TOO_MANY_REQUESTS: {
         SPDLOG_WARN("TooManyRequest: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::TooManyRequests;
+        send_result.ec = ErrorCode::TooManyRequests;
         break;
       }
 
       case rmq::Code::INTERNAL_SERVER_ERROR: {
         SPDLOG_WARN("InternalServerError: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::InternalServerError;
+        send_result.ec = ErrorCode::InternalServerError;
         break;
       }
 
       case rmq::Code::HA_NOT_AVAILABLE: {
         SPDLOG_WARN("InternalServerError: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::InternalServerError;
+        send_result.ec = ErrorCode::InternalServerError;
         break;
       }
 
       case rmq::Code::PROXY_TIMEOUT: {
         SPDLOG_WARN("GatewayTimeout: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::GatewayTimeout;
+        send_result.ec = ErrorCode::GatewayTimeout;
         break;
       }
 
       case rmq::Code::MASTER_PERSISTENCE_TIMEOUT: {
         SPDLOG_WARN("GatewayTimeout: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::GatewayTimeout;
+        send_result.ec = ErrorCode::GatewayTimeout;
         break;
       }
 
       case rmq::Code::SLAVE_PERSISTENCE_TIMEOUT: {
         SPDLOG_WARN("GatewayTimeout: {}. Host={}", status.message(), invocation_context->remote_address);
-        ec = ErrorCode::GatewayTimeout;
+        send_result.ec = ErrorCode::GatewayTimeout;
         break;
       }
 
       case rmq::Code::MESSAGE_PROPERTY_CONFLICT_WITH_TYPE: {
-        SPDLOG_WARN("Message-property-conflict-with-type: Host={}, Response={}", invocation_context->remote_address, invocation_context->response.DebugString());
-        ec = ErrorCode::MessagePropertyConflictWithType;
+        SPDLOG_WARN("Message-property-conflict-with-type: Host={}, Response={}", invocation_context->remote_address,
+                    invocation_context->response.DebugString());
+        send_result.ec = ErrorCode::MessagePropertyConflictWithType;
         break;
       }
 
       default: {
         SPDLOG_WARN("NotSupported: Check and upgrade SDK to the latest. Host={}", invocation_context->remote_address);
-        ec = ErrorCode::NotSupported;
+        send_result.ec = ErrorCode::NotSupported;
         break;
       }
     }
 
-    cb(ec, send_receipt);
+    cb(send_result);
   };
 
   invocation_context->callback = completion_callback;
@@ -470,7 +470,8 @@ std::shared_ptr<grpc::Channel> ClientManagerImpl::createChannel(const std::strin
   std::vector<std::unique_ptr<grpc::experimental::ClientInterceptorFactoryInterface>> interceptor_factories;
   interceptor_factories.emplace_back(absl::make_unique<LogInterceptorFactory>());
   auto channel = grpc::experimental::CreateCustomChannelWithInterceptors(
-      target_host, withSsl_ ? channel_credential_ : grpc::InsecureChannelCredentials(), channel_arguments_, std::move(interceptor_factories));
+      target_host, with_ssl_ ? channel_credential_ : grpc::InsecureChannelCredentials(), channel_arguments_,
+      std::move(interceptor_factories));
   return channel;
 }
 
@@ -513,27 +514,28 @@ void ClientManagerImpl::cleanRpcClients() {
   rpc_clients_.clear();
 }
 
-SendReceipt ClientManagerImpl::processSendResponse(const rmq::MessageQueue& message_queue,
-                                                   const SendMessageResponse& response, std::error_code& ec) {
-  SendReceipt send_receipt;
+SendResult ClientManagerImpl::processSendResponse(const rmq::MessageQueue& message_queue,
+                                                  const SendMessageResponse& response,
+                                                  std::error_code& ec) {
+  SendResult send_result;
 
   switch (response.status().code()) {
     case rmq::Code::OK: {
       assert(response.entries_size() > 0);
-      send_receipt.message_id = response.entries().begin()->message_id();
-      send_receipt.transaction_id = response.entries().begin()->transaction_id();
-      return send_receipt;
+      send_result.message_id = response.entries().begin()->message_id();
+      send_result.transaction_id = response.entries().begin()->transaction_id();
+      return send_result;
     }
     case rmq::Code::ILLEGAL_TOPIC: {
       ec = ErrorCode::BadRequest;
-      return send_receipt;
+      return send_result;
     }
     default: {
       // TODO: handle other cases.
       break;
     }
   }
-  return send_receipt;
+  return send_result;
 }
 
 void ClientManagerImpl::addClientObserver(std::weak_ptr<Client> client) {
@@ -541,8 +543,10 @@ void ClientManagerImpl::addClientObserver(std::weak_ptr<Client> client) {
   clients_.emplace_back(std::move(client));
 }
 
-void ClientManagerImpl::resolveRoute(const std::string& target_host, const Metadata& metadata,
-                                     const QueryRouteRequest& request, std::chrono::milliseconds timeout,
+void ClientManagerImpl::resolveRoute(const std::string& target_host,
+                                     const Metadata& metadata,
+                                     const QueryRouteRequest& request,
+                                     std::chrono::milliseconds timeout,
                                      const std::function<void(const std::error_code&, const TopicRouteDataPtr&)>& cb) {
   SPDLOG_DEBUG("Name server connection URL: {}", target_host);
   SPDLOG_DEBUG("Query route request: {}", request.DebugString());
@@ -646,7 +650,9 @@ void ClientManagerImpl::resolveRoute(const std::string& target_host, const Metad
 }
 
 void ClientManagerImpl::queryAssignment(
-    const std::string& target, const Metadata& metadata, const QueryAssignmentRequest& request,
+    const std::string& target,
+    const Metadata& metadata,
+    const QueryAssignmentRequest& request,
     std::chrono::milliseconds timeout,
     const std::function<void(const std::error_code&, const QueryAssignmentResponse&)>& cb) {
   SPDLOG_DEBUG("Prepare to send query assignment request to broker[address={}]", target);
@@ -748,8 +754,10 @@ void ClientManagerImpl::queryAssignment(
   client->asyncQueryAssignment(request, invocation_context);
 }
 
-void ClientManagerImpl::receiveMessage(const std::string& target_host, const Metadata& metadata,
-                                       const ReceiveMessageRequest& request, std::chrono::milliseconds timeout,
+void ClientManagerImpl::receiveMessage(const std::string& target_host,
+                                       const Metadata& metadata,
+                                       const ReceiveMessageRequest& request,
+                                       std::chrono::milliseconds timeout,
                                        ReceiveMessageCallback cb) {
   SPDLOG_DEBUG("Prepare to receive message from {} asynchronously. Request: {}", target_host, request.DebugString());
   RpcClientSharedPtr client = getRpcClient(target_host);
@@ -765,7 +773,6 @@ State ClientManagerImpl::state() const {
 }
 
 MessageConstSharedPtr ClientManagerImpl::wrapMessage(const rmq::Message& item) {
-  assert(item.topic().resource_namespace() == resource_namespace_);
   auto builder = Message::newBuilder();
 
   // base
@@ -955,8 +962,11 @@ SchedulerSharedPtr ClientManagerImpl::getScheduler() {
   return scheduler_;
 }
 
-void ClientManagerImpl::ack(const std::string& target, const Metadata& metadata, const AckMessageRequest& request,
-                            std::chrono::milliseconds timeout, const std::function<void(const std::error_code&)>& cb) {
+void ClientManagerImpl::ack(const std::string& target,
+                            const Metadata& metadata,
+                            const AckMessageRequest& request,
+                            std::chrono::milliseconds timeout,
+                            const std::function<void(const std::error_code&)>& cb) {
   std::string target_host(target.data(), target.length());
   SPDLOG_DEBUG("Prepare to ack message against {} asynchronously. AckMessageRequest: {}", target_host,
                request.DebugString());
@@ -1066,8 +1076,11 @@ void ClientManagerImpl::ack(const std::string& target, const Metadata& metadata,
 }
 
 void ClientManagerImpl::changeInvisibleDuration(
-    const std::string& target_host, const Metadata& metadata, const ChangeInvisibleDurationRequest& request,
-    std::chrono::milliseconds timeout, const std::function<void(const std::error_code&)>& completion_callback) {
+    const std::string& target_host,
+    const Metadata& metadata,
+    const ChangeInvisibleDurationRequest& request,
+    std::chrono::milliseconds timeout,
+    const std::function<void(const std::error_code&)>& completion_callback) {
   RpcClientSharedPtr client = getRpcClient(target_host);
   assert(client);
   auto invocation_context = new InvocationContext<ChangeInvisibleDurationResponse>();
@@ -1133,7 +1146,7 @@ void ClientManagerImpl::changeInvisibleDuration(
         ec = ErrorCode::Forbidden;
         break;
       }
-        
+
       case rmq::Code::INTERNAL_SERVER_ERROR: {
         SPDLOG_WARN("InternalServerError: {}, host={}", status.message(), invocation_context->remote_address);
         ec = ErrorCode::InternalServerError;
@@ -1159,7 +1172,9 @@ void ClientManagerImpl::changeInvisibleDuration(
 }
 
 void ClientManagerImpl::endTransaction(
-    const std::string& target_host, const Metadata& metadata, const EndTransactionRequest& request,
+    const std::string& target_host,
+    const Metadata& metadata,
+    const EndTransactionRequest& request,
     std::chrono::milliseconds timeout,
     const std::function<void(const std::error_code&, const EndTransactionResponse&)>& cb) {
   RpcClientSharedPtr client = getRpcClient(target_host);
@@ -1339,7 +1354,7 @@ void ClientManagerImpl::forwardMessageToDeadLetterQueue(const std::string& targe
         ec = ErrorCode::ServiceUnavailable;
         break;
       }
-        
+
       case rmq::Code::TOO_MANY_REQUESTS: {
         ec = ErrorCode::TooManyRequests;
         break;
@@ -1362,7 +1377,8 @@ void ClientManagerImpl::forwardMessageToDeadLetterQueue(const std::string& targe
   client->asyncForwardMessageToDeadLetterQueue(request, invocation_context);
 }
 
-std::error_code ClientManagerImpl::notifyClientTermination(const std::string& target_host, const Metadata& metadata,
+std::error_code ClientManagerImpl::notifyClientTermination(const std::string& target_host,
+                                                           const Metadata& metadata,
                                                            const NotifyClientTerminationRequest& request,
                                                            std::chrono::milliseconds timeout) {
   std::error_code ec;

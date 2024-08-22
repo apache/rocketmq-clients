@@ -60,3 +60,11 @@ cc_test(
     ],
     deps = base_deps,
 )
+
+cc_test(
+    name = "optional_test",
+    srcs = [
+        "OptionalTest.cpp",
+    ],
+    deps = base_deps
+)

@@ -377,7 +377,8 @@ func (cli *defaultClient) queryRoute(ctx context.Context, topic string, duration
 func (cli *defaultClient) getQueryRouteRequest(topic string) *v2.QueryRouteRequest {
 	return &v2.QueryRouteRequest{
 		Topic: &v2.Resource{
-			Name: topic,
+			Name:              topic,
+			ResourceNamespace: cli.config.NameSpace,
 		},
 		Endpoints: cli.accessPoint,
 	}
@@ -436,7 +437,7 @@ func (cli *defaultClient) doHeartbeat(target string, request *v2.HeartbeatReques
 			Message: resp.GetStatus().GetMessage(),
 		}
 	}
-	cli.log.Infof("send heartbeat successfully, endpoints=%v", endpoints)
+	cli.log.Debugf("send heartbeat successfully, endpoints=%v", endpoints)
 	switch p := cli.clientImpl.(type) {
 	case *defaultProducer:
 		if _, ok := p.isolated.LoadAndDelete(target); ok {
@@ -599,6 +600,8 @@ func (cli *defaultClient) Sign(ctx context.Context) context.Context {
 		innerMD.VersionValue,
 		innerMD.ClintID,
 		cli.clientID,
+		innerMD.NameSpace,
+		cli.config.NameSpace,
 		innerMD.DateTime,
 		now,
 		innerMD.Authorization,

@@ -38,6 +38,10 @@ class Signature:
     __CREDENTIAL = "Credential"
     __SIGNED_HEADERS = "SignedHeaders"
     __SIGNATURE = "Signature"
+    try:
+        __CLIENT_VERSION = importlib.metadata.version("rocketmq")
+    except Exception:
+        __CLIENT_VERSION = "0.1.0"
 
     @staticmethod
     def sign(client_config: ClientConfig, client_id: str):
@@ -45,7 +49,7 @@ class Signature:
         metadata = [
             (Signature.__LANGUAGE_KEY, "PYTHON"),
             (Signature.__PROTOCOL_VERSION, "v2"),
-            (Signature.__CLIENT_VERSION_KEY, importlib.metadata.version("rocketmq")),
+            (Signature.__CLIENT_VERSION_KEY, Signature.__CLIENT_VERSION),
             (
                 Signature.__DATE_TIME_KEY,
                 date_time,

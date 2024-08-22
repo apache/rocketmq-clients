@@ -19,16 +19,12 @@
 #include <memory>
 #include <system_error>
 
-#include "absl/container/flat_hash_map.h"
-#include "absl/synchronization/mutex.h"
-#include "opencensus/trace/span.h"
-
 #include "Protocol.h"
+#include "SendResult.h"
 #include "TransactionImpl.h"
-#include "rocketmq/ErrorCode.h"
+#include "opencensus/trace/span.h"
 #include "rocketmq/Message.h"
 #include "rocketmq/SendCallback.h"
-#include "rocketmq/SendReceipt.h"
 
 ROCKETMQ_NAMESPACE_BEGIN
 
@@ -47,7 +43,7 @@ public:
         span_(opencensus::trace::Span::BlankSpan()) {
   }
 
-  void onSuccess(const SendReceipt& send_receipt) noexcept;
+  void onSuccess(const SendResult& send_result) noexcept;
 
   void onFailure(const std::error_code& ec) noexcept;
 

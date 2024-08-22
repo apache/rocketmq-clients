@@ -17,6 +17,7 @@
 import binascii
 import gzip
 import hashlib
+import zlib
 from typing import Dict, List
 
 from rocketmq.definition import MessageQueue
@@ -184,7 +185,10 @@ class MessageView:
         body_encoding = system_properties.body_encoding
         body = raw
         if body_encoding == ProtoEncoding.GZIP:
-            body = gzip.decompress(message.body)
+            if message.body and message.body[:2] == b'\x1f\x8b':  # Standard Gzip format
+                body = gzip.decompress(message.body)
+            else:  # deflate zip
+                body = zlib.decompress(message.body)
         elif body_encoding in [ProtoEncoding.IDENTITY, None]:
             pass
         else:

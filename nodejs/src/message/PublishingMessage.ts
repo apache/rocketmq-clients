@@ -68,7 +68,7 @@ export class PublishingMessage extends Message {
    * This method should be invoked before each message sending, because the born time is reset before each
    * invocation, which means that it should not be invoked ahead of time.
    */
-  toProtobuf(mq: MessageQueue) {
+  toProtobuf(namespace: string, mq: MessageQueue) {
     const systemProperties = new SystemProperties()
       .setKeysList(this.keys)
       .setMessageId(this.messageId)
@@ -87,8 +87,10 @@ export class PublishingMessage extends Message {
       systemProperties.setMessageGroup(this.messageGroup);
     }
 
+    const resource = createResource(this.topic);
+    resource.setResourceNamespace(namespace);
     const message = new MessagePB()
-      .setTopic(createResource(this.topic))
+      .setTopic(resource)
       .setBody(this.body)
       .setSystemProperties(systemProperties);
     if (this.properties) {

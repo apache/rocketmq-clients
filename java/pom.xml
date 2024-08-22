@@ -26,11 +26,12 @@
     <groupId>org.apache.rocketmq</groupId>
     <artifactId>rocketmq-client-java-parent</artifactId>
     <packaging>pom</packaging>
-    <version>5.0.7-SNAPSHOT</version>
+    <version>5.0.8-SNAPSHOT</version>
     <modules>
         <module>client-apis</module>
         <module>client</module>
         <module>client-shade</module>
+        <module>test</module>
     </modules>
 
     <properties>
@@ -49,9 +50,9 @@
          -->
         <rocketmq-proto.version>2.0.3</rocketmq-proto.version>
         <annotations-api.version>6.0.53</annotations-api.version>
-        <protobuf.version>3.21.7</protobuf.version>
+        <protobuf.version>3.24.4</protobuf.version>
         <grpc.version>1.50.0</grpc.version>
-        <guava.version>31.1-jre</guava.version>
+        <guava.version>32.0.0-jre</guava.version>
         <slf4j.version>1.7.30</slf4j.version>
         <logback.version>1.2.9</logback.version>
         <commons-lang3.version>3.4</commons-lang3.version>
@@ -62,6 +63,7 @@
         <assertj-core.version>2.6.0</assertj-core.version>
         <mockito-core.version>3.10.0</mockito-core.version>
         <awaitility.version>4.1.0</awaitility.version>
+        <bcpkix.version>1.77</bcpkix.version>
 
         <!-- plugin -->
         <maven-compiler-plugin.version>3.8.0</maven-compiler-plugin.version>
@@ -167,6 +169,12 @@
                 <version>${grpc.version}</version>
             </dependency>
             <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-testing</artifactId>
+                <scope>test</scope>
+                <version>${grpc.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>
                 <version>${guava.version}</version>
@@ -245,6 +253,13 @@
                 <groupId>org.awaitility</groupId>
                 <artifactId>awaitility</artifactId>
                 <version>${awaitility.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <!-- https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-jdk18on -->
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcpkix-jdk18on</artifactId>
+                <version>${bcpkix.version}</version>
                 <scope>test</scope>
             </dependency>
         </dependencies>

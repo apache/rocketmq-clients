@@ -23,7 +23,7 @@ using System;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 using Proto = Apache.Rocketmq.V2;
-using grpc = Grpc.Core;
+using grpcLib = Grpc.Core;
 
 namespace Org.Apache.Rocketmq
 {
@@ -390,9 +390,9 @@ namespace Org.Apache.Rocketmq
             }
         }
 
-        internal grpc.Metadata Sign()
+        internal grpcLib.Metadata Sign()
         {
-            var metadata = new grpc::Metadata();
+            var metadata = new grpcLib::Metadata();
             Signature.Sign(this, metadata);
             return metadata;
         }

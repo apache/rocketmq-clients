@@ -20,15 +20,16 @@ import { Endpoints } from '../route/Endpoints';
 import { RetryPolicy } from '../retry';
 
 export abstract class Settings {
+  protected readonly namespace: string;
   protected readonly clientId: string;
   protected readonly clientType: ClientType;
   protected readonly accessPoint: Endpoints;
   protected retryPolicy?: RetryPolicy;
   protected readonly requestTimeout: number;
 
-  constructor(clientId: string, clientType: ClientType, accessPoint: Endpoints, requestTimeout: number,
-    retryPolicy?: RetryPolicy) {
+  constructor(namespace: string, clientId: string, clientType: ClientType, accessPoint: Endpoints, requestTimeout: number, retryPolicy?: RetryPolicy) {
     this.clientId = clientId;
+    this.namespace = namespace;
     this.clientType = clientType;
     this.accessPoint = accessPoint;
     this.retryPolicy = retryPolicy;
