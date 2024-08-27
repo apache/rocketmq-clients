@@ -128,6 +128,9 @@ func (cm *defaultClientManager) startUp() {
 		ticker.Tick(cm.syncSettings, (cm.opts.SYNC_SETTINGS_PERIOD), cm.done)
 	}()
 
+	// wait sync settings ready
+	time.Sleep(cm.opts.SYNC_SETTINGS_DELAY + time.Second)
+
 	sugarBaseLogger.Info("the client manager starts successfully")
 }
 func (cm *defaultClientManager) deleteRpcClient(rpcClient RpcClient) {
