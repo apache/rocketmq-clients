@@ -48,15 +48,15 @@ namespace Org.Apache.Rocketmq
         
                 consumeTask.ContinueWith(task =>
                 {
-                    if (!task.IsFaulted)
-                    {
-                        pq.EraseMessage(messageView, task.Result);
-                    }
-                    else
+                    if (task.IsFaulted)
                     {
                         // Should never reach here.
                         Logger.LogError(task.Exception,
                             $"[Bug] Exception raised in consumption callback, clientId={ClientId}");
+                    }
+                    else
+                    {
+                        pq.EraseMessage(messageView, task.Result);
                     }
                 }, TaskContinuationOptions.ExecuteSynchronously);
             }
