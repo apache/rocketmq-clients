@@ -126,7 +126,7 @@ namespace tests
         }
 
         [TestMethod]
-        public async Task TestEraseMessageWithFailure()
+        public async Task TestEraseMessageWithAckFailure()
         {
             var pushConsumer = CreateAndSetupPushConsumer();
             var messageView = CreateMessageView();
@@ -138,10 +138,9 @@ namespace tests
             processQueue.CacheMessages(new List<MessageView> { messageView });
 
             var ackTimes = 3;
-            var tolerance = TimeSpan.FromMilliseconds(500);
             
             processQueue.EraseMessage(messageView, ConsumeResult.SUCCESS);
-            await Task.Delay(ProcessQueue.AckMessageFailureBackoffDelay * ackTimes + tolerance);
+            await Task.Delay(ProcessQueue.AckMessageFailureBackoffDelay * ackTimes);
 
             mockClientManager.Verify(cm => cm.AckMessage(It.IsAny<Endpoints>(), It.IsAny<Proto.AckMessageRequest>(), It.IsAny<TimeSpan>()), Times.AtLeast(ackTimes));
         }
