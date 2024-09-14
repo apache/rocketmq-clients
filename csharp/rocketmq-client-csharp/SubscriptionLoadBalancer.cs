@@ -24,12 +24,10 @@ namespace Org.Apache.Rocketmq
 {
     internal sealed class SubscriptionLoadBalancer
     {
-        private static readonly Random Random = new Random();
-
         private readonly List<MessageQueue> _messageQueues;
         private int _index;
 
-        public SubscriptionLoadBalancer(TopicRouteData topicRouteData) : this(Random.Next(), topicRouteData)
+        public SubscriptionLoadBalancer(TopicRouteData topicRouteData) : this(Random.Shared.Next(), topicRouteData)
         {
         }
 

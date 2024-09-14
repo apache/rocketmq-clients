@@ -66,9 +66,13 @@ namespace Org.Apache.Rocketmq
 
         internal static HttpMessageHandler CreateHttpHandler()
         {
-            var handler = new HttpClientHandler
+            var handler = new SocketsHttpHandler
             {
-                ServerCertificateCustomValidationCallback = CertValidator,
+                EnableMultipleHttp2Connections = true,
+                SslOptions = new SslClientAuthenticationOptions
+                {
+                    RemoteCertificateValidationCallback = CertValidator,
+                },
             };
             return handler;
         }

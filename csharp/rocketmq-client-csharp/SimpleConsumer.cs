@@ -157,7 +157,7 @@ namespace Org.Apache.Rocketmq
             return subscriptionLoadBalancer;
         }
 
-        private async Task<SubscriptionLoadBalancer> GetSubscriptionLoadBalancer(string topic)
+        private async ValueTask<SubscriptionLoadBalancer> GetSubscriptionLoadBalancer(string topic)
         {
             if (_subscriptionRouteDataCache.TryGetValue(topic, out var subscriptionLoadBalancer))
             {
@@ -190,8 +190,7 @@ namespace Org.Apache.Rocketmq
                 throw new InternalErrorException("maxMessageNum must be greater than 0");
             }
 
-            var copy = new ConcurrentDictionary<string, FilterExpression>(_subscriptionExpressions);
-            var topics = new List<string>(copy.Keys);
+            var topics = new List<string>(_subscriptionExpressions.Keys);
             if (topics.Count <= 0)
             {
                 throw new ArgumentException("There is no topic to receive message");

@@ -284,7 +284,7 @@ namespace Org.Apache.Rocketmq
             }, token);
         }
 
-        protected async Task<TopicRouteData> GetRouteData(string topic)
+        protected async ValueTask<TopicRouteData> GetRouteData(string topic)
         {
             if (_topicRouteCache.TryGetValue(topic, out var topicRouteData))
             {
