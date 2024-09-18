@@ -24,7 +24,7 @@ namespace tests
     public abstract class GrpcServerIntegrationTest
     {
         protected int Port;
-        
+
         protected Server SetUpServer(MessagingService.MessagingServiceBase mockServer)
         {
             var server = new Server

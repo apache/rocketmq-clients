@@ -27,7 +27,7 @@ namespace Org.Apache.Rocketmq
     public class TopicRouteData : IEquatable<TopicRouteData>
     {
         private int _index = 0;
-        
+
         public TopicRouteData(IEnumerable<Proto.MessageQueue> messageQueues)
         {
             var messageQueuesList = messageQueues.Select(mq => new MessageQueue(mq)).ToList();
@@ -57,7 +57,7 @@ namespace Org.Apache.Rocketmq
             }
             throw new NotFoundException("Failed to pick endpoints to query assignment");
         }
-        
+
         private int Mod(int x, int m)
         {
             if (m <= 0)

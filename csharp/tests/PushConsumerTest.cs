@@ -37,7 +37,7 @@ namespace tests
             var pushConsumer = CreatePushConsumer();
             await pushConsumer.Subscribe("testTopic", new FilterExpression("*"));
         }
-        
+
         [TestMethod]
         [ExpectedException(typeof(InvalidOperationException))]
         public void TestUnsubscribeBeforeStartup()

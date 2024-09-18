@@ -138,7 +138,7 @@ namespace tests
             processQueue.CacheMessages(new List<MessageView> { messageView });
 
             var ackTimes = 3;
-            
+
             processQueue.EraseMessage(messageView, ConsumeResult.SUCCESS);
             await Task.Delay(ProcessQueue.AckMessageFailureBackoffDelay * ackTimes);
 

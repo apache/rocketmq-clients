@@ -141,7 +141,7 @@ namespace tests
             var policy = new CustomizedBackoffRetryPolicy(originalDurations, 5);
             var inheritedPolicy = policy.InheritBackoff(retryPolicy);
             Assert.IsTrue(inheritedPolicy is CustomizedBackoffRetryPolicy);
-            var customizedBackoffRetryPolicy = (CustomizedBackoffRetryPolicy) inheritedPolicy;
+            var customizedBackoffRetryPolicy = (CustomizedBackoffRetryPolicy)inheritedPolicy;
             Assert.AreEqual(policy.GetMaxAttempts(), inheritedPolicy.GetMaxAttempts());
             var inheritedDurations = customizedBackoffRetryPolicy.GetDurations();
             Assert.AreEqual(newDurations.Count, inheritedDurations.Count);

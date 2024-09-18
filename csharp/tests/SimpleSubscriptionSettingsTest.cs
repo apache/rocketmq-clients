@@ -44,7 +44,7 @@ namespace tests
         public void Setup()
         {
             var subscriptionExpression = new ConcurrentDictionary<string, FilterExpression>(
-                new Dictionary<string, FilterExpression> {{TestTopic, new FilterExpression("*")}});
+                new Dictionary<string, FilterExpression> { { TestTopic, new FilterExpression("*") } });
             _simpleSubscriptionSettings = new SimpleSubscriptionSettings(
                 TestNamespace,
                 ClientId,

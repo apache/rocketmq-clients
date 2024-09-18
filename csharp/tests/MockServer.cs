@@ -45,7 +45,7 @@ namespace tests
             _broker = broker;
             _attemptIdList = attemptIdList;
         }
-        
+
         public int Port { get; set; }
 
         public override Task<Proto.QueryRouteResponse> QueryRoute(Proto.QueryRouteRequest request,
@@ -129,7 +129,7 @@ namespace tests
             {
                 await Task.Delay(100);
             }
-            
+
             _attemptIdList.Add(request.AttemptId);
 
             if (CompareAndSetServerDeadlineFlag(true, false))

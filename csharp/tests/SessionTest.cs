@@ -49,7 +49,7 @@ namespace tests
 
             mockClientManager.Setup(cm => cm.Telemetry(endpoints)).Returns(mockGrpcCall);
             var session = new Session(endpoints, mockGrpcCall, testClient);
-            
+
             var settings = new Proto.Settings();
             mockStreamWriter.Setup(m => m.WriteAsync(It.Is<Proto.TelemetryCommand>(tc => tc.Settings == settings)))
                 .Returns(Task.CompletedTask);

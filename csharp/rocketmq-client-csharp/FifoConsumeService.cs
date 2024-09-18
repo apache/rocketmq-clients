@@ -25,7 +25,7 @@ namespace Org.Apache.Rocketmq
     public class FifoConsumeService : ConsumeService
     {
         private static readonly ILogger Logger = MqLogManager.CreateLogger<FifoConsumeService>();
-        
+
         public FifoConsumeService(string clientId, IMessageListener messageListener,
             TaskScheduler consumptionExecutor, CancellationToken consumptionCtsToken) :
             base(clientId, messageListener, consumptionExecutor, consumptionCtsToken)
@@ -43,9 +43,9 @@ namespace Org.Apache.Rocketmq
             {
                 return;
             }
-    
+
             var messageView = iterator.Current;
-    
+
             if (messageView != null && messageView.IsCorrupted())
             {
                 // Discard corrupted message.
@@ -55,7 +55,7 @@ namespace Org.Apache.Rocketmq
                 ConsumeIteratively(pq, iterator); // Recursively consume the next message
                 return;
             }
-    
+
             var consumeTask = Consume(messageView);
             consumeTask.ContinueWith(async t =>
             {

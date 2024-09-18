@@ -35,7 +35,7 @@ namespace Org.Apache.Rocketmq
         private readonly TimeSpan _awaitDuration;
         private readonly SimpleSubscriptionSettings _simpleSubscriptionSettings;
         private int _topicRoundRobinIndex;
-        
+
         private readonly ClientConfig _clientConfig;
 
         public SimpleConsumer(ClientConfig clientConfig, string consumerGroup, TimeSpan awaitDuration,

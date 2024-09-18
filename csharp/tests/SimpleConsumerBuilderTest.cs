@@ -47,7 +47,7 @@ namespace tests
             var builder = new SimpleConsumer.Builder();
             builder.SetAwaitDuration(TimeSpan.FromSeconds(5));
         }
-        
+
         [TestMethod]
         [ExpectedException(typeof(ArgumentException))]
         public void TestBuildWithEmptyExpressions()
@@ -55,7 +55,7 @@ namespace tests
             var builder = new SimpleConsumer.Builder();
             builder.SetSubscriptionExpression(new Dictionary<string, FilterExpression>());
         }
-        
+
         [TestMethod]
         [ExpectedException(typeof(ArgumentException))]
         public void TestBuildWithoutExpressions()

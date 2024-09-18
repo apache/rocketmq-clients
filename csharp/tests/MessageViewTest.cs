@@ -90,7 +90,7 @@ namespace tests
         public void TestFromProtobufWithMd5()
         {
             var digest = new Proto.Digest
-                { Type = Proto.DigestType.Md5, Checksum = "3858F62230AC3C915F300C664312C63F" };
+            { Type = Proto.DigestType.Md5, Checksum = "3858F62230AC3C915F300C664312C63F" };
             var systemProperties = new Proto.SystemProperties
             {
                 MessageType = Proto.MessageType.Normal,
@@ -118,7 +118,7 @@ namespace tests
         public void TestFromProtobufWithWrongMd5()
         {
             var digest = new Proto.Digest
-                { Type = Proto.DigestType.Md5, Checksum = "00000000000000000000000000000000" };
+            { Type = Proto.DigestType.Md5, Checksum = "00000000000000000000000000000000" };
             var systemProperties = new Proto.SystemProperties
             {
                 MessageType = Proto.MessageType.Normal,
@@ -146,7 +146,7 @@ namespace tests
         public void TestFromProtobufWithSha1()
         {
             var digest = new Proto.Digest
-                { Type = Proto.DigestType.Sha1, Checksum = "8843D7F92416211DE9EBB963FF4CE28125932878" };
+            { Type = Proto.DigestType.Sha1, Checksum = "8843D7F92416211DE9EBB963FF4CE28125932878" };
             var systemProperties = new Proto.SystemProperties
             {
                 MessageType = Proto.MessageType.Normal,
@@ -174,7 +174,7 @@ namespace tests
         public void TestFromProtobufWithWrongSha1()
         {
             var digest = new Proto.Digest
-                { Type = Proto.DigestType.Sha1, Checksum = "0000000000000000000000000000000000000000" };
+            { Type = Proto.DigestType.Sha1, Checksum = "0000000000000000000000000000000000000000" };
             var systemProperties = new Proto.SystemProperties
             {
                 MessageType = Proto.MessageType.Normal,

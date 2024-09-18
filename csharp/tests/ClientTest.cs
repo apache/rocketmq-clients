@@ -38,7 +38,7 @@ namespace tests
             var testClient = CreateTestClient();
             var endpoints = new Endpoints("testEndpoints");
             var command = new VerifyMessageCommand { Nonce = "testNonce" };
-            
+
             var mockCall = new AsyncDuplexStreamingCall<TelemetryCommand, TelemetryCommand>(
                 new MockClientStreamWriter<TelemetryCommand>(),
                 new MockAsyncStreamReader<TelemetryCommand>(),
@@ -48,11 +48,11 @@ namespace tests
                 null);
             var mockClientManager = new Mock<IClientManager>();
             mockClientManager.Setup(cm => cm.Telemetry(endpoints)).Returns(mockCall);
-            
+
             testClient.SetClientManager(mockClientManager.Object);
-            
+
             testClient.OnVerifyMessageCommand(endpoints, command);
-            
+
             mockClientManager.Verify(cm => cm.Telemetry(endpoints), Times.Once);
         }
 
@@ -74,12 +74,15 @@ namespace tests
                 {
                     Name = "testBroker",
                     Id = 0,
-                    Endpoints = new Proto.Endpoints { Scheme = Proto.AddressScheme.Ipv4,
-                        Addresses = { new Proto.Address { Host = "127.0.0.1", Port = 8080 }}}
+                    Endpoints = new Proto.Endpoints
+                    {
+                        Scheme = Proto.AddressScheme.Ipv4,
+                        Addresses = { new Proto.Address { Host = "127.0.0.1", Port = 8080 } }
+                    }
                 }
             };
             var topicRouteData = new TopicRouteData(new[] { mq });
-            
+
             var mockCall = new AsyncDuplexStreamingCall<TelemetryCommand, TelemetryCommand>(
                 new MockClientStreamWriter<TelemetryCommand>(),
                 new MockAsyncStreamReader<TelemetryCommand>(),
@@ -89,7 +92,7 @@ namespace tests
                 null);
             var mockClientManager = new Mock<IClientManager>();
             mockClientManager.Setup(cm => cm.Telemetry(endpoints)).Returns(mockCall);
-            
+
             testClient.SetClientManager(mockClientManager.Object);
 
             try
@@ -119,7 +122,7 @@ namespace tests
 
             var mockClientManager = new Mock<IClientManager>();
             mockClientManager.Setup(cm => cm.Telemetry(endpoints)).Returns(mockCall);
-            
+
             testClient.SetClientManager(mockClientManager.Object);
 
             // Act
@@ -128,13 +131,13 @@ namespace tests
             // Assert
             mockClientManager.Verify(cm => cm.Telemetry(endpoints), Times.Once);
         }
-        
+
         private Client CreateTestClient()
         {
             return new Producer(new ClientConfig.Builder().SetEndpoints("127.0.0.1:9876").Build(),
                 new ConcurrentDictionary<string, bool>(), 1, null);
         }
-        
+
         private class MockClientStreamWriter<T> : IClientStreamWriter<T>
         {
             public Task WriteAsync(T message)
@@ -144,13 +147,13 @@ namespace tests
             }
 
             public WriteOptions WriteOptions { get; set; }
-            
+
             public Task CompleteAsync()
             {
                 throw new NotImplementedException();
             }
         }
-        
+
         private class MockAsyncStreamReader<T> : IAsyncStreamReader<T>
         {
             public Task<bool> MoveNext(CancellationToken cancellationToken)

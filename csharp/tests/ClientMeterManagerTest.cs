@@ -49,7 +49,7 @@ namespace tests
             var clientConfig = new ClientConfig.Builder()
                 .SetEndpoints("127.0.0.1:8080")
                 .Build();
-                
+
             return new ClientMeterManager(CreateTestClient(clientConfig));
         }
 

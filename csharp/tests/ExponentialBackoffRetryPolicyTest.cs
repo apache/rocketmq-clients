@@ -30,7 +30,7 @@ namespace tests
         private TimeSpan maxBackoff = TimeSpan.FromSeconds(1);
         private float backoffMultiplier = 5;
         private int maxAttempts = 3;
-        
+
         [TestMethod]
         public void TestNextAttemptDelayForImmediatelyRetryPolicy()
         {

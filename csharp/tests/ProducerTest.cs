@@ -42,7 +42,7 @@ namespace tests
             var message = new Message.Builder().SetTopic("testTopic").SetBody(Encoding.UTF8.GetBytes("foobar")).Build();
             await producer.Send(message);
         }
-        
+
         [TestMethod]
         public async Task TestSendWithTopic()
         {
@@ -77,7 +77,7 @@ namespace tests
             mockClientManager.Verify(cm => cm.SendMessage(It.IsAny<Endpoints>(),
                 It.IsAny<Proto.SendMessageRequest>(), It.IsAny<TimeSpan>()), Times.Once);
         }
-        
+
         [TestMethod]
         [ExpectedException(typeof(ArgumentException))]
         public async Task TestSendFailureWithTopic()
@@ -95,7 +95,7 @@ namespace tests
             mockClientManager.Verify(cm => cm.SendMessage(It.IsAny<Endpoints>(),
                 It.IsAny<Proto.SendMessageRequest>(), It.IsAny<TimeSpan>()), Times.Exactly(maxAttempts));
         }
-        
+
         private Producer CreateTestClient()
         {
             const string host0 = "127.0.0.1";

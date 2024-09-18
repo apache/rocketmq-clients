@@ -57,7 +57,7 @@ namespace tests
             var builder = new PushConsumer.Builder();
             builder.SetSubscriptionExpression(null);
         }
-        
+
         [TestMethod]
         [ExpectedException(typeof(ArgumentException))]
         public void TestBuildWithEmptyExpressions()
@@ -81,7 +81,7 @@ namespace tests
             var builder = new PushConsumer.Builder();
             builder.SetMaxCacheMessageCount(-1);
         }
-        
+
         [TestMethod]
         [ExpectedException(typeof(ArgumentException))]
         public void TestNegativeMaxCacheMessageSizeInBytes()
@@ -89,7 +89,7 @@ namespace tests
             var builder = new PushConsumer.Builder();
             builder.SetMaxCacheMessageSizeInBytes(-1);
         }
-        
+
         [TestMethod]
         [ExpectedException(typeof(ArgumentException))]
         public void TestNegativeConsumptionThreadCount()
@@ -110,7 +110,7 @@ namespace tests
                 .SetMessageListener(new TestMessageListener()).SetMaxCacheMessageCount(10)
                 .SetMaxCacheMessageSizeInBytes(10).SetConsumptionThreadCount(10).Build();
         }
-        
+
         private class TestMessageListener : IMessageListener
         {
             public ConsumeResult Consume(MessageView messageView)

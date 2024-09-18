@@ -26,7 +26,7 @@ namespace Org.Apache.Rocketmq
     public abstract class ConsumeService
     {
         private static readonly ILogger Logger = MqLogManager.CreateLogger<ConsumeService>();
-        
+
         protected readonly string ClientId;
         private readonly IMessageListener _messageListener;
         private readonly TaskScheduler _consumptionTaskScheduler;
@@ -40,7 +40,7 @@ namespace Org.Apache.Rocketmq
             _consumptionTaskScheduler = consumptionTaskScheduler;
             _consumptionCtsToken = consumptionCtsToken;
         }
-        
+
         public abstract void Consume(ProcessQueue pq, List<MessageView> messageViews);
 
         public Task<ConsumeResult> Consume(MessageView messageView)
@@ -51,7 +51,7 @@ namespace Org.Apache.Rocketmq
         public Task<ConsumeResult> Consume(MessageView messageView, TimeSpan delay)
         {
             var task = new ConsumeTask(ClientId, _messageListener, messageView);
-            var delayMilliseconds = (int) delay.TotalMilliseconds;
+            var delayMilliseconds = (int)delay.TotalMilliseconds;
 
             if (delayMilliseconds <= 0)
             {
@@ -60,7 +60,7 @@ namespace Org.Apache.Rocketmq
             }
 
             var tcs = new TaskCompletionSource<ConsumeResult>();
-            
+
             Task.Run(async () =>
             {
                 try
@@ -76,7 +76,7 @@ namespace Org.Apache.Rocketmq
                     tcs.SetException(e);
                 }
             }, _consumptionCtsToken);
-            
+
             return tcs.Task;
         }
     }

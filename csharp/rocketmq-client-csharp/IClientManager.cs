@@ -111,7 +111,7 @@ namespace Org.Apache.Rocketmq
         /// <returns></returns>
         Task<RpcInvocation<ChangeInvisibleDurationRequest, ChangeInvisibleDurationResponse>> ChangeInvisibleDuration(
             Endpoints endpoints, ChangeInvisibleDurationRequest request, TimeSpan timeout);
-        
+
         /// <summary>
         /// Send a message to the dead letter queue asynchronously, the method ensures no throwable.
         /// </summary>

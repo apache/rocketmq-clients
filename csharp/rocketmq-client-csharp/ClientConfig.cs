@@ -38,7 +38,7 @@ namespace Org.Apache.Rocketmq
         public string Endpoints { get; }
 
         public bool SslEnabled { get; }
-        
+
         public string Namespace { get; }
 
         public class Builder
@@ -72,7 +72,7 @@ namespace Org.Apache.Rocketmq
                 _sslEnabled = sslEnabled;
                 return this;
             }
-            
+
             public Builder SetNamespace(string namespaceName)
             {
                 _namespace = namespaceName;

@@ -28,7 +28,7 @@ using Google.Protobuf.WellKnownTypes;
 using Proto = Apache.Rocketmq.V2;
 using Microsoft.Extensions.Logging;
 
-[assembly:InternalsVisibleTo("tests")]
+[assembly: InternalsVisibleTo("tests")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 namespace Org.Apache.Rocketmq
 {
@@ -52,9 +52,9 @@ namespace Org.Apache.Rocketmq
         private ConsumeService _consumeService;
         private readonly TaskScheduler _consumptionTaskScheduler;
         private readonly CancellationTokenSource _consumptionCts;
-        
+
         private readonly CancellationTokenSource _scanAssignmentCts;
-        
+
         private readonly CancellationTokenSource _receiveMsgCts;
         private readonly CancellationTokenSource _ackMsgCts;
         private readonly CancellationTokenSource _changeInvisibleDurationCts;
@@ -84,13 +84,13 @@ namespace Org.Apache.Rocketmq
             _processQueueTable = new ConcurrentDictionary<MessageQueue, ProcessQueue>();
             _consumptionTaskScheduler = new LimitedConcurrencyLevelTaskScheduler(consumptionThreadCount);
             _consumptionCts = new CancellationTokenSource();
-            
+
             _receiveMsgCts = new CancellationTokenSource();
             _ackMsgCts = new CancellationTokenSource();
             _changeInvisibleDurationCts = new CancellationTokenSource();
             _forwardMsgToDeadLetterQueueCts = new CancellationTokenSource();
         }
-        
+
         protected override async Task Start()
         {
             try
@@ -145,7 +145,7 @@ namespace Org.Apache.Rocketmq
                 throw;
             }
         }
-        
+
         private ConsumeService CreateConsumerService()
         {
             if (_pushSubscriptionSettings.IsFifo())
@@ -288,7 +288,7 @@ namespace Org.Apache.Rocketmq
                 }
                 activeMqs.Add(mq);
             }
-            
+
             foreach (var mq in latest)
             {
                 if (activeMqs.Contains(mq))
@@ -309,7 +309,7 @@ namespace Org.Apache.Rocketmq
             var pickEndpointsTask = PickEndpointsToQueryAssignments(topic);
             return pickEndpointsTask.ContinueWith(task0 =>
             {
-                if (task0 is { IsFaulted: true, Exception: { } }) 
+                if (task0 is { IsFaulted: true, Exception: { } })
                 {
                     throw task0.Exception;
                 }
@@ -321,7 +321,7 @@ namespace Org.Apache.Rocketmq
 
                 return queryAssignmentTask.ContinueWith(task1 =>
                 {
-                    if (task1 is { IsFaulted: true, Exception: { } }) 
+                    if (task1 is { IsFaulted: true, Exception: { } })
                     {
                         throw task1.Exception;
                     }
@@ -351,7 +351,7 @@ namespace Org.Apache.Rocketmq
                 return topicRouteData.PickEndpointsToQueryAssignments();
             }, TaskContinuationOptions.ExecuteSynchronously);
         }
-        
+
         private QueryAssignmentRequest WrapQueryAssignmentRequest(string topic)
         {
             var topicResource = new Proto.Resource
@@ -430,7 +430,7 @@ namespace Org.Apache.Rocketmq
                 Group = GetProtobufGroup()
             };
         }
-        
+
         protected internal ChangeInvisibleDurationRequest WrapChangeInvisibleDuration(MessageView messageView,
             TimeSpan invisibleDuration)
         {
@@ -448,7 +448,7 @@ namespace Org.Apache.Rocketmq
                 MessageId = messageView.MessageId
             };
         }
-        
+
         protected internal AckMessageRequest WrapAckMessageRequest(MessageView messageView)
         {
             var topicResource = new Proto.Resource
@@ -468,7 +468,7 @@ namespace Org.Apache.Rocketmq
                 Entries = { entry }
             };
         }
-        
+
         protected internal ForwardMessageToDeadLetterQueueRequest WrapForwardMessageToDeadLetterQueueRequest(MessageView messageView)
         {
             var topicResource = new Proto.Resource
@@ -476,7 +476,7 @@ namespace Org.Apache.Rocketmq
                 ResourceNamespace = _clientConfig.Namespace,
                 Name = messageView.Topic
             };
-        
+
             return new ForwardMessageToDeadLetterQueueRequest
             {
                 Group = GetProtobufGroup(),
@@ -595,7 +595,7 @@ namespace Org.Apache.Rocketmq
         {
             return _consumeService;
         }
-        
+
         private Proto.Resource GetProtobufGroup()
         {
             return new Proto.Resource()
@@ -621,7 +621,7 @@ namespace Org.Apache.Rocketmq
                 _clientConfig = clientConfig;
                 return this;
             }
-            
+
             public Builder SetConsumerGroup(string consumerGroup)
             {
                 Preconditions.CheckArgument(null != consumerGroup, "consumerGroup should not be null");
@@ -630,7 +630,7 @@ namespace Org.Apache.Rocketmq
                 _consumerGroup = consumerGroup;
                 return this;
             }
-            
+
             public Builder SetSubscriptionExpression(Dictionary<string, FilterExpression> subscriptionExpressions)
             {
                 Preconditions.CheckArgument(null != subscriptionExpressions,
@@ -640,10 +640,10 @@ namespace Org.Apache.Rocketmq
                 _subscriptionExpressions = new ConcurrentDictionary<string, FilterExpression>(subscriptionExpressions!);
                 return this;
             }
-            
+
             public Builder SetMessageListener(IMessageListener messageListener)
             {
-                Preconditions.CheckArgument(null != messageListener, 
+                Preconditions.CheckArgument(null != messageListener,
                     "messageListener should not be null");
                 _messageListener = messageListener;
                 return this;
@@ -651,7 +651,7 @@ namespace Org.Apache.Rocketmq
 
             public Builder SetMaxCacheMessageCount(int maxCacheMessageCount)
             {
-                Preconditions.CheckArgument(maxCacheMessageCount > 0, 
+                Preconditions.CheckArgument(maxCacheMessageCount > 0,
                     "maxCacheMessageCount should be positive");
                 _maxCacheMessageCount = maxCacheMessageCount;
                 return this;
@@ -659,7 +659,7 @@ namespace Org.Apache.Rocketmq
 
             public Builder SetMaxCacheMessageSizeInBytes(int maxCacheMessageSizeInBytes)
             {
-                Preconditions.CheckArgument(maxCacheMessageSizeInBytes > 0, 
+                Preconditions.CheckArgument(maxCacheMessageSizeInBytes > 0,
                     "maxCacheMessageSizeInBytes should be positive");
                 _maxCacheMessageSizeInBytes = maxCacheMessageSizeInBytes;
                 return this;
@@ -667,7 +667,7 @@ namespace Org.Apache.Rocketmq
 
             public Builder SetConsumptionThreadCount(int consumptionThreadCount)
             {
-                Preconditions.CheckArgument(consumptionThreadCount > 0, 
+                Preconditions.CheckArgument(consumptionThreadCount > 0,
                     "consumptionThreadCount should be positive");
                 _consumptionThreadCount = consumptionThreadCount;
                 return this;

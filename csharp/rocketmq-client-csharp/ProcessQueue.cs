@@ -36,17 +36,17 @@ namespace Org.Apache.Rocketmq
     public class ProcessQueue
     {
         private static readonly ILogger Logger = MqLogManager.CreateLogger<ProcessQueue>();
-        
+
         internal static readonly TimeSpan AckMessageFailureBackoffDelay = TimeSpan.FromSeconds(1);
         internal static readonly TimeSpan ChangeInvisibleDurationFailureBackoffDelay = TimeSpan.FromSeconds(1);
         internal static readonly TimeSpan ForwardMessageToDeadLetterQueueFailureBackoffDelay = TimeSpan.FromSeconds(1);
-        
+
         private static readonly TimeSpan ReceivingFlowControlBackoffDelay = TimeSpan.FromMilliseconds(20);
         private static readonly TimeSpan ReceivingFailureBackoffDelay = TimeSpan.FromSeconds(1);
         private static readonly TimeSpan ReceivingBackoffDelayWhenCacheIsFull = TimeSpan.FromSeconds(1);
-        
+
         private readonly PushConsumer _consumer;
-        
+
         /// <summary>
         /// Dropped means ProcessQueue is deprecated, which means no message would be fetched from remote anymore.
         /// </summary>
@@ -60,15 +60,15 @@ namespace Org.Apache.Rocketmq
         private readonly List<MessageView> _cachedMessages;
         private readonly ReaderWriterLockSlim _cachedMessageLock;
         private long _cachedMessagesBytes;
-        
+
         private long _activityTime = DateTime.UtcNow.Ticks;
         private long _cacheFullTime = long.MinValue;
-        
+
         private readonly CancellationTokenSource _receiveMsgCts;
         private readonly CancellationTokenSource _ackMsgCts;
         private readonly CancellationTokenSource _changeInvisibleDurationCts;
         private readonly CancellationTokenSource _forwardMessageToDeadLetterQueueCts;
-        
+
         public ProcessQueue(PushConsumer consumer, MessageQueue mq, FilterExpression filterExpression,
             CancellationTokenSource receiveMsgCts, CancellationTokenSource ackMsgCts,
             CancellationTokenSource changeInvisibleDurationCts, CancellationTokenSource forwardMessageToDeadLetterQueueCts)
@@ -145,7 +145,7 @@ namespace Org.Apache.Rocketmq
                 _cachedMessageLock.ExitWriteLock();
             }
         }
-        
+
         private int GetReceptionBatchSize()
         {
             var bufferSize = _consumer.CacheMessageCountThresholdPerQueue() - CachedMessagesCount();
@@ -160,7 +160,7 @@ namespace Org.Apache.Rocketmq
         {
             ReceiveMessageImmediately();
         }
-        
+
         /// <summary>
         /// Receive message later by message queue.
         /// </summary>
@@ -172,7 +172,7 @@ namespace Org.Apache.Rocketmq
             var delay = t is TooManyRequestsException ? ReceivingFlowControlBackoffDelay : ReceivingFailureBackoffDelay;
             ReceiveMessageLater(delay, attemptId);
         }
-        
+
         private void ReceiveMessageLater(TimeSpan delay, string attemptId)
         {
             var clientId = _consumer.GetClientId();
@@ -195,17 +195,17 @@ namespace Org.Apache.Rocketmq
                 }
             });
         }
-        
+
         private string GenerateAttemptId()
         {
             return Guid.NewGuid().ToString();
         }
-        
+
         public void ReceiveMessage()
         {
             ReceiveMessage(GenerateAttemptId());
         }
-        
+
         public void ReceiveMessage(string attemptId)
         {
             var clientId = _consumer.GetClientId();
@@ -286,7 +286,7 @@ namespace Org.Apache.Rocketmq
                 OnReceiveMessageException(ex, attemptId);
             }
         }
-        
+
         private void OnReceiveMessageResult(ReceiveMessageResult result)
         {
             var messages = result.Messages;
@@ -297,7 +297,7 @@ namespace Org.Apache.Rocketmq
             }
             ReceiveMessage();
         }
-        
+
         private bool IsCacheFull()
         {
             var cacheMessageCountThresholdPerQueue = _consumer.CacheMessageCountThresholdPerQueue();
@@ -346,14 +346,14 @@ namespace Org.Apache.Rocketmq
             AckMessage(messageView, 1, tcs);
             return tcs.Task;
         }
-        
+
         private void AckMessage(MessageView messageView, int attempt, TaskCompletionSource<bool> tcs)
         {
             var clientId = _consumer.GetClientId();
             var consumerGroup = _consumer.GetConsumerGroup();
             var messageId = messageView.MessageId;
             var endpoints = messageView.MessageQueue.Broker.Endpoints;
-            
+
             var request = _consumer.WrapAckMessageRequest(messageView);
             var task = _consumer.GetClientManager().AckMessage(messageView.MessageQueue.Broker.Endpoints, request,
                 _consumer.GetClientConfig().RequestTimeout);
@@ -413,7 +413,7 @@ namespace Org.Apache.Rocketmq
                 }
             }, TaskContinuationOptions.ExecuteSynchronously);
         }
-        
+
         private void AckMessageLater(MessageView messageView, int attempt, TaskCompletionSource<bool> tcs)
         {
             Task.Run(async () =>
@@ -435,7 +435,7 @@ namespace Org.Apache.Rocketmq
                 }
             });
         }
-        
+
         private Task NackMessage(MessageView messageView)
         {
             var deliveryAttempt = messageView.DeliveryAttempt;
@@ -444,7 +444,7 @@ namespace Org.Apache.Rocketmq
             ChangeInvisibleDuration(messageView, duration, 1, tcs);
             return tcs.Task;
         }
-        
+
         private void ChangeInvisibleDuration(MessageView messageView, TimeSpan duration, int attempt,
             TaskCompletionSource<bool> tcs)
         {
@@ -511,7 +511,7 @@ namespace Org.Apache.Rocketmq
                 }
             });
         }
-        
+
         private void ChangeInvisibleDurationLater(MessageView messageView, TimeSpan duration, int attempt,
             TaskCompletionSource<bool> tcs)
         {
@@ -531,10 +531,10 @@ namespace Org.Apache.Rocketmq
                     Logger.LogError(ex, $"[Bug] Failed to schedule message change invisible duration request," +
                                         $" mq={_mq}, messageId={messageView.MessageId}, clientId={_consumer.GetClientId()}");
                     ChangeInvisibleDurationLater(messageView, duration, attempt + 1, tcs);
-                } 
+                }
             });
         }
-        
+
         public Task EraseFifoMessage(MessageView messageView, ConsumeResult consumeResult)
         {
             var retryPolicy = _consumer.GetRetryPolicy();
@@ -578,76 +578,76 @@ namespace Org.Apache.Rocketmq
 
             return Task.CompletedTask;
         }
-        
+
         private Task ForwardToDeadLetterQueue(MessageView messageView)
         {
             var tcs = new TaskCompletionSource<bool>();
             ForwardToDeadLetterQueue(messageView, 1, tcs);
             return tcs.Task;
         }
-        
+
         private void ForwardToDeadLetterQueue(MessageView messageView, int attempt, TaskCompletionSource<bool> tcs)
         {
-                var clientId = _consumer.GetClientId();
-                var consumerGroup = _consumer.GetConsumerGroup();
-                var messageId = messageView.MessageId;
-                var endpoints = messageView.MessageQueue.Broker.Endpoints;
-                
-                var request = _consumer.WrapForwardMessageToDeadLetterQueueRequest(messageView);
-                var task = _consumer.GetClientManager().ForwardMessageToDeadLetterQueue(endpoints, request,
-                    _consumer.GetClientConfig().RequestTimeout);
+            var clientId = _consumer.GetClientId();
+            var consumerGroup = _consumer.GetConsumerGroup();
+            var messageId = messageView.MessageId;
+            var endpoints = messageView.MessageQueue.Broker.Endpoints;
 
-                task.ContinueWith(responseTask =>
+            var request = _consumer.WrapForwardMessageToDeadLetterQueueRequest(messageView);
+            var task = _consumer.GetClientManager().ForwardMessageToDeadLetterQueue(endpoints, request,
+                _consumer.GetClientConfig().RequestTimeout);
+
+            task.ContinueWith(responseTask =>
+            {
+                if (responseTask.IsFaulted)
                 {
-                    if (responseTask.IsFaulted)
-                    {
-                        // Log failure and retry later.
-                        Logger.LogError($"Exception raised while forward message to DLQ, would attempt to re-forward later, " +
-                                        $"clientId={_consumer.GetClientId()}," +
-                                        $" consumerGroup={_consumer.GetConsumerGroup()}," +
-                                        $" messageId={messageView.MessageId}, mq={_mq}", responseTask.Exception);
+                    // Log failure and retry later.
+                    Logger.LogError($"Exception raised while forward message to DLQ, would attempt to re-forward later, " +
+                                $"clientId={_consumer.GetClientId()}," +
+                                $" consumerGroup={_consumer.GetConsumerGroup()}," +
+                                $" messageId={messageView.MessageId}, mq={_mq}", responseTask.Exception);
 
+                    ForwardToDeadLetterQueueLater(messageView, attempt, tcs);
+                }
+                else
+                {
+                    var invocation = responseTask.Result;
+                    var requestId = invocation.RequestId;
+                    var status = invocation.Response.Status;
+                    var statusCode = status.Code;
+
+                    // Log failure and retry later.
+                    if (statusCode != Code.Ok)
+                    {
+                        Logger.LogError($"Failed to forward message to dead letter queue," +
+                                        $" would attempt to re-forward later, clientId={clientId}," +
+                                        $" consumerGroup={consumerGroup}, messageId={messageId}," +
+                                        $" attempt={attempt}, mq={_mq}, endpoints={endpoints}," +
+                                        $" requestId={requestId}, code={statusCode}," +
+                                        $" status message={status.Message}");
                         ForwardToDeadLetterQueueLater(messageView, attempt, tcs);
+                        return;
+                    }
+
+                    tcs.SetResult(true);
+
+                    // Log success.
+                    if (attempt > 1)
+                    {
+                        Logger.LogInformation($"Re-forward message to dead letter queue successfully, " +
+                                              $"clientId={clientId}, consumerGroup={consumerGroup}," +
+                                              $" attempt={attempt}, messageId={messageId}, mq={_mq}," +
+                                              $" endpoints={endpoints}, requestId={requestId}");
                     }
                     else
                     {
-                        var invocation = responseTask.Result;
-                        var requestId = invocation.RequestId;
-                        var status = invocation.Response.Status;
-                        var statusCode = status.Code;
-                        
-                        // Log failure and retry later.
-                        if (statusCode != Code.Ok)
-                        {
-                            Logger.LogError($"Failed to forward message to dead letter queue," +
-                                            $" would attempt to re-forward later, clientId={clientId}," +
-                                            $" consumerGroup={consumerGroup}, messageId={messageId}," +
-                                            $" attempt={attempt}, mq={_mq}, endpoints={endpoints}," +
-                                            $" requestId={requestId}, code={statusCode}," +
-                                            $" status message={status.Message}");
-                            ForwardToDeadLetterQueueLater(messageView, attempt, tcs);
-                            return;
-                        }
-                        
-                        tcs.SetResult(true);
-                        
-                        // Log success.
-                        if (attempt > 1)
-                        {
-                            Logger.LogInformation($"Re-forward message to dead letter queue successfully, " +
-                                                  $"clientId={clientId}, consumerGroup={consumerGroup}," +
-                                                  $" attempt={attempt}, messageId={messageId}, mq={_mq}," +
-                                                  $" endpoints={endpoints}, requestId={requestId}");
-                        }
-                        else
-                        {
-                            Logger.LogInformation($"Forward message to dead letter queue successfully, " +
-                                                  $"clientId={clientId}, consumerGroup={consumerGroup}," +
-                                                  $" messageId={messageId}, mq={_mq}, endpoints={endpoints}," +
-                                                  $" requestId={requestId}");
-                        }
+                        Logger.LogInformation($"Forward message to dead letter queue successfully, " +
+                                              $"clientId={clientId}, consumerGroup={consumerGroup}," +
+                                              $" messageId={messageId}, mq={_mq}, endpoints={endpoints}," +
+                                              $" requestId={requestId}");
                     }
-                });
+                }
+            });
         }
 
         private void ForwardToDeadLetterQueueLater(MessageView messageView, int attempt, TaskCompletionSource<bool> tcs)
@@ -685,7 +685,7 @@ namespace Org.Apache.Rocketmq
                 EvictCache(messageView);
             }, TaskContinuationOptions.ExecuteSynchronously);
         }
-        
+
         /// <summary>
         /// Discard the message(FIFO-consume-mode) which could not consumed properly.
         /// </summary>
@@ -729,7 +729,7 @@ namespace Org.Apache.Rocketmq
                 _cachedMessageLock.ExitReadLock();
             }
         }
-        
+
         public long CachedMessageBytes()
         {
             return Interlocked.Read(ref _cachedMessagesBytes);

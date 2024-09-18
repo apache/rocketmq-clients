@@ -27,7 +27,7 @@ namespace Org.Apache.Rocketmq
             Namespace = namespaceName;
             Name = name;
         }
-        
+
         public Resource(Proto.Resource resource)
         {
             Namespace = resource.ResourceNamespace;
@@ -66,7 +66,7 @@ namespace Org.Apache.Rocketmq
 
             return Name == other.Name && Namespace == other.Namespace;
         }
-        
+
         public override bool Equals(object obj)
         {
             if (ReferenceEquals(null, obj))
@@ -79,7 +79,7 @@ namespace Org.Apache.Rocketmq
                 return true;
             }
 
-            return obj.GetType() == GetType() && Equals((Resource) obj);
+            return obj.GetType() == GetType() && Equals((Resource)obj);
         }
 
         public override int GetHashCode()
@@ -91,7 +91,7 @@ namespace Org.Apache.Rocketmq
         {
             return string.IsNullOrEmpty(Namespace) ? Name : $"{Namespace}.{Name}";
         }
-        
-        
+
+
     }
 }

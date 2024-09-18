@@ -27,7 +27,7 @@ using Microsoft.Extensions.Logging;
 using Proto = Apache.Rocketmq.V2;
 using Org.Apache.Rocketmq.Error;
 
-[assembly:InternalsVisibleTo("tests")]
+[assembly: InternalsVisibleTo("tests")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 namespace Org.Apache.Rocketmq
 {

@@ -26,7 +26,7 @@ namespace examples
     internal static class ProducerFifoMessageExample
     {
         private static readonly ILogger Logger = MqLogManager.CreateLogger(typeof(ProducerFifoMessageExample).FullName);
-        
+
         private static readonly string AccessKey = Environment.GetEnvironmentVariable("ROCKETMQ_ACCESS_KEY");
         private static readonly string SecretKey = Environment.GetEnvironmentVariable("ROCKETMQ_SECRET_KEY");
         private static readonly string Endpoint = Environment.GetEnvironmentVariable("ROCKETMQ_ENDPOINT");

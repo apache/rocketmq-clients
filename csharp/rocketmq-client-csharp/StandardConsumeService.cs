@@ -25,7 +25,7 @@ namespace Org.Apache.Rocketmq
     public class StandardConsumeService : ConsumeService
     {
         private static readonly ILogger Logger = MqLogManager.CreateLogger<StandardConsumeService>();
-        
+
         public StandardConsumeService(string clientId, IMessageListener messageListener,
             TaskScheduler consumptionTaskScheduler, CancellationToken consumptionCtsToken) :
             base(clientId, messageListener, consumptionTaskScheduler, consumptionCtsToken)
@@ -43,9 +43,9 @@ namespace Org.Apache.Rocketmq
                     pq.DiscardMessage(messageView);
                     continue;
                 }
-        
+
                 var consumeTask = Consume(messageView);
-        
+
                 consumeTask.ContinueWith(task =>
                 {
                     if (task.IsFaulted)

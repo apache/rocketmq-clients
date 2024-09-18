@@ -24,7 +24,7 @@ using System.Threading.Tasks;
 using Google.Protobuf.WellKnownTypes;
 using Proto = Apache.Rocketmq.V2;
 
-[assembly:InternalsVisibleTo("tests")]
+[assembly: InternalsVisibleTo("tests")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 namespace Org.Apache.Rocketmq
 {
@@ -107,7 +107,7 @@ namespace Org.Apache.Rocketmq
                 InvisibleDuration = Duration.FromTimeSpan(invisibleDuration)
             };
         }
-        
+
         protected internal Proto.ReceiveMessageRequest WrapReceiveMessageRequest(int batchSize, MessageQueue mq,
             FilterExpression filterExpression, TimeSpan awaitDuration, string attemptId)
         {

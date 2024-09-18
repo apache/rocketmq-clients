@@ -32,10 +32,10 @@ namespace tests
     {
         private const string Topic = "topic";
         private const string Broker = "broker";
-        
+
         private Server _server;
         private readonly List<string> _attemptIdList = new ConcurrentBag<string>().ToList();
-        
+
         [TestInitialize]
         public void SetUp()
         {
@@ -43,7 +43,7 @@ namespace tests
             _server = SetUpServer(mockServer);
             mockServer.Port = Port;
         }
-        
+
         [TestCleanup]
         public void TearDown()
         {
@@ -61,12 +61,12 @@ namespace tests
                 .EnableSsl(false)
                 .SetRequestTimeout(TimeSpan.FromMilliseconds(1000))
                 .Build();
-            
+
             const string consumerGroup = "yourConsumerGroup";
             const string topic = "yourTopic";
             var subscription = new Dictionary<string, FilterExpression>
                 { { topic, new FilterExpression("*") } };
-            
+
             var pushConsumer = await new PushConsumer.Builder()
                 .SetClientConfig(clientConfig)
                 .SetConsumerGroup(consumerGroup)
@@ -84,7 +84,7 @@ namespace tests
                 }, TimeSpan.FromSeconds(5));
             });
         }
-        
+
         private async Task WaitForConditionAsync(Action assertCondition, TimeSpan timeout)
         {
             var startTime = DateTime.UtcNow;
@@ -106,7 +106,7 @@ namespace tests
             // Perform last check to throw the exception
             assertCondition();
         }
-        
+
         private class CustomMessageListener : IMessageListener
         {
             public ConsumeResult Consume(MessageView messageView)

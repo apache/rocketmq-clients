@@ -38,8 +38,11 @@ namespace tests
         [TestMethod]
         public void TestShutdownWithEnabledMeter()
         {
-            var endpoints = new Endpoints(new Proto.Endpoints { Scheme = Proto.AddressScheme.Ipv4,
-                Addresses = { new Proto.Address { Host = "127.0.0.1", Port = 8080 }}});
+            var endpoints = new Endpoints(new Proto.Endpoints
+            {
+                Scheme = Proto.AddressScheme.Ipv4,
+                Addresses = { new Proto.Address { Host = "127.0.0.1", Port = 8080 } }
+            });
             var provider = CreateMeterProvider();
             var clientId = "testClientId";
             var clientMeter = new ClientMeter(endpoints, provider, clientId);
@@ -61,15 +64,18 @@ namespace tests
         {
             var clientId = "testClientId";
             var clientMeter = ClientMeter.DisabledInstance(clientId);
-            
+
             var metric = new Metric(new Proto.Metric { On = false });
             Assert.IsTrue(clientMeter.Satisfy(metric));
-            
+
             metric = new Metric(new Proto.Metric { On = true });
             Assert.IsTrue(clientMeter.Satisfy(metric));
 
-            var endpoints0 = new Proto.Endpoints { Scheme = Proto.AddressScheme.Ipv4,
-                Addresses = { new Proto.Address { Host = "127.0.0.1", Port = 8080 }}};
+            var endpoints0 = new Proto.Endpoints
+            {
+                Scheme = Proto.AddressScheme.Ipv4,
+                Addresses = { new Proto.Address { Host = "127.0.0.1", Port = 8080 } }
+            };
 
             metric = new Metric(new Proto.Metric { On = false, Endpoints = endpoints0 });
             Assert.IsTrue(clientMeter.Satisfy(metric));
@@ -93,8 +99,11 @@ namespace tests
             metric = new Metric(new Proto.Metric { On = true, Endpoints = endpoints0 });
             Assert.IsTrue(clientMeter.Satisfy(metric));
 
-            var endpoints1 = new Proto.Endpoints { Scheme = Proto.AddressScheme.Ipv4,
-                Addresses = { new Proto.Address { Host = "127.0.0.2", Port = 8081 }}};
+            var endpoints1 = new Proto.Endpoints
+            {
+                Scheme = Proto.AddressScheme.Ipv4,
+                Addresses = { new Proto.Address { Host = "127.0.0.2", Port = 8081 } }
+            };
             metric = new Metric(new Proto.Metric { On = true, Endpoints = endpoints1 });
             Assert.IsFalse(clientMeter.Satisfy(metric));
         }

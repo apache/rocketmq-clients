@@ -90,13 +90,13 @@ namespace tests
         {
             var messageListener = new TestSuccessMessageListener();
             var consumeService = CreateService(messageListener);
-            Assert.AreEqual(ConsumeResult.SUCCESS, 
+            Assert.AreEqual(ConsumeResult.SUCCESS,
                 consumeService.Consume(_messageView, TimeSpan.FromMilliseconds(500)).Result);
         }
 
         private TestConsumeService CreateService(IMessageListener messageListener)
         {
-            return new TestConsumeService("testClientId", messageListener, 
+            return new TestConsumeService("testClientId", messageListener,
                 new CurrentThreadTaskScheduler(), new CancellationToken());
         }
 
@@ -117,9 +117,9 @@ namespace tests
 
         private class TestConsumeService : ConsumeService
         {
-            public TestConsumeService(string clientId, IMessageListener messageListener, 
-                TaskScheduler consumptionTaskScheduler, CancellationToken consumptionCtsToken) 
-                : base(clientId, messageListener, consumptionTaskScheduler, consumptionCtsToken) {}
+            public TestConsumeService(string clientId, IMessageListener messageListener,
+                TaskScheduler consumptionTaskScheduler, CancellationToken consumptionCtsToken)
+                : base(clientId, messageListener, consumptionTaskScheduler, consumptionCtsToken) { }
 
             public override void Consume(ProcessQueue pq, List<MessageView> messageViews) => Task.FromResult(0);
         }

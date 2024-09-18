@@ -27,13 +27,13 @@ namespace Org.Apache.Rocketmq
     public class PushSubscriptionSettings : Settings
     {
         private static readonly ILogger Logger = MqLogManager.CreateLogger<PushSubscriptionSettings>();
-        
+
         private readonly Resource _group;
         private readonly ConcurrentDictionary<string, FilterExpression> _subscriptionExpressions;
         private volatile bool _fifo = false;
         private volatile int _receiveBatchSize = 32;
         private TimeSpan _longPollingTimeout = TimeSpan.FromSeconds(30);
-        
+
         public PushSubscriptionSettings(string namespaceName, string clientId, Endpoints endpoints, string consumerGroup,
             TimeSpan requestTimeout, ConcurrentDictionary<string, FilterExpression> subscriptionExpressions)
             : base(namespaceName, clientId, ClientType.PushConsumer, endpoints, requestTimeout)
@@ -41,7 +41,7 @@ namespace Org.Apache.Rocketmq
             _group = new Resource(namespaceName, consumerGroup);
             _subscriptionExpressions = subscriptionExpressions;
         }
-        
+
         public bool IsFifo()
         {
             return _fifo;
@@ -83,22 +83,22 @@ namespace Org.Apache.Rocketmq
                         Logger.LogWarning($"[Bug] Unrecognized filter type={value.Type} for push consumer");
                         break;
                 }
-                
+
                 var subscriptionEntry = new Proto.SubscriptionEntry
                 {
                     Topic = topic,
                     Expression = filterExpression
                 };
-                
+
                 subscriptionEntries.Add(subscriptionEntry);
             }
-            
+
             var subscription = new Proto.Subscription
             {
                 Group = _group.ToProtobuf(),
                 Subscriptions = { subscriptionEntries }
             };
-            
+
             return new Proto.Settings
             {
                 AccessPoint = Endpoints.ToProtobuf(),

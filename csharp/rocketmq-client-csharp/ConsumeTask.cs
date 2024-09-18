@@ -23,18 +23,18 @@ namespace Org.Apache.Rocketmq
     public class ConsumeTask
     {
         private static readonly ILogger Logger = MqLogManager.CreateLogger<ConsumeTask>();
-        
+
         private readonly string _clientId;
         private readonly IMessageListener _messageListener;
         private readonly MessageView _messageView;
-        
+
         public ConsumeTask(string clientId, IMessageListener messageListener, MessageView messageView)
         {
             _clientId = clientId;
             _messageListener = messageListener;
             _messageView = messageView;
         }
-        
+
         /// <summary>
         /// Invoke IMessageListener to consume the message.
         /// </summary>

@@ -32,7 +32,7 @@ namespace tests
             var builder = new Producer.Builder();
             builder.SetClientConfig(null);
         }
-        
+
         [TestMethod]
         [ExpectedException(typeof(NullReferenceException))]
         public void TestSetTopicWithNull()
@@ -40,7 +40,7 @@ namespace tests
             var builder = new Producer.Builder();
             builder.SetTopics(null);
         }
-        
+
         [TestMethod]
         [ExpectedException(typeof(ArgumentException))]
         public void TestSetIllegalTopic()
@@ -48,14 +48,14 @@ namespace tests
             var builder = new Producer.Builder();
             builder.SetTopics("\t");
         }
-        
+
         [TestMethod]
         public void TestSetTopic()
         {
             var builder = new Producer.Builder();
             builder.SetTopics("abc");
         }
-        
+
         [TestMethod]
         [ExpectedException(typeof(ArgumentException))]
         public void TestSetNegativeMaxAttempts()
@@ -63,14 +63,14 @@ namespace tests
             var builder = new Producer.Builder();
             builder.SetMaxAttempts(-1);
         }
-        
+
         [TestMethod]
         public void TestSetMaxAttempts()
         {
             var builder = new Producer.Builder();
             builder.SetMaxAttempts(3);
         }
-        
+
         [TestMethod]
         [ExpectedException(typeof(ArgumentException))]
         public void TestSetTransactionCheckerWithNull()
@@ -78,14 +78,14 @@ namespace tests
             var builder = new Producer.Builder();
             builder.SetTransactionChecker(null);
         }
-        
+
         [TestMethod]
         public void TestSetTransactionChecker()
         {
             var builder = new Producer.Builder();
             builder.SetTransactionChecker(new TestTransactionChecker());
         }
-        
+
         [TestMethod]
         [ExpectedException(typeof(ArgumentException))]
         public async Task TestBuildWithoutClientConfiguration()
@@ -93,7 +93,7 @@ namespace tests
             var builder = new Producer.Builder();
             await builder.Build();
         }
-        
+
         [TestMethod]
         public void TestBuild()
         {
@@ -102,7 +102,7 @@ namespace tests
             var builder = new Producer.Builder();
             builder.SetClientConfig(clientConfig).Build();
         }
-        
+
         private class TestTransactionChecker : ITransactionChecker
         {
             public TransactionResolution Check(MessageView messageView)

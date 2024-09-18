@@ -28,7 +28,7 @@ using Moq;
 using Org.Apache.Rocketmq;
 using Proto = Apache.Rocketmq.V2;
 
-[assembly:InternalsVisibleTo("tests")]
+[assembly: InternalsVisibleTo("tests")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 namespace tests
 {
@@ -46,7 +46,7 @@ namespace tests
                 CreateTestClient(maxCacheMessageCount, maxCacheMessageSizeInBytes, consumptionThreadCount);
             var mockClientManager = new Mock<IClientManager>();
             consumer.SetClientManager(mockClientManager.Object);
-            
+
             var digest = new Proto.Digest { Type = Proto.DigestType.Crc32, Checksum = "00000000" };
             var systemProperties = new Proto.SystemProperties
             {
@@ -122,7 +122,7 @@ namespace tests
                 TimeSpan.FromSeconds(15));
             Assert.AreEqual(receiveMessageResult.Messages.Count, receivedMessageCount);
         }
-        
+
         private PushConsumer CreateTestClient(int maxCacheMessageCount, int maxCacheMessageSizeInBytes,
             int consumptionThreadCount)
         {
@@ -133,7 +133,7 @@ namespace tests
                 new ConcurrentDictionary<string, FilterExpression>(), new TestMessageListener(),
                 maxCacheMessageCount, maxCacheMessageSizeInBytes, consumptionThreadCount);
         }
-        
+
         private class TestMessageListener : IMessageListener
         {
             public ConsumeResult Consume(MessageView messageView)

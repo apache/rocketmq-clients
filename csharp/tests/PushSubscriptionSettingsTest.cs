@@ -27,92 +27,92 @@ using Proto = Apache.Rocketmq.V2;
 namespace tests
 {
     [TestClass]
-public class PushSubscriptionSettingsTest
-{
-    private const string Namespace = "testNamespace";
-    private const string GroupResource = "testConsumerGroup";
-    private const string ClientId = "testClientId";
-    private const string Endpoint = "127.0.0.1:8080";
-    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(3);
-    private static readonly ConcurrentDictionary<string, FilterExpression> SubscriptionExpression = 
-        new ConcurrentDictionary<string, FilterExpression>(new Dictionary<string, FilterExpression> {{"testTopic", new FilterExpression("*")}});
-
-    private PushSubscriptionSettings CreateSettings()
+    public class PushSubscriptionSettingsTest
     {
-        return new PushSubscriptionSettings(Namespace, ClientId, new Endpoints(Endpoint), GroupResource, RequestTimeout, SubscriptionExpression);
-    }
+        private const string Namespace = "testNamespace";
+        private const string GroupResource = "testConsumerGroup";
+        private const string ClientId = "testClientId";
+        private const string Endpoint = "127.0.0.1:8080";
+        private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(3);
+        private static readonly ConcurrentDictionary<string, FilterExpression> SubscriptionExpression =
+            new ConcurrentDictionary<string, FilterExpression>(new Dictionary<string, FilterExpression> { { "testTopic", new FilterExpression("*") } });
 
-    [TestMethod]
-    public void TestToProtobuf()
-    {
-        var pushSubscriptionSettings = CreateSettings();
-        var settings = pushSubscriptionSettings.ToProtobuf();
-
-        Assert.AreEqual(Proto.ClientType.PushConsumer, settings.ClientType);
-        Assert.AreEqual(Duration.FromTimeSpan(RequestTimeout), settings.RequestTimeout);
-        Assert.IsFalse(settings.Subscription.Subscriptions.Count == 0);
-
-        var subscription = settings.Subscription;
-        Assert.AreEqual(subscription.Group, new Proto.Resource
+        private PushSubscriptionSettings CreateSettings()
         {
-            ResourceNamespace = Namespace,
-            Name = GroupResource
-        });
+            return new PushSubscriptionSettings(Namespace, ClientId, new Endpoints(Endpoint), GroupResource, RequestTimeout, SubscriptionExpression);
+        }
 
-        Assert.IsFalse(subscription.Fifo);
-
-        var subscriptionsList = subscription.Subscriptions;
-        Assert.AreEqual(1, subscriptionsList.Count);
-
-        var subscriptionEntry = subscriptionsList[0];
-        Assert.AreEqual(Proto.FilterType.Tag, subscriptionEntry.Expression.Type);
-        Assert.AreEqual(subscriptionEntry.Topic, new Proto.Resource
+        [TestMethod]
+        public void TestToProtobuf()
         {
-            ResourceNamespace = Namespace,
-            Name = "testTopic"
-        });
-    }
+            var pushSubscriptionSettings = CreateSettings();
+            var settings = pushSubscriptionSettings.ToProtobuf();
 
-    [TestMethod]
-    public void TestSync()
-    {
-        var durations = new List<Duration>
+            Assert.AreEqual(Proto.ClientType.PushConsumer, settings.ClientType);
+            Assert.AreEqual(Duration.FromTimeSpan(RequestTimeout), settings.RequestTimeout);
+            Assert.IsFalse(settings.Subscription.Subscriptions.Count == 0);
+
+            var subscription = settings.Subscription;
+            Assert.AreEqual(subscription.Group, new Proto.Resource
+            {
+                ResourceNamespace = Namespace,
+                Name = GroupResource
+            });
+
+            Assert.IsFalse(subscription.Fifo);
+
+            var subscriptionsList = subscription.Subscriptions;
+            Assert.AreEqual(1, subscriptionsList.Count);
+
+            var subscriptionEntry = subscriptionsList[0];
+            Assert.AreEqual(Proto.FilterType.Tag, subscriptionEntry.Expression.Type);
+            Assert.AreEqual(subscriptionEntry.Topic, new Proto.Resource
+            {
+                ResourceNamespace = Namespace,
+                Name = "testTopic"
+            });
+        }
+
+        [TestMethod]
+        public void TestSync()
+        {
+            var durations = new List<Duration>
         {
             Duration.FromTimeSpan(TimeSpan.FromSeconds(1)),
             Duration.FromTimeSpan(TimeSpan.FromSeconds(2)),
             Duration.FromTimeSpan(TimeSpan.FromSeconds(3))
         };
 
-        var customizedBackoff = new Proto.CustomizedBackoff
-        {
-            Next = { durations }
-        };
+            var customizedBackoff = new Proto.CustomizedBackoff
+            {
+                Next = { durations }
+            };
 
-        var retryPolicy = new Proto.RetryPolicy
-        {
-            CustomizedBackoff = customizedBackoff,
-            MaxAttempts = 3
-        };
+            var retryPolicy = new Proto.RetryPolicy
+            {
+                CustomizedBackoff = customizedBackoff,
+                MaxAttempts = 3
+            };
 
-        var subscription = new Proto.Subscription
-        {
-            Fifo = true,
-            ReceiveBatchSize = 96,
-            LongPollingTimeout = Duration.FromTimeSpan(TimeSpan.FromSeconds(60))
-        };
+            var subscription = new Proto.Subscription
+            {
+                Fifo = true,
+                ReceiveBatchSize = 96,
+                LongPollingTimeout = Duration.FromTimeSpan(TimeSpan.FromSeconds(60))
+            };
 
-        var settings = new Proto.Settings
-        {
-            Subscription = subscription,
-            BackoffPolicy = retryPolicy
-        };
+            var settings = new Proto.Settings
+            {
+                Subscription = subscription,
+                BackoffPolicy = retryPolicy
+            };
 
-        var pushSubscriptionSettings = new PushSubscriptionSettings(
-            "fakeNamespace", ClientId, new Endpoints(Endpoint), GroupResource, RequestTimeout,
-            new ConcurrentDictionary<string, FilterExpression>(SubscriptionExpression));
+            var pushSubscriptionSettings = new PushSubscriptionSettings(
+                "fakeNamespace", ClientId, new Endpoints(Endpoint), GroupResource, RequestTimeout,
+                new ConcurrentDictionary<string, FilterExpression>(SubscriptionExpression));
 
-        pushSubscriptionSettings.Sync(settings);
+            pushSubscriptionSettings.Sync(settings);
+        }
     }
-}
 
 }
